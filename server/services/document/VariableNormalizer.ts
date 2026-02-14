@@ -80,7 +80,7 @@ export type NormalizedData = Record<string, string | number | boolean | string[]
  * ```
  */
 export function normalizeVariables(
-  stepValues: Record<string, any>,
+  stepValues: Record<string, unknown>,
   options: NormalizationOptions = {}
 ): NormalizedData {
   const opts: Required<NormalizationOptions> = {
@@ -111,6 +111,7 @@ export function normalizeVariables(
 function processValue(
   result: NormalizedData,
   key: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any,
   opts: Required<NormalizationOptions>,
   depth: number
@@ -154,6 +155,7 @@ function processValue(
   // Handle objects (nested structures)
   if (typeof value === 'object' && value !== null) {
     if (opts.flattenNested) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       flattenObject(result, key, value, opts, depth + 1);
     } else {
       result[key] = JSON.stringify(value);
@@ -171,7 +173,7 @@ function processValue(
 function flattenObject(
   result: NormalizedData,
   prefix: string,
-  obj: Record<string, any>,
+  obj: Record<string, unknown>,
   opts: Required<NormalizationOptions>,
   depth: number
 ): void {
@@ -184,6 +186,7 @@ function flattenObject(
 /**
  * Join array elements into a string
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function joinArray(arr: any[], delimiter: string): string {
   return arr
     .map(item => {
@@ -202,6 +205,7 @@ function joinArray(arr: any[], delimiter: string): string {
 /**
  * Check if value is a primitive type
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function isPrimitive(value: any): value is string | number | boolean {
   return (
     typeof value === 'string' ||
@@ -308,6 +312,7 @@ export function normalizeChoice(
   choice: string | string[] | null | undefined,
   delimiter: string = ', '
 ): string {
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (!choice) {return '';}
   if (Array.isArray(choice)) {
     return choice.join(delimiter);
@@ -326,6 +331,7 @@ export function normalizeChoice(
 export function mergeNormalizedData(
   ...datasets: NormalizedData[]
 ): NormalizedData {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return Object.assign({}, ...datasets);
 }
 
@@ -402,16 +408,19 @@ export function stripPrefix(
  * ```
  */
 export function getNestedValue(
-  obj: Record<string, any>,
+  obj: Record<string, unknown>,
   path: string
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): any {
   const keys = path.split('.');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let current: any = obj;
 
   for (const key of keys) {
     if (current === null || current === undefined) {
       return undefined;
     }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     current = current[key];
   }
 

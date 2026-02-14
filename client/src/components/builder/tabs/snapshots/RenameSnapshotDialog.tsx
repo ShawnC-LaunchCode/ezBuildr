@@ -36,7 +36,7 @@ export function RenameSnapshotDialog({
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Rename Scenario</DialogTitle>
-                    <DialogDescription>Give this scenario a descriptive name (e.g. "Scenario A: High Net Worth")</DialogDescription>
+                    <DialogDescription>Give this scenario a descriptive name (e.g. &quot;Scenario A: High Net Worth&quot;)</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">

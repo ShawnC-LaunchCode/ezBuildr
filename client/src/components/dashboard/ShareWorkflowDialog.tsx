@@ -23,6 +23,7 @@ interface Collaborator {
     isPending?: boolean;
 }
 // Mock initial data
+// eslint-disable-next-line @typescript-eslint/naming-convention
 const INITIAL_collaborators: Collaborator[] = [
     { email: "you@example.com", role: "owner" },
 ];
@@ -34,6 +35,7 @@ export function ShareWorkflowDialog({ open, onOpenChange, workflowId, workflowTi
     const handleCopyLink = () => {
         // In real app, this might be a specific share link
         const link = `${window.location.origin}/workflows/${workflowId}/builder`;
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
         navigator.clipboard.writeText(link);
         toast({
             title: "Link copied",
@@ -59,7 +61,7 @@ export function ShareWorkflowDialog({ open, onOpenChange, workflowId, workflowTi
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Share "{workflowTitle}"</DialogTitle>
+                    <DialogTitle>Share &quot;{workflowTitle}&quot;</DialogTitle>
                     <DialogDescription>
                         Invite teammates to collaborate on this workflow.
                     </DialogDescription>

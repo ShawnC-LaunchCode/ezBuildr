@@ -63,6 +63,7 @@ export interface SanitizationResult {
 
 export class DocxSanitizer {
   // Dangerous files to remove
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   private readonly DANGEROUS_FILES = [
     'word/vbaProject.bin', // VBA macros
     'word/activeX/', // ActiveX controls (directory)
@@ -71,6 +72,7 @@ export class DocxSanitizer {
   ];
 
   // External relationship types to remove
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   private readonly DANGEROUS_REL_TYPES = [
     'http://schemas.openxmlformats.org/officeDocument/2006/relationships/oleObject',
     'http://schemas.openxmlformats.org/officeDocument/2006/relationships/package',
@@ -190,7 +192,7 @@ export class DocxSanitizer {
           percentage: Math.round(percentage * 100) / 100,
         },
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error({ error }, 'DOCX sanitization failed');
       throw new Error(`Failed to sanitize DOCX: ${error.message}`);
     }
@@ -232,9 +234,10 @@ export class DocxSanitizer {
 
         const matches = content.match(regex);
         if (matches) {
+          // eslint-disable-next-line no-param-reassign
           content = content.replace(regex, '');
           sanitized = true;
-          removed.push(...matches.map((m) => dangerousType));
+          removed.push(...matches.map((_m) => dangerousType));
         }
       }
     }
@@ -254,6 +257,7 @@ export class DocxSanitizer {
 
           // Only allow http/https links
           if (!target.startsWith('http://') && !target.startsWith('https://')) {
+            // eslint-disable-next-line no-param-reassign
             content = content.replace(rel, '');
             sanitized = true;
             removed.push(`External:${target}`);
@@ -354,7 +358,7 @@ export class DocxSanitizer {
         needed: reasons.length > 0,
         reasons,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error({ error }, 'Failed to check if sanitization needed');
       return { needed: false, reasons: [] };
     }

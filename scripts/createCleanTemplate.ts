@@ -6,7 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 
-import Docxtemplater from 'docxtemplater';
+import _Docxtemplater from 'docxtemplater';
 import PizZip from 'pizzip';
 
 // Create a minimal DOCX template with clean tags

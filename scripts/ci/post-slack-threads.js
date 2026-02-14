@@ -74,6 +74,7 @@ function loadData(args) {
 /**
  * Post a threaded reply with retry logic
  */
+// eslint-disable-next-line max-params
 async function postThreadReply(client, channel, threadTs, message, label, maxRetries = 3) {
   let lastError = null;
 

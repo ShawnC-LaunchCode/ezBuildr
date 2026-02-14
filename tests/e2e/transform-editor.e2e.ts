@@ -9,7 +9,7 @@ test.describe("Transform Editor (List Tools) - Manual Paths", () => {
     test.setTimeout(60000);
 
     let workflowId: string;
-    let sectionId: string;
+    let _sectionId: string;
     let authToken: string;
 
     test.beforeEach(async ({ page }) => {

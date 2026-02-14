@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import { TransformBlock } from "shared/schema";
@@ -7,6 +8,7 @@ interface GenerationRequest {
   currentTransforms?: TransformBlock[];
 }
 // Lazy initialization helper
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const getModel = () => {
   const apiKey = process.env.GEMINI_API_KEY ?? "";
   if (!apiKey) {

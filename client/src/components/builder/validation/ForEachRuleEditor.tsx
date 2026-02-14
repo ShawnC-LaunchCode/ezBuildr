@@ -40,7 +40,7 @@ export function ForEachRuleEditor({ rule, onChange, workflowId }: ForEachRuleEdi
                 {rule.rules.map((subRule, idx) => (
                     <div key={idx} className="mb-2 pb-2 border-b last:border-0">
                         <div className="flex gap-1 items-center mb-1">
-                            {/* eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- legacy loose types need this check */}
+                            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access */}
                             <span className="font-mono text-slate-500">{((subRule as any).assert?.key as string) ?? ((subRule as any).left as string) ?? 'Rule'}</span>
                             <Button variant="ghost" size="icon" className="h-4 w-4 ml-auto" onClick={() => {
                                 const newSub = [...rule.rules];

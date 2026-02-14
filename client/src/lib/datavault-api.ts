@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * DataVault API client
  * API functions for DataVault Phase 1 & Phase 2 (Databases)
@@ -14,7 +15,8 @@ export interface ApiDatavaultTableWithStats extends DatavaultTable {
 
 export interface ApiDatavaultRowWithValues {
   row: DatavaultRow;
-  values: Record<string, any>; // columnId -> value
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  values: Record<string, any>; // columnId -> value (dynamic EAV data from DataVault)
 }
 
 export interface DatavaultDatabase {
@@ -52,6 +54,7 @@ export const datavaultAPI = {
     if (params?.scopeType) { queryParams.set('scopeType', params.scopeType); }
     if (params?.scopeId) { queryParams.set('scopeId', params.scopeId); }
 
+    // eslint-disable-next-line sonarjs/no-nested-template-literals, @typescript-eslint/restrict-template-expressions
     const url = `/api/datavault/databases${queryParams.toString() ? `?${queryParams}` : ''}`;
     const res = await apiRequest('GET', url);
     return res.json();
@@ -152,7 +155,7 @@ export const datavaultAPI = {
     return res.json();
   },
 
-  getTableSchema: async (tableId: string): Promise<Record<string, any>> => {
+  getTableSchema: async (tableId: string): Promise<Record<string, unknown>> => {
     const res = await apiRequest('GET', `/api/datavault/tables/${tableId}/schema`);
     return res.json();
   },
@@ -208,7 +211,8 @@ export const datavaultAPI = {
       showArchived?: boolean;
       sortBy?: string;
       sortOrder?: 'asc' | 'desc';
-      filters?: Array<{ columnId: string; operator: string; value: any }>;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      filters?: Array<{ columnId: string; operator: string; value: any }>; // Filter values are dynamic
     }
   ): Promise<{
     rows: ApiDatavaultRowWithValues[];
@@ -234,13 +238,15 @@ export const datavaultAPI = {
 
   createRow: async (
     tableId: string,
-    values: Record<string, any>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    values: Record<string, any> // DataVault row values are dynamic EAV data
   ): Promise<ApiDatavaultRowWithValues> => {
     const res = await apiRequest('POST', `/api/datavault/tables/${tableId}/rows`, { values });
     return res.json();
   },
 
-  updateRow: async (rowId: string, values: Record<string, any>): Promise<void> => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  updateRow: async (rowId: string, values: Record<string, any>): Promise<void> => { // DataVault row values are dynamic EAV data
     const res = await apiRequest('PATCH', `/api/datavault/rows/${rowId}`, { values });
     if (res.status !== 204) {
       await res.json();

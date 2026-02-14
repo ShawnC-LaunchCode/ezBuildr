@@ -20,6 +20,7 @@ import { useUpdateStep } from "@/lib/vault-hooks";
 import type { ConditionExpression } from "@shared/types/conditions";
 import type { DisplayConfig, DisplayAdvancedConfig } from "@shared/types/stepConfigs";
 
+// eslint-disable-next-line import/no-cycle
 import { StepEditorCommonProps } from "../StepEditorRouter";
 
 import { TextAreaField, SwitchField, SectionHeader } from "./common/EditorField";

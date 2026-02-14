@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 
 import { createRequire } from 'module';
 
@@ -55,7 +56,7 @@ export class DocumentAIAssistService {
         if (apiKey && process.env.NODE_ENV !== 'test_without_mock') {
             try {
                 this.genAI = new GoogleGenerativeAI(apiKey);
-                const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+                const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
                 this.model = this.genAI.getGenerativeModel({ model });
             } catch (e) {
                 logger.warn({ err: e }, "Failed to initialize GoogleGenerativeAI (likely mock issue in tests)");
@@ -140,7 +141,7 @@ export class DocumentAIAssistService {
     /**
      * Suggest aliases, formatting, and conditions
      */
-    async suggestImprovements(templateVariables: string[], textSample?: string): Promise<ImprovementResult> {
+    async suggestImprovements(templateVariables: string[], _textSample?: string): Promise<ImprovementResult> {
         if (!this.model) { return {}; }
 
         const prompt = `

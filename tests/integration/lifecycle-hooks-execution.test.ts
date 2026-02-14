@@ -33,7 +33,7 @@ import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/in
 describe('Lifecycle Hooks Execution', () => {
   let ctx: IntegrationTestContext;
   let workflowId: string;
-  let workflowVersionId: string; // Added workflowVersionId
+  let _workflowVersionId: string; // Added workflowVersionId
   let sectionId: string;
   let stepId: string;
 
@@ -112,7 +112,7 @@ describe('Lifecycle Hooks Execution', () => {
 
       expect(createRes.status).toBe(201);
       expect(createRes.body.success).toBe(true);
-      const hookId = createRes.body.data.id;
+      const _hookId = createRes.body.data.id;
 
       // Create a run and trigger beforePage phase
       const [run] = await db.insert(workflowRuns).values(

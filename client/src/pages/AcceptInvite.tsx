@@ -9,7 +9,7 @@ import { useAcceptInvite } from '@/hooks/useOrganizations';
 
 export default function AcceptInvite() {
   const [, params] = useRoute('/invites/:token/accept');
-  const [, setLocation] = useLocation();
+  const [, _setLocation] = useLocation();
   const { toast } = useToast();
   const acceptInvite = useAcceptInvite();
 
@@ -42,17 +42,20 @@ export default function AcceptInvite() {
           title: 'Success!',
           description: `You've joined ${result.orgName}`,
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         setStatus('error');
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         setErrorMessage(error.message || 'Failed to accept invitation');
         toast({
           title: 'Failed to accept invite',
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           description: error.message || 'An error occurred',
           variant: 'destructive',
         });
       }
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     accept();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params?.token]);
@@ -77,7 +80,7 @@ export default function AcceptInvite() {
             <>
               <CheckCircle className="h-12 w-12 text-green-500" />
               <p className="text-center text-muted-foreground">
-                You've successfully joined <strong>{orgInfo.orgName}</strong>
+                You&apos;ve successfully joined <strong>{orgInfo.orgName}</strong>
               </p>
               <Button asChild className="w-full">
                 <a href={`/organizations/${orgInfo.orgId}`}>

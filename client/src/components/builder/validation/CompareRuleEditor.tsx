@@ -47,12 +47,14 @@ export function CompareRuleEditor({ rule, onChange, workflowId }: CompareRuleEdi
                     </div>
                     {rule.rightType === 'variable' ? (
                         <VariableInput
+                            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                             value={rule.right}
                             onChange={(v) => onChange({ ...rule, right: v })}
                             workflowId={workflowId}
                         />
                     ) : (
                         <Input
+                            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                             value={rule.right}
                             onChange={(e) => onChange({ ...rule, right: e.target.value })}
                             className="h-8 text-xs"

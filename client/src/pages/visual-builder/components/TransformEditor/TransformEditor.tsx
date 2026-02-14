@@ -7,6 +7,7 @@ import { TransformPlayground } from './TransformPlayground';
 export const TransformEditor: React.FC = () => {
     const [viewMode, setViewMode] = useState<'list' | 'graph' | 'playground'>('list');
     // In a real implementation, this would come from a store or context
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [transforms, setTransforms] = useState<any[]>([]);
     return (
         <div className="flex h-full w-full bg-slate-50">

@@ -163,6 +163,7 @@ function buildMainMessage(testResults, coverage, fileChanges, coverageDelta, fai
   const bodyLines = [
     `• *Commit:* ${commitSha} — "${commitMessage}"`,
     `• *By:* @${actor}`,
+    // eslint-disable-next-line sonarjs/no-nested-template-literals
     `• *Tests:* ✅ ${passed}/${activeTests} passed (${passRate}%)${failed > 0 ? ` • ❌ ${failed} failed` : ''}${skipped > 0 ? ` • ⏭️ ${skipped} skipped` : ''}`,
     `• *Coverage:* ${coverageEmoji} ${coveragePct}%${coverageDeltaText}`,
     `• *Test Duration:* ${durationText}`,

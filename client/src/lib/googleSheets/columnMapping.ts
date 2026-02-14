@@ -23,6 +23,7 @@ export interface SheetWriteOptions {
     upsertStrategy: 'primary_key' | 'match_column';
     primaryKeyColumn?: string;  // UUID of PK column
     matchColumn?: string;       // UUID of match column
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     matchValue?: any;           // Value to match against
 }
 
@@ -46,7 +47,7 @@ export class ColumnUUIDManager {
     /**
      * Generate initial column mapping from sheet header row
      */
-    static generateColumnMapping(headerRow: string[], sheetId: string): SheetColumn[] {
+    static generateColumnMapping(headerRow: string[], _sheetId: string): SheetColumn[] {
         return headerRow.map((header, index) => ({
             uuid: crypto.randomUUID(),
             displayName: header,

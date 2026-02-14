@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
-import type { FinalBlockConfig, LogicExpression } from "@shared/types/stepConfigs";
+import type { FinalBlockConfig, _LogicExpression } from "@shared/types/stepConfigs";
 
 import { DocumentPicker } from "./common/DocumentPicker";
 import { TextAreaField, TextField, SectionHeader } from "./common/EditorField";

@@ -4,7 +4,7 @@ import { getValueByPath } from "@shared/conditionEvaluator";
 
 import { createLogger } from "../../logger";
 
-const logger = createLogger({ module: "variable-resolver" });
+const _logger = createLogger({ module: "variable-resolver" });
 
 /**
  * Resolve a single value expression to its actual value
@@ -21,8 +21,9 @@ const logger = createLogger({ module: "variable-resolver" });
  */
 export function resolveSingleValue(
     expression: string | undefined | null,
-    data: Record<string, any>,
+    data: Record<string, unknown>,
     aliasMap?: Record<string, string>
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): any {
     if (expression === undefined || expression === null) {return null;}
     if (typeof expression !== "string") {return expression;}
@@ -102,12 +103,13 @@ export function resolveSingleValue(
  */
 export function resolvePayloadMappings(
     mappings: Array<{ key: string; value: string }>,
-    data: Record<string, any>,
+    data: Record<string, unknown>,
     aliasMap?: Record<string, string>
-): Record<string, any> {
-    const result: Record<string, any> = {};
+): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
 
     for (const mapping of mappings) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const resolvedValue = resolveSingleValue(mapping.value, data, aliasMap);
         // Only include in result if value is not null/undefined
         if (resolvedValue !== undefined && resolvedValue !== null) {
@@ -127,12 +129,13 @@ export function resolvePayloadMappings(
  */
 export function resolveColumnMappings(
     mappings: Array<{ columnId: string; value: string }>,
-    data: Record<string, any>,
+    data: Record<string, unknown>,
     aliasMap?: Record<string, string>
-): Record<string, any> {
-    const result: Record<string, any> = {};
+): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
 
     for (const mapping of mappings) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const resolvedValue = resolveSingleValue(mapping.value, data, aliasMap);
         // Only include if not undefined (allows system:autonumber to be skipped)
         if (resolvedValue !== undefined) {

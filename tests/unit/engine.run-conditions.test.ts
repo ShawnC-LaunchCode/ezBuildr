@@ -478,7 +478,7 @@ describe('Engine - Conditional Execution', () => {
       expect(result.status).toBe('success');
       expect(result.trace).toBeDefined();
       // q2 should be skipped
-      const q2Trace = result.trace?.find(t => t.nodeId === 'q2');
+      const _q2Trace = result.trace?.find(t => t.nodeId === 'q2');
       // c1 should be executed
       const c1Trace = result.trace?.find(t => t.nodeId === 'c1');
       expect(c1Trace?.status).toBe('executed');

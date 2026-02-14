@@ -20,6 +20,7 @@ import type { ScaleConfig } from "@shared/types/stepConfigs";
 
 export interface ScaleBlockProps {
   step: Step;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any;
   onChange: (value: number) => void;
   readOnly?: boolean;
@@ -29,12 +30,14 @@ export function ScaleBlockRenderer({ step, value, onChange, readOnly }: ScaleBlo
   const config = step.config as ScaleConfig;
   const min = config?.min ?? 1;
   const max = config?.max ?? 10;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   const step_value = config?.step ?? 1;
-  const display = config?.display || "slider";
+  const display = config?.display ?? "slider";
   const showValue = config?.showValue ?? true;
   const minLabel = config?.minLabel;
   const maxLabel = config?.maxLabel;
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/prefer-nullish-coalescing
   const currentValue = value !== null && value !== undefined ? value : min;
 
   // Slider mode

@@ -8,7 +8,7 @@ import {
   type DataMap,
   type AliasResolver,
 } from "@shared/conditionEvaluator";
-import type { ConditionExpression, Condition, ConditionGroup } from "@shared/types/conditions";
+import type { ConditionExpression, Condition, _ConditionGroup } from "@shared/types/conditions";
 
 describe("conditionEvaluator", () => {
   describe("evaluateConditionExpression", () => {

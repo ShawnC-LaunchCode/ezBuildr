@@ -65,6 +65,7 @@ export const createTenantDomainSchema = z.object({
     .min(3, 'Domain must be at least 3 characters')
     .max(255, 'Domain must be less than 255 characters')
     .regex(
+      // eslint-disable-next-line security/detect-unsafe-regex
       /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/i,
       'Must be a valid domain name'
     ),
@@ -112,9 +113,13 @@ export const updateEmailTemplateMetadataSchema = emailTemplateMetadataSchema.par
  * CSS theme tokens derived from tenant branding
  */
 export interface ThemeTokens {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   '--brand-primary': string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   '--brand-accent': string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   '--brand-logo-url': string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   '--brand-dark-mode': string;
 }
 

@@ -18,6 +18,7 @@ import type { TimeConfig } from "@shared/types/stepConfigs";
 
 export interface TimeBlockProps {
   step: Step;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any;
   onChange: (value: string) => void;
   readOnly?: boolean;
@@ -25,7 +26,7 @@ export interface TimeBlockProps {
 
 export function TimeBlockRenderer({ step, value, onChange, readOnly }: TimeBlockProps) {
   const config = step.config as TimeConfig;
-  const stepMinutes = config?.step || 15;
+  const stepMinutes = config?.step ?? 15;
 
   // Convert step to seconds for HTML input
   const stepSeconds = stepMinutes * 60;
@@ -34,6 +35,7 @@ export function TimeBlockRenderer({ step, value, onChange, readOnly }: TimeBlock
     <Input
       id={step.id}
       type="time"
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
       step={stepSeconds}

@@ -5,6 +5,7 @@
  * Useful for preview and testing
  */
 
+/* eslint-disable sonarjs/no-duplicate-string */
 import { useState, type FormEvent } from 'react';
 
 import IntakeLayout from './IntakeLayout';
@@ -30,6 +31,7 @@ export interface IntakeDemoProps {
  * </BrandingProvider>
  * ```
  */
+// eslint-disable-next-line max-lines-per-function
 export default function IntakeDemo({ headerText, logoUrl }: IntakeDemoProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -55,6 +57,7 @@ export default function IntakeDemo({ headerText, logoUrl }: IntakeDemoProps) {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    // eslint-disable-next-line no-alert
     alert('Form submitted! (This is a demo)');
   };
 

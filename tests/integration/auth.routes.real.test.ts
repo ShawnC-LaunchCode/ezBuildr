@@ -8,8 +8,8 @@ import { db } from "../../server/db";
 import { createTestApp ,
 } from "../helpers/testApp";
 import {
-  cleanAuthTables, // Keeping import if needed for heavy reset, but favoring specific
-  cleanTestUser,
+  _cleanAuthTables, // Keeping import if needed for heavy reset, but favoring specific
+  _cleanTestUser,
   deleteTestUser,
   createVerifiedUser,
   createUserWithMfa,

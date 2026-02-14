@@ -13,7 +13,7 @@ const CONTENT = {
   cardTitle: "AI Insight",
   cardText: (
     <>
-      "Employees report <span className="font-semibold">73% higher satisfaction</span> post-policy change; top themes: speed, reliability, UI simplicity."
+      &quot;Employees report <span className="font-semibold">73% higher satisfaction</span> post-policy change; top themes: speed, reliability, UI simplicity.&quot;
     </>
   ),
 };

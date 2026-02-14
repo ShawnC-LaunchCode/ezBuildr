@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { Request, Response, NextFunction } from 'express';
 import DOMPurify from 'isomorphic-dompurify';
 
@@ -58,6 +59,7 @@ export function sanitizeInputs(req: Request, res: Response, next: NextFunction):
     req.body = sanitizeObject(req.body);
   }
 
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (req.query && typeof req.query === 'object') {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express query params are string-indexed
     req.query = sanitizeObject(req.query as Record<string, any>);

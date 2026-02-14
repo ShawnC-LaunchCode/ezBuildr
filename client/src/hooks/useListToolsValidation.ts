@@ -6,7 +6,7 @@
 import { useMemo } from 'react';
 
 import { useTableColumns } from '@/hooks/useTableColumns';
-import type { ApiBlock, ApiSection, ApiCollectionField } from '@/lib/vault-api';
+import type { ApiBlock, _ApiSection, _ApiCollectionField } from '@/lib/vault-api';
 import { useBlocks, useSections } from '@/lib/vault-hooks';
 
 import type { ChoiceCardState } from './useChoiceConfig';
@@ -33,6 +33,7 @@ export function useListToolsValidation({
 }: UseListToolsValidationParams): ValidationWarnings & {
     sourceBlock: ApiBlock | null;
     sourceTableId: string | null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     columns: any[]; // useTableColumns likely returns any specifically or a complex type we'll genericize later
     loadingColumns: boolean;
     blocks: ApiBlock[];
@@ -42,31 +43,36 @@ export function useListToolsValidation({
 
     // Find the source block
     const sourceBlock = useMemo(() => {
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         if (!localConfig?.dynamicOptions.listVariable || !blocks || blocks.length === 0) {
             return null;
         }
         return blocks.find((b) =>
             b.config?.outputKey === localConfig.dynamicOptions.listVariable
-        ) || null;
+        ) ?? null;
     }, [localConfig?.dynamicOptions.listVariable, blocks]);
 
     // Get table ID from source block
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const sourceTableId = useMemo(() => {
         if (!sourceBlock) {
             return null;
         }
         if (sourceBlock.type === 'read_table') {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
             return sourceBlock.config?.tableId ?? null;
         }
         return null;
     }, [sourceBlock]);
 
     // Fetch columns
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const { data: columnsResponse, isLoading: loadingColumns } = useTableColumns(sourceTableId ?? undefined);
     const columns = Array.isArray(columnsResponse) ? columnsResponse : [];
 
     // Timing validation
     const timingWarning = useMemo(() => {
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         if (!sourceBlock || !sections || sections.length === 0) {
             return null;
         }
@@ -152,6 +158,7 @@ export function useListToolsValidation({
         labelColumnWarning,
         valueColumnWarning,
         sourceBlock,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         sourceTableId,
         columns,
         loadingColumns,

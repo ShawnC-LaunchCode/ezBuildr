@@ -1,7 +1,8 @@
 // Simple script to check DataVault table schema
-const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
+
+const { Pool } = require('pg');
 
 // Load DATABASE_URL from .env.local
 const envPath = path.join(__dirname, '../.env.local');

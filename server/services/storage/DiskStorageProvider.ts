@@ -13,7 +13,7 @@ export class DiskStorageProvider implements StorageProvider {
     private baseDir: string;
 
     constructor(baseDir?: string) {
-        this.baseDir = baseDir || path.join(process.cwd(), 'server', 'files');
+        this.baseDir = baseDir ?? path.join(process.cwd(), 'server', 'files');
     }
 
     async init(): Promise<void> {
@@ -33,7 +33,7 @@ export class DiskStorageProvider implements StorageProvider {
         return this.uploadFile(fileName, buffer, mimeType);
     }
 
-    async uploadFile(key: string, buffer: Buffer, mimeType: string, metadata?: Record<string, any>): Promise<string> {
+    async uploadFile(key: string, buffer: Buffer, _mimeType: string, _metadata?: Record<string, unknown>): Promise<string> {
         await this.init();
         const filePath = path.join(this.baseDir, key);
 
@@ -54,7 +54,7 @@ export class DiskStorageProvider implements StorageProvider {
         const filePath = path.join(this.baseDir, fileRef);
         try {
             await fs.unlink(filePath);
-        } catch (error: any) {
+        } catch (error: unknown) {
             if (error.code !== 'ENOENT') {
                 logger.error({ error, fileRef }, 'Failed to delete file from disk');
             }
@@ -76,6 +76,7 @@ export class DiskStorageProvider implements StorageProvider {
         try {
             return await fs.readFile(filePath);
         } catch (error) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
             if ((error as any).code === 'ENOENT') {
                 throw createError.notFound('File not found in storage');
             }
@@ -93,6 +94,7 @@ export class DiskStorageProvider implements StorageProvider {
         return filePath;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async getMetadata(fileRef: string): Promise<any> {
         const filePath = path.join(this.baseDir, fileRef);
         try {
@@ -102,7 +104,7 @@ export class DiskStorageProvider implements StorageProvider {
                 lastModified: stats.mtime,
                 contentType: 'application/octet-stream', // We don't store mime type on disk currently
             };
-        } catch (error: any) {
+        } catch (error: unknown) {
             if (error.code === 'ENOENT') {
                 throw createError.notFound('File not found');
             }
@@ -110,7 +112,7 @@ export class DiskStorageProvider implements StorageProvider {
         }
     }
 
-    async getSignedUrl(fileRef: string, expiresIn?: number): Promise<string> {
+    async getSignedUrl(fileRef: string, _expiresIn?: number): Promise<string> {
         // Return a local API URL relative to the server
         // Requires an endpoint to serve these files, e.g. /api/storage/files/:key
         return `/api/storage/files/${fileRef}`;
@@ -122,7 +124,7 @@ export class DiskStorageProvider implements StorageProvider {
         try {
             const files = await fs.readdir(dir);
             return files.map(f => path.join(prefix, f).replace(/\\/g, '/'));
-        } catch (error: any) {
+        } catch (error: unknown) {
             if (error.code === 'ENOENT') {
                 return [];
             }

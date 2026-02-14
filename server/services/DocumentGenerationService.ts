@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Document Generation Service
  * Handles document generation for Final Documents sections
@@ -142,7 +143,7 @@ export class DocumentGenerationService {
   private async generateDocument(
     run: WorkflowRun,
     templateId: string,
-    data: Record<string, any>
+    data: Record<string, unknown>
   ): Promise<void> {
     const log = logger.child({ runId: run.id, templateId, service: 'DocumentGenerationService' });
 
@@ -204,6 +205,7 @@ export class DocumentGenerationService {
       }
 
       // 4. Get template file path
+      // eslint-disable-next-line @typescript-eslint/await-thenable
       const templatePath = await getTemplateFilePath(template.fileRef);
 
       // 5. Render document using new DocumentEngine

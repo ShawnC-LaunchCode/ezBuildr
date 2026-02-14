@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 
 import type { TenantBranding } from '@shared/types/branding';
@@ -81,6 +82,7 @@ export function BrandingProvider({ children, tenantId, domain }: BrandingProvide
   }, [tenantId, domain]);
 
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     loadBranding();
 
     // Cleanup: remove theme tokens on unmount

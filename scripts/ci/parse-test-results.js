@@ -50,7 +50,7 @@
  */
 
 import fs from 'fs';
-import path from 'path';
+import _path from 'path';
 
 /**
  * Parse command line arguments
@@ -130,6 +130,7 @@ function parseVitestResults(filePath) {
                 suite: test.ancestorTitles?.join(' › ') || 'Unknown',
                 test: test.title || test.fullName || 'Unknown test',
                 error: extractErrorMessage(test.failureMessages),
+                // eslint-disable-next-line sonarjs/no-nested-template-literals
                 location: `${testFile.name}${test.location ? `:${test.location.line}` : ''}`,
               };
               result.failures.push(failure);

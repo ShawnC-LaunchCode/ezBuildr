@@ -38,7 +38,7 @@ export function SnapshotsTable({
                 </div>
                 <h3 className="text-lg font-semibold mb-2">No saved scenarios yet</h3>
                 <p className="text-sm text-muted-foreground text-center">
-                    Create a scenario by running a Preview. At any point, you can click "Save Scenario" to capture the current answers for later use.
+                    Create a scenario by running a Preview. At any point, you can click &quot;Save Scenario&quot; to capture the current answers for later use.
                 </p>
             </div>
         );

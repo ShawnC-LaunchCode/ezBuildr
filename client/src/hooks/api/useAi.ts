@@ -38,7 +38,7 @@ export function useReviseWorkflow(): UseMutationResult<AIWorkflowRevisionRespons
                     return statusRes.result;
                 }
                 if (statusRes.status === 'failed') {
-                    throw new Error(statusRes.error || "AI revision job failed");
+                    throw new Error(statusRes.error ?? "AI revision job failed");
                 }
                 // Wait 2s and retry
                 await new Promise(resolve => setTimeout(resolve, 2000));

@@ -248,7 +248,7 @@ export interface WriteResult {
   rowId?: string;
   writtenColumnIds: string[];
   operation: "create" | "update" | "upsert";
-  writtenData?: Record<string, any>; // For debugging/logs
+  writtenData?: Record<string, unknown>; // For debugging/logs
   error?: string;
 }
 

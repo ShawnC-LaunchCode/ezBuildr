@@ -53,6 +53,7 @@ export function useUpdateSection(): UseMutationResult<ApiSection, unknown, Parti
                 queryClient.setQueryData(queryKeys.sections(variables.workflowId), context.previousSections);
             }
         },
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         onSettled: async (_, __, variables) => {
             // Always refetch after error or success to ensure sync with server
             await queryClient.invalidateQueries({ queryKey: queryKeys.sections(variables.workflowId) });
@@ -90,6 +91,7 @@ export function useReorderSections(): UseMutationResult<unknown, unknown, { work
                 queryClient.setQueryData(queryKeys.sections(variables.workflowId), context.previousSections);
             }
         },
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         onSettled: async (_, __, variables) => {
             // Always refetch after error or success to ensure sync with server
             await queryClient.invalidateQueries({ queryKey: queryKeys.sections(variables.workflowId) });

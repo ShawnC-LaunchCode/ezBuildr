@@ -26,6 +26,7 @@ interface UseWorkflowVariablesLiveOptions {
  * Hook that provides real-time synced workflow variables
  * Combines polling with event-driven updates for instant synchronization
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useWorkflowVariablesLive(
   workflowId: string | undefined,
   options: UseWorkflowVariablesLiveOptions = {}
@@ -41,6 +42,7 @@ export function useWorkflowVariablesLive(
 
     const unsubscribe = DevPanelBus.onWorkflowUpdate(() => {
       // Invalidate immediately when workflow changes
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: queryKeys.variables(workflowId) });
     });
 
@@ -58,6 +60,7 @@ export function useWorkflowVariablesLive(
     }
 
     const interval = setInterval(() => {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: queryKeys.variables(workflowId) });
     }, refetchInterval);
 

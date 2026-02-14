@@ -12,17 +12,24 @@ import { oauth2Cache } from './cache';
  * OAuth2 token response
  */
 export interface OAuth2TokenResponse {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   'access_token': string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   'token_type': string; // Usually 'Bearer'
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   'expires_in': number; // Seconds
   'scope'?: string;
 }
 
 interface RawOAuth2Response {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   access_token?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   token_type?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   expires_in?: number;
   scope?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   refresh_token?: string;
   [key: string]: unknown;
 }
@@ -43,8 +50,8 @@ export interface OAuth2ClientCredentialsConfig {
  */
 function generateCacheKey(config: OAuth2ClientCredentialsConfig): string {
   const parts = [
-    config.tenantId || 'global',
-    config.projectId || 'global',
+    config.tenantId ?? 'global',
+    config.projectId ?? 'global',
     config.tokenUrl,
     config.clientId,
     config.scope ?? '',
@@ -129,7 +136,7 @@ async function fetchOAuth2Token(config: OAuth2ClientCredentialsConfig): Promise<
     return {
       access_token: data.access_token,
       token_type: data.token_type,
-      expires_in: data.expires_in || 3600, // Default to 1 hour if not provided
+      expires_in: data.expires_in ?? 3600, // Default to 1 hour if not provided
       scope: data.scope,
     };
   } catch (error) {
@@ -201,6 +208,7 @@ export interface OAuth2StateRecord {
  * OAuth2 token response with refresh token
  */
 export interface OAuth2ThreeLegTokenResponse extends OAuth2TokenResponse {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   refresh_token?: string;
 }
 /**
@@ -213,6 +221,7 @@ const OAUTH2_STATE_TTL = 10 * 60 * 1000; // 10 minutes
 /**
  * Clean up expired state records
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function cleanExpiredStates() {
   const now = Date.now();
   for (const [state, record] of oauth2StateStore.entries()) {
@@ -342,7 +351,7 @@ export async function exchangeOAuth2Code(
     return {
       access_token: data.access_token,
       token_type: data.token_type,
-      expires_in: data.expires_in || 3600,
+      expires_in: data.expires_in ?? 3600,
       scope: data.scope,
       refresh_token: data.refresh_token,
     };
@@ -403,9 +412,9 @@ export async function refreshOAuth2Token(
     return {
       access_token: data.access_token,
       token_type: data.token_type,
-      expires_in: data.expires_in || 3600,
+      expires_in: data.expires_in ?? 3600,
       scope: data.scope,
-      refresh_token: data.refresh_token || refreshToken, // Use old refresh token if not rotated
+      refresh_token: data.refresh_token ?? refreshToken, // Use old refresh token if not rotated
     };
   } catch (error) {
     logger.error({

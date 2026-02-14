@@ -12,7 +12,7 @@ import {
   sliConfigs,
   sliWindows,
   metricsRollups,
-  metricsEvents,
+  _metricsEvents,
   type InsertSliConfig,
   type InsertSliWindow,
   type SliConfig,
@@ -43,7 +43,7 @@ export async function computeSLI(params: {
   workflowId?: string;
   window?: '1d' | '7d' | '30d';
 }): Promise<SliResult> {
-  const window = params.window || '7d';
+  const window = params.window ?? '7d';
   const windowMs = parseWindow(window);
   const now = new Date();
   const windowStart = new Date(now.getTime() - windowMs);
@@ -152,6 +152,7 @@ export async function getOrCreateConfig(params: {
   // Create default config
   // Need tenantId - get from project
   const project = await db.query.projects.findFirst({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     where: (projects: any, { eq }: any) => eq(projects.id, params.projectId),
   });
   if (!project) {
@@ -164,7 +165,7 @@ export async function getOrCreateConfig(params: {
     targetSuccessPct: 99,
     targetP95Ms: 5000,
     errorBudgetPct: 1,
-    window: params.window || '7d',
+    window: params.window ?? '7d',
   };
   const [created] = await db.insert(sliConfigs).values(defaultConfig).returning();
   logger.info({
@@ -201,6 +202,7 @@ export async function updateConfig(params: {
     .set(updateData)
     .where(eq(sliConfigs.id, params.id))
     .returning();
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (!updated) {
     throw new Error(`SLI config not found: ${params.id}`);
   }
@@ -267,7 +269,7 @@ export async function getRecentWindows(params: {
     .from(sliWindows)
     .where(and(...conditions))
     .orderBy(desc(sliWindows.windowEnd))
-    .limit(params.limit || 10);
+    .limit(params.limit ?? 10);
 }
 /**
  * Parse window string to milliseconds

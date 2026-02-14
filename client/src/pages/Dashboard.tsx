@@ -36,6 +36,7 @@ interface DashboardStats {
   inProgressRuns: number;
 }
 
+// eslint-disable-next-line max-lines-per-function
 export default function Dashboard() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
@@ -72,12 +73,12 @@ export default function Dashboard() {
   }, [isAuthenticated, isLoading, toast]);
 
   // Comprehensive dashboard data queries
-  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery<DashboardStats>({
+  const { data: stats, isLoading: statsLoading, refetch: _refetchStats } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
     retry: false,
   });
 
-  const { data: workflows, isLoading: workflowsLoading, refetch: refetchWorkflows } = useQuery<Workflow[]>({
+  const { data: workflows, isLoading: workflowsLoading, refetch: _refetchWorkflows } = useQuery<Workflow[]>({
     queryKey: ["/api/workflows"],
     retry: false,
   });

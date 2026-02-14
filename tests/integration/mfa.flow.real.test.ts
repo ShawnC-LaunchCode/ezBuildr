@@ -7,7 +7,7 @@ import { mfaSecrets, mfaBackupCodes, users, tenants } from "@shared/schema";
 import { db } from "../../server/db";
 import { createTestApp } from "../helpers/testApp";
 import {
-  cleanAuthTables,
+  _cleanAuthTables,
   deleteTestUser,
   createVerifiedUser,
   createUserWithMfa,
@@ -281,13 +281,13 @@ describe("MFA Flow Integration Tests (REAL)", () => {
       expect(backupCodeResponse.body.token).toBeDefined();
     });
     it("should mark backup code as used", async () => {
-      const { email, password, userId } = await createUserWithMfa();
+      const { _email, _password, userId } = await createUserWithMfa();
       trackUser(userId);
       // Get backup codes
       const storedCodes = await db.query.mfaBackupCodes.findMany({
         where: eq(mfaBackupCodes.userId, userId),
       });
-      const plainCode = "ABCD-1234"; // We need the original plain code
+      const _plainCode = "ABCD-1234"; // We need the original plain code
       // Since codes are hashed, we'll need to regenerate them
       // This test requires access to the original plain codes
       // For this test, let's verify the used flag logic
@@ -320,7 +320,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
         .send({ token: totpCode });
       // Use backup code once
       await request(app).post("/api/auth/logout");
-      const login2Response = await request(app)
+      const _login2Response = await request(app)
         .post("/api/auth/login")
         .send({ email, password });
       await request(app)
@@ -331,7 +331,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
         });
       // Try to use same code again
       await request(app).post("/api/auth/logout");
-      const login3Response = await request(app)
+      const _login3Response = await request(app)
         .post("/api/auth/login")
         .send({ email, password });
       const reuseResponse = await request(app)
@@ -377,7 +377,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
       const { email, password, userId } = await createUserWithMfa();
       trackUser(userId);
       // Get token by completing MFA login
-      const loginResponse = await request(app)
+      const _loginResponse = await request(app)
         .post("/api/auth/login")
         .send({ email, password });
       // Get MFA secret to generate code

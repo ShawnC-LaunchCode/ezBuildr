@@ -14,6 +14,7 @@
  * @version 1.0.0
  * @date December 2025
  */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 
 import type { ApiStep } from '@/lib/vault-api';
 
@@ -34,12 +35,12 @@ interface AIRandomRequest {
     alias: string;
     type: string;
     label: string;
-    config?: any;
+    config?: unknown;
   }>;
 }
 
 interface AIRandomResponse {
-  values: Record<string, any>; // alias -> value
+  values: Record<string, unknown>; // alias -> value
   error?: string;
 }
 
@@ -70,7 +71,7 @@ async function requestAIRandomValues(
   steps: ApiStep[],
   workflowId: string,
   workflowTitle?: string
-): Promise<Record<string, any>> {
+): Promise<Record<string, unknown>> {
   try {
     // Build request payload
     const request: AIRandomRequest = {
@@ -79,7 +80,7 @@ async function requestAIRandomValues(
       blocks: steps
         .filter(step => step.type !== 'display' && step.type !== 'js_question')
         .map(step => ({
-          alias: step.alias || step.id,
+          alias: step.alias ?? step.id,
           type: step.type,
           label: step.title ?? '',
           config: step.config,
@@ -100,15 +101,15 @@ async function requestAIRandomValues(
       throw new Error(`AI endpoint returned ${response.status}`);
     }
 
-    const data: AIRandomResponse = await response.json();
+    const data: AIRandomResponse = await response.json() as AIRandomResponse;
 
-    if (data.error) {
+    if (data.error != null) {
       throw new Error(data.error);
     }
 
-    return data.values || {};
+    return data.values ?? {};
 
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error('AI request failed:', error);
     return {};
   }
@@ -122,8 +123,9 @@ async function requestAIRandomValues(
  * @param step - Step definition for validation
  * @returns Sanitized value or undefined if invalid
  */
-function sanitizeAIValue(value: any, step: ApiStep): any {
-  if (value === null || value === undefined) {
+// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
+function sanitizeAIValue(value: unknown, step: ApiStep): unknown {
+  if (value == null) {
     return undefined;
   }
 
@@ -211,6 +213,7 @@ function sanitizeAIValue(value: any, step: ApiStep): any {
       case 'number':
       case 'currency':
       case 'scale':
+        // eslint-disable-next-line no-case-declarations
         const num = typeof value === 'number' ? value : parseFloat(value);
         if (!isNaN(num)) {
           return num;
@@ -221,12 +224,13 @@ function sanitizeAIValue(value: any, step: ApiStep): any {
       case 'address':
         if (typeof value === 'object' && !Array.isArray(value)) {
           // Validate address structure
-          if (value.street || value.city || value.state || value.zip) {
+          const addr = value as Record<string, unknown>;
+          if (addr.street != null || addr.city != null || addr.state != null || addr.zip != null) {
             return {
-              street: value.street ?? '',
-              city: value.city ?? '',
-              state: value.state ?? '',
-              zip: value.zip ?? '',
+              street: addr.street ?? '',
+              city: addr.city ?? '',
+              state: addr.state ?? '',
+              zip: addr.zip ?? '',
             };
           }
         }
@@ -246,7 +250,7 @@ function sanitizeAIValue(value: any, step: ApiStep): any {
         return undefined;
     }
 
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error('Error sanitizing value for step:', step.id, error);
     return undefined;
   }
@@ -262,28 +266,28 @@ function sanitizeAIValue(value: any, step: ApiStep): any {
  */
 function mergeWithSyntheticDefaults(
   steps: ApiStep[],
-  aiValues: Record<string, any>
-): Record<string, any> {
-  const mergedValues: Record<string, any> = {};
+  aiValues: Record<string, unknown>
+): Record<string, unknown> {
+  const mergedValues: Record<string, unknown> = {};
 
   for (const step of steps) {
-    const alias = step.alias || step.id;
+    const alias = step.alias ?? step.id;
 
     // Try to get AI value
     let value = aiValues[alias];
 
     // Sanitize AI value
-    if (value !== undefined) {
+    if (value != null) {
       value = sanitizeAIValue(value, step);
     }
 
     // If AI value is invalid or missing, use synthetic
-    if (value === undefined) {
+    if (value == null) {
       value = generateRandomValueForBlock(step);
     }
 
     // Store if valid
-    if (value !== undefined) {
+    if (value != null) {
       mergedValues[step.id] = value;
     }
   }
@@ -307,17 +311,17 @@ export async function generateAIRandomValues(
   steps: ApiStep[],
   workflowId: string,
   workflowTitle?: string
-): Promise<Record<string, any>> {
+): Promise<Record<string, unknown>> {
   logger.info('Starting AI random value generation');
 
   // Check if AI is available
   if (!isAIRandomAvailable()) {
     logger.info('AI not available, using synthetic random');
     // Use synthetic random directly
-    const syntheticValues: Record<string, any> = {};
+    const syntheticValues: Record<string, unknown> = {};
     for (const step of steps) {
       const value = generateRandomValueForBlock(step);
-      if (value !== undefined) {
+      if (value != null) {
         syntheticValues[step.id] = value;
       }
     }
@@ -338,14 +342,14 @@ export async function generateAIRandomValues(
 
     return mergedValues;
 
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error('Error generating AI values, falling back to synthetic:', error);
 
     // Fallback to pure synthetic
-    const syntheticValues: Record<string, any> = {};
+    const syntheticValues: Record<string, unknown> = {};
     for (const step of steps) {
       const value = generateRandomValueForBlock(step);
-      if (value !== undefined) {
+      if (value != null) {
         syntheticValues[step.id] = value;
       }
     }
@@ -365,6 +369,6 @@ export async function generateAIRandomValuesForSteps(
   steps: ApiStep[],
   workflowId: string,
   workflowTitle?: string
-): Promise<Record<string, any>> {
+): Promise<Record<string, unknown>> {
   return generateAIRandomValues(steps, workflowId, workflowTitle);
 }

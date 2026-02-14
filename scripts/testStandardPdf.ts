@@ -1,8 +1,8 @@
 
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-import fs from 'fs';
-import path from 'path';
+import _fs from 'fs';
+import _path from 'path';
 
 async function test() {
     try {

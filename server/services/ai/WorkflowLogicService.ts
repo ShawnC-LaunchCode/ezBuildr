@@ -41,6 +41,7 @@ export class WorkflowLogicService {
             const prompt = this.promptBuilder.buildLogicGenerationPrompt(request);
             const response = await this.client.callLLM(prompt, 'logic_generation');
 
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             const parsed = JSON.parse(response);
             const validated = AIConnectLogicResponseSchema.parse(parsed);
 
@@ -72,6 +73,7 @@ export class WorkflowLogicService {
             const prompt = this.promptBuilder.buildLogicDebugPrompt(request);
             const response = await this.client.callLLM(prompt, 'logic_debug');
 
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             const parsed = JSON.parse(response);
             const validated = AIDebugLogicResponseSchema.parse(parsed);
 
@@ -120,6 +122,7 @@ export class WorkflowLogicService {
             const prompt = this.promptBuilder.buildLogicVisualizationPrompt(request);
             const response = await this.client.callLLM(prompt, 'logic_visualization');
 
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             const parsed = JSON.parse(response);
             const validated = AIVisualizeLogicResponseSchema.parse(parsed);
 

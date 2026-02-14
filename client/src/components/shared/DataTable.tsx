@@ -41,6 +41,7 @@ export function DataTable<T>({
   className,
   getRowKey
 }: DataTableProps<T>) {
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (data.length === 0 && emptyState) {
     return <>{emptyState}</>;
   }

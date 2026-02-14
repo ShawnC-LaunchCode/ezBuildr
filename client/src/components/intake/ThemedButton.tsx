@@ -60,8 +60,8 @@ const ThemedButton = forwardRef<HTMLButtonElement, ThemedButtonProps>(
       fontWeight: '500',
       borderRadius: '0.375rem',
       transition: 'all 0.2s',
-      cursor: disabled || isLoading ? 'not-allowed' : 'pointer',
-      opacity: disabled || isLoading ? '0.6' : '1',
+      cursor: disabled ?? isLoading ? 'not-allowed' : 'pointer',
+      opacity: disabled ?? isLoading ? '0.6' : '1',
       width: fullWidth ? '100%' : 'auto',
     };
 
@@ -109,7 +109,7 @@ const ThemedButton = forwardRef<HTMLButtonElement, ThemedButtonProps>(
     };
 
     const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
-      if (disabled || isLoading) {
+      if (disabled ?? isLoading) {
         return;
       }
 
@@ -126,7 +126,7 @@ const ThemedButton = forwardRef<HTMLButtonElement, ThemedButtonProps>(
     };
 
     const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
-      if (disabled || isLoading) {
+      if (disabled ?? isLoading) {
         return;
       }
 
@@ -143,7 +143,7 @@ const ThemedButton = forwardRef<HTMLButtonElement, ThemedButtonProps>(
           ...baseStyles,
           ...getVariantStyles(),
         }}
-        disabled={disabled || isLoading}
+        disabled={disabled ?? isLoading}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         {...props}

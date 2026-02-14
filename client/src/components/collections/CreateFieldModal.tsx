@@ -37,6 +37,7 @@ const FIELD_TYPES: { value: FieldType; label: string; description: string }[] = 
   { value: 'json', label: 'JSON', description: 'Structured data' },
 ];
 
+// eslint-disable-next-line max-lines-per-function, complexity
 export function CreateFieldModal({
   open,
   onOpenChange,

@@ -41,12 +41,15 @@ export function AddNativeTableDialog({ open, onOpenChange, onComplete }: AddNati
                 body: JSON.stringify(data),
             });
             if (!res.ok) {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 const err = await res.json();
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
                 throw new Error(err.message || "Failed to create data source");
             }
             return res.json();
         },
         onSuccess: () => {
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
             queryClient.invalidateQueries({ queryKey: ["/api/data-sources"] });
             toast({ title: "Success", description: "Native table added as data source." });
             onComplete();

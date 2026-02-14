@@ -20,6 +20,7 @@ import type { CurrencyConfig } from "@shared/types/stepConfigs";
 
 export interface CurrencyBlockProps {
   step: Step;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any;
   onChange: (value: number | null) => void;
   readOnly?: boolean;
@@ -27,7 +28,7 @@ export interface CurrencyBlockProps {
 
 export function CurrencyBlockRenderer({ step, value, onChange, readOnly }: CurrencyBlockProps) {
   const config = step.config as CurrencyConfig;
-  const currency = config?.currency || "USD";
+  const _currency = config?.currency ?? "USD";
   const allowDecimal = config?.allowDecimal ?? true;
   const min = config?.min;
   const max = config?.max;
@@ -55,6 +56,7 @@ export function CurrencyBlockRenderer({ step, value, onChange, readOnly }: Curre
   useEffect(() => {
     if (!isFocused) {
       if (value !== null && value !== undefined) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         setDisplayValue(formatCurrency(value));
       } else {
         setDisplayValue("");

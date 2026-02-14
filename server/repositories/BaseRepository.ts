@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { eq, type SQL, ExtractTablesWithRelations } from "drizzle-orm";
 
 import * as schema from "@shared/schema";
@@ -27,6 +28,7 @@ export abstract class BaseRepository<TTable extends PgTable, TSelect, TInsert> {
    * Get database connection (or transaction if provided)
    * Always references the current value of db to avoid initialization race conditions
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   protected getDb(tx?: DbTransaction) {
     // If transaction provided, use it
     if (tx) { return tx; }

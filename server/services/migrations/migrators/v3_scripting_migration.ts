@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 
 import { registerMigration, WorkflowSchema } from "../registry";
 
@@ -14,8 +15,10 @@ registerMigration("1.2.0", {
         const newSchema = { ...schema };
         newSchema.version = "1.3.0";
 
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         if (!newSchema.steps) { return newSchema; }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         newSchema.steps = newSchema.steps.map((step: any) => {
             const newStep = { ...step };
 

@@ -9,6 +9,7 @@ import * as api from '../lib/api/datavault';
  * NOTE: This is deprecated in favor of useBatchReferences for better performance
  * Only used for backward compatibility
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useReferenceRow(
   tableId: string | undefined | null,
   rowId: string | undefined | null,

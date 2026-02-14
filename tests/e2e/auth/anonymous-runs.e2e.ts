@@ -8,7 +8,7 @@ import { test, expect , clearAuthToken } from "./fixtures/auth-fixtures";
 test.describe("Anonymous Workflow Runs", () => {
   // Mock workflow data
   const mockPublicSlug = "test-workflow-public";
-  const mockWorkflowId = "workflow-123";
+  const _mockWorkflowId = "workflow-123";
 
   test("should create anonymous run via public link", async ({ page }) => {
     // Ensure not authenticated
@@ -152,7 +152,7 @@ test.describe("Anonymous Workflow Runs", () => {
   test("should prevent cross-run access with wrong token", async ({ page }) => {
     await clearAuthToken(page);
 
-    const runId1 = "run-123";
+    const _runId1 = "run-123";
     const runId2 = "run-456";
     const tokenForRun1 = "token-for-run-123";
 

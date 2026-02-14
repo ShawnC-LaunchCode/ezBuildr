@@ -22,6 +22,7 @@ const EMPTY_VALUES = {};
  * @deprecated Use PreviewEnvironment + usePreviewEnvironment instead for better performance
  * and to avoid infinite loop issues.
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function usePreviewSession(options: PreviewSessionOptions | null) {
   const [session, setSession] = useState<PreviewSession | null>(null);
 
@@ -51,6 +52,7 @@ export function usePreviewSession(options: PreviewSessionOptions | null) {
  * @deprecated Use PreviewEnvironment + usePreviewEnvironment instead for better performance
  * and to avoid infinite loop issues.
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function usePreviewSessionValues(session: PreviewSession | null) {
   const subscribe = useCallback(
     (callback: () => void) => {
@@ -81,11 +83,14 @@ export function usePreviewSessionValues(session: PreviewSession | null) {
 export function usePreviewSessionValue(
   session: PreviewSession | null,
   stepId: string
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): [any, (value: any) => void] {
   const values = usePreviewSessionValues(session);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
   const value = (values as any)[stepId];
 
   const setValue = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (newValue: any) => {
       if (session) {
         session.setValue(stepId, newValue);
@@ -103,6 +108,7 @@ export function usePreviewSessionValue(
  * @deprecated Use PreviewEnvironment + usePreviewEnvironment instead for better performance
  * and to avoid infinite loop issues.
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function usePreviewSessionSection(session: PreviewSession | null) {
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
 

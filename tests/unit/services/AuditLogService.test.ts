@@ -56,7 +56,7 @@ describe("AuditLogService", () => {
 
       (db.insert as any) = mockInsert;
 
-      const result = await auditLogService.logLoginAttempt(
+      const _result = await auditLogService.logLoginAttempt(
         "user-123",
         true,
         "192.168.1.1",
@@ -83,7 +83,7 @@ describe("AuditLogService", () => {
 
       (db.insert as any) = mockInsert;
 
-      const result = await auditLogService.logLoginAttempt(
+      const _result = await auditLogService.logLoginAttempt(
         "user-123",
         false,
         "192.168.1.1",
@@ -113,7 +113,7 @@ describe("AuditLogService", () => {
 
       (db.insert as any) = mockInsert;
 
-      const result = await auditLogService.logMfaChange(
+      const _result = await auditLogService.logMfaChange(
         "user-123",
         true,
         "192.168.1.1",
@@ -141,7 +141,7 @@ describe("AuditLogService", () => {
 
       (db.insert as any) = mockInsert;
 
-      const result = await auditLogService.logMfaChange(
+      const _result = await auditLogService.logMfaChange(
         "user-123",
         false,
         "192.168.1.1",
@@ -170,7 +170,7 @@ describe("AuditLogService", () => {
 
       (db.insert as any) = mockInsert;
 
-      const result = await auditLogService.logPasswordReset(
+      const _result = await auditLogService.logPasswordReset(
         "user-123",
         "192.168.1.1",
         "Mozilla/5.0"
@@ -198,7 +198,7 @@ describe("AuditLogService", () => {
 
       (db.insert as any) = mockInsert;
 
-      const result = await auditLogService.logSessionEvent(
+      const _result = await auditLogService.logSessionEvent(
         "user-123",
         SecurityEventType.SESSION_CREATED,
         "session-123",
@@ -226,7 +226,7 @@ describe("AuditLogService", () => {
 
       (db.insert as any) = mockInsert;
 
-      const result = await auditLogService.logSessionEvent(
+      const _result = await auditLogService.logSessionEvent(
         "user-123",
         SecurityEventType.ALL_SESSIONS_REVOKED,
         null,
@@ -256,7 +256,7 @@ describe("AuditLogService", () => {
 
       (db.insert as any) = mockInsert;
 
-      const result = await auditLogService.logTrustedDeviceEvent(
+      const _result = await auditLogService.logTrustedDeviceEvent(
         "user-123",
         true,
         "device-fingerprint-123",
@@ -283,7 +283,7 @@ describe("AuditLogService", () => {
 
       (db.insert as any) = mockInsert;
 
-      const result = await auditLogService.logTrustedDeviceEvent(
+      const _result = await auditLogService.logTrustedDeviceEvent(
         "user-123",
         false,
         "device-fingerprint-123",
@@ -312,7 +312,7 @@ describe("AuditLogService", () => {
 
       (db.insert as any) = mockInsert;
 
-      const result = await auditLogService.logAccountLockout(
+      const _result = await auditLogService.logAccountLockout(
         "user-123",
         true,
         "Too many failed login attempts",
@@ -339,7 +339,7 @@ describe("AuditLogService", () => {
 
       (db.insert as any) = mockInsert;
 
-      const result = await auditLogService.logAccountLockout(
+      const _result = await auditLogService.logAccountLockout(
         "user-123",
         false,
         "Lockout period expired",

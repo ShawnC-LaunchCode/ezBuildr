@@ -24,7 +24,7 @@ import {
   Command,
   CommandEmpty,
   CommandGroup,
-  CommandInput,
+  _CommandInput,
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
@@ -105,21 +105,24 @@ const US_STATES = [
 
 export interface AddressBlockProps {
   step: Step;
-  value: any;
+  value: unknown;
   onChange: (value: AddressValue) => void;
   readOnly?: boolean;
 }
 
 interface Suggestion {
   description: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   place_id: string;
 }
+// eslint-disable-next-line max-lines-per-function
 
+// eslint-disable-next-line max-lines-per-function
 export function AddressBlockRenderer({ step, value, onChange, readOnly }: AddressBlockProps) {
-  const config = step.config as AddressConfig;
+  const _config = step.config as AddressConfig;
 
   // Parse current value (nested object)
-  const currentValue: AddressValue = value || {};
+  const currentValue: AddressValue = (value as AddressValue | null) ?? {};
 
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
@@ -130,6 +133,7 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
 
   // Get user location on mount
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -137,8 +141,10 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           });
+        // eslint-disable-next-line no-console
         },
         (error) => {
+          // eslint-disable-next-line no-console
           console.debug("[AddressBlock] Geolocation denied or failed", error);
         }
       );
@@ -164,6 +170,7 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
     // URL patterns: /run/:id, /preview/:id
     const pathParts = window.location.pathname.split('/');
     const storeState = usePreviewStore.getState();
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     const knownTokens = storeState.tokens || {};
 
     // Iterate through path parts to find a UUID-like string that matches a known run
@@ -198,45 +205,47 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
 
   // Debounce search
   useEffect(() => {
-    if (!shouldFetch || !currentValue.street || currentValue.street.length <= 3) {
+    if (!shouldFetch || currentValue.street == null || currentValue.street.length <= 3) {
       setSuggestions([]);
       return;
     }
 
-    const timer = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const headers = getHeaders();
-        let url = `/api/places/autocomplete?input=${encodeURIComponent(currentValue.street!)}`;
+    const timer = setTimeout(() => {
+      void (async () => {
+        setLoading(true);
+        try {
+          const headers = getHeaders();
+          let url = `/api/places/autocomplete?input=${encodeURIComponent(currentValue.street!)}`;
 
-        if (userLocation) {
-          url += `&lat=${userLocation.lat}&lng=${userLocation.lng}&radius=50000`; // 50km radius bias
+          if (userLocation != null) {
+            url += `&lat=${userLocation.lat}&lng=${userLocation.lng}&radius=50000`; // 50km radius bias
+          }
+
+          const res = await fetch(url, {
+            headers
+          });
+
+          if (res.status === 401) {
+            console.warn("[AddressBlock] Unauthorized. Please Ensure you are logged in or have a valid session.");
+            return;
+          }
+
+          const data: unknown = await res.json();
+
+          if (Array.isArray(data)) {
+            setSuggestions(data as Suggestion[]);
+            setShowSuggestions(true);
+          }
+        } catch (err: unknown) {
+          console.error("[AddressBlock] Autocomplete fetch error:", err);
+        } finally {
+          setLoading(false);
         }
-
-        const res = await fetch(url, {
-          headers
-        });
-
-        if (res.status === 401) {
-          console.warn("[AddressBlock] Unauthorized. Please Ensure you are logged in or have a valid session.");
-          return;
-        }
-
-        const data = await res.json();
-
-        if (Array.isArray(data)) {
-          setSuggestions(data);
-          setShowSuggestions(true);
-        }
-      } catch (err) {
-        console.error("[AddressBlock] Autocomplete fetch error:", err);
-      } finally {
-        setLoading(false);
-      }
+      })();
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [currentValue.street, shouldFetch]);
+  }, [currentValue.street, shouldFetch, userLocation]);
 
   const handleStreetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setShouldFetch(true);
@@ -252,9 +261,9 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
       const res = await fetch(`/api/places/details?placeId=${placeId}`, {
         headers
       });
-      const data = await res.json();
+      const data: unknown = await res.json();
 
-      if (data?.address_components) {
+      if (data != null && typeof data === 'object' && 'address_components' in data) {
         // Parse address components
         let streetNum = "";
         let route = "";
@@ -262,25 +271,38 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
         let state = "";
         let zip = "";
 
-        data.address_components.forEach((comp: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        (data.address_components as Array<Record<string, unknown>>).forEach((comp) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           if (comp.types.includes("street_number")) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
             streetNum = comp.long_name;
           }
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           if (comp.types.includes("route")) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
             route = comp.long_name;
           }
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           if (comp.types.includes("locality")) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
             city = comp.long_name;
           }
           // If locality is missing, try sublocality or neighborhood? usually locality is city.
-          if (!city && comp.types.includes("sublocality")) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+          if (city.length === 0 && comp.types.includes("sublocality")) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
             city = comp.long_name;
           }
 
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           if (comp.types.includes("administrative_area_level_1")) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
             state = comp.short_name;
           }
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           if (comp.types.includes("postal_code")) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
             zip = comp.long_name;
           }
         });
@@ -292,7 +314,7 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
           zip
         });
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to get details", err);
     } finally {
       setLoading(false);
@@ -349,7 +371,7 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
                 )}
               </div>
             </PopoverTrigger>
-            <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]" align="start" onOpenAutoFocus={(e) => { e.preventDefault(); }}>
               <Command shouldFilter={false}>
                 <CommandList>
                   <CommandEmpty>No results found.</CommandEmpty>

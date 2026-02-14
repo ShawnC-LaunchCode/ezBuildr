@@ -122,6 +122,7 @@ export function ExecutionDetailView({ runId, onBack }: ExecutionDetailViewProps)
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
+                            {/* eslint-disable-next-line @typescript-eslint/strict-boolean-expressions */}
                             {run.values && run.values.length > 0 ? (
                                 <div className="rounded-md border">
                                     <table className="w-full text-sm">

@@ -55,6 +55,7 @@ export interface TransformResult {
         added: string[];
         removed: string[];
         modified: string[];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         details: Record<string, { before: any; after: any }>;
     };
     explanation: string[];

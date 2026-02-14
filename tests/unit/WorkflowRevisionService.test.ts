@@ -383,7 +383,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
         mode: 'easy',
       };
 
-      (mockClient.callLLM as any).mockImplementation((prompt: string) => {
+      (mockClient.callLLM as any).mockImplementation((_prompt: string) => {
         const chunkWorkflow = createWorkflow(2);
         return Promise.resolve(createValidResponse(chunkWorkflow));
       });
@@ -512,6 +512,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
         mode: 'easy',
       };
 
+      // eslint-disable-next-line sonarjs/no-unused-collection
       const adjacentSectionPairs: Array<[number, number]> = [];
       (mockClient.callLLM as any).mockImplementation((prompt: string) => {
         const match = prompt.match(/processing sections (\d+)-(\d+)/);
@@ -668,7 +669,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
         if (match) {
           const startIdx = parseInt(match[1]) - 1;
           const endIdx = parseInt(match[2]) - 1;
-          const chunkSections = workflow.sections.slice(startIdx, endIdx + 1).map((s, i) => ({
+          const chunkSections = workflow.sections.slice(startIdx, endIdx + 1).map((s, _i) => ({
             ...s,
             title: `Processed ${s.title}`, // Mark as processed
           }));
@@ -793,7 +794,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
 
     it('should handle partial failure with rollback behavior', async () => {
       const workflow = createWorkflow(12, 2);
-      const originalSectionTitles = workflow.sections.map(s => s.title);
+      const _originalSectionTitles = workflow.sections.map(s => s.title);
 
       const request: AIWorkflowRevisionRequest = {
         workflowId: '123e4567-e89b-12d3-a456-426614174000',

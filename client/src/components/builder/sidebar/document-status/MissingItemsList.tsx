@@ -42,6 +42,7 @@ export function MissingItemsList({ missing, sections, allSteps, onGoToSection }:
             const steps = allSteps[section.id] ?? [];
             let matches = 0;
             steps.forEach(step => {
+                // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
                 if (step.alias && step.alias.startsWith(`${prefix}.`)) {
                     matches++;
                 }

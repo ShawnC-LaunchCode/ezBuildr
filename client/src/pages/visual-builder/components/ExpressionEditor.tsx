@@ -27,7 +27,7 @@ export function ExpressionEditor({
   onChange,
   nodeId,
   workflowId,
-  placeholder = 'Enter expression...',
+  _placeholder = 'Enter expression...',
   height = '100px',
   language = 'plaintext',
 }: ExpressionEditorProps) {
@@ -94,6 +94,7 @@ export function ExpressionEditor({
           endColumn: word.endColumn,
         };
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const suggestions: any[] = [];
 
         // Add variable suggestions
@@ -127,6 +128,7 @@ export function ExpressionEditor({
           }
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         return { suggestions };
       },
     });

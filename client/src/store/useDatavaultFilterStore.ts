@@ -48,7 +48,7 @@ interface FilterState {
   // const filters = useDatavaultFilterStore((s) => s.filtersByTable[tableId] ?? EMPTY_FILTERS);
 }
 
-export const useDatavaultFilterStore = create<FilterState>((set, get) => ({
+export const useDatavaultFilterStore = create<FilterState>((set, _get) => ({
   filtersByTable: {},
 
   setFilters: (tableId, filters) =>

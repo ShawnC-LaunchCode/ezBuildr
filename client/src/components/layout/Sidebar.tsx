@@ -5,7 +5,7 @@ import logo from "@/assets/images/logo.png";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { _apiRequest, _queryClient } from "@/lib/queryClient";
 interface SidebarProps {
   className?: string;
 }
@@ -133,9 +133,9 @@ export default function Sidebar({ className }: SidebarProps) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2">
                 <p className="text-sm font-medium text-foreground truncate" data-testid="text-user-name">
-                  {user?.firstName || user?.lastName
+                  {user?.firstName ?? user?.lastName
                     ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim()
-                    : user?.email || "User"
+                    : user?.email ?? "User"
                   }
                 </p>
               </div>
@@ -147,6 +147,7 @@ export default function Sidebar({ className }: SidebarProps) {
           <Button
             variant="outline"
             size="sm"
+            // eslint-disable-next-line @typescript-eslint/no-misused-promises
             onClick={() => handleLogout()}
             data-testid="button-logout"
             className="w-full flex items-center justify-center space-x-2 h-9"

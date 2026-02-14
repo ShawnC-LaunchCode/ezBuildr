@@ -19,17 +19,19 @@ import type { DisplayConfig } from "@shared/types/stepConfigs";
 
 export interface DisplayBlockProps {
   step: Step;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 // Helper to interpolate variables like {{variableName}}
-function interpolateVariables(text: string, context?: Record<string, any>): string {
+function interpolateVariables(text: string, context?: Record<string, unknown>): string {
   if (!text || !context) {
     return text;
   }
 
   return text.replace(/\{\{([^}]+)\}\}/g, (match, variableName) => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     const key = variableName.trim();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const value = context[key];
 
     if (value === undefined || value === null) {

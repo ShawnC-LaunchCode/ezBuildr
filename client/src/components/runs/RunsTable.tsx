@@ -67,11 +67,11 @@ export function RunsTable({ runs }: RunsTableProps) {
               <TableCell>{getStatusBadge(run.status)}</TableCell>
 
               <TableCell className="font-medium">
-                {run.workflowVersion?.workflow?.name || 'Unknown'}
+                {run.workflowVersion?.workflow?.name ?? 'Unknown'}
               </TableCell>
 
               <TableCell className="text-sm text-muted-foreground">
-                {run.workflowVersion?.name || '-'}
+                {run.workflowVersion?.name ?? '-'}
               </TableCell>
 
               <TableCell>
@@ -86,7 +86,7 @@ export function RunsTable({ runs }: RunsTableProps) {
               <TableCell>{formatDuration(run.durationMs)}</TableCell>
 
               <TableCell className="text-sm">
-                {run.createdByUser?.email || run.createdBy}
+                {run.createdByUser?.email ?? run.createdBy}
               </TableCell>
 
               <TableCell className="text-right">

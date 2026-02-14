@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import {
   renderDocx2,
-  extractPlaceholders2,
+  _extractPlaceholders2,
   validateTemplateData2,
 } from '../../../server/services/docxRenderer2';
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import type { DatavaultColumn, DatavaultTable } from '@shared/schema';
+import type { _DatavaultColumn, _DatavaultTable } from '@shared/schema';
 
 import { DatavaultColumnsService } from '../../../server/services/DatavaultColumnsService';
 import { DatavaultRowsService } from '../../../server/services/DatavaultRowsService';
@@ -189,7 +189,7 @@ describe('DataVault Reference Columns', () => {
       mockColumnsRepo.getMaxOrderIndex.mockResolvedValue(0);
       mockColumnsRepo.create.mockImplementation((data: any) => Promise.resolve(data));
 
-      const result = await columnsService.createColumn(
+      const _result = await columnsService.createColumn(
         {
           tableId,
           name: 'Text Column',

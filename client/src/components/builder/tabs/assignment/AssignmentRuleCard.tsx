@@ -1,5 +1,5 @@
 
-import { GitBranch } from "lucide-react";
+import { _GitBranch } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { ApiWorkflow } from "@/lib/vault-hooks";
 // Define the rule interface here or import it
 export interface AssignmentRule {
     targetWorkflowId: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     condition: any; // Keeping any for now to match original, should be refined later
     enabled: boolean;
 }

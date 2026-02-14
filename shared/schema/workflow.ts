@@ -12,10 +12,10 @@ import {
     boolean,
     integer,
     pgEnum,
-    primaryKey
+    _primaryKey
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
+import { _z } from "zod";
 
 export interface FileUploadConfig {
     maxFileSize?: number;

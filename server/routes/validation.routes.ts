@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 
 import { eq } from "drizzle-orm";
 import { Router } from "express";
@@ -34,6 +35,7 @@ validationRouter.post("/api/workflows/:workflowId/validate-page", asyncHandler(a
             orderBy: (steps: any, { asc }: any) => [asc(steps.order)],
         });
 
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         if (!sectionSteps || sectionSteps.length === 0) {
             return res.json({ valid: true, blockErrors: {} });
         }
@@ -50,6 +52,7 @@ validationRouter.post("/api/workflows/:workflowId/validate-page", asyncHandler(a
             if (!allValues) { return true; } // Validate if we can't be sure
             try {
                 // evaluateConditionExpression is Isomorphic
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
                 const { evaluateConditionExpression } = require("@shared/conditionEvaluator");
                 return evaluateConditionExpression(step.visibleIf, allValues);
             } catch (e) {

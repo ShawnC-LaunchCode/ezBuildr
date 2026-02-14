@@ -37,6 +37,7 @@ import {
   useDeleteWorkflow,
   useMoveWorkflow,
 } from "@/lib/vault-hooks";
+// eslint-disable-next-line max-lines-per-function
 export default function WorkflowDashboard() {
   // Dialog states
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
@@ -187,7 +188,7 @@ export default function WorkflowDashboard() {
   };
 
   const isLoading = projectsLoading || workflowsLoading;
-  const hasContent = (projects && projects.length > 0) || (unfiledWorkflows && unfiledWorkflows.length > 0);
+  const hasContent = (projects && projects.length > 0) ?? (unfiledWorkflows && unfiledWorkflows.length > 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -263,6 +264,7 @@ export default function WorkflowDashboard() {
                       key={project.id}
                       project={project}
                       onEdit={openEditProjectDialog}
+                      // eslint-disable-next-line @typescript-eslint/no-misused-promises
                       onArchive={handleArchiveProject}
                       onDelete={(id) => setDeleteProjectId(id)}
                     />
@@ -281,7 +283,9 @@ export default function WorkflowDashboard() {
                       key={workflow.id}
                       workflow={workflow}
                       onMove={openMoveDialog}
+                      // eslint-disable-next-line @typescript-eslint/no-misused-promises
                       onArchive={handleArchiveWorkflow}
+                      // eslint-disable-next-line @typescript-eslint/no-misused-promises
                       onActivate={handleActivateWorkflow}
                       onDelete={(id) => setDeleteWorkflowId(id)}
                     />

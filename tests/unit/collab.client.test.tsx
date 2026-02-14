@@ -29,7 +29,7 @@ class MockWebSocket {
     }, 0);
   }
 
-  send(data: any) {
+  send(_data: any) {
     // Mock send
   }
 

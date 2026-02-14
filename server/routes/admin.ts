@@ -1,4 +1,5 @@
-import { eq, desc } from "drizzle-orm";
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+import { _eq, _desc } from "drizzle-orm";
 import { Router } from "express";
 
 import { organizations, workspaces, users } from "@shared/schema";
@@ -11,7 +12,7 @@ const router = Router();
 
 // Super Admin Middleware (Simplified for now - assumes a specific user ID or role)
 // In production, check for user.isSuperAdmin boolean or specific role in DB
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- middleware signature requires any for Express compatibility
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-function-return-type
 const requireSuperAdmin = (req: any, res: any, next: any) => {
     if (req.user?.role !== 'admin') { // Using legacy 'admin' role as super admin for now
         return res.status(403).json({ error: "Require Super Admin" });

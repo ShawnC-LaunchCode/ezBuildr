@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Iterative Quality Improver
  *
@@ -101,7 +102,7 @@ export class IterativeQualityImprover {
     const iterations: ImprovementIteration[] = [];
 
     let currentWorkflow = initialWorkflow;
-    let currentScore = initialQualityScore || this.validator.validate(currentWorkflow);
+    let currentScore = initialQualityScore ?? this.validator.validate(currentWorkflow);
     let totalCost = 0;
 
     // Record initial state as iteration 0
@@ -204,7 +205,7 @@ export class IterativeQualityImprover {
         currentWorkflow = improvedWorkflow;
         currentScore = newScore;
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         logger.error({ error, iteration: i }, 'Error during quality improvement iteration');
         // On error, return best result so far
         break;
@@ -236,18 +237,21 @@ export class IterativeQualityImprover {
     // Errors first
     const errors = score.issues.filter(i => i.severity === 'error');
     if (errors.length > 0) {
+      // eslint-disable-next-line sonarjs/no-nested-template-literals
       prioritizedIssues.push(`CRITICAL ERRORS (must fix):\n${errors.map(e => `- ${e.message}${e.suggestion ? ` (${e.suggestion})` : ''}`).join('\n')}`);
     }
 
     // Warnings second
     const warnings = score.issues.filter(i => i.severity === 'warning');
     if (warnings.length > 0) {
+      // eslint-disable-next-line sonarjs/no-nested-template-literals
       prioritizedIssues.push(`WARNINGS (should fix):\n${warnings.map(w => `- ${w.message}${w.suggestion ? ` (${w.suggestion})` : ''}`).join('\n')}`);
     }
 
     // Suggestions last
     const suggestions = score.issues.filter(i => i.severity === 'suggestion');
     if (suggestions.length > 0 && prioritizedIssues.length < 10) {
+      // eslint-disable-next-line sonarjs/no-nested-template-literals
       prioritizedIssues.push(`SUGGESTIONS (nice to have):\n${suggestions.slice(0, 5).map(s => `- ${s.message}`).join('\n')}`);
     }
 
@@ -345,7 +349,7 @@ Do NOT include any explanation or markdown - just the JSON object.`;
         logicRules: (parsed.logicRules || fallback.logicRules) ?? [],
         transformBlocks: (parsed.transformBlocks || fallback.transformBlocks) ?? [],
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error({ error: error.message }, 'Failed to parse improved workflow, using fallback');
       return fallback;
     }

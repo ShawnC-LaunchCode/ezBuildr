@@ -6,8 +6,8 @@ import { describe, it, expect, beforeEach, afterAll, beforeAll, vi } from 'vites
 import {
     tenants, projects, workflows, sections, steps, blocks,
     users, workspaces, externalDestinations, workflowVersions,
-    type InsertTenant, type InsertProject, type InsertWorkflow,
-    type InsertSection, type InsertStep, type InsertBlock, type InsertExternalDestination
+    type _InsertTenant, type _InsertProject, type _InsertWorkflow,
+    type _InsertSection, type _InsertStep, type _InsertBlock, type _InsertExternalDestination
 } from '@shared/schema';
 
 import { db } from '../../server/db';

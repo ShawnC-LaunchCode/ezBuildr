@@ -14,6 +14,7 @@ export interface UserPreferences {
  * Hook for managing user preferences
  * Provides access to user personalization settings with automatic syncing
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useUserPreferences() {
   const queryClient = useQueryClient();
 
@@ -28,6 +29,7 @@ export function useUserPreferences() {
   const updateMutation = useMutation({
     mutationFn: async (updates: Partial<UserPreferences>) => {
       const response = await axios.put("/api/preferences", updates);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return response.data;
     },
     onMutate: async (updates) => {
@@ -56,6 +58,7 @@ export function useUserPreferences() {
     },
     onSettled: () => {
       // Always refetch after error or success to ensure sync with server
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: ["preferences"] });
     },
   });
@@ -64,14 +67,16 @@ export function useUserPreferences() {
   const resetMutation = useMutation({
     mutationFn: async () => {
       const response = await axios.post("/api/preferences/reset");
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return response.data;
     },
     onSuccess: () => {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: ["preferences"] });
     },
   });
 
-  const currentPrefs = prefs || {
+  const currentPrefs = prefs ?? {
     celebrationEffects: true,
     darkMode: "system" as const,
     aiHints: true,
@@ -79,6 +84,7 @@ export function useUserPreferences() {
 
   // Apply dark mode class to HTML element
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const applyTheme = (mode: "system" | "light" | "dark") => {
       const root = document.documentElement;
 
@@ -102,7 +108,8 @@ export function useUserPreferences() {
     // Listen for system theme changes when in system mode
     if (currentPrefs.darkMode === "system") {
       const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      const handleChange = (e: MediaQueryListEvent) => {
+      // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+      const handleChange = (_e: MediaQueryListEvent) => {
         if (currentPrefs.darkMode === "system") {
           applyTheme("system");
         }

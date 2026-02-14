@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { z } from 'zod';
 
 import { insertCollectionSchema, insertCollectionFieldSchema, insertRecordSchema } from '@shared/schema';
@@ -18,6 +19,7 @@ import type { Express, Request, Response } from 'express';
  *
  * Collections are tenant-scoped data tables similar to Airtable bases
  */
+// eslint-disable-next-line max-lines-per-function
 export function registerCollectionsRoutes(app: Express): void {
   // ===================================================================
   // COLLECTION ENDPOINTS
@@ -63,6 +65,7 @@ export function registerCollectionsRoutes(app: Express): void {
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
+          // eslint-disable-next-line sonarjs/no-duplicate-string
           message: 'Invalid input',
           errors: error.errors,
         });
@@ -90,6 +93,7 @@ export function registerCollectionsRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, 'Error fetching collection');
       const message = error instanceof Error ? error.message : 'Failed to fetch collection';
+      // eslint-disable-next-line sonarjs/no-duplicate-string
       const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
       res.status(status).json({ message });
     }
@@ -244,6 +248,7 @@ export function registerCollectionsRoutes(app: Express): void {
 
       const { fields: fieldsData } = bulkSchema.parse(req.body);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const fields = await collectionFieldService.bulkCreateFields(collectionId, fieldsData as any);
       res.status(201).json(fields);
     } catch (error) {

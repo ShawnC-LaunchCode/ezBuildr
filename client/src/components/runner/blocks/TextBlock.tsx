@@ -41,17 +41,21 @@ export function TextBlockRenderer({ step, value, onChange, readOnly, ariaDescrib
 
   if (step.type === "short_text") {
     variant = "short";
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     maxLength = step.config?.maxLength;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     placeholder = step.config?.placeholder || "Your answer...";
   } else if (step.type === "long_text") {
     variant = "long";
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     maxLength = step.config?.maxLength;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     placeholder = step.config?.placeholder || "Your answer...";
   } else if (step.type === "text") {
     const config = step.config as TextAdvancedConfig;
     variant = config?.variant || "short";
     maxLength = config?.validation?.maxLength;
-    placeholder = config?.placeholder || "Your answer...";
+    placeholder = config?.placeholder ?? "Your answer...";
   }
 
   // Handle change

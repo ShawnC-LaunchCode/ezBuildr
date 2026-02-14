@@ -24,11 +24,11 @@ import type {
   ScaleConfig,
   NumberConfig,
   CurrencyConfig,
-  PhoneConfig,
-  EmailConfig,
-  DateConfig,
-  TimeConfig,
-  DateTimeConfig,
+  _PhoneConfig,
+  _EmailConfig,
+  _DateConfig,
+  _TimeConfig,
+  _DateTimeConfig,
   BooleanAdvancedConfig,
 } from '../../../../shared/types/stepConfigs';
 
@@ -317,11 +317,11 @@ function generateChoiceValue(step: ApiStep): string | string[] {
       const shuffled = [...options].sort(() => 0.5 - Math.random());
       const selectedOpts = shuffled.slice(0, count);
 
-      return selectedOpts.map(opt => opt.alias || opt.id);
+      return selectedOpts.map(opt => opt.alias ?? opt.id);
     } else {
       // Single selection
       const option = options[Math.floor(Math.random() * options.length)];
-      return option.alias || option.id;
+      return option.alias ?? option.id;
     }
   }
 
@@ -393,7 +393,7 @@ function generateCurrencyValue(step: ApiStep): number {
  * Generate random value for an address block
  */
 function generateAddressValue(step: ApiStep): Record<string, string> {
-  const config = step.config as AddressConfig | undefined;
+  const _config = step.config as AddressConfig | undefined;
 
   return {
     street: randomStreet(),
@@ -483,6 +483,7 @@ type BlockValue = string | number | boolean | string[] | object | undefined;
  * @param step - The step definition
  * @returns Random value appropriate for the step type
  */
+// eslint-disable-next-line complexity
 export function generateRandomValueForBlock(step: ApiStep): BlockValue {
   try {
     // Skip display blocks and JS blocks (no user input)

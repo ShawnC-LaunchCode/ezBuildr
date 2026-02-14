@@ -12,7 +12,7 @@ import {
     boolean,
     integer,
     pgEnum,
-    primaryKey
+    _primaryKey
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 

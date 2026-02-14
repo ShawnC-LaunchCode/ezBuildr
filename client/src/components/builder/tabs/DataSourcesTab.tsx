@@ -60,7 +60,9 @@ export function DataSourcesTab({ workflowId, onCollectionsClick }: DataSourcesTa
   const isLinked = (id: string) => linkedSources?.some(s => s.id === id);
 
   const handleSourceCreated = () => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     refetchAll();
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     refetchLinked();
   };
 

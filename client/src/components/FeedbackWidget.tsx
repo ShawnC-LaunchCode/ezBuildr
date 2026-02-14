@@ -32,12 +32,14 @@ export default function FeedbackWidget({ className, style }: FeedbackWidgetProps
   }
 
   // Listen for postMessage from iframe if survey sends completion event
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       // Create valid origins list based on the iframe src
       const validOrigins = ["https://poll-vault-production.up.railway.app"];
       if (!validOrigins.includes(event.origin)) {return;}
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (event.data === "survey-completed" || event.data?.type === "survey-completed") {
         setSubmitted(true);
       }

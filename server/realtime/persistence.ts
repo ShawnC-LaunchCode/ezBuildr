@@ -14,12 +14,13 @@ let redisPublisher: Redis | null = null;
 let redisSubscriber: Redis | null = null;
 
 const REDIS_URL = process.env.REDIS_URL;
-const SNAPSHOT_INTERVAL = parseInt(process.env.COLLAB_SNAPSHOT_INTERVAL || '200', 10); // Every N updates
-const UPDATES_TO_KEEP = parseInt(process.env.COLLAB_UPDATES_TO_KEEP || '1000', 10); // Keep last N updates
+const SNAPSHOT_INTERVAL = parseInt(process.env.COLLAB_SNAPSHOT_INTERVAL ?? '200', 10); // Every N updates
+const UPDATES_TO_KEEP = parseInt(process.env.COLLAB_UPDATES_TO_KEEP ?? '1000', 10); // Keep last N updates
 
 /**
  * Initialize Redis pub/sub for multi-instance collaboration
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function initRedis() {
   if (!REDIS_URL) {
     logger.warn('REDIS_URL not configured, multi-instance collab will not work');
@@ -71,6 +72,7 @@ export function subscribeToRoom(
 
   const channel = `room:${roomKey}`;
 
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const messageHandler = (receivedChannel: string, message: string) => {
     if (receivedChannel === channel) {
       try {
@@ -83,12 +85,14 @@ export function subscribeToRoom(
   };
 
   redisSubscriber.on('message', messageHandler);
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises
   redisSubscriber.subscribe(channel);
 
   logger.debug({ channel }, 'Subscribed to Redis channel');
 
   // Return unsubscribe function
   return () => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     redisSubscriber?.unsubscribe(channel);
     redisSubscriber?.off('message', messageHandler);
     logger.debug({ channel }, 'Unsubscribed from Redis channel');

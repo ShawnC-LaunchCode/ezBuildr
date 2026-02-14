@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
+// eslint-disable-next-line import/no-unresolved
 import postgres from "postgres";
 
 async function main() {

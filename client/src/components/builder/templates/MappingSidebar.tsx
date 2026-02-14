@@ -21,6 +21,7 @@ interface MappingSidebarProps {
     setSelectedField: (field: string | null) => void;
 }
 
+// eslint-disable-next-line max-lines-per-function
 export function MappingSidebar({
     selectedField,
     mapping,
@@ -170,7 +171,7 @@ export function MappingSidebar({
                                                         -- Unmapped --
                                                     </CommandItem>
                                                     {sortedVariables.map((variable) => {
-                                                        const valueToStore = variable.alias || variable.id;
+                                                        const valueToStore = variable.alias ?? variable.id;
                                                         const isCurrent = mapping[selectedField] === valueToStore;
                                                         return (
                                                             <CommandItem
@@ -248,13 +249,14 @@ export function MappingSidebar({
                                                             .filter(v =>
                                                                 !mentionQuery ||
                                                                 v.text.toLowerCase().includes(mentionQuery.toLowerCase()) ||
+                                                                // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
                                                                 (v.alias && v.alias.toLowerCase().includes(mentionQuery.toLowerCase()))
                                                             )
                                                             .slice(0, 50)
                                                             .map(variable => (
                                                                 <CommandItem
                                                                     key={variable.id}
-                                                                    value={variable.alias || variable.text}
+                                                                    value={variable.alias ?? variable.text}
                                                                     onSelect={() => {
                                                                         const currentVal = mapping[selectedField] ?? '';
                                                                         const cursor = cursorPosition ?? 0;
@@ -264,12 +266,13 @@ export function MappingSidebar({
                                                                             const startIdx = match.index ?? 0;
                                                                             const prefix = currentVal.slice(0, startIdx);
                                                                             const suffix = currentVal.slice(cursor);
-                                                                            const insert = variable.alias || variable.text;
+                                                                            const insert = variable.alias ?? variable.text;
                                                                             const newVal = prefix + insert + suffix;
                                                                             setMapping(prev => ({ ...prev, [selectedField]: newVal }));
                                                                             setMentionOpen(false);
                                                                             setTimeout(() => {
                                                                                 const input = document.getElementById('excel-input') as HTMLTextAreaElement;
+                                                                                // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
                                                                                 if (input) {
                                                                                     input.focus();
                                                                                     const newCursor = prefix.length + insert.length;
@@ -281,7 +284,7 @@ export function MappingSidebar({
                                                                     className="cursor-pointer"
                                                                 >
                                                                     <div className="flex flex-col">
-                                                                        <span className="font-medium">{variable.alias || variable.text}</span>
+                                                                        <span className="font-medium">{variable.alias ?? variable.text}</span>
                                                                         {variable.alias && <span className="text-[10px] text-muted-foreground">{variable.text}</span>}
                                                                     </div>
                                                                 </CommandItem>
@@ -350,13 +353,14 @@ export function MappingSidebar({
                                                             .filter(v =>
                                                                 !mentionQuery ||
                                                                 v.text.toLowerCase().includes(mentionQuery.toLowerCase()) ||
+                                                                // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
                                                                 (v.alias && v.alias.toLowerCase().includes(mentionQuery.toLowerCase()))
                                                             )
                                                             .slice(0, 50)
                                                             .map(variable => (
                                                                 <CommandItem
                                                                     key={variable.id}
-                                                                    value={variable.alias || variable.text}
+                                                                    value={variable.alias ?? variable.text}
                                                                     onSelect={() => {
                                                                         const textBefore = templateInput.slice(0, cursorPosition ?? 0);
                                                                         const match = textBefore.match(/(@|\{\{)([\w]*)$/);
@@ -364,7 +368,7 @@ export function MappingSidebar({
                                                                             const startIdx = match.index ?? 0;
                                                                             const prefix = templateInput.slice(0, startIdx);
                                                                             const suffix = templateInput.slice(cursorPosition ?? 0);
-                                                                            const insert = `{{${variable.alias || variable.text}}}`;
+                                                                            const insert = `{{${variable.alias ?? variable.text}}}`;
                                                                             const newVal = prefix + insert + suffix;
                                                                             setTemplateInput(newVal);
                                                                             const expr = convertTemplateToExpression(newVal);
@@ -372,6 +376,7 @@ export function MappingSidebar({
                                                                             setMentionOpen(false);
                                                                             setTimeout(() => {
                                                                                 const input = document.getElementById('template-input') as HTMLTextAreaElement;
+                                                                                // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
                                                                                 if (input) { input.focus(); }
                                                                             }, 0);
                                                                         }
@@ -379,7 +384,7 @@ export function MappingSidebar({
                                                                     className="cursor-pointer"
                                                                 >
                                                                     <div className="flex flex-col">
-                                                                        <span className="font-medium">{variable.alias || variable.text}</span>
+                                                                        <span className="font-medium">{variable.alias ?? variable.text}</span>
                                                                         {variable.alias && <span className="text-[10px] text-muted-foreground">{variable.text}</span>}
                                                                     </div>
                                                                 </CommandItem>

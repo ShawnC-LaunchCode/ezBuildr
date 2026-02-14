@@ -22,7 +22,7 @@ describe('Organization Invites', () => {
     const existingUserEmail = `existing_${Date.now()}@test.com`;
     const testTenantId = '00000000-0000-0000-0000-000000000098';
     let testOrgId: string;
-    let createdInviteId: string;
+    let _createdInviteId: string;
 
     // Setup test data
     beforeEach(async () => {

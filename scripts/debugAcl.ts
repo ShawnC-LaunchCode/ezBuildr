@@ -28,6 +28,7 @@ async function main() {
     console.log(`userId type: ${typeof userId}`);
     console.log(`userId value: "${userId}"`);
     console.log(`Direct comparison: ${workflow.ownerId === userId}`);
+    // eslint-disable-next-line eqeqeq
     console.log(`Loose comparison: ${workflow.ownerId == userId}`);
     console.log('');
   }

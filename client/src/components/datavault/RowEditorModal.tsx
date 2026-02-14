@@ -88,6 +88,7 @@ export function RowEditorModal({
     onOpenChange(false);
   };
 
+  // eslint-disable-next-line complexity
   const renderField = (column: DatavaultColumn) => {
     const value = (values[column.id] ?? "") as string;
     const isAutoNumber = column.type === "auto_number";

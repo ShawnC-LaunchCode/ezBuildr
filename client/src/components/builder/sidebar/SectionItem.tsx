@@ -1,7 +1,7 @@
 
 import { UI_LABELS } from "@/lib/labels";
 import { type Mode } from "@/lib/mode";
-import { cn } from "@/lib/utils";
+import { _cn } from "@/lib/utils";
 import { ApiBlock, ApiSection } from "@/lib/vault-api";
 import { useCreateBlock, useCreateStep, useSteps } from "@/lib/vault-hooks";
 

@@ -32,12 +32,12 @@ export class FileStorageService {
     private localUploadDir: string;
 
     constructor() {
-        this.localUploadDir = process.env.UPLOAD_DIR || './uploads';
+        this.localUploadDir = process.env.UPLOAD_DIR ?? './uploads';
 
         // Initialize S3 if credentials exist
         if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY && process.env.AWS_BUCKET_NAME) {
             this.s3Client = new S3Client({
-                region: process.env.AWS_REGION || 'us-east-1',
+                region: process.env.AWS_REGION ?? 'us-east-1',
                 credentials: {
                     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
                     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
@@ -49,11 +49,13 @@ export class FileStorageService {
             logger.warn('FileStorageService: No S3 credentials found. Using local disk storage.');
             // Ensure local directory exists
             this.ensureLocalDir().catch(err => {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 logger.fatal({ error: err }, 'FileStorageService: Failed to create upload directory');
             });
         }
     }
 
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     private async ensureLocalDir() {
         try {
             await fs.promises.access(this.localUploadDir);

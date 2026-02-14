@@ -43,6 +43,7 @@ export const pageNumberSchema = z.coerce
 /**
  * Numeric query parameter validation
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const numericParamSchema = (min?: number, max?: number) => {
   let schema = z.coerce.number().int();
 

@@ -14,14 +14,14 @@ describe("Stage 12.5 - Intake Portal Extras", () => {
   describe("URL-based Prefill", () => {
     it("should prefill allowed fields from URL parameters", async () => {
       // Setup: Create workflow with allowPrefill enabled
-      const intakeConfig: IntakeConfig = {
+      const _intakeConfig: IntakeConfig = {
         allowPrefill: true,
         allowedPrefillKeys: ["client_name", "email"],
       };
       // Mock workflow with intakeConfig
       // const workflow = await createTestWorkflow({ intakeConfig });
       // Test: Create run with prefillParams
-      const prefillParams = {
+      const _prefillParams = {
         client_name: "Acme Corp",
         email: "contact@acme.com",
       };
@@ -43,11 +43,11 @@ describe("Stage 12.5 - Intake Portal Extras", () => {
       expect(true).toBe(true); // Placeholder
     });
     it("should ignore disallowed prefill keys", async () => {
-      const intakeConfig: IntakeConfig = {
+      const _intakeConfig: IntakeConfig = {
         allowPrefill: true,
         allowedPrefillKeys: ["email"],
       };
-      const prefillParams = {
+      const _prefillParams = {
         email: "test@example.com",
         password: "hacked", // Not in allowedPrefillKeys
         secret: "data", // Not in allowedPrefillKeys
@@ -57,22 +57,22 @@ describe("Stage 12.5 - Intake Portal Extras", () => {
       expect(true).toBe(true); // Placeholder
     });
     it("should not prefill when allowPrefill is false", async () => {
-      const intakeConfig: IntakeConfig = {
+      const _intakeConfig: IntakeConfig = {
         allowPrefill: false,
         allowedPrefillKeys: ["email"],
       };
-      const prefillParams = {
+      const _prefillParams = {
         email: "test@example.com",
       };
       // No values should be prefilled
       expect(true).toBe(true); // Placeholder
     });
     it("should not prefill file upload or sensitive fields", async () => {
-      const intakeConfig: IntakeConfig = {
+      const _intakeConfig: IntakeConfig = {
         allowPrefill: true,
         allowedPrefillKeys: ["file", "password"],
       };
-      const prefillParams = {
+      const _prefillParams = {
         file: "malicious.exe",
         password: "secret123",
       };
@@ -96,7 +96,7 @@ describe("Stage 12.5 - Intake Portal Extras", () => {
   });
   describe("CAPTCHA Validation on Submit", () => {
     it("should require CAPTCHA when workflow config requires it", async () => {
-      const intakeConfig: IntakeConfig = {
+      const _intakeConfig: IntakeConfig = {
         requireCaptcha: true,
         captchaType: "simple",
       };
@@ -113,7 +113,7 @@ describe("Stage 12.5 - Intake Portal Extras", () => {
       expect(true).toBe(true); // Placeholder
     });
     it("should validate correct CAPTCHA and allow submission", async () => {
-      const intakeConfig: IntakeConfig = {
+      const _intakeConfig: IntakeConfig = {
         requireCaptcha: true,
         captchaType: "simple",
       };
@@ -141,7 +141,7 @@ describe("Stage 12.5 - Intake Portal Extras", () => {
       expect(true).toBe(true); // Placeholder
     });
     it("should reject incorrect CAPTCHA answer", async () => {
-      const intakeConfig: IntakeConfig = {
+      const _intakeConfig: IntakeConfig = {
         requireCaptcha: true,
         captchaType: "simple",
       };
@@ -162,7 +162,7 @@ describe("Stage 12.5 - Intake Portal Extras", () => {
       expect(true).toBe(true); // Placeholder
     });
     it("should not require CAPTCHA when workflow config disables it", async () => {
-      const intakeConfig: IntakeConfig = {
+      const _intakeConfig: IntakeConfig = {
         requireCaptcha: false,
       };
       // Submit without CAPTCHA should succeed
@@ -179,7 +179,7 @@ describe("Stage 12.5 - Intake Portal Extras", () => {
   });
   describe("Email Receipt", () => {
     it("should send email receipt when configured", async () => {
-      const intakeConfig: IntakeConfig = {
+      const _intakeConfig: IntakeConfig = {
         sendEmailReceipt: true,
         receiptEmailVar: "client_email",
       };
@@ -202,7 +202,7 @@ describe("Stage 12.5 - Intake Portal Extras", () => {
       expect(true).toBe(true); // Placeholder
     });
     it("should not send email when sendEmailReceipt is false", async () => {
-      const intakeConfig: IntakeConfig = {
+      const _intakeConfig: IntakeConfig = {
         sendEmailReceipt: false,
         receiptEmailVar: "client_email",
       };
@@ -220,7 +220,7 @@ describe("Stage 12.5 - Intake Portal Extras", () => {
       expect(true).toBe(true); // Placeholder
     });
     it("should skip email when receiptEmailVar is not found", async () => {
-      const intakeConfig: IntakeConfig = {
+      const _intakeConfig: IntakeConfig = {
         sendEmailReceipt: true,
         receiptEmailVar: "nonexistent_field",
       };
@@ -235,7 +235,7 @@ describe("Stage 12.5 - Intake Portal Extras", () => {
       expect(true).toBe(true); // Placeholder
     });
     it("should exclude sensitive fields from email summary", async () => {
-      const intakeConfig: IntakeConfig = {
+      const _intakeConfig: IntakeConfig = {
         sendEmailReceipt: true,
         receiptEmailVar: "client_email",
       };
@@ -264,7 +264,7 @@ describe("Stage 12.5 - Intake Portal Extras", () => {
   describe("IntakeConfig Management API", () => {
     it("should allow owner to update intakeConfig", async () => {
       // const workflow = await createTestWorkflow({ ownerId: testUser.id });
-      const intakeConfig: IntakeConfig = {
+      const _intakeConfig: IntakeConfig = {
         allowPrefill: true,
         allowedPrefillKeys: ["name", "email"],
         requireCaptcha: true,
@@ -290,7 +290,7 @@ describe("Stage 12.5 - Intake Portal Extras", () => {
       expect(true).toBe(true); // Placeholder
     });
     it("should validate intakeConfig schema", async () => {
-      const invalidConfig = {
+      const _invalidConfig = {
         allowPrefill: "yes", // Should be boolean
         captchaType: "invalid", // Not in enum
       };
@@ -304,7 +304,7 @@ describe("Stage 12.5 - Intake Portal Extras", () => {
   });
   describe("GET /intake/workflows/:slug/published", () => {
     it("should include intakeConfig in response", async () => {
-      const intakeConfig: IntakeConfig = {
+      const _intakeConfig: IntakeConfig = {
         allowPrefill: true,
         allowedPrefillKeys: ["name"],
         requireCaptcha: true,

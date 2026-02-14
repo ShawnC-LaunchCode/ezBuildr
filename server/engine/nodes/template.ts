@@ -57,6 +57,7 @@ export interface TemplateNodeOutput {
  * @param input - Node configuration and execution context
  * @returns Execution result
  */
+// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 export async function executeTemplateNode(
   input: TemplateNodeInput
 ): Promise<TemplateNodeOutput> {
@@ -129,7 +130,7 @@ export async function executeTemplateNode(
       throw new Error(`Access denied to template ${(template as { id: string }).id}`);
     }
     // Choose rendering engine (default to v2)
-    const engine = config.engine || 'v2';
+    const engine = config.engine ?? 'v2';
     const toPdf = config.toPdf ?? false;
     let result: { fileRef: string; pdfRef?: string; size: number; format: string };
     const templateTyped = template as { type: string; fileRef: string; mapping?: Record<string, string> };
@@ -200,7 +201,7 @@ export async function executeTemplateNode(
       await db.insert(schema.runOutputs).values({
         runId,
         workflowVersionId,
-        templateKey: templateKey || 'default',
+        templateKey: templateKey ?? 'default',
         fileType,
         storagePath,
         status: 'ready',
@@ -223,7 +224,7 @@ export async function executeTemplateNode(
       await db.insert(schema.runOutputs).values({
         runId,
         workflowVersionId,
-        templateKey: config.templateKey || 'default',
+        templateKey: config.templateKey ?? 'default',
         fileType: config.toPdf ? 'pdf' : 'docx',
         storagePath: '',
         status: 'failed',
@@ -245,8 +246,8 @@ export async function executeTemplateNode(
 export const docxService = {
   async render(
     templateId: string,
-    bindings: Record<string, unknown>,
-    tenantId: string
+    _bindings: Record<string, unknown>,
+    _tenantId: string
   ): Promise<{ fileRef: string; format: string; size: number }> {
     // Placeholder for actual implementation
     return {

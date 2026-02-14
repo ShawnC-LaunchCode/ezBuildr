@@ -280,6 +280,7 @@ describe.sequential("Protected Routes Integration Tests", () => {
 
     describe("Token Payload Validation", () => {
         it("should reject token with missing userId", async () => {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
             const jwt = require("jsonwebtoken");
             const invalidToken = jwt.sign(
                 { email: testUser.email }, // Missing userId
@@ -294,6 +295,7 @@ describe.sequential("Protected Routes Integration Tests", () => {
         });
 
         it("should reject token with non-existent userId", async () => {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
             const jwt = require("jsonwebtoken");
             const invalidToken = jwt.sign(
                 {

@@ -57,6 +57,7 @@ export interface EntityCardProps {
 
 export function EntityCard({
   entity,
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   icon: Icon,
   iconClassName = "bg-primary/10 text-primary",
   link,
@@ -81,10 +82,10 @@ export function EntityCard({
     <Card
       className={cn(
         "group hover:shadow-lg transition-shadow overflow-hidden h-full flex flex-col",
-        (onClick || link) && "cursor-pointer",
+        (onClick ?? link) && "cursor-pointer",
         className
       )}
-      onClick={onClick || link ? handleCardClick : undefined}
+      onClick={onClick ?? link ? handleCardClick : undefined}
     >
       <CardHeader className="flex-1">
         <div className="flex items-start justify-between">
@@ -109,7 +110,7 @@ export function EntityCard({
               </TooltipProvider>
               {entity.description !== undefined && (
                 <CardDescription className="mt-1 line-clamp-2">
-                  {entity.description || "No description"}
+                  {entity.description ?? "No description"}
                 </CardDescription>
               )}
             </div>

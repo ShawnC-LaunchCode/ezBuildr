@@ -1,5 +1,5 @@
 const fs = require('fs');
-const path = require('path');
+const _path = require('path');
 
 // Read the critical files list
 let criticalFiles = { misusedPromises: [], floatingPromises: [] };
@@ -12,10 +12,10 @@ try {
 
 function processFile(filePath) {
     try {
-        if (!fs.existsSync(filePath)) return;
+        if (!fs.existsSync(filePath)) {return;}
 
         let content = fs.readFileSync(filePath, 'utf8');
-        let originalContent = content;
+        const originalContent = content;
 
         // Strategy: Match common event handlers
         const eventHandlers = ['onClick', 'onSubmit', 'onChange', 'onBlur', 'onFocus', 'onKeyDown', 'onKeyUp'];

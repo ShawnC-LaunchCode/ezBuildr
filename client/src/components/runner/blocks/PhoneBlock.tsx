@@ -19,6 +19,7 @@ import type { PhoneConfig } from "@shared/types/stepConfigs";
 
 export interface PhoneBlockProps {
   step: Step;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any;
   onChange: (value: string) => void;
   readOnly?: boolean;
@@ -26,7 +27,7 @@ export interface PhoneBlockProps {
 
 export function PhoneBlockRenderer({ step, value, onChange, readOnly }: PhoneBlockProps) {
   const config = step.config as PhoneConfig;
-  const format = config?.format || "US";
+  const format = config?.format ?? "US";
 
   // Format phone number for display
   const formatPhoneDisplay = (phone: string): string => {
@@ -66,6 +67,7 @@ export function PhoneBlockRenderer({ step, value, onChange, readOnly }: PhoneBlo
     onChange(digits);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   const displayValue = formatPhoneDisplay(value ?? "");
 
   return (

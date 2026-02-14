@@ -27,7 +27,7 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
     const [, setLocation] = useLocation();
 
     // Basic stats
-    const totalSections = sections?.length || 0;
+    const totalSections = sections?.length ?? 0;
     let totalQuestions = 0;
     let missingAliases = 0;
     let emptyTitles = 0;
@@ -82,8 +82,8 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
                             Review & Readiness
                         </h2>
                         <p className="text-slate-500 max-w-2xl">
-                            Review your workflow to ensure it's ready for clients.
-                            We've checked for common issues and best practices.
+                            Review your workflow to ensure it&apos;s ready for clients.
+                            We&apos;ve checked for common issues and best practices.
                         </p>
                     </div>
 

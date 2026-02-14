@@ -121,6 +121,7 @@ export async function createZipArchive(
       zip.file(sanitizedFilename, doc.buffer, {
         compression: 'DEFLATE',
         compressionOptions: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
           level: opts.compressionLevel as any,
         },
       });
@@ -134,6 +135,7 @@ export async function createZipArchive(
       zip.file('manifest.txt', manifestContent, {
         compression: 'DEFLATE',
         compressionOptions: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
           level: opts.compressionLevel as any,
         },
       });
@@ -141,9 +143,11 @@ export async function createZipArchive(
 
     // Generate ZIP buffer
     const zipBuffer = zip.generate({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
       type: 'nodebuffer' as any,
       compression: 'DEFLATE',
       compressionOptions: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
         level: opts.compressionLevel as any,
       },
     }) as unknown as Buffer;
@@ -305,8 +309,11 @@ export function validateDocuments(documents: ZipDocument[]): string[] {
   for (let i = 0; i < documents.length; i++) {
     const doc = documents[i];
     if (!doc.filename) {errors.push(`Document ${i}: Missing filename`);}
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!doc.buffer) {errors.push(`Document ${i}: Missing buffer`);}
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (doc.buffer && doc.buffer.length === 0) {errors.push(`Document ${i} (${doc.filename}): Empty buffer`);}
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (doc.buffer && doc.buffer.length > MAX_SINGLE_FILE_SIZE) {errors.push(`Document ${i} (${doc.filename}): Too large`);}
   }
 

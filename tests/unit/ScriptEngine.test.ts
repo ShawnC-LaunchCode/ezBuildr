@@ -55,6 +55,7 @@ describe('ScriptEngine', () => {
           };
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
         const func = new Function('input', 'context', 'helpers', 'emit', params.code);
         func(params.input, params.context, helpers, emit);
 

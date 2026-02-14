@@ -227,6 +227,7 @@ describe('WorkflowPatchService', () => {
   });
   describe('Alias Uniqueness Validation', () => {
     it('should reject duplicate step alias on create', async () => {
+      // eslint-disable-next-line no-empty-pattern
       const {  } = await import('../../../server/repositories');
       // Mock existing step with alias 'email'
       mockStepRepoFind.mockResolvedValue([
@@ -262,6 +263,7 @@ describe('WorkflowPatchService', () => {
       expect(result.summary).toHaveLength(0);
     });
     it('should allow same alias on update of same step', async () => {
+      // eslint-disable-next-line no-empty-pattern
       const {  } = await import('../../../server/repositories');
       mockStepRepoFind.mockResolvedValue([
         {
@@ -291,6 +293,7 @@ describe('WorkflowPatchService', () => {
       expect(result.summary).toHaveLength(1);
     });
     it('should reject duplicate alias on update to different step', async () => {
+      // eslint-disable-next-line no-empty-pattern
       const {  } = await import('../../../server/repositories');
       mockStepRepoFind.mockResolvedValue([
         {
@@ -735,6 +738,7 @@ describe('WorkflowPatchService', () => {
       });
     });
     it('should reject binding to non-existent step alias', async () => {
+      // eslint-disable-next-line no-empty-pattern
       const {  } = await import('../../../server/repositories');
       mockStepRepoFind.mockResolvedValue([
         {

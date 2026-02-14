@@ -47,6 +47,7 @@ export function WorkflowCard({ workflow, onMove, onArchive, onActivate, onDelete
     {
       label: "Copy Link",
       icon: Link,
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises
       onClick: handleCopyLink,
     },
   ];
@@ -96,6 +97,7 @@ export function WorkflowCard({ workflow, onMove, onArchive, onActivate, onDelete
       actions={actions}
       renderBadge={() => (
         <div className="flex gap-2">
+          {/* eslint-disable-next-line @typescript-eslint/no-unsafe-member-access */}
           {workflow.intakeConfig?.isIntake && (
             <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
               Intake

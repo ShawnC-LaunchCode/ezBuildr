@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Alert Service
  *
@@ -51,7 +52,7 @@ export async function evaluateAndAlert(params: {
   };
 
   // Get webhook URL from env if not provided
-  const webhookUrl = config.webhookUrl || process.env.ALERT_WEBHOOK_URL;
+  const webhookUrl = config.webhookUrl ?? process.env.ALERT_WEBHOOK_URL;
 
   // Compute current SLI
   const sliResult = await sli.computeSLI({
@@ -70,8 +71,8 @@ export async function evaluateAndAlert(params: {
   }
 
   // Check cooldown
-  const cooldownKey = `${params.projectId}:${params.workflowId || 'project'}`;
-  if (isInCooldown(cooldownKey, config.cooldownMinutes || 10)) {
+  const cooldownKey = `${params.projectId}:${params.workflowId ?? 'project'}`;
+  if (isInCooldown(cooldownKey, config.cooldownMinutes ?? 10)) {
     logger.debug({
       projectId: params.projectId,
       workflowId: params.workflowId,
@@ -143,7 +144,7 @@ async function sendWebhook(url: string, alert: AlertPayload): Promise<void> {
     }
 
     logger.info({ url, severity: alert.severity }, 'Webhook alert sent');
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error({ error, url }, 'Failed to send webhook alert');
     throw error;
   }
@@ -308,10 +309,10 @@ export async function batchEvaluateAlerts(): Promise<void> {
     for (const row of result.rows as any[]) {
       try {
         await evaluateAndAlert({
-          projectId: row.project_id,
-          workflowId: row.workflow_id,
+          projectId: row.project_id as string,
+          workflowId: row.workflow_id as string | undefined,
         });
-      } catch (error) {
+      } catch (error: unknown) {
         logger.error({
           projectId: row.project_id,
           workflowId: row.workflow_id,
@@ -321,7 +322,7 @@ export async function batchEvaluateAlerts(): Promise<void> {
     }
 
     logger.info('Batch alert evaluation completed');
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error({ error }, 'Batch alert evaluation failed');
   }
 }

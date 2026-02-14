@@ -46,9 +46,11 @@ export function Toolbar({ workflowId, workflowStatus, onRunPreview, readOnly = f
   };
   const handlePublish = async () => {
     if (isDirty) {
+      // eslint-disable-next-line no-alert
       alert('Please save your changes before publishing');
       return;
     }
+    // eslint-disable-next-line no-alert
     if (confirm('Are you sure you want to publish this workflow? This will create a new immutable version.')) {
       await publishWorkflow.mutateAsync({ nodes, edges });
     }

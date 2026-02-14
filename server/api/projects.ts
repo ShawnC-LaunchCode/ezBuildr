@@ -32,6 +32,7 @@ router.get(
   hybridAuth,
   requireTenant,
   requirePermission('project:view'),
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthRequest;
@@ -112,6 +113,7 @@ router.post(
   hybridAuth,
   requireTenant,
   requirePermission('project:create'),
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthRequest;
@@ -153,6 +155,7 @@ router.get(
   hybridAuth,
   requireTenant,
   requirePermission('project:view'),
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthRequest;
@@ -193,6 +196,7 @@ router.patch(
   hybridAuth,
   requireTenant,
   requirePermission('project:edit'),
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthRequest;
@@ -242,6 +246,7 @@ router.delete(
   hybridAuth,
   requireTenant,
   requirePermission('project:delete'),
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthRequest;

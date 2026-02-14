@@ -95,7 +95,7 @@ test.describe("US-S-013: Application Stability", () => {
     expect(jsErrors.length).toBe(0);
   });
 
-  test("should handle API errors gracefully", async ({ page, request }) => {
+  test("should handle API errors gracefully", async ({ _page, request }) => {
     // Test invalid API endpoint
     const response = await request.get("/api/invalid-endpoint-12345");
 

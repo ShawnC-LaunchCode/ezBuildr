@@ -87,6 +87,7 @@ export function registerAiFeedbackRoutes(app: Express): void {
           res.status(400).json({
             success: false,
             message: 'Invalid feedback data',
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             errors: error.errors,
           });
           return;
@@ -144,6 +145,7 @@ export function registerAiFeedbackRoutes(app: Express): void {
         };
 
         const byOperationType = recentFeedback.reduce((acc, f) => {
+          // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
           if (!acc[f.operationType]) {
             acc[f.operationType] = { count: 0, avgRating: 0, ratings: [] };
           }
@@ -156,6 +158,7 @@ export function registerAiFeedbackRoutes(app: Express): void {
         Object.keys(byOperationType).forEach(key => {
           const data = byOperationType[key];
           data.avgRating = data.ratings.reduce((sum, r) => sum + r, 0) / data.ratings.length;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
           delete (data as any).ratings; // Remove raw ratings from response
         });
 

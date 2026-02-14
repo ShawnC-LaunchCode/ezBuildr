@@ -26,7 +26,7 @@ import helmet from 'helmet';
 
 import { createLogger } from '../logger.js';
 
-import type { Request, Response, NextFunction } from 'express';
+import type { _Request, _Response, _NextFunction } from 'express';
 
 const logger = createLogger({ module: 'security-headers' });
 
@@ -55,6 +55,7 @@ interface SecurityHeadersConfig {
  * app.use(securityHeaders());
  * ```
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function securityHeaders(config: SecurityHeadersConfig = {}) {
   const {
     enableCSP = true,
@@ -184,6 +185,7 @@ export function securityHeaders(config: SecurityHeadersConfig = {}) {
  * Use this in development if strict CSP breaks your workflow.
  * NEVER use in production!
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function relaxedSecurityHeaders() {
   logger.warn('Using relaxed security headers - NOT suitable for production');
   return securityHeaders({
@@ -199,6 +201,7 @@ export function relaxedSecurityHeaders() {
  * Strictest possible configuration. Use this in production.
  * Removes unsafe-inline and unsafe-eval from CSP directives.
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function strictSecurityHeaders() {
   logger.info('Using strict security headers - production configuration');
   return securityHeaders({

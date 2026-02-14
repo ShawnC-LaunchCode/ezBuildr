@@ -15,6 +15,7 @@ export default function HowItWorks() {
       <div className={`${brand.maxw}`}>
         <h2 className="text-2xl sm:text-3xl font-semibold mb-6">How it works</h2>
         <div className="grid sm:grid-cols-3 gap-4">
+          {/* eslint-disable-next-line @typescript-eslint/naming-convention */}
           {steps.map(({ icon: Icon, title, body }, i) => (
             <motion.div
               key={title}

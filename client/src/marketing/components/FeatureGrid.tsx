@@ -20,6 +20,7 @@ export default function FeatureGrid() {
       <div className={`${brand.maxw}`}>
         <h2 className="text-3xl sm:text-4xl font-bold mb-10 text-center">{CONTENT.title}</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* eslint-disable-next-line @typescript-eslint/naming-convention */}
           {CONTENT.cards.map(({ icon: Icon, title, tag, body }, i) => (
             <motion.div
               key={title}

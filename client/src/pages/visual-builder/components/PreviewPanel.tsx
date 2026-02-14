@@ -21,13 +21,15 @@ interface PreviewPanelProps {
 }
 
 export function PreviewPanel({ workflowId, onClose }: PreviewPanelProps) {
-  const [inputs, setInputs] = useState<Record<string, any>>({});
+  const [inputs, setInputs] = useState<Record<string, unknown>>({});
   const [runId, setRunId] = useState<string | undefined>();
 
   const runWorkflow = useRunWorkflow(workflowId);
   const { data: runData } = useWorkflowRun(runId);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleInputChange = (key: string, value: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     setInputs(prev => ({ ...prev, [key]: value }));
   };
 

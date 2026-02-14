@@ -16,16 +16,20 @@ const DEFAULT_TIMEOUT_MS = parseInt(process.env.REQUEST_TIMEOUT_MS ?? '120000', 
 
 export function requestTimeout(req: Request, res: Response, next: NextFunction): void {
   // Allow endpoints to override timeout
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   let timeoutMs = res.locals.timeout ?? DEFAULT_TIMEOUT_MS;
 
   // AUTO-EXTEND: AI routes need more time (default to 5 minutes for large PDFs)
   // Check both path and originalUrl to be safe against mounting differences
+  // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
   if (req.path.includes('/ai/') || (req.originalUrl && req.originalUrl.includes('/ai/'))) {
     timeoutMs = 600000; // 10 minutes
   }
 
   // Set timeout on the socket connection
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (req.socket) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     req.socket.setTimeout(timeoutMs);
   }
 
@@ -35,6 +39,7 @@ export function requestTimeout(req: Request, res: Response, next: NextFunction):
       logger.warn({
         method: req.method,
         path: req.path,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         timeoutMs
       }, 'Request timeout');
 
@@ -43,6 +48,7 @@ export function requestTimeout(req: Request, res: Response, next: NextFunction):
         error: 'request_timeout'
       });
     }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   }, timeoutMs);
 
   // Clear timeout on response finish

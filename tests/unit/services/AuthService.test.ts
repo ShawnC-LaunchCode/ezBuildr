@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";
+import _bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 

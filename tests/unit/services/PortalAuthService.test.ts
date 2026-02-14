@@ -324,7 +324,7 @@ describe("PortalAuthService", () => {
       });
 
       it("should return null for expired token", async () => {
-        const email = "user@example.com";
+        const _email = "user@example.com";
         const plainToken = "a".repeat(64);
 
         // Mock expired token (in the past)
@@ -560,11 +560,11 @@ describe("PortalAuthService", () => {
 
     describe("Expiry & Cleanup", () => {
       it("should reject tokens exactly at expiry time", async () => {
-        const email = "user@example.com";
+        const _email = "user@example.com";
         const plainToken = "a".repeat(64);
 
         // Token expires exactly now
-        const now = new Date();
+        const _now = new Date();
         mockDb.query.portalTokens.findFirst.mockResolvedValue(null);
 
         const result = await portalAuthService.verifyMagicLink(plainToken);

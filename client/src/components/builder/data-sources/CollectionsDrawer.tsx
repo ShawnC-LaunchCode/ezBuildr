@@ -66,6 +66,7 @@ export function CollectionsDrawer({ open, onOpenChange, workflowId }: Collection
       return;
     }
     // Stub implementation
+    // eslint-disable-next-line no-console
     console.log("Creating collection:", newCollectionName);
     toast({
       title: "Coming Soon",
@@ -75,6 +76,7 @@ export function CollectionsDrawer({ open, onOpenChange, workflowId }: Collection
   };
   // Stub: Delete collection
   const handleDeleteCollection = (id: string, name: string) => {
+    // eslint-disable-next-line no-console
     console.log("Deleting collection:", id);
     toast({
       title: "Success",
@@ -93,6 +95,7 @@ export function CollectionsDrawer({ open, onOpenChange, workflowId }: Collection
       return;
     }
     const collection = collections.find(c => c.id === selectedCollection);
+    // eslint-disable-next-line no-console
     console.log("Linking collection to workflow:", { workflowId, collectionId: selectedCollection });
     toast({
       title: "Coming Soon",

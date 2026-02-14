@@ -10,7 +10,7 @@ vi.mock('../../../server/services/snapshotService');
 
 describe('Preview Execution & Snapshots', () => {
     const mockRowsRepo = datavaultRowsRepository as any;
-    const mockSnapshotSvc = snapshotService as any;
+    const _mockSnapshotSvc = snapshotService as any;
 
     const defaultInput = {
         workflowVersion: {

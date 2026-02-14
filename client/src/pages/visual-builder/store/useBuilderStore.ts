@@ -1,12 +1,12 @@
 import { create } from 'zustand';
 
-import type { Node, Edge } from 'reactflow';
+import type { Node, Edge, NodeChange, EdgeChange } from 'reactflow';
 
 export interface BuilderNode extends Node {
   type: 'question' | 'compute' | 'branch' | 'template' | 'final';
   data: {
     label: string;
-    config: any;
+    config: Record<string, unknown>;
   };
 }
 
@@ -30,9 +30,9 @@ export interface BuilderState {
   selectNode: (nodeId: string | null) => void;
 
   // Graph operations
-  onNodesChange: (changes: any) => void;
-  onEdgesChange: (changes: any) => void;
-  onConnect: (connection: any) => void;
+  onNodesChange: (changes: unknown[]) => void;
+  onEdgesChange: (changes: unknown[]) => void;
+  onConnect: (connection: Record<string, unknown>) => void;
 
   // Save state
   setDirty: (dirty: boolean) => void;
@@ -40,10 +40,10 @@ export interface BuilderState {
   setSaveError: (error: string | null) => void;
 
   // Load from API
-  loadGraph: (graphJson: any) => void;
+  loadGraph: (graphJson: Record<string, unknown>) => void;
 
   // Export to API format
-  exportGraph: () => any;
+  exportGraph: () => Record<string, unknown>;
 
   // Power User Actions
   duplicateNode: (nodeId: string) => void;
@@ -126,7 +126,7 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
         ...nodeToDuplicate.data,
         label: `${nodeToDuplicate.data.label} (Copy)`,
         // Deep copy config to avoid reference issues
-        config: JSON.parse(JSON.stringify(nodeToDuplicate.data.config)),
+        config: JSON.parse(JSON.stringify(nodeToDuplicate.data.config)) as Record<string, unknown>,
       },
       selected: true,
     };
@@ -142,24 +142,25 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
 
   onNodesChange: (changes) => {
     const state = get();
-    const updatedNodes = applyNodeChanges(changes, state.nodes);
+    const updatedNodes = applyNodeChanges(changes as NodeChange[], state.nodes);
     set({ nodes: updatedNodes, isDirty: true });
   },
 
   onEdgesChange: (changes) => {
     const state = get();
-    const updatedEdges = applyEdgeChanges(changes, state.edges);
+    const updatedEdges = applyEdgeChanges(changes as EdgeChange[], state.edges);
     set({ edges: updatedEdges, isDirty: true });
   },
 
   onConnect: (connection) => {
     const state = get();
+    const conn = connection;
     const newEdge: Edge = {
       id: `edge_${Date.now()}`,
-      source: connection.source,
-      target: connection.target,
-      sourceHandle: connection.sourceHandle,
-      targetHandle: connection.targetHandle,
+      source: conn.source as string,
+      target: conn.target as string,
+      sourceHandle: conn.sourceHandle as string | undefined,
+      targetHandle: conn.targetHandle as string | undefined,
     };
     set({ edges: [...state.edges, newEdge], isDirty: true });
   },
@@ -171,27 +172,35 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
   setSaveError: (error) => set({ saveError: error }),
 
   loadGraph: (graphJson) => {
-    if (!graphJson?.nodes) {
+    const graph = graphJson as { nodes?: unknown[]; edges?: unknown[] };
+    if (graph.nodes == null) {
       set({ nodes: [], edges: [] });
       return;
     }
 
     // Convert API format to React Flow format
-    const nodes: BuilderNode[] = graphJson.nodes.map((node: any, index: number) => ({
-      id: node.id,
-      type: node.type,
-      position: node.position || { x: 100 + index * 200, y: 100 + index * 100 },
-      data: {
-        label: node.config?.label || `${node.type} Node`,
-        config: node.config,
-      },
-    }));
+    const nodes: BuilderNode[] = graph.nodes.map((node: unknown, index: number) => {
+      const n = node as Record<string, unknown>;
+      const config = n.config as Record<string, unknown> | undefined;
+      return {
+        id: n.id as string,
+        type: n.type as BuilderNode['type'],
+        position: (n.position as { x: number; y: number }) ?? { x: 100 + index * 200, y: 100 + index * 100 },
+        data: {
+          label: (config?.label as string) ?? `${n.type as string} Node`,
+          config: config ?? {},
+        },
+      };
+    });
 
-    const edges: Edge[] = (graphJson.edges ?? []).map((edge: any) => ({
-      id: edge.id,
-      source: edge.source,
-      target: edge.target,
-    }));
+    const edges: Edge[] = ((graph.edges ?? [])).map((edge: unknown) => {
+      const e = edge as Record<string, unknown>;
+      return {
+        id: e.id as string,
+        source: e.source as string,
+        target: e.target as string,
+      };
+    });
 
     set({ nodes, edges, isDirty: false });
   },
@@ -217,7 +226,7 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
 }));
 
 // Helper function to get default config for each node type
-function getDefaultConfig(type: BuilderNode['type']): any {
+function getDefaultConfig(type: BuilderNode['type']): Record<string, unknown> {
   switch (type) {
     case 'question':
       return {
@@ -257,31 +266,37 @@ function getDefaultConfig(type: BuilderNode['type']): any {
 }
 
 // Helper to apply node changes (from React Flow)
-function applyNodeChanges(changes: any[], nodes: BuilderNode[]): BuilderNode[] {
+function applyNodeChanges(changes: NodeChange[], nodes: BuilderNode[]): BuilderNode[] {
   const result = [...nodes];
 
   for (const change of changes) {
-    switch (change.type) {
-      case 'position':
-        const nodeIndex = result.findIndex(n => n.id === change.id);
-        if (nodeIndex !== -1 && change.position) {
+    const changeType = (change as Record<string, unknown>).type as string;
+    const changeId = (change as Record<string, unknown>).id as string;
+    switch (changeType) {
+      case 'position': {
+        const nodeIndex = result.findIndex(n => n.id === changeId);
+        const position = (change as Record<string, unknown>).position as { x: number; y: number } | undefined;
+        if (nodeIndex !== -1 && position != null) {
           result[nodeIndex] = {
             ...result[nodeIndex],
-            position: change.position,
+            position,
           };
         }
         break;
+      }
       case 'remove':
-        return result.filter(n => n.id !== change.id);
-      case 'select':
-        const idx = result.findIndex(n => n.id === change.id);
+        return result.filter(n => n.id !== changeId);
+      case 'select': {
+        const idx = result.findIndex(n => n.id === changeId);
+        const selected = (change as Record<string, unknown>).selected as boolean | undefined;
         if (idx !== -1) {
           result[idx] = {
             ...result[idx],
-            selected: change.selected,
+            selected,
           };
         }
         break;
+      }
     }
   }
 
@@ -289,22 +304,26 @@ function applyNodeChanges(changes: any[], nodes: BuilderNode[]): BuilderNode[] {
 }
 
 // Helper to apply edge changes (from React Flow)
-function applyEdgeChanges(changes: any[], edges: Edge[]): Edge[] {
+function applyEdgeChanges(changes: EdgeChange[], edges: Edge[]): Edge[] {
   const result = [...edges];
 
   for (const change of changes) {
-    switch (change.type) {
+    const changeType = (change as Record<string, unknown>).type as string;
+    const changeId = (change as Record<string, unknown>).id as string;
+    switch (changeType) {
       case 'remove':
-        return result.filter(e => e.id !== change.id);
-      case 'select':
-        const idx = result.findIndex(e => e.id === change.id);
+        return result.filter(e => e.id !== changeId);
+      case 'select': {
+        const idx = result.findIndex(e => e.id === changeId);
+        const selected = (change as Record<string, unknown>).selected as boolean | undefined;
         if (idx !== -1) {
           result[idx] = {
             ...result[idx],
-            selected: change.selected,
+            selected,
           };
         }
         break;
+      }
     }
   }
 

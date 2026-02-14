@@ -138,6 +138,7 @@ export function formatErrorResponse(error: any): { status: number; body: ApiErro
   }
 
   // Handle Zod validation errors
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   if (error.name === 'ZodError') {
     return {
       status: 400,
@@ -145,6 +146,7 @@ export function formatErrorResponse(error: any): { status: number; body: ApiErro
         error: {
           code: ErrorCode.VALIDATION_ERROR,
           message: 'Validation failed',
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           details: error.errors,
         },
       },
@@ -157,6 +159,7 @@ export function formatErrorResponse(error: any): { status: number; body: ApiErro
     body: {
       error: {
         code: ErrorCode.INTERNAL_ERROR,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         message: error.message ?? 'Internal server error',
       },
     },

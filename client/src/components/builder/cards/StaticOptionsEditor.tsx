@@ -33,7 +33,7 @@ export function StaticOptionsEditor({ options, onUpdate, onDelete, onAdd }: Stat
                                 className="text-sm"
                             />
                             <Input
-                                value={option.alias || option.id}
+                                value={option.alias ?? option.id}
                                 onChange={(e) => onUpdate(index, 'alias', e.target.value)}
                                 placeholder="Saved Value"
                                 className="text-sm font-mono"

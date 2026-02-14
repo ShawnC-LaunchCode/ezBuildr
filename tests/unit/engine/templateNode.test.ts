@@ -5,7 +5,7 @@
  * NOTE: These are integration tests that require database connectivity
  */
 
-import fs from 'fs/promises';
+import _fs from 'fs/promises';
 import path from 'path';
 
 import { eq, and } from 'drizzle-orm';
@@ -14,15 +14,15 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { db } from '../../../server/db';
 import { executeTemplateNode } from '../../../server/engine/nodes/template';
 import {
-  projects,
-  workflows,
-  workflowVersions,
-  templates,
+  _projects,
+  _workflows,
+  _workflowVersions,
+  _templates,
   workflowTemplates,
-  runs,
+  _runs,
   runOutputs,
-  users,
-  tenants,
+  _users,
+  _tenants,
 } from '../../../shared/schema';
 import { describeWithDb } from '../../helpers/dbTestHelper';
 import { createTestFactory } from '../../helpers/testFactory';
@@ -65,13 +65,13 @@ vi.mock('fs/promises', () => ({
 
 describeWithDb('Template Node - Multi-Template Support', () => {
   let factory: ReturnType<typeof createTestFactory>;
-  let testProjectId: string;
-  let testWorkflowId: string;
+  let _testProjectId: string;
+  let _testWorkflowId: string;
   let testVersionId: string;
   let testTemplateId1: string;
-  let testTemplateId2: string;
+  let _testTemplateId2: string;
   let testTenantId: string;
-  let testUserId: string;
+  let _testUserId: string;
   let testRunId: string;
 
   beforeEach(async () => {

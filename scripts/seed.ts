@@ -172,7 +172,7 @@ async function seed() {
     // =====================================================================
     console.log('Creating steps...');
 
-    const [step1] = await db
+    const [_step1] = await db
       .insert(schema.steps)
       .values({
         sectionId: section.id,
@@ -185,7 +185,7 @@ async function seed() {
       })
       .returning();
 
-    const [step2] = await db
+    const [_step2] = await db
       .insert(schema.steps)
       .values({
         sectionId: section.id,
@@ -198,7 +198,7 @@ async function seed() {
       })
       .returning();
 
-    const [step3] = await db
+    const [_step3] = await db
       .insert(schema.steps)
       .values({
         sectionId: section.id,

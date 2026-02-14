@@ -38,7 +38,7 @@ export interface ExecuteSignatureBlockRequest {
   config: SignatureBlockConfig;
 
   /** All workflow variable values */
-  variableData: Record<string, any>;
+  variableData: Record<string, unknown>;
 
   /** User ID executing (may be undefined for anonymous runs) */
   userId?: string;
@@ -81,6 +81,7 @@ export interface SignatureCallbackData {
   completedAt?: Date;
 
   /** Raw event data */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   eventData?: any;
 }
 
@@ -107,7 +108,7 @@ export class SignatureBlockService {
     } = request;
 
     // 1. Get provider
-    const providerName = config.provider || 'docusign';
+    const providerName = config.provider ?? 'docusign';
     const provider = EsignProviderFactory.getProvider(providerName);
 
     // 2. Build return URL
@@ -155,6 +156,7 @@ export class SignatureBlockService {
     stepId: string,
     callbackData: SignatureCallbackData
   ): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const { envelopeId, status, completedAt, eventData } = callbackData;
 
     // 1. Find signature request by envelope ID
@@ -296,9 +298,11 @@ export class SignatureBlockService {
   private static async createSignatureEvent(
     requestId: string,
     eventType: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     eventData?: any
   ): Promise<void> {
     // TODO: Insert into signatureEvents table
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     logger.debug({ requestId, eventType, eventData }, 'Creating event (placeholder)');
   }
 

@@ -12,6 +12,7 @@ export interface TraceEntry {
     type: 'step' | 'logic' | 'action' | 'error';
     status: 'executed' | 'skipped' | 'failed';
     message?: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     details?: any;
     timestamp: number;
 }
@@ -19,7 +20,7 @@ export interface TraceEntry {
 export interface PreviewRunState {
     id: string;
     workflowId: string;
-    values: Record<string, any>;
+    values: Record<string, unknown>;
     trace: TraceEntry[];
     currentSectionIndex: number;
     completed: boolean;
@@ -31,8 +32,8 @@ export interface PreviewConfig {
     workflowId: string;
     sections: ApiSection[];
     steps: ApiStep[];
-    snapshotValues?: Record<string, any>;
-    initialValues?: Record<string, any>;
+    snapshotValues?: Record<string, unknown>;
+    initialValues?: Record<string, unknown>;
 }
 
 /**
@@ -79,6 +80,7 @@ export class PreviewEnvironment {
 
     // --- Tracing ---
 
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     addTraceEntry(entry: Omit<TraceEntry, 'id' | 'timestamp'>) {
         const newEntry: TraceEntry = {
             ...entry,
@@ -102,28 +104,32 @@ export class PreviewEnvironment {
         return this.cachedSnapshot;
     }
 
-    getValues(): Record<string, any> {
+    getValues(): Record<string, unknown> {
         return { ...this.state.values };
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     getValue(stepId: string): any {
         return this.state.values[stepId];
     }
 
     // --- Mutators ---
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-function-return-type
     setValue(stepId: string, value: any) {
         this.state.values[stepId] = value;
         this.state.updatedAt = Date.now();
         this.notify();
     }
 
-    setValues(values: Record<string, any>) {
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+    setValues(values: Record<string, unknown>) {
         Object.assign(this.state.values, values);
         this.state.updatedAt = Date.now();
         this.notify();
     }
 
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     setCurrentSection(index: number) {
         if (index >= 0 && index < this.sections.length) {
             this.state.currentSectionIndex = index;
@@ -132,12 +138,14 @@ export class PreviewEnvironment {
         }
     }
 
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     completeRun() {
         this.state.completed = true;
         this.state.updatedAt = Date.now();
         this.notify();
     }
 
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     reset() {
         this.state.values = PreviewVariableResolver.resolveInitialValues(this.steps);
         this.state.currentSectionIndex = 0;
@@ -147,11 +155,14 @@ export class PreviewEnvironment {
     }
 
     // --- Hot Reload Support ---
+// eslint-disable-next-line no-console
 
     /**
      * Update schema without losing state (unless necessary)
      */
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     updateSchema(sections: ApiSection[], steps: ApiStep[]) {
+        // eslint-disable-next-line no-console
         console.log('[PreviewEnvironment] Hot Reloading Schema...');
         this.sections = sections;
         this.steps = steps;
@@ -164,6 +175,7 @@ export class PreviewEnvironment {
 
     // --- Mock Integration Access ---
 
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     get mocks() {
         return mockIntegration;
     }
@@ -175,6 +187,7 @@ export class PreviewEnvironment {
         return () => this.listeners.delete(listener);
     }
 
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     private notify() {
         // Create new cached snapshot immediately so getState() returns consistent reference
         this.cachedSnapshot = { ...this.state };
@@ -183,6 +196,8 @@ export class PreviewEnvironment {
 
     // --- Helpers ---
 
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     getSections() { return this.sections; }
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     getSteps() { return this.steps; }
 }

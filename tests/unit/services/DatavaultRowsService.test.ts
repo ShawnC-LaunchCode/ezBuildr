@@ -107,7 +107,7 @@ describe('DatavaultRowsService', () => {
 
   describe('getRow', () => {
     it('should get a single row by ID', async () => {
-      const mockTable = {
+      const _mockTable = {
         id: mockTableId,
         tenantId: mockTenantId,
         ownerUserId: 'user-1',
@@ -118,14 +118,14 @@ describe('DatavaultRowsService', () => {
         updatedAt: new Date(),
       };
 
-      const mockRow = {
+      const _mockRow = {
         id: mockRowId,
         tableId: mockTableId,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
-      const mockColumns = [
+      const _mockColumns = [
         {
           id: mockColumnId,
           tableId: mockTableId,

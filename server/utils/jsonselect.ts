@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * JSON Path Selector Utility
  * Minimal JSONPath-like selector for extracting values from JSON responses
@@ -71,6 +72,7 @@ function normalizeSelector(selector: string): string | null {
  * Example: "user.profile['email']" -> ['user', 'profile', 'email']
  * Example: "items[0].name" -> ['items', '0', 'name']
  */
+// eslint-disable-next-line sonarjs/cognitive-complexity
 function parseSelector(selector: string): string[] {
   if (!selector) {
     return [];
@@ -223,6 +225,7 @@ export function testSelector(obj: any, selector: string): {
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- selects from arbitrary JSON structures
 export function selectMultiple(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   obj: any,
   selectors: Record<string, string>
 ): Record<string, unknown> {

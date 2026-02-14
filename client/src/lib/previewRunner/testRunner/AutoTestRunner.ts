@@ -26,6 +26,7 @@ export interface AutoTestReport {
  */
 export class AutoTestRunner {
     static async runTests(config: AutoTestConfig, previewConfig: PreviewConfig): Promise<AutoTestReport> {
+        // eslint-disable-next-line no-console
         console.log(`[AutoTest] Starting ${config.runs} runs in ${config.mode} mode`);
         const results: AutoTestResult[] = [];
         const errors: string[] = [];
@@ -33,7 +34,7 @@ export class AutoTestRunner {
             try {
                 const result = await this.executeSingleRun(previewConfig);
                 results.push(result);
-            } catch (e: any) {
+            } catch (e: unknown) {
                 errors.push(`Run ${i + 1} failed: ${e.message}`);
             }
         }

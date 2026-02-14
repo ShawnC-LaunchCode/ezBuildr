@@ -8,8 +8,10 @@ const logger = createLogger({ module: 'admin-auth' });
 /**
  * Middleware to check if user is authenticated and has admin role
  */
+// eslint-disable-next-line @typescript-eslint/no-misused-promises
 export const isAdmin: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     const userId = (req as any).userId;
 
     if (!userId) {
@@ -20,9 +22,11 @@ export const isAdmin: RequestHandler = async (req: Request, res: Response, next:
     }
 
     // Get full user details from database to check role
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const dbUser = await userRepository.findById(userId);
 
     if (!dbUser) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       logger.warn({ userId }, 'Admin access denied: User not found in database');
       return res.status(401).json({
         message: "Unauthorized - User not found"

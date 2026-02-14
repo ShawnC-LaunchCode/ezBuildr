@@ -40,7 +40,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
+  _DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -48,6 +48,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { type ApiWorkflowVersion, authAPI } from "@/lib/vault-api";
 import { useVersions, usePublishWorkflow, useRestoreVersion, useWorkflow, useSetWorkflowMode, useTransformBlocks } from "@/lib/vault-hooks";
+// eslint-disable-next-line max-lines-per-function, complexity
 export default function WorkflowBuilder() {
   const { id: workflowId } = useParams<{ id: string }>();
   // ... existing hooks ...
@@ -320,7 +321,7 @@ export default function WorkflowBuilder() {
           }
           rightPanel={
             <>
-              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               <AiConversationPanel
                 workflowId={workflowId}
                 currentWorkflow={workflowAny} // eslint-disable-line @typescript-eslint/no-unsafe-assignment

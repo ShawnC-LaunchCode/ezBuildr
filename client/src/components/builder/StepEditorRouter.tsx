@@ -1,16 +1,23 @@
 import type { ApiStep } from '@/lib/vault-api';
 
+// eslint-disable-next-line import/no-cycle
 import { AddressCardEditor } from './cards/AddressCardEditor';
+// eslint-disable-next-line import/no-cycle
 import { BooleanCardEditor } from './cards/BooleanCardEditor';
+// eslint-disable-next-line import/no-cycle
 import { ChoiceCardEditor } from './cards/ChoiceCardEditor';
+// eslint-disable-next-line import/no-cycle
 import { DisplayCardEditor } from './cards/DisplayCardEditor';
+// eslint-disable-next-line import/no-cycle
 import { EmailCardEditor } from './cards/EmailCardEditor';
 import { MultiFieldCardEditor } from './cards/MultiFieldCardEditor';
 import { NumberCardEditor } from './cards/NumberCardEditor';
+// eslint-disable-next-line import/no-cycle
 import { PhoneCardEditor } from './cards/PhoneCardEditor';
 import { ScaleCardEditor } from './cards/ScaleCardEditor';
 import { SignatureBlockEditor } from './cards/SignatureBlockEditor';
 import { TextCardEditor } from './cards/TextCardEditor';
+// eslint-disable-next-line import/no-cycle
 import { WebsiteCardEditor } from './cards/WebsiteCardEditor';
 import { LegacyStepBody } from './questions/LegacyStepBody';
 
@@ -21,6 +28,7 @@ export interface StepEditorCommonProps {
     step: ApiStep;
 }
 
+// eslint-disable-next-line complexity
 export function StepEditorRouter({ step, sectionId, workflowId }: { step: ApiStep; sectionId: string; workflowId: string }) {
     const commonProps: StepEditorCommonProps = {
         stepId: step.id,

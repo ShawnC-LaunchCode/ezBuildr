@@ -49,6 +49,7 @@ describe('DatavaultRowsRepository', () => {
 
     // Setup default mock behaviors
     mockDb.execute.mockResolvedValue(mockReturnValue);
+    // eslint-disable-next-line @typescript-eslint/return-await
     mockDb.transaction.mockImplementation(async (fn: any) => await fn(mockDb));
 
     // Helper to set return value for chained calls
@@ -59,6 +60,7 @@ describe('DatavaultRowsRepository', () => {
       mockDb.execute.mockResolvedValue(value);
     };
 
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore - mocking db for tests
     repository = new DatavaultRowsRepository();
   });

@@ -30,8 +30,8 @@ describe('DataVault v4 Regression Tests', () => {
   let testTableId: string;
   let testColumnId: string;
   let testRowId: string;
-  let authCookie: string;
-  let otherUserCookie: string;
+  let _authCookie: string;
+  let _otherUserCookie: string;
   let authToken: string;
   let otherUserToken: string;
   let testTenantId: string;
@@ -534,7 +534,7 @@ describe('DataVault v4 Regression Tests', () => {
           userId: targetUserId,
           role: 'read',
         });
-      const permissionId = grantResponse.body.id;
+      const _permissionId = grantResponse.body.id;
       // Update to write
       const updateResponse = await request(app)
         .post(`/api/datavault/tables/${testTableId}/permissions`)

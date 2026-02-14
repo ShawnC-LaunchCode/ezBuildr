@@ -8,7 +8,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, _afterEach } from 'vitest';
 
 // Read the source file to verify it uses execFile
 describe('PdfService Security - Command Execution', () => {
@@ -54,8 +54,8 @@ describe('PdfService Security - Command Execution', () => {
 describe('PdfService - Functional Security', () => {
   // Mock child_process to verify execFile is called with correct args
   it('should call qpdf with separate arguments (no shell)', async () => {
-    const mockExecFile = vi.fn().mockImplementation(
-      (_cmd: string, _args: string[], callback?: Function) => {
+    const _mockExecFile = vi.fn().mockImplementation(
+      (_cmd: string, _args: string[], callback?: (...args: unknown[]) => unknown) => {
         // Simulate successful execution
         if (callback) {callback(null, '', '');}
         return { stdout: '', stderr: '' };

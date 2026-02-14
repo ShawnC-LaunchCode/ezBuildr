@@ -44,6 +44,7 @@ import { useTablePermissions, useGrantTablePermission, useRevokeTablePermission 
 interface TablePermissionsProps {
   tableId: string;
 }
+// eslint-disable-next-line max-lines-per-function
 export function TablePermissions({ tableId }: TablePermissionsProps) {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -441,7 +442,7 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Revoke Permission</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to revoke this user's access? They will no longer be able to view or
+              Are you sure you want to revoke this user&apos;s access? They will no longer be able to view or
               interact with this table.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -464,7 +465,7 @@ export function TablePermissions({ tableId }: TablePermissionsProps) {
               <strong>{roleChangeConfirm?.newRole}</strong>. This will reduce their access to the table.
               {roleChangeConfirm?.userId === user?.id && (
                 <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950 rounded border border-amber-200 dark:border-amber-800">
-                  <strong>Warning:</strong> You are downgrading your own role. Make sure there's another owner!
+                  <strong>Warning:</strong> You are downgrading your own role. Make sure there&apos;s another owner!
                 </div>
               )}
             </AlertDialogDescription>

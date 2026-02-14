@@ -14,7 +14,7 @@ const genAI = new GoogleGenerativeAI(apiKey);
 
 async function listModels() {
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Dummy init to access model manager if needed, but SDK has direct listModels usually on manager? 
+        const _model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Dummy init to access model manager if needed, but SDK has direct listModels usually on manager? 
         // Actually the SDK doesn't expose listModels directly on the top level class in all versions.
         // Let's try to use the verify script instead or write a simple fetch.
 

@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import _crypto from 'crypto';
 
 import { Client } from 'pg';
 

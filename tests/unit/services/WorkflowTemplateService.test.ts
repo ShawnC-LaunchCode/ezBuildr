@@ -29,7 +29,7 @@ describeWithDb('WorkflowTemplateService', () => {
   let testUserId: string;
   let testTenantId: string;
   let testProjectId: string;
-  let testWorkflowId: string;
+  let _testWorkflowId: string;
   let testVersionId: string;
   let testTemplateId1: string;
   let testTemplateId2: string;

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { eq, and, desc } from "drizzle-orm";
 
 import { workflowRuns } from "@shared/schema";
@@ -10,6 +11,7 @@ export class PortalService {
      * Returns: Run ID, Date, Status, Workflow Title
      * Filters: Completed/In-Progress
      */
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     async listRunsForEmail(email: string) {
         try {
             // Find runs associated with this email

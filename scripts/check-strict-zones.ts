@@ -63,7 +63,7 @@ function fileExists(filepath: string): boolean {
   }
 }
 
-function globToRegex(pattern: string): RegExp {
+function _globToRegex(pattern: string): RegExp {
   // Convert glob pattern to regex
   // **/* becomes .* (match any characters)
   // * becomes [^/]* (match any characters except /)
@@ -102,6 +102,7 @@ function findFilesInZone(pattern: string): string[] {
         if (filenamePattern === '*' || filenamePattern === '*.*' || entry.name === filenamePattern || (isRecursive && filenamePattern === '*.ts')) {
           const relative = path.relative(ROOT_DIR, fullPath).replace(/\\/g, '/');
           results.push(relative);
+        // eslint-disable-next-line sonarjs/no-duplicated-branches
         } else if (isRecursive) {
           // Let tsc include handle complex globs, here we just want to verify files exist for the report
           // If the user passed server/services/scripting/**/*, we just return all TS files in that tree

@@ -44,6 +44,7 @@ interface RunOutputsPanelProps {
   runId: string;
 }
 
+// eslint-disable-next-line max-lines-per-function
 export function RunOutputsPanel({ runId }: RunOutputsPanelProps) {
   const queryClient = useQueryClient();
 
@@ -87,7 +88,7 @@ export function RunOutputsPanel({ runId }: RunOutputsPanelProps) {
       // Get filename from Content-Disposition header or use default
       const contentDisposition = response.headers.get('Content-Disposition');
       const filenameMatch = contentDisposition?.match(/filename="?([^"]+)"?/);
-      const filename = filenameMatch?.[1] || 'output.docx';
+      const filename = filenameMatch?.[1] ?? 'output.docx';
 
       // Download file
       const blob = await response.blob();
@@ -125,6 +126,7 @@ export function RunOutputsPanel({ runId }: RunOutputsPanelProps) {
       return response.json();
     },
     onSuccess: () => {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: ['run-outputs', runId] });
       toast.success('PDF conversion retry queued');
     },
@@ -179,7 +181,7 @@ export function RunOutputsPanel({ runId }: RunOutputsPanelProps) {
     }
   };
 
-  const formatFileSize = (path: string): string => {
+  const _formatFileSize = (_path: string): string => {
     // Placeholder: In real implementation, would fetch file size from backend
     return 'N/A';
   };
@@ -217,6 +219,7 @@ export function RunOutputsPanel({ runId }: RunOutputsPanelProps) {
 
   // Group outputs by template key
   const groupedOutputs = outputs.data.reduce((acc, output) => {
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!acc[output.templateKey]) {
       acc[output.templateKey] = [];
     }

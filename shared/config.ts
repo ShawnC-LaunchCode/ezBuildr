@@ -74,6 +74,7 @@ export const DATAVAULT_CONFIG = {
  * Uses environment variables with sensible defaults
  * Only available in Node.js environment (not in browser)
  */
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 export const SERVER_CONFIG = typeof process !== 'undefined' ? {
   /** Server port (from PORT env var or default 5000) */
   PORT: parseInt(process.env.PORT ?? '5000', 10),
@@ -97,6 +98,7 @@ export const SERVER_CONFIG = typeof process !== 'undefined' ? {
  * Settings for API rate limiting to prevent abuse
  * Only available in Node.js environment (not in browser)
  */
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 export const RATE_LIMIT_CONFIG = typeof process !== 'undefined' ? {
   /** Time window for rate limiting (15 minutes) */
   WINDOW_MS: parseInt(process.env.RATE_LIMIT_WINDOW_MS ?? '900000', 10),

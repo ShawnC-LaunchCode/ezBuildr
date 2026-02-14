@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { eq, and } from 'drizzle-orm';
+import { eq, _and } from 'drizzle-orm';
 
 import { templates, sections, workflows } from '@shared/schema';
 

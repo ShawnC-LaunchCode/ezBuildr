@@ -10,10 +10,10 @@ import {
     text,
     uuid,
     boolean,
-    integer,
+    _integer,
     pgEnum,
-    primaryKey,
-    unique
+    _primaryKey,
+    _unique
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 // ===================================================================

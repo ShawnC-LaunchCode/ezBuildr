@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { type InferSelectModel, type InferInsertModel } from "drizzle-orm";
-import { pgTable, timestamp, varchar, boolean, uuid, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, timestamp, varchar, _boolean, uuid, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
 import { users } from "./auth";

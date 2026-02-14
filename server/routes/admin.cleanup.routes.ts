@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { logger } from '../logger';
 import { isAdmin } from '../middleware/adminAuth';
 import { hybridAuth } from '../middleware/auth';
@@ -49,6 +50,7 @@ export function registerAdminCleanupRoutes(app: Express): void {
    */
   app.get('/api/admin/cleanup/placeholder-users/stats', hybridAuth, isAdmin, asyncHandler(async (req: Request, res: Response) => {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const adminUser = (req as any).adminUser;
       if (!adminUser) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -60,6 +62,7 @@ export function registerAdminCleanupRoutes(app: Express): void {
 
       res.json(stats);
     } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       logger.error({ error, adminId: (req as any).adminUser?.id }, 'Error getting placeholder stats');
       res.status(500).json({
         message: 'Failed to get placeholder user statistics',

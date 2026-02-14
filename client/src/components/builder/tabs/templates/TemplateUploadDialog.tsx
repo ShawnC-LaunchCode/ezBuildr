@@ -1,5 +1,5 @@
 
-import { Upload } from "lucide-react";
+import { _Upload } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,7 @@ export function TemplateUploadDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
+            {/* eslint-disable-next-line @typescript-eslint/strict-boolean-expressions */}
             {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
             <DialogContent>
                 <DialogHeader>

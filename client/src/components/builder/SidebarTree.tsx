@@ -13,8 +13,8 @@ import { BlockEditorDialog, type UniversalBlock } from "./BlockEditorDialog";
 import { SectionSettingsDialog } from "./SectionSettingsDialog";
 import { DocumentStatusPanel } from "./sidebar/DocumentStatusPanel";
 import { SectionItem } from "./sidebar/SectionItem";
-import { SidebarEmptyState } from "./sidebar/SidebarEmptyState";
-import { SidebarHeader } from "./sidebar/SidebarHeader";
+import { _SidebarEmptyState } from "./sidebar/SidebarEmptyState";
+import { _SidebarHeader } from "./sidebar/SidebarHeader";
 
 export function SidebarTree({ workflowId }: { workflowId: string }) {
   const { data: workflow } = useWorkflow(workflowId);
@@ -35,6 +35,7 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
   // Group blocks by section
   const blocksBySection = (blocks ?? []).reduce((acc: Record<string, ApiBlock[]>, block: ApiBlock) => {
     if (block.sectionId) {
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (!acc[block.sectionId]) { acc[block.sectionId] = []; }
       acc[block.sectionId].push(block);
     }

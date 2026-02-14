@@ -4,7 +4,8 @@
  * Wrapper around console.* with log levels, context, and production filtering.
  */
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+// eslint-disable-next-line @typescript-eslint/naming-convention
+type _LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 interface LoggerConfig {
     module: string;
@@ -25,23 +26,33 @@ class Logger {
         return `[${this.module}] ${message}`;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-function-return-type
     debug(message: string, ...args: any[]) {
+        // eslint-disable-next-line no-console
         if (this.isDevelopment) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, no-console
             console.debug(this.formatMessage(message), ...args);
         }
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-function-return-type
     info(message: string, ...args: any[]) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         console.info(this.formatMessage(message), ...args);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-function-return-type
     warn(message: string, ...args: any[]) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         console.warn(this.formatMessage(message), ...args);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-function-return-type
     error(message: string, ...args: any[]) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         console.error(this.formatMessage(message), ...args);
     }
 }
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const createLogger = (config: LoggerConfig) => new Logger(config);

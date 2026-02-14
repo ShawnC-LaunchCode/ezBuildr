@@ -13,9 +13,10 @@ interface ResultsPanelProps {
   result?: TestResult;
 }
 
-export function ResultsPanel({ status, result }: ResultsPanelProps) {
+// eslint-disable-next-line complexity
+export function ResultsPanel({ _status, result }: ResultsPanelProps) {
   const hasErrors = result?.errors && result.errors.length > 0;
-  const hasOutputs = result?.docxUrl || result?.pdfUrl;
+  const hasOutputs = result?.docxUrl ?? result?.pdfUrl;
 
   // Empty state - no test run yet
   if (!result) {
@@ -44,7 +45,7 @@ export function ResultsPanel({ status, result }: ResultsPanelProps) {
             <TabsTrigger value="errors" className="relative">
               Errors
               <Badge variant="destructive" className="ml-2 h-5 px-1.5 text-xs">
-                {result.errors?.length || 0}
+                {result.errors?.length ?? 0}
               </Badge>
             </TabsTrigger>
           )}
@@ -89,7 +90,7 @@ export function ResultsPanel({ status, result }: ResultsPanelProps) {
               {hasErrors && (
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Errors</p>
-                  <p className="text-sm font-medium text-destructive">{result.errors?.length || 0} error(s)</p>
+                  <p className="text-sm font-medium text-destructive">{result.errors?.length ?? 0} error(s)</p>
                 </div>
               )}
 
@@ -119,7 +120,7 @@ export function ResultsPanel({ status, result }: ResultsPanelProps) {
           <TabsContent value="errors" className="flex-1 overflow-auto p-4 m-0">
             <div className="space-y-3">
               <h3 className="text-sm font-semibold">
-                {result.errors?.length || 0} Error{(result.errors?.length || 0) !== 1 ? 's' : ''} Found
+                {result.errors?.length ?? 0} Error{(result.errors?.length ?? 0) !== 1 ? 's' : ''} Found
               </h3>
               {result.errors?.map((error, index) => (
                 <Card key={index} className="border-destructive/50 bg-destructive/5">

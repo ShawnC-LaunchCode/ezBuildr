@@ -81,6 +81,7 @@ export function useAiConversation(
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialPrompt, messages.length]);
 
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const buildFullMessage = (text: string, files: UploadedFile[]) => {
         let fullMessage = text;
         if (files.length > 0) {

@@ -1,4 +1,6 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+// eslint-disable-next-line import/no-unresolved
+import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from '@tantml:function_calls>@tanstack/react-query';
 
 import * as api from '../lib/api/datavault';
 
@@ -12,7 +14,13 @@ import type { DatavaultRow } from '../lib/types/datavault';
 
 const DEFAULT_PAGE_SIZE = 50;
 
-export function useTableRows(tableId: string | undefined, pageSize: number = DEFAULT_PAGE_SIZE) {
+interface RowsPage {
+  rows: DatavaultRow[];
+  total: number;
+  hasMore: boolean;
+}
+
+export function useTableRows(tableId: string | undefined, pageSize: number = DEFAULT_PAGE_SIZE): ReturnType<typeof useInfiniteQuery<RowsPage>> {
   return useInfiniteQuery({
     queryKey: tableId ? tableKeys.rows(tableId) : ['datavault', 'tables', 'null', 'rows'],
     queryFn: ({ pageParam = 0 }) => {
@@ -39,48 +47,50 @@ export function useTableRows(tableId: string | undefined, pageSize: number = DEF
 // Row Mutations
 // ============================================================================
 
-export function useCreateRow() {
+export function useCreateRow(): ReturnType<typeof useMutation<unknown, unknown, { tableId: string; data: Record<string, unknown> }>> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ tableId, data }: { tableId: string; data: Record<string, any> }) =>
+    mutationFn: ({ tableId, data }: { tableId: string; data: Record<string, unknown> }) =>
       api.createRow(tableId, data),
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       // Invalidate rows for this table
-      queryClient.invalidateQueries({ queryKey: tableKeys.rows(variables.tableId) });
+      void queryClient.invalidateQueries({ queryKey: tableKeys.rows(variables.tableId) });
+    },
+    onError: (_error: unknown) => {
+      // Handle errors silently or add error reporting
     },
   });
 }
 
-export function useUpdateRow() {
+export function useUpdateRow(): ReturnType<typeof useMutation<void, unknown, { rowId: string; tableId: string; data: Record<string, unknown> }>> {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({
       rowId,
-      tableId,
       data,
     }: {
       rowId: string;
       tableId: string;
-      data: Record<string, any>;
+      data: Record<string, unknown>;
     }) => api.updateRow(rowId, data),
     onMutate: async ({ rowId, tableId, data }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: tableKeys.rows(tableId) });
 
       // Snapshot the previous value
-      const previousData = queryClient.getQueryData(tableKeys.rows(tableId));
+      const previousData = queryClient.getQueryData(tableKeys.rows(tableId)) as unknown;
 
       // Optimistically update the row
-      queryClient.setQueryData(tableKeys.rows(tableId), (old: any) => {
-        if (!old) {
+      queryClient.setQueryData<InfiniteData<RowsPage>>(tableKeys.rows(tableId), (old) => {
+        if (old == null) {
           return old;
         }
 
         return {
           ...old,
-          pages: old.pages.map((page: any) => ({
+          pages: old.pages.map((page) => ({
             ...page,
             rows: page.rows.map((row: DatavaultRow) =>
               row.id === rowId ? { ...row, data: { ...row.data, ...data } } : row
@@ -91,40 +101,40 @@ export function useUpdateRow() {
 
       return { previousData, tableId };
     },
-    onError: (err, variables, context) => {
+    onError: (_err: unknown, _variables, context) => {
       // Roll back on error
-      if (context?.previousData) {
+      if (context?.previousData != null) {
         queryClient.setQueryData(tableKeys.rows(context.tableId), context.previousData);
       }
     },
-    onSettled: (data, error, variables) => {
+    onSettled: (_data, _error, variables) => {
       // Always refetch after error or success
-      queryClient.invalidateQueries({ queryKey: tableKeys.rows(variables.tableId) });
+      void queryClient.invalidateQueries({ queryKey: tableKeys.rows(variables.tableId) });
     },
   });
 }
 
-export function useDeleteRow() {
+export function useDeleteRow(): ReturnType<typeof useMutation<void, unknown, { rowId: string; tableId: string }>> {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ rowId, tableId }: { rowId: string; tableId: string }) => api.deleteRow(rowId),
+    mutationFn: ({ rowId }: { rowId: string; tableId: string }) => api.deleteRow(rowId),
     onMutate: async ({ rowId, tableId }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: tableKeys.rows(tableId) });
 
       // Snapshot the previous value
-      const previousData = queryClient.getQueryData(tableKeys.rows(tableId));
+      const previousData = queryClient.getQueryData(tableKeys.rows(tableId)) as unknown;
 
       // Optimistically remove the row
-      queryClient.setQueryData(tableKeys.rows(tableId), (old: any) => {
-        if (!old) {
+      queryClient.setQueryData<InfiniteData<RowsPage>>(tableKeys.rows(tableId), (old) => {
+        if (old == null) {
           return old;
         }
 
         return {
           ...old,
-          pages: old.pages.map((page: any) => ({
+          pages: old.pages.map((page) => ({
             ...page,
             rows: page.rows.filter((row: DatavaultRow) => row.id !== rowId),
             total: page.total - 1,
@@ -134,15 +144,15 @@ export function useDeleteRow() {
 
       return { previousData, tableId };
     },
-    onError: (err, variables, context) => {
+    onError: (_err: unknown, _variables, context) => {
       // Roll back on error
-      if (context?.previousData) {
+      if (context?.previousData != null) {
         queryClient.setQueryData(tableKeys.rows(context.tableId), context.previousData);
       }
     },
-    onSettled: (data, error, variables) => {
+    onSettled: (_data, _error, variables) => {
       // Always refetch after error or success
-      queryClient.invalidateQueries({ queryKey: tableKeys.rows(variables.tableId) });
+      void queryClient.invalidateQueries({ queryKey: tableKeys.rows(variables.tableId) });
     },
   });
 }

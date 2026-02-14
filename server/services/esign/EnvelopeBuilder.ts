@@ -13,7 +13,8 @@
  * @date December 2025
  */
 
-import path from 'path';
+// eslint-disable-next-line @typescript-eslint/naming-convention
+import _path from 'path';
 
 import type {
   IEsignProvider,
@@ -39,7 +40,7 @@ export interface BuildEnvelopeRequest {
   config: SignatureBlockConfig;
 
   /** All workflow variable values */
-  variableData: Record<string, any>;
+  variableData: Record<string, unknown>;
 
   /** Preview mode */
   preview?: boolean;
@@ -99,9 +100,9 @@ export class EnvelopeBuilder {
       signer,
       variableData,
       message,
-      expiresInDays: config.expiresInDays || 30,
+      expiresInDays: config.expiresInDays ?? 30,
       allowDecline: config.allowDecline ?? false,
-      returnUrl: returnUrl || config.redirectUrl || undefined,
+      returnUrl: returnUrl ?? config.redirectUrl ?? undefined,
       preview,
     };
 
@@ -118,7 +119,7 @@ export class EnvelopeBuilder {
    */
   private async resolveDocuments(
     documentConfigs: SignatureBlockConfig['documents'],
-    variableData: Record<string, any>
+    _variableData: Record<string, unknown>
   ): Promise<SignatureDocument[]> {
     const documents: SignatureDocument[] = [];
 
@@ -183,7 +184,7 @@ export class EnvelopeBuilder {
    */
   private buildSignerInfo(
     config: SignatureBlockConfig,
-    variableData: Record<string, any>
+    variableData: Record<string, unknown>
   ): SignerInfo {
     return {
       role: config.signerRole,
@@ -201,7 +202,7 @@ export class EnvelopeBuilder {
   /**
    * Replace {{variable}} placeholders with actual values
    */
-  private substituteVariables(template: string, variableData: Record<string, any>): string {
+  private substituteVariables(template: string, variableData: Record<string, unknown>): string {
     if (!template) {return template;}
 
     let result = template;

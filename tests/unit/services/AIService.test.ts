@@ -94,7 +94,7 @@ vi.mock('../../../server/services/ai/WorkflowLogicService', () => {
 vi.mock('@google/generative-ai', () => {
     return {
         GoogleGenerativeAI: class {
-            constructor(apiKey: string) { }
+            constructor(_apiKey: string) { }
             getGenerativeModel() {
                 return {
                     generateContent: mockGenerateContent

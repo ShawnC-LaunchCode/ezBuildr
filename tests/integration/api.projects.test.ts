@@ -106,7 +106,7 @@ describe.sequential("Projects API Integration Tests", () => {
     });
   });
   describe("GET /api/projects", () => {
-    let projectId: string;
+    let _projectId: string;
     beforeEach(async () => {
       // Create a test project
       const response = await request(baseURL)

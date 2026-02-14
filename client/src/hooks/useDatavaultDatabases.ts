@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../lib/api/datavault';
 
 import type {
-  DatavaultDatabase,
+  _DatavaultDatabase,
   CreateDatabaseInput,
   UpdateDatabaseInput,
   DatavaultScopeType,
@@ -26,6 +26,7 @@ export const datavaultKeys = {
 // Database Queries
 // ============================================================================
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useDatabases(params?: {
   scopeType?: DatavaultScopeType;
   scopeId?: string;
@@ -38,6 +39,7 @@ export function useDatabases(params?: {
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useDatabase(id: string | undefined) {
   return useQuery({
     queryKey: id ? datavaultKeys.database(id) : ['datavault', 'databases', 'null'],
@@ -51,6 +53,7 @@ export function useDatabase(id: string | undefined) {
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useDatabaseTables(databaseId: string | undefined) {
   return useQuery({
     queryKey: databaseId
@@ -70,6 +73,7 @@ export function useDatabaseTables(databaseId: string | undefined) {
 // Database Mutations
 // ============================================================================
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useCreateDatabase() {
   const queryClient = useQueryClient();
 
@@ -77,11 +81,13 @@ export function useCreateDatabase() {
     mutationFn: (input: CreateDatabaseInput) => api.createDatabase(input),
     onSuccess: () => {
       // Invalidate all database queries
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: datavaultKeys.databases() });
     },
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useUpdateDatabase() {
   const queryClient = useQueryClient();
 
@@ -90,12 +96,15 @@ export function useUpdateDatabase() {
       api.updateDatabase(id, input),
     onSuccess: (data) => {
       // Invalidate the specific database and all database lists
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: datavaultKeys.database(data.id) });
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: datavaultKeys.databases() });
     },
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useDeleteDatabase() {
   const queryClient = useQueryClient();
 
@@ -105,8 +114,10 @@ export function useDeleteDatabase() {
       // Remove the specific database from cache
       queryClient.removeQueries({ queryKey: datavaultKeys.database(id) });
       // Invalidate all database lists
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: datavaultKeys.databases() });
       // Invalidate tables list since deleted database's tables will be orphaned
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: ['datavault', 'tables'] });
     },
   });

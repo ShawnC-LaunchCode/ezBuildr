@@ -6,6 +6,7 @@ export type FlushFunction = () => void;
  * Hook to coordinate saves across multiple components
  * Components can register flush functions that will be called when a manual save is triggered
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useSaveCoordinator() {
   const flushFunctionsRef = useRef<Map<string, FlushFunction>>(new Map());
 

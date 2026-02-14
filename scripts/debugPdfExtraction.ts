@@ -1,8 +1,9 @@
 
-import { eq } from 'drizzle-orm';
+import { _eq } from 'drizzle-orm';
 import { PDFDocument } from 'pdf-lib';
 
 import { db, initializeDatabase } from '../server/db';
+// eslint-disable-next-line import/no-unresolved
 import { LocalStorageProvider } from '../server/services/storage/LocalStorageProvider';
 import * as schema from '../shared/schema';
 

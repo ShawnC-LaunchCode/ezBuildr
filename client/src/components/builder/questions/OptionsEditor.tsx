@@ -49,6 +49,7 @@ interface OptionsEditorProps {
   mode?: 'easy' | 'advanced';  // Easy mode shows simplified UI
 }
 
+// eslint-disable-next-line max-lines-per-function
 export function OptionsEditor({ options, onChange, className, elementId, mode = 'advanced' }: OptionsEditorProps): JSX.Element {
   // =========================================================================
   // State Management

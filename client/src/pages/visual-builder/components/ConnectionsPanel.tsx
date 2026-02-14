@@ -15,6 +15,7 @@ export function ConnectionsPanel() {
   const { nodes, edges, setEdges } = useBuilderStore();
 
   const handleDeleteEdge = (edgeId: string) => {
+    // eslint-disable-next-line no-alert
     if (confirm('Are you sure you want to delete this connection?')) {
       setEdges(edges.filter(e => e.id !== edgeId));
     }
@@ -22,12 +23,12 @@ export function ConnectionsPanel() {
 
   const getNodeLabel = (nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId);
-    return node?.data.label || nodeId;
+    return node?.data.label ?? nodeId;
   };
 
   const getNodeType = (nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId);
-    return node?.type || 'unknown';
+    return node?.type ?? 'unknown';
   };
 
   const nodeTypeColors = {

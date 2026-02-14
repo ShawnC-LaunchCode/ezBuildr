@@ -34,6 +34,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { brandingAPI, type TenantDomain } from '@/lib/vault-api';
+// eslint-disable-next-line max-lines-per-function
 export default function DomainSettingsPage() {
   const { id: projectId } = useParams<{ id: string }>();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -47,6 +48,7 @@ export default function DomainSettingsPage() {
   // Load domains
   useEffect(() => {
     if (tenantId) {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       loadDomains();
     }
   }, [tenantId]);
@@ -75,12 +77,14 @@ export default function DomainSettingsPage() {
         title: 'Success',
         description: 'Domain added successfully',
       });
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       loadDomains();
       setIsAddModalOpen(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to add domain:', error);
       toast({
         title: 'Error',
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         description: error.message || 'Failed to add domain',
         variant: 'destructive',
       });
@@ -96,12 +100,14 @@ export default function DomainSettingsPage() {
         title: 'Success',
         description: 'Domain removed successfully',
       });
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       loadDomains();
       setDomainToDelete(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to delete domain:', error);
       toast({
         title: 'Error',
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         description: error.message || 'Failed to remove domain',
         variant: 'destructive',
       });
@@ -198,7 +204,7 @@ export default function DomainSettingsPage() {
                   </span>
                 </CardTitle>
                 <CardDescription>
-                  Domains configured for your tenant's intake portals
+                  Domains configured for your tenant&apos;s intake portals
                 </CardDescription>
               </CardHeader>
               <CardContent>

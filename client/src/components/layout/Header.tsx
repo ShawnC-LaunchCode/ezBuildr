@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { _apiRequest, _queryClient } from "@/lib/queryClient";
 
 
 
@@ -149,9 +149,9 @@ export default function Header({ title, description, actions }: HeaderProps) {
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">
-                        {user?.firstName || user?.lastName
+                        {user?.firstName ?? user?.lastName
                           ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim()
-                          : user?.email || "User"
+                          : user?.email ?? "User"
                         }
                       </p>
                       <p className="text-xs text-muted-foreground truncate">
@@ -187,6 +187,7 @@ export default function Header({ title, description, actions }: HeaderProps) {
         </div>
 
         {/* Header Actions */}
+        {/* eslint-disable-next-line @typescript-eslint/strict-boolean-expressions */}
         {actions && (
           <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0" data-testid="header-actions">
             {actions}

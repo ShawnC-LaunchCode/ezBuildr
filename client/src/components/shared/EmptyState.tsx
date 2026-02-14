@@ -15,6 +15,7 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   icon: Icon,
   title,
   description,
@@ -31,6 +32,7 @@ export function EmptyState({
         </div>
         <h3 className="text-lg font-medium text-foreground mb-2">{title}</h3>
         <p className="text-muted-foreground mb-4">{description}</p>
+        {/* eslint-disable-next-line @typescript-eslint/strict-boolean-expressions */}
         {action && <div className="mt-4">{action}</div>}
       </CardContent>
     </Card>

@@ -80,7 +80,7 @@ export function ExpressionToolbar({ workflowId, nodeId, onInsert }: ExpressionTo
   const handleInsertVariable = (varName: string) => {
     onInsert(varName);
   };
-  const handleInsertHelper = (helperName: string, signature: string) => {
+  const handleInsertHelper = (helperName: string, _signature: string) => {
     // Create simple insert text (without snippet placeholders for simple click-insert)
     const insertText = `${helperName}()`;
     onInsert(insertText);

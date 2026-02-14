@@ -148,7 +148,7 @@ describe('OAuth2 Token Refresh Flow', () => {
     });
     it('should return 401 for expired refresh token', async () => {
       // Create an expired token
-      const expiredTokenRecord = await db.insert(refreshTokens).values({
+      const _expiredTokenRecord = await db.insert(refreshTokens).values({
         token: 'expired-token-hash',
         userId: testUserId,
         expiresAt: new Date(Date.now() - 1000), // Expired 1 second ago
@@ -298,11 +298,11 @@ describe('OAuth2 Token Refresh Flow', () => {
     });
     it('should support multiple active refresh tokens per user', async () => {
       // Create additional refresh tokens (simulating multiple devices)
-      const token2 = await authService.createRefreshToken(testUserId, {
+      const _token2 = await authService.createRefreshToken(testUserId, {
         ip: '192.168.1.1',
         userAgent: 'Mobile App',
       });
-      const token3 = await authService.createRefreshToken(testUserId, {
+      const _token3 = await authService.createRefreshToken(testUserId, {
         ip: '10.0.0.1',
         userAgent: 'Tablet Browser',
       });

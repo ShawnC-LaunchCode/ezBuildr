@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import * as decoding from 'lib0/decoding';
 import * as encoding from 'lib0/encoding';
 import { Awareness } from 'y-protocols/awareness';
@@ -45,7 +46,7 @@ export class WebSocketProvider {
   ) {
     this.doc = doc;
     this.roomname = roomname;
-    this.awareness = options.awareness || new Awareness(doc);
+    this.awareness = options.awareness ?? new Awareness(doc);
 
     // Build WebSocket URL with room parameter
     const url = new URL(serverUrl);
@@ -172,8 +173,10 @@ export class WebSocketProvider {
 
     switch (messageType) {
       case MESSAGE_SYNC:
+        // eslint-disable-next-line no-case-declarations
         const encoder = encoding.createEncoder();
         encoding.writeVarUint(encoder, MESSAGE_SYNC);
+        // eslint-disable-next-line no-case-declarations
         const syncMessageType = syncProtocol.readSyncMessage(decoder, encoder, this.doc, this);
 
         if (encoding.length(encoder) > 1) {

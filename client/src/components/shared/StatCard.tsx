@@ -25,6 +25,7 @@ const colorClasses: Record<ColorVariant, { bg: string; text: string }> = {
 export function StatCard({
   label,
   value,
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   icon: Icon,
   colorVariant = "primary",
   testId

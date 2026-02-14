@@ -6,7 +6,7 @@ try {
     // Sort files by error count
     const files = report
         .map(file => ({
-            filePath: file.filePath.replace(process.cwd() + '/', ''), // Relative path
+            filePath: file.filePath.replace(`${process.cwd()  }/`, ''), // Relative path
             errorCount: file.errorCount,
             warningCount: file.warningCount,
             messages: file.messages

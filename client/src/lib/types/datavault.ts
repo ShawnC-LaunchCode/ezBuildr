@@ -81,7 +81,7 @@ export interface TableSchema {
 export interface DatavaultRow {
   id: string;
   tableId: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   createdBy: string | null;
   updatedBy: string | null;
   createdAt: string;

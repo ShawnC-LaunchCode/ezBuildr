@@ -52,13 +52,14 @@ export function ConditionRow({
   const selectedVariable = variables.find(
     (v) => v.id === condition.variable || v.alias === condition.variable
   );
-  const stepType: StepType = selectedVariable?.type || "short_text";
+  const stepType: StepType = selectedVariable?.type ?? "short_text";
   const operators = getOperatorsForStepType(stepType);
   const currentOperator = getOperatorConfig(stepType, condition.operator);
 
   // Group variables by section for the dropdown
   const variablesBySection = variables.reduce((acc, variable) => {
     const sectionId = variable.sectionId;
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!acc[sectionId]) {
       acc[sectionId] = {
         title: variable.sectionTitle,
@@ -77,13 +78,13 @@ export function ConditionRow({
 
   const getVariableLabel = (val: string) => {
     const v = variables.find((v) => v.id === val || v.alias === val);
-    return v ? (v.alias || v.title) : val;
+    return v ? (v.alias ?? v.title) : val;
   };
 
   // Handlers
   const handleVariableChange = (value: string) => {
     const newVariable = variables.find((v) => v.id === value || v.alias === value);
-    const newStepType: StepType = newVariable?.type || "short_text";
+    const newStepType: StepType = newVariable?.type ?? "short_text";
     const newOperators = getOperatorsForStepType(newStepType);
 
     // Check if current operator is valid for new type, otherwise reset
@@ -134,9 +135,9 @@ export function ConditionRow({
             <SelectGroup key={sectionId}>
               <SelectLabel className="text-xs font-semibold text-muted-foreground">{title}</SelectLabel>
               {sectionVars.map((v) => (
-                <SelectItem key={v.id} value={v.alias || v.id}>
+                <SelectItem key={v.id} value={v.alias ?? v.id}>
                   <div className="flex flex-col text-left">
-                    <span>{v.alias || v.title}</span>
+                    <span>{v.alias ?? v.title}</span>
                     {v.alias && (
                       <span className="text-[10px] text-muted-foreground">{v.title}</span>
                     )}
@@ -152,7 +153,7 @@ export function ConditionRow({
       <Select value={condition.operator} onValueChange={handleOperatorChange}>
         <SelectTrigger className="w-[160px] text-sm bg-background">
           <SelectValue>
-            {currentOperator?.label || condition.operator}
+            {currentOperator?.label ?? condition.operator}
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -165,6 +166,7 @@ export function ConditionRow({
       </Select>
 
       {/* Value Input */}
+      {/* eslint-disable-next-line @typescript-eslint/strict-boolean-expressions */}
       {currentOperator?.needsValue && currentOperator && (
         <ConditionValueInput
           condition={condition}

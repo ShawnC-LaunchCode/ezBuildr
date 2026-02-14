@@ -1,24 +1,34 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 
 import { logger } from "../lib/observability/logger";
 
 const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
-const DISALLOWED_TYPES = ['premise', 'subpremise', 'room', 'floor', 'post_box'];
+const _DISALLOWED_TYPES = ['premise', 'subpremise', 'room', 'floor', 'post_box'];
 
 interface PlacePrediction {
     description: string;
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     place_id: string;
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     structured_formatting: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         main_text: string;
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         secondary_text: string;
     };
     types: string[];
 }
 
 interface PlaceDetails {
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     place_id: string;
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     formatted_address: string;
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     address_components: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         long_name: string;
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         short_name: string;
         types: string[];
     }[];

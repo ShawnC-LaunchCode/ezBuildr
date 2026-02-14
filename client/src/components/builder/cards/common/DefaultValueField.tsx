@@ -27,6 +27,7 @@ interface DefaultValueFieldProps {
     mode?: 'easy' | 'advanced';
 }
 
+// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 export function DefaultValueField({
     stepId,
     sectionId,
@@ -36,11 +37,11 @@ export function DefaultValueField({
     mode = 'easy'
 }: DefaultValueFieldProps) {
     const updateStepMutation = useUpdateStep();
-    const { data: workflow } = useWorkflow(workflowId);
+    const { data: _workflow } = useWorkflow(workflowId);
     const { upstreamWorkflow, upstreamVariables, upstreamWorkflowId } = useIntake();
 
     const isLinkedToIntake = defaultValue !== null && defaultValue !== undefined && typeof defaultValue === 'object' && 'source' in defaultValue && defaultValue.source === 'intake';
-    const linkedVariable = isLinkedToIntake ? upstreamVariables.find(v => v.alias === (defaultValue).variable) : null;
+    const _linkedVariable = isLinkedToIntake ? upstreamVariables.find(v => v.alias === (defaultValue).variable) : null;
 
     // Local state for active tab to allow switching without committing/wiping
     const [activeTab, setActiveTab] = useState(isLinkedToIntake ? "intake" : "static");

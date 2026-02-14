@@ -21,6 +21,7 @@ describe('Collections Schema', () => {
   describe('Collection Table', () => {
     it('should have correct table name', () => {
       expect(collections).toBeDefined();
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore - accessing internal drizzle property
       expect(collections[Symbol.for('drizzle:Name')]).toBe('collections');
     });
@@ -40,6 +41,7 @@ describe('Collections Schema', () => {
   describe('CollectionField Table', () => {
     it('should have correct table name', () => {
       expect(collectionFields).toBeDefined();
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore - accessing internal drizzle property
       expect(collectionFields[Symbol.for('drizzle:Name')]).toBe('collection_fields');
     });
@@ -62,6 +64,7 @@ describe('Collections Schema', () => {
   describe('Record Table', () => {
     it('should have correct table name', () => {
       expect(records).toBeDefined();
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore - accessing internal drizzle property
       expect(records[Symbol.for('drizzle:Name')]).toBe('records');
     });
@@ -96,6 +99,7 @@ describe('Collections Schema', () => {
       ];
 
       // The enum values are stored in the enumValues property
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore - accessing internal drizzle property
       const enumValues = collectionFieldTypeEnum.enumValues;
       expect(enumValues).toEqual(expectedTypes);

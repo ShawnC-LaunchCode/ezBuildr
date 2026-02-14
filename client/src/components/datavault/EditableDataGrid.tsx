@@ -123,6 +123,7 @@ function SortableColumnHeader({ column, isDragDisabled = false, isFirst = false 
   );
 }
 
+// eslint-disable-next-line max-lines-per-function
 export function EditableDataGrid({
   columns,
   rows,

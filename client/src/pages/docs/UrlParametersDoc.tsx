@@ -9,11 +9,12 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+// eslint-disable-next-line max-lines-per-function
 export default function UrlParametersDoc() {
-  const [, navigate] = useLocation();
+  const [, _navigate] = useLocation();
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const copyToClipboard = (text: string, index: number) => {
-    navigator.clipboard.writeText(text);
+    void navigator.clipboard.writeText(text);
     setCopiedIndex(index);
     setTimeout(() => setCopiedIndex(null), 2000);
   };
@@ -86,8 +87,8 @@ export default function UrlParametersDoc() {
             </div>
             <div className="bg-muted p-4 rounded-lg">
               <p className="text-sm">
-                <strong>Example:</strong> If a step has default value "Guest" but the URL includes <code className="bg-background px-1 py-0.5 rounded">?firstName=John</code>,
-                the field will show "John" instead of "Guest".
+                <strong>Example:</strong> If a step has default value &quot;Guest&quot; but the URL includes <code className="bg-background px-1 py-0.5 rounded">?firstName=John</code>,
+                the field will show &quot;John&quot; instead of &quot;Guest&quot;.
               </p>
             </div>
           </CardContent>
@@ -102,7 +103,7 @@ export default function UrlParametersDoc() {
             <ol className="list-decimal list-inside space-y-3 text-sm">
               <li>Open your workflow in the builder</li>
               <li>Select a step/question</li>
-              <li>In the Properties panel (right side), find the <strong>"Default Value"</strong> field</li>
+              <li>In the Properties panel (right side), find the <strong>&quot;Default Value&quot;</strong> field</li>
               <li>Enter the value you want to appear by default</li>
               <li>The value will be pre-filled when someone starts the workflow</li>
             </ol>
@@ -110,10 +111,10 @@ export default function UrlParametersDoc() {
               <p className="text-xs text-muted-foreground mb-2">Supported for all step types:</p>
               <ul className="text-xs text-muted-foreground space-y-1">
                 <li>• <strong>Text fields:</strong> Any string value</li>
-                <li>• <strong>Yes/No:</strong> "yes", "no", "true", or "false"</li>
+                <li>• <strong>Yes/No:</strong> &quot;yes&quot;, &quot;no&quot;, &quot;true&quot;, or &quot;false&quot;</li>
                 <li>• <strong>Radio:</strong> Exact text of one option</li>
-                <li>• <strong>Multiple Choice:</strong> JSON array like ["Option 1", "Option 2"]</li>
-                <li>• <strong>Date/Time:</strong> ISO format like "2025-01-15" or "2025-01-15T14:30"</li>
+                <li>• <strong>Multiple Choice:</strong> JSON array like [&quot;Option 1&quot;, &quot;Option 2&quot;]</li>
+                <li>• <strong>Date/Time:</strong> ISO format like &quot;2025-01-15&quot; or &quot;2025-01-15T14:30&quot;</li>
               </ul>
             </div>
           </CardContent>
@@ -134,7 +135,7 @@ export default function UrlParametersDoc() {
             <div>
               <h3 className="font-semibold mb-2">Parameter Names</h3>
               <p className="text-sm text-muted-foreground mb-2">
-                You can use either the step's <strong>alias</strong> (recommended) or <strong>step ID</strong> as the parameter name:
+                You can use either the step&apos;s <strong>alias</strong> (recommended) or <strong>step ID</strong> as the parameter name:
               </p>
               <ul className="text-sm space-y-1 text-muted-foreground">
                 <li>• <strong>Alias:</strong> <code className="bg-background px-1 py-0.5 rounded">?firstName=John</code> (human-readable, set in builder)</li>
@@ -199,13 +200,13 @@ export default function UrlParametersDoc() {
                 ?tags=%5B%22urgent%22%2C%22follow-up%22%5D
               </code>
               <p className="text-xs text-muted-foreground mt-1">
-                This decodes to: <code className="bg-background px-1 py-0.5 rounded">?tags=["urgent","follow-up"]</code>
+                This decodes to: <code className="bg-background px-1 py-0.5 rounded">?tags=[&quot;urgent&quot;,&quot;follow-up&quot;]</code>
               </p>
             </div>
             <div>
               <h3 className="font-semibold mb-2">3. Reserved Parameters</h3>
               <p className="text-muted-foreground">
-                These parameters are filtered out and won't pre-fill steps:
+                These parameters are filtered out and won&apos;t pre-fill steps:
               </p>
               <code className="block bg-muted p-2 rounded text-xs mt-2">
                 ref, source, utm_source, utm_medium, utm_campaign
@@ -218,8 +219,8 @@ export default function UrlParametersDoc() {
               </p>
               <ol className="list-decimal list-inside mt-2 space-y-1 text-muted-foreground">
                 <li>Select a step in the builder</li>
-                <li>Find the "Alias" field in the Properties panel</li>
-                <li>Enter a unique name like "firstName" or "companyName"</li>
+                <li>Find the &quot;Alias&quot; field in the Properties panel</li>
+                <li>Enter a unique name like &quot;firstName&quot; or &quot;companyName&quot;</li>
                 <li>Use this name in your URL parameters</li>
               </ol>
             </div>

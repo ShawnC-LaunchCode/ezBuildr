@@ -16,6 +16,7 @@ const logger = createLogger({ module: 'acl-auth' });
 export function requireProjectRole(
   minRole: Exclude<AccessRole, "none">
 ): RequestHandler {
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       // Expecting userId to be set by upstream auth middleware (e.g. hybridAuth)
@@ -77,6 +78,7 @@ export function requireProjectRole(
 export function requireWorkflowRole(
   minRole: Exclude<AccessRole, "none">
 ): RequestHandler {
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as { userId?: string }).userId;

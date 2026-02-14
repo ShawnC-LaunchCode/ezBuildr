@@ -10,10 +10,12 @@
  */
 export function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   // Remove # if present
+  // eslint-disable-next-line no-param-reassign
   hex = hex.replace(/^#/, '');
 
   // Parse 3-digit or 6-digit hex
   if (hex.length === 3) {
+    // eslint-disable-next-line no-param-reassign
     hex = hex
       .split('')
       .map((char) => char + char)
@@ -36,6 +38,7 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } | nul
  * Convert RGB to hex color
  */
 export function rgbToHex(r: number, g: number, b: number): string {
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const toHex = (n: number) => {
     const hex = Math.round(Math.max(0, Math.min(255, n))).toString(16);
     return hex.length === 1 ? `0${  hex}` : hex;
@@ -199,9 +202,11 @@ export function isValidHexColor(hex: string): boolean {
  * Normalize hex color (ensure it has # prefix and is 6 digits)
  */
 export function normalizeHexColor(hex: string): string {
+  // eslint-disable-next-line no-param-reassign
   hex = hex.replace(/^#/, '');
 
   if (hex.length === 3) {
+    // eslint-disable-next-line no-param-reassign
     hex = hex
       .split('')
       .map((char) => char + char)

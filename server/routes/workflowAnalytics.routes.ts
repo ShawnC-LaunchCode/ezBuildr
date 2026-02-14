@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/strict-boolean-expressions */
 /**
  * Workflow Analytics API Routes (Stage 11 + Stage 15)
  *
@@ -62,9 +63,13 @@ interface RunsPerDayRow {
 }
 
 interface DocStatsRow {
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   pdf_success: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   pdf_failed: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   docx_success: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   docx_failed: string;
 }
 // ===================================================================
@@ -228,7 +233,7 @@ router.get('/sli', hybridAuth, asyncHandler(async (req, res) => {
     });
     res.json({
       current: sliResult,
-      config: config || {
+      config: config ?? {
         targetSuccessPct: 99,
         targetP95Ms: 5000,
         errorBudgetPct: 1,
@@ -313,6 +318,7 @@ router.put('/sli-config/:id', hybridAuth, asyncHandler(async (req, res) => {
 router.post('/events', asyncHandler(async (req, res) => {
   try {
     // We'll trust the body for now, but validation is critical
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     await analyticsService.recordEvent(req.body);
     res.json({ success: true });
   } catch (error) {
@@ -382,7 +388,7 @@ router.get('/:workflowId/health', hybridAuth, asyncHandler(async (req, res) => {
 
     // Default window: 30 days
     const window = (req.query.window as string) ?? '30d';
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- window string is validated below
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- window string is validated below
     const windowMs = parseWindow(window as any) ?? parseWindow('30d');
     const windowStart = new Date(Date.now() - windowMs);
 
@@ -391,6 +397,7 @@ router.get('/:workflowId/health', hybridAuth, asyncHandler(async (req, res) => {
       gte(workflowRunMetrics.createdAt, windowStart)
     ];
 
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (versionId && typeof versionId === 'string') {
       metricsConditions.push(eq(workflowRunMetrics.versionId, versionId));
     }

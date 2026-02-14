@@ -9,25 +9,28 @@ import { useProjectWorkflows } from "@/lib/vault-hooks";
 import { evaluateConditionExpression } from "@shared/conditionEvaluator";
 interface AssignmentRule {
     targetWorkflowId: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     condition: any;
     enabled: boolean;
 }
 interface IntakeAssignmentSectionProps {
     workflow: ApiWorkflow;
-    runValues: Record<string, any>;
+    runValues: Record<string, unknown>;
     onComplete?: () => void;
 }
-export function IntakeAssignmentSection({ workflow, runValues, onComplete }: IntakeAssignmentSectionProps) {
+export function IntakeAssignmentSection({ workflow, runValues, _onComplete }: IntakeAssignmentSectionProps) {
     // Fetch candidate workflows to display their names/details
-    const { data: projectWorkflows } = useProjectWorkflows(workflow.projectId || undefined);
+    const { data: projectWorkflows } = useProjectWorkflows(workflow.projectId ?? undefined);
     // Evaluate assignments
     const assignedWorkflows = useMemo(() => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         if (!workflow.intakeConfig?.assignments) {
             return [];
         }
         if (!projectWorkflows) {
             return [];
         }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         const assignments = workflow.intakeConfig.assignments as AssignmentRule[];
         return assignments
             .filter(rule => {
@@ -41,6 +44,7 @@ export function IntakeAssignmentSection({ workflow, runValues, onComplete }: Int
                 // Evaluate condition against run values
                 // Note: evaluateConditionExpression generic might need 'any' cast if strict types aren't matching
                 try {
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
                     return evaluateConditionExpression(rule.condition, runValues);
                 } catch (e) {
                     console.error("Failed to evaluate assignment rule", e);
@@ -78,7 +82,7 @@ export function IntakeAssignmentSection({ workflow, runValues, onComplete }: Int
                 </h3>
                 {assignedWorkflows.length > 0 ? (
                     <div className="grid gap-4">
-                        {assignedWorkflows.map(({ targetWorkflow }, index) => (
+                        {assignedWorkflows.map(({ targetWorkflow }, _index) => (
                             <Card key={targetWorkflow!.id} className="hover:border-secondary transition-colors">
                                 <CardContent className="p-4 flex items-center justify-between">
                                     <div className="flex items-center gap-4">
@@ -88,7 +92,7 @@ export function IntakeAssignmentSection({ workflow, runValues, onComplete }: Int
                                         <div>
                                             <h4 className="font-semibold">{targetWorkflow!.title}</h4>
                                             <p className="text-sm text-muted-foreground line-clamp-1">
-                                                {targetWorkflow!.description || "No description"}
+                                                {targetWorkflow!.description ?? "No description"}
                                             </p>
                                         </div>
                                     </div>

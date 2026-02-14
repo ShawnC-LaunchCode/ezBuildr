@@ -7,13 +7,13 @@ import type { DynamicOptionsConfig, ChoiceOption } from "@shared/types/stepConfi
  * Uses the shared list pipeline for consistent behavior with List Tools blocks
  */
 export function generateOptionsFromList(
-  listData: any,
+  listData: unknown,
   config: DynamicOptionsConfig,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ): ChoiceOption[] {
   if (config.type !== 'list') {return [];}
 
-  const { listVariable, labelPath, valuePath, labelTemplate, groupByPath, transform, includeBlankOption, blankLabel } = config;
+  const { labelPath, valuePath, labelTemplate, groupByPath, transform, includeBlankOption, blankLabel } = config;
 
   // Normalize input to ListVariable
   let inputList: ListVariable;
@@ -40,17 +40,17 @@ export function generateOptionsFromList(
 
     // Label (display text)
     let label = '';
-    if (labelTemplate) {
+    if (labelTemplate != null) {
       // Build column mapping (Name -> ID)
       const columnMap = new Map<string, string>();
-      if (inputList.columns) {
+      if (inputList.columns != null) {
         inputList.columns.forEach(col => {
           columnMap.set(col.name, col.id);
         });
       }
 
       // Template mode: Replace {FieldName} with values
-      label = labelTemplate.replace(/\{([^}]+)\}/g, (_, fieldName) => {
+      label = labelTemplate.replace(/\{([^}]+)\}/g, (_, fieldName: string) => {
         // Try direct field name first, then look up ID from mapping
         let val = getFieldValue(row, fieldName);
         if (val === undefined && columnMap.has(fieldName)) {
@@ -65,7 +65,7 @@ export function generateOptionsFromList(
     }
 
     // Group (optional)
-    const groupValue = groupByPath ? getFieldValue(row, groupByPath) : undefined;
+    const groupValue = groupByPath != null ? getFieldValue(row, groupByPath) : undefined;
 
     return {
       id: row.id || alias,
@@ -138,62 +138,75 @@ export function getAvailableFieldPaths(
   }));
 }
 
+interface TransformConfig {
+  filters?: {
+    rules: Array<{ fieldPath: string }>;
+  };
+  sort?: Array<{ fieldPath: string }>;
+  dedupe?: {
+    fieldPath: string;
+  };
+  select?: string[];
+}
+
 /**
  * Validate a full transform configuration
  */
 export function validateTransformConfig(
-  transform: any,
+  transform: unknown,
   sourceList: ListVariable | undefined
 ): Array<{ field: string; message: string }> {
   const errors: Array<{ field: string; message: string }> = [];
 
-  if (!transform || !sourceList) {return errors;}
+  if (transform == null || sourceList == null) {return errors;}
+
+  const typedTransform = transform as TransformConfig;
 
   // Validate filter field paths
-  if (transform.filters?.rules) {
-    transform.filters.rules.forEach((rule: any, index: number) => {
+  if (typedTransform.filters?.rules != null) {
+    typedTransform.filters.rules.forEach((rule, index: number) => {
       const validation = validateFieldPath(rule.fieldPath, sourceList);
       if (!validation.valid) {
         errors.push({
           field: `filters.rules[${index}].fieldPath`,
-          message: validation.message || 'Invalid field path'
+          message: validation.message ?? 'Invalid field path'
         });
       }
     });
   }
 
   // Validate sort field paths
-  if (transform.sort) {
-    transform.sort.forEach((sortKey: any, index: number) => {
+  if (typedTransform.sort != null) {
+    typedTransform.sort.forEach((sortKey, index: number) => {
       const validation = validateFieldPath(sortKey.fieldPath, sourceList);
       if (!validation.valid) {
         errors.push({
           field: `sort[${index}].fieldPath`,
-          message: validation.message || 'Invalid field path'
+          message: validation.message ?? 'Invalid field path'
         });
       }
     });
   }
 
   // Validate dedupe field path
-  if (transform.dedupe?.fieldPath) {
-    const validation = validateFieldPath(transform.dedupe.fieldPath, sourceList);
+  if (typedTransform.dedupe?.fieldPath != null) {
+    const validation = validateFieldPath(typedTransform.dedupe.fieldPath, sourceList);
     if (!validation.valid) {
       errors.push({
         field: 'dedupe.fieldPath',
-        message: validation.message || 'Invalid field path'
+        message: validation.message ?? 'Invalid field path'
       });
     }
   }
 
   // Validate select field paths
-  if (transform.select) {
-    transform.select.forEach((fieldPath: string, index: number) => {
+  if (typedTransform.select != null) {
+    typedTransform.select.forEach((fieldPath: string, index: number) => {
       const validation = validateFieldPath(fieldPath, sourceList);
       if (!validation.valid) {
         errors.push({
           field: `select[${index}]`,
-          message: validation.message || 'Invalid field path'
+          message: validation.message ?? 'Invalid field path'
         });
       }
     });

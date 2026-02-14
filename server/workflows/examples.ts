@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention, @typescript-eslint/explicit-function-return-type */
 /**
  * Condition System Examples
  *

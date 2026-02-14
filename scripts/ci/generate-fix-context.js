@@ -79,7 +79,7 @@ function gitCommand(cmd) {
 /**
  * Get git diff for changed files
  */
-function getGitDiff(maxFiles = 5) {
+function getGitDiff(_maxFiles = 5) {
   const sha = process.env.GITHUB_SHA;
   if (!sha) {return null;}
 

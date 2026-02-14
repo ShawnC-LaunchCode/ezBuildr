@@ -15,6 +15,7 @@ interface TransformSummaryProps {
   className?: string;
 }
 
+// eslint-disable-next-line complexity
 export function TransformSummary({ config, className }: TransformSummaryProps) {
   if (!config) {
     return null;
@@ -80,6 +81,7 @@ export function TransformSummary({ config, className }: TransformSummaryProps) {
         )}
 
         {/* Dedupe */}
+        {/* eslint-disable-next-line @typescript-eslint/strict-boolean-expressions */}
         {hasDedupe && dedupe && (
           <Badge variant="outline" className="text-[10px] bg-pink-50/50 border-pink-200 text-pink-700 gap-1">
             <Hash className="h-3 w-3" />

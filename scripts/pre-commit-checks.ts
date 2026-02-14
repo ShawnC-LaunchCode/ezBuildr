@@ -12,7 +12,7 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, _readFileSync } from 'fs';
 import path from 'path';
 
 interface CheckResult {

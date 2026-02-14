@@ -34,8 +34,8 @@ export function BrandingSettings({ tenantId }: BrandingSettingsProps) {
     if (branding) {
       setFormData({
         logoUrl: branding.logoUrl ?? '',
-        primaryColor: branding.primaryColor || '#000000',
-        accentColor: branding.accentColor || '#0066cc',
+        primaryColor: branding.primaryColor ?? '#000000',
+        accentColor: branding.accentColor ?? '#0066cc',
         darkModeEnabled: branding.darkModeEnabled ?? false,
         intakeHeaderText: branding.intakeHeaderText ?? '',
         emailSenderName: branding.emailSenderName ?? '',
@@ -49,8 +49,10 @@ export function BrandingSettings({ tenantId }: BrandingSettingsProps) {
 
     try {
       await updateBranding.mutateAsync(formData);
+      // eslint-disable-next-line no-alert
       alert('Branding updated successfully');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      // eslint-disable-next-line no-alert
       alert(`Failed to update branding: ${error.message}`);
     }
   };
@@ -67,7 +69,7 @@ export function BrandingSettings({ tenantId }: BrandingSettingsProps) {
     <div className="p-6 max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">Branding Settings</h1>
       <p className="text-gray-600 mb-4">
-        Configure your tenant's branding. This is a placeholder UI - final design coming soon.
+        Configure your tenant&apos;s branding. This is a placeholder UI - final design coming soon.
       </p>
 
       <form onSubmit={(e) => { e.preventDefault(); void handleSubmit(e); }} className="space-y-4">
@@ -88,7 +90,7 @@ export function BrandingSettings({ tenantId }: BrandingSettingsProps) {
           <label className="block text-sm font-medium mb-1">Primary Color</label>
           <input
             type="color"
-            value={formData.primaryColor || '#000000'}
+            value={formData.primaryColor ?? '#000000'}
             onChange={(e) => { void setFormData({ ...formData, primaryColor: e.target.value }); }}
             className="w-full h-10 border rounded"
           />
@@ -99,7 +101,7 @@ export function BrandingSettings({ tenantId }: BrandingSettingsProps) {
           <label className="block text-sm font-medium mb-1">Accent Color</label>
           <input
             type="color"
-            value={formData.accentColor || '#0066cc'}
+            value={formData.accentColor ?? '#0066cc'}
             onChange={(e) => { void setFormData({ ...formData, accentColor: e.target.value }); }}
             className="w-full h-10 border rounded"
           />

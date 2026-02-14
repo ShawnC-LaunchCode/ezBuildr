@@ -17,10 +17,10 @@ export class PreviewVariableResolver {
      */
     static resolveInitialValues(
         steps: ApiStep[],
-        snapshotValues: Record<string, any> = {},
-        defaultValues: Record<string, any> = {}
-    ): Record<string, any> {
-        const resolved: Record<string, any> = {};
+        snapshotValues: Record<string, unknown> = {},
+        _defaultValues: Record<string, unknown> = {}
+    ): Record<string, unknown> {
+        const resolved: Record<string, unknown> = {};
 
         // 1. Start with defaults
         steps.forEach(step => {
@@ -43,10 +43,12 @@ export class PreviewVariableResolver {
     /**
      * Parse a value that might be JSON stringified
      */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private static parseValue(val: any): any {
         if (typeof val === 'string') {
             try {
                 // Attempt to parse JSON (e.g., for address or multi-field)
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 const parsed = JSON.parse(val);
                 if (typeof parsed === 'object' && parsed !== null) {
                     return parsed;

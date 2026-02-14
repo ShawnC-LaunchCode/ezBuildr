@@ -45,9 +45,10 @@ import {
   useMoveWorkflow,
 } from "@/lib/vault-hooks";
 
+// eslint-disable-next-line max-lines-per-function
 export default function ProjectView() {
   const { id } = useParams<{ id: string }>();
-  const [, setLocation] = useLocation();
+  const [, _setLocation] = useLocation();
   const { toast } = useToast();
 
   // Dialog states
@@ -64,8 +65,8 @@ export default function ProjectView() {
 
   // Mutations
   const updateProjectMutation = useUpdateProject();
-  const archiveProjectMutation = useArchiveProject();
-  const deleteProjectMutation = useDeleteProject();
+  const _archiveProjectMutation = useArchiveProject();
+  const _deleteProjectMutation = useDeleteProject();
   const createWorkflowMutation = useCreateWorkflow();
   const updateWorkflowMutation = useUpdateWorkflow();
   const deleteWorkflowMutation = useDeleteWorkflow();
@@ -79,7 +80,7 @@ export default function ProjectView() {
     }
 
     try {
-      const workflow = await createWorkflowMutation.mutateAsync({
+      const _workflow = await createWorkflowMutation.mutateAsync({
         ...newWorkflow,
         projectId: id,
       });
@@ -190,7 +191,7 @@ export default function ProjectView() {
             <CardContent className="flex flex-col items-center justify-center py-16">
               <h3 className="text-lg font-semibold mb-2">Project not found</h3>
               <p className="text-muted-foreground text-sm mb-4">
-                The project you're looking for doesn't exist or you don't have access to it.
+                The project you&apos;re looking for doesn&apos;t exist or you don&apos;t have access to it.
               </p>
               <Link href="/workflows">
                 <Button>
@@ -281,6 +282,7 @@ export default function ProjectView() {
                 placeholder="e.g., Customer Onboarding"
                 value={editProject.title}
                 onChange={(e) => { void setEditProject({ ...editProject, title: e.target.value }); }}
+                // eslint-disable-next-line @typescript-eslint/no-floating-promises
                 onKeyDown={(e) => { void e.key === "Enter" && handleUpdateProject(); }}
               />
             </div>
@@ -321,6 +323,7 @@ export default function ProjectView() {
                 placeholder="e.g., Onboarding Survey"
                 value={newWorkflow.title}
                 onChange={(e) => { void setNewWorkflow({ ...newWorkflow, title: e.target.value }); }}
+                // eslint-disable-next-line @typescript-eslint/no-floating-promises
                 onKeyDown={(e) => { void e.key === "Enter" && handleCreateWorkflow(); }}
               />
             </div>

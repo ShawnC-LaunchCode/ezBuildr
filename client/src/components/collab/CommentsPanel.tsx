@@ -25,7 +25,7 @@ interface CommentsPanelProps {
 export function CommentsPanel({
   comments,
   currentUserId,
-  currentUserName,
+  _currentUserName,
   nodeName,
   onAddComment,
   onDeleteComment,

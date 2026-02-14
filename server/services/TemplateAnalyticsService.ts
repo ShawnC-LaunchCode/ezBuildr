@@ -123,7 +123,7 @@ export class TemplateAnalyticsService {
         },
         'Generation metric tracked'
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error({ error, templateId }, 'Failed to track generation metric');
       // Don't throw - metrics tracking shouldn't break generation
     }
@@ -139,6 +139,7 @@ export class TemplateAnalyticsService {
       .from(templates)
       .where(eq(templates.id, templateId))
       .limit(1);
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!template) {
       throw new Error('Template not found');
     }
@@ -190,7 +191,7 @@ export class TemplateAnalyticsService {
     // Get recent generations (last 10)
     const recentGenerations = metrics.slice(0, 10) as GenerationMetric[];
     // Calculate trends
-    const now = new Date();
+    const _now = new Date();
     const last7Days = await this.calculateTrend(templateId, 7);
     const last30Days = await this.calculateTrend(templateId, 30);
     return {
@@ -362,7 +363,7 @@ export class TemplateAnalyticsService {
         return {
           templateId: e.templateId,
           templateName: template?.name || 'Unknown',
-          error: e.errorMessage || 'Unknown error',
+          error: e.errorMessage ?? 'Unknown error',
           occurredAt: e.createdAt!,
         };
       })
@@ -426,6 +427,7 @@ export class TemplateAnalyticsService {
     for (const metric of metrics) {
       csv += `${metric.id},${metric.templateId},${metric.runId ?? ''},${metric.result},${
         metric.durationMs ?? ''
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
       },"${(metric.errorMessage ?? '').replace(/"/g, '""')}",${metric.createdAt}\n`;
     }
     return csv;

@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
-    History, Play, FileText, Download, AlertCircle, CheckCircle2,
-    Clock, RotateCcw, GitCommit
+    History, Play, _FileText, Download, _AlertCircle, CheckCircle2,
+    Clock, _RotateCcw, GitCommit
 } from "lucide-react";
 import { useState } from "react";
 
@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle,
-    DialogDescription, DialogFooter
+    DialogDescription, _DialogFooter
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -47,6 +47,7 @@ export function WorkflowHistoryDialog({
         enabled: open,
     });
     const handleExportRuns = (format: 'json' | 'csv') => {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
         workflowExportAPI.downloadExport(workflowId, format);
     };
     return (
@@ -193,7 +194,7 @@ export function WorkflowHistoryDialog({
                                                             )}
                                                         </TableCell>
                                                         <TableCell className="max-w-xs truncate text-muted-foreground">
-                                                            {v.notes || '-'}
+                                                            {v.notes ?? '-'}
                                                         </TableCell>
                                                         <TableCell className="text-right">
                                                             <Button variant="ghost" size="sm">

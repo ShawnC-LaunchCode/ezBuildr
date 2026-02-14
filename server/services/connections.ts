@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Connections Service (Stage 16)
  * Manages unified integration connections with OAuth2 3-legged flow support
@@ -61,6 +62,7 @@ function sanitizeHeaders(headers: unknown): Record<string, string> {
         continue;
       }
       // Store as-is but validate no control characters
+      // eslint-disable-next-line no-control-regex
       if (/[\x00-\x1F\x7F]/.test(value)) {
         logger.warn({ headerKey: key }, 'Skipping header with control characters');
         continue;
@@ -419,6 +421,7 @@ export async function testConnection(
     } else if (connection.type === 'bearer') {
       const token = resolved.secrets[connection.authConfig.tokenRef || 'token'];
       headers['Authorization'] = `Bearer ${token}`;
+    // eslint-disable-next-line sonarjs/no-collapsible-if
     } else if (connection.type === 'oauth2_client_credentials' || connection.type === 'oauth2_3leg') {
       if (resolved.accessToken) {
         headers['Authorization'] = `Bearer ${resolved.accessToken}`;

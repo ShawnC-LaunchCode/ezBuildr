@@ -17,6 +17,7 @@ export function registerAccountRoutes(app: Express): void {
    * GET /api/account/preferences
    * Get account preferences including default mode
    */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.get('/api/account/preferences', hybridAuth, requireUser, asyncHandler(async (req: Request, res: Response) => {
     try {
       const user = (req as UserRequest).user;
@@ -35,6 +36,7 @@ export function registerAccountRoutes(app: Express): void {
    * PUT /api/account/preferences
    * Update account preferences including default mode
    */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.put('/api/account/preferences', hybridAuth, requireUser, asyncHandler(async (req: Request, res: Response) => {
     try {
       const user = (req as UserRequest).user;

@@ -80,6 +80,7 @@ app.get('/healthz', (_req, res) => {
 });
 // XSS Protection: Sanitize all string inputs
 app.use(sanitizeInputs);
+// eslint-disable-next-line @typescript-eslint/no-floating-promises
 (async () => {
   try {
     // Ensure database is initialized before starting server

@@ -24,7 +24,7 @@ import { generateRandomValuesForWorkflow, generateRandomValuesForSteps } from '.
 export interface PreviewRun {
   id: string;
   workflowId: string;
-  values: Record<string, any>; // stepId -> value
+  values: Record<string, unknown>; // stepId -> value
   currentSectionIndex: number;
   completed: boolean;
   createdAt: number;
@@ -36,8 +36,8 @@ export interface PreviewSessionOptions {
   workflowId: string;
   sections: ApiSection[];
   steps: ApiStep[];
-  snapshotValues?: Record<string, any>; // For loading from snapshots (Prompt 7)
-  initialValues?: Record<string, any>; // For loading initial values
+  snapshotValues?: Record<string, unknown>; // For loading from snapshots (Prompt 7)
+  initialValues?: Record<string, unknown>; // For loading initial values
   workflowTitle?: string; // For AI context
 }
 
@@ -51,7 +51,7 @@ export class PreviewSession {
   private steps: ApiStep[];
   private listeners: Set<() => void> = new Set();
   private workflowTitle?: string;
-  private cachedValues: Record<string, any> | null = null;
+  private cachedValues: Record<string, unknown> | null = null;
 
   constructor(options: PreviewSessionOptions) {
     const { workflowId, sections, steps, snapshotValues, initialValues, workflowTitle } = options;
@@ -61,7 +61,7 @@ export class PreviewSession {
     const runId = `preview-${uuidv4()}`;
 
     // Initialize values with defaults or snapshot values
-    const values: Record<string, any> = {};
+    const values: Record<string, unknown> = {};
 
     // First, populate with snapshot values if provided
     if (snapshotValues) {
@@ -99,6 +99,7 @@ export class PreviewSession {
    * Parse default value based on step type
    * Handles JSON strings and type conversions
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private parseDefaultValue(defaultValue: any, stepType: string): any {
     // If it's already an object/array, return as-is
     if (typeof defaultValue === 'object' && defaultValue !== null) {
@@ -106,6 +107,7 @@ export class PreviewSession {
     }
 
     // For complex block types, try to parse as JSON
+    // eslint-disable-next-line sonarjs/no-collapsible-if
     if (['address', 'multi_field', 'choice'].includes(stepType)) {
       if (typeof defaultValue === 'string') {
         try {
@@ -145,7 +147,7 @@ export class PreviewSession {
   /**
    * Get all step values (cached to prevent infinite loops in useSyncExternalStore)
    */
-  getValues(): Record<string, any> {
+  getValues(): Record<string, unknown> {
     if (!this.cachedValues) {
       this.cachedValues = { ...this.run.values };
     }
@@ -155,6 +157,7 @@ export class PreviewSession {
   /**
    * Get value for a specific step
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getValue(stepId: string): any {
     return this.run.values[stepId];
   }
@@ -162,6 +165,7 @@ export class PreviewSession {
   /**
    * Triggers re-render in React components
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   setValue(stepId: string, value: any): void {
     this.run.values[stepId] = value;
     this.run.updatedAt = Date.now();
@@ -171,7 +175,7 @@ export class PreviewSession {
   /**
    * Set multiple values at once
    */
-  setValues(values: Record<string, any>): void {
+  setValues(values: Record<string, unknown>): void {
     Object.assign(this.run.values, values);
     this.run.updatedAt = Date.now();
     this.notifyListeners();
@@ -284,11 +288,11 @@ export class PreviewSession {
   export(): {
     runId: string;
     workflowId: string;
-    values: Record<string, any>;
-    valuesByAlias: Record<string, any>;
+    values: Record<string, unknown>;
+    valuesByAlias: Record<string, unknown>;
   } {
     // Create alias -> value mapping
-    const valuesByAlias: Record<string, any> = {};
+    const valuesByAlias: Record<string, unknown> = {};
     this.steps.forEach(step => {
       if (step.alias && this.run.values[step.id] !== undefined) {
         valuesByAlias[step.alias] = this.run.values[step.id];
@@ -312,7 +316,7 @@ export class PreviewSession {
   async randomFillWorkflow(useAI: boolean = false): Promise<void> {
     this.logger.info('Filling entire workflow with random data');
 
-    let randomValues: Record<string, any>;
+    let randomValues: Record<string, unknown>;
 
     if (useAI) {
       // Use AI-assisted random fill
@@ -350,6 +354,7 @@ export class PreviewSession {
 
     // Get current section
     const currentSection = this.sections[this.run.currentSectionIndex];
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!currentSection) {
       this.logger.warn('No current section found');
       return;
@@ -365,7 +370,7 @@ export class PreviewSession {
       return;
     }
 
-    let randomValues: Record<string, any>;
+    let randomValues: Record<string, unknown>;
 
     if (useAI) {
       // Use AI-assisted random fill

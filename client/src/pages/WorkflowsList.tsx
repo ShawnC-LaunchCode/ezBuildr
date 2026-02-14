@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { _useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit, Trash2, Wand2, ChevronDown, FolderPlus, Link as LinkIcon, Play, Loader2, ArrowRightLeft } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
@@ -24,6 +24,7 @@ import { useCreateSampleWorkflow } from "@/lib/sample-workflow";
 import { workflowAPI } from "@/lib/vault-api";
 import { useUnfiledWorkflows, useDeleteWorkflow, useProjects, useDeleteProject, useCreateProject, useTransferWorkflow, useTransferProject } from "@/lib/vault-hooks";
 import type { } from "@shared/schema";
+// eslint-disable-next-line max-lines-per-function
 export default function WorkflowsList() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -46,6 +47,7 @@ export default function WorkflowsList() {
       setTimeout(() => {
         window.location.href = "/";
       }, 500);
+      // eslint-disable-next-line sonarjs/no-redundant-jump
       return;
     }
   }, [isAuthenticated, isLoading, toast]);

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type _UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
 
 import { collectionsAPI, type ApiCollectionField, type ApiCollectionWithStats, type ApiCollectionRecord, type ApiCollection } from "../../lib/vault-api";
 
@@ -109,6 +109,7 @@ export function useCollectionRecords(tenantId: string | undefined, collectionId:
         // Assuming API returns { records: [], count: 0 } for paginated, or [] if not.
         // Let's assume listRecords return matches expectation or use unknown for safe fallback if unsure.
         // Assuming it's compatible with unknown for now, but trying to be strict.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         queryFn: () => collectionsAPI.listRecords(tenantId ?? "", collectionId ?? "", params) as Promise<any>,
         enabled: !!tenantId && tenantId !== "undefined" && !!collectionId && collectionId !== "undefined",
     });
@@ -122,10 +123,10 @@ export function useCollectionRecord(tenantId: string | undefined, collectionId: 
     });
 }
 
-export function useCreateCollectionRecord(): UseMutationResult<ApiCollectionRecord, unknown, { tenantId: string; collectionId: string; data: Record<string, any> }> {
+export function useCreateCollectionRecord(): UseMutationResult<ApiCollectionRecord, unknown, { tenantId: string; collectionId: string; data: Record<string, unknown> }> {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ tenantId, collectionId, data }: { tenantId: string; collectionId: string; data: Record<string, any> }) =>
+        mutationFn: ({ tenantId, collectionId, data }: { tenantId: string; collectionId: string; data: Record<string, unknown> }) =>
             collectionsAPI.createRecord(tenantId, collectionId, data),
         onSuccess: async (_, variables) => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.collectionRecords(variables.tenantId, variables.collectionId) });
@@ -134,10 +135,10 @@ export function useCreateCollectionRecord(): UseMutationResult<ApiCollectionReco
     });
 }
 
-export function useUpdateCollectionRecord(): UseMutationResult<ApiCollectionRecord, unknown, { tenantId: string; collectionId: string; recordId: string; data: Record<string, any> }> {
+export function useUpdateCollectionRecord(): UseMutationResult<ApiCollectionRecord, unknown, { tenantId: string; collectionId: string; recordId: string; data: Record<string, unknown> }> {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ tenantId, collectionId, recordId, data }: { tenantId: string; collectionId: string; recordId: string; data: Record<string, any> }) =>
+        mutationFn: ({ tenantId, collectionId, recordId, data }: { tenantId: string; collectionId: string; recordId: string; data: Record<string, unknown> }) =>
             collectionsAPI.updateRecord(tenantId, collectionId, recordId, data),
         onSuccess: async (data, variables) => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.collectionRecord(variables.tenantId, variables.collectionId, variables.recordId) });

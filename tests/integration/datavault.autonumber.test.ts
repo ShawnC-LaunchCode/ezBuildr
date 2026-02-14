@@ -193,7 +193,7 @@ describe('DataVault Autonumber Integration Tests', () => {
       undefined
     );
 
-    const originalValue = row.values[basicAutonumberColumnId];
+    const _originalValue = row.values[basicAutonumberColumnId];
 
     // Attempt to update the autonumber value manually
     // This should either be ignored or throw an error depending on implementation
@@ -208,7 +208,7 @@ describe('DataVault Autonumber Integration Tests', () => {
       );
 
       // If update succeeds, verify the value didn't change
-      const updatedRow = await datavaultRowsService.getRow(row.row.id, tenantId);
+      const _updatedRow = await datavaultRowsService.getRow(row.row.id, tenantId);
       // Autonumber values should not be manually updatable
       // For now, we allow updates but in production this could be restricted
       // expect(updatedRow?.values[basicAutonumberColumnId]).toBe(originalValue);

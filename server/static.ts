@@ -5,6 +5,7 @@ import express, { type Express } from "express";
 
 import { logger } from "./logger";
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function serveStatic(app: Express) {
   // Use process.cwd() instead of import.meta.dirname for bundled code compatibility
   // In production (Railway), cwd is /app and dist/public is the build output

@@ -17,7 +17,7 @@ async function verifyInsert() {
         // valid uuid: 00000000-0000-0000-0000-000000000000
         // invalid uuid: not-a-uuid
 
-        const result = await db.execute(sql`
+        const _result = await db.execute(sql`
       SELECT count(*) as count 
       FROM projects 
       WHERE owner_uuid = 'not-a-uuid-string'

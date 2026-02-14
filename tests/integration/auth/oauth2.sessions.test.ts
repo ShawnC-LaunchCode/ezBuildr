@@ -572,7 +572,7 @@ describe('OAuth2 Session Management', () => {
     it('should update lastUsedAt on token refresh', async () => {
       const token = await authService.createRefreshToken(testUserId);
 
-      const initialSession = await db.query.refreshTokens.findFirst({
+      const _initialSession = await db.query.refreshTokens.findFirst({
         where: eq(refreshTokens.token, hashToken(token)),
       });
 

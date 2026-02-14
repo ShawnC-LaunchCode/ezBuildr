@@ -41,6 +41,7 @@ describe('DatavaultTablesRepository', () => {
       _setMockReturnValue: (value: any) => { mockReturnValue = value; },
     };
 
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore - mocking db for tests
     repository = new DatavaultTablesRepository(mockDb);
   });

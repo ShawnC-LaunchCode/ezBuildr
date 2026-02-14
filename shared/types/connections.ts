@@ -87,7 +87,7 @@ export interface Connection {
   baseUrl?: string;
 
   // JSONB fields
-  authConfig: Record<string, any>;
+  authConfig: Record<string, unknown>;
   secretRefs: Record<string, string>;
   oauthState?: OAuth2State;
   defaultHeaders?: Record<string, string>;
@@ -113,7 +113,7 @@ export interface CreateConnectionInput {
   name: string;
   type: ConnectionType;
   baseUrl?: string;
-  authConfig: Record<string, any>;
+  authConfig: Record<string, unknown>;
   secretRefs: Record<string, string>;
   defaultHeaders?: Record<string, string>;
   timeoutMs?: number;
@@ -127,7 +127,7 @@ export interface CreateConnectionInput {
 export interface UpdateConnectionInput {
   name?: string;
   baseUrl?: string;
-  authConfig?: Record<string, any>;
+  authConfig?: Record<string, unknown>;
   secretRefs?: Record<string, string>;
   defaultHeaders?: Record<string, string>;
   timeoutMs?: number;

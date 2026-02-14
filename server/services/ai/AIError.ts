@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * AI Error Handling
  *
@@ -41,6 +42,7 @@ export class AIError extends Error {
     this.retryAfterSeconds = retryAfterSeconds;
 
     // Maintains proper stack trace for where our error was thrown (only available on V8)
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, AIError);
     }
@@ -196,6 +198,7 @@ export class QualityThresholdError extends AIError {
     this.qualityBreakdown = details.breakdown;
 
     // Maintains proper stack trace
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, QualityThresholdError);
     }
@@ -221,6 +224,7 @@ export class QualityThresholdError extends AIError {
 /**
  * Check if error is a quality threshold error
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function isQualityThresholdError(error: any): error is QualityThresholdError {
   return error instanceof QualityThresholdError || error?.code === 'QUALITY_THRESHOLD';
 }

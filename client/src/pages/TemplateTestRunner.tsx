@@ -36,6 +36,7 @@ export default function TemplateTestRunner() {
 
   // State management
   const [sampleDataText, setSampleDataText] = useState("{}");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-redundant-type-constituents
   const [parsedSampleData, setParsedSampleData] = useState<any | null>(null);
   const [outputType, setOutputType] = useState<OutputType>('docx');
 
@@ -69,6 +70,7 @@ export default function TemplateTestRunner() {
     try {
       await runTest(workflowId, templateId, {
         outputType,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         sampleData: parsedSampleData,
       });
 

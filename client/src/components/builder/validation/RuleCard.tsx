@@ -27,7 +27,7 @@ interface RuleCardProps {
 }
 
 export function RuleCard({ rule, index, onUpdate, onDelete, workflowId }: RuleCardProps) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- Loose typing on rule discrimination
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment -- Loose typing on rule discrimination
     const type = (rule as any).type || 'simple';
 
     return (

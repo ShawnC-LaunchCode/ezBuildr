@@ -22,6 +22,7 @@ interface EditableCellProps {
   placeholder?: string;
 }
 
+// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 export function EditableCell({ column, value, onSave, readOnly = false, placeholder }: EditableCellProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
@@ -94,6 +95,7 @@ export function EditableCell({ column, value, onSave, readOnly = false, placehol
     switch (column.type as string) {
       case "boolean":
       case "yes_no":
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         return val ? "Yes" : "No";
       case "date":
         if (val !== null && val !== undefined && val !== "") {

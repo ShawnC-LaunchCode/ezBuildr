@@ -60,12 +60,13 @@ const BRANDING_TOKENS = [
     icon: Mail,
   },
 ];
+// eslint-disable-next-line max-lines-per-function
 export default function EmailTemplateEditorPage() {
   const { id: projectId, templateId } = useParams<{ id: string; templateId: string }>();
   const [, navigate] = useLocation();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
-  const tenantId = user?.tenantId;
+  const _tenantId = user?.tenantId;
   const { branding } = useBranding();
   const [template, setTemplate] = useState<EmailTemplateMetadata | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -82,6 +83,7 @@ export default function EmailTemplateEditorPage() {
   // Load template
   useEffect(() => {
     if (templateId) {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       loadTemplate();
     }
   }, [templateId]);
@@ -95,7 +97,7 @@ export default function EmailTemplateEditorPage() {
         name: fetchedTemplate.name,
         description: fetchedTemplate.description ?? '',
         subjectPreview: fetchedTemplate.subjectPreview ?? '',
-        brandingTokens: fetchedTemplate.brandingTokens || {},
+        brandingTokens: fetchedTemplate.brandingTokens ?? {},
       });
     } catch (error) {
       console.error('Failed to load template:', error);
@@ -136,10 +138,11 @@ export default function EmailTemplateEditorPage() {
         title: 'Success',
         description: 'Template metadata saved successfully',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to save template:', error);
       toast({
         title: 'Error',
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         description: error.message || 'Failed to save template metadata',
         variant: 'destructive',
       });
@@ -153,7 +156,7 @@ export default function EmailTemplateEditorPage() {
         name: template.name,
         description: template.description ?? '',
         subjectPreview: template.subjectPreview ?? '',
-        brandingTokens: template.brandingTokens || {},
+        brandingTokens: template.brandingTokens ?? {},
       });
       setHasUnsavedChanges(false);
       toast({
@@ -210,7 +213,7 @@ export default function EmailTemplateEditorPage() {
       </div>
     );
   }
-  const enabledTokenCount = Object.values(formData.brandingTokens || {}).filter(Boolean).length;
+  const enabledTokenCount = Object.values(formData.brandingTokens ?? {}).filter(Boolean).length;
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
@@ -363,10 +366,10 @@ export default function EmailTemplateEditorPage() {
               {showPreview && (
                 <div className="space-y-6">
                   <EmailPreview
-                    templateName={formData.name || template.name}
-                    subjectPreview={formData.subjectPreview || template.subjectPreview}
+                    templateName={formData.name ?? template.name}
+                    subjectPreview={formData.subjectPreview ?? template.subjectPreview}
                     branding={branding}
-                    enabledTokens={formData.brandingTokens || {}}
+                    enabledTokens={formData.brandingTokens ?? {}}
                   />
                 </div>
               )}

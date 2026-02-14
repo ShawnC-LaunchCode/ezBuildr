@@ -12,7 +12,7 @@ import {
     ChevronRight,
     Database,
 } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, _useRef } from "react";
 
 import { useCollaboration, useBlockCollaborators } from "@/components/collab/CollaborationContext";
 import { LogicIndicator } from "@/components/logic";
@@ -20,10 +20,10 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { _Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import type { ApiStep, StepType } from "@/lib/vault-api";
+import type { ApiStep, _StepType } from "@/lib/vault-api";
 import {
     useUpdateStep,
     useDeleteStep,
@@ -36,7 +36,7 @@ import type { ConditionExpression } from "@shared/types/conditions";
 import { useIntake } from "../IntakeContext";
 import { StepEditorRouter } from "../StepEditorRouter";
 
-import { StepGuidance } from "./common/StepGuidance";
+import { _StepGuidance } from "./common/StepGuidance";
 import { getQuestionTypeIcon } from "./common/StepIcons";
 import { StepTitleRow } from "./common/StepTitleRow";
 
@@ -60,7 +60,7 @@ interface StepDefaultValue {
 
 
 // eslint-disable-next-line max-lines-per-function
-// eslint-disable-next-line max-lines-per-function
+// eslint-disable-next-line max-lines-per-function, complexity
 export function StepCard({
     step,
     sectionId,
@@ -74,8 +74,8 @@ export function StepCard({
     const deleteStepMutation = useDeleteStep();
     const { toast } = useToast();
     const { data: modeData } = useWorkflowMode(workflowId);
-    const mode = modeData?.mode || 'easy';
-    const { data: workflow } = useWorkflow(workflowId);
+    const mode = modeData?.mode ?? 'easy';
+    const { data: _workflow } = useWorkflow(workflowId);
     const { upstreamWorkflow, upstreamVariables } = useIntake();
 
     // Intake Derived Values

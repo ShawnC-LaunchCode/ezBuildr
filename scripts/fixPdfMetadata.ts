@@ -1,13 +1,14 @@
 import { eq } from 'drizzle-orm';
 
 import { db, initializeDatabase } from '../server/db';
-import { logger } from '../server/logger';
+import { _logger } from '../server/logger';
 import { getPdfFieldExtractor } from '../server/services/document/extractors/PdfFieldExtractor';
+// eslint-disable-next-line import/no-unresolved
 import { LocalStorageProvider } from '../server/services/storage/LocalStorageProvider';
 import * as schema from '../shared/schema';
 
 // Hardcoded template ID from user logs
-const TEMPLATE_ID = 'ee86b75f-bac8-4f51-9b40-129227cd6d81';
+const _TEMPLATE_ID = 'ee86b75f-bac8-4f51-9b40-129227cd6d81';
 // Wait, the log said `blob:http://localhost:5000/ee86...`. Is that the template ID?
 // User request Step 32: `GET http://localhost:5000/api/sections/4471a74b...`
 // Let's search for the template first.

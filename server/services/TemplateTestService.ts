@@ -60,6 +60,7 @@ export class TemplateTestService {
         };
       }
       // 2. Get template file path (STUB - will be replaced with actual template lookup)
+      // eslint-disable-next-line @typescript-eslint/await-thenable
       const templatePath = await this.getTemplatePath(request.templateId);
       if (!templatePath) {
         return {
@@ -167,12 +168,13 @@ export class TemplateTestService {
     templateId: string,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- data is dynamically typed workflow data
     data: Record<string, any>,
-    toPdf: boolean
+    _toPdf: boolean
   ): Promise<RenderResult> {
     // In real implementation, this would look up the template in the database
     // For now, we still need a template path. 
     // We will assume the template is at a fixed location or use a dummy for testing if not found.
     // But better to fail if not found.
+    // eslint-disable-next-line @typescript-eslint/await-thenable
     const templatePath = await this.getTemplatePath(templateId);
     if (!templatePath) {
       throw new Error(`Template ${templateId} not found`);

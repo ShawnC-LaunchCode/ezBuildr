@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
 import { IncomingMessage, Server as HTTPServer } from 'http';
 
 import { encoding, decoding } from 'lib0';
@@ -20,7 +21,6 @@ import {
   setUserPresence,
   removeUserPresence,
   cleanupInactiveUsers,
-  getActiveUserCount,
 } from './awareness';
 import {
   getOrCreateCollabDoc,
@@ -90,6 +90,7 @@ export function initCollabServer(server: HTTPServer): void {
 
   logger.info('WebSocket collaboration server attached to main HTTP server path /collab');
 
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   wss.on('connection', handleConnection);
 
   wss.on('error', (err) => {
@@ -112,7 +113,7 @@ export function initCollabServer(server: HTTPServer): void {
         return;
       }
 
-      conn.alive = false;
+      conn.alive = false; // eslint-disable-line no-param-reassign
       ws.ping();
     });
   }, 30000); // Every 30 seconds
@@ -191,6 +192,7 @@ function setupWebSocketHandlers(
   room: Room
 ): void {
   // Handle incoming messages
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   ws.on('message', async (data: Buffer) => {
     try {
       await handleMessage(connection, room, new Uint8Array(data));
@@ -201,11 +203,11 @@ function setupWebSocketHandlers(
 
   // Handle pong (heartbeat response)
   ws.on('pong', () => {
-    connection.alive = true;
+    connection.alive = true; // eslint-disable-line no-param-reassign
   });
 
   // Handle connection close
-  ws.on('close', (code, reason) => {
+  ws.on('close', (_code, _reason) => {
     handleDisconnection(connection, room);
   });
 
@@ -249,6 +251,7 @@ async function handleMessage(
 /**
  * Handle sync protocol message
  */
+// eslint-disable-next-line @typescript-eslint/require-await
 async function handleSyncMessage(
   connection: CollabConnection,
   room: Room,
@@ -415,6 +418,7 @@ async function getOrCreateRoom(roomName: string, tenantId: string): Promise<Room
   });
 
   // Handle document updates (from clients or remote)
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   doc.on('update', async (update: Uint8Array, origin: unknown) => {
     // 1. Update from Remote (Redis) -> Broadcast to local clients
     if (origin === 'remote') {

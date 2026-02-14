@@ -14,7 +14,7 @@ describe("Analytics Service Integration", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let workflow: any;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let version: any;
+    let _version: any;
 
     beforeAll(async () => {
         // MANUALLY FIX FK CONSTRAINT FOR TEST ENVIRONMENT (Migration collision workaround)
@@ -66,7 +66,7 @@ describe("Analytics Service Integration", () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const run = await runService.createRun(workflow.id, undefined, { participantId: "anon" } as any);
         const runId = run.id;
-        const runToken = run.runToken;
+        const _runToken = run.runToken;
         expect(runId).toBeDefined();
 
         // 2. Verify run.start event
@@ -81,7 +81,7 @@ describe("Analytics Service Integration", () => {
 
         // 3. Complete Run
         // completeRun(runId, data, context)
-        const context = {
+        const _context = {
             workflowId: workflow.id,
             runId: runId, // RunService usage usually derives this
             // But completeRun signature: async completeRun(runId: string, data: any = {})

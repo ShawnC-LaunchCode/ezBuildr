@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Hook to fetch available variables for a node in the workflow
  */
@@ -35,6 +36,7 @@ export interface AvailableVarsResponse {
 /**
  * Fetch available variables for a specific node
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useAvailableVars(workflowId: string | undefined, nodeId: string | undefined) {
   return useQuery<AvailableVarsResponse>({
     queryKey: ['availableVars', workflowId, nodeId],

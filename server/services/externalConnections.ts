@@ -67,24 +67,34 @@ export async function listConnections(projectId: string): Promise<ConnectionWith
     .where(eq(externalConnections.projectId, projectId));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- database query returns untyped results
   return results.map((r: any) => {
-    const refs = (r.connection.secretRefs as Record<string, string>) || {};
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const refs = (r.connection.secretRefs as Record<string, string>) ?? {};
     const mainSecretId = refs.main ?? null;
     return {
-      id: r.connection.id,
-      projectId: r.connection.projectId,
-      name: r.connection.name,
-      baseUrl: r.connection.baseUrl,
-      authType: r.connection.type,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      id: r.connection.id as string,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      projectId: r.connection.projectId as string,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      name: r.connection.name as string,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      baseUrl: r.connection.baseUrl as string,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      authType: r.connection.type as string,
       secretId: mainSecretId,
       secretKey: undefined, // Cannot join efficiently yet
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- headers can be any JSON structure
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- headers can be any JSON structure
-    defaultHeaders: (r.connection.defaultHeaders as Record<string, any>) || {},
-      timeoutMs: r.connection.timeoutMs,
-      retries: r.connection.retries,
-      backoffMs: r.connection.backoffMs,
-      createdAt: r.connection.createdAt,
-      updatedAt: r.connection.updatedAt,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+      defaultHeaders: (r.connection.defaultHeaders as Record<string, any>) ?? {},
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      timeoutMs: r.connection.timeoutMs as number | null,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      retries: r.connection.retries as number | null,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      backoffMs: r.connection.backoffMs as number | null,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      createdAt: r.connection.createdAt as Date | null,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      updatedAt: r.connection.updatedAt as Date | null,
     };
   });
 }
@@ -100,6 +110,7 @@ export async function getConnection(projectId: string, connectionId: string): Pr
     .where(and(eq(externalConnections.id, connectionId), eq(externalConnections.projectId, projectId)));
   if (results.length === 0) { return null; }
   const r = results[0];
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   const refs = (r.connection.secretRefs as Record<string, string>) || {};
   const mainSecretId = refs.main ?? null;
   return {
@@ -110,7 +121,7 @@ export async function getConnection(projectId: string, connectionId: string): Pr
     authType: r.connection.type ?? '',
     secretId: mainSecretId,
     secretKey: undefined,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- headers can be any JSON structure
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/strict-boolean-expressions
     defaultHeaders: (r.connection.defaultHeaders as Record<string, any>) || {},
     timeoutMs: r.connection.timeoutMs,
     retries: r.connection.retries,
@@ -131,6 +142,7 @@ export async function getConnectionByName(projectId: string, name: string): Prom
     .where(and(eq(externalConnections.projectId, projectId), eq(externalConnections.name, name)));
   if (results.length === 0) { return null; }
   const r = results[0];
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   const refs = (r.connection.secretRefs as Record<string, string>) || {};
   const mainSecretId = refs.main ?? null;
   return {
@@ -141,7 +153,7 @@ export async function getConnectionByName(projectId: string, name: string): Prom
     authType: r.connection.type ?? '',
     secretId: mainSecretId,
     secretKey: undefined,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- headers can be any JSON structure
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/strict-boolean-expressions
     defaultHeaders: (r.connection.defaultHeaders as Record<string, any>) || {},
     timeoutMs: r.connection.timeoutMs,
     retries: r.connection.retries,
@@ -159,8 +171,7 @@ export async function connectionNameExists(projectId: string, name: string, excl
     .from(externalConnections)
     .where(and(eq(externalConnections.projectId, projectId), eq(externalConnections.name, name)));
   if (excludeId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- database query returns untyped results
-    return results.some((r: any) => r.id !== excludeId);
+    return results.some((r) => r.id !== excludeId);
   }
   return results.length > 0;
 }
@@ -184,21 +195,23 @@ export async function createConnection(input: CreateConnectionInput): Promise<Co
     }
   }
   // Insert
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- schema type mismatch requires explicit cast
   const [result] = await db
     .insert(externalConnections)
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     .values({
       projectId: input.projectId,
       name: input.name,
       baseUrl: input.baseUrl,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- schema enum type mismatch
-      type: input.authType as any, // Cast to match schema enum
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment -- schema enum type mismatch
+      type: input.authType as any,
       secretRefs: input.secretId ? { main: input.secretId } : {},
-      defaultHeaders: input.defaultHeaders || {},
+      defaultHeaders: input.defaultHeaders ?? {},
       timeoutMs: input.timeoutMs ?? 8000,
       retries: input.retries ?? 2,
       backoffMs: input.backoffMs ?? 250,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- schema type mismatch requires explicit cast
-    } as any) // Explicit cast for schema mismatch
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
     .returning();
   // Get with secret key
   const connection = await getConnection(input.projectId, result.id);
@@ -239,7 +252,7 @@ export async function updateConnection(
   }
   // Build update object
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- using any to bypass schema strictness for dynamic updates
-  const updates: Partial<any> = {}; // using any to bypass schema strictness for now
+  const updates: Record<string, any> = {};
   if (input.name !== undefined) { updates.name = input.name; }
   if (input.baseUrl !== undefined) { updates.baseUrl = input.baseUrl; }
   if (input.authType !== undefined) { updates.type = input.authType; }
@@ -256,6 +269,7 @@ export async function updateConnection(
     .set(updates)
     .where(and(eq(externalConnections.id, connectionId), eq(externalConnections.projectId, projectId)))
     .returning();
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (!result) {
     throw new Error('Failed to update connection');
   }

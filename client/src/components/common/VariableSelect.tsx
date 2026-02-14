@@ -43,6 +43,7 @@ export function VariableSelect({ workflowId, value, onChange, placeholder, disab
   // Group variables by section
   const variablesBySection = variables.reduce((acc, variable) => {
     const sectionId = variable.sectionId;
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!acc[sectionId]) {
       acc[sectionId] = {
         title: variable.sectionTitle,
@@ -54,9 +55,9 @@ export function VariableSelect({ workflowId, value, onChange, placeholder, disab
   }, {} as Record<string, { title: string; variables: ApiWorkflowVariable[] }>);
 
   return (
-    <Select value={value || undefined} onValueChange={onChange} disabled={disabled}>
+    <Select value={value ?? undefined} onValueChange={onChange} disabled={disabled}>
       <SelectTrigger className="font-mono text-sm">
-        <SelectValue placeholder={placeholder || "Select a variable..."}>
+        <SelectValue placeholder={placeholder ?? "Select a variable..."}>
           {value && (() => {
             const selectedVar = variables.find(v => v.key === value);
             return selectedVar ? (

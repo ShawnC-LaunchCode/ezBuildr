@@ -58,6 +58,7 @@ test.describe("US-AN-041: Analytics and Performance", () => {
   });
 
   test("should track analytics events", async ({ page }) => {
+    // eslint-disable-next-line sonarjs/no-unused-collection
     const analyticsRequests: string[] = [];
 
     page.on("request", (request) => {
@@ -102,6 +103,7 @@ test.describe("US-AN-041: Analytics and Performance", () => {
 
     page.on("response", async (response) => {
       const contentType = response.headers()["content-type"];
+      // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
       if (contentType && contentType.includes("image")) {
         const buffer = await response.body().catch(() => null);
         imageRequests.push({

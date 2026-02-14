@@ -9,7 +9,9 @@ interface UseVisualBuilderShortcutsProps {
     selectedNodeId: string | null;
     duplicateNode: (id: string) => void;
     deleteNode: (id: string) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     exportGraph: () => any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     updateWorkflow: UseMutationResult<any, Error, any>;
     setSaving: (saving: boolean) => void;
     setDirty: (dirty: boolean) => void;
@@ -17,6 +19,7 @@ interface UseVisualBuilderShortcutsProps {
     setShowPreview: (show: boolean | ((prev: boolean) => boolean)) => void;
 }
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useVisualBuilderShortcuts({
     isReadOnly,
     selectedNodeId,
@@ -32,6 +35,7 @@ export function useVisualBuilderShortcuts({
     const { toast } = useToast();
 
     useEffect(() => {
+        // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
         const handleKeyDown = (e: KeyboardEvent) => {
             if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
                 return;
@@ -46,6 +50,7 @@ export function useVisualBuilderShortcuts({
                 }
 
                 setSaving(true);
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 const graphJson = exportGraph();
                 updateWorkflow.mutate(graphJson, {
                     onSuccess: () => {

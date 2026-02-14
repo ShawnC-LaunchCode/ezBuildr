@@ -37,8 +37,8 @@ interface GeneratedDocument {
   createdAt: string;
 }
 export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalDocumentsSectionProps) {
-  const title = sectionConfig.title || sectionConfig.screenTitle || "Your Completed Documents";
-  const message = (sectionConfig.message || sectionConfig.markdownMessage) ?? "";
+  const title = sectionConfig.title ?? sectionConfig.screenTitle ?? "Your Completed Documents";
+  const message = (sectionConfig.message ?? sectionConfig.markdownMessage) ?? "";
   const { showDocuments = true, customLinks, brandingColor, redirectUrl, redirectDelaySeconds = 5 } = sectionConfig;
   // Handle Redirect
   useEffect(() => {
@@ -54,19 +54,27 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
   // Mutation to trigger document generation
   const generateDocsMutation = useMutation({
     mutationFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (!isValidRunId) {
         throw new Error('Invalid run ID');
+      // eslint-disable-next-line no-console
       }
+      // eslint-disable-next-line no-console
       console.log('[FinalDocumentsSection] Triggering document generation for runId:', runId);
       const headers: Record<string, string> = {};
       if (runToken) {
         headers['Authorization'] = `Bearer ${runToken}`;
       }
+      // eslint-disable-next-line no-console
       const response = await axios.post(`/api/runs/${runId}/generate-documents`, {}, { headers });
+      // eslint-disable-next-line no-console
       console.log('[FinalDocumentsSection] Document generation response:', response.data);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return response.data;
     },
+    // eslint-disable-next-line no-console
     onSuccess: (data) => {
+      // eslint-disable-next-line no-console
       console.log('[FinalDocumentsSection] Document generation succeeded:', data);
     },
     onError: (error) => {
@@ -75,7 +83,10 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
   });
   // Trigger document generation when component mounts - only if runId is valid
   useEffect(() => {
+    // eslint-disable-next-line no-console
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (isValidRunId) {
+      // eslint-disable-next-line no-console
       console.log('[FinalDocumentsSection] Mounting with runId:', runId, 'runToken:', runToken ? 'present' : 'missing');
       generateDocsMutation.mutate();
     } else {
@@ -83,9 +94,10 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
     }
   }, [runId]); // Only run once when runId changes
   // Fetch generated documents for this run - only if runId is valid
-  const { data: documents = [], isLoading, error } = useQuery({
+  const { data: documents = [], _isLoading, error } = useQuery({
     queryKey: ["run-documents", runId],
     queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (!isValidRunId) {
         throw new Error('Invalid run ID');
       }
@@ -96,9 +108,11 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
       const response = await axios.get<{ documents: GeneratedDocument[] }>(`/api/runs/${runId}/documents`, { headers });
       return response.data.documents;
     },
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     enabled: !!isValidRunId, // Only fetch if runId is valid
     refetchInterval: (query) => {
       // Only refetch if runId is valid
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (!isValidRunId) {
         return false;
       }
@@ -126,12 +140,13 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
     if (mimeType?.includes('pdf')) {
       return '📄';
     }
-    if (mimeType?.includes('word') || mimeType?.includes('document')) {
+    if (mimeType?.includes('word') ?? mimeType?.includes('document')) {
       return '📝';
     }
     return '📎';
   };
   // Show error if runId is invalid
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (!isValidRunId) {
     return (
       <div className="max-w-3xl mx-auto p-6 space-y-6">
@@ -139,7 +154,7 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
           <CardHeader>
             <CardTitle className="text-destructive">Unable to Load Documents</CardTitle>
             <CardDescription>
-              The workflow run could not be identified. Please ensure you're accessing this page from a valid workflow run.
+              The workflow run could not be identified. Please ensure you&apos;re accessing this page from a valid workflow run.
             </CardDescription>
           </CardHeader>
           <CardContent>

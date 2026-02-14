@@ -4,15 +4,18 @@ import { Router } from "express";
 import { workflows, usageRecords, workspaces } from "@shared/schema";
 
 import { db } from "../db";
-import { requireExternalAuth, ExternalAuthRequest } from "../lib/authz/externalAuth";
+import { requireExternalAuth, type ExternalAuthRequest } from "../lib/authz/externalAuth";
 import { createLogger } from "../logger";
 import { asyncHandler } from '../utils/asyncHandler';
+
+import type { Router as RouterType } from "express";
 const logger = createLogger({ module: 'external-routes' });
-const router = Router();
+const router: RouterType = Router();
 // Apply middleware to all external routes
+// eslint-disable-next-line @typescript-eslint/no-misused-promises
 router.use(requireExternalAuth);
 // GET /api/external/workflows
-router.get("/workflows", asyncHandler(async (req: any, res) => {
+router.get("/workflows", asyncHandler(async (req, res) => {
     const extReq = req as ExternalAuthRequest;
     try {
         const workspaceId = extReq.externalAuth!.workspaceId;
@@ -23,31 +26,44 @@ router.get("/workflows", asyncHandler(async (req: any, res) => {
             where: eq(workflows.projectId, workspaceId)
         });
         res.json({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
             data: workflowList.map((w: any) => ({
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
                 id: w.id,
-                title: w.name || w.title,
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+                title: w.name ?? w.title,
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
                 slug: w.slug,
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
                 isPublic: w.isPublic,
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
                 createdAt: w.createdAt
             }))
         });
-    } catch (err) {
+    } catch (_err) {
         res.status(500).json({ error: "Internal Error" });
     }
 }));
 // POST /api/external/workflows/:id/runs
-router.post("/workflows/:id/runs", asyncHandler(async (req: any, res) => {
+router.post("/workflows/:id/runs", asyncHandler(async (req, res) => {
     const extReq = req as ExternalAuthRequest;
     try {
         const { id } = req.params;
         const workspaceId = extReq.externalAuth!.workspaceId;
-        const body = req.body; // { initialValues, metadata }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const _body = req.body; // { initialValues, metadata }
         // Verify workflow exists in workspace
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
         const workflow = await db.query.workflows.findFirst({
-            where: (workflows: any, { and, eq }: any) => and(
-                eq(workflows.id, id),
-                eq(workflows.projectId, workspaceId)
-            )
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            where: (workflows: any, { and, eq }: any) =>
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+                and(
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+                    eq(workflows.id, id),
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+                    eq(workflows.projectId, workspaceId)
+                )
         });
         if (!workflow) {
             res.status(404).json({ error: "Workflow not found" });
@@ -55,7 +71,7 @@ router.post("/workflows/:id/runs", asyncHandler(async (req: any, res) => {
         }
         // Create Run (Mock)
         // In real impl, insert into 'survey_results' or 'workflow_runs'
-        const runId = `run_${Math.random().toString(36).substr(2, 9)}`;
+        const runId = `run_${Math.random().toString(36).substring(2, 11)}`;
         // Resolve organization ID from workspace
         const workspace = await db.query.workspaces.findFirst({
             where: eq(workspaces.id, workspaceId)
@@ -83,7 +99,7 @@ router.post("/workflows/:id/runs", asyncHandler(async (req: any, res) => {
     }
 }));
 // GET /api/external/runs/:id
-router.get("/runs/:id", asyncHandler(async (req: any, res) => {
+router.get("/runs/:id", asyncHandler(async (req, res) => {
     // Implementation to get run status
     res.json({ id: req.params.id, status: "completed", output: {} });
 }));

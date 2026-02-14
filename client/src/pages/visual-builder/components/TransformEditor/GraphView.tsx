@@ -1,6 +1,7 @@
 import React from 'react';
 
 interface GraphViewProps {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     transforms: any[];
 }
 

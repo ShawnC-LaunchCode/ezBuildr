@@ -43,7 +43,7 @@ async function createArchiveDirectory(timestamp: string): Promise<string> {
 async function writeJsonFile(dir: string, filename: string, data: unknown[]): Promise<void> {
   const filePath = path.join(dir, filename);
   await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
-  console.log(`✅ Wrote ${filename} (${data.length || 0} records)`);
+  console.log(`✅ Wrote ${filename} (${(data.length > 0) || 0} records)`);
 }
 
 async function archiveSurveyData() {

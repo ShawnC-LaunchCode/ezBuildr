@@ -15,13 +15,16 @@ export interface ScriptExecutionContext {
   phase: string;
   sectionId?: string;
   userId?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- metadata can contain any type of value
   metadata?: Record<string, any>;
 }
 
 export interface ScriptExecutionResult {
   ok: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- script output can be any type
   output?: any;
   error?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- console logs can contain any values
   consoleLogs?: any[][];
   durationMs?: number;
 }
@@ -85,6 +88,7 @@ export interface UpdateLifecycleHookInput {
 
 export interface LifecycleHookExecutionResult {
   success: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- hook data can contain any type of value
   data: Record<string, any>;
   errors?: Array<{
     hookId: string;
@@ -93,6 +97,7 @@ export interface LifecycleHookExecutionResult {
   }>;
   consoleOutput?: Array<{
     hookName: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- console logs can contain any values
     logs: any[][];
   }>;
 }
@@ -148,6 +153,7 @@ export interface UpdateDocumentHookInput {
 
 export interface DocumentHookExecutionResult {
   success: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- hook data can contain any type of value
   data: Record<string, any>;
   errors?: Array<{
     hookId: string;
@@ -156,6 +162,7 @@ export interface DocumentHookExecutionResult {
   }>;
   consoleOutput?: Array<{
     hookName: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- console logs can contain any values
     logs: any[][];
   }>;
 }
@@ -179,9 +186,12 @@ export interface ScriptExecutionLog {
   finishedAt?: Date | null;
   status: ScriptExecutionStatus;
   errorMessage?: string | null;
-  consoleOutput?: any[] | null;
-  inputSample?: any | null;
-  outputSample?: any | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- console output can contain any values
+  consoleOutput?: any[] | null; // eslint-disable-line @typescript-eslint/no-redundant-type-constituents
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- input sample can be any type
+  inputSample?: any | null; // eslint-disable-line @typescript-eslint/no-redundant-type-constituents
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- output sample can be any type
+  outputSample?: any | null; // eslint-disable-line @typescript-eslint/no-redundant-type-constituents
   durationMs?: number | null;
   createdAt: Date;
 }
@@ -194,8 +204,11 @@ export interface CreateScriptExecutionLogInput {
   phase?: string;
   status: ScriptExecutionStatus;
   errorMessage?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- console output can contain any values
   consoleOutput?: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- input sample can be any type
   inputSample?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- output sample can be any type
   outputSample?: any;
   durationMs?: number;
 }
@@ -237,19 +250,30 @@ export interface NumberHelpers {
 }
 
 export interface ArrayHelpers {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- array helpers work with arrays of any type
   unique: (arr: any[]) => any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- array helpers work with arrays of any type
   flatten: (arr: any[]) => any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- array helpers work with arrays of any type
   chunk: (arr: any[], size: number) => any[][];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- array helpers work with arrays of any type
   sortBy: (arr: any[], key: string) => any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- array helpers work with arrays of any type
   filter: (arr: any[], predicate: (item: any, index: number) => boolean) => any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- array helpers work with arrays of any type
   map: (arr: any[], mapper: (item: any, index: number) => any) => any[];
 }
 
 export interface ObjectHelpers {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- object helpers work with objects of any type
   keys: (obj: Record<string, any>) => string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- object helpers work with objects of any type
   values: (obj: Record<string, any>) => any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- object helpers work with objects of any type
   pick: (obj: Record<string, any>, keys: string[]) => Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- object helpers work with objects of any type
   omit: (obj: Record<string, any>, keys: string[]) => Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- object helpers work with objects of any type
   merge: (...objects: Record<string, any>[]) => Record<string, any>;
 }
 
@@ -263,13 +287,18 @@ export interface MathHelpers {
 }
 
 export interface HttpHelpers {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- HTTP responses can be any type
   get: (url: string, options?: { headers?: Record<string, string> }) => Promise<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- HTTP responses and request bodies can be any type
   post: (url: string, body: any, options?: { headers?: Record<string, string> }) => Promise<any>;
 }
 
 export interface ConsoleHelpers {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- console methods accept any arguments
   log: (...args: any[]) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- console methods accept any arguments
   warn: (...args: any[]) => void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- console methods accept any arguments
   error: (...args: any[]) => void;
 }
 
@@ -303,9 +332,12 @@ export interface ScriptContextAPI {
     id: string;
   };
   env: {
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- NODE_ENV is a standard environment variable name
     NODE_ENV?: string;
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- BASE_URL is a standard environment variable name
     BASE_URL?: string;
   };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- metadata can contain any type of value
   metadata: Record<string, any>;
 }
 
@@ -317,8 +349,10 @@ export interface ExecuteScriptParams {
   language: ScriptLanguage;
   code: string;
   inputKeys: string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- script data can contain any type of value
   data: Record<string, any>;
   context: ScriptExecutionContext;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- helpers can be any type
   helpers?: Record<string, any>;
   timeoutMs?: number;
   consoleEnabled?: boolean;
@@ -341,14 +375,17 @@ export interface ValidateScriptResult {
 // ===================================================================
 
 export interface TestHookInput {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test data can contain any type
   testData: Record<string, any>;
   context?: Partial<ScriptExecutionContext>;
 }
 
 export interface TestHookResult {
   success: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- script output can be any type
   output?: any;
   error?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- console logs can contain any values
   consoleLogs?: any[][];
   durationMs?: number;
 }
@@ -363,6 +400,7 @@ export interface ConsoleLogEntry {
   scriptType: ScriptType;
   phase: string;
   status: ScriptExecutionStatus;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- console logs can contain any values
   consoleLogs?: any[][];
   errorMessage?: string;
   durationMs?: number;

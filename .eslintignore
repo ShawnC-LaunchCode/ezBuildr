@@ -49,6 +49,31 @@ temp/
 # IMPORTANT: Add files here only temporarily during migration
 # Each file should have a ticket/issue number and target date for compliance
 
+# Root config files (not in tsconfig)
+drizzle.config.ts
+playwright.config.ts
+postcss.config.js
+tailwind.config.ts
+vitest.config.ts
+vitest.config.auth.ts
+vitest.config.integration.ts
+seed_tenant.ts
+
+# Temp/utility scripts at root
+*.cjs
+
+# JS scripts not in tsconfig
+scripts/*.js
+
+# Embed SDK (not in tsconfig)
+packages/
+
+# Mock files (not in tsconfig)
+__mocks__/
+
+# Tool scripts (not in tsconfig)
+tools/
+
 # External/vendor code
 client/src/lib/external/
 server/lib/external/

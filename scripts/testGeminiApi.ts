@@ -35,6 +35,7 @@ async function testGeminiApi() {
       models.forEach((m: Record<string, unknown>) => {
         const name = String(m.name).replace('models/', '');
         const displayName = m.displayName ?? 'No display name';
+        // eslint-disable-next-line @typescript-eslint/no-base-to-string
         console.log(`   - ${name} (${displayName})`);
       });
       console.log();

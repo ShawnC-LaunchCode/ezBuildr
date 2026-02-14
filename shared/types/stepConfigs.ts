@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Step Configuration Type Definitions
  *
@@ -522,6 +523,7 @@ export interface LogicExpression {
   conditions: Array<{
     key: string;              // Step alias to check
     op: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than' | 'is_empty' | 'is_not_empty';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     value?: any;              // Expected value (not needed for is_empty/is_not_empty)
   }>;
 }

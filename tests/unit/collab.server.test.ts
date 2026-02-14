@@ -99,7 +99,7 @@ describeWithCollabServer('Collaboration Server [requires collab server]', () => 
       await new Promise((resolve) => wsA.once('open', resolve));
       // Connect client B (builder)
       const wsB = new WebSocket(`${WS_URL}?room=${roomKey}&token=${builderToken}`);
-      const docB = new Y.Doc();
+      const _docB = new Y.Doc();
       await new Promise((resolve) => wsB.once('open', resolve));
       // Wait for initial sync
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -109,7 +109,7 @@ describeWithCollabServer('Collaboration Server [requires collab server]', () => 
         yGraph.set('testKey', 'testValue');
       });
       // Send update from A
-      const updateA = Y.encodeStateAsUpdate(docA);
+      const _updateA = Y.encodeStateAsUpdate(docA);
       // In real implementation, this would be sent via WebSocket protocol
       // Wait for sync
       await new Promise((resolve) => setTimeout(resolve, 1000));

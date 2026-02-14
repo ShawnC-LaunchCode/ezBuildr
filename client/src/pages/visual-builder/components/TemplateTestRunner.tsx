@@ -79,6 +79,7 @@ interface ValidationResult {
   }>;
 }
 
+// eslint-disable-next-line max-lines-per-function
 export function TemplateTestRunner({
   templateId,
   projectId,
@@ -130,6 +131,7 @@ export function TemplateTestRunner({
       return response.json();
     },
     onSuccess: (data) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       setSampleData(JSON.stringify(data.data, null, 2));
       setActiveTab('test');
       toast.success('Sample data generated');
@@ -140,7 +142,9 @@ export function TemplateTestRunner({
   });
 
   // Validate template mutation
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const validateMutation = useMutation<{ data: ValidationResult }, Error, any>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mutationFn: async (data: any) => {
       const response = await fetch(
         `/api/templates/${templateId}/validate?projectId=${projectId}`,
@@ -148,6 +152,7 @@ export function TemplateTestRunner({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           body: JSON.stringify({ sampleData: data }),
         }
       );
@@ -176,6 +181,7 @@ export function TemplateTestRunner({
 
   const handleValidate = () => {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const data = JSON.parse(sampleData);
       validateMutation.mutate(data);
     } catch (error) {
@@ -190,6 +196,7 @@ export function TemplateTestRunner({
           <DialogTitle>Test Template</DialogTitle>
         </DialogHeader>
 
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col overflow-hidden">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="analysis">

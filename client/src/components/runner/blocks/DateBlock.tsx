@@ -18,6 +18,7 @@ import type { DateConfig } from "@shared/types/stepConfigs";
 
 export interface DateBlockProps {
   step: Step;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any;
   onChange: (value: string) => void;
   readOnly?: boolean;
@@ -38,6 +39,7 @@ export function DateBlockRenderer({ step, value, onChange, readOnly }: DateBlock
     <Input
       id={step.id}
       type="date"
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
       min={config?.minDate}

@@ -37,6 +37,7 @@ export function ConditionalRequiredRuleEditor({ rule, onChange, workflowId }: Co
                         </SelectContent>
                     </Select>
                     <Input
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                         value={rule.when.value}
                         onChange={(e) => onChange({ ...rule, when: { ...rule.when, value: e.target.value } })}
                         className="h-8 text-xs flex-1"

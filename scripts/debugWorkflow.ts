@@ -53,6 +53,7 @@ async function debugWorkflow() {
 
     if (isFinalDocs) {
       console.log(`    Templates: ${JSON.stringify(config?.templates ?? [])}`);
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string
       console.log(`    Screen Title: ${config?.screenTitle ?? 'N/A'}`);
     }
   }

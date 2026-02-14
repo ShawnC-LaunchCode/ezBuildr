@@ -21,7 +21,8 @@ export class MockIntegrationLayer {
     /**
      * Simulate document generation
      */
-    async generateDocument(templateId: string, variables: Record<string, any>): Promise<MockDocumentResult> {
+    async generateDocument(templateId: string, variables: Record<string, unknown>): Promise<MockDocumentResult> {
+        // eslint-disable-next-line no-console
         console.log('[Preview Mock] Generating document for template:', templateId, 'with vars:', variables);
 
         // Simulate network delay
@@ -38,6 +39,7 @@ export class MockIntegrationLayer {
      * Simulate creating a signature envelope
      */
     async createSignatureEnvelope(signerEmail: string, documents: string[]): Promise<MockSignatureResult> {
+        // eslint-disable-next-line no-console
         console.log('[Preview Mock] Creating signature envelope for:', signerEmail, 'docs:', documents);
 
         // Simulate network delay
@@ -53,6 +55,7 @@ export class MockIntegrationLayer {
      * Simulate checking signature status
      */
     async checkSignatureStatus(envelopeId: string): Promise<'signed' | 'pending'> {
+        // eslint-disable-next-line no-console
         console.log('[Preview Mock] Checking status for:', envelopeId);
 
         // Randomly decide if signed
@@ -63,6 +66,7 @@ export class MockIntegrationLayer {
      * Simulate file upload
      */
     async uploadFile(file: File): Promise<string> {
+        // eslint-disable-next-line no-console
         console.log('[Preview Mock] Uploading file:', file.name);
 
         await new Promise(resolve => setTimeout(resolve, 1000));

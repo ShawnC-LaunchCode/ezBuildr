@@ -54,6 +54,7 @@ const createEmptyDynamicConfig = (): Extract<DynamicOptionsConfig, { type: 'list
 /**
  * Parse and migrate choice config from various formats to unified state
  */
+// eslint-disable-next-line complexity
 function parseChoiceConfig(step: ApiStep): {
     config: ChoiceCardState;
     mode: "static" | "dynamic";
@@ -80,16 +81,16 @@ function parseChoiceConfig(step: ApiStep): {
                 dynamicOptions = {
                     type: 'list',
                     listVariable: dynConfig.listVariable ?? '',
-                    labelPath: ((dynConfig as unknown as { labelPath?: string; labelColumnId?: string }).labelPath ||
+                    labelPath: ((dynConfig as unknown as { labelPath?: string; labelColumnId?: string }).labelPath ??
                         (dynConfig as unknown as { labelPath?: string; labelColumnId?: string }).labelColumnId) ?? '',
-                    valuePath: ((dynConfig as unknown as { valuePath?: string; valueColumnId?: string }).valuePath ||
+                    valuePath: ((dynConfig as unknown as { valuePath?: string; valueColumnId?: string }).valuePath ??
                         (dynConfig as unknown as { valuePath?: string; valueColumnId?: string }).valueColumnId) ?? '',
                     labelTemplate: dynConfig.labelTemplate,
                     groupByPath: dynConfig.groupByPath,
                     enableSearch: dynConfig.enableSearch,
                     includeBlankOption: dynConfig.includeBlankOption,
                     blankLabel: dynConfig.blankLabel,
-                    transform: dynConfig.transform || createEmptyDynamicConfig().transform
+                    transform: dynConfig.transform ?? createEmptyDynamicConfig().transform
                 };
             }
         } else if (Array.isArray(rawOptions)) {
@@ -98,7 +99,7 @@ function parseChoiceConfig(step: ApiStep): {
 
         return {
             config: {
-                display: config?.display || "radio",
+                display: config?.display ?? "radio",
                 allowMultiple: config?.allowMultiple ?? false,
                 searchable: config?.searchable ?? false,
                 staticOptions,
@@ -114,8 +115,8 @@ function parseChoiceConfig(step: ApiStep): {
         const options: ChoiceOption[] = Array.isArray(legacyOptions)
             ? legacyOptions.map((opt: string | { id?: string; label?: string; alias?: string }, idx: number) => ({
                 id: typeof opt === 'object' && opt.id ? opt.id : `opt${idx + 1}`,
-                label: typeof opt === 'string' ? opt : (opt.label || String(opt)),
-                alias: typeof opt === 'string' ? `option${idx + 1}` : (opt.alias || opt.id || `option${idx + 1}`),
+                label: typeof opt === 'string' ? opt : (opt.label ?? String(opt)),
+                alias: typeof opt === 'string' ? `option${idx + 1}` : (opt.alias ?? opt.id ?? `option${idx + 1}`),
             }))
             : [];
 

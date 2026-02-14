@@ -1,16 +1,16 @@
 import express, { type Express } from 'express';
-import request from 'supertest';
+import _request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
 import {
-  datavaultApiTokens,
-  datavaultDatabases,
-  tenants,
-  users,
+  _datavaultApiTokens,
+  _datavaultDatabases,
+  _tenants,
+  _users,
 } from '@shared/schema';
 
 import { registerDatavaultApiTokenRoutes } from '../../server/routes/datavaultApiTokens.routes';
-import { hashToken, generateApiToken } from '../../server/utils/encryption';
+import { _hashToken, _generateApiToken } from '../../server/utils/encryption';
 /**
  * DataVault v4 Micro-Phase 5: API Tokens Integration Tests
  *
@@ -33,9 +33,9 @@ describe('DataVault API Tokens', () => {
   let app: Express;
   let testTenantId: string;
   let testUserId: string;
-  let testDatabaseId: string;
-  let testTokenId: string;
-  let plainToken: string;
+  let _testDatabaseId: string;
+  let _testTokenId: string;
+  let _plainToken: string;
   beforeAll(async () => {
     // Setup Express app with routes
     app = express();

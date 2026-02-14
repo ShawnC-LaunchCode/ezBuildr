@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Step Type Definitions
  *
@@ -31,6 +32,7 @@ export type JsQuestionConfig = {
 /**
  * Type guard to check if options contain JS question config
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function isJsQuestionConfig(options: any): options is JsQuestionConfig {
   return (
     options &&

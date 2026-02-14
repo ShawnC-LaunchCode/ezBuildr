@@ -17,7 +17,7 @@ export class LoadRunner {
         let completedRuns = 0;
         let errors = 0;
 
-        const worker = async (id: number) => {
+        const worker = async (_id: number) => {
             while (Date.now() < endTime) {
                 try {
                     await Profiler.measureAsync("load_test_run", () => simulateWorkflowRun(completedRuns));

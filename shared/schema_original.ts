@@ -1250,7 +1250,7 @@ export interface QuestionWithSubquestions extends Question {
 // Loop instance data for responses
 export interface LoopInstanceData {
   instanceIndex: number;
-  answers: Record<string, any>;
+  answers: Record<string, unknown>;
 }
 
 // Conditional logic configuration types
@@ -1263,8 +1263,11 @@ export interface ConditionalLogicConfig {
 
 export interface ConditionalCondition {
   questionId: string;
+  // eslint-disable-next-line max-lines
   operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'greater_than' | 'less_than' | 'between' | 'is_empty' | 'is_not_empty';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any; // Can be string, number, array, etc.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   secondValue?: any; // For 'between' operator
 }
 
@@ -3760,7 +3763,7 @@ export interface TransformIssue {
   severity: 'error' | 'warning' | 'info';
   message: string;
   blockId?: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export interface TransformFix {
@@ -3774,6 +3777,7 @@ export interface TransformDiff {
   added: string[];
   removed: string[];
   modified: string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   details: Record<string, { before: any, after: any }>;
 }
 

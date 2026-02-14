@@ -32,7 +32,8 @@ export default function RunsCompare() {
     return <LoadingState />;
   }
 
-  if (error || !data || !runA || !runB) {
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+  if (error ?? !data || !runA || !runB) {
     return (
       <div className="container mx-auto py-6">
         <div className="text-center">
@@ -177,12 +178,12 @@ export default function RunsCompare() {
 
             <div>
               <div className="text-sm font-semibold mb-2">Inputs</div>
-              <JsonViewer data={data.runA.inputs || {}} maxHeight="300px" />
+              <JsonViewer data={data.runA.inputs ?? {}} maxHeight="300px" />
             </div>
 
             <div>
               <div className="text-sm font-semibold mb-2">Outputs</div>
-              <JsonViewer data={data.runA.outputs || {}} maxHeight="300px" />
+              <JsonViewer data={data.runA.outputs ?? {}} maxHeight="300px" />
             </div>
           </CardContent>
         </Card>
@@ -220,12 +221,12 @@ export default function RunsCompare() {
 
             <div>
               <div className="text-sm font-semibold mb-2">Inputs</div>
-              <JsonViewer data={data.runB.inputs || {}} maxHeight="300px" />
+              <JsonViewer data={data.runB.inputs ?? {}} maxHeight="300px" />
             </div>
 
             <div>
               <div className="text-sm font-semibold mb-2">Outputs</div>
-              <JsonViewer data={data.runB.outputs || {}} maxHeight="300px" />
+              <JsonViewer data={data.runB.outputs ?? {}} maxHeight="300px" />
             </div>
           </CardContent>
         </Card>

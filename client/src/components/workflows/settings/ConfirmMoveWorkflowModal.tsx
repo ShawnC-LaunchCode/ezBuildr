@@ -39,7 +39,7 @@ export function ConfirmMoveWorkflowModal({
           <AlertDialogDescription className="space-y-2">
             <p>
               Are you sure you want to move{" "}
-              <span className="font-semibold text-foreground">"{workflowName}"</span>{" "}
+              <span className="font-semibold text-foreground">&quot;{workflowName}&quot;</span>{" "}
               to{" "}
               <span className="font-semibold text-foreground">{targetName}</span>?
             </p>

@@ -5,8 +5,8 @@ import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 export default function PortalMagicLink() {
-    const [location, setLocation] = useLocation();
-    const [verifying, setVerifying] = useState(true);
+    const [_location, setLocation] = useLocation();
+    const [_verifying, setVerifying] = useState(true);
     const { toast } = useToast();
     useEffect(() => {
         const verifyToken = async () => {

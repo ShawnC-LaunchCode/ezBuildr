@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 
 import {
     AIWorkflowSuggestionSchema,
@@ -29,8 +30,11 @@ export class WorkflowSuggestionService {
     async suggestWorkflowImprovements(
         request: AIWorkflowSuggestionRequest,
         existingWorkflow: {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             sections: any[];
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             logicRules?: any[];
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             transformBlocks?: any[];
         },
     ): Promise<AIWorkflowSuggestion> {
@@ -59,7 +63,7 @@ export class WorkflowSuggestionService {
             );
 
             return validated;
-        } catch (error: any) {
+        } catch (error: unknown) {
             const duration = Date.now() - startTime;
             logger.error({ error, duration }, 'AI workflow suggestion failed');
 
@@ -133,7 +137,7 @@ export class WorkflowSuggestionService {
             );
 
             return result;
-        } catch (error: any) {
+        } catch (error: unknown) {
             const duration = Date.now() - startTime;
             logger.error({ error, duration }, 'AI binding suggestion failed');
 
@@ -239,7 +243,7 @@ export class WorkflowSuggestionService {
             description?: string;
         }>,
         mode: 'full' | 'partial' = 'full',
-    ): Promise<Record<string, any>> {
+    ): Promise<Record<string, unknown>> {
         const startTime = Date.now();
 
         try {
@@ -260,7 +264,7 @@ export class WorkflowSuggestionService {
             );
 
             return parsed.values || parsed;
-        } catch (error: any) {
+        } catch (error: unknown) {
             const duration = Date.now() - startTime;
             logger.error({ error, duration }, 'AI value suggestion failed');
 

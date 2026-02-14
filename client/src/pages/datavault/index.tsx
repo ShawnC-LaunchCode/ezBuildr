@@ -13,7 +13,7 @@ import { useDatavaultTables } from "@/lib/datavault-hooks";
 export default function DataVaultDashboard() {
   const { data: tables, isLoading } = useDatavaultTables(true);
 
-  const tableCount = tables?.length || 0;
+  const tableCount = tables?.length ?? 0;
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">

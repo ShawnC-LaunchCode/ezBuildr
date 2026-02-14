@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any */
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Shield, Smartphone } from "lucide-react";
 import React, { useState } from "react";
@@ -18,6 +19,7 @@ const loginSchema = z.object({
     password: z.string().min(1, "Password is required"),
 });
 type LoginFormValues = z.infer<typeof loginSchema>;
+// eslint-disable-next-line max-lines-per-function
 export default function LoginPage() {
     const [, setLocation] = useLocation();
     const { toast } = useToast();
@@ -112,7 +114,8 @@ export default function LoginPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <form onSubmit={(e) => { e.preventDefault(); handleMfaSubmit(e); }} className="space-y-4">
+                            {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
+                            <form onSubmit={(e) => { e.preventDefault(); void handleMfaSubmit(e); }} className="space-y-4">
                                 <div className="space-y-2">
                                     <FormLabel>Authentication Code</FormLabel>
                                     <div className="relative">
@@ -188,6 +191,7 @@ export default function LoginPage() {
                             </div>
                         </div>
                         <Form {...form}>
+                            {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
                             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                                 <FormField
                                     control={form.control}

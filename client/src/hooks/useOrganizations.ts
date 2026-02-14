@@ -3,8 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../lib/api/organizations';
 
 import type {
-  Organization,
-  CreateOrganizationInput,
+  _Organization,
+  _CreateOrganizationInput,
   UpdateOrganizationInput,
   CreateInviteInput,
 } from '../lib/api/organizations';
@@ -28,14 +28,14 @@ export const organizationKeys = {
 // Organization Queries
 // ============================================================================
 
-export function useOrganizations() {
+export function useOrganizations(): ReturnType<typeof useQuery> {
   return useQuery({
     queryKey: organizationKeys.list(),
     queryFn: api.getOrganizations,
   });
 }
 
-export function useOrganization(orgId: string | undefined) {
+export function useOrganization(orgId: string | undefined): ReturnType<typeof useQuery> {
   return useQuery({
     queryKey: orgId ? organizationKeys.detail(orgId) : ['organizations', 'null'],
     queryFn: () => {
@@ -48,7 +48,7 @@ export function useOrganization(orgId: string | undefined) {
   });
 }
 
-export function useOrganizationMembers(orgId: string | undefined) {
+export function useOrganizationMembers(orgId: string | undefined): ReturnType<typeof useQuery> {
   return useQuery({
     queryKey: orgId ? organizationKeys.members(orgId) : ['organizations', 'null', 'members'],
     queryFn: () => {
@@ -61,7 +61,7 @@ export function useOrganizationMembers(orgId: string | undefined) {
   });
 }
 
-export function useOrganizationInvites(orgId: string | undefined) {
+export function useOrganizationInvites(orgId: string | undefined): ReturnType<typeof useQuery> {
   return useQuery({
     queryKey: orgId ? organizationKeys.invites(orgId) : ['organizations', 'null', 'invites'],
     queryFn: () => {
@@ -74,7 +74,7 @@ export function useOrganizationInvites(orgId: string | undefined) {
   });
 }
 
-export function usePendingInvites() {
+export function usePendingInvites(): ReturnType<typeof useQuery> {
   return useQuery({
     queryKey: organizationKeys.pendingInvites(),
     queryFn: api.getPendingInvites,
@@ -85,115 +85,115 @@ export function usePendingInvites() {
 // Organization Mutations
 // ============================================================================
 
-export function useCreateOrganization() {
+export function useCreateOrganization(): ReturnType<typeof useMutation> {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: api.createOrganization,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: organizationKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: organizationKeys.lists() });
     },
   });
 }
 
-export function useUpdateOrganization(orgId: string) {
+export function useUpdateOrganization(orgId: string): ReturnType<typeof useMutation> {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (data: UpdateOrganizationInput) => api.updateOrganization(orgId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: organizationKeys.detail(orgId) });
-      queryClient.invalidateQueries({ queryKey: organizationKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: organizationKeys.detail(orgId) });
+      void queryClient.invalidateQueries({ queryKey: organizationKeys.lists() });
     },
   });
 }
 
-export function usePromoteMember(orgId: string) {
+export function usePromoteMember(orgId: string): ReturnType<typeof useMutation> {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (userId: string) => api.promoteMember(orgId, userId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: organizationKeys.members(orgId) });
+      void queryClient.invalidateQueries({ queryKey: organizationKeys.members(orgId) });
     },
   });
 }
 
-export function useDemoteMember(orgId: string) {
+export function useDemoteMember(orgId: string): ReturnType<typeof useMutation> {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (userId: string) => api.demoteMember(orgId, userId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: organizationKeys.members(orgId) });
+      void queryClient.invalidateQueries({ queryKey: organizationKeys.members(orgId) });
     },
   });
 }
 
-export function useRemoveMember(orgId: string) {
+export function useRemoveMember(orgId: string): ReturnType<typeof useMutation> {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (userId: string) => api.removeMember(orgId, userId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: organizationKeys.members(orgId) });
+      void queryClient.invalidateQueries({ queryKey: organizationKeys.members(orgId) });
     },
   });
 }
 
-export function useLeaveOrganization() {
+export function useLeaveOrganization(): ReturnType<typeof useMutation> {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (orgId: string) => api.leaveOrganization(orgId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: organizationKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: organizationKeys.lists() });
     },
   });
 }
 
-export function useCreateInvite(orgId: string) {
+export function useCreateInvite(orgId: string): ReturnType<typeof useMutation> {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (data: CreateInviteInput) => api.createInvite(orgId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: organizationKeys.invites(orgId) });
+      void queryClient.invalidateQueries({ queryKey: organizationKeys.invites(orgId) });
     },
   });
 }
 
-export function useRevokeInvite(orgId: string) {
+export function useRevokeInvite(orgId: string): ReturnType<typeof useMutation> {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (inviteId: string) => api.revokeInvite(orgId, inviteId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: organizationKeys.invites(orgId) });
+      void queryClient.invalidateQueries({ queryKey: organizationKeys.invites(orgId) });
     },
   });
 }
 
-export function useAcceptInvite() {
+export function useAcceptInvite(): ReturnType<typeof useMutation> {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (token: string) => api.acceptInvite(token),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: organizationKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: organizationKeys.pendingInvites() });
+      void queryClient.invalidateQueries({ queryKey: organizationKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: organizationKeys.pendingInvites() });
     },
   });
 }
 
-export function useDeleteOrganization(orgId: string) {
+export function useDeleteOrganization(orgId: string): ReturnType<typeof useMutation> {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: () => api.deleteOrganization(orgId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: organizationKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: organizationKeys.detail(orgId) });
+      void queryClient.invalidateQueries({ queryKey: organizationKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: organizationKeys.detail(orgId) });
     },
   });
 }

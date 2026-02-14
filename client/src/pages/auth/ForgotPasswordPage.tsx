@@ -82,7 +82,7 @@ export default function ForgotPasswordPage() {
                         {isSubmitted ? (
                             <div className="text-center space-y-4">
                                 <div className="bg-green-50 text-green-700 p-4 rounded-md text-sm">
-                                    If an account exists with that email, we've sent instructions to reset your password.
+                                    If an account exists with that email, we&apos;ve sent instructions to reset your password.
                                 </div>
                                 <Button variant="outline" className="w-full" onClick={() => { void setIsSubmitted(false); }}>
                                     Try another email
@@ -90,6 +90,7 @@ export default function ForgotPasswordPage() {
                             </div>
                         ) : (
                             <Form {...form}>
+                                {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
                                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                                     <FormField
                                         control={form.control}

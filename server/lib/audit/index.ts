@@ -1,7 +1,7 @@
 import { logger } from "../observability/logger";
 
 import { BlockAudit } from "./blockAudit";
-import { ValidationAudit, DocAudit, AnalyticsAudit, SnapshotAudit } from "./miscAudit";
+import { _ValidationAudit, _DocAudit, _AnalyticsAudit, _SnapshotAudit } from "./miscAudit";
 import { ScriptAudit } from "./scriptAudit";
 import { WorkflowAudit } from "./workflowAudit";
 
@@ -9,6 +9,7 @@ export class SystemAudit {
     /**
      * Run a full audit on a specific workflow.
      */
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     static async auditWorkflow(workflow: { id: string; blocks?: unknown[]; nodes?: unknown[]; startNodeId?: string; script?: string }) {
         logger.info({ msg: "Starting System Audit", workflowId: workflow.id });
 

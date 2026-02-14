@@ -19,6 +19,7 @@ interface ChartEmptyStateProps {
  *   height="h-96"
  * />
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function ChartEmptyState({ icon: Icon, message, height = "h-64", className }: ChartEmptyStateProps) {
   return (
     <div className={cn("flex items-center justify-center text-muted-foreground", height, className)}>

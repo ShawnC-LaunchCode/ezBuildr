@@ -281,6 +281,7 @@ export const PASSWORD_RESET_CONFIG = {
 /**
  * Helper function to get environment-specific configuration
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getAuthConfig() {
   return {
     password: PASSWORD_CONFIG,

@@ -14,6 +14,7 @@ const SIGNATURES = {
  * @returns boolean - true if valid, false if mismatch
  */
 export function validateMagicBytes(buffer: Buffer, filename: string): boolean {
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!buffer || buffer.length < 4) {return false;}
 
     const ext = filename.toLowerCase().split('.').pop() ?? '';
@@ -39,6 +40,7 @@ export function validateMagicBytes(buffer: Buffer, filename: string): boolean {
     }
 
     // Allow others (txt/md) or default true if not strictly enforced
+    // eslint-disable-next-line sonarjs/prefer-single-boolean-return
     if (['txt', 'md'].includes(ext)) {
         return true;
     }

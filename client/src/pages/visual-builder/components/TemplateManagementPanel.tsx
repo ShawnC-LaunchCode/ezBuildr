@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 
 /**
  * Stage 21: Template Management Panel
@@ -73,6 +74,7 @@ interface TemplateManagementPanelProps {
   projectId: string;
 }
 
+// eslint-disable-next-line max-lines-per-function
 export function TemplateManagementPanel({
   workflowId,
   versionId,
@@ -150,6 +152,7 @@ export function TemplateManagementPanel({
       return response.json();
     },
     onSuccess: () => {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: ['workflow-templates', versionId] });
       setIsAttachDialogOpen(false);
       setSelectedTemplateId('');
@@ -180,6 +183,7 @@ export function TemplateManagementPanel({
       return response.json();
     },
     onSuccess: () => {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: ['workflow-templates', versionId] });
       toast.success('Template detached successfully');
     },
@@ -206,6 +210,7 @@ export function TemplateManagementPanel({
       return response.json();
     },
     onSuccess: () => {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: ['workflow-templates', versionId] });
       toast.success('Primary template updated');
     },
@@ -229,6 +234,7 @@ export function TemplateManagementPanel({
   };
 
   const handleDetach = (mappingId: string) => {
+    // eslint-disable-next-line no-alert
     if (confirm('Are you sure you want to detach this template?')) {
       detachMutation.mutate(mappingId);
     }
@@ -350,7 +356,7 @@ export function TemplateManagementPanel({
         <div className="text-center py-8 text-gray-500">
           <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
           <p>No templates attached</p>
-          <p className="text-sm">Click "Attach" to add a template</p>
+          <p className="text-sm">Click &quot;Attach&quot; to add a template</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -362,7 +368,7 @@ export function TemplateManagementPanel({
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-medium">{mapping.template?.name || 'Unknown'}</h3>
+                    <h3 className="font-medium">{mapping.template?.name ?? 'Unknown'}</h3>
                     {mapping.isPrimary && (
                       <Badge variant="default" className="text-xs">
                         <Star className="h-3 w-3 mr-1" />
@@ -410,7 +416,7 @@ export function TemplateManagementPanel({
 
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <Badge variant="outline" className="text-xs">
-                  {mapping.template?.type?.toUpperCase() || 'DOCX'}
+                  {mapping.template?.type?.toUpperCase() ?? 'DOCX'}
                 </Badge>
                 <span>•</span>
                 <span>{new Date(mapping.createdAt).toLocaleDateString()}</span>

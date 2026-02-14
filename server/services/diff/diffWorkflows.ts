@@ -1,4 +1,5 @@
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 import _ from "lodash";
 
 import { WorkflowSchema } from "../migrations/registry";

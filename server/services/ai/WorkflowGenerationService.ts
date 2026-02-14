@@ -57,7 +57,7 @@ export class WorkflowGenerationService {
      * Create a service instance with proper config
      */
     static create(client: AIProviderClient, promptBuilder?: AIPromptBuilder): WorkflowGenerationService {
-        return new WorkflowGenerationService(client, promptBuilder || new AIPromptBuilder());
+        return new WorkflowGenerationService(client, promptBuilder ?? new AIPromptBuilder());
     }
 
     /**
@@ -77,6 +77,7 @@ export class WorkflowGenerationService {
             const response = await this.client.callLLM(prompt, 'workflow_generation');
 
             // Parse and validate the response
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             const parsed = JSON.parse(response);
             const validated = AIGeneratedWorkflowSchema.parse(parsed);
 
@@ -119,10 +120,11 @@ export class WorkflowGenerationService {
             }
 
             // Attach quality metadata to response (will be used by routes)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
             (validated as any).__qualityScore = qualityScore;
 
             return validated;
-        } catch (error: any) {
+        } catch (error: unknown) {
             const duration = Date.now() - startTime;
 
             // Re-throw QualityThresholdError without additional wrapping
@@ -189,9 +191,11 @@ export class WorkflowGenerationService {
         // The quality loop will try to improve it, and we'll check threshold at the end
         const initialRequest = { ...request, minQualityScore: 0 };
         const initialWorkflow = await this.generateWorkflow(initialRequest);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
         const initialQualityScore = (initialWorkflow as any).__qualityScore as QualityScore;
 
         // Clean up internal metadata
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
         delete (initialWorkflow as any).__qualityScore;
 
         logger.info({

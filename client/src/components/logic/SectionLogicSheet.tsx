@@ -75,7 +75,7 @@ export function SectionLogicSheet({
         <SheetHeader className="mb-6">
           <SheetTitle>Page Visibility</SheetTitle>
           <SheetDescription>
-            Configure when "{section.title}" should be visible based on answers to other questions.
+            Configure when &quot;{section.title}&quot; should be visible based on answers to other questions.
           </SheetDescription>
         </SheetHeader>
 

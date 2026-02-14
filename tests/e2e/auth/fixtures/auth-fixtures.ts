@@ -42,19 +42,23 @@ type AuthFixtures = {
 export const test = base.extend<AuthFixtures>({
   loginPage: async ({ page }, use) => {
     const loginPage = new LoginPage(page);
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(loginPage);
   },
 
   dashboardPage: async ({ page }, use) => {
     const dashboardPage = new DashboardPage(page);
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(dashboardPage);
   },
 
   portalPage: async ({ page }, use) => {
     const portalPage = new PortalPage(page);
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(portalPage);
   },
 
+  // eslint-disable-next-line no-empty-pattern
   testUser: async ({}, use) => {
     // Default test user matching server's dev-login endpoint
     const user: TestUser = {
@@ -65,6 +69,7 @@ export const test = base.extend<AuthFixtures>({
       lastName: "User",
       role: "owner",
     };
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(user);
   },
 
@@ -74,12 +79,14 @@ export const test = base.extend<AuthFixtures>({
       await page.goto("/api/auth/dev-login");
       await page.waitForURL("**/dashboard", { timeout: 10000 });
     };
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(login);
   },
 
   authenticatedPage: async ({ page, devLogin }, use) => {
     // Automatically authenticate before each test
     await devLogin();
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(page);
   },
 });

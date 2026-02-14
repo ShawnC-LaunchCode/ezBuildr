@@ -52,9 +52,11 @@ function Calendar({
         ...classNames,
       }}
       components={{
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         IconLeft: ({ className, ...props }) => (
           <ChevronLeft className={cn("h-4 w-4", className)} {...props} aria-hidden="true" />
         ),
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         IconRight: ({ className, ...props }) => (
           <ChevronRight className={cn("h-4 w-4", className)} {...props} aria-hidden="true" />
         ),

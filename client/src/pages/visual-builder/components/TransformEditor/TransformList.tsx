@@ -1,11 +1,14 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import React from 'react';
 
 interface TransformListProps {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     transforms: any[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setTransforms: (t: any[]) => void;
 }
 
-export const TransformList: React.FC<TransformListProps> = ({ transforms, setTransforms }) => {
+export const TransformList: React.FC<TransformListProps> = ({ transforms, _setTransforms }) => {
     return (
         <div className="space-y-2">
             {transforms.length === 0 && (

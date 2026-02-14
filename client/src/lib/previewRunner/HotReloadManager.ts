@@ -19,16 +19,19 @@ export class HotReloadManager {
         // or expose method to be called by React components
     }
 
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     attach(env: PreviewEnvironment) {
         this.env = env;
         this.logger.info('Attached to environment:', env.getState().id);
     }
 
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     detach() {
         this.env = null;
         this.logger.info('Detached from environment');
     }
 
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     updateSchema(sections: ApiSection[], steps: ApiStep[]) {
         if (!this.env) {
             this.logger.warn('Cannot update schema: No environment attached');

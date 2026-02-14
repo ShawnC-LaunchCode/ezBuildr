@@ -1,7 +1,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 
-import type { ValidateConfig, BlockContext, CompareRule, ConditionalRequiredRule, ForEachRule } from '@shared/types/blocks';
+import type { ValidateConfig, _BlockContext, CompareRule, ConditionalRequiredRule, ForEachRule } from '@shared/types/blocks';
 
 import { ValidateBlockRunner } from '../../server/services/blockRunners/ValidateBlockRunner';
 

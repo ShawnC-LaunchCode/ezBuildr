@@ -17,11 +17,11 @@ import { recordService } from '../../server/services/RecordService';
 describe('Collections System E2E Tests', () => {
   let testTenantId: string;
   let testUserId: string;
-  let testProjectId: string;
+  let _testProjectId: string;
   let testCollectionId: string;
   const testFieldIds: string[] = [];
   const testRecordIds: string[] = [];
-  let testFieldSlug: string;
+  let _testFieldSlug: string;
 
   beforeAll(async () => {
     // Create test tenant

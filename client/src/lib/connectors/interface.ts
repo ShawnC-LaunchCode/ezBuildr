@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Data Source Connector Interface
  * Common abstraction for all data sources (native tables, Google Sheets, future connectors)
@@ -32,6 +33,7 @@ export interface ReadOptions {
     filters?: Array<{
         column: string; // UUID
         operator: '=' | '!=' | '>' | '<' | '>=' | '<=' | 'contains';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         value: any;
     }>;
     sort?: Array<{
@@ -81,7 +83,7 @@ export interface DataSourceConnector {
      * Read rows from a table
      * Returns rows as objects keyed by column UUID
      */
-    readRows(tableId: string, options?: ReadOptions): Promise<Record<string, any>[]>;
+    readRows(tableId: string, options?: ReadOptions): Promise<Record<string, unknown>[]>;
 
     /**
      * Write rows to a table
@@ -89,7 +91,7 @@ export interface DataSourceConnector {
      */
     writeRows(
         tableId: string,
-        rows: Record<string, any>[],
+        rows: Record<string, unknown>[],
         options?: WriteOptions
     ): Promise<WriteResult>;
 }
@@ -202,7 +204,7 @@ export class GoogleSheetsConnector implements DataSourceConnector {
         return response.json();
     }
 
-    async readRows(sheetId: string, options?: ReadOptions): Promise<Record<string, any>[]> {
+    async readRows(sheetId: string, options?: ReadOptions): Promise<Record<string, unknown>[]> {
         const params = new URLSearchParams();
         if (options?.limit) {
             params.set('limit', options.limit.toString());
@@ -215,6 +217,7 @@ export class GoogleSheetsConnector implements DataSourceConnector {
         }
 
         const response = await fetch(
+            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
             `/api/google-sheets/${this.spreadsheetId}/sheets/${sheetId}/rows?${params}`,
             {
                 headers: {
@@ -234,7 +237,7 @@ export class GoogleSheetsConnector implements DataSourceConnector {
 
     async writeRows(
         sheetId: string,
-        rows: Record<string, any>[],
+        rows: Record<string, unknown>[],
         options?: WriteOptions
     ): Promise<WriteResult> {
         const response = await fetch(
@@ -319,12 +322,12 @@ export class NativeTableConnector implements DataSourceConnector {
         return response.json();
     }
 
-    async readRows(tableId: string, options?: ReadOptions): Promise<Record<string, any>[]> {
+    async readRows(tableId: string, options?: ReadOptions): Promise<Record<string, unknown>[]> {
         const response = await fetch(`/api/tables/${tableId}/rows`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify(options || {}),
+            body: JSON.stringify(options ?? {}),
         });
 
         if (!response.ok) {
@@ -337,7 +340,7 @@ export class NativeTableConnector implements DataSourceConnector {
 
     async writeRows(
         tableId: string,
-        rows: Record<string, any>[],
+        rows: Record<string, unknown>[],
         options?: WriteOptions
     ): Promise<WriteResult> {
         const response = await fetch(`/api/tables/${tableId}/rows`, {

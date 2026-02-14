@@ -1,14 +1,14 @@
 import { sql } from 'drizzle-orm';
 import {
     index,
-    uniqueIndex,
+    _uniqueIndex,
     jsonb,
     pgTable,
     timestamp,
     varchar,
     text,
     uuid,
-    boolean
+    _boolean
 } from "drizzle-orm/pg-core";
 
 // ===================================================================

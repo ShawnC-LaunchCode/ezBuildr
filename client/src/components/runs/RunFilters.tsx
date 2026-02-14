@@ -58,7 +58,7 @@ export function RunFilters({ filters, onChange }: RunFiltersProps) {
     onChange({ limit: filters.limit });
   };
 
-  const hasActiveFilters = filters.status || filters.q || filters.from || filters.to;
+  const hasActiveFilters = filters.status ?? filters.q ?? filters.from ?? filters.to;
 
   return (
     <div className="space-y-4">
@@ -67,7 +67,7 @@ export function RunFilters({ filters, onChange }: RunFiltersProps) {
         <div className="space-y-2">
           <Label htmlFor="status">Status</Label>
           <Select
-            value={filters.status || 'all'}
+            value={filters.status ?? 'all'}
             onValueChange={handleStatusChange}
           >
             <SelectTrigger id="status">

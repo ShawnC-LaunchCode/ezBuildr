@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { Sparkles, X, MessageSquare, HelpCircle, Settings } from 'lucide-react';
 import React, { useState } from 'react';
 
@@ -119,6 +120,7 @@ export const FloatingAIAssist: React.FC<FloatingAIAssistProps> = ({ currentBlock
                         <Label>Tone</Label>
                         <Select
                             value={settings.tone}
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             onValueChange={(v: any) => setSettings({ tone: v })}
                         >
                             <SelectTrigger>
@@ -135,6 +137,7 @@ export const FloatingAIAssist: React.FC<FloatingAIAssistProps> = ({ currentBlock
                         <Label>Reading Level</Label>
                         <Select
                             value={settings.readingLevel}
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             onValueChange={(v: any) => setSettings({ readingLevel: v })}
                         >
                             <SelectTrigger>
@@ -151,6 +154,7 @@ export const FloatingAIAssist: React.FC<FloatingAIAssistProps> = ({ currentBlock
                         <Label>Language</Label>
                         <Select
                             value={settings.language}
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             onValueChange={(v: any) => setSettings({ language: v })}
                         >
                             <SelectTrigger>

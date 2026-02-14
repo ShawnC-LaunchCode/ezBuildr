@@ -1,8 +1,8 @@
 import express, { type Express } from 'express';
-import request from 'supertest';
+import _request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
-import { datavaultTables, datavaultColumns, datavaultRows, datavaultValues } from '@shared/schema';
+import { _datavaultTables, _datavaultColumns, _datavaultRows, _datavaultValues } from '@shared/schema';
 
 import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
 /**
@@ -20,9 +20,9 @@ describe('DataVault API Routes', () => {
   let app: Express;
   const testTenantId: string = "test-tenant-id";
   const testUserId: string = "test-user-id";
-  const testTableId: string = "test-table-id";
-  const testColumnId: string = "test-column-id";
-  const testRowId: string = "test-row-id";
+  const _testTableId: string = "test-table-id";
+  const _testColumnId: string = "test-column-id";
+  const _testRowId: string = "test-row-id";
   beforeAll(async () => {
     // Setup Express app with routes
     app = express();

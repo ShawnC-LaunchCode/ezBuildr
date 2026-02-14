@@ -77,6 +77,7 @@ export function CreateTableModal({
     // Filter out empty columns
     const validColumns = columns.filter(col => col.name.trim());
     if (validColumns.length === 0) {
+      // eslint-disable-next-line no-alert
       alert("Please add at least one column");
       return;
     }

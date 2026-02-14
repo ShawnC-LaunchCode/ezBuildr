@@ -14,7 +14,7 @@ import {
   resetVirusScannerInstance,
   setVirusScannerInstance,
   type IVirusScanner,
-  type ScanResult,
+  type _ScanResult,
 } from '../../../server/services/security/VirusScanner';
 
 describe('VirusScanner', () => {

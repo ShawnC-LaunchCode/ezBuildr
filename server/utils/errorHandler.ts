@@ -132,11 +132,13 @@ export function sendErrorResponse(res: Response, error: ApiError): Response {
 
   // Add validation details if available
   if (error instanceof ValidationError && error.details) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     response.error.details = error.details;
   }
 
   // Include stack trace in development
   if (process.env.NODE_ENV === 'development') {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     response.error.stack = error.stack;
   }
 

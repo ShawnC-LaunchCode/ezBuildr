@@ -1,5 +1,5 @@
 const fs = require('fs');
-const path = require('path');
+const _path = require('path');
 
 const REPORT_PATH = process.argv[2] || 'unused-vars-report.json';
 
@@ -13,7 +13,7 @@ function run() {
     let totalFixed = 0;
 
     for (const result of report) {
-        if (result.messages.length === 0) continue;
+        if (result.messages.length === 0) {continue;}
 
         const filePath = result.filePath;
         if (!fs.existsSync(filePath)) {
@@ -21,12 +21,12 @@ function run() {
             continue;
         }
 
-        let content = fs.readFileSync(filePath, 'utf8');
+        const content = fs.readFileSync(filePath, 'utf8');
         const lines = content.split('\n');
         let modifications = [];
 
         for (const msg of result.messages) {
-            if (msg.ruleId !== '@typescript-eslint/no-unused-vars') continue;
+            if (msg.ruleId !== '@typescript-eslint/no-unused-vars') {continue;}
 
             // Extract variable name
             const match = listMatch(msg.message);
@@ -45,7 +45,7 @@ function run() {
             }
 
             // Check if already prefixed
-            if (varName.startsWith('_')) continue;
+            if (varName.startsWith('_')) {continue;}
 
             // We need to find the variable in the line.
             // Easiest is to look for the identifier at the approximate column, but column info might point to start.
@@ -63,9 +63,9 @@ function run() {
                     continue;
                 }
                 // Use this index
-                modifications.push({ line: lineIdx, col: idx, old: varName, new: '_' + varName });
+                modifications.push({ line: lineIdx, col: idx, old: varName, new: `_${  varName}` });
             } else {
-                modifications.push({ line: lineIdx, col: col, old: varName, new: '_' + varName });
+                modifications.push({ line: lineIdx, col: col, old: varName, new: `_${  varName}` });
             }
             totalFixed++;
         }
@@ -73,7 +73,7 @@ function run() {
         // Apply modifications from bottom - right to top - left to preserve indices
         // Sort by line desc, then col desc
         modifications.sort((a, b) => {
-            if (a.line !== b.line) return b.line - a.line;
+            if (a.line !== b.line) {return b.line - a.line;}
             return b.col - a.col;
         });
 

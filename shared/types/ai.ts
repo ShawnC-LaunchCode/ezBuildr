@@ -249,6 +249,7 @@ export class AIServiceError extends Error {
   constructor(
     message: string,
     public readonly code: 'INVALID_RESPONSE' | 'API_ERROR' | 'VALIDATION_ERROR' | 'RATE_LIMIT' | 'TIMEOUT',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     public readonly details?: any,
   ) {
     super(message);

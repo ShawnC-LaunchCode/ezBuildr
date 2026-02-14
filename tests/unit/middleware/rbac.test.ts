@@ -11,7 +11,7 @@ import {
   requireRunner,
   getUserPermissions,
   type UserRole,
-  type Permission,
+  type _Permission,
 } from '../../../server/middleware/rbac';
 
 import type { AuthRequest } from '../../../server/middleware/auth';

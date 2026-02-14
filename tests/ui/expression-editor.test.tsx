@@ -25,6 +25,7 @@ function createWrapper() {
     },
   });
 
+  // eslint-disable-next-line react/display-name
   return ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       {children}
@@ -275,7 +276,7 @@ describe('Expression Editor Hooks', () => {
           }),
         });
 
-      const { result, rerender } = renderHook(
+      const { result, _rerender } = renderHook(
         () => useExpressionValidation('workflow-1', 'node-1', 100),
         { wrapper: createWrapper() }
       );

@@ -6,6 +6,7 @@ import path from 'path';
 
 import { sql } from 'drizzle-orm';
 
+// eslint-disable-next-line import/no-unresolved
 import { getDb, dbInitPromise } from '../server/db';
 
 async function applyMigration() {

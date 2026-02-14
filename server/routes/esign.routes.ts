@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * E-Signature API Routes
  * Handles signature block execution and callbacks
@@ -82,6 +83,7 @@ router.post(
         stepId,
         config: parsed.config as SignatureBlockConfig,
         variableData: parsed.variableData,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         userId: (req as any).userId, // From auth middleware
         preview: parsed.preview ?? false,
         baseUrl,
@@ -160,7 +162,7 @@ router.post(
  */
 router.post(
   '/callback/docusign',
-  asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     try {
       const payload = req.body;
       const signature = req.headers['x-docusign-signature-1'] as string;
@@ -236,7 +238,7 @@ router.get(
  */
 router.post(
   '/test',
-  asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     try {
       const { provider = 'docusign' } = req.body;
 
@@ -261,6 +263,7 @@ export default router;
 /**
  * Register esign routes on Express app
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function registerEsignRoutes(app: any): void {
   app.use('/api/esign', router);
   logger.info('[Routes] E-Signature routes registered at /api/esign');

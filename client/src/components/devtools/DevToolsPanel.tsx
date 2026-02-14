@@ -17,7 +17,7 @@ interface DevToolsPanelProps {
     onClose: () => void;
 }
 
-export function DevToolsPanel({ env, isOpen, onClose }: DevToolsPanelProps) {
+export function DevToolsPanel({ env, isOpen, _onClose }: DevToolsPanelProps) {
     const state = usePreviewEnvironment(env);
     const [localOpen, setLocalOpen] = useState(true);
 
@@ -34,7 +34,7 @@ export function DevToolsPanel({ env, isOpen, onClose }: DevToolsPanelProps) {
                     label: step.title,
                     type: step.type,
                     sectionId: step.sectionId,
-                    sectionTitle: section?.title || "Unknown Section",
+                    sectionTitle: section?.title ?? "Unknown Section",
                     stepId: step.id
                 };
             })
@@ -91,7 +91,7 @@ export function DevToolsPanel({ env, isOpen, onClose }: DevToolsPanelProps) {
             if (value === undefined || value === null) {return;}
 
             const step = steps.find(s => s.id === stepId);
-            const key = step?.alias || stepId;
+            const key = step?.alias ?? stepId;
             const path = key.split('.');
 
             if (path.length === 1) {

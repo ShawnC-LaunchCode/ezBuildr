@@ -7,7 +7,7 @@ import { refreshTokens } from "@shared/schema";
 import { db } from "../../server/db";
 import { createTestApp } from "../helpers/testApp";
 import {
-  cleanAuthTables,
+  _cleanAuthTables,
   deleteTestUser,
   createVerifiedUser,
 } from "../helpers/testUtils";
@@ -47,11 +47,11 @@ describe("Session Management Integration Tests (REAL)", () => {
       const { email, password, userId } = await createVerifiedUser();
       trackUser(userId);
       // Create 3 sessions from different "devices"
-      const session1 = await request(app)
+      const _session1 = await request(app)
         .post("/api/auth/login")
         .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
         .send({ email, password });
-      const session2 = await request(app)
+      const _session2 = await request(app)
         .post("/api/auth/login")
         .set("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0)")
         .send({ email, password });
@@ -109,7 +109,7 @@ describe("Session Management Integration Tests (REAL)", () => {
       const { email, password, userId } = await createVerifiedUser();
       trackUser(userId);
       // Create 2 sessions
-      const login1 = await request(app)
+      const _login1 = await request(app)
         .post("/api/auth/login")
         .send({ email, password });
       const login2 = await request(app)

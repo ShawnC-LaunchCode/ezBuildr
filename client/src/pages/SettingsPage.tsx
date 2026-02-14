@@ -1,4 +1,4 @@
-﻿import { Settings, Sparkles, Moon, Lightbulb, RotateCcw, Layers, Shield } from "lucide-react";
+import { Settings, Sparkles, Moon, Lightbulb, RotateCcw, Layers, Shield } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import Header from "@/components/layout/Header";
@@ -15,6 +15,7 @@ import { useUserPreferences } from "@/hooks/useUserPreferences";
 import type { Mode } from "@/lib/mode";
 import { authAPI } from "@/lib/vault-api";
 import { useAccountPreferences, useUpdateAccountPreferences } from "@/lib/vault-hooks";
+// eslint-disable-next-line max-lines-per-function
 export default function SettingsPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { prefs, isLoading, update, reset, isUpdating } = useUserPreferences();
@@ -146,7 +147,7 @@ export default function SettingsPage() {
       },
       onError: () => {
         // Revert on error
-        setLocalMode(accountPrefs?.defaultMode || 'easy');
+        setLocalMode(accountPrefs?.defaultMode ?? 'easy');
         toast({
           title: "Error",
           description: "Failed to update mode. Please try again.",
@@ -230,6 +231,7 @@ export default function SettingsPage() {
                   {mfaStatus?.enabled ? (
                     <Button variant="destructive" onClick={() => { void setIsDisableOpen(true); }}>Disable 2FA</Button>
                   ) : (
+                    // eslint-disable-next-line @typescript-eslint/no-misused-promises
                     <Button onClick={startMfaSetup}>Enable 2FA</Button>
                   )}
                 </div>
@@ -409,6 +411,7 @@ export default function SettingsPage() {
                     onChange={(e) => setVerifyCode(e.target.value)}
                     maxLength={6}
                   />
+                  {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
                   <Button className="w-full" onClick={finishMfaSetup}>Verify & Activate</Button>
                 </div>
               </div>
@@ -447,6 +450,7 @@ export default function SettingsPage() {
               />
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsDisableOpen(false)}>Cancel</Button>
+                {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
                 <Button variant="destructive" onClick={handleDisableMfa}>Disable 2FA</Button>
               </DialogFooter>
             </div>

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Helper Library for Custom Scripting System
  * Provides safe utility functions available in script sandbox
@@ -37,20 +38,20 @@ import type { HelperLibraryAPI } from "@shared/types/scripting";
  * Create console helpers that capture output
  */
 export function createConsoleHelpers(): {
-  helpers: { log: (...args: any[]) => void; warn: (...args: any[]) => void; error: (...args: any[]) => void };
-  getLogs: () => any[][];
+  helpers: { log: (...args: unknown[]) => void; warn: (...args: unknown[]) => void; error: (...args: unknown[]) => void };
+  getLogs: () => unknown[][];
 } {
-  const logs: any[][] = [];
+  const logs: unknown[][] = [];
 
   return {
     helpers: {
-      log: (...args: any[]) => {
+      log: (...args: unknown[]) => {
         logs.push(args);
       },
-      warn: (...args: any[]) => {
+      warn: (...args: unknown[]) => {
         logs.push(["[WARN]", ...args]);
       },
-      error: (...args: any[]) => {
+      error: (...args: unknown[]) => {
         logs.push(["[ERROR]", ...args]);
       },
     },
@@ -92,11 +93,12 @@ const dateHelpers = {
           result = addYears(parsedDate, value);
           break;
         default:
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
           throw new Error(`Unknown unit: ${unit}`);
       }
 
       return result.toISOString();
-    } catch (error) {
+    } catch (_error) {
       return "Invalid Date";
     }
   },
@@ -126,11 +128,12 @@ const dateHelpers = {
           result = subYears(parsedDate, value);
           break;
         default:
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
           throw new Error(`Unknown unit: ${unit}`);
       }
 
       return result.toISOString();
-    } catch (error) {
+    } catch (_error) {
       return "Invalid Date";
     }
   },
@@ -139,7 +142,7 @@ const dateHelpers = {
     try {
       const parsedDate = parseISO(date);
       return formatDate(parsedDate, formatString);
-    } catch (error) {
+    } catch (_error) {
       return "Invalid Date";
     }
   },
@@ -161,7 +164,7 @@ const dateHelpers = {
         // Fallback to native Date parsing
         return new Date(dateString).toISOString();
       }
-    } catch (error) {
+    } catch (_error) {
       return "Invalid Date";
     }
   },
@@ -193,10 +196,11 @@ const dateHelpers = {
           result = differenceInYears(parsed2, parsed1);
           break;
         default:
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
           throw new Error(`Unknown unit: ${unit}`);
       }
       return result;
-    } catch (error) {
+    } catch (_error) {
       return 0;
     }
   },
@@ -300,15 +304,19 @@ const numberHelpers = {
 // ===================================================================
 
 const arrayHelpers = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   unique: (arr: any[]): any[] => {
     return [...new Set(arr)];
   },
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   flatten: (arr: any[]): any[] => {
     return arr.flat(Infinity);
   },
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   chunk: (arr: any[], size: number): any[][] => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const chunks: any[][] = [];
     for (let i = 0; i < arr.length; i += size) {
       chunks.push(arr.slice(i, i + size));
@@ -316,6 +324,7 @@ const arrayHelpers = {
     return chunks;
   },
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sortBy: (arr: any[], key: string): any[] => {
     return [...arr].sort((a, b) => {
       const aVal = a[key];
@@ -326,10 +335,12 @@ const arrayHelpers = {
     });
   },
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   filter: (arr: any[], predicate: (item: any, index: number) => boolean): any[] => {
     return arr.filter(predicate);
   },
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   map: (arr: any[], mapper: (item: any, index: number) => any): any[] => {
     return arr.map(mapper);
   },
@@ -340,16 +351,18 @@ const arrayHelpers = {
 // ===================================================================
 
 const objectHelpers = {
-  keys: (obj: Record<string, any>): string[] => {
+  keys: (obj: Record<string, unknown>): string[] => {
     return Object.keys(obj);
   },
 
-  values: (obj: Record<string, any>): any[] => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  values: (obj: Record<string, unknown>): any[] => {
     return Object.values(obj);
   },
 
-  pick: (obj: Record<string, any>, keys: string[]): Record<string, any> => {
-    const result: Record<string, any> = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  pick: (obj: Record<string, unknown>, keys: string[]): Record<string, unknown> => {
+    const result: Record<string, unknown> = {};
     for (const key of keys) {
       if (key in obj) {
         result[key] = obj[key];
@@ -358,7 +371,8 @@ const objectHelpers = {
     return result;
   },
 
-  omit: (obj: Record<string, any>, keys: string[]): Record<string, any> => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  omit: (obj: Record<string, unknown>, keys: string[]): Record<string, unknown> => {
     const result = { ...obj };
     for (const key of keys) {
       delete result[key];
@@ -366,7 +380,8 @@ const objectHelpers = {
     return result;
   },
 
-  merge: (...objects: Record<string, any>[]): Record<string, any> => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  merge: (...objects: Record<string, unknown>[]): Record<string, unknown> => {
     return Object.assign({}, ...objects);
   },
 };
@@ -407,12 +422,14 @@ const mathHelpers = {
 // ===================================================================
 
 const httpHelpers = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   get: async (_url: string, _options?: { headers?: Record<string, string> }): Promise<any> => {
     // This will be implemented with actual fetch logic
     // For now, throw error - will be replaced with proxied fetch
     throw new Error("http.get is not yet implemented in sandbox. Use backend proxy.");
   },
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   post: async (_url: string, _body: any, _options?: { headers?: Record<string, string> }): Promise<any> => {
     // This will be implemented with actual fetch logic
     // For now, throw error - will be replaced with proxied fetch
@@ -431,9 +448,10 @@ export function createHelperLibrary(options?: {
   consoleEnabled?: boolean;
 }): {
   helpers: HelperLibraryAPI;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getConsoleLogs?: () => any[][];
 } {
-  const { consoleEnabled = false } = options || {};
+  const { consoleEnabled = false } = options ?? {};
 
   let consoleHelpers: ReturnType<typeof createConsoleHelpers> | undefined;
 
@@ -449,7 +467,7 @@ export function createHelperLibrary(options?: {
     object: objectHelpers,
     math: mathHelpers,
     http: httpHelpers,
-    console: consoleHelpers?.helpers || {
+    console: consoleHelpers?.helpers ?? {
       log: () => { },
       warn: () => { },
       error: () => { },
@@ -476,7 +494,7 @@ export const helperLibrary: HelperLibraryAPI = createHelperLibrary().helpers;
  * Helper library for Python scripts (serialized as JSON)
  * Python scripts receive this as a dict with limited functionality
  */
-export function getPythonHelpers(): Record<string, any> {
+export function getPythonHelpers(): Record<string, unknown> {
   return {
     // Python can only use non-async helpers
     // We serialize these as simple functions that can be called from Python

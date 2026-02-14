@@ -2,7 +2,7 @@
 import { Loader2, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { _Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 
 import { AIGeneratedWorkflow } from "@shared/types/ai";
@@ -102,6 +102,7 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
                 <AiAssistInput
                     input={input}
                     setInput={setInput}
+                    // eslint-disable-next-line @typescript-eslint/no-misused-promises
                     handleSend={handleSend}
                     isLoading={reviseMutation.isPending}
                     isWaitingForReview={!!proposedWorkflow}

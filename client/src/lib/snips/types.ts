@@ -43,7 +43,9 @@ export interface SnipQuestion {
     required: boolean;
     alias: string;           // Dot notation: "respondent.name.first"
     description?: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     options?: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     defaultValue?: any;
     visibleIf?: ConditionExpression;
     order: number;
@@ -53,6 +55,7 @@ export interface SnipLogicBlock {
     id: string;
     type: "read" | "write" | "js" | "validate";
     phase: "onSectionEnter" | "onSectionSubmit";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     config: any;
     sectionIndex: number;    // Which snip page this attaches to
     order: number;

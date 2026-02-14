@@ -62,6 +62,7 @@ export function AddGoogleSheetsDialog({ open, onOpenChange, onComplete }: AddGoo
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         setIsConnecting(false);
+        // eslint-disable-next-line sonarjs/no-duplicate-string
         setStep('select-spreadsheet');
 
         toast({
@@ -72,10 +73,11 @@ export function AddGoogleSheetsDialog({ open, onOpenChange, onComplete }: AddGoo
 
     const handleContinue = () => {
         if (step === 'select-spreadsheet' && selectedSpreadsheet) {
+            // eslint-disable-next-line sonarjs/no-duplicate-string
             setStep('select-sheet');
         } else if (step === 'select-sheet' && selectedSheet) {
             // Auto-generate name
-            const spreadsheetName = mockSpreadsheets.find(s => s.id === selectedSpreadsheet)?.name || 'Google Sheets';
+            const spreadsheetName = mockSpreadsheets.find(s => s.id === selectedSpreadsheet)?.name ?? 'Google Sheets';
             setConnectionName(`${spreadsheetName} - Connection`);
             setStep('name');
         }
@@ -147,7 +149,7 @@ export function AddGoogleSheetsDialog({ open, onOpenChange, onComplete }: AddGoo
                             <div className="p-8 bg-muted/50 rounded-lg">
                                 <FileSpreadsheet className="w-16 h-16 mx-auto mb-4 text-green-600" />
                                 <p className="text-sm text-muted-foreground">
-                                    You'll be redirected to Google to authorize access to your spreadsheets.
+                                    You&apos;ll be redirected to Google to authorize access to your spreadsheets.
                                 </p>
                             </div>
                             <Button

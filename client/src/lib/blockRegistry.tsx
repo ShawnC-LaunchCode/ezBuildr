@@ -31,8 +31,8 @@ import {
   MapPin,
   Grid3x3,
   Code2,
-  FileDown,
-  PenTool,
+  _FileDown,
+  _PenTool,
 } from "lucide-react";
 
 import type { StepConfig } from "@shared/types/stepConfigs";
@@ -53,6 +53,7 @@ export interface BlockRegistryEntry {
   label: string;
 
   /** Icon component from lucide-react */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   icon: React.ComponentType<any>;
 
   /** Optional description/tooltip */
@@ -439,6 +440,7 @@ export function getBlocksByCategory(
   const grouped: Record<string, BlockRegistryEntry[]> = {};
 
   for (const block of blocks) {
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!grouped[block.category]) {
       grouped[block.category] = [];
     }

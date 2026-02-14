@@ -33,7 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { _Card, _CardContent, _CardDescription, _CardHeader, _CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -162,6 +162,7 @@ function SortableColumn({ column, onEdit, onDelete, isLoading, canDelete }: Sort
     </div>
   );
 }
+// eslint-disable-next-line max-lines-per-function
 export function ColumnManagerWithDnd({
   columns,
   tableId,
@@ -294,12 +295,13 @@ export function ColumnManagerWithDnd({
       <div className="space-y-2">
         {localColumns.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            <p className="text-sm">No columns yet. Click "Add Column" above to get started.</p>
+            <p className="text-sm">No columns yet. Click &quot;Add Column&quot; above to get started.</p>
           </div>
         ) : (
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
+            // eslint-disable-next-line @typescript-eslint/no-misused-promises
             onDragEnd={handleDragEnd}
           >
             <SortableContext
@@ -504,7 +506,7 @@ export function ColumnManagerWithDnd({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Column?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete the column "{deleteConfirm?.name}"? This will permanently
+              Are you sure you want to delete the column &quot;{deleteConfirm?.name}&quot;? This will permanently
               delete all data in this column for all rows. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

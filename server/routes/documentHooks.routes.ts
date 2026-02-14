@@ -7,7 +7,7 @@ import { asyncHandler } from '../utils/asyncHandler';
 
 import type { AuthRequest } from "../middleware/auth";
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 // ===================================================================
 // VALIDATION SCHEMAS
@@ -40,7 +40,7 @@ const updateDocumentHookSchema = z.object({
 });
 
 const testHookSchema = z.object({
-  testData: z.record(z.any()),
+  testData: z.record(z.unknown()),
   context: z
     .object({
       workflowId: z.string().uuid().optional(),
@@ -48,7 +48,7 @@ const testHookSchema = z.object({
       phase: z.string().optional(),
       documentId: z.string().uuid().optional(),
       userId: z.string().optional(),
-      metadata: z.record(z.any()).optional(),
+      metadata: z.record(z.unknown()).optional(),
     })
     .optional(),
 });
@@ -64,7 +64,7 @@ const testHookSchema = z.object({
 router.get(
   "/workflows/:workflowId/document-hooks",
   hybridAuth,
-  asyncHandler(async (req: any, res) => {
+  asyncHandler(async (req, res) => {
     try {
       const authReq = req as AuthRequest;
       const { workflowId } = req.params;
@@ -89,7 +89,7 @@ router.get(
 router.post(
   "/workflows/:workflowId/document-hooks",
   hybridAuth,
-  asyncHandler(async (req: any, res) => {
+  asyncHandler(async (req, res) => {
     try {
       const authReq = req as AuthRequest;
       const { workflowId } = req.params;
@@ -125,11 +125,11 @@ router.post(
  * GET /api/document-hooks/:hookId
  * Get a single document hook by ID
  */
-router.get("/document-hooks/:hookId", hybridAuth, asyncHandler(async (req: any, res) => {
+router.get("/document-hooks/:hookId", hybridAuth, asyncHandler(async (req, res) => {
   try {
-    const authReq = req as AuthRequest;
-    const { hookId } = req.params;
-    const userId = authReq.userId!;
+    const _authReq = req as AuthRequest;
+    const _hookId = req.params.hookId;
+    const _userId = _authReq.userId!;
 
     // Note: We could add a specific get method to the service, but for now
     // we'll just list all and filter (or add getById to service later)
@@ -150,7 +150,7 @@ router.get("/document-hooks/:hookId", hybridAuth, asyncHandler(async (req: any, 
  * PUT /api/document-hooks/:hookId
  * Update a document hook
  */
-router.put("/document-hooks/:hookId", hybridAuth, asyncHandler(async (req: any, res) => {
+router.put("/document-hooks/:hookId", hybridAuth, asyncHandler(async (req, res) => {
   try {
     const authReq = req as AuthRequest;
     const { hookId } = req.params;
@@ -182,7 +182,7 @@ router.put("/document-hooks/:hookId", hybridAuth, asyncHandler(async (req: any, 
  * DELETE /api/document-hooks/:hookId
  * Delete a document hook
  */
-router.delete("/document-hooks/:hookId", hybridAuth, asyncHandler(async (req: any, res) => {
+router.delete("/document-hooks/:hookId", hybridAuth, asyncHandler(async (req, res) => {
   try {
     const authReq = req as AuthRequest;
     const { hookId } = req.params;
@@ -203,7 +203,7 @@ router.delete("/document-hooks/:hookId", hybridAuth, asyncHandler(async (req: an
  * POST /api/document-hooks/:hookId/test
  * Test a document hook with sample data
  */
-router.post("/document-hooks/:hookId/test", hybridAuth, asyncHandler(async (req: any, res) => {
+router.post("/document-hooks/:hookId/test", hybridAuth, asyncHandler(async (req, res) => {
   try {
     const authReq = req as AuthRequest;
     const { hookId } = req.params;

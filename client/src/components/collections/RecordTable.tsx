@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * RecordTable Component
  * Displays collection records in a table format with type-specific rendering
@@ -48,6 +49,7 @@ export function RecordTable({
   const hasNextPage = page < totalPages;
   const hasPrevPage = page > 1;
   // Render field value based on field type
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const renderFieldValue = (value: any, field: ApiCollectionField) => {
     if (value === null || value === undefined) {
       return <span className="text-muted-foreground italic">—</span>;
@@ -106,6 +108,7 @@ export function RecordTable({
         return <span className="font-mono">{value}</span>;
       case "text":
       default:
+        // eslint-disable-next-line no-case-declarations
         const strValue = String(value);
         return (
           <span className="truncate max-w-[300px] block" title={strValue}>
@@ -147,7 +150,7 @@ export function RecordTable({
                   </code>
                 </TableHead>
               ))}
-              {(onRecordClick || onDelete) && (
+              {(onRecordClick ?? onDelete) && (
                 <TableHead className="w-[50px]">
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -166,7 +169,7 @@ export function RecordTable({
                     {renderFieldValue(record.data[field.slug], field)}
                   </TableCell>
                 ))}
-                {(onRecordClick || onDelete) && (
+                {(onRecordClick ?? onDelete) && (
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

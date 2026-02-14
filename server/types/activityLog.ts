@@ -20,6 +20,7 @@ export type ActivityLog = {
   status?: string | null;         // Event status: "success", "error", "info", "warn"
   ipAddress?: string | null;      // IP address of the actor
   userAgent?: string | null;      // Browser/client user agent
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: any;                 // Additional event-specific data (JSON)
 };
 
@@ -72,5 +73,6 @@ export type ActivityLogInsert = {
   status?: string | null;
   ipAddress?: string | null;
   userAgent?: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: any;
 };

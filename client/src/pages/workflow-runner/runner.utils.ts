@@ -36,7 +36,7 @@ export async function startRunFromSlug(
 
     if (!response.ok) {
         const error = (await response.json()) as WorkflowRunResponse;
-        throw new Error(error.error || 'Failed to start workflow');
+        throw new Error(error.error ?? 'Failed to start workflow');
     }
 
     const result = (await response.json()) as WorkflowRunResponse;
@@ -59,7 +59,7 @@ export async function startRunFromWorkflowId(
 
     if (!response.ok) {
         const error = (await response.json()) as WorkflowRunResponse;
-        throw new Error(error.error || 'Failed to start workflow');
+        throw new Error(error.error ?? 'Failed to start workflow');
     }
 
     const result = (await response.json()) as WorkflowRunResponse;

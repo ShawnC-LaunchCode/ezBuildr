@@ -13,7 +13,8 @@ export class TemplateService {
      * List available templates with filtering
      * TODO: Implement once marketplaceTemplates table is added to schema
      */
-    async listTemplates(params: {
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+    async listTemplates(_params: {
         category?: string;
         search?: string;
         isPublic?: boolean;
@@ -28,7 +29,8 @@ export class TemplateService {
      * Get a specific template by ID
      * TODO: Implement once marketplaceTemplates table is added to schema
      */
-    async getTemplate(templateId: string) {
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+    async getTemplate(_templateId: string) {
         logger.warn('TemplateService.getTemplate: marketplaceTemplates table not yet implemented');
         return null;
     }
@@ -69,10 +71,11 @@ export class TemplateService {
      * Publish a workflow as a new template
      * TODO: Implement once marketplaceTemplates table is added to schema
      */
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     async publishTemplate(
-        workflowId: string,
-        metadata: Partial<TemplateManifest>,
-        userContext: { userId: string, organizationId?: string }
+        _workflowId: string,
+        _metadata: Partial<TemplateManifest>,
+        _userContext: { userId: string, organizationId?: string }
     ) {
         logger.warn('TemplateService.publishTemplate: marketplaceTemplates table not yet implemented');
         throw new Error('Marketplace functionality not yet available');
@@ -81,9 +84,10 @@ export class TemplateService {
      * Import a template to create a new workflow
      * TODO: Implement once marketplaceTemplates table is added to schema
      */
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     async installTemplate(
-        templateId: string,
-        userContext: { userId: string, projectId: string }
+        _templateId: string,
+        _userContext: { userId: string, projectId: string }
     ) {
         logger.warn('TemplateService.installTemplate: marketplaceTemplates table not yet implemented');
         throw new Error('Marketplace functionality not yet available');

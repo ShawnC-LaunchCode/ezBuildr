@@ -4,9 +4,10 @@ import { ValidationSchema } from '../../../../shared/validation/ValidationSchema
 import { validateValue } from '../../../../shared/validation/Validator';
 // Mock condition evaluator since it's an external dependency
 vi.mock('../../../../shared/conditionEvaluator', () => ({
-    evaluateConditionExpression: vi.fn((condition, values) => {
+    evaluateConditionExpression: vi.fn((condition, _values) => {
         // Simple mock logic: if condition is 'true', return true, else false
         if (condition === 'mock-true') {return true;}
+        // eslint-disable-next-line sonarjs/prefer-single-boolean-return
         if (condition === 'mock-false') {return false;}
         return false;
     }),

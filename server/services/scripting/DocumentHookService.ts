@@ -25,12 +25,13 @@ export class DocumentHookService {
    * Execute all hooks for a given phase
    * Non-breaking: continues on errors and collects them
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
   async executeHooksForPhase(params: {
     workflowId: string;
     runId: string;
     phase: DocumentHookPhase;
     documentId?: string;
-    data: Record<string, any>;
+    data: Record<string, unknown>;
     userId?: string;
   }): Promise<DocumentHookExecutionResult> {
     const { workflowId, runId, phase, documentId, data, userId } = params;
@@ -62,6 +63,7 @@ export class DocumentHookService {
       );
 
       const errors: Array<{ hookId: string; hookName: string; error: string }> = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const consoleOutput: Array<{ hookName: string; logs: any[][] }> = [];
       let resultData = { ...data };
 
@@ -83,7 +85,7 @@ export class DocumentHookService {
               userId,
               metadata: documentId ? { documentId } : {},
             },
-            timeoutMs: hook.timeoutMs || 3000,
+            timeoutMs: hook.timeoutMs ?? 3000,
             consoleEnabled: true,
           });
 
@@ -92,10 +94,12 @@ export class DocumentHookService {
           if (result.ok) {
             // Merge output into resultData
             if (result.output && typeof result.output === "object" && result.output !== null) {
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
               resultData = { ...resultData, ...result.output };
             } else if (result.output !== undefined && hook.outputKeys.length > 0) {
               // Single value output
               const key = hook.outputKeys[0];
+              // eslint-disable-next-line max-depth
               if (key) {resultData[key] = result.output;}
             }
 
@@ -116,7 +120,9 @@ export class DocumentHookService {
               phase,
               status: "success",
               consoleOutput: result.consoleLogs,
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
               inputSample: this.truncateSample(data),
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
               outputSample: this.truncateSample(result.output),
               durationMs,
             });
@@ -134,7 +140,7 @@ export class DocumentHookService {
             errors.push({
               hookId: hook.id,
               hookName: hook.name,
-              error: result.error || "Unknown error",
+              error: result.error ?? "Unknown error",
             });
 
             // Log error
@@ -235,6 +241,7 @@ export class DocumentHookService {
       throw new Error("Workflow not found");
     }
     if (workflow.creatorId && workflow.creatorId !== userId) {
+      // eslint-disable-next-line sonarjs/no-duplicate-string
       throw new Error("Unauthorized: You do not own this workflow");
     }
 
@@ -342,18 +349,19 @@ export class DocumentHookService {
       inputKeys: hook.inputKeys,
       data: testInput.testData,
       context: {
-        workflowId: testInput.context?.workflowId || hook.workflowId,
-        runId: testInput.context?.runId || "test-run",
-        phase: testInput.context?.phase || hook.phase,
+        workflowId: testInput.context?.workflowId ?? hook.workflowId,
+        runId: testInput.context?.runId ?? "test-run",
+        phase: testInput.context?.phase ?? hook.phase,
         userId: testInput.context?.userId,
         metadata: testInput.context?.metadata,
       },
-      timeoutMs: hook.timeoutMs || 3000,
+      timeoutMs: hook.timeoutMs ?? 3000,
       consoleEnabled: true,
     });
 
     return {
       success: result.ok,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       output: result.output,
       error: result.error,
       consoleLogs: result.consoleLogs,
@@ -388,8 +396,11 @@ export class DocumentHookService {
     phase?: string;
     status: "success" | "error" | "timeout";
     errorMessage?: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     consoleOutput?: any[][];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     inputSample?: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     outputSample?: any;
     durationMs?: number;
   }): Promise<void> {
@@ -424,6 +435,7 @@ export class DocumentHookService {
   /**
    * Truncate sample data to first 1KB
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private truncateSample(data: any): any {
     if (data === undefined || data === null) {
       return null;

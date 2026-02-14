@@ -87,7 +87,7 @@ export interface DocumentGenerationErrorContext {
   suggestion?: string;
 
   /** Additional metadata */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -151,6 +151,7 @@ export class DocumentGenerationError extends Error {
     this.timestamp = new Date();
 
     // Maintain proper stack trace
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, DocumentGenerationError);
     }
@@ -256,6 +257,7 @@ export class DocumentGenerationError extends Error {
   /**
    * Convert to HTTP error response
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   toHttpError() {
     return createError.internal(this.getUserMessage(), {
       phase: this.phase,

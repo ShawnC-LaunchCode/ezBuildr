@@ -25,9 +25,12 @@ export function SectionsTab({ workflowId, mode }: SectionsTabProps) {
   try {
     const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     if (saved) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length === 2) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         defaultLayout[0] = parsed[0];
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         defaultLayout[1] = parsed[1];
       }
     }

@@ -11,7 +11,7 @@ import pino from 'pino';
 const isDevelopment = process.env.NODE_ENV === 'development';
 
 export const logger = pino({
-  level: process.env.LOG_LEVEL || (isDevelopment ? 'debug' : 'info'),
+  level: process.env.LOG_LEVEL ?? (isDevelopment ? 'debug' : 'info'),
   transport: isDevelopment
     ? {
         target: 'pino-pretty',
@@ -49,6 +49,7 @@ export const logger = pino({
  * Create a child logger with additional context
  * @param context - Additional context to add to all logs
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const createLogger = (context: Record<string, unknown>) => {
   return logger.child(context);
 };
@@ -56,6 +57,7 @@ export const createLogger = (context: Record<string, unknown>) => {
 /**
  * Express middleware for request logging
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const requestLogger = (req: unknown, res: unknown, next: unknown) => {
   const start = Date.now();
   const requestId = Math.random().toString(36).substring(7);

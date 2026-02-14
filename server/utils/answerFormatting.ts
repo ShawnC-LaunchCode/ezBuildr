@@ -21,6 +21,7 @@ export function extractTextValue(value: any): string {
 
   // If it's an object with a 'text' property, extract it
   if (typeof value === 'object' && !Array.isArray(value) && 'text' in value) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     return String(value.text ?? '');
   }
 
@@ -33,6 +34,7 @@ export function extractTextValue(value: any): string {
   if (typeof value === 'object' && !(value instanceof Date)) {
     // Check if it's a file upload object
     if ('files' in value) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       return `${value.files?.length ?? 0} file(s)`;
     }
     // For other objects, return empty string to avoid [object Object]
@@ -50,7 +52,7 @@ export function extractTextValue(value: any): string {
  * @param questionType - The type of question (short_text, multiple_choice, etc.)
  * @returns Formatted string representation of the answer
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- handles dynamic answer values from various question types
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, complexity
 export function formatAnswerValue(value: any, questionType: string): string {
   if (!value) {return '';}
 
@@ -94,6 +96,7 @@ export function formatAnswerValue(value: any, questionType: string): string {
     case 'file_upload':
       // File upload metadata
       if (typeof value === 'object' && 'files' in value) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         const fileCount = value.files?.length ?? 0;
         return `${fileCount} file(s)`;
       }

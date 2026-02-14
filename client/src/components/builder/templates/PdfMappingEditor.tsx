@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import axios from 'axios';
 import { Save, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -93,6 +94,7 @@ export function PdfMappingEditor({ templateId, isOpen, onClose, workflowVariable
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onPageLoadSuccess = (page: any, index: number) => {
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         const view = (page.view as number[]) || [0, 0, page.width, page.height];
         setPageDimensions(prev => ({
             ...prev,

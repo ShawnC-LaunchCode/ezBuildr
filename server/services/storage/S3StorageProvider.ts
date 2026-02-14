@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { Stream } from 'stream';
+import { _Stream } from 'stream';
 
 import { S3, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -30,11 +30,11 @@ export class S3StorageProvider implements StorageProvider {
     endpoint?: string;
   }) {
     // Get configuration from options or environment variables
-    this.bucket = (options?.bucket || process.env.AWS_S3_BUCKET) ?? '';
-    this.region = options?.region || process.env.AWS_REGION || 'us-east-1';
-    const accessKeyId = options?.accessKeyId || process.env.AWS_ACCESS_KEY_ID;
-    const secretAccessKey = options?.secretAccessKey || process.env.AWS_SECRET_ACCESS_KEY;
-    this.endpoint = options?.endpoint || process.env.AWS_S3_ENDPOINT;
+    this.bucket = (options?.bucket ?? process.env.AWS_S3_BUCKET) ?? '';
+    this.region = options?.region ?? process.env.AWS_REGION ?? 'us-east-1';
+    const accessKeyId = options?.accessKeyId ?? process.env.AWS_ACCESS_KEY_ID;
+    const secretAccessKey = options?.secretAccessKey ?? process.env.AWS_SECRET_ACCESS_KEY;
+    this.endpoint = options?.endpoint ?? process.env.AWS_S3_ENDPOINT;
 
     // We don't throw here if bucket is missing, as we might not be using S3 provider
     // Validation happens in init()
@@ -46,7 +46,7 @@ export class S3StorageProvider implements StorageProvider {
         accessKeyId,
         secretAccessKey,
       } : undefined,
-      endpoint: this.endpoint || undefined,
+      endpoint: this.endpoint ?? undefined,
       forcePathStyle: !!this.endpoint, // Required for MinIO and some S3-compatible services
     });
   }
@@ -64,7 +64,7 @@ export class S3StorageProvider implements StorageProvider {
     return this.uploadFile(fileRef, buffer, mimeType);
   }
 
-  async uploadFile(key: string, buffer: Buffer, mimeType: string, metadata?: Record<string, any>): Promise<string> {
+  async uploadFile(key: string, buffer: Buffer, mimeType: string, metadata?: Record<string, unknown>): Promise<string> {
     try {
       await this.s3.send(new PutObjectCommand({
         Bucket: this.bucket,
@@ -103,7 +103,8 @@ export class S3StorageProvider implements StorageProvider {
         Key: fileRef,
       }));
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      // eslint-disable-next-line sonarjs/prefer-single-boolean-return, @typescript-eslint/no-unsafe-member-access
       if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
         return false;
       }
@@ -121,13 +122,16 @@ export class S3StorageProvider implements StorageProvider {
       // Convert stream to buffer
       const chunks: Uint8Array[] = [];
       if (response.Body) {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore - AWS SDK types for Body are complex (Readable | ReadableStream | Blob)
         for await (const chunk of response.Body) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           chunks.push(chunk);
         }
       }
       return Buffer.concat(chunks);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (error.name === 'NoSuchKey' || error.$metadata?.httpStatusCode === 404) {
         throw createError.notFound('File not found in S3');
       }
@@ -136,6 +140,7 @@ export class S3StorageProvider implements StorageProvider {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async getMetadata(fileRef: string): Promise<any> {
     try {
       const response = await this.s3.send(new HeadObjectCommand({
@@ -144,12 +149,13 @@ export class S3StorageProvider implements StorageProvider {
       }));
 
       return {
-        contentType: response.ContentType || 'application/octet-stream',
-        size: response.ContentLength || 0,
+        contentType: response.ContentType ?? 'application/octet-stream',
+        size: response.ContentLength ?? 0,
         etag: response.ETag,
         lastModified: response.LastModified,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
         throw createError.notFound('File not found in S3');
       }

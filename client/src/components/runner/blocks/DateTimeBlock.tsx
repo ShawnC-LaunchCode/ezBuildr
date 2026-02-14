@@ -19,6 +19,7 @@ import type { DateTimeConfig } from "@shared/types/stepConfigs";
 
 export interface DateTimeBlockProps {
   step: Step;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any;
   onChange: (value: string) => void;
   readOnly?: boolean;
@@ -26,7 +27,7 @@ export interface DateTimeBlockProps {
 
 export function DateTimeBlockRenderer({ step, value, onChange, readOnly }: DateTimeBlockProps) {
   const config = step.config as DateTimeConfig;
-  const timeStep = config?.timeStep || 15;
+  const timeStep = config?.timeStep ?? 15;
 
   // Convert step to seconds for HTML input
   const stepSeconds = timeStep * 60;
@@ -35,6 +36,7 @@ export function DateTimeBlockRenderer({ step, value, onChange, readOnly }: DateT
     <Input
       id={step.id}
       type="datetime-local"
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
       min={config?.minDate}

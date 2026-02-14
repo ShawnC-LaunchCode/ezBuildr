@@ -1,4 +1,4 @@
-
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import { type UserPersonalizationSettings, type WorkflowPersonalizationSettings } from '../../../shared/schema';
@@ -24,7 +24,7 @@ export class PersonalizationService {
         if (process.env.NODE_ENV !== 'test_without_mock') {
             try {
                 this.genAI = new GoogleGenerativeAI(apiKey ?? "");
-                const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+                const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
                 this.model = this.genAI.getGenerativeModel({ model });
             } catch (e) {
                 console.warn("Failed to initialize GoogleGenerativeAI (likely mock issue in tests)");
@@ -32,7 +32,7 @@ export class PersonalizationService {
             }
         } else {
             this.genAI = new GoogleGenerativeAI(apiKey ?? "");
-            const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+            const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
             this.model = this.genAI.getGenerativeModel({ model });
         }
     }
@@ -133,7 +133,7 @@ export class PersonalizationService {
     async generateFollowUp(
         questionText: string,
         userAnswer: string,
-        context: PersonalizationContext
+        _context: PersonalizationContext
     ): Promise<{ text: string, type: 'text' | 'yes_no' } | null> {
         const prompt = `
         Analyze the user's answer to see if a follow-up question is needed to get more specific details.

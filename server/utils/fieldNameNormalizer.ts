@@ -256,6 +256,7 @@ export class FieldNameNormalizer {
   /**
    * Abbreviation expansion match
    */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private abbreviationMatch(
     field: string,
     variables: string[]

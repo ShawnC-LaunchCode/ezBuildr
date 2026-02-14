@@ -44,7 +44,7 @@ const ChartContainer = React.forwardRef<
   }
 >(({ id, className, children, config, ...props }, ref) => {
   const uniqueId = React.useId()
-  const chartId = `chart-${id || uniqueId.replace(/:/g, "")}`
+  const chartId = `chart-${id ?? uniqueId.replace(/:/g, "")}`
 
   return (
     <ChartContext.Provider value={{ config }}>
@@ -69,39 +69,45 @@ ChartContainer.displayName = "Chart"
 
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   const colorConfig = Object.entries(config).filter(
-    ([, config]) => config.theme || config.color
+    ([, config]) => (config.theme != null) || (config.color != null)
   )
-
-  if (colorConfig.length === 0) {
-    return null
-  }
 
   // Sanitize the chart ID to prevent CSS injection
   const sanitizedId = id.replace(/[^a-zA-Z0-9-_]/g, '')
 
   // Generate CSS rules safely without dangerouslySetInnerHTML
-  const cssRules = Object.entries(THEMES)
-    .map(([theme, prefix]) => {
-      const rules = colorConfig
-        .map(([key, itemConfig]) => {
-          const color =
-            itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
-            itemConfig.color
-          // Sanitize color values and keys
-          const sanitizedKey = key.replace(/[^a-zA-Z0-9-_]/g, '')
-          const sanitizedColor = color?.replace(/[^a-zA-Z0-9#(),.\s%-]/g, '') ?? ''
-          return sanitizedColor ? `  --color-${sanitizedKey}: ${sanitizedColor};` : null
-        })
-        .filter(Boolean)
-        .join("\n")
+  const cssRules = React.useMemo(() => {
+    if (colorConfig.length === 0) {
+      return '';
+    }
 
-      return rules ? `${prefix} [data-chart="${sanitizedId}"] {\n${rules}\n}` : null
-    })
-    .filter(Boolean)
-    .join("\n")
+    return Object.entries(THEMES)
+      .map(([theme, prefix]) => {
+        const rules = colorConfig
+          .map(([key, itemConfig]) => {
+            const color =
+              itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ??
+              itemConfig.color
+            // Sanitize color values and keys
+            const sanitizedKey = key.replace(/[^a-zA-Z0-9-_]/g, '')
+            const sanitizedColor = color?.replace(/[^a-zA-Z0-9#(),.\s%-]/g, '') ?? ''
+            return sanitizedColor.length > 0 ? `  --color-${sanitizedKey}: ${sanitizedColor};` : null
+          })
+          .filter((rule): rule is string => rule !== null)
+          .join("\n")
+
+        return rules.length > 0 ? `${prefix} [data-chart="${sanitizedId}"] {\n${rules}\n}` : null
+      })
+      .filter((rule): rule is string => rule !== null)
+      .join("\n");
+  }, [colorConfig, sanitizedId]);
 
   // Use a style element without dangerouslySetInnerHTML
   React.useEffect(() => {
+    if (cssRules.length === 0) {
+      return;
+    }
+
     const styleElement = document.createElement('style')
     styleElement.textContent = cssRules
     styleElement.setAttribute('data-chart-style', sanitizedId)
@@ -109,7 +115,7 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
 
     return () => {
       const existingStyle = document.querySelector(`style[data-chart-style="${sanitizedId}"]`)
-      if (existingStyle) {
+      if (existingStyle != null) {
         document.head.removeChild(existingStyle)
       }
     }
@@ -152,27 +158,27 @@ const ChartTooltipContent = React.forwardRef<
     const { config } = useChart()
 
     const tooltipLabel = React.useMemo(() => {
-      if (hideLabel || !payload?.length) {
+      if (hideLabel || (payload?.length ?? 0) === 0) {
         return null
       }
 
-      const [item] = payload
-      const key = `${labelKey || item?.dataKey || item?.name || "value"}`
+      const [item] = payload ?? []
+      const key = `${labelKey ?? item?.dataKey ?? item?.name ?? "value"}`
       const itemConfig = getPayloadConfigFromPayload(config, item, key)
       const value =
-        !labelKey && typeof label === "string"
-          ? config[label]?.label || label
+        (labelKey == null) && typeof label === "string"
+          ? config[label]?.label ?? label
           : itemConfig?.label
 
-      if (labelFormatter) {
+      if (labelFormatter != null) {
         return (
           <div className={cn("font-medium", labelClassName)}>
-            {labelFormatter(value, payload)}
+            {labelFormatter(value, payload ?? [])}
           </div>
         )
       }
 
-      if (!value) {
+      if (value == null) {
         return null
       }
 
@@ -187,7 +193,7 @@ const ChartTooltipContent = React.forwardRef<
       labelKey,
     ])
 
-    if (!active || !payload?.length) {
+    if ((active == null) || (payload?.length ?? 0) === 0) {
       return null
     }
 
@@ -203,10 +209,12 @@ const ChartTooltipContent = React.forwardRef<
       >
         {!nestLabel ? tooltipLabel : null}
         <div className="grid gap-1.5">
+          // eslint-disable-next-line complexity
           {payload.map((item, index) => {
-            const key = `${nameKey || item.name || item.dataKey || "value"}`
+            const key = `${nameKey ?? item.name ?? item.dataKey ?? "value"}`
             const itemConfig = getPayloadConfigFromPayload(config, item, key)
-            const indicatorColor = color || item.payload.fill || item.color
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+            const indicatorColor = color ?? item.payload.fill ?? item.color
 
             return (
               <div
@@ -216,11 +224,12 @@ const ChartTooltipContent = React.forwardRef<
                   indicator === "dot" && "items-center"
                 )}
               >
-                {formatter && item?.value !== undefined && item.name ? (
+                {(formatter != null) && item?.value !== undefined && (item.name != null) ? (
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
                   formatter(item.value, item.name, item, index, item.payload)
                 ) : (
                   <>
-                    {itemConfig?.icon ? (
+                    {(itemConfig?.icon != null) ? (
                       <itemConfig.icon aria-hidden="true" />
                     ) : (
                       !hideIndicator && (
@@ -238,7 +247,9 @@ const ChartTooltipContent = React.forwardRef<
                           )}
                           style={
                             {
+                              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                               "--color-bg": indicatorColor,
+                              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                               "--color-border": indicatorColor,
                             } as React.CSSProperties
                           }
@@ -254,10 +265,10 @@ const ChartTooltipContent = React.forwardRef<
                       <div className="grid gap-1.5">
                         {nestLabel ? tooltipLabel : null}
                         <span className="text-muted-foreground">
-                          {itemConfig?.label || item.name}
+                          {itemConfig?.label ?? item.name}
                         </span>
                       </div>
-                      {item.value && (
+                      {(item.value != null) && (
                         <span className="font-mono font-medium tabular-nums text-foreground">
                           {item.value.toLocaleString()}
                         </span>
@@ -291,7 +302,7 @@ const ChartLegendContent = React.forwardRef<
   ) => {
     const { config } = useChart()
 
-    if (!payload?.length) {
+    if ((payload?.length ?? 0) === 0) {
       return null
     }
 
@@ -305,17 +316,19 @@ const ChartLegendContent = React.forwardRef<
         )}
       >
         {payload.map((item) => {
-          const key = `${nameKey || item.dataKey || "value"}`
+          const key = String(nameKey ?? item.dataKey ?? "value")
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           const itemConfig = getPayloadConfigFromPayload(config, item, key)
 
           return (
             <div
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
               key={item.value}
               className={cn(
                 "flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-muted-foreground"
               )}
             >
-              {itemConfig?.icon && !hideIcon ? (
+              {(itemConfig?.icon != null) && !hideIcon ? (
                 <itemConfig.icon aria-hidden="true" />
               ) : (
                 <div
@@ -326,6 +339,7 @@ const ChartLegendContent = React.forwardRef<
                   }}
                 />
               )}
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               {itemConfig?.label}
             </div>
           )

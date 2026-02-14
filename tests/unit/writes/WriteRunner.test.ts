@@ -86,7 +86,7 @@ describe("WriteRunner", () => {
             // Specific overrides if needed
         });
         it("should resolve values and call datavaultRowsService.createRow", async () => {
-            const config: any = {
+            const _config: any = {
                 id: "block-1",
                 workflowId: "wf-1",
                 type: "write",
@@ -124,7 +124,7 @@ describe("WriteRunner", () => {
             expect(result.success).toBe(true);
             expect(result.rowId).toBe("row-new");
             // Verify repository call
-            const expectedValues = [
+            const _expectedValues = [
                 { columnId: "col-first", value: "John" },
                 { columnId: "col-last", value: "Doe" },
                 { columnId: "col-age", value: 30 }

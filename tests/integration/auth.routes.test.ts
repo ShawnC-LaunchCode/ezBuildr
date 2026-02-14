@@ -1,4 +1,4 @@
-import request from "supertest";
+import _request from "supertest";
 import { describe, it, expect, beforeEach, afterEach, beforeAll } from "vitest";
 
 import type { Express } from "express";
@@ -13,9 +13,9 @@ import type { Express } from "express";
  * 3. Clean up test data between tests
  */
 describe("Auth Routes Integration Tests", () => {
-  let app: Express;
-  let testUser: any;
-  let authToken: string;
+  let _app: Express;
+  let _testUser: any;
+  let _authToken: string;
   beforeAll(async () => {
     // TODO: Initialize test app and database
     // app = await createTestApp();

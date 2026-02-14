@@ -121,7 +121,7 @@ export function DiffViewer({ workflowId, version1, version2, isOpen, onClose }: 
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">
                                                         {renderChangeBadge(s.changeType)}
-                                                        <span className="font-medium">{s.title || "Untitled Section"}</span>
+                                                        <span className="font-medium">{s.title ?? "Untitled Section"}</span>
                                                     </div>
                                                     <span className="text-xs text-muted-foreground font-mono">{s.id.slice(0, 8)}</span>
                                                 </div>

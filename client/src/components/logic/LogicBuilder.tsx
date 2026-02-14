@@ -100,7 +100,7 @@ export function LogicBuilder({
     // Build variable labels map
     const variableLabels: Record<string, string> = {};
     variables.forEach((v) => {
-      variableLabels[v.id] = v.alias || v.title;
+      variableLabels[v.id] = v.alias ?? v.title;
       if (v.alias) {
         variableLabels[v.alias] = v.alias;
       }

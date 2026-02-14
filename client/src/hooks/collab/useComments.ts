@@ -17,6 +17,7 @@ interface UseCommentsOptions {
 /**
  * Hook for managing node-level comments
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useComments({ doc, nodeId }: UseCommentsOptions) {
   const [comments, setComments] = useState<Comment[]>([]);
 
@@ -29,9 +30,11 @@ export function useComments({ doc, nodeId }: UseCommentsOptions) {
 
     const yComments = doc.getMap('yComments');
 
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const loadComments = () => {
       const nodeComments = yComments.get(nodeId);
       if (nodeComments && Array.isArray(nodeComments)) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         setComments([...nodeComments]);
       } else {
         setComments([]);
@@ -42,6 +45,7 @@ export function useComments({ doc, nodeId }: UseCommentsOptions) {
     loadComments();
 
     // Observe changes
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     const observer = () => {
       loadComments();
     };

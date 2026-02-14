@@ -1,4 +1,5 @@
-﻿// SendGrid email service - Referenced from javascript_sendgrid integration
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+// SendGrid email service - Referenced from javascript_sendgrid integration
 import { MailService } from '@sendgrid/mail';
 
 import { logger } from '../logger';
@@ -23,6 +24,7 @@ export async function sendEmail(params: EmailParams): Promise<{ success: boolean
 
     mailService.setApiKey(process.env.SENDGRID_API_KEY);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mailData: any = {
       to: params.to,
       from: params.from,
@@ -41,12 +43,13 @@ export async function sendEmail(params: EmailParams): Promise<{ success: boolean
     
     logger.info(`Email sent successfully to ${params.to}`);
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('SendGrid email error:', error);
     
     // Extract meaningful error message from SendGrid response
     let errorMessage = 'Failed to send email';
     if (error.response?.body?.errors) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       errorMessage = error.response.body.errors.map((e: any) => e.message).join(', ');
     } else if (error.message) {
       errorMessage = error.message;
@@ -133,7 +136,7 @@ Sent from Vault-Logic
   `;
 
   // Use provided fromEmail or fallback to environment variable or default
-  const senderEmail = fromEmail || process.env.SENDGRID_FROM_EMAIL;
+  const senderEmail = fromEmail ?? process.env.SENDGRID_FROM_EMAIL;
 
   if (!senderEmail) {
     return { success: false, error: 'Sender email not configured. Please set SENDGRID_FROM_EMAIL environment variable.' };
@@ -223,7 +226,7 @@ Sent from Vault-Logic
   `;
 
   // Use provided fromEmail or fallback to environment variable or default
-  const senderEmail = fromEmail || process.env.SENDGRID_FROM_EMAIL;
+  const senderEmail = fromEmail ?? process.env.SENDGRID_FROM_EMAIL;
 
   if (!senderEmail) {
     return { success: false, error: 'Sender email not configured. Please set SENDGRID_FROM_EMAIL environment variable.' };
@@ -261,7 +264,7 @@ Template: "${templateName}"
 Access level: ${access === "edit" ? "Edit (can modify template)" : "Use (can insert into surveys)"}
 
 Sign in to Vault-Logic to get started:
-${process.env.PUBLIC_APP_URL || 'https://vault-logic.com'}
+${process.env.PUBLIC_APP_URL ?? 'https://vault-logic.com'}
 
 If you don't have an account yet, sign in with Google using this email address to accept the invitation.
 
@@ -311,7 +314,7 @@ Sent from Vault-Logic
             `}
 
             <div style="text-align: center; margin: 30px 0;">
-                <a href="${process.env.PUBLIC_APP_URL || 'https://vault-logic.com'}"
+                <a href="${process.env.PUBLIC_APP_URL ?? 'https://vault-logic.com'}"
                    style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
                     Sign In to Get Started
                 </a>
@@ -332,7 +335,7 @@ Sent from Vault-Logic
     </html>
   `;
 
-  const senderEmail = fromEmail || process.env.SENDGRID_FROM_EMAIL;
+  const senderEmail = fromEmail ?? process.env.SENDGRID_FROM_EMAIL;
 
   if (!senderEmail) {
     return { success: false, error: 'Sender email not configured. Please set SENDGRID_FROM_EMAIL environment variable.' };

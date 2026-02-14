@@ -29,7 +29,7 @@ export function RuntimeVariableList({ workflowId, variables, values }: RuntimeVa
     // Filter variables based on search query
     const filteredVariables = variables.filter((v) => {
         const searchText = searchQuery.toLowerCase();
-        const displayKey = v.alias || v.key;
+        const displayKey = v.alias ?? v.key;
         return (
             displayKey.toLowerCase().includes(searchText) ||
             v.label.toLowerCase().includes(searchText)
@@ -39,6 +39,7 @@ export function RuntimeVariableList({ workflowId, variables, values }: RuntimeVa
     // Group by section
     const groupedVariables = filteredVariables.reduce((acc, variable) => {
         const section = variable.sectionTitle || "Uncategorized";
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         if (!acc[section]) {
             acc[section] = [];
         }
@@ -50,6 +51,7 @@ export function RuntimeVariableList({ workflowId, variables, values }: RuntimeVa
     const sortedSections = Object.keys(groupedVariables).sort();
 
     const handleCopy = (text: string) => {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
         navigator.clipboard.writeText(text).then(() => {
             toast({
                 title: "Copied",
@@ -117,7 +119,7 @@ export function RuntimeVariableList({ workflowId, variables, values }: RuntimeVa
                                     <AccordionContent className="pb-2 pt-1">
                                         <div className="space-y-1">
                                             {groupedVariables[sectionTitle].map((variable) => {
-                                                const displayKey = variable.alias || variable.key;
+                                                const displayKey = variable.alias ?? variable.key;
                                                 const pinned = isPinned(workflowId, displayKey);
                                                 const currentValue = values[variable.stepId];
                                                 const isUndefined = currentValue === undefined || currentValue === null;

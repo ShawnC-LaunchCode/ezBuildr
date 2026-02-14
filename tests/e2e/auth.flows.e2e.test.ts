@@ -8,7 +8,7 @@ import { describe, it, expect, beforeAll } from "vitest";
  * To run: npx playwright test
  */
 describe("E2E Authentication Flows", () => {
-  let baseURL: string;
+  let _baseURL: string;
   beforeAll(async () => {
     baseURL = process.env.TEST_BASE_URL || "http://localhost:5000";
   });

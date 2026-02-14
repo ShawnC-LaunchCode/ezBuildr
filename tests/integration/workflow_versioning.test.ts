@@ -54,6 +54,7 @@ describe("Workflow Versioning & Lineage", () => {
             // Try to delete from both tables if they exist/are imported
             // auditEvents removed as it is not in schema
 
+            // eslint-disable-next-line no-empty
             try { await db.delete(auditLogs).where(eq(auditLogs.userId, userId)); } catch (e) { }
             await db.delete(users).where(eq(users.id, userId));
         }

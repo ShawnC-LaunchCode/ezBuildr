@@ -169,7 +169,8 @@ export function validateExpression(expr: string, allowedVars: string[]): Validat
     // Note: All helpers registered as functions (not unaryOps) to support multi-arg
     for (const helperName of AllowedHelperNames) {
       // Use a variadic dummy function to support both single and multi-arg helpers
-      parser.functions[helperName] = ((...args: unknown[]) => null) as unknown;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      parser.functions[helperName] = ((..._args: unknown[]) => null) as unknown;
     }
 
     const parsed = parser.parse(expr);
@@ -218,7 +219,7 @@ export function evaluateExpression(
   ctx: EvalContext,
   options?: { maxOps?: number; timeoutMs?: number }
 ): unknown {
-  const maxOps = options?.maxOps ?? 10000;
+  const _maxOps = options?.maxOps ?? 10000;
   const timeoutMs = options?.timeoutMs ?? 50;
 
   try {
@@ -244,7 +245,7 @@ export function evaluateExpression(
       }
     }
 
-    const scope = {
+    const _scope = {
       ...cleanVars,
       ...helpersWithClock,
       ...ctx.helpers,
@@ -255,6 +256,7 @@ export function evaluateExpression(
 
     // Register functions
     for (const [name, fn] of Object.entries(helpersWithClock)) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       parser.functions[name] = fn;
     }
 
@@ -287,6 +289,7 @@ export function evaluateExpression(
 
     // Add wrapped helpers to parser
     for (const [name, fn] of Object.entries(wrappedHelpers)) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       parser.functions[name] = fn;
     }
 
@@ -297,6 +300,7 @@ export function evaluateExpression(
 
     try {
       // Note: setTimeout doesn't interrupt JS execution, but operation counting does
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const result = parsed.evaluate(cleanVars);
       clearTimeout(timeoutId);
 
@@ -324,7 +328,7 @@ export function evaluateExpression(
 export function isBooleanExpression(expr: string): boolean {
   try {
     const parser = new Parser();
-    const parsed = parser.parse(expr);
+    const _parsed = parser.parse(expr);
     // This is a heuristic - we can't definitively know without evaluating
     return true;
   } catch {

@@ -53,6 +53,7 @@ export function ConditionValueInput({
 
         return allVariables.reduce((acc, variable) => {
             const sectionId = variable.sectionId;
+            // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
             if (!acc[sectionId]) {
                 acc[sectionId] = {
                     title: variable.sectionTitle,
@@ -78,8 +79,8 @@ export function ConditionValueInput({
                             {sectionVars
                                 .filter((v) => v.id !== condition.variable) // Don't allow comparing to self
                                 .map((v) => (
-                                    <SelectItem key={v.id} value={v.alias || v.id}>
-                                        {v.alias || v.title}
+                                    <SelectItem key={v.id} value={v.alias ?? v.id}>
+                                        {v.alias ?? v.title}
                                     </SelectItem>
                                 ))}
                         </SelectGroup>

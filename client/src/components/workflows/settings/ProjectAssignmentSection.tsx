@@ -40,7 +40,7 @@ interface ProjectAssignmentSectionProps {
 }
 
 export function ProjectAssignmentSection({
-  workflowId,
+  _workflowId,
   workflowName,
   currentProjectId,
   currentProjectName,
@@ -91,6 +91,7 @@ export function ProjectAssignmentSection({
   }
 
   // Determine the select value (use "main-folder" as a sentinel for null)
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
   const selectValue = currentProjectId === null ? "main-folder" : currentProjectId;
 
   // Filter out internal "Other Project" and ensure we only show valid projects
@@ -198,6 +199,7 @@ export function ProjectAssignmentSection({
         onOpenChange={handleCancel}
         workflowName={workflowName}
         targetName={targetName}
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
         onConfirm={handleConfirm}
         isLoading={isMoving}
       />

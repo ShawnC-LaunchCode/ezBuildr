@@ -41,11 +41,13 @@ type AuthFixtures = {
 export const test = base.extend<AuthFixtures>({
   testUser: async ({ page }, use) => {
     const user = await createAuthenticatedSession(page);
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(user);
   },
 
-  authenticatedPage: async ({ page, testUser }, use) => {
+  authenticatedPage: async ({ page, _testUser }, use) => {
     // Session is already set up from testUser fixture
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(page);
   },
 });

@@ -10,7 +10,7 @@ describe('CollectionService', () => {
 
   const mockTenantId = '550e8400-e29b-41d4-a716-446655440000';
   const mockCollectionId = '660e8400-e29b-41d4-a716-446655440001';
-  const mockUserId = '770e8400-e29b-41d4-a716-446655440002';
+  const _mockUserId = '770e8400-e29b-41d4-a716-446655440002';
 
   beforeEach(() => {
     vi.clearAllMocks();

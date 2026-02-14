@@ -156,6 +156,7 @@ export class AiController {
             }, 'AI workflow generation succeeded');
 
             // Extract quality score (attached by AIService)
+            // eslint-disable-next-line @typescript-eslint/naming-convention
             const qualityScore = (generatedWorkflow as unknown as { __qualityScore?: AIError['qualityScore'] }).__qualityScore;
 
             res.status(200).json({
@@ -212,6 +213,7 @@ export class AiController {
 
             // Fetch existing workflow
             const workflow = await workflowService.getWorkflowWithDetails(workflowId, userId);
+            // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
             if (!workflow) {
                 return res.status(404).json({
                     success: false,
@@ -297,6 +299,7 @@ export class AiController {
                 requestData.workflowId,
                 userId
             );
+            // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
             if (!workflow) {
                 return res.status(404).json({
                     success: false,

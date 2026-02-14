@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { Send, Sparkles, AlertTriangle, HelpCircle, History, Undo } from "lucide-react";
 import { type FormEvent, useState } from "react";
 
@@ -33,6 +34,7 @@ interface AiConversationPanelProps {
   onViewDiff?: (versionId: string) => void;
 }
 
+// eslint-disable-next-line max-lines-per-function
 export function AiConversationPanel({
   workflowId,
   onEdit,
@@ -140,7 +142,7 @@ export function AiConversationPanel({
           <h2 className="font-semibold text-lg">AI Workflow Assistant</h2>
         </div>
         <p className="text-sm text-gray-600 mt-1">
-          Describe what you want to change, and I'll update the workflow
+          Describe what you want to change, and I&apos;ll update the workflow
         </p>
       </div>
 
@@ -150,7 +152,7 @@ export function AiConversationPanel({
           <div className="text-center text-gray-500 mt-8">
             <Sparkles className="w-12 h-12 mx-auto mb-3 text-purple-300" />
             <p className="text-sm">Start a conversation to edit your workflow</p>
-            <p className="text-xs mt-1">Example: "Add a phone number field to the contact section"</p>
+            <p className="text-xs mt-1">Example: &quot;Add a phone number field to the contact section&quot;</p>
           </div>
         )}
 

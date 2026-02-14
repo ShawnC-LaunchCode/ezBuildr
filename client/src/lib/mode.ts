@@ -61,6 +61,7 @@ export function isFeatureAllowed(mode: Mode, feature: string): boolean {
     return false; // Not available in easy mode
   }
 
+  // eslint-disable-next-line sonarjs/prefer-single-boolean-return
   if (feature === 'js') {
     return false; // JS blocks not available in easy mode
   }

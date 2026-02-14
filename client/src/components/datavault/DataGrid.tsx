@@ -74,10 +74,13 @@ export function DataGrid({
 
     switch (type) {
       case "boolean":
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         return value ? "Yes" : "No";
       case "date":
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         return value ? new Date(value as string | number | Date).toLocaleDateString() : "-";
       case "datetime":
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         return value ? new Date(value as string | number | Date).toLocaleString() : "-";
       case "json":
         return typeof value === "object" ? JSON.stringify(value) : String(value);
@@ -149,13 +152,14 @@ export function DataGrid({
                 <TableHead className="w-[50px] border-r border-border">
                   <Checkbox
                     checked={allSelected}
+                    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
                     onCheckedChange={(checked) => onSelectAll(!!checked)}
                     aria-label="Select all rows"
                     className={someSelected ? "data-[state=checked]:bg-primary/50" : ""}
                   />
                 </TableHead>
               )}
-              {columns.map((column, index) => {
+              {columns.map((column, _index) => {
                 const isSorted = sortBy === column.slug;
                 const SortIcon = isSorted
                   ? sortOrder === 'asc'
@@ -230,6 +234,7 @@ export function DataGrid({
                     <TableCell className="border-r border-border">
                       <Checkbox
                         checked={isSelected}
+                        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
                         onCheckedChange={(checked) => onSelectRow(rowData.row.id, !!checked)}
                         aria-label={`Select row ${rowData.row.id}`}
                       />

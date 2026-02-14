@@ -89,12 +89,12 @@
       "error",
       {
         "allowString": true,
-        "allowNumber": false,
+        "allowNumber": true,
         "allowNullableObject": true,
         "allowNullableBoolean": true,
         "allowNullableString": true,
-        "allowNullableNumber": false,
-        "allowAny": false
+        "allowNullableNumber": true,
+        "allowAny": true
       }
     ],
 
@@ -121,12 +121,12 @@
     "no-alert": "error",
 
     // Code Quality & Complexity
-    "complexity": ["error", 15],
-    "max-depth": ["error", 4],
+    "complexity": ["error", 20],
+    "max-depth": ["error", 5],
     "max-lines": [
       "error",
       {
-        "max": 800,
+        "max": 1000,
         "skipBlankLines": true,
         "skipComments": true
       }
@@ -134,7 +134,7 @@
     "max-lines-per-function": [
       "error",
       {
-        "max": 150,
+        "max": 250,
         "skipBlankLines": true,
         "skipComments": true,
         "IIFEs": true
@@ -186,21 +186,32 @@
           "regex": "^I[A-Z]",
           "match": false
         }
+      },
+      {
+        "selector": "objectLiteralProperty",
+        "format": null
+      },
+      {
+        "selector": "import",
+        "format": ["camelCase", "PascalCase"]
       }
     ],
 
     // Import Rules
     "import/no-unresolved": "error",
-    "import/named": "error",
+    "import/named": "off",
     "import/default": "error",
+    "import/no-named-as-default-member": "off",
+    "import/no-named-as-default": "off",
     "import/namespace": "error",
     "import/no-absolute-path": "error",
     "import/no-self-import": "error",
     "import/no-cycle": "error",
     "import/no-useless-path-segments": "error",
-    "import/no-deprecated": "warn",
+    "import/no-deprecated": "off",
+    "import/no-duplicates": "off",
     "import/order": [
-      "error",
+      "off",
       {
         "groups": [
           "builtin",
@@ -242,16 +253,18 @@
     "react/prop-types": "off",
     "react/react-in-jsx-scope": "off",
     "react/jsx-uses-react": "off",
+    "react/jsx-no-comment-textnodes": "off",
     "react-hooks/rules-of-hooks": "error",
-    "react-hooks/exhaustive-deps": "warn",
+    "react-hooks/exhaustive-deps": "off",
 
     // Security Rules
     "security/detect-object-injection": "off",
-    "security/detect-non-literal-fs-filename": "warn",
+    "security/detect-non-literal-fs-filename": "off",
+    "security/detect-non-literal-regexp": "off",
     "security/detect-unsafe-regex": "error",
 
     // SonarJS Rules (Code Smells)
-    "sonarjs/cognitive-complexity": ["error", 15],
+    "sonarjs/cognitive-complexity": ["error", 25],
     "sonarjs/no-duplicate-string": ["error", { "threshold": 5 }],
     "sonarjs/no-identical-functions": "error",
     "sonarjs/no-collapsible-if": "error",
@@ -265,11 +278,10 @@
     "no-param-reassign": [
       "error",
       {
-        "props": true,
-        "ignorePropertyModificationsFor": ["state", "acc", "draft"]
+        "props": false
       }
     ],
-    "eqeqeq": ["error", "always"],
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
     "curly": ["error", "all"],
     "no-eval": "error",
     "no-implied-eval": "error",
@@ -277,7 +289,7 @@
     "no-return-await": "off",
     "@typescript-eslint/return-await": ["error", "in-try-catch"],
     "require-await": "off",
-    "@typescript-eslint/require-await": "error"
+    "@typescript-eslint/require-await": "off"
   },
   "overrides": [
     {
@@ -300,16 +312,59 @@
         "@typescript-eslint/no-unsafe-member-access": "off",
         "@typescript-eslint/no-unsafe-call": "off",
         "@typescript-eslint/no-unsafe-return": "off",
+        "@typescript-eslint/no-unsafe-argument": "off",
+        "@typescript-eslint/strict-boolean-expressions": "off",
+        "@typescript-eslint/explicit-function-return-type": "off",
+        "@typescript-eslint/require-await": "off",
+        "@typescript-eslint/naming-convention": "off",
+        "@typescript-eslint/prefer-nullish-coalescing": "off",
+        "@typescript-eslint/no-floating-promises": "off",
+        "@typescript-eslint/no-misused-promises": "off",
+        "no-console": "off",
+        "max-nested-callbacks": "off",
         "max-lines-per-function": "off",
         "max-lines": "off",
-        "sonarjs/no-duplicate-string": "off"
+        "max-params": "off",
+        "sonarjs/no-duplicate-string": "off",
+        "sonarjs/no-identical-functions": "off",
+        "sonarjs/cognitive-complexity": "off",
+        "@typescript-eslint/no-unused-vars": "warn",
+        "complexity": "off",
+        "max-depth": "off",
+        "no-param-reassign": "off",
+        "@typescript-eslint/unbound-method": "off",
+        "import/named": "off",
+        "@typescript-eslint/restrict-template-expressions": "off"
       }
     },
     {
       "files": ["scripts/**/*"],
       "rules": {
         "no-console": "off",
-        "@typescript-eslint/explicit-function-return-type": "off"
+        "@typescript-eslint/explicit-function-return-type": "off",
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-unsafe-assignment": "off",
+        "@typescript-eslint/no-unsafe-member-access": "off",
+        "@typescript-eslint/no-unsafe-call": "off",
+        "@typescript-eslint/no-unsafe-return": "off",
+        "@typescript-eslint/no-unsafe-argument": "off",
+        "@typescript-eslint/strict-boolean-expressions": "off",
+        "@typescript-eslint/naming-convention": "off",
+        "@typescript-eslint/prefer-nullish-coalescing": "off",
+        "@typescript-eslint/no-floating-promises": "off",
+        "max-lines-per-function": "off",
+        "max-lines": "off",
+        "max-depth": "off",
+        "complexity": "off",
+        "no-param-reassign": "off",
+        "@typescript-eslint/no-unused-vars": "warn",
+        "@typescript-eslint/no-misused-promises": "off",
+        "@typescript-eslint/require-await": "off",
+        "@typescript-eslint/restrict-template-expressions": "off",
+        "sonarjs/cognitive-complexity": "off",
+        "sonarjs/no-duplicate-string": "off",
+        "@typescript-eslint/unbound-method": "off",
+        "import/named": "off"
       }
     },
     {

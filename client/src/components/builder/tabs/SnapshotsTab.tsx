@@ -31,7 +31,7 @@ interface SnapshotsTabProps {
 export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const setPreviewToken = usePreviewStore((s) => s.setToken);
+  const _setPreviewToken = usePreviewStore((s) => s.setToken);
 
   // Fetch snapshots from API
   const { data: snapshots, isLoading, error } = useSnapshots(workflowId);
@@ -57,9 +57,10 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
       toast({ title: "Success", description: "Snapshot renamed" });
       setRenameDialogOpen(false);
       setSelectedSnapshot(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         description: error.message || "Failed to rename snapshot",
         variant: "destructive",
       });
@@ -78,9 +79,10 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
       toast({ title: "Success", description: "Snapshot deleted" });
       setDeleteDialogOpen(false);
       setSelectedSnapshot(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         description: error.message || "Failed to delete snapshot",
         variant: "destructive",
       });
@@ -121,7 +123,7 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
         <div>
           <h2 className="text-lg font-semibold">Saved Scenarios</h2>
           <p className="text-sm text-muted-foreground">
-            Save different client situations (e.g. "Married with Kids") to quick-check your workflow logic.
+            Save different client situations (e.g. &quot;Married with Kids&quot;) to quick-check your workflow logic.
           </p>
         </div>
       </BuilderLayoutHeader>
@@ -149,7 +151,7 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
         <RenameSnapshotDialog
           open={renameDialogOpen}
           onOpenChange={setRenameDialogOpen}
-          currentName={selectedSnapshot?.name || ""}
+          currentName={selectedSnapshot?.name ?? ""}
           onRename={handleRename}
           isRenaming={renameSnapshot.isPending}
         />
@@ -157,7 +159,7 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
         <DeleteSnapshotDialog
           open={deleteDialogOpen}
           onOpenChange={setDeleteDialogOpen}
-          snapshotName={selectedSnapshot?.name || ""}
+          snapshotName={selectedSnapshot?.name ?? ""}
           onDelete={handleDelete}
           isDeleting={deleteSnapshot.isPending}
         />

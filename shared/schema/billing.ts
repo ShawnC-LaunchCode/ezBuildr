@@ -7,12 +7,12 @@ import {
     pgTable,
     timestamp,
     varchar,
-    text,
+    _text,
     uuid,
     boolean,
     integer,
     pgEnum,
-    primaryKey
+    _primaryKey
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 

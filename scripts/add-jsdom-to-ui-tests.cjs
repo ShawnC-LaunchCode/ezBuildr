@@ -4,9 +4,9 @@
  * Script to add @vitest-environment jsdom to UI test files
  */
 
-const fs = require('fs');
-const path = require('path');
 const { execSync } = require('child_process');
+const fs = require('fs');
+const _path = require('path');
 
 // Find all test files in tests/ui directory
 const findCommand = `find tests/ui -name "*.test.tsx" -type f`;
@@ -38,15 +38,15 @@ try {
         // If starts with comment block, add after it
         const commentEnd = content.indexOf('*/') + 2;
         newContent =
-          content.substring(0, commentEnd) +
-          '\n\n/**\n * @vitest-environment jsdom\n */\n' +
-          content.substring(commentEnd);
+          `${content.substring(0, commentEnd) 
+          }\n\n/**\n * @vitest-environment jsdom\n */\n${ 
+          content.substring(commentEnd)}`;
       } else if (content.startsWith('//')) {
         // If starts with single-line comments, add before them
-        newContent = '/**\n * @vitest-environment jsdom\n */\n\n' + content;
+        newContent = `/**\n * @vitest-environment jsdom\n */\n\n${  content}`;
       } else {
         // If starts with imports, add at the very top
-        newContent = '/**\n * @vitest-environment jsdom\n */\n\n' + content;
+        newContent = `/**\n * @vitest-environment jsdom\n */\n\n${  content}`;
       }
 
       fs.writeFileSync(file, newContent, 'utf-8');

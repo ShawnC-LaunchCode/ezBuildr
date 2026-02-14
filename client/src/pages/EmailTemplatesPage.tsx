@@ -7,7 +7,7 @@ import {
   Mail,
   Search,
   Edit,
-  Eye,
+  _Eye,
   ArrowLeft,
   Loader2,
   FileText,
@@ -28,7 +28,7 @@ import { emailTemplateAPI, type EmailTemplateMetadata } from '@/lib/vault-api';
 export default function EmailTemplatesPage() {
   const { id: projectId } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { _user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const [templates, setTemplates] = useState<EmailTemplateMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -180,7 +180,7 @@ export default function EmailTemplatesPage() {
                       </div>
                       <CardTitle className="text-lg mt-3">{template.name}</CardTitle>
                       <CardDescription className="line-clamp-2">
-                        {template.description || 'No description provided'}
+                        {template.description ?? 'No description provided'}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">

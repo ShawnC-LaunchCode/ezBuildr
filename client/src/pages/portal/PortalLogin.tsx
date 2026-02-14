@@ -46,7 +46,7 @@ export default function PortalLogin() {
                         </div>
                         <CardTitle>Check your email</CardTitle>
                         <CardDescription>
-                            We've sent a magic link to <strong>{email}</strong>.
+                            We&apos;ve sent a magic link to <strong>{email}</strong>.
                             <br />
                             Click the link to sign in.
                         </CardDescription>

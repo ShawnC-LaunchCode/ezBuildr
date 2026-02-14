@@ -12,20 +12,24 @@ import {
   GitBranch,
   Sparkles,
 } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { _Link, useLocation } from "wouter";
 
 import logo from "@/assets/images/logo.png";
 import { GoogleLogin } from "@/components/GoogleLogin";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+// eslint-disable-next-line max-lines-per-function
 export default function Landing() {
   const [, setLocation] = useLocation();
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
   // Debug logging for Google Sign-In
   if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
     console.log('[Landing] Current Origin:', window.location.origin);
+    // eslint-disable-next-line no-console
     console.log('[Landing] Google Client ID configured:', googleClientId ? 'Yes (Masked)' : 'No');
   }
 

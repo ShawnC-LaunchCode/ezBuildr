@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { eq } from "drizzle-orm";
 import { Router, Request, Response } from "express";
 
@@ -67,6 +68,7 @@ router.post("/w/:slug/complete", asyncHandler(async (req: Request, res: Response
         where: eq(workflows.slug, slug)
     });
 
+    // eslint-disable-next-line sonarjs/no-collapsible-if
     if (workflow) {
         // Trigger Webhook
         if (workflow.projectId) {

@@ -56,7 +56,7 @@ export const ThemedInput = forwardRef<HTMLInputElement, ThemedInputProps>(
     },
     ref
   ) => {
-    const inputId = id || `input-${Math.random().toString(36).substring(2, 11)}`;
+    const inputId = id ?? `input-${Math.random().toString(36).substring(2, 11)}`;
 
     const inputStyles = {
       width: '100%',
@@ -145,7 +145,7 @@ export const ThemedTextarea = forwardRef<HTMLTextAreaElement, ThemedTextareaProp
     },
     ref
   ) => {
-    const textareaId = id || `textarea-${Math.random().toString(36).substring(2, 11)}`;
+    const textareaId = id ?? `textarea-${Math.random().toString(36).substring(2, 11)}`;
 
     const textareaStyles = {
       width: '100%',
@@ -162,6 +162,7 @@ export const ThemedTextarea = forwardRef<HTMLTextAreaElement, ThemedTextareaProp
       resize: 'vertical' as const,
     };
 
+    // eslint-disable-next-line sonarjs/no-identical-functions
     const handleFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => {
       if (!error) {
         e.currentTarget.style.borderColor = 'var(--brand-primary, #3B82F6)';
@@ -170,6 +171,7 @@ export const ThemedTextarea = forwardRef<HTMLTextAreaElement, ThemedTextareaProp
       props.onFocus?.(e);
     };
 
+    // eslint-disable-next-line sonarjs/no-identical-functions
     const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
       e.currentTarget.style.borderColor = error
         ? '#EF4444'

@@ -1,7 +1,7 @@
 
-import { count, eq, like, inArray, or, sql } from "drizzle-orm";
+import { _count, _eq, like, inArray, or, sql } from "drizzle-orm";
 
-import { users, systemStats, auditLogs, surveys, workspaceInvitations, workflows, workflowVersions } from "@shared/schema";
+import { users, _systemStats, auditLogs, surveys, workspaceInvitations, workflows, workflowVersions } from "@shared/schema";
 
 import { db, initializeDatabase } from "../server/db";
 import { systemStatsRepository } from "../server/repositories/SystemStatsRepository";

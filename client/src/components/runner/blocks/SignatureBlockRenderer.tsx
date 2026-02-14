@@ -32,7 +32,7 @@ export interface SignatureBlockRendererProps {
   step: Step;
 
   /** All step values (for variable substitution and conditions) */
-  stepValues?: Record<string, any>;
+  stepValues?: Record<string, unknown>;
 
   /** Whether we're in preview mode */
   preview?: boolean;
@@ -54,6 +54,7 @@ export interface SignatureBlockRendererProps {
 // MAIN COMPONENT
 // ============================================================================
 
+// eslint-disable-next-line complexity
 export function SignatureBlockRenderer({
   step,
   stepValues = {},
@@ -89,7 +90,7 @@ export function SignatureBlockRenderer({
     message: replaceVariables(config?.message ?? ''),
     markdownHeader: replaceVariables(config?.markdownHeader ?? ''),
     documents: config?.documents ?? [],
-    provider: config?.provider || 'docusign',
+    provider: config?.provider ?? 'docusign',
     allowDecline: config?.allowDecline ?? false,
   }), [config, stepValues]);
 
@@ -120,6 +121,7 @@ export function SignatureBlockRenderer({
     onDecline?.();
   };
 
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (!config) {
     return (
       <div className="text-sm text-muted-foreground italic">
@@ -171,7 +173,7 @@ export function SignatureBlockRenderer({
             <div>
               <p className="font-medium text-red-900 dark:text-red-100">Signature Error</p>
               <p className="text-sm text-red-700 dark:text-red-300">
-                {errorMessage || 'An error occurred while processing the signature request'}
+                {errorMessage ?? 'An error occurred while processing the signature request'}
               </p>
             </div>
           </div>

@@ -1,6 +1,6 @@
 
 import fs from 'fs';
-import path from 'path';
+import _path from 'path';
 
 import { nanoid } from 'nanoid';
 import request from 'supertest';

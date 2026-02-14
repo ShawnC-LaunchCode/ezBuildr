@@ -23,6 +23,7 @@ interface ActivityLog {
   status?: string | null;
   ipAddress?: string | null;
   userAgent?: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: any;
 }
 
@@ -31,6 +32,7 @@ interface ActivityLogResult {
   total: number;
 }
 
+// eslint-disable-next-line max-lines-per-function
 export default function AdminLogs() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -39,7 +41,7 @@ export default function AdminLogs() {
   const [searchQuery, setSearchQuery] = useState("");
   const [eventFilter, setEventFilter] = useState("");
   const [actorFilter, setActorFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, _setStatusFilter] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [sortOrder, setSortOrder] = useState<"timestamp_desc" | "timestamp_asc">("timestamp_desc");
@@ -114,7 +116,7 @@ export default function AdminLogs() {
   }
 
   const logs = data?.rows ?? [];
-  const total = data?.total || 0;
+  const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / limit);
   const hasNextPage = page < totalPages - 1;
   const hasPrevPage = page > 0;
@@ -236,6 +238,7 @@ export default function AdminLogs() {
               </select>
               <select
                 value={sortOrder}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
                 onChange={(e) => setSortOrder(e.target.value as any)}
                 className="border rounded-lg px-3 py-2 text-sm bg-white"
               >
@@ -296,14 +299,14 @@ export default function AdminLogs() {
                           )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-xs">
-                          {log.ipAddress || <span className="text-gray-400">—</span>}
+                          {log.ipAddress ?? <span className="text-gray-400">—</span>}
                         </td>
                         <td className="px-4 py-3 max-w-xs truncate text-xs" title={log.userAgent ?? ''}>
-                          {log.userAgent || <span className="text-gray-400">—</span>}
+                          {log.userAgent ?? <span className="text-gray-400">—</span>}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getStatusBadgeClass(log.status)}`}>
-                            {log.status || "info"}
+                            {log.status ?? "info"}
                           </span>
                         </td>
                         <td className="px-4 py-3 max-w-md">

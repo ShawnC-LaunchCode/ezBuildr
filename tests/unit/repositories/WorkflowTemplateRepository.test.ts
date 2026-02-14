@@ -169,7 +169,7 @@ describeWithDb('WorkflowTemplateRepository', () => {
     });
 
     it('should order by createdAt desc (newest first)', async () => {
-      const first = await repo.create({
+      const _first = await repo.create({
         workflowVersionId: testVersionId,
         templateId: testTemplateId1,
         key: 'first',
@@ -178,7 +178,7 @@ describeWithDb('WorkflowTemplateRepository', () => {
       // Small delay to ensure different timestamps
       await new Promise(resolve => setTimeout(resolve, 10));
 
-      const second = await repo.create({
+      const _second = await repo.create({
         workflowVersionId: testVersionId,
         templateId: testTemplateId2,
         key: 'second',
@@ -288,7 +288,7 @@ describeWithDb('WorkflowTemplateRepository', () => {
 
       await repo.setPrimary(mapping.id, testVersionId);
 
-      const updated = await repo.findById(mapping.id);
+      const _updated = await repo.findById(mapping.id);
 
       const deleted = await repo.deleteByIdAndWorkflowVersion(mapping.id, testVersionId);
 
@@ -370,7 +370,7 @@ describeWithDb('WorkflowTemplateRepository', () => {
         isPrimary: true,
       });
 
-      const second = await repo.create({
+      const _second = await repo.create({
         workflowVersionId: testVersionId,
         templateId: testTemplateId2,
         key: 'engagement_letter',

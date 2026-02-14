@@ -21,6 +21,7 @@ interface EnhancedVariablePickerProps {
   showListProperties?: boolean; // Show expandable list properties
 }
 
+// eslint-disable-next-line max-lines-per-function
 export function EnhancedVariablePicker({
   workflowId,
   onInsert,
@@ -47,6 +48,7 @@ export function EnhancedVariablePicker({
   }, [variables]);
 
   const handleCopy = (path: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     navigator.clipboard.writeText(path);
     toast({
       title: "Copied",
@@ -100,7 +102,7 @@ export function EnhancedVariablePicker({
               {vars.map((variable) => {
                 const isExpanded = expandedVars.has(variable.key);
                 const showExpand = showListProperties && isListType(variable.type);
-                const variablePath = variable.alias || variable.key;
+                const variablePath = variable.alias ?? variable.key;
 
                 return (
                   <div key={variable.key} className="space-y-0.5">

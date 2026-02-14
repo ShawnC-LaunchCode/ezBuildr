@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Hook to fetch available helper functions
  */
@@ -41,6 +42,7 @@ export interface HelpersResponse {
 /**
  * Fetch list of available helper functions
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useHelpers() {
   return useQuery<HelpersResponse>({
     queryKey: ['helpers'],

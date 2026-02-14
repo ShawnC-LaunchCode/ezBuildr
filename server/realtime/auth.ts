@@ -155,7 +155,7 @@ export async function authenticateConnection(
     throw new Error('Access denied');
   }
   // Validate RBAC permissions
-  const role = payload.role || 'viewer';
+  const role = payload.role ?? 'viewer';
   const allowedRoles = ['owner', 'builder', 'runner', 'viewer'];
   if (!allowedRoles.includes(role)) {
     throw new Error('Invalid user role');
@@ -190,7 +190,7 @@ export function canMutate(user: AuthenticatedUser): boolean {
 /**
  * Check if user has permission to view the document
  */
-export function canView(user: AuthenticatedUser): boolean {
+export function canView(_user: AuthenticatedUser): boolean {
   return true; // All authenticated users can view
 }
 /**
@@ -208,6 +208,7 @@ export function handleAuthError(ws: WebSocket, error: Error): void {
     // Ignore send errors
   }
   // Close with appropriate code
+  // eslint-disable-next-line sonarjs/no-all-duplicated-branches
   const code = error.message.includes('tenant') ? 1008 : 1008; // Policy Violation
   ws.close(code, error.message);
 }

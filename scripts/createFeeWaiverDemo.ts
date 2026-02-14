@@ -25,7 +25,7 @@ import {
 } from '../shared/schema';
 
 // 2024 Federal Poverty Level thresholds (for demonstration)
-const POVERTY_LEVELS: Record<number, number> = {
+const _POVERTY_LEVELS: Record<number, number> = {
   1: 1215,
   2: 1644,
   3: 2072,

@@ -104,7 +104,7 @@ function getGitFileChanges() {
 
   const eventName = process.env.GITHUB_EVENT_NAME || 'unknown';
   const baseRef = process.env.GITHUB_BASE_REF;
-  const headRef = process.env.GITHUB_HEAD_REF;
+  const _headRef = process.env.GITHUB_HEAD_REF;
   const sha = process.env.GITHUB_SHA;
 
   let compareTarget = null;

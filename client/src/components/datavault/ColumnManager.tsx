@@ -48,7 +48,9 @@ function isSelectOptionArray(value: unknown): value is SelectOption[] {
       item !== null &&
       'label' in item &&
       'value' in item &&
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       typeof item.label === 'string' &&
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       typeof item.value === 'string'
   );
 }
@@ -71,6 +73,7 @@ interface ColumnManagerProps {
   isLoading?: boolean;
 }
 
+// eslint-disable-next-line max-lines-per-function
 export function ColumnManager({
   columns,
   onAddColumn,
@@ -377,7 +380,7 @@ export function ColumnManager({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Column?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete the column "{deleteConfirm?.name}"? This will permanently
+              Are you sure you want to delete the column &quot;{deleteConfirm?.name}&quot;? This will permanently
               delete all data in this column for all rows. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

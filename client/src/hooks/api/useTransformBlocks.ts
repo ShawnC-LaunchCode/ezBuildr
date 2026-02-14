@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type _UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
 
 import { transformBlockAPI, type ApiTransformBlock } from "../../lib/vault-api";
 
@@ -62,9 +62,10 @@ export function useDeleteTransformBlock(): UseMutationResult<{ success: boolean 
     });
 }
 
-export function useTestTransformBlock(): UseMutationResult<{ success: boolean; output: any; error?: string }, unknown, { id: string; testData: Record<string, any> }> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function useTestTransformBlock(): UseMutationResult<{ success: boolean; output: any; error?: string }, unknown, { id: string; testData: Record<string, unknown> }> {
     return useMutation({
-        mutationFn: ({ id, testData }: { id: string; testData: Record<string, any> }) =>
+        mutationFn: ({ id, testData }: { id: string; testData: Record<string, unknown> }) =>
             transformBlockAPI.test(id, testData),
     });
 }

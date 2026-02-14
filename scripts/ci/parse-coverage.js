@@ -27,7 +27,7 @@
  */
 
 import fs from 'fs';
-import path from 'path';
+import _path from 'path';
 
 /**
  * Parse command line arguments

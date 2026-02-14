@@ -117,6 +117,7 @@ describe.sequential("Auth Middleware Integration Tests", () => {
         });
 
         it("should return 401 with expired token", async () => {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
             const jwt = require("jsonwebtoken");
             const expiredToken = jwt.sign(
                 {
@@ -457,6 +458,7 @@ describe.sequential("Auth Middleware Integration Tests", () => {
         });
 
         it("should return consistent error format for expired token", async () => {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
             const jwt = require("jsonwebtoken");
             const expiredToken = jwt.sign(
                 {
@@ -491,6 +493,7 @@ describe.sequential("Auth Middleware Integration Tests", () => {
         });
 
         it("should handle JWT with wrong algorithm", async () => {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
             const jwt = require("jsonwebtoken");
             const wrongAlgoToken = jwt.sign(
                 {

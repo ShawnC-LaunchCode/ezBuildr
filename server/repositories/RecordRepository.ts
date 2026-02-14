@@ -38,16 +38,16 @@ export class RecordRepository extends BaseRepository<typeof records, CollectionR
     // Apply ordering
     const orderByField = options?.orderBy === 'updated_at' ? records.updatedAt : records.createdAt;
     const orderDirection = options?.order === 'asc' ? asc : desc;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
     query = query.orderBy(orderDirection(orderByField)) as any; // Drizzle query builder chaining
 
     // Apply pagination
     if (options?.limit !== undefined) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
       query = query.limit(options.limit) as any; // Drizzle query builder chaining
     }
     if (options?.offset !== undefined) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
       query = query.offset(options.offset) as any; // Drizzle query builder chaining
     }
 

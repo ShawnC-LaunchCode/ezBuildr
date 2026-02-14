@@ -1,5 +1,5 @@
-import speakeasy from "speakeasy";
-import request from "supertest";
+import _speakeasy from "speakeasy";
+import _request from "supertest";
 import { describe, it, expect, beforeEach, beforeAll } from "vitest";
 
 import type { Express } from "express";
@@ -8,9 +8,9 @@ import type { Express } from "express";
  * Tests complete multi-factor authentication flows
  */
 describe("MFA Flow Integration Tests", () => {
-  let app: Express;
-  let testUser: any;
-  let authToken: string;
+  let _app: Express;
+  let _testUser: any;
+  let _authToken: string;
   beforeAll(async () => {
     // TODO: Initialize test app
   });

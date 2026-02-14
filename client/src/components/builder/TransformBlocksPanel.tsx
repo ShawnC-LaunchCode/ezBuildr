@@ -3,7 +3,7 @@
  */
 
 import { Plus } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, _useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { ApiTransformBlock } from "@/lib/vault-api";

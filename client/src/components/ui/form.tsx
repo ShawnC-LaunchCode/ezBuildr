@@ -48,6 +48,7 @@ const useFormField = () => {
 
   const fieldState = getFieldState(fieldContext.name, formState)
 
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (!fieldContext) {
     throw new Error("useFormField should be used within <FormField>")
   }
@@ -149,6 +150,7 @@ const FormMessage = React.forwardRef<
   const { error, formMessageId } = useFormField()
   const body = error ? String(error?.message ?? "") : children
 
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (!body) {
     return null
   }

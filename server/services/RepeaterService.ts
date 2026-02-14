@@ -13,7 +13,7 @@ import type {
   RepeaterValue,
   RepeaterInstance,
   RepeaterValidationResult,
-  RepeaterFieldValidation,
+  _RepeaterFieldValidation,
   FlattenedRepeaterData,
 } from "../../shared/types/repeater";
 const logger = createLogger({ module: "repeater-service" });
@@ -33,8 +33,8 @@ export class RepeaterService {
     };
     const instances = value?.instances ?? [];
     // Check instance count constraints
-    const minInstances = config.minInstances || 0;
-    const maxInstances = config.maxInstances || Infinity;
+    const minInstances = config.minInstances ?? 0;
+    const maxInstances = config.maxInstances ?? Infinity;
     if (instances.length < minInstances) {
       result.valid = false;
       result.globalErrors.push(`At least ${minInstances} item(s) required`);
@@ -83,6 +83,7 @@ export class RepeaterService {
       }
       // Check required fields
       if (field.required) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const value = instance.values[field.id];
         if (value === null || value === undefined || value === '') {
           errors.push(`${field.title} is required`);
@@ -117,7 +118,7 @@ export class RepeaterService {
    * @returns Empty repeater value
    */
   createEmptyRepeater(config: RepeaterConfig): RepeaterValue {
-    const minInstances = config.minInstances || 0;
+    const minInstances = config.minInstances ?? 0;
     const instances: RepeaterInstance[] = [];
     for (let i = 0; i < minInstances; i++) {
       instances.push(this.createEmptyInstance(i));
@@ -131,17 +132,18 @@ export class RepeaterService {
   createFromList(list: QueryListVariable, config: RepeaterConfig): RepeaterValue {
     const instances: RepeaterInstance[] = [];
     // Determine count (list size, bounded by maxInstances)
-    const max = config.maxInstances || Infinity;
+    const max = config.maxInstances ?? Infinity;
     const count = Math.min(list.rowCount || list.rows.length, max);
     for (let i = 0; i < count; i++) {
       const row = list.rows[i];
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (!row) { continue; }
-      const values: Record<string, any> = {};
+      const values: Record<string, unknown> = {};
       // Map fields from list row
       for (const field of config.fields) {
         // Determine source key: explicit sourceKey > field alias > field ID
         // This allows mapping "Employee Name" column to "name" field
-        const key = field.sourceKey || field.alias || field.id;
+        const key = field.sourceKey ?? field.alias ?? field.id;
         if (row[key] !== undefined) {
           values[field.id] = row[key];
         }
@@ -175,7 +177,7 @@ export class RepeaterService {
    * @returns Updated repeater value or null if max instances reached
    */
   addInstance(value: RepeaterValue, config: RepeaterConfig): RepeaterValue | null {
-    const maxInstances = config.maxInstances || Infinity;
+    const maxInstances = config.maxInstances ?? Infinity;
     const currentCount = value.instances.length;
     if (currentCount >= maxInstances) {
       return null; // Max instances reached
@@ -194,7 +196,7 @@ export class RepeaterService {
    * @returns Updated repeater value or null if min instances would be violated
    */
   removeInstance(value: RepeaterValue, instanceId: string, config: RepeaterConfig): RepeaterValue | null {
-    const minInstances = config.minInstances || 0;
+    const minInstances = config.minInstances ?? 0;
     const currentCount = value.instances.length;
     if (currentCount <= minInstances) {
       return null; // Min instances constraint
@@ -241,7 +243,7 @@ export class RepeaterService {
     if (!config.showInstanceTitle) {
       return '';
     }
-    const template = config.instanceTitleTemplate || 'Item #{index}';
+    const template = config.instanceTitleTemplate ?? 'Item #{index}';
     return template.replace('{index}', (instance.index + 1).toString());
   }
 }

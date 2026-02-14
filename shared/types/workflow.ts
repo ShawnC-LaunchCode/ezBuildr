@@ -53,7 +53,8 @@ export interface WorkflowJSON {
     id: string;
     title: string;
     pages: WorkflowPage[];
-    global?: Record<string, any>;
+    global?: Record<string, unknown>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any; // Allow loose props
 }
 
@@ -69,10 +70,12 @@ export interface WorkflowBlock {
     id: string;
     type: BlockType | StepType;
     title?: string;
-    config?: Record<string, any>;
+    config?: Record<string, unknown>;
     variableName?: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     visibleIf?: any;
     required?: boolean;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any; // Allow keys like options without lint error
 }
 
@@ -81,7 +84,7 @@ export interface Snapshot {
     workflowId: string;
     name: string;
     version: number;
-    inputValues: Record<string, any>;
+    inputValues: Record<string, unknown>;
     createdAt: Date;
     description?: string;
 }

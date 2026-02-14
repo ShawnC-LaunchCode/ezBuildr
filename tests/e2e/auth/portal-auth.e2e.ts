@@ -38,7 +38,7 @@ test.describe("Portal Magic Link Authentication", () => {
       );
     const responses = await Promise.all(requests);
     // Some requests should be rate limited (status 429)
-    const rateLimited = responses.some((r) => r.status() === 429);
+    const _rateLimited = responses.some((r) => r.status() === 429);
     // In test environment, rate limiting might be disabled
     // So we just verify requests complete without crashing
     expect(responses.length).toBe(5);

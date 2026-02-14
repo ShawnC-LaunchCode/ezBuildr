@@ -242,6 +242,7 @@ async function main() {
   fs.writeFileSync(args.output, JSON.stringify(result, null, 2));
   console.log(`\n✅ Message info saved to ${args.output}`);
   console.log(`\n🎉 Slack notification complete!`);
+  // eslint-disable-next-line sonarjs/no-nested-template-literals
   console.log(`   View in Slack: ${result.permalink || `https://slack.com/app_redirect?channel=${result.channel}`}`);
 
   process.exit(0);

@@ -43,6 +43,7 @@ interface DatabaseApiTokensProps {
   databaseId: string;
 }
 
+// eslint-disable-next-line max-lines-per-function
 export function DatabaseApiTokens({ databaseId }: DatabaseApiTokensProps) {
   const { toast } = useToast();
   const { data, isLoading } = useDatavaultApiTokens(databaseId);

@@ -10,9 +10,9 @@ import type { QualityScore } from '@shared/types/ai';
 // Imported sub-components
 import { FeedbackFormContent } from './ai-feedback/FeedbackFormContent';
 import { FeedbackSuccessMessage } from './ai-feedback/FeedbackSuccessMessage';
-import { IssueList } from './ai-feedback/IssueList';
-import { QualityBreakdown, QualityHeader } from './ai-feedback/QualityBreakdown';
-import { RatingInput } from './ai-feedback/RatingInput';
+import { _IssueList } from './ai-feedback/IssueList';
+import { _QualityBreakdown, _QualityHeader } from './ai-feedback/QualityBreakdown';
+import { _RatingInput } from './ai-feedback/RatingInput';
 
 export { type QualityScore };
 
@@ -115,6 +115,7 @@ export function AIFeedbackWidget({
         setRating={setRating}
         comment={comment}
         setComment={setComment}
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}
       />

@@ -29,10 +29,10 @@ function createSecureCacheKey(parts: {
   }
 
   // Create base key with clear structure
-  const baseKey = `${type}:${tenantId}:${projectId || 'global'}:${identifier}`;
+  const baseKey = `${type}:${tenantId}:${projectId ?? 'global'}:${identifier}`;
 
   // Add HMAC to prevent key crafting
-  const secret = process.env.CACHE_KEY_SECRET || process.env.SESSION_SECRET || 'default-cache-secret';
+  const secret = process.env.CACHE_KEY_SECRET ?? process.env.SESSION_SECRET ?? 'default-cache-secret';
   const hmac = crypto.createHmac('sha256', secret)
     .update(baseKey)
     .digest('hex')
@@ -162,8 +162,11 @@ class LRUCache<T = any> {
 
 // Global cache instances
 const oAuth2TokenCache = new LRUCache<{
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   access_token: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   token_type: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   expires_in: number;
   obtainedAt: number;
 }>(100); // 100 OAuth2 tokens max
@@ -185,6 +188,7 @@ export const oauth2Cache = {
    * Get a cached OAuth2 token (legacy - uses simple key)
    * @deprecated Use getSecure() for tenant-isolated caching
    */
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   get(key: string): { access_token: string; token_type: string; expires_in: number; obtainedAt: number } | undefined {
     return oAuth2TokenCache.get(key);
   },
@@ -198,6 +202,7 @@ export const oauth2Cache = {
     tokenUrl: string;
     clientId: string;
     scope: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   }): { access_token: string; token_type: string; expires_in: number; obtainedAt: number } | undefined {
     const key = createSecureCacheKey({
       tenantId: params.tenantId,
@@ -215,6 +220,7 @@ export const oauth2Cache = {
    */
   set(
     key: string,
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     token: { access_token: string; token_type: string; expires_in: number },
     ttlMs?: number
   ): void {
@@ -238,6 +244,7 @@ export const oauth2Cache = {
       clientId: string;
       scope: string;
     },
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     token: { access_token: string; token_type: string; expires_in: number },
     ttlMs?: number
   ): void {
@@ -374,6 +381,7 @@ export const httpCache = {
 /**
  * Get cache statistics
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getCacheStats() {
   return {
     oauth2: {

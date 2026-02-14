@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type _UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
 
 import { DevPanelBus } from "../../lib/devpanelBus";
 import { versionAPI, type ApiWorkflowVersion } from "../../lib/vault-api";

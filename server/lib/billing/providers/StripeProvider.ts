@@ -8,11 +8,13 @@ const logger = createLogger({ module: 'stripe-provider' });
 export class StripeProvider implements BillingProvider {
     // In a real implementation, this would use 'stripe' SDK
 
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     async createCustomer(params: CreateCustomerParams) {
         logger.info({ params }, "Stripe: Creating customer");
         return { id: `cus_mock_${Math.random().toString(36).substring(7)}` };
     }
 
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     async createSubscription(params: CreateSubscriptionParams) {
         logger.info({ params }, "Stripe: Creating subscription");
         return {
@@ -22,15 +24,18 @@ export class StripeProvider implements BillingProvider {
         };
     }
 
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     async cancelSubscription(subscriptionId: string) {
         logger.info({ subscriptionId }, "Stripe: Canceling subscription");
     }
 
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     async updateSubscription(subscriptionId: string, params: { priceId?: string; quantity?: number }) {
         logger.info({ subscriptionId, params }, "Stripe: Updating subscription");
     }
 
-    async getPortalUrl(customerId: string) {
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+    async getPortalUrl(_customerId: string) {
         return "https://billing.stripe.com/p/session/test";
     }
 }

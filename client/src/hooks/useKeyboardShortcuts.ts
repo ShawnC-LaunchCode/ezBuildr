@@ -18,6 +18,7 @@ interface UseKeyboardShortcutsOptions {
  * Hook for managing keyboard shortcuts in the survey builder
  * Supports Ctrl/Cmd modifiers and prevents conflicts with browser shortcuts
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useKeyboardShortcuts({
   shortcuts,
   enabled = true,
@@ -30,6 +31,7 @@ export function useKeyboardShortcuts({
 
       // Don't trigger shortcuts when typing in inputs, textareas, or contenteditable
       const target = event.target as HTMLElement;
+      // eslint-disable-next-line sonarjs/no-collapsible-if
       if (
         target.tagName === "INPUT" ||
         target.tagName === "TEXTAREA" ||

@@ -9,6 +9,7 @@ export class WebhookDispatcher {
     /**
      * Dispatch an event to all subscribed listeners in a workspace
      */
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     static async dispatch(workspaceId: string, event: string, payload: unknown) {
         try {
             // 1. Find Subscriptions
@@ -46,6 +47,7 @@ export class WebhookDispatcher {
     /**
      * Deliver a single webhook event
      */
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     static async deliver(eventId: string, url: string, secret: string, event: string, payload: unknown) {
         try {
             // Sign payload

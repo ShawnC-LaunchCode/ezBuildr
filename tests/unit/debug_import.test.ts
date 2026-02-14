@@ -1,5 +1,5 @@
-import express from 'express';
-import request from 'supertest';
+import _express from 'express';
+import _request from 'supertest';
 import { describe, it, expect } from 'vitest';
 
 import { registerAiRoutes } from '../../server/routes/ai.routes';

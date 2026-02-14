@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
 interface TransformPlaygroundProps {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     transforms: any[];
 }
 

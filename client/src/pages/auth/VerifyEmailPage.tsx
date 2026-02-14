@@ -30,6 +30,7 @@ export default function VerifyEmailPage() {
                 setMessage("Invalid or expired verification token.");
             }
         };
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
         fn();
     }, []);
 

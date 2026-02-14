@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Suppresses harmless Google OAuth COOP warnings in the console
  *
  * These warnings are from Google's Identity Services library and don't affect functionality.
  * See: https://github.com/MomenSherif/react-oauth/issues/295
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function suppressGoogleOAuthWarnings() {
   const originalWarn = console.warn;
   const originalError = console.error;

@@ -40,6 +40,7 @@ interface QuickActionButtonProps {
 export function QuickActionButton({
   href,
   onClick,
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   icon: Icon,
   iconColor = "text-primary",
   iconBgColor = "bg-primary/10",

@@ -24,6 +24,7 @@ export function DomainList({ tenantId }: DomainListProps) {
     e.preventDefault();
 
     if (!newDomain.trim()) {
+      // eslint-disable-next-line no-alert
       alert('Please enter a domain');
       return;
     }
@@ -31,21 +32,26 @@ export function DomainList({ tenantId }: DomainListProps) {
     try {
       await addDomain.mutateAsync(newDomain.trim());
       setNewDomain('');
+      // eslint-disable-next-line no-alert
       alert('Domain added successfully');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      // eslint-disable-next-line no-alert
       alert(`Failed to add domain: ${error.message}`);
     }
   };
 
   const handleRemove = async (domainId: string) => {
+    // eslint-disable-next-line no-alert
     if (!confirm('Are you sure you want to remove this domain?')) {
       return;
     }
 
     try {
       await removeDomain.mutateAsync(domainId);
+      // eslint-disable-next-line no-alert
       alert('Domain removed successfully');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      // eslint-disable-next-line no-alert
       alert(`Failed to remove domain: ${error.message}`);
     }
   };

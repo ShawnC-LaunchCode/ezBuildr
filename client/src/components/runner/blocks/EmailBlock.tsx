@@ -18,6 +18,7 @@ import type { EmailConfig } from "@shared/types/stepConfigs";
 
 export interface EmailBlockProps {
   step: Step;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any;
   onChange: (value: string) => void;
   readOnly?: boolean;
@@ -25,12 +26,13 @@ export interface EmailBlockProps {
 
 export function EmailBlockRenderer({ step, value, onChange, readOnly }: EmailBlockProps) {
   const config = step.config as EmailConfig;
-  const placeholder = config?.placeholder || "email@example.com";
+  const placeholder = config?.placeholder ?? "email@example.com";
 
   return (
     <Input
       id={step.id}
       type="email"
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}

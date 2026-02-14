@@ -25,20 +25,22 @@ function getGoogleClient(): OAuth2Client {
  * @internal
  * @throws {Error} If called outside of test environment
  */
-export function _testOnly_setGoogleClient(client: OAuth2Client | null) {
+// eslint-disable-next-line @typescript-eslint/naming-convention
+export function _testOnly_setGoogleClient(client: OAuth2Client | null): void {
   if (process.env.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'development') {
     throw new Error('_testOnly_setGoogleClient can only be called in test/development environments');
   }
   googleClient = client;
 }
-async function upsertUser(payload: TokenPayload) {
+async function upsertUser(payload: TokenPayload): Promise<Record<string, unknown>> {
   try {
     // Get default tenant for new users
     const { getDb } = await import('./db');
     const { tenants } = await import('@shared/schema');
     const db = getDb();
-    if (!db) { throw new Error("Database not initialized"); }
+    if (db == null) { throw new Error("Database not initialized"); }
     const [defaultTenant] = await db.select().from(tenants).limit(1);
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!defaultTenant) {
       logger.error('No default tenant found in database');
       throw new Error("System not properly configured - no tenant found");
@@ -94,16 +96,18 @@ const authRateLimit = rateLimit({
 });
 // Helper function to validate Origin/Referer
 function validateOrigin(req: Express.Request): boolean {
-  const origin = req.get('Origin') ?? req.get('Referer');
-  if (!origin) { return false; }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+  const originHeader = req.get('Origin') ?? req.get('Referer');
+  if (!originHeader) { return false; }
   try {
-    const originUrl = new URL(origin);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    const originUrl = new URL(originHeader);
     const allowedHosts = ['localhost', '127.0.0.1', '0.0.0.0'];
     if (process.env.ALLOWED_ORIGIN) {
-      const allowedOrigins = process.env.ALLOWED_ORIGIN.split(',').map(origin => {
+      const allowedOrigins = process.env.ALLOWED_ORIGIN.split(',').map(o => {
         try {
-          return origin.includes('://') ? new URL(origin).hostname : origin.trim();
-        } catch { return origin.trim(); }
+          return o.includes('://') ? new URL(o).hostname : o.trim();
+        } catch { return o.trim(); }
       });
       allowedHosts.push(...allowedOrigins);
     }
@@ -115,14 +119,17 @@ function validateOrigin(req: Express.Request): boolean {
     return false;
   }
 }
-export async function setupAuth(app: Express) {
+// eslint-disable-next-line @typescript-eslint/require-await
+export async function setupAuth(app: Express): Promise<void> {
   app.set("trust proxy", 1);
   // Session middleware REMOVED
   // Google OAuth2 login route - accepts ID token from frontend
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.post("/api/auth/google", authRateLimit, async (req, res) => {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const { token, idToken } = req.body;
-      const googleToken = token || idToken;
+      const googleToken = (token as string | undefined) ?? (idToken as string | undefined);
       if (!googleToken) {
         return res.status(400).json({ message: "ID token is required", error: "missing_token" });
       }
@@ -133,12 +140,14 @@ export async function setupAuth(app: Express) {
       // Verify and Upsert
       const payload = await verifyGoogleToken(googleToken);
       await upsertUser(payload);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       const dbUser = await userRepository.findById(payload.sub);
       if (!dbUser) { throw new Error('User not found after upsert'); }
       // Accept pending shares
       try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
         await templateSharingService.acceptPendingOnLogin({ ...dbUser, authProvider: 'google' } as any);
-      } catch (e) {
+      } catch (_e) {
         logger.warn('Failed to accept pending template shares');
       }
       // Generate Tokens using AuthService

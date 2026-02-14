@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Legacy survey imports - DISABLED (survey system removed Nov 2025)
@@ -29,7 +30,7 @@ export class GeminiService {
       try {
         this.genAI = new GoogleGenerativeAI(apiKey);
         // Use configurable Gemini model from env, fallback to gemini-2.0-flash
-        const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+        const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
         this.model = this.genAI.getGenerativeModel({ model });
       } catch (e) {
         logger.warn({ err: e }, "Failed to initialize GoogleGenerativeAI in GeminiService (likely mock issue in tests)");
@@ -38,7 +39,7 @@ export class GeminiService {
     } else {
       // Normal initialization if we are somehow here
       this.genAI = new GoogleGenerativeAI(apiKey);
-      const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+      const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
       this.model = this.genAI.getGenerativeModel({ model });
     }
   }

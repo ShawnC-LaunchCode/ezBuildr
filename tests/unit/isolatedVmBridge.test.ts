@@ -85,8 +85,10 @@ describe('isolated-vm Bridge Verification', () => {
 
         expect(result.ok).toBe(true);
         expect(result.consoleLogs).toBeDefined();
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         expect(result.consoleLogs[0]).toEqual(["hello log"]);
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         expect(result.consoleLogs[1]).toEqual(["[WARN]", "hello warn"]);
     });

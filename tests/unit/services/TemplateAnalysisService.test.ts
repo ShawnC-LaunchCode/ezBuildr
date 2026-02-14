@@ -3,12 +3,12 @@ import * as fs from 'fs/promises';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import {
-  analyzeTemplate,
-  validateTemplateWithData,
-  generateSampleData,
-  compareTemplates,
-  type TemplateAnalysis,
-  type ValidationResult,
+  _analyzeTemplate,
+  _validateTemplateWithData,
+  _generateSampleData,
+  _compareTemplates,
+  type _TemplateAnalysis,
+  type _ValidationResult,
 } from '../../../server/services/TemplateAnalysisService';
 import * as templatesModule from '../../../server/services/templates';
 
@@ -63,7 +63,7 @@ describe('TemplateAnalysisService', () => {
 
     it('should detect type mismatches', () => {
       // Loop variable should be array
-      const loopVar = 'items';
+      const _loopVar = 'items';
       const value = 'not an array';
 
       expect(Array.isArray(value)).toBe(false);
@@ -79,7 +79,7 @@ describe('TemplateAnalysisService', () => {
 
     it('should handle empty template variables', () => {
       const templateVars = new Set<string>();
-      const sampleData = {};
+      const _sampleData = {};
 
       const coverage = templateVars.size > 0 ? 0 : 100;
 
@@ -201,6 +201,7 @@ describe('TemplateAnalysisService', () => {
 
     it('should extract loop variables', () => {
       const text = '{#items}Item: {name}{/items}';
+      // eslint-disable-next-line no-useless-escape
       const regex = /\{([#\/]?)([^{}]+?)\}/g;
       const matches = Array.from(text.matchAll(regex));
 
@@ -210,6 +211,7 @@ describe('TemplateAnalysisService', () => {
 
     it('should extract conditional variables', () => {
       const text = '{#if isActive}Active{/if}';
+      // eslint-disable-next-line no-useless-escape
       const regex = /\{([#\/]?)([^{}]+?)\}/g;
       const matches = Array.from(text.matchAll(regex));
 

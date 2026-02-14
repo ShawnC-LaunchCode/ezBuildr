@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import pino from "pino";
 
 import { env } from "../../../client/src/lib/config/environment";
@@ -22,6 +23,7 @@ export const logger = pino({
     },
 });
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const requestLogger = (req: Request, res: Response, next: NextFunction) => {
     const startTime = Date.now();
 

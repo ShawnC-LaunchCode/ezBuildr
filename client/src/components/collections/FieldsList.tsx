@@ -59,6 +59,7 @@ export function FieldsList({ fields, onEdit, onDelete }: FieldsListProps) {
   return (
     <div className="space-y-2">
       {fields.map((field) => {
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         const Icon = FIELD_TYPE_ICONS[field.type] || Type;
         const colorClass = FIELD_TYPE_COLORS[field.type] || 'bg-gray-500/10 text-gray-600';
 

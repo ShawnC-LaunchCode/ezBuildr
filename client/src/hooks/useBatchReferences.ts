@@ -14,8 +14,9 @@ import * as api from '../lib/api/datavault';
  * Before: 100 rows × 3 reference columns = 300 API requests
  * After: 1 batch API request
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useBatchReferences(
-  rows: Array<{ row: { id: string }; values: Record<string, any> }>,
+  rows: Array<{ row: { id: string }; values: Record<string, unknown> }>,
   columns: DatavaultColumn[]
 ) {
   // Extract reference columns
@@ -42,7 +43,7 @@ export function useBatchReferences(
       return {
         tableId: column.reference.tableId,
         rowIds: uniqueRowIds,
-        displayColumnSlug: column.reference.displayColumnSlug || undefined,
+        displayColumnSlug: column.reference.displayColumnSlug ?? undefined,
       };
     })
     .filter((req): req is NonNullable<typeof req> => req !== null);
@@ -65,6 +66,7 @@ export function useBatchReferences(
  */
 export function getReferenceDisplayValue(
   rowId: string | undefined | null,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   batchResult: Record<string, { displayValue: string; row: any }> | undefined
 ): { displayValue: string; isLoading: boolean; isError: boolean } {
   if (!rowId) {
@@ -75,7 +77,9 @@ export function getReferenceDisplayValue(
     return { displayValue: 'Loading...', isLoading: true, isError: false };
   }
 
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   const result = batchResult[rowId];
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (!result) {
     return { displayValue: 'Not found', isLoading: false, isError: true };
   }

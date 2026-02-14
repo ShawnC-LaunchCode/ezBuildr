@@ -23,10 +23,10 @@ import {
     sections,
     steps,
     workflowRuns,
-    stepValues,
-    datavaultDatabases as databases,
-    datavaultTables as tablesSchema,
-    datavaultRows as table_rows
+    _stepValues,
+    datavaultDatabases as _databases,
+    datavaultTables as _tablesSchema,
+    datavaultRows as _table_rows
 } from "../../shared/schema";
 // Helper to evaluate visibility expressions
 function evaluateVisibilityExpression(expr: string | undefined, data: Record<string, any>): boolean {

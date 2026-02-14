@@ -471,6 +471,7 @@ const SidebarGroupAction = React.forwardRef<
         "absolute right-3 top-3.5 flex aspect-square w-5 items-center justify-center rounded-md p-0 text-sidebar-foreground outline-none ring-sidebar-ring transition-transform hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
         // Increases the hit area of the button on mobile.
         "after:absolute after:-inset-2 after:md:hidden",
+        // eslint-disable-next-line sonarjs/no-duplicate-string
         "group-data-[collapsible=icon]:hidden",
         className
       )}
@@ -575,11 +576,13 @@ const SidebarMenuButton = React.forwardRef<
       />
     )
 
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!tooltip) {
       return button
     }
 
     if (typeof tooltip === "string") {
+      // eslint-disable-next-line no-param-reassign
       tooltip = {
         children: tooltip,
       }

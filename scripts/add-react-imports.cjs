@@ -7,9 +7,9 @@
  * have 'import React' and adds it.
  */
 
-const fs = require('fs');
-const path = require('path');
 const { execSync } = require('child_process');
+const fs = require('fs');
+const _path = require('path');
 
 // Find all tsx files that import from 'react' but don't import React
 const findFilesCommand = `find client/src tests -name "*.tsx" -type f`;

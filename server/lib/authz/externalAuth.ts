@@ -1,5 +1,6 @@
 
-import crypto from 'crypto';
+// eslint-disable-next-line @typescript-eslint/naming-convention
+import _crypto from 'crypto';
 
 import { eq } from "drizzle-orm";
 import { Request, Response, NextFunction } from "express";
@@ -22,6 +23,7 @@ export interface ExternalAuthRequest extends Request {
     }
 }
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export async function requireExternalAuth(req: ExternalAuthRequest, res: Response, next: NextFunction) {
     const authHeader = req.headers.authorization;
     const apiKeyHeader = req.headers['x-api-key'] as string;
@@ -80,6 +82,7 @@ export async function requireExternalAuth(req: ExternalAuthRequest, res: Respons
             }
 
              // Update last used (async, don't await)
+             // eslint-disable-next-line @typescript-eslint/no-floating-promises
              /* await */ db.update(apiKeys).set({ lastUsedAt: new Date() }).where(eq(apiKeys.id, keyRecord.id));
 
             req.externalAuth = {

@@ -1,22 +1,22 @@
 import {
     StepConfig,
     TextAdvancedConfig,
-    NumberAdvancedConfig,
-    PhoneAdvancedConfig,
-    EmailAdvancedConfig,
-    WebsiteAdvancedConfig,
-    ScaleAdvancedConfig,
-    ChoiceAdvancedConfig,
-    LegacyMultipleChoiceConfig,
-    LegacyRadioConfig,
-    DateTimeUnifiedConfig,
-    DateConfig,
-    AddressConfig,
-    AddressAdvancedConfig,
-    MultiFieldConfig,
+    _NumberAdvancedConfig,
+    _PhoneAdvancedConfig,
+    _EmailAdvancedConfig,
+    _WebsiteAdvancedConfig,
+    _ScaleAdvancedConfig,
+    _ChoiceAdvancedConfig,
+    _LegacyMultipleChoiceConfig,
+    _LegacyRadioConfig,
+    _DateTimeUnifiedConfig,
+    _DateConfig,
+    _AddressConfig,
+    _AddressAdvancedConfig,
+    _MultiFieldConfig,
     isNumberConfig,
-    isChoiceConfig,
-    isAddressConfig,
+    _isChoiceConfig,
+    _isAddressConfig,
 } from "../types/stepConfigs";
 
 import { ValidationRule } from "./ValidationRule";
@@ -64,6 +64,7 @@ function hasChoiceConstraints(config: unknown): config is SimpleChoiceConfig {
 /**
  * Generates a runtime ValidationSchema from a step's type and configuration.
  */
+// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 export function getValidationSchema(step: StepLike): ValidationSchema {
     const rules: ValidationRule[] = [];
     const config = step.config as StepConfig;

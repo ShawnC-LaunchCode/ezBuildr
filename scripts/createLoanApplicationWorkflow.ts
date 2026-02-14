@@ -7,7 +7,7 @@ import { randomUUID } from 'crypto';
 
 import { eq } from 'drizzle-orm';
 
-import { workflows, sections, steps, templates, projects, users, logicRules, transformBlocks } from '@shared/schema';
+import { workflows, sections, steps, _templates, projects, users, _logicRules, transformBlocks } from '@shared/schema';
 
 import { initializeDatabase, getDb } from '../server/db';
 
@@ -275,7 +275,7 @@ async function createLoanApplicationWorkflow() {
     order: 999,
   });
 
-  const transformBlock = await db.insert(transformBlocks).values({
+  const _transformBlock = await db.insert(transformBlocks).values({
     id: randomUUID(),
     workflowId,
     sectionId: section3[0].id,
@@ -374,6 +374,7 @@ if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`) {
     .then((result) => {
       if (result) {
         // Save result to temp file for next script
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const fs = require('fs');
         fs.writeFileSync(
           'temp-workflow-info.json',

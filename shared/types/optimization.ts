@@ -38,7 +38,7 @@ export interface OptimizationFix {
     | "simplify_logic"
     | "reorder_pages";
     description: string;
-    payload: Record<string, any>; // Flexible payload for the specific fix action
+    payload: Record<string, unknown>; // Flexible payload for the specific fix action
 }
 
 // Optimization Suggestion (Higher level improvement)

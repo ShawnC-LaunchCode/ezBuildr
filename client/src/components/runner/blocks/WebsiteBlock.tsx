@@ -18,6 +18,7 @@ import type { WebsiteConfig } from "@shared/types/stepConfigs";
 
 export interface WebsiteBlockProps {
   step: Step;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any;
   onChange: (value: string) => void;
   readOnly?: boolean;
@@ -25,7 +26,7 @@ export interface WebsiteBlockProps {
 
 export function WebsiteBlockRenderer({ step, value, onChange, readOnly }: WebsiteBlockProps) {
   const config = step.config as WebsiteConfig;
-  const placeholder = config?.placeholder || "https://example.com";
+  const placeholder = config?.placeholder ?? "https://example.com";
 
   const handleBlur = () => {
     // Auto-prepend https:// if missing
@@ -38,6 +39,7 @@ export function WebsiteBlockRenderer({ step, value, onChange, readOnly }: Websit
     <Input
       id={step.id}
       type="url"
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value)}
       onBlur={handleBlur}

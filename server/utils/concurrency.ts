@@ -35,10 +35,12 @@ export class ConcurrencyLimiter {
         }
     }
 
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     get pending() {
         return this.queue.length;
     }
 
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     get active() {
         return this.activeCount;
     }

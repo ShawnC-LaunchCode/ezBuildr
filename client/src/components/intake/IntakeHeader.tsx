@@ -35,8 +35,8 @@ export default function IntakeHeader({
   const contextHeaderText = useIntakeHeaderText();
 
   // Use custom props or context values
-  const logoUrl = customLogoUrl || contextLogoUrl;
-  const headerText = customHeaderText || contextHeaderText || 'Welcome';
+  const logoUrl = customLogoUrl ?? contextLogoUrl;
+  const headerText = customHeaderText ?? contextHeaderText ?? 'Welcome';
 
   return (
     <header

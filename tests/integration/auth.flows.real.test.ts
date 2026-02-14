@@ -7,7 +7,7 @@ import { loginAttempts, accountLocks } from "@shared/schema";
 import { db } from "../../server/db";
 import { createTestApp } from "../helpers/testApp";
 import {
-  cleanAuthTables,
+  _cleanAuthTables,
   deleteTestUser,
   randomEmail,
   randomPassword,
@@ -239,7 +239,7 @@ describe("Auth Flows Integration Tests (REAL)", () => {
       expect(backupCodeLoginResponse.status).toBe(200);
       expect(backupCodeLoginResponse.body.token).toBeDefined();
       // Backup code should be consumed (can't use again)
-      const login3Response = await request(app)
+      const _login3Response = await request(app)
         .post("/api/auth/login")
         .send({ email, password });
       const reuseBackupCodeResponse = await request(app)
@@ -315,7 +315,7 @@ describe("Auth Flows Integration Tests (REAL)", () => {
           newPassword,
         });
       // Old token should no longer work
-      const meResponse = await request(app)
+      const _meResponse = await request(app)
         .get("/api/auth/me")
         .set("Authorization", `Bearer ${oldToken}`);
       // Token might still be valid (JWT) but refresh tokens should be revoked
@@ -395,7 +395,7 @@ describe("Auth Flows Integration Tests (REAL)", () => {
       const { email, password, userId } = await createVerifiedUser();
       trackUser(userId);
       // Login from "multiple devices" (simulate with different user agents)
-      const login1 = await request(app)
+      const _login1 = await request(app)
         .post("/api/auth/login")
         .set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
         .send({ email, password });
@@ -416,7 +416,7 @@ describe("Auth Flows Integration Tests (REAL)", () => {
       const { email, password, userId } = await createVerifiedUser();
       trackUser(userId);
       // Create 2 sessions
-      const login1 = await request(app)
+      const _login1 = await request(app)
         .post("/api/auth/login")
         .send({ email, password });
       const login2 = await request(app)

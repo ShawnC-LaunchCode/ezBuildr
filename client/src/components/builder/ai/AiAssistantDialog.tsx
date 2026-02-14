@@ -103,8 +103,8 @@ export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistan
                             <div className="text-center text-muted-foreground py-8">
                                 <Sparkles className="w-12 h-12 mx-auto mb-3 text-indigo-100" />
                                 <p>Describe what you want to change.</p>
-                                <p className="text-xs mt-1 opacity-70">"Add a phone number question"</p>
-                                <p className="text-xs opacity-70">"Create a new page for payment info"</p>
+                                <p className="text-xs mt-1 opacity-70">&quot;Add a phone number question&quot;</p>
+                                <p className="text-xs opacity-70">&quot;Create a new page for payment info&quot;</p>
                             </div>
                         )}
                         {messages.map((msg) => (

@@ -10,6 +10,7 @@ interface ReviewStatsCardProps {
     highlight?: boolean;
 }
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export function ReviewStatsCard({ label, value, icon: IconComponent, highlight }: ReviewStatsCardProps) {
     return (
         <Card>

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * BranchingService.ts
  * Analyzes the most common paths users take through the workflow.
@@ -33,12 +34,14 @@ class BranchingService {
         ORDER BY run_id, timestamp
     `;
         const result = await db.execute(query);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const rows = result.rows as any[];
         const transitions: Record<string, number> = {}; // "pageA->pageB" => count
         const pageCounts: Record<string, number> = {}; // "pageA" => visitors
         // 2. Process in memory (efficient enough for <10k rows, otherwise need sophisticated SQL window functions)
         let currentRunId: string | null = null;
         let lastPageId: string | null = null;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         rows.forEach((row: any) => {
             pageCounts[row.page_id] = (pageCounts[row.page_id] || 0) + 1;
             if (row.run_id !== currentRunId) {

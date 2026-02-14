@@ -21,7 +21,7 @@ async function main() {
     let auditEventsCount = 0;
     try {
         const res = await db.execute(sql`SELECT count(*) as count FROM audit_events`);
-        auditEventsCount = (res.rows[0] as Record<string, unknown>).count as number;
+        auditEventsCount = (res.rows[0]).count as number;
         console.log(`audit_events count: ${auditEventsCount}`);
     } catch (e) {
         console.log(`audit_events table does not exist or error: ${(e as Error).message}`);

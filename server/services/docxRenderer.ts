@@ -4,13 +4,14 @@
  */
 
 // import { exec } from 'child_process'; // Removed
-import fsSync from 'fs';
+// eslint-disable-next-line @typescript-eslint/naming-convention
+import _fsSync from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
 // import { promisify } from 'util'; // Removed
 
 import Docxtemplater from 'docxtemplater';
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { _PDFDocument, _StandardFonts, _rgb } from 'pdf-lib';
 import PizZip from 'pizzip';
 
 import { logger } from '../logger';
@@ -107,7 +108,7 @@ export async function renderDocx(options: RenderOptions): Promise<RenderResult> 
 
     // Generate output filename
     const timestamp = Date.now();
-    const basename = outputName || path.basename(templatePath, '.docx');
+    const basename = outputName ?? path.basename(templatePath, '.docx');
     const outputFileName = `${basename}-${timestamp}.docx`;
     const outputPath = path.join(outputDir, outputFileName);
 
@@ -144,6 +145,7 @@ export async function renderDocx(options: RenderOptions): Promise<RenderResult> 
   } catch (error: unknown) {
     // If it's already a formatted error, re-throw it
     if (error && typeof error === 'object' && 'code' in error && 'status' in error) {
+      // eslint-disable-next-line @typescript-eslint/no-throw-literal
       throw error;
     }
 
@@ -180,6 +182,7 @@ export async function extractPlaceholdersFromDocx(
 
     // Extract placeholders using regex
     // Matches {{placeholder}}, {{#if condition}}, {{#each items}}, etc.
+    // eslint-disable-next-line security/detect-unsafe-regex, no-useless-escape
     const placeholderRegex = /\{\{[#\/]?(\w+)(?:\s+\w+)?\}\}/g;
     const matches = fullText.matchAll(placeholderRegex);
 

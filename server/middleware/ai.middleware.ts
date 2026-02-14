@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import rateLimit from "express-rate-limit";
 
 import { createLogger } from "../logger";
@@ -98,7 +99,7 @@ export const aiWorkflowRateLimit = rateLimit({
     // Use user ID for rate limiting (authenticated requests only)
     keyGenerator: (req: Request) => {
         const authReq = req as AuthRequest;
-        return authReq.userId || 'anonymous';
+        return authReq.userId ?? 'anonymous';
     },
     skipFailedRequests: true,
 });

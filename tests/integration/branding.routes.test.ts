@@ -1,8 +1,8 @@
 import express, { type Express } from 'express';
-import request from 'supertest';
+import _request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
-import { tenants, users, tenantDomains } from '@shared/schema';
+import { _tenants, _users, _tenantDomains } from '@shared/schema';
 import type { TenantBranding } from '@shared/types/branding';
 
 import { registerBrandingRoutes } from '../../server/routes/branding.routes';
@@ -13,9 +13,9 @@ import { registerBrandingRoutes } from '../../server/routes/branding.routes';
  */
 describe('Branding API Routes', () => {
   let app: Express;
-  let testTenantId: string;
-  let testUserId: string;
-  let authCookie: string;
+  let _testTenantId: string;
+  let _testUserId: string;
+  let _authCookie: string;
   beforeAll(async () => {
     // Setup Express app with routes
     app = express();
@@ -55,7 +55,7 @@ describe('Branding API Routes', () => {
       expect(true).toBe(true); // Placeholder
     });
     it('should return existing branding configuration', async () => {
-      const mockBranding: TenantBranding = {
+      const _mockBranding: TenantBranding = {
         logoUrl: 'https://example.com/logo.png',
         primaryColor: '#FF5733',
         accentColor: '#33FF57',
@@ -92,7 +92,7 @@ describe('Branding API Routes', () => {
   });
   describe('PATCH /api/tenants/:tenantId/branding', () => {
     it('should update tenant branding with valid data', async () => {
-      const brandingUpdate: Partial<TenantBranding> = {
+      const _brandingUpdate: Partial<TenantBranding> = {
         primaryColor: '#0000FF',
         accentColor: '#FF0000',
         intakeHeaderText: 'Updated Header',
@@ -109,7 +109,7 @@ describe('Branding API Routes', () => {
     });
     it('should merge partial updates with existing branding', async () => {
       // Setup: Set initial branding
-      const initialBranding: TenantBranding = {
+      const _initialBranding: TenantBranding = {
         logoUrl: 'https://example.com/logo.png',
         primaryColor: '#FF5733',
         intakeHeaderText: 'Original Header',
@@ -118,7 +118,7 @@ describe('Branding API Routes', () => {
       //   .set({ branding: initialBranding })
       //   .where(eq(tenants.id, testTenantId));
       // Update only primary color
-      const partialUpdate = {
+      const _partialUpdate = {
         primaryColor: '#0000FF',
       };
       // const response = await request(app)
@@ -136,7 +136,7 @@ describe('Branding API Routes', () => {
       expect(true).toBe(true); // Placeholder
     });
     it('should reject invalid color format', async () => {
-      const invalidUpdate = {
+      const _invalidUpdate = {
         primaryColor: 'not-a-hex-color',
       };
       // const response = await request(app)
@@ -149,7 +149,7 @@ describe('Branding API Routes', () => {
       expect(true).toBe(true); // Placeholder
     });
     it('should reject invalid email address', async () => {
-      const invalidUpdate = {
+      const _invalidUpdate = {
         emailSenderAddress: 'not-an-email',
       };
       // const response = await request(app)
@@ -212,7 +212,7 @@ describe('Branding API Routes', () => {
   });
   describe('POST /api/tenants/:tenantId/domains', () => {
     it('should add a new domain', async () => {
-      const newDomain = {
+      const _newDomain = {
         domain: 'acme.vaultlogic.com',
       };
       // const response = await request(app)
@@ -227,7 +227,7 @@ describe('Branding API Routes', () => {
       expect(true).toBe(true); // Placeholder
     });
     it('should normalize domain to lowercase', async () => {
-      const newDomain = {
+      const _newDomain = {
         domain: 'UPPERCASE.VaultLogic.com',
       };
       // const response = await request(app)
@@ -240,7 +240,7 @@ describe('Branding API Routes', () => {
       expect(true).toBe(true); // Placeholder
     });
     it('should reject duplicate domain', async () => {
-      const domain = { domain: 'existing.com' };
+      const _domain = { domain: 'existing.com' };
       // Setup: Add domain first
       // await db.insert(tenantDomains).values({
       //   tenantId: testTenantId,
@@ -257,7 +257,7 @@ describe('Branding API Routes', () => {
       expect(true).toBe(true); // Placeholder
     });
     it('should reject invalid domain format', async () => {
-      const invalidDomain = {
+      const _invalidDomain = {
         domain: 'not a valid domain!@#',
       };
       // const response = await request(app)

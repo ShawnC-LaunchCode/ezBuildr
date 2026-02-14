@@ -21,7 +21,7 @@ import { useAuth } from '@/hooks/useAuth';
  * 3. Domain-based tenant detection (future enhancement)
  */
 function useTenantIdFromContext(): string | null {
-  const [location] = useLocation();
+  const [_location] = useLocation();
   const { user } = useAuth();
 
   // 1. Try URL query parameter
@@ -81,7 +81,7 @@ export default function IntakePreviewPage() {
             <div>
               <h3 className="font-medium text-gray-900 mb-1">Option 2: Login</h3>
               <p className="text-sm text-gray-600">
-                Log in to your account to use your tenant's branding automatically
+                Log in to your account to use your tenant&apos;s branding automatically
               </p>
               <Button className="mt-3 w-full" onClick={() => (window.location.href = '/')}>
                 Go to Login

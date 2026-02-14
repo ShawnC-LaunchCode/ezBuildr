@@ -58,6 +58,7 @@ export function VersionHistoryPanel({
     }, [isOpen, workflowId, loadVersions]);
 
     const handleRestore = async (version: ApiWorkflowVersion) => {
+        // eslint-disable-next-line no-alert
         if (confirm(`Are you sure you want to restore version ${version.versionNumber}? This will overwrite your current draft.`)) {
             try {
                 await versionAPI.restore(workflowId, version.id);

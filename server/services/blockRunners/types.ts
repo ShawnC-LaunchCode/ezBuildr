@@ -65,10 +65,12 @@ export type {
 /**
  * Interface for block runner implementations
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export interface IBlockRunner {
   /**
    * Execute a block with the given configuration and context
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   execute(config: any, context: BlockContext, block: Block): Promise<BlockResult>;
 
   /**
@@ -81,19 +83,33 @@ export interface IBlockRunner {
  * Dependencies that may be injected into block runners
  */
 export interface BlockRunnerDependencies {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   blockService?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   transformBlockService?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   collectionService?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   recordService?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   workflowService?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   lifecycleHookService?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   datavaultTablesService?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   datavaultRowsService?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   queryRunner?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   writeRunner?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   externalSendRunner?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   analyticsService?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   logger?: any;
 }
 
@@ -101,10 +117,15 @@ export interface BlockRunnerDependencies {
  * Common comparison utilities
  */
 export interface ComparisonUtils {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   isEqual(actual: any, expected: any): boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   contains(actual: any, expected: any): boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   compareNumeric(actual: any, expected: any): number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   isEmpty(value: any): boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   matchesRegex(value: any, pattern: any): boolean;
 }
 

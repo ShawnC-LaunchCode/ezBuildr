@@ -29,6 +29,7 @@ interface TableCardProps {
 }
 export function TableCard({ table, onClick, onDelete, onMove }: TableCardProps) {
   const formatDate = (date: string | Date | null) => {
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!date) {return 'N/A';}
     return new Date(date).toLocaleDateString(undefined, { timeZone: 'UTC' });
   };

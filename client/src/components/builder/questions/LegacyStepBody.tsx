@@ -5,7 +5,7 @@ import {
     EyeOff,
     ChevronDown,
     ChevronRight,
-    X,
+    _X,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -47,12 +47,13 @@ interface LegacyStepBodyProps {
     workflowId: string;
 }
 
+// eslint-disable-next-line max-lines-per-function, complexity, sonarjs/cognitive-complexity
 export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyProps): JSX.Element {
     const updateStepMutation = useUpdateStep();
     const { toast } = useToast();
     const { data: modeData } = useWorkflowMode(workflowId);
     const mode = modeData?.mode ?? 'easy';
-    const { data: workflow } = useWorkflow(workflowId);
+    const { data: _workflow } = useWorkflow(workflowId);
     const { upstreamWorkflow, upstreamVariables, upstreamWorkflowId } = useIntake();
 
     // Intake Derived Values

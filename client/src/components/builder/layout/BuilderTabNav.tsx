@@ -37,8 +37,9 @@ interface BuilderTabNavProps {
   onTabChange: (tab: BuilderTab) => void;
   isIntake?: boolean;
 }
-export function BuilderTabNav({ workflowId, activeTab, onTabChange, isIntake }: BuilderTabNavProps) {
+export function BuilderTabNav({ _workflowId, activeTab, onTabChange, isIntake }: BuilderTabNavProps) {
   const visibleTabs = TABS.filter(tab => {
+    // eslint-disable-next-line sonarjs/prefer-single-boolean-return
     if (tab.id === "assignment" && !isIntake) {return false;}
     return true;
   });

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { AlertCircle, User, Users } from 'lucide-react';
 import { useState } from 'react';
 
@@ -73,7 +74,7 @@ export function TransferOwnershipDialog({
         <DialogHeader>
           <DialogTitle>Transfer Ownership</DialogTitle>
           <DialogDescription>
-            Transfer {getAssetLabel()} "{assetName}" to a new owner
+            Transfer {getAssetLabel()} &quot;{assetName}&quot; to a new owner
           </DialogDescription>
         </DialogHeader>
 
@@ -158,7 +159,7 @@ export function TransferOwnershipDialog({
 
                 {(!organizations || organizations.length === 0) && (
                   <div className="text-center py-4 text-sm text-muted-foreground">
-                    <p>You don't belong to any organizations yet.</p>
+                    <p>You don&apos;t belong to any organizations yet.</p>
                     <p className="mt-1">Create one to transfer assets to your team.</p>
                   </div>
                 )}

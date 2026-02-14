@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto';
 
 import { eq } from 'drizzle-orm';
 
-import { workflows, sections, steps, templates, projects, users } from '@shared/schema';
+import { workflows, sections, steps, _templates, projects, users } from '@shared/schema';
 
 import { initializeDatabase, getDb } from '../server/db';
 
@@ -104,7 +104,7 @@ async function createTestWorkflow() {
   console.log('Section 1 created with 3 steps');
 
   // Create Section 2: Final Documents
-  const section2 = await db.insert(sections).values({
+  const _section2 = await db.insert(sections).values({
     id: randomUUID(),
     workflowId,
     title: 'Your Documents',

@@ -112,7 +112,7 @@ export function sendErrorResponse(
   if (error.name === 'ZodError') {
     return res.status(400).json(
       errorResponse(ERROR_CODES.VALIDATION_ERROR, 'Validation failed', {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- accessing Zod error's .errors property
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- accessing Zod error's .errors property
       validationErrors: (error as any).errors,
       })
     );
@@ -175,6 +175,7 @@ export function paginatedResponse<T>(
 /**
  * Send a paginated response
  */
+// eslint-disable-next-line max-params
 export function sendPaginatedResponse<T>(
   res: Response,
   data: T[],

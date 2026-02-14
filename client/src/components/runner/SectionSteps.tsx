@@ -58,8 +58,10 @@ export function SectionSteps({
     // Use visibility hook to evaluate which steps should be shown
     // Casting steps to any here because useWorkflowVisibility expects strict Step types which might differ slightly from ApiStep
     // TODO: unify Step types
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
     const { isStepVisible } = useWorkflowVisibility(logicRules, steps as any, values);
 
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!steps || steps.length === 0) {
         return <p className="text-muted-foreground text-sm">No steps in this section</p>;
     }
@@ -93,7 +95,9 @@ export function SectionSteps({
     );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getIntakeSource(step: any, intakeData?: { sourceWorkflowTitle?: string; values?: Record<string, unknown> }) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const defVal = step.defaultValue as DefaultValueConfig | undefined;
     return defVal?.source === 'intake' && defVal.variable
         ? {

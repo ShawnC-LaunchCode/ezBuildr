@@ -36,6 +36,7 @@ const idSchema = z.string().min(1, 'ID cannot be empty').refine(
 
     // Check if it's a valid nanoid
     const nanoidResult = nanoidSchema.safeParse(id);
+    // eslint-disable-next-line sonarjs/prefer-single-boolean-return
     if (nanoidResult.success) {return true;}
 
     return false;
@@ -47,6 +48,7 @@ const idSchema = z.string().min(1, 'ID cannot be empty').refine(
  * Slug format validator (URL-safe string)
  */
 const slugSchema = z.string().regex(
+  // eslint-disable-next-line security/detect-unsafe-regex
   /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
   'Invalid slug format (lowercase alphanumeric with hyphens)'
 );
@@ -198,6 +200,7 @@ export function validateBody(schema: z.ZodSchema) {
           message: err.message
         }));
 
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         logger.warn({ errors, body: req.body }, 'Body validation failed');
 
         res.status(400).json({
@@ -228,39 +231,54 @@ export function validateBody(schema: z.ZodSchema) {
  * Validates that a route parameter is a valid UUID
  * @example app.get('/api/users/:userId', validateUuid('userId'), handler)
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const validateUuid = (paramName: string) => validateParam(paramName, uuidSchema);
 
 /**
  * Validates that a route parameter is a valid nanoid
  * @example app.get('/api/workflows/:workflowId', validateNanoid('workflowId'), handler)
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const validateNanoid = (paramName: string) => validateParam(paramName, nanoidSchema);
 
 /**
  * Validates that a route parameter is a valid ID (UUID or nanoid)
  * @example app.get('/api/items/:itemId', validateId('itemId'), handler)
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const validateId = (paramName: string) => validateParam(paramName, idSchema);
 
 /**
  * Validates that a route parameter is a valid slug
  * @example app.get('/api/public/:slug', validateSlug('slug'), handler)
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const validateSlug = (paramName: string) => validateParam(paramName, slugSchema);
 
 /**
  * Common ID validators for specific resources
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const validateProjectId = () => validateId('projectId');
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const validateWorkflowId = () => validateId('workflowId');
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const validateUserId = () => validateId('userId');
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const validateSectionId = () => validateId('sectionId');
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const validateStepId = () => validateId('stepId');
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const validateRunId = () => validateId('runId');
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const validateDatabaseId = () => validateId('databaseId');
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const validateTableId = () => validateId('tableId');
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const validateRowId = () => validateId('rowId');
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const validateConnectionId = () => validateId('connectionId');
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const validateTemplateId = () => validateId('templateId');
 
 // Export schemas for use in other validators

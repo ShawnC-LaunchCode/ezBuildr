@@ -10,7 +10,7 @@ import {
     workflowVersions as workflowVersionsSchema,
     sections as sectionsSchema,
     steps as stepsSchema,
-    workflowRuns as workflowRunsSchema,
+    workflowRuns as _workflowRunsSchema,
 } from "@shared/schema";
 import { BlockContext, CreateRecordConfig } from "@shared/types/blocks";
 

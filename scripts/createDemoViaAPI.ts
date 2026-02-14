@@ -5,7 +5,7 @@ dotenv.config();
 // Make sure the server is running on localhost:5000
 
 const BASE_URL = "http://localhost:5000/api";
-const USER_ID = "116568744155653496130";
+const _USER_ID = "116568744155653496130";
 
 interface ApiResponse {
   ok: boolean;
@@ -14,7 +14,7 @@ interface ApiResponse {
   error?: string;
 }
 
-async function apiCall(method: string, endpoint: string, body?: unknown): Promise<ApiResponse> {
+async function _apiCall(method: string, endpoint: string, body?: unknown): Promise<ApiResponse> {
   try {
     const response = await fetch(`${BASE_URL}${endpoint}`, {
       method,

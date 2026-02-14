@@ -10,9 +10,9 @@ import * as schema from "@shared/schema";
 vi.mock('@google/generative-ai', () => {
   return {
     GoogleGenerativeAI: class MockGoogleGenerativeAI {
-      constructor(apiKey: string) { }
+      constructor(_apiKey: string) { }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      getGenerativeModel(params: any) {
+      getGenerativeModel(_params: any) {
         return {
           generateContent: vi.fn().mockResolvedValue({
             response: { text: () => JSON.stringify({}) }
@@ -398,7 +398,7 @@ describe.sequential("Workflows API Integration Tests", () => {
           tenantId: ctx.tenantId,
         });
 
-      const authToken2 = registerResponse2.body.token;
+      const _authToken2 = registerResponse2.body.token;
       const user2Id = registerResponse2.body.user?.id;
 
       await db.update(schema.users)

@@ -268,6 +268,7 @@ async function generateFakeData(db: any) {
 
             case "multiple_choice":
               // Select 1-4 random languages
+              // eslint-disable-next-line no-case-declarations
               const numLangs = Math.floor(Math.random() * 4) + 1;
               answerValue = randomItems(LANGUAGES, numLangs);
               break;

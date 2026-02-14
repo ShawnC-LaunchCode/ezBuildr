@@ -50,6 +50,7 @@ export function PageCard({
     attributes,
     listeners,
     setNodeRef,
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     transform,
     transition,
     isDragging,
@@ -65,6 +66,7 @@ export function PageCard({
   } = usePageCardLogic(workflowId, page, blocks, steps);
 
   const style = {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     transform: CSS.Transform.toString(transform),
     transition,
   };

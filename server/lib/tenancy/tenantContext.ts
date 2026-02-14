@@ -24,7 +24,7 @@ export class TenantContext {
             where: eq(workspaces.id, workspaceId),
             with: {
                 members: {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Drizzle relational query builder callback
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Drizzle relational query builder callback
                     where: (members: any, { eq }: any) => eq(members.userId, userId)
                 }
             }

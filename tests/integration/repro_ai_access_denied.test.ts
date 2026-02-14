@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { _eq } from "drizzle-orm";
 import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 

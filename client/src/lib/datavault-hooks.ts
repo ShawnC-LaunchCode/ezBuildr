@@ -165,7 +165,7 @@ export function useDatavaultTable(tableId: string | undefined, withColumns = fal
   });
 }
 
-export function useDatavaultTableSchema(tableId: string | undefined): UseQueryResult<Record<string, any>> {
+export function useDatavaultTableSchema(tableId: string | undefined): UseQueryResult<Record<string, unknown>> {
   const isUuid = !!tableId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tableId);
   return useQuery({
     queryKey: [...datavaultQueryKeys.table(tableId!), 'schema'],

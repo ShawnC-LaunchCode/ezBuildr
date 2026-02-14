@@ -27,7 +27,7 @@ export function VisualBuilderTab({ workflowId, readOnly: propReadOnly }: VisualB
     const { user } = useAuth();
 
     // Determine if read-only
-    const isReadOnly = propReadOnly || (workflow && user ? workflow.creatorId !== user.id : false);
+    const isReadOnly = propReadOnly ?? (workflow && user ? workflow.creatorId !== user.id : false);
 
     const {
         loadGraph,
@@ -66,6 +66,7 @@ export function VisualBuilderTab({ workflowId, readOnly: propReadOnly }: VisualB
     useEffect(() => {
         if (!isDirty || !workflowId || isReadOnly) { return; }
 
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
         const timeoutId = setTimeout(async () => {
             try {
                 setSaving(true);
@@ -96,7 +97,7 @@ export function VisualBuilderTab({ workflowId, readOnly: propReadOnly }: VisualB
             <div className="h-full flex flex-col bg-background">
                 <Toolbar
                     workflowId={workflowId}
-                    workflowStatus={workflow?.status || 'draft'}
+                    workflowStatus={workflow?.status ?? 'draft'}
                     onRunPreview={() => setShowPreview(!showPreview)}
                     readOnly={isReadOnly}
                     selectedVersion={selectedVersion}

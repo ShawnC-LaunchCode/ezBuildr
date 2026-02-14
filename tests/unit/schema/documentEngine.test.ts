@@ -22,6 +22,7 @@ describe('Document Engine 2.0 Schema', () => {
   describe('Templates Table', () => {
     it('should have correct table name', () => {
       expect(templates).toBeDefined();
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore - accessing internal drizzle property
       expect(templates[Symbol.for('drizzle:Name')]).toBe('templates');
     });
@@ -43,6 +44,7 @@ describe('Document Engine 2.0 Schema', () => {
   describe('WorkflowTemplates Table', () => {
     it('should have correct table name', () => {
       expect(workflowTemplates).toBeDefined();
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore - accessing internal drizzle property
       expect(workflowTemplates[Symbol.for('drizzle:Name')]).toBe('workflow_templates');
     });
@@ -62,6 +64,7 @@ describe('Document Engine 2.0 Schema', () => {
   describe('RunOutputs Table', () => {
     it('should have correct table name', () => {
       expect(runOutputs).toBeDefined();
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore - accessing internal drizzle property
       expect(runOutputs[Symbol.for('drizzle:Name')]).toBe('run_outputs');
     });
@@ -88,6 +91,7 @@ describe('Document Engine 2.0 Schema', () => {
       const expectedStatuses = ['pending', 'ready', 'failed'];
 
       // The enum values are stored in the enumValues property
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore - accessing internal drizzle property
       const enumValues = outputStatusEnum.enumValues;
       expect(enumValues).toEqual(expectedStatuses);
@@ -101,6 +105,7 @@ describe('Document Engine 2.0 Schema', () => {
       const expectedTypes = ['docx', 'pdf'];
 
       // The enum values are stored in the enumValues property
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore - accessing internal drizzle property
       const enumValues = outputFileTypeEnum.enumValues;
       expect(enumValues).toEqual(expectedTypes);

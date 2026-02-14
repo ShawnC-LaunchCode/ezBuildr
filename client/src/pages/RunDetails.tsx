@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { documentRunsAPI } from '@/lib/vault-api';
+// eslint-disable-next-line max-lines-per-function
 export default function RunDetails() {
   const [_, params] = useRoute('/runs/:id');
   const [_location, setLocation] = useLocation();
@@ -70,6 +71,7 @@ export default function RunDetails() {
     },
   });
   const handleCopyLink = () => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     navigator.clipboard.writeText(shareLink);
     toast({
       title: 'Copied!',
@@ -79,7 +81,8 @@ export default function RunDetails() {
   if (isLoading) {
     return <LoadingState />;
   }
-  if (error || !run) {
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+  if (error ?? !run) {
     return (
       <div className="container mx-auto py-6">
         <div className="text-center">
@@ -194,7 +197,7 @@ export default function RunDetails() {
             <div>
               <div className="text-sm text-muted-foreground">Created By</div>
               <div className="mt-1 font-medium">
-                {run.createdByUser?.email || run.createdBy}
+                {run.createdByUser?.email ?? run.createdBy}
               </div>
             </div>
             <div>

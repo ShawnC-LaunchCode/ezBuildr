@@ -9,7 +9,7 @@ test.describe("Logout Flow", () => {
   test("should successfully logout and clear session", async ({
     page,
     devLogin,
-    dashboardPage,
+    _dashboardPage,
   }) => {
     // First login
     await devLogin();
@@ -54,7 +54,7 @@ test.describe("Logout Flow", () => {
   test("should redirect to login page after logout", async ({
     page,
     devLogin,
-    dashboardPage,
+    _dashboardPage,
   }) => {
     // Login
     await devLogin();
@@ -104,7 +104,7 @@ test.describe("Logout Flow", () => {
 
   test("should handle logout from multiple tabs/windows", async ({
     browser,
-    devLogin,
+    _devLogin,
   }) => {
     // Create two browser contexts (simulating tabs)
     const context1 = await browser.newContext();
@@ -147,7 +147,7 @@ test.describe("Logout Flow", () => {
 
     // Get cookies before logout
     const cookiesBefore = await page.context().cookies();
-    const refreshTokenBefore = cookiesBefore.find((c) => c.name === "refresh_token");
+    const _refreshTokenBefore = cookiesBefore.find((c) => c.name === "refresh_token");
 
     // Logout
     const response = await page.request.post("/api/auth/logout");

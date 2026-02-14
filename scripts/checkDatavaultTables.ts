@@ -21,7 +21,7 @@ async function checkDatavaultTables() {
       ) as table_exists;
     `);
 
-    const tableExists = (result.rows[0] as Record<string, unknown>).table_exists;
+    const tableExists = (result.rows[0]).table_exists;
 
     if (tableExists) {
       console.log('✅ DataVault tables exist');
@@ -34,7 +34,7 @@ async function checkDatavaultTables() {
         ) as enum_exists;
       `);
 
-      const enumExists = (enumCheck.rows[0] as Record<string, unknown>).enum_exists;
+      const enumExists = (enumCheck.rows[0]).enum_exists;
       console.log(`Enum exists: ${enumExists}`);
 
       return;

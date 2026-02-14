@@ -23,6 +23,7 @@ interface PdfCanvasProps {
     mapping: Record<string, string>;
     selectedField: string | null;
     onDocumentLoadSuccess: (data: { numPages: number }) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onPageLoadSuccess: (page: any, index: number) => void;
     setSelectedField: (field: string | null) => void;
 }
@@ -82,6 +83,7 @@ export function PdfCanvas({
                         renderAnnotationLayer={false}
                     />
                     {/* Overlays */}
+                    {/* eslint-disable-next-line @typescript-eslint/strict-boolean-expressions */}
                     {pageDimensions[index] && getFieldsForPage(index).map(field => {
                         if (!field.rect) {
                             console.warn(`Field ${field.name} has no rect`);

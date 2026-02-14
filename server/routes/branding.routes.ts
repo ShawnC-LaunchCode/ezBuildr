@@ -54,6 +54,7 @@ export function registerBrandingRoutes(app: Express): void {
     '/api/tenants/:tenantId/branding',
     hybridAuth,
     validateTenantParam,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
     requirePermission('tenant:update' as any),
     asyncHandler(async (req: Request, res: Response) => {
       try {
@@ -122,6 +123,7 @@ export function registerBrandingRoutes(app: Express): void {
     '/api/tenants/:tenantId/domains',
     hybridAuth,
     validateTenantParam,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
     requirePermission('tenant:update' as any),
     asyncHandler(async (req: Request, res: Response) => {
       try {
@@ -183,6 +185,7 @@ export function registerBrandingRoutes(app: Express): void {
     '/api/tenants/:tenantId/domains/:domainId',
     hybridAuth,
     validateTenantParam,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
     requirePermission('tenant:update' as any),
     asyncHandler(async (req: Request, res: Response) => {
       try {

@@ -13,6 +13,7 @@ interface UseIntersectionObserverOptions {
   threshold?: number;
 }
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useIntersectionObserver(
   targetRef: React.RefObject<Element>,
   options: UseIntersectionObserverOptions

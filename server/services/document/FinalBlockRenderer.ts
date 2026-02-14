@@ -24,7 +24,7 @@ import { documentHookService } from '../scripting/DocumentHookService.js';
 import { enhancedDocumentEngine } from './EnhancedDocumentEngine.js';
 import { createFinalBlockZip, type ZipDocument, type ZipResult } from './ZipBundler.js';
 
-import type { EnhancedGenerationResult, FinalBlockRenderResult } from './EnhancedDocumentEngine.js';
+import type { EnhancedGenerationResult, _FinalBlockRenderResult } from './EnhancedDocumentEngine.js';
 import type { FinalBlockConfig } from '../../../shared/types/stepConfigs.js';
 
 
@@ -42,7 +42,7 @@ export interface FinalBlockRenderRequest {
   finalBlockConfig: FinalBlockConfig;
 
   /** Step values from workflow run */
-  stepValues: Record<string, any>;
+  stepValues: Record<string, unknown>;
 
   /** Workflow ID (for metadata) */
   workflowId: string;
@@ -143,6 +143,7 @@ export class FinalBlockRenderer {
     }, 'Rendering Final Block');
 
     // Validate configuration
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!finalBlockConfig.documents || finalBlockConfig.documents.length === 0) {
       throw createError.validation('Final Block has no documents configured');
     }
@@ -324,7 +325,7 @@ export class FinalBlockRenderer {
       const stats = await fs.stat(filePath);
 
       documents.push({
-        alias: result.alias || 'document',
+        alias: result.alias ?? 'document',
         filename,
         filePath,
         mimeType,
@@ -451,6 +452,7 @@ export async function scheduleCleanup(
   filePaths: string[],
   delayMs: number = 60 * 60 * 1000 // 1 hour
 ): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   setTimeout(async () => {
     for (const filePath of filePaths) {
       try {

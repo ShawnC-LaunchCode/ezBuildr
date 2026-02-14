@@ -8,6 +8,7 @@ export class TemplateShareRepository {
    * List all shares for a specific template
    * Returns both accepted (userId set) and pending (pendingEmail set) shares
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async listByTemplate(templateId: string) {
     return db
       .select({
@@ -28,6 +29,7 @@ export class TemplateShareRepository {
   /**
    * List all templates shared with a specific user (by userId or their email)
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async listForUser(userId: string, userEmail: string) {
     return db
       .select({
@@ -49,6 +51,7 @@ export class TemplateShareRepository {
   /**
    * Add a share for an existing user
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async addUserShare(templateId: string, targetUserId: string, access: "use" | "edit") {
     const [share] = await db
       .insert(templateShares)
@@ -66,6 +69,7 @@ export class TemplateShareRepository {
   /**
    * Add a pending share by email (for users not yet in the system)
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async addEmailInvite(templateId: string, email: string, access: "use" | "edit") {
     const [share] = await db
       .insert(templateShares)
@@ -84,6 +88,7 @@ export class TemplateShareRepository {
    * Accept pending email invites when a user logs in
    * Converts pendingEmail shares to userId shares
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async acceptPendingForUser(userId: string, email: string) {
     return db
       .update(templateShares)
@@ -104,6 +109,7 @@ export class TemplateShareRepository {
   /**
    * Update access level for a share
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async updateAccess(shareId: string, access: "use" | "edit") {
     const [share] = await db
       .update(templateShares)
@@ -117,6 +123,7 @@ export class TemplateShareRepository {
   /**
    * Revoke a share (delete it)
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async revoke(shareId: string) {
     await db.delete(templateShares).where(eq(templateShares.id, shareId));
     return true;
@@ -148,6 +155,7 @@ export class TemplateShareRepository {
   /**
    * Check if a share exists for a template and user/email
    */
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async findByTemplateAndUser(
     templateId: string,
     userId?: string,

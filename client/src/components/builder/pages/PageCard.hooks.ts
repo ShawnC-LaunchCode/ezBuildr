@@ -34,6 +34,7 @@ interface UsePageCardLogicReturn {
     attributes: DraggableAttributes;
     listeners: SyntheticListenerMap | undefined;
     setNodeRef: (node: HTMLElement | null) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     transform: any; // Transform type is complex, any or specific
     transition: string | undefined;
     isDragging: boolean;
@@ -114,6 +115,7 @@ export function usePageCardLogic(
 
     const handleDelete = async (): Promise<void> => {
         if (
+            // eslint-disable-next-line no-alert
             !window.confirm(
                 `Delete page "${page.title}"? This will remove all questions and logic blocks.`
             )

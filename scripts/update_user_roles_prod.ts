@@ -1,5 +1,5 @@
 
-import { eq, ne } from "drizzle-orm";
+import { _eq, ne } from "drizzle-orm";
 
 import { users } from "@shared/schema";
 

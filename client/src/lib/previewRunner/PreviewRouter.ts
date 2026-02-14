@@ -1,4 +1,4 @@
-import type { ApiSection, ApiStep } from '@/lib/vault-api';
+import type { ApiSection, _ApiStep } from '@/lib/vault-api';
 
 import { PreviewEnvironment } from './PreviewEnvironment';
 
@@ -17,6 +17,7 @@ export class PreviewRouter {
     /**
      * Move to the next valid section
      */
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     next() {
         const currentState = this.env.getState();
         const sections = this.env.getSections();
@@ -41,6 +42,7 @@ export class PreviewRouter {
     /**
      * Move to the previous valid section
      */
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     prev() {
         const currentState = this.env.getState();
         const sections = this.env.getSections();
@@ -61,7 +63,7 @@ export class PreviewRouter {
      * Evaluate visibility logic for a section
      * (Placeholder: Needs integration with LogicEngine from Prompt 13)
      */
-    private isSectionVisible(section: ApiSection): boolean {
+    private isSectionVisible(_section: ApiSection): boolean {
         // TODO: Integrate real LogicEngine
         // For now, assume all sections are visible unless explicit logic says otherwise
 

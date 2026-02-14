@@ -62,6 +62,7 @@ const getOperatorsForType = (type: string): FilterOperator[] => {
       ];
 
     case "date":
+    // eslint-disable-next-line sonarjs/no-duplicated-branches, no-fallthrough
     case "datetime":
       return [
         "equals",

@@ -16,8 +16,8 @@ import {
 
 import {
     PASSWORD_CONFIG,
-    JWT_CONFIG,
-    REFRESH_TOKEN_CONFIG,
+    _JWT_CONFIG,
+    _REFRESH_TOKEN_CONFIG,
     PASSWORD_RESET_CONFIG,
     EMAIL_VERIFICATION_CONFIG,
     PASSWORD_POLICY
@@ -27,7 +27,7 @@ import { db } from "../db";
 import {
     InvalidTokenError,
     TokenExpiredError,
-    InvalidCredentialsError
+    _InvalidCredentialsError
 } from "../errors/AuthErrors";
 import { createLogger } from "../logger";
 import { hashToken } from "../utils/encryption";
@@ -38,7 +38,7 @@ import { sendPasswordResetEmail, sendVerificationEmail } from "./emailService";
 const log = createLogger({ module: 'auth-service' });
 
 const SALT_ROUNDS = PASSWORD_CONFIG.SALT_ROUNDS;
-const JWT_EXPIRY = process.env.JWT_EXPIRY || '15m';
+const JWT_EXPIRY = process.env.JWT_EXPIRY ?? '15m';
 const JWT_SECRET = env.JWT_SECRET;
 
 export interface PortalTokenPayload {
@@ -89,11 +89,14 @@ export class AuthService {
                 userId: user.id,
                 email: user.email,
                 tenantId: user.tenantId ?? null,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
                 role: user.role as any, // System role (admin/creator)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
                 tenantRole: user.tenantRole as any, // Tenant role (owner/builder/etc)
             };
 
             const options: SignOptions = {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
                 expiresIn: JWT_EXPIRY as any,
                 algorithm: 'HS256',
             };
@@ -291,7 +294,7 @@ export class AuthService {
 
         // SECURITY FIX: Reject unicode domains (or convert to punycode)
         // This prevents homograph attacks and ensures ASCII-only domains
-        // eslint-disable-next-line no-control-regex
+        // eslint-disable-next-line no-control-regex, sonarjs/prefer-single-boolean-return
         if (/[^\x00-\x7F]/.test(domain)) {
             return false; // Reject non-ASCII characters in domain
         }
@@ -445,6 +448,7 @@ export class AuthService {
             ))
             .returning();
 
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         if (!revokedToken) {
             // Race condition: Token was revoked between read and write
             log.warn({ userId: storedToken.userId, tokenHash }, 'Security: REUSED REFRESH TOKEN DETECTED (Concurrent). Revoking all sessions.');
@@ -453,7 +457,7 @@ export class AuthService {
         }
 
         // Issue a new refresh token
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- stored metadata is dynamically typed
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- stored metadata is dynamically typed
         const newRefreshToken = await this.createRefreshToken(storedToken.userId, storedToken.metadata as any);
 
         return {

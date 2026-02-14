@@ -10,6 +10,7 @@ import type { DatavaultColumn } from '../lib/types/datavault';
 // Column Queries
 // ============================================================================
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useTableColumns(tableId: string | undefined) {
   return useQuery({
     queryKey: tableId ? tableKeys.columns(tableId) : ['datavault', 'tables', 'null', 'columns'],
@@ -27,6 +28,7 @@ export function useTableColumns(tableId: string | undefined) {
 // Column Mutations
 // ============================================================================
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useCreateColumn() {
   const queryClient = useQueryClient();
 
@@ -47,20 +49,23 @@ export function useCreateColumn() {
     }) => api.createColumn(tableId, input),
     onSuccess: (data, variables) => {
       // Invalidate columns for this table
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: tableKeys.columns(variables.tableId) });
       // Invalidate schema (includes columns)
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: tableKeys.schema(variables.tableId) });
     },
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useUpdateColumn() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({
       columnId,
-      tableId,
+      _tableId,
       input,
     }: {
       columnId: string;
@@ -75,30 +80,37 @@ export function useUpdateColumn() {
     }) => api.updateColumn(columnId, input),
     onSuccess: (data, variables) => {
       // Invalidate columns for this table
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: tableKeys.columns(variables.tableId) });
       // Invalidate schema
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: tableKeys.schema(variables.tableId) });
     },
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useDeleteColumn() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ columnId, tableId }: { columnId: string; tableId: string }) =>
+    mutationFn: ({ columnId, _tableId }: { columnId: string; tableId: string }) =>
       api.deleteColumn(columnId),
     onSuccess: (_, variables) => {
       // Invalidate columns for this table
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: tableKeys.columns(variables.tableId) });
       // Invalidate schema
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: tableKeys.schema(variables.tableId) });
       // Invalidate rows (since column data is removed)
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: tableKeys.rows(variables.tableId) });
     },
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useReorderColumns() {
   const queryClient = useQueryClient();
 
@@ -135,7 +147,9 @@ export function useReorderColumns() {
     },
     onSettled: (data, error, variables) => {
       // Always refetch after error or success
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: tableKeys.columns(variables.tableId) });
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: tableKeys.schema(variables.tableId) });
     },
   });

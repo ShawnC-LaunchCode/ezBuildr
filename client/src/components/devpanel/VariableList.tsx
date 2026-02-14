@@ -31,7 +31,7 @@ export function VariableList({ workflowId, variables, isLoading }: VariableListP
   const filteredVariables = variables.filter((v) => {
     const searchText = searchQuery.toLowerCase();
     return (
-      v.alias?.toLowerCase().includes(searchText) ||
+      v.alias?.toLowerCase().includes(searchText) ??
       v.label.toLowerCase().includes(searchText) ||
       v.key.toLowerCase().includes(searchText)
     );
@@ -40,6 +40,7 @@ export function VariableList({ workflowId, variables, isLoading }: VariableListP
   // Group by section
   const groupedVariables = filteredVariables.reduce((acc, variable) => {
     const section = variable.sectionTitle || "Uncategorized";
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!acc[section]) {
       acc[section] = [];
     }
@@ -51,6 +52,7 @@ export function VariableList({ workflowId, variables, isLoading }: VariableListP
   const sortedSections = Object.keys(groupedVariables).sort();
 
   const handleCopy = (key: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
     navigator.clipboard.writeText(key).then(() => {
       toast({
         title: "Copied",
@@ -125,7 +127,7 @@ export function VariableList({ workflowId, variables, isLoading }: VariableListP
                   <AccordionContent className="pb-2 pt-1">
                     <div className="space-y-1">
                       {groupedVariables[sectionTitle].map((variable) => {
-                        const displayKey = variable.alias || variable.key;
+                        const displayKey = variable.alias ?? variable.key;
                         const pinned = isPinned(workflowId, displayKey);
 
                         return (

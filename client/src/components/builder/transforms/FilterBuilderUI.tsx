@@ -229,11 +229,13 @@ function FilterRule({ rule, index, availableVariables, onUpdate, onRemove }: Fil
               <Input
                 className="h-8 text-xs"
                 placeholder="Enter value..."
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 value={rule.value ?? ''}
                 onChange={(e) => onUpdate({ value: e.target.value })}
               />
             ) : (
               <Select
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 value={rule.value ?? ''}
                 onValueChange={(value) => onUpdate({ value })}
               >

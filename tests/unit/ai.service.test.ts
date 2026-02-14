@@ -237,8 +237,10 @@ describe('AIService', () => {
 
     it('should handle rate limit errors', async () => {
       const rateLimitError = new Error('Rate limit exceeded');
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       rateLimitError.status = 429;
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       rateLimitError.code = 'rate_limit_exceeded';
 
@@ -248,6 +250,7 @@ describe('AIService', () => {
 
       // Use manual mock for setTimeout to avoid fake timer issues and race conditions
       const originalSetTimeout = global.setTimeout;
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       global.setTimeout = vi.fn((cb) => cb());
 

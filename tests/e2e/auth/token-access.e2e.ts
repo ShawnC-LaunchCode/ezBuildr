@@ -200,7 +200,7 @@ test.describe("Token-Based Workflow Access", () => {
     // Get token
     const tokenResponse = await page.request.get("/api/auth/token");
     expect(tokenResponse.ok()).toBe(true);
-    const { token } = await tokenResponse.json();
+    const { _token } = await tokenResponse.json();
     // Simulate password reset (tokens should be revoked)
     // This would require actual password reset implementation
     // In real scenario, old token should no longer work after password change
@@ -298,7 +298,7 @@ test.describe("Token Security", () => {
       }
     }
   });
-  test("should enforce HTTPS in production", async ({ page }) => {
+  test("should enforce HTTPS in production", async ({ _page }) => {
     // This test verifies the configuration
     // In production, tokens should only be sent over HTTPS
     const baseURL = process.env.PLAYWRIGHT_TEST_BASE_URL || "http://localhost:5174";

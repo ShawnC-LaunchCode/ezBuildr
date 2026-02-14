@@ -80,7 +80,7 @@ export function DataSourceCard({
                 </div>
             </CardHeader>
             <CardContent className="pb-3">
-                <CardDescription className="line-clamp-2">{source.description || "No description provided."}</CardDescription>
+                <CardDescription className="line-clamp-2">{source.description ?? "No description provided."}</CardDescription>
                 <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                     <code>ID: {source.id.slice(0, 8)}...</code>
                     {isNative && <span>PostgreSQL</span>}

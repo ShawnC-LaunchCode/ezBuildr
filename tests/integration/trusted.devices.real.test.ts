@@ -7,7 +7,7 @@ import { trustedDevices } from "@shared/schema";
 import { db } from "../../server/db";
 import { createTestApp } from "../helpers/testApp";
 import {
-  cleanAuthTables,
+  _cleanAuthTables,
   deleteTestUser,
   createUserWithMfa,
   generateTotpCode,

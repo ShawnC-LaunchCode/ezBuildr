@@ -142,7 +142,7 @@ describe("AccountLockoutService", () => {
     it("should only count failed attempts within 15-minute window", async () => {
       const email = "test@example.com";
       const now = new Date();
-      const twentyMinutesAgo = new Date(now.getTime() - 20 * 60 * 1000);
+      const _twentyMinutesAgo = new Date(now.getTime() - 20 * 60 * 1000);
       // Mock 3 recent failures + 2 old failures (should not trigger lock)
       mockDb.query.loginAttempts.findMany.mockResolvedValue([
         { id: "1", email, successful: false, attemptedAt: now },
@@ -215,7 +215,7 @@ describe("AccountLockoutService", () => {
     });
     it("should return locked=false if lock has expired", async () => {
       const userId = "user-123";
-      const lockedUntil = new Date(Date.now() - 10 * 60 * 1000); // 10 minutes ago (expired)
+      const _lockedUntil = new Date(Date.now() - 10 * 60 * 1000); // 10 minutes ago (expired)
       // findFirst should not return expired locks
       mockDb.query.accountLocks.findFirst.mockResolvedValue(null);
       const result = await accountLockoutService.isAccountLocked(userId);

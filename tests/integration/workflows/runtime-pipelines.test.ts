@@ -24,16 +24,16 @@ import {
 
 import { db } from '../../../server/db';
 import {
-  workflowRepository,
-  sectionRepository,
-  stepRepository,
+  _workflowRepository,
+  _sectionRepository,
+  _stepRepository,
   stepValueRepository,
   workflowRunRepository,
-  projectRepository,
+  _projectRepository,
   datavaultWritebackMappingsRepository,
   datavaultRowsRepository,
-  documentTemplateRepository,
-  runGeneratedDocumentsRepository,
+  _documentTemplateRepository,
+  _runGeneratedDocumentsRepository,
 } from '../../../server/repositories';
 import { DatavaultColumnsService } from '../../../server/services/DatavaultColumnsService';
 import { DatavaultRowsService } from '../../../server/services/DatavaultRowsService';
@@ -64,7 +64,7 @@ describe('Runtime Pipelines Integration Tests', () => {
       .returning();
     testTenantId = tenant.id;
     // Create test user
-    const [user] = await db.insert(users).values({
+    const [_user] = await db.insert(users).values({
       id: testUserId,
       email: 'test-pipeline-user@example.com',
       tenantId: testTenantId,
@@ -288,7 +288,7 @@ describe('Runtime Pipelines Integration Tests', () => {
   });
   describe('Document Generation Pipeline', () => {
     let testTemplateId: string;
-    let testDocRun: string;
+    let _testDocRun: string;
     beforeAll(async () => {
       // Create a test template
       const [template] = await db

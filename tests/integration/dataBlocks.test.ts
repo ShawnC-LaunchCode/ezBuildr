@@ -11,8 +11,8 @@ import {
     sections,
     blocks,
     datavaultDatabases,
-    datavaultTables,
-    datavaultColumns,
+    _datavaultTables,
+    _datavaultColumns,
     workflowQueries,
     steps
 } from '@shared/schema';
@@ -36,7 +36,7 @@ describe('Data Block Integration Tests', () => {
     let runService: RunService;
 
     const testEmail = 'datablock-test@example.com';
-    const testColumnSlug = 'input_text';
+    const _testColumnSlug = 'input_text';
 
     beforeAll(async () => {
         // 1. Setup Tenant and User

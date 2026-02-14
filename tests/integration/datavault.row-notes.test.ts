@@ -1,13 +1,13 @@
 import express, { type Express } from 'express';
-import request from 'supertest';
+import _request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
 import {
-  datavaultTables,
-  datavaultRows,
-  datavaultRowNotes,
-  tenants,
-  users,
+  _datavaultTables,
+  _datavaultRows,
+  _datavaultRowNotes,
+  _tenants,
+  _users,
 } from '@shared/schema';
 
 import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
@@ -31,10 +31,10 @@ describe('DataVault Row Notes API', () => {
   let app: Express;
   let testTenantId: string;
   let testUserId: string;
-  let testUser2Id: string;
-  let testTableId: string;
-  let testRowId: string;
-  let testNoteId: string;
+  let _testUser2Id: string;
+  let _testTableId: string;
+  let _testRowId: string;
+  let _testNoteId: string;
   beforeAll(async () => {
     // Setup Express app with routes
     app = express();

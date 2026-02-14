@@ -3,7 +3,7 @@
  *
  * Tests for queue-based PDF conversion with retry logic
  */
-import fs from 'fs/promises';
+import _fs from 'fs/promises';
 
 import { eq, and } from 'drizzle-orm';
 import { describe, it, expect, beforeEach, afterEach, vi, beforeAll, afterAll } from 'vitest';
@@ -395,14 +395,14 @@ describeWithDb('PdfQueueService', () => {
       });
 
       // Enqueue multiple PDF jobs
-      const job1 = await service.enqueue(
+      const _job1 = await service.enqueue(
         'test1.docx',
         testRunId,
         testVersionId,
         'engagement_letter'
       );
 
-      const job2 = await service.enqueue(
+      const _job2 = await service.enqueue(
         'test2.docx',
         testRunId,
         testVersionId,

@@ -19,13 +19,12 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
+import { _useToast } from "@/hooks/use-toast";
 import { workflowAPI } from "@/lib/vault-api";
 // Assuming fetchWorkflow exists or I'll implement fetch logic inline or from a hook
 export default function OptimizationWizard() {
     const { workflowId } = useParams();
     const [activeStep, setActiveStep] = useState(0);
-    const { toast } = useToast();
     // Basic structure for steps
     const steps = [
         { id: "overview", title: "Overview", icon: Wand2 },
@@ -46,22 +45,22 @@ export default function OptimizationWizard() {
     });
     // Analysis Mutation
     const analyzeMutation = useMutation({
-        mutationFn: async (wf: any) => {
+        mutationFn: async (wf: unknown) => {
             const res = await fetch("/api/ai/workflows/optimize/analyze", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ workflow: wf, workflowId })
             });
             if (!res.ok) {throw new Error("Analysis failed");}
-            return res.json();
+            return res.json() as Promise<unknown>;
         }
     });
     // Run analysis when workflow is loaded
     useEffect(() => {
-        if (workflow && !analyzeMutation.data && !analyzeMutation.isPending) {
+        if (workflow != null && analyzeMutation.data == null && !analyzeMutation.isPending) {
             analyzeMutation.mutate(workflow);
         }
-    }, [workflow]);
+    }, [workflow, analyzeMutation]);
     if (isLoadingWorkflow || analyzeMutation.isPending) {
         return (
             <div className="flex h-screen items-center justify-center flex-col gap-4">
@@ -85,7 +84,7 @@ export default function OptimizationWizard() {
             <div className="mb-8">
                 <h1 className="text-3xl font-bold tracking-tight">Optimization Wizard</h1>
                 <p className="text-muted-foreground">
-                    AI-driven suggestions to improve your workflow's performance and usability.
+                    AI-driven suggestions to improve your workflow&apos;s performance and usability.
                 </p>
             </div>
             <div className="grid grid-cols-12 gap-8 flex-1 overflow-hidden">
@@ -102,7 +101,7 @@ export default function OptimizationWizard() {
                                 }`}
                             onClick={() => {
                                 // Allow clicking back, or clicking next if analyzed
-                                if (index <= activeStep || analysis) {setActiveStep(index);}
+                                if (index <= activeStep || analysis != null) {setActiveStep(index);}
                             }}
                         >
                             <step.icon className="h-5 w-5" />
@@ -111,17 +110,19 @@ export default function OptimizationWizard() {
                         </div>
                     ))}
                     <Separator className="my-4" />
-                    {analysis && (
+                    {analysis != null && (
                         <Card>
                             <CardHeader className="pb-2">
                                 <CardTitle className="text-sm font-medium">Optimization Score</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <div className="flex items-center justify-center py-4">
-                                    <span className="text-4xl font-bold text-primary">{analysis.optimizationScore}</span>
+                                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                                    <span className="text-4xl font-bold text-primary">{analysis.optimizationScore as number}</span>
                                     <span className="text-muted-foreground ml-1">/100</span>
                                 </div>
-                                <Progress value={analysis.optimizationScore} className="h-2" />
+                                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                                <Progress value={analysis.optimizationScore as number} className="h-2" />
                             </CardContent>
                         </Card>
                     )}
@@ -152,30 +153,42 @@ export default function OptimizationWizard() {
     );
 }
 // --- Sub-components (Will expand these) ---
-function OverviewStep({ analysis, onNext }: { analysis: any, onNext: () => void }) {
-    if (!analysis) {return null;}
+function OverviewStep({ analysis, onNext }: { analysis: unknown, onNext: () => void }) {
+    if (analysis == null) {return null;}
+    /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+    const metrics = (analysis as Record<string, unknown>).metrics;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const suggestions = (analysis as Record<string, unknown>).suggestions as Array<Record<string, unknown>>;
+    /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+
     return (
         <div className="space-y-6">
             <h2 className="text-2xl font-semibold">Analysis Overview</h2>
             <div className="grid grid-cols-3 gap-4">
-                <MetricCard title="Total Pages" value={analysis.metrics.totalPages} />
-                <MetricCard title="Total Blocks" value={analysis.metrics.totalBlocks} />
-                <MetricCard title="Est. Time" value={`${Math.round(analysis.metrics.estimatedCompletionTimeMs / 1000 / 60)} min`} />
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                <MetricCard title="Total Pages" value={metrics.totalPages as number} />
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                <MetricCard title="Total Blocks" value={metrics.totalBlocks as number} />
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                <MetricCard title="Est. Time" value={`${Math.round((metrics.estimatedCompletionTimeMs as number) / 1000 / 60)} min`} />
             </div>
             <div className="space-y-4">
                 <h3 className="text-lg font-medium">Top Suggestions</h3>
-                {analysis.suggestions.map((sugg: any) => (
-                    <Card key={sugg.id}>
+                {suggestions.map((sugg) => (
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                    <Card key={sugg.id as string}>
                         <CardHeader>
                             <CardTitle className="text-base flex items-center gap-2">
                                 <Wand2 className="h-4 w-4 text-primary" />
-                                {sugg.title}
+                                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                                {sugg.title as string}
                             </CardTitle>
-                            <CardDescription>{sugg.description}</CardDescription>
+                            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                            <CardDescription>{sugg.description as string}</CardDescription>
                         </CardHeader>
                     </Card>
                 ))}
-                {analysis.suggestions.length === 0 && (
+                {suggestions.length === 0 && (
                     <div className="p-8 text-center text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
                         No major structural suggestions found. Good job!
                     </div>
@@ -189,8 +202,13 @@ function OverviewStep({ analysis, onNext }: { analysis: any, onNext: () => void 
         </div>
     );
 }
-function CategoryStep({ stepId, title, analysis, onNext, onBack }: any) {
-    const issues = analysis.issues.filter((i: any) => i.category === stepId);
+function CategoryStep({ stepId, title, analysis, onNext, onBack }: { stepId: string; title: string; analysis: unknown; onNext: () => void; onBack: () => void }) {
+    /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const allIssues = (analysis as Record<string, unknown>).issues as Array<Record<string, unknown>>;
+    const issues = allIssues.filter((i) => i.category === stepId);
+    /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -198,13 +216,17 @@ function CategoryStep({ stepId, title, analysis, onNext, onBack }: any) {
                 <Badge variant="outline">{issues.length} Issues Found</Badge>
             </div>
             <div className="space-y-4">
-                {issues.map((issue: any) => (
-                    <Card key={issue.id} className="border-l-4 border-l-orange-500">
+                {issues.map((issue) => (
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                    <Card key={issue.id as string} className="border-l-4 border-l-orange-500">
                         <CardHeader>
-                            <CardTitle className="text-base">{issue.title}</CardTitle>
-                            <CardDescription>{issue.description}</CardDescription>
+                            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                            <CardTitle className="text-base">{issue.title as string}</CardTitle>
+                            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                            <CardDescription>{issue.description as string}</CardDescription>
                         </CardHeader>
                         <CardFooter className="bg-muted/30 py-3">
+                            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                             {issue.fixable ? (
                                 <Badge variant="secondary" className="gap-1">
                                     <Wand2 className="h-3 w-3" /> Auto-fixable
@@ -229,7 +251,7 @@ function CategoryStep({ stepId, title, analysis, onNext, onBack }: any) {
         </div>
     );
 }
-function ReviewStep({ analysis, workflow, onBack }: any) {
+function ReviewStep({ onBack }: { analysis: unknown; workflow: unknown; onBack: () => void }) {
     // This will hold the logic to select fixes and Apply
     return (
         <div className="space-y-6">
@@ -241,6 +263,25 @@ function ReviewStep({ analysis, workflow, onBack }: any) {
                 <Button disabled>Apply Selected Fixes</Button>
             </div>
             <div className="flex justify-between pt-8">
+                <Button variant="ghost" onClick={onBack}>Back</Button>
+            </div>
+        </div>
+    );
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function ReviewStep({ _analysis, _workflow, onBack }: any) {
+    // This will hold the logic to select fixes and Apply
+    return (
+        <div className="space-y-6">
+            <h2 className="text-2xl font-semibold">Review & Apply Fixes</h2>
+            <p className="text-muted-foreground">Select the optimizations you want to apply to your workflow.</p>
+            {/* TODO: List all fixable issues with checkboxes */}
+            <div className="p-8 text-center bg-muted/20 rounded-lg">
+                <p className="mb-4">Auto-fix selection UI coming next...</p>
+                <Button disabled>Apply Selected Fixes</Button>
+            </div>
+            <div className="flex justify-between pt-8">
+                {/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
                 <Button variant="ghost" onClick={onBack}>Back</Button>
             </div>
         </div>

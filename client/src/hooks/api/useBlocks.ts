@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type _UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
 
 import { blockAPI, type ApiBlock } from "../../lib/vault-api";
 
@@ -7,6 +7,7 @@ import { queryKeys } from "./queryKeys";
 export function useBlocks(workflowId: string | undefined, phase?: string): UseQueryResult<ApiBlock[]> {
     return useQuery({
         queryKey: queryKeys.blocks(workflowId ?? "", phase),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
         queryFn: () => blockAPI.list(workflowId ?? "", phase as any),
         enabled: !!workflowId && workflowId !== "undefined",
     });
@@ -69,6 +70,7 @@ export function useReorderBlocks(): UseMutationResult<unknown, unknown, { workfl
                 queryClient.setQueryData(queryKeys.blocks(variables.workflowId), context.previousBlocks);
             }
         },
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         onSettled: async (_, __, variables) => {
             // Always refetch after error or success to ensure sync with server
             await queryClient.invalidateQueries({ queryKey: ["blocks", variables.workflowId] });

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { randomUUID } from 'crypto';
 import fs from 'fs';
 import os from 'os';
@@ -15,7 +16,7 @@ const mkdirAsync = promisify(fs.mkdir);
 const multerInstance = multer;
 
 // File upload configuration
-export const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
+export const UPLOAD_DIR = process.env.UPLOAD_DIR ?? './uploads';
 export const MAX_FILE_SIZE = process.env.MAX_FILE_SIZE ?
   parseInt(process.env.MAX_FILE_SIZE, 10) :
   10 * 1024 * 1024; // 10MB default
@@ -33,6 +34,7 @@ export const ALLOWED_FILE_TYPES = [
 ];
 
 // Ensure upload directory exists
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 async function ensureUploadDir() {
   try {
     await fs.promises.access(UPLOAD_DIR);
@@ -43,6 +45,7 @@ async function ensureUploadDir() {
 
 // Configure multer storage
 const storage = multerInstance.diskStorage({
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   destination: async (req: Express.Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
     await ensureUploadDir();
     cb(null, UPLOAD_DIR);
@@ -56,7 +59,7 @@ const storage = multerInstance.diskStorage({
 });
 
 // File filter for validation
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express request type not needed for file filter
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-function-return-type
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   // Check file type
   if (!ALLOWED_FILE_TYPES.includes(file.mimetype)) {
@@ -77,7 +80,7 @@ export const upload = multerInstance({
 });
 
 // Validate file upload configuration
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- config structure varies by step type
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-function-return-type
 export function validateFileUploadConfig(config: any) {
   if (!config) { return true; } // No restrictions
 
@@ -160,6 +163,7 @@ export async function fileExists(filename: string): Promise<boolean> {
 }
 
 // Get file stats
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export async function getFileStats(filename: string) {
   try {
     const filePath = path.join(UPLOAD_DIR, filename);

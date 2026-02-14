@@ -23,7 +23,7 @@ export function DeleteSnapshotDialog({
                 <DialogHeader>
                     <DialogTitle>Delete Scenario</DialogTitle>
                     <DialogDescription>
-                        Are you sure you want to delete "{snapshotName}"?
+                        Are you sure you want to delete &quot;{snapshotName}&quot;?
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>

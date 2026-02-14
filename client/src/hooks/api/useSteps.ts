@@ -132,6 +132,7 @@ export function useReorderSteps(): UseMutationResult<unknown, unknown, { section
                 queryClient.setQueryData(queryKeys.steps(variables.sectionId), context.previousSteps);
             }
         },
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         onSettled: async (_, __, variables) => {
             // Always refetch after error or success to ensure sync with server
             await queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.sectionId) });

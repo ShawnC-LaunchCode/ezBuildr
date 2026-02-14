@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { insertProjectSchema } from "@shared/schema";
-import type { PrincipalType, User } from "@shared/schema";
+import type { PrincipalType, _User } from "@shared/schema";
 
 import { logger } from "../logger";
 import { hybridAuth } from '../middleware/auth';

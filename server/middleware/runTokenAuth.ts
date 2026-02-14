@@ -61,6 +61,7 @@ export async function runTokenAuth(
       .where(eq(workflowRuns.runToken, token))
       .limit(1);
 
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!run) {
       res.status(401).json({
         success: false,
@@ -144,6 +145,7 @@ export async function creatorOrRunTokenAuth(
       .where(eq(workflowRuns.runToken, token))
       .limit(1);
 
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!run) {
       res.status(401).json({
         success: false,

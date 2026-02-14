@@ -11,15 +11,15 @@ import fs from 'fs/promises';
 import path from 'path';
 
 
-import { eq, and } from 'drizzle-orm';
+import { eq, _and } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi, type Mock } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi, type _Mock } from 'vitest';
 
 import * as schema from '@shared/schema';
 
 import { db } from '../../server/db';
-import { getTemplateFilePath, deleteTemplateFile } from '../../server/services/templates';
+import { getTemplateFilePath, _deleteTemplateFile } from '../../server/services/templates';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
 
 // Mock template scanner to avoid needing valid DOCX files
@@ -187,16 +187,16 @@ describe.sequential('Templates Behavioral Tests - DB Failure Simulation', () => 
     // We'll mock the db.update to throw after file operations complete
 
     const dbModule = await import('../../server/db');
-    const originalDb = dbModule.db;
+    const _originalDb = dbModule.db;
 
     // Create a proxy that throws on .update().set().where().returning()
-    let newFileSaved = false;
+    const _newFileSaved = false;
     let newFileRef: string | null = null;
 
     // Spy on saveTemplateFile to track when new file is created
     const templatesService = await import('../../server/services/templates');
-    const saveSpy = vi.spyOn(templatesService, 'saveTemplateFile').mockImplementation(
-      async (buffer, originalname, mimetype) => {
+    const _saveSpy = vi.spyOn(templatesService, 'saveTemplateFile').mockImplementation(
+      async (buffer, originalname, _mimetype) => {
         // Actually save the file
         const { nanoid } = await import('nanoid');
         const ext = originalname.endsWith('.pdf') ? '.pdf' : '.docx';

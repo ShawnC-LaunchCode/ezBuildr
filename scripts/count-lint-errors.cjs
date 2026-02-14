@@ -11,8 +11,8 @@ try {
         file.messages.forEach(msg => {
             total++;
             ruleCounts[msg.ruleId] = (ruleCounts[msg.ruleId] || 0) + 1;
-            if (msg.ruleId === '@typescript-eslint/no-floating-promises') floating++;
-            if (msg.ruleId === '@typescript-eslint/no-misused-promises') misused++;
+            if (msg.ruleId === '@typescript-eslint/no-floating-promises') {floating++;}
+            if (msg.ruleId === '@typescript-eslint/no-misused-promises') {misused++;}
         });
     });
 

@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from "express";
 
 import { checkPermission } from "./checkPermission";
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function requireWorkspace(req: Request, res: Response, next: NextFunction) {
     const workspaceId = (req.headers['x-workspace-id'] as string) ?? (req.query.workspaceId as string);
 

@@ -235,6 +235,7 @@ describe("Auth Middleware", () => {
       mockReq.headers = { authorization: `Bearer ${token}` };
       mockReq.method = 'POST';
 
+      // eslint-disable-next-line @typescript-eslint/await-thenable
       await hybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
@@ -252,6 +253,7 @@ describe("Auth Middleware", () => {
       vi.mocked(authService.validateRefreshToken).mockResolvedValue(mockUser.id);
       vi.mocked(userRepository.findById).mockResolvedValue(mockUser as any);
 
+      // eslint-disable-next-line @typescript-eslint/await-thenable
       await hybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
 
       expect(authService.validateRefreshToken).toHaveBeenCalledWith(refreshToken);
@@ -268,6 +270,7 @@ describe("Auth Middleware", () => {
       vi.mocked(parseCookies).mockReturnValue({ refresh_token: refreshToken });
       vi.mocked(authService.extractTokenFromHeader).mockReturnValue(null); // No JWT
 
+      // eslint-disable-next-line @typescript-eslint/await-thenable
       await hybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
 
       expect(mockNext).not.toHaveBeenCalled();
@@ -293,6 +296,7 @@ describe("Auth Middleware", () => {
       };
       mockReq.method = 'GET';
 
+      // eslint-disable-next-line @typescript-eslint/await-thenable
       await hybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
@@ -322,6 +326,7 @@ describe("Auth Middleware", () => {
         const res = { ...mockRes, status: vi.fn(() => ({ json: vi.fn() })) };
         const next = vi.fn();
 
+        // eslint-disable-next-line @typescript-eslint/await-thenable
         await hybridAuth(req as unknown as Request, res as unknown as Response, next);
         expect(next).toHaveBeenCalled();
         expect(authService.validateRefreshToken).toHaveBeenCalledWith(refreshToken);
@@ -345,6 +350,7 @@ describe("Auth Middleware", () => {
         };
         const next = vi.fn();
 
+        // eslint-disable-next-line @typescript-eslint/await-thenable
         await hybridAuth(req as unknown as Request, res as unknown as Response, next);
         expect(next).not.toHaveBeenCalled();
         expect(res.status).toHaveBeenCalledWith(401);
@@ -360,6 +366,7 @@ describe("Auth Middleware", () => {
 
       mockReq.headers = {};
 
+      // eslint-disable-next-line @typescript-eslint/await-thenable
       await hybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
 
       expect(mockNext).not.toHaveBeenCalled();
@@ -378,6 +385,7 @@ describe("Auth Middleware", () => {
         authorization: `Bearer ${token}`,
       };
 
+      // eslint-disable-next-line @typescript-eslint/await-thenable
       await optionalHybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
@@ -397,6 +405,7 @@ describe("Auth Middleware", () => {
       };
       mockReq.method = 'GET';
 
+      // eslint-disable-next-line @typescript-eslint/await-thenable
       await optionalHybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
@@ -410,6 +419,7 @@ describe("Auth Middleware", () => {
 
       mockReq.headers = {};
 
+      // eslint-disable-next-line @typescript-eslint/await-thenable
       await optionalHybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
@@ -432,6 +442,7 @@ describe("Auth Middleware", () => {
         cookie: 'refresh_token=invalid-refresh',
       };
 
+      // eslint-disable-next-line @typescript-eslint/await-thenable
       await optionalHybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
@@ -475,6 +486,7 @@ describe("Auth Middleware", () => {
         };
         const next = vi.fn();
 
+        // eslint-disable-next-line @typescript-eslint/await-thenable
         await hybridAuth(req as unknown as Request, res as unknown as Response, next);
 
         expect(next).not.toHaveBeenCalled();

@@ -34,7 +34,7 @@ export interface VisibilityState {
 export function useWorkflowVisibility(
   logicRules: LogicRule[] | undefined,
   allSteps: Step[] | undefined,
-  formValues: Record<string, any>
+  formValues: Record<string, unknown>
 ): VisibilityState {
   const [visibilityResult, setVisibilityResult] = useState<WorkflowEvaluationResult>({
     visibleSections: new Set(),
@@ -62,6 +62,7 @@ export function useWorkflowVisibility(
       // If step has a visibleIf expression, evaluate it
       if (step.visibleIf) {
         try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
           const isVisible = evaluateConditionExpression(step.visibleIf as any, formValues, aliasResolver);
           if (isVisible) {
             finalVisibleSteps.add(step.id);

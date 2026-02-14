@@ -42,7 +42,7 @@ export function ReviewIssueList({ isReady, missingAliases, emptyTitles, activeIs
                     </div>
                     <div className="pl-6 space-y-1">
                         <p className="text-sm text-slate-500 mb-2">
-                            Some questions are blank. Your client won't know what to answer.
+                            Some questions are blank. Your client won&apos;t know what to answer.
                         </p>
                         {activeIssues.filter(i => i.type === 'warning').map((issue, idx) => (
                             <div key={idx} className="text-sm p-2 bg-amber-50 rounded border border-amber-100 flex items-center justify-between">
@@ -68,7 +68,7 @@ export function ReviewIssueList({ isReady, missingAliases, emptyTitles, activeIs
                     <div className="pl-6 space-y-1">
                         <p className="text-sm text-slate-500 mb-2">
                             Naming answers (&quot;Save answer as&quot;) helps you reuse them in documents later.
-                            It's okay to skip this if you don't need to reuse the answer.
+                            It&apos;s okay to skip this if you don&apos;t need to reuse the answer.
                         </p>
                         <div className="text-sm text-slate-500 italic">
                             Review the &quot;Save answer as&quot; field in your questions.

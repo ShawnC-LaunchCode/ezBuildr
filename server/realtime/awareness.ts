@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { Awareness } from 'y-protocols/awareness';
 import * as Y from 'yjs';
 
@@ -168,7 +169,7 @@ export function cleanupInactiveUsers(
   thresholdMs = 60000
 ): void {
   const states = awareness.getStates();
-  const now = Date.now();
+  const _now = Date.now();
 
   states.forEach((state, clientId) => {
     if (state.user && !isUserActive(state.user, thresholdMs)) {
@@ -192,6 +193,7 @@ export function encodeAwarenessUpdate(
   awareness: Awareness,
   clients?: number[]
 ): Uint8Array {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { encodeAwarenessUpdate } = require('y-protocols/awareness');
   return encodeAwarenessUpdate(awareness, clients);
 }
@@ -204,6 +206,7 @@ export function applyAwarenessUpdate(
   update: Uint8Array,
   origin?: unknown
 ): void {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { applyAwarenessUpdate } = require('y-protocols/awareness');
   applyAwarenessUpdate(awareness, update, origin);
 }

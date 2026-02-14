@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 export type SurveyStatus = "draft" | "open" | "closed" | "active" | "archived";
 
 interface StatusBadgeProps {
+  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
   status: SurveyStatus | string;
   showIcon?: boolean;
   customLabels?: Record<string, string>;
@@ -64,6 +65,7 @@ export function StatusBadge({
   // Use custom label if provided
   const finalLabel = customLabels?.[status] ?? statusConfigs[status]?.label ?? status;
 
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   const config = statusConfigs[status] || {
     label: finalLabel,
     variant: overrideVariant ?? "secondary" as const,

@@ -77,7 +77,7 @@ describe.sequential("Session Management Integration Tests", () => {
         });
         it("should track device metadata in session", async () => {
             const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0";
-            const loginRes = await request(ctx.baseURL)
+            const _loginRes = await request(ctx.baseURL)
                 .post("/api/auth/login")
                 .set("User-Agent", userAgent)
                 .send({
@@ -205,7 +205,7 @@ describe.sequential("Session Management Integration Tests", () => {
                     password: testUser.password,
                 })
                 .expect(200);
-            const session2 = await request(ctx.baseURL)
+            const _session2 = await request(ctx.baseURL)
                 .post("/api/auth/login")
                 .set("User-Agent", "Firefox/121.0")
                 .send({
@@ -235,7 +235,7 @@ describe.sequential("Session Management Integration Tests", () => {
             expect(sessionsRes.body.sessions).toHaveLength(1);
         });
         it("should order sessions by last used (most recent first)", async () => {
-            const session1 = await request(ctx.baseURL)
+            const _session1 = await request(ctx.baseURL)
                 .post("/api/auth/login")
                 .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36")
                 .send({
@@ -244,7 +244,7 @@ describe.sequential("Session Management Integration Tests", () => {
                 })
                 .expect(200);
             await new Promise(resolve => setTimeout(resolve, 100));
-            const session2 = await request(ctx.baseURL)
+            const _session2 = await request(ctx.baseURL)
                 .post("/api/auth/login")
                 .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0")
                 .send({

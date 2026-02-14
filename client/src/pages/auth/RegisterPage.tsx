@@ -114,6 +114,7 @@ export default function RegisterPage() {
                         </div>
 
                         <Form {...form}>
+                            {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
                             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
                                     <FormField

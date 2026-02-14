@@ -12,8 +12,9 @@ interface UseInfiniteRowsOptions {
   limit?: number;
 }
 
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function useInfiniteRows(tableId: string, options: UseInfiniteRowsOptions = {}) {
-  const limit = options.limit || 100;
+  const limit = options.limit ?? 100;
 
   return useInfiniteQuery({
     queryKey: [...datavaultQueryKeys.tableRows(tableId), 'infinite', limit],

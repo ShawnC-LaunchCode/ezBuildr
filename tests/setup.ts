@@ -5,7 +5,9 @@ import dotenv from "dotenv";
 // import "@testing-library/jest-dom";
 import { SchemaManager } from "./helpers/schemaManager";
 declare global {
+  // eslint-disable-next-line no-var
   var __BASE_DB_URL__: string;
+  // eslint-disable-next-line no-var
   var __TEST_SCHEMA__: string;
 }
 // Load environment variables immediately
@@ -100,6 +102,7 @@ beforeAll(async () => {
   // Conditionally load jest-dom for UI tests (JSDOM environment)
   if (typeof window !== 'undefined') {
     try {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       await import("@testing-library/jest-dom");
     } catch (e) {
@@ -114,6 +117,7 @@ beforeAll(async () => {
       // PARALLELISM: Create isolated schema for this worker
       // We must do this BEFORE importing server/db so that the pool connects to the correct schema
       // Default to isolation if we are connecting to DB
+      // eslint-disable-next-line sonarjs/no-gratuitous-expressions, no-constant-condition
       if (true) {
         // Save original URL for teardown
         (global as any).__BASE_DB_URL__ = process.env.DATABASE_URL;
@@ -236,8 +240,8 @@ afterAll(async () => {
     await db.closeDatabase();
   }
   // Drop isolated schema if it exists
-  const schemaName = (global as any).__TEST_SCHEMA__;
-  const baseDbUrl = (global as any).__BASE_DB_URL__;
+  const _schemaName = (global as any).__TEST_SCHEMA__;
+  const _baseDbUrl = (global as any).__BASE_DB_URL__;
   // OPTIMIZATION: Do NOT drop schema here!
   // We want to reuse the schema for the next test file running in this same worker.
   // This enables "Worker Reuse" strategy.
@@ -500,6 +504,7 @@ vi.mock('express-session', async () => {
     return vi.importActual('express-session');
   }
   // Return mock for unit tests
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { createMockSessionMiddleware } = require('./helpers/authMocks');
   return {
     default: vi.fn(() => createMockSessionMiddleware()),

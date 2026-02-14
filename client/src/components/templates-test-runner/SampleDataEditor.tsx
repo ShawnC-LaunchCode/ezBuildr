@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 interface SampleDataEditorProps {
   value: string;
   onChange: (value: string) => void;
+  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
   onValidChange?: (parsed: unknown | null) => void;
 }
 
@@ -27,6 +28,7 @@ export function SampleDataEditor({ value, onChange, onValidChange }: SampleDataE
         return;
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const parsed = JSON.parse(newValue);
       setJsonError(null);
       onValidChange?.(parsed);
@@ -45,6 +47,7 @@ export function SampleDataEditor({ value, onChange, onValidChange }: SampleDataE
   // Format/prettify JSON
   const handleFormat = () => {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const parsed = JSON.parse(value);
       const formatted = JSON.stringify(parsed, null, 2);
       handleChange(formatted);

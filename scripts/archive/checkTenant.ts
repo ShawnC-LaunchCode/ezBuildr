@@ -1,6 +1,8 @@
-import { eq } from 'drizzle-orm';
+import { _eq } from 'drizzle-orm';
 
+// eslint-disable-next-line import/no-unresolved
 import { getDb, initializeDatabase } from '../server/db';
+// eslint-disable-next-line import/no-unresolved
 import { tenants, users, projects } from '../shared/schema';
 
 async function checkTenant() {

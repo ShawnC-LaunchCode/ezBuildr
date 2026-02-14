@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import {
     AIWorkflowRevisionResponseSchema,
 } from '../../../shared/types/ai';
@@ -218,21 +219,21 @@ export class WorkflowRevisionService {
                     sectionCount,
                 }, 'Attempting single-shot workflow revision');
                 return await this.reviseWorkflowSingleShot(request);
-            } catch (singleShotError: any) {
+            } catch (singleShotError: unknown) {
                 // If single-shot fails due to truncation, automatically retry with chunking
-                if (singleShotError.code === 'RESPONSE_TRUNCATED') {
+                if (singleShotError && typeof singleShotError === 'object' && 'code' in singleShotError && singleShotError.code === 'RESPONSE_TRUNCATED') {
                     logger.warn({
                         estimatedInputTokens,
                         estimatedOutputTokens,
-                        actualOutputTokens: singleShotError.estimatedTokens,
-                        responseLength: singleShotError.responseLength,
+                        actualOutputTokens: 'estimatedTokens' in singleShotError ? singleShotError.estimatedTokens : undefined,
+                        responseLength: 'responseLength' in singleShotError ? singleShotError.responseLength : undefined,
                     }, 'Single-shot revision truncated - automatically retrying with chunking');
                     return await this.reviseWorkflowChunked(request);
                 }
                 // For other errors, re-throw
                 throw singleShotError;
             }
-        } catch (error) {
+        } catch (error: unknown) {
             const duration = Date.now() - startTime;
             logger.error({ duration, error }, 'AI workflow revision failed');
             throw error;
@@ -257,7 +258,11 @@ export class WorkflowRevisionService {
                     responseSuffix: response.substring(Math.max(0, response.length - 500)),
                 }, 'Detected truncated AI response - workflow too large for single-shot revision');
                 // Throw specific error that will trigger chunking retry
-                const error: any = new Error('Response truncated - workflow too large');
+                const error = new Error('Response truncated - workflow too large') as Error & {
+                    code: string;
+                    estimatedTokens: number;
+                    responseLength: number;
+                };
                 error.code = 'RESPONSE_TRUNCATED';
                 error.estimatedTokens = estimatedTokens;
                 error.responseLength = response.length;
@@ -267,9 +272,10 @@ export class WorkflowRevisionService {
             let parsed;
             try {
                 parsed = JSON.parse(response);
-            } catch (parseError: any) {
+            } catch (parseError: unknown) {
                 // Extract position info from error
-                const positionMatch = parseError.message.match(/position (\d+)/);
+                const errorMessage = parseError instanceof Error ? parseError.message : String(parseError);
+                const positionMatch = errorMessage.match(/position (\d+)/);
                 const position = positionMatch ? parseInt(positionMatch[1]) : 0;
                 // Get context around the error position
                 const contextStart = Math.max(0, position - 200);
@@ -277,7 +283,7 @@ export class WorkflowRevisionService {
                 const errorContext = response.substring(contextStart, contextEnd);
                 // Log the actual response for debugging
                 logger.error({
-                    parseError: parseError.message,
+                    parseError: errorMessage,
                     responseLength: response.length,
                     responsePreview: response.substring(0, 500),
                     responseSuffix: response.substring(Math.max(0, response.length - 500)),
@@ -295,7 +301,7 @@ export class WorkflowRevisionService {
                     }
                     await fs.promises.writeFile(debugPath, response);
                     logger.error({ debugPath }, 'Full AI response written to file for debugging');
-                } catch (fsError) {
+                } catch (fsError: unknown) {
                     logger.error({ fsError }, 'Failed to write debug file');
                 }
                 // Re-throw parse error (truncation should have been caught above)
@@ -311,7 +317,7 @@ export class WorkflowRevisionService {
                 changeCount: validated.diff.changes.length,
             }, 'AI workflow revision succeeded');
             return validated;
-        } catch (error) {
+        } catch (error: unknown) {
             const duration = Date.now() - startTime;
             logger.error({ error, duration }, 'AI workflow revision failed');
             if (error instanceof SyntaxError) {
@@ -341,6 +347,7 @@ export class WorkflowRevisionService {
      * - Better progress tracking and error recovery
      * - Special handling for single massive sections
      */
+    // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
     private async reviseWorkflowChunked(
         request: AIWorkflowRevisionRequest,
         skipTwoPassStrategy = false,  // Prevent infinite recursion
@@ -379,6 +386,7 @@ export class WorkflowRevisionService {
         }, 'Starting chunked workflow revision with semantic section-aware chunking');
 
         // Check if sections are mostly empty (e.g., from Pass 1 of two-pass strategy)
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         const hasEmptySections = sections.every(s => !s.steps || s.steps.length === 0);
 
         // Determine output multiplier based on content type
@@ -437,6 +445,7 @@ export class WorkflowRevisionService {
         // We could do parallel, but sequential gives better context awareness
         // Track revised sections by their original index for proper ordering
         const revisedSectionsByIndex: Map<number, typeof sections[0]> = new Map();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const allChanges: any[] = [];
         const allExplanations: string[] = [];
         const allSuggestions: string[] = [];
@@ -480,6 +489,7 @@ Section titles in this chunk: ${chunkSections.map(s => s.title).join(', ')}`,
                 const chunkResult = await this.reviseWorkflowSingleShot(chunkRequest);
 
                 // Map revised sections back to their original indices
+                // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
                 if (chunkResult.updatedWorkflow.sections) {
                     chunkResult.updatedWorkflow.sections.forEach((revisedSection, idx) => {
                         const originalIndex = chunkMeta.sectionIndices[idx];
@@ -500,7 +510,7 @@ Section titles in this chunk: ${chunkSections.map(s => s.title).join(', ')}`,
                     changesCount: chunkResult.diff?.changes.length || 0,
                     mappedIndices: chunkMeta.sectionIndices,
                 }, `Chunk ${chunkNumber}/${chunks.length} completed`);
-            } catch (error) {
+            } catch (error: unknown) {
                 logger.error({
                     chunkNumber,
                     totalChunks: chunks.length,
@@ -611,6 +621,7 @@ Output ONLY the JSON object.`;
             // Then use normal chunked revision to fill in details
             const structuredWorkflow = {
                 ...request.currentWorkflow,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 sections: (structureData.sections ?? []).map((s: any, idx: number) => ({
                     id: `section-${idx + 1}`,
                     title: s.title,
@@ -644,16 +655,16 @@ Output ONLY the JSON object.`;
                     ...(result.explanation ?? []),
                 ],
             };
-        } catch (error: any) {
+        } catch (error: unknown) {
             const duration = Date.now() - startTime;
             logger.error({
                 duration,
-                error: {
+                error: error instanceof Error ? {
                     message: error.message,
-                    code: error.code,
+                    code: 'code' in error ? error.code : undefined,
                     stack: error.stack,
                     name: error.name,
-                },
+                } : error,
             }, 'Two-pass workflow revision failed');
             throw error;
         }

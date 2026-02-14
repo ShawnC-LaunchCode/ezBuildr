@@ -8,9 +8,7 @@
 import type { TenantBranding, ThemeTokens } from '@shared/types/branding';
 
 import {
-  lightenColor,
   darkenColor,
-  getContrastTextColor,
   isValidHexColor,
   generateColorPalette,
 } from './colorUtils';
@@ -18,41 +16,64 @@ import {
 /**
  * Extended theme tokens with all color variants
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export interface ExtendedThemeTokens extends ThemeTokens {
   // Primary color variants
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   '--brand-primary-light'?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   '--brand-primary-lighter'?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   '--brand-primary-dark'?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   '--brand-primary-darker'?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   '--brand-primary-contrast'?: string;
 
   // Accent color variants
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   '--brand-accent-light'?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   '--brand-accent-lighter'?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   '--brand-accent-dark'?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   '--brand-accent-darker'?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   '--brand-accent-contrast'?: string;
 
   // Surface colors (for cards, panels)
+  // eslint-disable-next-line @typescript-eslint/naming-convention, sonarjs/no-duplicate-string
   '--brand-surface'?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention, sonarjs/no-duplicate-string
   '--brand-surface-hover'?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention, sonarjs/no-duplicate-string
   '--brand-surface-active'?: string;
 
   // Text colors
+  // eslint-disable-next-line @typescript-eslint/naming-convention, sonarjs/no-duplicate-string
   '--brand-text'?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention, sonarjs/no-duplicate-string
   '--brand-text-muted'?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention, sonarjs/no-duplicate-string
   '--brand-heading'?: string;
 
   // Border colors
+  // eslint-disable-next-line @typescript-eslint/naming-convention, sonarjs/no-duplicate-string
   '--brand-border'?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention, sonarjs/no-duplicate-string
   '--brand-border-strong'?: string;
 
   // Link colors
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   '--brand-link'?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
   '--brand-link-hover'?: string;
 
   // Background colors
+  // eslint-disable-next-line @typescript-eslint/naming-convention, sonarjs/no-duplicate-string
   '--brand-bg'?: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention, sonarjs/no-duplicate-string
   '--brand-bg-alt'?: string;
 }
 
@@ -99,34 +120,46 @@ export function brandingToThemeTokens(
   // Derive surface, text, and border colors based on dark mode
   const isDarkMode = branding?.darkModeEnabled === true;
 
+  // Color constants to avoid duplication
+  const SLATE_900 = '#0F172A';
+  const SLATE_800 = '#1E293B';
+  const SLATE_700 = '#334155';
+  const SLATE_600 = '#475569';
+  const SLATE_500 = '#64748B';
+  const SLATE_300 = '#CBD5E1';
+  const SLATE_200 = '#E2E8F0';
+  const SLATE_100 = '#F1F5F9';
+  const SLATE_50 = '#F8FAFC';
+  const WHITE = '#FFFFFF';
+
   if (isDarkMode) {
     // Dark mode colors
-    tokens['--brand-bg'] = '#0F172A'; // slate-900
-    tokens['--brand-bg-alt'] = '#1E293B'; // slate-800
-    tokens['--brand-surface'] = '#1E293B'; // slate-800
-    tokens['--brand-surface-hover'] = '#334155'; // slate-700
-    tokens['--brand-surface-active'] = '#475569'; // slate-600
-    tokens['--brand-text'] = '#F8FAFC'; // slate-50
-    tokens['--brand-text-muted'] = '#CBD5E1'; // slate-300
-    tokens['--brand-heading'] = '#FFFFFF';
-    tokens['--brand-border'] = '#334155'; // slate-700
-    tokens['--brand-border-strong'] = '#475569'; // slate-600
+    tokens['--brand-bg'] = SLATE_900;
+    tokens['--brand-bg-alt'] = SLATE_800;
+    tokens['--brand-surface'] = SLATE_800;
+    tokens['--brand-surface-hover'] = SLATE_700;
+    tokens['--brand-surface-active'] = SLATE_600;
+    tokens['--brand-text'] = SLATE_50;
+    tokens['--brand-text-muted'] = SLATE_300;
+    tokens['--brand-heading'] = WHITE;
+    tokens['--brand-border'] = SLATE_700;
+    tokens['--brand-border-strong'] = SLATE_600;
   } else {
     // Light mode colors
-    tokens['--brand-bg'] = '#FFFFFF';
-    tokens['--brand-bg-alt'] = '#F8FAFC'; // slate-50
-    tokens['--brand-surface'] = '#FFFFFF';
-    tokens['--brand-surface-hover'] = '#F1F5F9'; // slate-100
-    tokens['--brand-surface-active'] = '#E2E8F0'; // slate-200
-    tokens['--brand-text'] = '#0F172A'; // slate-900
-    tokens['--brand-text-muted'] = '#64748B'; // slate-500
-    tokens['--brand-heading'] = '#0F172A'; // slate-900
-    tokens['--brand-border'] = '#E2E8F0'; // slate-200
-    tokens['--brand-border-strong'] = '#CBD5E1'; // slate-300
+    tokens['--brand-bg'] = WHITE;
+    tokens['--brand-bg-alt'] = SLATE_50;
+    tokens['--brand-surface'] = WHITE;
+    tokens['--brand-surface-hover'] = SLATE_100;
+    tokens['--brand-surface-active'] = SLATE_200;
+    tokens['--brand-text'] = SLATE_900;
+    tokens['--brand-text-muted'] = SLATE_500;
+    tokens['--brand-heading'] = SLATE_900;
+    tokens['--brand-border'] = SLATE_200;
+    tokens['--brand-border-strong'] = SLATE_300;
   }
 
   // Link colors (use primary or accent if available)
-  const linkColor = branding?.primaryColor || '#3B82F6'; // blue-500 fallback
+  const linkColor = branding?.primaryColor ?? '#3B82F6'; // blue-500 fallback
   if (isValidHexColor(linkColor)) {
     tokens['--brand-link'] = linkColor;
     tokens['--brand-link-hover'] = darkenColor(linkColor, 10);
@@ -201,7 +234,7 @@ export async function loadAndApplyTenantTheme(tenantId: string): Promise<void> {
       return;
     }
 
-    const data = await response.json();
+    const data = await response.json() as { branding: TenantBranding };
     const tokens = brandingToThemeTokens(data.branding);
     applyThemeTokens(tokens);
   } catch (error) {
