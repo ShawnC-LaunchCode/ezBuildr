@@ -268,25 +268,6 @@ function ReviewStep({ onBack }: { analysis: unknown; workflow: unknown; onBack: 
         </div>
     );
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ReviewStep({ _analysis, _workflow, onBack }: any) {
-    // This will hold the logic to select fixes and Apply
-    return (
-        <div className="space-y-6">
-            <h2 className="text-2xl font-semibold">Review & Apply Fixes</h2>
-            <p className="text-muted-foreground">Select the optimizations you want to apply to your workflow.</p>
-            {/* TODO: List all fixable issues with checkboxes */}
-            <div className="p-8 text-center bg-muted/20 rounded-lg">
-                <p className="mb-4">Auto-fix selection UI coming next...</p>
-                <Button disabled>Apply Selected Fixes</Button>
-            </div>
-            <div className="flex justify-between pt-8">
-                {/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
-                <Button variant="ghost" onClick={onBack}>Back</Button>
-            </div>
-        </div>
-    );
-}
 function MetricCard({ title, value }: { title: string, value: string | number }) {
     return (
         <Card>
