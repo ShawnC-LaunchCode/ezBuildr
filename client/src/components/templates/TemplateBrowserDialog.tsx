@@ -61,9 +61,10 @@ export function TemplateBrowserDialog({
     // Filter templates
     const filteredTemplates = templates?.filter(t => {
         // Search filter
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         const matchesSearch =
             t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            t.description?.toLowerCase().includes(searchQuery.toLowerCase()) ??
+            t.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             t.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
         // Tab filter (mock logic since we don't have separate lists yet)
         // In a real app, 'mine' would filter by creatorId === currentUserId
