@@ -117,7 +117,7 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
       const baseUrl = window.location.origin;
       // Prioritize explicit public link, then current slug (state), then workflow ID
       // using 'slug' state allows the link to update in real-time as user edits the slug field
-      const identifier = workflow.publicLink ?? slug || workflow.id;
+      const identifier = workflow.publicLink ?? (slug || workflow.id);
       setShareableLink(`${baseUrl}/run/${identifier}`);
     } else {
       setShareableLink("");

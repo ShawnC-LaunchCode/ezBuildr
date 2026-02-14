@@ -171,7 +171,7 @@ export function validateSectionSteps(
 
   for (const step of steps) {
     // Skip virtual steps and display blocks
-    if (step.isVirtual ?? step.type === "display" || step.type === "js_question") {
+    if ((step.isVirtual ?? step.type === "display") || step.type === "js_question") {
       continue;
     }
 

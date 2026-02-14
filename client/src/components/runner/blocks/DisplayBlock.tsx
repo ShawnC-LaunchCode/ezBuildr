@@ -48,7 +48,8 @@ function interpolateVariables(text: string, context?: Record<string, unknown>): 
 
 export function DisplayBlockRenderer({ step, context }: DisplayBlockProps) {
   const config = step.config as DisplayConfig;
-  const rawMarkdown = (config?.markdown || step.description) ?? "";
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+  const rawMarkdown = config?.markdown || step.description || "";
   const allowHtml = config?.allowHtml ?? false;
 
   // Interpolate variables

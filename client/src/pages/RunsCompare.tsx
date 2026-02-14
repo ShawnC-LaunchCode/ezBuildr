@@ -32,8 +32,8 @@ export default function RunsCompare() {
     return <LoadingState />;
   }
 
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-  if (error ?? !data || !runA || !runB) {
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/prefer-nullish-coalescing
+  if (error || !data || !runA || !runB) {
     return (
       <div className="container mx-auto py-6">
         <div className="text-center">
