@@ -426,8 +426,8 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
   };
 
   const linkedBlock = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!localConfig?.dynamicOptions?.linkedListToolsBlockId ?? !blocks) { return null; }
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/prefer-nullish-coalescing
+    if (!localConfig?.dynamicOptions?.linkedListToolsBlockId || !blocks) { return null; }
     return (blocks ?? []).find((b) => b.id === localConfig.dynamicOptions?.linkedListToolsBlockId);
   }, [localConfig?.dynamicOptions?.linkedListToolsBlockId, blocks]);
 

@@ -176,30 +176,7 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
           });
           continue; // Skip actual execution
         }
-        // eslint-disable-next-line max-depth -- nested execution logic required for workflow steps
         const nodeStartTime = Date.now();
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment -- node.config is dynamically typed based on node type
-          const config = node.config as any;
-          // SNAPSHOT EFFICIENCY: Skip blocks with already satisfied outputs (Part 5)
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, max-depth -- config shape varies by node type
-          if (context.executionMode === 'snapshot' && config.outputKey !== undefined && context.vars[config.outputKey as string] !== undefined) {
-            // ... existing snapshot logic ...
-            const stepIndex = executionSteps.length;
-            executionSteps.push({
-              stepNumber: stepIndex,
-              blockId: nodeId,
-              blockType: node.type,
-              timestamp: new Date(),
-              status: 'skipped',
-              skippedReason: 'snapshot satisfied (cached output)',
-              inputs: {},
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- config.outputKey is dynamic
-              outputs: { [config.outputKey]: context.vars[config.outputKey as string] },
-              durationMs: 0,
-              metrics: { totalTimeMs: 0 }
-            });
-            continue; // Skip actual execution
-          }
           // check for condition
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, max-depth -- config.condition varies by node type
           if (config.condition !== undefined) {
