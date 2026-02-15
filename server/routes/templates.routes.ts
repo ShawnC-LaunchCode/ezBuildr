@@ -466,6 +466,7 @@ router.patch(
         .where(eq(schema.templates.id, params.id))
         .returning();
       if (oldFileRef !== undefined && newFileRef !== undefined) {
+        // CRITICAL: delete old file AFTER DB update for atomicity
         try {
           await deleteTemplateFile(oldFileRef);
           logger.debug({ oldFileRef, newFileRef }, 'Old template file cleaned up after successful update');

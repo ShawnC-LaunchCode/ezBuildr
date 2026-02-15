@@ -199,6 +199,7 @@ export class WorkflowRevisionService {
                 inputThreshold: INPUT_CHUNK_THRESHOLD,
                 outputThreshold: OUTPUT_CHUNK_THRESHOLD,
             }, 'Workflow revision token estimation');
+
             // If workflow is large enough to warrant chunking, use chunked revision immediately
             if (shouldChunkProactively) {
                 logger.info({

@@ -60,9 +60,7 @@ describeWithDb('PdfQueueService', () => {
   let testTenantId: string;
 
   beforeAll(async () => {
-    // Initialize database before running tests
-    await initializeDatabase();
-    await dbInitPromise;
+    // Database is initialized globally in setup.ts
 
     // Create a new service instance for testing (don't use singleton)
     service = new PdfQueueService();

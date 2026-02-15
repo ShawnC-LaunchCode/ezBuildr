@@ -989,7 +989,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
 
       const callTypes: string[] = [];
       (mockClient.callLLM as any).mockImplementation((prompt: string) => {
-        if (prompt.includes('IMPORTANT CONTEXT: You are processing sections')) {
+        if (prompt.includes('IMPORTANT CONTEXT: You are processing section')) {
           callTypes.push('chunked');
         } else {
           callTypes.push('single-shot');

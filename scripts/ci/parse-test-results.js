@@ -50,6 +50,7 @@
  */
 
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 import _path from 'path';
 
 /**
@@ -363,7 +364,7 @@ function main() {
 }
 
 // Run if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main();
 }
 

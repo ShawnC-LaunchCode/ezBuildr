@@ -98,8 +98,8 @@ async function jwtStrategy(req: Request): Promise<boolean> {
  */
 async function cookieStrategy(req: Request): Promise<boolean> {
   // 1. Strict Method Check: Only allow cookie auth for safe methods
-  // const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
-  // if (!safeMethods.includes(req.method)) { return false; }
+  const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
+  if (!safeMethods.includes(req.method)) { return false; }
   // 2. Precedence Check: If a Bearer header exists, ignore cookies (JWT wins)
   // This prevents ambiguity if a client sends both
   const authHeader = req.headers.authorization;
@@ -157,8 +157,8 @@ async function hybridAuthLogic(req: Request, res: Response, next: NextFunction):
     sendErrorResponse(res, error as Error);
   }
 }
-export const hybridAuth = (req: Request, res: Response, next: NextFunction): void => {
-  void hybridAuthLogic(req, res, next);
+export const hybridAuth = (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  return hybridAuthLogic(req, res, next);
 };
 async function optionalHybridAuthLogic(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -176,8 +176,8 @@ async function optionalHybridAuthLogic(req: Request, res: Response, next: NextFu
     next();
   }
 }
-export const optionalHybridAuth = (req: Request, res: Response, next: NextFunction): void => {
-  void optionalHybridAuthLogic(req, res, next);
+export const optionalHybridAuth = (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  return optionalHybridAuthLogic(req, res, next);
 };
 // =================================================================
 // HELPERS

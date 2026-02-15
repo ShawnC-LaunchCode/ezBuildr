@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-import { _tenants, _tenantDomains } from '@shared/schema';
+import { tenants as _tenants, tenantDomains as _tenantDomains } from '@shared/schema';
 import type { TenantBranding } from '@shared/types/branding';
 
 import { db } from '../../../server/db';
@@ -274,7 +274,7 @@ describe('BrandingService', () => {
     it('should throw error when domain already exists', async () => {
       const mockInsert = {
         values: vi.fn().mockReturnThis(),
-        returning: vi.fn().mockRejectedValue({ code: '23505' }), // Unique constraint violation
+        returning: vi.fn().mockRejectedValue(Object.assign(new Error('Unique constraint'), { code: '23505' })), // Unique constraint violation
       };
       (db.insert as any).mockReturnValue(mockInsert);
       await expect(

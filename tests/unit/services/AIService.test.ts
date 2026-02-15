@@ -19,7 +19,7 @@ vi.mock('../../../server/services/ai/WorkflowOptimizationService', () => ({
 vi.mock('../../../server/services/ai/WorkflowGenerationService', () => {
     return {
         // MUST use regular function for constructor mocks, not arrow functions
-        WorkflowGenerationService: vi.fn(() => {
+        WorkflowGenerationService: vi.fn(function () {
             return {
                 generateWorkflow: vi.fn().mockResolvedValue({
                     title: 'Generated Flow',
@@ -33,7 +33,7 @@ vi.mock('../../../server/services/ai/WorkflowGenerationService', () => {
 vi.mock('../../../server/services/ai/WorkflowSuggestionService', () => {
     return {
         // MUST use regular function for constructor mocks
-        WorkflowSuggestionService: vi.fn(() => {
+        WorkflowSuggestionService: vi.fn(function () {
             return {
                 suggestWorkflowImprovements: vi.fn().mockResolvedValue({
                     newSections: [{ id: 's2', title: 'New Section', order: 1, steps: [] }],
@@ -56,7 +56,7 @@ vi.mock('../../../server/services/ai/WorkflowSuggestionService', () => {
 vi.mock('../../../server/services/ai/WorkflowRevisionService', () => {
     return {
         // MUST use regular function for constructor mocks
-        WorkflowRevisionService: vi.fn(() => {
+        WorkflowRevisionService: vi.fn(function () {
             return {
                 reviseWorkflow: vi.fn().mockResolvedValue({
                     updatedWorkflow: { title: 'Revised Flow' },
@@ -71,7 +71,7 @@ vi.mock('../../../server/services/ai/WorkflowRevisionService', () => {
 vi.mock('../../../server/services/ai/WorkflowLogicService', () => {
     return {
         // MUST use regular function for constructor mocks
-        WorkflowLogicService: vi.fn(() => {
+        WorkflowLogicService: vi.fn(function () {
             return {
                 generateLogic: vi.fn().mockResolvedValue({
                     updatedWorkflow: { logicRules: [{ id: 'r1' }] },
