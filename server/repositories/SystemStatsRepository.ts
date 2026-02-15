@@ -31,6 +31,7 @@ export class SystemStatsRepository {
       stats = await db.select().from(systemStats).where(eq(systemStats.id, 1)).limit(1);
     }
 
+    if (!stats[0]) throw new Error("Failed to initialize system stats");
     return stats[0];
   }
 

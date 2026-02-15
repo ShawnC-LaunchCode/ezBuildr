@@ -2,28 +2,28 @@ import { relations } from 'drizzle-orm';
 
 import {
     users, tenants, tenantDomains, organizations, workspaces, teams, teamMembers,
-    organizationMemberships, auditLogs, _portalTokens, workspaceMembers
+    organizationMemberships, auditLogs, portalTokens, workspaceMembers
 } from './auth';
 // analyticsEvents is in legacy.ts! import it from there or run.ts?
 // Checked Step 545: analyticsEvents is in legacy.ts.
 
 import {
     datavaultDatabases, datavaultTables, datavaultColumns, datavaultRows,
-    datavaultValues, _datavaultNumberSequences, _datavaultRowNotes,
-    datavaultApiTokens, _datavaultTablePermissions, _datavaultWritebackMappings,
+    datavaultValues, datavaultNumberSequences, datavaultRowNotes,
+    datavaultApiTokens, datavaultTablePermissions, datavaultWritebackMappings,
     workflowDataSources, workflowQueries,
     collections, collectionFields, records
 } from './datavault';
 import {
     secrets, externalConnections, externalDestinations, apiKeys,
-    webhookSubscriptions, _webhookEvents, oauthApps, _oauthAuthCodes, _oauthAccessTokens
+    webhookSubscriptions, webhookEvents, oauthApps, oauthAuthCodes, oauthAccessTokens
 } from './integrations';
 // } from './legacy';
 import {
     runs, workflowRuns, stepValues, runLogs, reviewTasks, signatureRequests,
     signatureEvents, runOutputs, runGeneratedDocuments, transformBlockRuns,
-    scriptExecutionLog, _workflowRunEvents, _workflowRunMetrics,
-    _blockMetrics, // analyticsEvents fixed
+    scriptExecutionLog, workflowRunEvents, workflowRunMetrics,
+    blockMetrics, // analyticsEvents fixed
     metricsEvents, metricsRollups, sliConfigs, sliWindows, templateGenerationMetrics
 } from './run';
 import {

@@ -48,6 +48,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     if (updates.status && record && record.status !== updates.status) {
       console.error(`[CRITICAL] UPDATE FAILED check: requested=${updates.status} got=${record.status}`);
     }
+    if (!record) throw new Error("Failed to update workflow");
     return record;
   }
   /**
@@ -301,6 +302,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
       .set({ projectId, updatedAt: new Date() })
       .where(eq(workflows.id, workflowId))
       .returning();
+    if (!workflow) throw new Error("Failed to move workflow");
     return workflow;
   }
   /**

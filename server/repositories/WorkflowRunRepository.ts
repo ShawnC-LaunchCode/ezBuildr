@@ -97,6 +97,7 @@ export class WorkflowRunRepository extends BaseRepository<
       })
       .where(eq(workflowRuns.id, runId))
       .returning();
+    if (!updated) throw new Error("Failed to mark run as complete");
     return updated;
   }
 

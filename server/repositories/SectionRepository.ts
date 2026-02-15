@@ -12,7 +12,7 @@ import { BaseRepository, type DbTransaction } from "./BaseRepository";
 export class SectionRepository extends BaseRepository<typeof sections, Section, InsertSection> {
   constructor(dbInstance?: typeof db) {
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- runtime guard for schema import
-    if (!sections) {console.error("CRITICAL: sections undefined in SectionRepo");}
+    if (!sections) { console.error("CRITICAL: sections undefined in SectionRepo"); }
     super(sections, dbInstance);
   }
 
@@ -58,6 +58,7 @@ export class SectionRepository extends BaseRepository<typeof sections, Section, 
       .set({ order })
       .where(eq(sections.id, sectionId))
       .returning();
+    if (!updated) throw new Error("Failed to update section order");
     return updated;
   }
 }

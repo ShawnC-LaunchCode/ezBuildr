@@ -49,7 +49,7 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
     includeVirtual = false
   ): Promise<Step[]> {
     const database = this.getDb(tx);
-    if (sectionIds.length === 0) {return [];}
+    if (sectionIds.length === 0) { return []; }
 
     const conditions = [inArray(steps.sectionId, sectionIds)];
     if (!includeVirtual) {
@@ -134,6 +134,7 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
       .set({ order })
       .where(eq(steps.id, stepId))
       .returning();
+    if (!updated) throw new Error("Failed to update step order");
     return updated;
   }
 

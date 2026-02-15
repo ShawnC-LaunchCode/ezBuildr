@@ -72,6 +72,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
             .set(updateData)
             .where(eq(users.email, userData.email))
             .returning();
+          if (!updatedUser) throw new Error("Failed to update user");
           return updatedUser;
         }
       }
@@ -102,6 +103,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
         logger.warn({ err: e }, "Failed to increment user stats");
       }
 
+      if (!user) throw new Error("Failed to create user");
       return user;
     } catch (error) {
       // If we still get a constraint violation, it could be due to race conditions
@@ -125,6 +127,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
             .set(updateData)
             .where(eq(users.email, userData.email))
             .returning();
+          if (!updatedUser) throw new Error("Failed to update user");
           return updatedUser;
         }
       }
@@ -236,10 +239,10 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
       .set(updateData)
       .where(eq(users.id, userId))
       .returning();
-// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+    if (!updatedUser) {
       throw new Error('User not found');
+    }
 
     return updatedUser;
   }

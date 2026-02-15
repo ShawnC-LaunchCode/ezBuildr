@@ -133,7 +133,7 @@ export class DatavaultRowsRepository extends BaseRepository<
   } | null> {
     const database = this.getDb(tx);
     const row = await this.findById(rowId, tx);
-    if (!row) {return null;}
+    if (!row) { return null; }
     const values = await database
       .select()
       .from(datavaultValues)
@@ -161,7 +161,7 @@ export class DatavaultRowsRepository extends BaseRepository<
     const database = this.getDb(tx);
     // Get rows (with sorting and archive filtering)
     const rows = await this.findByTableId(tableId, options, tx);
-    if (rows.length === 0) {return [];}
+    if (rows.length === 0) { return []; }
     const rowIds = rows.map((r) => r.id);
     // Get all values for these rows
     const allValues = await database
@@ -173,7 +173,7 @@ export class DatavaultRowsRepository extends BaseRepository<
       if (acc[value.rowId] === undefined) {
         acc[value.rowId] = {};
       }
-      acc[value.rowId][value.columnId] = value.value;
+      acc[value.rowId]![value.columnId] = value.value;
       return acc;
     }, {});
     // Combine rows with their values
@@ -478,16 +478,16 @@ export class DatavaultRowsRepository extends BaseRepository<
   ): Promise<Map<string, { row: DatavaultRow; values: Record<string, unknown> }>> {
     const database = this.getDb(tx);
     const resultMap = new Map<string, { row: DatavaultRow; values: Record<string, unknown> }>();
-    if (requests.length === 0) {return resultMap;}
+    if (requests.length === 0) { return resultMap; }
     // Flatten all rowIds across all requests
     const allRowIds = requests.flatMap(req => req.rowIds);
-    if (allRowIds.length === 0) {return resultMap;}
+    if (allRowIds.length === 0) { return resultMap; }
     // Fetch all rows in a single query
     const rows = await database
       .select()
       .from(datavaultRows)
       .where(inArray(datavaultRows.id, allRowIds));
-    if (rows.length === 0) {return resultMap;}
+    if (rows.length === 0) { return resultMap; }
     // Fetch all values for these rows in a single query
     const values = await database
       .select()
@@ -498,7 +498,7 @@ export class DatavaultRowsRepository extends BaseRepository<
       if (acc[value.rowId] === undefined) {
         acc[value.rowId] = {};
       }
-      acc[value.rowId][value.columnId] = value.value;
+      acc[value.rowId]![value.columnId] = value.value;
       return acc;
     }, {});
     // Build result map

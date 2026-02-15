@@ -107,7 +107,7 @@ export class DatavaultColumnsRepository extends BaseRepository<
       await database
         .update(datavaultColumns)
         .set({ orderIndex: i, updatedAt: new Date() })
-        .where(and(eq(datavaultColumns.id, columnIds[i]), eq(datavaultColumns.tableId, tableId)));
+        .where(and(eq(datavaultColumns.id, columnIds[i]!), eq(datavaultColumns.tableId, tableId)));
     }
   }
   /**

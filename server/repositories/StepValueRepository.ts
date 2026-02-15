@@ -71,6 +71,7 @@ export class StepValueRepository extends BaseRepository<
       })
       .returning();
 
+    if (!result) throw new Error("Failed to upsert step value");
     return result;
   }
 }

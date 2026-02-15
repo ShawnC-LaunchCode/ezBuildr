@@ -167,7 +167,7 @@ export const hybridAuth = (req: Request, res: Response, next: NextFunction): voi
   void hybridAuthLogic(req, res, next);
 };
 
-async function optionalHybridAuthLogic(req: Request, res: Response, next: NextFunction): Promise<void> {
+async function optionalHybridAuthLogic(req: Request, _res: Response, next: NextFunction): Promise<void> {
   try {
     if (await jwtStrategy(req)) {
       next();

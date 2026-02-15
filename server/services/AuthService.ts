@@ -16,8 +16,8 @@ import {
 
 import {
     PASSWORD_CONFIG,
-    _JWT_CONFIG,
-    _REFRESH_TOKEN_CONFIG,
+    JWT_CONFIG,
+    REFRESH_TOKEN_CONFIG,
     PASSWORD_RESET_CONFIG,
     EMAIL_VERIFICATION_CONFIG,
     PASSWORD_POLICY
@@ -27,7 +27,7 @@ import { db } from "../db";
 import {
     InvalidTokenError,
     TokenExpiredError,
-    _InvalidCredentialsError
+    InvalidCredentialsError
 } from "../errors/AuthErrors";
 import { createLogger } from "../logger";
 import { hashToken } from "../utils/encryption";
@@ -278,7 +278,7 @@ export class AuthService {
         const [localPart, domain] = email.split('@');
 
         // SECURITY FIX: Reject emails starting or ending with dot in local part
-        if (localPart.startsWith('.') || localPart.endsWith('.')) {
+        if (!localPart || localPart.startsWith('.') || localPart.endsWith('.')) {
             return false;
         }
 

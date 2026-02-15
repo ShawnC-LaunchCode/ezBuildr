@@ -11,7 +11,13 @@ export function generateDeviceFingerprint(req: Request): string {
   const components = [
     req.headers['user-agent'] ?? '',
     // Use X-Forwarded-For if behind proxy, otherwise use req.ip
-    (req.headers['x-forwarded-for']?.toString().split(',')[0].trim() ?? req.ip) ?? '',
+    (() => {
+      const forwarded = req.headers['x-forwarded-for'];
+      if (forwarded) {
+        return forwarded.toString().split(',')[0].trim();
+      }
+      return req.ip ?? '';
+    })(),
   ];
 
   return crypto

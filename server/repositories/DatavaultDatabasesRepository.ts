@@ -165,7 +165,7 @@ export class DatavaultDatabasesRepository {
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async findByIdWithStats(id: string) {
     const database = await this.findById(id);
-    if (!database) {return null;}
+    if (!database) { return null; }
 
     const tableCount = await db
       .select({ count: sql<number>`count(*)::int` })
@@ -187,6 +187,7 @@ export class DatavaultDatabasesRepository {
       .values(data)
       .returning();
 
+    if (!results[0]) throw new Error("Failed to create database");
     return results[0];
   }
 

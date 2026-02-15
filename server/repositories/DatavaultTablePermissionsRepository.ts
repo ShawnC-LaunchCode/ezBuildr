@@ -87,6 +87,7 @@ export class DatavaultTablePermissionsRepository extends BaseRepository<
       })
       .returning();
 
+    if (!permission) throw new Error("Failed to upsert permission");
     return permission;
   }
 

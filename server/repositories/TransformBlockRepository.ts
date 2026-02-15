@@ -124,6 +124,7 @@ export class TransformBlockRunRepository extends BaseRepository<typeof transform
       .insert(transformBlockRuns)
       .values(data)
       .returning();
+    if (!run) throw new Error("Failed to create transform block run audit");
     return run;
   }
 

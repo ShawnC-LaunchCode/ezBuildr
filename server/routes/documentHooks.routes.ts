@@ -68,6 +68,7 @@ router.get(
     try {
       const authReq = req as AuthRequest;
       const { workflowId } = req.params;
+      if (!workflowId) throw new Error("Workflow ID is required");
       const userId = authReq.userId!;
 
       const hooks = await documentHookService.listHooks(workflowId, userId);
@@ -93,6 +94,7 @@ router.post(
     try {
       const authReq = req as AuthRequest;
       const { workflowId } = req.params;
+      if (!workflowId) throw new Error("Workflow ID is required");
       const userId = authReq.userId!;
 
       // Validate request body
@@ -154,6 +156,7 @@ router.put("/document-hooks/:hookId", hybridAuth, asyncHandler(async (req, res) 
   try {
     const authReq = req as AuthRequest;
     const { hookId } = req.params;
+    if (!hookId) throw new Error("Hook ID is required");
     const userId = authReq.userId!;
 
     // Validate request body
@@ -186,6 +189,7 @@ router.delete("/document-hooks/:hookId", hybridAuth, asyncHandler(async (req, re
   try {
     const authReq = req as AuthRequest;
     const { hookId } = req.params;
+    if (!hookId) throw new Error("Hook ID is required");
     const userId = authReq.userId!;
 
     await documentHookService.deleteHook(hookId, userId);
@@ -207,6 +211,7 @@ router.post("/document-hooks/:hookId/test", hybridAuth, asyncHandler(async (req,
   try {
     const authReq = req as AuthRequest;
     const { hookId } = req.params;
+    if (!hookId) throw new Error("Hook ID is required");
     const userId = authReq.userId!;
 
     // Validate request body

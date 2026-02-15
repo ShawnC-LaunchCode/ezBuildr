@@ -34,6 +34,8 @@ export class EmailQueueService {
                 attempts: 0
             }).returning({ id: emailQueue.id });
 
+            if (!job) throw new Error("Failed to add email to queue");
+
             logger.info({ jobId: job.id, to, subject }, 'Email added to queue');
             return job.id;
         } catch (error) {
@@ -49,7 +51,7 @@ export class EmailQueueService {
      * Start the worker
      */
     startWorker(intervalMs: number = 5000): void {
-        if (this.pollInterval) {return;}
+        if (this.pollInterval) { return; }
 
         logger.info({ intervalMs }, 'Starting email queue worker');
         // eslint-disable-next-line @typescript-eslint/no-misused-promises
@@ -71,7 +73,7 @@ export class EmailQueueService {
      * Process pending jobs
      */
     private async processQueue(): Promise<void> {
-        if (this.isProcessing) {return;}
+        if (this.isProcessing) { return; }
         this.isProcessing = true;
 
         try {
@@ -138,8 +140,8 @@ export class EmailQueueService {
 
             // Exponential backoff: 1m, 5m, 15m
             const nextAttempt = new Date();
-            if (attempts === 1) {nextAttempt.setMinutes(nextAttempt.getMinutes() + 1);}
-            else if (attempts === 2) {nextAttempt.setMinutes(nextAttempt.getMinutes() + 5);}
+            if (attempts === 1) { nextAttempt.setMinutes(nextAttempt.getMinutes() + 1); }
+            else if (attempts === 2) { nextAttempt.setMinutes(nextAttempt.getMinutes() + 5); }
 
             await db.update(emailQueue)
                 .set({
