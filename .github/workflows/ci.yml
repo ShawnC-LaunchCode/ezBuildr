@@ -56,18 +56,15 @@ jobs:
         NODE_ENV: test
         DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/test_db"
 
-    - name: Unit Tests (Config & Logic)
-      run: npm run test:unit -- --reporter=default --reporter=json --outputFile=vitest-summary.json
-      env:
-        NODE_ENV: test
-        DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/test_db"
-
-    - name: Integration Tests (Critical Paths)
-      run: npm run test:integration
+    - name: Run All Tests (Unit + Integration + Auth)
+      run: npm run test -- --reporter=default --reporter=json --outputFile=vitest-summary.json
       env:
         NODE_ENV: test
         DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/test_db"
         SESSION_SECRET: "test-secret"
+        JWT_SECRET: "test-jwt-secret-minimum-32-characters-long-for-ci"
+        # Use secret or fallback for PRs from forks
+        VL_MASTER_KEY: ${{ secrets.VL_MASTER_KEY_TEST || 'dGVzdC1tYXN0ZXIta2V5LTMyLWJ5dGVzLWxvbmctZm9yLXRlc3Rpbmc=' }}
         
     - name: Migration Safety Dry Run
       # This assumes we have a script to dry-run migrations against a schema
