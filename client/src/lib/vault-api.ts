@@ -608,7 +608,7 @@ export const stepAPI = {
 // ============================================================================
 // Blocks
 // ============================================================================
-export type BlockType = "prefill" | "validate" | "branch" | "js" | "query" | "read_table" | "list_tools" | "write" | "external_send";
+export type BlockType = "prefill" | "validate" | "branch" | "js" | "query" | "read_table" | "list_tools" | "write" | "external_send" | "create_record" | "update_record" | "find_record" | "delete_record";
 export type BlockPhase = "onRunStart" | "onSectionEnter" | "onSectionSubmit" | "onNext" | "onRunComplete";
 export interface ApiBlock {
   id: string;

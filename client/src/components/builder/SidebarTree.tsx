@@ -13,8 +13,8 @@ import { BlockEditorDialog, type UniversalBlock } from "./BlockEditorDialog";
 import { SectionSettingsDialog } from "./SectionSettingsDialog";
 import { DocumentStatusPanel } from "./sidebar/DocumentStatusPanel";
 import { SectionItem } from "./sidebar/SectionItem";
-import { _SidebarEmptyState } from "./sidebar/SidebarEmptyState";
-import { _SidebarHeader } from "./sidebar/SidebarHeader";
+import { SidebarEmptyState } from "./sidebar/SidebarEmptyState";
+import { SidebarHeader } from "./sidebar/SidebarHeader";
 
 export function SidebarTree({ workflowId }: { workflowId: string }) {
   const { data: workflow } = useWorkflow(workflowId);

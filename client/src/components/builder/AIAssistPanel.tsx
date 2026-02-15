@@ -2,7 +2,7 @@
 import { Loader2, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { _Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 
 import { AIGeneratedWorkflow } from "@shared/types/ai";

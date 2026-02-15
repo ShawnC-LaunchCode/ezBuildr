@@ -10,9 +10,9 @@ import type { QualityScore } from '@shared/types/ai';
 // Imported sub-components
 import { FeedbackFormContent } from './ai-feedback/FeedbackFormContent';
 import { FeedbackSuccessMessage } from './ai-feedback/FeedbackSuccessMessage';
-import { _IssueList } from './ai-feedback/IssueList';
-import { _QualityBreakdown, _QualityHeader } from './ai-feedback/QualityBreakdown';
-import { _RatingInput } from './ai-feedback/RatingInput';
+import { IssueList } from './ai-feedback/IssueList';
+import { QualityBreakdown, QualityHeader } from './ai-feedback/QualityBreakdown';
+import { RatingInput } from './ai-feedback/RatingInput';
 
 export { type QualityScore };
 
