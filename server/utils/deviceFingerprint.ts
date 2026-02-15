@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import { createHash } from 'crypto';
 
 import { UAParser } from 'ua-parser-js';
 
@@ -14,14 +14,13 @@ export function generateDeviceFingerprint(req: Request): string {
     (() => {
       const forwarded = req.headers['x-forwarded-for'];
       if (forwarded) {
-        return forwarded.toString().split(',')[0].trim();
+        return (forwarded.toString().split(',')[0] || '').trim();
       }
       return req.ip ?? '';
     })(),
   ];
 
-  return crypto
-    .createHash('sha256')
+  return createHash('sha256')
     .update(components.join('|'))
     .digest('hex');
 }
