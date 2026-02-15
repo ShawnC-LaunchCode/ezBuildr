@@ -4,10 +4,8 @@ import {
     Layout,
     FileText,
     Box,
-    _Plus,
     Clock,
     User,
-    _Tag,
     Grid
 } from 'lucide-react';
 import { useState, KeyboardEvent } from 'react';
@@ -25,8 +23,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { _Tabs, _TabsList, _TabsTrigger, _TabsContent } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
+
+
 import { cn } from "@/lib/utils";
 import { blueprintAPI, ApiBlueprint } from '@/lib/vault-api';
 
@@ -46,9 +44,8 @@ export function TemplateBrowserDialog({
     title = "Browse Templates",
     description = "Select a template to start from.",
     selectLabel = "Use Template",
-    _mode = 'create'
 }: TemplateBrowserDialogProps) {
-    const { _toast } = useToast();
+
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('all');
     const [selectedTemplate, setSelectedTemplate] = useState<ApiBlueprint | null>(null);
@@ -64,8 +61,8 @@ export function TemplateBrowserDialog({
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         const matchesSearch =
             t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            t.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            t.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+            (t.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+            (t.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ?? false);
         // Tab filter (mock logic since we don't have separate lists yet)
         // In a real app, 'mine' would filter by creatorId === currentUserId
         const matchesTab =

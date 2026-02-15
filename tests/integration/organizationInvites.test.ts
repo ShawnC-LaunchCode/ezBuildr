@@ -22,7 +22,7 @@ describe('Organization Invites', () => {
     const existingUserEmail = `existing_${Date.now()}@test.com`;
     const testTenantId = '00000000-0000-0000-0000-000000000098';
     let testOrgId: string;
-    let _createdInviteId: string;
+
 
     // Setup test data
     beforeEach(async () => {
@@ -93,7 +93,7 @@ describe('Organization Invites', () => {
             expect(placeholderUser?.placeholderEmail).toBe(newUserEmail);
             expect(placeholderUser?.fullName).toBe(newUserEmail.split('@')[0]); // Email prefix
 
-            createdInviteId = result.inviteId;
+
         });
 
         it('should create invite for existing user without creating placeholder', async () => {
@@ -112,7 +112,7 @@ describe('Organization Invites', () => {
 
             expect(user?.isPlaceholder).toBe(false);
 
-            createdInviteId = result.inviteId;
+
         });
 
         it('should prevent duplicate pending invites', async () => {
@@ -156,7 +156,7 @@ describe('Organization Invites', () => {
                 expect(timeDiff).toBeLessThan(60000); // 1 minute in milliseconds
             }
 
-            createdInviteId = result.inviteId;
+
         });
     });
 
@@ -287,7 +287,7 @@ describe('Organization Invites', () => {
             expect(invites[0].orgName).toBe('Invite Test Org');
             expect(invites[0].token).toBe(inviteResult.token);
 
-            createdInviteId = inviteResult.inviteId;
+
         });
 
         it('should not return expired invites', async () => {

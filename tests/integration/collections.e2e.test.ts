@@ -17,11 +17,11 @@ import { recordService } from '../../server/services/RecordService';
 describe('Collections System E2E Tests', () => {
   let testTenantId: string;
   let testUserId: string;
-  let _testProjectId: string;
+
   let testCollectionId: string;
   const testFieldIds: string[] = [];
   const testRecordIds: string[] = [];
-  let _testFieldSlug: string;
+
 
   beforeAll(async () => {
     // Create test tenant
@@ -46,7 +46,7 @@ describe('Collections System E2E Tests', () => {
     testUserId = user.id;
 
     // Create test project
-    const [project] = await db.insert(projects).values({
+    await db.insert(projects).values({
       name: 'E2E Test Project',
       title: 'E2E Test Project',
       description: 'Project for collections E2E tests',
@@ -55,7 +55,7 @@ describe('Collections System E2E Tests', () => {
       createdBy: testUserId,
       ownerId: testUserId,
     }).returning();
-    testProjectId = project.id;
+    // testProjectId = project.id;
   });
 
   afterAll(async () => {
@@ -126,7 +126,6 @@ describe('Collections System E2E Tests', () => {
       expect(field.type).toBe('text');
       expect(field.isRequired).toBe(true);
       testFieldIds.push(field.id);
-      testFieldSlug = field.slug;
     });
 
     it('should create email field', async () => {

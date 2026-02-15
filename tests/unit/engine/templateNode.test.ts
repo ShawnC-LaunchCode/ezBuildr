@@ -5,7 +5,6 @@
  * NOTE: These are integration tests that require database connectivity
  */
 
-import _fs from 'fs/promises';
 import path from 'path';
 
 import { eq, and } from 'drizzle-orm';
@@ -14,15 +13,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { db } from '../../../server/db';
 import { executeTemplateNode } from '../../../server/engine/nodes/template';
 import {
-  _projects,
-  _workflows,
-  _workflowVersions,
-  _templates,
   workflowTemplates,
-  _runs,
   runOutputs,
-  _users,
-  _tenants,
 } from '../../../shared/schema';
 import { describeWithDb } from '../../helpers/dbTestHelper';
 import { createTestFactory } from '../../helpers/testFactory';
@@ -65,13 +57,13 @@ vi.mock('fs/promises', () => ({
 
 describeWithDb('Template Node - Multi-Template Support', () => {
   let factory: ReturnType<typeof createTestFactory>;
-  let testProjectId: string;
-  let testWorkflowId: string;
+
+
   let testVersionId: string;
   let testTemplateId1: string;
-  let testTemplateId2: string;
+
   let testTenantId: string;
-  let testUserId: string;
+
   let testRunId: string;
 
   beforeEach(async () => {
@@ -80,11 +72,9 @@ describeWithDb('Template Node - Multi-Template Support', () => {
     // Create test hierarchy using factory
     const { tenant, user, project } = await factory.createTenant();
     testTenantId = tenant.id;
-    testUserId = user.id;
-    testProjectId = project.id;
 
     // Create test workflow with version
-    const { workflow, version } = await factory.createWorkflow(project.id, user.id, {
+    const { version } = await factory.createWorkflow(project.id, user.id, {
       version: {
         versionNumber: 1,
 
@@ -93,7 +83,7 @@ describeWithDb('Template Node - Multi-Template Support', () => {
         graphJson: {},
       },
     });
-    testWorkflowId = workflow.id;
+
     testVersionId = version.id;
 
     // Create test templates
@@ -105,13 +95,7 @@ describeWithDb('Template Node - Multi-Template Support', () => {
     });
     testTemplateId1 = template1.id;
 
-    const { template: template2 } = await factory.createTemplate(project.id, user.id, {
-      name: 'Schedule A',
-      description: 'Schedule A annex',
-      type: 'docx',
-      fileRef: 'template2.docx',
-    });
-    testTemplateId2 = template2.id;
+
 
     // Create test run
     const { run } = await factory.createRun(version.id, user.id, {

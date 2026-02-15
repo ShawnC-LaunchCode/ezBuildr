@@ -13,8 +13,7 @@ describe("Analytics Service Integration", () => {
     let tenantId: string;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let workflow: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let _version: any;
+
 
     beforeAll(async () => {
         // MANUALLY FIX FK CONSTRAINT FOR TEST ENVIRONMENT (Migration collision workaround)
@@ -51,7 +50,7 @@ describe("Analytics Service Integration", () => {
             publishedAt: new Date(),
             publishedBy: userId
         } as any).returning();
-        version = vRes;
+
 
         await db.update(workflows).set({ currentVersionId: vRes.id }).where(eq(workflows.id, wfRes.id));
         workflow = await db.query.workflows.findFirst({ where: eq(workflows.id, wfRes.id) });
@@ -66,7 +65,7 @@ describe("Analytics Service Integration", () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const run = await runService.createRun(workflow.id, undefined, { participantId: "anon" } as any);
         const runId = run.id;
-        const _runToken = run.runToken;
+
         expect(runId).toBeDefined();
 
         // 2. Verify run.start event
@@ -74,19 +73,14 @@ describe("Analytics Service Integration", () => {
         let eventsAfterStart: any[] = [];
         for (let i = 0; i < 5; i++) {
             eventsAfterStart = await db.select().from(workflowRunEvents).where(eq(workflowRunEvents.runId, runId));
-            if (eventsAfterStart.some(e => e.type === 'run.start')) {break;}
+            if (eventsAfterStart.some(e => e.type === 'run.start')) { break; }
             await new Promise(r => setTimeout(r, 200));
         }
         expect(eventsAfterStart.some(e => e.type === 'run.start')).toBe(true);
 
         // 3. Complete Run
         // completeRun(runId, data, context)
-        const _context = {
-            workflowId: workflow.id,
-            runId: runId, // RunService usage usually derives this
-            // But completeRun signature: async completeRun(runId: string, data: any = {})
-            // Let's check signature.
-        };
+
 
         // We'll call completeRun directly.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

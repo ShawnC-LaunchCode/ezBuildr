@@ -33,7 +33,7 @@ import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/in
 describe('Lifecycle Hooks Execution', () => {
   let ctx: IntegrationTestContext;
   let workflowId: string;
-  let _workflowVersionId: string; // Added workflowVersionId
+
   let sectionId: string;
   let stepId: string;
 
@@ -47,7 +47,7 @@ describe('Lifecycle Hooks Execution', () => {
   beforeEach(async () => {
     workflowId = uuidv4();
     console.log('TEST SETUP: workflowId =', workflowId);
-    workflowVersionId = uuidv4();
+
     sectionId = uuidv4();
     stepId = uuidv4();
 

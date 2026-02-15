@@ -21,7 +21,7 @@ describe.sequential("Projects API Integration Tests", () => {
   let baseURL: string;
   let authToken: string;
   let tenantId: string;
-  let userId: string;
+
   beforeAll(async () => {
     // Create Express app
     app = express();
@@ -56,7 +56,7 @@ describe.sequential("Projects API Integration Tests", () => {
       })
       .expect(201);
     authToken = registerResponse.body.token;
-    userId = registerResponse.body.user.id;
+    const userId = registerResponse.body.user.id;
     // Assign tenant and role to user
     await db.update(schema.users)
       .set({ tenantId, tenantRole: "owner" })
@@ -106,14 +106,14 @@ describe.sequential("Projects API Integration Tests", () => {
     });
   });
   describe("GET /api/projects", () => {
-    let _projectId: string;
+
     beforeEach(async () => {
       // Create a test project
-      const response = await request(baseURL)
+      await request(baseURL)
         .post("/api/projects")
         .set("Authorization", `Bearer ${authToken}`)
         .send({ name: `List Test Project ${nanoid()}` });
-      projectId = response.body.id;
+      // projectId = response.body.id;
     });
     it("should list projects for tenant", async () => {
       const response = await request(baseURL)

@@ -1,25 +1,18 @@
-import _speakeasy from "speakeasy";
-import _request from "supertest";
+
 import { describe, it, expect, beforeEach, beforeAll } from "vitest";
 
-import type { Express } from "express";
+
 /**
  * MFA Flow Integration Tests
  * Tests complete multi-factor authentication flows
  */
 describe("MFA Flow Integration Tests", () => {
-  let _app: Express;
-  let _testUser: any;
-  let _authToken: string;
+
   beforeAll(async () => {
     // TODO: Initialize test app
   });
   beforeEach(async () => {
-    testUser = {
-      email: "mfa-test@example.com",
-      password: "TestPassword123",
-      name: "MFA Test User",
-    };
+
   });
   describe("MFA Setup Flow", () => {
     it("should complete full MFA setup flow", async () => {

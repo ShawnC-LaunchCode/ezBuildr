@@ -36,7 +36,7 @@ export function assertAuthRequest(req: Request): asserts req is AuthRequest & { 
  * JWT Authentication Middleware
  */
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const runAuth = async () => {
+  const runAuth = async (): Promise<void> => {
     try {
       const authHeader = req.headers.authorization;
       const token = authService.extractTokenFromHeader(authHeader);
@@ -57,7 +57,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
  * Optional JWT Authentication Middleware
  */
 export function optionalAuth(req: Request, res: Response, next: NextFunction): void {
-  const runAuth = async () => {
+  const runAuth = async (): Promise<void> => {
     try {
       const authHeader = req.headers.authorization;
       const token = authService.extractTokenFromHeader(authHeader);

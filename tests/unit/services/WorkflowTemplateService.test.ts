@@ -14,7 +14,7 @@ import { db } from '../../../server/db';
 import { documentTemplateService } from '../../../server/services/DocumentTemplateService';
 import { WorkflowTemplateService } from '../../../server/services/WorkflowTemplateService';
 import { createError } from '../../../server/utils/errors';
-import {    projects } from '../../../shared/schema';
+import { projects } from '../../../shared/schema';
 import { describeWithDb } from '../../helpers/dbTestHelper';
 import { createTestFactory } from '../../helpers/testFactory';
 // Mock DocumentTemplateService
@@ -29,7 +29,7 @@ describeWithDb('WorkflowTemplateService', () => {
   let testUserId: string;
   let testTenantId: string;
   let testProjectId: string;
-  let testWorkflowId: string;
+
   let testVersionId: string;
   let testTemplateId1: string;
   let testTemplateId2: string;
@@ -43,7 +43,7 @@ describeWithDb('WorkflowTemplateService', () => {
     testUserId = user.id;
     testProjectId = project.id;
     // Create test workflow with version
-    const { workflow, version } = await factory.createWorkflow(project.id, user.id, {
+    const { version } = await factory.createWorkflow(project.id, user.id, {
       workflow: {
         name: 'Test Workflow',
       },
@@ -52,7 +52,7 @@ describeWithDb('WorkflowTemplateService', () => {
         createdBy: user.id,
       },
     });
-    testWorkflowId = workflow.id;
+
     testVersionId = version.id;
     // Create test templates
     const { template: template1 } = await factory.createTemplate(project.id, user.id, {

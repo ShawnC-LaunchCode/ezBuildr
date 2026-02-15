@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+
 import { type Mode } from "@/lib/mode";
 
 import { useBlockEditorState, useBlockSave, getTitleForBlock, type UniversalBlock } from "./BlockEditorDialog.hooks";

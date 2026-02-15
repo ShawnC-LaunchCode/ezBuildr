@@ -96,7 +96,8 @@ describe("Auth Middleware", () => {
 
       mockReq.headers = { authorization: `Bearer ${token}` };
 
-      await requireAuth(mockReq as Request, mockRes as Response, mockNext);
+      requireAuth(mockReq as Request, mockRes as Response, mockNext);
+      await new Promise(r => setTimeout(r, 0));
 
       expect(mockNext).toHaveBeenCalled();
       expect(statusMock).not.toHaveBeenCalled();
@@ -111,7 +112,8 @@ describe("Auth Middleware", () => {
 
       mockReq.headers = {};
 
-      await requireAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      requireAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      await new Promise(r => setTimeout(r, 0));
 
       expect(mockNext).not.toHaveBeenCalled();
       expect(statusMock).toHaveBeenCalledWith(401);
@@ -137,7 +139,8 @@ describe("Auth Middleware", () => {
         authorization: 'Bearer invalid-token',
       };
 
-      await requireAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      requireAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      await new Promise(r => setTimeout(r, 0));
 
       expect(mockNext).not.toHaveBeenCalled();
       expect(statusMock).toHaveBeenCalledWith(401);
@@ -154,7 +157,8 @@ describe("Auth Middleware", () => {
         authorization: `Bearer ${token}`,
       };
 
-      await requireAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      requireAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      await new Promise(r => setTimeout(r, 0));
 
       expect(mockNext).not.toHaveBeenCalled();
       expect(statusMock).toHaveBeenCalledWith(401);
@@ -169,7 +173,8 @@ describe("Auth Middleware", () => {
         authorization: token, // No Bearer prefix
       };
 
-      await requireAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      requireAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      await new Promise(r => setTimeout(r, 0));
 
       expect(mockNext).toHaveBeenCalled();
       const authReq = mockReq as unknown as AuthRequest;
@@ -187,7 +192,8 @@ describe("Auth Middleware", () => {
         authorization: `Bearer ${token}`,
       };
 
-      await optionalAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      optionalAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      await new Promise(r => setTimeout(r, 0));
 
       expect(mockNext).toHaveBeenCalled();
       const authReq = mockReq as unknown as AuthRequest;
@@ -199,7 +205,8 @@ describe("Auth Middleware", () => {
 
       mockReq.headers = {};
 
-      await optionalAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      optionalAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      await new Promise(r => setTimeout(r, 0));
 
       expect(mockNext).toHaveBeenCalled();
       const authReq = mockReq as unknown as AuthRequest;
@@ -217,7 +224,8 @@ describe("Auth Middleware", () => {
         authorization: 'Bearer invalid-token',
       };
 
-      await optionalAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      optionalAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      await new Promise(r => setTimeout(r, 0));
 
       expect(mockNext).toHaveBeenCalled();
       const authReq = mockReq as unknown as AuthRequest;
@@ -236,7 +244,8 @@ describe("Auth Middleware", () => {
       mockReq.method = 'POST';
 
       // eslint-disable-next-line @typescript-eslint/await-thenable
-      await hybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      hybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      await new Promise(r => setTimeout(r, 0));
 
       expect(mockNext).toHaveBeenCalled();
       const authReq = mockReq as unknown as AuthRequest;
@@ -254,7 +263,8 @@ describe("Auth Middleware", () => {
       vi.mocked(userRepository.findById).mockResolvedValue(mockUser as any);
 
       // eslint-disable-next-line @typescript-eslint/await-thenable
-      await hybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      hybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      await new Promise(r => setTimeout(r, 0));
 
       expect(authService.validateRefreshToken).toHaveBeenCalledWith(refreshToken);
       expect(userRepository.findById).toHaveBeenCalledWith(mockUser.id);
@@ -271,7 +281,8 @@ describe("Auth Middleware", () => {
       vi.mocked(authService.extractTokenFromHeader).mockReturnValue(null); // No JWT
 
       // eslint-disable-next-line @typescript-eslint/await-thenable
-      await hybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      hybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      await new Promise(r => setTimeout(r, 0));
 
       expect(mockNext).not.toHaveBeenCalled();
       expect(statusMock).toHaveBeenCalledWith(401);
@@ -297,7 +308,8 @@ describe("Auth Middleware", () => {
       mockReq.method = 'GET';
 
       // eslint-disable-next-line @typescript-eslint/await-thenable
-      await hybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      hybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      await new Promise(r => setTimeout(r, 0));
 
       expect(mockNext).toHaveBeenCalled();
       const authReq = mockReq as unknown as AuthRequest;
@@ -327,7 +339,8 @@ describe("Auth Middleware", () => {
         const next = vi.fn();
 
         // eslint-disable-next-line @typescript-eslint/await-thenable
-        await hybridAuth(req as unknown as Request, res as unknown as Response, next);
+        hybridAuth(req as unknown as Request, res as unknown as Response, next);
+        await new Promise(r => setTimeout(r, 0));
         expect(next).toHaveBeenCalled();
         expect(authService.validateRefreshToken).toHaveBeenCalledWith(refreshToken);
         expect(userRepository.findById).toHaveBeenCalledWith(mockUser.id);
@@ -351,7 +364,8 @@ describe("Auth Middleware", () => {
         const next = vi.fn();
 
         // eslint-disable-next-line @typescript-eslint/await-thenable
-        await hybridAuth(req as unknown as Request, res as unknown as Response, next);
+        hybridAuth(req as unknown as Request, res as unknown as Response, next);
+        await new Promise(r => setTimeout(r, 0));
         expect(next).not.toHaveBeenCalled();
         expect(res.status).toHaveBeenCalledWith(401);
         expect(authService.validateRefreshToken).not.toHaveBeenCalled();
@@ -367,7 +381,8 @@ describe("Auth Middleware", () => {
       mockReq.headers = {};
 
       // eslint-disable-next-line @typescript-eslint/await-thenable
-      await hybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      hybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      await new Promise(r => setTimeout(r, 0));
 
       expect(mockNext).not.toHaveBeenCalled();
       expect(statusMock).toHaveBeenCalledWith(401);
@@ -386,7 +401,8 @@ describe("Auth Middleware", () => {
       };
 
       // eslint-disable-next-line @typescript-eslint/await-thenable
-      await optionalHybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      optionalHybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      await new Promise(r => setTimeout(r, 0));
 
       expect(mockNext).toHaveBeenCalled();
       const authReq = mockReq as unknown as AuthRequest;
@@ -406,7 +422,8 @@ describe("Auth Middleware", () => {
       mockReq.method = 'GET';
 
       // eslint-disable-next-line @typescript-eslint/await-thenable
-      await optionalHybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      optionalHybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      await new Promise(r => setTimeout(r, 0));
 
       expect(mockNext).toHaveBeenCalled();
       const authReq = mockReq as unknown as AuthRequest;
@@ -420,7 +437,8 @@ describe("Auth Middleware", () => {
       mockReq.headers = {};
 
       // eslint-disable-next-line @typescript-eslint/await-thenable
-      await optionalHybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      optionalHybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      await new Promise(r => setTimeout(r, 0));
 
       expect(mockNext).toHaveBeenCalled();
       const authReq = mockReq as unknown as AuthRequest;
@@ -443,7 +461,8 @@ describe("Auth Middleware", () => {
       };
 
       // eslint-disable-next-line @typescript-eslint/await-thenable
-      await optionalHybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      optionalHybridAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      await new Promise(r => setTimeout(r, 0));
 
       expect(mockNext).toHaveBeenCalled();
       const authReq = mockReq as unknown as AuthRequest;
@@ -463,7 +482,8 @@ describe("Auth Middleware", () => {
         authorization: `Bearer ${tamperedToken}`,
       };
 
-      await requireAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      requireAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      await new Promise(r => setTimeout(r, 0));
 
       expect(mockNext).not.toHaveBeenCalled();
       expect(statusMock).toHaveBeenCalledWith(401);
@@ -487,7 +507,8 @@ describe("Auth Middleware", () => {
         const next = vi.fn();
 
         // eslint-disable-next-line @typescript-eslint/await-thenable
-        await hybridAuth(req as unknown as Request, res as unknown as Response, next);
+        hybridAuth(req as unknown as Request, res as unknown as Response, next);
+        await new Promise(r => setTimeout(r, 0));
 
         expect(next).not.toHaveBeenCalled();
         expect(res.status).toHaveBeenCalledWith(401);
@@ -508,7 +529,8 @@ describe("Auth Middleware", () => {
         authorization: `Bearer ${malformedToken}`,
       };
 
-      await requireAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      requireAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      await new Promise(r => setTimeout(r, 0));
 
       expect(mockNext).not.toHaveBeenCalled();
       expect(statusMock).toHaveBeenCalledWith(401);
@@ -519,7 +541,8 @@ describe("Auth Middleware", () => {
 
       mockReq.headers = {}; // No authorization header
 
-      await requireAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      requireAuth(mockReq as unknown as Request, mockRes as unknown as Response, mockNext);
+      await new Promise(r => setTimeout(r, 0));
 
       expect(mockNext).not.toHaveBeenCalled();
       expect(statusMock).toHaveBeenCalledWith(401);

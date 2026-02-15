@@ -3,12 +3,12 @@
  *
  * Tests for queue-based PDF conversion with retry logic
  */
-import _fs from 'fs/promises';
+
 
 import { eq, and } from 'drizzle-orm';
 import { describe, it, expect, beforeEach, afterEach, vi, beforeAll, afterAll } from 'vitest';
 
-import { db, initializeDatabase, dbInitPromise } from '../../../server/db';
+import { db } from '../../../server/db';
 import { logger } from '../../../server/logger';
 import { DbTransaction } from '../../../server/repositories';
 import { PdfQueueService } from '../../../server/services/PdfQueueService';

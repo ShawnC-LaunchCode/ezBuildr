@@ -30,8 +30,7 @@ describe('DataVault v4 Regression Tests', () => {
   let testTableId: string;
   let testColumnId: string;
   let testRowId: string;
-  let _authCookie: string;
-  let _otherUserCookie: string;
+
   let authToken: string;
   let otherUserToken: string;
   let testTenantId: string;
@@ -73,7 +72,7 @@ describe('DataVault v4 Regression Tests', () => {
     // Create test tenant
     const [tenant] = await db.insert(tenants).values({
       name: 'Test Tenant',
-      slug: `test-tenant-${  Date.now()}`,
+      slug: `test-tenant-${Date.now()}`,
     } as any).returning();
     testTenantId = tenant.id;
     // Create test user manually with correct tenant and admin role
@@ -118,7 +117,7 @@ describe('DataVault v4 Regression Tests', () => {
     if (loginResponse.status !== 200) {
       throw new Error(`Login failed: ${JSON.stringify(loginResponse.body)}`);
     }
-    authCookie = loginResponse.headers["set-cookie"];
+
     authToken = loginResponse.body.token; // Capture JWT token for POST requests
     // Don't overwrite testUserId - it's already set to 'google-user-id' on line 85
     // Login as other user
@@ -129,7 +128,7 @@ describe('DataVault v4 Regression Tests', () => {
     if (otherLoginResponse.status !== 200) {
       throw new Error(`Other user login failed: ${JSON.stringify(otherLoginResponse.body)}`);
     }
-    otherUserCookie = otherLoginResponse.headers["set-cookie"];
+
     otherUserToken = otherLoginResponse.body.token; // Capture JWT token for POST requests
   });
   afterAll(async () => {
@@ -156,7 +155,7 @@ describe('DataVault v4 Regression Tests', () => {
       },
     });
     // Create test database, table, and column for each test
-    const uniqueSuffix = `${Date.now()  }-${  Math.floor(Math.random() * 1000)}`;
+    const uniqueSuffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const [database] = await db.insert(datavaultDatabases).values({
       name: 'Test Database',
       // slug: 'test-database-' + uniqueSuffix, // Not in schema
@@ -165,7 +164,7 @@ describe('DataVault v4 Regression Tests', () => {
     testDatabaseId = database.id;
     const [table] = await db.insert(datavaultTables).values({
       name: 'Test Table',
-      slug: `test-table-${  uniqueSuffix}`,
+      slug: `test-table-${uniqueSuffix}`,
       ownerUserId: testUserId, // Correct column name
       tenantId: testTenantId,
       databaseId: testDatabaseId,
