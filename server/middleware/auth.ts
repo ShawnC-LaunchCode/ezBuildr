@@ -56,7 +56,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 /**
  * Optional JWT Authentication Middleware
  */
-export function optionalAuth(req: Request, res: Response, next: NextFunction): void {
+export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
   const runAuth = async (): Promise<void> => {
     try {
       const authHeader = req.headers.authorization;
@@ -192,34 +192,36 @@ export const optionalHybridAuth = (req: Request, res: Response, next: NextFuncti
 // =================================================================
 async function attachUserToRequest(req: Request, payload: JWTPayload): Promise<void> {
   // Type-safe property assignment without 'as' cast
-  Object.assign(req, {
+  // Type-safe property assignment without 'as' cast
+  const authReq = req as AuthRequest;
+  Object.assign(authReq, {
     userId: payload.userId,
     userEmail: payload.email,
     tenantId: payload.tenantId ?? undefined,
     userRole: payload.tenantRole ?? null,
     systemRole: payload.role as string | undefined,
     jwtPayload: payload
-  } as AuthRequest);
+  });
   // Now we can safely access via type guard
-  if (isAuthRequest(req) && req.userId !== undefined && req.tenantId === undefined) {
+  if (authReq.userId !== undefined && authReq.tenantId === undefined) {
     try {
-      const user = await userRepository.findById(req.userId);
+      const user = await userRepository.findById(authReq.userId);
       if (user?.tenantId !== null && user?.tenantId !== undefined) {
         // eslint-disable-next-line no-param-reassign -- Express middleware convention: augment req for downstream handlers
-        req.tenantId = user.tenantId;
+        authReq.tenantId = user.tenantId;
         // eslint-disable-next-line no-param-reassign -- Express middleware convention: augment req for downstream handlers
-        req.userRole = user.tenantRole;
-        logger.debug({ userId: req.userId, tenantId: req.tenantId }, 'Hydrated tenantId from DB');
+        authReq.userRole = user.tenantRole;
+        logger.debug({ userId: authReq.userId, tenantId: authReq.tenantId }, 'Hydrated tenantId from DB');
       } else {
-        logger.debug({ userId: req.userId }, 'User has no tenantId in DB');
+        logger.debug({ userId: authReq.userId }, 'User has no tenantId in DB');
       }
     } catch (e) {
-      logger.warn({ error: e, userId: req.userId }, 'Failed to hydrate user');
+      logger.warn({ error: e, userId: authReq.userId }, 'Failed to hydrate user');
     }
   } else {
     logger.debug({
-      userId: req.userId,
-      hasTenantId: !!(req as AuthRequest).tenantId,
+      userId: authReq.userId,
+      hasTenantId: !!authReq.tenantId,
       source: 'token'
     }, 'User attached from token');
   }

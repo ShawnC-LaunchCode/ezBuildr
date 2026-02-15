@@ -13,7 +13,6 @@ import type { TextAdvancedConfig } from "@shared/types/stepConfigs";
 
 import { AliasField } from "./common/AliasField";
 import { DefaultValueField, DefaultValueType } from "./common/DefaultValueField";
-import { _SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
 import { InputTypeSection, TextValidationSection, TextCardState } from "./TextCardEditor.components";

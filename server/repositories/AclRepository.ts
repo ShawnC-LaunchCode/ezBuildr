@@ -71,7 +71,7 @@ export class ProjectAccessRepository extends BaseRepository<
     teamIds: string[],
     tx?: DbTransaction
   ): Promise<ProjectAccess[]> {
-    if (teamIds.length === 0) {return [];}
+    if (teamIds.length === 0) { return []; }
 
     const database = this.getDb(tx);
     return database
@@ -113,6 +113,7 @@ export class ProjectAccessRepository extends BaseRepository<
       })
       .returning();
 
+    if (!entry) throw new Error("Failed to upsert project access");
     return entry;
   }
 
@@ -192,7 +193,7 @@ export class WorkflowAccessRepository extends BaseRepository<
     teamIds: string[],
     tx?: DbTransaction
   ): Promise<WorkflowAccess[]> {
-    if (teamIds.length === 0) {return [];}
+    if (teamIds.length === 0) { return []; }
 
     const database = this.getDb(tx);
     return database

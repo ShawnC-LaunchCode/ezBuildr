@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { toast } from "@/hooks/use-toast";
-import { _useCreateSection, _useCreateStep, _useUpdateStep, _useUpdateWorkflow } from "@/lib/vault-hooks";
+
 /**
  * AI Operations Application Logic
  * 
@@ -10,7 +10,7 @@ import { _useCreateSection, _useCreateStep, _useUpdateStep, _useUpdateWorkflow }
  * This ensures that all validation, internal ID generation, and side-effects
  * (like updating the sidebar or graph) happen consistently with manual edits.
  */
-interface AiSuggestion {
+export interface AiSuggestion {
     newSections?: Array<{
         title: string;
         order?: number;
@@ -43,7 +43,7 @@ export async function applyAiSuggestions(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         createStep: any
     }
-// eslint-disable-next-line no-console
+    // eslint-disable-next-line no-console
 ) {
     // eslint-disable-next-line no-console
     console.log("Applying AI Suggestions:", suggestions);
@@ -102,11 +102,11 @@ export async function applyAiSuggestions(
 }
 function normalizeStepType(type: string): string {
     const t = type.toLowerCase();
-    if (t.includes("text") || t.includes("string")) {return "text";}
-    if (t.includes("number") || t.includes("int")) {return "number";}
-    if (t.includes("bool") || t.includes("toggle")) {return "boolean";}
-    if (t.includes("choice") || t.includes("option") || t.includes("select")) {return "select";}
-    if (t.includes("date")) {return "date";}
-    if (t.includes("email")) {return "email";}
+    if (t.includes("text") || t.includes("string")) { return "text"; }
+    if (t.includes("number") || t.includes("int")) { return "number"; }
+    if (t.includes("bool") || t.includes("toggle")) { return "boolean"; }
+    if (t.includes("choice") || t.includes("option") || t.includes("select")) { return "select"; }
+    if (t.includes("date")) { return "date"; }
+    if (t.includes("email")) { return "email"; }
     return "text"; // Default fallback
 }

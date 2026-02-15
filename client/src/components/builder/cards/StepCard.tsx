@@ -12,7 +12,7 @@ import {
     ChevronRight,
     Database,
 } from "lucide-react";
-import { useState, _useRef } from "react";
+import { useState } from "react";
 
 import { useCollaboration, useBlockCollaborators } from "@/components/collab/CollaborationContext";
 import { LogicIndicator } from "@/components/logic";
@@ -20,10 +20,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { _Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import type { ApiStep, _StepType } from "@/lib/vault-api";
+import type { ApiStep } from "@/lib/vault-api";
 import {
     useUpdateStep,
     useDeleteStep,
@@ -36,7 +35,6 @@ import type { ConditionExpression } from "@shared/types/conditions";
 import { useIntake } from "../IntakeContext";
 import { StepEditorRouter } from "../StepEditorRouter";
 
-import { _StepGuidance } from "./common/StepGuidance";
 import { getQuestionTypeIcon } from "./common/StepIcons";
 import { StepTitleRow } from "./common/StepTitleRow";
 

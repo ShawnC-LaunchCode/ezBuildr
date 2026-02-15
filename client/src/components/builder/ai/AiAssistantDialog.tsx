@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { applyAiSuggestions } from "@/lib/ai-operations";
+import { applyAiSuggestions, AiSuggestion } from "@/lib/ai-operations";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { useCreateSection, useCreateStep } from "@/lib/vault-hooks";
@@ -20,7 +20,7 @@ interface Message {
     id: string;
     role: 'user' | 'assistant';
     content: string;
-    suggestions?: unknown;
+    suggestions?: AiSuggestion;
     applied?: boolean;
 }
 export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistantDialogProps) {
@@ -37,7 +37,7 @@ export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistan
             scrollRef.current.scrollIntoView({ behavior: 'smooth' });
         }
     }, [messages]);
-    const handleApply = async (suggestions: unknown) => {
+    const handleApply = async (suggestions: AiSuggestion) => {
         const success = await applyAiSuggestions(workflowId, suggestions, {
             createSection,
             createStep
@@ -60,7 +60,7 @@ export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistan
                 id: Date.now().toString(),
                 role: 'assistant',
                 content: "I've generated some suggestions based on your request. Please review the changes below.",
-                suggestions: data
+                suggestions: data as AiSuggestion
             };
             setMessages(prev => [...prev, newMessage]);
         },
@@ -74,7 +74,7 @@ export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistan
         },
     });
     const handleGenerate = () => {
-        if (!prompt.trim()) {return;}
+        if (!prompt.trim()) { return; }
         // Add user message via optimistic update
         const userMsg: Message = {
             id: Date.now().toString(),
@@ -150,7 +150,7 @@ export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistan
                                                 <Button
                                                     size="sm"
                                                     className="h-7 text-xs w-full bg-indigo-600 hover:bg-indigo-700"
-                                                    onClick={() => { void handleApply(msg.suggestions); }}
+                                                    onClick={() => { if (msg.suggestions) void handleApply(msg.suggestions); }}
                                                 >
                                                     <Check className="w-3 h-3 mr-1" /> Apply Changes
                                                 </Button>

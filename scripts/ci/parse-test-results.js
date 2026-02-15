@@ -106,7 +106,7 @@ function parseVitestResults(filePath) {
       data.testResults.forEach(testFile => {
         if (testFile.assertionResults) {
           testFile.assertionResults.forEach(test => {
-            const name = `${test.ancestorTitles?.join(' › ')  } › ${  test.title}` || test.fullName || 'Unknown test';
+            const name = `${test.ancestorTitles?.join(' › ')} › ${test.title}` || test.fullName || 'Unknown test';
             const duration = test.duration || 0;
             if (duration > 0) {
               allTests.push({ name, duration });
@@ -320,33 +320,7 @@ function main() {
   const allSlowTests = [
     ...(vitest?.slowestTests || []).map(t => ({ ...t, framework: 'vitest' })),
     ...(playwright?.slowestTests || []).map(t => ({ ...t, framework: 'playwright' })),
-  ];
-  const slowestTest = allSlowTests.length > 0
-    ? allSlowTests.sort((a, b) => b.duration - a.duration)[0]
-    : null;
-
-  // Build summary
-  const summary = {
-    total: (vitest?.total || 0) + (playwright?.total || 0),
-    passed: (vitest?.passed || 0) + (playwright?.passed || 0),
-    failed: (vitest?.failed || 0) + (playwright?.failed || 0),
-    skipped: (vitest?.skipped || 0) + (playwright?.skipped || 0),
-    duration: (vitest?.duration || 0) + (playwright?.duration || 0),
-    status: determineStatus(vitest, playwright),
-    slowestTest,
-  };
-
-  const result = {
-    vitest: vitest || { total: 0, passed: 0, failed: 0, skipped: 0, duration: 0, failures: [], slowestTests: [] },
-    playwright: playwright || { total: 0, passed: 0, failed: 0, skipped: 0, flaky: 0, duration: 0, didNotRun: false, failures: [], slowestTests: [] },
-    summary,
-  };
-
-  // Write output
-  fs.writeFileSync(args.output, JSON.stringify(result, null, 2));
-  console.log(`\n✅ Test results parsed successfully`);
-  console.log(`   Output: ${args.output}`);
-  console.log(`   Status: ${summary.status.toUpperCase()}`);
+    console.log(`   Status: ${summary.status.toUpperCase()}`);
   console.log(`   Total: ${summary.passed}/${summary.total} passed`);
 
   // Exit with appropriate code

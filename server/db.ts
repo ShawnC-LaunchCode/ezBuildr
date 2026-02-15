@@ -96,12 +96,12 @@ if (isInitialConfigured) {
   if (isTest) {
     // eslint-disable-next-line no-console
     console.log("DB: Skipping auto-init because NODE_ENV=test");
-  // eslint-disable-next-line no-console
+    // eslint-disable-next-line no-console
   } else {
     // eslint-disable-next-line no-console
     console.log("DB: Auto-initializing...");
   }
-// eslint-disable-next-line no-console
+  // eslint-disable-next-line no-console
 } else {
   // eslint-disable-next-line no-console
   console.log("DB: Not auto-initializing because DATABASE_URL is missing/empty");
@@ -138,17 +138,19 @@ async function closeDatabase() {
 // Create a getter for db that returns the initialized database
 // This ensures that code importing { db } will get the properly initialized instance
 const db = new Proxy({} as DrizzleDB, {
-  get(target, prop) {
+  get(_target, prop) {
     if (!_db) {
       throw new Error("Database not initialized. Call await initializeDatabase() first.");
     }
+    if (typeof prop === 'symbol') { return (_db as any)[prop]; }
     return _db[prop as keyof DrizzleDB];
   },
-  set(target, prop, value) {
+  set(_target, prop, value) {
     if (!_db) {
       throw new Error("Database not initialized. Call await initializeDatabase() first.");
     }
-    (_db as Record<string, unknown>)[prop] = value;
+    if (typeof prop === 'symbol') { return true; }
+    (_db as unknown as Record<string, unknown>)[prop] = value;
     return true;
   }
 });
