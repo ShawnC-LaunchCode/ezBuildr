@@ -35,35 +35,41 @@ export function assertAuthRequest(req: Request): asserts req is AuthRequest & { 
 /**
  * JWT Authentication Middleware
  */
-export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const authHeader = req.headers.authorization;
-    const token = authService.extractTokenFromHeader(authHeader);
-    if (!token) {
-      logger.warn({ path: req.path }, 'No authorization token provided');
-      throw new UnauthorizedError('Authentication required');
+export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  const runAuth = async () => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authService.extractTokenFromHeader(authHeader);
+      if (!token) {
+        logger.warn({ path: req.path }, 'No authorization token provided');
+        throw new UnauthorizedError('Authentication required');
+      }
+      const payload = authService.verifyToken(token);
+      await attachUserToRequest(req, payload);
+      next();
+    } catch (error) {
+      sendErrorResponse(res, error as Error);
     }
-    const payload = authService.verifyToken(token);
-    await attachUserToRequest(req, payload);
-    next();
-  } catch (error) {
-    sendErrorResponse(res, error as Error);
-  }
+  };
+  void runAuth();
 }
 /**
  * Optional JWT Authentication Middleware
  */
-export async function optionalAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const authHeader = req.headers.authorization;
-    const token = authService.extractTokenFromHeader(authHeader);
-    if (!token) { return next(); }
-    const payload = authService.verifyToken(token);
-    await attachUserToRequest(req, payload);
-    next();
-  } catch (error) {
-    next();
-  }
+export function optionalAuth(req: Request, res: Response, next: NextFunction): void {
+  const runAuth = async () => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authService.extractTokenFromHeader(authHeader);
+      if (!token) { return next(); }
+      const payload = authService.verifyToken(token);
+      await attachUserToRequest(req, payload);
+      next();
+    } catch (error) {
+      next();
+    }
+  };
+  void runAuth();
 }
 // =================================================================
 // STRATEGIES
@@ -157,9 +163,10 @@ async function hybridAuthLogic(req: Request, res: Response, next: NextFunction):
     sendErrorResponse(res, error as Error);
   }
 }
-export const hybridAuth = (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  return hybridAuthLogic(req, res, next);
+export const hybridAuth = (req: Request, res: Response, next: NextFunction): void => {
+  void hybridAuthLogic(req, res, next);
 };
+
 async function optionalHybridAuthLogic(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     if (await jwtStrategy(req)) {
@@ -176,8 +183,9 @@ async function optionalHybridAuthLogic(req: Request, res: Response, next: NextFu
     next();
   }
 }
-export const optionalHybridAuth = (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  return optionalHybridAuthLogic(req, res, next);
+
+export const optionalHybridAuth = (req: Request, res: Response, next: NextFunction): void => {
+  void optionalHybridAuthLogic(req, res, next);
 };
 // =================================================================
 // HELPERS

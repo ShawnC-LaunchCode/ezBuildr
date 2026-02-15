@@ -1,12 +1,14 @@
 /**
  * TableGridView Component Tests (PR 7)
  * Tests for the basic grid view component
+ * Note: Component renders both desktop table and mobile card views.
+ * In jsdom, both are visible (no CSS media queries), so some elements appear twice.
  */
 
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -97,15 +99,15 @@ describe('TableGridView', () => {
     // Should show loading initially
     expect(screen.getByRole('status')).toBeInTheDocument();
 
-    // Wait for data to load
+    // Wait for data to load (elements appear in both desktop and mobile views)
     await waitFor(() => {
-      expect(screen.getByText('Name')).toBeInTheDocument();
-      expect(screen.getByText('Age')).toBeInTheDocument();
+      expect(screen.getAllByText('Name').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Age').length).toBeGreaterThanOrEqual(1);
     });
 
     // Should display row data
-    expect(screen.getByText('John Doe')).toBeInTheDocument();
-    expect(screen.getByText('Jane Smith')).toBeInTheDocument();
+    expect(screen.getAllByText('John Doe').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Jane Smith').length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders correct column headers', async () => {
@@ -115,14 +117,14 @@ describe('TableGridView', () => {
     renderComponent();
 
     await waitFor(() => {
-      expect(screen.getByText('Name')).toBeInTheDocument();
+      expect(screen.getAllByText('Name').length).toBeGreaterThanOrEqual(1);
     });
 
-    // Should show column names
-    expect(screen.getByText('Name')).toBeInTheDocument();
-    expect(screen.getByText('Age')).toBeInTheDocument();
+    // Should show column names (in both desktop and mobile views)
+    expect(screen.getAllByText('Name').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Age').length).toBeGreaterThanOrEqual(1);
 
-    // Should have Actions column
+    // Should have Actions column (desktop only)
     expect(screen.getByText('Actions')).toBeInTheDocument();
   });
 
@@ -136,7 +138,8 @@ describe('TableGridView', () => {
     renderComponent();
 
     await waitFor(() => {
-      expect(screen.getByText(/no rows yet/i)).toBeInTheDocument();
+      // Empty state appears in both desktop and mobile views
+      expect(screen.getAllByText(/no rows yet/i).length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -144,18 +147,16 @@ describe('TableGridView', () => {
     vi.mocked(datavaultAPI.getTableSchema).mockResolvedValue(mockSchema);
     vi.mocked(datavaultAPI.listRows).mockResolvedValue(mockRows);
 
-    const user = userEvent.setup();
     renderComponent();
 
     await waitFor(() => {
-      expect(screen.getByText('John Doe')).toBeInTheDocument();
+      expect(screen.getAllByText('John Doe').length).toBeGreaterThanOrEqual(1);
     });
 
-    // Double click on a cell
-    const cell = screen.getByText('John Doe').closest('td');
-    if (cell) {
-      await user.dblClick(cell);
-    }
+    // Double click on the text element - event bubbles up to td's onDoubleClick handler
+    const table = screen.getByRole('table');
+    const textEl = within(table).getByText('John Doe');
+    fireEvent.doubleClick(textEl);
 
     // Should show input field
     await waitFor(() => {
@@ -172,14 +173,19 @@ describe('TableGridView', () => {
     renderComponent();
 
     await waitFor(() => {
-      expect(screen.getByText('John Doe')).toBeInTheDocument();
+      expect(screen.getAllByText('John Doe').length).toBeGreaterThanOrEqual(1);
     });
 
-    // Double click to edit
-    const cell = screen.getByText('John Doe').closest('td');
-    if (cell) {
-      await user.dblClick(cell);
-    }
+    // Double click to edit in desktop table
+    const table = screen.getByRole('table');
+    const cell = within(table).getByText('John Doe').closest('td');
+    expect(cell).not.toBeNull();
+    fireEvent.dblClick(cell!);
+
+    // Wait for input to appear
+    await waitFor(() => {
+      expect(screen.getByRole('textbox')).toBeInTheDocument();
+    });
 
     // Type new value
     const input = screen.getByRole('textbox');
@@ -215,7 +221,8 @@ describe('TableGridView', () => {
     renderComponent();
 
     await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: /delete/i })).toHaveLength(2);
+      // 2 rows × 2 views (desktop + mobile) = 4 delete buttons
+      expect(screen.getAllByRole('button', { name: /delete/i })).toHaveLength(4);
     });
   });
 
