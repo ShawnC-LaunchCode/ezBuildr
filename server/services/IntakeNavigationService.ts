@@ -76,7 +76,8 @@ export class IntakeNavigationService {
     for (const page of sortedPages) {
       let isVisible = true;
       // Evaluate visibleIf condition
-      if (typeof page.visibleIf === 'string' && page.visibleIf !== '') {
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- visibleIf can be string or object
+      if (page.visibleIf) {
         try {
           isVisible = evaluateVisibility(page.visibleIf, variables);
           if (!isVisible) {
@@ -96,7 +97,8 @@ export class IntakeNavigationService {
     // Evaluate skipIf for visible pages
     const skippedPages: string[] = [];
     const navigablePages = visiblePages.filter(page => {
-      if (typeof page.skipIf === 'string' && page.skipIf !== '') {
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- skipIf can be string or object
+      if (page.skipIf) {
         try {
           const shouldSkip = evaluateVisibility(page.skipIf, variables);
           if (shouldSkip) {
@@ -205,7 +207,8 @@ export class IntakeNavigationService {
     const pages = await sectionRepository.findByWorkflowId(workflowId);
     // Check for pages with both visibleIf and skipIf (valid but potentially confusing)
     for (const page of pages) {
-      if ((typeof page.visibleIf === 'string' && page.visibleIf !== '') && (typeof page.skipIf === 'string' && page.skipIf !== '')) {
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- visibleIf/skipIf can be string or object
+      if (page.visibleIf && page.skipIf) {
         errors.push(
           `Page "${page.title}" has both visibleIf and skipIf conditions. ` +
           `skipIf will only apply if the page is visible.`

@@ -65,13 +65,13 @@ vi.mock('fs/promises', () => ({
 
 describeWithDb('Template Node - Multi-Template Support', () => {
   let factory: ReturnType<typeof createTestFactory>;
-  let _testProjectId: string;
-  let _testWorkflowId: string;
+  let testProjectId: string;
+  let testWorkflowId: string;
   let testVersionId: string;
   let testTemplateId1: string;
-  let _testTemplateId2: string;
+  let testTemplateId2: string;
   let testTenantId: string;
-  let _testUserId: string;
+  let testUserId: string;
   let testRunId: string;
 
   beforeEach(async () => {

@@ -172,11 +172,7 @@ describe("WriteRunner", () => {
             expect(result.success).toBe(true);
             expect(result.rowId).toBe("row-existing-1");
             expect(datavaultRowsRepository.findRowByColumnValue).toHaveBeenCalledWith(
-                "table-users", "col-email", "test@example.com", mockTenantId, expect.anything(), false
-            );
-            // It calls findRowByColumnValue (repository) directly for finding ID
-            expect(datavaultRowsRepository.findRowByColumnValue).toHaveBeenCalledWith(
-                "table-users", "col-email", "test@example.com", mockTenantId, expect.anything(), false
+                "table-users", "col-email", "test@example.com", expect.objectContaining({ tenantId: mockTenantId, forUpdate: false })
             );
             // Then calls service execution
             expect(datavaultRowsService.updateRow).toHaveBeenCalledWith(
