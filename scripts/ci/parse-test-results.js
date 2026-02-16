@@ -320,7 +320,23 @@ function main() {
   const allSlowTests = [
     ...(vitest?.slowestTests || []).map(t => ({ ...t, framework: 'vitest' })),
     ...(playwright?.slowestTests || []).map(t => ({ ...t, framework: 'playwright' })),
-    console.log(`   Status: ${summary.status.toUpperCase()}`);
+  ].sort((a, b) => b.duration - a.duration).slice(0, 5);
+
+  const summary = {
+    total: (vitest?.total || 0) + (playwright?.total || 0),
+    passed: (vitest?.passed || 0) + (playwright?.passed || 0),
+    failed: (vitest?.failed || 0) + (playwright?.failed || 0),
+    skipped: (vitest?.skipped || 0) + (playwright?.skipped || 0),
+    duration: (vitest?.duration || 0) + (playwright?.duration || 0),
+    status: determineStatus(vitest, playwright),
+    slowestTest: allSlowTests[0] || null,
+  };
+
+  // Write output
+  fs.writeFileSync(args.output, JSON.stringify({ vitest, playwright, summary }, null, 2));
+  console.log(`\n✅ Test results parsed successfully`);
+  console.log(`   Output: ${args.output}`);
+  console.log(`   Status: ${summary.status.toUpperCase()}`);
   console.log(`   Total: ${summary.passed}/${summary.total} passed`);
 
   // Exit with appropriate code
