@@ -91,6 +91,28 @@ if (typeof window !== 'undefined') {
 }
 // Helper to check if we should connect to real DB
 const shouldConnectToDb = () => {
+  // Check if we are running in a unit test file context
+  try {
+    const state = expect.getState();
+    const testPath = state.testPath || state.currentTestName;
+    // Only skip DB for pure unit tests (components, hooks, utils)
+    // Service tests in tests/unit often use the DB (integration tests in disguise)
+    // eslint-disable-next-line @typescript-eslint/prefer-includes
+    if (testPath && (
+      testPath.includes('/unit/components/') ||
+      testPath.includes('\\unit\\components\\') ||
+      testPath.includes('/unit/hooks/') ||
+      testPath.includes('\\unit\\hooks\\') ||
+      testPath.includes('/unit/utils/') ||
+      testPath.includes('\\unit\\utils\\')
+    )) {
+      console.log(`ℹ️  Skipping DB connection for component/hook/util unit test: ${testPath}`);
+      return false;
+    }
+  } catch (e) {
+    // expect.getState() might fail if not in test context, ignore
+  }
+
   // Don't connect if we are explicitly in unit tests (which interpret "db" as a mock)
   // or if NO database URL was provided at all
   if (process.env.TEST_TYPE === 'unit') { return false; }
@@ -103,7 +125,7 @@ beforeAll(async () => {
   if (typeof window !== 'undefined') {
     try {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
+      // @ts-expect-error - types for jest-dom might be missing in this context
       await import("@testing-library/jest-dom");
     } catch (e) {
       console.warn("Failed to load jest-dom:", e);
@@ -525,9 +547,10 @@ if (isIntegrationTest) {
 // Mock AI Providers Globally to prevent rate limits and network calls
 vi.mock("@google/generative-ai", () => {
   return {
-    GoogleGenerativeAI: vi.fn().mockImplementation(() => {
-      return {
-        getGenerativeModel: vi.fn().mockReturnValue({
+    GoogleGenerativeAI: class MockGoogleGenerativeAI {
+      constructor(_apiKey: string) { }
+      getGenerativeModel(_params?: unknown) {
+        return {
           generateContent: vi.fn().mockResolvedValue({
             response: {
               text: () => JSON.stringify({
@@ -538,39 +561,39 @@ vi.mock("@google/generative-ai", () => {
               }),
             },
           }),
-        }),
-      };
-    }),
+        };
+      }
+    },
   };
 });
 vi.mock("openai", () => {
-  const OpenAIClass = vi.fn().mockImplementation(() => ({
-    chat: {
+  class MockOpenAI {
+    chat = {
       completions: {
         create: vi.fn().mockResolvedValue({
           choices: [{ message: { content: "{}" } }],
           usage: { total_tokens: 10 },
         }),
       },
-    },
-  }));
+    };
+  }
   return {
-    'OpenAI': OpenAIClass,
-    default: OpenAIClass,
+    'OpenAI': MockOpenAI,
+    default: MockOpenAI,
   };
 });
 vi.mock("@anthropic-ai/sdk", () => {
-  const AnthropicClass = vi.fn().mockImplementation(() => ({
-    messages: {
+  class MockAnthropic {
+    messages = {
       create: vi.fn().mockResolvedValue({
         content: [{ text: "{}" }],
         usage: { input_tokens: 10, output_tokens: 10 },
       }),
-    },
-  }));
+    };
+  }
   return {
     // eslint-disable-next-line @typescript-eslint/naming-convention
-    'Anthropic': AnthropicClass,
-    default: AnthropicClass,
+    'Anthropic': MockAnthropic,
+    default: MockAnthropic,
   };
 });

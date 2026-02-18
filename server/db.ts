@@ -60,18 +60,36 @@ async function initializeDatabase() {
 
     const testSchema = process.env.TEST_SCHEMA ?? (global as Record<string, unknown>).__TEST_SCHEMA__;
     if (testSchema && env.NODE_ENV === 'test') {
-      // eslint-disable-next-line @typescript-eslint/no-misused-promises
-      pool.on('connect', async (client) => {
+      // Wrap pool.connect to guarantee search_path is set before any queries.
+      // The async pool.on('connect') handler has a race condition where queries
+      // can execute before the handler completes. This wrapper ensures the
+      // search_path SET completes before the client is returned to the caller.
+      const originalConnect = pool.connect.bind(pool);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (pool as any).connect = async function(callback?: any) {
+        if (callback) {
+          // Callback-style: pool.connect((err, client, release) => ...)
+          return originalConnect(async (err: Error | undefined, client: any, release: () => void) => {
+            if (!err && client) {
+              try {
+                await client.query(`SET search_path TO "${String(testSchema)}", public`);
+              } catch (e: unknown) {
+                logger.warn(`DB: Failed to set search_path: ${e instanceof Error ? e.message : String(e)}`);
+              }
+            }
+            callback(err, client, release);
+          });
+        }
+        // Promise-style: const client = await pool.connect()
+        const client = await originalConnect();
         try {
           await client.query(`SET search_path TO "${String(testSchema)}", public`);
-          logger.debug(`DB: Set search_path on new connection: "${String(testSchema)}",public`);
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : String(err);
-          logger.warn(`DB: Failed to set search_path on connection: ${message}`);
+        } catch (e: unknown) {
+          logger.warn(`DB: Failed to set search_path: ${e instanceof Error ? e.message : String(e)}`);
         }
-      });
-
-      logger.info(`DB: Configured on('connect') to set search_path="${String(testSchema)}",public`);
+        return client;
+      };
+      logger.info(`DB: Pool.connect wrapped to set search_path="${String(testSchema)}",public`);
     }
 
     logger.debug("DB: importing drizzle...");

@@ -50,9 +50,10 @@ vi.mock('../../../server/middleware/auth', () => ({
 // Mock Gemini API
 vi.mock('@google/generative-ai', () => {
   return {
-    GoogleGenerativeAI: vi.fn(() => {
-      return {
-        getGenerativeModel: vi.fn().mockReturnValue({
+    GoogleGenerativeAI: class {
+      constructor(_apiKey?: string) { }
+      getGenerativeModel() {
+        return {
           generateContent: vi.fn().mockResolvedValue({
             response: {
               text: () => JSON.stringify({
@@ -79,9 +80,9 @@ vi.mock('@google/generative-ai', () => {
               }),
             },
           }),
-        }),
-      };
-    }),
+        };
+      }
+    },
   };
 });
 describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
