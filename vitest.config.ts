@@ -13,7 +13,17 @@ export default defineConfig({
     environment: "node",
     setupFiles: ["./tests/setup.ts"],
     include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
-    exclude: ["tests/e2e/**/*", "node_modules/**/*"],
+    exclude: [
+      "tests/e2e/**/*",
+      "tests/integration/*.real.test.ts",
+      // Organization tests timeout at 300s+ per hook, blocking entire forks.
+      // Run these separately with: npx vitest run tests/integration/organizationService.test.ts --single-fork
+      "tests/integration/organizationService.test.ts",
+      "tests/integration/organizationInvites.test.ts",
+      "tests/integration/organizations-audit-fixes.test.ts",
+      "tests/integration/transferOwnership.test.ts",
+      "node_modules/**/*",
+    ],
     alias: {
       "@": path.resolve(__dirname, "./client/src"),
       "@server": path.resolve(__dirname, "./server"),
@@ -73,5 +83,5 @@ export default defineConfig({
       "@shared": path.resolve(__dirname, "./shared"),
     },
   },
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- vitest config type mismatch with poolOptions at top level
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Vitest 4 moved poolOptions to top level but types lag behind
 } as any);

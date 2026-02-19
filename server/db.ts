@@ -56,7 +56,11 @@ async function initializeDatabase() {
     const pg = await import('pg');
 
     logger.debug("DB: creating pool...");
-    pool = new pg.default.Pool({ connectionString: databaseUrl });
+    // In test mode, use a single connection to prevent Neon's server-side connection
+    // routing from sending consecutive queries to different backends with different
+    // search_path settings. This ensures schema isolation is reliable.
+    const poolSize = env.NODE_ENV === 'test' ? 1 : 10;
+    pool = new pg.default.Pool({ connectionString: databaseUrl, max: poolSize });
 
     const testSchema = process.env.TEST_SCHEMA ?? (global as Record<string, unknown>).__TEST_SCHEMA__;
     if (testSchema && env.NODE_ENV === 'test') {
@@ -65,6 +69,8 @@ async function initializeDatabase() {
       // can execute before the handler completes. This wrapper ensures the
       // search_path SET completes before the client is returned to the caller.
       const originalConnect = pool.connect.bind(pool);
+      const schemaStr = String(testSchema);
+      const workerId = process.env.VITEST_WORKER_ID ?? '?';
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (pool as any).connect = async function(callback?: any) {
         if (callback) {
@@ -72,9 +78,10 @@ async function initializeDatabase() {
           return originalConnect(async (err: Error | undefined, client: any, release: () => void) => {
             if (!err && client) {
               try {
-                await client.query(`SET search_path TO "${String(testSchema)}", public`);
+                await client.query(`SET search_path TO "${schemaStr}", public`);
               } catch (e: unknown) {
-                logger.warn(`DB: Failed to set search_path: ${e instanceof Error ? e.message : String(e)}`);
+                // eslint-disable-next-line no-console
+                console.error(`[DB-WRAP] Worker ${workerId}: Failed to set search_path: ${e instanceof Error ? e.message : String(e)}`);
               }
             }
             callback(err, client, release);
@@ -83,13 +90,13 @@ async function initializeDatabase() {
         // Promise-style: const client = await pool.connect()
         const client = await originalConnect();
         try {
-          await client.query(`SET search_path TO "${String(testSchema)}", public`);
+          await client.query(`SET search_path TO "${schemaStr}", public`);
         } catch (e: unknown) {
-          logger.warn(`DB: Failed to set search_path: ${e instanceof Error ? e.message : String(e)}`);
+          // eslint-disable-next-line no-console
+          console.error(`[DB-WRAP] Worker ${workerId}: Failed to set search_path: ${e instanceof Error ? e.message : String(e)}`);
         }
         return client;
       };
-      logger.info(`DB: Pool.connect wrapped to set search_path="${String(testSchema)}",public`);
     }
 
     logger.debug("DB: importing drizzle...");

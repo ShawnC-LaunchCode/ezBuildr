@@ -1,5 +1,4 @@
 ﻿import { beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
-console.log("SETUP: Loading setup.ts...");
 import dotenv from "dotenv";
 
 // import "@testing-library/jest-dom";
@@ -173,7 +172,6 @@ beforeAll(async () => {
         }
       }
       // Dynamically import server/db to ensure it picks up the mutated env vars
-      console.log(`[SETUP] DATABASE_URL sent to db module: ${process.env.DATABASE_URL}`);
       const dbModule = await import("../server/db");
       // Check if the module is valid (not a partial mock missing exports)
       // Use 'in' check to avoid accessing undefined properties on strict mocks
@@ -195,29 +193,35 @@ beforeAll(async () => {
           const schema = (global as any).__TEST_SCHEMA__;
           // Set search_path for the current connection
           await db.execute(`SET search_path TO "${schema}", public`);
-          // Also set the default search_path for the database role (if possible)
-          // This ensures NEW connections also get the correct search_path
-          try {
-            const { Client } = await import('pg');
-            const client = new Client({ connectionString: process.env.DATABASE_URL });
-            await client.connect();
-            // Note: This sets the default for the current DATABASE, not just this connection
-            await client.query(`ALTER DATABASE ${client.database} SET search_path TO "${schema}", public`);
-            await client.end();
-            console.log(`✅ Set default search_path for database: ${schema}, public`);
-          } catch (err: any) {
-            // This might fail if we don't have ALTER DATABASE permission, which is OK
-            console.log(`⚠️ Could not set database-level search_path (expected in cloud DBs): ${err.message}`);
-          }
+          // NOTE: We intentionally do NOT use ALTER DATABASE SET search_path here.
+          // When multiple test forks run in parallel, they all share the same database
+          // and would race to set the database-level default, causing cross-fork interference.
+          // Instead, we rely on the pool.connect() wrapper in server/db.ts which sets
+          // search_path on every connection checkout, guaranteeing fork isolation.
           console.log(`✅ Enforced search_path: ${schema}, public`);
         }
-        // DEBUG: Check current schema and search_path
-        const schemaRes = await db.execute("SELECT current_schema()");
-        const searchPathRes = await db.execute("SHOW search_path");
-        console.log(`✅ Database initialized. Current schema: ${schemaRes.rows[0].current_schema}`);
-        console.log(`✅ Current search_path: ${searchPathRes.rows[0].search_path}`);
         // Run database migrations for test DB
         await applyManualMigrations(db);
+        // CLEAN DATA when reusing schemas to prevent stale FK violations
+        // (Schema structure is preserved, only data is cleared)
+        if ((global as any).__SKIP_MIGRATIONS__) {
+          try {
+            await db.execute(`
+              DO $$ DECLARE r RECORD;
+              BEGIN
+                FOR r IN (SELECT tablename FROM pg_tables
+                          WHERE schemaname = current_schema()
+                          AND tablename NOT LIKE '__drizzle%')
+                LOOP
+                  EXECUTE format('TRUNCATE TABLE %I.%I CASCADE', current_schema(), r.tablename);
+                END LOOP;
+              END $$;
+            `);
+            console.log('🧹 Truncated stale data from reused schema');
+          } catch (truncErr: any) {
+            console.warn(`⚠️ Failed to truncate stale data: ${truncErr.message}`);
+          }
+        }
         // FAILSAFE: Hardcode fixes for known schema regressions
         // We use fully qualified names to ensure we target the isolated schema
         const currentTestSchema = (global as any).__TEST_SCHEMA__ || 'public';
@@ -318,11 +322,9 @@ async function ensureDbFunctions() {
       WHERE p.proname = 'datavault_get_next_autonumber'
       AND n.nspname = current_schema();
     `);
-  console.log("DEBUG: Existing functions:", JSON.stringify(existingFuncs.rows || existingFuncs, null, 2));
   // Create a loop to drop all existing overloads
   if (existingFuncs.rows && existingFuncs.rows.length > 0) {
     for (const func of existingFuncs.rows) {
-      console.log(`DEBUG: Dropping existing function: ${func.signature}`);
       await db.execute(`DROP FUNCTION IF EXISTS ${func.signature} CASCADE;`);
     }
   } else {

@@ -18,9 +18,9 @@ describe('Templates Atomicity - Code Structure Verification', () => {
     const sourcePath = path.join(__dirname, '../../server/routes/templates.routes.ts');
     fullSourceCode = await fs.readFile(sourcePath, 'utf-8');
 
-    // Extract PATCH handler
+    // Extract PATCH handler (ends with `})\n);` — asyncHandler close + router.patch close)
     const match = fullSourceCode.match(
-      /\/\*\*\s*\n\s*\*\s*PATCH \/templates\/:id[\s\S]*?router\.patch\s*\([\s\S]*?\n\s*\}\s*\n\s*\);/
+      /\/\*\*\s*\n\s*\*\s*PATCH \/templates\/:id[\s\S]*?router\.patch\s*\([\s\S]*?\n\s*\}\s*\)\s*\n\s*\);/
     );
     patchHandlerCode = match ? match[0] : '';
   });
@@ -66,12 +66,12 @@ describe('Templates Atomicity - Code Structure Verification', () => {
   });
 
   it('should only attempt deletion when both oldFileRef and newFileRef exist', () => {
-    expect(patchHandlerCode).toMatch(/if\s*\(\s*oldFileRef\s*&&\s*newFileRef\s*\)/);
+    expect(patchHandlerCode).toMatch(/if\s*\(\s*oldFileRef\s*!==\s*undefined\s*&&\s*newFileRef\s*!==\s*undefined\s*\)/);
   });
 
   it('should clean up newFileRef on error (rollback)', () => {
     // The catch block should attempt to delete newFileRef if it exists
-    expect(patchHandlerCode).toMatch(/catch[\s\S]*?if\s*\(\s*newFileRef\s*\)[\s\S]*?deleteTemplateFile\(newFileRef\)/);
+    expect(patchHandlerCode).toMatch(/catch[\s\S]*?if\s*\(\s*newFileRef\s*!==\s*undefined\s*\)[\s\S]*?deleteTemplateFile\(newFileRef\)/);
   });
 
   it('should have proper auth middleware on all routes', () => {
