@@ -16,7 +16,7 @@ import { WorkflowTemplateService } from '../../../server/services/WorkflowTempla
 import { createError } from '../../../server/utils/errors';
 import { projects } from '../../../shared/schema';
 import { describeWithDb } from '../../helpers/dbTestHelper';
-import { createTestFactory } from '../../helpers/testFactory';
+import { createTestFactory, TestFactory } from '../../helpers/testFactory';
 // Mock DocumentTemplateService
 vi.mock('../../../server/services/DocumentTemplateService', () => ({
   documentTemplateService: {
@@ -37,38 +37,43 @@ describeWithDb('WorkflowTemplateService', () => {
   beforeEach(async () => {
     factory = createTestFactory();
     service = new WorkflowTemplateService();
-    // Create test hierarchy using factory
-    const { tenant, user, project } = await factory.createTenant();
-    testTenantId = tenant.id;
-    testUserId = user.id;
-    testProjectId = project.id;
-    // Create test workflow with version
-    const { version } = await factory.createWorkflow(project.id, user.id, {
-      workflow: {
-        name: 'Test Workflow',
-      },
-      version: {
-        graphJson: {},
-        createdBy: user.id,
-      },
-    });
+    // Wrap all setup in a single transaction to guarantee Neon read-after-write consistency.
+    await db.transaction(async (tx: any) => {
+      const txFactory = new TestFactory(tx);
+      // Create test hierarchy using factory
+      const { tenant, user, project } = await txFactory.createTenant();
+      testTenantId = tenant.id;
+      testUserId = user.id;
+      testProjectId = project.id;
 
-    testVersionId = version.id;
-    // Create test templates
-    const { template: template1 } = await factory.createTemplate(project.id, user.id, {
-      name: 'Template 1',
-      description: 'First test template',
-      type: 'docx',
-      fileRef: '/uploads/template1.docx',
+      // Create test workflow with version
+      const { version } = await txFactory.createWorkflow(project.id, user.id, {
+        workflow: {
+          name: 'Test Workflow',
+        },
+        version: {
+          graphJson: {},
+          createdBy: user.id,
+        },
+      });
+
+      testVersionId = version.id;
+      // Create test templates
+      const { template: template1 } = await txFactory.createTemplate(project.id, user.id, {
+        name: 'Template 1',
+        description: 'First test template',
+        type: 'docx',
+        fileRef: '/uploads/template1.docx',
+      });
+      testTemplateId1 = template1.id;
+      const { template: template2 } = await txFactory.createTemplate(project.id, user.id, {
+        name: 'Template 2',
+        description: 'Second test template',
+        type: 'docx',
+        fileRef: '/uploads/template2.docx',
+      });
+      testTemplateId2 = template2.id;
     });
-    testTemplateId1 = template1.id;
-    const { template: template2 } = await factory.createTemplate(project.id, user.id, {
-      name: 'Template 2',
-      description: 'Second test template',
-      type: 'docx',
-      fileRef: '/uploads/template2.docx',
-    });
-    testTemplateId2 = template2.id;
     // Mock getTemplate to return valid template
     vi.mocked(documentTemplateService.getTemplate).mockResolvedValue({
       id: testTemplateId1,

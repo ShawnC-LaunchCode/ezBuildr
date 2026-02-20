@@ -78,50 +78,55 @@ export class TestFactory {
     user?: Partial<typeof schema.users.$inferInsert>;
     project?: Partial<typeof schema.projects.$inferInsert>;
   }): Promise<TestTenant> {
-    // Create tenant
-    const [tenant] = await this.db
-      .insert(schema.tenants)
-      .values({
-        id: generateId(),
-        name: 'Test Tenant',
-        slug: generateSlug('test-tenant'),
-        plan: 'pro',
-        ...overrides?.tenant,
-      })
-      .returning();
-    // Create user with admin/owner role for test permissions
-    const [user] = await this.db
-      .insert(schema.users)
-      .values({
-        id: generateId(),
-        tenantId: tenant.id,
-        email: `test-${Date.now()}@example.com`,
-        firstName: 'Test',
-        lastName: 'User',
-        fullName: 'Test User',
-        role: 'admin',         // ✅ Admin role for full permissions
-        tenantRole: 'owner',   // ✅ Owner for tenant-level access
-        authProvider: 'local',
-        defaultMode: 'easy',
-        ...overrides?.user,
-      })
-      .returning();
-    // Create project with all required ownership fields
-    const [project] = await this.db
-      .insert(schema.projects)
-      .values({
-        id: generateId(),
-        tenantId: tenant.id,
-        name: 'Test Project',
-        title: 'Test Project', // Required field
-        description: 'Test project for integration tests',
-        createdBy: user.id,
-        creatorId: user.id,  // Backward compatibility
-        ownerId: user.id,    // Owner for access control
-        ...overrides?.project,
-      })
-      .returning();
-    return { tenant, user, project };
+    // Wrap all inserts in a transaction to guarantee Neon read-after-write consistency.
+    // Without a transaction, Neon may route consecutive queries to different backends,
+    // causing FK violations when child rows reference just-inserted parent rows.
+    return this.db.transaction(async (tx: any) => {
+      // Create tenant
+      const [tenant] = await tx
+        .insert(schema.tenants)
+        .values({
+          id: generateId(),
+          name: 'Test Tenant',
+          slug: generateSlug('test-tenant'),
+          plan: 'pro',
+          ...overrides?.tenant,
+        })
+        .returning();
+      // Create user with admin/owner role for test permissions
+      const [user] = await tx
+        .insert(schema.users)
+        .values({
+          id: generateId(),
+          tenantId: tenant.id,
+          email: `test-${Date.now()}@example.com`,
+          firstName: 'Test',
+          lastName: 'User',
+          fullName: 'Test User',
+          role: 'admin',         // Admin role for full permissions
+          tenantRole: 'owner',   // Owner for tenant-level access
+          authProvider: 'local',
+          defaultMode: 'easy',
+          ...overrides?.user,
+        })
+        .returning();
+      // Create project with all required ownership fields
+      const [project] = await tx
+        .insert(schema.projects)
+        .values({
+          id: generateId(),
+          tenantId: tenant.id,
+          name: 'Test Project',
+          title: 'Test Project', // Required field
+          description: 'Test project for integration tests',
+          createdBy: user.id,
+          creatorId: user.id,  // Backward compatibility
+          ownerId: user.id,    // Owner for access control
+          ...overrides?.project,
+        })
+        .returning();
+      return { tenant, user, project };
+    });
   }
   /**
    * Create a workflow with version
@@ -134,32 +139,35 @@ export class TestFactory {
       version?: Partial<typeof schema.workflowVersions.$inferInsert>;
     }
   ): Promise<TestWorkflow> {
-    const [workflow] = await this.db
-      .insert(schema.workflows)
-      .values({
-        id: generateId(),
-        projectId,
-        title: 'Test Workflow',
-        description: 'Test workflow',
-        status: 'draft',
-        creatorId: userId,
-        ownerId: userId, // Required field
-        publicLink: `test-workflow-${generateId()}`,
-        ...overrides?.workflow,
-      })
-      .returning();
-    const [version] = await this.db
-      .insert(schema.workflowVersions)
-      .values({
-        id: generateId(),
-        workflowId: workflow.id,
-        versionNumber: 1,
-        graphJson: {},
-        createdBy: userId,
-        ...overrides?.version,
-      })
-      .returning();
-    return { workflow, version };
+    // Transaction ensures Neon routes workflow + version inserts to same backend
+    return this.db.transaction(async (tx: any) => {
+      const [workflow] = await tx
+        .insert(schema.workflows)
+        .values({
+          id: generateId(),
+          projectId,
+          title: 'Test Workflow',
+          description: 'Test workflow',
+          status: 'draft',
+          creatorId: userId,
+          ownerId: userId, // Required field
+          publicLink: `test-workflow-${generateId()}`,
+          ...overrides?.workflow,
+        })
+        .returning();
+      const [version] = await tx
+        .insert(schema.workflowVersions)
+        .values({
+          id: generateId(),
+          workflowId: workflow.id,
+          versionNumber: 1,
+          graphJson: {},
+          createdBy: userId,
+          ...overrides?.version,
+        })
+        .returning();
+      return { workflow, version };
+    });
   }
   /**
    * Create a section for a workflow

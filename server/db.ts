@@ -13,7 +13,7 @@ import type { Pool } from 'pg';
 
 type DrizzleDB = NodePgDatabase<typeof schema> | NeonDatabase<typeof schema>;
 
-let pool: Pool | NeonPool;
+let pool: Pool | NeonPool | null = null;
 let _db: DrizzleDB | null = null;  // Internal db reference
 let dbInitialized = false;
 let dbInitPromise: Promise<void>;
@@ -23,7 +23,7 @@ let dbInitPromise: Promise<void>;
 async function initializeDatabase() {
   if (dbInitialized) { return; }
 
-  const databaseUrl = env.DATABASE_URL;
+  const databaseUrl = process.env.DATABASE_URL || env.DATABASE_URL;
   const isDatabaseConfigured = Boolean(databaseUrl) && databaseUrl !== 'undefined' && databaseUrl !== '';
 
   if (!isDatabaseConfigured) {
@@ -72,7 +72,7 @@ async function initializeDatabase() {
       const schemaStr = String(testSchema);
       const workerId = process.env.VITEST_WORKER_ID ?? '?';
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (pool as any).connect = async function(callback?: any) {
+      (pool as any).connect = async function (callback?: any) {
         if (callback) {
           // Callback-style: pool.connect((err, client, release) => ...)
           return originalConnect(async (err: Error | undefined, client: any, release: () => void) => {
@@ -148,14 +148,16 @@ function getDb() {
 
 // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 // Close database connection (useful for tests)
+// Idempotent - safe to call multiple times
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 async function closeDatabase() {
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-  if (pool) {
+  if (pool != null) {
     logger.info("DB: closing pool...");
-    await pool.end();
+    const p = pool;
+    pool = null;       // Null out first to prevent double-end
     dbInitialized = false;
     _db = null;
+    await p.end();
     logger.info("DB: pool closed.");
   }
 }

@@ -17,7 +17,7 @@ import {
   runOutputs,
 } from '../../../shared/schema';
 import { describeWithDb } from '../../helpers/dbTestHelper';
-import { createTestFactory } from '../../helpers/testFactory';
+import { createTestFactory, TestFactory } from '../../helpers/testFactory';
 
 import type { TemplateNodeConfig, TemplateNodeInput } from '../../../server/engine/nodes/template';
 
@@ -69,39 +69,42 @@ describeWithDb('Template Node - Multi-Template Support', () => {
   beforeEach(async () => {
     factory = createTestFactory();
 
-    // Create test hierarchy using factory
-    const { tenant, user, project } = await factory.createTenant();
-    testTenantId = tenant.id;
+    // Wrap all setup in a single transaction to guarantee Neon read-after-write consistency.
+    // Without this, Neon may route consecutive queries to different backends,
+    // causing FK violations between createTenant/createWorkflow/createTemplate/createRun.
+    await db.transaction(async (tx: any) => {
+      const txFactory = new TestFactory(tx);
 
-    // Create test workflow with version
-    const { version } = await factory.createWorkflow(project.id, user.id, {
-      version: {
-        versionNumber: 1,
+      // Create test hierarchy using factory
+      const { tenant, user, project } = await txFactory.createTenant();
+      testTenantId = tenant.id;
 
-        changelog: 'Initial version',
-        createdBy: user.id,
-        graphJson: {},
-      },
+      // Create test workflow with version
+      const { version } = await txFactory.createWorkflow(project.id, user.id, {
+        version: {
+          versionNumber: 1,
+          changelog: 'Initial version',
+          createdBy: user.id,
+          graphJson: {},
+        },
+      });
+      testVersionId = version.id;
+
+      // Create test templates
+      const { template: template1 } = await txFactory.createTemplate(project.id, user.id, {
+        name: 'Engagement Letter',
+        description: 'Main engagement letter',
+        type: 'docx',
+        fileRef: 'template1.docx',
+      });
+      testTemplateId1 = template1.id;
+
+      // Create test run
+      const { run } = await txFactory.createRun(version.id, user.id, {
+        status: 'pending',
+      });
+      testRunId = run.id;
     });
-
-    testVersionId = version.id;
-
-    // Create test templates
-    const { template: template1 } = await factory.createTemplate(project.id, user.id, {
-      name: 'Engagement Letter',
-      description: 'Main engagement letter',
-      type: 'docx',
-      fileRef: 'template1.docx',
-    });
-    testTemplateId1 = template1.id;
-
-
-
-    // Create test run
-    const { run } = await factory.createRun(version.id, user.id, {
-      status: 'pending',
-    });
-    testRunId = run.id;
   });
 
   afterEach(async () => {

@@ -65,16 +65,10 @@ export default defineConfig({
     hookTimeout: 120000,
     fileParallelism: true,
     pool: "forks", // Use forks to isolate tests
-  },
-  poolOptions: {
-    forks: {
-      // Use environment variable to control parallelization
-      // SEQUENTIAL MODE (CI/CD): Set VITEST_SINGLE_FORK=true for 100% reliability
-      // PARALLEL MODE (local dev): Leave unset for speed
-      singleFork: process.env.VITEST_SINGLE_FORK === 'true',
-      minForks: 1,
-      maxForks: process.env.VITEST_SINGLE_FORK === 'true' ? 1 : 4,
-    }
+    // Vitest 4: minWorkers removed, only maxWorkers has effect
+    // SEQUENTIAL MODE (CI/CD): Set VITEST_SINGLE_FORK=true for 100% reliability
+    // PARALLEL MODE (local dev): Leave unset for speed (max 4 workers)
+    maxWorkers: process.env.VITEST_SINGLE_FORK === 'true' ? 1 : 4,
   },
   resolve: {
     alias: {
@@ -83,5 +77,4 @@ export default defineConfig({
       "@shared": path.resolve(__dirname, "./shared"),
     },
   },
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Vitest 4 moved poolOptions to top level but types lag behind
-} as any);
+});

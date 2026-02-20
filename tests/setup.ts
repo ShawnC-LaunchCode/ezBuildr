@@ -180,11 +180,8 @@ beforeAll(async () => {
         initializeDatabase = dbModule.initializeDatabase;
         closeDatabase = dbModule.closeDatabase;
         dbInitPromise = dbModule.dbInitPromise;
-        // Close potential existing connection from static imports
-        if (dbModule.closeDatabase) {
-          await dbModule.closeDatabase();
-        }
-        // Setup test database
+        // Initialize DB if not already initialized (idempotent - no-op after first call per fork)
+        // We intentionally do NOT close the pool between test files to avoid "pool already ended" errors.
         await initializeDatabase();
         await dbInitPromise;
         // CRITICAL: For test schemas, set search_path at the CONNECTION LEVEL (not session level)
@@ -257,23 +254,12 @@ beforeAll(async () => {
   }
 });
 afterAll(async () => {
-  // Cleanup test database
+  // OPTIMIZATION: Do NOT close the database pool or drop the schema here!
+  // We want to reuse both the pool and schema for the next test file running in this same worker.
+  // The fork process will clean up the pool when it exits.
+  // Closing the pool here causes "Called end on pool more than once" errors when the next
+  // test file's beforeAll tries to re-initialize, which aborts DB setup entirely.
   console.log("🧹 Cleaning up test environment...");
-  // Close DB pool first
-  if (closeDatabase) {
-    await closeDatabase();
-  } else if (db?.closeDatabase) {
-    await db.closeDatabase();
-  }
-  // Drop isolated schema if it exists
-  const _schemaName = (global as any).__TEST_SCHEMA__;
-  const _baseDbUrl = (global as any).__BASE_DB_URL__;
-  // OPTIMIZATION: Do NOT drop schema here!
-  // We want to reuse the schema for the next test file running in this same worker.
-  // This enables "Worker Reuse" strategy.
-  // if (schemaName && baseDbUrl) {
-  //   await SchemaManager.dropTestSchema(baseDbUrl, schemaName);
-  // }
 });
 beforeEach(async () => {
   // Reset mocks before each test

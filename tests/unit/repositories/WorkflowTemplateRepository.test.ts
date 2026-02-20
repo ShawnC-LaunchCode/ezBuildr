@@ -24,82 +24,87 @@ describeWithDb('WorkflowTemplateRepository', () => {
   let testUserId: string;
 
   beforeEach(async () => {
-    // Create test user
-    const [user] = await db
-      .insert(users)
-      .values({
-        email: 'test@example.com',
-        role: 'creator',
-      })
-      .returning();
-    testUserId = user.id;
+    // Wrap all setup inserts in a transaction to guarantee Neon read-after-write consistency.
+    // Without a transaction, Neon may route consecutive queries to different backends,
+    // causing FK violations when child rows reference just-inserted parent rows.
+    await db.transaction(async (tx: any) => {
+      // Create test user
+      const [user] = await tx
+        .insert(users)
+        .values({
+          email: 'test@example.com',
+          role: 'creator',
+        })
+        .returning();
+      testUserId = user.id;
 
-    // Create test project
-    const [project] = await db
-      .insert(projects)
-      .values({
-        name: 'Test Project',
-        title: 'Test Project',
-        description: 'Test project for workflow templates',
-        creatorId: testUserId,
-        createdBy: testUserId,
-        ownerId: testUserId,
-      })
-      .returning();
-    testProjectId = project.id;
+      // Create test project
+      const [project] = await tx
+        .insert(projects)
+        .values({
+          name: 'Test Project',
+          title: 'Test Project',
+          description: 'Test project for workflow templates',
+          creatorId: testUserId,
+          createdBy: testUserId,
+          ownerId: testUserId,
+        })
+        .returning();
+      testProjectId = project.id;
 
-    // Create test workflow
-    const [workflow] = await db
-      .insert(workflows)
-      .values({
-        projectId: testProjectId,
-        title: 'Test Workflow',
-        description: 'Test workflow',
-        status: 'draft',
-        creatorId: testUserId,
-        ownerId: testUserId,
-      })
-      .returning();
-    testWorkflowId = workflow.id;
+      // Create test workflow
+      const [workflow] = await tx
+        .insert(workflows)
+        .values({
+          projectId: testProjectId,
+          title: 'Test Workflow',
+          description: 'Test workflow',
+          status: 'draft',
+          creatorId: testUserId,
+          ownerId: testUserId,
+        })
+        .returning();
+      testWorkflowId = workflow.id;
 
-    // Create test workflow version
-    const [version] = await db
-      .insert(workflowVersions)
-      .values({
-        workflowId: testWorkflowId,
-        versionNumber: 1,
-        isDraft: true,
-        changelog: 'Initial version',
-        createdBy: testUserId,
-        graphJson: {},
-      })
-      .returning();
-    testVersionId = version.id;
+      // Create test workflow version
+      const [version] = await tx
+        .insert(workflowVersions)
+        .values({
+          workflowId: testWorkflowId,
+          versionNumber: 1,
+          isDraft: true,
+          changelog: 'Initial version',
+          createdBy: testUserId,
+          graphJson: {},
+        })
+        .returning();
+      testVersionId = version.id;
 
-    // Create test templates
-    const [template1] = await db
-      .insert(templates)
-      .values({
-        projectId: testProjectId,
-        name: 'Template 1',
-        description: 'First test template',
-        type: 'docx',
-        fileRef: '/uploads/template1.docx',
-      })
-      .returning();
-    testTemplateId1 = template1.id;
+      // Create test templates
+      const [template1] = await tx
+        .insert(templates)
+        .values({
+          projectId: testProjectId,
+          name: 'Template 1',
+          description: 'First test template',
+          type: 'docx',
+          fileRef: '/uploads/template1.docx',
+        })
+        .returning();
+      testTemplateId1 = template1.id;
 
-    const [template2] = await db
-      .insert(templates)
-      .values({
-        projectId: testProjectId,
-        name: 'Template 2',
-        description: 'Second test template',
-        type: 'docx',
-        fileRef: '/uploads/template2.docx',
-      })
-      .returning();
-    testTemplateId2 = template2.id;
+      const [template2] = await tx
+        .insert(templates)
+        .values({
+          projectId: testProjectId,
+          name: 'Template 2',
+          description: 'Second test template',
+          type: 'docx',
+          fileRef: '/uploads/template2.docx',
+        })
+        .returning();
+      testTemplateId2 = template2.id;
+    });
   });
 
   afterEach(async () => {

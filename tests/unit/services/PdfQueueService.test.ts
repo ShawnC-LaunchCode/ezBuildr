@@ -36,7 +36,7 @@ vi.mock('../../../server/services/docxRenderer2', () => ({
 vi.mock('../../../server/services/templates', async (importOriginal) => {
   const actual = await importOriginal();
   return {
-    ...(actual as any),
+    ...(actual as object),
     getOutputFilePath: vi.fn((fileRef: string) => `/fake/outputs/${fileRef}`),
   };
 });
@@ -67,82 +67,84 @@ describeWithDb('PdfQueueService', () => {
   });
 
   beforeEach(async () => {
-    testTenantId = '00000000-0000-0000-0000-000000000000';
+    // Wrap all setup inserts in a transaction to guarantee Neon read-after-write consistency.
+    // Without a transaction, Neon may route consecutive queries to different backends,
+    // causing FK violations when child rows reference just-inserted parent rows.
+    await db.transaction(async (tx: any) => {
+      // Create test user
+      const [user] = await tx
+        .insert(users)
+        .values({
+          email: 'test@example.com',
+          role: 'creator',
+        })
+        .returning();
+      const testUserId = user.id;
 
-    // Create test user
-    const [user] = await db
-      .insert(users)
-      .values({
-        email: 'test@example.com',
-        role: 'creator' as any,
-      })
-      .returning();
-    const testUserId = user.id;
+      // Create test tenant
+      const [tenant] = await tx
+        .insert(tenants)
+        .values({
+          name: 'Test Tenant',
+        })
+        .returning();
+      testTenantId = tenant.id;
 
-    // Create test tenant
-    const [tenant] = await db
-      .insert(tenants)
-      .values({
-        name: 'Test Tenant',
-      })
-      .returning();
-    testTenantId = tenant.id;
+      // Create test project
+      const [project] = await tx
+        .insert(projects)
+        .values({
+          name: 'Test Project',
+          title: 'Test Project',
+          description: 'Test project',
+          tenantId: testTenantId,
+          creatorId: testUserId,
+          createdBy: testUserId,
+          ownerId: testUserId,
+        })
+        .returning();
+      testProjectId = project.id;
 
-    // Create test project
-    const [project] = await db
-      .insert(projects)
-      .values({
-        name: 'Test Project',
-        title: 'Test Project',
-        description: 'Test project',
-        tenantId: testTenantId,
-        creatorId: testUserId,
-        createdBy: testUserId,
-        ownerId: testUserId,
-      })
-      .returning();
-    testProjectId = project.id;
+      // Create test workflow
+      const [workflow] = await tx
+        .insert(workflows)
+        .values({
+          projectId: testProjectId,
+          title: 'Test Workflow',
+          name: 'Test Workflow',
+          description: 'Test workflow',
+          status: 'draft',
+          creatorId: testUserId,
+          ownerId: testUserId,
+        })
+        .returning();
+      testWorkflowId = workflow.id;
 
-    // Create test workflow
-    const [workflow] = await db
-      .insert(workflows)
-      .values({
-        projectId: testProjectId,
-        title: 'Test Workflow',
-        name: 'Test Workflow',
-        description: 'Test workflow',
-        status: 'draft',
-        creatorId: testUserId,
-        ownerId: testUserId,
-      })
-      .returning();
-    testWorkflowId = workflow.id;
+      // Create test workflow version
+      const [version] = await tx
+        .insert(workflowVersions)
+        .values({
+          workflowId: testWorkflowId,
+          versionNumber: 1,
+          isDraft: true,
+          changelog: 'Initial version',
+          graphJson: {},
+          createdBy: testUserId,
+        })
+        .returning();
+      testVersionId = version.id;
 
-    // Create test workflow version
-    const [version] = await db
-      .insert(workflowVersions)
-      .values({
-        workflowId: testWorkflowId,
-        versionNumber: 1,
-        isDraft: true,
-        changelog: 'Initial version',
-        definition: {},
-        graphJson: {},
-        createdBy: testUserId,
-      } as any)
-      .returning();
-    testVersionId = version.id;
-
-    // Create test run
-    const [run] = await db
-      .insert(runs)
-      .values({
-        workflowVersionId: testVersionId,
-        status: 'pending',
-        createdBy: testUserId,
-      })
-      .returning();
-    testRunId = run.id;
+      // Create test run
+      const [run] = await tx
+        .insert(runs)
+        .values({
+          workflowVersionId: testVersionId,
+          status: 'pending',
+          createdBy: testUserId,
+        })
+        .returning();
+      testRunId = run.id;
+    });
   });
 
   afterEach(async () => {
@@ -352,9 +354,9 @@ describeWithDb('PdfQueueService', () => {
         runId: testRunId,
         workflowVersionId: testVersionId,
         templateKey: 'engagement_letter',
-        fileType: 'docx' as any,
+        fileType: 'docx',
         storagePath: 'test.docx',
-        status: 'ready' as any,
+        status: 'ready',
       });
 
       // Enqueue PDF job
@@ -387,9 +389,9 @@ describeWithDb('PdfQueueService', () => {
         runId: testRunId,
         workflowVersionId: testVersionId,
         templateKey: 'engagement_letter',
-        fileType: 'docx' as any,
+        fileType: 'docx',
         storagePath: 'test.docx',
-        status: 'ready' as any,
+        status: 'ready',
       });
 
       // Enqueue multiple PDF jobs

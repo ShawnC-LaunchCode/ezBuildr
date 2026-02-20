@@ -1,6 +1,13 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mocked, type Mock } from 'vitest';
 
 import { DatavaultColumnsService } from '../../../server/services/DatavaultColumnsService';
+import {
+    datavaultColumnsRepository,
+    datavaultTablesRepository,
+    datavaultRowsRepository,
+} from "../../../server/repositories";
+import { db } from '../../../server/db';
+import type { DatavaultColumn, DatavaultTable } from "@shared/schema";
 
 // Mock modules
 vi.mock('../../../server/db', () => ({
@@ -12,55 +19,62 @@ vi.mock('../../../server/db', () => ({
     },
 }));
 
-vi.mock('../../../server/repositories', () => ({
-    datavaultColumnsRepository: {},
-    datavaultTablesRepository: {},
-    datavaultRowsRepository: {},
-}));
-
-import { db } from '../../../server/db';
-const mockDb = db as any;
-
-vi.mock('@shared/schema', () => ({
-    blocks: { id: 'blocks_id', type: 'blocks_type', workflowId: 'blocks_wf', config: 'blocks_config' },
-    transformBlocks: { id: 'tb_id', name: 'tb_name', workflowId: 'tb_wf', code: 'tb_code', inputKeys: 'tb_input' },
-    datavaultColumns: { id: 'col_id', tableId: 'table_id' },
-}));
-
 describe('DatavaultGuardrails', () => {
     let service: DatavaultColumnsService;
-    let mockColumnsRepo: any;
-    let mockTablesRepo: any;
-    let mockRowsRepo: any;
+    let mockColumnsRepo: Mocked<typeof datavaultColumnsRepository>;
+    let mockTablesRepo: Mocked<typeof datavaultTablesRepository>;
+    let mockRowsRepo: Mocked<typeof datavaultRowsRepository>;
+    interface MockQueryBuilder {
+        select: Mock;
+        from: Mock;
+        where: Mock;
+        limit: Mock;
+    }
+    let mockQueryBuilder: MockQueryBuilder;
 
     beforeEach(() => {
         vi.clearAllMocks();
 
         // Setup generic DB mock chain
-        const mockQueryBuilder = {
-            select: vi.fn().mockReturnThis(),
-            from: vi.fn().mockReturnThis(),
-            where: vi.fn().mockReturnThis(),
-            limit: vi.fn().mockReturnThis(),
+        // Use explicit mockReturnValue(builder) instead of mockReturnThis() to ensure
+        // the chain always flows through mockQueryBuilder (not the db mock object).
+        const builder: MockQueryBuilder = {
+            select: vi.fn(),
+            from: vi.fn(),
+            where: vi.fn(),
+            limit: vi.fn(),
         };
+        builder.select.mockReturnValue(builder);
+        builder.from.mockReturnValue(builder);
+        builder.where.mockReturnValue(builder);
+        builder.limit.mockResolvedValue([]); // Default: no matches
+        mockQueryBuilder = builder;
 
-        // Apply to the imported db object (which is a singleton mock)
-        mockDb.select = mockQueryBuilder.select;
-        mockDb.from = mockQueryBuilder.from;
-        mockDb.where = mockQueryBuilder.where;
-        mockDb.limit = mockQueryBuilder.limit;
+        // Override db.select to enter the mockQueryBuilder chain
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        vi.mocked(db).select = vi.fn().mockReturnValue(mockQueryBuilder) as unknown as typeof db.select;
 
         mockColumnsRepo = {
             findById: vi.fn(),
             delete: vi.fn(),
-        };
+            slugExists: vi.fn(),
+            findByTableId: vi.fn(),
+            getMaxOrderIndex: vi.fn(),
+            create: vi.fn(),
+            findByTableAndSlug: vi.fn(),
+            reorderColumns: vi.fn(),
+            update: vi.fn(),
+        } as unknown as Mocked<typeof datavaultColumnsRepository>;
+
         mockTablesRepo = {
             findById: vi.fn(),
-        };
+        } as unknown as Mocked<typeof datavaultTablesRepository>;
+
         mockRowsRepo = {
             deleteValuesByColumnId: vi.fn(),
             cleanupAutoNumberSequence: vi.fn(),
-        };
+            checkColumnHasDuplicates: vi.fn(),
+        } as unknown as Mocked<typeof datavaultRowsRepository>;
 
         service = new DatavaultColumnsService(mockColumnsRepo, mockTablesRepo, mockRowsRepo);
     });
@@ -79,15 +93,18 @@ describe('DatavaultGuardrails', () => {
                 id: columnId,
                 tableId: 'table-1',
                 isPrimaryKey: false,
-            });
+            } as unknown as DatavaultColumn);
             mockTablesRepo.findById.mockResolvedValue({
                 id: 'table-1',
                 tenantId: tenantId,
-            });
+            } as unknown as DatavaultTable);
 
             // Mock DB query to find matching blocks
             // select -> from -> where -> limit -> [Promise]
-            mockDb.limit.mockResolvedValueOnce([{ id: 'block-1', type: 'create_record', workflowId: 'wf-1' }]);
+            // First, mock the chain. db.select() returns builder.
+            // The service calls: db.select(...).from(...).where(...).limit(1)
+            // We need to ensure the LAST method in the chain returns the desired value.
+            mockQueryBuilder.limit.mockResolvedValueOnce([{ id: 'block-1', type: 'create_record', workflowId: 'wf-1' }]);
 
             await expect(service.deleteColumn(columnId, tenantId)).rejects.toThrow(/referenced by a create_record block/);
         });
@@ -97,14 +114,16 @@ describe('DatavaultGuardrails', () => {
             const tenantId = 'tenant-1';
 
             // Setup column
-            mockColumnsRepo.findById.mockResolvedValue({ id: columnId, tableId: 'table-1', isPrimaryKey: false });
-            mockTablesRepo.findById.mockResolvedValue({ id: 'table-1', tenantId: tenantId });
+            mockColumnsRepo.findById.mockResolvedValue({ id: columnId, tableId: 'table-1', isPrimaryKey: false } as unknown as DatavaultColumn);
+            mockTablesRepo.findById.mockResolvedValue({ id: 'table-1', tenantId: tenantId } as unknown as DatavaultTable);
 
             // First query (blocks) returns empty
-            mockDb.limit.mockResolvedValueOnce([]);
+            // First query (blocks) returns empty
+            mockQueryBuilder.limit.mockResolvedValueOnce([]);
 
             // Second query (transforms) returns match
-            mockDb.limit.mockResolvedValueOnce([{ id: 'tf-1', name: 'My Transform', workflowId: 'wf-2' }]);
+            // Second query (transforms) returns match
+            mockQueryBuilder.limit.mockResolvedValueOnce([{ id: 'tf-1', name: 'My Transform', workflowId: 'wf-2' }]);
 
             await expect(service.deleteColumn(columnId, tenantId)).rejects.toThrow(/referenced by transform block/);
         });
@@ -113,11 +132,12 @@ describe('DatavaultGuardrails', () => {
             const columnId = 'col-123';
             const tenantId = 'tenant-1';
 
-            mockColumnsRepo.findById.mockResolvedValue({ id: columnId, tableId: 'table-1', isPrimaryKey: false });
-            mockTablesRepo.findById.mockResolvedValue({ id: 'table-1', tenantId: tenantId });
+            mockColumnsRepo.findById.mockResolvedValue({ id: columnId, tableId: 'table-1', isPrimaryKey: false } as unknown as DatavaultColumn);
+            mockTablesRepo.findById.mockResolvedValue({ id: 'table-1', tenantId: tenantId } as unknown as DatavaultTable);
 
             // No matches
-            mockDb.limit.mockResolvedValue([]);
+            // No matches
+            mockQueryBuilder.limit.mockResolvedValue([]);
 
             await service.deleteColumn(columnId, tenantId);
 
