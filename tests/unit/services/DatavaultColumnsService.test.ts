@@ -1,6 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-
+import { describe, it, expect, beforeEach, vi, type Mocked } from 'vitest';
+import type { DatavaultTable, DatavaultColumn } from '@shared/schema';
+import type { DatavaultColumnsRepository, DatavaultTablesRepository } from '../../../server/repositories';
 import { DatavaultColumnsService } from '../../../server/services/DatavaultColumnsService';
+import * as repositories from '../../../server/repositories';
 
 /**
  * DataVault Phase 1 PR 9: DatavaultColumnsService Tests
@@ -10,8 +12,22 @@ import { DatavaultColumnsService } from '../../../server/services/DatavaultColum
 
 describe('DatavaultColumnsService', () => {
   let service: DatavaultColumnsService;
-  let mockTablesRepo: any;
-  let mockColumnsRepo: any;
+  let mockTablesRepo: Mocked<DatavaultTablesRepository>;
+  let mockColumnsRepo: Mocked<DatavaultColumnsRepository>;
+
+  // Mock db for checkColumnUsage() which queries blocks/transforms directly
+  vi.mock('../../../server/db', () => {
+    const builder = {
+      select: vi.fn().mockReturnValue(undefined as any),
+      from: vi.fn().mockReturnValue(undefined as any),
+      where: vi.fn().mockReturnValue(undefined as any),
+      limit: vi.fn().mockResolvedValue([]),
+    };
+    builder.select.mockReturnValue(builder);
+    builder.from.mockReturnValue(builder);
+    builder.where.mockReturnValue(builder);
+    return { db: builder };
+  });
 
   vi.mock('../../../server/repositories', () => ({
     datavaultTablesRepository: {
@@ -38,39 +54,45 @@ describe('DatavaultColumnsService', () => {
   const mockTableId = '660e8400-e29b-41d4-a716-446655440001';
   const mockColumnId = '770e8400-e29b-41d4-a716-446655440002';
 
-  beforeEach(async () => {
-    mockTablesRepo = (await import('../../../server/repositories')).datavaultTablesRepository;
-    mockColumnsRepo = (await import('../../../server/repositories')).datavaultColumnsRepository;
+  beforeEach(() => {
     vi.clearAllMocks();
+    mockTablesRepo = repositories.datavaultTablesRepository as Mocked<DatavaultTablesRepository>;
+    mockColumnsRepo = repositories.datavaultColumnsRepository as Mocked<DatavaultColumnsRepository>;
 
     service = new DatavaultColumnsService(mockColumnsRepo, mockTablesRepo);
   });
 
   describe('getColumns', () => {
     it('should get all columns for a table', async () => {
-      const mockTable = {
+      const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
         ownerUserId: 'user-1',
         name: 'Test Table',
         slug: 'test-table',
         description: null,
+        databaseId: 'db-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
-      const mockColumns = [
+      const mockColumns: DatavaultColumn[] = [
         {
           id: mockColumnId,
           tableId: mockTableId,
           name: 'First Name',
           slug: 'first_name',
-          type: 'text' as const,
+          type: 'text',
           required: true,
           orderIndex: 0,
+          isPrimaryKey: false,
+          isUnique: false,
+          description: null,
+          options: null,
+          referenceDisplayColumnSlug: null,
           createdAt: new Date(),
           updatedAt: new Date(),
-        },
+        } as unknown as DatavaultColumn,
       ];
 
       mockTablesRepo.findById.mockResolvedValue(mockTable);
@@ -92,13 +114,14 @@ describe('DatavaultColumnsService', () => {
 
   describe('createColumn', () => {
     it('should create column with generated slug', async () => {
-      const mockTable = {
+      const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
         ownerUserId: 'user-1',
         name: 'Test Table',
         slug: 'test-table',
         description: null,
+        databaseId: 'db-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -110,14 +133,19 @@ describe('DatavaultColumnsService', () => {
         required: false,
       };
 
-      const createdColumn = {
+      const createdColumn: DatavaultColumn = {
         id: mockColumnId,
         ...insertData,
         slug: 'email_address',
         orderIndex: 0,
+        isPrimaryKey: false,
+        isUnique: false,
+        description: null,
+        options: null,
+        referenceDisplayColumnSlug: null,
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
+      } as unknown as DatavaultColumn;
 
       mockTablesRepo.findById.mockResolvedValue(mockTable);
       mockColumnsRepo.slugExists.mockResolvedValue(false);
@@ -131,13 +159,14 @@ describe('DatavaultColumnsService', () => {
     });
 
     it('should ensure unique slug by appending counter', async () => {
-      const mockTable = {
+      const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
         ownerUserId: 'user-1',
         name: 'Test Table',
         slug: 'test-table',
         description: null,
+        databaseId: 'db-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -159,9 +188,14 @@ describe('DatavaultColumnsService', () => {
         ...insertData,
         slug: 'email_1',
         orderIndex: 1,
+        isPrimaryKey: false,
+        isUnique: false,
+        description: null,
+        options: null,
+        referenceDisplayColumnSlug: null,
         createdAt: new Date(),
         updatedAt: new Date(),
-      });
+      } as unknown as DatavaultColumn);
 
       const result = await service.createColumn(insertData, mockTenantId);
 
@@ -170,13 +204,14 @@ describe('DatavaultColumnsService', () => {
     });
 
     it('should use provided slug if given', async () => {
-      const mockTable = {
+      const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
         ownerUserId: 'user-1',
         name: 'Test Table',
         slug: 'test-table',
         description: null,
+        databaseId: 'db-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -196,9 +231,14 @@ describe('DatavaultColumnsService', () => {
         id: mockColumnId,
         ...insertData,
         orderIndex: 1,
+        isPrimaryKey: false,
+        isUnique: false,
+        description: null,
+        options: null,
+        referenceDisplayColumnSlug: null,
         createdAt: new Date(),
         updatedAt: new Date(),
-      });
+      } as unknown as DatavaultColumn);
 
       const result = await service.createColumn(insertData, mockTenantId);
 
@@ -208,35 +248,41 @@ describe('DatavaultColumnsService', () => {
 
   describe('updateColumn', () => {
     it('should update column', async () => {
-      const mockTable = {
+      const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
         ownerUserId: 'user-1',
         name: 'Test Table',
         slug: 'test-table',
         description: null,
+        databaseId: 'db-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
-      const mockColumn = {
+      const mockColumn: DatavaultColumn = {
         id: mockColumnId,
         tableId: mockTableId,
         name: 'Old Name',
         slug: 'old_name',
-        type: 'text' as const,
+        type: 'text',
         required: false,
         orderIndex: 0,
+        isPrimaryKey: false,
+        isUnique: false,
+        description: null,
+        options: null,
+        referenceDisplayColumnSlug: null,
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
+      } as unknown as DatavaultColumn;
 
       const updateData = {
         name: 'New Name',
         required: true,
       };
 
-      const updatedColumn = {
+      const updatedColumn: DatavaultColumn = {
         ...mockColumn,
         ...updateData,
       };
@@ -251,28 +297,34 @@ describe('DatavaultColumnsService', () => {
     });
 
     it('should throw error if trying to change column type', async () => {
-      const mockTable = {
+      const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
         ownerUserId: 'user-1',
         name: 'Test Table',
         slug: 'test-table',
         description: null,
+        databaseId: 'db-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
-      const mockColumn = {
+      const mockColumn: DatavaultColumn = {
         id: mockColumnId,
         tableId: mockTableId,
         name: 'Email',
         slug: 'email',
-        type: 'text' as const,
+        type: 'text',
         required: false,
         orderIndex: 0,
+        isPrimaryKey: false,
+        isUnique: false,
+        description: null,
+        options: null,
+        referenceDisplayColumnSlug: null,
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
+      } as unknown as DatavaultColumn;
 
       mockColumnsRepo.findById.mockResolvedValue(mockColumn);
       mockTablesRepo.findById.mockResolvedValue(mockTable);
@@ -285,28 +337,34 @@ describe('DatavaultColumnsService', () => {
 
   describe('deleteColumn', () => {
     it('should delete column', async () => {
-      const mockTable = {
+      const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
         ownerUserId: 'user-1',
         name: 'Test Table',
         slug: 'test-table',
         description: null,
+        databaseId: 'db-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
-      const mockColumn = {
+      const mockColumn: DatavaultColumn = {
         id: mockColumnId,
         tableId: mockTableId,
         name: 'Email',
         slug: 'email',
-        type: 'email' as const,
+        type: 'email',
         required: false,
         orderIndex: 0,
+        isPrimaryKey: false,
+        isUnique: false,
+        description: null,
+        options: null,
+        referenceDisplayColumnSlug: null,
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
+      } as unknown as DatavaultColumn;
 
       mockColumnsRepo.findById.mockResolvedValue(mockColumn);
       mockTablesRepo.findById.mockResolvedValue(mockTable);
@@ -320,13 +378,14 @@ describe('DatavaultColumnsService', () => {
 
   describe('reorderColumns', () => {
     it('should reorder columns', async () => {
-      const mockTable = {
+      const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
         ownerUserId: 'user-1',
         name: 'Test Table',
         slug: 'test-table',
         description: null,
+        databaseId: 'db-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -334,7 +393,7 @@ describe('DatavaultColumnsService', () => {
       const columnIds = ['col-1', 'col-2', 'col-3'];
 
       mockTablesRepo.findById.mockResolvedValue(mockTable);
-      mockColumnsRepo.findByTableId.mockResolvedValue(columnIds.map(id => ({ id })));
+      mockColumnsRepo.findByTableId.mockResolvedValue(columnIds.map(id => ({ id } as any)));
       mockColumnsRepo.reorderColumns.mockResolvedValue(undefined);
 
       await service.reorderColumns(mockTableId, mockTenantId, columnIds);
@@ -344,13 +403,14 @@ describe('DatavaultColumnsService', () => {
   });
 
   describe('select/multiselect columns', () => {
-    const mockTable = {
+    const mockTable: DatavaultTable = {
       id: mockTableId,
       tenantId: mockTenantId,
       ownerUserId: 'user-1',
       name: 'Test Table',
       slug: 'test-table',
       description: null,
+      databaseId: 'db-1',
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -367,14 +427,18 @@ describe('DatavaultColumnsService', () => {
         ],
       };
 
-      const createdColumn = {
+      const createdColumn: DatavaultColumn = {
         id: mockColumnId,
         ...insertData,
         slug: 'status',
         orderIndex: 0,
+        isPrimaryKey: false,
+        isUnique: false,
+        description: null,
+        referenceDisplayColumnSlug: null,
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
+      } as unknown as DatavaultColumn;
 
       mockTablesRepo.findById.mockResolvedValue(mockTable);
       mockColumnsRepo.slugExists.mockResolvedValue(false);
@@ -400,14 +464,18 @@ describe('DatavaultColumnsService', () => {
         ],
       };
 
-      const createdColumn = {
+      const createdColumn: DatavaultColumn = {
         id: mockColumnId,
         ...insertData,
         slug: 'tags',
         orderIndex: 0,
+        isPrimaryKey: false,
+        isUnique: false,
+        description: null,
+        referenceDisplayColumnSlug: null,
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
+      } as unknown as DatavaultColumn;
 
       mockTablesRepo.findById.mockResolvedValue(mockTable);
       mockColumnsRepo.slugExists.mockResolvedValue(false);
@@ -422,13 +490,14 @@ describe('DatavaultColumnsService', () => {
 
     it('should reject select column without options', async () => {
       const explicitTenantId = '550e8400-e29b-41d4-a716-446655440000';
-      const explicitTable = {
+      const explicitTable: DatavaultTable = {
         id: mockTableId,
         tenantId: explicitTenantId,
         ownerUserId: 'user-1',
         name: 'Test Table',
         slug: 'test-table',
         description: null,
+        databaseId: 'db-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -450,13 +519,14 @@ describe('DatavaultColumnsService', () => {
 
     it('should reject options with duplicate values', async () => {
       const explicitTenantId = '550e8400-e29b-41d4-a716-446655440000';
-      const explicitTable = {
+      const explicitTable: DatavaultTable = {
         id: mockTableId,
         tenantId: explicitTenantId,
         ownerUserId: 'user-1',
         name: 'Test Table',
         slug: 'test-table',
         description: null,
+        databaseId: 'db-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -481,13 +551,14 @@ describe('DatavaultColumnsService', () => {
 
     it('should reject options without label or value', async () => {
       const explicitTenantId = '550e8400-e29b-41d4-a716-446655440000';
-      const explicitTable = {
+      const explicitTable: DatavaultTable = {
         id: mockTableId,
         tenantId: explicitTenantId,
         ownerUserId: 'user-1',
         name: 'Test Table',
         slug: 'test-table',
         description: null,
+        databaseId: 'db-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
