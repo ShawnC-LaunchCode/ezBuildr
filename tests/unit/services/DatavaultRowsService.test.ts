@@ -1,11 +1,12 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-
+import { describe, it, expect, beforeEach, vi, type Mocked } from 'vitest';
+import type { DatavaultRowsRepository, DatavaultTablesRepository, DatavaultColumnsRepository } from '../../../server/repositories';
 import { DatavaultRowsService } from '../../../server/services/DatavaultRowsService';
+import type { DatavaultTable, DatavaultColumn, DatavaultRow, InsertDatavaultRow, DatavaultValue } from '@shared/schema';
 
 // Mock the db module
 vi.mock('../../../server/db', () => ({
   db: {
-    transaction: vi.fn((callback) => callback('mock-tx')),
+    transaction: vi.fn((callback: (tx: unknown) => unknown) => callback('mock-tx')),
   },
 }));
 
@@ -17,9 +18,9 @@ vi.mock('../../../server/db', () => ({
 
 describe('DatavaultRowsService', () => {
   let service: DatavaultRowsService;
-  let mockTablesRepo: any;
-  let mockColumnsRepo: any;
-  let mockRowsRepo: any;
+  let mockTablesRepo: Mocked<DatavaultTablesRepository>;
+  let mockColumnsRepo: Mocked<DatavaultColumnsRepository>;
+  let mockRowsRepo: Mocked<DatavaultRowsRepository>;
 
   const mockTenantId = '550e8400-e29b-41d4-a716-446655440000';
   const mockTableId = '660e8400-e29b-41d4-a716-446655440001';
@@ -31,11 +32,11 @@ describe('DatavaultRowsService', () => {
 
     mockTablesRepo = {
       findById: vi.fn(),
-    };
+    } as unknown as Mocked<DatavaultTablesRepository>;
 
     mockColumnsRepo = {
       findByTableId: vi.fn(),
-    };
+    } as unknown as Mocked<DatavaultColumnsRepository>;
 
     mockRowsRepo = {
       findById: vi.fn(),
@@ -47,35 +48,50 @@ describe('DatavaultRowsService', () => {
       getRowsWithValues: vi.fn(),
       getRowWithValues: vi.fn(),
       updateRowValues: vi.fn(),
-    };
+    } as unknown as Mocked<DatavaultRowsRepository>;
 
     service = new DatavaultRowsService(mockRowsRepo, mockTablesRepo, mockColumnsRepo);
   });
 
   describe('getRows', () => {
     it('should get rows with values and pagination', async () => {
-      const mockTable = {
+      const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
         ownerUserId: 'user-1',
         name: 'Test Table',
         slug: 'test-table',
         description: null,
+        databaseId: 'mock-db-id',
         createdAt: new Date(),
         updatedAt: new Date(),
+
+
+
+
+
+
       };
 
-      const mockColumns = [
+      const mockColumns: DatavaultColumn[] = [
         {
           id: mockColumnId,
           tableId: mockTableId,
           name: 'Name',
           slug: 'name',
-          type: 'text' as const,
+          type: 'text',
           required: true,
           orderIndex: 0,
+          isPrimaryKey: false,
+          isUnique: false,
+          description: null,
+          options: null,
+          referenceDisplayColumnSlug: null,
+          referenceTableId: null,
           createdAt: new Date(),
           updatedAt: new Date(),
+
+
         },
       ];
 
@@ -86,7 +102,9 @@ describe('DatavaultRowsService', () => {
             tableId: mockTableId,
             createdAt: new Date(),
             updatedAt: new Date(),
-          },
+
+            createdBy: null,
+          } as DatavaultRow,
           values: {
             [mockColumnId]: { data: 'John Doe' },
           },
@@ -105,324 +123,382 @@ describe('DatavaultRowsService', () => {
     });
   });
 
-  describe('getRow', () => {
-    it('should get a single row by ID', async () => {
-      const _mockTable = {
+  describe('createRow', () => {
+    it('should create row with validated values', async () => {
+      const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
         ownerUserId: 'user-1',
         name: 'Test Table',
         slug: 'test-table',
         description: null,
+        databaseId: 'mock-db-id',
         createdAt: new Date(),
         updatedAt: new Date(),
+
+
+
+
+
+
       };
 
-      const _mockRow = {
-        id: mockRowId,
-        tableId: mockTableId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      const _mockColumns = [
+      const mockColumns: DatavaultColumn[] = [
         {
           id: mockColumnId,
           tableId: mockTableId,
           name: 'Name',
           slug: 'name',
-          type: 'text' as const,
+          type: 'text',
           required: true,
           orderIndex: 0,
           isPrimaryKey: false,
           isUnique: false,
-        },
-      ];
-    });
-
-    describe('createRow', () => {
-      it('should create row with validated values', async () => {
-        const mockTable = {
-          id: mockTableId,
-          tenantId: mockTenantId,
-          ownerUserId: 'user-1',
-          name: 'Test Table',
-          slug: 'test-table',
           description: null,
+          options: null,
+          referenceDisplayColumnSlug: null,
+          referenceTableId: null,
           createdAt: new Date(),
           updatedAt: new Date(),
-        };
 
-        const mockColumns = [
+
+        },
+      ];
+
+      const values = {
+        [mockColumnId]: 'John Doe',
+      };
+
+      const createdRow = {
+        row: {
+          id: mockRowId,
+          tableId: mockTableId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+
+          createdBy: null,
+        } as DatavaultRow,
+        values: [
           {
-            id: mockColumnId,
-            tableId: mockTableId,
-            name: 'Name',
-            slug: 'name',
-            type: 'text' as const,
-            required: true,
-            orderIndex: 0,
+            id: 'val-1',
+            rowId: mockRowId,
+            columnId: mockColumnId,
+            value: { data: 'John Doe' },
             createdAt: new Date(),
             updatedAt: new Date(),
-          },
-        ];
+          } as DatavaultValue,
+        ],
+      };
 
-        const values = {
-          [mockColumnId]: 'John Doe',
-        };
+      mockTablesRepo.findById.mockResolvedValue(mockTable);
+      mockColumnsRepo.findByTableId.mockResolvedValue(mockColumns);
+      mockRowsRepo.createRowWithValues.mockResolvedValue(createdRow);
 
-        const createdRow = {
+      const result = await service.createRow(mockTableId, mockTenantId, values);
+
+      expect(result.row).toEqual(createdRow.row);
+      expect(Object.keys(result.values)).toHaveLength(1);
+      expect(result.values[mockColumnId]).toEqual({ data: 'John Doe' });
+    });
+
+    it('should throw error if required field is missing', async () => {
+      const mockTable: DatavaultTable = {
+        id: mockTableId,
+        tenantId: mockTenantId,
+        ownerUserId: 'user-1',
+        name: 'Test Table',
+        slug: 'test-table',
+        description: null,
+        databaseId: 'mock-db-id',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+
+
+
+
+
+
+      };
+
+      const mockColumns: DatavaultColumn[] = [
+        {
+          id: mockColumnId,
+          tableId: mockTableId,
+          name: 'Name',
+          slug: 'name',
+          type: 'text',
+          required: true,
+          orderIndex: 0,
+          isPrimaryKey: false,
+          isUnique: false,
+          description: null,
+          options: null,
+          referenceDisplayColumnSlug: null,
+          referenceTableId: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+
+
+        },
+      ];
+
+      mockTablesRepo.findById.mockResolvedValue(mockTable);
+      mockColumnsRepo.findByTableId.mockResolvedValue(mockColumns);
+
+      await expect(service.createRow(mockTableId, mockTenantId, {}))
+        .rejects
+        .toThrow('Required column');
+    });
+  });
+
+  describe('updateRow', () => {
+    it('should update row values', async () => {
+      const mockTable: DatavaultTable = {
+        id: mockTableId,
+        tenantId: mockTenantId,
+        ownerUserId: 'user-1',
+        name: 'Test Table',
+        slug: 'test-table',
+        description: null,
+        databaseId: 'mock-db-id',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+
+
+
+
+
+
+      };
+
+      const mockRow: DatavaultRow = {
+        id: mockRowId,
+        tableId: mockTableId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+
+        createdBy: null,
+      };
+
+      const mockColumns: DatavaultColumn[] = [
+        {
+          id: mockColumnId,
+          tableId: mockTableId,
+          name: 'Name',
+          slug: 'name',
+          type: 'text',
+          required: false,
+          orderIndex: 0,
+          isPrimaryKey: false,
+          isUnique: false,
+          description: null,
+          options: null,
+          referenceDisplayColumnSlug: null,
+          referenceTableId: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+
+
+        },
+      ];
+
+      const values = {
+        [mockColumnId]: 'Jane Doe',
+      };
+
+      mockRowsRepo.findById.mockResolvedValue(mockRow);
+      mockTablesRepo.findById.mockResolvedValue(mockTable);
+      mockColumnsRepo.findByTableId.mockResolvedValue(mockColumns);
+      mockRowsRepo.updateRowValues.mockResolvedValue(undefined);
+
+      await service.updateRow(mockRowId, mockTenantId, values);
+
+      expect(mockRowsRepo.updateRowValues).toHaveBeenCalled();
+    });
+  });
+
+  describe('deleteRow', () => {
+    it('should delete row', async () => {
+      const mockTable: DatavaultTable = {
+        id: mockTableId,
+        tenantId: mockTenantId,
+        ownerUserId: 'user-1',
+        name: 'Test Table',
+        slug: 'test-table',
+        description: null,
+        databaseId: 'mock-db-id',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+
+
+
+
+
+
+      };
+
+      const mockRow: DatavaultRow = {
+        id: mockRowId,
+        tableId: mockTableId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+
+        createdBy: null,
+      };
+
+      mockRowsRepo.findById.mockResolvedValue(mockRow);
+      mockTablesRepo.findById.mockResolvedValue(mockTable);
+      mockRowsRepo.deleteRow.mockResolvedValue(undefined);
+
+      await service.deleteRow(mockRowId, mockTenantId);
+
+      expect(mockRowsRepo.deleteRow).toHaveBeenCalledWith(mockRowId, undefined);
+    });
+  });
+
+  describe('value type coercion', () => {
+    it('should coerce number values', async () => {
+      const mockTable: DatavaultTable = {
+        id: mockTableId,
+        tenantId: mockTenantId,
+        ownerUserId: 'user-1',
+        name: 'Test Table',
+        slug: 'test-table',
+        description: null,
+        databaseId: 'mock-db-id',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+
+
+
+
+
+
+      };
+
+      const mockColumns: DatavaultColumn[] = [
+        {
+          id: mockColumnId,
+          tableId: mockTableId,
+          name: 'Age',
+          slug: 'age',
+          type: 'number',
+          required: false,
+          orderIndex: 0,
+          isPrimaryKey: false,
+          isUnique: false,
+          description: null,
+          options: null,
+          referenceDisplayColumnSlug: null,
+          referenceTableId: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+
+
+        },
+      ];
+
+      const values = {
+        [mockColumnId]: '25', // String input
+      };
+
+      mockTablesRepo.findById.mockResolvedValue(mockTable);
+      mockColumnsRepo.findByTableId.mockResolvedValue(mockColumns);
+
+      mockRowsRepo.createRowWithValues.mockImplementation((_rowData: InsertDatavaultRow, valueArr: Array<{ columnId: string; value: unknown }>) => {
+        // Check that the value was coerced to a number
+        expect(valueArr[0].value).toBe(25);
+        return Promise.resolve({
           row: {
             id: mockRowId,
             tableId: mockTableId,
             createdAt: new Date(),
             updatedAt: new Date(),
-          },
-          values: [
-            {
-              id: 'val-1',
-              rowId: mockRowId,
-              columnId: mockColumnId,
-              value: { data: 'John Doe' },
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-          ],
-        };
 
-        mockTablesRepo.findById.mockResolvedValue(mockTable);
-        mockColumnsRepo.findByTableId.mockResolvedValue(mockColumns);
-        mockRowsRepo.createRowWithValues.mockResolvedValue(createdRow);
-
-        const result = await service.createRow(mockTableId, mockTenantId, values);
-
-        expect(result.row).toEqual(createdRow.row);
-        expect(Object.keys(result.values)).toHaveLength(1);
-        expect(result.values[mockColumnId]).toEqual({ data: 'John Doe' });
+            createdBy: null,
+          } as DatavaultRow,
+          values: [],
+        });
       });
 
-      it('should throw error if required field is missing', async () => {
-        const mockTable = {
-          id: mockTableId,
-          tenantId: mockTenantId,
-          ownerUserId: 'user-1',
-          name: 'Test Table',
-          slug: 'test-table',
-          description: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-
-        const mockColumns = [
-          {
-            id: mockColumnId,
-            tableId: mockTableId,
-            name: 'Name',
-            slug: 'name',
-            type: 'text' as const,
-            required: true,
-            orderIndex: 0,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        ];
-
-        mockTablesRepo.findById.mockResolvedValue(mockTable);
-        mockColumnsRepo.findByTableId.mockResolvedValue(mockColumns);
-
-        await expect(service.createRow(mockTableId, mockTenantId, {}))
-          .rejects
-          .toThrow('Required column');
-      });
+      await service.createRow(mockTableId, mockTenantId, values);
     });
 
-    describe('updateRow', () => {
-      it('should update row values', async () => {
-        const mockTable = {
-          id: mockTableId,
-          tenantId: mockTenantId,
-          ownerUserId: 'user-1',
-          name: 'Test Table',
-          slug: 'test-table',
-          description: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
+    it('should coerce boolean values', async () => {
+      const mockTable: DatavaultTable = {
+        id: mockTableId,
+        tenantId: mockTenantId,
+        ownerUserId: 'user-1',
+        name: 'Test Table',
+        slug: 'test-table',
+        description: null,
+        databaseId: 'mock-db-id',
+        createdAt: new Date(),
+        updatedAt: new Date(),
 
-        const mockRow = {
-          id: mockRowId,
+
+
+
+
+
+      };
+
+      const mockColumns: DatavaultColumn[] = [
+        {
+          id: mockColumnId,
           tableId: mockTableId,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-
-        const mockColumns = [
-          {
-            id: mockColumnId,
-            tableId: mockTableId,
-            name: 'Name',
-            slug: 'name',
-            type: 'text' as const,
-            required: false,
-            orderIndex: 0,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        ];
-
-        const values = {
-          [mockColumnId]: 'Jane Doe',
-        };
-
-        mockRowsRepo.findById.mockResolvedValue(mockRow);
-        mockTablesRepo.findById.mockResolvedValue(mockTable);
-        mockColumnsRepo.findByTableId.mockResolvedValue(mockColumns);
-        mockRowsRepo.updateRowValues.mockResolvedValue(undefined);
-
-        await service.updateRow(mockRowId, mockTenantId, values);
-
-        expect(mockRowsRepo.updateRowValues).toHaveBeenCalled();
-      });
-    });
-
-    describe('deleteRow', () => {
-      it('should delete row', async () => {
-        const mockTable = {
-          id: mockTableId,
-          tenantId: mockTenantId,
-          ownerUserId: 'user-1',
-          name: 'Test Table',
-          slug: 'test-table',
+          name: 'Active',
+          slug: 'active',
+          type: 'boolean',
+          required: false,
+          orderIndex: 0,
+          isPrimaryKey: false,
+          isUnique: false,
           description: null,
+          options: null,
+          referenceDisplayColumnSlug: null,
+          referenceTableId: null,
           createdAt: new Date(),
           updatedAt: new Date(),
-        };
 
-        const mockRow = {
-          id: mockRowId,
-          tableId: mockTableId,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
 
-        mockRowsRepo.findById.mockResolvedValue(mockRow);
-        mockTablesRepo.findById.mockResolvedValue(mockTable);
-        mockRowsRepo.deleteRow.mockResolvedValue(undefined);
+        },
+      ];
 
-        await service.deleteRow(mockRowId, mockTenantId);
+      const testCases = [
+        { input: 'yes', expected: true },
+        { input: 'no', expected: false },
+        { input: '1', expected: true },
+        { input: '0', expected: false },
+        { input: true, expected: true },
+        { input: false, expected: false },
+      ];
 
-        expect(mockRowsRepo.deleteRow).toHaveBeenCalledWith(mockRowId, undefined);
-      });
-    });
-
-    describe('value type coercion', () => {
-      it('should coerce number values', async () => {
-        const mockTable = {
-          id: mockTableId,
-          tenantId: mockTenantId,
-          ownerUserId: 'user-1',
-          name: 'Test Table',
-          slug: 'test-table',
-          description: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-
-        const mockColumns = [
-          {
-            id: mockColumnId,
-            tableId: mockTableId,
-            name: 'Age',
-            slug: 'age',
-            type: 'number' as const,
-            required: false,
-            orderIndex: 0,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        ];
-
+      for (const testCase of testCases) {
         const values = {
-          [mockColumnId]: '25', // String input
+          [mockColumnId]: testCase.input,
         };
 
         mockTablesRepo.findById.mockResolvedValue(mockTable);
         mockColumnsRepo.findByTableId.mockResolvedValue(mockColumns);
-        mockRowsRepo.createRowWithValues.mockImplementation((rowData: any, valueArr: any[]) => {
-          // Check that the value was coerced to a number
-          expect(valueArr[0].value).toBe(25);
+
+        mockRowsRepo.createRowWithValues.mockImplementation((_rowData: InsertDatavaultRow, valueArr: Array<{ columnId: string; value: unknown }>) => {
+          expect(valueArr[0].value).toBe(testCase.expected);
           return Promise.resolve({
             row: {
               id: mockRowId,
               tableId: mockTableId,
               createdAt: new Date(),
               updatedAt: new Date(),
-            },
+
+              createdBy: null,
+            } as DatavaultRow,
             values: [],
           });
         });
 
         await service.createRow(mockTableId, mockTenantId, values);
-      });
-
-      it('should coerce boolean values', async () => {
-        const mockTable = {
-          id: mockTableId,
-          tenantId: mockTenantId,
-          ownerUserId: 'user-1',
-          name: 'Test Table',
-          slug: 'test-table',
-          description: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-
-        const mockColumns = [
-          {
-            id: mockColumnId,
-            tableId: mockTableId,
-            name: 'Active',
-            slug: 'active',
-            type: 'boolean' as const,
-            required: false,
-            orderIndex: 0,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        ];
-
-        const testCases = [
-          { input: 'yes', expected: true },
-          { input: 'no', expected: false },
-          { input: '1', expected: true },
-          { input: '0', expected: false },
-          { input: true, expected: true },
-          { input: false, expected: false },
-        ];
-
-        for (const testCase of testCases) {
-          const values = {
-            [mockColumnId]: testCase.input,
-          };
-
-          mockTablesRepo.findById.mockResolvedValue(mockTable);
-          mockColumnsRepo.findByTableId.mockResolvedValue(mockColumns);
-          mockRowsRepo.createRowWithValues.mockImplementation((rowData: any, valueArr: any[]) => {
-            expect(valueArr[0].value).toBe(testCase.expected);
-            return Promise.resolve({
-              row: {
-                id: mockRowId,
-                tableId: mockTableId,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              },
-              values: [],
-            });
-          });
-
-          await service.createRow(mockTableId, mockTenantId, values);
-        }
-      });
+      }
     });
   });
 });

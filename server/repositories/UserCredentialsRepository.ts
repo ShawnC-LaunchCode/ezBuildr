@@ -48,7 +48,7 @@ export class UserCredentialsRepository extends BaseRepository<typeof userCredent
         .returning();
 
       logger.info({ userId }, 'User credentials created');
-      if (!credentials) throw new Error("Failed to create user credentials");
+      if (!credentials) {throw new Error("Failed to create user credentials");}
       return credentials;
     } catch (error) {
       logger.error({ error, userId }, 'Failed to create user credentials');

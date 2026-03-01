@@ -8,17 +8,17 @@ import {
   type DataMap,
   type AliasResolver,
 } from "@shared/conditionEvaluator";
-import type { ConditionExpression, Condition, _ConditionGroup } from "@shared/types/conditions";
+import type { ConditionExpression, Condition, ConditionGroup } from "@shared/types/conditions";
 
 describe("conditionEvaluator", () => {
   describe("evaluateConditionExpression", () => {
     it("should return true for null expression (always visible)", () => {
-      const result = evaluateConditionExpression(null as any, {});
+      const result = evaluateConditionExpression(null, {});
       expect(result).toBe(true);
     });
 
     it("should return true for undefined expression", () => {
-      const result = evaluateConditionExpression(undefined as any, {});
+      const result = evaluateConditionExpression(undefined as unknown as ConditionExpression, {});
       expect(result).toBe(true);
     });
 

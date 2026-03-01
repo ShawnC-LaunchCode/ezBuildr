@@ -1,12 +1,24 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
 
 import { CollectionService } from '../../../server/services/CollectionService';
 
 describe('CollectionService', () => {
   let service: CollectionService;
-  let mockCollectionRepo: any;
-  let mockFieldRepo: any;
-  let mockRecordRepo: any;
+  let mockCollectionRepo: {
+    findById: Mock;
+    findByTenantId: Mock;
+    findByTenantAndSlug: Mock;
+    slugExists: Mock;
+    create: Mock;
+    update: Mock;
+    delete: Mock;
+  };
+  let mockFieldRepo: {
+    findByCollectionId: Mock;
+  };
+  let mockRecordRepo: {
+    countByCollectionId: Mock;
+  };
 
   const mockTenantId = '550e8400-e29b-41d4-a716-446655440000';
   const mockCollectionId = '660e8400-e29b-41d4-a716-446655440001';
@@ -33,7 +45,11 @@ describe('CollectionService', () => {
       countByCollectionId: vi.fn(),
     };
 
-    service = new CollectionService(mockCollectionRepo, mockFieldRepo, mockRecordRepo);
+    service = new CollectionService(
+      mockCollectionRepo as unknown as ConstructorParameters<typeof CollectionService>[0],
+      mockFieldRepo as unknown as ConstructorParameters<typeof CollectionService>[1],
+      mockRecordRepo as unknown as ConstructorParameters<typeof CollectionService>[2]
+    );
   });
 
   describe('createCollection', () => {

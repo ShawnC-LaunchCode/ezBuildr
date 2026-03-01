@@ -2,6 +2,11 @@
 import express from 'express';
 import request from 'supertest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Request, Response, NextFunction } from 'express';
+
+interface AuthenticatedRequest extends Request {
+    userId?: string;
+}
 
 import { registerAiRoutes } from '@server/routes/ai.routes';
 
@@ -41,21 +46,21 @@ vi.mock('@server/services/WorkflowService', () => ({
 
 // Mock both authentication files
 vi.mock('@server/middleware/auth', () => ({
-    hybridAuth: (req: any, res: any, next: any) => next(),
-    requireAuth: (req: any, res: any, next: any) => { req.userId = 'user-123'; next(); }
+    hybridAuth: (req: Request, res: Response, next: NextFunction) => next(),
+    requireAuth: (req: AuthenticatedRequest, res: Response, next: NextFunction) => { req.userId = 'user-123'; next(); }
 }));
 
 // Mock both aliased and relative paths (to catch internal imports)
 vi.mock('@server/middleware/rbac', () => ({
-    requireBuilder: (req: any, res: any, next: any) => next(),
-    requireProjectRole: () => (req: any, res: any, next: any) => next(),
-    requireWorkflowRole: () => (req: any, res: any, next: any) => next(),
+    requireBuilder: (req: Request, res: Response, next: NextFunction) => next(),
+    requireProjectRole: () => (req: Request, res: Response, next: NextFunction) => next(),
+    requireWorkflowRole: () => (req: Request, res: Response, next: NextFunction) => next(),
 }));
 
 vi.mock('../../server/middleware/rbac', () => ({
-    requireBuilder: (req: any, res: any, next: any) => next(),
-    requireProjectRole: () => (req: any, res: any, next: any) => next(),
-    requireWorkflowRole: () => (req: any, res: any, next: any) => next(),
+    requireBuilder: (req: Request, res: Response, next: NextFunction) => next(),
+    requireProjectRole: () => (req: Request, res: Response, next: NextFunction) => next(),
+    requireWorkflowRole: () => (req: Request, res: Response, next: NextFunction) => next(),
 }));
 
 vi.mock('@server/queues/AiRevisionQueue', () => ({
@@ -63,8 +68,8 @@ vi.mock('@server/queues/AiRevisionQueue', () => ({
 }));
 
 vi.mock('@server/middleware/ai.middleware', () => ({
-    validateWorkflowSize: () => (req: any, res: any, next: any) => next(),
-    aiWorkflowRateLimit: (req: any, res: any, next: any) => next()
+    validateWorkflowSize: () => (req: Request, res: Response, next: NextFunction) => next(),
+    aiWorkflowRateLimit: (req: Request, res: Response, next: NextFunction) => next()
 }));
 
 describe('AI Routes Integration', () => {
@@ -74,7 +79,7 @@ describe('AI Routes Integration', () => {
         app = express();
         app.use(express.json());
         app.use((req, res, next) => {
-            (req as any).userId = 'user-123';
+            (req as AuthenticatedRequest).userId = 'user-123';
             next();
         });
         registerAiRoutes(app);

@@ -72,7 +72,7 @@ router.get(
     const authReq = req as AuthRequest;
     try {
       const { workflowId } = req.params;
-      if (!workflowId) throw new Error("Workflow ID is required");
+      if (!workflowId) {throw new Error("Workflow ID is required");}
       const userId = authReq.userId ?? "";
 
       const hooks = await lifecycleHookService.listHooks(workflowId, userId);
@@ -98,7 +98,7 @@ router.post(
     const authReq = req as AuthRequest;
     try {
       const { workflowId } = req.params;
-      if (!workflowId) throw new Error("Workflow ID is required");
+      if (!workflowId) {throw new Error("Workflow ID is required");}
       const userId = authReq.userId ?? "";
 
       // Validate request body
@@ -161,7 +161,7 @@ router.put("/lifecycle-hooks/:hookId", hybridAuth, asyncHandler(async (req, res)
   const authReq = req as AuthRequest;
   try {
     const { hookId } = req.params;
-    if (!hookId) throw new Error("Hook ID is required");
+    if (!hookId) {throw new Error("Hook ID is required");}
     const userId = authReq.userId!;
 
     // Validate request body
@@ -194,7 +194,7 @@ router.delete("/lifecycle-hooks/:hookId", hybridAuth, asyncHandler(async (req, r
   const authReq = req as AuthRequest;
   try {
     const { hookId } = req.params;
-    if (!hookId) throw new Error("Hook ID is required");
+    if (!hookId) {throw new Error("Hook ID is required");}
     const userId = authReq.userId!;
 
     await lifecycleHookService.deleteHook(hookId, userId);
@@ -216,7 +216,7 @@ router.post("/lifecycle-hooks/:hookId/test", hybridAuth, asyncHandler(async (req
   const authReq = req as AuthRequest;
   try {
     const { hookId } = req.params;
-    if (!hookId) throw new Error("Hook ID is required");
+    if (!hookId) {throw new Error("Hook ID is required");}
     const userId = authReq.userId!;
 
     // Validate request body
@@ -253,7 +253,7 @@ router.get("/runs/:runId/script-console", hybridAuth, asyncHandler(async (req, r
   const authReq = req as AuthRequest;
   try {
     const { runId } = req.params;
-    if (!runId) throw new Error("Run ID is required");
+    if (!runId) {throw new Error("Run ID is required");}
     const userId = authReq.userId!;
 
     const logs = await lifecycleHookService.getExecutionLogs(runId, userId);
@@ -275,7 +275,7 @@ router.delete("/runs/:runId/script-console", hybridAuth, asyncHandler(async (req
   const authReq = req as AuthRequest;
   try {
     const { runId } = req.params;
-    if (!runId) throw new Error("Run ID is required");
+    if (!runId) {throw new Error("Run ID is required");}
     const userId = authReq.userId!;
 
     await lifecycleHookService.clearExecutionLogs(runId, userId);

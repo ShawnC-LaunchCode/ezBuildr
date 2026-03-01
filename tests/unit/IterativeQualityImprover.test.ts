@@ -10,6 +10,8 @@ import {
   IterativeQualityImprover,
   QualityImprovementConfig,
 } from '../../server/services/ai/IterativeQualityImprover';
+import type { AIGeneratedWorkflow } from '../../shared/types/ai';
+import type { QualityScore } from '../../server/services/WorkflowQualityValidator';
 
 // Mock the dependencies
 vi.mock('../../server/services/ai/AIProviderClient');
@@ -28,7 +30,7 @@ describe('IterativeQualityImprover', () => {
   let mockPromptBuilder: AIPromptBuilder;
   let improver: IterativeQualityImprover;
 
-  const createMockWorkflow = (score: number): any => ({
+  const createMockWorkflow = (score: number): AIGeneratedWorkflow => ({
     title: 'Test Workflow',
     description: 'Test description',
     sections: [
@@ -47,7 +49,7 @@ describe('IterativeQualityImprover', () => {
           },
           {
             id: 'step-2',
-            type: (score >= 80 ? 'email' : 'short_text') as any, // Correct type if high score
+            type: (score >= 80 ? 'email' : 'short_text'), // Correct type if high score
             title: 'Email Address',
             alias: score >= 80 ? 'emailAddress' : 'field2',
             required: true,
@@ -129,7 +131,7 @@ describe('IterativeQualityImprover', () => {
 
       // Mock AI returning improved workflow
       const improvedWorkflow = createMockWorkflow(85);
-      (mockClient.callLLM as any).mockResolvedValue(JSON.stringify(improvedWorkflow));
+      vi.mocked(mockClient.callLLM).mockResolvedValue(JSON.stringify(improvedWorkflow));
 
       const result = await improver.generateWithQualityLoop(
         lowQualityWorkflow,
@@ -153,7 +155,7 @@ describe('IterativeQualityImprover', () => {
 
       // Mock AI returning only slightly improved workflow each time
       const slightlyBetterWorkflow = createMockWorkflow(72);
-      (mockClient.callLLM as any).mockResolvedValue(JSON.stringify(slightlyBetterWorkflow));
+      vi.mocked(mockClient.callLLM).mockResolvedValue(JSON.stringify(slightlyBetterWorkflow));
 
       const config: Partial<QualityImprovementConfig> = {
         targetQualityScore: 90,
@@ -186,7 +188,7 @@ describe('IterativeQualityImprover', () => {
       };
 
       // Mock AI returning same workflow (no real improvement since quality validator will score it the same)
-      (mockClient.callLLM as any).mockImplementation(() => {
+      vi.mocked(mockClient.callLLM).mockImplementation(() => {
         return Promise.resolve(JSON.stringify(createMockWorkflow(50)));
       });
 
@@ -220,7 +222,7 @@ describe('IterativeQualityImprover', () => {
 
       // Mock gradual improvement
       let callCount = 0;
-      (mockClient.callLLM as any).mockImplementation(() => {
+      vi.mocked(mockClient.callLLM).mockImplementation(() => {
         callCount++;
         return Promise.resolve(JSON.stringify(createMockWorkflow(60 + callCount * 15)));
       });
@@ -246,12 +248,12 @@ describe('IterativeQualityImprover', () => {
 
   describe('needsImprovement', () => {
     it('should return true for low scores', () => {
-      const score = { overall: 65, breakdown: {} as any, issues: [], passed: false, suggestions: [] };
+      const score = { overall: 65, breakdown: {} as unknown as QualityScore['breakdown'], issues: [], passed: false, suggestions: [] };
       expect(improver.needsImprovement(score)).toBe(true);
     });
 
     it('should return false for high scores', () => {
-      const score = { overall: 85, breakdown: {} as any, issues: [], passed: true, suggestions: [] };
+      const score = { overall: 85, breakdown: {} as unknown as QualityScore['breakdown'], issues: [], passed: true, suggestions: [] };
       expect(improver.needsImprovement(score)).toBe(false);
     });
   });

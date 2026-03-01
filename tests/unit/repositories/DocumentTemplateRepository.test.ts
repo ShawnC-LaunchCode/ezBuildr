@@ -35,8 +35,6 @@ describe('DocumentTemplateRepository', () => {
       _setMockReturnValue: (value: any) => { mockReturnValue = value; },
     };
 
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore - mocking db for tests
     repository = new DocumentTemplateRepository(mockDb);
   });
 

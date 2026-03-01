@@ -21,9 +21,7 @@ describe('Collections Schema', () => {
   describe('Collection Table', () => {
     it('should have correct table name', () => {
       expect(collections).toBeDefined();
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore - accessing internal drizzle property
-      expect(collections[Symbol.for('drizzle:Name')]).toBe('collections');
+      expect((collections as any)[Symbol.for('drizzle:Name')]).toBe('collections');
     });
 
     it('should have required columns', () => {
@@ -41,9 +39,7 @@ describe('Collections Schema', () => {
   describe('CollectionField Table', () => {
     it('should have correct table name', () => {
       expect(collectionFields).toBeDefined();
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore - accessing internal drizzle property
-      expect(collectionFields[Symbol.for('drizzle:Name')]).toBe('collection_fields');
+      expect((collectionFields as any)[Symbol.for('drizzle:Name')]).toBe('collection_fields');
     });
 
     it('should have required columns', () => {
@@ -64,9 +60,7 @@ describe('Collections Schema', () => {
   describe('Record Table', () => {
     it('should have correct table name', () => {
       expect(records).toBeDefined();
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore - accessing internal drizzle property
-      expect(records[Symbol.for('drizzle:Name')]).toBe('records');
+      expect((records as any)[Symbol.for('drizzle:Name')]).toBe('records');
     });
 
     it('should have required columns', () => {
@@ -99,9 +93,7 @@ describe('Collections Schema', () => {
       ];
 
       // The enum values are stored in the enumValues property
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore - accessing internal drizzle property
-      const enumValues = collectionFieldTypeEnum.enumValues;
+      const enumValues = (collectionFieldTypeEnum as any).enumValues;
       expect(enumValues).toEqual(expectedTypes);
     });
   });

@@ -81,8 +81,7 @@ export function useJSBlockEditor({ block, onChange, workflowId }: UseJSBlockEdit
         const unsubscribe = DevPanelBus.onInsert((key) => {
             const textarea = textareaRef.current;
             if (!textarea || document.activeElement !== textarea) {
-                // eslint-disable-next-line @typescript-eslint/no-floating-promises
-                navigator.clipboard.writeText(key).then(() => {
+                void navigator.clipboard.writeText(key).then(() => {
                     toast({
                         title: "Copied to clipboard",
                         description: `"${key}" copied. No active editor found.`,
@@ -134,12 +133,11 @@ export function useJSBlockEditor({ block, onChange, workflowId }: UseJSBlockEdit
             // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
             const fn = new Function("input", code);
             const mockInput = generateMockInput(inputKeys, testData, variables);
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
-            const result = fn(mockInput);
+            const result = fn(mockInput) as unknown;
 
             toast({
                 title: "Test Run Complete ✓",
-                description: `${JSON.stringify({ input: mockInput, output: result as unknown }, null, 2).slice(0, 100)}...`
+                description: `${JSON.stringify({ input: mockInput, output: result }, null, 2).slice(0, 100)}...`
             });
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Unknown error';

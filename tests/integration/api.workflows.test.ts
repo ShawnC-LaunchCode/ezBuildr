@@ -6,21 +6,16 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach , vi } from "vite
 
 import * as schema from "@shared/schema";
 
-// Local mock to fix constructor error
+// Local mock to fix constructor error - use vi.fn() so tests can use mockImplementationOnce
 vi.mock('@google/generative-ai', () => {
-  return {
-    GoogleGenerativeAI: class MockGoogleGenerativeAI {
-      constructor(_apiKey: string) { }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      getGenerativeModel(_params: any) {
-        return {
-          generateContent: vi.fn().mockResolvedValue({
-            response: { text: () => JSON.stringify({}) }
-          })
-        };
-      }
-    }
-  };
+  const MockGoogleGenerativeAI = vi.fn().mockImplementation(() => ({
+    getGenerativeModel: vi.fn().mockReturnValue({
+      generateContent: vi.fn().mockResolvedValue({
+        response: { text: () => JSON.stringify({}) }
+      })
+    })
+  }));
+  return { GoogleGenerativeAI: MockGoogleGenerativeAI };
 });
 
 import { db } from "../../server/db";
@@ -241,13 +236,13 @@ describe.sequential("Workflows API Integration Tests", () => {
     let targetProjectId: string;
 
     beforeEach(async () => {
-      // Create a workflow in the default project
+      // Create a workflow in the test project
       const workflowResponse = await request(ctx.baseURL)
-        .post("/api/workflows")
+        .post(`/api/projects/${ctx.projectId}/workflows`)
         .set("Authorization", `Bearer ${ctx.authToken}`)
         .send({
-          title: "Move Test Workflow",
-          description: "Test workflow for move operations",
+          name: "Move Test Workflow",
+          graphJson: { nodes: [], edges: [] },
         });
 
       if (workflowResponse.status !== 201) {

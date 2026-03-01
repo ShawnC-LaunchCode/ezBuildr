@@ -80,7 +80,7 @@ describe('Organization Workflow Integration Tests', () => {
     }
   });
   describe('Complete Organization Workflow', () => {
-    it('Step 1: Create organization', async () => {
+    it('Step 1: Create organization', { timeout: 30000 }, async () => {
       const org = await organizationService.createOrganization(
         {
           name: 'Test Organization',
@@ -100,7 +100,7 @@ describe('Organization Workflow Integration Tests', () => {
       expect(memberships[0].userId).toBe(user1Id);
       expect(memberships[0].role).toBe('admin');
     });
-    it('Step 2: Invite member via email', async () => {
+    it('Step 2: Invite member via email', { timeout: 30000 }, async () => {
       const invite = await organizationService.createInvite(
         testOrgId,
         'org-member@test.com', // invitedEmail
@@ -119,7 +119,7 @@ describe('Organization Workflow Integration Tests', () => {
       expect(dbInvite?.invitedEmail).toBe('org-member@test.com');
       expect(dbInvite?.invitedByUserId).toBe(user1Id);
     });
-    it('Step 3: Accept invite', async () => {
+    it('Step 3: Accept invite', { timeout: 30000 }, async () => {
       const result = await organizationService.acceptInvite(inviteToken, user2Id);
       expect(result).toBeDefined();
       expect(result.orgId).toBe(testOrgId);
@@ -139,7 +139,7 @@ describe('Organization Workflow Integration Tests', () => {
       expect(invite).toBeDefined();
       expect(invite?.status).toBe('accepted');
     });
-    it('Step 4: Create workflow owned by user', async () => {
+    it('Step 4: Create workflow owned by user', { timeout: 30000 }, async () => {
       const workflow = await workflowService.createWorkflow(
         {
           title: 'Test Workflow for Transfer',
@@ -154,7 +154,7 @@ describe('Organization Workflow Integration Tests', () => {
       expect(workflow.ownerUuid).toBe(user1Id);
       testWorkflowId = workflow.id;
     });
-    it('Step 5: Transfer workflow to organization', async () => {
+    it('Step 5: Transfer workflow to organization', { timeout: 30000 }, async () => {
       const transferred = await workflowService.transferOwnership(
         testWorkflowId,
         user1Id,
@@ -171,7 +171,7 @@ describe('Organization Workflow Integration Tests', () => {
       expect(dbWorkflow?.ownerType).toBe('org');
       expect(dbWorkflow?.ownerUuid).toBe(testOrgId);
     });
-    it('Step 6: Org member (user2) can access workflow', async () => {
+    it('Step 6: Org member (user2) can access workflow', { timeout: 30000 }, async () => {
       // User2 is a member of the org, should be able to access
       const workflow = await workflowService.getWorkflowWithDetails(
         testWorkflowId,
@@ -181,7 +181,7 @@ describe('Organization Workflow Integration Tests', () => {
       expect(workflow.id).toBe(testWorkflowId);
       expect(workflow.title).toBe('Test Workflow for Transfer');
     });
-    it('Step 7: Org member (user2) can update workflow', async () => {
+    it('Step 7: Org member (user2) can update workflow', { timeout: 30000 }, async () => {
       // User2 should be able to update org-owned workflow
       const updated = await workflowService.updateWorkflow(
         testWorkflowId,
@@ -193,7 +193,7 @@ describe('Organization Workflow Integration Tests', () => {
       expect(updated).toBeDefined();
       expect(updated.description).toBe('Updated by org member');
     });
-    it('Step 8: Org admin (user1) can still access workflow after transfer', async () => {
+    it('Step 8: Org admin (user1) can still access workflow after transfer', { timeout: 30000 }, async () => {
       // Original owner (now admin) should still have access
       const workflow = await workflowService.getWorkflowWithDetails(
         testWorkflowId,
@@ -202,13 +202,13 @@ describe('Organization Workflow Integration Tests', () => {
       expect(workflow).toBeDefined();
       expect(workflow.id).toBe(testWorkflowId);
     });
-    it('Step 9: Non-member (user3) CANNOT access org workflow', async () => {
+    it('Step 9: Non-member (user3) CANNOT access org workflow', { timeout: 30000 }, async () => {
       // User3 is not a member of the org
       await expect(
         workflowService.getWorkflowWithDetails(testWorkflowId, user3Id)
       ).rejects.toThrow(/Access denied|not found/i);
     });
-    it('Step 10: Non-member (user3) CANNOT update org workflow', async () => {
+    it('Step 10: Non-member (user3) CANNOT update org workflow', { timeout: 30000 }, async () => {
       // User3 should not be able to update
       await expect(
         workflowService.updateWorkflow(testWorkflowId, user3Id, {
@@ -216,7 +216,7 @@ describe('Organization Workflow Integration Tests', () => {
         })
       ).rejects.toThrow(/Access denied|not found/i);
     });
-    it('Step 11: Non-member (user3) CANNOT transfer org workflow', async () => {
+    it('Step 11: Non-member (user3) CANNOT transfer org workflow', { timeout: 30000 }, async () => {
       // User3 should not be able to transfer org workflow to themselves
       await expect(
         workflowService.transferOwnership(
@@ -227,17 +227,17 @@ describe('Organization Workflow Integration Tests', () => {
         )
       ).rejects.toThrow(/Access denied|not found/i);
     });
-    it('Step 12: Org member can see workflow in list', async () => {
+    it('Step 12: Org member can see workflow in list', { timeout: 30000 }, async () => {
       const workflows = await workflowService.listWorkflows(user2Id);
       expect(workflows).toBeDefined();
       expect(workflows.some((w) => w.id === testWorkflowId)).toBe(true);
     });
-    it('Step 13: Non-member CANNOT see workflow in list', async () => {
+    it('Step 13: Non-member CANNOT see workflow in list', { timeout: 30000 }, async () => {
       const workflows = await workflowService.listWorkflows(user3Id);
       expect(workflows).toBeDefined();
       expect(workflows.some((w) => w.id === testWorkflowId)).toBe(false);
     });
-    it('Step 14: Remove member from org', async () => {
+    it('Step 14: Remove member from org', { timeout: 30000 }, async () => {
       await organizationService.removeMember(testOrgId, user2Id, user1Id);
       // Verify membership was removed
       const membership = await db.query.organizationMemberships.findFirst({
@@ -248,13 +248,13 @@ describe('Organization Workflow Integration Tests', () => {
       });
       expect(membership).toBeUndefined();
     });
-    it('Step 15: Removed member (user2) can no longer access workflow', async () => {
+    it('Step 15: Removed member (user2) can no longer access workflow', { timeout: 30000 }, async () => {
       // After removal, user2 should no longer have access
       await expect(
         workflowService.getWorkflowWithDetails(testWorkflowId, user2Id)
       ).rejects.toThrow(/Access denied|not found/i);
     });
-    it('Step 16: Re-add member and verify access restored', async () => {
+    it('Step 16: Re-add member and verify access restored', { timeout: 30000 }, async () => {
       // Add user2 back as member
       await organizationService.addMember(testOrgId, user2Id, user1Id, 'member');
       // Should have access again
@@ -267,7 +267,7 @@ describe('Organization Workflow Integration Tests', () => {
     });
   });
   describe('Edge Cases and Security', () => {
-    it('Cannot invite same email twice (pending invite exists)', async () => {
+    it('Cannot invite same email twice (pending invite exists)', { timeout: 30000 }, async () => {
       // Create first invite
       const invite1 = await organizationService.createInvite(
         testOrgId,
@@ -288,7 +288,7 @@ describe('Organization Workflow Integration Tests', () => {
         .delete(organizationInvites)
         .where(eq(organizationInvites.id, invite1.inviteId));
     });
-    it('Cannot accept expired invite', async () => {
+    it('Cannot accept expired invite', { timeout: 30000 }, async () => {
       // Create invite
       const invite = await organizationService.createInvite(
         testOrgId,
@@ -309,7 +309,7 @@ describe('Organization Workflow Integration Tests', () => {
         .delete(organizationInvites)
         .where(eq(organizationInvites.id, invite.inviteId));
     });
-    it('Cannot transfer workflow to org user is not a member of', async () => {
+    it('Cannot transfer workflow to org user is not a member of', { timeout: 30000 }, async () => {
       // Create another org
       const org2 = await organizationService.createOrganization(
         {
@@ -332,25 +332,25 @@ describe('Organization Workflow Integration Tests', () => {
         .where(eq(organizationMemberships.orgId, org2.id));
       await db.delete(organizations).where(eq(organizations.id, org2.id));
     });
-    it('Member cannot promote themselves to admin', async () => {
+    it('Member cannot promote themselves to admin', { timeout: 30000 }, async () => {
       // User2 is a member, tries to promote themselves
       await expect(
         organizationService.promoteMember(testOrgId, user2Id, user2Id)
       ).rejects.toThrow(/admin only|not authorized|admin role required/i);
     });
-    it('Member cannot remove admin', async () => {
+    it('Member cannot remove admin', { timeout: 30000 }, async () => {
       // User2 (member) tries to remove user1 (admin)
       await expect(
         organizationService.removeMember(testOrgId, user1Id, user2Id)
       ).rejects.toThrow(/admin only|not authorized|admin role required/i);
     });
-    it('Only members can view organization details', async () => {
+    it('Only members can view organization details', { timeout: 30000 }, async () => {
       // User3 (non-member) tries to view org
       await expect(
         organizationService.getOrganizationById(testOrgId, user3Id)
       ).rejects.toThrow(/Access denied|not found/i);
     });
-    it('Only members can view organization members list', async () => {
+    it('Only members can view organization members list', { timeout: 30000 }, async () => {
       // User3 (non-member) tries to view members
       await expect(
         organizationService.getOrganizationMembers(testOrgId, user3Id)

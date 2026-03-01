@@ -18,9 +18,9 @@ describe('DatavaultColumnsService', () => {
   // Mock db for checkColumnUsage() which queries blocks/transforms directly
   vi.mock('../../../server/db', () => {
     const builder = {
-      select: vi.fn().mockReturnValue(undefined as any),
-      from: vi.fn().mockReturnValue(undefined as any),
-      where: vi.fn().mockReturnValue(undefined as any),
+      select: vi.fn(),
+      from: vi.fn(),
+      where: vi.fn(),
       limit: vi.fn().mockResolvedValue([]),
     };
     builder.select.mockReturnValue(builder);
@@ -329,7 +329,7 @@ describe('DatavaultColumnsService', () => {
       mockColumnsRepo.findById.mockResolvedValue(mockColumn);
       mockTablesRepo.findById.mockResolvedValue(mockTable);
 
-      await expect(service.updateColumn(mockColumnId, mockTenantId, { type: 'email' as any }))
+      await expect(service.updateColumn(mockColumnId, mockTenantId, { type: 'email' as const }))
         .rejects
         .toThrow('Cannot change column type');
     });
@@ -393,7 +393,7 @@ describe('DatavaultColumnsService', () => {
       const columnIds = ['col-1', 'col-2', 'col-3'];
 
       mockTablesRepo.findById.mockResolvedValue(mockTable);
-      mockColumnsRepo.findByTableId.mockResolvedValue(columnIds.map(id => ({ id } as any)));
+      mockColumnsRepo.findByTableId.mockResolvedValue(columnIds.map(id => ({ id } as unknown as DatavaultColumn)));
       mockColumnsRepo.reorderColumns.mockResolvedValue(undefined);
 
       await service.reorderColumns(mockTableId, mockTenantId, columnIds);
@@ -570,7 +570,7 @@ describe('DatavaultColumnsService', () => {
         required: false,
         options: [
           { label: 'Active', value: 'active' },
-          { label: 'Inactive' } as any,
+          { label: 'Inactive' } as unknown as { label: string; value: string },
         ],
       };
 

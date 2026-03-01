@@ -150,7 +150,7 @@ export function AiAssistantDialog({ workflowId, open, onOpenChange }: AiAssistan
                                                 <Button
                                                     size="sm"
                                                     className="h-7 text-xs w-full bg-indigo-600 hover:bg-indigo-700"
-                                                    onClick={() => { if (msg.suggestions) void handleApply(msg.suggestions); }}
+                                                    onClick={() => { if (msg.suggestions) {void handleApply(msg.suggestions);} }}
                                                 >
                                                     <Check className="w-3 h-3 mr-1" /> Apply Changes
                                                 </Button>

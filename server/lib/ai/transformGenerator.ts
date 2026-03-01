@@ -2,6 +2,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import { TransformBlock } from "shared/schema";
+import { logger } from "../../logger";
 interface GenerationRequest {
   workflowContext: unknown;
   description: string;
@@ -18,7 +19,7 @@ const getModel = () => {
     const genAI = new GoogleGenerativeAI(apiKey);
     return genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
   } catch (e) {
-    console.warn("Failed to init AI model (mock issue?)", e);
+    logger.warn({ err: e }, "Failed to init AI model in transformGenerator");
     // Return a mock-compatible object or throw
     if (process.env.NODE_ENV === 'test') {
       return {
@@ -69,7 +70,7 @@ export const generateTransforms = async (request: GenerationRequest): Promise<{
     const response = result.response;
     text = response.text();
   } catch (e) {
-    console.error("AI Generation failed", e);
+    logger.error({ err: e }, "AI Generation failed");
     // Fallback or rethrow
     return { updatedTransforms: [], explanation: ["AI generation failed"] };
   }
@@ -82,7 +83,7 @@ export const generateTransforms = async (request: GenerationRequest): Promise<{
       explanation: parsed.transforms.map((t: { explanation: string }) => t.explanation)
     };
   } catch (e) {
-    console.error("Failed to parse AI response", e);
+    logger.error({ err: e }, "Failed to parse AI response");
     throw new Error("Failed to generate transforms");
   }
 };

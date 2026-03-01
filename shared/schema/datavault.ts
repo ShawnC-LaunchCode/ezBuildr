@@ -113,6 +113,7 @@ export const datavaultRows = pgTable("datavault_rows", {
 }, (table) => [
     index("datavault_rows_table_idx").on(table.tableId),
     index("datavault_rows_created_by_idx").on(table.createdBy),
+    index("datavault_rows_deleted_at_idx").on(table.deletedAt),
 ]);
 // DataVault Values
 export const datavaultValues = pgTable("datavault_values", {

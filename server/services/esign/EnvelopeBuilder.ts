@@ -16,6 +16,8 @@
 // eslint-disable-next-line @typescript-eslint/naming-convention
 import _path from 'path';
 
+import { logger } from '../../logger';
+
 import type {
   IEsignProvider,
   CreateEnvelopeRequest,
@@ -128,7 +130,7 @@ export class EnvelopeBuilder {
       const source = await this.resolveDocumentSource(docConfig.documentId);
 
       if (!source) {
-        console.warn(`[EnvelopeBuilder] Document not found: ${docConfig.documentId}`);
+        logger.warn({ documentId: docConfig.documentId }, "[EnvelopeBuilder] Document not found");
         continue;
       }
 
@@ -159,7 +161,7 @@ export class EnvelopeBuilder {
     // 3. File storage for workflow attachments
 
     // Placeholder implementation
-    console.warn(`[EnvelopeBuilder] Document resolution not yet implemented: ${documentId}`);
+    logger.warn({ documentId }, "[EnvelopeBuilder] Document resolution not yet implemented");
 
     // For now, return a placeholder
     if (documentId === 'placeholder') {

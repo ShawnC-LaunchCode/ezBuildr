@@ -96,7 +96,7 @@ export async function renderDocx(options: RenderOptions): Promise<RenderResult> 
       if (error && typeof error === 'object' && 'properties' in error) {
         const err = error as { properties?: { errors?: Array<{ message: string }> } };
         if (err.properties?.errors) {
-          console.error('Docxtemplater MultiError:', JSON.stringify(err.properties.errors, null, 2));
+          logger.error({ errors: err.properties.errors }, "Docxtemplater MultiError");
           const errorMessages = err.properties.errors
             .map((e) => e.message)
             .join(', ');

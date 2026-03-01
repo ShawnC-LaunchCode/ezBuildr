@@ -70,7 +70,7 @@ describeWithDb('PdfQueueService', () => {
     // Wrap all setup inserts in a transaction to guarantee Neon read-after-write consistency.
     // Without a transaction, Neon may route consecutive queries to different backends,
     // causing FK violations when child rows reference just-inserted parent rows.
-    await db.transaction(async (tx: any) => {
+    await db.transaction(async (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => {
       // Create test user
       const [user] = await tx
         .insert(users)

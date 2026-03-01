@@ -2,6 +2,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import { type UserPersonalizationSettings, type WorkflowPersonalizationSettings } from '../../../shared/schema';
+import { logger } from "../../logger";
 
 // Types for input
 interface PersonalizationContext {
@@ -18,7 +19,7 @@ export class PersonalizationService {
     constructor() {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
-            console.warn("GEMINI_API_KEY is not set. Personalization will be disabled.");
+            logger.warn("GEMINI_API_KEY is not set. Personalization will be disabled.");
         }
 
         if (process.env.NODE_ENV !== 'test_without_mock') {
@@ -27,7 +28,7 @@ export class PersonalizationService {
                 const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
                 this.model = this.genAI.getGenerativeModel({ model });
             } catch (e) {
-                console.warn("Failed to initialize GoogleGenerativeAI (likely mock issue in tests)");
+                logger.warn({ err: e }, "Failed to initialize GoogleGenerativeAI (likely mock issue in tests)");
                 this.model = null;
             }
         } else {
@@ -67,7 +68,7 @@ export class PersonalizationService {
             const text = response.text();
             return text.trim();
         } catch (error) {
-            console.error("Personalization AI Error:", error);
+            logger.error({ err: error }, "Personalization AI Error");
             return originalText; // Fallback
         }
     }
@@ -96,7 +97,7 @@ export class PersonalizationService {
             const response = await result.response;
             return response.text().trim();
         } catch (error) {
-            console.error("Help Gen AI Error:", error);
+            logger.error({ err: error }, "Help Gen AI Error");
             return "Unable to generate help text at this time.";
         }
     }
@@ -166,7 +167,7 @@ export class PersonalizationService {
             const result = await this.model.generateContent(prompt);
             return result.response.text().trim();
         } catch (error) {
-            console.error("Translation Error:", error);
+            logger.error({ err: error }, "Translation Error");
             return text;
         }
     }

@@ -55,14 +55,14 @@ const getRawEnv = () => {
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (typeof process !== 'undefined' && process.env) {
         return process.env;
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     }
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/ban-ts-comment
-    // @ts-ignore - Vite specific
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/ban-ts-comment
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/prefer-optional-chain
     if (import.meta && import.meta.env) {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         return import.meta.env;
     }
     return {};

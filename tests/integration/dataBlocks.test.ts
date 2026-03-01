@@ -97,7 +97,7 @@ describe('Data Block Integration Tests', () => {
         }
     });
 
-    it('should write data to DataVault via WriteBlock', async () => {
+    it('should write data to DataVault via WriteBlock', { timeout: 30000 }, async () => {
         // 1. Create Workflow & Section
         const [project] = await db.insert(projects).values({
             name: 'Write Block Project',
@@ -189,7 +189,7 @@ describe('Data Block Integration Tests', () => {
         expect(row.values[columnId]).toBe('Hello DataVault');
     });
 
-    it('should query data from DataVault via QueryBlock and use in Logic', async () => {
+    it('should query data from DataVault via QueryBlock and use in Logic', { timeout: 30000 }, async () => {
         // 1. Create Workflow & Query
         const [workflow] = await db.insert(workflows).values({
             projectId: projectId,

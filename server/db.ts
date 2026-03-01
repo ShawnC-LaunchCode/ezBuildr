@@ -80,8 +80,7 @@ async function initializeDatabase() {
               try {
                 await client.query(`SET search_path TO "${schemaStr}", public`);
               } catch (e: unknown) {
-                // eslint-disable-next-line no-console
-                console.error(`[DB-WRAP] Worker ${workerId}: Failed to set search_path: ${e instanceof Error ? e.message : String(e)}`);
+                logger.warn({ workerId, schema: schemaStr, err: e instanceof Error ? e.message : String(e) }, "[DB-WRAP] Failed to set search_path");
               }
             }
             callback(err, client, release);
@@ -92,8 +91,7 @@ async function initializeDatabase() {
         try {
           await client.query(`SET search_path TO "${schemaStr}", public`);
         } catch (e: unknown) {
-          // eslint-disable-next-line no-console
-          console.error(`[DB-WRAP] Worker ${workerId}: Failed to set search_path: ${e instanceof Error ? e.message : String(e)}`);
+          logger.warn({ workerId, schema: schemaStr, err: e instanceof Error ? e.message : String(e) }, "[DB-WRAP] Failed to set search_path");
         }
         return client;
       };
@@ -117,19 +115,13 @@ const isInitialConfigured = Boolean(initialDatabaseUrl) && initialDatabaseUrl !=
 const isTest = env.NODE_ENV === 'test';
 
 if (isInitialConfigured) {
-  // eslint-disable-next-line no-console
   if (isTest) {
-    // eslint-disable-next-line no-console
-    console.log("DB: Skipping auto-init because NODE_ENV=test");
-    // eslint-disable-next-line no-console
+    logger.debug("DB: Skipping auto-init because NODE_ENV=test");
   } else {
-    // eslint-disable-next-line no-console
-    console.log("DB: Auto-initializing...");
+    logger.debug("DB: Auto-initializing...");
   }
-  // eslint-disable-next-line no-console
 } else {
-  // eslint-disable-next-line no-console
-  console.log("DB: Not auto-initializing because DATABASE_URL is missing/empty");
+  logger.debug("DB: Not auto-initializing because DATABASE_URL is missing/empty");
 }
 
 // eslint-disable-next-line prefer-const

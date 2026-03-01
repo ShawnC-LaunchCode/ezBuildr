@@ -73,7 +73,8 @@ export class DocumentGenerationService {
 
       // 4. Get step values for data interpolation
       const stepValues = await stepValueRepository.findByRunId(runId);
-      const allSteps = await stepRepository.findByWorkflowIdWithAliases(run.workflowId);
+      // Use cached alias map instead of O(n²) find() per step value
+      const aliasMap = await stepRepository.getAliasMap(run.workflowId);
 
       // Build data object with both stepId and alias keys
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- workflow data values are dynamically typed
@@ -83,9 +84,9 @@ export class DocumentGenerationService {
         data[stepValue.stepId] = stepValue.value;
 
         // Add by alias if step has one
-        const step = allSteps.find((s) => s.id === stepValue.stepId);
-        if (step?.alias) {
-          data[step.alias] = stepValue.value;
+        const alias = aliasMap.get(stepValue.stepId);
+        if (alias) {
+          data[alias] = stepValue.value;
         }
       }
 

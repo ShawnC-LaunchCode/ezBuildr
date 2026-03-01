@@ -8,6 +8,7 @@ import {
   AliasResolver,
   AliasResolutionError,
   AliasResolverUtils,
+  StepWithAlias,
 } from '../../server/services/AliasResolver';
 
 describe('AliasResolver', () => {
@@ -81,7 +82,7 @@ describe('AliasResolver', () => {
       const steps = [
         { id: '', alias: 'noId' },
         { id: 'step-1', alias: 'hasId' },
-      ] as any;
+      ] as unknown as StepWithAlias[];
 
       const resolver = AliasResolver.fromSteps(steps);
       const errors = resolver.getErrors();
@@ -288,8 +289,10 @@ describe('AliasResolverUtils', () => {
 
       expect(errors.length).toBe(0);
       expect(resolved.length).toBe(1);
-      expect((resolved[0] as any).conditionStepId).toBe('step-1');
-      expect((resolved[0] as any).targetId).toBe('step-2');
+
+      const resolvedRule = resolved[0] as typeof rules[0] & { conditionStepId: string; targetId: string };
+      expect(resolvedRule.conditionStepId).toBe('step-1');
+      expect(resolvedRule.targetId).toBe('step-2');
     });
 
     it('should report errors for unresolved aliases', () => {

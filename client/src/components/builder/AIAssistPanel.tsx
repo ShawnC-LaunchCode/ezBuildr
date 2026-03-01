@@ -102,8 +102,7 @@ export function AIAssistPanel({ workflowId, currentWorkflow, isOpen, onClose }: 
                 <AiAssistInput
                     input={input}
                     setInput={setInput}
-                    // eslint-disable-next-line @typescript-eslint/no-misused-promises
-                    handleSend={handleSend}
+                    handleSend={() => { void handleSend(); }}
                     isLoading={reviseMutation.isPending}
                     isWaitingForReview={!!proposedWorkflow}
                     mode={mode}

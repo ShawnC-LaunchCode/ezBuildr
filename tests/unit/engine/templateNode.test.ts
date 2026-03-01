@@ -56,9 +56,6 @@ vi.mock('fs/promises', () => ({
 }));
 
 describeWithDb('Template Node - Multi-Template Support', () => {
-  let factory: ReturnType<typeof createTestFactory>;
-
-
   let testVersionId: string;
   let testTemplateId1: string;
 
@@ -67,8 +64,6 @@ describeWithDb('Template Node - Multi-Template Support', () => {
   let testRunId: string;
 
   beforeEach(async () => {
-    factory = createTestFactory();
-
     // Wrap all setup in a single transaction to guarantee Neon read-after-write consistency.
     // Without this, Neon may route consecutive queries to different backends,
     // causing FK violations between createTenant/createWorkflow/createTemplate/createRun.
@@ -109,7 +104,8 @@ describeWithDb('Template Node - Multi-Template Support', () => {
 
   afterEach(async () => {
     // Cleanup using factory (respects foreign key order)
-    await factory.cleanup({ tenantIds: [testTenantId] });
+    const cleanupFactory = createTestFactory();
+    await cleanupFactory.cleanup({ tenantIds: [testTenantId] });
   });
 
   describe('Template Key Resolution (New Path)', () => {

@@ -10,14 +10,11 @@ import {
     GripVertical,
     ChevronDown,
     ChevronRight,
-    Database,
 } from "lucide-react";
 import { useState } from "react";
 
 import { useCollaboration, useBlockCollaborators } from "@/components/collab/CollaborationContext";
 import { LogicIndicator } from "@/components/logic";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -35,6 +32,8 @@ import type { ConditionExpression } from "@shared/types/conditions";
 import { useIntake } from "../IntakeContext";
 import { StepEditorRouter } from "../StepEditorRouter";
 
+import { StepBadges } from "./common/StepBadges";
+import { StepLockOverlay } from "./common/StepLockOverlay";
 import { getQuestionTypeIcon } from "./common/StepIcons";
 import { StepTitleRow } from "./common/StepTitleRow";
 
@@ -57,7 +56,6 @@ interface StepDefaultValue {
 // Get icon for each question type
 
 
-// eslint-disable-next-line max-lines-per-function
 // eslint-disable-next-line max-lines-per-function, complexity
 export function StepCard({
     step,
@@ -152,20 +150,7 @@ export function StepCard({
             <Card className={cn("shadow-sm transition-all duration-300", isDragging && "opacity-50", isLockedByOther && "ring-2 ring-indigo-400/50 border-indigo-200")}>
                 <CardContent className="p-3 relative">
                     {/* Lock Overlay */}
-                    {isLockedByOther && (
-                        <>
-                            <div className="absolute top-2 right-12 z-20 flex items-center gap-2 bg-background/95 backdrop-blur px-2 py-1 rounded-full shadow-sm border border-indigo-100 animate-in fade-in zoom-in-95 duration-200">
-                                <span className="text-[10px] font-medium text-indigo-700">Edited by {lockedBy?.displayName}</span>
-                                <Avatar className="w-5 h-5 ring-1 ring-white">
-                                    <AvatarFallback style={{ backgroundColor: lockedBy?.color }} className="text-[9px] text-white">
-                                        {lockedBy?.displayName.charAt(0)}
-                                    </AvatarFallback>
-                                </Avatar>
-                            </div>
-                            {/* Interaction Blocker */}
-                            <div className="absolute inset-0 z-10 bg-white/20" />
-                        </>
-                    )}
+                    <StepLockOverlay isLockedByOther={!!isLockedByOther} lockedBy={lockedBy ?? null} />
 
                     <div className="flex items-start gap-2">
                         {/* Drag Handle */}
@@ -207,32 +192,16 @@ export function StepCard({
                             </Button>
                         </div>
 
-                        {/* Visual Pills (collapsed view) */}
-                        {!isExpanded && step.visibleIf !== null && step.visibleIf !== undefined && (
-                            <div className="mt-2">
-                                <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-500/20 font-medium">
-                                    Conditional
-                                </Badge>
-                            </div>
-                        )}
-
                         {/* Content */}
                         <div className="flex-1 min-w-0 space-y-2">
-                            {/* Header Row - Badges (required/conditional) above question */}
-                            {(step.required || (step.visibleIf !== null && step.visibleIf !== undefined)) && (
-                                <div className="flex items-center gap-1.5">
-                                    {step.required && (
-                                        <Badge variant="destructive" className="text-[9px] h-4 px-1.5 font-medium">
-                                            Required
-                                        </Badge>
-                                    )}
-                                    {step.visibleIf !== null && step.visibleIf !== undefined && (
-                                        <Badge variant="outline" className="text-[9px] h-4 px-1.5 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-500/20 font-medium">
-                                            Conditional
-                                        </Badge>
-                                    )}
-                                </div>
-                            )}
+                            {/* Badges (Required, Conditional, Intake) */}
+                            <StepBadges
+                                step={step}
+                                isExpanded={isExpanded}
+                                isLinkedToIntake={!!isLinkedToIntake}
+                                linkedVariable={linkedVariable}
+                                upstreamWorkflowTitle={upstreamWorkflow?.title}
+                            />
 
                             {/* Title and Delete Row */}
                             <StepTitleRow
@@ -246,14 +215,6 @@ export function StepCard({
                                 autoFocus={autoFocus}
                                 isExpanded={isExpanded}
                             />
-
-                            {/* Intake Badge (Collapsed View) */}
-                            {!isExpanded && isLinkedToIntake && (
-                                <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full w-fit border border-emerald-100">
-                                    <Database className="w-3 h-3" />
-                                    <span>Linked to <strong>{upstreamWorkflow?.title}</strong> ({linkedVariable?.label ?? linkedVariable?.alias})</span>
-                                </div>
-                            )}
 
                             {/* Expanded Content - Rendered by Router */}
                             {isExpanded && (

@@ -5,6 +5,7 @@ import { blocks, transformBlocks } from "@shared/schema";
 import type { DatavaultColumn, InsertDatavaultColumn } from "@shared/schema";
 
 import { db } from "../db";
+import { logger } from "../logger";
 import { ConflictError } from "../errors/AppError";
 import {
   datavaultColumnsRepository,
@@ -67,7 +68,7 @@ export class DatavaultColumnsService {
     const table = await this.tablesRepo.findById(tableId, tx);
     if (!table) {
       // eslint-disable-next-line no-console
-      console.log(`[DEBUG] Table not found: ${tableId}`);
+      logger.debug({ tableId }, "Table not found");
       throw new Error("Table not found");
     }
     if (table.tenantId !== tenantId) {

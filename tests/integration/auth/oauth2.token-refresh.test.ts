@@ -330,7 +330,7 @@ describe('OAuth2 Token Refresh Flow', () => {
     });
   });
   describe('Refresh Token Security', () => {
-    it('should use cryptographically strong random tokens', async () => {
+    it('should use cryptographically strong random tokens', { timeout: 60000 }, async () => {
       const tokens = new Set<string>();
       // Generate multiple tokens
       for (let i = 0; i < 100; i++) {

@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import {
   renderDocx2,
-  _extractPlaceholders2,
+  extractPlaceholders2,
   validateTemplateData2,
 } from '../../../server/services/docxRenderer2';
 
@@ -122,7 +122,7 @@ describe('DOCX Renderer 2.0', () => {
       vi.mocked(fs.readFile).mockResolvedValue(Buffer.from('mock docx'));
       vi.mocked(fs.mkdir).mockResolvedValue(undefined);
       vi.mocked(fs.writeFile).mockResolvedValue(undefined);
-      vi.mocked(fs.stat).mockResolvedValue({ size: 1024 } as any);
+      vi.mocked(fs.stat).mockResolvedValue({ size: 1024 } as unknown as import('fs').Stats);
 
       // This would require full mocking of PizZip and Docxtemplater
       // For now, verify the structure

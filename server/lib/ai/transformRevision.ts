@@ -2,6 +2,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import { TransformBlock, TransformResult } from "shared/schema";
+import { logger } from "../../logger";
 
 interface RevisionRequest {
   currentTransforms: TransformBlock[];
@@ -21,7 +22,7 @@ const getModel = () => {
     const genAI = new GoogleGenerativeAI(apiKey);
     return genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
   } catch (e) {
-    console.warn("Failed to init AI model in transformRevision (mock issue?)", e);
+    logger.warn({ err: e }, "Failed to init AI model in transformRevision");
     if (process.env.NODE_ENV === 'test') {
       return {
         generateContent: async () => ({
@@ -74,7 +75,7 @@ export const reviseTransforms = async (request: RevisionRequest): Promise<Transf
     const response = result.response;
     text = response.text();
   } catch (e) {
-    console.error("AI Revision Generation failed", e);
+    logger.error({ err: e }, "AI Revision Generation failed");
     throw new Error("Failed to revise transforms");
   }
 
@@ -87,7 +88,7 @@ export const reviseTransforms = async (request: RevisionRequest): Promise<Transf
       explanation: parsed.explanation
     };
   } catch (e) {
-    console.error("Failed to parse AI revision response", e);
+    logger.error({ err: e }, "Failed to parse AI revision response");
     throw new Error("Failed to revise transforms");
   }
 };

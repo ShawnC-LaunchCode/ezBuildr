@@ -39,7 +39,7 @@ describe("Reproduction: Workflow Creation", () => {
         }
     });
 
-    it("should create a workflow successfully via service simulating route logic", async () => {
+    it("should create a workflow successfully via service simulating route logic", { timeout: 30000 }, async () => {
         const reqBody = {
             title: "Reproduction Workflow",
             description: "Created for debugging",

@@ -1,8 +1,30 @@
 import crypto from "crypto";
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 
 import { PortalAuthService } from "../../../server/services/PortalAuthService";
+import { type InferSelectModel } from "drizzle-orm";
+import { portalTokens } from "@shared/schema";
+
+// Helper type for PortalToken
+type PortalToken = InferSelectModel<typeof portalTokens>;
+
+// Mock database type
+interface MockDb {
+  query: {
+    portalTokens: {
+      findFirst: Mock;
+    };
+  };
+  insert: Mock;
+  delete: Mock;
+}
+
+interface MockLogger {
+  info: Mock;
+  warn: Mock;
+  error: Mock;
+}
 
 // Mock dependencies
 vi.mock("../../../server/db", () => ({
@@ -42,16 +64,16 @@ vi.mock("../../../server/utils/encryption", () => ({
  */
 describe("PortalAuthService", () => {
   let portalAuthService: PortalAuthService;
-  let mockDb: any;
-  let mockLogger: any;
+  let mockDb: MockDb;
+  let mockLogger: MockLogger;
   const originalEnv = process.env;
 
   beforeEach(async () => {
     const dbModule = await import("../../../server/db");
-    mockDb = dbModule.db;
+    mockDb = dbModule.db as unknown as MockDb;
 
     const loggerModule = await import("../../../server/logger");
-    mockLogger = loggerModule.logger;
+    mockLogger = loggerModule.logger as unknown as MockLogger;
 
     // Create service instance
     portalAuthService = new PortalAuthService();
@@ -98,6 +120,7 @@ describe("PortalAuthService", () => {
         expect(mockDb.insert).toHaveBeenCalled();
 
         // Verify values contain email and hashed token
+        /* eslint-disable @typescript-eslint/no-unsafe-assignment */
         expect(mockValues).toHaveBeenCalledWith(
           expect.objectContaining({
             email,
@@ -105,6 +128,7 @@ describe("PortalAuthService", () => {
             expiresAt: expect.any(Date),
           })
         );
+        /* eslint-enable @typescript-eslint/no-unsafe-assignment */
       });
 
       it("should set token expiry to 30 minutes", async () => {
@@ -119,7 +143,7 @@ describe("PortalAuthService", () => {
         await portalAuthService.sendMagicLink(email);
         const afterTime = new Date(Date.now() + 30 * 60 * 1000 + 1000);
 
-        const call = mockValues.mock.calls[0][0];
+        const call = mockValues.mock.calls[0][0] as PortalToken;
         const expiresAt = call.expiresAt;
 
         expect(expiresAt).toBeInstanceOf(Date);
@@ -151,7 +175,7 @@ describe("PortalAuthService", () => {
         const tokens: string[] = [];
 
         mockDb.insert.mockImplementation(() => ({
-          values: vi.fn((data: any) => {
+          values: vi.fn((data: PortalToken) => {
             tokens.push(data.token);
             return Promise.resolve(undefined);
           }),
@@ -193,12 +217,14 @@ describe("PortalAuthService", () => {
 
         await portalAuthService.sendMagicLink(email);
 
+        /* eslint-disable @typescript-eslint/no-unsafe-assignment */
         expect(mockLogger.info).toHaveBeenCalledWith(
           expect.objectContaining({
             magicLinkUrl: expect.stringContaining("https://portal.example.com"),
           }),
           expect.any(String)
         );
+        /* eslint-enable @typescript-eslint/no-unsafe-assignment */
       });
 
       it("should default to localhost if base URL not set", async () => {
@@ -211,12 +237,14 @@ describe("PortalAuthService", () => {
 
         await portalAuthService.sendMagicLink(email);
 
+        /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
         expect(mockLogger.info).toHaveBeenCalledWith(
           expect.objectContaining({
             magicLinkUrl: expect.stringContaining("http://localhost:5000"),
           }),
           expect.any(String)
         );
+        /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
       });
     });
 
@@ -232,6 +260,7 @@ describe("PortalAuthService", () => {
           "Failed to generate magic link"
         );
 
+        /* eslint-disable @typescript-eslint/no-unsafe-assignment */
         expect(mockLogger.error).toHaveBeenCalledWith(
           expect.objectContaining({
             error: expect.any(Error),
@@ -239,6 +268,7 @@ describe("PortalAuthService", () => {
           }),
           "Failed to send magic link"
         );
+        /* eslint-enable @typescript-eslint/no-unsafe-assignment */
       });
 
       it("should handle empty email", async () => {
@@ -414,12 +444,14 @@ describe("PortalAuthService", () => {
         const result = await portalAuthService.verifyMagicLink(plainToken);
 
         expect(result).toBeNull();
+        /* eslint-disable @typescript-eslint/no-unsafe-assignment */
         expect(mockLogger.error).toHaveBeenCalledWith(
           expect.objectContaining({
             error: expect.any(Error),
           }),
           "Failed to verify magic link"
         );
+        /* eslint-enable @typescript-eslint/no-unsafe-assignment */
       });
 
       it("should handle database delete errors gracefully", async () => {
@@ -444,13 +476,13 @@ describe("PortalAuthService", () => {
       });
 
       it("should handle null token gracefully", async () => {
-        const result = await portalAuthService.verifyMagicLink(null as any);
+        const result = await portalAuthService.verifyMagicLink(null as unknown as string);
 
         expect(result).toBeNull();
       });
 
       it("should handle undefined token gracefully", async () => {
-        const result = await portalAuthService.verifyMagicLink(undefined as any);
+        const result = await portalAuthService.verifyMagicLink(undefined as unknown as string);
 
         expect(result).toBeNull();
       });
@@ -472,7 +504,7 @@ describe("PortalAuthService", () => {
         const tokens = new Set<string>();
 
         mockDb.insert.mockImplementation(() => ({
-          values: vi.fn((data: any) => {
+          values: vi.fn((data: PortalToken) => {
             tokens.add(data.token);
             return Promise.resolve(undefined);
           }),
@@ -549,7 +581,7 @@ describe("PortalAuthService", () => {
 
         await portalAuthService.sendMagicLink(email);
 
-        const call = mockValues.mock.calls[0][0];
+        const call = mockValues.mock.calls[0][0] as PortalToken;
         const storedToken = call.token;
 
         // SHA-256 produces 64 hex characters
@@ -632,12 +664,15 @@ describe("PortalAuthService", () => {
         expect(sendResult.success).toBe(true);
 
         // Extract token from logged magic link URL
-        const logCall = mockLogger.info.mock.calls.find((call: any) =>
-          call[0].magicLinkUrl
+        const logCall = mockLogger.info.mock.calls.find((call: unknown[]) =>
+          (call[0] as Record<string, unknown>).magicLinkUrl
         );
         expect(logCall).toBeDefined();
+        if (!logCall) {
+          throw new Error("Log call not found");
+        }
 
-        const magicLinkUrl = logCall[0].magicLinkUrl;
+        const magicLinkUrl = (logCall[0] as Record<string, unknown>).magicLinkUrl as string;
         const urlParams = new URL(magicLinkUrl);
         const plainToken = urlParams.searchParams.get("token");
         expect(plainToken).toBeTruthy();

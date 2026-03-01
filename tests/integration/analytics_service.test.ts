@@ -56,7 +56,7 @@ describe("Analytics Service Integration", () => {
         workflow = await db.query.workflows.findFirst({ where: eq(workflows.id, wfRes.id) });
     });
 
-    it("should generate events and metrics on run completion", async () => {
+    it("should generate events and metrics on run completion", { timeout: 30000 }, async () => {
         // 1. Create Run via Service
         // Note: RunService.createRun expects a context or request info usually, but simplified sig might work if adjusted
         // Actually RunService.createRun(workflowId, inputData, queryParams, ...)

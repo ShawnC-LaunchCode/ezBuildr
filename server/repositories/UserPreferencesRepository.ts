@@ -48,7 +48,7 @@ export class UserPreferencesRepository extends BaseRepository<typeof userPrefere
         .where(eq(userPreferences.userId, userId))
         .returning();
 
-      if (!updated) throw new Error("Failed to update user preferences");
+      if (!updated) {throw new Error("Failed to update user preferences");}
       return updated;
     } else {
       // Create new preferences with default values merged with provided settings
@@ -66,7 +66,7 @@ export class UserPreferencesRepository extends BaseRepository<typeof userPrefere
         })
         .returning();
 
-      if (!created) throw new Error("Failed to create user preferences");
+      if (!created) {throw new Error("Failed to create user preferences");}
       return created;
     }
   }

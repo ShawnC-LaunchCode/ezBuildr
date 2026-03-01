@@ -3,12 +3,12 @@ import * as fs from 'fs/promises';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import {
-  _analyzeTemplate,
-  _validateTemplateWithData,
-  _generateSampleData,
-  _compareTemplates,
-  type _TemplateAnalysis,
-  type _ValidationResult,
+  analyzeTemplate,
+  validateTemplateWithData,
+  generateSampleData,
+  compareTemplates,
+  type TemplateAnalysis,
+  type ValidationResult,
 } from '../../../server/services/TemplateAnalysisService';
 import * as templatesModule from '../../../server/services/templates';
 
@@ -89,7 +89,7 @@ describe('TemplateAnalysisService', () => {
 
   describe('generateSampleData', () => {
     it('should generate date values for date fields', () => {
-      const generateSampleValue = (varName: string): any => {
+      const generateSampleValue = (varName: string): unknown => {
         const lower = varName.toLowerCase();
         if (lower.includes('date') || lower.includes('time')) {
           return new Date().toISOString();
@@ -102,7 +102,7 @@ describe('TemplateAnalysisService', () => {
     });
 
     it('should generate numeric values for amount fields', () => {
-      const generateSampleValue = (varName: string): any => {
+      const generateSampleValue = (varName: string): unknown => {
         const lower = varName.toLowerCase();
         if (
           lower.includes('amount') ||
@@ -119,7 +119,7 @@ describe('TemplateAnalysisService', () => {
     });
 
     it('should generate boolean values for boolean fields', () => {
-      const generateSampleValue = (varName: string): any => {
+      const generateSampleValue = (varName: string): unknown => {
         const lower = varName.toLowerCase();
         if (lower.includes('is') || lower.includes('has') || lower.includes('enabled')) {
           return true;
@@ -132,7 +132,7 @@ describe('TemplateAnalysisService', () => {
     });
 
     it('should generate email for email fields', () => {
-      const generateSampleValue = (varName: string): any => {
+      const generateSampleValue = (varName: string): unknown => {
         const lower = varName.toLowerCase();
         if (lower.includes('email')) {
           return 'sample@example.com';
@@ -270,7 +270,7 @@ describe('TemplateAnalysisService', () => {
     });
 
     it('should return 0 for no loops', () => {
-      const loops: any[] = [];
+      const loops: Array<{ variable: string; depth: number }> = [];
       const maxDepth = loops.length === 0 ? 0 : Math.max(...loops.map((l) => l.depth)) + 1;
 
       expect(maxDepth).toBe(0);
@@ -279,9 +279,9 @@ describe('TemplateAnalysisService', () => {
 
   describe('Validation Warnings', () => {
     it('should warn about type mismatches', () => {
-      const warnings: any[] = [];
+      const warnings: Array<{ code: string; message: string; variable: string; severity: 'warning' | 'error' | 'info' }> = [];
       const loopVar = 'items';
-      const value = 'not an array';
+      const value: unknown = 'not an array';
 
       if (value !== undefined && !Array.isArray(value)) {
         warnings.push({
@@ -297,9 +297,9 @@ describe('TemplateAnalysisService', () => {
     });
 
     it('should warn about empty arrays', () => {
-      const warnings: any[] = [];
+      const warnings: Array<{ code: string; message: string; variable: string; severity: 'warning' | 'error' | 'info' }> = [];
       const loopVar = 'items';
-      const value: any[] = [];
+      const value: unknown[] = [];
 
       if (Array.isArray(value) && value.length === 0) {
         warnings.push({
@@ -363,14 +363,14 @@ describe('TemplateAnalysisService', () => {
       ];
 
       const uniqueVars = new Set(
-        placeholders.filter((p: any) => p.type === 'variable').map((p) => p.name)
+        placeholders.filter((p: { type: string, name: string, helperName?: string }) => p.type === 'variable').map((p) => p.name)
       );
-      const loops = placeholders.filter((p: any) => p.type === 'loop');
-      const conditionals = placeholders.filter((p: any) => p.type === 'conditional');
+      const loops = placeholders.filter((p: { type: string, name: string, helperName?: string }) => p.type === 'loop');
+      const conditionals = placeholders.filter((p: { type: string, name: string, helperName?: string }) => p.type === 'conditional');
       const helpers = new Set(
         placeholders
-          .filter((p: any) => p.type === 'helper' && p.helperName)
-          .map((p: any) => p.helperName)
+          .filter((p: { type: string, name: string, helperName?: string }) => p.type === 'helper' && p.helperName)
+          .map((p: { type: string, name: string, helperName?: string }) => p.helperName!)
       );
 
       const stats = {

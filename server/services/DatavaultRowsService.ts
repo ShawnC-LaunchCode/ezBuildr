@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import type { DatavaultRow, _InsertDatavaultRow, DatavaultColumn } from "@shared/schema";
 
+/** Typed union of all possible coerced cell values stored in DataVault */
+type CoercedValue = string | number | boolean | string[] | object | null;
+
 import { db } from "../db";
 import {
   datavaultRowsRepository,
@@ -70,8 +73,8 @@ export class DatavaultRowsService {
   /**
    * Validate and coerce value based on column type
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, sonarjs/cognitive-complexity, complexity
-  private validateAndCoerceValue(value: any, column: DatavaultColumn): any {
+  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
+  private validateAndCoerceValue(value: unknown, column: DatavaultColumn): CoercedValue {
     if (value === null || value === undefined) {
       if (column.required && column.type !== 'auto_number' && column.type !== 'autonumber') {
         throw new Error(`Column '${column.name}' is required`);
@@ -113,7 +116,7 @@ export class DatavaultRowsService {
       case 'datetime':
         if (value instanceof Date) {return value.toISOString();}
         // eslint-disable-next-line no-case-declarations
-        const date = new Date(value);
+        const date = new Date(String(value));
         if (isNaN(date.getTime())) {
           throw new Error(`Column '${column.name}' must be a valid date`);
         }
@@ -182,24 +185,22 @@ export class DatavaultRowsService {
         return multiselectValues;
 
       default:
-        return value;
+        return value as CoercedValue;
     }
   }
 
   /**
    * Validate row data against column definitions
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, complexity
+  // eslint-disable-next-line complexity
   private async validateRowData(
     tableId: string,
     values: Record<string, unknown>,
     tx?: DbTransaction
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- validated values maintain dynamic typing
-  ): Promise<Array<{ columnId: string; value: any }>> {
+  ): Promise<Array<{ columnId: string; value: CoercedValue }>> {
     const columns = await this.columnsRepo.findByTableId(tableId, tx);
     const columnMap = new Map(columns.map((c) => [c.id, c]));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- validated values maintain dynamic typing
-    const validatedValues: Array<{ columnId: string; value: any }> = [];
+    const validatedValues: Array<{ columnId: string; value: CoercedValue }> = [];
 
     // Check required columns (excluding auto_number columns)
     for (const column of columns) {

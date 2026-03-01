@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 
 import { v4 as uuidv4 } from "uuid";
+import { logger } from "../../logger";
 
 import {
     OptimizationIssue,
@@ -84,7 +85,7 @@ export class WorkflowOptimizationService {
                     // Add other fix types here
                 }
             } catch (err) {
-                console.error(`Failed to apply fix ${fix.type}:`, err);
+                logger.error({ err, fixType: fix.type }, "Failed to apply workflow optimization fix");
             }
         }
 

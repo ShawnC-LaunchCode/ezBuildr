@@ -5,6 +5,7 @@ import { insertWorkflowSchema } from "@shared/schema";
 
 import { logger } from "../logger";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
+import { createLimiter } from "../middleware/rateLimiting";
 import { logicRuleRepository } from "../repositories/LogicRuleRepository";
 import { templateTestService } from "../services/TemplateTestService";
 import { variableService } from "../services/VariableService";
@@ -25,7 +26,7 @@ export function registerWorkflowRoutes(app: Express): void {
    * POST /api/workflows
    * Create a new workflow
    */
-  app.post('/api/workflows', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/workflows', hybridAuth, createLimiter, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {

@@ -38,8 +38,8 @@ describeWithDb('WorkflowTemplateService', () => {
     factory = createTestFactory();
     service = new WorkflowTemplateService();
     // Wrap all setup in a single transaction to guarantee Neon read-after-write consistency.
-    await db.transaction(async (tx: any) => {
-      const txFactory = new TestFactory(tx);
+    await db.transaction(async (tx: unknown) => {
+      const txFactory = new TestFactory(tx as ConstructorParameters<typeof TestFactory>[0]);
       // Create test hierarchy using factory
       const { tenant, user, project } = await txFactory.createTenant();
       testTenantId = tenant.id;

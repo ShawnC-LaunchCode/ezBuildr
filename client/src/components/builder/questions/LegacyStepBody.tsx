@@ -1,30 +1,13 @@
 import {
-    HelpCircle,
-    Database,
-    Link as LinkIcon,
     EyeOff,
     ChevronDown,
     ChevronRight,
-    _X,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
 import { LogicBuilder, LogicStatusText } from "@/components/logic";
-import { AutoExpandTextarea } from "@/components/ui/auto-expand-textarea";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { ApiStep, StepType } from "@/lib/vault-api";
@@ -36,38 +19,34 @@ import {
 
 import type { ConditionExpression } from "@shared/types/conditions";
 
-import { useIntake } from "../IntakeContext";
+import { AliasField } from "../cards/common/AliasField";
+import { DefaultValueField, type DefaultValueType } from "../cards/common/DefaultValueField";
+import { TextAreaField } from "../cards/common/EditorField";
+import { RequiredToggle } from "../cards/common/RequiredToggle";
 
 import { JSQuestionEditor, type JSQuestionConfig } from "./JSQuestionEditor";
 import { OptionsEditor, type OptionItemData } from "./OptionsEditor";
 
-interface LegacyStepBodyProps {
-    step: ApiStep;
-    sectionId: string;
-    workflowId: string;
-}
+// eslint-disable-next-line import/no-cycle
+import { StepEditorCommonProps } from "../StepEditorRouter";
 
 // eslint-disable-next-line max-lines-per-function, complexity, sonarjs/cognitive-complexity
-export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyProps): JSX.Element {
+export function LegacyStepBody({ step, sectionId, workflowId }: StepEditorCommonProps): JSX.Element {
     const updateStepMutation = useUpdateStep();
     const { toast } = useToast();
     const { data: modeData } = useWorkflowMode(workflowId);
     const mode = modeData?.mode ?? 'easy';
     const { data: _workflow } = useWorkflow(workflowId);
-    const { upstreamWorkflow, upstreamVariables, upstreamWorkflowId } = useIntake();
-
-    // Intake Derived Values
-    const isLinkedToIntake = !!step.defaultValue && typeof step.defaultValue === 'object' && (step.defaultValue as { source?: string }).source === 'intake';
 
     // Local State
     const [localRequired, setLocalRequired] = useState(step.required ?? false);
     const [localType, setLocalType] = useState<StepType>(step.type);
     const [isVisibilityOpen, setIsVisibilityOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState(isLinkedToIntake ? "intake" : "static");
 
     const [localOptions, setLocalOptions] = useState<OptionItemData[]>(() => {
         if (step.type === "radio" || step.type === "multiple_choice") {
-            const opts = (step.options as { options?: unknown[] })?.options ?? [];
+            const optsConfig = step.options as { options?: unknown[] } | null;
+            const opts = optsConfig?.options ?? [];
             return opts.map((opt: unknown, idx: number) => {
                 if (typeof opt === 'string') {
                     return {
@@ -100,7 +79,8 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
         setLocalRequired(step.required ?? false);
         setLocalType(step.type);
         if (step.type === "radio" || step.type === "multiple_choice") {
-            const opts = (step.options as { options?: unknown[] })?.options ?? [];
+            const optsConfig = step.options as { options?: unknown[] } | null;
+            const opts = optsConfig?.options ?? [];
             setLocalOptions(opts.map((opt: unknown, idx: number) => {
                 if (typeof opt === 'string') {
                     return {
@@ -112,25 +92,12 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
                 return opt as OptionItemData;
             }));
         }
-
-        // Sync activeTab if we become linked
-        if (isLinkedToIntake) {
-            setActiveTab("intake");
-        }
-    }, [step, isLinkedToIntake]);
+    }, [step.required, step.type, step.options]);
 
     // Handlers
-    const handleTabChange = (val: string) => {
-        setActiveTab(val);
-        // Requirement: "Only clear intake link when switching from intake→static, and only if currently linked"
-        if (val === 'static' && isLinkedToIntake) {
-            handleIntakeLinkChange("none");
-        }
-    };
-
-    const handleAliasChange = (value: string) => {
+    const handleAliasChange = (value: string | null) => {
         updateStepMutation.mutate(
-            { id: step.id, sectionId, alias: value.trim() ?? null },
+            { id: step.id, sectionId, alias: value },
             {
                 onError: (error: unknown) => {
                     const errorMessage = error instanceof Error ? error.message : "Failed to update variable name";
@@ -153,30 +120,6 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
         updateStepMutation.mutate({ id: step.id, sectionId, description: value });
     };
 
-    const handleDefaultValueChange = (value: string) => {
-        let parsedValue: string | boolean | number | null = value;
-
-        if (step.type === 'yes_no') {
-            parsedValue = value === 'yes' ? true : value === 'no' ? false : null;
-        } else if (value === '') {
-            parsedValue = null;
-        }
-
-        updateStepMutation.mutate({
-            id: step.id,
-            sectionId,
-            defaultValue: parsedValue
-        });
-    };
-
-    const handleIntakeLinkChange = (variableAlias: string) => {
-        updateStepMutation.mutate({
-            id: step.id,
-            sectionId,
-            defaultValue: variableAlias === 'none' ? null : { source: 'intake', variable: variableAlias }
-        });
-    };
-
     const handleOptionsChange = (options: OptionItemData[] | import("@shared/types/stepConfigs").DynamicOptionsConfig) => {
         if (Array.isArray(options)) {
             setLocalOptions(options);
@@ -186,6 +129,7 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
                 options: { options },
             });
         } else {
+            // Backward compatibility for legacy component
             if (options.type === 'static') {
                 setLocalOptions(options.options);
                 updateStepMutation.mutate({
@@ -194,7 +138,7 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
                     options: { options: options.options },
                 });
             } else {
-                console.warn('[QuestionCard] Dynamic options not supported for legacy radio/multiple_choice types');
+                console.warn('[LegacyStepBody] Dynamic options not supported for this Legacy component');
             }
         }
     };
@@ -236,60 +180,19 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
         );
     };
 
-    // Determine displayed values for static inputs
-    const staticInputValue = (step.defaultValue === null || step.defaultValue === undefined || typeof step.defaultValue === 'object')
-        ? ""
-        : String(step.defaultValue);
-
-    const staticSelectValue = (step.defaultValue === null || step.defaultValue === undefined || typeof step.defaultValue === 'object')
-        ? "none"
-        : step.defaultValue === true ? "yes" : "no";
-
     return (
         <div className="space-y-3 pt-1 border-t">
             {/* Alias / Save Answer As */}
             {step.type !== "display" && (
                 <div className={cn(
-                    "space-y-1.5 p-2 rounded-md transition-colors",
+                    "p-2 rounded-md transition-colors",
                     mode === 'easy' && !step.alias && "bg-amber-50/50 border border-amber-200/50"
                 )}>
-                    <div className="flex items-center justify-between">
-                        <Label htmlFor={`alias-${step.id}`} className="text-xs font-medium text-foreground">
-                            {mode === 'easy' ? "Save answer as" : "Variable (alias)"}
-                        </Label>
-                        {mode === 'advanced' && (
-                            <span className="text-xs text-muted-foreground">
-                                Internal key: <code className="font-mono text-[10px]">{step.id.slice(0, 8)}...</code>
-                            </span>
-                        )}
-                    </div>
-                    <Input
-                        id={`alias-${step.id}`}
-                        name={`alias-${step.id}`}
-                        value={step.alias ?? ""}
-                        onChange={(e) => { void handleAliasChange(e.target.value); }}
-                        placeholder={mode === 'easy' ? "e.g. clientName or client.name" : "e.g., user_email, phone_number"}
-                        className={cn(
-                            "h-9 text-sm font-mono",
-                            mode === 'easy' && !step.alias && "border-amber-300 focus-visible:ring-amber-400"
-                        )}
+                    <AliasField
+                        value={step.alias}
+                        onChange={(val: string | null) => { void handleAliasChange(val); }}
+                        placeholder={mode === 'easy' ? "e.g. clientName" : "e.g., user_email"}
                     />
-                    {mode === 'easy' && (
-                        <div className="animate-in fade-in slide-in-from-top-1 space-y-1">
-                            {!step.alias ? (
-                                <p className="text-[10px] text-amber-600 flex items-center gap-1">
-                                    <HelpCircle className="h-3 w-3" />
-                                    Used later to fill documents and make decisions.
-                                </p>
-                            ) : (
-                                !/^[a-zA-Z0-9_.]+$/.test(step.alias) && (
-                                    <p className="text-[10px] text-amber-600 flex items-center gap-1">
-                                        ⚠️ Simple names are safest (a-z, 0-9, dots).
-                                    </p>
-                                )
-                            )}
-                        </div>
-                    )}
                 </div>
             )}
 
@@ -298,34 +201,21 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
 
                 {/* Required Toggle */}
                 {step.type !== "display" && (
-                    <div className="flex items-center justify-between py-1">
-                        <Label htmlFor={`required-${step.id}`} className="text-sm cursor-pointer">
-                            Required
-                        </Label>
-                        <Switch
-                            id={`required-${step.id}`}
-                            checked={localRequired}
-                            onCheckedChange={handleRequiredChange}
-                        />
-                    </div>
+                    <RequiredToggle
+                        checked={localRequired}
+                        onChange={handleRequiredChange}
+                    />
                 )}
 
                 {/* Description / Help Text */}
-                <div className="space-y-1.5">
-                    <Label htmlFor={`description-${step.id}`} className="text-xs text-muted-foreground">
-                        {step.type === "display" ? "Content (Markdown)" : "Description / Help Text (optional)"}
-                    </Label>
-                    <AutoExpandTextarea
-                        id={`description-${step.id}`}
-                        name={`description-${step.id}`}
-                        value={step.description ?? ""}
-                        onChange={(e) => { void handleDescriptionChange(e.target.value); }}
-                        placeholder={step.type === "display" ? "Enter markdown content..." : "Add instructions for the user..."}
-                        minRows={step.type === "display" ? 6 : 1}
-                        maxRows={step.type === "display" ? 12 : 4}
-                        className="text-sm"
-                    />
-                </div>
+                <TextAreaField
+                    label={step.type === "display" ? "Content (Markdown)" : "Description / Help Text"}
+                    description="Optional instructions for the user"
+                    value={step.description ?? ""}
+                    onChange={(val: string) => { void handleDescriptionChange(val); }}
+                    placeholder={step.type === "display" ? "Enter markdown content..." : "Add instructions..."}
+                    rows={step.type === "display" ? 6 : 2}
+                />
 
                 {/* Options Editor (for radio/multiple_choice) */}
                 {(localType === "radio" || localType === "multiple_choice") && (
@@ -337,149 +227,14 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
                 )}
 
                 {/* Default Value Section */}
-                {step.type !== "display" && (mode === 'advanced' || upstreamWorkflowId) && (
-                    <div className="space-y-1.5 pt-2 border-t border-dashed">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <Label htmlFor={`default-val-${step.id}`} className="text-xs text-muted-foreground">
-                                    Default Value {mode === 'easy' && !upstreamWorkflowId && '(Advanced)'}
-                                </Label>
-                                {isLinkedToIntake && (
-                                    <Badge variant="outline" className="text-[10px] h-4 px-1 gap-1 text-emerald-600 border-emerald-200 bg-emerald-50">
-                                        <LinkIcon className="w-2.5 h-2.5" />
-                                        Linked
-                                    </Badge>
-                                )}
-                            </div>
-                        </div>
-
-                        {upstreamWorkflowId ? (
-                            <div className="space-y-2">
-                                {/* Toggle: Static vs Intake */}
-                                <Tabs
-                                    value={activeTab}
-                                    onValueChange={handleTabChange}
-                                    className="w-full"
-                                >
-                                    <TabsList className="grid w-full grid-cols-2 h-7">
-                                        <TabsTrigger value="static" className="text-xs h-6">Static Value</TabsTrigger>
-                                        <TabsTrigger value="intake" className="text-xs h-6 flex items-center gap-1">
-                                            <Database className="w-3 h-3" /> From Intake
-                                        </TabsTrigger>
-                                    </TabsList>
-
-                                    <TabsContent value="static" className="mt-2 space-y-1.5">
-                                        {step.type === "yes_no" ? (
-                                            <Select
-                                                value={staticSelectValue}
-                                                onValueChange={(value) => {
-                                                    if (value === "none") {
-                                                        handleDefaultValueChange("");
-                                                    } else {
-                                                        handleDefaultValueChange(value);
-                                                    }
-                                                }}
-                                            >
-                                                <SelectTrigger id={`default-val-${step.id}`} className="h-9">
-                                                    <SelectValue placeholder="No default" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="none">No default</SelectItem>
-                                                    <SelectItem value="yes">Yes</SelectItem>
-                                                    <SelectItem value="no">No</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        ) : (
-                                            <Input
-                                                id={`default-val-${step.id}`}
-                                                name={`default-val-${step.id}`}
-                                                value={staticInputValue}
-                                                onChange={(e) => { void handleDefaultValueChange(e.target.value); }}
-                                                placeholder="Enter default value..."
-                                                className="h-9 text-sm"
-                                            />
-                                        )}
-                                    </TabsContent>
-
-                                    <TabsContent value="intake" className="mt-2 text-primary-foreground">
-                                        <div className="space-y-1">
-                                            <Label htmlFor={`default-val-intake-${step.id}`} className="sr-only">Select Intake Variable</Label>
-                                            <Select
-                                                value={isLinkedToIntake && (step.defaultValue as { variable?: string })?.variable ? (step.defaultValue as { variable?: string }).variable : "none"}
-                                                onValueChange={handleIntakeLinkChange}
-                                            >
-                                                <SelectTrigger id={`default-val-intake-${step.id}`} className="h-9 w-full bg-emerald-50/50 border-emerald-200 text-emerald-900 focus:ring-emerald-500">
-                                                    <SelectValue placeholder="Select intake variable..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="none">-- Select Variable --</SelectItem>
-                                                    {upstreamVariables.map(v => (
-                                                        <SelectItem key={v.key} value={v.alias ?? v.key}>
-                                                            <div className="flex flex-col text-left">
-                                                                <span className="font-medium text-sm">{v.label}</span>
-                                                                <span className="text-[10px] text-muted-foreground font-mono">{v.alias ?? v.key}</span>
-                                                            </div>
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            {isLinkedToIntake && (
-                                                <p className="text-[10px] text-emerald-600 pl-1">
-                                                    This field will pre-fill from <strong>{upstreamWorkflow?.title}</strong> data.
-                                                    <span className="sr-only">Input linked to intake variable.</span>
-                                                </p>
-                                            )}
-                                        </div>
-                                    </TabsContent>
-                                </Tabs>
-                            </div>
-                        ) : (
-                            // Standard Static Default Value (No Upstream)
-                            step.type === "yes_no" ? (
-                                <Select
-                                    value={
-                                        step.defaultValue === null || step.defaultValue === undefined
-                                            ? "none"
-                                            : step.defaultValue === true
-                                                ? "yes"
-                                                : "no"
-                                    }
-                                    onValueChange={(value) => {
-                                        if (value === "none") {
-                                            handleDefaultValueChange("");
-                                        } else {
-                                            handleDefaultValueChange(value);
-                                        }
-                                    }}
-                                >
-                                    <SelectTrigger id={`default-val-${step.id}`} className="h-9">
-                                        <SelectValue placeholder="No default" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">No default</SelectItem>
-                                        <SelectItem value="yes">Yes</SelectItem>
-                                        <SelectItem value="no">No</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            ) : (
-                                <Input
-                                    id={`default-val-${step.id}`}
-                                    name={`default-val-${step.id}`}
-                                    value={
-                                        step.defaultValue === null || step.defaultValue === undefined
-                                            ? ""
-                                            : typeof step.defaultValue === "object"
-                                                ? JSON.stringify(step.defaultValue)
-                                                : String(step.defaultValue)
-                                    }
-                                    onChange={(e) => { void handleDefaultValueChange(e.target.value); }}
-                                    placeholder="Enter default value..."
-                                    className="h-9 text-sm"
-                                />
-                            )
-                        )}
-                    </div>
-                )}
+                <DefaultValueField
+                    stepId={step.id}
+                    sectionId={sectionId}
+                    workflowId={workflowId}
+                    defaultValue={step.defaultValue as DefaultValueType}
+                    type={step.type}
+                    mode={mode}
+                />
 
                 {/* JS Question Editor (for js_question) */}
                 {localType === "js_question" && (
@@ -496,7 +251,7 @@ export function LegacyStepBody({ step, sectionId, workflowId }: LegacyStepBodyPr
                     <Collapsible
                         open={isVisibilityOpen}
                         onOpenChange={setIsVisibilityOpen}
-                        className="border rounded-md"
+                        className="border rounded-md mt-4"
                     >
                         <CollapsibleTrigger asChild>
                             <Button

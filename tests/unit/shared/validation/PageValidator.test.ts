@@ -1,7 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, type Mock } from 'vitest';
 
 import { validatePage } from '../../../../shared/validation/PageValidator';
-import { validateValue } from '../../../../shared/validation/Validator';
+import { validateValue, ValidatorOptions } from '../../../../shared/validation/Validator';
 
 // Mock validateValue
 vi.mock('../../../../shared/validation/Validator', () => ({
@@ -9,7 +9,7 @@ vi.mock('../../../../shared/validation/Validator', () => ({
 }));
 
 describe('PageValidator', () => {
-    const mockValidateValue = validateValue as any;
+    const mockValidateValue = validateValue as unknown as Mock;
 
     it('should return valid if all blocks are valid', async () => {
         mockValidateValue.mockResolvedValue({ valid: true, errors: [] });
@@ -29,7 +29,7 @@ describe('PageValidator', () => {
 
     it('should aggregate errors from invalid blocks', async () => {
         // Setup mock to fail for block2
-        mockValidateValue.mockImplementation(async (args: any) => {
+        mockValidateValue.mockImplementation(async (args: ValidatorOptions) => {
             const { value } = args;
             if (value === 'invalid') {
                 return { valid: false, errors: ['Error 1'] };

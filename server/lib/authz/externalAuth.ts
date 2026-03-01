@@ -8,6 +8,7 @@ import { Request, Response, NextFunction } from "express";
 import { oauthAccessTokens, apiKeys } from "@shared/schema";
 
 import { db } from "../../db";
+import { logger } from "../../logger";
 // import { verify } from "drizzle-orm/mysql-core"; // Not needed if manual compare
 // Ideally use a crypto lib for generic hash compare if bcrypt was used. 
 // Assuming simple string match for mock or using crypto for hash verification.
@@ -54,7 +55,7 @@ export async function requireExternalAuth(req: ExternalAuthRequest, res: Respons
             return next();
 
         } catch (err) {
-            console.error("OAuth Auth Error", err);
+            logger.error({ err }, "OAuth auth error");
             return res.status(500).json({ error: "Internal Server Error" });
         }
     } else if (apiKeyHeader) {
@@ -94,7 +95,7 @@ export async function requireExternalAuth(req: ExternalAuthRequest, res: Respons
             return next();
 
         } catch (err) {
-            console.error("API Key Auth Error", err);
+            logger.error({ err }, "API key auth error");
             return res.status(500).json({ error: "Internal Server Error" });
         }
     }

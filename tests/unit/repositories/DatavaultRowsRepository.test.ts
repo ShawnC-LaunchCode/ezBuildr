@@ -60,8 +60,6 @@ describe('DatavaultRowsRepository', () => {
       mockDb.execute.mockResolvedValue(value);
     };
 
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore - mocking db for tests
     repository = new DatavaultRowsRepository();
   });
 
@@ -139,6 +137,7 @@ describe('DatavaultRowsRepository', () => {
         updatedAt: new Date(),
         createdBy: null,
         updatedBy: null,
+        deletedAt: null,
         deletedAt: null,
       };
 

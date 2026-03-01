@@ -8,7 +8,7 @@
  * - Error recovery during multi-chunk operations
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 
 import { AIPromptBuilder } from '../../server/services/ai/AIPromptBuilder';
 import { AIProviderClient } from '../../server/services/ai/AIProviderClient';
@@ -36,9 +36,13 @@ vi.mock('fs', () => ({
 }));
 
 describe('WorkflowRevisionService Edge Cases', () => {
-  let mockClient: AIProviderClient;
+  let mockClient: MockClient;
   let mockPromptBuilder: AIPromptBuilder;
   let service: WorkflowRevisionService;
+
+  type MockClient = {
+    callLLM: Mock;
+  } & Partial<AIProviderClient>;
 
   // Helper to create a valid workflow structure
   const createWorkflow = (sectionCount: number, stepsPerSection: number = 3): AIGeneratedWorkflow => ({
@@ -74,7 +78,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
   });
 
   // Helper to create a valid AI response
-  const createValidResponse = (workflow: any) => JSON.stringify({
+  const createValidResponse = (workflow: Partial<AIGeneratedWorkflow>) => JSON.stringify({
     updatedWorkflow: workflow,
     diff: {
       changes: [
@@ -92,7 +96,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
   });
 
   // Helper to create a truncated JSON response
-  const createTruncatedResponse = (workflow: any) => {
+  const createTruncatedResponse = (workflow: Partial<AIGeneratedWorkflow>) => {
     const fullJson = JSON.stringify({
       updatedWorkflow: workflow,
       diff: { changes: [] },
@@ -105,11 +109,11 @@ describe('WorkflowRevisionService Edge Cases', () => {
   beforeEach(() => {
     mockClient = {
       callLLM: vi.fn(),
-    } as unknown as AIProviderClient;
+    };
 
     mockPromptBuilder = new AIPromptBuilder();
 
-    service = new WorkflowRevisionService(mockClient, mockPromptBuilder);
+    service = new WorkflowRevisionService(mockClient as unknown as AIProviderClient, mockPromptBuilder);
   });
 
   afterEach(() => {
@@ -131,7 +135,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
 
       // First call returns truncated response, second call (chunked) returns valid
       let callCount = 0;
-      (mockClient.callLLM as any).mockImplementation(() => {
+      (mockClient.callLLM).mockImplementation(() => {
         callCount++;
         if (callCount === 1) {
           // Truncated response - missing closing braces
@@ -158,7 +162,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
       };
 
       let callCount = 0;
-      (mockClient.callLLM as any).mockImplementation(() => {
+      (mockClient.callLLM).mockImplementation(() => {
         callCount++;
         if (callCount === 1) {
           // Response with mismatched brackets (3 open, 2 closed)
@@ -187,7 +191,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
       // However, the service keeps original sections on chunk failure, so it won't throw
       // Instead, let's test that a persistent invalid response eventually causes issues
       let callCount = 0;
-      (mockClient.callLLM as any).mockImplementation(() => {
+      (mockClient.callLLM).mockImplementation(() => {
         callCount++;
         // Return invalid JSON that can't be parsed at all (not just truncated)
         return Promise.resolve('completely invalid json that is not even close to parseable {{{');
@@ -212,7 +216,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
       };
 
       const callStack: string[] = [];
-      (mockClient.callLLM as any).mockImplementation((prompt: string) => {
+      (mockClient.callLLM).mockImplementation((prompt: string) => {
         // Track whether this is a single-shot or chunked call
         if (prompt.includes('IMPORTANT CONTEXT: You are processing sections')) {
           callStack.push('chunked');
@@ -241,7 +245,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
       };
 
       let callCount = 0;
-      (mockClient.callLLM as any).mockImplementation(() => {
+      (mockClient.callLLM).mockImplementation(() => {
         callCount++;
         if (callCount === 1) {
           // Response cut off mid-string
@@ -267,7 +271,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
 
       // Return valid JSON but with fewer sections than input
       const incompleteWorkflow = createWorkflow(2);
-      (mockClient.callLLM as any).mockResolvedValue(createValidResponse(incompleteWorkflow));
+      (mockClient.callLLM).mockResolvedValue(createValidResponse(incompleteWorkflow));
 
       const result = await service.reviseWorkflow(request);
 
@@ -292,7 +296,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
       };
 
       const sectionOrders: number[] = [];
-      (mockClient.callLLM as any).mockImplementation((prompt: string) => {
+      (mockClient.callLLM).mockImplementation((prompt: string) => {
         // Extract which sections this chunk is processing
         const match = prompt.match(/processing sections (\d+)-(\d+)/);
         if (match) {
@@ -327,7 +331,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
       };
 
       let chunkNumber = 0;
-      (mockClient.callLLM as any).mockImplementation(() => {
+      (mockClient.callLLM).mockImplementation(() => {
         chunkNumber++;
         // Both chunks return section with same ID (simulating AI mistake)
         const duplicateSection = {
@@ -383,7 +387,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
         mode: 'easy',
       };
 
-      (mockClient.callLLM as any).mockImplementation((_prompt: string) => {
+      (mockClient.callLLM).mockImplementation((_prompt: string) => {
         const chunkWorkflow = createWorkflow(2);
         return Promise.resolve(createValidResponse(chunkWorkflow));
       });
@@ -418,7 +422,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
         mode: 'easy',
       };
 
-      (mockClient.callLLM as any).mockImplementation(() => {
+      (mockClient.callLLM).mockImplementation(() => {
         return Promise.resolve(createValidResponse(createWorkflow(2)));
       });
 
@@ -448,7 +452,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
       };
 
       let chunkIndex = 0;
-      (mockClient.callLLM as any).mockImplementation(() => {
+      (mockClient.callLLM).mockImplementation(() => {
         chunkIndex++;
         return Promise.resolve(JSON.stringify({
           updatedWorkflow: createWorkflow(2),
@@ -484,7 +488,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
         mode: 'easy',
       };
 
-      (mockClient.callLLM as any).mockImplementation(() => {
+      (mockClient.callLLM).mockImplementation(() => {
         return Promise.resolve(JSON.stringify({
           updatedWorkflow: createWorkflow(2),
           diff: { changes: [] },
@@ -514,7 +518,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
 
       // eslint-disable-next-line sonarjs/no-unused-collection
       const adjacentSectionPairs: Array<[number, number]> = [];
-      (mockClient.callLLM as any).mockImplementation((prompt: string) => {
+      (mockClient.callLLM).mockImplementation((prompt: string) => {
         const match = prompt.match(/processing sections (\d+)-(\d+)/);
         if (match) {
           const start = parseInt(match[1]);
@@ -570,7 +574,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
       };
 
       const callTypes: string[] = [];
-      (mockClient.callLLM as any).mockImplementation((prompt: string) => {
+      (mockClient.callLLM).mockImplementation((prompt: string) => {
         if (prompt.includes('HIGH-LEVEL STRUCTURE ONLY')) {
           callTypes.push('structure-pass');
           // Return structure from pass 1
@@ -611,7 +615,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
         mode: 'easy',
       };
 
-      (mockClient.callLLM as any).mockResolvedValue(createValidResponse(createWorkflow(3)));
+      (mockClient.callLLM).mockResolvedValue(createValidResponse(createWorkflow(3)));
 
       const result = await service.reviseWorkflow(request);
 
@@ -640,7 +644,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
       };
 
       const chunkSizes: number[] = [];
-      (mockClient.callLLM as any).mockImplementation((prompt: string) => {
+      (mockClient.callLLM).mockImplementation((prompt: string) => {
         const match = prompt.match(/Section titles in this chunk: (.+)/);
         if (match) {
           const titles = match[1].split(', ');
@@ -664,7 +668,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
         mode: 'easy',
       };
 
-      (mockClient.callLLM as any).mockImplementation((prompt: string) => {
+      (mockClient.callLLM).mockImplementation((prompt: string) => {
         const match = prompt.match(/processing sections (\d+)-(\d+)/);
         if (match) {
           const startIdx = parseInt(match[1]) - 1;
@@ -706,7 +710,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
       };
 
       let chunkNumber = 0;
-      (mockClient.callLLM as any).mockImplementation(() => {
+      (mockClient.callLLM).mockImplementation(() => {
         chunkNumber++;
         // Fail on chunk 3
         if (chunkNumber === 3) {
@@ -732,10 +736,10 @@ describe('WorkflowRevisionService Edge Cases', () => {
       };
 
       let chunkNumber = 0;
-      (mockClient.callLLM as any).mockImplementation(() => {
+      (mockClient.callLLM).mockImplementation(() => {
         chunkNumber++;
         if (chunkNumber === 2) {
-          const error: any = new Error('Request timed out');
+          const error = new Error('Request timed out') as Error & { code: string };
           error.code = 'TIMEOUT';
           return Promise.reject(error);
         }
@@ -758,7 +762,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
       };
 
       // Return response missing required fields
-      (mockClient.callLLM as any).mockResolvedValue(JSON.stringify({
+      (mockClient.callLLM).mockResolvedValue(JSON.stringify({
         // Missing updatedWorkflow - should fail Zod validation
         diff: { changes: [] },
       }));
@@ -776,10 +780,10 @@ describe('WorkflowRevisionService Edge Cases', () => {
       };
 
       let callCount = 0;
-      (mockClient.callLLM as any).mockImplementation(() => {
+      (mockClient.callLLM).mockImplementation(() => {
         callCount++;
         if (callCount >= 3) {
-          const error: any = new Error('Rate limit exceeded');
+          const error = new Error('Rate limit exceeded') as Error & { code: string };
           error.code = 'RATE_LIMIT';
           return Promise.reject(error);
         }
@@ -804,7 +808,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
       };
 
       let chunkNumber = 0;
-      (mockClient.callLLM as any).mockImplementation(() => {
+      (mockClient.callLLM).mockImplementation(() => {
         chunkNumber++;
         if (chunkNumber === 2) {
           return Promise.reject(new Error('Network error'));
@@ -841,7 +845,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
       };
 
       let chunkNumber = 0;
-      (mockClient.callLLM as any).mockImplementation(() => {
+      (mockClient.callLLM).mockImplementation(() => {
         chunkNumber++;
         if (chunkNumber === 2) {
           // Return invalid JSON
@@ -876,7 +880,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
       };
 
       let totalCalls = 0;
-      (mockClient.callLLM as any).mockImplementation(() => {
+      (mockClient.callLLM).mockImplementation(() => {
         totalCalls++;
         return Promise.resolve(createValidResponse(createWorkflow(2)));
       });
@@ -898,7 +902,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
         mode: 'easy',
       };
 
-      (mockClient.callLLM as any).mockResolvedValue(createValidResponse(createWorkflow(2)));
+      (mockClient.callLLM).mockResolvedValue(createValidResponse(createWorkflow(2)));
 
       const result = await service.reviseWorkflow(request);
 
@@ -921,7 +925,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
       };
 
       const callTypes: string[] = [];
-      (mockClient.callLLM as any).mockImplementation((prompt: string) => {
+      (mockClient.callLLM).mockImplementation((prompt: string) => {
         if (prompt.includes('IMPORTANT CONTEXT: You are processing sections')) {
           callTypes.push('chunked');
         } else {
@@ -946,7 +950,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
       };
 
       const callTypes: string[] = [];
-      (mockClient.callLLM as any).mockImplementation((prompt: string) => {
+      (mockClient.callLLM).mockImplementation((prompt: string) => {
         if (prompt.includes('IMPORTANT CONTEXT: You are processing sections')) {
           callTypes.push('chunked');
         } else {
@@ -972,10 +976,12 @@ describe('WorkflowRevisionService Edge Cases', () => {
         section.steps.forEach(step => {
           // Add lots of content to each step
           step.description = 'A very detailed description that spans multiple lines and includes technical details about validation rules, display conditions, and business logic requirements. '.repeat(5);
-          (step as any).validationRules = {
-            pattern: '^[a-zA-Z]+$',
-            message: 'Must contain only letters',
-            custom: 'function validate() { return true; }',
+          step.config = {
+            validationRules: {
+              pattern: '^[a-zA-Z]+$',
+              message: 'Must contain only letters',
+              custom: 'function validate() { return true; }',
+            }
           };
         });
       });
@@ -988,7 +994,7 @@ describe('WorkflowRevisionService Edge Cases', () => {
       };
 
       const callTypes: string[] = [];
-      (mockClient.callLLM as any).mockImplementation((prompt: string) => {
+      (mockClient.callLLM).mockImplementation((prompt: string) => {
         if (prompt.includes('IMPORTANT CONTEXT: You are processing section')) {
           callTypes.push('chunked');
         } else {

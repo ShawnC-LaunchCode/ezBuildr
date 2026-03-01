@@ -2,13 +2,14 @@ import { describe, it, expect, vi } from 'vitest';
 
 import { ValidationSchema } from '../../../../shared/validation/ValidationSchema';
 import { validateValue } from '../../../../shared/validation/Validator';
+import type { ConditionGroup } from '../../../../shared/types/conditions';
 // Mock condition evaluator since it's an external dependency
 vi.mock('../../../../shared/conditionEvaluator', () => ({
-    evaluateConditionExpression: vi.fn((condition, _values) => {
-        // Simple mock logic: if condition is 'true', return true, else false
-        if (condition === 'mock-true') {return true;}
+    evaluateConditionExpression: vi.fn((condition: ConditionGroup, _values) => {
+        // Simple mock logic: check ID
+        if (condition?.id === 'mock-true') { return true; }
         // eslint-disable-next-line sonarjs/prefer-single-boolean-return
-        if (condition === 'mock-false') {return false;}
+        if (condition?.id === 'mock-false') { return false; }
         return false;
     }),
 }));
@@ -155,7 +156,7 @@ describe('Validator', () => {
                     required: false,
                     rules: [{
                         type: 'conditional',
-                        condition: 'mock-true' as any // Type cast because mock logic string input
+                        condition: { type: 'group', id: 'mock-true', operator: 'AND', conditions: [] }
                     }]
                 };
                 // In validator logic: if evaluateCondition returns FALSE, it errors.
@@ -173,7 +174,7 @@ describe('Validator', () => {
                     required: false,
                     rules: [{
                         type: 'conditional',
-                        condition: 'mock-false' as any,
+                        condition: { type: 'group', id: 'mock-false', operator: 'AND', conditions: [] },
                         message: 'Condition failed'
                     }]
                 };

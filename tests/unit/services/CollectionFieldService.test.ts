@@ -1,11 +1,22 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
+import type { CollectionField } from '@shared/schema';
 
 import { CollectionFieldService } from '../../../server/services/CollectionFieldService';
 
 describe('CollectionFieldService', () => {
   let service: CollectionFieldService;
-  let mockFieldRepo: any;
-  let mockCollectionRepo: any;
+  let mockFieldRepo: {
+    findById: Mock;
+    findByCollectionId: Mock;
+    findByCollectionAndSlug: Mock;
+    slugExists: Mock;
+    create: Mock;
+    update: Mock;
+    delete: Mock;
+  };
+  let mockCollectionRepo: {
+    findById: Mock;
+  };
 
   const mockCollectionId = '550e8400-e29b-41d4-a716-446655440000';
   const mockFieldId = '660e8400-e29b-41d4-a716-446655440001';
@@ -27,7 +38,10 @@ describe('CollectionFieldService', () => {
       findById: vi.fn(),
     };
 
-    service = new CollectionFieldService(mockFieldRepo, mockCollectionRepo);
+    service = new CollectionFieldService(
+      mockFieldRepo as unknown as ConstructorParameters<typeof CollectionFieldService>[0],
+      mockCollectionRepo as unknown as ConstructorParameters<typeof CollectionFieldService>[1]
+    );
   });
 
   describe('createField', () => {
@@ -111,7 +125,7 @@ describe('CollectionFieldService', () => {
         type: 'select' as const,
         slug: 'status',
         isRequired: false,
-        options: 'invalid' as any,
+        options: 'invalid' as unknown as string[],
       };
 
       mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId });
@@ -173,7 +187,7 @@ describe('CollectionFieldService', () => {
         type: 'number' as const,
         slug: 'age',
         isRequired: false,
-        defaultValue: 'not a number' as any,
+        defaultValue: 'not a number' as unknown as number,
       };
 
       mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId });
@@ -448,7 +462,7 @@ describe('CollectionFieldService', () => {
 
         mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId });
         mockFieldRepo.slugExists.mockResolvedValue(false);
-        mockFieldRepo.create.mockResolvedValue({ ...validData, id: mockFieldId } as any);
+        mockFieldRepo.create.mockResolvedValue({ ...validData, id: mockFieldId } as unknown as CollectionField);
 
         await expect(service.createField(validData)).resolves.toBeDefined();
 

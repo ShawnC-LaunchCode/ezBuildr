@@ -114,7 +114,7 @@ export class ReviewTaskRepository extends BaseRepository<
       })
       .where(eq(reviewTasks.id, taskId))
       .returning();
-    if (!updated) throw new Error("Failed to update review task");
+    if (!updated) {throw new Error("Failed to update review task");}
     return updated;
   }
 }

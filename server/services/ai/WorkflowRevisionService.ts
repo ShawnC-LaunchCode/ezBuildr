@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
+
 import {
     AIWorkflowRevisionResponseSchema,
 } from '../../../shared/types/ai';
@@ -17,6 +17,8 @@ import type {
     AIWorkflowRevisionRequest,
     AIWorkflowRevisionResponse,
     AIGeneratedSection,
+    AIGeneratedWorkflow,
+    WorkflowChange,
 } from '../../../shared/types/ai';
 const logger = createLogger({ module: 'workflow-revision-service' });
 
@@ -270,9 +272,9 @@ export class WorkflowRevisionService {
                 throw error;
             }
             // Parse and validate
-            let parsed;
+            let parsed: unknown;
             try {
-                parsed = JSON.parse(response);
+                parsed = JSON.parse(response) as unknown;
             } catch (parseError: unknown) {
                 // Extract position info from error
                 const errorMessage = parseError instanceof Error ? parseError.message : String(parseError);
@@ -446,8 +448,8 @@ export class WorkflowRevisionService {
         // We could do parallel, but sequential gives better context awareness
         // Track revised sections by their original index for proper ordering
         const revisedSectionsByIndex: Map<number, typeof sections[0]> = new Map();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const allChanges: any[] = [];
+
+        const allChanges: WorkflowChange[] = [];
         const allExplanations: string[] = [];
         const allSuggestions: string[] = [];
 
@@ -507,8 +509,8 @@ Section titles in this chunk: ${chunkSections.map(s => s.title).join(', ')}`,
 
                 logger.info({
                     chunkNumber,
-                    revisedSectionCount: chunkResult.updatedWorkflow.sections?.length || 0,
-                    changesCount: chunkResult.diff?.changes.length || 0,
+                    revisedSectionCount: chunkResult.updatedWorkflow.sections?.length ?? 0,
+                    changesCount: chunkResult.diff?.changes.length ?? 0,
                     mappedIndices: chunkMeta.sectionIndices,
                 }, `Chunk ${chunkNumber}/${chunks.length} completed`);
             } catch (error: unknown) {
@@ -570,7 +572,7 @@ Section titles in this chunk: ${chunkSections.map(s => s.title).join(', ')}`,
                     : []),
                 ...allExplanations,
             ],
-            suggestions: [...new Set(allSuggestions)], // Deduplicate suggestions
+            suggestions: Array.from(new Set(allSuggestions)), // Deduplicate suggestions
         };
     }
     /**
@@ -614,16 +616,20 @@ Output ONLY the JSON object.`;
         try {
             // Get structure from AI
             const structureResponse = await this.client.callLLM(structurePrompt, 'workflow_revision');
-            const structureData = JSON.parse(structureResponse);
+            interface Pass1Structure {
+                sections?: Array<{ title: string; description?: string }>;
+                notes?: string;
+            }
+            const structureData = JSON.parse(structureResponse) as Pass1Structure;
             logger.info({
-                sectionsCreated: structureData.sections?.length || 0,
+                sectionsCreated: structureData.sections?.length ?? 0,
             }, 'Pass 1 completed - structure created');
             // PASS 2: Create a simplified workflow with the structure
             // Then use normal chunked revision to fill in details
-            const structuredWorkflow = {
+            const structuredWorkflow: AIGeneratedWorkflow = {
                 ...request.currentWorkflow,
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                sections: (structureData.sections ?? []).map((s: any, idx: number) => ({
+                sections: (structureData.sections ?? []).map((s, idx: number) => ({
                     id: `section-${idx + 1}`,
                     title: s.title,
                     description: s.description ?? null,
@@ -645,13 +651,13 @@ Output ONLY the JSON object.`;
             const duration = Date.now() - startTime;
             logger.info({
                 duration,
-                sectionsProcessed: result.updatedWorkflow.sections?.length || 0,
+                sectionsProcessed: result.updatedWorkflow.sections?.length ?? 0,
             }, 'Two-pass workflow revision completed');
             return {
                 ...result,
                 explanation: [
                     `✨ Processed large document using two-pass strategy:`,
-                    `Pass 1: Created ${structureData.sections?.length || 0} sections`,
+                    `Pass 1: Created ${structureData.sections?.length ?? 0} sections`,
                     `Pass 2: Filled details for each section`,
                     ...(result.explanation ?? []),
                 ],

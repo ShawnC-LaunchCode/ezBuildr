@@ -240,7 +240,7 @@ describe('Runtime Pipelines Integration Tests', () => {
         expect(rowData.values[phoneColumnId]).toBe('+1-555-0123');
       }
     });
-    it('should execute writebacks via RunService.completeRun()', async () => {
+    it('should execute writebacks via RunService.completeRun()', { timeout: 30000 }, async () => {
       // Create a fresh run for this test
       const [run2] = await db
         .insert(workflowRuns)

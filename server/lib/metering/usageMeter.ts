@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 import { usageRecords } from "@shared/schema";
 
 import { db } from "../../db";
+import { logger } from "../../logger";
 
 export interface UsageEvent {
     organizationId: string;
@@ -30,7 +31,7 @@ export class UsageMeter {
                 metadata: event.metadata
             });
         } catch (error) {
-            console.error("Failed to record usage:", error);
+            logger.error({ err: error }, "Failed to record usage");
             // Non-blocking failure
         }
     }

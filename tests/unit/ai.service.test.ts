@@ -14,11 +14,33 @@ import type { AIProviderConfig } from '../../shared/types/ai';
 vi.mock('openai');
 vi.mock('@anthropic-ai/sdk');
 
+interface MockProvider {
+  providerName: string;
+  generateResponse: ReturnType<typeof vi.fn>;
+  estimateTokenCount: ReturnType<typeof vi.fn>;
+  estimateCost: ReturnType<typeof vi.fn>;
+  getMaxContextTokens: ReturnType<typeof vi.fn>;
+  isResponseTruncated: ReturnType<typeof vi.fn>;
+  callLLM: ReturnType<typeof vi.fn>;
+}
+
+interface WithClient {
+  client: MockProvider;
+}
+
+interface TestableAIService {
+  generationService: WithClient;
+  suggestionService: WithClient;
+  revisionService: WithClient;
+  logicService: WithClient;
+  [key: string]: unknown;
+}
+
 describe('AIService', () => {
   let openaiService: AIService;
   let anthropicService: AIService;
 
-  const createMockProvider = (providerName: string, responseText?: string, error?: any) => {
+  const createMockProvider = (providerName: string, responseText?: string, error?: unknown): MockProvider => {
     return {
       providerName,
       generateResponse: error ? vi.fn().mockRejectedValue(error) : vi.fn().mockResolvedValue(responseText || '{}'),
@@ -37,18 +59,20 @@ describe('AIService', () => {
     };
   };
 
-  const injectMockProvider = (service: AIService, mockProvider: any) => {
+  const injectMockProvider = (service: AIService, mockProvider: MockProvider) => {
     // Inject mock provider into all sub-services
-    const subServices = [
+    const subServices: (keyof TestableAIService)[] = [
       'generationService',
       'suggestionService',
       'revisionService',
       'logicService'
     ];
 
+    const testableService = service as unknown as TestableAIService;
+
     subServices.forEach(serviceName => {
-      if ((service as any)[serviceName]) {
-        (service as any)[serviceName].client = mockProvider;
+      if (testableService[serviceName]) {
+        (testableService[serviceName] as WithClient).client = mockProvider;
       }
     });
   };
@@ -236,12 +260,8 @@ describe('AIService', () => {
     });
 
     it('should handle rate limit errors', async () => {
-      const rateLimitError = new Error('Rate limit exceeded');
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
+      const rateLimitError = new Error('Rate limit exceeded') as Error & { status: number; code: string };
       rateLimitError.status = 429;
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
       rateLimitError.code = 'rate_limit_exceeded';
 
 
@@ -250,9 +270,7 @@ describe('AIService', () => {
 
       // Use manual mock for setTimeout to avoid fake timer issues and race conditions
       const originalSetTimeout = global.setTimeout;
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
-      global.setTimeout = vi.fn((cb) => cb());
+      global.setTimeout = vi.fn((cb: any) => cb()) as unknown as typeof global.setTimeout;
 
       try {
         await openaiService.generateWorkflow({
@@ -260,9 +278,9 @@ describe('AIService', () => {
           projectId: 'test-project-id',
         });
         expect.fail('Should have thrown rate limit error');
-      } catch (error: any) {
+      } catch (error: unknown) {
         // The service wraps/re-throws rate limit errors
-        expect(error.code).toBe('rate_limit_exceeded');
+        expect((error as { code: string }).code).toBe('rate_limit_exceeded');
       } finally {
         global.setTimeout = originalSetTimeout;
       }
@@ -279,8 +297,8 @@ describe('AIService', () => {
           projectId: 'test-project-id',
         });
         expect.fail('Should have thrown parsing error');
-      } catch (error: any) {
-        expect(error.code).toBe('INVALID_RESPONSE');
+      } catch (error: unknown) {
+        expect((error as { code: string }).code).toBe('INVALID_RESPONSE');
       }
     });
   });

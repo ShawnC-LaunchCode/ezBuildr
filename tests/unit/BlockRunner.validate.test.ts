@@ -1,7 +1,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 
-import type { ValidateConfig, _BlockContext, CompareRule, ConditionalRequiredRule, ForEachRule } from '@shared/types/blocks';
+import type { ValidateConfig, BlockContext, CompareRule, ConditionalRequiredRule, ForEachRule } from '@shared/types/blocks';
 
 import { ValidateBlockRunner } from '../../server/services/blockRunners/ValidateBlockRunner';
 
@@ -27,7 +27,7 @@ describe('BlockRunner Validation Logic', () => {
 
     it('should pass if no rules are present', async () => {
         const config: ValidateConfig = { rules: [] };
-        const context: any = { data: {}, aliasMap: {} };
+        const context = { data: {}, aliasMap: {} } as unknown as BlockContext;
         const result = await runner.execute(config, context, createMockBlock());
         expect(result.success).toBe(true);
     });
@@ -44,13 +44,13 @@ describe('BlockRunner Validation Logic', () => {
         const config: ValidateConfig = { rules: [rule] };
 
         it('should pass on valid comparison', async () => {
-            const context: any = { data: { age: 20 }, aliasMap: { age: 'step-1' } };
+            const context = { data: { age: 20 }, aliasMap: { age: 'step-1' } } as unknown as BlockContext;
             const result = await runner.execute(config, context, createMockBlock());
             expect(result.success).toBe(true);
         });
 
         it('should fail on invalid comparison and map alias to ID', async () => {
-            const context: any = { data: { age: 10 }, aliasMap: { age: 'step-1' } };
+            const context = { data: { age: 10 }, aliasMap: { age: 'step-1' } } as unknown as BlockContext;
             const result = await runner.execute(config, context, createMockBlock());
             expect(result.success).toBe(false);
             expect(result.errors).toContain('Must be over 18');
@@ -61,7 +61,7 @@ describe('BlockRunner Validation Logic', () => {
             const varRule: CompareRule = { ...rule, rightType: 'variable', right: 'minAge' };
             const varConfig = { rules: [varRule] };
 
-            const context: any = { data: { age: 20, minAge: 21 }, aliasMap: {} };
+            const context = { data: { age: 20, minAge: 21 }, aliasMap: {} } as unknown as BlockContext;
             const result = await runner.execute(varConfig, context, createMockBlock());
             expect(result.success).toBe(false);
         });
@@ -77,20 +77,20 @@ describe('BlockRunner Validation Logic', () => {
         const config: ValidateConfig = { rules: [rule] };
 
         it('should enforce requirement if condition met', async () => {
-            const context: any = {
+            const context = {
                 data: { married: 'yes', spouseName: '' },
                 aliasMap: { spouseName: 'step-spouse' }
-            };
+            } as unknown as BlockContext;
             const result = await runner.execute(config, context, createMockBlock());
             expect(result.success).toBe(false);
             expect(result.fieldErrors?.['step-spouse']).toBeDefined();
         });
 
         it('should ignore requirement if condition not met', async () => {
-            const context: any = {
+            const context = {
                 data: { married: 'no', spouseName: '' },
                 aliasMap: {}
-            };
+            } as unknown as BlockContext;
             const result = await runner.execute(config, context, createMockBlock());
             expect(result.success).toBe(true);
         });
@@ -105,13 +105,13 @@ describe('BlockRunner Validation Logic', () => {
                 {
                     assert: { key: 'child.age', op: 'is_not_empty' },
                     message: 'Child age required'
-                } as any
+                }
             ]
         };
         const config: ValidateConfig = { rules: [rule] };
 
         it('should validate items in list', async () => {
-            const context: any = {
+            const context = {
                 data: {
                     children: [
                         { name: 'Alice', age: 10 },
@@ -119,7 +119,7 @@ describe('BlockRunner Validation Logic', () => {
                     ]
                 },
                 aliasMap: { children: 'step-list' }
-            };
+            } as unknown as BlockContext;
 
             const result = await runner.execute(config, context, createMockBlock());
             expect(result.success).toBe(false); // Bob fails

@@ -1,42 +1,68 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-
-import type { _DatavaultColumn, _DatavaultTable } from '@shared/schema';
-
+import { describe, it, expect, beforeEach, vi, type Mocked } from 'vitest';
+import type { DatavaultColumn, DatavaultTable, DatavaultRow } from '@shared/schema';
+import type { DatavaultColumnsRepository, DatavaultTablesRepository, DatavaultRowsRepository } from '../../../server/repositories';
 import { DatavaultColumnsService } from '../../../server/services/DatavaultColumnsService';
 import { DatavaultRowsService } from '../../../server/services/DatavaultRowsService';
+import * as repositories from '../../../server/repositories';
 
 // Mock db module
 vi.mock('../../../server/db', () => ({
   db: {
-    transaction: vi.fn((callback) => callback({})),
+    transaction: vi.fn((callback: (tx: unknown) => unknown) => callback({})),
+  },
+}));
+
+vi.mock('../../../server/repositories', () => ({
+  datavaultTablesRepository: {
+    findById: vi.fn(),
+  },
+  datavaultColumnsRepository: {
+    findByTableId: vi.fn(),
+    getMaxOrderIndex: vi.fn(),
+    findByTableAndSlug: vi.fn(),
+    create: vi.fn(),
+    slugExists: vi.fn(),
+  },
+  datavaultRowsRepository: {
+    findById: vi.fn(),
+    createRowWithValues: vi.fn(),
   },
 }));
 
 describe('DataVault Reference Columns', () => {
   describe('DatavaultColumnsService - Reference Column Validation', () => {
     let columnsService: DatavaultColumnsService;
-    let mockTablesRepo: any;
-    let mockColumnsRepo: any;
+    let mockTablesRepo: Mocked<DatavaultTablesRepository>;
+    let mockColumnsRepo: Mocked<DatavaultColumnsRepository>;
 
     beforeEach(() => {
-      mockTablesRepo = {
-        findById: vi.fn(),
-      };
-      mockColumnsRepo = {
-        findByTableId: vi.fn(),
-        getMaxOrderIndex: vi.fn(),
-        findByTableAndSlug: vi.fn(),
-        create: vi.fn(),
-        slugExists: vi.fn().mockResolvedValue(false),
-      };
+      vi.clearAllMocks();
+      mockTablesRepo = repositories.datavaultTablesRepository as Mocked<DatavaultTablesRepository>;
+      mockColumnsRepo = repositories.datavaultColumnsRepository as Mocked<DatavaultColumnsRepository>;
+
+      // Default mock behavior for slugExists (often assumed false in these tests unless specified)
+      mockColumnsRepo.slugExists.mockResolvedValue(false);
+
       columnsService = new DatavaultColumnsService(mockColumnsRepo, mockTablesRepo);
     });
 
     it('should throw error if referenceTableId is missing for reference column', async () => {
       const tenantId = 'tenant-1';
       const tableId = 'table-1';
+      const mockTable: DatavaultTable = {
+        id: tableId,
+        tenantId,
+        name: 'Test Table',
+        slug: 'test-table',
+        description: null,
+        databaseId: 'db-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+        updatedBy: null
+      } as unknown as DatavaultTable;
 
-      mockTablesRepo.findById.mockResolvedValue({ id: tableId, tenantId });
+      mockTablesRepo.findById.mockResolvedValue(mockTable);
 
       await expect(
         columnsService.createColumn(
@@ -45,9 +71,6 @@ describe('DataVault Reference Columns', () => {
             name: 'Reference Column',
             type: 'reference',
             required: false,
-            isPrimaryKey: false,
-            isUnique: false,
-            orderIndex: 0,
           },
           tenantId
         )
@@ -66,7 +89,18 @@ describe('DataVault Reference Columns', () => {
             id: tableId,
             tenantId,
             name: 'Test Table',
-          });
+            slug: 'test-table',
+            description: null,
+            databaseId: 'db-1',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+
+
+
+
+            deletedAt: null,
+            updatedBy: null
+          } as DatavaultTable);
         }
         // Referenced table doesn't exist
         return Promise.resolve(null);
@@ -82,9 +116,6 @@ describe('DataVault Reference Columns', () => {
             type: 'reference',
             referenceTableId: refTableId,
             required: false,
-            isPrimaryKey: false,
-            isUnique: false,
-            orderIndex: 0,
           },
           tenantId
         )
@@ -102,7 +133,18 @@ describe('DataVault Reference Columns', () => {
             id: tableId,
             tenantId,
             name: 'Test Table',
-          });
+            slug: 'test-table',
+            description: null,
+            databaseId: 'db-1',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+
+
+
+
+            deletedAt: null,
+            updatedBy: null
+          } as DatavaultTable);
         }
         if (id === refTableId) {
           // Referenced table belongs to different tenant
@@ -110,7 +152,18 @@ describe('DataVault Reference Columns', () => {
             id: refTableId,
             tenantId: 'tenant-2',
             name: 'Ref Table',
-          });
+            slug: 'ref-table',
+            description: null,
+            databaseId: 'db-1',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+
+
+
+
+            deletedAt: null,
+            updatedBy: null
+          } as DatavaultTable);
         }
         return Promise.resolve(null);
       });
@@ -123,9 +176,6 @@ describe('DataVault Reference Columns', () => {
             type: 'reference',
             referenceTableId: refTableId,
             required: false,
-            isPrimaryKey: false,
-            isUnique: false,
-            orderIndex: 0,
           },
           tenantId
         )
@@ -143,14 +193,36 @@ describe('DataVault Reference Columns', () => {
             id: tableId,
             tenantId,
             name: 'Test Table',
-          });
+            slug: 'test-table',
+            description: null,
+            databaseId: 'db-1',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+
+
+
+
+            deletedAt: null,
+            updatedBy: null
+          } as DatavaultTable);
         }
         if (id === refTableId) {
           return Promise.resolve({
             id: refTableId,
             tenantId,
             name: 'Ref Table',
-          });
+            slug: 'ref-table',
+            description: null,
+            databaseId: 'db-1',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+
+
+
+
+            deletedAt: null,
+            updatedBy: null
+          } as DatavaultTable);
         }
         return Promise.resolve(null);
       });
@@ -167,9 +239,6 @@ describe('DataVault Reference Columns', () => {
             referenceTableId: refTableId,
             referenceDisplayColumnSlug: 'nonexistent',
             required: false,
-            isPrimaryKey: false,
-            isUnique: false,
-            orderIndex: 0,
           },
           tenantId
         )
@@ -184,12 +253,23 @@ describe('DataVault Reference Columns', () => {
         id: tableId,
         tenantId,
         name: 'Test Table',
-      });
+        slug: 'test-table',
+        description: null,
+        databaseId: 'db-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+
+
+
+
+        deletedAt: null,
+        updatedBy: null
+      } as DatavaultTable);
 
       mockColumnsRepo.getMaxOrderIndex.mockResolvedValue(0);
-      mockColumnsRepo.create.mockImplementation((data: any) => Promise.resolve(data));
+      mockColumnsRepo.create.mockImplementation((data: Partial<DatavaultColumn>) => Promise.resolve(data as DatavaultColumn));
 
-      const _result = await columnsService.createColumn(
+      await columnsService.createColumn(
         {
           tableId,
           name: 'Text Column',
@@ -197,9 +277,6 @@ describe('DataVault Reference Columns', () => {
           referenceTableId: 'should-be-cleared',
           referenceDisplayColumnSlug: 'should-be-cleared',
           required: false,
-          isPrimaryKey: false,
-          isUnique: false,
-          orderIndex: 0,
         },
         tenantId
       );
@@ -217,21 +294,16 @@ describe('DataVault Reference Columns', () => {
 
   describe('DatavaultRowsService - Reference Value Validation', () => {
     let rowsService: DatavaultRowsService;
-    let mockRowsRepo: any;
-    let mockTablesRepo: any;
-    let mockColumnsRepo: any;
+    let mockRowsRepo: Mocked<DatavaultRowsRepository>;
+    let mockTablesRepo: Mocked<DatavaultTablesRepository>;
+    let mockColumnsRepo: Mocked<DatavaultColumnsRepository>;
 
     beforeEach(() => {
-      mockRowsRepo = {
-        findById: vi.fn(),
-        createRowWithValues: vi.fn(),
-      };
-      mockTablesRepo = {
-        findById: vi.fn(),
-      };
-      mockColumnsRepo = {
-        findByTableId: vi.fn(),
-      };
+      vi.clearAllMocks();
+      mockRowsRepo = repositories.datavaultRowsRepository as Mocked<DatavaultRowsRepository>;
+      mockTablesRepo = repositories.datavaultTablesRepository as Mocked<DatavaultTablesRepository>;
+      mockColumnsRepo = repositories.datavaultColumnsRepository as Mocked<DatavaultColumnsRepository>;
+
       rowsService = new DatavaultRowsService(
         mockRowsRepo,
         mockTablesRepo,
@@ -247,7 +319,18 @@ describe('DataVault Reference Columns', () => {
         id: tableId,
         tenantId,
         name: 'Test Table',
-      });
+        slug: 'test-table',
+        description: null,
+        databaseId: 'db-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+
+
+
+
+        deletedAt: null,
+        updatedBy: null
+      } as DatavaultTable);
 
       mockColumnsRepo.findByTableId.mockResolvedValue([
         {
@@ -256,7 +339,7 @@ describe('DataVault Reference Columns', () => {
           type: 'reference',
           required: true,
           referenceTableId: 'ref-table-1',
-        },
+        } as unknown as DatavaultColumn,
       ]);
 
       await expect(
@@ -279,7 +362,18 @@ describe('DataVault Reference Columns', () => {
         id: tableId,
         tenantId,
         name: 'Test Table',
-      });
+        slug: 'test-table',
+        description: null,
+        databaseId: 'db-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+
+
+
+
+        deletedAt: null,
+        updatedBy: null
+      } as DatavaultTable);
 
       mockColumnsRepo.findByTableId.mockResolvedValue([
         {
@@ -288,7 +382,7 @@ describe('DataVault Reference Columns', () => {
           type: 'reference',
           required: true,
           referenceTableId: 'ref-table-1',
-        },
+        } as unknown as DatavaultColumn,
       ]);
 
       // Referenced row doesn't exist
@@ -314,7 +408,18 @@ describe('DataVault Reference Columns', () => {
         id: tableId,
         tenantId,
         name: 'Test Table',
-      });
+        slug: 'test-table',
+        description: null,
+        databaseId: 'db-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+
+
+
+
+        deletedAt: null,
+        updatedBy: null
+      } as DatavaultTable);
 
       mockColumnsRepo.findByTableId.mockResolvedValue([
         {
@@ -323,14 +428,19 @@ describe('DataVault Reference Columns', () => {
           type: 'reference',
           required: true,
           referenceTableId: 'ref-table-1',
-        },
+        } as unknown as DatavaultColumn,
       ]);
 
       // Referenced row exists but belongs to wrong table
       mockRowsRepo.findById.mockResolvedValue({
         id: refRowId,
         tableId: 'wrong-table-id',
-      });
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+        createdBy: null,
+        updatedBy: null
+      } as DatavaultRow);
 
       await expect(
         rowsService.createRow(
@@ -351,7 +461,18 @@ describe('DataVault Reference Columns', () => {
         id: tableId,
         tenantId,
         name: 'Test Table',
-      });
+        slug: 'test-table',
+        description: null,
+        databaseId: 'db-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+
+
+
+
+        deletedAt: null,
+        updatedBy: null
+      } as DatavaultTable);
 
       mockColumnsRepo.findByTableId.mockResolvedValue([
         {
@@ -360,12 +481,12 @@ describe('DataVault Reference Columns', () => {
           type: 'reference',
           required: false,
           referenceTableId: 'ref-table-1',
-        },
+        } as unknown as DatavaultColumn,
       ]);
 
       mockRowsRepo.createRowWithValues.mockResolvedValue({
-        row: { id: 'row-1', tableId },
-        values: [{ columnId: 'col-1', value: null }],
+        row: { id: 'row-1', tableId, createdAt: new Date(), updatedAt: new Date(), deletedAt: null, createdBy: null, updatedBy: null } as DatavaultRow,
+        values: [{ columnId: 'col-1', value: null }] as unknown as Record<string, unknown>[],
       });
 
       const result = await rowsService.createRow(
@@ -387,7 +508,18 @@ describe('DataVault Reference Columns', () => {
         id: tableId,
         tenantId,
         name: 'Test Table',
-      });
+        slug: 'test-table',
+        description: null,
+        databaseId: 'db-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+
+
+
+
+        deletedAt: null,
+        updatedBy: null
+      } as DatavaultTable);
 
       mockColumnsRepo.findByTableId.mockResolvedValue([
         {
@@ -396,7 +528,7 @@ describe('DataVault Reference Columns', () => {
           type: 'reference',
           required: true,
           referenceTableId: 'ref-table-1',
-        },
+        } as unknown as DatavaultColumn,
       ]);
 
       await expect(

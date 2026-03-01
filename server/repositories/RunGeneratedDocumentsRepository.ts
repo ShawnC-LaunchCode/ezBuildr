@@ -36,7 +36,7 @@ export class RunGeneratedDocumentsRepository extends BaseRepository<
   async createDocument(data: InsertRunGeneratedDocument, tx?: DbTransaction): Promise<RunGeneratedDocument> {
     const database = this.getDb(tx);
     const [created] = await database.insert(runGeneratedDocuments).values(data).returning();
-    if (!created) throw new Error("Failed to create generated document");
+    if (!created) {throw new Error("Failed to create generated document");}
     return created;
   }
 

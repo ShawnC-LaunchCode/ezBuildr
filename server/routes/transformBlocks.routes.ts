@@ -6,6 +6,7 @@ import { insertTransformBlockSchema } from "@shared/schema";
 import { createLogger } from "../logger";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { autoRevertToDraft } from "../middleware/autoRevertToDraft";
+import { testLimiter } from "../middleware/rateLimiting";
 import { transformBlockRepository } from "../repositories/TransformBlockRepository";
 import { transformBlockService } from "../services/TransformBlockService";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -13,35 +14,6 @@ import { asyncHandler } from "../utils/asyncHandler";
 import type { Express, Request, Response } from "express";
 
 const logger = createLogger({ module: "transform-blocks-routes" });
-
-// Rate limiting for test endpoint (in-memory, per user)
-const testRateLimits = new Map<string, { count: number; resetAt: number }>();
-const TEST_RATE_LIMIT = 10; // requests per minute
-const TEST_RATE_WINDOW = 60 * 1000; // 1 minute
-
-function checkTestRateLimit(userId: string): { allowed: boolean; error?: string } {
-  const now = Date.now();
-  const userLimit = testRateLimits.get(userId);
-
-  if (!userLimit || now > userLimit.resetAt) {
-    // Reset or initialize
-    testRateLimits.set(userId, {
-      count: 1,
-      resetAt: now + TEST_RATE_WINDOW,
-    });
-    return { allowed: true };
-  }
-
-  if (userLimit.count >= TEST_RATE_LIMIT) {
-    return {
-      allowed: false,
-      error: `Rate limit exceeded. Maximum ${TEST_RATE_LIMIT} test requests per minute.`,
-    };
-  }
-
-  userLimit.count++;
-  return { allowed: true };
-}
 
 /**
  * Register transform block routes
@@ -200,17 +172,11 @@ export function registerTransformBlockRoutes(app: Express): void {
    * POST /api/transform-blocks/:blockId/test
    * Test a transform block with sample data
    */
-  app.post('/api/transform-blocks/:blockId/test', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/transform-blocks/:blockId/test', hybridAuth, testLimiter, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
-      }
-
-      // Check rate limit
-      const rateCheck = checkTestRateLimit(userId);
-      if (!rateCheck.allowed) {
-        return res.status(429).json({ success: false, error: rateCheck.error });
       }
 
       const { blockId } = req.params;

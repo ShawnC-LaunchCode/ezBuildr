@@ -26,7 +26,7 @@ describe('isolated-vm Bridge Verification', () => {
             return;
         }
 
-        if (!result.ok) {throw new Error(`TEST FAILURE: ${  result.error}`);}
+        if (!result.ok) { throw new Error(`TEST FAILURE: ${result.error}`); }
         expect(result.ok).toBe(true);
         expect(result.output).toBe("HELLO");
     });
@@ -54,7 +54,7 @@ describe('isolated-vm Bridge Verification', () => {
         if (!result.ok) {
             const fs = await import('fs');
             fs.writeFileSync('test_math_fail.json', JSON.stringify(result, null, 2));
-            throw new Error(`TEST FAILURE: ${  result.error}`);
+            throw new Error(`TEST FAILURE: ${result.error}`);
         }
         expect(result.ok).toBe(true);
         expect(result.output).toBe(6);
@@ -84,13 +84,9 @@ describe('isolated-vm Bridge Verification', () => {
         }
 
         expect(result.ok).toBe(true);
-        expect(result.consoleLogs).toBeDefined();
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
-        expect(result.consoleLogs[0]).toEqual(["hello log"]);
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
-        expect(result.consoleLogs[1]).toEqual(["[WARN]", "hello warn"]);
+        expect((result as any).consoleLogs).toBeDefined();
+        expect((result as any).consoleLogs[0]).toEqual(["hello log"]);
+        expect((result as any).consoleLogs[1]).toEqual(["[WARN]", "hello warn"]);
     });
 
     it('should access context data', async () => {

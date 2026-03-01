@@ -6,6 +6,7 @@
 
 import { z } from 'zod';
 
+import { AuditLogger } from '../lib/audit/auditLogger';
 import { logger } from '../logger';
 import { requireProjectRole } from '../middleware/aclAuth';
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
@@ -138,6 +139,15 @@ export function registerSecretsRoutes(app: Express): void {
       const secret = await createSecret(input);
 
       logger.info({ secretId: secret.id, projectId, key: secret.key }, 'Secret created');
+      void AuditLogger.log({
+        userId,
+        action: 'secret.created',
+        resourceType: 'secret',
+        resourceId: secret.id,
+        after: { projectId, key: secret.key, type: secret.type },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
 
       res.status(201).json(secret);
     } catch (error) {
@@ -184,6 +194,15 @@ export function registerSecretsRoutes(app: Express): void {
       const secret = await updateSecret(projectId, secretId, input);
 
       logger.info({ secretId, projectId }, 'Secret updated');
+      void AuditLogger.log({
+        userId,
+        action: 'secret.updated',
+        resourceType: 'secret',
+        resourceId: secretId,
+        after: { projectId, updatedFields: Object.keys(validatedData) },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
 
       res.json(secret);
     } catch (error) {
@@ -233,6 +252,15 @@ export function registerSecretsRoutes(app: Express): void {
       }
 
       logger.info({ secretId, projectId }, 'Secret deleted');
+      void AuditLogger.log({
+        userId,
+        action: 'secret.deleted',
+        resourceType: 'secret',
+        resourceId: secretId,
+        before: { projectId },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
 
       res.status(204).send();
     } catch (error) {

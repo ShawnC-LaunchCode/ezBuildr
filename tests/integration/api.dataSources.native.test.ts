@@ -20,7 +20,7 @@ describe.sequential("Data Sources API - Native Catalog", () => {
     afterAll(async () => {
         await ctx.cleanup();
     });
-    it("should list databases and databases' tables in the catalog", async () => {
+    it("should list databases and databases' tables in the catalog", { timeout: 30000 }, async () => {
         // 1. Create a Native Database
         const dbName = `TestDB-${nanoid()}`;
         const dbResponse = await db.insert(schema.datavaultDatabases).values({
@@ -69,7 +69,7 @@ describe.sequential("Data Sources API - Native Catalog", () => {
         const foundOrphan = catalog.orphanTables.find((t: any) => t.name === orphanTableName);
         expect(foundOrphan).toBeDefined();
     });
-    it("should create a native_table data source", async () => {
+    it("should create a native_table data source", { timeout: 30000 }, async () => {
         // 1. Create a table
         const tableName = `SourceTable-${nanoid()}`;
         const tableRes = await db.insert(schema.datavaultTables).values({

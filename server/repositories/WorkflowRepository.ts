@@ -4,6 +4,7 @@ import { eq, and, desc, isNull, or, inArray, sql, getTableColumns } from "drizzl
 import { workflows, organizations, type Workflow, type InsertWorkflow } from "@shared/schema";
 
 import { db } from "../db";
+import { logger } from "../logger";
 import { getAccessibleOwnershipFilter } from "../utils/ownershipAccess";
 
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
@@ -27,7 +28,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
       await systemStatsRepository.incrementWorkflowsCreated();
     } catch (err) {
       // Don't fail the request if stats fail
-      console.error("Failed to increment workflow stats:", err);
+      logger.warn({ err }, "Failed to increment workflow stats");
     }
     return workflow;
   }
@@ -36,7 +37,6 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
    */
   async update(id: string, updates: Partial<InsertWorkflow>, tx?: DbTransaction): Promise<Workflow> {
     const database = this.getDb(tx);
-    console.error(`[DEBUG] WorkflowRepository.update id=${id} updates=${JSON.stringify(updates)}`);
     const effectiveUpdates = { ...updates, updatedAt: new Date() };
     const [record] = await database
       .update(workflows)
@@ -46,16 +46,20 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
       .returning();
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (updates.status && record && record.status !== updates.status) {
-      console.error(`[CRITICAL] UPDATE FAILED check: requested=${updates.status} got=${record.status}`);
+      logger.warn({ workflowId: id, requested: updates.status, got: record.status }, "Workflow status mismatch after update");
     }
-    if (!record) throw new Error("Failed to update workflow");
+    if (!record) {throw new Error("Failed to update workflow");}
     return record;
   }
   /**
    * Find workflows by creator ID (includes user-owned and org-owned)
    * @deprecated use findByUserAccess for full access control
    */
-  async findByCreatorId(creatorId: string, tx?: DbTransaction): Promise<Workflow[]> {
+  async findByCreatorId(
+    creatorId: string,
+    options?: { limit?: number; offset?: number },
+    tx?: DbTransaction
+  ): Promise<Workflow[]> {
     const database = this.getDb(tx);
     // Get user's org memberships for org-owned workflow access
     const { orgIds } = await getAccessibleOwnershipFilter(creatorId);
@@ -82,7 +86,8 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
       )
     );
     // Join with organizations to get owner name
-    const results = await database
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = database
       .select({
         ...getTableColumns(workflows),
         ownerName: organizations.name,
@@ -97,14 +102,19 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
       )
       .where(or(...conditions))
       .orderBy(desc(workflows.updatedAt));
-    // Results already have all workflow columns + ownerName at top level
+    if (options?.limit !== undefined) { query = query.limit(options.limit); }
+    if (options?.offset !== undefined) { query = query.offset(options.offset); }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return results as any; // Drizzle join result with organization name
+    return query as any; // Drizzle join result with organization name
   }
   /**
    * Find workflows by user access (Owner OR Shared OR Org-owned)
    */
-  async findByUserAccess(userId: string, tx?: DbTransaction): Promise<Workflow[]> {
+  async findByUserAccess(
+    userId: string,
+    options?: { limit?: number; offset?: number },
+    tx?: DbTransaction
+  ): Promise<Workflow[]> {
     const database = this.getDb(tx);
     // Import workflowAccess here to avoid circular dependencies if possible, or assume it's available
     const { workflowAccess } = await import("@shared/schema");
@@ -139,23 +149,35 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
         or(eq(workflows.creatorId, userId), eq(workflows.ownerId, userId))
       )
     );
-    return database
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = database
       .select()
       .from(workflows)
       .where(or(...conditions))
       .orderBy(desc(workflows.updatedAt));
+    if (options?.limit !== undefined) { query = query.limit(options.limit); }
+    if (options?.offset !== undefined) { query = query.offset(options.offset); }
+    return query as Promise<Workflow[]>;
   }
   /**
    * Find workflows by status
    */
-  async findByStatus(status: 'draft' | 'active' | 'archived', tx?: DbTransaction): Promise<Workflow[]> {
+  async findByStatus(
+    status: 'draft' | 'active' | 'archived',
+    options?: { limit?: number; offset?: number },
+    tx?: DbTransaction
+  ): Promise<Workflow[]> {
     const database = this.getDb(tx);
-    return database
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = database
       .select()
       .from(workflows)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .where(eq(workflows.status, status as any)) // Drizzle enum type assertion
       .orderBy(desc(workflows.updatedAt));
+    if (options?.limit !== undefined) { query = query.limit(options.limit); }
+    if (options?.offset !== undefined) { query = query.offset(options.offset); }
+    return query as Promise<Workflow[]>;
   }
   /**
    * Find workflows by creator and status (includes user-owned and org-owned)
@@ -163,6 +185,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
   async findByCreatorAndStatus(
     creatorId: string,
     status: 'draft' | 'active' | 'archived',
+    options?: { limit?: number; offset?: number },
     tx?: DbTransaction
   ): Promise<Workflow[]> {
     const database = this.getDb(tx);
@@ -198,11 +221,27 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
         )
       );
     }
-    return database
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = database
       .select()
       .from(workflows)
       .where(or(...conditions))
       .orderBy(desc(workflows.updatedAt));
+    if (options?.limit !== undefined) { query = query.limit(options.limit); }
+    if (options?.offset !== undefined) { query = query.offset(options.offset); }
+    return query as Promise<Workflow[]>;
+  }
+  /**
+   * Find all workflows whose slug starts with the given prefix.
+   * Used by ensureUniqueSlug to avoid N+1 loop queries.
+   */
+  async findSlugsByPrefix(prefix: string, tx?: DbTransaction): Promise<Array<{ id: string; slug: string }>> {
+    const database = this.getDb(tx);
+    const rows = await database
+      .select({ id: workflows.id, slug: workflows.slug })
+      .from(workflows)
+      .where(sql`${workflows.slug} LIKE ${prefix + '%'}`);
+    return rows.filter((r): r is { id: string; slug: string } => r.slug !== null);
   }
   /**
    * Find workflow by slug (Stage 12: Intake Portal)
@@ -242,18 +281,30 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
   /**
    * Find workflows by project ID
    */
-  async findByProjectId(projectId: string, tx?: DbTransaction): Promise<Workflow[]> {
+  async findByProjectId(
+    projectId: string,
+    options?: { limit?: number; offset?: number },
+    tx?: DbTransaction
+  ): Promise<Workflow[]> {
     const database = this.getDb(tx);
-    return database
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = database
       .select()
       .from(workflows)
       .where(eq(workflows.projectId, projectId))
       .orderBy(desc(workflows.updatedAt));
+    if (options?.limit !== undefined) { query = query.limit(options.limit); }
+    if (options?.offset !== undefined) { query = query.offset(options.offset); }
+    return query as Promise<Workflow[]>;
   }
   /**
    * Find unfiled workflows (workflows with no project) for a creator (includes user-owned and org-owned)
    */
-  async findUnfiledByCreatorId(creatorId: string, tx?: DbTransaction): Promise<Workflow[]> {
+  async findUnfiledByCreatorId(
+    creatorId: string,
+    options?: { limit?: number; offset?: number },
+    tx?: DbTransaction
+  ): Promise<Workflow[]> {
     const database = this.getDb(tx);
     // Get user's org memberships for org-owned workflow access
     const { orgIds } = await getAccessibleOwnershipFilter(creatorId);
@@ -282,11 +333,15 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
         )
       );
     }
-    return database
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = database
       .select()
       .from(workflows)
       .where(or(...conditions))
       .orderBy(desc(workflows.updatedAt));
+    if (options?.limit !== undefined) { query = query.limit(options.limit); }
+    if (options?.offset !== undefined) { query = query.offset(options.offset); }
+    return query as Promise<Workflow[]>;
   }
   /**
    * Move workflow to a project (or unfiled if projectId is null)
@@ -302,7 +357,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
       .set({ projectId, updatedAt: new Date() })
       .where(eq(workflows.id, workflowId))
       .returning();
-    if (!workflow) throw new Error("Failed to move workflow");
+    if (!workflow) {throw new Error("Failed to move workflow");}
     return workflow;
   }
   /**

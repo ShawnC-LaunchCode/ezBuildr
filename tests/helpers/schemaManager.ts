@@ -73,14 +73,13 @@ export class SchemaManager {
                 url.searchParams.set('sslmode', 'require');
             }
 
-            // NOTE: We don't set search_path in the connection string options because:
-            // 1. It's not supported by the standard pg library (only by Neon pooler)
-            // 2. It causes "unsupported startup parameter" errors
-            // Instead, server/db.ts will set search_path on each connection via pool.connect() wrapper
-            // url.searchParams.set('options', `-c search_path=${schemaName},public`);
+            // NOTE: We do NOT set search_path in the connection string options because:
+            // 1. Neon Direct connections reject startup parameters with 08P01 errors
+            // 2. Standard pg may pass -c options as startup params which some hosts reject
+            // Instead, server/db.ts sets search_path on each connection via pool.connect() wrapper
+            // using process.env.TEST_SCHEMA (set by tests/setup.ts)
 
             console.log(`[SchemaManager] Final Connection String (Host): ${url.hostname}`);
-            console.log(`[SchemaManager] Final Connection String (Options): ${url.searchParams.get('options')}`);
 
             return {
                 schemaName,

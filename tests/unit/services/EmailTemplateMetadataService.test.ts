@@ -73,7 +73,7 @@ describe('EmailTemplateMetadataService', () => {
         from: vi.fn().mockResolvedValue(mockTemplates),
       };
 
-      (db.select as any).mockReturnValue(mockSelect);
+      vi.mocked(db.select).mockReturnValue(mockSelect as unknown as ReturnType<typeof db.select>);
 
       const result = await service.listEmailTemplates();
 
@@ -86,7 +86,7 @@ describe('EmailTemplateMetadataService', () => {
         from: vi.fn().mockResolvedValue([]),
       };
 
-      (db.select as any).mockReturnValue(mockSelect);
+      vi.mocked(db.select).mockReturnValue(mockSelect as unknown as ReturnType<typeof db.select>);
 
       const result = await service.listEmailTemplates();
 
@@ -98,7 +98,7 @@ describe('EmailTemplateMetadataService', () => {
         from: vi.fn().mockRejectedValue(new Error('Database error')),
       };
 
-      (db.select as any).mockReturnValue(mockSelect);
+      vi.mocked(db.select).mockReturnValue(mockSelect as unknown as ReturnType<typeof db.select>);
 
       await expect(service.listEmailTemplates()).rejects.toThrow('Database error');
     });
@@ -122,7 +122,7 @@ describe('EmailTemplateMetadataService', () => {
         where: vi.fn().mockResolvedValue([mockTemplate]),
       };
 
-      (db.select as any).mockReturnValue(mockSelect);
+      vi.mocked(db.select).mockReturnValue(mockSelect as unknown as ReturnType<typeof db.select>);
 
       const result = await service.getTemplateById('template-1');
 
@@ -135,7 +135,7 @@ describe('EmailTemplateMetadataService', () => {
         where: vi.fn().mockResolvedValue([]),
       };
 
-      (db.select as any).mockReturnValue(mockSelect);
+      vi.mocked(db.select).mockReturnValue(mockSelect as unknown as ReturnType<typeof db.select>);
 
       const result = await service.getTemplateById('nonexistent-id');
 
@@ -148,7 +148,7 @@ describe('EmailTemplateMetadataService', () => {
         where: vi.fn().mockRejectedValue(new Error('Connection error')),
       };
 
-      (db.select as any).mockReturnValue(mockSelect);
+      vi.mocked(db.select).mockReturnValue(mockSelect as unknown as ReturnType<typeof db.select>);
 
       await expect(service.getTemplateById('template-1')).rejects.toThrow('Connection error');
     });
@@ -172,7 +172,7 @@ describe('EmailTemplateMetadataService', () => {
         where: vi.fn().mockResolvedValue([mockTemplate]),
       };
 
-      (db.select as any).mockReturnValue(mockSelect);
+      vi.mocked(db.select).mockReturnValue(mockSelect as unknown as ReturnType<typeof db.select>);
 
       const result = await service.getTemplateByKey('workflow_invitation');
 
@@ -185,7 +185,7 @@ describe('EmailTemplateMetadataService', () => {
         where: vi.fn().mockResolvedValue([]),
       };
 
-      (db.select as any).mockReturnValue(mockSelect);
+      vi.mocked(db.select).mockReturnValue(mockSelect as unknown as ReturnType<typeof db.select>);
 
       const result = await service.getTemplateByKey('nonexistent_key');
 
@@ -216,7 +216,7 @@ describe('EmailTemplateMetadataService', () => {
         returning: vi.fn().mockResolvedValue([mockUpdated]),
       };
 
-      (db.update as any).mockReturnValue(mockUpdate);
+      vi.mocked(db.update).mockReturnValue(mockUpdate as unknown as ReturnType<typeof db.update>);
 
       const result = await service.updateTemplateMetadata('template-1', updateData);
 
@@ -246,7 +246,7 @@ describe('EmailTemplateMetadataService', () => {
         returning: vi.fn().mockResolvedValue([mockUpdated]),
       };
 
-      (db.update as any).mockReturnValue(mockUpdate);
+      vi.mocked(db.update).mockReturnValue(mockUpdate as unknown as ReturnType<typeof db.update>);
 
       const result = await service.updateTemplateMetadata('template-1', partialUpdate);
 
@@ -260,7 +260,7 @@ describe('EmailTemplateMetadataService', () => {
         returning: vi.fn().mockResolvedValue([]),
       };
 
-      (db.update as any).mockReturnValue(mockUpdate);
+      vi.mocked(db.update).mockReturnValue(mockUpdate as unknown as ReturnType<typeof db.update>);
 
       await expect(
         service.updateTemplateMetadata('nonexistent-id', { name: 'Test' })
@@ -291,7 +291,7 @@ describe('EmailTemplateMetadataService', () => {
         returning: vi.fn().mockResolvedValue([mockUpdated]),
       };
 
-      (db.update as any).mockReturnValue(mockUpdate);
+      vi.mocked(db.update).mockReturnValue(mockUpdate as unknown as ReturnType<typeof db.update>);
 
       const result = await service.updateTemplateMetadata('template-1', updateData);
 
@@ -323,7 +323,7 @@ describe('EmailTemplateMetadataService', () => {
         returning: vi.fn().mockResolvedValue([mockCreated]),
       };
 
-      (db.insert as any).mockReturnValue(mockInsert);
+      vi.mocked(db.insert).mockReturnValue(mockInsert as unknown as ReturnType<typeof db.insert>);
 
       const result = await service.createTemplate(templateData);
 
@@ -347,7 +347,7 @@ describe('EmailTemplateMetadataService', () => {
         returning: vi.fn().mockRejectedValue({ code: '23505' }), // Unique constraint
       };
 
-      (db.insert as any).mockReturnValue(mockInsert);
+      vi.mocked(db.insert).mockReturnValue(mockInsert as unknown as ReturnType<typeof db.insert>);
 
       await expect(service.createTemplate(templateData)).rejects.toThrow(
         'Template key already exists'
@@ -376,7 +376,7 @@ describe('EmailTemplateMetadataService', () => {
         returning: vi.fn().mockResolvedValue([mockCreated]),
       };
 
-      (db.insert as any).mockReturnValue(mockInsert);
+      vi.mocked(db.insert).mockReturnValue(mockInsert as unknown as ReturnType<typeof db.insert>);
 
       const result = await service.createTemplate(minimalData);
 
@@ -398,7 +398,7 @@ describe('EmailTemplateMetadataService', () => {
         returning: vi.fn().mockResolvedValue([mockDeleted]),
       };
 
-      (db.delete as any).mockReturnValue(mockDelete);
+      vi.mocked(db.delete).mockReturnValue(mockDelete as unknown as ReturnType<typeof db.delete>);
 
       const result = await service.deleteTemplate('template-1');
 
@@ -412,7 +412,7 @@ describe('EmailTemplateMetadataService', () => {
         returning: vi.fn().mockResolvedValue([]),
       };
 
-      (db.delete as any).mockReturnValue(mockDelete);
+      vi.mocked(db.delete).mockReturnValue(mockDelete as unknown as ReturnType<typeof db.delete>);
 
       const result = await service.deleteTemplate('nonexistent-id');
 
@@ -425,7 +425,7 @@ describe('EmailTemplateMetadataService', () => {
         returning: vi.fn().mockRejectedValue(new Error('Delete failed')),
       };
 
-      (db.delete as any).mockReturnValue(mockDelete);
+      vi.mocked(db.delete).mockReturnValue(mockDelete as unknown as ReturnType<typeof db.delete>);
 
       await expect(service.deleteTemplate('template-1')).rejects.toThrow('Delete failed');
     });
@@ -470,7 +470,7 @@ describe('EmailTemplateMetadataService', () => {
         from: vi.fn().mockResolvedValue(mockTemplates),
       };
 
-      (db.select as any).mockReturnValue(mockSelect);
+      vi.mocked(db.select).mockReturnValue(mockSelect as unknown as ReturnType<typeof db.select>);
 
       const result = await service.getTemplatesWithBrandingToken('logoUrl');
 
@@ -497,7 +497,7 @@ describe('EmailTemplateMetadataService', () => {
         from: vi.fn().mockResolvedValue(mockTemplates),
       };
 
-      (db.select as any).mockReturnValue(mockSelect);
+      vi.mocked(db.select).mockReturnValue(mockSelect as unknown as ReturnType<typeof db.select>);
 
       const result = await service.getTemplatesWithBrandingToken('nonexistentToken');
 
@@ -532,7 +532,7 @@ describe('EmailTemplateMetadataService', () => {
         from: vi.fn().mockResolvedValue(mockTemplates),
       };
 
-      (db.select as any).mockReturnValue(mockSelect);
+      vi.mocked(db.select).mockReturnValue(mockSelect as unknown as ReturnType<typeof db.select>);
 
       const result = await service.getTemplatesWithBrandingToken('logoUrl');
 

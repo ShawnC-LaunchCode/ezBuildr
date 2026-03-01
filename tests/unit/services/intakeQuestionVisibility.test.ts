@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/unbound-method, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument */
 /**
  * Tests for IntakeQuestionVisibilityService (Stage 20 PR 3)
  *
@@ -8,10 +7,12 @@
  * - Hidden question value clearing
  * - Edge cases and error handling
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-
+import { describe, it, expect, beforeEach, vi, type Mocked } from 'vitest';
+import type { Step, StepValue } from '@shared/schema';
 import * as repositories from '../../../server/repositories';
 import { IntakeQuestionVisibilityService } from '../../../server/services/IntakeQuestionVisibilityService';
+import type { StepRepository, StepValueRepository } from '../../../server/repositories';
+
 vi.mock('../../../server/repositories', () => ({
   stepRepository: {
     findBySectionIds: vi.fn(),
@@ -21,20 +22,24 @@ vi.mock('../../../server/repositories', () => ({
     findByRunId: vi.fn(),
     findByRunAndStep: vi.fn(),
     delete: vi.fn(),
-    deleteWhere: vi.fn(), // Add this for batch clearing
+    deleteWhere: vi.fn(),
   },
 }));
+
 describe('IntakeQuestionVisibilityService', () => {
   let service: IntakeQuestionVisibilityService;
+  let mockStepRepo: Mocked<StepRepository>;
+  let mockStepValueRepo: Mocked<StepValueRepository>;
+
   beforeEach(() => {
-    vi.restoreAllMocks();
+    vi.resetAllMocks();
+    mockStepRepo = repositories.stepRepository as Mocked<StepRepository>;
+    mockStepValueRepo = repositories.stepValueRepository as Mocked<StepValueRepository>;
+
     service = new IntakeQuestionVisibilityService(
-      repositories.stepRepository as any,
-      repositories.stepValueRepository as any
+      mockStepRepo,
+      mockStepValueRepo
     );
-    // Spy on repository methods (even though we inject them, we spy on the module exports which are passed)
-    // Actually, since we pass them, we should mock the passed objects.
-    // Ideally use a fresh mock object.
   });
   // ========================================================================
   // BASIC VISIBILITY (NO CONDITIONS)
@@ -45,9 +50,9 @@ describe('IntakeQuestionVisibilityService', () => {
         { id: 'q1', sectionId: 'section1', title: 'Q1', order: 0, isVirtual: false, visibleIf: null },
         { id: 'q2', sectionId: 'section1', title: 'Q2', order: 1, isVirtual: false, visibleIf: null },
         { id: 'q3', sectionId: 'section1', title: 'Q3', order: 2, isVirtual: false, visibleIf: null },
-      ];
-      vi.mocked(repositories.stepRepository.findBySectionIds).mockResolvedValue(mockQuestions as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue([]);
+      ] as unknown as Step[];
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
+      mockStepValueRepo.findByRunId.mockResolvedValue([]);
       const result = await service.evaluatePageQuestions('section1', 'run1');
       expect(result.allQuestions).toEqual(['q1', 'q2', 'q3']);
       expect(result.visibleQuestions).toEqual(['q1', 'q2', 'q3']);
@@ -58,9 +63,9 @@ describe('IntakeQuestionVisibilityService', () => {
         { id: 'q1', sectionId: 'section1', title: 'Q1', order: 0, isVirtual: false, visibleIf: null },
         { id: 'virtual1', sectionId: 'section1', title: 'Virtual', order: 1, isVirtual: true, visibleIf: null },
         { id: 'q2', sectionId: 'section1', title: 'Q2', order: 2, isVirtual: false, visibleIf: null },
-      ];
-      vi.mocked(repositories.stepRepository.findBySectionIds).mockResolvedValue(mockQuestions as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue([]);
+      ] as unknown as Step[];
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
+      mockStepValueRepo.findByRunId.mockResolvedValue([]);
       const result = await service.evaluatePageQuestions('section1', 'run1');
       expect(result.allQuestions).toEqual(['q1', 'q2']); // virtual1 excluded
       expect(result.visibleQuestions).toEqual(['q1', 'q2']);
@@ -70,9 +75,9 @@ describe('IntakeQuestionVisibilityService', () => {
         { id: 'q3', sectionId: 'section1', title: 'Q3', order: 2, isVirtual: false, visibleIf: null },
         { id: 'q1', sectionId: 'section1', title: 'Q1', order: 0, isVirtual: false, visibleIf: null },
         { id: 'q2', sectionId: 'section1', title: 'Q2', order: 1, isVirtual: false, visibleIf: null },
-      ];
-      vi.mocked(repositories.stepRepository.findBySectionIds).mockResolvedValue(mockQuestions as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue([]);
+      ] as unknown as Step[];
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
+      mockStepValueRepo.findByRunId.mockResolvedValue([]);
       const result = await service.evaluatePageQuestions('section1', 'run1');
       expect(result.visibleQuestions).toEqual(['q1', 'q2', 'q3']); // Sorted by order
     });
@@ -97,12 +102,12 @@ describe('IntakeQuestionVisibilityService', () => {
             right: { type: 'value', value: true },
           },
         },
-      ];
+      ] as unknown as Step[];
       const mockValues = [
         { runId: 'run1', stepId: 'q1', value: false }, // married = false
-      ];
-      vi.mocked(repositories.stepRepository.findBySectionIds).mockResolvedValue(mockQuestions as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues as any);
+      ] as unknown as StepValue[];
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
+      mockStepValueRepo.findByRunId.mockResolvedValue(mockValues);
       const result = await service.evaluatePageQuestions('section1', 'run1');
       expect(result.visibleQuestions).toEqual(['q1']); // q2 hidden
       expect(result.hiddenQuestions).toEqual(['q2']);
@@ -123,12 +128,12 @@ describe('IntakeQuestionVisibilityService', () => {
             right: { type: 'value', value: true },
           },
         },
-      ];
+      ] as unknown as Step[];
       const mockValues = [
         { runId: 'run1', stepId: 'q1', value: true }, // married = true
-      ];
-      vi.mocked(repositories.stepRepository.findBySectionIds).mockResolvedValue(mockQuestions as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues as any);
+      ] as unknown as StepValue[];
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
+      mockStepValueRepo.findByRunId.mockResolvedValue(mockValues);
       const result = await service.evaluatePageQuestions('section1', 'run1');
       expect(result.visibleQuestions).toEqual(['q1', 'q2']); // Both visible
       expect(result.hiddenQuestions).toEqual([]);
@@ -151,13 +156,13 @@ describe('IntakeQuestionVisibilityService', () => {
             ],
           },
         },
-      ];
+      ] as unknown as Step[];
       const mockValues = [
         { runId: 'run1', stepId: 'q1', value: 25 },
         { runId: 'run1', stepId: 'q2', value: 75000 },
-      ];
-      vi.mocked(repositories.stepRepository.findBySectionIds).mockResolvedValue(mockQuestions as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues as any);
+      ] as unknown as StepValue[];
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
+      mockStepValueRepo.findByRunId.mockResolvedValue(mockValues);
       const result = await service.evaluatePageQuestions('section1', 'run1');
       expect(result.visibleQuestions).toEqual(['q1', 'q2', 'q3']); // All visible (conditions met)
     });
@@ -177,12 +182,12 @@ describe('IntakeQuestionVisibilityService', () => {
             ],
           },
         },
-      ];
+      ] as unknown as Step[];
       const mockValues = [
         { runId: 'run1', stepId: 'q1', value: 'manager' },
-      ];
-      vi.mocked(repositories.stepRepository.findBySectionIds).mockResolvedValue(mockQuestions as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues as any);
+      ] as unknown as StepValue[];
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
+      mockStepValueRepo.findByRunId.mockResolvedValue(mockValues);
       const result = await service.evaluatePageQuestions('section1', 'run1');
       expect(result.visibleQuestions).toEqual(['q1', 'q2']); // q2 visible (manager matches OR condition)
     });
@@ -203,12 +208,12 @@ describe('IntakeQuestionVisibilityService', () => {
             },
           },
         },
-      ];
+      ] as unknown as Step[];
       const mockValues = [
         { runId: 'run1', stepId: 'q1', value: 'active' },
-      ];
-      vi.mocked(repositories.stepRepository.findBySectionIds).mockResolvedValue(mockQuestions as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues as any);
+      ] as unknown as StepValue[];
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
+      mockStepValueRepo.findByRunId.mockResolvedValue(mockValues);
       const result = await service.evaluatePageQuestions('section1', 'run1');
       expect(result.visibleQuestions).toEqual(['q1', 'q2']); // q2 visible (NOT banned)
     });
@@ -222,9 +227,9 @@ describe('IntakeQuestionVisibilityService', () => {
         { id: 'q1', sectionId: 'section1', title: 'Q1', order: 0, required: true, isVirtual: false, visibleIf: null },
         { id: 'q2', sectionId: 'section1', title: 'Q2', order: 1, required: false, isVirtual: false, visibleIf: null },
         { id: 'q3', sectionId: 'section1', title: 'Q3', order: 2, required: true, isVirtual: false, visibleIf: null },
-      ];
-      vi.mocked(repositories.stepRepository.findBySectionIds).mockResolvedValue(mockQuestions as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue([]);
+      ] as unknown as Step[];
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
+      mockStepValueRepo.findByRunId.mockResolvedValue([]);
       const result = await service.getValidationFilter('section1', 'run1');
       expect(result.requiredQuestions).toEqual(['q1', 'q3']);
       expect(result.skippedQuestions).toEqual([]);
@@ -245,12 +250,12 @@ describe('IntakeQuestionVisibilityService', () => {
             right: { type: 'value', value: true },
           },
         },
-      ];
+      ] as unknown as Step[];
       const mockValues = [
         { runId: 'run1', stepId: 'q1', value: false }, // show = false
-      ];
-      vi.mocked(repositories.stepRepository.findBySectionIds).mockResolvedValue(mockQuestions as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues as any);
+      ] as unknown as StepValue[];
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
+      mockStepValueRepo.findByRunId.mockResolvedValue(mockValues);
       const result = await service.getValidationFilter('section1', 'run1');
       expect(result.requiredQuestions).toEqual(['q1']); // q2 hidden, so not required
       expect(result.skippedQuestions).toEqual(['q2']);
@@ -275,15 +280,15 @@ describe('IntakeQuestionVisibilityService', () => {
             right: { type: 'value', value: true },
           },
         },
-      ];
+      ] as unknown as Step[];
       const mockValues = [
         { runId: 'run1', stepId: 'q1', value: false },
-      ];
-      // First call: findBySectionIds for isQuestionVisible
-      vi.mocked(repositories.stepRepository.findBySectionIds)
-        .mockResolvedValueOnce([mockQuestions[1]] as any) // Return q2
-        .mockResolvedValueOnce(mockQuestions as any); // Then return all for evaluatePageQuestions
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues as any);
+      ] as unknown as StepValue[];
+
+      mockStepRepo.findById.mockResolvedValue(mockQuestions[1]); // Return q2
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions); // Return all for evaluatePageQuestions
+      mockStepValueRepo.findByRunId.mockResolvedValue(mockValues);
+
       const isVisible = await service.isQuestionVisible('q2', 'run1');
       expect(isVisible).toBe(false); // q2 hidden
     });
@@ -303,20 +308,15 @@ describe('IntakeQuestionVisibilityService', () => {
           },
         },
         { id: 'q3', sectionId: 'section1', title: 'Q3', order: 2, isVirtual: false, visibleIf: null },
-      ];
+      ] as unknown as Step[];
       const mockValues = [
         { runId: 'run1', stepId: 'q1', value: true }, // show = true
-      ];
-      vi.mocked(repositories.stepRepository.findBySectionIds as any).mockResolvedValue(mockQuestions as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues as any);
-      console.log('MOCK SETUP DONE. Mock questions:', mockQuestions);
-      console.log('Calling getVisibleQuestionCount...');
+      ] as unknown as StepValue[];
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
+      mockStepValueRepo.findByRunId.mockResolvedValue(mockValues);
+
       const count = await service.getVisibleQuestionCount('section1', 'run1');
-      console.log('COUNT RESULT:', count);
-      console.log('Mock called times:', (repositories.stepRepository.findBySectionIds as any).mock.calls.length);
-      console.log('Mock last call args:', (repositories.stepRepository.findBySectionIds as any).mock.lastCall);
-      // TODO: Fix mock setup for this test. Logic verified via other tests.
-      // expect(count).toBe(3); // All visible
+      expect(count).toBe(3); // All visible
     });
   });
   // ========================================================================
@@ -338,16 +338,16 @@ describe('IntakeQuestionVisibilityService', () => {
             right: { type: 'value', value: true },
           },
         },
-      ];
+      ] as unknown as Step[];
       const mockValues = [
         { runId: 'run1', stepId: 'q1', value: false }, // show = false
         { id: 'value123', runId: 'run1', stepId: 'q2', value: 'old answer' }, // Existing value to clear
-      ];
-      const mockExistingValue = { id: 'value123', runId: 'run1', stepId: 'q2', value: 'old answer' };
-      vi.mocked(repositories.stepRepository.findBySectionIds).mockResolvedValue(mockQuestions as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues as any);
-      vi.mocked(repositories.stepValueRepository.findByRunAndStep).mockResolvedValue(mockExistingValue as any);
-      vi.mocked(repositories.stepValueRepository.deleteWhere).mockResolvedValue(undefined); // Mock batch delete
+      ] as unknown as StepValue[];
+      const mockExistingValue = { id: 'value123', runId: 'run1', stepId: 'q2', value: 'old answer' } as unknown as StepValue;
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
+      mockStepValueRepo.findByRunId.mockResolvedValue(mockValues);
+      mockStepValueRepo.findByRunAndStep.mockResolvedValue(mockExistingValue);
+      mockStepValueRepo.deleteWhere.mockResolvedValue(undefined); // Mock batch delete
       const runId = 'run_clear_values'; // Unique run ID
       const cleared = await service.clearHiddenQuestionValues('section1', runId);
       expect(cleared).toEqual(['q2']);
@@ -357,14 +357,14 @@ describe('IntakeQuestionVisibilityService', () => {
       const mockQuestions = [
         { id: 'q1', sectionId: 'section1', title: 'Q1', order: 0, isVirtual: false, visibleIf: null },
         { id: 'q2', sectionId: 'section1', title: 'Q2', order: 1, isVirtual: false, visibleIf: null },
-      ];
-      vi.mocked(repositories.stepRepository.findBySectionIds).mockResolvedValue(mockQuestions as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue([]);
+      ] as unknown as Step[];
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
+      mockStepValueRepo.findByRunId.mockResolvedValue([]);
       const runId = 'run_no_clear'; // Unique run ID
       const cleared = await service.clearHiddenQuestionValues('section1', runId);
       expect(cleared).toEqual([]);
-      expect(repositories.stepValueRepository.delete).not.toHaveBeenCalled();
-      expect(repositories.stepValueRepository.deleteWhere).not.toHaveBeenCalled();
+      expect(mockStepValueRepo.delete).not.toHaveBeenCalled();
+      expect(mockStepValueRepo.deleteWhere).not.toHaveBeenCalled();
     });
   });
   // ========================================================================
@@ -385,8 +385,8 @@ describe('IntakeQuestionVisibilityService', () => {
             right: { type: 'value', value: 'USA' },
           },
         },
-      ];
-      vi.mocked(repositories.stepRepository.findBySectionIds).mockResolvedValue(mockQuestions as any);
+      ] as unknown as Step[];
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
       const warnings = await service.validateQuestionConditions('section1');
       expect(warnings.length).toBeGreaterThan(0);
       expect(warnings[0]).toContain('required');
@@ -406,8 +406,8 @@ describe('IntakeQuestionVisibilityService', () => {
             right: { type: 'value', value: true },
           },
         },
-      ];
-      vi.mocked(repositories.stepRepository.findBySectionIds).mockResolvedValue(mockQuestions as any);
+      ] as unknown as Step[];
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
       const warnings = await service.validateQuestionConditions('section1');
       expect(warnings.length).toBeGreaterThan(0);
       expect(warnings[0]).toContain('Virtual step');
@@ -428,8 +428,8 @@ describe('IntakeQuestionVisibilityService', () => {
             right: { type: 'value', value: true },
           },
         },
-      ];
-      vi.mocked(repositories.stepRepository.findBySectionIds).mockResolvedValue(mockQuestions as any);
+      ] as unknown as Step[];
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
       const warnings = await service.validateQuestionConditions('section1');
       expect(warnings).toEqual([]);
     });
@@ -448,9 +448,9 @@ describe('IntakeQuestionVisibilityService', () => {
           isVirtual: false,
           visibleIf: { op: 'invalid', left: null, right: null }, // Invalid condition
         },
-      ];
-      vi.mocked(repositories.stepRepository.findBySectionIds).mockResolvedValue(mockQuestions as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue([]);
+      ] as unknown as Step[];
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
+      mockStepValueRepo.findByRunId.mockResolvedValue([]);
       const result = await service.evaluatePageQuestions('section1', 'run1');
       // Should default to visible (fail-safe)
       expect(result.visibleQuestions).toEqual(['q1']);
@@ -491,13 +491,13 @@ describe('IntakeQuestionVisibilityService', () => {
             right: { type: 'value', value: null },
           },
         },
-      ];
+      ] as unknown as Step[];
       // Scenario 1: hasSpouse = false → q2 and q3 hidden
       const mockValues1 = [
         { runId: 'run1', stepId: 'q1', value: false },
-      ];
-      vi.mocked(repositories.stepRepository.findBySectionIds).mockResolvedValue(mockQuestions as any);
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues1 as any);
+      ] as unknown as StepValue[];
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
+      mockStepValueRepo.findByRunId.mockResolvedValue(mockValues1);
       const result1 = await service.evaluatePageQuestions('section1', 'run1');
       expect(result1.hiddenQuestions).toEqual(['q2', 'q3']);
       // Clear cache to force re-evaluation
@@ -506,8 +506,8 @@ describe('IntakeQuestionVisibilityService', () => {
       const mockValues2 = [
         { runId: 'run1', stepId: 'q1', value: true },
         { runId: 'run1', stepId: 'q2', value: 'John' },
-      ];
-      vi.mocked(repositories.stepValueRepository.findByRunId).mockResolvedValue(mockValues2 as any);
+      ] as unknown as StepValue[];
+      mockStepValueRepo.findByRunId.mockResolvedValue(mockValues2);
       const result2 = await service.evaluatePageQuestions('section1', 'run1');
       expect(result2.visibleQuestions).toEqual(['q1', 'q2', 'q3']); // All visible
     });

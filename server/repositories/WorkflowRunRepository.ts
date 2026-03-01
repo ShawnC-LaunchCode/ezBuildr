@@ -21,40 +21,64 @@ export class WorkflowRunRepository extends BaseRepository<
   /**
    * Find runs by workflow ID
    */
-  async findByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<WorkflowRun[]> {
+  async findByWorkflowId(
+    workflowId: string,
+    options?: { limit?: number; offset?: number },
+    tx?: DbTransaction
+  ): Promise<WorkflowRun[]> {
     const database = this.getDb(tx);
-    return database
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = database
       .select()
       .from(workflowRuns)
       .where(eq(workflowRuns.workflowId, workflowId))
       .orderBy(desc(workflowRuns.createdAt));
+    if (options?.limit !== undefined) { query = query.limit(options.limit); }
+    if (options?.offset !== undefined) { query = query.offset(options.offset); }
+    return query as Promise<WorkflowRun[]>;
   }
 
   /**
    * Find runs by multiple workflow IDs
    */
-  async findByWorkflowIds(workflowIds: string[], tx?: DbTransaction): Promise<WorkflowRun[]> {
+  async findByWorkflowIds(
+    workflowIds: string[],
+    options?: { limit?: number; offset?: number },
+    tx?: DbTransaction
+  ): Promise<WorkflowRun[]> {
     const database = this.getDb(tx);
     if (workflowIds.length === 0) {
       return [];
     }
-    return database
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = database
       .select()
       .from(workflowRuns)
       .where(inArray(workflowRuns.workflowId, workflowIds))
       .orderBy(desc(workflowRuns.createdAt));
+    if (options?.limit !== undefined) { query = query.limit(options.limit); }
+    if (options?.offset !== undefined) { query = query.offset(options.offset); }
+    return query as Promise<WorkflowRun[]>;
   }
 
   /**
    * Find completed runs by workflow ID
    */
-  async findCompletedByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<WorkflowRun[]> {
+  async findCompletedByWorkflowId(
+    workflowId: string,
+    options?: { limit?: number; offset?: number },
+    tx?: DbTransaction
+  ): Promise<WorkflowRun[]> {
     const database = this.getDb(tx);
-    return database
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = database
       .select()
       .from(workflowRuns)
       .where(and(eq(workflowRuns.workflowId, workflowId), eq(workflowRuns.completed, true)))
       .orderBy(desc(workflowRuns.completedAt));
+    if (options?.limit !== undefined) { query = query.limit(options.limit); }
+    if (options?.offset !== undefined) { query = query.offset(options.offset); }
+    return query as Promise<WorkflowRun[]>;
   }
 
   /**
@@ -97,7 +121,7 @@ export class WorkflowRunRepository extends BaseRepository<
       })
       .where(eq(workflowRuns.id, runId))
       .returning();
-    if (!updated) throw new Error("Failed to mark run as complete");
+    if (!updated) {throw new Error("Failed to mark run as complete");}
     return updated;
   }
 

@@ -16,6 +16,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 
+import { logger } from '../../logger';
 import {
   IEsignProvider,
   CreateEnvelopeRequest,
@@ -418,14 +419,14 @@ export class DocusignProvider implements IEsignProvider {
     // Reference: https://developers.docusign.com/platform/webhooks/connect/hmac/
 
     if (!this.config.webhookSecret) {
-      console.warn('[DocuSign] No webhook secret configured, skipping verification');
+      logger.warn("[DocuSign] No webhook secret configured, skipping verification");
       // In production, you should reject webhooks without verification
       // For now, we allow it to support development/testing
       return true;
     }
 
     if (!signature) {
-      console.warn('[DocuSign] No signature provided in webhook request');
+      logger.warn("[DocuSign] No signature provided in webhook request");
       return false;
     }
 
@@ -453,16 +454,12 @@ export class DocusignProvider implements IEsignProvider {
       );
 
       if (!signaturesMatch) {
-        console.warn('[DocuSign] Webhook signature verification failed');
-        // eslint-disable-next-line no-console
-        console.debug('[DocuSign] Expected:', expectedSignature);
-        // eslint-disable-next-line no-console
-        console.debug('[DocuSign] Received:', signature);
+        logger.warn({ expected: expectedSignature, received: signature }, "[DocuSign] Webhook signature verification failed");
       }
 
       return signaturesMatch;
     } catch (error: unknown) {
-      console.error('[DocuSign] Error verifying webhook signature:', error);
+      logger.error({ err: error }, "[DocuSign] Error verifying webhook signature");
       return false;
     }
   }
@@ -517,9 +514,7 @@ export function createDocusignProvider(): DocusignProvider | null {
 
   // Check if all required config is present
   if (!config.integrationKey || !config.userId || !config.accountId || !config.privateKey) {
-    // Note: Using console.warn here is intentional - this is a factory function warning
-    // that should be visible during server startup
-    console.warn('[DocuSign] Provider not configured - missing environment variables');
+    logger.warn("[DocuSign] Provider not configured - missing environment variables");
     return null;
   }
 

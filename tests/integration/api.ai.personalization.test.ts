@@ -1,4 +1,4 @@
-
+process.env.GEMINI_API_KEY = 'test-key';
 import { eq } from "drizzle-orm";
 import express, { type Express } from "express";
 import { nanoid } from 'nanoid';

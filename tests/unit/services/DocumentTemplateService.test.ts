@@ -1,11 +1,8 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-
+import { describe, it, expect, beforeEach, vi, afterEach, type Mocked } from 'vitest';
 import type { Template } from '@shared/schema';
-
 import { documentTemplateRepository } from '../../../server/repositories/DocumentTemplateRepository';
 import { DocumentTemplateService } from '../../../server/services/DocumentTemplateService';
 import * as templatesModule from '../../../server/services/templates';
-
 
 /**
  * Stage 21 PR 2: Document Template Service Tests
@@ -19,10 +16,15 @@ vi.mock('../../../server/services/templates');
 
 describe('DocumentTemplateService', () => {
   let service: DocumentTemplateService;
+  let mockRepo: Mocked<typeof documentTemplateRepository>;
+  let mockTemplates: Mocked<typeof templatesModule>;
 
   beforeEach(() => {
     service = new DocumentTemplateService();
     vi.clearAllMocks();
+
+    mockRepo = documentTemplateRepository as Mocked<typeof documentTemplateRepository>;
+    mockTemplates = templatesModule as Mocked<typeof templatesModule>;
   });
 
   afterEach(() => {
@@ -47,9 +49,9 @@ describe('DocumentTemplateService', () => {
         lastModifiedBy: null,
       };
 
-      vi.spyOn(documentTemplateRepository, 'existsByNameInProject').mockResolvedValue(false);
-      vi.spyOn(templatesModule, 'saveTemplateFile').mockResolvedValue('abcd1234.docx');
-      vi.spyOn(documentTemplateRepository, 'create').mockResolvedValue(mockTemplate);
+      mockRepo.existsByNameInProject.mockResolvedValue(false);
+      mockTemplates.saveTemplateFile.mockResolvedValue('abcd1234.docx');
+      mockRepo.create.mockResolvedValue(mockTemplate);
 
       const fileBuffer = Buffer.from('docx content');
       const result = await service.createTemplate({
@@ -63,12 +65,12 @@ describe('DocumentTemplateService', () => {
       });
 
       expect(result).toEqual(mockTemplate);
-      expect(templatesModule.saveTemplateFile).toHaveBeenCalledWith(
+      expect(mockTemplates.saveTemplateFile).toHaveBeenCalledWith(
         fileBuffer,
         'engagement.docx',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       );
-      expect(documentTemplateRepository.create).toHaveBeenCalledWith(
+      expect(mockRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           projectId: 'proj-123',
           name: 'Engagement Letter',
@@ -79,7 +81,7 @@ describe('DocumentTemplateService', () => {
     });
 
     it('should throw error if template name already exists', async () => {
-      vi.spyOn(documentTemplateRepository, 'existsByNameInProject').mockResolvedValue(true);
+      mockRepo.existsByNameInProject.mockResolvedValue(true);
 
       await expect(
         service.createTemplate({
@@ -94,7 +96,7 @@ describe('DocumentTemplateService', () => {
     });
 
     it('should throw error for invalid DOCX file type', async () => {
-      vi.spyOn(documentTemplateRepository, 'existsByNameInProject').mockResolvedValue(false);
+      mockRepo.existsByNameInProject.mockResolvedValue(false);
 
       await expect(
         service.createTemplate({
@@ -109,10 +111,10 @@ describe('DocumentTemplateService', () => {
     });
 
     it('should delete uploaded file if database insert fails', async () => {
-      vi.spyOn(documentTemplateRepository, 'existsByNameInProject').mockResolvedValue(false);
-      vi.spyOn(templatesModule, 'saveTemplateFile').mockResolvedValue('abcd1234.docx');
-      vi.spyOn(documentTemplateRepository, 'create').mockRejectedValue(new Error('DB error'));
-      vi.spyOn(templatesModule, 'deleteTemplateFile').mockResolvedValue(undefined);
+      mockRepo.existsByNameInProject.mockResolvedValue(false);
+      mockTemplates.saveTemplateFile.mockResolvedValue('abcd1234.docx');
+      mockRepo.create.mockRejectedValue(new Error('DB error'));
+      mockTemplates.deleteTemplateFile.mockResolvedValue(undefined);
 
       await expect(
         service.createTemplate({
@@ -125,7 +127,7 @@ describe('DocumentTemplateService', () => {
         })
       ).rejects.toThrow('DB error');
 
-      expect(templatesModule.deleteTemplateFile).toHaveBeenCalledWith('abcd1234.docx');
+      expect(mockTemplates.deleteTemplateFile).toHaveBeenCalledWith('abcd1234.docx');
     });
   });
 
@@ -147,17 +149,17 @@ describe('DocumentTemplateService', () => {
         lastModifiedBy: null,
       };
 
-      vi.spyOn(documentTemplateRepository, 'findByIdAndProjectId').mockResolvedValue(mockTemplate);
-      vi.spyOn(templatesModule, 'templateFileExists').mockResolvedValue(true);
+      mockRepo.findByIdAndProjectId.mockResolvedValue(mockTemplate);
+      mockTemplates.templateFileExists.mockResolvedValue(true);
 
       const result = await service.getTemplate('tpl-123', 'proj-123');
 
       expect(result).toEqual(mockTemplate);
-      expect(templatesModule.templateFileExists).toHaveBeenCalledWith('abcd1234.docx');
+      expect(mockTemplates.templateFileExists).toHaveBeenCalledWith('abcd1234.docx');
     });
 
     it('should throw error if template not found', async () => {
-      vi.spyOn(documentTemplateRepository, 'findByIdAndProjectId').mockResolvedValue(undefined);
+      mockRepo.findByIdAndProjectId.mockResolvedValue(undefined);
 
       await expect(
         service.getTemplate('tpl-nonexistent', 'proj-123')
@@ -181,8 +183,8 @@ describe('DocumentTemplateService', () => {
         lastModifiedBy: null,
       };
 
-      vi.spyOn(documentTemplateRepository, 'findByIdAndProjectId').mockResolvedValue(mockTemplate);
-      vi.spyOn(templatesModule, 'templateFileExists').mockResolvedValue(false);
+      mockRepo.findByIdAndProjectId.mockResolvedValue(mockTemplate);
+      mockTemplates.templateFileExists.mockResolvedValue(false);
 
       await expect(
         service.getTemplate('tpl-123', 'proj-123')
@@ -192,7 +194,7 @@ describe('DocumentTemplateService', () => {
 
   describe('listTemplates', () => {
     it('should list all templates for a project', async () => {
-      const mockTemplates: any[] = [
+      const mockTemplateList: Template[] = [
         {
           id: 'tpl-1',
           projectId: 'proj-123',
@@ -203,6 +205,10 @@ describe('DocumentTemplateService', () => {
           helpersVersion: 1,
           createdAt: new Date(),
           updatedAt: new Date(),
+          metadata: {},
+          mapping: {},
+          currentVersion: 1,
+          lastModifiedBy: null,
         },
         {
           id: 'tpl-2',
@@ -214,14 +220,18 @@ describe('DocumentTemplateService', () => {
           helpersVersion: 1,
           createdAt: new Date(),
           updatedAt: new Date(),
+          metadata: {},
+          mapping: {},
+          currentVersion: 1,
+          lastModifiedBy: null,
         },
       ];
 
-      vi.spyOn(documentTemplateRepository, 'findByProjectId').mockResolvedValue(mockTemplates);
+      mockRepo.findByProjectId.mockResolvedValue(mockTemplateList);
 
       const result = await service.listTemplates('proj-123');
 
-      expect(result).toEqual(mockTemplates);
+      expect(result).toEqual(mockTemplateList);
       expect(result).toHaveLength(2);
     });
   });
@@ -250,10 +260,10 @@ describe('DocumentTemplateService', () => {
         description: 'Updated description',
       };
 
-      vi.spyOn(documentTemplateRepository, 'findByIdAndProjectId').mockResolvedValue(mockTemplate);
-      vi.spyOn(templatesModule, 'templateFileExists').mockResolvedValue(true);
-      vi.spyOn(documentTemplateRepository, 'existsByNameInProject').mockResolvedValue(false);
-      vi.spyOn(documentTemplateRepository, 'updateMetadata').mockResolvedValue(mockUpdated);
+      mockRepo.findByIdAndProjectId.mockResolvedValue(mockTemplate);
+      mockTemplates.templateFileExists.mockResolvedValue(true);
+      mockRepo.existsByNameInProject.mockResolvedValue(false);
+      mockRepo.updateMetadata.mockResolvedValue(mockUpdated);
 
       const result = await service.updateTemplateMeta('tpl-123', 'proj-123', {
         name: 'Updated Name',
@@ -261,7 +271,7 @@ describe('DocumentTemplateService', () => {
       });
 
       expect(result).toEqual(mockUpdated);
-      expect(documentTemplateRepository.updateMetadata).toHaveBeenCalledWith(
+      expect(mockRepo.updateMetadata).toHaveBeenCalledWith(
         'tpl-123',
         'proj-123',
         {
@@ -289,9 +299,9 @@ describe('DocumentTemplateService', () => {
         lastModifiedBy: null,
       };
 
-      vi.spyOn(documentTemplateRepository, 'findByIdAndProjectId').mockResolvedValue(mockTemplate);
-      vi.spyOn(templatesModule, 'templateFileExists').mockResolvedValue(true);
-      vi.spyOn(documentTemplateRepository, 'existsByNameInProject').mockResolvedValue(true);
+      mockRepo.findByIdAndProjectId.mockResolvedValue(mockTemplate);
+      mockTemplates.templateFileExists.mockResolvedValue(true);
+      mockRepo.existsByNameInProject.mockResolvedValue(true);
 
       await expect(
         service.updateTemplateMeta('tpl-123', 'proj-123', {
@@ -319,23 +329,23 @@ describe('DocumentTemplateService', () => {
         lastModifiedBy: null,
       };
 
-      vi.spyOn(documentTemplateRepository, 'findByIdAndProjectId').mockResolvedValue(mockTemplate);
-      vi.spyOn(templatesModule, 'templateFileExists').mockResolvedValue(true);
-      vi.spyOn(documentTemplateRepository, 'deleteByIdAndProjectId').mockResolvedValue(true);
-      vi.spyOn(templatesModule, 'deleteTemplateFile').mockResolvedValue(undefined);
+      mockRepo.findByIdAndProjectId.mockResolvedValue(mockTemplate);
+      mockTemplates.templateFileExists.mockResolvedValue(true);
+      mockRepo.deleteByIdAndProjectId.mockResolvedValue(true);
+      mockTemplates.deleteTemplateFile.mockResolvedValue(undefined);
 
       await service.deleteTemplate('tpl-123', 'proj-123');
 
-      expect(documentTemplateRepository.deleteByIdAndProjectId).toHaveBeenCalledWith(
+      expect(mockRepo.deleteByIdAndProjectId).toHaveBeenCalledWith(
         'tpl-123',
         'proj-123',
         undefined
       );
-      expect(templatesModule.deleteTemplateFile).toHaveBeenCalledWith('file-to-delete.docx');
+      expect(mockTemplates.deleteTemplateFile).toHaveBeenCalledWith('file-to-delete.docx');
     });
 
     it('should throw error if template not found', async () => {
-      vi.spyOn(documentTemplateRepository, 'findByIdAndProjectId').mockResolvedValue(undefined);
+      mockRepo.findByIdAndProjectId.mockResolvedValue(undefined);
 
       await expect(
         service.deleteTemplate('tpl-nonexistent', 'proj-123')
@@ -366,11 +376,11 @@ describe('DocumentTemplateService', () => {
         fileRef: 'new-file.docx',
       };
 
-      vi.spyOn(documentTemplateRepository, 'findByIdAndProjectId').mockResolvedValue(mockTemplate);
-      vi.spyOn(templatesModule, 'templateFileExists').mockResolvedValue(true);
-      vi.spyOn(templatesModule, 'saveTemplateFile').mockResolvedValue('new-file.docx');
-      vi.spyOn(documentTemplateRepository, 'updateFileRef').mockResolvedValue(mockUpdated);
-      vi.spyOn(templatesModule, 'deleteTemplateFile').mockResolvedValue(undefined);
+      mockRepo.findByIdAndProjectId.mockResolvedValue(mockTemplate);
+      mockTemplates.templateFileExists.mockResolvedValue(true);
+      mockTemplates.saveTemplateFile.mockResolvedValue('new-file.docx');
+      mockRepo.updateFileRef.mockResolvedValue(mockUpdated);
+      mockTemplates.deleteTemplateFile.mockResolvedValue(undefined);
 
       const result = await service.storeTemplateFile(
         'tpl-123',
@@ -381,7 +391,7 @@ describe('DocumentTemplateService', () => {
       );
 
       expect(result).toEqual(mockUpdated);
-      expect(templatesModule.deleteTemplateFile).toHaveBeenCalledWith('old-file.docx');
+      expect(mockTemplates.deleteTemplateFile).toHaveBeenCalledWith('old-file.docx');
     });
 
     it('should rollback new file if update fails', async () => {
@@ -401,11 +411,11 @@ describe('DocumentTemplateService', () => {
         lastModifiedBy: null,
       };
 
-      vi.spyOn(documentTemplateRepository, 'findByIdAndProjectId').mockResolvedValue(mockTemplate);
-      vi.spyOn(templatesModule, 'templateFileExists').mockResolvedValue(true);
-      vi.spyOn(templatesModule, 'saveTemplateFile').mockResolvedValue('new-file.docx');
-      vi.spyOn(documentTemplateRepository, 'updateFileRef').mockRejectedValue(new Error('Update failed'));
-      vi.spyOn(templatesModule, 'deleteTemplateFile').mockResolvedValue(undefined);
+      mockRepo.findByIdAndProjectId.mockResolvedValue(mockTemplate);
+      mockTemplates.templateFileExists.mockResolvedValue(true);
+      mockTemplates.saveTemplateFile.mockResolvedValue('new-file.docx');
+      mockRepo.updateFileRef.mockRejectedValue(new Error('Update failed'));
+      mockTemplates.deleteTemplateFile.mockResolvedValue(undefined);
 
       await expect(
         service.storeTemplateFile(
@@ -417,7 +427,7 @@ describe('DocumentTemplateService', () => {
         )
       ).rejects.toThrow('Update failed');
 
-      expect(templatesModule.deleteTemplateFile).toHaveBeenCalledWith('new-file.docx');
+      expect(mockTemplates.deleteTemplateFile).toHaveBeenCalledWith('new-file.docx');
     });
   });
 });

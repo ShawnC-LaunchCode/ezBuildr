@@ -1,38 +1,37 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, vi, type Mocked } from "vitest";
 
 import { StepService } from "../../../server/services/StepService";
+import { stepRepository, sectionRepository } from "../../../server/repositories";
 import { createTestStep, createTestSection, createTestWorkflow } from "../../factories/workflowFactory";
+import { workflowService } from "../../../server/services/WorkflowService";
 
-import type { InsertStep } from "../../../shared/schema";
+import type { InsertStep } from "@shared/schema";
+
+// Mock the repositories and services
+vi.mock("../../../server/repositories");
+vi.mock("../../../server/services/WorkflowService");
 
 describe("StepService", () => {
   let service: StepService;
-  let mockStepRepo: any;
-  let mockSectionRepo: any;
-  let mockWorkflowSvc: any;
+  let mockStepRepo: Mocked<typeof stepRepository>;
+  let mockSectionRepo: Mocked<typeof sectionRepository>;
+  let mockWorkflowSvc: Mocked<typeof workflowService>;
 
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockStepRepo = {
-      findById: vi.fn(),
-      findBySectionId: vi.fn(),
-      findBySectionIds: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-    };
+    mockStepRepo = stepRepository;
+    mockSectionRepo = sectionRepository;
+    mockWorkflowSvc = workflowService as Mocked<typeof workflowService>;
 
-    mockSectionRepo = {
-      findById: vi.fn(),
-      findByIdAndWorkflow: vi.fn(),
-      findByWorkflowId: vi.fn(),
-    };
+    // Setup default mock implementations
+    mockStepRepo.findById.mockResolvedValue(null);
+    mockStepRepo.findBySectionId.mockResolvedValue([]);
+    mockStepRepo.findBySectionIds.mockResolvedValue([]);
 
-    mockWorkflowSvc = {
-      verifyOwnership: vi.fn(),
-      verifyAccess: vi.fn(),
-    };
+    mockSectionRepo.findById.mockResolvedValue(null);
+    mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(null);
+    mockSectionRepo.findByWorkflowId.mockResolvedValue([]);
 
     service = new StepService(mockStepRepo, mockSectionRepo, mockWorkflowSvc);
   });
@@ -46,7 +45,7 @@ describe("StepService", () => {
         createTestStep(section.id, { order: 2 }),
       ];
 
-      const newStepData: any = {
+      const newStepData: Omit<InsertStep, 'sectionId'> = {
         type: "short_text",
         title: "New Step",
         required: false,
@@ -55,10 +54,10 @@ describe("StepService", () => {
 
       const createdStep = createTestStep(section.id, { ...newStepData, order: 3 });
 
-      mockWorkflowSvc.verifyOwnership.mockResolvedValue(workflow);
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(undefined); // void return
       mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(section);
-      mockStepRepo.findBySectionId.mockResolvedValue(existingSteps);
-      mockStepRepo.create.mockResolvedValue(createdStep);
+      mockStepRepo.findBySectionId.mockResolvedValue(existingSteps as unknown as Step[]);
+      mockStepRepo.create.mockResolvedValue(createdStep as unknown as Step);
 
       const result = await service.createStep(workflow.id, section.id, "user-123", newStepData);
 
@@ -85,12 +84,12 @@ describe("StepService", () => {
 
       const createdStep = createTestStep(section.id, { ...newStepData, order: 1 });
 
-      mockWorkflowSvc.verifyOwnership.mockResolvedValue(workflow);
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(undefined);
       mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(section);
       mockStepRepo.findBySectionId.mockResolvedValue([]);
-      mockStepRepo.create.mockResolvedValue(createdStep);
+      mockStepRepo.create.mockResolvedValue(createdStep as unknown as Step);
 
-      const result = await service.createStep(workflow.id, section.id, "user-123", newStepData);
+      const result = await service.createStep(workflow.id, section.id, "user-123", newStepData as InsertStep);
 
       expect(result.order).toBe(1);
     });
@@ -111,13 +110,13 @@ describe("StepService", () => {
         order: 1,
       };
 
-      mockWorkflowSvc.verifyOwnership.mockResolvedValue(workflow);
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(undefined);
       mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(section);
       mockSectionRepo.findByWorkflowId.mockResolvedValue([section]);
-      mockStepRepo.findBySectionIds.mockResolvedValue(existingSteps);
+      mockStepRepo.findBySectionIds.mockResolvedValue(existingSteps as unknown as Step[]);
 
       await expect(
-        service.createStep(workflow.id, section.id, "user-123", newStepData)
+        service.createStep(workflow.id, section.id, "user-123", newStepData as InsertStep)
       ).rejects.toThrow("Alias \"firstName\" is already in use");
     });
 
@@ -136,12 +135,12 @@ describe("StepService", () => {
 
       const createdStep = createTestStep(section.id, { ...newStepData });
 
-      mockWorkflowSvc.verifyOwnership.mockResolvedValue(workflow);
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(undefined);
       mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(section);
       mockStepRepo.findBySectionId.mockResolvedValue([]);
-      mockStepRepo.create.mockResolvedValue(createdStep);
+      mockStepRepo.create.mockResolvedValue(createdStep as unknown as Step);
 
-      const result = await service.createStep(workflow.id, section.id, "user-123", newStepData);
+      const result = await service.createStep(workflow.id, section.id, "user-123", newStepData as InsertStep);
 
       expect(result.alias).toBeNull();
     });
@@ -157,11 +156,11 @@ describe("StepService", () => {
         order: 1,
       };
 
-      mockWorkflowSvc.verifyOwnership.mockResolvedValue(workflow);
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(undefined);
       mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(null);
 
       await expect(
-        service.createStep(workflow.id, "nonexistent-section", "user-123", newStepData)
+        service.createStep(workflow.id, "nonexistent-section", "user-123", newStepData as InsertStep)
       ).rejects.toThrow("Section not found");
     });
 
@@ -180,7 +179,7 @@ describe("StepService", () => {
       mockWorkflowSvc.verifyAccess.mockRejectedValue(new Error("Access denied"));
 
       await expect(
-        service.createStep(workflow.id, section.id, "other-user", newStepData)
+        service.createStep(workflow.id, section.id, "other-user", newStepData as InsertStep)
       ).rejects.toThrow("Access denied");
 
       expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "other-user");
@@ -194,10 +193,10 @@ describe("StepService", () => {
       const step = createTestStep(section.id);
       const updatedStep = { ...step, title: "Updated Title" };
 
-      mockWorkflowSvc.verifyOwnership.mockResolvedValue(workflow);
-      mockStepRepo.findById.mockResolvedValue(step);
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(undefined);
+      mockStepRepo.findById.mockResolvedValue(step as unknown as Step);
       mockSectionRepo.findById.mockResolvedValue(section);
-      mockStepRepo.update.mockResolvedValue(updatedStep);
+      mockStepRepo.update.mockResolvedValue(updatedStep as unknown as Step);
 
       const result = await service.updateStep(step.id, workflow.id, "user-123", {
         title: "Updated Title",
@@ -216,11 +215,11 @@ describe("StepService", () => {
         createTestStep(section.id, { alias: "newAlias" }),
       ];
 
-      mockWorkflowSvc.verifyOwnership.mockResolvedValue(workflow);
-      mockStepRepo.findById.mockResolvedValue(step);
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(undefined);
+      mockStepRepo.findById.mockResolvedValue(step as unknown as Step);
       mockSectionRepo.findById.mockResolvedValue(section);
       mockSectionRepo.findByWorkflowId.mockResolvedValue([section]);
-      mockStepRepo.findBySectionIds.mockResolvedValue(existingSteps);
+      mockStepRepo.findBySectionIds.mockResolvedValue(existingSteps as unknown as Step[]);
 
       await expect(
         service.updateStep(step.id, workflow.id, "user-123", { alias: "newAlias" })
@@ -233,10 +232,10 @@ describe("StepService", () => {
       const step = createTestStep(section.id, { alias: "myAlias" });
       const updatedStep = { ...step, title: "Updated" };
 
-      mockWorkflowSvc.verifyOwnership.mockResolvedValue(workflow);
-      mockStepRepo.findById.mockResolvedValue(step);
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(undefined);
+      mockStepRepo.findById.mockResolvedValue(step as unknown as Step);
       mockSectionRepo.findById.mockResolvedValue(section);
-      mockStepRepo.update.mockResolvedValue(updatedStep);
+      mockStepRepo.update.mockResolvedValue(updatedStep as unknown as Step);
 
       const result = await service.updateStep(step.id, workflow.id, "user-123", {
         title: "Updated",
@@ -246,7 +245,7 @@ describe("StepService", () => {
     });
 
     it("should throw error if step not found", async () => {
-      mockWorkflowSvc.verifyOwnership.mockResolvedValue(createTestWorkflow());
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(undefined);
       mockStepRepo.findById.mockResolvedValue(null);
 
       await expect(
@@ -260,7 +259,7 @@ describe("StepService", () => {
       const section = createTestSection(otherWorkflow.id);
       const step = createTestStep(section.id);
 
-      mockWorkflowSvc.verifyOwnership.mockResolvedValue(workflow);
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(undefined);
       mockStepRepo.findById.mockResolvedValue(step);
       mockSectionRepo.findById.mockResolvedValue(section);
 
@@ -276,9 +275,10 @@ describe("StepService", () => {
       const section = createTestSection(workflow.id);
       const step = createTestStep(section.id);
 
-      mockWorkflowSvc.verifyOwnership.mockResolvedValue(workflow);
-      mockStepRepo.findById.mockResolvedValue(step);
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(undefined);
+      mockStepRepo.findById.mockResolvedValue(step as unknown as Step);
       mockSectionRepo.findById.mockResolvedValue(section);
+      mockStepRepo.delete.mockResolvedValue(undefined);
       mockStepRepo.delete.mockResolvedValue(undefined);
 
       await service.deleteStep(step.id, workflow.id, "user-123");
@@ -287,7 +287,7 @@ describe("StepService", () => {
     });
 
     it("should throw error if step not found", async () => {
-      mockWorkflowSvc.verifyOwnership.mockResolvedValue(createTestWorkflow());
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(undefined);
       mockStepRepo.findById.mockResolvedValue(null);
 
       await expect(
@@ -301,7 +301,7 @@ describe("StepService", () => {
       const section = createTestSection(otherWorkflow.id);
       const step = createTestStep(section.id);
 
-      mockWorkflowSvc.verifyOwnership.mockResolvedValue(workflow);
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(undefined);
       mockStepRepo.findById.mockResolvedValue(step);
       mockSectionRepo.findById.mockResolvedValue(section);
 

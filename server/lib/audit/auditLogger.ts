@@ -2,6 +2,7 @@
 import { auditLogs } from "@shared/schema";
 
 import { db } from "../../db";
+import { logger } from "../../logger";
 
 export interface AuditEvent {
     workspaceId?: string | null;
@@ -35,7 +36,7 @@ export class AuditLogger {
                 userAgent: event.userAgent
             });
         } catch (error) {
-            console.error("Failed to write audit log:", error);
+            logger.error({ err: error }, "Failed to write audit log");
             // We do NOT throw here to avoid failing the user action if logging fails, 
             // but in high security envs might want to fail-closed.
         }

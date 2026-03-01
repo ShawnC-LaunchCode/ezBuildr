@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { _Stream } from 'stream';
+
 
 import { S3, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -105,7 +105,7 @@ export class S3StorageProvider implements StorageProvider {
       return true;
     } catch (error: unknown) {
       // eslint-disable-next-line sonarjs/prefer-single-boolean-return, @typescript-eslint/no-unsafe-member-access
-      if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
+      if ((error as any).name === 'NotFound' || (error as any).$metadata?.httpStatusCode === 404) {
         return false;
       }
       return false;
@@ -123,7 +123,7 @@ export class S3StorageProvider implements StorageProvider {
       const chunks: Uint8Array[] = [];
       if (response.Body) {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore - AWS SDK types for Body are complex (Readable | ReadableStream | Blob)
+        // @ts-expect-error - AWS SDK types for Body are complex (Readable | ReadableStream | Blob)
         for await (const chunk of response.Body) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           chunks.push(chunk);
@@ -132,7 +132,7 @@ export class S3StorageProvider implements StorageProvider {
       return Buffer.concat(chunks);
     } catch (error: unknown) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (error.name === 'NoSuchKey' || error.$metadata?.httpStatusCode === 404) {
+      if ((error as any).name === 'NoSuchKey' || (error as any).$metadata?.httpStatusCode === 404) {
         throw createError.notFound('File not found in S3');
       }
       logger.error({ error, fileRef }, 'Failed to download file from S3');
@@ -156,7 +156,7 @@ export class S3StorageProvider implements StorageProvider {
       };
     } catch (error: unknown) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
+      if ((error as any).name === 'NotFound' || (error as any).$metadata?.httpStatusCode === 404) {
         throw createError.notFound('File not found in S3');
       }
       logger.error({ error, fileRef }, 'Failed to get metadata from S3');

@@ -19,7 +19,8 @@ vi.mock('../../../server/services/ai/WorkflowOptimizationService', () => ({
 vi.mock('../../../server/services/ai/WorkflowGenerationService', () => {
     return {
         // MUST use regular function for constructor mocks, not arrow functions
-        WorkflowGenerationService: vi.fn(() => {
+        // eslint-disable-next-line prefer-arrow-callback
+        WorkflowGenerationService: vi.fn(function () {
             return {
                 generateWorkflow: vi.fn().mockResolvedValue({
                     title: 'Generated Flow',
@@ -33,7 +34,8 @@ vi.mock('../../../server/services/ai/WorkflowGenerationService', () => {
 vi.mock('../../../server/services/ai/WorkflowSuggestionService', () => {
     return {
         // MUST use regular function for constructor mocks
-        WorkflowSuggestionService: vi.fn(() => {
+        // eslint-disable-next-line prefer-arrow-callback
+        WorkflowSuggestionService: vi.fn(function () {
             return {
                 suggestWorkflowImprovements: vi.fn().mockResolvedValue({
                     newSections: [{ id: 's2', title: 'New Section', order: 1, steps: [] }],
@@ -56,7 +58,8 @@ vi.mock('../../../server/services/ai/WorkflowSuggestionService', () => {
 vi.mock('../../../server/services/ai/WorkflowRevisionService', () => {
     return {
         // MUST use regular function for constructor mocks
-        WorkflowRevisionService: vi.fn(() => {
+        // eslint-disable-next-line prefer-arrow-callback
+        WorkflowRevisionService: vi.fn(function () {
             return {
                 reviseWorkflow: vi.fn().mockResolvedValue({
                     updatedWorkflow: { title: 'Revised Flow' },
@@ -71,7 +74,8 @@ vi.mock('../../../server/services/ai/WorkflowRevisionService', () => {
 vi.mock('../../../server/services/ai/WorkflowLogicService', () => {
     return {
         // MUST use regular function for constructor mocks
-        WorkflowLogicService: vi.fn(() => {
+        // eslint-disable-next-line prefer-arrow-callback
+        WorkflowLogicService: vi.fn(function () {
             return {
                 generateLogic: vi.fn().mockResolvedValue({
                     updatedWorkflow: { logicRules: [{ id: 'r1' }] },
@@ -92,15 +96,13 @@ vi.mock('../../../server/services/ai/WorkflowLogicService', () => {
 });
 
 vi.mock('@google/generative-ai', () => {
+    const MockGoogleGenerativeAI = vi.fn().mockImplementation(() => ({
+        getGenerativeModel: vi.fn().mockReturnValue({
+            generateContent: mockGenerateContent
+        })
+    }));
     return {
-        GoogleGenerativeAI: class {
-            constructor(_apiKey: string) { }
-            getGenerativeModel() {
-                return {
-                    generateContent: mockGenerateContent
-                };
-            }
-        },
+        GoogleGenerativeAI: MockGoogleGenerativeAI,
         SchemaType: { OBJECT: 'OBJECT', ARRAY: 'ARRAY', STRING: 'STRING' }
     };
 });

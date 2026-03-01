@@ -134,7 +134,7 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
       .set({ order })
       .where(eq(steps.id, stepId))
       .returning();
-    if (!updated) throw new Error("Failed to update step order");
+    if (!updated) {throw new Error("Failed to update step order");}
     return updated;
   }
 
@@ -166,7 +166,34 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
     // Extract just the steps from the join result
     return result.map((row: { steps: Step }) => row.steps);
   }
+
+  /**
+   * Get a Map of stepId -> alias for a workflow.
+   * Results are cached with a 5-second TTL to avoid repeated DB hits within the same
+   * request lifecycle (e.g. navigation, document generation, writeback all call this).
+   * Cache is bypassed inside transactions to ensure consistency.
+   */
+  async getAliasMap(workflowId: string, tx?: DbTransaction): Promise<Map<string, string>> {
+    // Skip cache inside transactions for consistency
+    if (!tx) {
+      const cached = aliasMapCache.get(workflowId);
+      if (cached !== undefined && Date.now() < cached.expiresAt) { return cached.map; }
+    }
+    const allSteps = await this.findByWorkflowIdWithAliases(workflowId, tx);
+    const map = new Map<string, string>();
+    for (const step of allSteps) {
+      if (step.alias) { map.set(step.id, step.alias); }
+    }
+    if (!tx) {
+      aliasMapCache.set(workflowId, { map, expiresAt: Date.now() + ALIAS_CACHE_TTL_MS });
+    }
+    return map;
+  }
 }
+
+// Module-level TTL cache for alias maps — avoids repeated DB loads within the same request lifecycle
+const ALIAS_CACHE_TTL_MS = 5_000;
+const aliasMapCache = new Map<string, { map: Map<string, string>; expiresAt: number }>();
 
 // Singleton instance
 export const stepRepository = new StepRepository();

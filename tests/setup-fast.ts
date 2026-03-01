@@ -103,38 +103,36 @@ vi.mock("../server/services/sendgrid", () => ({
 
 // Mock AI Providers
 vi.mock("@google/generative-ai", () => {
-  return {
-    GoogleGenerativeAI: class MockGoogleGenerativeAI {
-      constructor(_apiKey: string) { }
-      getGenerativeModel(_params?: unknown) {
-        return {
-          generateContent: vi.fn().mockResolvedValue({
-            response: {
-              text: () => JSON.stringify({
-                updatedWorkflow: { title: "Mocked AI Workflow", sections: [] },
-                explanation: ["Mocked explanation"],
-                diff: { changes: [] },
-                suggestions: [],
-              }),
-            },
+  const MockGoogleGenerativeAI = vi.fn().mockImplementation(() => { return {
+    getGenerativeModel: vi.fn().mockReturnValue({
+      generateContent: vi.fn().mockResolvedValue({
+        response: {
+          text: () => JSON.stringify({
+            updatedWorkflow: { title: "Mocked AI Workflow", sections: [] },
+            explanation: ["Mocked explanation"],
+            diff: { changes: [] },
+            suggestions: [],
           }),
-        };
-      }
-    },
+        },
+      }),
+    }),
+  }; });
+  return {
+    GoogleGenerativeAI: MockGoogleGenerativeAI,
   };
 });
 
 vi.mock("openai", () => {
-  class MockOpenAI {
-    chat = {
+  const MockOpenAI = vi.fn().mockImplementation(() => { return {
+    chat: {
       completions: {
         create: vi.fn().mockResolvedValue({
           choices: [{ message: { content: "{}" } }],
           usage: { total_tokens: 10 },
         }),
       },
-    };
-  }
+    },
+  }; });
   return {
     'OpenAI': MockOpenAI,
     default: MockOpenAI,
@@ -142,14 +140,14 @@ vi.mock("openai", () => {
 });
 
 vi.mock("@anthropic-ai/sdk", () => {
-  class MockAnthropic {
-    messages = {
+  const MockAnthropic = vi.fn().mockImplementation(() => { return {
+    messages: {
       create: vi.fn().mockResolvedValue({
         content: [{ text: "{}" }],
         usage: { input_tokens: 10, output_tokens: 10 },
       }),
-    };
-  }
+    },
+  }; });
   return {
     // eslint-disable-next-line @typescript-eslint/naming-convention
     'Anthropic': MockAnthropic,

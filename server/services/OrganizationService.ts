@@ -11,6 +11,7 @@ import {
 } from '../../shared/schema';
 import { db } from '../db';
 import { AuditLogger } from '../lib/audit/auditLogger';
+import { logger } from '../logger';
 import {  requireOrgAdmin, isOrgMember } from '../utils/ownershipAccess';
 
 import { brandingService } from './BrandingService';
@@ -869,11 +870,11 @@ export class OrganizationService {
         }
         // Safe to delete - no memberships, no pending invites
         await tx.delete(users).where(eq(users.id, userId));
-        console.info(`Cleaned up placeholder user ${userId} (no pending invites or memberships)`);
+        logger.info({ userId }, "Cleaned up placeholder user (no pending invites or memberships)");
       });
     } catch (error: unknown) {
       // Don't fail the operation if cleanup fails
-      console.error('Failed to cleanup placeholder user:', error);
+      logger.error({ err: error, userId }, "Failed to cleanup placeholder user");
     }
   }
 }

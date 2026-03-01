@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 
 import { activityLogSource } from "../config/activityLog.config";
 import { db } from "../db";
@@ -48,15 +48,11 @@ export class ActivityLogRepository {
     const database = this.getDb(tx);
 
     // Build WHERE conditions
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const conditions: any[] = []; // Dynamic SQL conditions array for Drizzle ORM
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const _params: Record<string, any> = {}; // Dynamic params for raw SQL queries
+    const conditions: SQL[] = [];
 
     // Free text search: search across event and actorEmail (if available)
     if (q !== null && q !== undefined && q !== '') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const searchConditions: any[] = [ // Dynamic SQL array for Drizzle ORM
+      const searchConditions: SQL[] = [
         // eslint-disable-next-line sonarjs/no-nested-template-literals
         sql`${sql.raw(this.columns.event)} ILIKE ${`%${  q  }%`}`
       ];
@@ -67,9 +63,7 @@ export class ActivityLogRepository {
           sql`${sql.raw(this.columns.actorEmail)} ILIKE ${`%${  q  }%`}`
         );
       }
-      // eslint-disable-next-line sonarjs/no-nested-template-literals
-      conditions.push(sql`(${// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, sonarjs/no-nested-template-literals
-      sql.join(searchConditions, sql` OR `)})`);
+      conditions.push(sql`(${sql.join(searchConditions, sql` OR `)})`);
     }
 
     // Event filter
@@ -117,11 +111,9 @@ export class ActivityLogRepository {
       conditions.push(sql`${sql.raw(this.columns.timestamp)} <= ${to}::timestamptz`);
     }
 
-    // eslint-disable-next-line sonarjs/no-nested-template-literals
     // Build WHERE clause
     const whereClause = conditions.length > 0
-      ? sql`WHERE ${// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, sonarjs/no-nested-template-literals
-      sql.join(conditions, sql` AND `)}`
+      ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
       : sql``;
 
     // Get total count

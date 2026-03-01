@@ -49,14 +49,8 @@ export class IntakeNavigationService {
     const sortedPages = allPages.sort((a, b) => a.order - b.order);
     // Load all step values for this run to build context
     const stepValues = await stepValueRepository.findByRunId(runId);
-    // Load all steps to map stepId -> alias
-    const allSteps = await stepRepository.findByWorkflowIdWithAliases(workflowId);
-    const stepIdToAlias = new Map<string, string>();
-    for (const step of allSteps) {
-      if (step.alias) {
-        stepIdToAlias.set(step.id, step.alias);
-      }
-    }
+    // Load stepId -> alias map (cached across services for the same workflow)
+    const stepIdToAlias = await stepRepository.getAliasMap(workflowId);
     // Build evaluation context
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- workflow variables are dynamically typed
     const variables: Record<string, any> = {};

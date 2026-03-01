@@ -2,10 +2,22 @@ import _bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
+import { type InferSelectModel } from "drizzle-orm";
+
 import { db } from "../../../server/db";
 import { AuthService } from "../../../server/services/AuthService";
 
-import type { User } from "../../../shared/schema";
+import {
+  users,
+  refreshTokens,
+  passwordResetTokens,
+  emailVerificationTokens,
+  type User
+} from "../../../shared/schema";
+
+type RefreshToken = InferSelectModel<typeof refreshTokens>;
+type PasswordResetToken = InferSelectModel<typeof passwordResetTokens>;
+type EmailVerificationToken = InferSelectModel<typeof emailVerificationTokens>;
 
 
 // Mock database and external dependencies
@@ -23,6 +35,7 @@ vi.mock("../../../server/db", () => ({
     select: vi.fn(() => ({ from: vi.fn(() => Promise.resolve([])) })),
   },
   initializeDatabase: vi.fn(),
+  closeDatabase: vi.fn(),
   dbInitPromise: Promise.resolve(),
 }));
 
@@ -46,20 +59,54 @@ vi.mock("../../../server/utils/deviceFingerprint", () => ({
  * AuthService Unit Tests
  * Tests core authentication logic including password hashing, JWT, email validation, and token management
  */
+
+type MockDb = {
+  query: {
+    users: { findFirst: ReturnType<typeof vi.fn> };
+    refreshTokens: { findFirst: ReturnType<typeof vi.fn> };
+    passwordResetTokens: { findFirst: ReturnType<typeof vi.fn> };
+    emailVerificationTokens: { findFirst: ReturnType<typeof vi.fn> };
+  };
+  insert: ReturnType<typeof vi.fn>;
+  update: ReturnType<typeof vi.fn>;
+  delete: ReturnType<typeof vi.fn>;
+  select: ReturnType<typeof vi.fn>;
+};
+
+interface DecodedToken {
+  userId: string;
+  email: string;
+  tenantId?: string | null;
+  role?: string | null;
+  iat: number;
+  exp: number;
+  portal?: boolean;
+}
+
+const createMockUser = (overrides: Partial<User> = {}): User => ({
+  id: "user-123",
+  email: "test@example.com",
+  tenantId: "tenant-123",
+  tenantRole: "owner",
+  role: "owner",
+  createdAt: new Date(),
+  emailVerified: true,
+  name: "Test User",
+  mfaEnabled: false,
+  authProvider: "local",
+  fullName: "Test User",
+  firstName: null,
+  lastName: null,
+  profileImageUrl: null,
+  updatedAt: null,
+  lastPasswordChange: null,
+  defaultMode: "easy",
+  ...overrides,
+} as User);
+
 describe("AuthService", () => {
   let authService: AuthService;
-  let mockDb: {
-    query: {
-      users: { findFirst: ReturnType<typeof vi.fn> };
-      refreshTokens: { findFirst: ReturnType<typeof vi.fn> };
-      passwordResetTokens: { findFirst: ReturnType<typeof vi.fn> };
-      emailVerificationTokens: { findFirst: ReturnType<typeof vi.fn> };
-    };
-    insert: ReturnType<typeof vi.fn>;
-    update: ReturnType<typeof vi.fn>;
-    delete: ReturnType<typeof vi.fn>;
-    select: ReturnType<typeof vi.fn>;
-  };
+  let mockDb: MockDb;
   const originalEnv = process.env;
 
   beforeEach(async () => {
@@ -203,8 +250,8 @@ describe("AuthService", () => {
       });
 
       it("should reject null or undefined", () => {
-        expect(authService.validateEmail(null as any)).toBe(false);
-        expect(authService.validateEmail(undefined as any)).toBe(false);
+        expect(authService.validateEmail(null as unknown as string)).toBe(false);
+        expect(authService.validateEmail(undefined as unknown as string)).toBe(false);
         expect(authService.validateEmail("")).toBe(false);
       });
 
@@ -358,7 +405,7 @@ describe("AuthService", () => {
         } as unknown as User;
 
         const token = authService.createToken(user);
-        const decoded = jwt.decode(token) as any;
+        const decoded = jwt.decode(token) as unknown as DecodedToken;
 
         expect(decoded.userId).toBe("user-456");
         expect(decoded.email).toBe("owner@example.com");
@@ -387,7 +434,7 @@ describe("AuthService", () => {
         } as unknown as User;
 
         const token = authService.createToken(user);
-        const decoded = jwt.decode(token) as any;
+        const decoded = jwt.decode(token) as unknown as DecodedToken;
 
         expect(decoded.exp).toBeDefined();
         expect(decoded.iat).toBeDefined();
@@ -444,7 +491,7 @@ describe("AuthService", () => {
         } as unknown as User;
 
         const token = authService.createToken(user);
-        const decoded = jwt.decode(token) as any;
+        const decoded = jwt.decode(token) as unknown as DecodedToken;
 
         expect(decoded.tenantId).toBeNull();
         expect(decoded.role).toBeNull();
@@ -521,8 +568,10 @@ describe("AuthService", () => {
         try {
           authService.verifyToken(tamperedToken);
           console.error("DEBUG: verifyToken DID NOT THROW");
-        } catch (e: any) {
-          console.log("DEBUG: verifyToken threw:", e.message, e.constructor.name); //, JSON.stringify(e));
+        } catch (e) {
+          if (e instanceof Error) {
+            console.log("DEBUG: verifyToken threw:", e.message, e.constructor.name);
+          }
         }
 
         expect(() => authService.verifyToken(tamperedToken)).toThrow("Invalid or malformed token");
@@ -584,8 +633,8 @@ describe("AuthService", () => {
       });
 
       it("should return false for null/undefined", () => {
-        expect(authService.looksLikeJwt(null as any)).toBe(false);
-        expect(authService.looksLikeJwt(undefined as any)).toBe(false);
+        expect(authService.looksLikeJwt(null as unknown as string)).toBe(false);
+        expect(authService.looksLikeJwt(undefined as unknown as string)).toBe(false);
       });
     });
   });
@@ -604,7 +653,7 @@ describe("AuthService", () => {
       it("should include email and portal flag in token payload", () => {
         const email = "portal@example.com";
         const token = authService.createPortalToken(email);
-        const decoded = jwt.decode(token) as any;
+        const decoded = jwt.decode(token) as unknown as DecodedToken;
 
         expect(decoded.email).toBe("portal@example.com");
         expect(decoded.portal).toBe(true);
@@ -613,7 +662,7 @@ describe("AuthService", () => {
       it("should set token expiry to 24 hours", () => {
         const email = "portal@example.com";
         const token = authService.createPortalToken(email);
-        const decoded = jwt.decode(token) as any;
+        const decoded = jwt.decode(token) as unknown as DecodedToken;
 
         const expiryDuration = decoded.exp - decoded.iat;
         expect(expiryDuration).toBe(24 * 60 * 60); // 24 hours in seconds
@@ -675,7 +724,7 @@ describe("AuthService", () => {
           id: "user-123",
           email,
           password: hashedPassword
-        } as any);
+        } as unknown as User);
 
         const token = await authService.generatePasswordResetToken(email);
         expect(token).toBeTruthy();
@@ -699,7 +748,7 @@ describe("AuthService", () => {
         vi.mocked(db.query.users.findFirst).mockResolvedValue({
           id: "user-123",
           email
-        } as any);
+        } as unknown as User);
 
         await authService.generatePasswordResetToken(email);
         expect(db.update).toHaveBeenCalled();
@@ -716,7 +765,7 @@ describe("AuthService", () => {
           token: "hashed",
           used: false,
           expiresAt: new Date(Date.now() + 3600000)
-        } as any);
+        } as unknown as PasswordResetToken);
 
         const result = await authService.verifyPasswordResetToken(plainToken);
         expect(result).toBe(userId);
@@ -793,7 +842,7 @@ describe("AuthService", () => {
           userId,
           token: "hashed",
           expiresAt: new Date(Date.now() + 3600000)
-        } as any);
+        } as unknown as EmailVerificationToken);
 
         const result = await authService.verifyEmail(plainToken);
         expect(result).toBe(true);
@@ -825,7 +874,7 @@ describe("AuthService", () => {
           id: "token-123",
           userId: "user-123",
           expiresAt: new Date(Date.now() + 3600000)
-        } as any);
+        } as unknown as EmailVerificationToken);
 
         await authService.verifyEmail(plainToken);
         expect(db.delete).toHaveBeenCalled();
@@ -868,7 +917,7 @@ describe("AuthService", () => {
           token: "hashed",
           revoked: false,
           expiresAt: new Date(Date.now() + 86400000)
-        } as any);
+        } as unknown as RefreshToken);
 
         const result = await authService.validateRefreshToken(plainToken);
         expect(result).toBe(userId);
@@ -905,7 +954,7 @@ describe("AuthService", () => {
           revoked: false,
           expiresAt: new Date(Date.now() + 86400000),
           metadata: {}
-        } as any);
+        } as unknown as RefreshToken);
 
         const result = await authService.rotateRefreshToken(plainToken);
 
@@ -935,7 +984,7 @@ describe("AuthService", () => {
           token: "hashed",
           revoked: true, // Already revoked = reuse attempt
           expiresAt: new Date(Date.now() + 86400000)
-        } as any);
+        } as unknown as RefreshToken);
 
         vi.spyOn(authService, 'revokeAllUserTokens').mockImplementation(revokeAllSpy);
 
@@ -954,7 +1003,7 @@ describe("AuthService", () => {
           token: "hashed",
           revoked: false,
           expiresAt: new Date(Date.now() - 1000) // Expired
-        } as any);
+        } as unknown as RefreshToken);
 
         const result = await authService.rotateRefreshToken(plainToken);
         expect(result).toBeNull();
@@ -1064,8 +1113,10 @@ describe("AuthService", () => {
         const parts = token.split(".");
 
         // Try to modify the payload (will break signature)
+        /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment */
         const payload = JSON.parse(Buffer.from(parts[1], "base64").toString());
         payload.role = "owner"; // Try to escalate privileges
+        /* eslint-enable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment */
         const modifiedPayload = Buffer.from(JSON.stringify(payload)).toString("base64");
         const tamperedToken = `${parts[0]}.${modifiedPayload}.${parts[2]}`;
 
@@ -1194,7 +1245,7 @@ describe("AuthService", () => {
           userId,
           token: "hashed",
           expiresAt: new Date(Date.now() + 3600000),
-        } as any);
+        } as unknown as EmailVerificationToken);
 
         const emailVerified = await authService.verifyEmail(verificationToken);
         expect(emailVerified).toBe(true);
@@ -1243,7 +1294,7 @@ describe("AuthService", () => {
           revoked: false,
           expiresAt: new Date(Date.now() + 86400000),
           metadata: {},
-        } as any);
+        } as unknown as RefreshToken);
 
         const rotated = await authService.rotateRefreshToken(refreshToken);
         expect(rotated).toBeTruthy();
@@ -1262,7 +1313,7 @@ describe("AuthService", () => {
         vi.mocked(db.query.users.findFirst).mockResolvedValue({
           id: userId,
           email,
-        } as any);
+        } as unknown as User);
 
         // 2. Generate reset token
         const resetToken = await authService.generatePasswordResetToken(email);
@@ -1275,7 +1326,7 @@ describe("AuthService", () => {
           token: "hashed",
           used: false,
           expiresAt: new Date(Date.now() + 3600000),
-        } as any);
+        } as unknown as PasswordResetToken);
 
         const verifiedUserId = await authService.verifyPasswordResetToken(resetToken!);
         expect(verifiedUserId).toBe(userId);
@@ -1300,7 +1351,7 @@ describe("AuthService", () => {
         vi.mocked(db.query.users.findFirst).mockResolvedValue({
           id: userId,
           email,
-        } as any);
+        } as unknown as User);
 
         const resetToken = await authService.generatePasswordResetToken(email);
 
@@ -1310,7 +1361,7 @@ describe("AuthService", () => {
           token: "hashed",
           used: false,
           expiresAt: new Date(Date.now() + 3600000),
-        } as any);
+        } as unknown as PasswordResetToken);
 
         const firstUse = await authService.verifyPasswordResetToken(resetToken!);
         expect(firstUse).toBe(userId);
@@ -1319,7 +1370,7 @@ describe("AuthService", () => {
         await authService.consumePasswordResetToken(resetToken!);
 
         // Second use - should fail (token marked as used)
-        vi.mocked(db.query.passwordResetTokens.findFirst).mockResolvedValue(null as any);
+        vi.mocked(db.query.passwordResetTokens.findFirst).mockResolvedValue(undefined);
 
         const secondUse = await authService.verifyPasswordResetToken(resetToken!);
         expect(secondUse).toBeNull();
@@ -1351,7 +1402,7 @@ describe("AuthService", () => {
           token: "hashed",
           revoked: false,
           expiresAt: new Date(Date.now() + 86400000),
-        } as any);
+        } as unknown as RefreshToken);
 
         const valid1 = await authService.validateRefreshToken(token1);
         const valid2 = await authService.validateRefreshToken(token2);
@@ -1393,6 +1444,7 @@ describe("AuthService", () => {
 
     describe("Token Generation Failures", () => {
       it("should throw error if JWT signing fails", () => {
+        /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment */
         const invalidUser = {
           id: "user-123",
           email: "test@example.com",
@@ -1400,6 +1452,7 @@ describe("AuthService", () => {
           self: null as any,
         } as any;
         invalidUser.self = invalidUser;
+        /* eslint-enable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment */
 
         // This should still work as jwt.sign handles this, but tests error handling path
         const user: User = {

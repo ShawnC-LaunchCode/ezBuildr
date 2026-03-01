@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-import { eq, type SQL, ExtractTablesWithRelations } from "drizzle-orm";
+import { eq, count, type SQL, ExtractTablesWithRelations } from "drizzle-orm";
 
 import * as schema from "@shared/schema";
 
@@ -93,17 +93,16 @@ export abstract class BaseRepository<TTable extends PgTable, TSelect, TInsert> {
   ): Promise<TSelect> {
     const database = this.getDb(tx);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const idColumn = (this.table as any).id; // Generic access to Drizzle table structure
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const tableName = (this.table as any)[Symbol.for("drizzle:Name")] || (this.table as any)._?.name || 'unknown';
-      process.stdout.write(`[DEBUG] BaseRepository.update ${tableName}: id=${id}, updates=${JSON.stringify(updates)}\n`);
-    } catch (e) { process.stdout.write("Log error\n"); }
+    const table = this.table as any;
+    const idColumn = table.id; // Generic access to Drizzle table structure
+    // Inject updatedAt if the table has that column, so callers don't need to set it manually
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const effectiveUpdates: any = table.updatedAt
+      ? { ...updates, updatedAt: new Date() }
+      : updates;
     const [record] = await database
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .update(this.table as any) // Generic Drizzle table reference
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .set(updates as any) // Generic update data for any table schema
+      .update(table) // Generic Drizzle table reference
+      .set(effectiveUpdates) // Generic update data for any table schema
       .where(eq(idColumn, id))
       .returning();
     return record as TSelect;
@@ -136,10 +135,10 @@ export abstract class BaseRepository<TTable extends PgTable, TSelect, TInsert> {
   async count(where?: SQL, tx?: DbTransaction): Promise<number> {
     const database = this.getDb(tx);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query = database.select({ count: db.select().from(this.table as any) as any }).from(this.table as any); // Generic Drizzle count query
+    let query = database.select({ count: count() }).from(this.table as any);
     if (where) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      query = query.where(where) as any; // Drizzle query builder chaining
+      query = query.where(where) as any;
     }
     const [result] = await query;
     return Number(result?.count ?? 0);

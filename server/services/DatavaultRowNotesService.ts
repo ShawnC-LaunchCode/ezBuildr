@@ -9,6 +9,7 @@ import {
   datavaultTablesRepository,
   type DbTransaction,
 } from "../repositories";
+import { logger } from "../logger";
 /**
  * Service layer for DataVault row notes business logic
  * Handles row-level comments/notes with tenant verification and sanitization
@@ -99,7 +100,7 @@ export class DatavaultRowNotesService {
       tx
     );
     // eslint-disable-next-line no-console -- debug logging for note creation audit trail
-    console.log('Created note:', note.id, 'tenantId:', note.tenantId, 'userId:', note.userId);
+    logger.debug({ noteId: note.id, tenantId: note.tenantId, userId: note.userId }, "Created note");
     return note;
   }
   /**
@@ -116,7 +117,7 @@ export class DatavaultRowNotesService {
     const note = await this.notesRepo.findByIdAndTenant(noteId, tenantId, tx);
     if (!note) {
       // eslint-disable-next-line no-console -- debug logging for note deletion audit trail
-      console.log('Delete note failed: Note not found. noteId:', noteId, 'tenantId:', tenantId);
+      logger.warn({ noteId, tenantId }, "Delete note failed: note not found");
       throw new Error("Note not found");
     }
     // Verify row belongs to tenant (for table owner check)

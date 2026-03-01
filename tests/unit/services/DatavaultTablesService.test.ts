@@ -1,6 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-
+import { describe, it, expect, beforeEach, vi, type Mocked } from 'vitest';
+import type { DatavaultTable } from '@shared/schema';
+import type { DatavaultTablesRepository, DatavaultColumnsRepository, DatavaultRowsRepository, DatavaultTablePermissionsRepository } from '../../../server/repositories';
 import { DatavaultTablesService } from '../../../server/services/DatavaultTablesService';
+import * as repositories from '../../../server/repositories';
 
 /**
  * DataVault Phase 1 PR 9: DatavaultTablesService Tests
@@ -10,18 +12,17 @@ import { DatavaultTablesService } from '../../../server/services/DatavaultTables
 
 describe('DatavaultTablesService', () => {
   let service: DatavaultTablesService;
-  let mockTablesRepo: any;
-  let mockColumnsRepo: any;
-  let mockRowsRepo: any;
+  let mockTablesRepo: Mocked<DatavaultTablesRepository>;
+  let mockColumnsRepo: Mocked<DatavaultColumnsRepository>;
+  let mockRowsRepo: Mocked<DatavaultRowsRepository>;
+  let mockPermissionsRepo: Mocked<DatavaultTablePermissionsRepository>;
 
   const mockTenantId = '550e8400-e29b-41d4-a716-446655440000';
   const mockUserId = '770e8400-e29b-41d4-a716-446655440002';
   const mockTableId = '660e8400-e29b-41d4-a716-446655440001';
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-
-    mockTablesRepo = {
+  vi.mock('../../../server/repositories', () => ({
+    datavaultTablesRepository: {
       findByTenant: vi.fn(),
       findByTenantAndUser: vi.fn(),
       findById: vi.fn(),
@@ -30,25 +31,34 @@ describe('DatavaultTablesService', () => {
       update: vi.fn(),
       delete: vi.fn(),
       countByTenantId: vi.fn(),
-
-    };
-
-    mockColumnsRepo = {
+    },
+    datavaultColumnsRepository: {
       findByTableId: vi.fn(),
       create: vi.fn(),
       countByTableId: vi.fn(),
-    };
-
-    mockRowsRepo = {
+    },
+    datavaultRowsRepository: {
       countByTableId: vi.fn(),
-    };
+    },
+    datavaultTablePermissionsRepository: {
+      findByTableAndUser: vi.fn(),
+    },
+  }));
 
-    service = new DatavaultTablesService(mockTablesRepo, mockColumnsRepo, mockRowsRepo);
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    mockTablesRepo = repositories.datavaultTablesRepository as Mocked<DatavaultTablesRepository>;
+    mockColumnsRepo = repositories.datavaultColumnsRepository as Mocked<DatavaultColumnsRepository>;
+    mockRowsRepo = repositories.datavaultRowsRepository as Mocked<DatavaultRowsRepository>;
+    mockPermissionsRepo = repositories.datavaultTablePermissionsRepository as Mocked<DatavaultTablePermissionsRepository>;
+
+    service = new DatavaultTablesService(mockTablesRepo, mockColumnsRepo, mockRowsRepo, mockPermissionsRepo);
   });
 
   describe('listTables', () => {
     it('should get all tables for a tenant', async () => {
-      const mockTables = [
+      const mockTables: DatavaultTable[] = [
         {
           id: mockTableId,
           tenantId: mockTenantId,
@@ -56,6 +66,7 @@ describe('DatavaultTablesService', () => {
           name: 'Test Table',
           slug: 'test-table',
           description: 'Test',
+          databaseId: 'db-1',
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -72,7 +83,7 @@ describe('DatavaultTablesService', () => {
 
   describe('listTablesWithStats', () => {
     it('should get tables with stats', async () => {
-      const mockTables = [
+      const mockTables: DatavaultTable[] = [
         {
           id: mockTableId,
           tenantId: mockTenantId,
@@ -80,6 +91,7 @@ describe('DatavaultTablesService', () => {
           name: 'Test Table',
           slug: 'test-table',
           description: 'Test',
+          databaseId: 'db-1',
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -99,13 +111,14 @@ describe('DatavaultTablesService', () => {
 
   describe('getTable', () => {
     it('should get a table by ID', async () => {
-      const mockTable = {
+      const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
         ownerUserId: mockUserId,
         name: 'Test Table',
         slug: 'test-table',
         description: 'Test',
+        databaseId: 'db-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -126,13 +139,14 @@ describe('DatavaultTablesService', () => {
     });
 
     it('should throw 403 if table belongs to different tenant', async () => {
-      const mockTable = {
+      const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: 'different-tenant-id',
         ownerUserId: mockUserId,
         name: 'Test Table',
         slug: 'test-table',
         description: 'Test',
+        databaseId: 'db-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -154,10 +168,11 @@ describe('DatavaultTablesService', () => {
         description: 'Test',
       };
 
-      const createdTable = {
+      const createdTable: DatavaultTable = {
         id: mockTableId,
         ...insertData,
         slug: 'new-table',
+        databaseId: 'db-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -184,10 +199,11 @@ describe('DatavaultTablesService', () => {
         description: 'Test',
       };
 
-      const createdTable = {
+      const createdTable: DatavaultTable = {
         id: mockTableId,
         ...insertData,
         slug: 'new-table-1',
+        databaseId: 'db-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -213,9 +229,10 @@ describe('DatavaultTablesService', () => {
         description: 'Test',
       };
 
-      const createdTable = {
+      const createdTable: DatavaultTable = {
         id: mockTableId,
         ...insertData,
+        databaseId: 'db-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -231,13 +248,14 @@ describe('DatavaultTablesService', () => {
 
   describe('updateTable', () => {
     it('should update table', async () => {
-      const mockTable = {
+      const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
         ownerUserId: mockUserId,
         name: 'Old Name',
         slug: 'old-name',
         description: 'Old',
+        databaseId: 'db-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -247,7 +265,7 @@ describe('DatavaultTablesService', () => {
         description: 'New',
       };
 
-      const updatedTable = {
+      const updatedTable: DatavaultTable = {
         ...mockTable,
         ...updateData,
       };
@@ -271,13 +289,14 @@ describe('DatavaultTablesService', () => {
 
   describe('deleteTable', () => {
     it('should delete table', async () => {
-      const mockTable = {
+      const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
         ownerUserId: mockUserId,
         name: 'Test Table',
         slug: 'test-table',
         description: 'Test',
+        databaseId: 'db-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       };

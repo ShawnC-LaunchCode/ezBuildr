@@ -24,14 +24,20 @@ export function IntakeProvider({
 }) {
     // 1. Get current workflow to check config
     const { data: workflow, isLoading: workflowLoading } = useWorkflow(workflowId);
-    const intakeConfig = (workflow?.intakeConfig as Record<string, unknown> | undefined) ?? {};
+
+    interface IntakeConfig {
+        isIntake?: boolean;
+        upstreamWorkflowId?: string;
+    }
+
+    const intakeConfig = (workflow?.intakeConfig as IntakeConfig | undefined) ?? {};
     const isIntake = intakeConfig.isIntake === true;
-    const upstreamWorkflowId = (intakeConfig.upstreamWorkflowId as string | undefined) ?? null;
+    const upstreamWorkflowId = intakeConfig.upstreamWorkflowId ?? null;
 
     // 2. Fetch upstream workflow details (if linked)
     const { data: upstreamWorkflow, isLoading: upstreamWfLoading } = useQuery({
         queryKey: ['workflow', upstreamWorkflowId ?? ''],
-        queryFn: () => workflowAPI.get(upstreamWorkflowId as string),
+        queryFn: () => workflowAPI.get(upstreamWorkflowId ?? ""),
         enabled: Boolean(upstreamWorkflowId),
         staleTime: 1000 * 60 * 5, // 5 mins
     });
@@ -39,7 +45,7 @@ export function IntakeProvider({
     // 3. Fetch upstream variables (if linked)
     const { data: upstreamVariables, isLoading: varsLoading } = useQuery({
         queryKey: ['workflow', upstreamWorkflowId ?? '', 'variables'],
-        queryFn: () => variableAPI.list(upstreamWorkflowId as string),
+        queryFn: () => variableAPI.list(upstreamWorkflowId ?? ""),
         enabled: Boolean(upstreamWorkflowId),
     });
 

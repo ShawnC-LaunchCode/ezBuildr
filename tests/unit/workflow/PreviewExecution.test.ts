@@ -1,16 +1,17 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, type Mocked } from 'vitest';
 
 import { runGraph } from '../../../server/engine/index';
 import { datavaultRowsRepository } from '../../../server/repositories/DatavaultRowsRepository';
 import { snapshotService } from '../../../server/services/SnapshotService';
+import type { WorkflowVersion, DatavaultRow } from '../../../shared/schema';
 
 // Mock dependencies
 vi.mock('../../../server/repositories/DatavaultRowsRepository');
 vi.mock('../../../server/services/snapshotService');
 
 describe('Preview Execution & Snapshots', () => {
-    const mockRowsRepo = datavaultRowsRepository as any;
-    const _mockSnapshotSvc = snapshotService as any;
+    const mockRowsRepo = datavaultRowsRepository as unknown as Mocked<typeof datavaultRowsRepository>;
+    const _mockSnapshotSvc = snapshotService as unknown as Mocked<typeof snapshotService>;
 
     const defaultInput = {
         workflowVersion: {
@@ -31,14 +32,14 @@ describe('Preview Execution & Snapshots', () => {
                 edges: [],
                 startNodeId: 'write1'
             }
-        } as any,
+        } as unknown as WorkflowVersion,
         inputJson: {},
         tenantId: 'tenant1'
     };
 
     it('Preview mode should not call database write methods', async () => {
         // Setup mock for write node execution
-        mockRowsRepo.createRowWithValues.mockResolvedValue('new-id');
+        mockRowsRepo.createRowWithValues.mockResolvedValue({ row: { id: 'new-id' } as unknown as DatavaultRow, values: [] });
         mockRowsRepo.getRowsWithValues.mockResolvedValue([]); // Ensure this is mocked
 
         const result = await runGraph({
@@ -60,7 +61,7 @@ describe('Preview Execution & Snapshots', () => {
     });
 
     it('Live mode SHOULD call database write methods', async () => {
-        mockRowsRepo.createRowWithValues.mockResolvedValue({ row: { id: 'new-id' } } as any);
+        mockRowsRepo.createRowWithValues.mockResolvedValue({ row: { id: 'new-id' } as unknown as DatavaultRow, values: [] });
 
         const result = await runGraph({
             ...defaultInput,
@@ -110,7 +111,7 @@ describe('Preview Execution & Snapshots', () => {
         mockRowsRepo.getRowsWithValues.mockResolvedValue([]); // Correct mock
 
         const result = await runGraph({
-            workflowVersion: { id: 'v1', graphJson } as any,
+            workflowVersion: { id: 'v1', graphJson } as unknown as WorkflowVersion,
             inputJson: {},
             tenantId: 'tenant1',
             executionMode: 'preview',
@@ -126,10 +127,10 @@ describe('Preview Execution & Snapshots', () => {
         expect(queryTrace).toBeDefined();
 
         // The query result should contain the shadow row
-        const outputs = queryTrace?.outputsDelta?.queryResult;
+        const outputs = queryTrace?.outputsDelta?.queryResult as { name: string }[] | undefined;
         expect(outputs).toBeDefined();
-        expect(outputs.length).toBe(1);
-        expect(outputs[0].name).toBe('Shadow');
+        expect(outputs!.length).toBe(1);
+        expect(outputs![0].name).toBe('Shadow');
     });
 });
 

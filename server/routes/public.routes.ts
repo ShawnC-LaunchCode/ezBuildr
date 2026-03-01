@@ -5,6 +5,7 @@ import { Router, Request, Response } from "express";
 import { workflows } from "@shared/schema";
 
 import { db } from "../db";
+import { logger } from "../logger";
 import { WebhookDispatcher } from "../lib/webhooks/dispatcher";
 import { asyncHandler } from "../utils/asyncHandler";
 
@@ -46,7 +47,7 @@ router.get("/w/:slug", asyncHandler(async (req: Request, res: Response) => {
         res.json(safeWorkflow);
 
     } catch (error) {
-        console.error("Public Runner Error:", error);
+        logger.error({ err: error, slug: req.params.slug }, "Public runner error");
         res.status(500).json({ error: "Internal Server Error" });
     }
 }));

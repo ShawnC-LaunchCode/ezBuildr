@@ -2,28 +2,31 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { db } from "../../../server/db";
 import { auditLogService, SecurityEventType } from "../../../server/services/AuditLogService";
+import type { AuditLog } from "../../../shared/schema";
 
 // Mock the database
-vi.mock("../../../server/db", () => ({
-  db: {
-    insert: vi.fn(() => ({
-      values: vi.fn(() => ({
-        returning: vi.fn(),
+vi.mock("../../../server/db", () => {
+  return {
+    db: {
+      insert: vi.fn(() => ({
+        values: vi.fn(() => ({
+          returning: vi.fn(),
+        })),
       })),
-    })),
-    select: vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => ({
-          orderBy: vi.fn(() => ({
-            limit: vi.fn(() => ({
-              offset: vi.fn(),
+      select: vi.fn(() => ({
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({
+            orderBy: vi.fn(() => ({
+              limit: vi.fn(() => ({
+                offset: vi.fn(),
+              })),
             })),
           })),
         })),
       })),
-    })),
-  },
-}));
+    },
+  };
+});
 
 // Mock the logger
 vi.mock("../../../server/logger", () => ({
@@ -48,13 +51,14 @@ describe("AuditLogService", () => {
         action: SecurityEventType.LOGIN_SUCCESS,
         resourceType: "security",
         timestamp: new Date(),
-      };
+      } as unknown as AuditLog;
 
       const mockReturning = vi.fn().mockResolvedValue([mockAuditLog]);
       const mockValues = vi.fn(() => ({ returning: mockReturning }));
       const mockInsert = vi.fn(() => ({ values: mockValues }));
 
-      (db.insert as any) = mockInsert;
+      // Strictly typed mock override
+      vi.mocked(db.insert).mockImplementation(mockInsert as unknown as typeof db.insert);
 
       const _result = await auditLogService.logLoginAttempt(
         "user-123",
@@ -75,13 +79,13 @@ describe("AuditLogService", () => {
         action: SecurityEventType.LOGIN_FAILED,
         resourceType: "security",
         timestamp: new Date(),
-      };
+      } as unknown as AuditLog;
 
       const mockReturning = vi.fn().mockResolvedValue([mockAuditLog]);
       const mockValues = vi.fn(() => ({ returning: mockReturning }));
       const mockInsert = vi.fn(() => ({ values: mockValues }));
 
-      (db.insert as any) = mockInsert;
+      vi.mocked(db.insert).mockImplementation(mockInsert as unknown as typeof db.insert);
 
       const _result = await auditLogService.logLoginAttempt(
         "user-123",
@@ -105,13 +109,13 @@ describe("AuditLogService", () => {
         action: SecurityEventType.MFA_ENABLED,
         resourceType: "security",
         timestamp: new Date(),
-      };
+      } as unknown as AuditLog;
 
       const mockReturning = vi.fn().mockResolvedValue([mockAuditLog]);
       const mockValues = vi.fn(() => ({ returning: mockReturning }));
       const mockInsert = vi.fn(() => ({ values: mockValues }));
 
-      (db.insert as any) = mockInsert;
+      vi.mocked(db.insert).mockImplementation(mockInsert as unknown as typeof db.insert);
 
       const _result = await auditLogService.logMfaChange(
         "user-123",
@@ -133,13 +137,13 @@ describe("AuditLogService", () => {
         action: SecurityEventType.MFA_DISABLED,
         resourceType: "security",
         timestamp: new Date(),
-      };
+      } as unknown as AuditLog;
 
       const mockReturning = vi.fn().mockResolvedValue([mockAuditLog]);
       const mockValues = vi.fn(() => ({ returning: mockReturning }));
       const mockInsert = vi.fn(() => ({ values: mockValues }));
 
-      (db.insert as any) = mockInsert;
+      vi.mocked(db.insert).mockImplementation(mockInsert as unknown as typeof db.insert);
 
       const _result = await auditLogService.logMfaChange(
         "user-123",
@@ -162,13 +166,13 @@ describe("AuditLogService", () => {
         action: SecurityEventType.PASSWORD_RESET,
         resourceType: "security",
         timestamp: new Date(),
-      };
+      } as unknown as AuditLog;
 
       const mockReturning = vi.fn().mockResolvedValue([mockAuditLog]);
       const mockValues = vi.fn(() => ({ returning: mockReturning }));
       const mockInsert = vi.fn(() => ({ values: mockValues }));
 
-      (db.insert as any) = mockInsert;
+      vi.mocked(db.insert).mockImplementation(mockInsert as unknown as typeof db.insert);
 
       const _result = await auditLogService.logPasswordReset(
         "user-123",
@@ -190,13 +194,13 @@ describe("AuditLogService", () => {
         action: SecurityEventType.SESSION_CREATED,
         resourceType: "security",
         timestamp: new Date(),
-      };
+      } as unknown as AuditLog;
 
       const mockReturning = vi.fn().mockResolvedValue([mockAuditLog]);
       const mockValues = vi.fn(() => ({ returning: mockReturning }));
       const mockInsert = vi.fn(() => ({ values: mockValues }));
 
-      (db.insert as any) = mockInsert;
+      vi.mocked(db.insert).mockImplementation(mockInsert as unknown as typeof db.insert);
 
       const _result = await auditLogService.logSessionEvent(
         "user-123",
@@ -218,13 +222,13 @@ describe("AuditLogService", () => {
         action: SecurityEventType.ALL_SESSIONS_REVOKED,
         resourceType: "security",
         timestamp: new Date(),
-      };
+      } as unknown as AuditLog;
 
       const mockReturning = vi.fn().mockResolvedValue([mockAuditLog]);
       const mockValues = vi.fn(() => ({ returning: mockReturning }));
       const mockInsert = vi.fn(() => ({ values: mockValues }));
 
-      (db.insert as any) = mockInsert;
+      vi.mocked(db.insert).mockImplementation(mockInsert as unknown as typeof db.insert);
 
       const _result = await auditLogService.logSessionEvent(
         "user-123",
@@ -248,13 +252,13 @@ describe("AuditLogService", () => {
         action: SecurityEventType.TRUSTED_DEVICE_ADDED,
         resourceType: "security",
         timestamp: new Date(),
-      };
+      } as unknown as AuditLog;
 
       const mockReturning = vi.fn().mockResolvedValue([mockAuditLog]);
       const mockValues = vi.fn(() => ({ returning: mockReturning }));
       const mockInsert = vi.fn(() => ({ values: mockValues }));
 
-      (db.insert as any) = mockInsert;
+      vi.mocked(db.insert).mockImplementation(mockInsert as unknown as typeof db.insert);
 
       const _result = await auditLogService.logTrustedDeviceEvent(
         "user-123",
@@ -275,13 +279,13 @@ describe("AuditLogService", () => {
         action: SecurityEventType.TRUSTED_DEVICE_REVOKED,
         resourceType: "security",
         timestamp: new Date(),
-      };
+      } as unknown as AuditLog;
 
       const mockReturning = vi.fn().mockResolvedValue([mockAuditLog]);
       const mockValues = vi.fn(() => ({ returning: mockReturning }));
       const mockInsert = vi.fn(() => ({ values: mockValues }));
 
-      (db.insert as any) = mockInsert;
+      vi.mocked(db.insert).mockImplementation(mockInsert as unknown as typeof db.insert);
 
       const _result = await auditLogService.logTrustedDeviceEvent(
         "user-123",
@@ -304,13 +308,13 @@ describe("AuditLogService", () => {
         action: SecurityEventType.ACCOUNT_LOCKED,
         resourceType: "security",
         timestamp: new Date(),
-      };
+      } as unknown as AuditLog;
 
       const mockReturning = vi.fn().mockResolvedValue([mockAuditLog]);
       const mockValues = vi.fn(() => ({ returning: mockReturning }));
       const mockInsert = vi.fn(() => ({ values: mockValues }));
 
-      (db.insert as any) = mockInsert;
+      vi.mocked(db.insert).mockImplementation(mockInsert as unknown as typeof db.insert);
 
       const _result = await auditLogService.logAccountLockout(
         "user-123",
@@ -331,13 +335,13 @@ describe("AuditLogService", () => {
         action: SecurityEventType.ACCOUNT_UNLOCKED,
         resourceType: "security",
         timestamp: new Date(),
-      };
+      } as unknown as AuditLog;
 
       const mockReturning = vi.fn().mockResolvedValue([mockAuditLog]);
       const mockValues = vi.fn(() => ({ returning: mockReturning }));
       const mockInsert = vi.fn(() => ({ values: mockValues }));
 
-      (db.insert as any) = mockInsert;
+      vi.mocked(db.insert).mockImplementation(mockInsert as unknown as typeof db.insert);
 
       const _result = await auditLogService.logAccountLockout(
         "user-123",

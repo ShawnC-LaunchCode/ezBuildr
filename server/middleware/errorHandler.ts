@@ -16,6 +16,7 @@
 import { ZodError } from "zod";
 
 import { logger } from "../logger";
+import { ApiError } from "../utils/errors";
 
 import type { Request, Response, NextFunction } from "express";
 
@@ -228,48 +229,54 @@ export function errorHandler(
 ): void {
   const isDevelopment = process.env.NODE_ENV === "development";
 
-  // Determine status code
+  // Determine status code and build response body
   let statusCode = 500;
+  let responseBody: unknown;
 
-  if (err instanceof AppError) {
-    // Use status code from custom error class
+  if (err instanceof ApiError) {
+    // Canonical structured error from utils/errors.ts
     statusCode = err.statusCode;
+    responseBody = err.toJSON();
+  } else if (err instanceof AppError) {
+    // Express-layer AppError from middleware/errorHandler.ts
+    statusCode = err.statusCode;
+    responseBody = { error: { code: 'INTERNAL_ERROR', message: err.message } };
   } else if (err instanceof ZodError) {
     // Validation errors are always 400
     statusCode = 400;
+    responseBody = {
+      error: { code: 'VALIDATION_ERROR', message: 'Validation failed', details: err.errors },
+    };
   } else if (err instanceof Error) {
     // Classify generic errors based on message
     statusCode = classifyError(err);
+    responseBody = {
+      error: {
+        code: statusCode === 404 ? 'NOT_FOUND' : statusCode === 403 ? 'FORBIDDEN' : statusCode === 401 ? 'UNAUTHORIZED' : 'INTERNAL_ERROR',
+        message: isDevelopment ? err.message : (statusCode >= 500 ? 'Internal server error' : err.message),
+      },
+    };
   }
-
-  // Build response
-  const errorResponse = buildErrorResponse(err, isDevelopment);
 
   // Log error with request context
   const logContext = {
-    requestId: req.id, // Express request ID (from express-request-id middleware if present)
+    requestId: req.id,
     method: req.method,
     url: req.url,
     statusCode,
-    userId: req.user?.claims?.sub,
-    error: {
-      name: err.name,
-      message: err.message,
-      stack: isDevelopment ? err.stack : undefined,
-    },
+    userId: (req as Record<string, unknown>).userId as string | undefined,
+    err: { name: err.name, message: err.message, stack: isDevelopment ? err.stack : undefined },
   };
 
   // Log based on severity
   if (statusCode >= 500) {
-    // Server errors are critical
     logger.error(logContext, `Server error: ${err.message}`);
   } else if (statusCode >= 400) {
-    // Client errors are warnings
     logger.warn(logContext, `Client error: ${err.message}`);
   }
 
   // Send response
-  res.status(statusCode).json(errorResponse);
+  res.status(statusCode).json(responseBody);
 }
 
 // ============================================================================

@@ -5,6 +5,7 @@ import { Router } from "express";
 import { webhookSubscriptions } from "@shared/schema";
 
 import { db } from "../db";
+import { logger } from "../logger";
 import { requireExternalAuth, ExternalAuthRequest } from "../lib/authz/externalAuth";
 import { asyncHandler } from "../utils/asyncHandler";
 
@@ -50,7 +51,7 @@ router.post("/", asyncHandler(async (req: ExternalAuthRequest, res) => {
         res.json({ data: sub });
 
     } catch (err) {
-        console.error(err);
+        logger.error({ err }, "Webhook subscription creation error");
         res.status(500).json({ error: "Internal Error" });
     }
 }));

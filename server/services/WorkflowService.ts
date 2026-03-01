@@ -261,7 +261,8 @@ export class WorkflowService {
   }
   // ... (keep existing methods)
   /**
-   * Ensure slug is unique by appending counter if necessary
+   * Ensure slug is unique by appending counter if necessary.
+   * Uses a single DB query (LIKE prefix) instead of up to 100 sequential queries.
    */
   async ensureUniqueSlug(slug: string, workflowId: string): Promise<string> {
     // 1. Sanitize the base slug
@@ -269,20 +270,18 @@ export class WorkflowService {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
-    // Ensure it's not empty
     if (!baseSlug) { baseSlug = 'workflow'; }
-    // 2. Check strict existence of the requested slug
-    let candidate = baseSlug;
+    // 2. Single query: fetch all slugs starting with this prefix
+    const existing = await this.workflowRepo.findSlugsByPrefix(baseSlug);
+    const takenByOthers = new Set(
+      existing.filter(r => r.id !== workflowId).map(r => r.slug)
+    );
+    // 3. Resolve conflict in-memory
+    if (!takenByOthers.has(baseSlug)) { return baseSlug; }
     for (let counter = 2; counter <= 101; counter++) {
-      const existing = await this.workflowRepo.findBySlug(candidate);
-      // If no workflow has this slug, OR the one that has it is THIS workflow, it's safe
-      if (!existing || existing.id === workflowId) {
-        return candidate;
-      }
-      // Conflict found - try next counter
-      candidate = `${baseSlug}-${counter}`;
+      const candidate = `${baseSlug}-${counter}`;
+      if (!takenByOthers.has(candidate)) { return candidate; }
     }
-    // Fallback to random ID suffix if 100 collisions
     return `${baseSlug}-${Math.random().toString(36).substring(2, 8)}`;
   }
   /**
@@ -437,7 +436,7 @@ export class WorkflowService {
     return results;
   }
   /**
-   * Revoke access from a workflow
+   * Revoke access from a workflow (batch delete — single query instead of N sequential deletes)
    */
   async revokeWorkflowAccess(
     workflowId: string,
@@ -446,14 +445,7 @@ export class WorkflowService {
     tx?: DbTransaction
   ): Promise<void> {
     await this.verifyAccess(workflowId, requestorId, 'owner');
-    for (const entry of entries) {
-      await this.workflowAccessRepo.deleteByPrincipal(
-        workflowId,
-        entry.principalType,
-        entry.principalId,
-        tx
-      );
-    }
+    await this.workflowAccessRepo.deleteManyByPrincipals(workflowId, entries, tx);
   }
   /**
    * Transfer workflow ownership to another user

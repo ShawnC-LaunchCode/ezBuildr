@@ -76,8 +76,6 @@ export async function executeQuestionNode(
 
     // Store in context
     context.vars[config.key] = value;
-    // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-    console.error(`[DEBUG Question] Node ${nodeId} executed. Key: ${config.key}, Value: ${value}. Context keys: ${Object.keys(context.vars).length}`);
 
     return {
       status: 'executed',

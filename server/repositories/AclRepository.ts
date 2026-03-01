@@ -1,4 +1,4 @@
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, or } from "drizzle-orm";
 
 import { projectAccess, workflowAccess } from "@shared/schema";
 import type {
@@ -113,7 +113,7 @@ export class ProjectAccessRepository extends BaseRepository<
       })
       .returning();
 
-    if (!entry) throw new Error("Failed to upsert project access");
+    if (!entry) {throw new Error("Failed to upsert project access");}
     return entry;
   }
 
@@ -235,10 +235,35 @@ export class WorkflowAccessRepository extends BaseRepository<
       })
       .returning();
 
-    if (!entry) throw new Error("Failed to upsert project access");
+    if (!entry) {throw new Error("Failed to upsert project access");}
     return entry;
   }
 
+  /**
+   * Batch-delete multiple ACL entries in a single query.
+   * Replaces the sequential loop in revokeWorkflowAccess.
+   */
+  async deleteManyByPrincipals(
+    workflowId: string,
+    entries: Array<{ principalType: PrincipalType; principalId: string }>,
+    tx?: DbTransaction
+  ): Promise<void> {
+    if (entries.length === 0) { return; }
+    const database = this.getDb(tx);
+    await database
+      .delete(workflowAccess)
+      .where(
+        and(
+          eq(workflowAccess.workflowId, workflowId),
+          or(...entries.map(e =>
+            and(
+              eq(workflowAccess.principalType, e.principalType),
+              eq(workflowAccess.principalId, e.principalId)
+            )
+          ))
+        )
+      );
+  }
   /**
    * Delete an ACL entry
    */

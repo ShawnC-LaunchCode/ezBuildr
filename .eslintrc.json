@@ -43,7 +43,12 @@
         "project": "./tsconfig.json"
       },
       "node": {
-        "extensions": [".js", ".jsx", ".ts", ".tsx"]
+        "extensions": [
+          ".js",
+          ".jsx",
+          ".ts",
+          ".tsx"
+        ]
       }
     }
   },
@@ -97,7 +102,6 @@
         "allowAny": true
       }
     ],
-
     // Ban @ts-ignore, require @ts-expect-error with explanation
     "@typescript-eslint/ban-ts-comment": [
       "error",
@@ -109,20 +113,28 @@
         "minimumDescriptionLength": 10
       }
     ],
-
     // Console & Debugging
     "no-console": [
       "error",
       {
-        "allow": ["warn", "error", "info"]
+        "allow": [
+          "warn",
+          "error",
+          "info"
+        ]
       }
     ],
     "no-debugger": "error",
     "no-alert": "error",
-
     // Code Quality & Complexity
-    "complexity": ["error", 20],
-    "max-depth": ["error", 5],
+    "complexity": [
+      "error",
+      20
+    ],
+    "max-depth": [
+      "error",
+      5
+    ],
     "max-lines": [
       "error",
       {
@@ -140,48 +152,70 @@
         "IIFEs": true
       }
     ],
-    "max-params": ["error", 5],
-    "max-nested-callbacks": ["error", 3],
-
+    "max-params": [
+      "error",
+      5
+    ],
+    "max-nested-callbacks": [
+      "error",
+      3
+    ],
     // Error Handling
     "no-throw-literal": "error",
     "@typescript-eslint/no-throw-literal": "error",
     "prefer-promise-reject-errors": "error",
-
     // Naming Conventions
     "@typescript-eslint/naming-convention": [
       "error",
       {
         "selector": "default",
-        "format": ["camelCase"],
+        "format": [
+          "camelCase"
+        ],
         "leadingUnderscore": "allow",
         "trailingUnderscore": "allow"
       },
       {
         "selector": "variable",
-        "format": ["camelCase", "UPPER_CASE", "PascalCase"],
+        "format": [
+          "camelCase",
+          "UPPER_CASE",
+          "PascalCase"
+        ],
         "leadingUnderscore": "allow"
       },
       {
         "selector": "function",
-        "format": ["camelCase", "PascalCase"]
+        "format": [
+          "camelCase",
+          "PascalCase"
+        ]
       },
       {
         "selector": "parameter",
-        "format": ["camelCase"],
+        "format": [
+          "camelCase"
+        ],
         "leadingUnderscore": "allow"
       },
       {
         "selector": "typeLike",
-        "format": ["PascalCase"]
+        "format": [
+          "PascalCase"
+        ]
       },
       {
         "selector": "enumMember",
-        "format": ["UPPER_CASE", "PascalCase"]
+        "format": [
+          "UPPER_CASE",
+          "PascalCase"
+        ]
       },
       {
         "selector": "interface",
-        "format": ["PascalCase"],
+        "format": [
+          "PascalCase"
+        ],
         "custom": {
           "regex": "^I[A-Z]",
           "match": false
@@ -193,10 +227,12 @@
       },
       {
         "selector": "import",
-        "format": ["camelCase", "PascalCase"]
+        "format": [
+          "camelCase",
+          "PascalCase"
+        ]
       }
     ],
-
     // Import Rules
     "import/no-unresolved": "error",
     "import/named": "off",
@@ -209,7 +245,7 @@
     "import/no-cycle": "error",
     "import/no-useless-path-segments": "error",
     "import/no-deprecated": "off",
-    "import/no-duplicates": "off",
+    "import/no-duplicates": "error",
     "import/order": [
       "off",
       {
@@ -240,7 +276,9 @@
             "position": "before"
           }
         ],
-        "pathGroupsExcludedImportTypes": ["builtin"],
+        "pathGroupsExcludedImportTypes": [
+          "builtin"
+        ],
         "alphabetize": {
           "order": "asc",
           "caseInsensitive": true
@@ -248,7 +286,6 @@
         "newlines-between": "always"
       }
     ],
-
     // React Rules
     "react/prop-types": "off",
     "react/react-in-jsx-scope": "off",
@@ -256,20 +293,25 @@
     "react/jsx-no-comment-textnodes": "off",
     "react-hooks/rules-of-hooks": "error",
     "react-hooks/exhaustive-deps": "off",
-
     // Security Rules
     "security/detect-object-injection": "off",
     "security/detect-non-literal-fs-filename": "off",
     "security/detect-non-literal-regexp": "off",
     "security/detect-unsafe-regex": "error",
-
     // SonarJS Rules (Code Smells)
-    "sonarjs/cognitive-complexity": ["error", 25],
-    "sonarjs/no-duplicate-string": ["error", { "threshold": 5 }],
+    "sonarjs/cognitive-complexity": [
+      "error",
+      25
+    ],
+    "sonarjs/no-duplicate-string": [
+      "error",
+      {
+        "threshold": 5
+      }
+    ],
     "sonarjs/no-identical-functions": "error",
     "sonarjs/no-collapsible-if": "error",
     "sonarjs/prefer-immediate-return": "error",
-
     // General Code Quality
     "no-var": "error",
     "prefer-const": "error",
@@ -281,19 +323,35 @@
         "props": false
       }
     ],
-    "eqeqeq": ["error", "always", { "null": "ignore" }],
-    "curly": ["error", "all"],
+    "eqeqeq": [
+      "error",
+      "always",
+      {
+        "null": "ignore"
+      }
+    ],
+    "curly": [
+      "error",
+      "all"
+    ],
     "no-eval": "error",
     "no-implied-eval": "error",
     "no-new-func": "error",
     "no-return-await": "off",
-    "@typescript-eslint/return-await": ["error", "in-try-catch"],
+    "@typescript-eslint/return-await": [
+      "error",
+      "in-try-catch"
+    ],
     "require-await": "off",
     "@typescript-eslint/require-await": "off"
   },
   "overrides": [
     {
-      "files": ["*.js", "*.cjs", "*.mjs"],
+      "files": [
+        "*.js",
+        "*.cjs",
+        "*.mjs"
+      ],
       "rules": {
         "@typescript-eslint/no-var-requires": "off",
         "@typescript-eslint/explicit-function-return-type": "off",
@@ -305,7 +363,13 @@
       }
     },
     {
-      "files": ["*.test.ts", "*.test.tsx", "*.spec.ts", "*.spec.tsx", "tests/**/*"],
+      "files": [
+        "*.test.ts",
+        "*.test.tsx",
+        "*.spec.ts",
+        "*.spec.tsx",
+        "tests/**/*"
+      ],
       "rules": {
         "@typescript-eslint/no-explicit-any": "off",
         "@typescript-eslint/no-unsafe-assignment": "off",
@@ -338,7 +402,9 @@
       }
     },
     {
-      "files": ["scripts/**/*"],
+      "files": [
+        "scripts/**/*"
+      ],
       "rules": {
         "no-console": "off",
         "@typescript-eslint/explicit-function-return-type": "off",
@@ -368,16 +434,35 @@
       }
     },
     {
-      "files": ["*.config.ts", "*.config.js"],
+      "files": [
+        "*.config.ts",
+        "*.config.js"
+      ],
       "rules": {
         "@typescript-eslint/no-explicit-any": "off",
         "import/no-default-export": "off"
       }
     },
     {
-      "files": ["client/src/**/*.tsx", "client/src/**/*.jsx"],
+      "files": [
+        "client/src/**/*.tsx",
+        "client/src/**/*.jsx"
+      ],
       "rules": {
         "@typescript-eslint/explicit-function-return-type": "off"
+      }
+    },
+    {
+      "files": [
+        "tests/unit/services/**/*"
+      ],
+      "rules": {
+        "@typescript-eslint/no-explicit-any": "error",
+        "@typescript-eslint/no-unsafe-assignment": "error",
+        "@typescript-eslint/no-unsafe-member-access": "error",
+        "@typescript-eslint/no-unsafe-call": "error",
+        "@typescript-eslint/no-unsafe-return": "error",
+        "@typescript-eslint/no-unsafe-argument": "error"
       }
     }
   ]

@@ -112,8 +112,7 @@ export function AIFeedbackWidget({
         setRating={setRating}
         comment={comment}
         setComment={setComment}
-        // eslint-disable-next-line @typescript-eslint/no-misused-promises
-        onSubmit={handleSubmit}
+        onSubmit={() => { void handleSubmit(); }}
         isSubmitting={isSubmitting}
       />
     </Card>

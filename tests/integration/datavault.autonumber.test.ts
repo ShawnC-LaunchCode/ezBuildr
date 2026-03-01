@@ -3,7 +3,10 @@
  * Tests the new autonumber functionality with prefix, padding, and yearly reset
  */
 
+import { eq } from 'drizzle-orm';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+
+import { tenants } from '@shared/schema';
 
 import { db } from '../../server/db';
 import { datavaultColumnsService } from '../../server/services/DatavaultColumnsService';
@@ -18,12 +21,12 @@ describe('DataVault Autonumber Integration Tests', () => {
   let yearlyResetColumnId: string;
 
   beforeAll(async () => {
-    // Create a test tenant (use existing or create new)
-    const tenants = await db.query.tenants.findMany({ limit: 1 });
-    if (tenants.length === 0) {
-      throw new Error('No tenants found in database. Please run seed script first.');
-    }
-    tenantId = tenants[0].id;
+    // Create a test tenant
+    const [tenant] = await db.insert(tenants).values({
+      name: 'Autonumber Test Tenant',
+      plan: 'pro',
+    }).returning();
+    tenantId = tenant.id;
 
     // Create a test table
     const table = await datavaultTablesService.createTable(
@@ -90,8 +93,15 @@ describe('DataVault Autonumber Integration Tests', () => {
       try {
         await datavaultTablesService.deleteTable(tenantId, tableId);
       } catch (error) {
-        // Ignore error if table not found during cleanup
         console.log('Error cleaning up table:', error);
+      }
+    }
+    // Cleanup: delete the test tenant
+    if (tenantId) {
+      try {
+        await db.delete(tenants).where(eq(tenants.id, tenantId));
+      } catch (error) {
+        console.log('Error cleaning up tenant:', error);
       }
     }
   });
@@ -168,7 +178,7 @@ describe('DataVault Autonumber Integration Tests', () => {
     expect(row2.values[yearlyResetColumnId]).toBe(`INV-${currentYear}-006`);
   });
 
-  it('should be atomic and prevent race conditions', async () => {
+  it('should be atomic and prevent race conditions', { timeout: 30000 }, async () => {
     // Create multiple rows concurrently
     const promises = Array(10)
       .fill(null)

@@ -1,8 +1,10 @@
+import { insertStepSchema } from "@shared/schema";
 import type { InsertStep } from "@shared/schema";
 
 import { createLogger } from "../logger";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { autoRevertToDraft } from "../middleware/autoRevertToDraft";
+import { createLimiter } from "../middleware/rateLimiting";
 import { sectionRepository } from "../repositories/SectionRepository";
 import { stepRepository } from "../repositories/StepRepository";
 import { stepService } from "../services/StepService";
@@ -91,14 +93,14 @@ function registerWorkflowStepRoutes(app: Express): void {
    * Create a new step
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async autoRevertToDraft
-  app.post('/api/workflows/:workflowId/sections/:sectionId/steps', hybridAuth, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/workflows/:workflowId/sections/:sectionId/steps', hybridAuth, createLimiter, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
       const { workflowId, sectionId } = req.params;
-      const stepData = req.body as Omit<InsertStep, 'sectionId'>;
+      const stepData = insertStepSchema.partial().parse(req.body) as Omit<InsertStep, 'sectionId'>;
       const step = await stepService.createStep(workflowId, sectionId, userId, stepData);
       res.status(201).json(step);
     } catch (error) {
@@ -188,14 +190,14 @@ function registerSimplifiedStepRoutes(app: Express): void {
    * Create a new step (workflow looked up automatically)
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async lookup
-  app.post('/api/sections/:sectionId/steps', hybridAuth, lookupWorkflowIdFromSectionMiddleware, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/sections/:sectionId/steps', hybridAuth, createLimiter, lookupWorkflowIdFromSectionMiddleware, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
       const { sectionId } = req.params;
-      const stepData = req.body as Omit<InsertStep, 'sectionId'>;
+      const stepData = insertStepSchema.partial().parse(req.body) as Omit<InsertStep, 'sectionId'>;
       const step = await stepService.createStepBySectionId(sectionId, userId, stepData);
       res.status(201).json(step);
     } catch (error) {
@@ -265,7 +267,7 @@ function registerSimplifiedStepRoutes(app: Express): void {
         return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
       const { stepId } = req.params;
-      const updateData = req.body as Record<string, unknown>;
+      const updateData = insertStepSchema.partial().parse(req.body);
       const updatedStep = await stepService.updateStepById(stepId, userId, updateData);
       res.json(updatedStep);
     } catch (error) {

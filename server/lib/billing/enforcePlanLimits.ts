@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 
 import { UsageAggregator } from "../metering/usageAggregator";
+import { logger } from "../../logger";
 
 import { METRIC_LIMITS } from "./billingConfig";
 import { SubscriptionService } from "./SubscriptionService";
@@ -17,7 +18,7 @@ export function enforceQuota(metric: keyof typeof METRIC_LIMITS, quantity: numbe
         if (!organizationId) {
             // If no org context, we arguably should block or skip. 
             // For safety in SaaS transition, let's log error and allow (fail open) till migration complete.
-            console.warn("Quota Enforcement Skipped: No Organization Context");
+            logger.warn("Quota enforcement skipped: no organization context");
             return next();
         }
         try {
@@ -48,7 +49,7 @@ export function enforceQuota(metric: keyof typeof METRIC_LIMITS, quantity: numbe
             }
             next();
         } catch (error) {
-            console.error("Quota Check Failed:", error);
+            logger.error({ err: error }, "Quota check failed");
             // Fail open to avoid blocking legitimate traffic on error
             next();
         }
@@ -61,7 +62,7 @@ export function requireFeature(feature: string) {
     return async (req: Request, res: Response, next: NextFunction) => {
         const organizationId = (req as Record<string, unknown>).organizationId ?? (req.user as Record<string, unknown> | undefined)?.tenantId;
         if (!organizationId) {
-            console.warn("Feature Check Skipped: No Organization Context");
+            logger.warn("Feature check skipped: no organization context");
             return next();
         }
         try {
@@ -75,7 +76,7 @@ export function requireFeature(feature: string) {
             }
             next();
         } catch (error) {
-            console.error("Feature Check Failed:", error);
+            logger.error({ err: error }, "Feature check failed");
             next();
         }
     };

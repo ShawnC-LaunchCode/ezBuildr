@@ -2,6 +2,7 @@
 import { Request, Response, NextFunction } from "express";
 
 import { checkPermission } from "./checkPermission";
+import { logger } from "../../logger";
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function requireWorkspace(req: Request, res: Response, next: NextFunction) {
@@ -38,7 +39,7 @@ export function enforce(action: string, getResourceId?: (req: Request) => string
             }
             next();
         } catch (err) {
-            console.error("Permission Check Failed:", err);
+            logger.error({ err, userId, action }, "Permission check failed");
             return res.status(500).json({ error: "Authorization Error" });
         }
     };

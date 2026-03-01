@@ -6,6 +6,7 @@ import * as schema from '@shared/schema';
 
 import { db } from '../db';
 import { runGraph } from '../engine';
+import { logger } from '../logger';
 import { hybridAuth } from '../middleware/auth';
 import { requirePermission } from '../middleware/rbac';
 import { requireTenant } from '../middleware/tenant';
@@ -273,7 +274,7 @@ router.get(
       const response = createPaginatedResponse(formattedRuns, limit);
       res.json(response);
     } catch (error) {
-      console.error("GET /runs FAILED:", error);
+      logger.error({ err: error }, "GET /runs failed");
       const formatted = formatErrorResponse(error);
       res.status(formatted.status).json(formatted.body);
     }

@@ -6,6 +6,7 @@ import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
 
 import { asyncHandler } from '../utils/asyncHandler';
+import { logger } from '../logger';
 const router = Router();
 /**
  * API Documentation Routes
@@ -17,7 +18,7 @@ let swaggerDocument: any;
 try {
   const openApiPath = path.join(process.cwd(), "openapi.yaml");
   if (!fs.existsSync(openApiPath)) {
-    console.error(`OpenAPI spec not found at: ${openApiPath}`);
+    logger.warn({ path: openApiPath }, "OpenAPI spec not found");
     swaggerDocument = {
       openapi: "3.0.3",
       info: {
@@ -30,11 +31,10 @@ try {
   } else {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     swaggerDocument = YAML.load(openApiPath);
-    // eslint-disable-next-line no-console
-    console.log("✅ OpenAPI specification loaded successfully");
+    logger.info("OpenAPI specification loaded successfully");
   }
 } catch (error) {
-  console.error("Failed to load OpenAPI specification:", error);
+  logger.error({ err: error }, "Failed to load OpenAPI specification");
   swaggerDocument = {
     openapi: "3.0.3",
     info: {
@@ -100,7 +100,6 @@ router.get("/api-docs.yaml", asyncHandler(async (req, res) => {
 export function registerDocsRoutes(app: any): void {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
   app.use(router);
-  // eslint-disable-next-line no-console
-  console.log("📚 API Documentation available at /api-docs");
+  logger.info("API Documentation available at /api-docs");
 }
 export default router;

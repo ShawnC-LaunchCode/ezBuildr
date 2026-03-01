@@ -130,7 +130,7 @@ export class TeamMemberRepository extends BaseRepository<typeof teamMembers, Tea
       ))
       .returning();
 
-    if (!updated) throw new Error("Failed to update team member role");
+    if (!updated) {throw new Error("Failed to update team member role");}
     return updated;
   }
 }

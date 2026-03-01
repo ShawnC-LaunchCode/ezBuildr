@@ -3,6 +3,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import { TransformBlock } from "shared/schema";
+import { logger } from "../../logger";
 
 interface SchemaAlignRequest {
     transforms: TransformBlock[];
@@ -27,7 +28,7 @@ const getModel = () => {
         const genAI = new GoogleGenerativeAI(apiKey);
         return genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
     } catch (e) {
-        console.warn("Failed to init AI model in schemaAlign (mock issue?)", e);
+        logger.warn({ err: e }, "Failed to init AI model in schemaAlign");
         if (process.env.NODE_ENV === 'test') {
             return {
                 generateContent: async () => ({
@@ -65,7 +66,7 @@ export const alignSchema = async (request: SchemaAlignRequest): Promise<SchemaAl
         const response = result.response;
         text = response.text();
     } catch (e) {
-        console.error("Schema Align AI Error", e);
+        logger.error({ err: e }, "Schema Align AI Error");
         throw new Error("Failed to align schema");
     }
 
@@ -77,7 +78,7 @@ export const alignSchema = async (request: SchemaAlignRequest): Promise<SchemaAl
             missingTransforms: parsed.missingTransforms
         };
     } catch (e) {
-        console.error("Schema Align Parse Error", e);
+        logger.error({ err: e }, "Schema Align Parse Error");
         throw new Error("Failed to align schema");
     }
 };

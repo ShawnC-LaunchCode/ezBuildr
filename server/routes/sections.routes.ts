@@ -1,8 +1,10 @@
+import { insertSectionSchema } from "@shared/schema";
 import type { InsertSection } from "@shared/schema";
 
 import { createLogger } from "../logger";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { autoRevertToDraft } from "../middleware/autoRevertToDraft";
+import { createLimiter } from "../middleware/rateLimiting";
 import { sectionRepository } from "../repositories/SectionRepository";
 import { sectionService } from "../services/SectionService";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -59,14 +61,14 @@ export function registerSectionRoutes(app: Express): void {
    * Create a new section
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async autoRevertToDraft
-  app.post('/api/workflows/:workflowId/sections', hybridAuth, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/workflows/:workflowId/sections', hybridAuth, createLimiter, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
         return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
       const { workflowId } = req.params;
-      const sectionData = req.body as Omit<InsertSection, 'workflowId'>;
+      const sectionData = insertSectionSchema.partial().parse(req.body) as Omit<InsertSection, 'workflowId'>;
       const section = await sectionService.createSection(workflowId, userId, sectionData);
       res.status(201).json(section);
     } catch (error) {
@@ -166,7 +168,7 @@ export function registerSectionRoutes(app: Express): void {
         return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
       const { workflowId, sectionId } = req.params;
-      const updateData = req.body as Partial<InsertSection>;
+      const updateData = insertSectionSchema.partial().parse(req.body);
       const section = await sectionService.updateSection(sectionId, workflowId, userId, updateData);
       res.json(section);
     } catch (error) {
@@ -214,7 +216,7 @@ export function registerSectionRoutes(app: Express): void {
         return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
       const { sectionId } = req.params;
-      const updateData = req.body as Partial<InsertSection>;
+      const updateData = insertSectionSchema.partial().parse(req.body);
       const updatedSection = await sectionService.updateSectionById(sectionId, userId, updateData);
       res.json(updatedSection);
     } catch (error) {

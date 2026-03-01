@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest";
 
 import { workflowOptimizationService } from "../../server/services/ai/WorkflowOptimizationService";
-import { WorkflowJSON } from "../../shared/types/workflow";
+import { WorkflowJSON, WorkflowBlock } from "../../shared/types/workflow";
 
 describe("WorkflowOptimizationService", () => {
     it("should calculate metrics", async () => {
@@ -29,9 +29,9 @@ describe("WorkflowOptimizationService", () => {
     });
 
     it("should detect long pages", async () => {
-        const blocks = Array.from({ length: 12 }, (_, i) => ({
+        const blocks: WorkflowBlock[] = Array.from({ length: 12 }, (_, i) => ({
             id: `b${i}`,
-            type: "short_text",
+            type: "short_text" as const,
             title: `Q${i}`
         }));
 
@@ -43,7 +43,7 @@ describe("WorkflowOptimizationService", () => {
                     id: "p1",
                     title: "Long Page",
                     order: 0,
-                    blocks: blocks as any
+                    blocks: blocks
                 }
             ]
         };
@@ -58,14 +58,14 @@ describe("WorkflowOptimizationService", () => {
         // Setup similar to above
         const blocks = Array.from({ length: 12 }, (_, i) => ({
             id: `b${i}`,
-            type: "short_text",
+            type: "short_text" as const,
             title: `Q${i}`
         }));
 
         const workflow: WorkflowJSON = {
             id: "1",
             title: "Split Me",
-            pages: [{ id: "p1", title: "Big Page", order: 1, blocks: blocks as any }]
+            pages: [{ id: "p1", title: "Big Page", order: 1, blocks: blocks }]
         };
 
         // Direct call to fix

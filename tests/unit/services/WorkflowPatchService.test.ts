@@ -1,8 +1,19 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, type Mocked } from 'vitest';
 
 import { WorkflowPatchService } from '../../../server/services/WorkflowPatchService';
 
+import { type Step, type Section, type Workflow, type Project, type Template, type WorkflowTemplate, type DatavaultTable, type DatavaultColumn, type DatavaultWritebackMapping } from "@shared/schema";
 import type { WorkflowPatchOp } from '../../../server/schemas/aiWorkflowEdit.schema';
+import type {
+  StepRepository,
+  SectionRepository,
+  WorkflowRepository,
+  ProjectRepository,
+  LogicRuleRepository,
+  DocumentTemplateRepository,
+  WorkflowTemplateRepository,
+  DatavaultWritebackMappingsRepository
+} from '../../../server/repositories';
 // Mock repositories
 vi.mock('../../../server/repositories', () => ({
   sectionRepository: {
@@ -71,30 +82,50 @@ vi.mock('../../../server/services/DatavaultColumnsService', () => ({
 }));
 describe('WorkflowPatchService', () => {
   let service: WorkflowPatchService;
+  let mockSectionRepo: Mocked<SectionRepository>;
+  let mockStepRepo: Mocked<StepRepository>;
+  let mockWorkflowRepo: Mocked<WorkflowRepository>;
+  let mockProjectRepo: Mocked<ProjectRepository>;
+  let mockLogicRuleRepo: Mocked<LogicRuleRepository>;
+  let mockDocTemplateRepo: Mocked<DocumentTemplateRepository>;
+  let mockWorkflowTemplateRepo: Mocked<WorkflowTemplateRepository>;
+  let mockDatavaultWritebackRepo: Mocked<DatavaultWritebackMappingsRepository>;
+
   const mockWorkflowId = 'workflow-123';
   const mockUserId = 'user-456';
+
   beforeEach(async () => {
-    const { stepRepository, workflowRepository, projectRepository } = await import('../../../server/repositories');
-    service = new WorkflowPatchService(stepRepository);
     vi.clearAllMocks();
     mockStepRepoFind.mockReset();
     mockStepRepoCreate.mockReset();
+
+    const repos = await import('../../../server/repositories');
+    mockSectionRepo = repos.sectionRepository as Mocked<SectionRepository>;
+    mockStepRepo = repos.stepRepository as Mocked<StepRepository>;
+    mockWorkflowRepo = repos.workflowRepository as Mocked<WorkflowRepository>;
+    mockProjectRepo = repos.projectRepository as Mocked<ProjectRepository>;
+    mockLogicRuleRepo = repos.logicRuleRepository as Mocked<LogicRuleRepository>;
+    mockDocTemplateRepo = repos.documentTemplateRepository as Mocked<DocumentTemplateRepository>;
+    mockWorkflowTemplateRepo = repos.workflowTemplateRepository as Mocked<WorkflowTemplateRepository>;
+    mockDatavaultWritebackRepo = repos.datavaultWritebackMappingsRepository as Mocked<DatavaultWritebackMappingsRepository>;
+
+    service = new WorkflowPatchService(mockStepRepo);
+
     // Mock workflow and project lookups for getTenantContext
-    vi.mocked(workflowRepository.findById).mockResolvedValue({
+    mockWorkflowRepo.findById.mockResolvedValue({
       id: mockWorkflowId,
       projectId: 'project-123',
       tenantId: 'tenant-123',
-    } as any);
-    vi.mocked(projectRepository.findById).mockResolvedValue({
+    } as unknown as Workflow);
+    mockProjectRepo.findById.mockResolvedValue({
       id: 'project-123',
       tenantId: 'tenant-123',
-    } as any);
+    } as unknown as Project);
   });
   describe('TempId Resolution', () => {
     it('should resolve section tempId to real UUID when creating step', async () => {
-      const { sectionRepository, stepRepository } = await import('../../../server/repositories');
       // Mock section creation returning real ID
-      vi.mocked(sectionRepository.create).mockResolvedValue({
+      mockSectionRepo.create.mockResolvedValue({
         id: 'section-real-uuid',
         workflowId: mockWorkflowId,
         title: 'Contact Info',
@@ -102,9 +133,9 @@ describe('WorkflowPatchService', () => {
         config: {},
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as any);
+      } as unknown as Section);
       // Mock step creation
-      mockStepRepoCreate.mockResolvedValue({
+      mockStepRepo.create.mockResolvedValue({
         id: 'step-real-uuid',
         sectionId: 'section-real-uuid',
         type: 'short_text',
@@ -115,9 +146,9 @@ describe('WorkflowPatchService', () => {
         config: {},
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as any);
-      mockStepRepoFindBySection.mockResolvedValue([]);
-      mockStepRepoFind.mockResolvedValue([]);
+      } as unknown as Step);
+      mockStepRepo.findBySectionId.mockResolvedValue([]);
+      mockStepRepo.findByWorkflowId.mockResolvedValue([]);
       const ops: WorkflowPatchOp[] = [
         {
           op: 'section.create',
@@ -132,6 +163,7 @@ describe('WorkflowPatchService', () => {
           title: 'Email',
           alias: 'email',
           required: true,
+          order: 1,
         },
       ];
       const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
@@ -140,15 +172,14 @@ describe('WorkflowPatchService', () => {
       expect(result.summary[0]).toContain("Created section 'Contact Info'");
       expect(result.summary[1]).toContain("Created step 'Email'");
       // Verify step was created with resolved sectionId
-      expect(stepRepository.create).toHaveBeenCalledWith(
+      expect(mockStepRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           sectionId: 'section-real-uuid',
         })
       );
     });
     it('should handle multi-level tempId references', async () => {
-      const { sectionRepository, stepRepository } = await import('../../../server/repositories');
-      vi.mocked(sectionRepository.create).mockResolvedValue({
+      mockSectionRepo.create.mockResolvedValue({
         id: 'section-real-uuid',
         workflowId: mockWorkflowId,
         title: 'Personal Info',
@@ -156,8 +187,8 @@ describe('WorkflowPatchService', () => {
         config: {},
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as any);
-      mockStepRepoCreate.mockResolvedValueOnce({
+      } as unknown as Section);
+      mockStepRepo.create.mockResolvedValueOnce({
         id: 'step-real-uuid-1',
         sectionId: 'section-real-uuid',
         type: 'short_text',
@@ -168,7 +199,7 @@ describe('WorkflowPatchService', () => {
         config: {},
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as any).mockResolvedValueOnce({
+      } as unknown as Step).mockResolvedValueOnce({
         id: 'step-real-uuid-2',
         sectionId: 'section-real-uuid',
         type: 'short_text',
@@ -179,10 +210,10 @@ describe('WorkflowPatchService', () => {
         config: {},
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as any);
-      mockStepRepoUpdate.mockResolvedValue({} as any);
-      mockStepRepoFindBySection.mockResolvedValue([]);
-      mockStepRepoFind.mockResolvedValue([]);
+      } as unknown as Step);
+      mockStepRepo.update.mockResolvedValue({} as unknown as Step);
+      mockStepRepo.findBySectionId.mockResolvedValue([]);
+      mockStepRepo.findByWorkflowId.mockResolvedValue([]);
       const ops: WorkflowPatchOp[] = [
         {
           op: 'section.create',
@@ -210,16 +241,17 @@ describe('WorkflowPatchService', () => {
         {
           op: 'step.setVisibleIf',
           id: 'temp-step-1', // References step tempId
-          visibleIf: JSON.stringify({ op: 'equals', left: { type: 'variable', path: 'showName' }, right: { type: 'value', value: true } }) as any,
+          visibleIf: JSON.stringify({ op: 'equals', left: { type: 'variable', path: 'showName' }, right: { type: 'value', value: true } }),
         },
       ];
       const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
       expect(result.errors).toHaveLength(0);
       expect(result.summary).toHaveLength(4);
       // Verify step.setVisibleIf used resolved step ID
-      expect(stepRepository.update).toHaveBeenCalledWith(
+      expect(mockStepRepo.update).toHaveBeenCalledWith(
         'step-real-uuid-1',
         expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           visibleIf: expect.any(String),
         })
       );
@@ -227,10 +259,8 @@ describe('WorkflowPatchService', () => {
   });
   describe('Alias Uniqueness Validation', () => {
     it('should reject duplicate step alias on create', async () => {
-      // eslint-disable-next-line no-empty-pattern
-      const {  } = await import('../../../server/repositories');
       // Mock existing step with alias 'email'
-      mockStepRepoFind.mockResolvedValue([
+      mockStepRepo.findByWorkflowId.mockResolvedValue([
         {
           id: 'existing-step-1',
           sectionId: 'section-1',
@@ -242,7 +272,7 @@ describe('WorkflowPatchService', () => {
           config: {},
           createdAt: new Date(),
           updatedAt: new Date(),
-        } as any,
+        } as unknown as Step,
       ]);
       const ops: WorkflowPatchOp[] = [
         {
@@ -263,9 +293,7 @@ describe('WorkflowPatchService', () => {
       expect(result.summary).toHaveLength(0);
     });
     it('should allow same alias on update of same step', async () => {
-      // eslint-disable-next-line no-empty-pattern
-      const {  } = await import('../../../server/repositories');
-      mockStepRepoFind.mockResolvedValue([
+      mockStepRepo.findByWorkflowId.mockResolvedValue([
         {
           id: 'step-1',
           sectionId: 'section-1',
@@ -277,9 +305,9 @@ describe('WorkflowPatchService', () => {
           config: {},
           createdAt: new Date(),
           updatedAt: new Date(),
-        } as any,
+        } as unknown as Step,
       ]);
-      mockStepRepoUpdate.mockResolvedValue({} as any);
+      mockStepRepo.update.mockResolvedValue({} as unknown as Step);
       const ops: WorkflowPatchOp[] = [
         {
           op: 'step.update',
@@ -293,9 +321,7 @@ describe('WorkflowPatchService', () => {
       expect(result.summary).toHaveLength(1);
     });
     it('should reject duplicate alias on update to different step', async () => {
-      // eslint-disable-next-line no-empty-pattern
-      const {  } = await import('../../../server/repositories');
-      mockStepRepoFind.mockResolvedValue([
+      mockStepRepo.findByWorkflowId.mockResolvedValue([
         {
           id: 'step-1',
           sectionId: 'section-1',
@@ -307,7 +333,7 @@ describe('WorkflowPatchService', () => {
           config: {},
           createdAt: new Date(),
           updatedAt: new Date(),
-        } as any,
+        } as unknown as Step,
         {
           id: 'step-2',
           sectionId: 'section-1',
@@ -319,7 +345,7 @@ describe('WorkflowPatchService', () => {
           config: {},
           createdAt: new Date(),
           updatedAt: new Date(),
-        } as any,
+        } as unknown as Step,
       ]);
       const ops: WorkflowPatchOp[] = [
         {
@@ -335,17 +361,17 @@ describe('WorkflowPatchService', () => {
   });
   describe('Unknown Operation Rejection', () => {
     it('should reject completely unknown operation', async () => {
-      const ops: any[] = [
+      const ops: unknown[] = [
         {
           op: 'workflow.destroyEverything', // Invalid!
         },
       ];
-      const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
+      const result = await service.applyOps(mockWorkflowId, mockUserId, ops as WorkflowPatchOp[]);
       expect(result.errors).toHaveLength(1);
       expect(result.errors[0]).toContain('Invalid operation schema');
     });
     it('should reject malformed operation (missing required fields)', async () => {
-      const ops: any[] = [
+      const ops: unknown[] = [
         {
           op: 'section.create',
           // Missing title!
@@ -353,49 +379,49 @@ describe('WorkflowPatchService', () => {
       ];
       // This should fail Zod validation before reaching applyOps
       // But if it somehow gets through, applyOps should handle it
-      const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
+      const result = await service.applyOps(mockWorkflowId, mockUserId, ops as WorkflowPatchOp[]);
       expect(result.errors.length).toBeGreaterThan(0);
       expect(result.errors[0]).toContain('Invalid operation schema');
     });
   });
   describe('DataVault Additive Enforcement', () => {
     it('should reject unsafe DataVault operations (dropTable)', async () => {
-      const ops: any[] = [
+      const ops: unknown[] = [
         {
           op: 'datavault.dropTable',
           tableId: 'table-123',
         },
       ];
-      const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
+      const result = await service.applyOps(mockWorkflowId, mockUserId, ops as WorkflowPatchOp[]);
       expect(result.errors).toHaveLength(1);
       expect(result.errors[0]).toContain('Invalid operation schema');
     });
     it('should reject unsafe DataVault operations (dropColumn)', async () => {
-      const ops: any[] = [
+      const ops: unknown[] = [
         {
           op: 'datavault.dropColumn',
           tableId: 'table-123',
           columnName: 'sensitive_data',
         },
       ];
-      const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
+      const result = await service.applyOps(mockWorkflowId, mockUserId, ops as WorkflowPatchOp[]);
       expect(result.errors).toHaveLength(1);
       expect(result.errors[0]).toContain('Invalid operation schema');
     });
     it('should reject unsafe DataVault operations (deleteRows)', async () => {
-      const ops: any[] = [
+      const ops: unknown[] = [
         {
           op: 'datavault.deleteRows',
           tableId: 'table-123',
           rowIds: ['row-1', 'row-2'],
         },
       ];
-      const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
+      const result = await service.applyOps(mockWorkflowId, mockUserId, ops as WorkflowPatchOp[]);
       expect(result.errors).toHaveLength(1);
       expect(result.errors[0]).toContain('Invalid operation schema');
     });
     it('should reject unsafe DataVault operations (updateRowData)', async () => {
-      const ops: any[] = [
+      const ops: unknown[] = [
         {
           op: 'datavault.updateRowData',
           tableId: 'table-123',
@@ -403,7 +429,7 @@ describe('WorkflowPatchService', () => {
           data: { malicious: 'change' },
         },
       ];
-      const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
+      const result = await service.applyOps(mockWorkflowId, mockUserId, ops as WorkflowPatchOp[]);
       expect(result.errors).toHaveLength(1);
       expect(result.errors[0]).toContain('Invalid operation schema');
     });
@@ -440,8 +466,7 @@ describe('WorkflowPatchService', () => {
   });
   describe('Operation Application', () => {
     it('should rollback all ops if any op fails', async () => {
-      const { sectionRepository } = await import('../../../server/repositories');
-      vi.mocked(sectionRepository.create).mockResolvedValue({
+      mockSectionRepo.create.mockResolvedValue({
         id: 'section-real-uuid',
         workflowId: mockWorkflowId,
         title: 'Contact Info',
@@ -449,8 +474,8 @@ describe('WorkflowPatchService', () => {
         config: {},
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as any);
-      mockStepRepoFind.mockResolvedValue([
+      } as unknown as Section);
+      mockStepRepo.findByWorkflowId.mockResolvedValue([
         {
           id: 'existing-step',
           sectionId: 'section-1',
@@ -462,7 +487,7 @@ describe('WorkflowPatchService', () => {
           config: {},
           createdAt: new Date(),
           updatedAt: new Date(),
-        } as any,
+        } as unknown as Step,
       ]);
       const ops: WorkflowPatchOp[] = [
         {
@@ -485,11 +510,10 @@ describe('WorkflowPatchService', () => {
       expect(result.errors).toHaveLength(1);
       expect(result.summary).toHaveLength(0);
       // Section should NOT be created (validation happens before application)
-      expect(sectionRepository.create).not.toHaveBeenCalled();
+      expect(mockSectionRepo.create).not.toHaveBeenCalled();
     });
     it('should clear tempId mappings between batch calls', async () => {
-      const { sectionRepository } = await import('../../../server/repositories');
-      vi.mocked(sectionRepository.create).mockResolvedValue({
+      mockSectionRepo.create.mockResolvedValue({
         id: 'section-real-uuid-1',
         workflowId: mockWorkflowId,
         title: 'Section 1',
@@ -497,8 +521,8 @@ describe('WorkflowPatchService', () => {
         config: {},
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as any);
-      mockStepRepoCreate.mockResolvedValue({
+      } as unknown as Section);
+      mockStepRepo.create.mockResolvedValue({
         id: 'step-real-uuid-1',
         sectionId: 'section-real-uuid-1',
         type: 'short_text',
@@ -509,9 +533,9 @@ describe('WorkflowPatchService', () => {
         config: {},
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as any);
-      mockStepRepoFindBySection.mockResolvedValue([]);
-      mockStepRepoFind.mockResolvedValue([]);
+      } as unknown as Step);
+      mockStepRepo.findBySectionId.mockResolvedValue([]);
+      mockStepRepo.findByWorkflowId.mockResolvedValue([]);
       const batch1: WorkflowPatchOp[] = [
         {
           op: 'section.create',
@@ -522,11 +546,11 @@ describe('WorkflowPatchService', () => {
       ];
       // Reset step repository mock to fail on invalid section ID references
       // This simulates DB foreign key constraints when an ID is not resolved
-      mockStepRepoCreate.mockImplementation(async (data: any) => {
+      mockStepRepo.create.mockImplementation(async (data: { sectionId?: string }) => {
         if (data.sectionId?.startsWith('temp-')) {
           throw new Error(`Invalid section ID: ${data.sectionId}`);
         }
-        return { id: 'step-1' };
+        return { id: 'step-1' } as Step;
       });
       const batch2: WorkflowPatchOp[] = [
         {
@@ -550,9 +574,8 @@ describe('WorkflowPatchService', () => {
   });
   describe('Logic Rule Operations', () => {
     it('should create visibility rule on step', async () => {
-      const { stepRepository } = await import('../../../server/repositories');
-      mockStepRepoUpdate.mockResolvedValue({} as any);
-      mockStepRepoFind.mockResolvedValue([]);
+      mockStepRepo.update.mockResolvedValue({} as unknown as Step);
+      mockStepRepo.findByWorkflowId.mockResolvedValue([]);
       const ops: WorkflowPatchOp[] = [
         {
           op: 'logicRule.create',
@@ -567,12 +590,14 @@ describe('WorkflowPatchService', () => {
       expect(result.errors).toHaveLength(0);
       expect(result.summary).toHaveLength(1);
       expect(result.summary[0]).toContain('Applied visibility rule to step');
-      expect(stepRepository.update).toHaveBeenCalledWith(
+      expect(mockStepRepo.update).toHaveBeenCalledWith(
         'step-123',
         expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           visibleIf: expect.objectContaining({
             type: 'group',
             operator: 'AND',
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             conditions: expect.arrayContaining([
               expect.objectContaining({
                 type: 'condition',
@@ -587,8 +612,7 @@ describe('WorkflowPatchService', () => {
       );
     });
     it('should parse complex condition expressions', async () => {
-      const { sectionRepository } = await import('../../../server/repositories');
-      vi.mocked(sectionRepository.update).mockResolvedValue({} as any);
+      mockSectionRepo.update.mockResolvedValue({} as unknown as Section);
       const ops: WorkflowPatchOp[] = [
         {
           op: 'logicRule.create',
@@ -601,12 +625,14 @@ describe('WorkflowPatchService', () => {
       ];
       const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
       expect(result.errors).toHaveLength(0);
-      expect(sectionRepository.update).toHaveBeenCalledWith(
+      expect(mockSectionRepo.update).toHaveBeenCalledWith(
         'section-123',
         expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           visibleIf: expect.objectContaining({
             type: 'group',
             operator: 'AND',
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             conditions: expect.arrayContaining([
               expect.objectContaining({
                 type: 'condition',
@@ -623,29 +649,24 @@ describe('WorkflowPatchService', () => {
   });
   describe('Document Operations', () => {
     beforeEach(async () => {
-      const { workflowRepository, projectRepository } = await import('../../../server/repositories');
       // Mock tenant context
-      vi.mocked(workflowRepository.findById).mockResolvedValue({
+      mockWorkflowRepo.findById.mockResolvedValue({
         id: mockWorkflowId,
         projectId: 'project-123',
         title: 'Test Workflow',
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as any);
-      vi.mocked(projectRepository.findById).mockResolvedValue({
+      } as unknown as Workflow);
+      mockProjectRepo.findById.mockResolvedValue({
         id: 'project-123',
         tenantId: 'tenant-123',
         name: 'Test Project',
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as any);
+      } as unknown as Project);
     });
     it('should attach document to workflow (document.add)', async () => {
-      const {
-        documentTemplateRepository,
-        workflowTemplateRepository,
-      } = await import('../../../server/repositories');
-      vi.mocked(documentTemplateRepository.findByIdAndProjectId).mockResolvedValue({
+      mockDocTemplateRepo.findByIdAndProjectId.mockResolvedValue({
         id: 'template-123',
         projectId: 'project-123',
         name: 'Engagement Letter',
@@ -653,8 +674,8 @@ describe('WorkflowPatchService', () => {
         fileRef: '/templates/engagement.pdf',
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as any);
-      vi.mocked(workflowTemplateRepository.create).mockResolvedValue({
+      } as unknown as Template);
+      mockWorkflowTemplateRepo.create.mockResolvedValue({
         id: 'wf-template-123',
         workflowVersionId: mockWorkflowId,
         templateId: 'template-123',
@@ -662,7 +683,7 @@ describe('WorkflowPatchService', () => {
         isPrimary: false,
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as any);
+      } as unknown as WorkflowTemplate);
       const ops: WorkflowPatchOp[] = [
         {
           op: 'document.add',
@@ -676,11 +697,11 @@ describe('WorkflowPatchService', () => {
       expect(result.errors).toHaveLength(0);
       expect(result.summary).toHaveLength(1);
       expect(result.summary[0]).toContain("Attached document 'Engagement Letter'");
-      expect(documentTemplateRepository.findByIdAndProjectId).toHaveBeenCalledWith(
+      expect(mockDocTemplateRepo.findByIdAndProjectId).toHaveBeenCalledWith(
         'template-123',
         'project-123'
       );
-      expect(workflowTemplateRepository.create).toHaveBeenCalledWith({
+      expect(mockWorkflowTemplateRepo.create).toHaveBeenCalledWith({
         workflowVersionId: mockWorkflowId,
         templateId: 'template-123',
         key: 'engagement-letter',
@@ -688,8 +709,7 @@ describe('WorkflowPatchService', () => {
       });
     });
     it('should bind document fields to workflow variables (document.bindFields)', async () => {
-      const { documentTemplateRepository } = await import('../../../server/repositories');
-      mockStepRepoFind.mockResolvedValue([
+      mockStepRepo.findByWorkflowId.mockResolvedValue([
         {
           id: 'step-1',
           sectionId: 'section-1',
@@ -701,7 +721,7 @@ describe('WorkflowPatchService', () => {
           config: {},
           createdAt: new Date(),
           updatedAt: new Date(),
-        } as any,
+        } as unknown as Step,
         {
           id: 'step-2',
           sectionId: 'section-1',
@@ -713,9 +733,9 @@ describe('WorkflowPatchService', () => {
           config: {},
           createdAt: new Date(),
           updatedAt: new Date(),
-        } as any,
+        } as unknown as Step,
       ]);
-      vi.mocked(documentTemplateRepository.update).mockResolvedValue({} as any);
+      mockDocTemplateRepo.update.mockResolvedValue({} as unknown as Template);
       const ops: WorkflowPatchOp[] = [
         {
           op: 'document.bindFields',
@@ -730,7 +750,7 @@ describe('WorkflowPatchService', () => {
       expect(result.errors).toHaveLength(0);
       expect(result.summary).toHaveLength(1);
       expect(result.summary[0]).toContain('Bound 2 field(s) to workflow variables');
-      expect(documentTemplateRepository.update).toHaveBeenCalledWith('template-123', {
+      expect(mockDocTemplateRepo.update).toHaveBeenCalledWith('template-123', {
         mapping: {
           client_name: { type: 'variable', source: 'fullName' },
           client_email: { type: 'variable', source: 'email' },
@@ -738,9 +758,7 @@ describe('WorkflowPatchService', () => {
       });
     });
     it('should reject binding to non-existent step alias', async () => {
-      // eslint-disable-next-line no-empty-pattern
-      const {  } = await import('../../../server/repositories');
-      mockStepRepoFind.mockResolvedValue([
+      mockStepRepo.findByWorkflowId.mockResolvedValue([
         {
           id: 'step-1',
           sectionId: 'section-1',
@@ -752,7 +770,7 @@ describe('WorkflowPatchService', () => {
           config: {},
           createdAt: new Date(),
           updatedAt: new Date(),
-        } as any,
+        } as unknown as Step,
       ]);
       const ops: WorkflowPatchOp[] = [
         {
@@ -778,14 +796,14 @@ describe('WorkflowPatchService', () => {
         title: 'Test Workflow',
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as any);
+      } as unknown as Workflow);
       vi.mocked(projectRepository.findById).mockResolvedValue({
         id: 'project-123',
         tenantId: 'tenant-123',
         name: 'Test Project',
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as any);
+      } as unknown as Project);
     });
     it('should create DataVault table with columns (datavault.createTable)', async () => {
       const { DatavaultTablesService } = vi.mocked(
@@ -806,8 +824,8 @@ describe('WorkflowPatchService', () => {
         description: null,
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as any);
-      vi.mocked(mockColumnService.createColumn).mockResolvedValue({} as any);
+      } as unknown as DatavaultTable);
+      vi.mocked(mockColumnService.createColumn).mockResolvedValue({} as unknown as DatavaultColumn);
       mockCreateTable.mockResolvedValue({ id: 'table-123', tenantId: 'tenant-123' });
       const ops: WorkflowPatchOp[] = [
         {
@@ -828,7 +846,6 @@ describe('WorkflowPatchService', () => {
       expect(result.summary[0]).toContain("Created DataVault table 'Submissions' with 3 column(s)");
     });
     it('should create writeback mapping (datavault.createWritebackMapping)', async () => {
-      const { datavaultWritebackMappingsRepository } = await import('../../../server/repositories');
       const { DatavaultTablesService } = vi.mocked(
         await import('../../../server/services/DatavaultTablesService')
       );
@@ -853,7 +870,7 @@ describe('WorkflowPatchService', () => {
           isUnique: false,
           createdAt: new Date(),
           updatedAt: new Date(),
-        } as any,
+        } as unknown as DatavaultColumn,
         {
           id: 'col-2',
           tableId: 'table-123',
@@ -866,10 +883,10 @@ describe('WorkflowPatchService', () => {
           isUnique: false,
           createdAt: new Date(),
           updatedAt: new Date(),
-        } as any,
+        } as unknown as DatavaultColumn,
       ]);
       // Mock workflow steps
-      mockStepRepoFind.mockResolvedValue([
+      mockStepRepo.findByWorkflowId.mockResolvedValue([
         {
           id: 'step-1',
           sectionId: 'section-1',
@@ -881,7 +898,7 @@ describe('WorkflowPatchService', () => {
           config: {},
           createdAt: new Date(),
           updatedAt: new Date(),
-        } as any,
+        } as unknown as Step,
         {
           id: 'step-2',
           sectionId: 'section-1',
@@ -893,9 +910,9 @@ describe('WorkflowPatchService', () => {
           config: {},
           createdAt: new Date(),
           updatedAt: new Date(),
-        } as any,
+        } as unknown as Step,
       ]);
-      vi.mocked(datavaultWritebackMappingsRepository.create).mockResolvedValue({
+      mockDatavaultWritebackRepo.create.mockResolvedValue({
         id: 'mapping-123',
         workflowId: mockWorkflowId,
         tableId: 'table-123',
@@ -906,8 +923,9 @@ describe('WorkflowPatchService', () => {
         triggerPhase: 'afterComplete',
         createdAt: new Date(),
         updatedAt: new Date(),
+        updatedBy: mockUserId, // Fix missing prop if needed, or rely on unknown
         createdBy: mockUserId,
-      } as any);
+      } as unknown as DatavaultWritebackMapping);
       const ops: WorkflowPatchOp[] = [
         {
           op: 'datavault.createWritebackMapping',
@@ -922,7 +940,7 @@ describe('WorkflowPatchService', () => {
       expect(result.errors).toHaveLength(0);
       expect(result.summary).toHaveLength(1);
       expect(result.summary[0]).toContain('Created writeback mapping: 2 field(s)');
-      expect(datavaultWritebackMappingsRepository.create).toHaveBeenCalledWith({
+      expect(mockDatavaultWritebackRepo.create).toHaveBeenCalledWith({
         workflowId: mockWorkflowId,
         tableId: 'table-123',
         columnMappings: {

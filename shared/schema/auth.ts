@@ -422,4 +422,5 @@ export type Team = InferSelectModel<typeof teams>;
 export type InsertTeam = InferInsertModel<typeof teams>;
 export type TeamMember = InferSelectModel<typeof teamMembers>;
 export type InsertTeamMember = InferInsertModel<typeof teamMembers>;
-// Export 'Teams' placeholders if needed, but not in original. Removed for now.
+export type LoginAttempt = InferSelectModel<typeof loginAttempts>;
+export type AccountLock = InferSelectModel<typeof accountLocks>;

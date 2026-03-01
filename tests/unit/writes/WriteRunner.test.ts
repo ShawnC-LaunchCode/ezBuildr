@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import type { WriteBlockConfig, BlockContext } from "@shared/types/blocks";
 
+import type { DatavaultColumn, DatavaultRow, DatavaultTable } from "@shared/schema";
 import { WriteRunner } from "../../../server/lib/writes/WriteRunner";
 import { datavaultRowsRepository, datavaultColumnsRepository, datavaultTablesRepository } from "../../../server/repositories";
 import { datavaultRowsService } from "../../../server/services/DatavaultRowsService";
@@ -71,22 +72,28 @@ describe("WriteRunner", () => {
             { id: "col-age", type: "number", required: false, name: "Age" },
             { id: "col-email", type: "email", required: false, name: "Email" }, // Added for Update test
             { id: "col-status", type: "text", required: false, name: "Status" }
-        ] as any);
+        ] as unknown as DatavaultColumn[]);
         vi.mocked(datavaultTablesRepository.findById).mockResolvedValue({
             id: "table-users",
             tenantId: mockTenantId
-        } as any);
+        } as unknown as DatavaultTable);
         vi.mocked(datavaultRowsRepository.findById).mockResolvedValue({
             id: "row-existing-1",
             tableId: "table-users",
-        } as any);
+        } as unknown as DatavaultRow);
     });
     describe("Mode: Create", () => {
         beforeEach(() => {
             // Specific overrides if needed
         });
         it("should resolve values and call datavaultRowsService.createRow", async () => {
-            const _config: any = {
+            // Note: _config is unused in the test logic below, we define writeConfig properly.
+            // Keeping it for reference or removing if purely unused.
+            // It seems the test meant to use it or it's legacy. 
+            // The original code typed it as `any`. usage: none visible except maybe compilation.
+            // I'll assume it's a Partial<WriteBlockConfig> or just remove the explicit type if it's just a mock object.
+            /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
+            const _config = {
                 id: "block-1",
                 workflowId: "wf-1",
                 type: "write",
@@ -117,9 +124,9 @@ describe("WriteRunner", () => {
                 ]
             };
             vi.mocked(datavaultRowsRepository.createRowWithValues).mockResolvedValue({
-                row: { id: "row-new" },
+                row: { id: "row-new" } as DatavaultRow,
                 values: []
-            } as any);
+            });
             const result = await runner.executeWrite(writeConfig, mockContext, mockTenantId);
             expect(result.success).toBe(true);
             expect(result.rowId).toBe("row-new");
@@ -166,8 +173,8 @@ describe("WriteRunner", () => {
                     { columnId: "col-status", value: "Active" }
                 ]
             };
-            vi.mocked(datavaultRowsRepository.findRowByColumnValue).mockResolvedValue("row-existing-1" as any);
-            vi.mocked(datavaultRowsRepository.updateRowValues).mockResolvedValue(true as any);
+            vi.mocked(datavaultRowsRepository.findRowByColumnValue).mockResolvedValue("row-existing-1");
+            vi.mocked(datavaultRowsRepository.updateRowValues).mockResolvedValue(undefined);
             const result = await runner.executeWrite(writeConfig, mockContext, mockTenantId);
             expect(result.success).toBe(true);
             expect(result.rowId).toBe("row-existing-1");
@@ -192,10 +199,10 @@ describe("WriteRunner", () => {
                 primaryKeyValue: "missing@example.com",
                 columnMappings: []
             };
-            (datavaultTablesRepository.findById as any).mockResolvedValue({
+            vi.mocked(datavaultTablesRepository.findById).mockResolvedValue({
                 id: "table-users",
                 tenantId: mockTenantId
-            });
+            } as unknown as DatavaultTable);
             vi.mocked(datavaultRowsRepository.findRowByColumnValue).mockResolvedValue(null);
             const result = await runner.executeWrite(writeConfig, mockContext, mockTenantId);
             expect(result.success).toBe(false);

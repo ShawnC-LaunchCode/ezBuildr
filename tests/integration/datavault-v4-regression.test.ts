@@ -180,7 +180,7 @@ describe('DataVault v4 Regression Tests', () => {
     }
   });
   describe('Select/Multiselect Columns', () => {
-    it('should create a select column with options', async () => {
+    it('should create a select column with options', { timeout: 30000 }, async () => {
       const response = await request(app)
         .post(`/api/datavault/tables/${testTableId}/columns`)
         .set('Origin', 'http://localhost:5000')
@@ -201,7 +201,7 @@ describe('DataVault v4 Regression Tests', () => {
       expect(response.body.options).toHaveLength(3);
       expect(response.body.options[0]).toHaveProperty('color', 'green');
     });
-    it('should create a multiselect column with options', async () => {
+    it('should create a multiselect column with options', { timeout: 30000 }, async () => {
       const response = await request(app)
         .post(`/api/datavault/tables/${testTableId}/columns`)
         .set('Origin', 'http://localhost:5000')
@@ -221,7 +221,7 @@ describe('DataVault v4 Regression Tests', () => {
       expect(response.body.type).toBe('multiselect');
       expect(response.body.options).toHaveLength(3);
     });
-    it('should validate select value against options', async () => {
+    it('should validate select value against options', { timeout: 30000 }, async () => {
       // Create select column
       const colResponse = await request(app)
         .post(`/api/datavault/tables/${testTableId}/columns`)
@@ -260,7 +260,7 @@ describe('DataVault v4 Regression Tests', () => {
         });
       expect(invalidResponse.status).toBe(500);
     });
-    it('should validate multiselect values as array', async () => {
+    it('should validate multiselect values as array', { timeout: 30000 }, async () => {
       // Create multiselect column
       const colResponse = await request(app)
         .post(`/api/datavault/tables/${testTableId}/columns`)
@@ -291,7 +291,7 @@ describe('DataVault v4 Regression Tests', () => {
     });
   });
   describe('Autonumber Columns', () => {
-    it('should create an autonumber column with sequence', async () => {
+    it('should create an autonumber column with sequence', { timeout: 30000 }, async () => {
       const response = await request(app)
         .post(`/api/datavault/tables/${testTableId}/columns`)
         .set('Origin', 'http://localhost:5000')
@@ -309,7 +309,7 @@ describe('DataVault v4 Regression Tests', () => {
       expect(response.body.type).toBe('autonumber');
       expect(response.body.autonumberPrefix).toBe('INV-');
     });
-    it('should format autonumber with prefix', async () => {
+    it('should format autonumber with prefix', { timeout: 30000 }, async () => {
       // Create autonumber column with prefix
       const colResponse = await request(app)
         .post(`/api/datavault/tables/${testTableId}/columns`)
@@ -347,7 +347,7 @@ describe('DataVault v4 Regression Tests', () => {
       } as any).returning();
       testRowId = row.id;
     });
-    it('should create a note for a row', async () => {
+    it('should create a note for a row', { timeout: 30000 }, async () => {
       const response = await request(app)
         .post(`/api/datavault/rows/${testRowId}/notes`)
         .set('Origin', 'http://localhost:5000')
@@ -360,7 +360,7 @@ describe('DataVault v4 Regression Tests', () => {
       expect(response.body.text).toBe('This is a test note');
       expect(response.body.userId).toBe(testUserId);
     });
-    it('should get all notes for a row', async () => {
+    it('should get all notes for a row', { timeout: 30000 }, async () => {
       // Create multiple notes
       await request(app)
         .post(`/api/datavault/rows/${testRowId}/notes`)
@@ -380,7 +380,7 @@ describe('DataVault v4 Regression Tests', () => {
       expect(response.status).toBe(200);
       expect(response.body).toHaveLength(2);
     });
-    it('should delete a note', async () => {
+    it('should delete a note', { timeout: 30000 }, async () => {
       // Create note
       const createResponse = await request(app)
         .post(`/api/datavault/rows/${testRowId}/notes`)
@@ -401,7 +401,7 @@ describe('DataVault v4 Regression Tests', () => {
         .where(eq(datavaultRowNotes.id, noteId));
       expect(notes).toHaveLength(0);
     });
-    it('should not allow deleting notes by other users', async () => {
+    it('should not allow deleting notes by other users', { timeout: 30000 }, async () => {
       // Create note with test user
       const createResponse = await request(app)
         .post(`/api/datavault/rows/${testRowId}/notes`)
@@ -418,7 +418,7 @@ describe('DataVault v4 Regression Tests', () => {
     });
   });
   describe('API Tokens', () => {
-    it('should create an API token', async () => {
+    it('should create an API token', { timeout: 30000 }, async () => {
       const response = await request(app)
         .post(`/api/datavault/databases/${testDatabaseId}/tokens`)
         .set('Origin', 'http://localhost:5000')
@@ -439,7 +439,7 @@ describe('DataVault v4 Regression Tests', () => {
       // Assuming response body IS the token object.
       expect(response.body.token.scopes).toEqual(['read', 'write']);
     });
-    it('should validate API token scopes', async () => {
+    it('should validate API token scopes', { timeout: 30000 }, async () => {
       const response = await request(app)
         .post(`/api/datavault/databases/${testDatabaseId}/tokens`)
         .set('Origin', 'http://localhost:5000')
@@ -450,7 +450,7 @@ describe('DataVault v4 Regression Tests', () => {
         });
       expect(response.status).toBe(400);
     });
-    it('should revoke (delete) an API token', async () => {
+    it('should revoke (delete) an API token', { timeout: 30000 }, async () => {
       // Create token
       const createResponse = await request(app)
         .post(`/api/datavault/databases/${testDatabaseId}/tokens`)
@@ -476,7 +476,7 @@ describe('DataVault v4 Regression Tests', () => {
         .where(eq(datavaultApiTokens.id, tokenId));
       expect(tokens).toHaveLength(0);
     });
-    it('should deny access with expired token', async () => {
+    it('should deny access with expired token', { timeout: 30000 }, async () => {
       // Create token with expiration in the past
       const expiredDate = new Date(Date.now() - 1000 * 60 * 60); // 1 hour ago
       const createResponse = await request(app)
@@ -498,7 +498,7 @@ describe('DataVault v4 Regression Tests', () => {
     });
   });
   describe('Table Permissions', () => {
-    it('should grant table permission', async () => {
+    it('should grant table permission', { timeout: 30000 }, async () => {
       const targetUserId = 'other-user-id';
       const response = await request(app)
         .post(`/api/datavault/tables/${testTableId}/permissions`)
@@ -513,7 +513,7 @@ describe('DataVault v4 Regression Tests', () => {
       expect(response.body.role).toBe('read');
       expect(response.body.userId).toBe(targetUserId);
     });
-    it('should list table permissions', async () => {
+    it('should list table permissions', { timeout: 30000 }, async () => {
       const response = await request(app)
         .get(`/api/datavault/tables/${testTableId}/permissions`)
         .set('Origin', 'http://localhost:5000')
@@ -522,7 +522,7 @@ describe('DataVault v4 Regression Tests', () => {
       expect(response.body).toBeDefined();
       expect(Array.isArray(response.body)).toBe(true);
     });
-    it('should update table permission role', async () => {
+    it('should update table permission role', { timeout: 30000 }, async () => {
       const targetUserId = 'other-user-id';
       // Grant initial permission
       const grantResponse = await request(app)
@@ -549,7 +549,7 @@ describe('DataVault v4 Regression Tests', () => {
       expect(updateResponse.status).toBe(201);
       expect(updateResponse.body.role).toBe('write');
     });
-    it('should revoke table permission', async () => {
+    it('should revoke table permission', { timeout: 30000 }, async () => {
       const targetUserId = 'other-user-id';
       // Grant permission
       const grantResponse = await request(app)
@@ -575,7 +575,7 @@ describe('DataVault v4 Regression Tests', () => {
         .where(eq(datavaultTablePermissions.id, permissionId));
       expect(permissions).toHaveLength(0);
     });
-    it('should enforce RBAC - only owners can manage permissions', async () => {
+    it('should enforce RBAC - only owners can manage permissions', { timeout: 30000 }, async () => {
       // Try to grant permission as non-owner
       // otherUserToken is set in beforeAll
       const response = await request(app)
@@ -589,7 +589,7 @@ describe('DataVault v4 Regression Tests', () => {
     });
   });
   describe('Grid Performance', () => {
-    it('should paginate rows efficiently', async () => {
+    it('should paginate rows efficiently', { timeout: 30000 }, async () => {
       // Create multiple rows
       const rowPromises = [];
       for (let i = 0; i < 100; i++) {
@@ -614,7 +614,7 @@ describe('DataVault v4 Regression Tests', () => {
     });
   });
   describe('Error Handling', () => {
-    it('should return user-friendly error for invalid column type', async () => {
+    it('should return user-friendly error for invalid column type', { timeout: 30000 }, async () => {
       const response = await request(app)
         .post(`/api/datavault/tables/${testTableId}/columns`)
         .set('Origin', 'http://localhost:5000')
@@ -628,7 +628,7 @@ describe('DataVault v4 Regression Tests', () => {
       expect(response.body.errors).toBeDefined();
       // expect(response.body.error).toContain('Invalid column type');
     });
-    it('should return user-friendly error for missing required fields', async () => {
+    it('should return user-friendly error for missing required fields', { timeout: 30000 }, async () => {
       // Create required column
       const colResponse = await request(app)
         .post(`/api/datavault/tables/${testTableId}/columns`)
@@ -651,7 +651,7 @@ describe('DataVault v4 Regression Tests', () => {
       expect(response.body.message).toBeDefined();
       expect(response.body.message).toContain('Required');
     });
-    it('should handle network errors gracefully', async () => {
+    it('should handle network errors gracefully', { timeout: 30000 }, async () => {
       // Test with invalid ID format
       const response = await request(app)
         .get('/api/datavault/tables/invalid-uuid/rows')

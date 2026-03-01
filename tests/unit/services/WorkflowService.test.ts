@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
+import { describe, it, expect, beforeEach, vi, type Mock, type Mocked } from "vitest";
 
 // Use dynamic import for service to ensure mocks apply
 // import { WorkflowService } from "../../../server/services/WorkflowService";
@@ -6,7 +6,19 @@ import { aclService } from "../../../server/services/AclService";
 import { createTestWorkflow, createTestSection, createTestLogicRule } from "../../factories/workflowFactory";
 
 import type { InsertWorkflow } from "../../../shared/schema";
+import type { WorkflowService } from "../../../server/services/WorkflowService";
+import type {
+  WorkflowRepository,
+  SectionRepository,
+  StepRepository,
+  LogicRuleRepository,
+  ProjectRepository,
+  WorkflowAccessRepository,
+  type DbTransaction
+} from "../../../server/repositories";
+
 const validUUID = "123e4567-e89b-12d3-a456-426614174000";
+
 vi.mock("../../../server/db", () => ({
   db: {
     query: {
@@ -20,28 +32,41 @@ vi.mock("../../../server/db", () => ({
   },
   initializeDatabase: vi.fn(),
 }));
+
 vi.mock("../../../server/services/AclService", () => ({
   aclService: {
     hasWorkflowRole: vi.fn().mockResolvedValue(true),
     hasProjectRole: vi.fn().mockResolvedValue(true),
   },
 }));
+
 vi.mock("../../../server/utils/ownershipAccess", () => ({
   canAccessAsset: vi.fn().mockResolvedValue(false),
   requireAssetAccess: vi.fn(),
   canCreateWithOwnership: vi.fn().mockResolvedValue(true),
 }));
+
 describe("WorkflowService", () => {
-  let service: any;
-  let WorkflowServiceClass: any;
-  let mockWorkflowRepo: any;
-  let mockSectionRepo: any;
-  let mockStepRepo: any;
-  let mockLogicRuleRepo: any;
-  let mockWorkflowAccessRepo: any;
-  let mockProjectRepo: any;
+  let service: WorkflowService;
+  let WorkflowServiceClass: new (
+    workflowRepo: WorkflowRepository,
+    sectionRepo: SectionRepository,
+    stepRepo: StepRepository,
+    logicRuleRepo: LogicRuleRepository,
+    workflowAccessRepo: WorkflowAccessRepository,
+    projectRepo: ProjectRepository
+  ) => WorkflowService;
+
+  let mockWorkflowRepo: Mocked<WorkflowRepository>;
+  let mockSectionRepo: Mocked<SectionRepository>;
+  let mockStepRepo: Mocked<StepRepository>;
+  let mockLogicRuleRepo: Mocked<LogicRuleRepository>;
+  let mockWorkflowAccessRepo: Mocked<WorkflowAccessRepository>;
+  let mockProjectRepo: Mocked<ProjectRepository>;
+
   beforeEach(async () => {
     vi.clearAllMocks();
+
     // Re-mock DB for this test context to avoid setup.ts pollution
     vi.mock("../../../server/db", () => ({
       db: {
@@ -55,38 +80,65 @@ describe("WorkflowService", () => {
         },
       },
     }));
+
     // Setup AclService Mocks
     (aclService.hasWorkflowRole as Mock).mockResolvedValue(true);
     (aclService.hasProjectRole as Mock).mockResolvedValue(true);
+
     mockWorkflowRepo = {
       findById: vi.fn(),
       findByIdOrSlug: vi.fn(),
+      findBySlug: vi.fn(),
       findByCreatorId: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
       findByUserAccess: vi.fn(),
-      transaction: vi.fn((callback) => callback({})),
-    };
+      transaction: vi.fn(async (callback: (tx: DbTransaction) => Promise<unknown>) => callback({} as DbTransaction)),
+      moveToProject: vi.fn(),
+      findUnfiledByCreatorId: vi.fn(),
+      countByCreatorId: vi.fn(),
+      findAll: vi.fn(),
+    } as unknown as Mocked<WorkflowRepository>;
+
     mockSectionRepo = {
       findByWorkflowId: vi.fn(),
       create: vi.fn(),
-    };
+      update: vi.fn(),
+      delete: vi.fn(),
+      findById: vi.fn(),
+    } as unknown as Mocked<SectionRepository>;
+
     mockStepRepo = {
       findBySectionIds: vi.fn(),
-    };
+    } as unknown as Mocked<StepRepository>;
+
     mockLogicRuleRepo = {
       findByWorkflowId: vi.fn(),
-    };
+    } as unknown as Mocked<LogicRuleRepository>;
+
     mockWorkflowAccessRepo = {
       hasAccess: vi.fn(),
-    };
+      findByWorkflowId: vi.fn(),
+      upsert: vi.fn(),
+      deleteByPrincipal: vi.fn(),
+    } as unknown as Mocked<WorkflowAccessRepository>;
+
     mockProjectRepo = {
       findById: vi.fn(),
-    };
+    } as unknown as Mocked<ProjectRepository>;
+
     // Dynamic import to pick up mocks
     const module = await import("../../../server/services/WorkflowService");
-    WorkflowServiceClass = module.WorkflowService;
+    WorkflowServiceClass = module.WorkflowService as unknown as new (
+      workflowRepo: WorkflowRepository,
+      sectionRepo: SectionRepository,
+      stepRepo: StepRepository,
+      logicRuleRepo: LogicRuleRepository,
+      workflowAccessRepo: WorkflowAccessRepository,
+      projectRepo: ProjectRepository
+    ) => WorkflowService;
+
     service = new WorkflowServiceClass(
       mockWorkflowRepo,
       mockSectionRepo,
@@ -96,6 +148,7 @@ describe("WorkflowService", () => {
       mockProjectRepo
     );
   });
+
   describe("verifyOwnership", () => {
     it("should return workflow if user is the creator", async () => {
       const workflow = createTestWorkflow({ creatorId: "user-123" });
@@ -196,17 +249,14 @@ describe("WorkflowService", () => {
         createTestWorkflow({ creatorId: "user-123", title: "Workflow 1" }),
         createTestWorkflow({ creatorId: "user-123", title: "Workflow 2" }),
       ];
-      // mockWorkflowRepo.findByUserAccess.mockResolvedValue(workflows);
-      // Force mock on instance to avoid reference disconnects
-      vi.spyOn((service).workflowRepo, 'findByUserAccess').mockResolvedValue(workflows);
+      mockWorkflowRepo.findByUserAccess.mockResolvedValue(workflows);
       const result = await service.listWorkflows("user-123");
       expect(result).toEqual(workflows);
       expect(result).toHaveLength(2);
       expect(mockWorkflowRepo.findByUserAccess).toHaveBeenCalledWith("user-123");
     });
     it("should return empty array if user has no workflows", async () => {
-      // mockWorkflowRepo.findByUserAccess.mockResolvedValue([]);
-      vi.spyOn((service).workflowRepo, 'findByUserAccess').mockResolvedValue([]);
+      mockWorkflowRepo.findByUserAccess.mockResolvedValue([]);
       const result = await service.listWorkflows("user-123");
       expect(result).toEqual([]);
     });

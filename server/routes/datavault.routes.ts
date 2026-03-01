@@ -97,10 +97,13 @@ export function registerDatavaultRoutes(app: Express): void {
           }
           // For 'account' scope: tenantId check is sufficient (already done above)
         }
+        const scopeTypeParsed = z.enum(['account', 'project', 'workflow']).safeParse(scopeType);
+        if (!scopeTypeParsed.success) {
+          return res.status(400).json({ message: 'Invalid scopeType. Must be account, project, or workflow.' });
+        }
         databases = await datavaultDatabasesService.getDatabasesByScope(
           tenantId,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
-          scopeType as any,
+          scopeTypeParsed.data,
           scopeId as string
         );
       } else {

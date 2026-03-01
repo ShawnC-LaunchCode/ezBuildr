@@ -98,8 +98,7 @@ export function BlockRenderer(props: BlockRendererProps) {
       case "short_text":
       case "long_text":
       case "text":
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore - Prop injection for accessibility
+
         return <TextBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} />;
 
       // Boolean blocks

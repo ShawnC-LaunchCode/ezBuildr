@@ -10,8 +10,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { WorkflowRevisionService } from '../../../../server/services/ai/WorkflowRevisionService';
+import type { AIProviderClient } from '../../../../server/services/ai/AIProviderClient';
+import type { AIPromptBuilder } from '../../../../server/services/ai/AIPromptBuilder';
 
-import type { AIGeneratedSection } from '../../../../shared/types/ai';
+import type {
+    AIGeneratedSection,
+    AIWorkflowRevisionResponse,
+    AIWorkflowRevisionRequest
+} from '../../../../shared/types/ai';
 
 // Mock the AI provider client to avoid actual API calls
 vi.mock('../../../../server/services/ai/AIProviderClient', () => ({
@@ -36,6 +42,20 @@ vi.mock('../../../../server/logger', () => ({
         error: vi.fn(),
     }),
 }));
+
+// Replicated from source since it is not exported
+interface SectionChunk {
+    sectionIndices: number[];
+    estimatedTokens: number;
+    containsSplitSection: boolean;
+}
+
+// Helper type to access private methods for testing
+type TestableWorkflowRevisionService = {
+    chunkWorkflowBySections(sections: AIGeneratedSection[], tokenLimit: number, outputMultiplier: number): SectionChunk[];
+    reviseWorkflowChunked(request: AIWorkflowRevisionRequest): Promise<AIWorkflowRevisionResponse>;
+    reviseWorkflowSingleShot(request: AIWorkflowRevisionRequest): Promise<AIWorkflowRevisionResponse>;
+};
 
 describe('WorkflowRevisionService - Semantic Section-Aware Chunking', () => {
     let service: WorkflowRevisionService;
@@ -90,14 +110,14 @@ describe('WorkflowRevisionService - Semantic Section-Aware Chunking', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         // Create service with mocked dependencies
-        const mockClient = { callLLM: vi.fn() } as any;
-        const mockPromptBuilder = { buildPrompt: vi.fn() } as any;
+        const mockClient = { callLLM: vi.fn() } as unknown as AIProviderClient;
+        const mockPromptBuilder = { buildPrompt: vi.fn() } as unknown as AIPromptBuilder;
         service = new WorkflowRevisionService(mockClient, mockPromptBuilder);
     });
 
     describe('chunkWorkflowBySections', () => {
         it('should return empty array for empty sections', () => {
-            const chunks = (service as any).chunkWorkflowBySections([], 6400, 2);
+            const chunks = (service as unknown as TestableWorkflowRevisionService).chunkWorkflowBySections([], 6400, 2);
             expect(chunks).toEqual([]);
         });
 
@@ -108,7 +128,7 @@ describe('WorkflowRevisionService - Semantic Section-Aware Chunking', () => {
                 createSection('s3', 'Section 3', 2),
             ];
 
-            const chunks = (service as any).chunkWorkflowBySections(sections, 6400, 2);
+            const chunks = (service as unknown as TestableWorkflowRevisionService).chunkWorkflowBySections(sections, 6400, 2);
 
             // All small sections should fit in one chunk
             expect(chunks.length).toBe(1);
@@ -126,17 +146,17 @@ describe('WorkflowRevisionService - Semantic Section-Aware Chunking', () => {
             ];
 
             // Use a small limit to force chunking
-            const chunks = (service as any).chunkWorkflowBySections(sections, 1000, 2);
+            const chunks = (service as unknown as TestableWorkflowRevisionService).chunkWorkflowBySections(sections, 1000, 2);
 
             // Should create multiple chunks
             expect(chunks.length).toBeGreaterThan(1);
 
             // All section indices should be accounted for
-            const allIndices = chunks.flatMap((c: any) => c.sectionIndices);
+            const allIndices = chunks.flatMap((c: SectionChunk) => c.sectionIndices);
             expect(allIndices.sort()).toEqual([0, 1, 2, 3, 4]);
 
             // No chunks should have split sections with this configuration
-            expect(chunks.every((c: any) => !c.containsSplitSection)).toBe(true);
+            expect(chunks.every((c: SectionChunk) => !c.containsSplitSection)).toBe(true);
         });
 
         it('should handle a single oversized section by giving it its own chunk', () => {
@@ -147,18 +167,18 @@ describe('WorkflowRevisionService - Semantic Section-Aware Chunking', () => {
             ];
 
             // Use a moderate limit that large section will exceed
-            const chunks = (service as any).chunkWorkflowBySections(sections, 2000, 2);
+            const chunks = (service as unknown as TestableWorkflowRevisionService).chunkWorkflowBySections(sections, 2000, 2);
 
             // Should have multiple chunks
             expect(chunks.length).toBeGreaterThan(1);
 
             // Find the chunk with the large section
-            const largeChunk = chunks.find((c: any) => c.sectionIndices.includes(1));
+            const largeChunk = chunks.find((c: SectionChunk) => c.sectionIndices.includes(1));
             expect(largeChunk).toBeDefined();
 
             // Large section should be in its own chunk and marked as split
-            expect(largeChunk.sectionIndices).toEqual([1]);
-            expect(largeChunk.containsSplitSection).toBe(true);
+            expect(largeChunk!.sectionIndices).toEqual([1]);
+            expect(largeChunk!.containsSplitSection).toBe(true);
         });
 
         it('should preserve section order in chunks', () => {
@@ -169,7 +189,7 @@ describe('WorkflowRevisionService - Semantic Section-Aware Chunking', () => {
                 createSection('s4', 'Section 4', 5),
             ];
 
-            const chunks = (service as any).chunkWorkflowBySections(sections, 1500, 2);
+            const chunks = (service as unknown as TestableWorkflowRevisionService).chunkWorkflowBySections(sections, 1500, 2);
 
             // Verify indices are in ascending order within and across chunks
             let lastIndex = -1;
@@ -188,8 +208,8 @@ describe('WorkflowRevisionService - Semantic Section-Aware Chunking', () => {
             ];
 
             // With higher multiplier, sections appear larger
-            const chunksHighMultiplier = (service as any).chunkWorkflowBySections(sections, 1000, 6);
-            const chunksLowMultiplier = (service as any).chunkWorkflowBySections(sections, 1000, 2);
+            const chunksHighMultiplier = (service as unknown as TestableWorkflowRevisionService).chunkWorkflowBySections(sections, 1000, 6);
+            const chunksLowMultiplier = (service as unknown as TestableWorkflowRevisionService).chunkWorkflowBySections(sections, 1000, 2);
 
             // Higher multiplier should create more chunks (or same if still fits)
             expect(chunksHighMultiplier.length).toBeGreaterThanOrEqual(chunksLowMultiplier.length);
@@ -201,7 +221,7 @@ describe('WorkflowRevisionService - Semantic Section-Aware Chunking', () => {
                 createSection('s2', 'Section 2', 3),
             ];
 
-            const chunks = (service as any).chunkWorkflowBySections(sections, 6400, 2);
+            const chunks = (service as unknown as TestableWorkflowRevisionService).chunkWorkflowBySections(sections, 6400, 2);
 
             // Each chunk should have estimatedTokens > 0
             for (const chunk of chunks) {
@@ -218,10 +238,10 @@ describe('WorkflowRevisionService - Semantic Section-Aware Chunking', () => {
                 createSection('s5', 'Tiny 2', 1),
             ];
 
-            const chunks = (service as any).chunkWorkflowBySections(sections, 3000, 2);
+            const chunks = (service as unknown as TestableWorkflowRevisionService).chunkWorkflowBySections(sections, 3000, 2);
 
             // All sections should be accounted for
-            const allIndices = chunks.flatMap((c: any) => c.sectionIndices);
+            const allIndices = chunks.flatMap((c: SectionChunk) => c.sectionIndices);
             expect(allIndices.sort()).toEqual([0, 1, 2, 3, 4]);
         });
 
@@ -230,7 +250,7 @@ describe('WorkflowRevisionService - Semantic Section-Aware Chunking', () => {
                 createSection(`s${i}`, `Section ${i}`, i + 2)
             );
 
-            const chunks = (service as any).chunkWorkflowBySections(sections, 2000, 2);
+            const chunks = (service as unknown as TestableWorkflowRevisionService).chunkWorkflowBySections(sections, 2000, 2);
 
             // Collect all indices
             const allIndices: number[] = [];
@@ -252,10 +272,10 @@ describe('WorkflowRevisionService - Semantic Section-Aware Chunking', () => {
             // This is a higher-level test to verify the chunking is being used
             // We'll check that the method calls chunkWorkflowBySections
 
-            const chunkSpy = vi.spyOn(service as any, 'chunkWorkflowBySections');
+            const chunkSpy = vi.spyOn(service as unknown as TestableWorkflowRevisionService, 'chunkWorkflowBySections');
 
             // Mock reviseWorkflowSingleShot to return a valid response
-            vi.spyOn(service as any, 'reviseWorkflowSingleShot').mockResolvedValue({
+            vi.spyOn(service as unknown as TestableWorkflowRevisionService, 'reviseWorkflowSingleShot').mockResolvedValue({
                 updatedWorkflow: {
                     title: 'Test',
                     sections: [createSection('s1', 'Section 1', 2)],
@@ -283,7 +303,7 @@ describe('WorkflowRevisionService - Semantic Section-Aware Chunking', () => {
                 mode: 'easy' as const,
             };
 
-            await (service as any).reviseWorkflowChunked(request);
+            await (service as unknown as TestableWorkflowRevisionService).reviseWorkflowChunked(request);
 
             // Verify chunkWorkflowBySections was called
             expect(chunkSpy).toHaveBeenCalled();

@@ -21,15 +21,11 @@ export const generateMockValue = (type: string): unknown => {
     }
 };
 
-interface Variable {
-    key: string;
-    type: string;
-}
-
+import { ApiWorkflowVariable } from "@/lib/vault-api";
 export const generateMockInput = (
     inputKeys: string[],
     testData: Record<string, string>,
-    variables: Variable[]
+    variables: ApiWorkflowVariable[]
 ): Record<string, unknown> => {
     const mockInput: Record<string, unknown> = {};
 
