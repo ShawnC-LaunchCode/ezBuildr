@@ -1,4 +1,4 @@
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, inArray, sql } from "drizzle-orm";
 
 import { collectionFields, type CollectionField, type InsertCollectionField } from "@shared/schema";
 
@@ -75,6 +75,45 @@ export class CollectionFieldRepository extends BaseRepository<typeof collectionF
       .limit(1);
 
     return result !== undefined;
+  }
+
+  /**
+   * Count fields for multiple collections in a single query
+   */
+  async countByCollectionIds(collectionIds: string[], tx?: DbTransaction): Promise<Map<string, number>> {
+    if (collectionIds.length === 0) return new Map();
+    const database = this.getDb(tx);
+    const results = await database
+      .select({ collectionId: collectionFields.collectionId, count: sql<number>`count(*)::int` })
+      .from(collectionFields)
+      .where(inArray(collectionFields.collectionId, collectionIds))
+      .groupBy(collectionFields.collectionId);
+    const map = new Map<string, number>(collectionIds.map(id => [id, 0]));
+    for (const r of results) {
+      map.set(r.collectionId, r.count);
+    }
+    return map;
+  }
+
+  /**
+   * Fetch all slugs for a collection (used for in-memory uniqueness deduplication)
+   */
+  async findSlugsByCollectionId(collectionId: string, tx?: DbTransaction): Promise<Set<string>> {
+    const database = this.getDb(tx);
+    const results = await database
+      .select({ slug: collectionFields.slug })
+      .from(collectionFields)
+      .where(eq(collectionFields.collectionId, collectionId));
+    return new Set(results.map(r => r.slug));
+  }
+
+  /**
+   * Batch insert multiple fields
+   */
+  async createMany(fields: InsertCollectionField[], tx?: DbTransaction): Promise<CollectionField[]> {
+    if (fields.length === 0) return [];
+    const database = this.getDb(tx);
+    return database.insert(collectionFields).values(fields).returning();
   }
 
   /**

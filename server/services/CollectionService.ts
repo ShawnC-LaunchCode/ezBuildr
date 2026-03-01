@@ -121,18 +121,17 @@ export class CollectionService {
   async listCollectionsWithStats(tenantId: string, tx?: DbTransaction): Promise<Array<Collection & { fieldCount: number; recordCount: number }>> {
     const collections = await this.collectionRepo.findByTenantId(tenantId, tx);
 
-    return Promise.all(
-      collections.map(async (collection) => {
-        const fields = await this.fieldRepo.findByCollectionId(collection.id, tx);
-        const recordCount = await this.recordRepo.countByCollectionId(collection.id, tx);
-
-        return {
-          ...collection,
-          fieldCount: fields.length,
-          recordCount,
-        };
-      })
-    );
+    if (collections.length === 0) return [];
+    const collectionIds = collections.map(c => c.id);
+    const [fieldCounts, recordCounts] = await Promise.all([
+      this.fieldRepo.countByCollectionIds(collectionIds, tx),
+      this.recordRepo.countByCollectionIds(collectionIds, tx),
+    ]);
+    return collections.map(collection => ({
+      ...collection,
+      fieldCount: fieldCounts.get(collection.id) ?? 0,
+      recordCount: recordCounts.get(collection.id) ?? 0,
+    }));
   }
 
   /**

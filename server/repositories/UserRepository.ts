@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-import { eq, sql, count, getTableColumns } from "drizzle-orm";
+import { eq, sql, count, getTableColumns, inArray } from "drizzle-orm";
 
 import { users, workflows, type User, type UpsertUser } from "@shared/schema";
 
@@ -72,7 +72,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
             .set(updateData)
             .where(eq(users.email, userData.email))
             .returning();
-          if (!updatedUser) throw new Error("Failed to update user");
+          if (!updatedUser) {throw new Error("Failed to update user");}
           return updatedUser;
         }
       }
@@ -103,7 +103,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
         logger.warn({ err: e }, "Failed to increment user stats");
       }
 
-      if (!user) throw new Error("Failed to create user");
+      if (!user) {throw new Error("Failed to create user");}
       return user;
     } catch (error) {
       // If we still get a constraint violation, it could be due to race conditions
@@ -127,7 +127,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
             .set(updateData)
             .where(eq(users.email, userData.email))
             .returning();
-          if (!updatedUser) throw new Error("Failed to update user");
+          if (!updatedUser) {throw new Error("Failed to update user");}
           return updatedUser;
         }
       }
@@ -135,6 +135,15 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
       // If we can't handle the error, re-throw it
       throw error;
     }
+  }
+
+  /**
+   * Find multiple users by IDs (batch fetch)
+   */
+  async findByIds(ids: string[], tx?: DbTransaction): Promise<User[]> {
+    if (ids.length === 0) return [];
+    const database = this.getDb(tx);
+    return database.select().from(users).where(inArray(users.id, ids));
   }
 
   /**

@@ -5,6 +5,7 @@ import { eq, and } from "drizzle-orm";
 import { webhookSubscriptions, webhookEvents } from "@shared/schema";
 
 import { db } from "../../db";
+import { logger } from "../../logger";
 export class WebhookDispatcher {
     /**
      * Dispatch an event to all subscribed listeners in a workspace
@@ -28,20 +29,26 @@ export class WebhookDispatcher {
                 return events.includes(event) || events.includes('*');
             });
             if (relevantSubs.length === 0) { return; }
-            // 2. Create Delivery Events
-            for (const sub of relevantSubs) {
-                // Insert event log
-                const [eventRecord] = await db.insert(webhookEvents).values({
+            // 2. Create Delivery Events (batch insert)
+            const insertedEvents = await db.insert(webhookEvents)
+                .values(relevantSubs.map(sub => ({
                     subscriptionId: sub.id,
                     event,
                     payload,
-                    status: 'pending'
-                }).returning();
-                // 3. Trigger Async Delivery (Fire and forget or queue)
-                void this.deliver(eventRecord.id, sub.targetUrl, sub.secret, event, payload);
+                    status: 'pending' as const,
+                })))
+                .returning();
+            // Map by subscriptionId for pairing
+            const eventBySub = new Map(insertedEvents.map(e => [e.subscriptionId, e]));
+            // 3. Trigger Async Delivery (Fire and forget or queue)
+            for (const sub of relevantSubs) {
+                const eventRecord = eventBySub.get(sub.id);
+                if (eventRecord) {
+                    void this.deliver(eventRecord.id, sub.targetUrl, sub.secret, event, payload);
+                }
             }
         } catch (err) {
-            console.error("Webhook Dispatch Error", err);
+            logger.error({ err, workspaceId, event }, "Webhook dispatch error");
         }
     }
     /**
@@ -67,7 +74,7 @@ export class WebhookDispatcher {
                 .set({ status, lastAttemptAt: new Date(), attempts: 1 })
                 .where(eq(webhookEvents.id, eventId));
         } catch (err) {
-            console.error(`Webhook Delivery Failed to ${url}`, err);
+            logger.error({ err, url, eventId }, "Webhook delivery failed");
             // Update status failed
             await db.update(webhookEvents)
                 .set({ status: 'failed', lastAttemptAt: new Date(), attempts: 1 })

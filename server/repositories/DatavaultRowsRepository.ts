@@ -125,6 +125,23 @@ export class DatavaultRowsRepository extends BaseRepository<
     return result?.count ?? 0;
   }
   /**
+   * Count rows for multiple tables in a single query
+   */
+  async countByTableIds(tableIds: string[], tx?: DbTransaction): Promise<Map<string, number>> {
+    if (tableIds.length === 0) return new Map();
+    const database = this.getDb(tx);
+    const results = await database
+      .select({ tableId: datavaultRows.tableId, count: sql<number>`count(*)::int` })
+      .from(datavaultRows)
+      .where(inArray(datavaultRows.tableId, tableIds))
+      .groupBy(datavaultRows.tableId);
+    const map = new Map<string, number>(tableIds.map(id => [id, 0]));
+    for (const r of results) {
+      map.set(r.tableId, r.count);
+    }
+    return map;
+  }
+  /**
    * Get row with all its values
    */
   async getRowWithValues(rowId: string, tx?: DbTransaction): Promise<{
@@ -173,7 +190,7 @@ export class DatavaultRowsRepository extends BaseRepository<
       if (acc[value.rowId] === undefined) {
         acc[value.rowId] = {};
       }
-      acc[value.rowId]![value.columnId] = value.value;
+      acc[value.rowId][value.columnId] = value.value;
       return acc;
     }, {});
     // Combine rows with their values
@@ -498,7 +515,7 @@ export class DatavaultRowsRepository extends BaseRepository<
       if (acc[value.rowId] === undefined) {
         acc[value.rowId] = {};
       }
-      acc[value.rowId]![value.columnId] = value.value;
+      acc[value.rowId][value.columnId] = value.value;
       return acc;
     }, {});
     // Build result map

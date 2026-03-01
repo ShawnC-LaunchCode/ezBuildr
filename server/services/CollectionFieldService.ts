@@ -273,18 +273,32 @@ export class CollectionFieldService {
     tx?: DbTransaction
   ): Promise<CollectionField[]> {
     await this.verifyCollectionExists(collectionId, tx);
+    if (fieldsData.length === 0) return [];
 
-    const createdFields: CollectionField[] = [];
-
+    // Validate all fields up-front (in memory, no DB calls)
     for (const fieldData of fieldsData) {
-      const field = await this.createField(
-        { ...fieldData, collectionId },
-        tx
-      );
-      createdFields.push(field);
+      this.validateFieldOptions(fieldData.type, fieldData.options);
+      this.validateDefaultValue(fieldData.type, fieldData.defaultValue);
     }
 
-    return createdFields;
+    // Fetch all existing slugs for this collection in one query, then deduplicate in memory
+    const existingSlugs = await this.fieldRepo.findSlugsByCollectionId(collectionId, tx);
+    const usedSlugs = new Set(existingSlugs);
+
+    const fieldsWithSlugs = fieldsData.map(fieldData => {
+      const baseSlug = fieldData.slug ?? this.generateSlug(fieldData.name);
+      let slug = baseSlug;
+      let counter = 1;
+      while (usedSlugs.has(slug)) {
+        slug = `${baseSlug}_${counter}`;
+        counter++;
+      }
+      usedSlugs.add(slug);
+      return { ...fieldData, collectionId, slug };
+    });
+
+    // Single batch insert for all fields
+    return this.fieldRepo.createMany(fieldsWithSlugs, tx);
   }
 }
 

@@ -1,4 +1,4 @@
-import { eq, and, sql, asc } from "drizzle-orm";
+import { eq, and, sql, asc, inArray } from "drizzle-orm";
 
 import {
   datavaultColumns,
@@ -101,14 +101,35 @@ export class DatavaultColumnsRepository extends BaseRepository<
     columnIds: string[],
     tx?: DbTransaction
   ): Promise<void> {
+    if (columnIds.length === 0) return;
     const database = this.getDb(tx);
-    // Update each column with its new order index
-    for (let i = 0; i < columnIds.length; i++) {
-      await database
-        .update(datavaultColumns)
-        .set({ orderIndex: i, updatedAt: new Date() })
-        .where(and(eq(datavaultColumns.id, columnIds[i]!), eq(datavaultColumns.tableId, tableId)));
+    // Single UPDATE with CASE WHEN instead of N individual updates
+    const whenClauses = columnIds.map((id, i) => sql`WHEN ${id} THEN ${i}`);
+    await database
+      .update(datavaultColumns)
+      .set({
+        orderIndex: sql`CASE ${datavaultColumns.id} ${sql.join(whenClauses, sql` `)} ELSE ${datavaultColumns.orderIndex} END`,
+        updatedAt: new Date(),
+      })
+      .where(and(inArray(datavaultColumns.id, columnIds), eq(datavaultColumns.tableId, tableId)));
+  }
+
+  /**
+   * Count columns for multiple tables in a single query
+   */
+  async countByTableIds(tableIds: string[], tx?: DbTransaction): Promise<Map<string, number>> {
+    if (tableIds.length === 0) return new Map();
+    const database = this.getDb(tx);
+    const results = await database
+      .select({ tableId: datavaultColumns.tableId, count: sql<number>`count(*)::int` })
+      .from(datavaultColumns)
+      .where(inArray(datavaultColumns.tableId, tableIds))
+      .groupBy(datavaultColumns.tableId);
+    const map = new Map<string, number>(tableIds.map(id => [id, 0]));
+    for (const r of results) {
+      map.set(r.tableId, r.count);
     }
+    return map;
   }
   /**
    * Delete all columns for a table

@@ -194,17 +194,27 @@ export class DatavaultTablePermissionsService {
     tx?: DbTransaction
   ): Promise<Array<DatavaultTablePermission & { permissionFlags: TablePermissionFlags }>> {
     const permissions = await this.permissionsRepo.findByUserId(userId, tx);
+    if (permissions.length === 0) return [];
 
-    // Map permissions to include flags
-    return Promise.all(
-      permissions.map(async (permission) => {
-        const flags = await this.checkTablePermission(userId, permission.tableId, tenantId, tx);
-        return {
-          ...permission,
-          permissionFlags: flags,
-        };
-      })
-    );
+    // Batch fetch all relevant tables in one query instead of one per permission
+    const tableIds = permissions.map(p => p.tableId);
+    const tables = await this.tablesRepo.findByIds(tableIds, tx);
+    const tableMap = new Map(tables.map(t => [t.id, t]));
+
+    return permissions.map(permission => {
+      const table = tableMap.get(permission.tableId);
+      let flags: TablePermissionFlags;
+
+      if (!table || table.tenantId !== tenantId) {
+        flags = { read: false, write: false, owner: false };
+      } else if (table.ownerUserId === userId) {
+        flags = { read: true, write: true, owner: true };
+      } else {
+        flags = this.roleToPermissionFlags(permission.role);
+      }
+
+      return { ...permission, permissionFlags: flags };
+    });
   }
 }
 

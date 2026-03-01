@@ -2,7 +2,7 @@ import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 import { records, type CollectionRecord, type InsertCollectionRecord } from "@shared/schema";
 
-import { eq, and, desc, sql, SQL } from "drizzle-orm";
+import { eq, and, desc, sql, SQL, inArray } from "drizzle-orm";
 
 import { db } from "../db";
 
@@ -106,6 +106,24 @@ export class RecordRepository extends BaseRepository<typeof records, CollectionR
       .where(eq(records.collectionId, collectionId));
 
     return result?.count ?? 0;
+  }
+
+  /**
+   * Count records for multiple collections in a single query
+   */
+  async countByCollectionIds(collectionIds: string[], tx?: DbTransaction): Promise<Map<string, number>> {
+    if (collectionIds.length === 0) return new Map();
+    const database = this.getDb(tx);
+    const results = await database
+      .select({ collectionId: records.collectionId, count: sql<number>`count(*)::int` })
+      .from(records)
+      .where(inArray(records.collectionId, collectionIds))
+      .groupBy(records.collectionId);
+    const map = new Map<string, number>(collectionIds.map(id => [id, 0]));
+    for (const r of results) {
+      map.set(r.collectionId, r.count);
+    }
+    return map;
   }
 
   /**

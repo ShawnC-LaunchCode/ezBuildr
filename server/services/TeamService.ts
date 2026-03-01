@@ -81,22 +81,23 @@ export class TeamService {
       throw new Error("Access denied - you are not a member of this team");
     }
 
-    // Get all members with user details
+    // Get all members with user details (batch fetch users to avoid N+1)
     const members = await this.teamMemberRepo.findByTeamId(teamId, tx);
-    const membersWithDetails = await Promise.all(
-      members.map(async (member) => {
-        const user = await this.userRepo.findById(member.userId, tx);
-        return {
-          ...member,
-          user: user ? {
-            id: user.id,
-            email: user.email,
-            firstName: user.firstName,
-            lastName: user.lastName,
-          } : null,
-        };
-      })
-    );
+    const userIds = members.map(m => m.userId);
+    const userList = await this.userRepo.findByIds(userIds, tx);
+    const userMap = new Map(userList.map(u => [u.id, u]));
+    const membersWithDetails = members.map(member => {
+      const user = userMap.get(member.userId);
+      return {
+        ...member,
+        user: user ? {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        } : null,
+      };
+    });
 
     return {
       ...team,

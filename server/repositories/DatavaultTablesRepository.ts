@@ -114,6 +114,18 @@ export class DatavaultTablesRepository extends BaseRepository<
   }
 
   /**
+   * Find multiple tables by IDs (batch fetch)
+   */
+  async findByIds(ids: string[], tx?: DbTransaction): Promise<DatavaultTable[]> {
+    if (ids.length === 0) return [];
+    const database = this.getDb(tx);
+    return database
+      .select()
+      .from(datavaultTables)
+      .where(inArray(datavaultTables.id, ids));
+  }
+
+  /**
    * Count tables for a tenant
    */
   async countByTenantId(tenantId: string, tx?: DbTransaction): Promise<number> {
