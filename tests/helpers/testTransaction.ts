@@ -1,4 +1,7 @@
+import { sql } from 'drizzle-orm';
+
 import { getDb } from '../../server/db';
+import type { DbTransaction } from '../../server/repositories/BaseRepository';
 /**
  * Transaction-based Test Isolation
  *
@@ -39,24 +42,21 @@ import { getDb } from '../../server/db';
  * });
  * ```
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function beginTestTransaction(): Promise<any> {
+export async function beginTestTransaction(): Promise<DbTransaction | undefined> {
   console.warn(
     'DEPRECATION WARNING: beginTestTransaction() is deprecated and will be removed in v2.0.0. ' +
     'Use runInTransaction() instead. See TESTING_STRATEGY.md for migration guide.'
   );
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = getDb() as any;
+  const db = getDb()!;
   // This pattern is fundamentally flawed - uses never-resolving promise
   return new Promise((resolve, reject) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    db.transaction(async (tx: any) => {
+    db.transaction(async (tx: DbTransaction) => {
       resolve(tx);
       // Never resolves - keeps transaction open (anti-pattern)
       await new Promise(() => { });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }).catch((error: any) => {
-      if (error?.message?.includes('rollback') ?? error?.code === '25P02') {
+    }).catch((error: unknown) => {
+      const err = error as { message?: string; code?: string } | null;
+      if (err?.message?.includes('rollback') ?? err?.code === '25P02') {
         resolve(undefined);
       } else {
         reject(error);
@@ -70,8 +70,7 @@ export async function beginTestTransaction(): Promise<any> {
  *
  * This function will be removed in v2.0.0 (January 2026).
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function rollbackTestTransaction(tx: any): Promise<void> {
+export async function rollbackTestTransaction(tx: DbTransaction): Promise<void> {
   console.warn(
     'DEPRECATION WARNING: rollbackTestTransaction() is deprecated and will be removed in v2.0.0. ' +
     'Use runInTransaction() instead.'
@@ -79,7 +78,7 @@ export async function rollbackTestTransaction(tx: any): Promise<void> {
   if (!tx) {return;}
   try {
     // Force rollback using raw SQL (fragile, PostgreSQL-specific)
-    await tx.execute('ROLLBACK');
+    await tx.execute(sql.raw('ROLLBACK'));
   } catch (error: unknown) {
     // Rollback errors are expected
   }
@@ -90,17 +89,14 @@ export async function rollbackTestTransaction(tx: any): Promise<void> {
  *
  * Note: These use raw SQL and are PostgreSQL-specific. Use with caution.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function createSavepoint(tx: any, name: string): Promise<void> {
-  await tx.execute(`SAVEPOINT ${name}`);
+export async function createSavepoint(tx: DbTransaction, name: string): Promise<void> {
+  await tx.execute(sql.raw(`SAVEPOINT ${name}`));
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function rollbackToSavepoint(tx: any, name: string): Promise<void> {
-  await tx.execute(`ROLLBACK TO SAVEPOINT ${name}`);
+export async function rollbackToSavepoint(tx: DbTransaction, name: string): Promise<void> {
+  await tx.execute(sql.raw(`ROLLBACK TO SAVEPOINT ${name}`));
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function releaseSavepoint(tx: any, name: string): Promise<void> {
-  await tx.execute(`RELEASE SAVEPOINT ${name}`);
+export async function releaseSavepoint(tx: DbTransaction, name: string): Promise<void> {
+  await tx.execute(sql.raw(`RELEASE SAVEPOINT ${name}`));
 }
 /**
  * Run a test function in a transaction with automatic rollback (RECOMMENDED)
@@ -143,17 +139,13 @@ export async function releaseSavepoint(tx: any, name: string): Promise<void> {
  * });
  * ```
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function runInTransaction<T>(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  testFn: (tx: any) => Promise<T>
+  testFn: (tx: DbTransaction) => Promise<T>
 ): Promise<T> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = getDb() as any;
+  const db = getDb()!;
   let result: T;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await db.transaction(async (tx: any) => {
+    await db.transaction(async (tx: DbTransaction) => {
       result = await testFn(tx);
       // Force rollback by throwing a specific error
       throw new Error('ROLLBACK_TEST_TRANSACTION');
@@ -174,24 +166,25 @@ export async function runInTransaction<T>(
  * This is useful for integration tests that need a clean slate
  */
 export async function truncateAllTables(): Promise<void> {
-  const db = getDb() as any;
+  const db = getDb()!;
   // Disable foreign key checks temporarily
-  await db.execute('SET session_replication_role = replica;');
+  await db.execute(sql.raw('SET session_replication_role = replica'));
   try {
     // Get all table names
-    const tables = await db.execute(`
+    const tables = await db.execute(sql`
       SELECT tablename
       FROM pg_tables
       WHERE schemaname = 'public'
-      AND tablename NOT LIKE 'pg_%'
-      AND tablename NOT LIKE 'drizzle%'
+      AND tablename NOT LIKE ${'pg_%'}
+      AND tablename NOT LIKE ${'drizzle%'}
     `);
     // Truncate all tables
-    for (const { tablename } of tables.rows || []) {
-      await db.execute(`TRUNCATE TABLE "${tablename}" CASCADE`);
+    for (const row of tables.rows) {
+      const { tablename } = row as { tablename: string };
+      await db.execute(sql.raw(`TRUNCATE TABLE "${tablename}" CASCADE`));
     }
   } finally {
     // Re-enable foreign key checks
-    await db.execute('SET session_replication_role = DEFAULT;');
+    await db.execute(sql.raw('SET session_replication_role = DEFAULT'));
   }
 }

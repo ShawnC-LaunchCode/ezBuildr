@@ -121,7 +121,7 @@ export class CollectionService {
   async listCollectionsWithStats(tenantId: string, tx?: DbTransaction): Promise<Array<Collection & { fieldCount: number; recordCount: number }>> {
     const collections = await this.collectionRepo.findByTenantId(tenantId, tx);
 
-    if (collections.length === 0) return [];
+    if (collections.length === 0) {return [];}
     const collectionIds = collections.map(c => c.id);
     const [fieldCounts, recordCounts] = await Promise.all([
       this.fieldRepo.countByCollectionIds(collectionIds, tx),

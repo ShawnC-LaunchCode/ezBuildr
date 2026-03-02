@@ -20,10 +20,14 @@ export interface ApiUser {
   email: string;
   firstName?: string | null;
   lastName?: string | null;
+  fullName?: string | null;
   role?: string;
+  tenantRole?: string | null;
+  tenantId?: string | null;
   isAdmin?: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- API user objects may contain arbitrary additional fields
-  [key: string]: any;
+  profileImageUrl?: string | null;
+  authProvider?: string | null;
+  defaultMode?: string | null;
 }
 
 let globalAccessToken: string | null = null;

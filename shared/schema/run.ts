@@ -11,8 +11,7 @@ import {
     uuid,
     boolean,
     integer,
-    pgEnum,
-    primaryKey
+    pgEnum
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 

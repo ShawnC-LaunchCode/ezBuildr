@@ -40,10 +40,6 @@ import { RequiredToggle } from "./common/RequiredToggle";
 import { DynamicOptionsEditor } from "./DynamicOptionsEditor";
 import { StaticOptionsEditor } from "./StaticOptionsEditor";
 
-// Explicitly define the props for the sub-components to match what we are passing
-// Use type assertions where necessary since sub-components might expect slightly different types
-type DynamicOptionsConfigType = Extract<ChoiceAdvancedConfig['options'], { type: 'list' }>;
-
 // eslint-disable-next-line max-lines-per-function
 export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
   const updateStepMutation = useUpdateStep();
@@ -110,7 +106,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
     if (saveSourceMode === "static") {
       if ((newConfig.staticOptions ?? []).length === 0) { formErrors.push("At least one option is required"); }
       // Check for duplicate aliases
-      const aliases = (newConfig.staticOptions ?? []).map((opt) => opt.alias || opt.id);
+      const aliases = (newConfig.staticOptions ?? []).map((opt) => opt.alias ?? opt.id);
       if (new Set(aliases).size !== aliases.length) { formErrors.push("Duplicate aliases found"); }
     } else {
       if (!newConfig.dynamicOptions?.listVariable) { formErrors.push("List variable is required"); }
@@ -295,21 +291,14 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
     if (unlinkMode === 'keep') {
       // Attempt to migrate transforms back
       if (linkedBlock?.config) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
-        const blockConfig = linkedBlock.config as any;
+        const blockConfig = linkedBlock.config as Record<string, unknown>;
         transform = {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-          filters: blockConfig.filters,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-          sort: blockConfig.sort,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-          limit: blockConfig.limit,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-          offset: blockConfig.offset,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-          dedupe: blockConfig.dedupe,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-          select: blockConfig.select
+          filters: blockConfig['filters'],
+          sort: blockConfig['sort'],
+          limit: blockConfig['limit'],
+          offset: blockConfig['offset'],
+          dedupe: blockConfig['dedupe'],
+          select: blockConfig['select']
         };
       } else {
         // Warning if block not found?
@@ -360,21 +349,14 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       let transformConfig = undefined;
       if (replaceMode === 'migrate' && (linkedBlock)?.config) {
         // Create copy of existing transforms
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
-        const blockConfig = linkedBlock.config as any;
+        const blockConfig = linkedBlock.config as Record<string, unknown>;
         transformConfig = {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-          filters: blockConfig.filters,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-          sort: blockConfig.sort,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-          limit: blockConfig.limit,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-          offset: blockConfig.offset,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-          dedupe: blockConfig.dedupe,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-          select: blockConfig.select
+          filters: blockConfig['filters'],
+          sort: blockConfig['sort'],
+          limit: blockConfig['limit'],
+          offset: blockConfig['offset'],
+          dedupe: blockConfig['dedupe'],
+          select: blockConfig['select']
         };
       }
 
@@ -458,17 +440,16 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
     }
 
     // Convert to UniversalBlock format expected by BlockEditorDialog
+    const blockCfg = linkedBlock.config as Record<string, unknown>;
     const universalBlock: UniversalBlock = {
       id: linkedBlock.id,
       type: linkedBlock.type,
       phase: linkedBlock.phase ?? 'onRunStart',
       order: linkedBlock.order ?? 0,
       enabled: linkedBlock.enabled ?? true,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
-      raw: linkedBlock as unknown as any,
+      raw: linkedBlock as unknown as Record<string, unknown>,
       source: 'regular',
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
-      title: (linkedBlock.config as any)?.outputListVar ?? (linkedBlock.config as any)?.outputKey ?? 'List Tools',
+      title: (blockCfg['outputListVar'] as string | undefined) ?? (blockCfg['outputKey'] as string | undefined) ?? 'List Tools',
       displayType: 'list_tools'
     };
 
@@ -546,8 +527,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
 
         <TabsContent value="dynamic" className="mt-0 space-y-4">
           <DynamicOptionsEditor
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            config={localConfig.dynamicOptions as any}
+            config={localConfig.dynamicOptions}
             listVariables={listVariables}
             sourceBlock={(sourceBlock as ApiTransformBlock | null)}
             sourceTableId={sourceTableId}
@@ -557,8 +537,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
             // eslint-disable-next-line @typescript-eslint/no-misused-promises
             labelColumnWarning={labelColumnWarning}
             valueColumnWarning={valueColumnWarning}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            onUpdate={(updates) => handleUpdate({ dynamicOptions: { ...localConfig.dynamicOptions, ...updates } as any })}
+            onUpdate={(updates) => handleUpdate({ dynamicOptions: { ...localConfig.dynamicOptions, ...updates } })}
             // eslint-disable-next-line @typescript-eslint/no-misused-promises
             onCreateListTools={handleCreateListTools}
             onEditBlock={handleOpenLinkedBlock}

@@ -3,6 +3,9 @@ import { randomUUID } from 'crypto';
 import * as schema from '@shared/schema';
 
 import { getDb } from '../../server/db';
+import type { DbTransaction } from '../../server/repositories/BaseRepository';
+
+type DBInstance = NonNullable<ReturnType<typeof getDb>>;
 // Generate a unique ID suitable for the database
 // For UUID columns, use crypto.randomUUID()
 // For string IDs, use a shorter format
@@ -58,16 +61,14 @@ export interface TestRun {
   run: typeof schema.runs.$inferSelect;
 }
 export class TestFactory {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private db: any;
+  private db: DBInstance | DbTransaction;
   /**
    * Create a new TestFactory
    * @param txOrDb - Optional transaction or database instance. If not provided, uses global db.
    *                 Pass a transaction for automatic rollback (recommended).
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(txOrDb?: any) {
-    this.db = txOrDb ?? getDb();
+  constructor(txOrDb?: DBInstance | DbTransaction) {
+    this.db = txOrDb ?? getDb()!;
   }
   /**
    * Create a complete tenant hierarchy (tenant -> user -> project)
@@ -81,7 +82,7 @@ export class TestFactory {
     // Wrap all inserts in a transaction to guarantee Neon read-after-write consistency.
     // Without a transaction, Neon may route consecutive queries to different backends,
     // causing FK violations when child rows reference just-inserted parent rows.
-    return this.db.transaction(async (tx: any) => {
+    return this.db.transaction(async (tx: DbTransaction) => {
       // Create tenant
       const [tenant] = await tx
         .insert(schema.tenants)
@@ -140,7 +141,7 @@ export class TestFactory {
     }
   ): Promise<TestWorkflow> {
     // Transaction ensures Neon routes workflow + version inserts to same backend
-    return this.db.transaction(async (tx: any) => {
+    return this.db.transaction(async (tx: DbTransaction) => {
       const [workflow] = await tx
         .insert(schema.workflows)
         .values({

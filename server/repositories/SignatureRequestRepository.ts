@@ -135,7 +135,7 @@ export class SignatureRequestRepository extends BaseRepository<
       })
       .where(eq(signatureRequests.id, requestId))
       .returning();
-    if (!updated) {throw new Error("Failed to update signature request status");}
+    if (updated == null) {throw new Error("Failed to update signature request status");}
     return updated;
   }
 
@@ -157,7 +157,7 @@ export class SignatureRequestRepository extends BaseRepository<
         payload,
       })
       .returning();
-    if (!event) {throw new Error("Failed to create signature event");}
+    if (event == null) {throw new Error("Failed to create signature event");}
     return event;
   }
 

@@ -194,7 +194,7 @@ export class DatavaultTablePermissionsService {
     tx?: DbTransaction
   ): Promise<Array<DatavaultTablePermission & { permissionFlags: TablePermissionFlags }>> {
     const permissions = await this.permissionsRepo.findByUserId(userId, tx);
-    if (permissions.length === 0) return [];
+    if (permissions.length === 0) {return [];}
 
     // Batch fetch all relevant tables in one query instead of one per permission
     const tableIds = permissions.map(p => p.tableId);

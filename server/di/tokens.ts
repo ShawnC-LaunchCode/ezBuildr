@@ -10,6 +10,42 @@
  * - Infrastructure: INFRA_<ComponentName>
  */
 
+// All imports are `import type` — erased at runtime, so no circular dependency risk.
+import type { Logger } from 'pino';
+
+import type { db } from '../db';
+import type { UserRepository } from '../repositories/UserRepository';
+import type { ProjectRepository } from '../repositories/ProjectRepository';
+import type { WorkflowRepository } from '../repositories/WorkflowRepository';
+import type { SectionRepository } from '../repositories/SectionRepository';
+import type { StepRepository } from '../repositories/StepRepository';
+import type { WorkflowRunRepository } from '../repositories/WorkflowRunRepository';
+import type { StepValueRepository } from '../repositories/StepValueRepository';
+import type { LogicRuleRepository } from '../repositories/LogicRuleRepository';
+import type { BlockRepository } from '../repositories/BlockRepository';
+import type { TransformBlockRepository } from '../repositories/TransformBlockRepository';
+import type { SystemStatsRepository } from '../repositories/SystemStatsRepository';
+import type { TeamRepository } from '../repositories/TeamRepository';
+import type { ProjectAccessRepository, WorkflowAccessRepository } from '../repositories/AclRepository';
+import type { DatavaultDatabasesRepository } from '../repositories/DatavaultDatabasesRepository';
+import type { DatavaultTablesRepository } from '../repositories/DatavaultTablesRepository';
+import type { DatavaultRowsRepository } from '../repositories/DatavaultRowsRepository';
+
+import type { AuthService } from '../services/AuthService';
+import type { AclService } from '../services/AclService';
+import type { ProjectService } from '../services/ProjectService';
+import type { WorkflowService } from '../services/WorkflowService';
+import type { SectionService } from '../services/SectionService';
+import type { StepService } from '../services/StepService';
+import type { RunService } from '../services/RunService';
+import type { LogicService } from '../services/LogicService';
+import type { BlockRunner } from '../services/BlockRunner';
+import type { IntakeService } from '../services/IntakeService';
+import type { DocumentGenerationService } from '../services/DocumentGenerationService';
+import type { DatavaultDatabasesService } from '../services/DatavaultDatabasesService';
+import type { DatavaultTablesService } from '../services/DatavaultTablesService';
+import type { DatavaultRowsService } from '../services/DatavaultRowsService';
+
 // ============================================================================
 // Infrastructure Tokens
 // ============================================================================
@@ -211,10 +247,9 @@ export const SERVICE_DATAVAULT_ROWS = Symbol('DatavaultRowsService');
 // Helper Type for Token-to-Service Mapping
 // ============================================================================
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Type mapping for DI tokens to their service types
- * This enables type-safe resolution in TypeScript
+ * Type mapping for DI tokens to their service types.
+ * This enables type-safe resolution in TypeScript.
  *
  * @example
  * ```typescript
@@ -222,45 +257,45 @@ export const SERVICE_DATAVAULT_ROWS = Symbol('DatavaultRowsService');
  * ```
  */
 export interface ServiceMap {
-  [LOGGER]: any; // Pino logger
-  [DATABASE]: any; // Drizzle DB instance
+  [LOGGER]: Logger;
+  [DATABASE]: typeof db;
 
   // Repositories
-  [REPOSITORY_USER]: any;
-  [REPOSITORY_PROJECT]: any;
-  [REPOSITORY_WORKFLOW]: any;
-  [REPOSITORY_SECTION]: any;
-  [REPOSITORY_STEP]: any;
-  [REPOSITORY_WORKFLOW_RUN]: any;
-  [REPOSITORY_STEP_VALUE]: any;
-  [REPOSITORY_LOGIC_RULE]: any;
-  [REPOSITORY_BLOCK]: any;
-  [REPOSITORY_TRANSFORM_BLOCK]: any;
-  [REPOSITORY_ANALYTICS]: any;
-  [REPOSITORY_FILE]: any;
-  [REPOSITORY_SYSTEM_STATS]: any;
-  [REPOSITORY_TEAM]: any;
-  [REPOSITORY_PROJECT_ACCESS]: any;
-  [REPOSITORY_WORKFLOW_ACCESS]: any;
-  [REPOSITORY_DATAVAULT_DATABASES]: any;
-  [REPOSITORY_DATAVAULT_TABLES]: any;
-  [REPOSITORY_DATAVAULT_ROWS]: any;
+  [REPOSITORY_USER]: UserRepository;
+  [REPOSITORY_PROJECT]: ProjectRepository;
+  [REPOSITORY_WORKFLOW]: WorkflowRepository;
+  [REPOSITORY_SECTION]: SectionRepository;
+  [REPOSITORY_STEP]: StepRepository;
+  [REPOSITORY_WORKFLOW_RUN]: WorkflowRunRepository;
+  [REPOSITORY_STEP_VALUE]: StepValueRepository;
+  [REPOSITORY_LOGIC_RULE]: LogicRuleRepository;
+  [REPOSITORY_BLOCK]: BlockRepository;
+  [REPOSITORY_TRANSFORM_BLOCK]: TransformBlockRepository;
+  [REPOSITORY_ANALYTICS]: unknown;   // AnalyticsRepository removed (Nov 2025)
+  [REPOSITORY_FILE]: unknown;        // FileRepository removed (Nov 2025)
+  [REPOSITORY_SYSTEM_STATS]: SystemStatsRepository;
+  [REPOSITORY_TEAM]: TeamRepository;
+  [REPOSITORY_PROJECT_ACCESS]: ProjectAccessRepository;
+  [REPOSITORY_WORKFLOW_ACCESS]: WorkflowAccessRepository;
+  [REPOSITORY_DATAVAULT_DATABASES]: DatavaultDatabasesRepository;
+  [REPOSITORY_DATAVAULT_TABLES]: DatavaultTablesRepository;
+  [REPOSITORY_DATAVAULT_ROWS]: DatavaultRowsRepository;
 
   // Services
-  [SERVICE_AUTH]: any;
-  [SERVICE_ACL]: any;
-  [SERVICE_PROJECT]: any;
-  [SERVICE_WORKFLOW]: any;
-  [SERVICE_SECTION]: any;
-  [SERVICE_STEP]: any;
-  [SERVICE_RUN]: any;
-  [SERVICE_LOGIC]: any;
-  [SERVICE_BLOCK_RUNNER]: any;
-  [SERVICE_INTAKE]: any;
-  [SERVICE_ANALYTICS]: any;
-  [SERVICE_DOCUMENT_GENERATION]: any;
-  [SERVICE_SCRIPT_ENGINE]: any;
-  [SERVICE_DATAVAULT_DATABASES]: any;
-  [SERVICE_DATAVAULT_TABLES]: any;
-  [SERVICE_DATAVAULT_ROWS]: any;
+  [SERVICE_AUTH]: AuthService;
+  [SERVICE_ACL]: AclService;
+  [SERVICE_PROJECT]: ProjectService;
+  [SERVICE_WORKFLOW]: WorkflowService;
+  [SERVICE_SECTION]: SectionService;
+  [SERVICE_STEP]: StepService;
+  [SERVICE_RUN]: RunService;
+  [SERVICE_LOGIC]: LogicService;
+  [SERVICE_BLOCK_RUNNER]: BlockRunner;
+  [SERVICE_INTAKE]: IntakeService;
+  [SERVICE_ANALYTICS]: unknown;      // AnalyticsService removed (Nov 2025)
+  [SERVICE_DOCUMENT_GENERATION]: DocumentGenerationService;
+  [SERVICE_SCRIPT_ENGINE]: unknown;  // ScriptEngine — no single class export
+  [SERVICE_DATAVAULT_DATABASES]: DatavaultDatabasesService;
+  [SERVICE_DATAVAULT_TABLES]: DatavaultTablesService;
+  [SERVICE_DATAVAULT_ROWS]: DatavaultRowsService;
 }

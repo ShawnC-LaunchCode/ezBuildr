@@ -2,28 +2,27 @@ import { relations } from 'drizzle-orm';
 
 import {
     users, tenants, tenantDomains, organizations, workspaces, teams, teamMembers,
-    organizationMemberships, auditLogs, portalTokens, workspaceMembers
+    organizationMemberships, auditLogs, workspaceMembers
 } from './auth';
 // analyticsEvents is in legacy.ts! import it from there or run.ts?
 // Checked Step 545: analyticsEvents is in legacy.ts.
 
 import {
     datavaultDatabases, datavaultTables, datavaultColumns, datavaultRows,
-    datavaultValues, datavaultNumberSequences, datavaultRowNotes,
-    datavaultApiTokens, datavaultTablePermissions, datavaultWritebackMappings,
+    datavaultValues,
+    datavaultApiTokens,
     workflowDataSources, workflowQueries,
     collections, collectionFields, records
 } from './datavault';
 import {
     secrets, externalConnections, externalDestinations, apiKeys,
-    webhookSubscriptions, webhookEvents, oauthApps, oauthAuthCodes, oauthAccessTokens
+    webhookSubscriptions, oauthApps
 } from './integrations';
 // } from './legacy';
 import {
     runs, workflowRuns, stepValues, runLogs, reviewTasks, signatureRequests,
     signatureEvents, runOutputs, runGeneratedDocuments, transformBlockRuns,
-    scriptExecutionLog, workflowRunEvents, workflowRunMetrics,
-    blockMetrics, // analyticsEvents fixed
+    scriptExecutionLog,
     metricsEvents, metricsRollups, sliConfigs, sliWindows, templateGenerationMetrics
 } from './run';
 import {

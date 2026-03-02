@@ -264,7 +264,7 @@ export class DatavaultRowsService {
         const referencedRow = await this.rowsRepo.findById(coercedValue, tx);
         if (!referencedRow) {
           throw new Error(
-            `Column '${column.name}' references a non-existent row: ${coercedValue}`
+            `Column '${column.name}' references a non-existent row: ${String(coercedValue)}`
           );
         }
         // Verify the referenced row belongs to the correct table

@@ -12,10 +12,8 @@ import {
     boolean,
     integer,
     pgEnum,
-    primaryKey
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
 
 export interface FileUploadConfig {
     maxFileSize?: number;
@@ -24,7 +22,7 @@ export interface FileUploadConfig {
     allowMultiple?: boolean;
     required?: boolean;
 }
-import { tenants, users } from './auth';
+import { tenants, users, ownerTypeEnum } from './auth';
 
 // ===================================================================
 // ENUMS
@@ -64,13 +62,6 @@ export const transformBlockLanguageEnum = pgEnum('transform_block_language', ['j
 
 export const lifecycleHookPhaseEnum = pgEnum('lifecycle_hook_phase', ['beforePage', 'afterPage', 'beforeFinalBlock', 'afterDocumentsGenerated']);
 export const documentHookPhaseEnum = pgEnum('document_hook_phase', ['beforeGeneration', 'afterGeneration']);
-
-// Owner type enum (Needed here for projects/workflows as well as auth)
-// We redefine or import? Drizzle enums must be unique by name. 
-// If it's defined in auth, we should import it? BUT enums in PG are global.
-// Drizzle `pgEnum` creates the object mapping.
-// If I import `ownerTypeEnum` from `auth`, it should work.
-import { ownerTypeEnum } from './auth';
 
 // ===================================================================
 // TABLES

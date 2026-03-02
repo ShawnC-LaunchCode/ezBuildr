@@ -101,14 +101,14 @@ export class DatavaultColumnsRepository extends BaseRepository<
     columnIds: string[],
     tx?: DbTransaction
   ): Promise<void> {
-    if (columnIds.length === 0) return;
+    if (columnIds.length === 0) {return;}
     const database = this.getDb(tx);
     // Single UPDATE with CASE WHEN instead of N individual updates
     const whenClauses = columnIds.map((id, i) => sql`WHEN ${id} THEN ${i}`);
     await database
       .update(datavaultColumns)
       .set({
-        orderIndex: sql`CASE ${datavaultColumns.id} ${sql.join(whenClauses, sql` `)} ELSE ${datavaultColumns.orderIndex} END`,
+        orderIndex: sql`CASE ${datavaultColumns.id} ${sql.join(whenClauses, sql` `)} ELSE ${datavaultColumns.orderIndex} END`, // eslint-disable-line sonarjs/no-nested-template-literals
         updatedAt: new Date(),
       })
       .where(and(inArray(datavaultColumns.id, columnIds), eq(datavaultColumns.tableId, tableId)));
@@ -118,7 +118,7 @@ export class DatavaultColumnsRepository extends BaseRepository<
    * Count columns for multiple tables in a single query
    */
   async countByTableIds(tableIds: string[], tx?: DbTransaction): Promise<Map<string, number>> {
-    if (tableIds.length === 0) return new Map();
+    if (tableIds.length === 0) {return new Map();}
     const database = this.getDb(tx);
     const results = await database
       .select({ tableId: datavaultColumns.tableId, count: sql<number>`count(*)::int` })

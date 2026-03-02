@@ -2,7 +2,7 @@ import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
 import { records, type CollectionRecord, type InsertCollectionRecord } from "@shared/schema";
 
-import { eq, and, desc, sql, SQL, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, SQL, inArray, asc } from "drizzle-orm";
 
 import { db } from "../db";
 
@@ -112,7 +112,7 @@ export class RecordRepository extends BaseRepository<typeof records, CollectionR
    * Count records for multiple collections in a single query
    */
   async countByCollectionIds(collectionIds: string[], tx?: DbTransaction): Promise<Map<string, number>> {
-    if (collectionIds.length === 0) return new Map();
+    if (collectionIds.length === 0) {return new Map();}
     const database = this.getDb(tx);
     const results = await database
       .select({ collectionId: records.collectionId, count: sql<number>`count(*)::int` })
@@ -152,8 +152,6 @@ export class RecordRepository extends BaseRepository<typeof records, CollectionR
   }
 }
 
-// Import asc for ordering
-import { asc } from "drizzle-orm";
 
 // Singleton instance
 export const recordRepository = new RecordRepository();

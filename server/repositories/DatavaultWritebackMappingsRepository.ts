@@ -95,7 +95,7 @@ export class DatavaultWritebackMappingsRepository extends BaseRepository<
       .where(eq(datavaultWritebackMappings.id, id))
       .returning();
 
-    if (!updated) {throw new Error("Failed to update mapping");}
+    if (updated == null) {throw new Error("Failed to update mapping");}
     return updated;
   }
 

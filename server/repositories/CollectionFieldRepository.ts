@@ -1,4 +1,4 @@
-import { eq, and, asc, inArray, sql } from "drizzle-orm";
+import { eq, and, asc, inArray, ne } from "drizzle-orm";
 
 import { collectionFields, type CollectionField, type InsertCollectionField } from "@shared/schema";
 
@@ -55,18 +55,13 @@ export class CollectionFieldRepository extends BaseRepository<typeof collectionF
   ): Promise<boolean> {
     const database = this.getDb(tx);
 
-    let whereCondition = and(
+    const baseCondition = and(
       eq(collectionFields.collectionId, collectionId),
       eq(collectionFields.slug, slug)
     );
-
-    if (excludeId) {
-      whereCondition = and(
-        whereCondition,
-        // @ts-expect-error - Drizzle type inference limitation
-        eq(collectionFields.id, excludeId) === false
-      );
-    }
+    const whereCondition = excludeId
+      ? and(baseCondition, ne(collectionFields.id, excludeId))
+      : baseCondition;
 
     const [result] = await database
       .select({ id: collectionFields.id })
@@ -81,7 +76,7 @@ export class CollectionFieldRepository extends BaseRepository<typeof collectionF
    * Count fields for multiple collections in a single query
    */
   async countByCollectionIds(collectionIds: string[], tx?: DbTransaction): Promise<Map<string, number>> {
-    if (collectionIds.length === 0) return new Map();
+    if (collectionIds.length === 0) {return new Map();}
     const database = this.getDb(tx);
     const results = await database
       .select({ collectionId: collectionFields.collectionId, count: sql<number>`count(*)::int` })
@@ -111,7 +106,7 @@ export class CollectionFieldRepository extends BaseRepository<typeof collectionF
    * Batch insert multiple fields
    */
   async createMany(fields: InsertCollectionField[], tx?: DbTransaction): Promise<CollectionField[]> {
-    if (fields.length === 0) return [];
+    if (fields.length === 0) {return [];}
     const database = this.getDb(tx);
     return database.insert(collectionFields).values(fields).returning();
   }

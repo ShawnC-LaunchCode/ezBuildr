@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { describe, it, expect, beforeEach, vi, type Mocked } from "vitest";
 
 import { StepService } from "../../../server/services/StepService";

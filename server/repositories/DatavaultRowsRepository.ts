@@ -128,7 +128,7 @@ export class DatavaultRowsRepository extends BaseRepository<
    * Count rows for multiple tables in a single query
    */
   async countByTableIds(tableIds: string[], tx?: DbTransaction): Promise<Map<string, number>> {
-    if (tableIds.length === 0) return new Map();
+    if (tableIds.length === 0) {return new Map();}
     const database = this.getDb(tx);
     const results = await database
       .select({ tableId: datavaultRows.tableId, count: sql<number>`count(*)::int` })

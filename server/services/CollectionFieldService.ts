@@ -273,7 +273,7 @@ export class CollectionFieldService {
     tx?: DbTransaction
   ): Promise<CollectionField[]> {
     await this.verifyCollectionExists(collectionId, tx);
-    if (fieldsData.length === 0) return [];
+    if (fieldsData.length === 0) {return [];}
 
     // Validate all fields up-front (in memory, no DB calls)
     for (const fieldData of fieldsData) {

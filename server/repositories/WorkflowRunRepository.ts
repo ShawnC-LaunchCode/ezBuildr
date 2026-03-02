@@ -27,15 +27,15 @@ export class WorkflowRunRepository extends BaseRepository<
     tx?: DbTransaction
   ): Promise<WorkflowRun[]> {
     const database = this.getDb(tx);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query: any = database
+    let query = database
       .select()
       .from(workflowRuns)
       .where(eq(workflowRuns.workflowId, workflowId))
-      .orderBy(desc(workflowRuns.createdAt));
+      .orderBy(desc(workflowRuns.createdAt))
+      .$dynamic();
     if (options?.limit !== undefined) { query = query.limit(options.limit); }
     if (options?.offset !== undefined) { query = query.offset(options.offset); }
-    return query as Promise<WorkflowRun[]>;
+    return query;
   }
 
   /**
@@ -50,15 +50,15 @@ export class WorkflowRunRepository extends BaseRepository<
     if (workflowIds.length === 0) {
       return [];
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query: any = database
+    let query = database
       .select()
       .from(workflowRuns)
       .where(inArray(workflowRuns.workflowId, workflowIds))
-      .orderBy(desc(workflowRuns.createdAt));
+      .orderBy(desc(workflowRuns.createdAt))
+      .$dynamic();
     if (options?.limit !== undefined) { query = query.limit(options.limit); }
     if (options?.offset !== undefined) { query = query.offset(options.offset); }
-    return query as Promise<WorkflowRun[]>;
+    return query;
   }
 
   /**
@@ -70,15 +70,15 @@ export class WorkflowRunRepository extends BaseRepository<
     tx?: DbTransaction
   ): Promise<WorkflowRun[]> {
     const database = this.getDb(tx);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query: any = database
+    let query = database
       .select()
       .from(workflowRuns)
       .where(and(eq(workflowRuns.workflowId, workflowId), eq(workflowRuns.completed, true)))
-      .orderBy(desc(workflowRuns.completedAt));
+      .orderBy(desc(workflowRuns.completedAt))
+      .$dynamic();
     if (options?.limit !== undefined) { query = query.limit(options.limit); }
     if (options?.offset !== undefined) { query = query.offset(options.offset); }
-    return query as Promise<WorkflowRun[]>;
+    return query;
   }
 
   /**
@@ -121,7 +121,7 @@ export class WorkflowRunRepository extends BaseRepository<
       })
       .where(eq(workflowRuns.id, runId))
       .returning();
-    if (!updated) {throw new Error("Failed to mark run as complete");}
+    if (updated == null) {throw new Error("Failed to mark run as complete");}
     return updated;
   }
 

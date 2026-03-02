@@ -16,8 +16,8 @@ import {
 
 import {
     PASSWORD_CONFIG,
-    JWT_CONFIG,
-    REFRESH_TOKEN_CONFIG,
+    JWT_CONFIG as _JWT_CONFIG,
+    REFRESH_TOKEN_CONFIG as _REFRESH_TOKEN_CONFIG,
     PASSWORD_RESET_CONFIG,
     EMAIL_VERIFICATION_CONFIG,
     PASSWORD_POLICY
@@ -27,7 +27,7 @@ import { db } from "../db";
 import {
     InvalidTokenError,
     TokenExpiredError,
-    InvalidCredentialsError
+    InvalidCredentialsError as _InvalidCredentialsError
 } from "../errors/AuthErrors";
 import { createLogger } from "../logger";
 import { hashToken } from "../utils/encryption";

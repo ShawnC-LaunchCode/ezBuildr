@@ -1,8 +1,7 @@
 import { eq } from "drizzle-orm";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
-import { users, tenants } from "@shared/schema";
-import { insertWorkflowSchema } from "@shared/schema"; // Import schema for parsing
+import { users, tenants, insertWorkflowSchema } from "@shared/schema";
 
 import { db } from "../../server/db";
 import { workflowService } from "../../server/services/WorkflowService";

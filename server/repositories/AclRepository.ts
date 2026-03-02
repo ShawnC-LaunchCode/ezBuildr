@@ -113,7 +113,7 @@ export class ProjectAccessRepository extends BaseRepository<
       })
       .returning();
 
-    if (!entry) {throw new Error("Failed to upsert project access");}
+    if (entry == null) {throw new Error("Failed to upsert project access");}
     return entry;
   }
 
@@ -235,7 +235,7 @@ export class WorkflowAccessRepository extends BaseRepository<
       })
       .returning();
 
-    if (!entry) {throw new Error("Failed to upsert project access");}
+    if (entry == null) {throw new Error("Failed to upsert project access");}
     return entry;
   }
 

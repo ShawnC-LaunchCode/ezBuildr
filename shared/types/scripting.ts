@@ -1,6 +1,12 @@
 /**
  * Shared TypeScript types for the Custom Scripting System
  * Used across backend, frontend, and shared code
+ *
+ * NOTE: Several interfaces in this file intentionally use `unknown` (or generic
+ * type parameters) rather than specific types. The scripting system is deliberately
+ * dynamic — scripts can emit any value, HTTP responses can be any shape, and
+ * console logs can contain any arguments. Where `unknown` is used, callers must
+ * narrow the type before using the value.
  */
 
 // ===================================================================
@@ -15,17 +21,16 @@ export interface ScriptExecutionContext {
   phase: string;
   sectionId?: string;
   userId?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- metadata can contain any type of value
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ScriptExecutionResult {
   ok: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- script output can be any type
-  output?: any;
+  /** Script can emit any value — callers must narrow before use */
+  output?: unknown;
   error?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- console logs can contain any values
-  consoleLogs?: any[][];
+  /** Each console.log call is one entry; each entry is the list of args */
+  consoleLogs?: unknown[][];
   durationMs?: number;
 }
 
@@ -88,8 +93,8 @@ export interface UpdateLifecycleHookInput {
 
 export interface LifecycleHookExecutionResult {
   success: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- hook data can contain any type of value
-  data: Record<string, any>;
+  /** Keys are step aliases/IDs; values are whatever the hook emitted */
+  data: Record<string, unknown>;
   errors?: Array<{
     hookId: string;
     hookName: string;
@@ -97,8 +102,7 @@ export interface LifecycleHookExecutionResult {
   }>;
   consoleOutput?: Array<{
     hookName: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- console logs can contain any values
-    logs: any[][];
+    logs: unknown[][];
   }>;
 }
 
@@ -153,8 +157,8 @@ export interface UpdateDocumentHookInput {
 
 export interface DocumentHookExecutionResult {
   success: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- hook data can contain any type of value
-  data: Record<string, any>;
+  /** Keys are step aliases/IDs; values are whatever the hook emitted */
+  data: Record<string, unknown>;
   errors?: Array<{
     hookId: string;
     hookName: string;
@@ -162,8 +166,7 @@ export interface DocumentHookExecutionResult {
   }>;
   consoleOutput?: Array<{
     hookName: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- console logs can contain any values
-    logs: any[][];
+    logs: unknown[][];
   }>;
 }
 
@@ -186,12 +189,9 @@ export interface ScriptExecutionLog {
   finishedAt?: Date | null;
   status: ScriptExecutionStatus;
   errorMessage?: string | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- console output can contain any values
-  consoleOutput?: any[] | null; // eslint-disable-line @typescript-eslint/no-redundant-type-constituents
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- input sample can be any type
-  inputSample?: any | null; // eslint-disable-line @typescript-eslint/no-redundant-type-constituents
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- output sample can be any type
-  outputSample?: any | null; // eslint-disable-line @typescript-eslint/no-redundant-type-constituents
+  consoleOutput?: unknown[] | null;
+  inputSample?: unknown;
+  outputSample?: unknown;
   durationMs?: number | null;
   createdAt: Date;
 }
@@ -204,12 +204,9 @@ export interface CreateScriptExecutionLogInput {
   phase?: string;
   status: ScriptExecutionStatus;
   errorMessage?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- console output can contain any values
-  consoleOutput?: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- input sample can be any type
-  inputSample?: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- output sample can be any type
-  outputSample?: any;
+  consoleOutput?: unknown[];
+  inputSample?: unknown;
+  outputSample?: unknown;
   durationMs?: number;
 }
 
@@ -249,32 +246,22 @@ export interface NumberHelpers {
   percent: (num: number, decimals?: number) => string;
 }
 
+/** Array helpers are generic so callers retain element types */
 export interface ArrayHelpers {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- array helpers work with arrays of any type
-  unique: (arr: any[]) => any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- array helpers work with arrays of any type
-  flatten: (arr: any[]) => any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- array helpers work with arrays of any type
-  chunk: (arr: any[], size: number) => any[][];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- array helpers work with arrays of any type
-  sortBy: (arr: any[], key: string) => any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- array helpers work with arrays of any type
-  filter: (arr: any[], predicate: (item: any, index: number) => boolean) => any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- array helpers work with arrays of any type
-  map: (arr: any[], mapper: (item: any, index: number) => any) => any[];
+  unique: <T>(arr: T[]) => T[];
+  flatten: <T>(arr: T[][]) => T[];
+  chunk: <T>(arr: T[], size: number) => T[][];
+  sortBy: <T>(arr: T[], key: string) => T[];
+  filter: <T>(arr: T[], predicate: (item: T, index: number) => boolean) => T[];
+  map: <T, U>(arr: T[], mapper: (item: T, index: number) => U) => U[];
 }
 
 export interface ObjectHelpers {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- object helpers work with objects of any type
-  keys: (obj: Record<string, any>) => string[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- object helpers work with objects of any type
-  values: (obj: Record<string, any>) => any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- object helpers work with objects of any type
-  pick: (obj: Record<string, any>, keys: string[]) => Record<string, any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- object helpers work with objects of any type
-  omit: (obj: Record<string, any>, keys: string[]) => Record<string, any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- object helpers work with objects of any type
-  merge: (...objects: Record<string, any>[]) => Record<string, any>;
+  keys: (obj: Record<string, unknown>) => string[];
+  values: (obj: Record<string, unknown>) => unknown[];
+  pick: (obj: Record<string, unknown>, keys: string[]) => Record<string, unknown>;
+  omit: (obj: Record<string, unknown>, keys: string[]) => Record<string, unknown>;
+  merge: (...objects: Record<string, unknown>[]) => Record<string, unknown>;
 }
 
 export interface MathHelpers {
@@ -286,20 +273,16 @@ export interface MathHelpers {
   max: (arr: number[]) => number;
 }
 
+/** HTTP helpers use a generic return type so callers can opt-in to specific response shapes */
 export interface HttpHelpers {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- HTTP responses can be any type
-  get: (url: string, options?: { headers?: Record<string, string> }) => Promise<any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- HTTP responses and request bodies can be any type
-  post: (url: string, body: any, options?: { headers?: Record<string, string> }) => Promise<any>;
+  get: <T = unknown>(url: string, options?: { headers?: Record<string, string> }) => Promise<T>;
+  post: <T = unknown>(url: string, body: unknown, options?: { headers?: Record<string, string> }) => Promise<T>;
 }
 
 export interface ConsoleHelpers {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- console methods accept any arguments
-  log: (...args: any[]) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- console methods accept any arguments
-  warn: (...args: any[]) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- console methods accept any arguments
-  error: (...args: any[]) => void;
+  log: (...args: unknown[]) => void;
+  warn: (...args: unknown[]) => void;
+  error: (...args: unknown[]) => void;
 }
 
 export interface HelperLibraryAPI {
@@ -337,8 +320,7 @@ export interface ScriptContextAPI {
     // eslint-disable-next-line @typescript-eslint/naming-convention -- BASE_URL is a standard environment variable name
     BASE_URL?: string;
   };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- metadata can contain any type of value
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 // ===================================================================
@@ -349,11 +331,9 @@ export interface ExecuteScriptParams {
   language: ScriptLanguage;
   code: string;
   inputKeys: string[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- script data can contain any type of value
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   context: ScriptExecutionContext;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- helpers can be any type
-  helpers?: Record<string, any>;
+  helpers?: Record<string, unknown>;
   timeoutMs?: number;
   consoleEnabled?: boolean;
   aliasMap?: Record<string, string>; // Map of alias -> stepId
@@ -375,18 +355,16 @@ export interface ValidateScriptResult {
 // ===================================================================
 
 export interface TestHookInput {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test data can contain any type
-  testData: Record<string, any>;
+  testData: Record<string, unknown>;
   context?: Partial<ScriptExecutionContext>;
 }
 
 export interface TestHookResult {
   success: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- script output can be any type
-  output?: any;
+  /** Script can emit any value — callers must narrow before use */
+  output?: unknown;
   error?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- console logs can contain any values
-  consoleLogs?: any[][];
+  consoleLogs?: unknown[][];
   durationMs?: number;
 }
 
@@ -400,8 +378,7 @@ export interface ConsoleLogEntry {
   scriptType: ScriptType;
   phase: string;
   status: ScriptExecutionStatus;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- console logs can contain any values
-  consoleLogs?: any[][];
+  consoleLogs?: unknown[][];
   errorMessage?: string;
   durationMs?: number;
   timestamp: string;

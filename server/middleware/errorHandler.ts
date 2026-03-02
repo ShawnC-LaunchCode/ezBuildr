@@ -174,6 +174,7 @@ interface ErrorResponse {
 /**
  * Builds a standardized error response object
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function buildErrorResponse(
   error: Error | AppError | ZodError,
   isDevelopment: boolean

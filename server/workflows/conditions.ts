@@ -109,12 +109,10 @@ export type ConditionExpression =
  * Context for condition evaluation
  */
 export interface EvaluationContext {
-  /** Workflow variables (step values by alias or ID) */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step values are dynamic per question type
-  variables: Record<string, any>;
-  /** Collection record data (if prefilled from a collection) */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- collection record fields are dynamic
-  record?: Record<string, any>;
+  /** Workflow variables (step values by alias or ID). Values are dynamic per question type. */
+  variables: Record<string, unknown>;
+  /** Collection record data (if prefilled from a collection). Fields are dynamic. */
+  record?: Record<string, unknown>;
 }
 
 // ========================================================================
@@ -122,68 +120,68 @@ export interface EvaluationContext {
 // ========================================================================
 
 /**
- * Resolves a variable path to its value in the context
- * Supports dot notation: "address.city", "items[0].name"
+ * Safely access a named property on an unknown value.
+ * Returns undefined if obj is not an object or key is missing.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- traverses arbitrary nested variable structures via dot notation, sonarjs/cognitive-complexity
-function resolveVariable(path: string, context: EvaluationContext): any {
-  // First try to resolve from variables
-  const parts = path.split('.');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- traversing dynamic nested structures
-  let current: any = context.variables;
+function getProperty(obj: unknown, key: string): unknown {
+  if (typeof obj === 'object' && obj !== null) {
+    return (obj as Record<string, unknown>)[key];
+  }
+  return undefined;
+}
 
+/**
+ * Safely access an array index on an unknown value.
+ * Returns undefined if obj is not an array.
+ */
+function getIndex(obj: unknown, index: number): unknown {
+  if (Array.isArray(obj)) {
+    return obj[index];
+  }
+  return undefined;
+}
+
+/**
+ * Traverses a parsed path segment-by-segment from a starting value.
+ * Supports dot notation ("address.city") and array indexing ("items[0].name").
+ */
+function traversePath(parts: string[], start: unknown): unknown {
+  let current: unknown = start;
   for (const part of parts) {
-    // Handle array indexing: items[0]
     const arrayMatch = part.match(/^(\w+)\[(\d+)\]$/);
     if (arrayMatch) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-      const [, name, index] = arrayMatch;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-      current = current?.[name]?.[parseInt(index, 10)];
+      const [, name, indexStr] = arrayMatch;
+      current = getIndex(getProperty(current, name), parseInt(indexStr, 10));
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-      current = current?.[part];
+      current = getProperty(current, part);
     }
-
     if (current === undefined) {
       break;
     }
   }
-
-  // If found in variables, return it
-  if (current !== undefined) {
-    return current;
-  }
-
-  // Otherwise try record data
-  if (context.record) {
-    current = context.record;
-    for (const part of parts) {
-      const arrayMatch = part.match(/^(\w+)\[(\d+)\]$/);
-      if (arrayMatch) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        const [, name, index] = arrayMatch;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        current = current?.[name]?.[parseInt(index, 10)];
-      } else {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        current = current?.[part];
-      }
-
-      if (current === undefined) {
-        break;
-      }
-    }
-  }
-
   return current;
+}
+
+/**
+ * Resolves a variable path to its value in the context.
+ * Supports dot notation: "address.city", "items[0].name"
+ */
+function resolveVariable(path: string, context: EvaluationContext): unknown {
+  const parts = path.split('.');
+  const fromVariables = traversePath(parts, context.variables);
+  if (fromVariables !== undefined) {
+    return fromVariables;
+  }
+  if (context.record) {
+    return traversePath(parts, context.record);
+  }
+  return undefined;
 }
 
 /**
  * Resolves an operand to its actual value
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- resolves to dynamic variable or literal value
-function resolveOperand(operand: ConditionOperand, context: EvaluationContext): any {
+function resolveOperand(operand: ConditionOperand, context: EvaluationContext): unknown {
   if (operand.type === 'value') {
     return operand.value;
   } else {
@@ -192,60 +190,29 @@ function resolveOperand(operand: ConditionOperand, context: EvaluationContext): 
 }
 
 /**
- * Checks if a value is empty
+ * Checks if a value is empty (null, undefined, empty string, empty array, empty object)
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- checks emptiness across all value types
-function isEmpty(value: any): boolean {
+function isEmpty(value: unknown): boolean {
   if (value === null || value === undefined) {
     return true;
   }
-
   if (typeof value === 'string') {
     return value.trim() === '';
   }
-
   if (Array.isArray(value)) {
     return value.length === 0;
   }
-
   if (typeof value === 'object') {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    return Object.keys(value).length === 0;
+    return Object.keys(value as object).length === 0;
   }
-
   return false;
 }
 
 /**
- * Coerces values to comparable types
+ * Normalizes a value for case-insensitive string comparison.
+ * Non-strings are returned as-is.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- coerces dynamic condition values for comparison
-function coerceToComparable(value: any): string | number | boolean | null {
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  if (typeof value === 'boolean') {
-    return value;
-  }
-
-  if (typeof value === 'number') {
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    return value;
-  }
-
-  // Convert other types to string for comparison
-  return String(value);
-}
-
-/**
- * Normalizes a value for case-insensitive comparison
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- normalizes dynamic values for case-insensitive comparison
-function normalize(value: any): any {
+function normalize(value: unknown): unknown {
   if (typeof value === 'string') {
     return value.toLowerCase().trim();
   }
@@ -259,14 +226,11 @@ function normalize(value: any): any {
 /**
  * Evaluates a comparison condition
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, complexity, sonarjs/cognitive-complexity -- compares dynamic condition operand values
+// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 function evaluateComparison(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   operator: ConditionOperator,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  left: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  right: any
+  left: unknown,
+  right: unknown
 ): boolean {
   switch (operator) {
     case 'equals':
@@ -301,23 +265,19 @@ function evaluateComparison(
 
     case 'contains':
       if (Array.isArray(left)) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
         return left.some(item => normalize(item) === normalize(right));
       }
       if (typeof left === 'string' && typeof right === 'string') {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-        return normalize(left).includes(normalize(right));
+        return left.toLowerCase().trim().includes(right.toLowerCase().trim());
       }
       return false;
 
     case 'notContains':
       if (Array.isArray(left)) {
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
         return !left.some(item => normalize(item) === normalize(right));
       }
       if (typeof left === 'string' && typeof right === 'string') {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-        return !normalize(left).includes(normalize(right));
+        return !left.toLowerCase().trim().includes(right.toLowerCase().trim());
       }
       return true;
 
@@ -329,15 +289,13 @@ function evaluateComparison(
 
     case 'startsWith':
       if (typeof left === 'string' && typeof right === 'string') {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-        return normalize(left).startsWith(normalize(right));
+        return left.toLowerCase().trim().startsWith(right.toLowerCase().trim());
       }
       return false;
 
     case 'endsWith':
       if (typeof left === 'string' && typeof right === 'string') {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-        return normalize(left).endsWith(normalize(right));
+        return left.toLowerCase().trim().endsWith(right.toLowerCase().trim());
       }
       return false;
 
@@ -392,9 +350,7 @@ export function evaluateCondition(
 
   // Handle basic comparison condition
   if ('op' in expression) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const left = resolveOperand(expression.left, context);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const right = resolveOperand(expression.right, context);
     return evaluateComparison(expression.op, left, right);
   }
@@ -423,11 +379,12 @@ export function value(val: ConditionValue): ValueLiteral {
 }
 
 /**
- * Validates a condition expression structure
- * Returns an array of error messages (empty if valid)
+ * Validates a condition expression structure.
+ * Returns an array of error messages (empty if valid).
+ * Accepts `unknown` because it validates arbitrary user-supplied input.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, complexity, sonarjs/cognitive-complexity -- validates arbitrary condition expression structures
-export function validateConditionExpression(expression: any): string[] {
+// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
+export function validateConditionExpression(expression: unknown): string[] {
   const errors: string[] = [];
 
   // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
@@ -436,14 +393,15 @@ export function validateConditionExpression(expression: any): string[] {
     return errors;
   }
 
-  // Check if it's a composite condition
+  // After the above guard TypeScript narrows expression to object.
+  // Use 'in' operator narrowing to check for known discriminant keys.
+
   if ('and' in expression) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (!Array.isArray(expression.and)) {
+    const { and } = expression as { and: unknown };
+    if (!Array.isArray(and)) {
       errors.push('AND condition must have an array of sub-expressions');
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- recursive validation of arbitrary expressions
-      expression.and.forEach((subExpr: any, i: number) => {
+      and.forEach((subExpr: unknown, i: number) => {
         const subErrors = validateConditionExpression(subExpr);
         errors.push(...subErrors.map(err => `AND[${i}]: ${err}`));
       });
@@ -452,12 +410,11 @@ export function validateConditionExpression(expression: any): string[] {
   }
 
   if ('or' in expression) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (!Array.isArray(expression.or)) {
+    const { or } = expression as { or: unknown };
+    if (!Array.isArray(or)) {
       errors.push('OR condition must have an array of sub-expressions');
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- recursive validation of arbitrary expressions
-      expression.or.forEach((subExpr: any, i: number) => {
+      or.forEach((subExpr: unknown, i: number) => {
         const subErrors = validateConditionExpression(subExpr);
         errors.push(...subErrors.map(err => `OR[${i}]: ${err}`));
       });
@@ -466,41 +423,43 @@ export function validateConditionExpression(expression: any): string[] {
   }
 
   if ('not' in expression) {
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-member-access
-    if (!expression.not || typeof expression.not !== 'object') {
+    const { not } = expression as { not: unknown };
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+    if (!not || typeof not !== 'object') {
       errors.push('NOT condition must have a sub-expression');
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const subErrors = validateConditionExpression(expression.not);
+      const subErrors = validateConditionExpression(not);
       errors.push(...subErrors.map(err => `NOT: ${err}`));
     }
     return errors;
   }
 
-  // Check if it looks like a comparison condition (has left/right but maybe missing op)
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-member-access
+  // Check if it looks like a comparison condition
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if ('left' in expression || 'right' in expression || 'op' in expression) {
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-member-access
-    if (!expression.op || typeof expression.op !== 'string') {
+    const expr = expression as Record<string, unknown>;
+
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+    if (!expr['op'] || typeof expr['op'] !== 'string') {
       errors.push('Comparison condition must have an operator');
     }
 
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-member-access
-    if (!expression.left || typeof expression.left !== 'object') {
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+    if (!expr['left'] || typeof expr['left'] !== 'object') {
       errors.push('Comparison condition must have a left operand');
     } else {
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-      if (!expression.left.type || !['variable', 'value'].includes(expression.left.type)) {
+      const left = expr['left'] as Record<string, unknown>;
+      if (!left['type'] || !['variable', 'value'].includes(left['type'] as string)) {
         errors.push('Left operand must have type "variable" or "value"');
       }
     }
 
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-member-access
-    if (!expression.right || typeof expression.right !== 'object') {
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+    if (!expr['right'] || typeof expr['right'] !== 'object') {
       errors.push('Comparison condition must have a right operand');
     } else {
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
-      if (!expression.right.type || !['variable', 'value'].includes(expression.right.type)) {
+      const right = expr['right'] as Record<string, unknown>;
+      if (!right['type'] || !['variable', 'value'].includes(right['type'] as string)) {
         errors.push('Right operand must have type "variable" or "value"');
       }
     }

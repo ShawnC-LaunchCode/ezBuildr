@@ -19,6 +19,7 @@ import { SignatureBlockEditor } from './cards/SignatureBlockEditor';
 import { TextCardEditor } from './cards/TextCardEditor';
 // eslint-disable-next-line import/no-cycle
 import { WebsiteCardEditor } from './cards/WebsiteCardEditor';
+// eslint-disable-next-line import/no-cycle
 import { LegacyStepBody } from './questions/LegacyStepBody';
 
 export interface StepEditorCommonProps {

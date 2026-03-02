@@ -9,7 +9,7 @@ import { logger } from './logger';
 import type { Pool as NeonPool } from '@neondatabase/serverless';
 import type { NeonDatabase } from 'drizzle-orm/neon-serverless';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 
 type DrizzleDB = NodePgDatabase<typeof schema> | NeonDatabase<typeof schema>;
 
@@ -23,7 +23,7 @@ let dbInitPromise: Promise<void>;
 async function initializeDatabase() {
   if (dbInitialized) { return; }
 
-  const databaseUrl = process.env.DATABASE_URL || env.DATABASE_URL;
+  const databaseUrl = process.env.DATABASE_URL ?? env.DATABASE_URL;
   const isDatabaseConfigured = Boolean(databaseUrl) && databaseUrl !== 'undefined' && databaseUrl !== '';
 
   if (!isDatabaseConfigured) {
@@ -71,12 +71,14 @@ async function initializeDatabase() {
       const originalConnect = pool.connect.bind(pool);
       const schemaStr = String(testSchema);
       const workerId = process.env.VITEST_WORKER_ID ?? '?';
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (pool as any).connect = async function (callback?: any) {
-        if (callback) {
+      type ConnectCallback = (err: Error | undefined, client: PoolClient, release: () => void) => void;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      (pool as Pool & { connect: (callback?: ConnectCallback) => Promise<PoolClient> }).connect = async function (callback?: ConnectCallback) {
+        if (callback != null) {
           // Callback-style: pool.connect((err, client, release) => ...)
-          return originalConnect(async (err: Error | undefined, client: any, release: () => void) => {
-            if (!err && client) {
+          // eslint-disable-next-line @typescript-eslint/no-misused-promises
+          return originalConnect(async (err: Error | undefined, client: PoolClient, release: () => void) => {
+            if (!err && client != null) {
               try {
                 await client.query(`SET search_path TO "${schemaStr}", public`);
               } catch (e: unknown) {
@@ -161,7 +163,7 @@ const db = new Proxy({} as DrizzleDB, {
     if (!_db) {
       throw new Error("Database not initialized. Call await initializeDatabase() first.");
     }
-    if (typeof prop === 'symbol') { return (_db as any)[prop]; }
+    if (typeof prop === 'symbol') { return (_db as unknown as Record<symbol, unknown>)[prop]; } // eslint-disable-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
     return _db[prop as keyof DrizzleDB];
   },
   set(_target, prop, value) {

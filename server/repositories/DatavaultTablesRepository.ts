@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, asc, or, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, asc, or, inArray, ne } from "drizzle-orm";
 
 import { datavaultTables, datavaultColumns, datavaultTablePermissions, type DatavaultTable, type InsertDatavaultTable } from "@shared/schema";
 
@@ -87,17 +87,20 @@ export class DatavaultTablesRepository extends BaseRepository<
   ): Promise<boolean> {
     const database = this.getDb(tx);
 
-    let query = database
+    const baseCondition = and(
+      eq(datavaultTables.tenantId, tenantId),
+      eq(datavaultTables.slug, slug)
+    );
+    const whereCondition = excludeId
+      ? and(baseCondition, ne(datavaultTables.id, excludeId))
+      : baseCondition;
+
+    const [result] = await database
       .select({ id: datavaultTables.id })
       .from(datavaultTables)
-      .where(and(eq(datavaultTables.tenantId, tenantId), eq(datavaultTables.slug, slug)));
+      .where(whereCondition)
+      .limit(1);
 
-    if (excludeId) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-      query = (query as any).where(sql`${datavaultTables.id} != ${excludeId}`);
-    }
-
-    const [result] = await query.limit(1);
     return result !== undefined;
   }
 
@@ -117,7 +120,7 @@ export class DatavaultTablesRepository extends BaseRepository<
    * Find multiple tables by IDs (batch fetch)
    */
   async findByIds(ids: string[], tx?: DbTransaction): Promise<DatavaultTable[]> {
-    if (ids.length === 0) return [];
+    if (ids.length === 0) {return [];}
     const database = this.getDb(tx);
     return database
       .select()

@@ -134,7 +134,7 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
       .set({ order })
       .where(eq(steps.id, stepId))
       .returning();
-    if (!updated) {throw new Error("Failed to update step order");}
+    if (updated == null) {throw new Error("Failed to update step order");}
     return updated;
   }
 

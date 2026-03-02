@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Condition Adapter
  *
@@ -40,7 +39,11 @@ import { logger } from "../logger";
 import {
   evaluateCondition as evaluateExistingCondition,
   type ConditionExpression as ExistingConditionExpression,
+  type ConditionOperator,
+  type ConditionValue,
   type EvaluationContext,
+  type VariableReference,
+  type ValueLiteral,
 } from "./conditions";
 
 // ========================================================================
@@ -48,16 +51,18 @@ import {
 // ========================================================================
 
 /**
- * Detects whether a condition expression uses the new UI format or the existing backend format
+ * Detects whether a condition expression uses the new UI format
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- format detection requires inspecting arbitrary condition shapes
-export function isNewFormat(expression: any): expression is NewConditionGroup {
+export function isNewFormat(expression: unknown): expression is NewConditionGroup {
   if (!expression || typeof expression !== "object") { return false; }
-  return expression.type === "group" || expression.type === "condition" || expression.type === "script";
+  const expr = expression as Record<string, unknown>;
+  return expr['type'] === "group" || expr['type'] === "condition" || expr['type'] === "script";
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- format detection requires inspecting arbitrary condition shapes
-export function isExistingFormat(expression: any): expression is ExistingConditionExpression {
+/**
+ * Detects whether a condition expression uses the existing backend format
+ */
+export function isExistingFormat(expression: unknown): expression is ExistingConditionExpression {
   if (!expression || typeof expression !== "object") { return false; }
   return "and" in expression || "or" in expression || "not" in expression || "op" in expression;
 }
@@ -186,14 +191,12 @@ function convertCondition(condition: NewCondition): ExistingConditionExpression 
         {
           op: "gte",
           left: { type: "variable", path: condition.variable },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- condition values are dynamic
-          right: { type: "value", value: condition.value as any },
+          right: { type: "value", value: condition.value as ConditionValue },
         },
         {
           op: "lte",
           left: { type: "variable", path: condition.variable },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- condition values are dynamic
-          right: { type: "value", value: condition.value2 as any },
+          right: { type: "value", value: condition.value2 as ConditionValue },
         },
       ],
     };
@@ -201,23 +204,21 @@ function convertCondition(condition: NewCondition): ExistingConditionExpression 
 
   if (operator === "includes_all" && Array.isArray(condition.value)) {
     // Convert to: AND of contains for each value
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- condition array values are dynamic
-    const checks = condition.value.map((val: any) => ({
-      op: "contains",
-      left: { type: "variable", path: condition.variable },
-      right: { type: "value", value: val },
-    })) as ExistingConditionExpression[];
+    const checks = condition.value.map((val: unknown) => ({
+      op: "contains" as ConditionOperator,
+      left: { type: "variable" as const, path: condition.variable },
+      right: { type: "value" as const, value: val as ConditionValue },
+    }));
     return { and: checks };
   }
 
   if (operator === "includes_any" && Array.isArray(condition.value)) {
     // Convert to: OR of contains for each value
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- condition array values are dynamic
-    const checks = condition.value.map((val: any) => ({
-      op: "contains",
-      left: { type: "variable", path: condition.variable },
-      right: { type: "value", value: val },
-    })) as ExistingConditionExpression[];
+    const checks = condition.value.map((val: unknown) => ({
+      op: "contains" as ConditionOperator,
+      left: { type: "variable" as const, path: condition.variable },
+      right: { type: "value" as const, value: val as ConditionValue },
+    }));
     return { or: checks };
   }
 
@@ -227,23 +228,20 @@ function convertCondition(condition: NewCondition): ExistingConditionExpression 
   }
 
   // Create left operand (always the variable)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- existing backend condition format uses dynamic operand shapes
-  const left: any = { type: "variable", path: condition.variable };
+  const left: VariableReference = { type: "variable", path: condition.variable };
 
   // Create right operand
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- existing backend condition format uses dynamic operand shapes
-  let right: any;
+  let right: VariableReference | ValueLiteral;
   if (operator === "is_empty" || operator === "is_not_empty") {
     // These don't need a right operand, but the existing format requires one
     right = { type: "value", value: null };
   } else if (condition.valueType === "variable" && typeof condition.value === "string") {
     right = { type: "variable", path: condition.value };
   } else {
-    right = { type: "value", value: condition.value };
+    right = { type: "value", value: condition.value as ConditionValue };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mapped operator string cast to ConditionOperator union
-  return { op: backendOp as any, left, right };
+  return { op: backendOp as ConditionOperator, left, right };
 }
 
 // ========================================================================
@@ -251,16 +249,15 @@ function convertCondition(condition: NewCondition): ExistingConditionExpression 
 // ========================================================================
 
 /**
- * Evaluates a condition expression (either format) against the given context
+ * Evaluates a condition expression (either format) against the given context.
+ * Accepts `unknown` because visibleIf values can be any format (new, existing, legacy string, null).
  *
  * @param expression - The condition expression (new or existing format)
  * @param variables - The variable values (step values by alias or ID)
  * @returns boolean result of the condition evaluation
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- evaluates multiple condition formats (new, existing, legacy string)
 export function evaluateVisibility(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  expression: any,
+  expression: unknown,
   variables: Record<string, unknown>
 ): boolean {
   // Null/undefined means always visible
@@ -298,7 +295,7 @@ export function evaluateVisibility(
 }
 
 /**
- * Parses a legacy string condition into the existing backend format
+ * Parses a legacy string condition into the existing backend format.
  * Supports basic comparisons: var == val, var > val, etc.
  */
 // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
@@ -310,10 +307,9 @@ function parseLegacyStringCondition(expr: string): ExistingConditionExpression |
   // Handle AND logic
   if (expr.includes('&&')) {
     const parts = expr.split('&&');
-    const conditions = parts.map(p => parseLegacyStringCondition(p)).filter(c => c !== null);
+    const conditions = parts.map(p => parseLegacyStringCondition(p)).filter((c): c is ExistingConditionExpression => c !== null);
     if (conditions.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- recursive type cast for ExistingConditionExpression
-      return { and: conditions } as any;
+      return { and: conditions };
     }
     return null;
   }
@@ -360,8 +356,7 @@ function parseLegacyStringCondition(expr: string): ExistingConditionExpression |
         if (rightValStr === "") { return null; }
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- parsed condition value can be string, number, boolean, or null
-      let rightVal: any = rightValStr;
+      let rightVal: ConditionValue = rightValStr;
 
       // Parse value
       if (rightValStr === "true") { rightVal = true; }
@@ -373,8 +368,7 @@ function parseLegacyStringCondition(expr: string): ExistingConditionExpression |
       }
 
       return {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mapped operator string to ConditionOperator union
-        op: op as any,
+        op: op as ConditionOperator,
         left: { type: "variable", path: leftPath },
         right: { type: "value", value: rightVal }
       };
@@ -387,8 +381,7 @@ function parseLegacyStringCondition(expr: string): ExistingConditionExpression |
 /**
  * Batch evaluate visibility for multiple items
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- visibleIf and variables are dynamic condition/value types
-export function evaluateVisibilityBatch<T extends { id: string; visibleIf?: any }>(
+export function evaluateVisibilityBatch<T extends { id: string; visibleIf?: unknown }>(
   items: T[],
   variables: Record<string, unknown>
 ): Map<string, boolean> {

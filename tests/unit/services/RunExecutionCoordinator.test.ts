@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { describe, it, expect, vi, beforeEach, type Mocked } from 'vitest';
 
 import { JsQuestionConfig } from '@shared/types/steps';

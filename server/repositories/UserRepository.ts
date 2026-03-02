@@ -34,7 +34,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
    * Used for Google OAuth authentication
    * IMPORTANT: Only updates fields provided in userData to preserve existing fields like 'role'
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity
+  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
   async upsert(userData: UpsertUser, tx?: DbTransaction): Promise<User> {
     const database = this.getDb(tx);
 
@@ -72,7 +72,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
             .set(updateData)
             .where(eq(users.email, userData.email))
             .returning();
-          if (!updatedUser) {throw new Error("Failed to update user");}
+          if (updatedUser == null) {throw new Error("Failed to update user");}
           return updatedUser;
         }
       }
@@ -103,7 +103,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
         logger.warn({ err: e }, "Failed to increment user stats");
       }
 
-      if (!user) {throw new Error("Failed to create user");}
+      if (user == null) {throw new Error("Failed to create user");}
       return user;
     } catch (error) {
       // If we still get a constraint violation, it could be due to race conditions
@@ -127,7 +127,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
             .set(updateData)
             .where(eq(users.email, userData.email))
             .returning();
-          if (!updatedUser) {throw new Error("Failed to update user");}
+          if (updatedUser == null) {throw new Error("Failed to update user");}
           return updatedUser;
         }
       }
@@ -141,7 +141,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
    * Find multiple users by IDs (batch fetch)
    */
   async findByIds(ids: string[], tx?: DbTransaction): Promise<User[]> {
-    if (ids.length === 0) return [];
+    if (ids.length === 0) {return [];}
     const database = this.getDb(tx);
     return database.select().from(users).where(inArray(users.id, ids));
   }
@@ -221,7 +221,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
       .returning();
 
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!updatedUser) {
+    if (updatedUser == null) {
       throw new Error('User not found');
     }
 
@@ -249,7 +249,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
       .where(eq(users.id, userId))
       .returning();
 
-    if (!updatedUser) {
+    if (updatedUser == null) {
       throw new Error('User not found');
     }
 

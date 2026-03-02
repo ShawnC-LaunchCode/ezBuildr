@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import type { ApiStep, StepType } from "@/lib/vault-api";
+import type { StepType } from "@/lib/vault-api";
 import {
     useUpdateStep,
     useWorkflow,

@@ -48,7 +48,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     if (updates.status && record && record.status !== updates.status) {
       logger.warn({ workflowId: id, requested: updates.status, got: record.status }, "Workflow status mismatch after update");
     }
-    if (!record) {throw new Error("Failed to update workflow");}
+    if (record == null) {throw new Error("Failed to update workflow");}
     return record;
   }
   /**
@@ -86,8 +86,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
       )
     );
     // Join with organizations to get owner name
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query: any = database
+    const query = database
       .select({
         ...getTableColumns(workflows),
         ownerName: organizations.name,
@@ -101,11 +100,11 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
         )
       )
       .where(or(...conditions))
-      .orderBy(desc(workflows.updatedAt));
-    if (options?.limit !== undefined) { query = query.limit(options.limit); }
-    if (options?.offset !== undefined) { query = query.offset(options.offset); }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return query as any; // Drizzle join result with organization name
+      .orderBy(desc(workflows.updatedAt))
+      .$dynamic();
+    if (options?.limit !== undefined) { query.limit(options.limit); }
+    if (options?.offset !== undefined) { query.offset(options.offset); }
+    return query as unknown as Promise<Workflow[]>; // Join result shape is compatible with Workflow[]
   }
   /**
    * Find workflows by user access (Owner OR Shared OR Org-owned)
@@ -149,15 +148,15 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
         or(eq(workflows.creatorId, userId), eq(workflows.ownerId, userId))
       )
     );
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query: any = database
+    let query = database
       .select()
       .from(workflows)
       .where(or(...conditions))
-      .orderBy(desc(workflows.updatedAt));
+      .orderBy(desc(workflows.updatedAt))
+      .$dynamic();
     if (options?.limit !== undefined) { query = query.limit(options.limit); }
     if (options?.offset !== undefined) { query = query.offset(options.offset); }
-    return query as Promise<Workflow[]>;
+    return query;
   }
   /**
    * Find workflows by status
@@ -168,16 +167,15 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     tx?: DbTransaction
   ): Promise<Workflow[]> {
     const database = this.getDb(tx);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query: any = database
+    let query = database
       .select()
       .from(workflows)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .where(eq(workflows.status, status as any)) // Drizzle enum type assertion
-      .orderBy(desc(workflows.updatedAt));
+      .where(eq(workflows.status, status))
+      .orderBy(desc(workflows.updatedAt))
+      .$dynamic();
     if (options?.limit !== undefined) { query = query.limit(options.limit); }
     if (options?.offset !== undefined) { query = query.offset(options.offset); }
-    return query as Promise<Workflow[]>;
+    return query;
   }
   /**
    * Find workflows by creator and status (includes user-owned and org-owned)
@@ -192,12 +190,9 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     // Get user's org memberships for org-owned workflow access
     const { orgIds } = await getAccessibleOwnershipFilter(creatorId);
     // Build conditions for ownership access
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const conditions = [
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      and(eq(workflows.creatorId, creatorId), eq(workflows.status, status as any)), // Legacy - Drizzle enum assertion
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      and(eq(workflows.ownerId, creatorId), eq(workflows.status, status as any)), // Legacy - Drizzle enum assertion
+      and(eq(workflows.creatorId, creatorId), eq(workflows.status, status)),
+      and(eq(workflows.ownerId, creatorId), eq(workflows.status, status)),
     ];
     // User-owned via new ownership model
     if (isUuid(creatorId)) {
@@ -205,8 +200,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
         and(
           eq(workflows.ownerType, 'user'),
           eq(workflows.ownerUuid, creatorId),
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          eq(workflows.status, status as any) // Drizzle enum assertion
+          eq(workflows.status, status)
         )
       );
     }
@@ -216,20 +210,19 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
         and(
           eq(workflows.ownerType, 'org'),
           inArray(workflows.ownerUuid, orgIds),
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          eq(workflows.status, status as any) // Drizzle enum assertion
+          eq(workflows.status, status)
         )
       );
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query: any = database
+    let query = database
       .select()
       .from(workflows)
       .where(or(...conditions))
-      .orderBy(desc(workflows.updatedAt));
+      .orderBy(desc(workflows.updatedAt))
+      .$dynamic();
     if (options?.limit !== undefined) { query = query.limit(options.limit); }
     if (options?.offset !== undefined) { query = query.offset(options.offset); }
-    return query as Promise<Workflow[]>;
+    return query;
   }
   /**
    * Find all workflows whose slug starts with the given prefix.
@@ -240,7 +233,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     const rows = await database
       .select({ id: workflows.id, slug: workflows.slug })
       .from(workflows)
-      .where(sql`${workflows.slug} LIKE ${prefix + '%'}`);
+      .where(sql`${workflows.slug} LIKE ${`${prefix}%`}`); // eslint-disable-line sonarjs/no-nested-template-literals
     return rows.filter((r): r is { id: string; slug: string } => r.slug !== null);
   }
   /**
@@ -287,15 +280,15 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     tx?: DbTransaction
   ): Promise<Workflow[]> {
     const database = this.getDb(tx);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query: any = database
+    let query = database
       .select()
       .from(workflows)
       .where(eq(workflows.projectId, projectId))
-      .orderBy(desc(workflows.updatedAt));
+      .orderBy(desc(workflows.updatedAt))
+      .$dynamic();
     if (options?.limit !== undefined) { query = query.limit(options.limit); }
     if (options?.offset !== undefined) { query = query.offset(options.offset); }
-    return query as Promise<Workflow[]>;
+    return query;
   }
   /**
    * Find unfiled workflows (workflows with no project) for a creator (includes user-owned and org-owned)
@@ -333,15 +326,15 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
         )
       );
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query: any = database
+    let query = database
       .select()
       .from(workflows)
       .where(or(...conditions))
-      .orderBy(desc(workflows.updatedAt));
+      .orderBy(desc(workflows.updatedAt))
+      .$dynamic();
     if (options?.limit !== undefined) { query = query.limit(options.limit); }
     if (options?.offset !== undefined) { query = query.offset(options.offset); }
-    return query as Promise<Workflow[]>;
+    return query;
   }
   /**
    * Move workflow to a project (or unfiled if projectId is null)
@@ -357,7 +350,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
       .set({ projectId, updatedAt: new Date() })
       .where(eq(workflows.id, workflowId))
       .returning();
-    if (!workflow) {throw new Error("Failed to move workflow");}
+    if (workflow == null) {throw new Error("Failed to move workflow");}
     return workflow;
   }
   /**

@@ -52,18 +52,17 @@ export class ActivityLogRepository {
 
     // Free text search: search across event and actorEmail (if available)
     if (q !== null && q !== undefined && q !== '') {
+      const qLike = `%${q}%`;
       const searchConditions: SQL[] = [
-        // eslint-disable-next-line sonarjs/no-nested-template-literals
-        sql`${sql.raw(this.columns.event)} ILIKE ${`%${  q  }%`}`
+        sql`${sql.raw(this.columns.event)} ILIKE ${qLike}`
       ];
       if (this.columns.actorEmail !== null && this.columns.actorEmail !== undefined) {
-        // eslint-disable-next-line sonarjs/no-nested-template-literals
         searchConditions.push(
-          // eslint-disable-next-line sonarjs/no-nested-template-literals
-          sql`${sql.raw(this.columns.actorEmail)} ILIKE ${`%${  q  }%`}`
+          sql`${sql.raw(this.columns.actorEmail)} ILIKE ${qLike}`
         );
       }
-      conditions.push(sql`(${sql.join(searchConditions, sql` OR `)})`);
+      const orSep = sql` OR `;
+      conditions.push(sql`(${sql.join(searchConditions, orSep)})`);
     }
 
     // Event filter
@@ -76,8 +75,8 @@ export class ActivityLogRepository {
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (this.columns.actorEmail) {
         // Use ILIKE for partial matching (e.g., "scooter" matches "scooter4356@gmail.com")
-        // eslint-disable-next-line sonarjs/no-nested-template-literals
-        conditions.push(sql`${sql.raw(this.columns.actorEmail)} ILIKE ${`%${  actor  }%`}`);
+        const actorLike = `%${actor}%`;
+        conditions.push(sql`${sql.raw(this.columns.actorEmail)} ILIKE ${actorLike}`);
       } else if (this.columns.actorId !== null && this.columns.actorId !== undefined) {
         // Only try to match by ID if the input looks like a valid UUID
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -112,8 +111,9 @@ export class ActivityLogRepository {
     }
 
     // Build WHERE clause
+    const andSep = sql` AND `;
     const whereClause = conditions.length > 0
-      ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
+      ? sql`WHERE ${sql.join(conditions, andSep)}`
       : sql``;
 
     // Get total count

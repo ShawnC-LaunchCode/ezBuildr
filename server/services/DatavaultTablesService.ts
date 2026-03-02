@@ -247,7 +247,7 @@ export class DatavaultTablesService {
   async listTablesWithStats(tenantId: string, userId: string, tx?: DbTransaction) {
     const tables = await this.tablesRepo.findByTenantAndUser(tenantId, userId, tx);
 
-    if (tables.length === 0) return [];
+    if (tables.length === 0) {return [];}
     const tableIds = tables.map(t => t.id);
     const [columnCounts, rowCounts] = await Promise.all([
       this.columnsRepo.countByTableIds(tableIds, tx),

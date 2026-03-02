@@ -13,7 +13,7 @@ export function generateDeviceFingerprint(req: Request): string {
     // Use X-Forwarded-For if behind proxy, otherwise use req.ip
     (() => {
       const forwarded = req.headers['x-forwarded-for'];
-      if (forwarded) {
+      if (forwarded !== undefined) {
         return (forwarded.toString().split(',')[0] || '').trim();
       }
       return req.ip ?? '';

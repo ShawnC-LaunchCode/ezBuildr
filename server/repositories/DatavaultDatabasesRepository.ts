@@ -187,7 +187,7 @@ export class DatavaultDatabasesRepository {
       .values(data)
       .returning();
 
-    if (!results[0]) {throw new Error("Failed to create database");}
+    if (results[0] == null) {throw new Error("Failed to create database");}
     return results[0];
   }
 

@@ -1,5 +1,5 @@
 import { type InferSelectModel, type InferInsertModel } from "drizzle-orm";
-import { pgTable, integer, timestamp, serial } from "drizzle-orm/pg-core";
+import { pgTable, integer, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod"; // Assuming z usage
 
 export const systemStats = pgTable("system_stats", {

@@ -34,7 +34,7 @@ export class EmailQueueService {
                 attempts: 0
             }).returning({ id: emailQueue.id });
 
-            if (!job) {throw new Error("Failed to add email to queue");}
+            if (job == null) {throw new Error("Failed to add email to queue");}
 
             logger.info({ jobId: job.id, to, subject }, 'Email added to queue');
             return job.id;
