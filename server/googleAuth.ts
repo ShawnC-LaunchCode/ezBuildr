@@ -181,7 +181,8 @@ export async function setupAuth(app: Express): Promise<void> {
       });
     } catch (error) {
       logger.error({ err: error }, 'Google authentication failed');
-      res.status(401).json({ message: "Authentication failed", error: "auth_failed" });
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(401).json({ message: "Authentication failed", error: "auth_failed", details: errorMessage });
     }
   });
 }

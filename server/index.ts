@@ -59,7 +59,7 @@ app.use(helmet({
         policy: 'strict-origin-when-cross-origin',
     },
     crossOriginOpenerPolicy: {
-        policy: "same-origin-allow-popups",
+        policy: "unsafe-none",
     },
 }));
 // =====================================================================
