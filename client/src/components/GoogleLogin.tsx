@@ -29,19 +29,24 @@ export function GoogleLogin({ onSuccess, onError, 'data-testid': testId }: Googl
       }
 
       // Send the Google ID token to the backend
-      await apiRequest('POST', '/api/auth/google', {
+      const response = await apiRequest('POST', '/api/auth/google', {
         idToken: credentialResponse.credential,
       });
 
-      // Invalidate the auth query to refetch user data
-      await queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      // Update the auth query data directly and invalidate to sync state
+      queryClient.setQueryData(["auth"], response);
+      await queryClient.invalidateQueries({ queryKey: ["auth"] });
 
       toast({
         title: 'Welcome!',
         description: 'You have successfully signed in with Google.',
       });
 
-      onSuccess?.();
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        window.location.href = '/dashboard';
+      }
     } catch (error) {
       console.error('Google login error:', error);
 
