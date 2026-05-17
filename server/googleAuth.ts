@@ -40,10 +40,13 @@ async function upsertUser(payload: TokenPayload): Promise<Record<string, unknown
     const db = getDb();
     if (db == null) { throw new Error("Database not initialized"); }
     const [defaultTenant] = await db.select().from(tenants).limit(1);
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!defaultTenant) {
-      logger.error('No default tenant found in database');
-      throw new Error("System not properly configured - no tenant found");
+    let tenantId = defaultTenant?.id;
+    if (!tenantId) {
+      logger.warn('No default tenant found in database, creating one automatically');
+      const [newTenant] = await db.insert(tenants).values({
+        name: 'Default Tenant'
+      }).returning({ id: tenants.id });
+      tenantId = newTenant.id;
     }
     const userData = {
       id: payload.sub,
@@ -52,13 +55,13 @@ async function upsertUser(payload: TokenPayload): Promise<Record<string, unknown
       lastName: payload.family_name ?? null,
       profileImageUrl: payload.picture ?? null,
       defaultMode: 'easy' as const,
-      tenantId: defaultTenant.id,
+      tenantId: tenantId,
       tenantRole: (process.env.NODE_ENV === 'development' ? 'owner' : 'viewer') as 'owner' | 'viewer' | 'builder' | 'runner',
       authProvider: 'google' as const,
       emailVerified: true,
       lastPasswordChange: null
     };
-    logger.debug({ userId: userData.id, email: userData.email, tenantId: defaultTenant.id }, 'Upserting user');
+    logger.debug({ userId: userData.id, email: userData.email, tenantId: tenantId }, 'Upserting user');
     await userRepository.upsert(userData);
     return userData;
   } catch (error) {
