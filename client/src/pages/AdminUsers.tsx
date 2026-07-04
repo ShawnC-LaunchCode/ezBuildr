@@ -130,6 +130,10 @@ export default function AdminUsers() {
   const queryClient = useQueryClient();
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
+  type SortColumn = 'name' | 'email' | 'role' | 'workflowCount' | 'createdAt';
+  const [sortColumn, setSortColumn] = useState<SortColumn>('createdAt');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
   const { data: users, isLoading: usersLoading, error } = useQuery<User[]>({
     queryKey: ["/api/admin/users"],
     enabled: !!isAuthenticated,
@@ -216,6 +220,35 @@ export default function AdminUsers() {
     }
   });
 
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedUsers = [...(users || [])].sort((a, b) => {
+    let valA: string | number = a[sortColumn as keyof User] as string | number;
+    let valB: string | number = b[sortColumn as keyof User] as string | number;
+
+    if (sortColumn === 'name') {
+      valA = `${a.firstName || ''} ${a.lastName || ''}`.trim().toLowerCase();
+      valB = `${b.firstName || ''} ${b.lastName || ''}`.trim().toLowerCase();
+    } else if (sortColumn === 'role') {
+      valA = a.isPlaceholder ? 'invited' : a.role;
+      valB = b.isPlaceholder ? 'invited' : b.role;
+    } else if (sortColumn === 'createdAt') {
+      valA = new Date(a.createdAt).getTime();
+      valB = new Date(b.createdAt).getTime();
+    }
+
+    if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+    if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+
   if (authLoading || !isAuthenticated || error) {
     return null;
   }
@@ -265,16 +298,26 @@ export default function AdminUsers() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-border">
-                        <th className="text-left p-3 text-sm font-medium text-muted-foreground">User</th>
-                        <th className="text-left p-3 text-sm font-medium text-muted-foreground">Email</th>
-                        <th className="text-left p-3 text-sm font-medium text-muted-foreground">Role</th>
-                        <th className="text-left p-3 text-sm font-medium text-muted-foreground">Workflows</th>
-                        <th className="text-left p-3 text-sm font-medium text-muted-foreground">Joined</th>
+                        <th className="text-left p-3 text-sm font-medium text-muted-foreground cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('name')}>
+                          <div className="flex items-center gap-1">User {sortColumn === 'name' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
+                        </th>
+                        <th className="text-left p-3 text-sm font-medium text-muted-foreground cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('email')}>
+                          <div className="flex items-center gap-1">Email {sortColumn === 'email' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
+                        </th>
+                        <th className="text-left p-3 text-sm font-medium text-muted-foreground cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('role')}>
+                          <div className="flex items-center gap-1">Role {sortColumn === 'role' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
+                        </th>
+                        <th className="text-left p-3 text-sm font-medium text-muted-foreground cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('workflowCount')}>
+                          <div className="flex items-center gap-1">Workflows {sortColumn === 'workflowCount' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
+                        </th>
+                        <th className="text-left p-3 text-sm font-medium text-muted-foreground cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('createdAt')}>
+                          <div className="flex items-center gap-1">Joined {sortColumn === 'createdAt' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
+                        </th>
                         <th className="text-right p-3 text-sm font-medium text-muted-foreground">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {users.map((user) => (
+                      {sortedUsers.map((user) => (
                         <tr key={user.id} className="border-b border-border hover:bg-accent/50">
                           <td className="p-3">
                             <div className="flex items-center gap-3">
