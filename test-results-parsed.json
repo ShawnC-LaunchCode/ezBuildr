@@ -1,0 +1,1907 @@
+{
+  "vitest": {
+    "total": 2740,
+    "passed": 2120,
+    "failed": 310,
+    "skipped": 310,
+    "duration": 249416.01782226562,
+    "failures": [
+      {
+        "suite": "Stage 13: Workflow Snapshots & Versioning",
+        "test": "should maintain immutability of runs across versions",
+        "error": "Error: Failed query: insert into \"runs\" (\"id\", \"workflow_version_id\", \"input_json\", \"output_refs\", \"trace\", \"status\", \"error\", \"duration_ms\", \"run_token\", \"share_token\", \"share_token_expires_at\", \"created_by\", \"created_at\", \"updated_at\") values ($1, $2, default, default, default, $3, default, defaul",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/api.snapshots.test.ts"
+      },
+      {
+        "suite": "Auth Flows Integration Tests (REAL) › Complete Registration → Login Flow",
+        "test": "should complete registration, verify email, then login",
+        "error": "AssertionError: expected 500 to be 201 // Object.is equality",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.flows.real.test.ts"
+      },
+      {
+        "suite": "Auth Flows Integration Tests (REAL) › Account Lockout Flow",
+        "test": "should lock account after 5 failed attempts, then unlock after waiting",
+        "error": "AssertionError: expected 401 to be 423 // Object.is equality",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.flows.real.test.ts"
+      },
+      {
+        "suite": "Auth Flows Integration Tests (REAL) › Account Lockout Flow",
+        "test": "should record all login attempts",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: dfe65ed1d9d6a1bb0878578d31465c4a,$2b$12$tqZRQF12xoZCWF7ofMc3hODxKU1fAQgC/Lf1jwIccLrX6Vf52rqJm,2026-02-16T13:01:38.823Z,2026-02-16T13:01:38.823Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.flows.real.test.ts"
+      },
+      {
+        "suite": "Auth Flows Integration Tests (REAL) › MFA Enrollment and Login Flow",
+        "test": "should complete MFA setup and login with TOTP",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: f3c8bf96fc0d7d723b116489994e71b0,$2b$12$IXnJJvxBiMh8O6xdEVZOk..TM2iPOAEg/fhh1A0VpA.NC.u0IuLLO,2026-02-16T13:01:39.443Z,2026-02-16T13:01:39.443Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.flows.real.test.ts"
+      },
+      {
+        "suite": "Auth Flows Integration Tests (REAL) › MFA Enrollment and Login Flow",
+        "test": "should login with backup code when TOTP unavailable",
+        "error": "TypeError: Cannot read properties of undefined (reading 'id')",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.flows.real.test.ts"
+      },
+      {
+        "suite": "Auth Flows Integration Tests (REAL) › Password Reset Flow",
+        "test": "should complete full password reset flow",
+        "error": "TypeError: Cannot read properties of undefined (reading 'id')",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.flows.real.test.ts"
+      },
+      {
+        "suite": "Auth Flows Integration Tests (REAL) › Password Reset Flow",
+        "test": "should invalidate all sessions after password reset",
+        "error": "Error: Failed query: insert into \"password_reset_tokens\" (\"id\", \"user_id\", \"token\", \"expires_at\", \"used\", \"created_at\") values (default, $1, $2, $3, $4, default)\nparams: dcb5273455b95441ce6e785db1b8de1d,1f0a0fb4472796d786e80767fff07d8bef210c7c7dcd1015a6ac6cc02183be70,2026-02-16T14:01:42.901Z,false",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.flows.real.test.ts"
+      },
+      {
+        "suite": "Auth Flows Integration Tests (REAL) › Token Refresh Flow",
+        "test": "should rotate refresh token on each use",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: a9a5aaa9f623dd7cc542337d07da8c98,$2b$12$M9RiBXEzDZ7AHbic8dczBOM.sxB04pWCslfodTxuhVa9Bk0fyJFuK,2026-02-16T13:01:44.209Z,2026-02-16T13:01:44.209Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.flows.real.test.ts"
+      },
+      {
+        "suite": "Auth Flows Integration Tests (REAL) › Token Refresh Flow",
+        "test": "should detect and prevent refresh token reuse (token theft)",
+        "error": "TypeError: Cannot read properties of undefined (reading 'find')",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.flows.real.test.ts"
+      },
+      {
+        "suite": "Auth Flows Integration Tests (REAL) › Session Management Flow",
+        "test": "should list all active sessions",
+        "error": "AssertionError: expected 401 to be 200 // Object.is equality",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.flows.real.test.ts"
+      },
+      {
+        "suite": "Auth Flows Integration Tests (REAL) › Session Management Flow",
+        "test": "should revoke specific session",
+        "error": "TypeError: Cannot read properties of undefined (reading 'find')",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.flows.real.test.ts"
+      },
+      {
+        "suite": "Auth Routes Integration Tests (REAL) › POST /api/auth/register",
+        "test": "should register a new user successfully",
+        "error": "AssertionError: expected 500 to be 201 // Object.is equality",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.routes.real.test.ts"
+      },
+      {
+        "suite": "Auth Routes Integration Tests (REAL) › POST /api/auth/register",
+        "test": "should set httpOnly refresh token cookie",
+        "error": "AssertionError: expected 500 to be 201 // Object.is equality",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.routes.real.test.ts"
+      },
+      {
+        "suite": "Auth Routes Integration Tests (REAL) › POST /api/auth/login",
+        "test": "should login with valid credentials",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 8116510b92c1a0ca8291dd570f169eae,$2b$12$wjcge89sVnqG5z9/NmzegO2VctDwd4I2nxAMx26DSzSYMlpcDe0Ni,2026-02-16T13:01:38.329Z,2026-02-16T13:01:38.329Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.routes.real.test.ts"
+      },
+      {
+        "suite": "Auth Routes Integration Tests (REAL) › POST /api/auth/login",
+        "test": "should return 403 for unverified email",
+        "error": "AssertionError: expected 401 to be 403 // Object.is equality",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.routes.real.test.ts"
+      },
+      {
+        "suite": "Auth Routes Integration Tests (REAL) › POST /api/auth/login",
+        "test": "should record failed login attempt",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 40c68d2165cebf7522d0ca9d5bb5971b,$2b$12$kd04BWig/1Lq1EMmqpfvGeR02UQ8sUEp3E1fns3U1Ebots6L71zPu,2026-02-16T13:01:41.092Z,2026-02-16T13:01:41.092Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.routes.real.test.ts"
+      },
+      {
+        "suite": "Auth Routes Integration Tests (REAL) › POST /api/auth/login",
+        "test": "should return requiresMfa=true for MFA-enabled users",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 4136b92c5c8cc9eba8260d19448363e3,$2b$12$H/HjzGiRWGpj1Ia0gLLg4.cHhaS8PyGo8.jOkVO.uubGZUFMyapzu,2026-02-16T13:01:41.787Z,2026-02-16T13:01:41.787Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.routes.real.test.ts"
+      },
+      {
+        "suite": "Auth Routes Integration Tests (REAL) › POST /api/auth/login",
+        "test": "should lock account after 5 failed attempts",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 54c1e45703aed1c018e16394abc28b02,$2b$12$27fkYMqrRg9x8Wv2/xRm6OoZ3U9qbF0DSGvUphVJS/7YPr7JDu2EW,2026-02-16T13:01:42.668Z,2026-02-16T13:01:42.668Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.routes.real.test.ts"
+      },
+      {
+        "suite": "Auth Routes Integration Tests (REAL) › POST /api/auth/logout",
+        "test": "should logout and clear refresh token cookie",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 9081683761206b2f49c551367f0d84c2,$2b$12$vw4Hz2uyYNKqS4GSSYzkSOqfcHAESj4.61hIoUOKQeQfdR/eMCY/u,2026-02-16T13:01:43.304Z,2026-02-16T13:01:43.304Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.routes.real.test.ts"
+      },
+      {
+        "suite": "Auth Routes Integration Tests (REAL) › POST /api/auth/refresh-token",
+        "test": "should refresh access token with valid refresh token",
+        "error": "AssertionError: expected undefined to be defined",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.routes.real.test.ts"
+      },
+      {
+        "suite": "Auth Routes Integration Tests (REAL) › POST /api/auth/refresh-token",
+        "test": "should rotate refresh token after use",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 71cccd2fc0508bfb8e61642f6583f349,$2b$12$jGu3DtcgiMWm.czHQ8bQL.1bZlB48A3dRvUWVUH1fgvHVjqXBEZPG,2026-02-16T13:01:45.006Z,2026-02-16T13:01:45.006Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.routes.real.test.ts"
+      },
+      {
+        "suite": "Auth Routes Integration Tests (REAL) › POST /api/auth/forgot-password",
+        "test": "should send password reset email for existing user",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 9e9deacf54b3857e3024f9ee135e351c,$2b$12$v54AtsWxCgJqK4U.YGsozOsXZV9iFibou6UL2ws/ukx45j/eg.Rm6,2026-02-16T13:01:45.614Z,2026-02-16T13:01:45.614Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.routes.real.test.ts"
+      },
+      {
+        "suite": "Auth Routes Integration Tests (REAL) › POST /api/auth/reset-password",
+        "test": "should reset password with valid token",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 1ccb255e28e720285c6a72a579b647d7,$2b$12$C2ISKI67XKbFJq1xLPLb.e.zwPcRBX5HpWa1dBIvYHCNKa5Ffc0jK,2026-02-16T13:01:46.526Z,2026-02-16T13:01:46.526Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.routes.real.test.ts"
+      },
+      {
+        "suite": "Auth Routes Integration Tests (REAL) › POST /api/auth/reset-password",
+        "test": "should return 400 for weak new password",
+        "error": "AssertionError: expected 'Token and password required' to contain 'Password'",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.routes.real.test.ts"
+      },
+      {
+        "suite": "Auth Routes Integration Tests (REAL) › GET /api/auth/me",
+        "test": "should return current user for valid token",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: d2a7bc218f1172ac2cfd0078579f80eb,$2b$12$dAAOizf2t6KymBxLSMnmGuQBl8hyMgvyRJxQZsW0tObJdguNJC7Yu,2026-02-16T13:01:48.478Z,2026-02-16T13:01:48.478Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.routes.real.test.ts"
+      },
+      {
+        "suite": "Auth Routes Integration Tests (REAL) › MFA Routes › POST /api/auth/mfa/verify-login",
+        "test": "should complete MFA login with valid TOTP code",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: aa5f9ccd985603773ebc93a85678917b,$2b$12$Zhvb/xMWEm4VWuWeJr.aTuD.LaWydIHDOhT1bDRJzGbQQHp.zhCRa,2026-02-16T13:01:49.191Z,2026-02-16T13:01:49.191Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.routes.real.test.ts"
+      },
+      {
+        "suite": "Auth Routes Integration Tests (REAL) › MFA Routes › POST /api/auth/mfa/verify-login",
+        "test": "should reject invalid MFA code",
+        "error": "Error: [TEST UTILS] MFA Secret verification failed for a978dd6b1d0d2437572693c9dbdab573",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth.routes.real.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Collection Lifecycle",
+        "test": "should create a collection",
+        "error": "Error: Failed query: insert into \"collections\" (\"id\", \"tenant_id\", \"name\", \"slug\", \"description\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, default, default) returning \"id\", \"tenant_id\", \"name\", \"slug\", \"description\", \"created_at\", \"updated_at\"\nparams: efb5f297-76e1-4509-94d9-d336",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Collection Lifecycle",
+        "test": "should list collections",
+        "error": "AssertionError: expected 0 to be greater than 0",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Collection Lifecycle",
+        "test": "should get a collection by ID",
+        "error": "Error: Collection not found",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Collection Lifecycle",
+        "test": "should update a collection",
+        "error": "Error: Collection not found",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Field Management",
+        "test": "should create text field",
+        "error": "Error: Collection not found",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Field Management",
+        "test": "should create email field",
+        "error": "Error: Collection not found",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Field Management",
+        "test": "should create number field",
+        "error": "Error: Collection not found",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Field Management",
+        "test": "should create select field with options",
+        "error": "Error: Collection not found",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Field Management",
+        "test": "should create boolean field",
+        "error": "Error: Collection not found",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Field Management",
+        "test": "should list all fields",
+        "error": "AssertionError: expected +0 to be 5 // Object.is equality",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Field Management",
+        "test": "should update field",
+        "error": "Error: Field not found",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Record CRUD Operations",
+        "test": "should create a record",
+        "error": "Error: Collection not found",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Record CRUD Operations",
+        "test": "should create multiple records",
+        "error": "Error: Collection not found",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Record CRUD Operations",
+        "test": "should list records with pagination",
+        "error": "Error: Collection not found or access denied",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Record CRUD Operations",
+        "test": "should get a single record",
+        "error": "Error: Record not found",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Record CRUD Operations",
+        "test": "should update a record",
+        "error": "Error: Record not found",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Record CRUD Operations",
+        "test": "should find records by filters",
+        "error": "Error: Collection not found or access denied",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Record CRUD Operations",
+        "test": "should delete a record",
+        "error": "Error: Record not found",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Collection Stats",
+        "test": "should list collections with stats",
+        "error": "AssertionError: expected undefined to be defined",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Data Validation",
+        "test": "should validate field types",
+        "error": "Error: Collection not found",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Collections System E2E Tests › Cleanup",
+        "test": "should delete collection (cascade fields and records)",
+        "error": "Error: Collection not found",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/collections.e2e.test.ts"
+      },
+      {
+        "suite": "Data Block Integration Tests",
+        "test": "should write data to DataVault via WriteBlock",
+        "error": "Error: Failed query: insert into \"workflows\" (\"id\", \"title\", \"description\", \"creator_id\", \"owner_id\", \"mode_override\", \"public_link\", \"name\", \"project_id\", \"current_version_id\", \"is_public\", \"slug\", \"require_login\", \"intake_config\", \"pinned_version_id\", \"status\", \"owner_type\", \"owner_uuid\", \"created",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/dataBlocks.test.ts"
+      },
+      {
+        "suite": "Data Block Integration Tests",
+        "test": "should query data from DataVault via QueryBlock and use in Logic",
+        "error": "Error: Failed query: insert into \"workflow_queries\" (\"id\", \"workflow_id\", \"data_source_id\", \"table_id\", \"name\", \"filters\", \"sort\", \"limit\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, default, default, default, default, default) returning \"id\", \"workflow_id\", \"data_source_id\", \"tabl",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/dataBlocks.test.ts"
+      },
+      {
+        "suite": "Detailed Verification: JS Helper Availability",
+        "test": "should execute a JS block that uses helper functions",
+        "error": "Error: Failed query: insert into \"sections\" (\"id\", \"workflow_id\", \"title\", \"description\", \"order\", \"config\", \"visible_if\", \"skip_if\", \"created_at\", \"updated_at\") values (default, $1, $2, default, $3, default, default, default, default, default) returning \"id\", \"workflow_id\", \"title\", \"description\", ",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/js_helpers.test.ts"
+      },
+      {
+        "suite": "MFA Flow Integration Tests (REAL) › MFA Setup Flow",
+        "test": "should complete full MFA setup flow",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: e12e53995810f8cf0e17919d20428143,$2b$12$eMF2FWpEbtw57TdHB27qT.mYlQxRYFZdW/dcDrWtPqJeKFsQbyM86,2026-02-16T13:01:36.136Z,2026-02-16T13:01:36.136Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/mfa.flow.real.test.ts"
+      },
+      {
+        "suite": "MFA Flow Integration Tests (REAL) › MFA Setup Flow",
+        "test": "should reject invalid TOTP code during setup",
+        "error": "AssertionError: expected 401 to be 400 // Object.is equality",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/mfa.flow.real.test.ts"
+      },
+      {
+        "suite": "MFA Flow Integration Tests (REAL) › MFA Setup Flow",
+        "test": "should not allow MFA setup if already enabled",
+        "error": "Error: Failed query: insert into \"mfa_secrets\" (\"id\", \"user_id\", \"secret\", \"enabled\", \"created_at\", \"enabled_at\") values (default, $1, $2, $3, $4, $5)\nparams: 950ef1bd89c316adeb747554a7b0233c,IIVDQYLWPVVVKMTTLBID43ZWIRXU2STMJZUSMWCKPFECCZZYORNA,true,2026-02-16T13:01:37.932Z,2026-02-16T13:01:37.932Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/mfa.flow.real.test.ts"
+      },
+      {
+        "suite": "MFA Flow Integration Tests (REAL) › MFA Setup Flow",
+        "test": "should generate unique backup codes",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: afb25ede9590626fb0a4a37a086f9398,$2b$12$DeVk6QCY5meumEQIIOpPkeyGa2MA65Q94ktLN5YKbsqde559vaWPu,2026-02-16T13:01:38.581Z,2026-02-16T13:01:38.581Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/mfa.flow.real.test.ts"
+      },
+      {
+        "suite": "MFA Flow Integration Tests (REAL) › MFA Setup Flow",
+        "test": "should store hashed backup codes",
+        "error": "AssertionError: expected [] to have a length of 10 but got +0",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/mfa.flow.real.test.ts"
+      },
+      {
+        "suite": "MFA Flow Integration Tests (REAL) › MFA Login Flow",
+        "test": "should require MFA for enabled users",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 660e23f141e6af1a76862485c656b254,$2b$12$8NZxtjjOQ7d/iEjhiluJRu0tj258DWoO8uGI6MR5eRvnET6M9fvcW,2026-02-16T13:01:40.862Z,2026-02-16T13:01:40.862Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/mfa.flow.real.test.ts"
+      },
+      {
+        "suite": "MFA Flow Integration Tests (REAL) › MFA Login Flow",
+        "test": "should complete MFA login with valid TOTP",
+        "error": "Error: [TEST UTILS] MFA Secret verification failed for 4bfe104b0dfa09000b6750ae5f41d002",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/mfa.flow.real.test.ts"
+      },
+      {
+        "suite": "MFA Flow Integration Tests (REAL) › MFA Login Flow",
+        "test": "should reject invalid TOTP during login",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 375ab5c5aca6a0cac4dbb8e5bbf73eb5,$2b$12$80FEXx0QGD0hJaJsS.rov.wNCEGQicvUjMG6AKfrTMHkha0VsEkGK,2026-02-16T13:01:42.063Z,2026-02-16T13:01:42.063Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/mfa.flow.real.test.ts"
+      },
+      {
+        "suite": "MFA Flow Integration Tests (REAL) › MFA Login Flow",
+        "test": "should accept TOTP codes within 60-second window",
+        "error": "Error: Failed query: insert into \"mfa_secrets\" (\"id\", \"user_id\", \"secret\", \"enabled\", \"created_at\", \"enabled_at\") values (default, $1, $2, $3, $4, $5)\nparams: 0c9cb494cc16c482e2abf8e6d60f3e4c,PBTFARBFKJIES4LNOJAEYOTEI4RUU3ZOLA4E4KRUMFKFMY3XGI2Q,true,2026-02-16T13:01:42.807Z,2026-02-16T13:01:42.807Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/mfa.flow.real.test.ts"
+      },
+      {
+        "suite": "MFA Flow Integration Tests (REAL) › Backup Code Flow",
+        "test": "should login with valid backup code",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 37830105e676ec3f227ac78fc2927c3e,$2b$12$TcSyY.e2sZfC8wPSmMv9Y.BRiJDEL/mqDBH4AZB6J8FqI.vi2UsOW,2026-02-16T13:01:44.995Z,2026-02-16T13:01:44.995Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/mfa.flow.real.test.ts"
+      },
+      {
+        "suite": "MFA Flow Integration Tests (REAL) › Backup Code Flow",
+        "test": "should mark backup code as used",
+        "error": "Error: Failed query: insert into \"mfa_secrets\" (\"id\", \"user_id\", \"secret\", \"enabled\", \"created_at\", \"enabled_at\") values (default, $1, $2, $3, $4, $5)\nparams: 1f78209e04bd3a1af6b5485dd46c394e,G54XMLZPPBMEO43WGRNFO6LQFE4UGXSAORWS6YTBIBJHOVJ6H5GQ,true,2026-02-16T13:01:45.701Z,2026-02-16T13:01:45.701Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/mfa.flow.real.test.ts"
+      },
+      {
+        "suite": "MFA Flow Integration Tests (REAL) › Backup Code Flow",
+        "test": "should prevent backup code reuse",
+        "error": "TypeError: Cannot read properties of undefined (reading 'id')",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/mfa.flow.real.test.ts"
+      },
+      {
+        "suite": "MFA Flow Integration Tests (REAL) › Backup Code Flow",
+        "test": "should try TOTP before backup code",
+        "error": "AssertionError: expected 404 to be 200 // Object.is equality",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/mfa.flow.real.test.ts"
+      },
+      {
+        "suite": "MFA Flow Integration Tests (REAL) › MFA Status",
+        "test": "should return MFA status for user",
+        "error": "AssertionError: expected 401 to be 200 // Object.is equality",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/mfa.flow.real.test.ts"
+      },
+      {
+        "suite": "MFA Flow Integration Tests (REAL) › MFA Status",
+        "test": "should return backup codes count for MFA users",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 71c2699a196d5d62d75700fc80930eff,$2b$12$xV54wEVjCnI8CVmBVGxs.eKYRdV0lSLCWVwyCXMasIYnIXtFPNO3u,2026-02-16T13:01:51.056Z,2026-02-16T13:01:51.056Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/mfa.flow.real.test.ts"
+      },
+      {
+        "suite": "MFA Flow Integration Tests (REAL) › MFA Disable Flow",
+        "test": "should disable MFA with password verification",
+        "error": "Error: Failed query: insert into \"mfa_secrets\" (\"id\", \"user_id\", \"secret\", \"enabled\", \"created_at\", \"enabled_at\") values (default, $1, $2, $3, $4, $5)\nparams: a39e6a818427873e53c0cc63019ee9e9,JNGEYNDMPJNVIOB7FAZDC42WGMTD4KJFEEUHEY2EGE6FKT2DHZ3A,true,2026-02-16T13:01:51.857Z,2026-02-16T13:01:51.857Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/mfa.flow.real.test.ts"
+      },
+      {
+        "suite": "MFA Flow Integration Tests (REAL) › MFA Disable Flow",
+        "test": "should require correct password to disable MFA",
+        "error": "Error: Failed query: insert into \"mfa_secrets\" (\"id\", \"user_id\", \"secret\", \"enabled\", \"created_at\", \"enabled_at\") values (default, $1, $2, $3, $4, $5)\nparams: d08ca4d703db9e4a084240c410da7f32,PVPCGORFGVAUM6TRGI7WORSOENZGYWBEN42UYPSEJITGOLTCNF3Q,true,2026-02-16T13:01:52.660Z,2026-02-16T13:01:52.660Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/mfa.flow.real.test.ts"
+      },
+      {
+        "suite": "MFA Flow Integration Tests (REAL) › Backup Code Regeneration",
+        "test": "should regenerate backup codes",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 348c4e4e98024d9769001bb35901d3db,$2b$12$vnJkfCalB1N.RN6SBeRcB.fA7/bbrXY6Sh1N89NQKtAw3/nDe8s5.,2026-02-16T13:01:53.332Z,2026-02-16T13:01:53.332Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/mfa.flow.real.test.ts"
+      },
+      {
+        "suite": "MFA Flow Integration Tests (REAL) › Backup Code Regeneration",
+        "test": "should return error if MFA not enabled",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: b586caa2119a3bb9a788b3dbc3378535,$2b$12$hO0iof3oxPoXQPdtucijsuNFcGL0xzx7ZU77Q8gUGBhiJCe5shCjq,2026-02-16T13:01:54.006Z,2026-02-16T13:01:54.006Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/mfa.flow.real.test.ts"
+      },
+      {
+        "suite": "MFA Flow Integration Tests (REAL) › Tenant-Level MFA Enforcement",
+        "test": "should enforce MFA for tenant users when required by tenant",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: f9b576a5ee39a39cbe428094ceadecba,$2b$12$uiObVH9YG0i.gLkJAQYS6e5aYMld6Wmkj0KoDckERmpWEq6LQWAne,2026-02-16T13:01:54.660Z,2026-02-16T13:01:54.660Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/mfa.flow.real.test.ts"
+      },
+      {
+        "suite": "Organization Invites › createInvite",
+        "test": "should create invite for existing user without creating placeholder",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizationInvites.test.ts"
+      },
+      {
+        "suite": "Organization Invites › createInvite",
+        "test": "should prevent duplicate pending invites",
+        "error": "AssertionError: expected [Function] to throw error including 'Pending invite already exists' but got 'Access denied: Organization admin rol…'",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizationInvites.test.ts"
+      },
+      {
+        "suite": "Organization Invites › createInvite",
+        "test": "should prevent inviting existing members",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizationInvites.test.ts"
+      },
+      {
+        "suite": "Organization Invites › createInvite",
+        "test": "should require admin access to create invite",
+        "error": "Error: Failed query: delete from \"users\" where \"users\".\"id\" in ($1, $2)\nparams: 00000000-0000-0000-0000-000000000021,00000000-0000-0000-0000-000000000022",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizationInvites.test.ts"
+      },
+      {
+        "suite": "Organization Invites › acceptInvite",
+        "test": "should accept invite and create membership",
+        "error": "Error: Access denied: Organization admin role required",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizationInvites.test.ts"
+      },
+      {
+        "suite": "Organization Invites › acceptInvite",
+        "test": "should convert placeholder user to real user on accept",
+        "error": "Error: Access denied: Organization admin role required",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizationInvites.test.ts"
+      },
+      {
+        "suite": "Organization Invites › revokeInvite",
+        "test": "should allow admin to revoke invite",
+        "error": "AssertionError: expected undefined to be 'revoked' // Object.is equality",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizationInvites.test.ts"
+      },
+      {
+        "suite": "Organization Invites › revokeInvite",
+        "test": "should prevent accepting revoked invite",
+        "error": "Error: Access denied: Organization admin role required",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizationInvites.test.ts"
+      },
+      {
+        "suite": "Organization Workflow Integration Tests › Complete Organization Workflow",
+        "test": "Step 1: Create organization",
+        "error": "AssertionError: expected [] to have a length of 1 but got +0",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizations-workflow.test.ts"
+      },
+      {
+        "suite": "Organization Workflow Integration Tests › Complete Organization Workflow",
+        "test": "Step 2: Invite member via email",
+        "error": "Error: Access denied: Organization admin role required",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizations-workflow.test.ts"
+      },
+      {
+        "suite": "Organization Workflow Integration Tests › Complete Organization Workflow",
+        "test": "Step 3: Accept invite",
+        "error": "Error: Invite not found",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizations-workflow.test.ts"
+      },
+      {
+        "suite": "Organization Workflow Integration Tests › Complete Organization Workflow",
+        "test": "Step 4: Create workflow owned by user",
+        "error": "Error: Failed query: insert into \"workflows\" (\"id\", \"title\", \"description\", \"creator_id\", \"owner_id\", \"mode_override\", \"public_link\", \"name\", \"project_id\", \"current_version_id\", \"is_public\", \"slug\", \"require_login\", \"intake_config\", \"pinned_version_id\", \"status\", \"owner_type\", \"owner_uuid\", \"created",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizations-workflow.test.ts"
+      },
+      {
+        "suite": "Organization Workflow Integration Tests › Complete Organization Workflow",
+        "test": "Step 5: Transfer workflow to organization",
+        "error": "Error: Workflow not found",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizations-workflow.test.ts"
+      },
+      {
+        "suite": "Organization Workflow Integration Tests › Complete Organization Workflow",
+        "test": "Step 6: Org member (user2) can access workflow",
+        "error": "Error: Workflow not found",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizations-workflow.test.ts"
+      },
+      {
+        "suite": "Organization Workflow Integration Tests › Complete Organization Workflow",
+        "test": "Step 7: Org member (user2) can update workflow",
+        "error": "Error: Workflow not found",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizations-workflow.test.ts"
+      },
+      {
+        "suite": "Organization Workflow Integration Tests › Complete Organization Workflow",
+        "test": "Step 8: Org admin (user1) can still access workflow after transfer",
+        "error": "Error: Workflow not found",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizations-workflow.test.ts"
+      },
+      {
+        "suite": "Organization Workflow Integration Tests › Complete Organization Workflow",
+        "test": "Step 12: Org member can see workflow in list",
+        "error": "AssertionError: expected false to be true // Object.is equality",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizations-workflow.test.ts"
+      },
+      {
+        "suite": "Organization Workflow Integration Tests › Complete Organization Workflow",
+        "test": "Step 14: Remove member from org",
+        "error": "Error: Access denied: Organization admin role required",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizations-workflow.test.ts"
+      },
+      {
+        "suite": "Organization Workflow Integration Tests › Complete Organization Workflow",
+        "test": "Step 16: Re-add member and verify access restored",
+        "error": "Error: Access denied: Organization admin role required",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizations-workflow.test.ts"
+      },
+      {
+        "suite": "Organization Workflow Integration Tests › Edge Cases and Security",
+        "test": "Cannot invite same email twice (pending invite exists)",
+        "error": "Error: Access denied: Organization admin role required",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizations-workflow.test.ts"
+      },
+      {
+        "suite": "Organization Workflow Integration Tests › Edge Cases and Security",
+        "test": "Cannot accept expired invite",
+        "error": "Error: Access denied: Organization admin role required",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizations-workflow.test.ts"
+      },
+      {
+        "suite": "Organization Workflow Integration Tests › Edge Cases and Security",
+        "test": "Cannot transfer workflow to org user is not a member of",
+        "error": "Error: User must belong to a tenant to create organizations",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizations-workflow.test.ts"
+      },
+      {
+        "suite": "OrganizationService Integration › createOrganization",
+        "test": "should create organization and auto-create admin membership",
+        "error": "Error: Failed query: insert into \"organizations\" (\"id\", \"name\", \"description\", \"slug\", \"domain\", \"settings\", \"tenant_id\", \"created_by_user_id\", \"created_at\", \"updated_at\") values (default, $1, $2, default, default, default, $3, $4, default, default) returning \"id\", \"name\", \"description\", \"slug\", \"do",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizationService.test.ts"
+      },
+      {
+        "suite": "OrganizationService Integration › getUserOrganizations",
+        "test": "should return all organizations for user",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizationService.test.ts"
+      },
+      {
+        "suite": "OrganizationService Integration › updateOrganization",
+        "test": "should allow admin to update organization",
+        "error": "Error: Failed query: insert into \"organizations\" (\"id\", \"name\", \"description\", \"slug\", \"domain\", \"settings\", \"tenant_id\", \"created_by_user_id\", \"created_at\", \"updated_at\") values (default, $1, default, default, default, default, $2, $3, default, default) returning \"id\", \"name\", \"description\", \"slug\"",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizationService.test.ts"
+      },
+      {
+        "suite": "OrganizationService Integration › updateOrganization",
+        "test": "should deny non-admin from updating organization",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizationService.test.ts"
+      },
+      {
+        "suite": "OrganizationService Integration › getOrganizationMembers",
+        "test": "should return all members of organization",
+        "error": "Error: Access denied: Organization admin role required",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizationService.test.ts"
+      },
+      {
+        "suite": "OrganizationService Integration › promoteMember",
+        "test": "should allow admin to promote member",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizationService.test.ts"
+      },
+      {
+        "suite": "OrganizationService Integration › demoteMember",
+        "test": "should allow admin to demote other admin",
+        "error": "Error: Failed query: insert into \"organizations\" (\"id\", \"name\", \"description\", \"slug\", \"domain\", \"settings\", \"tenant_id\", \"created_by_user_id\", \"created_at\", \"updated_at\") values (default, $1, default, default, default, default, $2, $3, default, default) returning \"id\", \"name\", \"description\", \"slug\"",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizationService.test.ts"
+      },
+      {
+        "suite": "OrganizationService Integration › demoteMember",
+        "test": "should prevent self-demotion",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizationService.test.ts"
+      },
+      {
+        "suite": "OrganizationService Integration › removeMember",
+        "test": "should allow admin to remove member",
+        "error": "Error: Access denied: Organization admin role required",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizationService.test.ts"
+      },
+      {
+        "suite": "OrganizationService Integration › leaveOrganization",
+        "test": "should allow member to leave organization",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizationService.test.ts"
+      },
+      {
+        "suite": "OrganizationService Integration › leaveOrganization",
+        "test": "should allow admin to leave organization",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/organizationService.test.ts"
+      },
+      {
+        "suite": "Ownership Access Control › canAccessAsset",
+        "test": "should allow access to org-owned asset by org member",
+        "error": "Error: Failed query: insert into \"organization_memberships\" (\"id\", \"org_id\", \"user_id\", \"role\", \"created_at\") values (default, $1, $2, $3, default)\nparams: 10000000-0000-0000-0000-000000000001,00000000-0000-0000-0000-000000000001,member",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/ownershipAccess.test.ts"
+      },
+      {
+        "suite": "Ownership Access Control › canManageOrg",
+        "test": "should return true for org admin",
+        "error": "AssertionError: expected false to be true // Object.is equality",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/ownershipAccess.test.ts"
+      },
+      {
+        "suite": "Ownership Access Control › canManageOrg",
+        "test": "should return false for org member (non-admin)",
+        "error": "Error: Failed query: insert into \"organization_memberships\" (\"id\", \"org_id\", \"user_id\", \"role\", \"created_at\") values (default, $1, $2, $3, default)\nparams: 10000000-0000-0000-0000-000000000001,00000000-0000-0000-0000-000000000001,member",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/ownershipAccess.test.ts"
+      },
+      {
+        "suite": "Ownership Access Control › getUserOrgIds",
+        "test": "should return all org IDs for a user",
+        "error": "Error: Failed query: insert into \"organization_memberships\" (\"id\", \"org_id\", \"user_id\", \"role\", \"created_at\") values (default, $1, $2, $3, default), (default, $4, $5, $6, default)\nparams: 10000000-0000-0000-0000-000000000001,00000000-0000-0000-0000-000000000001,member,10000000-0000-0000-0000-0000000",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/ownershipAccess.test.ts"
+      },
+      {
+        "suite": "Ownership Access Control › Cross-org Access Control",
+        "test": "should not allow member of org1 to access org2-owned assets",
+        "error": "Error: Failed query: insert into \"organization_memberships\" (\"id\", \"org_id\", \"user_id\", \"role\", \"created_at\") values (default, $1, $2, $3, default)\nparams: 10000000-0000-0000-0000-000000000001,00000000-0000-0000-0000-000000000001,member",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/ownershipAccess.test.ts"
+      },
+      {
+        "suite": "Ownership Access Control › Cross-org Access Control",
+        "test": "should allow member of multiple orgs to access all their org assets",
+        "error": "AssertionError: expected false to be true // Object.is equality",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/ownershipAccess.test.ts"
+      },
+      {
+        "suite": "Reproduction: Workflow Creation",
+        "test": "should create a workflow successfully via service simulating route logic",
+        "error": "Error: Failed query: insert into \"workflows\" (\"id\", \"title\", \"description\", \"creator_id\", \"owner_id\", \"mode_override\", \"public_link\", \"name\", \"project_id\", \"current_version_id\", \"is_public\", \"slug\", \"require_login\", \"intake_config\", \"pinned_version_id\", \"status\", \"owner_type\", \"owner_uuid\", \"created",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/reproduction_workflow_creation.test.ts"
+      },
+      {
+        "suite": "AI Workflow Edit Access Reproduction",
+        "test": "should allow a user to edit their own workflow via AI",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: b486af4e-241f-4c39-bbfa-50f62ac1cf0a,$2b$12$5nFLBLgqwJuFjBSbazGZnu/u58oCQ8s6ezi4hk480Z6ddXrAmignG,2026-02-16T13:01:58.310Z,2026-02-16T13:01:58.3",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/repro_ai_access_denied.test.ts"
+      },
+      {
+        "suite": "Session Management Integration Tests (REAL) › GET /api/auth/sessions",
+        "test": "should list all active sessions for current user",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: a1ae6f0fd741d339dd4d9f01d2d7a4be,$2b$12$rNNY2lKUzDYNZ8luTyakSuEjZjW/1WJoI/myk03MzhEUNHBNDU9Le,2026-02-16T13:01:36.170Z,2026-02-16T13:01:36.170Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/session.management.real.test.ts"
+      },
+      {
+        "suite": "Session Management Integration Tests (REAL) › GET /api/auth/sessions",
+        "test": "should mark current session correctly",
+        "error": "TypeError: Cannot read properties of undefined (reading 'find')",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/session.management.real.test.ts"
+      },
+      {
+        "suite": "Session Management Integration Tests (REAL) › GET /api/auth/sessions",
+        "test": "should exclude revoked sessions",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: d94366805f471923895149313e16a2b2,$2b$12$y.wBUMWOtru5ktorLXbONejI7q6P06GHsVT.L/GVFVvzHfV6gTvZ6,2026-02-16T13:01:38.137Z,2026-02-16T13:01:38.137Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/session.management.real.test.ts"
+      },
+      {
+        "suite": "Session Management Integration Tests (REAL) › GET /api/auth/sessions",
+        "test": "should order sessions by last used (most recent first)",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 0511404c43d51fcbca8b3a2cdde08664,$2b$12$/KdheuRj5rci056dAeXc2eRMm23Fgf/YVMXijUGAyKDTmwIz74urO,2026-02-16T13:01:38.866Z,2026-02-16T13:01:38.866Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/session.management.real.test.ts"
+      },
+      {
+        "suite": "Session Management Integration Tests (REAL) › GET /api/auth/sessions",
+        "test": "should filter sessions by current user only",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 03a3430c9c786fd0eee6e22db5fe404b,$2b$12$pf52f8gmvIIAABXoFo1RZ.6r2.iDWgXZuXMIf42b5j4ckA6CCjE/6,2026-02-16T13:01:40.100Z,2026-02-16T13:01:40.100Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/session.management.real.test.ts"
+      },
+      {
+        "suite": "Session Management Integration Tests (REAL) › DELETE /api/auth/sessions/:sessionId",
+        "test": "should revoke specific session",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: eea8de3ca812febd2b90447a58381600,$2b$12$okSysG7FqTR.7va8v0D1H.yR8kpY9vHZKfKDku7OSIDHcnA7e9q76,2026-02-16T13:01:41.271Z,2026-02-16T13:01:41.271Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/session.management.real.test.ts"
+      },
+      {
+        "suite": "Session Management Integration Tests (REAL) › DELETE /api/auth/sessions/:sessionId",
+        "test": "should prevent revoking current session",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 942fd9cd338949c049fe4047db58535d,$2b$12$aW7qB2MARTQ5sjK/uZf/4.hwFGrfeQ9gnFY99adCCoD9bTmjwp2kK,2026-02-16T13:01:41.916Z,2026-02-16T13:01:41.916Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/session.management.real.test.ts"
+      },
+      {
+        "suite": "Session Management Integration Tests (REAL) › DELETE /api/auth/sessions/:sessionId",
+        "test": "should return 404 for non-existent session",
+        "error": "AssertionError: expected 401 to be 404 // Object.is equality",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/session.management.real.test.ts"
+      },
+      {
+        "suite": "Session Management Integration Tests (REAL) › DELETE /api/auth/sessions/:sessionId",
+        "test": "should prevent revoking other user's session",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 6f1ecb4a93ef49d9468b69f747083eda,$2b$12$4f/wX.nc6kL30wR128vdm.Bcv9LmekS6fqeJrepPP1CqkMlDY48VS,2026-02-16T13:01:47.248Z,2026-02-16T13:01:47.248Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/session.management.real.test.ts"
+      },
+      {
+        "suite": "Session Management Integration Tests (REAL) › DELETE /api/auth/sessions/all",
+        "test": "should revoke all other sessions",
+        "error": "TypeError: Cannot read properties of undefined (reading 'find')",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/session.management.real.test.ts"
+      },
+      {
+        "suite": "Session Management Integration Tests (REAL) › DELETE /api/auth/sessions/all",
+        "test": "should keep current session active",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 5cc9b8cba67eae03696f345011934c05,$2b$12$9oI7.DpEsC4Tn0koISqkXufMSImPU4fO7w7blx5501ZYeSOnAYBZK,2026-02-16T13:01:50.523Z,2026-02-16T13:01:50.523Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/session.management.real.test.ts"
+      },
+      {
+        "suite": "Session Management Integration Tests (REAL) › DELETE /api/auth/sessions/all",
+        "test": "should return 400 if no active session found",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 3ceb036deeb34d4b610cba848caba0f1,$2b$12$QUqQu4piLL5lXsbhYiV8VuCzShyQAblVDA69DBC3U4W2qZsAMYUAW,2026-02-16T13:01:51.183Z,2026-02-16T13:01:51.183Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/session.management.real.test.ts"
+      },
+      {
+        "suite": "Session Management Integration Tests (REAL) › DELETE /api/auth/sessions/all",
+        "test": "should revoke all trusted devices",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: a5a618e755836dfebaf6861ff0c78289,$2b$12$.ynnqLoAQOt93K53de4dseYACYvtCNKFGL7iWGv8qO3j6/w1hZ6AC,2026-02-16T13:01:51.869Z,2026-02-16T13:01:51.869Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/session.management.real.test.ts"
+      },
+      {
+        "suite": "Session Management Integration Tests (REAL) › DELETE /api/auth/sessions/all",
+        "test": "should handle user with single session gracefully",
+        "error": "TypeError: Cannot read properties of undefined (reading 'find')",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/session.management.real.test.ts"
+      },
+      {
+        "suite": "Session Management Integration Tests (REAL) › Session Security",
+        "test": "should include device metadata in sessions",
+        "error": "TypeError: Cannot read properties of undefined (reading '0')",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/session.management.real.test.ts"
+      },
+      {
+        "suite": "Session Management Integration Tests (REAL) › Session Security",
+        "test": "should not expose sensitive token data",
+        "error": "TypeError: Cannot read properties of undefined (reading '0')",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/session.management.real.test.ts"
+      },
+      {
+        "suite": "Session Management Integration Tests (REAL) › Session Security",
+        "test": "should track session activity timestamps",
+        "error": "TypeError: Cannot read properties of undefined (reading '0')",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/session.management.real.test.ts"
+      },
+      {
+        "suite": "Templates Atomicity - Code Structure Verification",
+        "test": "should save new file BEFORE database update",
+        "error": "AssertionError: expected -1 to be greater than -1",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/templates.atomicity.test.ts"
+      },
+      {
+        "suite": "Templates Atomicity - Code Structure Verification",
+        "test": "should track oldFileRef for cleanup AFTER DB update",
+        "error": "AssertionError: expected '' to match /oldFileRef\\s*=\\s*template\\.fileRef/",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/templates.atomicity.test.ts"
+      },
+      {
+        "suite": "Templates Atomicity - Code Structure Verification",
+        "test": "should delete old file ONLY after DB commit succeeds",
+        "error": "AssertionError: expected -1 to be greater than -1",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/templates.atomicity.test.ts"
+      },
+      {
+        "suite": "Templates Atomicity - Code Structure Verification",
+        "test": "should wrap old file deletion in try-catch for graceful failure",
+        "error": "AssertionError: expected '' to match /try\\s*\\{[\\s\\S]*?deleteTemplateFile\\(o…/",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/templates.atomicity.test.ts"
+      },
+      {
+        "suite": "Templates Atomicity - Code Structure Verification",
+        "test": "should only attempt deletion when both oldFileRef and newFileRef exist",
+        "error": "AssertionError: expected '' to match /if\\s*\\(\\s*oldFileRef\\s*&&\\s*newFileRe…/",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/templates.atomicity.test.ts"
+      },
+      {
+        "suite": "Templates Atomicity - Code Structure Verification",
+        "test": "should clean up newFileRef on error (rollback)",
+        "error": "AssertionError: expected '' to match /catch[\\s\\S]*?if\\s*\\(\\s*newFileRef\\s*\\…/",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/templates.atomicity.test.ts"
+      },
+      {
+        "suite": "Transfer Ownership › Project Transfer",
+        "test": "should transfer user-owned project to org",
+        "error": "Error: Access denied: Organization admin role required",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/transferOwnership.test.ts"
+      },
+      {
+        "suite": "Transfer Ownership › Project Transfer",
+        "test": "should prevent transfer to org if user is not a member",
+        "error": "Error: Access denied: Organization admin role required",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/transferOwnership.test.ts"
+      },
+      {
+        "suite": "Transfer Ownership › Project Transfer",
+        "test": "should allow org member to transfer org-owned project to another org they belong to",
+        "error": "Error: Access denied: You do not have permission to create assets with this ownership",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/transferOwnership.test.ts"
+      },
+      {
+        "suite": "Transfer Ownership › Workflow Transfer",
+        "test": "should detach workflow from project when transferring to different owner",
+        "error": "Error: Access denied: Organization admin role required",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/transferOwnership.test.ts"
+      },
+      {
+        "suite": "Transfer Ownership › Workflow Transfer",
+        "test": "should keep workflow in project when transferring to same owner",
+        "error": "Error: Access denied: Organization admin role required",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/transferOwnership.test.ts"
+      },
+      {
+        "suite": "Transfer Ownership › Workflow Transfer",
+        "test": "should prevent non-member from transferring org workflow",
+        "error": "Error: Access denied: Organization admin role required",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/transferOwnership.test.ts"
+      },
+      {
+        "suite": "Transfer Ownership › Database Transfer",
+        "test": "should transfer database ownership",
+        "error": "Error: Access denied: Organization admin role required",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/transferOwnership.test.ts"
+      },
+      {
+        "suite": "Transfer Ownership › Database Transfer",
+        "test": "should allow org member to transfer org database",
+        "error": "Error: Failed query: insert into \"organization_memberships\" (\"id\", \"org_id\", \"user_id\", \"role\", \"created_at\") values (default, $1, $2, $3, default)\nparams: 2ff0e91e-3fc5-40a4-be6e-33404fd92b5c,00000000-0000-0000-0000-000000000032,member",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/transferOwnership.test.ts"
+      },
+      {
+        "suite": "Transfer Ownership › Database Transfer",
+        "test": "should prevent transfer to org if user is not a member",
+        "error": "Error: Access denied: Organization admin role required",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/transferOwnership.test.ts"
+      },
+      {
+        "suite": "Transfer Ownership › Transfer Validation",
+        "test": "should only allow transfer to self when targetOwnerType is user",
+        "error": "Error: Access denied: Organization admin role required",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/transferOwnership.test.ts"
+      },
+      {
+        "suite": "Transfer Ownership › Transfer Validation",
+        "test": "should allow transfer from user to self (org member transferring org asset to themselves)",
+        "error": "Error: Access denied: Organization admin role required",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/transferOwnership.test.ts"
+      },
+      {
+        "suite": "Trusted Devices Integration Tests (REAL) › POST /api/auth/trust-device",
+        "test": "should trust current device",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: fc55119719fc07dce38ce5901e8b8b79,$2b$12$N5m1rWXzdqei.zq3jNczqeuTKxZS1osLcqXUQhN/QjAjv3R0l1Qf2,2026-02-16T13:01:36.181Z,2026-02-16T13:01:36.181Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/trusted.devices.real.test.ts"
+      },
+      {
+        "suite": "Trusted Devices Integration Tests (REAL) › POST /api/auth/trust-device",
+        "test": "should set trust expiry to 30 days",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 1b19cb4130bd2d38677e1d161d93e1a1,$2b$12$lNPWzzlSbpPhCn6H2NQjteQ3hW7DN9zzW.OPV4Ox0lOvIjmb30MiK,2026-02-16T13:01:36.782Z,2026-02-16T13:01:36.782Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/trusted.devices.real.test.ts"
+      },
+      {
+        "suite": "Trusted Devices Integration Tests (REAL) › POST /api/auth/trust-device",
+        "test": "should update expiry if device already trusted",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 10065f2d2d34f08f8f0127836af9db03,$2b$12$VEobbcyQTdR.CsKanoh0zutVX4z.6dg7QUsoRDX54cGEMiDLjUZri,2026-02-16T13:01:37.388Z,2026-02-16T13:01:37.388Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/trusted.devices.real.test.ts"
+      },
+      {
+        "suite": "Trusted Devices Integration Tests (REAL) › GET /api/auth/trusted-devices",
+        "test": "should list all trusted devices",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: e9c2bdd75da69766c06fc1ef30d687cc,$2b$12$DyObiMHq2RFtEhTLGd3s8.EFsQN8ISN.RPLnZrhRxwQ.8X6YOpnqO,2026-02-16T13:01:38.023Z,2026-02-16T13:01:38.023Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/trusted.devices.real.test.ts"
+      },
+      {
+        "suite": "Trusted Devices Integration Tests (REAL) › GET /api/auth/trusted-devices",
+        "test": "should mark current device",
+        "error": "Error: Failed query: insert into \"mfa_secrets\" (\"id\", \"user_id\", \"secret\", \"enabled\", \"created_at\", \"enabled_at\") values (default, $1, $2, $3, $4, $5)\nparams: a39ae015527c55a59755eb1208c8097f,IJ2HIXTPKBKDW23GFF5VGL2OJJGXIUDYGZPCSPR6MR4EKRJ4IIVA,true,2026-02-16T13:01:38.737Z,2026-02-16T13:01:38.737Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/trusted.devices.real.test.ts"
+      },
+      {
+        "suite": "Trusted Devices Integration Tests (REAL) › GET /api/auth/trusted-devices",
+        "test": "should exclude revoked devices",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: ec95c8e1355766016b35dc8b4ccd3746,$2b$12$EmY.exaLEEmt0NH7UIHHIOHWrJIRg5XqaTmkJUREZVeARtBOOsMqK,2026-02-16T13:01:39.387Z,2026-02-16T13:01:39.387Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/trusted.devices.real.test.ts"
+      },
+      {
+        "suite": "Trusted Devices Integration Tests (REAL) › GET /api/auth/trusted-devices",
+        "test": "should exclude expired devices",
+        "error": "Error: Failed query: insert into \"mfa_backup_codes\" (\"id\", \"user_id\", \"code_hash\", \"used\", \"used_at\", \"created_at\") values (default, $1, $2, $3, default, $4), (default, $5, $6, $7, default, $8), (default, $9, $10, $11, default, $12), (default, $13, $14, $15, default, $16), (default, $17, $18, $19, d",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/trusted.devices.real.test.ts"
+      },
+      {
+        "suite": "Trusted Devices Integration Tests (REAL) › DELETE /api/auth/trusted-devices/:deviceId",
+        "test": "should revoke specific device",
+        "error": "Error: Failed query: insert into \"mfa_backup_codes\" (\"id\", \"user_id\", \"code_hash\", \"used\", \"used_at\", \"created_at\") values (default, $1, $2, $3, default, $4), (default, $5, $6, $7, default, $8), (default, $9, $10, $11, default, $12), (default, $13, $14, $15, default, $16), (default, $17, $18, $19, d",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/trusted.devices.real.test.ts"
+      },
+      {
+        "suite": "Trusted Devices Integration Tests (REAL) › DELETE /api/auth/trusted-devices/:deviceId",
+        "test": "should return 404 for non-existent device",
+        "error": "Error: Failed query: insert into \"mfa_secrets\" (\"id\", \"user_id\", \"secret\", \"enabled\", \"created_at\", \"enabled_at\") values (default, $1, $2, $3, $4, $5)\nparams: 1fe99f2f9f9af67bab0dfc1e588705ad,GFOTU4LZGVBH24JJNV2GCUJXLJ4V2V2EKRWD4OK5LVKDAVZZGBLA,true,2026-02-16T13:01:42.333Z,2026-02-16T13:01:42.333Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/trusted.devices.real.test.ts"
+      },
+      {
+        "suite": "Trusted Devices Integration Tests (REAL) › DELETE /api/auth/trusted-devices/:deviceId",
+        "test": "should prevent revoking other user's device",
+        "error": "Error: Failed query: insert into \"mfa_secrets\" (\"id\", \"user_id\", \"secret\", \"enabled\", \"created_at\", \"enabled_at\") values (default, $1, $2, $3, $4, $5)\nparams: 595e252582317b7a8f36e5c65db3dfed,MQXG2JBDKZBCSLTSJEXDMKBIH46DU6LUG5AEG5CUPJJCC6BSKQRQ,true,2026-02-16T13:01:43.075Z,2026-02-16T13:01:43.075Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/trusted.devices.real.test.ts"
+      },
+      {
+        "suite": "Trusted Devices Integration Tests (REAL) › Device Trust with MFA Login",
+        "test": "should skip MFA for trusted device",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4)\nparams: 00850484d63daf1af6383c375f29fe2c,$2b$12$bYHgMIjjRRCvWnsiNWWtI.xrgngJiazl30xgZ8U.deDwgrsvecOii,2026-02-16T13:01:43.986Z,2026-02-16T13:01:43.986Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/trusted.devices.real.test.ts"
+      },
+      {
+        "suite": "Trusted Devices Integration Tests (REAL) › Device Trust with MFA Login",
+        "test": "should require MFA for untrusted device",
+        "error": "Error: Failed query: insert into \"mfa_secrets\" (\"id\", \"user_id\", \"secret\", \"enabled\", \"created_at\", \"enabled_at\") values (default, $1, $2, $3, $4, $5)\nparams: e52f6d140584b2e7891600b90c5957aa,M5KCI4SPJY2TALCULM7V4KCGK5HSQKDXNASEMYS3IBJUOSRPMVUQ,true,2026-02-16T13:01:45.199Z,2026-02-16T13:01:45.199Z",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/trusted.devices.real.test.ts"
+      },
+      {
+        "suite": "Trusted Devices Integration Tests (REAL) › Device Trust with MFA Login",
+        "test": "should update lastUsedAt on trusted device login",
+        "error": "Error: [TEST UTILS] MFA Secret verification failed for 985efa90e4cc2b6d0e0a6e71e863dc96",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/trusted.devices.real.test.ts"
+      },
+      {
+        "suite": "Variable Schema Safety & Resolution",
+        "test": "REPRO: ScriptEngine fails to resolve alias 'input_variable' when aliasMap is NOT provided",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/variableSafety.test.ts"
+      },
+      {
+        "suite": "Variable Schema Safety & Resolution",
+        "test": "ScriptEngine resolves alias 'input_variable' when aliasMap is provided",
+        "error": "Error: Failed query: insert into \"workflows\" (\"id\", \"title\", \"description\", \"creator_id\", \"owner_id\", \"mode_override\", \"public_link\", \"name\", \"project_id\", \"current_version_id\", \"is_public\", \"slug\", \"require_login\", \"intake_config\", \"pinned_version_id\", \"status\", \"owner_type\", \"owner_uuid\", \"created",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/variableSafety.test.ts"
+      },
+      {
+        "suite": "Variable Schema Safety & Resolution",
+        "test": "REPRO: BlockRunner fails to resolve alias in CreateRecordConfig",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values ($1, $2, $3, default, $4, $5, $6, $7, default, default, default, default, defau",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/variableSafety.test.ts"
+      },
+      {
+        "suite": "Variable Schema Safety & Resolution",
+        "test": "BlockRunner logic resolves alias with aliasMap",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/variableSafety.test.ts"
+      },
+      {
+        "suite": "Workflow Versioning & Lineage",
+        "test": "should create a version and populate changelog",
+        "error": "Error: Failed query: insert into \"audit_logs\" (\"id\", \"tenant_id\", \"workspace_id\", \"user_id\", \"action\", \"entity_type\", \"entity_id\", \"resource_type\", \"resource_id\", \"changes\", \"details\", \"ip_address\", \"user_agent\", \"created_at\", \"timestamp\") values (default, default, default, $1, $2, $3, $4, default, ",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/workflow_versioning.test.ts"
+      },
+      {
+        "suite": "Workflow Versioning & Lineage",
+        "test": "should track execution lineage via snapshot",
+        "error": "TypeError: Cannot read properties of undefined (reading 'id')",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/workflow_versioning.test.ts"
+      },
+      {
+        "suite": "OAuth2 3-Legged Flow - Callback Handling › OAuth2 Authorization Flow Initiation",
+        "test": "should initiate OAuth2 3-legged flow and generate authorization URL",
+        "error": "AssertionError: expected 500 to be 201 // Object.is equality",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.callback.test.ts"
+      },
+      {
+        "suite": "OAuth2 3-Legged Flow - Callback Handling › OAuth2 Connection Status",
+        "test": "should track OAuth2 connection status",
+        "error": "AssertionError: expected 500 to be 201 // Object.is equality",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.callback.test.ts"
+      },
+      {
+        "suite": "OAuth2 Google Authentication Flow › POST /api/auth/google - Google OAuth2 Login",
+        "test": "should successfully authenticate with valid Google ID token",
+        "error": "AssertionError: expected 401 to be 200 // Object.is equality",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.google.test.ts"
+      },
+      {
+        "suite": "OAuth2 Google Authentication Flow › POST /api/auth/google - Google OAuth2 Login",
+        "test": "should update existing user on subsequent logins",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.google.test.ts"
+      },
+      {
+        "suite": "OAuth2 Google Authentication Flow › POST /api/auth/google - Google OAuth2 Login",
+        "test": "should create refresh token record in database",
+        "error": "AssertionError: expected undefined to be defined",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.google.test.ts"
+      },
+      {
+        "suite": "OAuth2 Google Authentication Flow › POST /api/auth/google - Google OAuth2 Login",
+        "test": "should support both \"token\" and \"idToken\" fields",
+        "error": "AssertionError: expected 401 to be 200 // Object.is equality",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.google.test.ts"
+      },
+      {
+        "suite": "OAuth2 Google Authentication Flow › POST /api/auth/google - Google OAuth2 Login",
+        "test": "should handle missing profile information gracefully",
+        "error": "AssertionError: expected 401 to be 200 // Object.is equality",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.google.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › GET /api/auth/sessions - List Active Sessions",
+        "test": "should list all active sessions for current user",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › GET /api/auth/sessions - List Active Sessions",
+        "test": "should mark current session as current",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › GET /api/auth/sessions - List Active Sessions",
+        "test": "should return empty array when user has no active sessions",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › GET /api/auth/sessions - List Active Sessions",
+        "test": "should not include expired sessions",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › GET /api/auth/sessions - List Active Sessions",
+        "test": "should not include revoked sessions",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › GET /api/auth/sessions - List Active Sessions",
+        "test": "should parse device name from user agent",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › GET /api/auth/sessions - List Active Sessions",
+        "test": "should return 401 for unauthenticated request",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › DELETE /api/auth/sessions/:sessionId - Revoke Session",
+        "test": "should revoke a specific session",
+        "error": "Error: Failed query: insert into \"refresh_tokens\" (\"id\", \"user_id\", \"token\", \"expires_at\", \"revoked\", \"metadata\", \"device_name\", \"ip_address\", \"location\", \"last_used_at\", \"created_at\") values (default, $1, $2, $3, $4, $5, $6, $7, $8, $9, default)\nparams: j27gJe5ZPPcUXGgFDtj6a,26affaec61618b0b9653a84",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › DELETE /api/auth/sessions/:sessionId - Revoke Session",
+        "test": "should return 404 for non-existent session",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › DELETE /api/auth/sessions/:sessionId - Revoke Session",
+        "test": "should prevent revoking current session",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › DELETE /api/auth/sessions/:sessionId - Revoke Session",
+        "test": "should prevent revoking another user's session",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › DELETE /api/auth/sessions/:sessionId - Revoke Session",
+        "test": "should return 401 for unauthenticated request",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › DELETE /api/auth/sessions/all - Logout All Other Devices",
+        "test": "should revoke all sessions except current",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › DELETE /api/auth/sessions/all - Logout All Other Devices",
+        "test": "should revoke all trusted devices",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › DELETE /api/auth/sessions/all - Logout All Other Devices",
+        "test": "should return 400 when no active session found",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › DELETE /api/auth/sessions/all - Logout All Other Devices",
+        "test": "should return 401 for unauthenticated request",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › Trusted Devices Management › POST /api/auth/trust-device",
+        "test": "should mark current device as trusted",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › Trusted Devices Management › POST /api/auth/trust-device",
+        "test": "should update existing trusted device expiry",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › Trusted Devices Management › GET /api/auth/trusted-devices",
+        "test": "should list all trusted devices",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › Trusted Devices Management › GET /api/auth/trusted-devices",
+        "test": "should not include revoked devices",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › Trusted Devices Management › DELETE /api/auth/trusted-devices/:deviceId",
+        "test": "should revoke a trusted device",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › Trusted Devices Management › DELETE /api/auth/trusted-devices/:deviceId",
+        "test": "should return 404 for non-existent device",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › Session Metadata Tracking",
+        "test": "should track IP address for sessions",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › Session Metadata Tracking",
+        "test": "should track user agent for sessions",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Session Management › Session Metadata Tracking",
+        "test": "should update lastUsedAt on token refresh",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.sessions.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › POST /api/auth/refresh-token",
+        "test": "should refresh access token with valid refresh token",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, default, default) returning \"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\"\nparams: wUsPIRgcP7a63HE3WVBmy,$2b$12$PFQqs82U7WwCme41HPXtEOqkBaWvD0hb7M",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › POST /api/auth/refresh-token",
+        "test": "should rotate refresh token after use",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, default, default) returning \"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\"\nparams: BUW1GXDjcGL5d6dIofSFb,$2b$12$x6D4ay2vr5jVDoYphES7d.5l6mgLXrwrFA",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › POST /api/auth/refresh-token",
+        "test": "should return 401 when refresh token is missing",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › POST /api/auth/refresh-token",
+        "test": "should return 401 for invalid refresh token",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › POST /api/auth/refresh-token",
+        "test": "should return 401 for expired refresh token",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › POST /api/auth/refresh-token",
+        "test": "should return 401 for revoked refresh token",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › POST /api/auth/refresh-token",
+        "test": "should return 401 when user is not found",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › POST /api/auth/refresh-token",
+        "test": "should update refresh token metadata on rotation",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › POST /api/auth/refresh-token",
+        "test": "should handle concurrent refresh token requests (token reuse detection)",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › POST /api/auth/refresh-token",
+        "test": "should set secure cookie in production",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › POST /api/auth/refresh-token",
+        "test": "should set proper cookie attributes",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › POST /api/auth/refresh-token",
+        "test": "should include user role information in response",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › Refresh Token Lifecycle",
+        "test": "should create refresh token on login",
+        "error": "Error: Failed query: insert into \"user_credentials\" (\"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\") values (default, $1, $2, default, default) returning \"id\", \"user_id\", \"password_hash\", \"created_at\", \"updated_at\"\nparams: -PI2NO30AuqbWFMhj4LcI,$2b$12$e0Omuw.A6XyoxWk4hoeUoe/lbMm/iXRDqr",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › Refresh Token Lifecycle",
+        "test": "should revoke refresh token on logout",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › Refresh Token Lifecycle",
+        "test": "should handle logout without refresh token gracefully",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › Refresh Token Lifecycle",
+        "test": "should support multiple active refresh tokens per user",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › Refresh Token Lifecycle",
+        "test": "should revoke all user tokens on password reset",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › Refresh Token Security",
+        "test": "should use cryptographically strong random tokens",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › Refresh Token Security",
+        "test": "should hash refresh tokens before storing in database",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › Refresh Token Security",
+        "test": "should prevent refresh token reuse after rotation",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › Refresh Token Security",
+        "test": "should validate token ownership",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › Cookie Security",
+        "test": "should set HttpOnly flag to prevent XSS",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › Cookie Security",
+        "test": "should set SameSite=Strict to prevent CSRF",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › Cookie Security",
+        "test": "should set proper cookie path",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "OAuth2 Token Refresh Flow › Cookie Security",
+        "test": "should set appropriate expiry (30 days)",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/auth/oauth2.token-refresh.test.ts"
+      },
+      {
+        "suite": "Hardening: Magic Bytes",
+        "test": "should reject a text file spoofing as PDF",
+        "error": "Error: User registration failed: {\"message\":\"Registration failed\",\"error\":\"internal_error\"}",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/hardening/magicBytes.test.ts"
+      },
+      {
+        "suite": "Hardening: Magic Bytes",
+        "test": "should reject a text file spoofing as DOCX",
+        "error": "Error: User registration failed: {\"message\":\"Registration failed\",\"error\":\"internal_error\"}",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/hardening/magicBytes.test.ts"
+      },
+      {
+        "suite": "Hardening: Magic Bytes",
+        "test": "should accept a file with valid PDF magic bytes",
+        "error": "Error: User registration failed: {\"message\":\"Registration failed\",\"error\":\"internal_error\"}",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/hardening/magicBytes.test.ts"
+      },
+      {
+        "suite": "Hardening: Magic Bytes",
+        "test": "should accept a file with valid DOCX magic bytes (ZIP)",
+        "error": "Error: User registration failed: {\"message\":\"Registration failed\",\"error\":\"internal_error\"}",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/hardening/magicBytes.test.ts"
+      },
+      {
+        "suite": "Hardening: Storage Quota",
+        "test": "should reject upload when quota exceeded",
+        "error": "Error: Failed query: update \"users\" set \"tenant_id\" = $1, \"role\" = $2, \"tenant_role\" = $3 where \"users\".\"id\" = $4\nparams: 60ec782e-0c49-4ae7-840e-a9b3e266ff58,admin,owner,e3aca12c-6dd6-47a4-b78a-e4a23af45e24",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/hardening/quota.test.ts"
+      },
+      {
+        "suite": "Hardening: Storage Quota",
+        "test": "should allow upload when quota has space",
+        "error": "Error: User registration failed: {\"message\":\"Registration failed\",\"error\":\"internal_error\"}",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/hardening/quota.test.ts"
+      },
+      {
+        "suite": "Hardening: Rate Limiting",
+        "test": "should enforce rate limits on upload endpoint",
+        "error": "Error: User registration failed: {\"message\":\"Registration failed\",\"error\":\"internal_error\"}",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/integration/hardening/rateLimit.test.ts"
+      },
+      {
+        "suite": "Template Node - Multi-Template Support › Template Key Resolution (New Path)",
+        "test": "should resolve template by key from workflowTemplates mapping",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/engine/templateNode.test.ts"
+      },
+      {
+        "suite": "Template Node - Multi-Template Support › Template Key Resolution (New Path)",
+        "test": "should throw error if template key not found",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/engine/templateNode.test.ts"
+      },
+      {
+        "suite": "Template Node - Multi-Template Support › Template Key Resolution (New Path)",
+        "test": "should store output in runOutputs table",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/engine/templateNode.test.ts"
+      },
+      {
+        "suite": "Template Node - Multi-Template Support › Legacy Template ID Path (Backward Compatibility)",
+        "test": "should resolve template by templateId directly",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/engine/templateNode.test.ts"
+      },
+      {
+        "suite": "Template Node - Multi-Template Support › Legacy Template ID Path (Backward Compatibility)",
+        "test": "should throw error if templateId not found",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values ($1, $2, $3, $4, $5, $6, $7, $8, default, default, default, default, default, d",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/engine/templateNode.test.ts"
+      },
+      {
+        "suite": "Template Node - Multi-Template Support › Rendering Engine Selection",
+        "test": "should use docxRenderer2 by default (v2 engine)",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/engine/templateNode.test.ts"
+      },
+      {
+        "suite": "Template Node - Multi-Template Support › Rendering Engine Selection",
+        "test": "should use legacy engine when engine=\"legacy\"",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values ($1, $2, $3, $4, $5, $6, $7, $8, default, default, default, default, default, d",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/engine/templateNode.test.ts"
+      },
+      {
+        "suite": "Template Node - Multi-Template Support › PDF Generation",
+        "test": "should generate PDF when toPdf=true",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/engine/templateNode.test.ts"
+      },
+      {
+        "suite": "Template Node - Multi-Template Support › PDF Generation",
+        "test": "should default to DOCX when toPdf=false",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/engine/templateNode.test.ts"
+      },
+      {
+        "suite": "Template Node - Multi-Template Support › Conditional Execution",
+        "test": "should skip execution when condition evaluates to false",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/engine/templateNode.test.ts"
+      },
+      {
+        "suite": "Template Node - Multi-Template Support › Conditional Execution",
+        "test": "should execute when condition evaluates to true",
+        "error": "Error: Failed query: insert into \"workflows\" (\"id\", \"title\", \"description\", \"creator_id\", \"owner_id\", \"mode_override\", \"public_link\", \"name\", \"project_id\", \"current_version_id\", \"is_public\", \"slug\", \"require_login\", \"intake_config\", \"pinned_version_id\", \"status\", \"owner_type\", \"owner_uuid\", \"created",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/engine/templateNode.test.ts"
+      },
+      {
+        "suite": "Template Node - Multi-Template Support › Binding Resolution",
+        "test": "should resolve simple bindings",
+        "error": "Error: Failed query: insert into \"workflows\" (\"id\", \"title\", \"description\", \"creator_id\", \"owner_id\", \"mode_override\", \"public_link\", \"name\", \"project_id\", \"current_version_id\", \"is_public\", \"slug\", \"require_login\", \"intake_config\", \"pinned_version_id\", \"status\", \"owner_type\", \"owner_uuid\", \"created",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/engine/templateNode.test.ts"
+      },
+      {
+        "suite": "Template Node - Multi-Template Support › Binding Resolution",
+        "test": "should handle binding resolution errors gracefully",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values ($1, $2, $3, $4, $5, $6, $7, $8, default, default, default, default, default, d",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/engine/templateNode.test.ts"
+      },
+      {
+        "suite": "Template Node - Multi-Template Support › Error Handling",
+        "test": "should record failed output in runOutputs table",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/engine/templateNode.test.ts"
+      },
+      {
+        "suite": "Template Node - Multi-Template Support › Error Handling",
+        "test": "should not throw errors (should return error in result)",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values ($1, $2, $3, $4, $5, $6, $7, $8, default, default, default, default, default, d",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/engine/templateNode.test.ts"
+      },
+      {
+        "suite": "Template Node - Multi-Template Support › Tenant Access Control",
+        "test": "should deny access to templates from different tenant",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/engine/templateNode.test.ts"
+      },
+      {
+        "suite": "Template Node - Multi-Template Support › Validation",
+        "test": "should require either templateKey or templateId",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/engine/templateNode.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateRepository › create",
+        "test": "should create a workflow template mapping",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, default, $5, $6, default, default, default, default, ",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/repositories/WorkflowTemplateRepository.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateRepository › create",
+        "test": "should create non-primary mapping by default",
+        "error": "Error: Failed query: insert into \"templates\" (\"id\", \"project_id\", \"name\", \"description\", \"file_ref\", \"type\", \"helpers_version\", \"metadata\", \"mapping\", \"current_version\", \"last_modified_by\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, $5, default, default, default, default, default, ",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/repositories/WorkflowTemplateRepository.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateRepository › findByWorkflowVersionId",
+        "test": "should find all templates for a workflow version",
+        "error": "Error: Failed query: insert into \"workflows\" (\"id\", \"title\", \"description\", \"creator_id\", \"owner_id\", \"mode_override\", \"public_link\", \"name\", \"project_id\", \"current_version_id\", \"is_public\", \"slug\", \"require_login\", \"intake_config\", \"pinned_version_id\", \"status\", \"owner_type\", \"owner_uuid\", \"created",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/repositories/WorkflowTemplateRepository.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateRepository › findByWorkflowVersionId",
+        "test": "should return empty array for version with no templates",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, default, $5, $6, default, default, default, default, ",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/repositories/WorkflowTemplateRepository.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateRepository › findByWorkflowVersionId",
+        "test": "should order by createdAt desc (newest first)",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, default, $5, $6, default, default, default, default, ",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/repositories/WorkflowTemplateRepository.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateRepository › findByWorkflowVersionAndKey",
+        "test": "should find mapping by workflow version and key",
+        "error": "Error: Failed query: insert into \"workflow_versions\" (\"id\", \"workflow_id\", \"base_id\", \"version_number\", \"is_draft\", \"graph_json\", \"migration_info\", \"changelog\", \"notes\", \"checksum\", \"created_by\", \"published\", \"published_at\", \"created_at\", \"updated_at\") values (default, $1, default, $2, $3, $4, defau",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/repositories/WorkflowTemplateRepository.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateRepository › findByWorkflowVersionAndKey",
+        "test": "should return undefined for non-existent key",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, default, $5, $6, default, default, default, default, ",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/repositories/WorkflowTemplateRepository.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateRepository › findPrimaryByWorkflowVersionId",
+        "test": "should find primary template for workflow version",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, default, $5, $6, default, default, default, default, ",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/repositories/WorkflowTemplateRepository.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateRepository › findPrimaryByWorkflowVersionId",
+        "test": "should return undefined when no primary template exists",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, default, $5, $6, default, default, default, default, ",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/repositories/WorkflowTemplateRepository.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateRepository › setPrimary",
+        "test": "should set a template as primary and unset others",
+        "error": "Error: Failed query: insert into \"workflows\" (\"id\", \"title\", \"description\", \"creator_id\", \"owner_id\", \"mode_override\", \"public_link\", \"name\", \"project_id\", \"current_version_id\", \"is_public\", \"slug\", \"require_login\", \"intake_config\", \"pinned_version_id\", \"status\", \"owner_type\", \"owner_uuid\", \"created",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/repositories/WorkflowTemplateRepository.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateRepository › setPrimary",
+        "test": "should handle setting primary when none existed before",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, default, $5, $6, default, default, default, default, ",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/repositories/WorkflowTemplateRepository.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateRepository › setPrimary",
+        "test": "should not delete mapping if workflow version does not match",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, default, $5, $6, default, default, default, default, ",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/repositories/WorkflowTemplateRepository.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateRepository › existsByKey",
+        "test": "should return true if key exists in workflow version",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, default, $5, $6, default, default, default, default, ",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/repositories/WorkflowTemplateRepository.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateRepository › existsByKey",
+        "test": "should return false if key does not exist",
+        "error": "Error: Failed query: insert into \"workflow_versions\" (\"id\", \"workflow_id\", \"base_id\", \"version_number\", \"is_draft\", \"graph_json\", \"migration_info\", \"changelog\", \"notes\", \"checksum\", \"created_by\", \"published\", \"published_at\", \"created_at\", \"updated_at\") values (default, $1, default, $2, $3, $4, defau",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/repositories/WorkflowTemplateRepository.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateRepository › existsByKey",
+        "test": "should exclude specified id when checking existence",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, default, $5, $6, default, default, default, default, ",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/repositories/WorkflowTemplateRepository.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateRepository › existsByKey",
+        "test": "should return true if key exists on different mapping",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, default, $5, $6, default, default, default, default, ",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/repositories/WorkflowTemplateRepository.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateRepository › update",
+        "test": "should update mapping fields",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, default, $5, $6, default, default, default, default, ",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/repositories/WorkflowTemplateRepository.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateRepository › findById",
+        "test": "should find mapping by id",
+        "error": "Error: Failed query: insert into \"workflow_templates\" (\"id\", \"workflow_version_id\", \"template_id\", \"key\", \"is_primary\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, default, default) returning \"id\", \"workflow_version_id\", \"template_id\", \"key\", \"is_primary\", \"created_at\", \"updated_at\"",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/repositories/WorkflowTemplateRepository.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateRepository › findById",
+        "test": "should return undefined for non-existent id",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, default, $5, $6, default, default, default, default, ",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/repositories/WorkflowTemplateRepository.test.ts"
+      },
+      {
+        "suite": "AIService Unit Tests",
+        "test": "reviseWorkflow should delegate to revision service",
+        "error": "TypeError: () => {\n      return {\n        generateWorkflow: __vite_ssr_import_0__.vi.fn().mockResolvedValue({\n          ti...<omitted>... } is not a constructor",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/AIService.test.ts"
+      },
+      {
+        "suite": "AIService Unit Tests › Workflow Generation",
+        "test": "generateWorkflow should return a generated workflow",
+        "error": "TypeError: () => {\n      return {\n        generateWorkflow: __vite_ssr_import_0__.vi.fn().mockResolvedValue({\n          ti...<omitted>... } is not a constructor",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/AIService.test.ts"
+      },
+      {
+        "suite": "AIService Unit Tests › Workflow Suggestions",
+        "test": "suggestWorkflowImprovements should return suggestions",
+        "error": "TypeError: () => {\n      return {\n        generateWorkflow: __vite_ssr_import_0__.vi.fn().mockResolvedValue({\n          ti...<omitted>... } is not a constructor",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/AIService.test.ts"
+      },
+      {
+        "suite": "AIService Unit Tests › Workflow Suggestions",
+        "test": "suggestTemplateBindings should return bindings",
+        "error": "TypeError: () => {\n      return {\n        generateWorkflow: __vite_ssr_import_0__.vi.fn().mockResolvedValue({\n          ti...<omitted>... } is not a constructor",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/AIService.test.ts"
+      },
+      {
+        "suite": "AIService Unit Tests › Workflow Suggestions",
+        "test": "suggestValues should return values",
+        "error": "TypeError: () => {\n      return {\n        generateWorkflow: __vite_ssr_import_0__.vi.fn().mockResolvedValue({\n          ti...<omitted>... } is not a constructor",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/AIService.test.ts"
+      },
+      {
+        "suite": "AIService Unit Tests › Logic Analysis",
+        "test": "generateLogic should return logic rules",
+        "error": "TypeError: () => {\n      return {\n        generateWorkflow: __vite_ssr_import_0__.vi.fn().mockResolvedValue({\n          ti...<omitted>... } is not a constructor",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/AIService.test.ts"
+      },
+      {
+        "suite": "AIService Unit Tests › Logic Analysis",
+        "test": "debugLogic should return issues",
+        "error": "TypeError: () => {\n      return {\n        generateWorkflow: __vite_ssr_import_0__.vi.fn().mockResolvedValue({\n          ti...<omitted>... } is not a constructor",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/AIService.test.ts"
+      },
+      {
+        "suite": "AIService Unit Tests › Logic Analysis",
+        "test": "visualizeLogic should return graph data",
+        "error": "TypeError: () => {\n      return {\n        generateWorkflow: __vite_ssr_import_0__.vi.fn().mockResolvedValue({\n          ti...<omitted>... } is not a constructor",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/AIService.test.ts"
+      },
+      {
+        "suite": "PdfQueueService › enqueue",
+        "test": "should enqueue a PDF conversion job",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, $5, $6, $7, default, default, default, default, defau",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/PdfQueueService.test.ts"
+      },
+      {
+        "suite": "PdfQueueService › enqueue",
+        "test": "should create output with empty storagePath initially",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, $5, $6, $7, default, default, default, default, defau",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/PdfQueueService.test.ts"
+      },
+      {
+        "suite": "PdfQueueService › getJobStatus",
+        "test": "should return job status for pending job",
+        "error": "Error: Failed query: insert into \"runs\" (\"id\", \"workflow_version_id\", \"input_json\", \"output_refs\", \"trace\", \"status\", \"error\", \"duration_ms\", \"run_token\", \"share_token\", \"share_token_expires_at\", \"created_by\", \"created_at\", \"updated_at\") values (default, $1, default, default, default, $2, default, d",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/PdfQueueService.test.ts"
+      },
+      {
+        "suite": "PdfQueueService › getJobStatus",
+        "test": "should return null for non-existent job",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, $5, $6, $7, default, default, default, default, defau",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/PdfQueueService.test.ts"
+      },
+      {
+        "suite": "PdfQueueService › getJobStatus",
+        "test": "should parse attempt count from error field",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, $5, $6, $7, default, default, default, default, defau",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/PdfQueueService.test.ts"
+      },
+      {
+        "suite": "PdfQueueService › convertImmediate",
+        "test": "should convert DOCX to PDF immediately",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, $5, $6, $7, default, default, default, default, defau",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/PdfQueueService.test.ts"
+      },
+      {
+        "suite": "PdfQueueService › convertImmediate",
+        "test": "should handle conversion errors gracefully",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, $5, $6, $7, default, default, default, default, defau",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/PdfQueueService.test.ts"
+      },
+      {
+        "suite": "PdfQueueService › Service Lifecycle",
+        "test": "should start and stop service",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, $5, $6, $7, default, default, default, default, defau",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/PdfQueueService.test.ts"
+      },
+      {
+        "suite": "PdfQueueService › Service Lifecycle",
+        "test": "should not start if already running",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, $5, $6, $7, default, default, default, default, defau",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/PdfQueueService.test.ts"
+      },
+      {
+        "suite": "PdfQueueService › Service Lifecycle",
+        "test": "should handle stop when not running",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, $5, $6, $7, default, default, default, default, defau",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/PdfQueueService.test.ts"
+      },
+      {
+        "suite": "PdfQueueService › Queue Processing",
+        "test": "should process pending jobs when queue is processed",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, $5, $6, $7, default, default, default, default, defau",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/PdfQueueService.test.ts"
+      },
+      {
+        "suite": "PdfQueueService › Queue Processing",
+        "test": "should process multiple jobs in batch",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, $5, $6, $7, default, default, default, default, defau",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/PdfQueueService.test.ts"
+      },
+      {
+        "suite": "PdfQueueService › Error Handling",
+        "test": "should handle missing DOCX output gracefully",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, $5, $6, $7, default, default, default, default, defau",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/PdfQueueService.test.ts"
+      },
+      {
+        "suite": "PdfQueueService › Transaction Support",
+        "test": "should support enqueue within transaction",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values (default, $1, $2, $3, $4, $5, $6, $7, default, default, default, default, defau",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/PdfQueueService.test.ts"
+      },
+      {
+        "suite": "PdfQueueService › Transaction Support",
+        "test": "should support convertImmediate within transaction",
+        "error": "Error: Failed query: insert into \"runs\" (\"id\", \"workflow_version_id\", \"input_json\", \"output_refs\", \"trace\", \"status\", \"error\", \"duration_ms\", \"run_token\", \"share_token\", \"share_token_expires_at\", \"created_by\", \"created_at\", \"updated_at\") values (default, $1, default, default, default, $2, default, d",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/PdfQueueService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate",
+        "test": "should throw error if template belongs to different project",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate",
+        "test": "should automatically unset other primaries when setting new primary",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values ($1, $2, $3, $4, $5, $6, $7, $8, default, default, default, default, default, d",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate › listTemplates",
+        "test": "should list all templates for workflow version",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate › listTemplates",
+        "test": "should return empty array for version with no templates",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate › getTemplateMapping",
+        "test": "should get template mapping by id and version",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate › getTemplateMapping",
+        "test": "should throw error if mapping not found",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values ($1, $2, $3, $4, $5, $6, $7, $8, default, default, default, default, default, d",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate › getTemplateByKey",
+        "test": "should get template by key",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate › getTemplateByKey",
+        "test": "should throw error if key not found",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate › getPrimaryTemplate",
+        "test": "should get primary template for workflow version",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate › getPrimaryTemplate",
+        "test": "should return null when no primary template exists",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate › updateTemplateMapping",
+        "test": "should update mapping key",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate › updateTemplateMapping",
+        "test": "should update isPrimary flag",
+        "error": "Error: Failed query: insert into \"projects\" (\"id\", \"title\", \"name\", \"description\", \"creator_id\", \"tenant_id\", \"created_by\", \"owner_id\", \"owner_type\", \"owner_uuid\", \"status\", \"archived\", \"created_at\", \"updated_at\") values ($1, $2, $3, $4, $5, $6, $7, $8, default, default, default, default, default, d",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate › updateTemplateMapping",
+        "test": "should throw error if new key already exists",
+        "error": "Error: Failed query: insert into \"workflows\" (\"id\", \"title\", \"description\", \"creator_id\", \"owner_id\", \"mode_override\", \"public_link\", \"name\", \"project_id\", \"current_version_id\", \"is_public\", \"slug\", \"require_login\", \"intake_config\", \"pinned_version_id\", \"status\", \"owner_type\", \"owner_uuid\", \"created",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate › updateTemplateMapping",
+        "test": "should throw error if mapping not found",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate › updateTemplateMapping",
+        "test": "should unset other primaries when setting isPrimary to true",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate › detachTemplate",
+        "test": "should detach template from workflow version",
+        "error": "Error: Failed query: insert into \"workflows\" (\"id\", \"title\", \"description\", \"creator_id\", \"owner_id\", \"mode_override\", \"public_link\", \"name\", \"project_id\", \"current_version_id\", \"is_public\", \"slug\", \"require_login\", \"intake_config\", \"pinned_version_id\", \"status\", \"owner_type\", \"owner_uuid\", \"created",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate › detachTemplate",
+        "test": "should throw error if mapping not found",
+        "error": "Error: Failed query: insert into \"templates\" (\"id\", \"project_id\", \"name\", \"description\", \"file_ref\", \"type\", \"helpers_version\", \"metadata\", \"mapping\", \"current_version\", \"last_modified_by\", \"created_at\", \"updated_at\") values ($1, $2, $3, $4, $5, $6, default, default, default, default, $7, default, d",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate › setPrimaryTemplate",
+        "test": "should set template as primary",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate › setPrimaryTemplate",
+        "test": "should throw error if mapping not found",
+        "error": "Error: Failed query: insert into \"workflows\" (\"id\", \"title\", \"description\", \"creator_id\", \"owner_id\", \"mode_override\", \"public_link\", \"name\", \"project_id\", \"current_version_id\", \"is_public\", \"slug\", \"require_login\", \"intake_config\", \"pinned_version_id\", \"status\", \"owner_type\", \"owner_uuid\", \"created",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate › transaction support",
+        "test": "should support operations within a transaction",
+        "error": "Error: Failed query: insert into \"users\" (\"id\", \"email\", \"full_name\", \"first_name\", \"last_name\", \"profile_image_url\", \"tenant_id\", \"role\", \"tenant_role\", \"auth_provider\", \"default_mode\", \"email_verified\", \"mfa_enabled\", \"last_password_change\", \"is_placeholder\", \"placeholder_email\", \"created_at\", \"up",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      },
+      {
+        "suite": "WorkflowTemplateService › attachTemplate › transaction support",
+        "test": "should rollback on transaction error",
+        "error": "Error: Failed query: insert into \"workflows\" (\"id\", \"title\", \"description\", \"creator_id\", \"owner_id\", \"mode_override\", \"public_link\", \"name\", \"project_id\", \"current_version_id\", \"is_public\", \"slug\", \"require_login\", \"intake_config\", \"pinned_version_id\", \"status\", \"owner_type\", \"owner_uuid\", \"created",
+        "location": "C:/Users/scoot/poll/ezBuildr/tests/unit/services/WorkflowTemplateService.test.ts"
+      }
+    ],
+    "slowestTests": [
+      {
+        "name": "Session Management Integration Tests (REAL) › DELETE /api/auth/sessions/:sessionId › should return 404 for non-existent session",
+        "duration": 5011.5021
+      },
+      {
+        "name": "WorkflowTemplateService › attachTemplate › getPrimaryTemplate › should return null when no primary template exists",
+        "duration": 4087.0745000000006
+      },
+      {
+        "name": "DOCX Renderer Service › PDF conversion › should attempt PDF conversion when requested",
+        "duration": 3246.0715
+      },
+      {
+        "name": "Session Management Integration Tests (REAL) › DELETE /api/auth/sessions/all › should revoke all other sessions",
+        "duration": 2791.4791000000005
+      },
+      {
+        "name": "Organization Invites › createInvite › should set expiry to 7 days from now",
+        "duration": 2624.7559
+      }
+    ]
+  },
+  "playwright": null,
+  "summary": {
+    "total": 2740,
+    "passed": 2120,
+    "failed": 310,
+    "skipped": 310,
+    "duration": 249416.01782226562,
+    "status": "failure",
+    "slowestTest": {
+      "name": "Session Management Integration Tests (REAL) › DELETE /api/auth/sessions/:sessionId › should return 404 for non-existent session",
+      "duration": 5011.5021,
+      "framework": "vitest"
+    }
+  }
+}

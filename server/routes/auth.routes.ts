@@ -407,6 +407,11 @@ export function registerAuthRoutes(app: Express): void {
       await userCredentialsRepository.updatePassword(userId, passwordHash);
       await authService.revokeAllUserTokens(userId);
       await authService.consumePasswordResetToken(token);
+      
+      if (user?.isPlaceholder) {
+        await userRepository.updateUser(userId, { isPlaceholder: false, emailVerified: true });
+      }
+
       // Audit log: Password reset
       await auditLogService.logPasswordReset(userId, req.ip, req.headers['user-agent']);
       res.json({ message: "Password updated successfully." });

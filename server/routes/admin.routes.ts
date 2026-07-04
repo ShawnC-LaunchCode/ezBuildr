@@ -278,6 +278,102 @@ export function registerAdminRoutes(app: Express): void {
     }
   }));
 
+  /**
+   * POST /api/admin/users/invite
+   * Invite a new user
+   */
+  app.post('/api/admin/users/invite', hybridAuth, isAdmin, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      if (!req.adminUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { email, role } = req.body;
+
+      if (!email || !role) {
+        return res.status(400).json({ message: "Email and role are required" });
+      }
+
+      if (role !== 'admin' && role !== 'creator') {
+        return res.status(400).json({ message: "Invalid role" });
+      }
+
+      // Check if user already exists
+      const existingUser = await userRepository.findByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: "User already exists with this email" });
+      }
+
+      // Create placeholder user
+      const { v4: uuidv4 } = await import('uuid');
+      const userId = uuidv4();
+      
+      const user = await userRepository.create({
+        id: userId,
+        email,
+        placeholderEmail: email,
+        isPlaceholder: true,
+        role: role as any,
+        authProvider: 'local',
+        defaultMode: 'easy',
+      });
+
+      // We need a dummy passwordHash for the userCredentials record since it's required
+      const { authService } = await import('../services/AuthService');
+      const crypto = await import('crypto');
+      const dummyPassword = crypto.randomBytes(32).toString('hex');
+      const passwordHash = await authService.hashPassword(dummyPassword);
+      const { userCredentialsRepository } = await import('../repositories');
+      await userCredentialsRepository.createCredentials(userId, passwordHash);
+
+      // Generate and send invite
+      await authService.generateSystemInviteToken(email, role);
+
+      logger.info({ adminId: req.adminUser.id, targetEmail: email }, 'Admin invited new user');
+
+      res.status(201).json({
+        message: "User invited successfully",
+        user
+      });
+    } catch (error) {
+      logger.error({ err: error, adminId: req.adminUser!.id }, 'Error inviting user');
+      res.status(500).json({ message: "Failed to invite user" });
+    }
+  }));
+
+  /**
+   * POST /api/admin/users/:userId/resend-invite
+   * Resend invitation to a placeholder user
+   */
+  app.post('/api/admin/users/:userId/resend-invite', hybridAuth, isAdmin, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      if (!req.adminUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { userId } = req.params;
+      const user = await userRepository.findById(userId);
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (!user.isPlaceholder) {
+        return res.status(400).json({ message: "User has already accepted their invitation" });
+      }
+
+      const { authService } = await import('../services/AuthService');
+      await authService.generateSystemInviteToken(user.email, user.role as string);
+
+      logger.info({ adminId: req.adminUser.id, targetUserId: userId }, 'Admin resent invitation');
+
+      res.json({ message: "Invitation resent successfully" });
+    } catch (error) {
+      logger.error({ err: error, adminId: req.adminUser!.id }, 'Error resending invitation');
+      res.status(500).json({ message: "Failed to resend invitation" });
+    }
+  }));
+
   // ============================================================================
   // Workflow Management (Admin can view/edit any workflow)
   // ============================================================================

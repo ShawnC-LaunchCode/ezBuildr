@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Users, Shield, ArrowLeft, ChevronUp, ChevronDown, Eye } from "lucide-react";
+import { Users, Shield, ArrowLeft, ChevronUp, ChevronDown, Eye, Mail, UserPlus, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 
@@ -16,6 +16,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +44,83 @@ interface User {
   role: 'admin' | 'creator';
   createdAt: string;
   workflowCount: number;
+  isPlaceholder?: boolean;
+}
+
+function InviteUserDialog({ onInvite }: { onInvite: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"admin" | "creator">("creator");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const inviteMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/admin/users/invite", { email, role });
+    },
+    onSuccess: () => {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: "Success", description: "User invited successfully." });
+      setOpen(false);
+      setEmail("");
+      setRole("creator");
+      onInvite();
+    },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message || "Failed to invite user.", variant: "destructive" });
+    }
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="gap-2">
+          <UserPlus className="h-4 w-4" />
+          Invite User
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Invite New User</DialogTitle>
+          <DialogDescription>
+            Send an invitation email to a new user. They will receive a link to set their password and complete their account setup.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email address</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="user@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Role</Label>
+            <Select value={role} onValueChange={(val: any) => setRole(val)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="creator">Creator</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button disabled={!email || inviteMutation.isPending} onClick={() => inviteMutation.mutate()}>
+            {inviteMutation.isPending ? "Inviting..." : "Send Invite"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 // eslint-disable-next-line max-lines-per-function
@@ -114,6 +203,19 @@ export default function AdminUsers() {
     updateRoleMutation.mutate({ userId, role: 'creator' });
   };
 
+  const resendInviteMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return apiRequest("POST", `/api/admin/users/${userId}/resend-invite`);
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Invitation resent successfully." });
+    },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message || "Failed to resend invitation.", variant: "destructive" });
+    }
+  });
+
   if (authLoading || !isAuthenticated || error) {
     return null;
   }
@@ -127,12 +229,15 @@ export default function AdminUsers() {
           title="User Management"
           description="Manage user accounts and permissions"
           actions={
-            <Link href="/admin">
-              <Button variant="outline">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Admin
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              <InviteUserDialog onInvite={() => {}} />
+              <Link href="/admin">
+                <Button variant="outline">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Admin
+                </Button>
+              </Link>
+            </div>
           }
         />
 
@@ -198,7 +303,12 @@ export default function AdminUsers() {
                           </td>
                           <td className="p-3 text-sm">{user.email}</td>
                           <td className="p-3">
-                            {user.role === 'admin' ? (
+                            {user.isPlaceholder ? (
+                              <Badge variant="outline" className="text-muted-foreground border-dashed">
+                                <Mail className="h-3 w-3 mr-1" />
+                                Invited
+                              </Badge>
+                            ) : user.role === 'admin' ? (
                               <Badge className="bg-purple-600">
                                 <Shield className="h-3 w-3 mr-1" />
                                 Admin
@@ -220,7 +330,17 @@ export default function AdminUsers() {
                                 </Button>
                               </Link>
 
-                              {user.role === 'creator' ? (
+                              {user.isPlaceholder ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={resendInviteMutation.isPending}
+                                  onClick={() => resendInviteMutation.mutate(user.id)}
+                                >
+                                  <RefreshCw className="h-4 w-4 mr-1" />
+                                  Resend Invite
+                                </Button>
+                              ) : user.role === 'creator' ? (
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
                                     <Button

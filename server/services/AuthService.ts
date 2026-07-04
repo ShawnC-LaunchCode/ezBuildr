@@ -33,7 +33,7 @@ import { createLogger } from "../logger";
 import { hashToken } from "../utils/encryption";
 
 import { accountLockoutService } from "./AccountLockoutService";
-import { sendPasswordResetEmail, sendVerificationEmail } from "./emailService";
+import { sendPasswordResetEmail, sendVerificationEmail, sendSystemInviteEmail } from "./emailService";
 
 const log = createLogger({ module: 'auth-service' });
 
@@ -521,6 +521,34 @@ export class AuthService {
 
         await sendPasswordResetEmail(email, plainToken);
         log.info({ email }, 'Password reset email sent');
+
+        return plainToken;
+    }
+
+    async generateSystemInviteToken(email: string, role: string): Promise<string | null> {
+        const user = await this.db.query.users.findFirst({
+            where: eq(users.email, email)
+        });
+
+        if (!user) { return null; }
+
+        const plainToken = crypto.randomBytes(32).toString('hex');
+        const tokenHash = hashToken(plainToken);
+        const expiresAt = new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)); // 7 days
+
+        await this.db.update(passwordResetTokens)
+            .set({ used: true })
+            .where(eq(passwordResetTokens.userId, user.id));
+
+        await this.db.insert(passwordResetTokens).values({
+            userId: user.id,
+            token: tokenHash,
+            expiresAt,
+            used: false
+        });
+
+        await sendSystemInviteEmail(email, plainToken, role);
+        log.info({ email }, 'System invite email sent');
 
         return plainToken;
     }

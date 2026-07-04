@@ -1,0 +1,1 @@
+import { getDb } from './server/db.js'; import { tenants } from './shared/schema.js'; async function check() { const db = getDb(); const t = await db.select().from(tenants); console.log('Tenants:', t); process.exit(0); } check().catch(e = console.error(e); process.exit(1); });  

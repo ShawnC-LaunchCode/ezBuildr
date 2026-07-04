@@ -164,3 +164,27 @@ export async function sendIntakeReceipt(
     };
   }
 }
+
+export async function sendSystemInviteEmail(email: string, token: string, role: string): Promise<void> {
+  const baseUrl = process.env.PUBLIC_URL ?? 'http://localhost:5000';
+  const setupLink = `${baseUrl}/auth/reset-password?token=${token}&setup=true`;
+  const roleDisplay = role === 'admin' ? 'an Administrator' : 'a Creator';
+
+  const subject = 'You have been invited to ezBuildr';
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>Welcome to ezBuildr!</h2>
+      <p>You have been invited to join ezBuildr as ${roleDisplay}.</p>
+      <p>Click the button below to set your password and complete your account setup:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${setupLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Complete Setup</a>
+      </div>
+      <p>Or copy and paste this link into your browser:</p>
+      <p><a href="${setupLink}">${setupLink}</a></p>
+      <p>This link will expire in 7 days.</p>
+    </div>
+  `;
+
+  await sendEmail(email, subject, html);
+}
+

@@ -30,11 +30,18 @@ export default function ResetPasswordPage() {
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [token, setToken] = useState<string | null>(null);
+    const [isSetup, setIsSetup] = useState(false);
 
     useEffect(() => {
         // Extract token from URL manually since wouter doesn't have useSearchParams
         const urlParams = new URLSearchParams(window.location.search);
         const tokenParam = urlParams.get('token');
+        const setupParam = urlParams.get('setup');
+        
+        if (setupParam === 'true') {
+            setIsSetup(true);
+        }
+
         if (tokenParam) {
             setToken(tokenParam);
         } else {
@@ -63,8 +70,8 @@ export default function ResetPasswordPage() {
                 password: data.password
             });
             toast({
-                title: "Password reset successful",
-                description: "You can now sign in with your new password.",
+                title: isSetup ? "Setup successful" : "Password reset successful",
+                description: isSetup ? "You can now sign in to your new account." : "You can now sign in with your new password.",
             });
             setLocation("/auth/login");
         } catch (error) {
@@ -100,13 +107,13 @@ export default function ResetPasswordPage() {
                         className="w-12 h-12 rounded-xl shadow-lg object-cover mb-4"
                     />
                     <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                        Set new password
+                        {isSetup ? "Complete Account Setup" : "Set new password"}
                     </h2>
                 </div>
                 <Card className="mt-8 shadow-xl border-dashed border-gray-200">
                     <CardHeader>
-                        <CardTitle>New Password</CardTitle>
-                        <CardDescription>Enter your new password below</CardDescription>
+                        <CardTitle>{isSetup ? "Set Password" : "New Password"}</CardTitle>
+                        <CardDescription>{isSetup ? "Create a password to complete your account setup." : "Enter your new password below"}</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <Form {...form}>
@@ -142,10 +149,10 @@ export default function ResetPasswordPage() {
                                     {isLoading ? (
                                         <>
                                             <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-                                            Resetting...
+                                            {isSetup ? "Setting up..." : "Resetting..."}
                                         </>
                                     ) : (
-                                        "Reset Password"
+                                        isSetup ? "Complete Setup" : "Reset Password"
                                     )}
                                 </Button>
                             </form>
