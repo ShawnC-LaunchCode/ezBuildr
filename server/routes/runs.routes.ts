@@ -166,6 +166,29 @@ export function registerRunRoutes(app: Express): void {
     }
   }));
   /**
+   * POST /api/runs/:runId/revoke-token
+   * Revoke a run's bearer token (e.g. if the run link leaks). Creator/owner only — session
+   * auth required (no run-token auth, so a leaked token cannot revoke or be used to act here).
+   */
+  app.post('/api/runs/:runId/revoke-token', hybridAuth, asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { runId } = req.params;
+      const authReq = req as AuthRequest;
+      const userId = authReq.userId;
+      if (!userId) {
+        res.status(401).json({ success: false, error: ERROR_UNAUTHORIZED_NO_USER });
+        return;
+      }
+      await runService.revokeRunToken(runId, userId);
+      res.json({ success: true, message: "Run token revoked" });
+    } catch (error) {
+      logger.error({ error }, "Error revoking run token");
+      const message = error instanceof Error ? error.message : "Failed to revoke run token";
+      const status = message.includes(ERROR_NOT_FOUND) ? 404 : message.includes(ERROR_ACCESS_DENIED) ? 403 : 500;
+      res.status(status).json({ success: false, error: message });
+    }
+  }));
+  /**
    * GET /api/runs/:runId/values
    * Get a workflow run with all step values
    * Accepts creator session OR Bearer runToken

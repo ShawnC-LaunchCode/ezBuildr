@@ -227,6 +227,15 @@ export class RunService {
     return run;
   }
   /**
+   * Revoke a run's bearer token (e.g. if a run link leaks). Only the run creator or the
+   * workflow owner may revoke. Immediately invalidates run-token access to this run.
+   */
+  async revokeRunToken(runId: string, userId: string): Promise<void> {
+    const { run, access } = await this.authResolver.resolveRun(runId, userId);
+    if (!run || access === 'none') { throw new Error(ERR_RUN_NOT_FOUND); }
+    await this.runRepo.revokeToken(runId);
+  }
+  /**
    * Get run with all values
    */
   async getRunWithValues(runId: string, userId: string): Promise<WorkflowRun & { values: StepValue[] }> {

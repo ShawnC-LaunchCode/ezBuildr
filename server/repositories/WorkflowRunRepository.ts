@@ -109,6 +109,19 @@ export class WorkflowRunRepository extends BaseRepository<
   }
 
   /**
+   * Revoke a run's bearer token by forcing it expired. Run tokens already carry an absolute
+   * expiry (tokenExpiresAt) that runTokenAuth enforces; setting it into the past immediately
+   * invalidates the token — the mechanism used to kill a leaked run link on demand.
+   */
+  async revokeToken(runId: string, tx?: DbTransaction): Promise<void> {
+    const database = this.getDb(tx);
+    await database
+      .update(workflowRuns)
+      .set({ tokenExpiresAt: new Date(Date.now() - 1000), updatedAt: new Date() })
+      .where(eq(workflowRuns.id, runId));
+  }
+
+  /**
    * Find run by share token (read-only link)
    *
    * Share tokens are stored hashed; see findByToken for the lookup rationale.
