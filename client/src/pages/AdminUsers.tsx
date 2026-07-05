@@ -44,6 +44,8 @@ interface User {
   role: 'admin' | 'creator';
   createdAt: string;
   workflowCount: number;
+  personalWorkflowCount: number;
+  orgWorkflowCount: number;
   isPlaceholder?: boolean;
 }
 
@@ -360,19 +362,19 @@ export default function AdminUsers() {
                               <Badge variant="secondary">Creator</Badge>
                             )}
                           </td>
-                          <td className="p-3 text-sm">{user.workflowCount}</td>
+                          <td className="p-3">
+                            <Link href={`/admin/users/${user.id}/surveys`}>
+                              <Button variant="outline" size="sm" className="whitespace-nowrap">
+                                <Eye className="h-4 w-4 mr-1" />
+                                View Workflows ({user.personalWorkflowCount}/{user.orgWorkflowCount})
+                              </Button>
+                            </Link>
+                          </td>
                           <td className="p-3 text-sm text-muted-foreground">
                             {new Date(user.createdAt).toLocaleDateString()}
                           </td>
                           <td className="p-3">
                             <div className="flex items-center justify-end gap-2">
-                              <Link href={`/admin/users/${user.id}/surveys`}>
-                                <Button variant="ghost" size="sm">
-                                  <Eye className="h-4 w-4 mr-1" />
-                                  View Workflows
-                                </Button>
-                              </Link>
-
                               {user.isPlaceholder ? (
                                 <Button
                                   variant="outline"

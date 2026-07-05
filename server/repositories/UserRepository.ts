@@ -161,7 +161,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
    * Get all users with their workflow count (admin only)
    * Optimized to use a single query with LEFT JOIN instead of fetching all workflows
    */
-  async findAllUsersWithWorkflowCounts(tx?: DbTransaction): Promise<(User & { workflowCount: number })[]> {
+  async findAllUsersWithWorkflowCounts(tx?: DbTransaction): Promise<(User & { workflowCount: number, personalWorkflowCount: number, orgWorkflowCount: number })[]> {
     const database = this.getDb(tx);
 
     // Select all user columns plus the count of workflows
@@ -169,6 +169,8 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
       .select({
         ...getTableColumns(users),
         workflowCount: count(workflows.id),
+        personalWorkflowCount: sql`SUM(CASE WHEN ${workflows.ownerType} = 'user' OR ${workflows.ownerType} IS NULL AND ${workflows.id} IS NOT NULL THEN 1 ELSE 0 END)`,
+        orgWorkflowCount: sql`SUM(CASE WHEN ${workflows.ownerType} IN ('organization', 'team') THEN 1 ELSE 0 END)`,
       })
       .from(users)
       .leftJoin(workflows, eq(users.id, workflows.creatorId))
@@ -177,7 +179,9 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
 
     return rows.map(row => ({
       ...row,
-      workflowCount: Number(row.workflowCount)
+      workflowCount: Number(row.workflowCount),
+      personalWorkflowCount: Number(row.personalWorkflowCount || 0),
+      orgWorkflowCount: Number(row.orgWorkflowCount || 0),
     }));
   }
 
