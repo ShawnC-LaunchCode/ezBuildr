@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 import { tenants, users, projects } from "@shared/schema";
 
@@ -8,7 +8,9 @@ import { createLogger } from "../logger";
 import { hybridAuth, type AuthRequest } from "../middleware/auth";
 import { requireOwner, requirePermission } from "../middleware/rbac";
 import { requireTenant, validateTenantParam } from "../middleware/tenant";
+import { invalidateUserCache } from "../middleware/userCache";
 import { userRepository } from "../repositories";
+import { authService } from "../services/AuthService";
 import { asyncHandler } from "../utils/asyncHandler";
 
 import type { Express, Request, Response } from "express";
@@ -301,31 +303,34 @@ export function registerTenantRoutes(app: Express): void {
         });
       }
 
-      // Update user role
+      // SECURITY: scope the UPDATE to the tenant so an owner can only change roles of users
+      // that actually belong to their tenant. Previously the update matched on id alone and
+      // only checked tenantId AFTER writing — letting an owner of tenant A mutate a user in
+      // tenant B (the write persisted even though a 403 was returned).
       const [updatedUser] = await db
         .update(users)
         .set({
           tenantRole: role,
           updatedAt: new Date(),
         })
-        .where(eq(users.id, userId))
+        .where(and(eq(users.id, userId), eq(users.tenantId, tenantId)))
         .returning();
 
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (!updatedUser) {
+        // Either the user does not exist or does not belong to this tenant. Do not
+        // distinguish the two, to avoid leaking cross-tenant user existence.
         return res.status(404).json({
-          message: 'User not found',
+          message: 'User not found in this tenant',
           error: 'user_not_found',
         });
       }
 
-      // Verify user belongs to the tenant
-      if (updatedUser.tenantId !== tenantId) {
-        return res.status(403).json({
-          message: 'User does not belong to this tenant',
-          error: 'user_not_in_tenant',
-        });
-      }
+      // SECURITY: a role change must take effect immediately. Invalidate the cached user (so
+      // JWT-based auth re-hydrates the new role at once) and revoke the user's refresh tokens
+      // (so their session cannot be silently refreshed under the old role).
+      invalidateUserCache(userId);
+      await authService.revokeAllUserTokens(userId);
 
       logger.info({ tenantId, userId, newRole: role }, 'User role updated');
 

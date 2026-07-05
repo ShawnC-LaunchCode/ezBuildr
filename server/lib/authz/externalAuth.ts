@@ -1,7 +1,4 @@
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
-import _crypto from 'crypto';
-
 import { eq } from "drizzle-orm";
 import { Request, Response, NextFunction } from "express";
 
@@ -9,9 +6,7 @@ import { oauthAccessTokens, apiKeys } from "@shared/schema";
 
 import { db } from "../../db";
 import { logger } from "../../logger";
-// import { verify } from "drizzle-orm/mysql-core"; // Not needed if manual compare
-// Ideally use a crypto lib for generic hash compare if bcrypt was used. 
-// Assuming simple string match for mock or using crypto for hash verification.
+import { verifyToken } from "../../utils/encryption";
 
 export interface ExternalAuthRequest extends Request {
     externalAuth?: {
@@ -77,8 +72,11 @@ export async function requireExternalAuth(req: ExternalAuthRequest, res: Respons
                 return res.status(401).json({ error: "Invalid API Key" });
             }
 
-            // Verify Hash (Mock comparison for now)
-            if (keyRecord.keyHash !== apiKeyHeader) {
+            // SECURITY: verify the presented key against the stored SHA-256 hash using a
+            // constant-time comparison. Previously this did a plaintext `keyHash !== apiKeyHeader`
+            // check, which both assumed the raw key was stored (defeating hashing-at-rest) and
+            // leaked timing information. keyHash must store hashToken(fullKey).
+            if (!verifyToken(apiKeyHeader, keyRecord.keyHash)) {
                 return res.status(401).json({ error: "Invalid API Key Credentials" });
             }
 

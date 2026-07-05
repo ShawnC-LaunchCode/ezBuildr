@@ -10,11 +10,6 @@ import { createLogger } from "../logger";
 
 const logger = createLogger({ module: 'email-queue' });
 
-// Configure SendGrid
-if (process.env.SENDGRID_API_KEY) {
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-}
-
 const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL ?? 'noreply@ezbuildr.com';
 
 export class EmailQueueService {
@@ -158,6 +153,7 @@ export class EmailQueueService {
     // Direct send helper (logic copied from original emailService)
     private async sendDirectly(to: string, subject: string, html: string): Promise<void> {
         if (process.env.SENDGRID_API_KEY) {
+            sgMail.setApiKey(process.env.SENDGRID_API_KEY);
             await sgMail.send({
                 to,
                 from: FROM_EMAIL,

@@ -17,6 +17,7 @@ import {
 } from '@shared/types/connections';
 
 import { db } from '../db';
+import { assertOutboundUrlAllowed } from '../lib/security/ssrfGuard';
 import { logger } from '../logger';
 import { encrypt, decrypt } from '../utils/encryption';
 
@@ -162,6 +163,23 @@ export async function getConnection(
     createdAt: row.createdAt ?? new Date(),
     updatedAt: row.updatedAt ?? new Date(),
   };
+}
+
+/**
+ * Get a connection by its ID alone (project resolved from the row).
+ * Used by the OAuth2 callback, where only the connectionId is carried in the signed state.
+ */
+export async function getConnectionById(connectionId: string): Promise<Connection | null> {
+  const results = await db
+    .select({ projectId: connections.projectId })
+    .from(connections)
+    .where(eq(connections.id, connectionId));
+
+  if (results.length === 0) {
+    return null;
+  }
+
+  return getConnection(results[0].projectId, connectionId);
 }
 
 /**
@@ -427,6 +445,9 @@ export async function testConnection(
         headers['Authorization'] = `Bearer ${resolved.accessToken}`;
       }
     }
+
+    // SECURITY: block SSRF — baseUrl is user-supplied, so reject internal/link-local/metadata targets.
+    await assertOutboundUrlAllowed(connection.baseUrl);
 
     // Make test request
     const response = await fetch(connection.baseUrl, {

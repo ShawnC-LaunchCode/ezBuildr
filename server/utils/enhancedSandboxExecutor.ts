@@ -82,14 +82,16 @@ async function runJsWithHelpers(
     ivm = await import("isolated-vm");
   } catch (error) {
     // SECURITY: Node's built-in `vm` module is NOT a security boundary — it is trivially
-    // escapable (e.g. `this.constructor.constructor("return process")()`). Falling back to it
-    // silently turns any saved script into potential RCE. Only permit the fallback when it is
-    // explicitly opted into in a non-production environment; otherwise fail closed.
-    const allowInsecureFallback =
-      process.env.NODE_ENV !== "production" &&
-      process.env.SANDBOX_ALLOW_INSECURE_VM_FALLBACK === "true";
+    // escapable (e.g. `this.constructor.constructor("return process")()`). Silently falling
+    // back to it turns any saved script into potential RCE. In production we fail closed so a
+    // missing/mismatched isolated-vm native binary (e.g. on musl/Alpine images) disables
+    // scripting rather than running it unsandboxed. Outside production the fallback is allowed
+    // for local dev/test, but can be force-disabled by setting SANDBOX_REQUIRE_ISOLATED_VM=true.
+    const failClosed =
+      process.env.NODE_ENV === "production" ||
+      process.env.SANDBOX_REQUIRE_ISOLATED_VM === "true";
 
-    if (!allowInsecureFallback) {
+    if (failClosed) {
       logger.error(
         { error },
         "isolated-vm is unavailable; refusing to execute JavaScript in the insecure 'vm' fallback"
@@ -104,7 +106,7 @@ async function runJsWithHelpers(
 
     logger.warn(
       { error },
-      "isolated-vm not found — using INSECURE node 'vm' fallback (dev opt-in only, not a security boundary)"
+      "isolated-vm not found — using INSECURE node 'vm' fallback (non-production only, not a security boundary)"
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- helper library has dynamic method signatures
     const result = await runJsWithVmFallback(code, input, context, actualHelpers as Record<string, any>, timeoutMs, consoleEnabled);

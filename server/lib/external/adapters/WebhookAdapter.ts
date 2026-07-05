@@ -1,6 +1,7 @@
 import { BlockContext, ExternalSendResult } from "@shared/types/blocks";
 import { DestinationAdapter } from "../interfaces";
 import { createLogger } from "../../../logger";
+import { assertOutboundUrlAllowed } from "../../security/ssrfGuard";
 
 const logger = createLogger({ module: "webhook-adapter" });
 
@@ -32,6 +33,9 @@ export class WebhookAdapter implements DestinationAdapter {
         logger.info({ url, method }, "Sending webhook");
 
         try {
+            // SECURITY: block SSRF to internal/link-local/metadata addresses.
+            await assertOutboundUrlAllowed(url);
+
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 

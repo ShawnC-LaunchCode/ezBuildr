@@ -1,4 +1,6 @@
 
+import crypto from "crypto";
+
 import { eq, and } from "drizzle-orm";
 import { Router } from "express";
 
@@ -8,6 +10,14 @@ import { db } from "../db";
 import { logger } from "../logger";
 import { requireExternalAuth, ExternalAuthRequest } from "../lib/authz/externalAuth";
 import { asyncHandler } from "../utils/asyncHandler";
+
+/**
+ * Generate a cryptographically secure webhook signing secret.
+ * (Previously used Math.random(), which is non-cryptographic and low-entropy.)
+ */
+function generateWebhookSecret(): string {
+    return `whsec_${crypto.randomBytes(24).toString("hex")}`;
+}
 
 const router = Router();
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
@@ -44,7 +54,7 @@ router.post("/", asyncHandler(async (req: ExternalAuthRequest, res) => {
             targetUrl: url, // eslint-disable-line @typescript-eslint/no-unsafe-assignment
             events: events, // array // eslint-disable-line @typescript-eslint/no-unsafe-assignment
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/strict-boolean-expressions
-            secret: secret || `whsec_${Math.random().toString(36).substr(2)}`,
+            secret: secret || generateWebhookSecret(),
             enabled: true
         }).returning();
 

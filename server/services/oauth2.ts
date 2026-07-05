@@ -4,6 +4,7 @@
  */
 import crypto from 'crypto';
 
+import { assertOutboundUrlAllowed } from '../lib/security/ssrfGuard';
 import { logger } from '../logger';
 import { redactObject, decrypt } from '../utils/encryption';
 
@@ -108,6 +109,8 @@ async function fetchOAuth2Token(config: OAuth2ClientCredentialsConfig): Promise<
     if (scope) {
       params.append('scope', scope);
     }
+    // SECURITY: block SSRF — tokenUrl is connection-configured by the user.
+    await assertOutboundUrlAllowed(tokenUrl);
     // Make request
     const response = await fetch(tokenUrl, {
       method: 'POST',
@@ -323,6 +326,8 @@ export async function exchangeOAuth2Code(
       code,
       redirect_uri: config.redirectUri,
     });
+    // SECURITY: block SSRF — tokenUrl is connection-configured by the user.
+    await assertOutboundUrlAllowed(config.tokenUrl);
     // Make request
     const response = await fetch(config.tokenUrl, {
       method: 'POST',
@@ -384,6 +389,8 @@ export async function refreshOAuth2Token(
       client_secret: config.clientSecret,
       refresh_token: decryptedRefreshToken,
     });
+    // SECURITY: block SSRF — tokenUrl is connection-configured by the user.
+    await assertOutboundUrlAllowed(config.tokenUrl);
     // Make request
     const response = await fetch(config.tokenUrl, {
       method: 'POST',

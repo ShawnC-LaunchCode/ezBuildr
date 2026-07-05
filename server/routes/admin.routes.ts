@@ -1,7 +1,9 @@
 import { createLogger } from "../logger";
 import { isAdmin } from "../middleware/adminAuth";
 import { hybridAuth } from "../middleware/auth";
+import { invalidateUserCache } from "../middleware/userCache";
 import { userRepository } from "../repositories/UserRepository";
+import { authService } from "../services/AuthService";
 import { WorkflowRepository } from "../repositories/WorkflowRepository";
 import { WorkflowRunRepository } from "../repositories/WorkflowRunRepository";
 import { accountLockoutService } from "../services/AccountLockoutService";
@@ -97,6 +99,12 @@ export function registerAdminRoutes(app: Express): void {
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       const updatedUser = await userRepository.updateRole(userId, role);
+
+      // SECURITY: apply the system-role change immediately — drop the cached user (so JWT auth
+      // re-hydrates the new role at once) and revoke refresh tokens (so the session cannot be
+      // refreshed under the old role).
+      invalidateUserCache(userId);
+      await authService.revokeAllUserTokens(userId);
 
       logger.info(
         {

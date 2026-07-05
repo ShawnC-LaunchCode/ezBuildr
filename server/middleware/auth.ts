@@ -5,6 +5,8 @@ import { authService, type JWTPayload } from '../services/AuthService';
 import { parseCookies } from "../utils/cookies";
 import { sendErrorResponse } from '../utils/responses';
 
+import { getUserById } from './userCache';
+
 import type { Request, Response, NextFunction } from 'express';
 const logger = createLogger({ module: 'auth-middleware' });
 /**
@@ -202,28 +204,26 @@ async function attachUserToRequest(req: Request, payload: JWTPayload): Promise<v
     systemRole: payload.role as string | undefined,
     jwtPayload: payload
   });
-  // Now we can safely access via type guard
-  if (authReq.userId !== undefined && authReq.tenantId === undefined) {
+
+  // SECURITY: never trust the role/tenant claims embedded in the (up to 15-minute-lived) JWT
+  // for authorization decisions. Re-hydrate them from the DB (via a 30s TTL cache) so that a
+  // demotion, removal, or tenant change takes effect immediately instead of lingering until the
+  // access token expires. Role-changing endpoints invalidate this cache. If the DB lookup fails
+  // we fall back to the token claims rather than hard-failing the request.
+  if (authReq.userId !== undefined) {
     try {
-      const user = await userRepository.findById(authReq.userId);
-      if (user?.tenantId !== null && user?.tenantId !== undefined) {
-        // eslint-disable-next-line no-param-reassign -- Express middleware convention: augment req for downstream handlers
-        authReq.tenantId = user.tenantId;
-        // eslint-disable-next-line no-param-reassign -- Express middleware convention: augment req for downstream handlers
-        authReq.userRole = user.tenantRole;
-        logger.debug({ userId: authReq.userId, tenantId: authReq.tenantId }, 'Hydrated tenantId from DB');
+      const user = await getUserById(authReq.userId);
+      if (user) {
+        authReq.tenantId = user.tenantId ?? undefined;
+        authReq.userRole = user.tenantRole as AuthRequest['userRole'];
+        authReq.systemRole = user.role as AuthRequest['systemRole'];
+        logger.debug({ userId: authReq.userId, tenantId: authReq.tenantId }, 'Re-hydrated role/tenant from DB');
       } else {
-        logger.debug({ userId: authReq.userId }, 'User has no tenantId in DB');
+        logger.warn({ userId: authReq.userId }, 'Authenticated userId not found in DB during re-hydration');
       }
     } catch (e) {
-      logger.warn({ error: e, userId: authReq.userId }, 'Failed to hydrate user');
+      logger.warn({ error: e, userId: authReq.userId }, 'Failed to re-hydrate user from DB; using token claims');
     }
-  } else {
-    logger.debug({
-      userId: authReq.userId,
-      hasTenantId: !!authReq.tenantId,
-      source: 'token'
-    }, 'User attached from token');
   }
 }
 /**

@@ -9,10 +9,13 @@ import { z } from 'zod';
 import type { CreateConnectionInput, UpdateConnectionInput } from '@shared/types/connections';
 
 import { logger } from '../logger';
+import { requireProjectRole } from '../middleware/aclAuth';
 import { hybridAuth } from '../middleware/auth';
+import { aclService } from '../services/AclService';
 import {
   listConnections,
   getConnection,
+  getConnectionById,
   createConnection,
   updateConnection,
   deleteConnection,
@@ -68,7 +71,7 @@ export function registerConnectionsV2Routes(app: Express): void {
    * GET /api/projects/:projectId/connections
    * List all connections for a project
    */
-  app.get('/api/projects/:projectId/connections', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.get('/api/projects/:projectId/connections', hybridAuth, requireProjectRole('view'), asyncHandler(async (req: Request, res: Response) => {
     try {
       const { projectId } = req.params;
 
@@ -89,7 +92,7 @@ export function registerConnectionsV2Routes(app: Express): void {
    * GET /api/projects/:projectId/connections/:connectionId
    * Get a specific connection
    */
-  app.get('/api/projects/:projectId/connections/:connectionId', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.get('/api/projects/:projectId/connections/:connectionId', hybridAuth, requireProjectRole('view'), asyncHandler(async (req: Request, res: Response) => {
     try {
       const { projectId, connectionId } = req.params;
 
@@ -114,7 +117,7 @@ export function registerConnectionsV2Routes(app: Express): void {
    * POST /api/projects/:projectId/connections
    * Create a new connection
    */
-  app.post('/api/projects/:projectId/connections', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/projects/:projectId/connections', hybridAuth, requireProjectRole('edit'), asyncHandler(async (req: Request, res: Response) => {
     try {
       const { projectId } = req.params;
 
@@ -158,7 +161,7 @@ export function registerConnectionsV2Routes(app: Express): void {
    * PATCH /api/projects/:projectId/connections/:connectionId
    * Update a connection
    */
-  app.patch('/api/projects/:projectId/connections/:connectionId', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.patch('/api/projects/:projectId/connections/:connectionId', hybridAuth, requireProjectRole('edit'), asyncHandler(async (req: Request, res: Response) => {
     try {
       const { projectId, connectionId } = req.params;
 
@@ -198,7 +201,7 @@ export function registerConnectionsV2Routes(app: Express): void {
    * DELETE /api/projects/:projectId/connections/:connectionId
    * Delete a connection
    */
-  app.delete('/api/projects/:projectId/connections/:connectionId', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.delete('/api/projects/:projectId/connections/:connectionId', hybridAuth, requireProjectRole('edit'), asyncHandler(async (req: Request, res: Response) => {
     try {
       const { projectId, connectionId } = req.params;
 
@@ -223,7 +226,7 @@ export function registerConnectionsV2Routes(app: Express): void {
    * POST /api/projects/:projectId/connections/:connectionId/test
    * Test a connection
    */
-  app.post('/api/projects/:projectId/connections/:connectionId/test', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/projects/:projectId/connections/:connectionId/test', hybridAuth, requireProjectRole('edit'), asyncHandler(async (req: Request, res: Response) => {
     try {
       const { projectId, connectionId } = req.params;
 
@@ -250,7 +253,7 @@ export function registerConnectionsV2Routes(app: Express): void {
    * GET /api/projects/:projectId/connections/:connectionId/status
    * Get connection status (for UI display)
    */
-  app.get('/api/projects/:projectId/connections/:connectionId/status', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.get('/api/projects/:projectId/connections/:connectionId/status', hybridAuth, requireProjectRole('view'), asyncHandler(async (req: Request, res: Response) => {
     try {
       const { projectId, connectionId } = req.params;
 
@@ -281,6 +284,14 @@ export function registerConnectionsV2Routes(app: Express): void {
 
       if (projectId === undefined || typeof projectId !== 'string') {
         res.status(400).json({ error: 'projectId query parameter is required' });
+        return;
+      }
+
+      // SECURITY: projectId arrives via query string here, so requireProjectRole (which reads
+      // route params) cannot guard this route. Enforce project access manually.
+      const userId = (req as { userId?: string }).userId;
+      if (!userId || !(await aclService.hasProjectRole(userId, projectId, 'edit'))) {
+        res.status(403).json({ error: 'Forbidden - edit access to this project is required' });
         return;
       }
 
@@ -344,8 +355,9 @@ export function registerConnectionsV2Routes(app: Express): void {
         return;
       }
 
-      // Get connection
-      const connection = await getConnection(stateRecord.connectionId, stateRecord.connectionId);
+      // Get connection (by id — the signed state only carries connectionId). This also fixes a
+      // prior bug that passed connectionId as the projectId, so the lookup never matched.
+      const connection = await getConnectionById(stateRecord.connectionId);
       if (!connection) {
         res.status(404).json({ error: 'Connection not found' });
         return;

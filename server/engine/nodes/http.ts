@@ -5,6 +5,7 @@
  */
 import crypto from 'crypto';
 
+import { assertOutboundUrlAllowed } from '../../lib/security/ssrfGuard';
 import { logger } from '../../logger';
 import { httpCache } from '../../services/cache';
 import { resolveConnection as resolveNewConnection, markConnectionUsed } from '../../services/connections';
@@ -418,6 +419,9 @@ async function executeWithRetries(config: {
   backoffMs: number;
 }): Promise<{ status: number; headers: Record<string, string>; data: unknown }> {
   let lastError: Error | null = null;
+  // SECURITY: block SSRF — the request URL is user-configured, so reject internal/link-local/
+  // metadata targets before any attempt. Checked outside the retry loop (it will not change).
+  await assertOutboundUrlAllowed(config.url);
   for (let attempt = 0; attempt <= config.retries; attempt++) {
     try {
       const controller = new AbortController();

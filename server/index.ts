@@ -133,7 +133,13 @@ app.use(requestTimeout);
 // 7️⃣ GLOBAL RATE LIMITING (Apply before routes)
 // =====================================================================
 // Note: This is a baseline. Specific routes may apply stricter limits.
+// SECURITY: rate limiting must also cover the public/unauthenticated surfaces, which are
+// mounted outside /api. Without this, /intake/* (incl. file upload and slug enumeration),
+// /public/* and the portal were completely unthrottled — open to abuse, disk-fill and DoS.
 app.use('/api', globalLimiter);
+app.use('/intake', globalLimiter);
+app.use('/public', globalLimiter);
+app.use('/oauth', globalLimiter);
 // eslint-disable-next-line sonarjs/cognitive-complexity -- server bootstrap is inherently complex
 void (async () => {
     try {

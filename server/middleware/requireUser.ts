@@ -4,45 +4,14 @@ import { createLogger } from '../logger';
 import { userRepository } from '../repositories';
 
 import { isAuthRequest } from './auth';
+import { getCachedUser, setCachedUser, invalidateUserCache } from './userCache';
 
 import type { Request, Response, NextFunction } from 'express';
 const logger = createLogger({ module: 'require-user-middleware' });
 
-// In-process TTL cache for user lookups. Reduces DB hits on high-traffic routes.
-// 30-second TTL is safe for low-churn user data (role/tenantId changes are rare).
-const USER_CACHE_TTL_MS = 30_000;
-const MAX_CACHE_SIZE = 2_000;
-const userCache = new Map<string, { user: User; expiresAt: number }>();
-
-function getCachedUser(userId: string): User | undefined {
-  const entry = userCache.get(userId);
-  if (!entry) { return undefined; }
-  if (Date.now() > entry.expiresAt) {
-    userCache.delete(userId);
-    return undefined;
-  }
-  return entry.user;
-}
-
-function setCachedUser(user: User): void {
-  // If at capacity, evict expired entries first, then oldest entry if still full
-  if (userCache.size >= MAX_CACHE_SIZE) {
-    const now = Date.now();
-    for (const [key, entry] of userCache) {
-      if (now > entry.expiresAt) { userCache.delete(key); }
-    }
-    if (userCache.size >= MAX_CACHE_SIZE) {
-      const oldestKey = userCache.keys().next().value;
-      if (oldestKey !== undefined) { userCache.delete(oldestKey); }
-    }
-  }
-  userCache.set(user.id, { user, expiresAt: Date.now() + USER_CACHE_TTL_MS });
-}
-
-/** Invalidate a specific user from the cache (e.g. after role change) */
-export function invalidateUserCache(userId: string): void {
-  userCache.delete(userId);
-}
+// User lookups are cached in the shared userCache module (see ./userCache).
+// Re-exported for existing importers of invalidateUserCache.
+export { invalidateUserCache };
 /**
  * Extended AuthRequest with attached user object
  */
