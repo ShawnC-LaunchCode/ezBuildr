@@ -339,6 +339,15 @@ export function registerAdminRoutes(app: Express): void {
 
       logger.info({ adminId: req.adminUser.id, targetEmail: email }, 'Admin invited new user');
 
+      // Log to Admin Logs asynchronously
+      activityLogService.log('User Invited', {
+        actorId: req.adminUser.id,
+        actorEmail: req.adminUser.email,
+        entityType: 'user',
+        entityId: userId,
+        metadata: { targetEmail: email, role }
+      }).catch(e => logger.error({err: e}, 'Failed to log User Invited activity'));
+
       res.status(201).json({
         message: "User invited successfully",
         user
