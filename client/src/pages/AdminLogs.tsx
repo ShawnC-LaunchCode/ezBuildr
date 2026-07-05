@@ -279,12 +279,12 @@ export default function AdminLogs() {
                           {log.event}
                         </td>
                         <td className="px-4 py-3">
-                          {log.actorEmail ? (
-                            <span className="font-medium">{log.actorEmail}</span>
+                          {log.actorEmail || log.metadata?._actorEmail ? (
+                            <span className="font-medium">{log.actorEmail || log.metadata?._actorEmail}</span>
                           ) : log.actorId ? (
-                            <span className="text-xs text-gray-500">{log.actorId.substring(0, 8)}...</span>
+                            <span className="text-muted-foreground text-xs font-mono">{log.actorId.substring(0, 8)}...</span>
                           ) : (
-                            <span className="text-gray-400">—</span>
+                            <span className="text-muted-foreground italic">System</span>
                           )}
                         </td>
                         <td className="px-4 py-3">

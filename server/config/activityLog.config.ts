@@ -18,8 +18,8 @@ export const activityLogSource = {
     event: "action",             // audit_logs.action
     actorId: "user_id",          // audit_logs.user_id
     actorEmail: null,            // Not available directly in audit_logs
-    entityType: "resource_type", // audit_logs.resource_type
-    entityId: "resource_id",     // audit_logs.resource_id
+    entityType: "entity_type",   // audit_logs.entity_type (NOT NULL)
+    entityId: "entity_id",       // audit_logs.entity_id (NOT NULL)
     status: null,                // Not available in audit_logs
     ipAddress: "ip_address",     // audit_logs.ip_address
     userAgent: "user_agent",     // audit_logs.user_agent

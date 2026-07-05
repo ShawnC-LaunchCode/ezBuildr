@@ -115,6 +115,12 @@ export class ActivityLogService {
       metadata: any;
     }>
   ): Promise<void> {
+    // Since actorEmail might not have a dedicated column, inject it into metadata
+    const enhancedMetadata = {
+      ...details?.metadata,
+      _actorEmail: details?.actorEmail ?? undefined
+    };
+
     const entry: ActivityLogInsert = {
       event,
       timestamp: new Date().toISOString(),
@@ -125,8 +131,8 @@ export class ActivityLogService {
       status: details?.status ?? "info",
       ipAddress: details?.ipAddress ?? null,
       userAgent: details?.userAgent ?? null,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- metadata is typed as any in the parameter
-      metadata: details?.metadata ?? null
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      metadata: Object.keys(enhancedMetadata).length > 0 ? enhancedMetadata : null
     };
 
     await this.repo.insert(entry);
