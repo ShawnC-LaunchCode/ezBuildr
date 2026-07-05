@@ -40,7 +40,11 @@ import { registerIntakeRoutes } from "./intake.routes";
 import lifecycleHooksRoutes from "./lifecycleHooks.routes";
 import marketplaceRouter from "./marketplace";
 import { registerMetricsRoutes } from "./metrics";
-import oauthRouter from "./oauth.routes";
+// SECURITY: the self-hosted OAuth2 provider (./oauth.routes) is DISABLED. Its endpoints
+// were unauthenticated: /oauth/approve trusted a client-supplied user_id, /oauth/token
+// skipped client_secret verification, and codes/tokens used Math.random(). Do not re-mount
+// until it enforces user auth, verifies client secrets, and uses crypto.randomBytes + PKCE.
+// import oauthRouter from "./oauth.routes";
 import { registerOrganizationRoutes } from "./organizations.routes";
 import { placesRouter } from "./places.routes";
 import portalRouter from "./portal.routes";
@@ -86,8 +90,8 @@ export function registerAllRoutes(app: Express): void {
   // External API Routes (Platform Expansion)
   app.use("/api/external", apiLimiter, externalRouter);
 
-  // OAuth 2.1 Provider
-  app.use("/oauth", oauthRouter);
+  // OAuth 2.1 Provider — DISABLED (unauthenticated / insecure). See import note above.
+  // app.use("/oauth", oauthRouter);
 
   // Data Sources
   app.use("/api/data-sources", dataSourceRouter);

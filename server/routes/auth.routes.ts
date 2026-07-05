@@ -183,13 +183,15 @@ export function registerAuthRoutes(app: Express): void {
    */
   app.post('/api/auth/register', authRateLimit, asyncHandler(async (req: Request, res: Response) => {
     try {
-      const { email, password, firstName, lastName, tenantId, tenantRole } = req.body as {
+      // SECURITY: tenantId / tenantRole are intentionally NOT read from the request body.
+      // Accepting them from unauthenticated self-registration would let anyone join an
+      // arbitrary tenant (with any role, including owner). Tenant membership is assigned
+      // server-side via the invitation flow or auto-created tenant, never by the registrant.
+      const { email, password, firstName, lastName } = req.body as {
         email: string;
         password: string;
         firstName?: string;
         lastName?: string;
-        tenantId?: string;
-        tenantRole?: string;
       };
       if (!email || !password) { return res.status(400).json({ message: 'Email and password required', error: 'missing_fields' }); }
       if (!authService.validateEmail(email)) { return res.status(400).json({ message: 'Invalid email format', error: 'invalid_email' }); }
@@ -207,10 +209,9 @@ export function registerAuthRoutes(app: Express): void {
         lastName: lastName ?? null,
         fullName: firstName && lastName ? `${firstName} ${lastName}` : null,
         profileImageUrl: null,
-        tenantId: tenantId ?? null,
+        tenantId: null,
         role: 'creator',
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tenantRole can be various string values
-        tenantRole: (tenantRole as any) ?? null,
+        tenantRole: null,
         authProvider: 'local',
         defaultMode: 'easy',
       });

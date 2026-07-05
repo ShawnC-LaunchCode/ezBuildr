@@ -5,7 +5,7 @@ import { OAuth2Client, type TokenPayload } from "google-auth-library";
 import { createLogger } from "./logger";
 import { userRepository } from "./repositories";
 import { authService } from "./services/AuthService";
-import { templateSharingService } from "./services/TemplateSharingService";
+
 
 import type { Express } from "express";
 const logger = createLogger({ module: 'auth' });
@@ -146,13 +146,7 @@ export async function setupAuth(app: Express): Promise<void> {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       const dbUser = await userRepository.findById(payload.sub);
       if (!dbUser) { throw new Error('User not found after upsert'); }
-      // Accept pending shares
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
-        await templateSharingService.acceptPendingOnLogin({ ...dbUser, authProvider: 'google' } as any);
-      } catch (_e) {
-        logger.warn('Failed to accept pending template shares');
-      }
+
       // Generate Tokens using AuthService
       const jwtToken = authService.createToken(dbUser);
       const refreshToken = await authService.createRefreshToken(dbUser.id, {

@@ -1,10 +1,14 @@
-import { eq, and, desc, inArray, count, sql } from "drizzle-orm";
+import { eq, and, or, desc, inArray, count, sql } from "drizzle-orm";
 
 import { workflowRuns, type WorkflowRun, type InsertWorkflowRun } from "@shared/schema";
 
 import { db } from "../db";
+import { hashToken } from "../utils/encryption";
 
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
+
+/** A SHA-256 hex digest is exactly 64 lowercase hex chars. */
+const HASH_SHAPE = /^[a-f0-9]{64}$/i;
 
 /**
  * Repository for workflow run data access
@@ -83,26 +87,42 @@ export class WorkflowRunRepository extends BaseRepository<
 
   /**
    * Find run by token (for intake portal)
+   *
+   * Run tokens are stored hashed (SHA-256). We look up by the hash of the
+   * supplied plaintext token. For rows created before hashing existed we also
+   * match the raw value — but only when the supplied token is not itself a
+   * 64-char hex string, so a leaked token *hash* cannot be replayed as a bearer
+   * token. Legacy plaintext run tokens are UUIDs, never hash-shaped.
    */
   async findByToken(token: string, tx?: DbTransaction): Promise<WorkflowRun | null> {
     const database = this.getDb(tx);
+    const hashed = hashToken(token);
+    const predicate = HASH_SHAPE.test(token)
+      ? eq(workflowRuns.runToken, hashed)
+      : or(eq(workflowRuns.runToken, hashed), eq(workflowRuns.runToken, token));
     const [run] = await database
       .select()
       .from(workflowRuns)
-      .where(eq(workflowRuns.runToken, token))
+      .where(predicate)
       .limit(1);
     return run ?? null;
   }
 
   /**
    * Find run by share token (read-only link)
+   *
+   * Share tokens are stored hashed; see findByToken for the lookup rationale.
    */
   async findByShareToken(token: string, tx?: DbTransaction): Promise<WorkflowRun | null> {
     const database = this.getDb(tx);
+    const hashed = hashToken(token);
+    const predicate = HASH_SHAPE.test(token)
+      ? eq(workflowRuns.shareToken, hashed)
+      : or(eq(workflowRuns.shareToken, hashed), eq(workflowRuns.shareToken, token));
     const [run] = await database
       .select()
       .from(workflowRuns)
-      .where(eq(workflowRuns.shareToken, token))
+      .where(predicate)
       .limit(1);
     return run ?? null;
   }

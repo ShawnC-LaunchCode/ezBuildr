@@ -25,7 +25,6 @@ import {
   SignatureEvent,
   EsignConfigError,
   EsignApiError,
-  _EsignStateError,
 } from './EsignProvider';
 
 // ============================================================================
@@ -419,10 +418,18 @@ export class DocusignProvider implements IEsignProvider {
     // Reference: https://developers.docusign.com/platform/webhooks/connect/hmac/
 
     if (!this.config.webhookSecret) {
-      logger.warn("[DocuSign] No webhook secret configured, skipping verification");
-      // In production, you should reject webhooks without verification
-      // For now, we allow it to support development/testing
-      return true;
+      // SECURITY: fail closed. Previously this returned `true`, so with no DOCUSIGN_WEBHOOK_SECRET
+      // configured (the default state) any unsigned/forged webhook was accepted. Only allow the
+      // insecure bypass when explicitly opted into outside production.
+      const allowInsecure =
+        process.env.NODE_ENV !== 'production' &&
+        process.env.DOCUSIGN_ALLOW_INSECURE_WEBHOOK === 'true';
+      if (allowInsecure) {
+        logger.warn("[DocuSign] No webhook secret configured — accepting webhook via DEV insecure opt-in");
+        return true;
+      }
+      logger.error("[DocuSign] No webhook secret configured; rejecting webhook (set DOCUSIGN_WEBHOOK_SECRET)");
+      return false;
     }
 
     if (!signature) {

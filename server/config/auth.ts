@@ -203,10 +203,15 @@ export const SESSION_CONFIG = {
 
   /**
    * Cookie security settings
+   *
+   * NOTE: express-session is not currently wired up (no session() middleware is
+   * registered and req.session is never read), so this config is presently
+   * unused. It is kept safe-by-default — SameSite=strict — so that if server-side
+   * sessions are ever enabled, the session cookie starts hardened rather than lax.
    */
   COOKIE_SECURE: process.env.NODE_ENV === 'production',
   COOKIE_HTTP_ONLY: true,
-  COOKIE_SAME_SITE: 'lax' as const,
+  COOKIE_SAME_SITE: 'strict' as const,
 } as const;
 
 /**

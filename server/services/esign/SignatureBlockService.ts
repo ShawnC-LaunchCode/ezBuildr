@@ -13,6 +13,9 @@
  * @date December 2025
  */
 
+import crypto from 'crypto';
+
+import { env } from '../../config/env';
 import { createLogger } from '../../logger';
 
 import { EnvelopeBuilder } from './EnvelopeBuilder';
@@ -91,6 +94,33 @@ export interface SignatureCallbackData {
 
 export class SignatureBlockService {
   /**
+   * Compute a signed callback token for a run/step. The generic signature callback
+   * (POST /api/esign/callback/:runId/:stepId) is a return URL that would otherwise be
+   * completely unauthenticated — anyone guessing a runId/stepId could forge a "signed"
+   * status. We embed this HMAC in the return URL when creating the envelope and require
+   * it on callback, so only a callback derived from our own envelope-creation flow is
+   * accepted. (Provider-driven webhooks use their own signature verification instead.)
+   */
+  static computeCallbackToken(runId: string, stepId: string): string {
+    return crypto
+      .createHmac('sha256', env.JWT_SECRET)
+      .update(`esign-callback:${runId}:${stepId}`)
+      .digest('hex');
+  }
+
+  /**
+   * Timing-safe verification of a callback token.
+   */
+  static verifyCallbackToken(runId: string, stepId: string, token: string | undefined): boolean {
+    if (!token) { return false; }
+    const expected = this.computeCallbackToken(runId, stepId);
+    const provided = Buffer.from(token);
+    const expectedBuf = Buffer.from(expected);
+    if (provided.length !== expectedBuf.length) { return false; }
+    return crypto.timingSafeEqual(provided, expectedBuf);
+  }
+
+  /**
    * Execute a signature block
    * Creates envelope and signature request
    */
@@ -111,8 +141,9 @@ export class SignatureBlockService {
     const providerName = config.provider ?? 'docusign';
     const provider = EsignProviderFactory.getProvider(providerName);
 
-    // 2. Build return URL
-    const returnUrl = `${baseUrl}/api/esign/callback/${runId}/${stepId}`;
+    // 2. Build return URL, signed with a callback token so the callback can be authenticated.
+    const callbackToken = this.computeCallbackToken(runId, stepId);
+    const returnUrl = `${baseUrl}/api/esign/callback/${runId}/${stepId}?token=${callbackToken}`;
 
     // 3. Build envelope
     const envelopeBuilder = new EnvelopeBuilder(provider);

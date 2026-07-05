@@ -6,6 +6,7 @@ import type { Workflow } from "@shared/schema";
 import { IntakeConfigSchema } from "../../shared/zod-schemas.js";
 import { RUN_TOKEN_CONFIG } from "../config/auth";
 import { createLogger } from "../logger";
+import { hashToken } from "../utils/encryption";
 import { workflowRepository, workflowRunRepository, stepValueRepository, sectionRepository, projectRepository, stepRepository } from "../repositories";
 
 import { CaptchaService } from "./CaptchaService.js";
@@ -110,14 +111,16 @@ export class IntakeService {
     const parsedConfig = IntakeConfigSchema.safeParse(workflow.intakeConfig);
     const intakeConfig: IntakeConfig = parsedConfig.success ? parsedConfig.data : {};
 
-    // Generate run token
+    // Generate run token. The plaintext is returned to the caller; only its
+    // hash is persisted.
     const runToken = randomUUID();
+    const runTokenHash = hashToken(runToken);
     const tokenExpiresAt = new Date(Date.now() + RUN_TOKEN_CONFIG.EXPIRY_MS);
 
     // Create run
     const run = await workflowRunRepository.create({
       workflowId: workflow.id,
-      runToken,
+      runToken: runTokenHash,
       tokenExpiresAt,
       createdBy: userId ? `creator:${userId}` : "anon",
       completed: false,
@@ -170,7 +173,7 @@ export class IntakeService {
 
     return {
       runId: run.id,
-      runToken: run.runToken,
+      runToken, // plaintext for the client; DB holds only the hash
     };
   }
 

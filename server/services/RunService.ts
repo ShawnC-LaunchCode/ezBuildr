@@ -4,6 +4,7 @@ import type { WorkflowRun, InsertWorkflowRun, InsertStepValue, StepValue } from 
 
 import { RUN_TOKEN_CONFIG } from "../config/auth";
 import { logger } from "../logger";
+import { hashToken } from "../utils/encryption";
 import {
   workflowRunRepository,
   stepValueRepository,
@@ -155,8 +156,10 @@ export class RunService {
     if (!targetVersionId) {
       logger.warn({ workflowId }, "No current or pinned version found for workflow, run might be unstable");
     }
-    // Generate a unique token for this run
+    // Generate a unique token for this run. The plaintext is returned to the
+    // caller; only its hash is persisted.
     const runToken = randomUUID();
+    const runTokenHash = hashToken(runToken);
     const tokenExpiresAt = new Date(Date.now() + RUN_TOKEN_CONFIG.EXPIRY_MS);
     // Load snapshot values if snapshotId provided
     let snapshotValueMap: Record<string, { value: unknown; stepId: string; stepUpdatedAt: string }> | undefined;
@@ -176,7 +179,7 @@ export class RunService {
       ...data,
       workflowId,
       workflowVersionId: targetVersionId ?? undefined,
-      runToken,
+      runToken: runTokenHash,
       tokenExpiresAt,
       createdBy: userId ?? null,
       completed: false,
@@ -202,7 +205,8 @@ export class RunService {
     );
     // Execute onRunStart blocks
     await this.lifecycleService.executeOnRunStart(run.id, workflowId, targetVersionId ?? undefined);
-    return run;
+    // Return the plaintext token to the caller; the DB only holds its hash.
+    return { ...run, runToken };
   }
   /**
    * Get run by ID
@@ -425,14 +429,16 @@ export class RunService {
     if (!workflow.isPublic) {
       throw new Error('Workflow is not public');
     }
-    // Generate a unique token for this run
+    // Generate a unique token for this run. The plaintext is returned to the
+    // caller; only its hash is persisted.
     const runToken = randomUUID();
+    const runTokenHash = hashToken(runToken);
     const tokenExpiresAt = new Date(Date.now() + RUN_TOKEN_CONFIG.EXPIRY_MS);
     // Create the run with anonymous creator
     const run = await this.runRepo.create({
       workflowId: workflow.id,
       workflowVersionId: undefined,
-      runToken,
+      runToken: runTokenHash,
       tokenExpiresAt,
       createdBy: 'anon',
       completed: false,
@@ -451,7 +457,8 @@ export class RunService {
     );
     // Execute onRunStart blocks
     await this.lifecycleService.executeOnRunStart(run.id, workflow.id, 'draft');
-    return run;
+    // Return the plaintext token to the caller; the DB only holds its hash.
+    return { ...run, runToken };
   }
   /**
    * List runs for a workflow

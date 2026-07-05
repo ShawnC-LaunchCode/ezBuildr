@@ -1,9 +1,5 @@
-import { eq } from "drizzle-orm";
-
-import { workflowRuns } from "@shared/schema";
-
-import { db } from "../db";
 import { logger } from "../logger";
+import { workflowRunRepository } from "../repositories";
 
 import type { Request, Response, NextFunction } from "express";
 
@@ -54,12 +50,8 @@ export async function runTokenAuth(
       return;
     }
 
-    // Look up the run by token
-    const [run] = await db
-      .select()
-      .from(workflowRuns)
-      .where(eq(workflowRuns.runToken, token))
-      .limit(1);
+    // Look up the run by token (hashed lookup handled in the repository)
+    const run = await workflowRunRepository.findByToken(token);
 
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!run) {
@@ -148,12 +140,8 @@ export async function creatorOrRunTokenAuth(
       return;
     }
 
-    // Look up the run by token
-    const [run] = await db
-      .select()
-      .from(workflowRuns)
-      .where(eq(workflowRuns.runToken, token))
-      .limit(1);
+    // Look up the run by token (hashed lookup handled in the repository)
+    const run = await workflowRunRepository.findByToken(token);
 
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!run) {

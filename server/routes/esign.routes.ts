@@ -134,6 +134,17 @@ router.post(
   asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { runId, stepId } = req.params;
+
+      // SECURITY: authenticate the callback with the signed token embedded in the return URL
+      // when the envelope was created. Without this, anyone could POST a forged "signed"
+      // status for any runId/stepId and advance the workflow as if a document were signed.
+      const token = typeof req.query.token === 'string' ? req.query.token : undefined;
+      if (!SignatureBlockService.verifyCallbackToken(runId, stepId, token)) {
+        logger.warn({ runId, stepId }, '[Esign] Rejected signature callback with missing/invalid token');
+        res.status(401).json({ error: 'Invalid or missing callback token' });
+        return;
+      }
+
       const { envelopeId, status, completedAt, ...eventData } = req.body;
 
       await SignatureBlockService.handleSignatureCallback(

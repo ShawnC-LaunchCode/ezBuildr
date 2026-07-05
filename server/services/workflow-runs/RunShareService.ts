@@ -13,6 +13,7 @@ import {
     runGeneratedDocumentsRepository,
     stepRepository,
 } from "../../repositories";
+import { hashToken } from "../../utils/encryption";
 import { RunAuthResolver } from "../runs/RunAuthResolver";
 
 /**
@@ -46,9 +47,19 @@ export class RunShareService {
             // RunToken
             const run = await this.runRepo.findById(runId);
             if (!run) { throw new Error("Run not found"); }
-            if (run.runToken !== authContext.runToken) { throw new Error("Access denied"); }
+            // Stored run token is a SHA-256 hash; match the hash of the presented
+            // plaintext, or the raw value for legacy un-hashed rows.
+            const presented = authContext.runToken as string;
+            const matches = run.runToken === hashToken(presented) || run.runToken === presented;
+            if (!matches) { throw new Error("Access denied"); }
         }
 
+        // NOTE: share tokens are intentionally NOT hashed at rest yet. The portal
+        // dashboard reads the stored value back out (PortalService.listRuns ->
+        // /share/:token), which only works while the stored value is the plaintext.
+        // Hashing share tokens requires reworking that portal redownload flow first;
+        // tracked as a follow-up. findByShareToken already supports hashed lookups
+        // via dual-read, so this can flip later without a lookup change.
         const shareToken = randomUUID();
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 30); // 30 days default expiration

@@ -81,7 +81,31 @@ async function runJsWithHelpers(
   try {
     ivm = await import("isolated-vm");
   } catch (error) {
-    logger.warn({ error }, "isolated-vm not found, falling back to node 'vm' module");
+    // SECURITY: Node's built-in `vm` module is NOT a security boundary — it is trivially
+    // escapable (e.g. `this.constructor.constructor("return process")()`). Falling back to it
+    // silently turns any saved script into potential RCE. Only permit the fallback when it is
+    // explicitly opted into in a non-production environment; otherwise fail closed.
+    const allowInsecureFallback =
+      process.env.NODE_ENV !== "production" &&
+      process.env.SANDBOX_ALLOW_INSECURE_VM_FALLBACK === "true";
+
+    if (!allowInsecureFallback) {
+      logger.error(
+        { error },
+        "isolated-vm is unavailable; refusing to execute JavaScript in the insecure 'vm' fallback"
+      );
+      return {
+        ok: false,
+        error:
+          "Secure script sandbox (isolated-vm) is unavailable, so JavaScript execution is disabled. " +
+          "Install/repair the isolated-vm native module to enable scripting.",
+      };
+    }
+
+    logger.warn(
+      { error },
+      "isolated-vm not found — using INSECURE node 'vm' fallback (dev opt-in only, not a security boundary)"
+    );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- helper library has dynamic method signatures
     const result = await runJsWithVmFallback(code, input, context, actualHelpers as Record<string, any>, timeoutMs, consoleEnabled);
     // Merge logs from helper library (which captures helpers.console.* calls)

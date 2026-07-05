@@ -14,7 +14,6 @@ const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
 const AdminUsers = lazy(() => import("@/pages/AdminUsers"));
 const AdminLogs = lazy(() => import("@/pages/AdminLogs"));
 const AdminAiSettings = lazy(() => import("@/pages/AdminAiSettings"));
-const TemplatesPage = lazy(() => import("@/pages/TemplatesPage"));
 const Marketplace = lazy(() => import("@/pages/Marketplace"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const WorkflowBuilder = lazy(() => import("@/pages/WorkflowBuilder"));
@@ -119,7 +118,6 @@ export default function Router() {
                         <Route path="/runs/compare" component={RunsCompare} />
                         <Route path="/runs/:id" component={RunDetails} />
                         <Route path="/marketplace" component={Marketplace} />
-                        <Route path="/templates" component={TemplatesPage} />
                         <Route path="/settings" component={SettingsPage} />
                         {/* Stage 17: Branding Settings */}
                         <Route path="/projects/:id/settings/branding" component={BrandingSettingsPage} />

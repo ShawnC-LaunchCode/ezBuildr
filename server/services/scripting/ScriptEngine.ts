@@ -47,6 +47,19 @@ export class ScriptEngine {
     } = params;
 
     try {
+      // SECURITY: enforce AST/security validation on every execution. Previously validation
+      // lived only in the separate validate() method, which the execution path never called —
+      // making all forbidden-global / prototype-pollution / Function-constructor checks dead
+      // code at runtime. Validate before running so unsafe code never reaches the sandbox.
+      const validation = await this.validate({ language, code });
+      if (!validation.valid) {
+        logger.warn({ language, error: validation.error }, "ScriptEngine: rejected code that failed security validation");
+        return {
+          ok: false,
+          error: `Script rejected by security validation: ${validation.error ?? "unknown reason"}`,
+        };
+      }
+
       // Build input object with whitelisted keys only
       const input: Record<string, unknown> = {};
       const { aliasMap } = params;
