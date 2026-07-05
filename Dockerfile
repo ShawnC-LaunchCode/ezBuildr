@@ -31,6 +31,9 @@ ARG VITE_BASE_URL
 ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 ENV VITE_BASE_URL=$VITE_BASE_URL
 
+# Set NODE_OPTIONS to increase memory limit for Vite build
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 # Build the client and server
 RUN npm run build
 # Prune dev dependencies (Commented out for debugging 502)
