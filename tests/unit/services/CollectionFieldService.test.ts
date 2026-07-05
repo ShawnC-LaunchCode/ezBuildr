@@ -9,8 +9,10 @@ describe('CollectionFieldService', () => {
     findById: Mock;
     findByCollectionId: Mock;
     findByCollectionAndSlug: Mock;
+    findSlugsByCollectionId: Mock;
     slugExists: Mock;
     create: Mock;
+    createMany: Mock;
     update: Mock;
     delete: Mock;
   };
@@ -28,8 +30,10 @@ describe('CollectionFieldService', () => {
       findById: vi.fn(),
       findByCollectionId: vi.fn(),
       findByCollectionAndSlug: vi.fn(),
+      findSlugsByCollectionId: vi.fn(),
       slugExists: vi.fn(),
       create: vi.fn(),
+      createMany: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
     };
@@ -397,14 +401,14 @@ describe('CollectionFieldService', () => {
 
       mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId });
       mockFieldRepo.slugExists.mockResolvedValue(false);
-      mockFieldRepo.create
-        .mockResolvedValueOnce(createdFields[0])
-        .mockResolvedValueOnce(createdFields[1]);
+      // Service now does one batch insert via createMany after resolving slugs in memory.
+      mockFieldRepo.findSlugsByCollectionId.mockResolvedValue([]);
+      mockFieldRepo.createMany.mockResolvedValue(createdFields);
 
       const result = await service.bulkCreateFields(mockCollectionId, fieldsData);
 
       expect(result).toHaveLength(2);
-      expect(mockFieldRepo.create).toHaveBeenCalledTimes(2);
+      expect(mockFieldRepo.createMany).toHaveBeenCalledTimes(1);
     });
   });
 

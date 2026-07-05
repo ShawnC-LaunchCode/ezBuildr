@@ -15,9 +15,11 @@ describe('CollectionService', () => {
   };
   let mockFieldRepo: {
     findByCollectionId: Mock;
+    countByCollectionIds: Mock;
   };
   let mockRecordRepo: {
     countByCollectionId: Mock;
+    countByCollectionIds: Mock;
   };
 
   const mockTenantId = '550e8400-e29b-41d4-a716-446655440000';
@@ -39,10 +41,12 @@ describe('CollectionService', () => {
 
     mockFieldRepo = {
       findByCollectionId: vi.fn(),
+      countByCollectionIds: vi.fn(),
     };
 
     mockRecordRepo = {
       countByCollectionId: vi.fn(),
+      countByCollectionIds: vi.fn(),
     };
 
     service = new CollectionService(
@@ -258,7 +262,9 @@ describe('CollectionService', () => {
 
       mockCollectionRepo.findByTenantId.mockResolvedValue(collections);
       mockFieldRepo.findByCollectionId.mockResolvedValue(fields);
-      mockRecordRepo.countByCollectionId.mockResolvedValue(5);
+      // Service batches counts via countByCollectionIds -> Map<collectionId, count>
+      mockFieldRepo.countByCollectionIds.mockResolvedValue(new Map([[mockCollectionId, 1]]));
+      mockRecordRepo.countByCollectionIds.mockResolvedValue(new Map([[mockCollectionId, 5]]));
 
       const result = await service.listCollectionsWithStats(mockTenantId);
 

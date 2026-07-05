@@ -212,7 +212,8 @@ describe('DatavaultColumnsRepository', () => {
 
       await repository.reorderColumns(mockTableId, columnIds);
 
-      expect(mockDb.update).toHaveBeenCalledTimes(3);
+      // Reorder is now a single batched UPDATE with a CASE WHEN expression (not N updates).
+      expect(mockDb.update).toHaveBeenCalledTimes(1);
     });
   });
 

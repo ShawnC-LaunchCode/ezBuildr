@@ -36,9 +36,11 @@ describe('DatavaultTablesService', () => {
       findByTableId: vi.fn(),
       create: vi.fn(),
       countByTableId: vi.fn(),
+      countByTableIds: vi.fn(),
     },
     datavaultRowsRepository: {
       countByTableId: vi.fn(),
+      countByTableIds: vi.fn(),
     },
     datavaultTablePermissionsRepository: {
       findByTableAndUser: vi.fn(),
@@ -98,8 +100,9 @@ describe('DatavaultTablesService', () => {
       ];
 
       mockTablesRepo.findByTenantAndUser.mockResolvedValue(mockTables);
-      mockColumnsRepo.countByTableId.mockResolvedValue(2);
-      mockRowsRepo.countByTableId.mockResolvedValue(42);
+      // Service now batches via countByTableIds -> Map<tableId, count>
+      mockColumnsRepo.countByTableIds.mockResolvedValue(new Map([[mockTableId, 2]]));
+      mockRowsRepo.countByTableIds.mockResolvedValue(new Map([[mockTableId, 42]]));
 
       const result = await service.listTablesWithStats(mockTenantId, mockUserId);
 
