@@ -15,8 +15,12 @@ const envSchema = z.object({
     DATABASE_URL: z.string().url().min(1, "DATABASE_URL is required"),
 
     // Authentication Secrets
-    JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters").default("development-jwt-not-secure-change-me-in-prod-12345"),
-    SESSION_SECRET: z.string().min(32, "SESSION_SECRET must be at least 32 characters").default("development-session-not-secure-change-me"),
+    // No defaults: these must be provided by the environment. A dev/test fallback is
+    // injected in parseEnv() ONLY when NODE_ENV is explicitly 'development' or 'test'.
+    // Any other environment (including an unset NODE_ENV) must supply real secrets,
+    // so a misconfigured deploy fails closed instead of signing tokens with a public key.
+    JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
+    SESSION_SECRET: z.string().min(32, "SESSION_SECRET must be at least 32 characters"),
 
     // External Services (Optional in Development/Test per logic, but strict types here help)
     // We make them optional or have defaults for dev/test ease
@@ -36,7 +40,19 @@ const envSchema = z.object({
  * but generally we want strict validation to catch config errors early.
  */
 function parseEnv(): z.infer<typeof envSchema> {
-    const parsed = envSchema.safeParse(process.env);
+    // Inject insecure dev/test fallbacks for auth secrets ONLY when NODE_ENV is
+    // EXPLICITLY set to a non-production mode. We read process.env.NODE_ENV directly
+    // (not the schema default) so that an unset/misconfigured NODE_ENV does not
+    // silently opt into the insecure defaults.
+    const explicitNodeEnv = process.env.NODE_ENV;
+    const isDevOrTest = explicitNodeEnv === 'development' || explicitNodeEnv === 'test';
+    const source: NodeJS.ProcessEnv = { ...process.env };
+    if (isDevOrTest) {
+        source.JWT_SECRET ??= 'development-jwt-not-secure-change-me-in-prod-12345';
+        source.SESSION_SECRET ??= 'development-session-not-secure-change-me';
+    }
+
+    const parsed = envSchema.safeParse(source);
 
     if (!parsed.success) {
         const errorMsg = `❌ Invalid environment variables: ${JSON.stringify(parsed.error.format(), null, 2)}`;

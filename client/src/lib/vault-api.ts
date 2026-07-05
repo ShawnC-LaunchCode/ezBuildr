@@ -78,21 +78,12 @@ export async function fetchAPI<T>(
   if (response.status === 401 && !isRunEndpoint && !endpoint.includes('/api/auth/login')) {
     // Try to refresh token
     try {
-      // eslint-disable-next-line no-console -- debug logging for auth flow
-      console.log('[VaultAPI] 401 detected, attempting token refresh...');
       const refreshRes = await fetch(`${API_BASE}/api/auth/refresh-token`, { method: 'POST', credentials: 'include' });
-      // eslint-disable-next-line no-console -- debug logging for auth flow
-      console.log(`[VaultAPI] Refresh status: ${refreshRes.status}`);
       if (refreshRes.ok) {
         const refreshData = await refreshRes.json() as RefreshTokenResponse;
         if (refreshData.token !== undefined && refreshData.token !== null) {
-          // eslint-disable-next-line no-console -- debug logging for auth flow
-          console.log('[VaultAPI] New token received, updating headers.');
           setAccessToken(refreshData.token);
           headers["Authorization"] = `Bearer ${refreshData.token}`;
-        } else {
-          // eslint-disable-next-line no-console -- debug logging for auth flow
-          console.warn('[VaultAPI] Refresh successful but NO TOKEN payload:', refreshData);
         }
         // Retry original request
         response = await fetch(url, {

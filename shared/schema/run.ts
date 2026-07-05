@@ -78,6 +78,9 @@ export const workflowRuns = pgTable("workflow_runs", {
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
     workflowVersionId: uuid("workflow_version_id").references(() => workflowVersions.id, { onDelete: 'cascade' }),
     runToken: text("run_token").notNull().unique(),
+    // Absolute expiry for the run token (bearer credential). NULL = grandfathered
+    // (never expires); set on new runs so leaked run links stop working eventually.
+    tokenExpiresAt: timestamp("token_expires_at"),
     createdBy: text("created_by"), // "creator:<userId>" or "anon"
     currentSectionId: uuid("current_section_id").references(() => sections.id, { onDelete: 'set null' }),
     progress: integer("progress").default(0),

@@ -70,6 +70,16 @@ export async function runTokenAuth(
       return;
     }
 
+    // Reject expired run tokens. A NULL expiry means the run predates token
+    // expiry and is grandfathered (never expires).
+    if (run.tokenExpiresAt && run.tokenExpiresAt < new Date()) {
+      res.status(401).json({
+        success: false,
+        error: "Unauthorized - Run token has expired",
+      });
+      return;
+    }
+
     // Set run auth info on request
     req.runAuth = {
       runId: run.id,
@@ -150,6 +160,16 @@ export async function creatorOrRunTokenAuth(
       res.status(401).json({
         success: false,
         error: "Unauthorized - Invalid run token",
+      });
+      return;
+    }
+
+    // Reject expired run tokens. A NULL expiry means the run predates token
+    // expiry and is grandfathered (never expires).
+    if (run.tokenExpiresAt && run.tokenExpiresAt < new Date()) {
+      res.status(401).json({
+        success: false,
+        error: "Unauthorized - Run token has expired",
       });
       return;
     }

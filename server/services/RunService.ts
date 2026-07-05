@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 
 import type { WorkflowRun, InsertWorkflowRun, InsertStepValue, StepValue } from "@shared/schema";
 
+import { RUN_TOKEN_CONFIG } from "../config/auth";
 import { logger } from "../logger";
 import {
   workflowRunRepository,
@@ -156,6 +157,7 @@ export class RunService {
     }
     // Generate a unique token for this run
     const runToken = randomUUID();
+    const tokenExpiresAt = new Date(Date.now() + RUN_TOKEN_CONFIG.EXPIRY_MS);
     // Load snapshot values if snapshotId provided
     let snapshotValueMap: Record<string, { value: unknown; stepId: string; stepUpdatedAt: string }> | undefined;
     let mergedInitialValues = { ...initialValues };
@@ -175,6 +177,7 @@ export class RunService {
       workflowId,
       workflowVersionId: targetVersionId ?? undefined,
       runToken,
+      tokenExpiresAt,
       createdBy: userId ?? null,
       completed: false,
       clientEmail: options?.clientEmail,
@@ -424,11 +427,13 @@ export class RunService {
     }
     // Generate a unique token for this run
     const runToken = randomUUID();
+    const tokenExpiresAt = new Date(Date.now() + RUN_TOKEN_CONFIG.EXPIRY_MS);
     // Create the run with anonymous creator
     const run = await this.runRepo.create({
       workflowId: workflow.id,
       workflowVersionId: undefined,
       runToken,
+      tokenExpiresAt,
       createdBy: 'anon',
       completed: false,
     });

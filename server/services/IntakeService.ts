@@ -4,6 +4,7 @@ import type { Workflow } from "@shared/schema";
 
 
 import { IntakeConfigSchema } from "../../shared/zod-schemas.js";
+import { RUN_TOKEN_CONFIG } from "../config/auth";
 import { createLogger } from "../logger";
 import { workflowRepository, workflowRunRepository, stepValueRepository, sectionRepository, projectRepository, stepRepository } from "../repositories";
 
@@ -111,11 +112,13 @@ export class IntakeService {
 
     // Generate run token
     const runToken = randomUUID();
+    const tokenExpiresAt = new Date(Date.now() + RUN_TOKEN_CONFIG.EXPIRY_MS);
 
     // Create run
     const run = await workflowRunRepository.create({
       workflowId: workflow.id,
       runToken,
+      tokenExpiresAt,
       createdBy: userId ? `creator:${userId}` : "anon",
       completed: false,
       metadata: {
@@ -187,6 +190,11 @@ export class IntakeService {
       throw new Error("Run not found");
     }
 
+    // Reject expired run tokens. NULL expiry = grandfathered (never expires).
+    if (run.tokenExpiresAt && run.tokenExpiresAt < new Date()) {
+      throw new Error("Run token has expired");
+    }
+
     if (run.completed) {
       throw new Error("Run is already completed");
     }
@@ -218,6 +226,11 @@ export class IntakeService {
 
     if (!run) {
       throw new Error("Run not found");
+    }
+
+    // Reject expired run tokens. NULL expiry = grandfathered (never expires).
+    if (run.tokenExpiresAt && run.tokenExpiresAt < new Date()) {
+      throw new Error("Run token has expired");
     }
 
     if (run.completed) {

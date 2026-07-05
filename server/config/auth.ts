@@ -57,6 +57,28 @@ export const REFRESH_TOKEN_CONFIG = {
 } as const;
 
 /**
+ * Run Token Configuration
+ *
+ * Run tokens authenticate access to a specific workflow run's data. They are
+ * bearer credentials, so they are given a bounded lifetime rather than being
+ * valid forever. Runs created before this column existed have a NULL expiry and
+ * are grandfathered (never expire) until they are re-created.
+ */
+export const RUN_TOKEN_CONFIG = {
+  /**
+   * Run token expiry in days (30 days)
+   * Generous enough for multi-session form completion while bounding the window
+   * in which a leaked run link (URL history, logs, localStorage) is usable.
+   */
+  EXPIRY_DAYS: 30,
+
+  /**
+   * Run token expiry in milliseconds (30 days)
+   */
+  EXPIRY_MS: 30 * 24 * 60 * 60 * 1000,
+} as const;
+
+/**
  * OAuth2 Configuration
  */
 export const OAUTH2_CONFIG = {
@@ -287,6 +309,7 @@ export function getAuthConfig() {
     password: PASSWORD_CONFIG,
     jwt: JWT_CONFIG,
     refreshToken: REFRESH_TOKEN_CONFIG,
+    runToken: RUN_TOKEN_CONFIG,
     oauth2: OAUTH2_CONFIG,
     rateLimit: RATE_LIMIT_CONFIG,
     lockout: LOCKOUT_CONFIG,

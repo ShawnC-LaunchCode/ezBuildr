@@ -169,7 +169,7 @@ export class AuthService {
     verifyPortalToken(token: string): { email: string } {
         if (!JWT_SECRET) { throw new Error('JWT not configured'); }
         try {
-            const payload = jwt.verify(token, JWT_SECRET) as PortalTokenPayload;
+            const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as PortalTokenPayload;
             if (!payload.portal || !payload.email) { throw new Error('Invalid portal token'); }
             return { email: payload.email };
         } catch (error) {
@@ -404,29 +404,19 @@ export class AuthService {
     async rotateRefreshToken(plainToken: string): Promise<{ userId: string, newRefreshToken: string } | null> {
         const tokenHash = hashToken(plainToken);
 
-        // DEBUG LOG
-        // logger is available as 'log' from imports
-        log.info({ tokenHash, plainTokenLen: plainToken.length }, 'DEBUG: rotateRefreshToken called');
-
         // Find token purely by hash to detect state
         const storedToken = await this.db.query.refreshTokens.findFirst({
             where: eq(refreshTokens.token, tokenHash)
         });
 
         if (!storedToken) {
-            log.warn({ tokenHash }, 'Security: Unknown refresh token used (Not Found in DB)');
-
-            // DEBUG: List all tokens for debugging (careful in prod, safe in test)
-            if (process.env.NODE_ENV === 'test') {
-                const allTokens = await this.db.select().from(refreshTokens);
-                log.info({ allTokensCount: allTokens.length, sampleToken: allTokens[0]?.token }, 'DEBUG: Tokens in DB');
-            }
+            log.warn('Security: Unknown refresh token used (Not Found in DB)');
             return null;
         }
 
         // Reuse Detection: If token is already revoked, this is a theft attempt
         if (storedToken.revoked) {
-            log.warn({ userId: storedToken.userId, tokenHash }, 'Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions.');
+            log.warn({ userId: storedToken.userId }, 'Security: REUSED REFRESH TOKEN DETECTED. Revoking all sessions.');
             await this.revokeAllUserTokens(storedToken.userId);
             return null;
         }
@@ -451,7 +441,7 @@ export class AuthService {
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         if (!revokedToken) {
             // Race condition: Token was revoked between read and write
-            log.warn({ userId: storedToken.userId, tokenHash }, 'Security: REUSED REFRESH TOKEN DETECTED (Concurrent). Revoking all sessions.');
+            log.warn({ userId: storedToken.userId }, 'Security: REUSED REFRESH TOKEN DETECTED (Concurrent). Revoking all sessions.');
             await this.revokeAllUserTokens(storedToken.userId);
             return null;
         }
