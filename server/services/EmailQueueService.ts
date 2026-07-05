@@ -36,6 +36,7 @@ export class EmailQueueService {
             
             // Log to Admin Logs asynchronously
             this.activityLogger.log('Email Queued', { 
+                entityType: 'email',
                 metadata: { to, subject, jobId: job.id } 
             }).catch(e => logger.error({err: e}, 'Failed to log Email Queued activity'));
 
@@ -135,6 +136,7 @@ export class EmailQueueService {
 
             // Log to Admin Logs asynchronously
             this.activityLogger.log('Email Sent', { 
+                entityType: 'email',
                 metadata: { to: job.to, subject: job.subject, jobId: job.id } 
             }).catch(e => logger.error({err: e}, 'Failed to log Email Sent activity'));
 
