@@ -10,6 +10,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export function registerDiagnosticRoutes(app: Express): void {
+    // SECURITY: diagnostics must never be exposed in production. This static auth-testing
+    // page is a development aid only.
+    if (process.env.NODE_ENV === 'production') {
+        return;
+    }
+
     app.get("/test-auth.html", (req, res) => {
         // Look for the file in client/test-auth.html
         // We need to go up from server/routes to root, then into client
@@ -18,7 +24,8 @@ export function registerDiagnosticRoutes(app: Express): void {
         if (fs.existsSync(filePath)) {
             res.sendFile(filePath);
         } else {
-            res.status(404).send(`Diagnostic file not found at ${  filePath}`);
+            // Do not reflect the absolute filesystem path back to the client.
+            res.status(404).send("Diagnostic file not found");
         }
     });
 }

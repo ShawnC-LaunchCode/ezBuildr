@@ -93,7 +93,8 @@ async function jwtStrategy(req: Request): Promise<boolean> {
   } catch (error) {
     // Token valid but verification failed (expired/invalid)
     // We catch this so we can try the next strategy
-    logger.warn({ error, token: req.headers.authorization }, 'JWT Strategy verification failed');
+    // SECURITY: never log the raw Authorization header / bearer token.
+    logger.warn({ error }, 'JWT Strategy verification failed');
   }
   return false;
 }

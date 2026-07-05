@@ -31,11 +31,20 @@ app.use(requestIdMiddleware);
 // =====================================================================
 // 2️⃣ HELMET SECURITY HEADERS (SECOND - before content processing)
 // =====================================================================
+// CSP: 'unsafe-eval' is only needed by Vite's dev server / HMR. Drop it in production so the
+// production bundle runs under a stricter policy. ('unsafe-inline' is retained for now because
+// removing it from script-src requires nonce/hash-based CSP wired through the frontend build;
+// that is tracked as a follow-up.)
+const cspIsProduction = process.env.NODE_ENV === 'production';
+const cspScriptSrc = ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://*.google.com", "https://*.gstatic.com"];
+if (!cspIsProduction) {
+    cspScriptSrc.push("'unsafe-eval'"); // Vite dev/HMR only
+}
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://*.google.com", "https://*.gstatic.com"], // Required for Vite in dev
+            scriptSrc: cspScriptSrc,
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com", "https://*.google.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com"],
             imgSrc: ["'self'", "data:", "https:", "blob:"],
@@ -145,17 +154,21 @@ void (async () => {
     try {
         // =====================================================================
         // 📖 API DOCUMENTATION (Swagger UI)
+        // SECURITY: do not expose the full API surface publicly in production unless
+        // explicitly opted in via ENABLE_API_DOCS. (registerDocsRoutes applies the same gate.)
         // =====================================================================
-        try {
-            const swaggerUi = (await import("swagger-ui-express")).default;
-            const YAML = (await import("yamljs")).default;
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- yamljs returns untyped value
-            const swaggerDocument = YAML.load("./openapi.yaml");
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- swagger document from yamljs
-            app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-        } catch (error) {
-            // Log but don't crash if docs fail
-            logger.warn({ error }, "Failed to load OpenAPI spec for Swagger UI");
+        if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_API_DOCS === 'true') {
+            try {
+                const swaggerUi = (await import("swagger-ui-express")).default;
+                const YAML = (await import("yamljs")).default;
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- yamljs returns untyped value
+                const swaggerDocument = YAML.load("./openapi.yaml");
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- swagger document from yamljs
+                app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+            } catch (error) {
+                // Log but don't crash if docs fail
+                logger.warn({ error }, "Failed to load OpenAPI spec for Swagger UI");
+            }
         }
         // CONFIGURATION FIX: Validate master key at startup (fail fast if misconfigured)
         const { validateMasterKey } = await import("./utils/encryption.js");

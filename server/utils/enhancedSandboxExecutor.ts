@@ -20,6 +20,10 @@ const MAX_INPUT_SIZE = parseInt(process.env.SANDBOX_MAX_INPUT_SIZE ?? "65536", 1
 const MAX_OUTPUT_SIZE = parseInt(process.env.SANDBOX_MAX_OUTPUT_SIZE ?? "65536", 10);
 const MIN_TIMEOUT_MS = 100;
 const MAX_TIMEOUT_MS = 3000;
+// Bound the compiled-script cache to prevent unbounded memory growth (DoS).
+const MAX_SCRIPT_CACHE_SIZE = parseInt(process.env.SANDBOX_MAX_SCRIPT_CACHE ?? "200", 10);
+// Address-space cap for the Python subprocess (bytes). Enforced via RLIMIT_AS on Unix; no-op elsewhere.
+const PYTHON_MEM_LIMIT_BYTES = parseInt(process.env.SANDBOX_PYTHON_MEM_LIMIT_BYTES ?? String(256 * 1024 * 1024), 10);
 
 // Local interfaces for optional isolated-vm dependency
 interface IvmIsolate {
@@ -303,9 +307,7 @@ async function runJsWithHelpers(
     `;
 
     // 6. Compile & Run
-    // 6. Compile & Run
-    // Check cache
-    // Simple hash: code string itself (could use SHA-256 for large code)
+    // Check cache. Keyed by the raw code string (identical code -> identical compiled script).
     const cacheKey = code;
     let script: IvmScript;
 
@@ -314,6 +316,13 @@ async function runJsWithHelpers(
     } else {
       script = await isolate.compileScript(bootstrapCode);
       if (scriptCache) {
+        // SECURITY: bound the cache so a caller cannot grow it without limit (memory-exhaustion
+        // DoS) by submitting many distinct scripts. Evict oldest entries (Map keeps insertion order).
+        while (scriptCache.size >= MAX_SCRIPT_CACHE_SIZE) {
+          const oldestKey = scriptCache.keys().next().value;
+          if (oldestKey === undefined) { break; }
+          scriptCache.delete(oldestKey);
+        }
         scriptCache.set(cacheKey, script);
       }
     }
@@ -429,6 +438,16 @@ import json
 import sys
 import math
 from datetime import datetime, timedelta
+
+# SECURITY: cap the subprocess address space to prevent memory-exhaustion DoS. RLIMIT_AS is
+# POSIX-only (Linux/macOS, i.e. our production containers); on platforms without it (e.g. some
+# Windows dev setups) this is a no-op and the wall-clock timeout remains the backstop.
+try:
+    import resource
+    _mem_limit = ${PYTHON_MEM_LIMIT_BYTES}
+    resource.setrlimit(resource.RLIMIT_AS, (_mem_limit, _mem_limit))
+except Exception:
+    pass
 
 # Restricted builtins - only safe operations allowed
 safe_builtins = {
