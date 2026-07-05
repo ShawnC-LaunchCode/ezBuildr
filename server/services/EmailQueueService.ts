@@ -6,7 +6,7 @@ import { emailQueue } from "@shared/schema";
 
 import { db } from "../db";
 import { createLogger } from "../logger";
-
+import { ActivityLogService } from "./ActivityLogService";
 
 const logger = createLogger({ module: 'email-queue' });
 
@@ -15,6 +15,7 @@ const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL ?? 'noreply@ezbuildr.com';
 export class EmailQueueService {
     private isProcessing = false;
     private pollInterval: NodeJS.Timeout | null = null;
+    private activityLogger = new ActivityLogService();
 
     /**
      * Add an email to the queue (Non-blocking)
@@ -32,6 +33,12 @@ export class EmailQueueService {
             if (job == null) {throw new Error("Failed to add email to queue");}
 
             logger.info({ jobId: job.id, to, subject }, 'Email added to queue');
+            
+            // Log to Admin Logs asynchronously
+            this.activityLogger.log('Email Queued', { 
+                metadata: { to, subject, jobId: job.id } 
+            }).catch(e => logger.error({err: e}, 'Failed to log Email Queued activity'));
+
             return job.id;
         } catch (error) {
             logger.error({ error, to, subject }, 'Failed to add email to queue');
@@ -125,6 +132,11 @@ export class EmailQueueService {
                 .where(eq(emailQueue.id, job.id));
 
             logger.info({ jobId: job.id }, 'Email job completed');
+
+            // Log to Admin Logs asynchronously
+            this.activityLogger.log('Email Sent', { 
+                metadata: { to: job.to, subject: job.subject, jobId: job.id } 
+            }).catch(e => logger.error({err: e}, 'Failed to log Email Sent activity'));
 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
