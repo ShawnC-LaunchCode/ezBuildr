@@ -1,6 +1,6 @@
 
 import sgMail from '@sendgrid/mail';
-import { eq, and, lt, or } from "drizzle-orm";
+import { eq, and, lt, or, sql } from "drizzle-orm";
 
 import { emailQueue } from "@shared/schema";
 
@@ -80,8 +80,6 @@ export class EmailQueueService {
             // Find pending jobs
             // Also retry stuck 'processing' jobs that are old (timeout > 5 mins)
             // Or failed jobs with < 3 attempts
-            const now = new Date();
-
             const jobs = await db.query.emailQueue.findMany({
                 where: and(
                     or(
@@ -91,10 +89,10 @@ export class EmailQueueService {
                         and(
                             eq(emailQueue.status, 'failed'),
                             lt(emailQueue.attempts, 3),
-                            lt(emailQueue.nextAttemptAt, now)
+                            lt(emailQueue.nextAttemptAt, sql`now()`)
                         )
                     ),
-                    lt(emailQueue.nextAttemptAt, now)
+                    lt(emailQueue.nextAttemptAt, sql`now()`)
                 ),
                 limit: 5,
                 orderBy: (emailQueue, { asc }) => [asc(emailQueue.nextAttemptAt)]
@@ -118,7 +116,7 @@ export class EmailQueueService {
     private async processJob(job: typeof emailQueue.$inferSelect): Promise<void> {
         // Mark as processing
         await db.update(emailQueue)
-            .set({ status: 'processing', updatedAt: new Date() })
+            .set({ status: 'processing', updatedAt: sql`now()` })
             .where(eq(emailQueue.id, job.id));
 
         try {
@@ -128,7 +126,7 @@ export class EmailQueueService {
 
             // Mark complete
             await db.update(emailQueue)
-                .set({ status: 'completed', updatedAt: new Date(), lastError: null })
+                .set({ status: 'completed', updatedAt: sql`now()`, lastError: null })
                 .where(eq(emailQueue.id, job.id));
 
             logger.info({ jobId: job.id }, 'Email job completed');
@@ -138,10 +136,9 @@ export class EmailQueueService {
             const attempts = job.attempts + 1;
             const isFinal = attempts >= 3;
 
-            // Exponential backoff: 1m, 5m, 15m
-            const nextAttempt = new Date();
-            if (attempts === 1) { nextAttempt.setMinutes(nextAttempt.getMinutes() + 1); }
-            else if (attempts === 2) { nextAttempt.setMinutes(nextAttempt.getMinutes() + 5); }
+            let interval = '0 minutes';
+            if (attempts === 1) { interval = '1 minute'; }
+            else if (attempts === 2) { interval = '5 minutes'; }
 
             await db.update(emailQueue)
                 .set({
@@ -149,8 +146,8 @@ export class EmailQueueService {
                     // Actually, keep as 'failed' and let query pick up 'failed' with retries < 3
                     attempts: attempts,
                     lastError: errorMessage,
-                    updatedAt: new Date(),
-                    nextAttemptAt: nextAttempt
+                    updatedAt: sql`now()`,
+                    nextAttemptAt: sql`now() + interval '${sql.raw(interval)}'`
                 })
                 .where(eq(emailQueue.id, job.id));
 
