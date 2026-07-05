@@ -91,6 +91,14 @@ app.use(sanitizeInputs);
     logger.info('Registering routes...');
     const server = await registerRoutes(app);
     logger.info('Routes registered. Server created.');
+    
+    // Start Email Queue Worker
+    const { emailQueueService } = await import('./services/EmailQueueService.js');
+    emailQueueService.startWorker();
+    
+    // Initialize Cron Jobs
+    const { initCronJobs } = await import('./cron.js');
+    initCronJobs();
     // Register centralized error handler middleware (must be after all routes)
     app.use(errorHandler);
     // Serve static files in production

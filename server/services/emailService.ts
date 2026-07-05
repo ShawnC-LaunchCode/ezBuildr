@@ -26,8 +26,7 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
 
 export async function sendPasswordResetEmail(email: string, token: string): Promise<void> {
   // In production, this should point to the actual frontend URL
-  // For now, we assume it's running on the same host or configured via env
-  const baseUrl = process.env.PUBLIC_URL ?? 'http://localhost:5000';
+  const baseUrl = process.env.VITE_BASE_URL ?? process.env.PUBLIC_URL ?? (process.env.NODE_ENV === 'production' ? 'https://ezbuildr.com' : 'http://localhost:5000');
   const resetLink = `${baseUrl}/auth/reset-password?token=${token}`;
 
   const subject = 'Reset Your Password - ezBuildr';
@@ -50,7 +49,7 @@ export async function sendPasswordResetEmail(email: string, token: string): Prom
 }
 
 export async function sendVerificationEmail(email: string, token: string): Promise<void> {
-  const baseUrl = process.env.PUBLIC_URL ?? 'http://localhost:5000';
+  const baseUrl = process.env.VITE_BASE_URL ?? process.env.PUBLIC_URL ?? (process.env.NODE_ENV === 'production' ? 'https://ezbuildr.com' : 'http://localhost:5000');
   const verifyLink = `${baseUrl}/auth/verify-email?token=${token}`;
 
   const subject = 'Verify Your Email - ezBuildr';
@@ -166,7 +165,7 @@ export async function sendIntakeReceipt(
 }
 
 export async function sendSystemInviteEmail(email: string, token: string, role: string): Promise<void> {
-  const baseUrl = process.env.PUBLIC_URL ?? 'http://localhost:5000';
+  const baseUrl = process.env.VITE_BASE_URL ?? process.env.PUBLIC_URL ?? (process.env.NODE_ENV === 'production' ? 'https://ezbuildr.com' : 'http://localhost:5000');
   const setupLink = `${baseUrl}/auth/reset-password?token=${token}&setup=true`;
   const roleDisplay = role === 'admin' ? 'an Administrator' : 'a Creator';
 
