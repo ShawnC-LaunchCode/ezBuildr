@@ -161,6 +161,12 @@ export class EmailQueueService {
                 .where(eq(emailQueue.id, job.id));
 
             logger.error({ jobId: job.id, attempts, error: errorMessage }, 'Email job failed');
+
+            // Log to Admin Logs asynchronously
+            this.activityLogger.log('Email Failed', { 
+                entityType: 'email',
+                metadata: { to: job.to, subject: job.subject, jobId: job.id, attempts, error: errorMessage } 
+            }).catch(e => logger.error({err: e}, 'Failed to log Email Failed activity'));
         }
     }
 

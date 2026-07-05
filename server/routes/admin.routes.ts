@@ -384,6 +384,15 @@ export function registerAdminRoutes(app: Express): void {
 
       logger.info({ adminId: req.adminUser.id, targetUserId: userId }, 'Admin resent invitation');
 
+      // Log to Admin Logs asynchronously
+      activityLogService.log('Invite Resent', {
+        actorId: req.adminUser.id,
+        actorEmail: req.adminUser.email,
+        entityType: 'user',
+        entityId: userId,
+        metadata: { targetEmail: user.email, role: user.role }
+      }).catch(e => logger.error({err: e}, 'Failed to log Invite Resent activity'));
+
       res.json({ message: "Invitation resent successfully" });
     } catch (error) {
       logger.error({ err: error, adminId: req.adminUser!.id }, 'Error resending invitation');
