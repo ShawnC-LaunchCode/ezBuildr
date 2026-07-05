@@ -98,6 +98,12 @@ router.get("/api-docs.yaml", asyncHandler(async (req, res) => {
 }));
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function registerDocsRoutes(app: any): void {
+  // SECURITY: the full OpenAPI spec + Swagger UI disclose the entire API surface to anyone.
+  // Do not expose them publicly in production unless explicitly opted in via ENABLE_API_DOCS.
+  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_API_DOCS !== 'true') {
+    logger.info("API Documentation disabled in production (set ENABLE_API_DOCS=true to enable)");
+    return;
+  }
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
   app.use(router);
   logger.info("API Documentation available at /api-docs");

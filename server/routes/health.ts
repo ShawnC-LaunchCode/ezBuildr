@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { Router, Request, Response } from 'express';
 
 import { db } from '../db';
+import { logger } from '../logger';
 import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
@@ -70,10 +71,12 @@ router.get('/health', asyncHandler(async (req: Request, res: Response) => {
       healthCheck.status = 'degraded';
     }
   } catch (error) {
-    // Database connection failed
+    // Database connection failed. Do NOT leak the raw DB error (which can disclose
+    // connection strings / internal hostnames) to unauthenticated callers; log it server-side.
+    logger.error({ err: error }, 'Health check: database connectivity failed');
     healthCheck.status = 'unhealthy';
     healthCheck.database.connected = false;
-    healthCheck.database.error = error instanceof Error ? error.message : 'Unknown database error';
+    healthCheck.database.error = 'Database connectivity check failed';
   }
 
   // Set appropriate HTTP status code
@@ -101,10 +104,12 @@ router.get('/ready', asyncHandler(async (_req: Request, res: Response) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
+    // Log details server-side; return a generic reason to avoid leaking internals.
+    logger.error({ err: error }, 'Readiness check: database connectivity failed');
     res.status(503).json({
       ready: false,
       timestamp: new Date().toISOString(),
-      error: error instanceof Error ? error.message : 'Service not ready',
+      error: 'Service not ready',
     });
   }
 }));

@@ -34,6 +34,19 @@ import { asyncHandler } from '../utils/asyncHandler';
 import type { Express, Request, Response } from 'express';
 
 /**
+ * Escape a string for safe interpolation into HTML text/attribute context.
+ * Prevents reflected/stored XSS in the OAuth callback pages below.
+ */
+function escapeHtml(value: unknown): string {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
  * Validation schemas
  */
 const createConnectionSchema = z.object({
@@ -334,7 +347,7 @@ export function registerConnectionsV2Routes(app: Express): void {
           <html>
             <body>
               <h1>Authorization Failed</h1>
-              <p>Error: ${String(oauthError)}</p>
+              <p>Error: ${escapeHtml(oauthError)}</p>
               <p><a href="/">Return to Dashboard</a></p>
             </body>
           </html>
@@ -378,8 +391,8 @@ export function registerConnectionsV2Routes(app: Express): void {
         <html>
           <body>
             <h1>Authorization Successful</h1>
-            <p>Connection "${connection.name}" has been authorized.</p>
-            <p><a href="/projects/${connection.projectId}/settings/integrations">Return to Integrations</a></p>
+            <p>Connection "${escapeHtml(connection.name)}" has been authorized.</p>
+            <p><a href="/projects/${encodeURIComponent(connection.projectId)}/settings/integrations">Return to Integrations</a></p>
           </body>
         </html>
       `);
