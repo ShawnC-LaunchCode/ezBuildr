@@ -451,7 +451,7 @@ export default function OrganizationDetail() {
           <CardTitle className="text-destructive">Danger Zone</CardTitle>
           <CardDescription>Actions that cannot be undone</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium">Leave Organization</p>
@@ -463,23 +463,12 @@ export default function OrganizationDetail() {
               Leave Organization
             </Button>
           </div>
-        </CardContent>
-      </Card>
-      {/* Delete Organization (Admins Only) */}
-      {isAdmin && (
-        <Card className="border-destructive mt-4">
-          <CardHeader>
-            <CardTitle className="text-destructive">Delete Organization</CardTitle>
-            <CardDescription>
-              Permanently delete this organization and all its data
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
+          {isAdmin && (
+            <div className="flex items-center justify-between pt-6 border-t border-border">
               <div>
                 <p className="font-medium">Delete this organization</p>
                 <p className="text-sm text-muted-foreground">
-                  This action cannot be undone. All members will lose access.
+                  Permanently delete this organization and all its data. This action cannot be undone. All members will lose access.
                 </p>
               </div>
               <Button
@@ -489,9 +478,9 @@ export default function OrganizationDetail() {
                 Delete Organization
               </Button>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
       {/* Invite Dialog */}
       <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
         <DialogContent>
