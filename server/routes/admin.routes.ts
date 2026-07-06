@@ -759,7 +759,9 @@ export function registerAdminRoutes(app: Express): void {
       );
 
       res.setHeader("Content-Type", "text/csv");
-      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      const encodedFilename = encodeURIComponent(filename);
+      // SEC-009: RFC 6266 encoding for attachment filename
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"; filename*=UTF-8''${encodedFilename}`);
       res.send(csv);
     } catch (error) {
       logger.error({ err: error, adminId: req.adminUser!.id }, 'Error exporting activity logs');

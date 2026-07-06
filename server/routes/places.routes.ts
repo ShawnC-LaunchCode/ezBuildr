@@ -1,5 +1,6 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
+// @ts-expect-error - apicache might be missing type declarations
 import apicache from "apicache";
 
 import { creatorOrRunTokenAuth } from "../middleware/runTokenAuth";
@@ -29,7 +30,17 @@ router.use(creatorOrRunTokenAuth);
 // Actually, looking at `routes/index.ts`: `registerAuthRoutes(app)` etc.
 // `server/middleware/auth.ts` probably exists. 
 
-router.get("/autocomplete", placesRateLimit, cache("15 minutes"), asyncHandler(async (req, res) => {
+const sanitizeAutocompleteCache = (req: any, res: any, next: any) => {
+    const input = (req.query.input || '').toString().toLowerCase().trim();
+    const lat = req.query.lat ? parseFloat(req.query.lat as string).toFixed(4) : '';
+    const lng = req.query.lng ? parseFloat(req.query.lng as string).toFixed(4) : '';
+    const radius = req.query.radius ? parseFloat(req.query.radius as string).toFixed(0) : '';
+    // SEC-010: Normalize URL so apicache uses a sanitized, bloated-free key
+    req.originalUrl = req.url = `/api/places/autocomplete?i=${encodeURIComponent(input)}&l=${lat}&g=${lng}&r=${radius}`;
+    next();
+};
+
+router.get("/autocomplete", placesRateLimit, sanitizeAutocompleteCache, cache("15 minutes"), asyncHandler(async (req, res) => {
     try {
         const input = req.query.input as string;
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions

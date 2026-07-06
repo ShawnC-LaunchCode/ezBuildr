@@ -386,6 +386,15 @@ export const teamMembers = pgTable("team_members", {
     uniqueIndex("team_members_idx").on(table.teamId, table.userId),
 ]);
 // ===================================================================
+// TOKENS & SECURITY
+// ===================================================================
+export const invalidatedTokens = pgTable("invalidated_tokens", {
+    token: varchar("token", { length: 500 }).primaryKey(),
+    expiresAt: timestamp("expires_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ===================================================================
 // INSERTS & TYPES
 // ===================================================================
 export const insertUserSchema = createInsertSchema(users);

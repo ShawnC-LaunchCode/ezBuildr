@@ -3,6 +3,10 @@ import { Router, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
 
+import { eq } from "drizzle-orm";
+import { invalidatedTokens } from "@shared/schema/auth";
+
+import { db } from "../db";
 import { logger } from "../logger";
 import { authService } from "../services/AuthService";
 import { portalAuthService } from "../services/PortalAuthService";
@@ -11,9 +15,6 @@ import { asyncHandler } from "../utils/asyncHandler";
 
 
 const router = Router();
-
-// In-memory token blacklist for stateless portal tokens
-const tokenBlacklist = new Set<string>();
 
 // SECURITY FIX: Rate limiting for magic link generation
 const magicLinkLimiter = rateLimit({
@@ -24,7 +25,8 @@ const magicLinkLimiter = rateLimit({
     legacyHeaders: false,
     skipSuccessfulRequests: false,
     keyGenerator: (req, _res) => {
-        const email = req.body?.email || 'unknown';
+        const emailRaw = String(req.body?.email ?? 'unknown');
+        const email = emailRaw.toLowerCase().split('@').map((p, i) => i === 0 ? p.split('+')[0] : p).join('@');
         return `${req.ip ?? 'unknown'}:${email}`;
     },
     validate: false,
@@ -46,14 +48,20 @@ const sendMagicLinkSchema = z.object({
 
 // Middleware to check portal token (Bearer Auth)
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const requirePortalAuth = (req: Request, res: Response, next: (...args: unknown[]) => unknown) => {
+const requirePortalAuth = asyncHandler(async (req: Request, res: Response, next: (...args: unknown[]) => unknown) => {
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith("Bearer ")) {
         return res.status(401).json({ error: "Unauthorized" });
     }
 
     const token = authHeader.substring(7);
-    if (tokenBlacklist.has(token)) {
+    
+    // Check DB for invalidated token
+    const revoked = await db.query.invalidatedTokens.findFirst({
+        where: eq(invalidatedTokens.token, token)
+    });
+    
+    if (revoked) {
         return res.status(401).json({ error: "Token has been invalidated" });
     }
 
@@ -65,7 +73,7 @@ const requirePortalAuth = (req: Request, res: Response, next: (...args: unknown[
     } catch (error) {
         return res.status(401).json({ error: "Invalid token" });
     }
-};
+});
 
 /**
  * GET /api/portal/auth/csrf-token
@@ -81,7 +89,8 @@ router.get("/auth/csrf-token", (req, res) => {
  */
 router.post("/auth/send", ipLimiter, magicLinkLimiter, asyncHandler(async (req: Request, res: Response) => {
     try {
-        const { email } = sendMagicLinkSchema.parse(req.body);
+        const { email: rawEmail } = sendMagicLinkSchema.parse(req.body);
+        const email = rawEmail.toLowerCase().split('@').map((p, i) => i === 0 ? p.split('+')[0] : p).join('@');
 
         // Add artificial delay to prevent timing-based enumeration
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -127,14 +136,18 @@ router.post("/auth/verify", asyncHandler(async (req: Request, res: Response) => 
  * POST /api/portal/auth/logout
  * Stateless - client discards token
  */
-router.post("/auth/logout", (req, res) => {
+router.post("/auth/logout", asyncHandler(async (req: Request, res: Response) => {
     const authHeader = req.headers.authorization;
     if (authHeader?.startsWith("Bearer ")) {
         const token = authHeader.substring(7);
-        tokenBlacklist.add(token);
+        try {
+            await db.insert(invalidatedTokens).values({ token });
+        } catch (e) {
+            // Ignore duplicate key errors if token is already revoked
+        }
     }
     res.json({ success: true });
-});
+}));
 
 /**
  * GET /api/portal/runs
@@ -156,20 +169,23 @@ router.get("/runs", requirePortalAuth, asyncHandler(async (req: Request, res: Re
  * GET /api/portal/me
  * Get current portal user
  */
-router.get("/me", (req, res) => {
+router.get("/me", asyncHandler(async (req: Request, res: Response) => {
     const authHeader = req.headers.authorization;
     if (authHeader?.startsWith("Bearer ")) {
         const token = authHeader.substring(7);
-        if (!tokenBlacklist.has(token)) {
+        const revoked = await db.query.invalidatedTokens.findFirst({
+            where: eq(invalidatedTokens.token, token)
+        });
+        if (!revoked) {
             try {
                 const { email } = authService.verifyPortalToken(token);
                 return res.json({ authenticated: true, email });
             } catch {
-                // Invalid token
+                // Ignore and fall through to false
             }
         }
     }
     res.json({ authenticated: false });
-});
+}));
 
 export default router;

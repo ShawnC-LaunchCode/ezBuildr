@@ -90,4 +90,41 @@ router.delete("/:id", asyncHandler(async (req: ExternalAuthRequest, res) => {
     }
 }));
 
+// PATCH /api/webhooks/:id
+router.patch("/:id", asyncHandler(async (req: ExternalAuthRequest, res) => {
+    try {
+        const workspaceId = req.externalAuth!.workspaceId;
+        const { id } = req.params;
+        const { url, events, enabled } = req.body;
+
+        if (url) {
+            const isSafe = await validateSafeUrl(url as string);
+            if (!isSafe) {
+                return res.status(400).json({ error: "Invalid or unsafe webhook URL" });
+            }
+        }
+
+        const updateData: any = {};
+        if (url !== undefined) updateData.targetUrl = url;
+        if (events !== undefined) updateData.events = events;
+        if (enabled !== undefined) updateData.enabled = enabled;
+
+        const [sub] = await db.update(webhookSubscriptions)
+            .set(updateData)
+            .where(and(
+                eq(webhookSubscriptions.id, id),
+                eq(webhookSubscriptions.workspaceId, workspaceId)
+            ))
+            .returning();
+
+        if (!sub) {
+            return res.status(404).json({ error: "Webhook not found" });
+        }
+
+        res.json({ data: sub });
+    } catch (err) {
+        res.status(500).json({ error: "Internal Error" });
+    }
+}));
+
 export default router;

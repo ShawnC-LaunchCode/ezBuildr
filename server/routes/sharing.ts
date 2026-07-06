@@ -47,11 +47,14 @@ router.post("/invite", enforce(ACTION.MANAGE_MEMBERS), asyncHandler(async (req: 
         return;
     }
 
+    // SEC-008: Normalize email
+    const normalizedEmail = (email as string).toLowerCase().trim();
+
     // Always create an invitation (require accept flow for all users, including existing)
     // Check if they are already a member (if user exists)
     const existingUser = await db.query.users.findFirst({
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        where: eq(users.email, email)
+        where: eq(users.email, normalizedEmail)
     });
 
     if (existingUser) {
@@ -75,7 +78,7 @@ router.post("/invite", enforce(ACTION.MANAGE_MEMBERS), asyncHandler(async (req: 
     await db.insert(workspaceInvitations).values({
         workspaceId,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- email from request body
-        email,
+        email: normalizedEmail,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- role from request body
         role: role ?? 'viewer',
         token,
@@ -90,12 +93,12 @@ router.post("/invite", enforce(ACTION.MANAGE_MEMBERS), asyncHandler(async (req: 
         action: 'member.invite',
         resourceType: 'email',
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- email from request body
-        resourceId: email,
+        resourceId: normalizedEmail,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- role from request body
         after: { role, token_generated: true }
     });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- email from request body
-    res.json({ status: "invited", email });
+    res.json({ status: "invited", email: normalizedEmail });
 }));
 // Update Member Role
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
@@ -109,6 +112,14 @@ router.patch("/members/:userId", enforce(ACTION.MANAGE_MEMBERS), asyncHandler(as
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-member-access
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- user from auth middleware, @typescript-eslint/no-unsafe-member-access
     const actorId = (req as any).user!.id as string;
+    
+    // SEC-007: Validate role
+    const validRoles = ['owner', 'admin', 'editor', 'contributor', 'viewer'];
+    if (!validRoles.includes(role)) {
+        res.status(400).json({ error: "Invalid role" });
+        return;
+    }
+
     if (targetUserId === actorId) {
         res.status(400).json({ error: "Cannot change your own role" });
         return;

@@ -154,10 +154,29 @@ dataSourceRouter.post('/', asyncHandler(async (req, res) => {
 
         const data = schema.parse(req.body);
         
-        if (data.type === 'external' && typeof data.config.url === 'string') {
-            const isSafe = await validateSafeUrl(data.config.url);
+        // SEC-005: Validate URL/Host for SSRF across all relevant types, not just external
+        const checkSsrf = async (urlStr: string, allowedProtocols?: string[]) => {
+            const isSafe = await validateSafeUrl(urlStr, allowedProtocols);
             if (!isSafe) {
+                return false;
+            }
+            return true;
+        };
+
+        if (data.type === 'external' && typeof data.config.url === 'string') {
+            if (!(await checkSsrf(data.config.url))) {
                 return res.status(400).json({ message: "Invalid or unsafe external URL" });
+            }
+        } else if (data.type === 'postgres') {
+            if (typeof data.config.connectionString === 'string') {
+                if (!(await checkSsrf(data.config.connectionString, ["postgres:", "postgresql:", "http:", "https:"]))) {
+                    return res.status(400).json({ message: "Invalid or unsafe postgres connection string" });
+                }
+            } else if (typeof data.config.host === 'string') {
+                // For host-only, we prepend a dummy protocol so URL parsing works in validateSafeUrl
+                if (!(await checkSsrf(`postgres://${data.config.host}`, ["postgres:"]))) {
+                    return res.status(400).json({ message: "Invalid or unsafe postgres host" });
+                }
             }
         }
 
@@ -196,10 +215,30 @@ dataSourceRouter.patch('/:id', asyncHandler(async (req, res) => {
 
         const data = schema.parse(req.body);
         
-        if (data.config && typeof data.config.url === 'string') {
-            const isSafe = await validateSafeUrl(data.config.url);
+        // SEC-005: Validate URL/Host for SSRF across all relevant types, not just external
+        const checkSsrf = async (urlStr: string, allowedProtocols?: string[]) => {
+            const isSafe = await validateSafeUrl(urlStr, allowedProtocols);
             if (!isSafe) {
-                return res.status(400).json({ message: "Invalid or unsafe external URL" });
+                return false;
+            }
+            return true;
+        };
+
+        if (data.config) {
+            if (typeof data.config.url === 'string') {
+                if (!(await checkSsrf(data.config.url))) {
+                    return res.status(400).json({ message: "Invalid or unsafe external URL" });
+                }
+            }
+            if (typeof data.config.connectionString === 'string') {
+                if (!(await checkSsrf(data.config.connectionString, ["postgres:", "postgresql:", "http:", "https:"]))) {
+                    return res.status(400).json({ message: "Invalid or unsafe postgres connection string" });
+                }
+            }
+            if (typeof data.config.host === 'string') {
+                if (!(await checkSsrf(`postgres://${data.config.host}`, ["postgres:"]))) {
+                    return res.status(400).json({ message: "Invalid or unsafe postgres host" });
+                }
             }
         }
 

@@ -9,18 +9,18 @@ import dns from "dns/promises";
  * @param allowHttp Whether to allow http scheme (default false, usually for dev only)
  * @returns true if safe, throws Error or returns false if unsafe
  */
-export async function validateSafeUrl(targetUrl: string, allowHttp = false): Promise<boolean> {
+export async function validateSafeUrl(targetUrl: string, allowedProtocols = ["https:"]): Promise<boolean> {
     try {
         const parsed = new URL(targetUrl);
 
-        if (parsed.protocol !== "https:" && (!allowHttp || parsed.protocol !== "http:")) {
+        if (!allowedProtocols.includes(parsed.protocol)) {
             return false;
         }
 
         // Loopback / simple string checks
         if (["localhost", "127.0.0.1", "0.0.0.0"].includes(parsed.hostname)) {
-            // In dev environment we might allow localhost, but for now we strict reject
-            if (process.env.NODE_ENV === "production") {
+            // SEC-014: Gate loopback usage behind explicit env var
+            if (process.env.ALLOW_LOCALHOST_WEBHOOKS !== "true") {
                 return false;
             }
         }

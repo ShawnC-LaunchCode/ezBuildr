@@ -40,8 +40,10 @@ const createRunSchema = z.object({
   prefillParams: z.record(z.string()).optional(), // Stage 12.5: URL prefill
 });
 const saveProgressSchema = z.object({
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic workflow answer values
-  answers: z.record(z.any()),
+  // SEC-004: Cap answers map size and stringified length
+  answers: z.record(z.any())
+    .refine(o => Object.keys(o).length <= 500, 'too many answers')
+    .refine(o => JSON.stringify(o).length <= 512 * 1024, 'answers too large'),
   captcha: z.object({
     type: z.enum(["simple", "recaptcha"]),
     token: z.string(),
@@ -50,8 +52,10 @@ const saveProgressSchema = z.object({
   }).optional(),
 });
 const submitRunSchema = z.object({
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic workflow answer values
-  answers: z.record(z.any()),
+  // SEC-004: Cap answers map size and stringified length
+  answers: z.record(z.any())
+    .refine(o => Object.keys(o).length <= 500, 'too many answers')
+    .refine(o => JSON.stringify(o).length <= 512 * 1024, 'answers too large'),
   captcha: z.object({ // Stage 12.5: CAPTCHA validation
     type: z.enum(["simple", "recaptcha"]),
     token: z.string(),
@@ -276,6 +280,18 @@ export function registerIntakeRoutes(app: Express): void {
   // eslint-disable-next-line @typescript-eslint/require-await
   app.post('/intake/upload', uploadLimiter, optionalHybridAuth, upload.single('file'), asyncHandler(async (req: Request, res: Response) => {
     try {
+      // SEC-011: Require a valid intake runToken or session to bind uploads to an in-progress run
+      const runToken = req.query.runToken || req.headers['x-run-token'];
+      const authReq = req as AuthRequest;
+      const hasSession = !!authReq.userId;
+
+      if (!runToken && !hasSession) {
+        return res.status(401).json({
+          success: false,
+          error: "Unauthorized: Missing runToken or active session for upload."
+        });
+      }
+
       if (!req.file) {
         res.status(400).json({
           success: false,

@@ -87,18 +87,11 @@ router.post("/workflows/:id/runs", asyncHandler(async (req, res) => {
             res.status(500).json({ error: "Workspace not found" });
             return;
         }
-        // Record Usage (Metering)
-        await db.insert(usageRecords).values({
-            organizationId: workspace.organizationId,
-            metric: 'workflow_run',
-            quantity: 1,
-            workflowId: id,
-            metadata: { source: 'api', runId }
-        });
-        res.json({
-            id: runId,
-            status: "created",
-            url: `http://localhost:5000/run/${runId}` // Or public runner URL
+        // SEC-001: Run execution via external API is not yet fully implemented.
+        // Returning 501 to prevent billing logic from writing usage records for fake runs.
+        return res.status(501).json({
+          success: false,
+          error: "Run execution via external API is currently under construction."
         });
     } catch (err) {
         logger.error({ err }, 'Error creating workflow run');
@@ -107,7 +100,10 @@ router.post("/workflows/:id/runs", asyncHandler(async (req, res) => {
 }));
 // GET /api/external/runs/:id
 router.get("/runs/:id", asyncHandler(async (req, res) => {
-    // Implementation to get run status
-    res.json({ id: req.params.id, status: "completed", output: {} });
+    // SEC-002: Getting run status via external API is not yet fully implemented.
+    return res.status(501).json({
+        success: false,
+        error: "Fetching run status via external API is currently under construction."
+    });
 }));
 export default router;
