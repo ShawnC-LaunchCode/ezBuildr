@@ -88,7 +88,18 @@ export function registerFinalBlockRoutes(app: Express): void {
         const runAuthReq = req as RunAuthRequest;
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         const { runId } = req.params;
-        const userId = runAuthReq.userId ?? ''; // Handle undefined userId (run token)
+        const userId = (req as AuthRequest).userId;
+        const runAuth = runAuthReq.runAuth;
+
+        if (runAuth != null) {
+          if (runAuth.runId !== runId) {
+            res.status(403).json({ success: false, error: "Access denied - run mismatch" });
+            return;
+          }
+        } else if (!userId) {
+          res.status(401).json({ success: false, error: "Unauthorized - no user ID found" });
+          return;
+        }
 
         // Validate request body
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
@@ -105,22 +116,11 @@ export function registerFinalBlockRoutes(app: Express): void {
         }, 'Generating Final Block documents for run');
 
         // Step 1: Load run data
-        // Use getRun which handles permission checks (owner or creator or run token implied if we trust middleware)
-        // If userId is empty string, we might rely on middleware validation
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        let run;
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-          run = await runService.getRun(runId, userId);
-        } catch (e: unknown) {
-          // Fallback for run token or public run logic if getRun is too strict
-          // For now, assuming middleware ensures access, we can fetch no-auth if getRun fails?
-          // But getRun handles 'creator:...' check.
-          // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-          if (userId) { throw e; }
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-          run = await runService.getRunWithValuesNoAuth(runId);
-        }
+        const run = runAuth != null
+          ? await runService.getRunWithValuesNoAuth(runId)
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          : await runService.getRun(runId, userId!);
 
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         if (!run) {
@@ -355,7 +355,18 @@ export function registerFinalBlockRoutes(app: Express): void {
         const runAuthReq = req as RunAuthRequest;
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         const { runId, filename } = req.params;
-        const userId = runAuthReq.userId ?? '';
+        const userId = (req as AuthRequest).userId;
+        const runAuth = runAuthReq.runAuth;
+
+        if (runAuth != null) {
+          if (runAuth.runId !== runId) {
+            res.status(403).json({ success: false, error: "Access denied - run mismatch" });
+            return;
+          }
+        } else if (!userId) {
+          res.status(401).json({ success: false, error: "Unauthorized - no user ID found" });
+          return;
+        }
 
         logger.info({
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -366,21 +377,11 @@ export function registerFinalBlockRoutes(app: Express): void {
         }, 'Downloading Final Block document');
 
         // Verify run access
-        // Try getRun. If it fails, check using noAuth if run token?
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        let run;
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-          run = await runService.getRun(runId, userId);
-        } catch (e: unknown) {
-          // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-          if (userId) { throw e; }
-          // If no user ID, allow if token is valid?
-          // RunService doesn't have explicit run token check, but if we reached here via middleware
-          // we assume valid token.
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-          run = await runService.getRunWithValuesNoAuth(runId);
-        }
+        const run = runAuth != null
+          ? await runService.getRunWithValuesNoAuth(runId)
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          : await runService.getRun(runId, userId!);
 
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         if (!run) {
