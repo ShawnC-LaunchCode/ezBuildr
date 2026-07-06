@@ -119,19 +119,27 @@ export class OrganizationService {
    * Get organization by ID
    * Requires membership to view
    */
-  async getOrganizationById(orgId: string, userId: string): Promise<Organization> {
+  async getOrganizationById(orgId: string, userId: string): Promise<Organization & { role: 'admin' | 'member' }> {
     const org = await db.query.organizations.findFirst({
       where: eq(organizations.id, orgId),
     });
     if (!org) {
       throw new Error('Organization not found');
     }
-    // Verify user has access
-    const isMember = await isOrgMember(userId, orgId);
-    if (!isMember) {
+    // Verify user has access and get their role
+    const membership = await db.query.organizationMemberships.findFirst({
+      where: and(
+        eq(organizationMemberships.orgId, orgId),
+        eq(organizationMemberships.userId, userId)
+      ),
+    });
+    if (!membership) {
       throw new Error('Access denied: You are not a member of this organization');
     }
-    return org;
+    return {
+      ...org,
+      role: membership.role as 'admin' | 'member',
+    };
   }
   /**
    * Update organization (admin only)
