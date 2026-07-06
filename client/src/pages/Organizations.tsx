@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-import { Plus, Users, AlertCircle } from 'lucide-react';
+import { Plus, Users, AlertCircle, ArrowLeft } from 'lucide-react';
 import React, { useState } from 'react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useOrganizations, useCreateOrganization } from '@/hooks/useOrganizations';
 
 export default function Organizations() {
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const { data: organizations, isLoading, error } = useOrganizations();
   const createOrg = useCreateOrganization();
@@ -83,6 +84,10 @@ export default function Organizations() {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-6xl">
+      <Button variant="ghost" onClick={() => { void navigate('/dashboard'); }} className="mb-4">
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        Back to Dashboard
+      </Button>
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold">Organizations</h1>
