@@ -10,6 +10,7 @@ import { validatePage } from "@shared/validation/PageValidator";
 import { db } from "../db"; // Correct path: ../db because we are in server/routes/
 import { logger } from "../logger"; // Correct path: ../logger
 import { requireAssetAccess } from "../utils/ownershipAccess";
+import { hybridAuth } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 
 export const validationRouter = Router();
