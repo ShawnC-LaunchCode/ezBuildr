@@ -165,7 +165,7 @@ export async function sendIntakeReceipt(
 }
 
 export async function sendSystemInviteEmail(email: string, token: string, role: string): Promise<void> {
-  let baseUrl = process.env.NODE_ENV === 'production' ? 'https://ezbuildr.com' : (process.env.VITE_BASE_URL ?? 'http://localhost:5000');
+  let baseUrl = process.env.NODE_ENV === 'production' ? 'https://www.ezbuildr.com' : (process.env.VITE_BASE_URL ?? 'http://localhost:5000');
   baseUrl = baseUrl.replace(/\/+$/, ''); // Strip trailing slashes
   const setupLink = `${baseUrl}/auth/reset-password?token=${token}&setup=true`;
   const roleDisplay = role === 'admin' ? 'an Administrator' : 'a Creator';
