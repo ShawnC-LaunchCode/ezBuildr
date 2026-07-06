@@ -170,7 +170,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
         ...getTableColumns(users),
         workflowCount: count(workflows.id),
         personalWorkflowCount: sql`SUM(CASE WHEN ${workflows.ownerType} = 'user' OR ${workflows.ownerType} IS NULL AND ${workflows.id} IS NOT NULL THEN 1 ELSE 0 END)`,
-        orgWorkflowCount: sql`SUM(CASE WHEN ${workflows.ownerType} IN ('organization', 'team') THEN 1 ELSE 0 END)`,
+        orgWorkflowCount: sql`SUM(CASE WHEN ${workflows.ownerType} = 'org' THEN 1 ELSE 0 END)`,
       })
       .from(users)
       .leftJoin(workflows, eq(users.id, workflows.creatorId))
