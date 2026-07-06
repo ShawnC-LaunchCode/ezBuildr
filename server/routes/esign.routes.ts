@@ -13,12 +13,18 @@
  * @date December 2025
  */
 
+import { eq } from 'drizzle-orm';
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 
+import { workflowRuns } from '@shared/schema';
+
+import { db } from '../db';
 import { logger } from '../logger';
+import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { EsignProviderFactory } from '../services/esign';
 import { SignatureBlockService } from '../services/esign/SignatureBlockService';
+import { workflowService } from '../services/WorkflowService';
 import { asyncHandler } from '../utils/asyncHandler';
 
 import type { SignatureBlockConfig } from '../../shared/types/stepConfigs';
@@ -69,10 +75,26 @@ const ExecuteSignatureBlockSchema = z.object({
  */
 router.post(
   '/execute/:runId/:stepId',
+  hybridAuth,
   asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { runId, stepId } = req.params;
       const parsed = ExecuteSignatureBlockSchema.parse(req.body);
+
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      // Verify run ownership
+      const [run] = await db.select().from(workflowRuns).where(eq(workflowRuns.id, runId));
+      if (!run) {
+        res.status(404).json({ error: "Run not found" });
+        return;
+      }
+      
+      await workflowService.verifyAccess(run.workflowId, userId, 'edit');
 
       // Get base URL for callback
       const baseUrl = `${req.protocol}://${req.get('host')}`;
@@ -83,14 +105,17 @@ router.post(
         stepId,
         config: parsed.config as SignatureBlockConfig,
         variableData: parsed.variableData,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        userId: (req as any).userId, // From auth middleware
+        userId,
         preview: parsed.preview ?? false,
         baseUrl,
       });
 
       res.json(result);
     } catch (error) {
+      if (error instanceof Error && error.message.includes("Access denied")) {
+        res.status(403).json({ error: "Access denied" });
+        return;
+      }
       next(error);
     }
   })
@@ -105,16 +130,41 @@ router.post(
  */
 router.get(
   '/status/:envelopeId',
+  hybridAuth,
   asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { envelopeId } = req.params;
       const provider = (req.query.provider as string) || 'docusign';
+      const runId = req.query.runId as string;
+
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+      
+      if (!runId) {
+        res.status(400).json({ error: "runId query parameter is required for authorization" });
+        return;
+      }
+
+      const [run] = await db.select().from(workflowRuns).where(eq(workflowRuns.id, runId));
+      if (!run) {
+        res.status(404).json({ error: "Run not found" });
+        return;
+      }
+
+      await workflowService.verifyAccess(run.workflowId, userId, 'view');
 
       const providerInstance = EsignProviderFactory.getProvider(provider);
       const status = await providerInstance.getEnvelopeStatus(envelopeId);
 
       res.json(status);
     } catch (error) {
+      if (error instanceof Error && error.message.includes("Access denied")) {
+        res.status(403).json({ error: "Access denied" });
+        return;
+      }
       next(error);
     }
   })
@@ -230,8 +280,15 @@ router.post(
  */
 router.get(
   '/providers',
+  hybridAuth,
   asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const userRole = (req as AuthRequest).userRole;
+      if (userRole !== 'owner' && userRole !== 'builder') {
+        res.status(403).json({ error: "Insufficient permissions" });
+        return;
+      }
+
       const providers = EsignProviderFactory.getAllProviders();
       res.json({ providers });
     } catch (error) {
@@ -249,8 +306,15 @@ router.get(
  */
 router.post(
   '/test',
+  hybridAuth,
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     try {
+      const userRole = (req as AuthRequest).userRole;
+      if (userRole !== 'owner' && userRole !== 'builder') {
+        res.status(403).json({ error: "Insufficient permissions" });
+        return;
+      }
+
       const { provider = 'docusign' } = req.body;
 
       const providerInstance = EsignProviderFactory.getProvider(provider);
