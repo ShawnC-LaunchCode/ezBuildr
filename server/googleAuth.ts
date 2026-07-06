@@ -73,9 +73,11 @@ export async function verifyGoogleToken(token: string): Promise<TokenPayload> {
   try {
     const client = getGoogleClient();
     logger.debug({ tokenLength: token?.length }, 'Verifying Google token');
+    const audience = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
+    if (!audience) { throw new Error("GOOGLE_CLIENT_ID is not set in environment variables"); }
     const ticket = await client.verifyIdToken({
       idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: audience,
     });
     const payload = ticket.getPayload();
     if (!payload) { throw new Error("Invalid token payload"); }
@@ -179,7 +181,7 @@ export async function setupAuth(app: Express): Promise<void> {
     } catch (error) {
       logger.error({ err: error }, 'Google authentication failed');
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      res.status(401).json({ message: "Authentication failed", error: "auth_failed", details: errorMessage });
+      res.status(401).json({ message: `Authentication failed: ${errorMessage}`, error: "auth_failed", details: errorMessage });
     }
   });
 }
