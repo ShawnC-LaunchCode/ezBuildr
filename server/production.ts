@@ -9,6 +9,9 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { log } from "./utils";
 import { sanitizeInputs } from "./utils/sanitize";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
+import { users } from "@shared/schema";
 // Load environment variables
 dotenv.config();
 // Diagnostic logging for startup
@@ -88,15 +91,8 @@ app.use(sanitizeInputs);
     await dbInitPromise;
     // Initialize routes and collaboration server
     // CRITICAL: We MUST use the 'server' returned by registerRoutes, as it has the WebSocket instance attached.
-    logger.info('Running database migrations...');
-    await runMigrations();
-    logger.info('Migrations completed.');
-    
     // Ensure scooter is admin on Railway
     try {
-      const { users } = await import('../shared/schema');
-      const { eq } = await import('drizzle-orm');
-      const { db } = await import('./db');
       await db.update(users).set({ role: 'admin' }).where(eq(users.email, 'scooter4356@gmail.com'));
       logger.info("Automatically ensured scooter4356@gmail.com is an admin.");
     } catch (e) {
