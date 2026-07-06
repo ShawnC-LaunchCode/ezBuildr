@@ -1,0 +1,4 @@
+{
+  "ok": false,
+  "error": "Secure script sandbox (isolated-vm) is unavailable, so JavaScript execution is disabled. Install/repair the isolated-vm native module to enable scripting."
+}

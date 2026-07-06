@@ -261,6 +261,34 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
   }
 
   /**
+   * Update user active status
+   */
+  async updateIsActive(userId: string, isActive: boolean, tx?: DbTransaction): Promise<User> {
+    const database = this.getDb(tx);
+    const [updatedUser] = await database
+      .update(users)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+
+    if (updatedUser == null) {
+      throw new Error('User not found');
+    }
+
+    return updatedUser;
+  }
+
+  /**
+   * Delete a user completely from the system
+   */
+  async deleteUser(userId: string, tx?: DbTransaction): Promise<void> {
+    const database = this.getDb(tx);
+    await database
+      .delete(users)
+      .where(eq(users.id, userId));
+  }
+
+  /**
    * Check database connectivity
    */
   async ping(): Promise<boolean> {

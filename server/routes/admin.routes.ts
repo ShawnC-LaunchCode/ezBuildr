@@ -57,6 +57,75 @@ export function registerAdminRoutes(app: Express): void {
   }));
 
   /**
+   * PUT /api/admin/users/:userId/active
+   * Update user active status (deactivate/activate)
+   */
+  app.put('/api/admin/users/:userId/active', hybridAuth, isAdmin, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      if (!req.adminUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { userId } = req.params;
+      const { isActive } = req.body;
+
+      if (typeof isActive !== 'boolean') {
+        return res.status(400).json({ message: "isActive must be a boolean" });
+      }
+
+      // Prevent deactivating oneself
+      if (userId === req.adminUser.id && !isActive) {
+        return res.status(400).json({ message: "You cannot deactivate your own account" });
+      }
+
+      const updatedUser = await userRepository.updateIsActive(userId, isActive);
+      invalidateUserCache(userId);
+
+      logger.info(
+        { adminId: req.adminUser.id, targetUserId: userId, isActive },
+        `Admin ${isActive ? 'activated' : 'deactivated'} user`
+      );
+
+      res.json({ message: `User ${isActive ? 'activated' : 'deactivated'} successfully`, user: updatedUser });
+    } catch (error) {
+      logger.error({ err: error, adminId: req.adminUser!.id }, 'Error updating user active status');
+      res.status(500).json({ message: "Failed to update user active status" });
+    }
+  }));
+
+  /**
+   * DELETE /api/admin/users/:userId
+   * Delete a user permanently
+   */
+  app.delete('/api/admin/users/:userId', hybridAuth, isAdmin, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      if (!req.adminUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { userId } = req.params;
+
+      // Prevent deleting oneself
+      if (userId === req.adminUser.id) {
+        return res.status(400).json({ message: "You cannot delete your own account" });
+      }
+
+      await userRepository.deleteUser(userId);
+      invalidateUserCache(userId);
+
+      logger.info(
+        { adminId: req.adminUser.id, targetUserId: userId },
+        'Admin deleted user'
+      );
+
+      res.json({ message: "User deleted successfully" });
+    } catch (error) {
+      logger.error({ err: error, adminId: req.adminUser!.id }, 'Error deleting user');
+      res.status(500).json({ message: "Failed to delete user. They may have dependent data that prevents deletion." });
+    }
+  }));
+
+  /**
    * PUT /api/admin/users/:userId/role
    * Update user role (promote/demote admin)
    */

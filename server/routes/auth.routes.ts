@@ -56,6 +56,12 @@ async function validateCredentials(email: string, password: string, req: Request
     logger.warn({ userId: user.id, email }, 'Login blocked: account locked');
     throw new AccountLockedError(lockStatus.lockedUntil);
   }
+  // CHECK ACTIVE STATUS
+  if (!user.isActive) {
+    logger.warn({ userId: user.id, email }, 'Login blocked: account inactive');
+    await accountLockoutService.recordAttempt(email, req.ip, false); // Still record failed attempt
+    throw new Error('Account deactivated. Please contact support.'); // Or create a custom InactiveAccountError
+  }
   if (user.authProvider !== 'local') {
     throw new AuthProviderMismatchError(user.authProvider);
   }

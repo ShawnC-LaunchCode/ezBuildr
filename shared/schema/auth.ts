@@ -60,6 +60,7 @@ export const users = pgTable("users", {
     authProvider: authProviderEnum("auth_provider").default('local').notNull(),
     defaultMode: text("default_mode").default('easy').notNull(),
     emailVerified: boolean("email_verified").default(false).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
     mfaEnabled: boolean("mfa_enabled").default(false).notNull(),
     lastPasswordChange: timestamp("last_password_change"),
     isPlaceholder: boolean("is_placeholder").default(false).notNull(),

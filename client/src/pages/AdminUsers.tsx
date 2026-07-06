@@ -1,21 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Users, Shield, ArrowLeft, ChevronUp, ChevronDown, Eye, Mail, UserPlus, RefreshCw } from "lucide-react";
+import { Users, Shield, ArrowLeft, ChevronUp, ChevronDown, Eye, Mail, UserPlus, RefreshCw, MoreHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +14,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -46,6 +43,7 @@ interface User {
   workflowCount: number;
   personalWorkflowCount: number;
   orgWorkflowCount: number;
+  isActive: boolean;
   isPlaceholder?: boolean;
 }
 
@@ -222,6 +220,38 @@ export default function AdminUsers() {
     }
   });
 
+  const updateActiveMutation = useMutation({
+    mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
+      return apiRequest("PUT", `/api/admin/users/${userId}/active`, { isActive });
+    },
+    onSuccess: () => {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: "Success", description: "User active status updated." });
+    },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message || "Failed to update user status.", variant: "destructive" });
+    }
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return apiRequest("DELETE", `/api/admin/users/${userId}`);
+    },
+    onSuccess: () => {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+      toast({ title: "Success", description: "User deleted successfully." });
+    },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message || "Failed to delete user.", variant: "destructive" });
+    }
+  });
+
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
@@ -241,6 +271,9 @@ export default function AdminUsers() {
     } else if (sortColumn === 'role') {
       valA = a.isPlaceholder ? 'invited' : a.role;
       valB = b.isPlaceholder ? 'invited' : b.role;
+    } else if (sortColumn === 'isActive') {
+      valA = a.isActive ? 1 : 0;
+      valB = b.isActive ? 1 : 0;
     } else if (sortColumn === 'createdAt') {
       valA = new Date(a.createdAt).getTime();
       valB = new Date(b.createdAt).getTime();
@@ -309,6 +342,9 @@ export default function AdminUsers() {
                         <th className="text-left p-3 text-sm font-medium text-muted-foreground cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('role')}>
                           <div className="flex items-center gap-1">Role {sortColumn === 'role' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
                         </th>
+                        <th className="text-left p-3 text-sm font-medium text-muted-foreground cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('isActive')}>
+                          <div className="flex items-center gap-1">Status {sortColumn === 'isActive' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
+                        </th>
                         <th className="text-left p-3 text-sm font-medium text-muted-foreground cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('workflowCount')}>
                           <div className="flex items-center gap-1">Workflows {sortColumn === 'workflowCount' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
                         </th>
@@ -363,6 +399,11 @@ export default function AdminUsers() {
                             )}
                           </td>
                           <td className="p-3">
+                            <Badge variant={user.isActive ? "default" : "destructive"} className={user.isActive ? "bg-green-600" : ""}>
+                              {user.isActive ? "Active" : "Inactive"}
+                            </Badge>
+                          </td>
+                          <td className="p-3">
                             <Link href={`/admin/users/${user.id}/surveys`}>
                               <Button variant="outline" size="sm" className="whitespace-nowrap">
                                 <Eye className="h-4 w-4 mr-1" />
@@ -375,79 +416,66 @@ export default function AdminUsers() {
                           </td>
                           <td className="p-3">
                             <div className="flex items-center justify-end gap-2">
-                              {user.isPlaceholder ? (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={resendInviteMutation.isPending}
-                                  onClick={() => resendInviteMutation.mutate(user.id)}
-                                >
-                                  <RefreshCw className="h-4 w-4 mr-1" />
-                                  Resend Invite
-                                </Button>
-                              ) : user.role === 'creator' ? (
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      disabled={updatingUserId === user.id}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuSeparator />
+                                  
+                                  {user.isPlaceholder ? (
+                                    <DropdownMenuItem onClick={() => resendInviteMutation.mutate(user.id)}>
+                                      <RefreshCw className="h-4 w-4 mr-2" />
+                                      Resend Invite
+                                    </DropdownMenuItem>
+                                  ) : user.role === 'creator' ? (
+                                    <DropdownMenuItem onClick={() => { 
+                                      if (confirm(`Are you sure you want to promote ${user.email} to admin?`)) {
+                                        void handlePromoteToAdmin(user.id);
+                                      }
+                                    }}>
+                                      <ChevronUp className="h-4 w-4 mr-2" />
+                                      Promote to Admin
+                                    </DropdownMenuItem>
+                                  ) : (
+                                    <DropdownMenuItem onClick={() => { 
+                                      if (confirm(`Are you sure you want to demote ${user.email} to creator?`)) {
+                                        void handleDemoteToCreator(user.id);
+                                      }
+                                    }}>
+                                      <ChevronDown className="h-4 w-4 mr-2" />
+                                      Demote to Creator
+                                    </DropdownMenuItem>
+                                  )}
+                                  
+                                  {!user.isPlaceholder && (
+                                    <DropdownMenuItem 
+                                      onClick={() => {
+                                        if (confirm(`Are you sure you want to ${user.isActive ? 'deactivate' : 'activate'} ${user.email}?`)) {
+                                          updateActiveMutation.mutate({ userId: user.id, isActive: !user.isActive });
+                                        }
+                                      }}
                                     >
-                                      <ChevronUp className="h-4 w-4 mr-1" />
-                                      Promote
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Promote to Admin</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Are you sure you want to promote {user.email} to admin?
-                                        This will give them full administrative access to the system.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => { void handlePromoteToAdmin(user.id); }}
-                                        className="bg-purple-600 hover:bg-purple-700"
-                                      >
-                                        Promote to Admin
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              ) : (
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      disabled={updatingUserId === user.id}
-                                    >
-                                      <ChevronDown className="h-4 w-4 mr-1" />
-                                      Demote
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Demote to Creator</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Are you sure you want to demote {user.email} to creator?
-                                        This will remove their administrative access.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => { void handleDemoteToCreator(user.id); }}
-                                        className="bg-destructive hover:bg-destructive/90"
-                                      >
-                                        Demote to Creator
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              )}
+                                      {user.isActive ? "Deactivate User" : "Activate User"}
+                                    </DropdownMenuItem>
+                                  )}
+                                  
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem 
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={() => {
+                                      if (confirm(`Are you sure you want to permanently delete ${user.email}? This action cannot be undone.`)) {
+                                        deleteUserMutation.mutate(user.id);
+                                      }
+                                    }}
+                                  >
+                                    Delete User
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </td>
                         </tr>

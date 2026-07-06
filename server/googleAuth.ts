@@ -149,6 +149,12 @@ export async function setupAuth(app: Express): Promise<void> {
       const dbUser = await userRepository.findById(payload.sub);
       if (!dbUser) { throw new Error('User not found after upsert'); }
 
+      // CHECK ACTIVE STATUS
+      if (!dbUser.isActive) {
+        logger.warn({ userId: dbUser.id, email: payload.email }, 'Login blocked: account inactive');
+        return res.status(403).json({ message: "Account deactivated. Please contact support.", error: "account_deactivated" });
+      }
+
       // Generate Tokens using AuthService
       const jwtToken = authService.createToken(dbUser);
       const refreshToken = await authService.createRefreshToken(dbUser.id, {
