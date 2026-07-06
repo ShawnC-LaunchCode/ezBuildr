@@ -7,6 +7,20 @@ import { logger } from "../logger";
 const _FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL ?? 'noreply@ezbuildr.com';
 
 /**
+ * Escape a value for safe interpolation into email HTML. User-controlled data (workflow answers,
+ * respondent/recipient names, titles) must be escaped so it cannot inject markup into the emails
+ * we send (HTML/layout/phishing-content injection).
+ */
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
  * Send a generic email using SendGrid or fallback to logger
  */
 import { emailQueueService } from "./EmailQueueService";
@@ -79,7 +93,7 @@ export async function sendNotificationEmail(
   const html = `
     <div style="font-family: sans-serif;">
       <h2>New Survey Response</h2>
-      <p>You have received a new response for <strong>${surveyTitle}</strong> from ${respondentName}.</p>
+      <p>You have received a new response for <strong>${escapeHtml(surveyTitle)}</strong> from ${escapeHtml(respondentName)}.</p>
       <p><a href="${responseViewUrl}">View Response</a></p>
     </div>
   `;
@@ -95,8 +109,8 @@ export async function sendSurveyInvitation(
   const subject = `Invitation: ${surveyTitle}`;
   const html = `
     <div style="font-family: sans-serif;">
-      <h2>Invited to ${surveyTitle}</h2>
-      <p>Hello ${recipientName},</p>
+      <h2>Invited to ${escapeHtml(surveyTitle)}</h2>
+      <p>Hello ${escapeHtml(recipientName)},</p>
       <p>You are invited to participate in a survey.</p>
       <p><a href="${surveyUrl}">Start Survey</a></p>
     </div>
@@ -129,7 +143,8 @@ export async function sendIntakeReceipt(
       summaryHtml = "<h3>Your Submission</h3><ul>";
       for (const [key, value] of Object.entries(summary)) {
         if (key.toLowerCase().match(/(password|ssn|credit|card)/)) { continue; }
-        summaryHtml += `<li><strong>${key}:</strong> ${String(value).substring(0, 100)}</li>`;
+        // Escape both key and value — these come from user-submitted workflow answers.
+        summaryHtml += `<li><strong>${escapeHtml(key)}:</strong> ${escapeHtml(String(value).substring(0, 100))}</li>`;
       }
       summaryHtml += "</ul>";
     }
@@ -145,11 +160,11 @@ export async function sendIntakeReceipt(
     const html = `
       <div style="font-family: sans-serif;">
         <h2>Submission Received</h2>
-        <p>You have successfully completed <strong>${workflowName}</strong>.</p>
+        <p>You have successfully completed <strong>${escapeHtml(workflowName)}</strong>.</p>
         ${summaryHtml}
         ${downloadHtml}
         <hr/>
-        <p><small>Reference ID: ${runId}</small></p>
+        <p><small>Reference ID: ${escapeHtml(runId)}</small></p>
       </div>
     `;
 
