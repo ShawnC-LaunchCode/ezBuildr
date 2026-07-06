@@ -433,7 +433,7 @@ export const authAPI = {
   }),
   resetPassword: (data: { token: string; password: string }) => fetchAPI<{ message: string }>("/api/auth/reset-password", {
     method: "POST",
-    body: JSON.stringify(data)
+    body: JSON.stringify({ token: data.token, newPassword: data.password })
   }),
   verifyEmail: (token: string) => fetchAPI<{ message: string }>("/api/auth/verify-email", {
     method: "POST",
