@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { Router } from "express";
 
-import { _AnalyzeWorkflowSchema, _ApplyFixesSchema } from "@shared/types/optimization";
+import { AnalyzeWorkflowSchema, ApplyFixesSchema } from "@shared/types/optimization";
 
 import { logger } from '../logger';
 import { workflowOptimizationService } from "../services/ai/WorkflowOptimizationService";
@@ -20,7 +20,7 @@ const optimizeRateLimit = rateLimit({
 // POST /api/ai/workflows/optimize/analyze
 router.post("/analyze", hybridAuth, optimizeRateLimit, asyncHandler(async (req, res) => {
     try {
-        const validation = _AnalyzeWorkflowSchema.safeParse(req.body);
+        const validation = AnalyzeWorkflowSchema.safeParse(req.body);
         if (!validation.success) {
             res.status(400).json({ error: "Invalid request format", details: validation.error.format() });
             return;
@@ -38,7 +38,7 @@ router.post("/analyze", hybridAuth, optimizeRateLimit, asyncHandler(async (req, 
 // POST /api/ai/workflows/optimize/apply
 router.post("/apply", hybridAuth, optimizeRateLimit, asyncHandler(async (req, res) => {
     try {
-        const validation = _ApplyFixesSchema.safeParse(req.body);
+        const validation = ApplyFixesSchema.safeParse(req.body);
         if (!validation.success) {
             res.status(400).json({ error: "Invalid request format", details: validation.error.format() });
             return;

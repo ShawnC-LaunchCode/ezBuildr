@@ -4,7 +4,6 @@ import { setupAuth } from "./googleAuth";
 import { startRollupWorker } from "./jobs/metricsRollup";
 import { logger } from "./lib/observability/logger";
 import { initCollabServer, getMetrics, getRoomStats } from "./realtime/collabServer";
-import { registerDiagnosticRoutes } from "./routes/diagnostic.routes";
 import healthRouter from "./routes/health";
 import { registerAllRoutes } from "./routes/index";
 
@@ -16,8 +15,6 @@ import type { Express } from "express";
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication middleware
   await setupAuth(app);
-  // Register diagnostic routes (dev only/debugging)
-  registerDiagnosticRoutes(app);
   // Health check endpoints (no authentication required)
   app.use(healthRouter);
   // Register all modular routes
