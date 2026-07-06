@@ -1,9 +1,17 @@
-import { Suspense, lazy } from "react";
-import { Switch, Route } from "wouter";
+import { Suspense, lazy, useEffect } from "react";
+import { Switch, Route, useLocation } from "wouter";
 
 // eslint-disable-next-line @typescript-eslint/naming-convention -- React component
 import { FullScreenLoader } from "@/components/ui/loader";
 import { useAuth } from "@/hooks/useAuth";
+
+const AuthRedirect = () => {
+    const [, setLocation] = useLocation();
+    useEffect(() => {
+        setLocation('/');
+    }, [setLocation]);
+    return null;
+};
 
 // Lazy load pages
 const NotFound = lazy(() => import("@/pages/not-found"));
@@ -147,6 +155,10 @@ export default function Router() {
                         <Route path="/organizations" component={Organizations} />
                         <Route path="/organizations/:id" component={OrganizationDetail} />
                         <Route path="/invites/:token/accept" component={AcceptInvite} />
+                        {/* Redirect auth routes to dashboard for authenticated users */}
+                        <Route path="/auth/:rest*">
+                            {() => <AuthRedirect />}
+                        </Route>
                         {/* Developer Settings */}
                         <Route path="/developer/oauth" component={OAuthApps} />
                         <Route component={NotFound} />
