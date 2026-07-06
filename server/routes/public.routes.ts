@@ -5,6 +5,7 @@ import { Router, Request, Response } from "express";
 import { workflows } from "@shared/schema";
 
 import { db } from "../db";
+import { workflowRunRepository } from "../repositories";
 import { logger } from "../logger";
 import { WebhookDispatcher } from "../lib/webhooks/dispatcher";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -79,14 +80,15 @@ router.post("/w/:slug/complete", asyncHandler(async (req: Request, res: Response
     }
 
     // Attempt to resolve real run from DB using secure token
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic run query
-    const run = await db.query.workflowRuns.findFirst({
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        where: eq(require('@shared/schema').workflowRuns.token, runToken)
-    });
+    const run = await workflowRunRepository.findByToken(runToken);
 
     if (!run || run.workflowId !== workflow.id) {
         return res.status(404).json({ error: "Run not found or invalid for workflow" });
+    }
+
+    // Verify token hasn't expired
+    if (run.tokenExpiresAt && new Date() > run.tokenExpiresAt) {
+        return res.status(401).json({ error: "Run token has expired" });
     }
 
     // Construct Server-Side Payload from actual database records
