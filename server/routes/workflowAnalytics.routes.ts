@@ -83,6 +83,17 @@ interface DocStatsRow {
 router.get('/overview', hybridAuth, asyncHandler(async (req, res) => {
   try {
     const query = overviewQuerySchema.parse(req.query);
+    
+    const userId = (req as any).userId;
+    if (query.workflowId) {
+      await workflowService.verifyAccess(query.workflowId, userId, 'view');
+    } else {
+      const hasAccess = await aclService.hasProjectRole(userId, query.projectId, 'view');
+      if (!hasAccess) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+    }
+
     // Compute current SLI
     const sliResult = await sli.computeSLI({
       projectId: query.projectId,
@@ -173,7 +184,10 @@ router.get('/timeseries', hybridAuth, asyncHandler(async (req, res) => {
     if (query.workflowId) {
       await workflowService.verifyAccess(query.workflowId, userId, 'view');
     } else {
-      await aclService.hasProjectRole(userId, query.projectId, 'view');
+      const hasAccess = await aclService.hasProjectRole(userId, query.projectId, 'view');
+      if (!hasAccess) {
+        return res.status(403).json({ error: "Access denied" });
+      }
     }
     const windowMs = parseWindow(query.window);
     const windowStart = new Date(Date.now() - windowMs);
@@ -225,7 +239,10 @@ router.get('/sli', hybridAuth, asyncHandler(async (req, res) => {
     if (query.workflowId) {
       await workflowService.verifyAccess(query.workflowId, userId, 'view');
     } else {
-      await aclService.hasProjectRole(userId, query.projectId, 'view');
+      const hasAccess = await aclService.hasProjectRole(userId, query.projectId, 'view');
+      if (!hasAccess) {
+        return res.status(403).json({ error: "Access denied" });
+      }
     }
     // Compute current SLI
     const sliResult = await sli.computeSLI({

@@ -62,23 +62,27 @@ router.post("/w/:slug/run", asyncHandler(async (req: Request, res: Response) => 
 // Complete Workflow (Simulator)
 router.post("/w/:slug/complete", asyncHandler(async (req: Request, res: Response) => {
     const { slug } = req.params;
-    const { runId } = req.body;
+    const { runToken } = req.body;
 
     // Find workflow to get workspaceId
     const workflow = await db.query.workflows.findFirst({
         where: eq(workflows.slug, slug)
     });
 
-    // Verify workflow exists and run exists
+    // Verify workflow exists
     if (!workflow) {
         return res.status(404).json({ error: "Workflow not found" });
     }
+    
+    if (!runToken || typeof runToken !== 'string') {
+        return res.status(400).json({ error: "Missing or invalid runToken" });
+    }
 
-    // Attempt to resolve real run from DB
+    // Attempt to resolve real run from DB using secure token
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic run query
     const run = await db.query.workflowRuns.findFirst({
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        where: eq(require('@shared/schema').workflowRuns.id, runId)
+        where: eq(require('@shared/schema').workflowRuns.token, runToken)
     });
 
     if (!run || run.workflowId !== workflow.id) {

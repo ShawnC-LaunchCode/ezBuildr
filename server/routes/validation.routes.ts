@@ -3,7 +3,7 @@
 import { eq } from "drizzle-orm";
 import { Router } from "express";
 
-import { steps, workflows } from "@shared/schema";
+import { steps, workflows, sections } from "@shared/schema";
 import { getValidationSchema } from "@shared/validation/BlockValidation";
 import { validatePage } from "@shared/validation/PageValidator";
 
@@ -49,6 +49,15 @@ validationRouter.post("/api/workflows/:workflowId/validate-page", hybridAuth, as
     }
 
     try {
+        // 0. Verify section belongs to workflow
+        const section = await db.query.sections.findFirst({
+            where: eq(sections.id, sectionId)
+        });
+
+        if (!section || section.workflowId !== workflowId) {
+            return res.status(404).json({ valid: false, error: "Section not found or does not belong to workflow" });
+        }
+
         // 1. Fetch steps for the section
         const sectionSteps = await db.query.steps.findMany({
             where: eq(steps.sectionId, sectionId),

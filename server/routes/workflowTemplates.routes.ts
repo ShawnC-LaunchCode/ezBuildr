@@ -38,6 +38,9 @@ router.get(
     if (!userId) throw createError.unauthorized('Authentication required');
     await workflowService.verifyAccess(workflowId, userId);
 
+    const version = await db.query.workflowVersions.findFirst({ where: eq(workflowVersions.id, versionId) });
+    if (!version || version.workflowId !== workflowId) throw createError.notFound('Workflow version not found for this workflow');
+
     const templates = await workflowTemplateService.listTemplates(versionId);
 
     res.json({
@@ -61,6 +64,9 @@ router.get(
     if (!userId) throw createError.unauthorized('Authentication required');
     await workflowService.verifyAccess(workflowId, userId);
 
+    const version = await db.query.workflowVersions.findFirst({ where: eq(workflowVersions.id, versionId) });
+    if (!version || version.workflowId !== workflowId) throw createError.notFound('Workflow version not found for this workflow');
+
     const primary = await workflowTemplateService.getPrimaryTemplate(versionId);
 
     res.json({
@@ -83,6 +89,9 @@ router.get(
     const userId = (req as AuthRequest).userId;
     if (!userId) throw createError.unauthorized('Authentication required');
     await workflowService.verifyAccess(workflowId, userId);
+
+    const version = await db.query.workflowVersions.findFirst({ where: eq(workflowVersions.id, versionId) });
+    if (!version || version.workflowId !== workflowId) throw createError.notFound('Workflow version not found for this workflow');
 
     const template = await workflowTemplateService.getTemplateByKey(versionId, key);
 
@@ -114,6 +123,9 @@ router.post(
     const userId = (req as AuthRequest).userId;
     if (!userId) throw createError.unauthorized('Authentication required');
     await workflowService.verifyAccess(workflowId, userId);
+
+    const version = await db.query.workflowVersions.findFirst({ where: eq(workflowVersions.id, versionId) });
+    if (!version || version.workflowId !== workflowId) throw createError.notFound('Workflow version not found for this workflow');
 
     // Validate request body
     const body = attachSchema.parse(req.body);

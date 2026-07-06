@@ -497,9 +497,14 @@ export class VersionService {
       throw new Error("One or both versions not found");
     }
 
-    const hasAccess = await aclService.hasWorkflowRole(userId, version1.workflowId, 'view');
-    if (!hasAccess) {
-      throw new Error("Access denied - insufficient permissions for this workflow");
+    const hasAccess1 = await aclService.hasWorkflowRole(userId, version1.workflowId, 'view');
+    if (!hasAccess1) {
+      throw new Error("Access denied - insufficient permissions for version 1's workflow");
+    }
+
+    const hasAccess2 = await aclService.hasWorkflowRole(userId, version2.workflowId, 'view');
+    if (!hasAccess2) {
+      throw new Error("Access denied - insufficient permissions for version 2's workflow");
     }
 
     return workflowDiffService.diff(version1.graphJson as WorkflowJSON, version2.graphJson as WorkflowJSON);

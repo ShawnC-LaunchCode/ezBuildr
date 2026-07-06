@@ -16,6 +16,7 @@ import {
   compareTemplates,
 } from '../services/TemplateAnalysisService';
 import { aclService } from '../services/AclService';
+import { createError } from '../utils/errors';
 import type { Express } from 'express';
 
 const router = express.Router();
