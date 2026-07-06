@@ -1,4 +1,5 @@
 
+import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { Router } from "express";
 
@@ -203,11 +204,24 @@ router.get("/settings", hybridAuth, asyncHandler(async (req: any, res) => {
     }
 }));
 
+const settingsSchema = z.object({
+    readingLevel: z.enum(["simple", "standard", "professional"]).optional(),
+    tone: z.enum(["friendly", "neutral", "formal"]).optional(),
+    verbosity: z.enum(["brief", "standard", "detailed"]).optional(),
+    language: z.string().optional(),
+    allowAdaptivePrompts: z.boolean().optional(),
+    allowAIClarification: z.boolean().optional()
+});
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with user
 router.post("/settings", hybridAuth, asyncHandler(async (req: any, res) => {
     try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Express req body
-        const settings = req.body;
+        const parseResult = settingsSchema.safeParse(req.body);
+        if (!parseResult.success) {
+            return res.status(400).json({ error: "Invalid settings format", details: parseResult.error });
+        }
+        
+        const settings = parseResult.data;
         // Upsert
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- Express req body validated by Drizzle schema
         await db.insert(userPersonalizationSettings).values({

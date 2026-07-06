@@ -20,14 +20,14 @@ const optimizeRateLimit = rateLimit({
 // POST /api/ai/workflows/optimize/analyze
 router.post("/analyze", hybridAuth, optimizeRateLimit, asyncHandler(async (req, res) => {
     try {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- workflowId may be used in future
-        const { workflow, workflowId, ...options } = req.body;
-        // Basic validation
-        // Note: Zod schema usage might be tricky with "any" for workflow, so simplistic check
-        if (!workflow) {
-            res.status(400).json({ error: "Missing workflow data" });
+        const validation = _AnalyzeWorkflowSchema.safeParse(req.body);
+        if (!validation.success) {
+            res.status(400).json({ error: "Invalid request format", details: validation.error.format() });
             return;
         }
+        
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- workflowId may be used in future
+        const { workflow, workflowId, ...options } = validation.data;
         const result = await workflowOptimizationService.analyze(workflow, options);
         res.json(result);
     } catch (error) {
@@ -38,11 +38,13 @@ router.post("/analyze", hybridAuth, optimizeRateLimit, asyncHandler(async (req, 
 // POST /api/ai/workflows/optimize/apply
 router.post("/apply", hybridAuth, optimizeRateLimit, asyncHandler(async (req, res) => {
     try {
-        const { workflow, fixes } = req.body;
-        if (!workflow || !fixes || !Array.isArray(fixes)) {
-            res.status(400).json({ error: "Invalid request format" });
+        const validation = _ApplyFixesSchema.safeParse(req.body);
+        if (!validation.success) {
+            res.status(400).json({ error: "Invalid request format", details: validation.error.format() });
             return;
         }
+        
+        const { workflow, fixes } = validation.data;
         const result = await workflowOptimizationService.applyFixes(workflow, fixes);
         res.json(result);
     } catch (error) {

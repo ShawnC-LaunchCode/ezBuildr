@@ -44,8 +44,8 @@ export function registerFileRoutes(app: Express): void {
         throw createError.unauthorized('Authentication required to download files');
       }
 
-      // Basic path traversal protection
-      if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      // Basic path traversal and header injection protection
+      if (filename.includes('..') || filename.includes('/') || filename.includes('\\') || filename.includes('\r') || filename.includes('\n') || filename.includes('"')) {
         throw createError.badRequest('Invalid filename');
       }
 
@@ -104,8 +104,9 @@ export function registerFileRoutes(app: Express): void {
 
       logger.info({ filename, userId, runId: run.id }, 'Authorized file download');
 
-      // Set headers
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      // Set headers per RFC 6266
+      const encodedFilename = encodeURIComponent(filename);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"; filename*=UTF-8''${encodedFilename}`);
 
       if (filename.endsWith('.docx')) {
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');

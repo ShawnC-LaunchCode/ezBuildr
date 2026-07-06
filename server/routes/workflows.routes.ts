@@ -118,6 +118,23 @@ export function registerWorkflowRoutes(app: Express): void {
    * Update a workflow
    */
   app.put('/api/workflows/:workflowId', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+    const updateWorkflowSchema = z.object({
+      title: z.string().optional(),
+      description: z.string().optional(),
+      name: z.string().optional(),
+      projectId: z.string().uuid().optional(),
+      isPublic: z.boolean().optional(),
+      slug: z.string().optional(),
+      requireLogin: z.boolean().optional(),
+      intakeConfig: z.record(z.any()).optional(),
+      status: z.enum(['draft', 'published', 'archived']).optional(),
+      sections: z.array(z.any()).optional(),
+      modeOverride: z.string().optional(),
+      publicLink: z.string().optional(),
+      ownerType: z.enum(['user', 'organization', 'team', 'system']).optional(),
+      ownerUuid: z.string().optional(),
+    });
+
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
@@ -125,7 +142,7 @@ export function registerWorkflowRoutes(app: Express): void {
       }
 
       const { workflowId } = req.params;
-      const updateData = req.body;
+      const updateData = updateWorkflowSchema.parse(req.body);
 
       let workflow;
       // Deep update if sections are provided (e.g. from AI)

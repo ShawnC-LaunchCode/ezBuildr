@@ -585,14 +585,15 @@ router.post(
       if (template.project.tenantId !== tenantId) {
         throw createError.forbidden(ACCESS_DENIED_MSG);
       }
-      const body = req.body as Record<string, unknown>;
-      const mapping = body.mapping as Record<string, unknown> | undefined;
-      const sampleData = body.sampleData;
-      const outputFormat = (body.outputFormat as string | undefined) ?? 'pdf';
-      const validateMapping = (body.validateMapping as boolean | undefined) ?? true;
-      if (sampleData === undefined || sampleData === null || typeof sampleData !== 'object') {
-        throw createError.validation('sampleData is required and must be an object');
-      }
+      const previewSchema = z.object({
+        mapping: z.record(z.any()).optional(),
+        sampleData: z.record(z.any()),
+        outputFormat: z.enum(['pdf', 'docx']).optional().default('pdf'),
+        validateMapping: z.boolean().optional().default(true),
+      });
+      const parsedBody = previewSchema.parse(req.body);
+      const { mapping, sampleData, outputFormat, validateMapping } = parsedBody;
+
       const { templatePreviewService } = await import('../services/TemplatePreviewService');
       const previewResult = await templatePreviewService.generatePreview({
         templateId: params.id,

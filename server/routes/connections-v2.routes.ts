@@ -6,24 +6,13 @@
 
 import { z } from 'zod';
 
-import type { CreateConnectionInput, UpdateConnectionInput } from '@shared/types/connections';
-
 import { logger } from '../logger';
 import { requireProjectRole } from '../middleware/aclAuth';
 import { hybridAuth } from '../middleware/auth';
 import { aclService } from '../services/AclService';
-import {
-  listConnections,
-  getConnection,
-  getConnectionById,
-  createConnection,
-  updateConnection,
-  deleteConnection,
-  testConnection,
-  initiateOAuth2Flow,
-  handleOAuth2Callback,
-  getConnectionStatus,
-} from '../services/connections';
+import { createConnection, deleteConnection, getConnection, listConnections, testConnection, updateConnection, getConnectionById, initiateOAuth2Flow, handleOAuth2Callback, getConnectionStatus } from '../services/connections';
+import type { CreateConnectionInput, UpdateConnectionInput } from '@shared/types/connections';
+import { validateSafeUrl } from '../utils/ssrfValidator';
 import {
   validateOAuth2State,
   cleanupOAuth2State,
@@ -55,7 +44,10 @@ const createConnectionSchema = z.object({
   baseUrl: z.string().url('baseUrl must be a valid URL').optional(),
   authConfig: z.record(z.any()),
   secretRefs: z.record(z.string()),
-  defaultHeaders: z.record(z.string()).optional(),
+  defaultHeaders: z.record(z.string()).optional().refine(headers => {
+      if (headers && Object.keys(headers).some(k => k.toLowerCase() === 'authorization')) return false;
+      return true;
+  }, "Authorization header not allowed in defaultHeaders"),
   timeoutMs: z.number().int().min(100).max(60000).optional(),
   retries: z.number().int().min(0).max(10).optional(),
   backoffMs: z.number().int().min(0).max(5000).optional(),
@@ -66,7 +58,10 @@ const updateConnectionSchema = z.object({
   baseUrl: z.string().url().optional(),
   authConfig: z.record(z.any()).optional(),
   secretRefs: z.record(z.string()).optional(),
-  defaultHeaders: z.record(z.string()).optional(),
+  defaultHeaders: z.record(z.string()).optional().refine(headers => {
+      if (headers && Object.keys(headers).some(k => k.toLowerCase() === 'authorization')) return false;
+      return true;
+  }, "Authorization header not allowed in defaultHeaders"),
   timeoutMs: z.number().int().min(100).max(60000).optional(),
   retries: z.number().int().min(0).max(10).optional(),
   backoffMs: z.number().int().min(0).max(5000).optional(),
@@ -135,7 +130,14 @@ export function registerConnectionsV2Routes(app: Express): void {
       const { projectId } = req.params;
 
       // Validate input
-      const validatedData = createConnectionSchema.parse(req.body);
+      const validatedData = await createConnectionSchema.parseAsync(req.body);
+      
+      if (validatedData.baseUrl) {
+          const isSafe = await validateSafeUrl(validatedData.baseUrl);
+          if (!isSafe) {
+              return res.status(400).json({ error: "Invalid or unsafe baseUrl" });
+          }
+      }
 
       const input: CreateConnectionInput = {
         projectId,
@@ -179,7 +181,14 @@ export function registerConnectionsV2Routes(app: Express): void {
       const { projectId, connectionId } = req.params;
 
       // Validate input
-      const validatedData = updateConnectionSchema.parse(req.body);
+      const validatedData = await updateConnectionSchema.parseAsync(req.body);
+      
+      if (validatedData.baseUrl) {
+          const isSafe = await validateSafeUrl(validatedData.baseUrl);
+          if (!isSafe) {
+              return res.status(400).json({ error: "Invalid or unsafe baseUrl" });
+          }
+      }
 
       const input: UpdateConnectionInput = validatedData;
 

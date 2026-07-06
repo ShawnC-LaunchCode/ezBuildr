@@ -10,6 +10,7 @@ import { db } from "../db";
 import { logger } from "../logger";
 import { requireExternalAuth, ExternalAuthRequest } from "../lib/authz/externalAuth";
 import { asyncHandler } from "../utils/asyncHandler";
+import { validateSafeUrl } from "../utils/ssrfValidator";
 
 /**
  * Generate a cryptographically secure webhook signing secret.
@@ -46,6 +47,11 @@ router.post("/", asyncHandler(async (req: ExternalAuthRequest, res) => {
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         if (!url || !events) {
             return res.status(400).json({ error: "Missing url or events" });
+        }
+
+        const isSafe = await validateSafeUrl(url as string);
+        if (!isSafe) {
+            return res.status(400).json({ error: "Invalid or unsafe webhook URL" });
         }
 
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment

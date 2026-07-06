@@ -4,23 +4,15 @@ import { Router } from "express";
 
 import { organizations, workspaces, users } from "@shared/schema";
 
+import { z } from "zod";
 import { db } from "../db";
 import { asyncHandler } from "../utils/asyncHandler";
-
+import { hybridAuth } from "../middleware/auth";
+import { isAdmin } from "../middleware/adminAuth";
 
 const router = Router();
 
-// Super Admin Middleware (Simplified for now - assumes a specific user ID or role)
-// In production, check for user.isSuperAdmin boolean or specific role in DB
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-function-return-type
-const requireSuperAdmin = (req: any, res: any, next: any) => {
-    if (req.user?.role !== 'admin') { // Using legacy 'admin' role as super admin for now
-        return res.status(403).json({ error: "Require Super Admin" });
-    }
-    next();
-};
-
-router.use(requireSuperAdmin);
+router.use(hybridAuth, isAdmin);
 
 // List All Organizations
 router.get("/organizations", asyncHandler(async (req, res) => {
@@ -32,9 +24,19 @@ router.get("/organizations", asyncHandler(async (req, res) => {
     res.json(orgs);
 }));
 
+const createOrgSchema = z.object({
+    name: z.string().min(1).max(255),
+    slug: z.string().regex(/^[a-z0-9-]+$/).min(1).max(255),
+    domain: z.string().optional()
+});
+
 // Create Organization (Platform Level)
 router.post("/organizations", asyncHandler(async (req, res) => {
-    const { name, slug, domain } = req.body;
+    const parseResult = createOrgSchema.safeParse(req.body);
+    if (!parseResult.success) {
+        return res.status(400).json({ error: "Invalid organization data", details: parseResult.error });
+    }
+    const { name, slug, domain } = parseResult.data;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with user
     const { user } = req as any;

@@ -2,10 +2,14 @@
 import { Router } from "express";
 
 import { templateService } from "../lib/templates/TemplateService";
-const router = Router();
 import { asyncHandler } from "../utils/asyncHandler";
+import { hybridAuth } from "../middleware/auth";
+import { requireTenant } from "../middleware/tenant";
+
+const router = Router();
 // List templates
-router.get("/templates", asyncHandler(async (req, res) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+router.get("/templates", hybridAuth, requireTenant, asyncHandler(async (req: any, res) => {
     const { category, search, scope } = req.query;
     // Default to public templates
     const _isPublic = scope === 'private' ? false : true;
@@ -19,7 +23,8 @@ router.get("/templates", asyncHandler(async (req, res) => {
     res.json(templates);
 }));
 // Get template details
-router.get("/templates/:id", asyncHandler(async (req, res) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+router.get("/templates/:id", hybridAuth, requireTenant, asyncHandler(async (req: any, res) => {
     const template = await templateService.getTemplate(req.params.id);
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!template) {
@@ -28,24 +33,25 @@ router.get("/templates/:id", asyncHandler(async (req, res) => {
     res.json(template);
 }));
 // Install template
-router.post("/templates/:id/install", asyncHandler(async (req, res) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+router.post("/templates/:id/install", hybridAuth, requireTenant, asyncHandler(async (req: any, res) => {
     const { projectId } = req.body;
-    // Mock user context - in real app would get from session/JWT
-    // We'll trust the projectId passed for now, assuming middleware checked existing access
-    const { userId } = req.body || { userId: 'system' }; // Fallback
+    const userId = req.user.id;
     const workflow = await templateService.installTemplate(
         req.params.id,
-        { userId: userId || 'user_1', projectId }
+        { userId, projectId }
     );
     res.json(workflow);
 }));
 // Publish workflow as template
-router.post("/market/publish", asyncHandler(async (req, res) => {
-    const { workflowId, title, description, category, isPublic, userId } = req.body;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+router.post("/market/publish", hybridAuth, requireTenant, asyncHandler(async (req: any, res) => {
+    const { workflowId, title, description, category, isPublic } = req.body;
+    const userId = req.user.id;
     const template = await templateService.publishTemplate(
         workflowId,
         { title, description, category, isPublic: !!isPublic },
-        { userId: userId || 'user_1' }
+        { userId }
     );
     res.json(template);
 }));

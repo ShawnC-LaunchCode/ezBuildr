@@ -11,7 +11,7 @@ import type { Express, Request, Response } from "express";
 const previewRouter = Router();
 
 const generateDataSchema = z.object({
-    steps: z.array(z.any()), // QuestionNodeConfig array, loose validation for now
+    steps: z.array(z.any()).max(100), // QuestionNodeConfig array, loose validation for now
 });
 
 // Use hybridAuth to ensure dev/user is authenticated

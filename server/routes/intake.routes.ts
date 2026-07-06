@@ -9,6 +9,8 @@ import { optionalHybridAuth, type AuthRequest } from '../middleware/auth';
 import { CaptchaService } from "../services/CaptchaService.js";
 import { intakeService } from "../services/IntakeService";
 import { asyncHandler } from '../utils/asyncHandler';
+import { uploadLimiter, strictLimiter } from "../middleware/rateLimiter";
+import { virusScanner } from "../services/security/VirusScanner";
 
 import type { CaptchaResponse } from "../../shared/types/intake.js";
 import type { Express, Request, Response } from "express";
@@ -40,6 +42,12 @@ const createRunSchema = z.object({
 const saveProgressSchema = z.object({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic workflow answer values
   answers: z.record(z.any()),
+  captcha: z.object({
+    type: z.enum(["simple", "recaptcha"]),
+    token: z.string(),
+    answer: z.string().optional(),
+    recaptchaToken: z.string().optional(),
+  }).optional(),
 });
 const submitRunSchema = z.object({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic workflow answer values
@@ -142,10 +150,24 @@ export function registerIntakeRoutes(app: Express): void {
    * Save intake run progress (draft)
    * Body: { answers }
    */
-  app.post('/intake/runs/:token/save', asyncHandler(async (req: Request, res: Response) => {
+  app.post('/intake/runs/:token/save', strictLimiter, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { token } = req.params;
+      
+      const payloadString = JSON.stringify(req.body);
+      if (payloadString.length > 500000) { // 500KB cap
+        return res.status(413).json({ error: "Payload too large" });
+      }
+
       const data = saveProgressSchema.parse(req.body);
+      
+      if (data.captcha) {
+         const isValid = await CaptchaService.validate(data.captcha);
+         if (!isValid) {
+             return res.status(403).json({ error: "Invalid CAPTCHA" });
+         }
+      }
+
       await intakeService.saveIntakeProgress(token, data.answers);
       res.json({
         success: true,
@@ -164,9 +186,15 @@ export function registerIntakeRoutes(app: Express): void {
    * Body: { answers, captcha? }
    * Stage 12.5: Validates CAPTCHA and sends email receipt
    */
-  app.post('/intake/runs/:token/submit', asyncHandler(async (req: Request, res: Response) => {
+  app.post('/intake/runs/:token/submit', strictLimiter, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { token } = req.params;
+      
+      const payloadString = JSON.stringify(req.body);
+      if (payloadString.length > 500000) { // 500KB cap
+        return res.status(413).json({ error: "Payload too large" });
+      }
+
       const data = submitRunSchema.parse(req.body);
       const result = await intakeService.submitIntakeRun(
         token,
@@ -246,7 +274,7 @@ export function registerIntakeRoutes(app: Express): void {
    * Multipart form data
    */
   // eslint-disable-next-line @typescript-eslint/require-await
-  app.post('/intake/upload', upload.single('file'), asyncHandler(async (req: Request, res: Response) => {
+  app.post('/intake/upload', uploadLimiter, optionalHybridAuth, upload.single('file'), asyncHandler(async (req: Request, res: Response) => {
     try {
       if (!req.file) {
         res.status(400).json({
@@ -257,14 +285,15 @@ export function registerIntakeRoutes(app: Express): void {
       }
       // Generate secure file reference
       const fileRef = randomUUID() + path.extname(req.file.originalname);
-      // SECURITY WARNING: Production deployment requires virus scanning before file storage
-      // Recommended implementations:
-      // 1. ClamAV integration: Use 'clamscan' npm package to scan files before storage
-      // 2. Cloud services: AWS S3 + GuardDuty, Azure Blob + Defender, or dedicated services like VirusTotal API
-      // 3. File validation: Verify MIME types, check magic numbers, enforce size limits
-      // 4. Quarantine: Move suspicious files to isolated storage for review
-      // 5. Logging: Track all file uploads and scan results for audit trail
-      // For now, files are accepted without virus scanning - DO NOT use in production without implementing security measures
+      
+      const fileBuffer = await import('fs').then(fs => fs.promises.readFile(req.file!.path));
+      const scanResult = await virusScanner().scan(fileBuffer, req.file.originalname);
+      
+      if (!scanResult.isClean) {
+          logger.warn({ file: req.file.originalname, threats: scanResult.threats }, "Malicious file detected during intake upload");
+          return res.status(400).json({ error: "File rejected by security scan" });
+      }
+
       res.json({
         success: true,
         data: {

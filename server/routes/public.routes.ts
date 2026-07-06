@@ -9,7 +9,7 @@ import { workflowRunRepository } from "../repositories";
 import { logger } from "../logger";
 import { WebhookDispatcher } from "../lib/webhooks/dispatcher";
 import { asyncHandler } from "../utils/asyncHandler";
-
+import { apiLimiter, strictLimiter } from "../middleware/rateLimiter";
 
 const router = Router();
 
@@ -55,13 +55,12 @@ router.get("/w/:slug", asyncHandler(async (req: Request, res: Response) => {
 
 // Run Workflow (Start Session)
 router.post("/w/:slug/run", asyncHandler(async (req: Request, res: Response) => {
-    // Logic to initialize a run (like internal runner but anonymous)
-    // Would insert into 'usage_records' if metering enabled
-    res.json({ runId: "mock_run_id", status: "started" });
+    // Return 501 Not Implemented to prevent fake success usage until implemented
+    res.status(501).json({ error: "Not Implemented" });
 }));
 
 // Complete Workflow (Simulator)
-router.post("/w/:slug/complete", asyncHandler(async (req: Request, res: Response) => {
+router.post("/w/:slug/complete", apiLimiter, strictLimiter, asyncHandler(async (req: Request, res: Response) => {
     const { slug } = req.params;
     const { runToken } = req.body;
 
@@ -83,6 +82,7 @@ router.post("/w/:slug/complete", asyncHandler(async (req: Request, res: Response
     const run = await workflowRunRepository.findByToken(runToken);
 
     if (!run || run.workflowId !== workflow.id) {
+        logger.warn({ slug, tokenLength: runToken?.length }, "Failed token lookup on public complete endpoint");
         return res.status(404).json({ error: "Run not found or invalid for workflow" });
     }
 

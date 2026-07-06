@@ -94,10 +94,19 @@ router.post("/revise", hybridAuth, aiRateLimit, asyncHandler(async (req, res) =>
     }
 }));
 
-router.post("/debug", hybridAuth, asyncHandler(async (req, res) => {
+const debugSchema = z.object({
+    transforms: z.array(z.unknown()).optional().default([])
+});
+
+router.post("/debug", hybridAuth, aiRateLimit, asyncHandler(async (req, res) => {
     try {
-        const { transforms } = req.body;
-        const issues = TransformDebugger.debug(transforms ?? []);
+        const validation = debugSchema.safeParse(req.body);
+        if (!validation.success) {
+            return res.status(400).json({ error: "Invalid request data", details: validation.error.format() });
+        }
+        
+        const { transforms } = validation.data;
+        const issues = TransformDebugger.debug(transforms as any[]);
         res.json({ issues });
     } catch (error: unknown) {
         logger.error({ error }, "Transform Debug Error");
@@ -106,10 +115,20 @@ router.post("/debug", hybridAuth, asyncHandler(async (req, res) => {
     }
 }));
 
-router.post("/auto-fix", hybridAuth, asyncHandler(async (req, res) => {
+const autoFixSchema = z.object({
+    transforms: z.array(z.unknown()).optional().default([]),
+    issues: z.array(z.unknown()).optional().default([])
+});
+
+router.post("/auto-fix", hybridAuth, aiRateLimit, asyncHandler(async (req, res) => {
     try {
-        const { transforms, issues } = req.body;
-        const fixes = await TransformDebugger.autoFix(transforms ?? [], issues ?? []);
+        const validation = autoFixSchema.safeParse(req.body);
+        if (!validation.success) {
+            return res.status(400).json({ error: "Invalid request data", details: validation.error.format() });
+        }
+
+        const { transforms, issues } = validation.data;
+        const fixes = await TransformDebugger.autoFix(transforms as any[], issues as any[]);
         res.json({ fixes });
     } catch (error: unknown) {
         logger.error({ error }, "Transform Auto-fix Error");
@@ -118,13 +137,24 @@ router.post("/auto-fix", hybridAuth, asyncHandler(async (req, res) => {
     }
 }));
 
-router.post("/schema-align", hybridAuth, asyncHandler(async (req, res) => {
+const schemaAlignSchema = z.object({
+    transforms: z.array(z.unknown()).optional().default([]),
+    documents: z.array(z.unknown()).optional().default([]),
+    workflowVariables: z.array(z.unknown()).optional().default([])
+});
+
+router.post("/schema-align", hybridAuth, aiRateLimit, asyncHandler(async (req, res) => {
     try {
-        const { transforms, documents, workflowVariables } = req.body;
+        const validation = schemaAlignSchema.safeParse(req.body);
+        if (!validation.success) {
+            return res.status(400).json({ error: "Invalid request data", details: validation.error.format() });
+        }
+
+        const { transforms, documents, workflowVariables } = validation.data;
         const result = await alignSchema({
-            transforms: transforms ?? [],
-            documents: documents ?? [],
-            workflowVariables: workflowVariables ?? []
+            transforms: transforms as any[],
+            documents: documents as any[],
+            workflowVariables: workflowVariables as any[]
         });
         res.json(result);
     } catch (error: unknown) {

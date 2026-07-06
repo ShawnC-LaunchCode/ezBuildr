@@ -1,5 +1,6 @@
 import { logger } from "../logger";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
+import { isAdmin } from '../middleware/adminAuth';
 import { workflowRepository } from "../repositories";
 import { asyncHandler } from '../utils/asyncHandler';
 
@@ -13,7 +14,7 @@ export function registerDebugRoutes(app: Express): void {
    * GET /api/debug/workflow/:id
    * Debug workflow access
    */
-  app.get('/api/debug/workflow/:id', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.get('/api/debug/workflow/:id', hybridAuth, isAdmin, asyncHandler(async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthRequest;
       const userId = authReq.userId;
@@ -68,7 +69,7 @@ export function registerDebugRoutes(app: Express): void {
    * Debug current user
    */
   // eslint-disable-next-line @typescript-eslint/require-await
-  app.get('/api/debug/me', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.get('/api/debug/me', hybridAuth, isAdmin, asyncHandler(async (req: Request, res: Response) => {
     const authReq = req as AuthRequest;
 
     res.json({

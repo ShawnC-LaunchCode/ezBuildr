@@ -149,10 +149,21 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
   /**
    * Get all users (admin only)
    */
-  async findAllUsers(tx?: DbTransaction): Promise<User[]> {
+  async findAllUsers(tx?: DbTransaction) {
     const database = this.getDb(tx);
     return database
-      .select()
+      .select({
+        id: users.id,
+        tenantId: users.tenantId,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+        role: users.role,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+        mfaEnabled: users.mfaEnabled,
+      })
       .from(users)
       .orderBy(users.createdAt);
   }
@@ -161,13 +172,22 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
    * Get all users with their workflow count (admin only)
    * Optimized to use a single query with LEFT JOIN instead of fetching all workflows
    */
-  async findAllUsersWithWorkflowCounts(tx?: DbTransaction): Promise<(User & { workflowCount: number, personalWorkflowCount: number, orgWorkflowCount: number })[]> {
+  async findAllUsersWithWorkflowCounts(tx?: DbTransaction) {
     const database = this.getDb(tx);
 
-    // Select all user columns plus the count of workflows
+    // Select specific safe columns plus the count of workflows
     const rows = await database
       .select({
-        ...getTableColumns(users),
+        id: users.id,
+        tenantId: users.tenantId,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+        role: users.role,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+        mfaEnabled: users.mfaEnabled,
         workflowCount: count(workflows.id),
         personalWorkflowCount: sql`SUM(CASE WHEN ${workflows.ownerType} = 'user' OR ${workflows.ownerType} IS NULL AND ${workflows.id} IS NOT NULL THEN 1 ELSE 0 END)`,
         orgWorkflowCount: sql`SUM(CASE WHEN ${workflows.ownerType} = 'org' THEN 1 ELSE 0 END)`,

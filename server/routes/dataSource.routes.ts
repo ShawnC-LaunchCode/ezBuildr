@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { validateSafeUrl } from '../utils/ssrfValidator';
 
 import { logger } from '../logger';
 import { hybridAuth, getAuthUserTenantId, getAuthUserId } from '../middleware/auth';
@@ -145,7 +146,6 @@ dataSourceRouter.post('/', asyncHandler(async (req, res) => {
         const schema = z.object({
             name: z.string().min(1).max(255),
             description: z.string().optional(),
-            // Added 'native_table' to enum
             type: z.enum(['native', 'native_table', 'postgres', 'google_sheets', 'airtable', 'external']),
             config: z.record(z.any()).default({}),
             scopeType: z.enum(['account', 'project', 'workflow']).default('account'),
@@ -153,6 +153,13 @@ dataSourceRouter.post('/', asyncHandler(async (req, res) => {
         });
 
         const data = schema.parse(req.body);
+        
+        if (data.type === 'external' && typeof data.config.url === 'string') {
+            const isSafe = await validateSafeUrl(data.config.url);
+            if (!isSafe) {
+                return res.status(400).json({ message: "Invalid or unsafe external URL" });
+            }
+        }
 
         /* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any */
         const dataSource = await dataSourceService.createDataSource({
@@ -188,6 +195,13 @@ dataSourceRouter.patch('/:id', asyncHandler(async (req, res) => {
         });
 
         const data = schema.parse(req.body);
+        
+        if (data.config && typeof data.config.url === 'string') {
+            const isSafe = await validateSafeUrl(data.config.url);
+            if (!isSafe) {
+                return res.status(400).json({ message: "Invalid or unsafe external URL" });
+            }
+        }
 
         const dataSource = await dataSourceService.updateDataSource(id, tenantId, data);
         res.json(dataSource);

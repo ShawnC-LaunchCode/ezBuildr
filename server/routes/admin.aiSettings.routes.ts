@@ -1,4 +1,5 @@
 import { desc, gte, and, eq } from "drizzle-orm";
+import { z } from "zod";
 
 import { aiWorkflowFeedback } from "../../shared/schema";
 import { db } from "../db";
@@ -39,11 +40,14 @@ export function registerAdminAiSettingsRoutes(app: Express): void {
             if (!req.adminUser) {
                 return res.status(401).json({ message: "Unauthorized" });
             }
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            const { systemPrompt } = req.body;
-            if (!systemPrompt || typeof systemPrompt !== 'string' || systemPrompt.length < 10) {
-                return res.status(400).json({ message: "Invalid system prompt. Must be a string of at least 10 characters." });
+            const updateSchema = z.object({
+                systemPrompt: z.string().min(10, "Invalid system prompt. Must be a string of at least 10 characters.")
+            });
+            const validation = updateSchema.safeParse(req.body);
+            if (!validation.success) {
+                return res.status(400).json({ message: validation.error.errors[0].message });
             }
+            const { systemPrompt } = validation.data;
             const updated = await aiSettingsService.updateGlobalSettings(systemPrompt, req.adminUser.id);
             logger.info(
                 { adminId: req.adminUser.id, promptLength: systemPrompt.length },
