@@ -410,14 +410,14 @@ export default function AdminLogs() {
                   <span className="font-semibold block text-gray-500">IP Address</span>
                   {selectedLog.ipAddress || "N/A"}
                 </div>
-                <div>
+                <div className="break-words">
                   <span className="font-semibold block text-gray-500">User Agent</span>
                   {selectedLog.userAgent || "N/A"}
                 </div>
               </div>
               <div>
                 <span className="font-semibold block text-gray-500 mb-2 text-sm">Raw JSON</span>
-                <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto text-xs font-mono border">
+                <pre className="bg-gray-50 p-4 rounded-md whitespace-pre-wrap break-all text-xs font-mono border max-h-[400px] overflow-y-auto">
                   {JSON.stringify(selectedLog, null, 2)}
                 </pre>
               </div>
