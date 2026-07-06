@@ -168,8 +168,19 @@ export class ActivityLogRepository {
     ];
 
     // Determine sort order
-    const orderDirection = sort === "timestamp_asc" ? sql`ASC` : sql`DESC`;
-    const orderBy = sql`ORDER BY ${sql.raw(this.col(this.columns.timestamp))} ${orderDirection}`;
+    const [sortCol, sortDir] = sort.split('_');
+    const orderDirection = sortDir === "asc" ? sql`ASC` : sql`DESC`;
+    
+    let orderColumn = sql`timestamp`;
+    switch (sortCol) {
+      case 'event': orderColumn = sql`event`; break;
+      case 'actorEmail': orderColumn = sql`"actorEmail"`; break;
+      case 'entityType': orderColumn = sql`"entityType"`; break;
+      case 'ipAddress': orderColumn = sql`"ipAddress"`; break;
+      case 'userAgent': orderColumn = sql`"userAgent"`; break;
+      case 'status': orderColumn = sql`status`; break;
+    }
+    const orderBy = sql`ORDER BY ${orderColumn} ${orderDirection} NULLS LAST`;
 
     const dataQuery = sql`
       SELECT ${sql.join(selectColumns, sql`, `)}

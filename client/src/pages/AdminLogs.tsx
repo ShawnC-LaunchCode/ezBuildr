@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Download, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, Search, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
 import { useState, useEffect } from "react";
 
 import Header from "@/components/layout/Header";
@@ -45,7 +45,20 @@ export default function AdminLogs() {
   const [statusFilter, _setStatusFilter] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [sortOrder, setSortOrder] = useState<"timestamp_desc" | "timestamp_asc">("timestamp_desc");
+  const [sortOrder, setSortOrder] = useState<string>("timestamp_desc");
+
+  const handleSort = (column: string) => {
+    setSortOrder((prev) => {
+      const [prevCol, prevDir] = prev.split("_");
+      if (prevCol === column) {
+        return `${column}_${prevDir === "asc" ? "desc" : "asc"}`;
+      }
+      return `${column}_desc`;
+    });
+  };
+
+  const sortColumn = sortOrder.split("_")[0];
+  const sortDirection = sortOrder.split("_")[1];
 
   // Pagination state
   const [page, setPage] = useState(0);
@@ -261,13 +274,27 @@ export default function AdminLogs() {
                 <table className="min-w-[1400px] w-full text-sm">
                   <thead className="bg-gray-50 border-b">
                     <tr className="text-left">
-                      <th className="px-4 py-3 font-medium text-gray-700">Time</th>
-                      <th className="px-4 py-3 font-medium text-gray-700">Event</th>
-                      <th className="px-4 py-3 font-medium text-gray-700">Actor Email</th>
-                      <th className="px-4 py-3 font-medium text-gray-700">Entity</th>
-                      <th className="px-4 py-3 font-medium text-gray-700">IP Address</th>
-                      <th className="px-4 py-3 font-medium text-gray-700">User Agent</th>
-                      <th className="px-4 py-3 font-medium text-gray-700">Status</th>
+                      <th className="px-4 py-3 font-medium text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('timestamp')}>
+                        <div className="flex items-center gap-1">Time {sortColumn === 'timestamp' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
+                      </th>
+                      <th className="px-4 py-3 font-medium text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('event')}>
+                        <div className="flex items-center gap-1">Event {sortColumn === 'event' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
+                      </th>
+                      <th className="px-4 py-3 font-medium text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('actorEmail')}>
+                        <div className="flex items-center gap-1">Actor Email {sortColumn === 'actorEmail' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
+                      </th>
+                      <th className="px-4 py-3 font-medium text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('entityType')}>
+                        <div className="flex items-center gap-1">Entity {sortColumn === 'entityType' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
+                      </th>
+                      <th className="px-4 py-3 font-medium text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('ipAddress')}>
+                        <div className="flex items-center gap-1">IP Address {sortColumn === 'ipAddress' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
+                      </th>
+                      <th className="px-4 py-3 font-medium text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('userAgent')}>
+                        <div className="flex items-center gap-1">User Agent {sortColumn === 'userAgent' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
+                      </th>
+                      <th className="px-4 py-3 font-medium text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('status')}>
+                        <div className="flex items-center gap-1">Status {sortColumn === 'status' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
+                      </th>
                       <th className="px-4 py-3 font-medium text-gray-700">Metadata</th>
                     </tr>
                   </thead>

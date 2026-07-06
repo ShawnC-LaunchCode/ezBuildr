@@ -47,7 +47,7 @@ export type ActivityLogQuery = {
   offset?: number;                // Pagination offset (default: 0)
 
   // Sorting
-  sort?: "timestamp_desc" | "timestamp_asc";  // Sort order (default: timestamp_desc)
+  sort?: string;  // Sort order (default: timestamp_desc)
 };
 
 /**

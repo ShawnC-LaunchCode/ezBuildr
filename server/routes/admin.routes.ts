@@ -697,7 +697,7 @@ export function registerAdminRoutes(app: Express): void {
         limit: req.query.limit ? Number(req.query.limit) : 50,
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         offset: req.query.offset ? Number(req.query.offset) : 0,
-        sort: (req.query.sort as "timestamp_desc" | "timestamp_asc") || "timestamp_desc",
+        sort: (req.query.sort as string) || "timestamp_desc",
       };
 
       const result = await activityLogService.list(query);
