@@ -15,8 +15,7 @@ import {
   generateSampleData,
   compareTemplates,
 } from '../services/TemplateAnalysisService';
-import { createError } from '../utils/errors';
-
+import { aclService } from '../services/AclService';
 import type { Express } from 'express';
 
 const router = express.Router();
@@ -37,6 +36,12 @@ router.get(
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!projectId || typeof projectId !== 'string') {
       throw createError.validation('projectId query parameter is required');
+    }
+
+    const userId = (req as any).user?.id || (req as any).userId;
+    const hasAccess = await aclService.hasProjectRole(userId, projectId, 'view');
+    if (!hasAccess) {
+      throw createError.forbidden('Access denied to project');
     }
 
     // Verify template exists and user has access
@@ -73,6 +78,12 @@ router.post(
       throw createError.validation('projectId query parameter is required');
     }
 
+    const userId = (req as any).user?.id || (req as any).userId;
+    const hasAccess = await aclService.hasProjectRole(userId, projectId, 'view');
+    if (!hasAccess) {
+      throw createError.forbidden('Access denied to project');
+    }
+
     // Validate request body
     const body = validateSchema.parse(req.body);
 
@@ -102,6 +113,12 @@ router.post(
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!projectId || typeof projectId !== 'string') {
       throw createError.validation('projectId query parameter is required');
+    }
+
+    const userId = (req as any).user?.id || (req as any).userId;
+    const hasAccess = await aclService.hasProjectRole(userId, projectId, 'view');
+    if (!hasAccess) {
+      throw createError.forbidden('Access denied to project');
     }
 
     // Verify template exists and user has access
@@ -135,6 +152,12 @@ router.post(
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!projectId || typeof projectId !== 'string') {
       throw createError.validation('projectId query parameter is required');
+    }
+
+    const userId = (req as any).user?.id || (req as any).userId;
+    const hasAccess = await aclService.hasProjectRole(userId, projectId, 'view');
+    if (!hasAccess) {
+      throw createError.forbidden('Access denied to project');
     }
 
     // Validate request body

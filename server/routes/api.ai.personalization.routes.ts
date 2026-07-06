@@ -2,11 +2,12 @@
 import { eq } from "drizzle-orm";
 import { Router } from "express";
 
-import { userPersonalizationSettings, workflowPersonalizationSettings } from "../../shared/schema";
+import { userPersonalizationSettings, workflowPersonalizationSettings, workflows } from "../../shared/schema";
 import { db } from "../db";
 import { personalizationService } from "../lib/ai/personalization";
 import { createLogger } from '../logger';
 import { hybridAuth } from "../middleware/auth";
+import { requireAssetAccess } from "../utils/ownershipAccess";
 import { asyncHandler } from '../utils/asyncHandler';
 
 const logger = createLogger({ module: 'ai-personalization-routes' });
@@ -31,13 +32,23 @@ const getUserContext = asyncHandler(async (req: any, res: any, next: any) => {
         let workflowSettings: unknown = undefined;
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Express req body
         if (req.body.workflowId !== null && req.body.workflowId !== undefined) {
-            const [ws] = await db
-                .select()
-                .from(workflowPersonalizationSettings)
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access -- Express req body
-                .where(eq(workflowPersonalizationSettings.workflowId, req.body.workflowId))
-                .limit(1);
-            workflowSettings = ws;
+            const workflowId = req.body.workflowId;
+            const workflow = await db.query.workflows.findFirst({
+                where: eq(workflows.id, workflowId)
+            });
+            
+            if (workflow) {
+                // Verify user has access to this workflow
+                await requireAssetAccess(userId, workflow.ownerType, workflow.ownerUuid, 'workflow');
+                
+                const [ws] = await db
+                    .select()
+                    .from(workflowPersonalizationSettings)
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+                    .where(eq(workflowPersonalizationSettings.workflowId, workflowId))
+                    .limit(1);
+                workflowSettings = ws;
+            }
         }
 
         // Default fallback if no settings found

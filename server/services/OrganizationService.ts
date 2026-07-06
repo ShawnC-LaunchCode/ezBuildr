@@ -370,6 +370,20 @@ export class OrganizationService {
   ): Promise<void> {
     // Verify admin access
     await requireOrgAdmin(adminUserId, orgId);
+    
+    // Verify target user is in the same tenant
+    const targetUser = await db.query.users.findFirst({
+      where: eq(users.id, targetUserId),
+      columns: { tenantId: true },
+    });
+    const org = await db.query.organizations.findFirst({
+      where: eq(organizations.id, orgId),
+      columns: { tenantId: true },
+    });
+    if (!targetUser || !org || targetUser.tenantId !== org.tenantId) {
+      throw new Error('User does not belong to the same tenant as the organization');
+    }
+
     // Check if user already a member
     const alreadyMember = await isOrgMember(targetUserId, orgId);
     if (alreadyMember) {

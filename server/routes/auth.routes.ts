@@ -51,7 +51,7 @@ async function validateCredentials(email: string, password: string, req: Request
     throw new InvalidCredentialsError();
   }
   // CHECK ACCOUNT LOCK
-  const lockStatus = await accountLockoutService.isAccountLocked(user.id);
+  const lockStatus = await accountLockoutService.isAccountLocked(user.id, email, req.ip);
   if (lockStatus.locked) {
     logger.warn({ userId: user.id, email }, 'Login blocked: account locked');
     throw new AccountLockedError(lockStatus.lockedUntil);
@@ -206,7 +206,12 @@ export function registerAuthRoutes(app: Express): void {
       const pwdValidation = authService.validatePasswordStrength(password, userInputs);
       if (!pwdValidation.valid) { return res.status(400).json({ message: pwdValidation.message, error: 'weak_password' }); }
       const existingUser = await userRepository.findByEmail(email);
-      if (existingUser) { return res.status(409).json({ message: 'User already exists', error: 'user_exists' }); }
+      if (existingUser) { 
+        // Generic messaging for account enumeration prevention
+        return res.status(201).json({ 
+          message: 'Registration successful. Please verify your email.' 
+        }); 
+      }
       const userId = crypto.randomUUID();
       const user = await userRepository.create({
         id: userId,

@@ -314,6 +314,10 @@ export function registerOrganizationRoutes(app: Express): void {
         return res.status(400).json({ message: 'userId is required' });
       }
 
+      if (role !== 'admin' && role !== 'member') {
+        return res.status(400).json({ message: 'Invalid role' });
+      }
+
       await organizationService.addMember(orgId, targetUserId, userId, role);
 
       logger.info({ orgId, targetUserId, role, adminUserId: userId }, 'Member added to organization');

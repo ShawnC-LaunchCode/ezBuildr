@@ -17,38 +17,6 @@ export interface OwnershipInfo {
  *
  * Rules:
  * - User-owned assets: only the owner can access
- * - Org-owned assets: any member of the org can access
- * - Null ownership: legacy data, allow access (for now)
- *
- * @param userId - The user attempting access
- * @param ownerType - 'user' or 'org'
- * @param ownerUuid - UUID of the owner (user or org)
- * @returns true if user has access, false otherwise
- */
-export async function canAccessAsset(
-  userId: string,
-  ownerType: 'user' | 'org' | null,
-  ownerUuid: string | null
-): Promise<boolean> {
-  // Null ownership - legacy data, allow access for backward compatibility
-  if (!ownerType || !ownerUuid) {
-    return true;
-  }
-  // User-owned asset - only owner can access
-  if (ownerType === 'user') {
-    return ownerUuid === userId;
-  }
-  // Org-owned asset - check membership
-  if (ownerType === 'org') {
-    return isOrgMember(userId, ownerUuid);
-  }
-  return false;
-}
-/**
- * Check if a user is a member of an organization
- *
- * @param userId - The user ID
- * @param orgId - The organization ID
  * @returns true if user is a member, false otherwise
  */
 export async function isOrgMember(userId: string, orgId: string): Promise<boolean> {

@@ -132,6 +132,10 @@ export function registerDocumentRoutes(app: Express): void {
           res.status(403).json({ message: 'Forbidden - insufficient permissions for this document' });
           return;
         }
+      } else {
+        logger.warn({ userId, documentId: id }, 'User denied access to project-less document');
+        res.status(403).json({ message: 'Forbidden - project-less templates are not accessible' });
+        return;
       }
       logger.info({ documentId: id, userId }, 'Fetched document');
       res.json({

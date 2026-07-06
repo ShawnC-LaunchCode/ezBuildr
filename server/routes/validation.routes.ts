@@ -3,12 +3,13 @@
 import { eq } from "drizzle-orm";
 import { Router } from "express";
 
-import { steps } from "@shared/schema";
+import { steps, workflows } from "@shared/schema";
 import { getValidationSchema } from "@shared/validation/BlockValidation";
 import { validatePage } from "@shared/validation/PageValidator";
 
 import { db } from "../db"; // Correct path: ../db because we are in server/routes/
 import { logger } from "../logger"; // Correct path: ../logger
+import { requireAssetAccess } from "../utils/ownershipAccess";
 import { asyncHandler } from "../utils/asyncHandler";
 
 export const validationRouter = Router();
@@ -19,12 +20,31 @@ export const validationRouter = Router();
  * Validates a page of answers server-side.
  * Payload: { sectionId: string, values: Record<string, any> }
  */
-validationRouter.post("/api/workflows/:workflowId/validate-page", asyncHandler(async (req, res) => {
+validationRouter.post("/api/workflows/:workflowId/validate-page", hybridAuth, asyncHandler(async (req, res) => {
     const { workflowId } = req.params;
     const { sectionId, values, allValues } = req.body;
 
     if (!sectionId || !values) {
         return res.status(400).json({ valid: false, error: "Missing sectionId or values" });
+    }
+
+    const userId = (req as any).user?.id || (req as any).userId;
+    if (!userId) {
+        return res.status(401).json({ valid: false, error: "Unauthorized" });
+    }
+
+    const workflow = await db.query.workflows.findFirst({
+        where: eq(workflows.id, workflowId)
+    });
+
+    if (!workflow) {
+        return res.status(404).json({ valid: false, error: "Workflow not found" });
+    }
+
+    try {
+        await requireAssetAccess(userId, workflow.ownerType, workflow.ownerUuid, 'workflow');
+    } catch (e) {
+        return res.status(403).json({ valid: false, error: "Access denied to workflow" });
     }
 
     try {

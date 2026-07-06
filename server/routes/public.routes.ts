@@ -62,25 +62,51 @@ router.post("/w/:slug/run", asyncHandler(async (req: Request, res: Response) => 
 // Complete Workflow (Simulator)
 router.post("/w/:slug/complete", asyncHandler(async (req: Request, res: Response) => {
     const { slug } = req.params;
-    const { runId, payload } = req.body;
+    const { runId } = req.body;
 
     // Find workflow to get workspaceId
     const workflow = await db.query.workflows.findFirst({
         where: eq(workflows.slug, slug)
     });
 
-    // eslint-disable-next-line sonarjs/no-collapsible-if
-    if (workflow) {
-        // Trigger Webhook
-        if (workflow.projectId) {
-            await WebhookDispatcher.dispatch(workflow.projectId, 'run.completed', {
-                event: 'run.completed',
-                workflowId: workflow.id,
-                runId: runId,
-                data: payload,
-                timestamp: new Date().toISOString()
-            });
-        }
+    // Verify workflow exists and run exists
+    if (!workflow) {
+        return res.status(404).json({ error: "Workflow not found" });
+    }
+
+    // Attempt to resolve real run from DB
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic run query
+    const run = await db.query.workflowRuns.findFirst({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        where: eq(require('@shared/schema').workflowRuns.id, runId)
+    });
+
+    if (!run || run.workflowId !== workflow.id) {
+        return res.status(404).json({ error: "Run not found or invalid for workflow" });
+    }
+
+    // Construct Server-Side Payload from actual database records
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const values = await db.query.stepValues.findMany({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        where: eq(require('@shared/schema').stepValues.runId, run.id)
+    });
+
+    const serverPayload = values.reduce((acc, curr) => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        acc[curr.stepId] = curr.value;
+        return acc;
+    }, {} as Record<string, unknown>);
+
+    // Trigger Webhook
+    if (workflow.projectId) {
+        await WebhookDispatcher.dispatch(workflow.projectId, 'run.completed', {
+            event: 'run.completed',
+            workflowId: workflow.id,
+            runId: run.id,
+            data: serverPayload,
+            timestamp: new Date().toISOString()
+        });
     }
 
     res.json({ status: "completed" });

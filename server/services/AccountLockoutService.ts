@@ -28,56 +28,23 @@ export class AccountLockoutService {
             successful,
             attemptedAt: new Date()
         });
-
-        if (!successful) {
-            await this.checkAndLockAccount(email);
-        } else {
-            // Successful login - account not locked
-            // Old failed attempts will be cleaned up by cleanup job
-        }
     }
 
     /**
      * Check if account should be locked based on failed attempts
      */
     async checkAndLockAccount(email: string): Promise<void> {
-        const windowStart = new Date(Date.now() - ATTEMPT_WINDOW_MINUTES * 60 * 1000);
-
-        const recentFailedAttempts = await this.db.query.loginAttempts.findMany({
-            where: and(
-                eq(loginAttempts.email, email),
-                eq(loginAttempts.successful, false),
-                gte(loginAttempts.attemptedAt, windowStart)
-            )
-        });
-
-        if (recentFailedAttempts.length >= MAX_FAILED_ATTEMPTS) {
-            const user = await this.db.query.users.findFirst({
-                where: eq(users.email, email)
-            });
-
-            if (user) {
-                const lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MINUTES * 60 * 1000);
-
-                await this.db.insert(accountLocks).values({
-                    userId: user.id,
-                    lockedAt: new Date(),
-                    lockedUntil,
-                    reason: 'too_many_failed_attempts',
-                    unlocked: false
-                });
-
-                log.warn({ userId: user.id, email, lockedUntil }, 'Account locked due to too many failed attempts');
-            }
-        }
+        // No-op: We now evaluate lockouts dynamically based on (Email, IP) in isAccountLocked
+        // This prevents targeted DoS attacks that intentionally lock out legitimate users globally.
     }
 
     /**
-     * Check if account is currently locked
+     * Check if account is currently locked for a specific IP or manually locked
      */
-    async isAccountLocked(userId: string): Promise<{ locked: boolean; lockedUntil?: Date }> {
+    async isAccountLocked(userId: string, email?: string, ipAddress?: string): Promise<{ locked: boolean; lockedUntil?: Date }> {
         const now = new Date();
 
+        // 1. Check for manual/administrative global locks
         const activeLock = await this.db.query.accountLocks.findFirst({
             where: and(
                 eq(accountLocks.userId, userId),
@@ -89,6 +56,28 @@ export class AccountLockoutService {
 
         if (activeLock) {
             return { locked: true, lockedUntil: activeLock.lockedUntil };
+        }
+
+        // 2. Check for dynamic (Email + IP) automatic lockout
+        if (email && ipAddress) {
+            const windowStart = new Date(Date.now() - ATTEMPT_WINDOW_MINUTES * 60 * 1000);
+            const recentFailedAttempts = await this.db.query.loginAttempts.findMany({
+                where: and(
+                    eq(loginAttempts.email, email),
+                    eq(loginAttempts.ipAddress, ipAddress),
+                    eq(loginAttempts.successful, false),
+                    gte(loginAttempts.attemptedAt, windowStart)
+                )
+            });
+
+            if (recentFailedAttempts.length >= MAX_FAILED_ATTEMPTS) {
+                const mostRecent = recentFailedAttempts.sort((a, b) => b.attemptedAt!.getTime() - a.attemptedAt!.getTime())[0];
+                const lockedUntil = new Date(mostRecent.attemptedAt!.getTime() + LOCKOUT_DURATION_MINUTES * 60 * 1000);
+                
+                if (lockedUntil > now) {
+                    return { locked: true, lockedUntil };
+                }
+            }
         }
 
         return { locked: false };

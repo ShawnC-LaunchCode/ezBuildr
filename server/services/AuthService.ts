@@ -145,7 +145,11 @@ export class AuthService {
         if (!JWT_SECRET) { throw new Error('JWT not configured'); }
 
         try {
-            return jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as JWTPayload;
+            const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as any;
+            if (payload.portal) {
+                throw new InvalidTokenError('Portal tokens cannot be used as access tokens');
+            }
+            return payload as JWTPayload;
         } catch (error) {
             if (error instanceof jwt.TokenExpiredError) {
                 throw new TokenExpiredError('Token has expired');

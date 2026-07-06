@@ -6,9 +6,19 @@ import { _AnalyzeWorkflowSchema, _ApplyFixesSchema } from "@shared/types/optimiz
 import { logger } from '../logger';
 import { workflowOptimizationService } from "../services/ai/WorkflowOptimizationService";
 import { asyncHandler } from '../utils/asyncHandler';
+import { hybridAuth } from "../middleware/auth";
+import { rateLimit } from 'express-rate-limit';
+
 const router = Router();
+
+const optimizeRateLimit = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: { error: "Too many optimization requests" }
+});
+
 // POST /api/ai/workflows/optimize/analyze
-router.post("/analyze", asyncHandler(async (req, res) => {
+router.post("/analyze", hybridAuth, optimizeRateLimit, asyncHandler(async (req, res) => {
     try {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars -- workflowId may be used in future
         const { workflow, workflowId, ...options } = req.body;
@@ -26,7 +36,7 @@ router.post("/analyze", asyncHandler(async (req, res) => {
     }
 }));
 // POST /api/ai/workflows/optimize/apply
-router.post("/apply", asyncHandler(async (req, res) => {
+router.post("/apply", hybridAuth, optimizeRateLimit, asyncHandler(async (req, res) => {
     try {
         const { workflow, fixes } = req.body;
         if (!workflow || !fixes || !Array.isArray(fixes)) {
