@@ -3,7 +3,8 @@ import { Router, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
 
-import { eq } from "drizzle-orm";
+import { eq, and, gt } from "drizzle-orm";
+import jwt from "jsonwebtoken";
 import { invalidatedTokens } from "@shared/schema/auth";
 
 import { db } from "../db";
@@ -58,7 +59,7 @@ const requirePortalAuth = asyncHandler(async (req: Request, res: Response, next:
     
     // Check DB for invalidated token
     const revoked = await db.query.invalidatedTokens.findFirst({
-        where: eq(invalidatedTokens.token, token)
+        where: and(eq(invalidatedTokens.token, token), gt(invalidatedTokens.expiresAt, new Date()))
     });
     
     if (revoked) {
@@ -141,9 +142,11 @@ router.post("/auth/logout", asyncHandler(async (req: Request, res: Response) => 
     if (authHeader?.startsWith("Bearer ")) {
         const token = authHeader.substring(7);
         try {
-            await db.insert(invalidatedTokens).values({ token });
+            const decoded = jwt.decode(token) as { exp?: number } | null;
+            const expiresAt = decoded?.exp ? new Date(decoded.exp * 1000) : new Date(Date.now() + 24*60*60*1000);
+            await db.insert(invalidatedTokens).values({ token, expiresAt }).onConflictDoNothing();
         } catch (e) {
-            // Ignore duplicate key errors if token is already revoked
+            // Ignore errors
         }
     }
     res.json({ success: true });
@@ -174,7 +177,7 @@ router.get("/me", asyncHandler(async (req: Request, res: Response) => {
     if (authHeader?.startsWith("Bearer ")) {
         const token = authHeader.substring(7);
         const revoked = await db.query.invalidatedTokens.findFirst({
-            where: eq(invalidatedTokens.token, token)
+            where: and(eq(invalidatedTokens.token, token), gt(invalidatedTokens.expiresAt, new Date()))
         });
         if (!revoked) {
             try {

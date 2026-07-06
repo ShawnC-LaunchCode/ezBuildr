@@ -88,7 +88,8 @@ async function executeWebhookWithRetries(params: {
 
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
-      const response = await fetch(url, {
+      const { safeFetch } = await import('../../utils/safeFetch');
+      const response = await safeFetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',

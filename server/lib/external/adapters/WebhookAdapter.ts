@@ -39,7 +39,8 @@ export class WebhookAdapter implements DestinationAdapter {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-            const response = await fetch(url, {
+            const { safeFetch } = await import('../../../utils/safeFetch');
+            const response = await safeFetch(url, {
                 method,
                 headers: fetchHeaders,
                 body: JSON.stringify(payload),

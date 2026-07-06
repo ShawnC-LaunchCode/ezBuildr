@@ -6,6 +6,8 @@ import { webhookSubscriptions, webhookEvents } from "@shared/schema";
 
 import { db } from "../../db";
 import { logger } from "../../logger";
+import { safeFetch } from "../../utils/safeFetch";
+
 export class WebhookDispatcher {
     /**
      * Dispatch an event to all subscribed listeners in a workspace
@@ -59,12 +61,14 @@ export class WebhookDispatcher {
         try {
             // Sign payload
             const signature = this.signPayload(payload, secret);
-            const res = await fetch(url, {
+            const res = await safeFetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'User-Agent': 'ezBuildr-Webhook-Dispatcher/1.0',
+                    'X-ezBuildr-Signature': signature,
                     'X-ezBuildr-Event': event,
-                    'X-ezBuildr-Signature': signature
+                    'X-ezBuildr-Delivery': (payload as any).id
                 },
                 body: JSON.stringify(payload)
             });

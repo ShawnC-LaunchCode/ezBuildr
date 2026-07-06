@@ -10,7 +10,8 @@ import {
     passwordResetTokens,
     emailVerificationTokens,
     users,
-    type User
+    type User,
+    invalidatedTokens
 } from "@shared/schema";
 
 
@@ -623,6 +624,9 @@ export class AuthService {
 
         await this.db.delete(emailVerificationTokens)
             .where(lt(emailVerificationTokens.expiresAt, now));
+
+        await this.db.delete(invalidatedTokens)
+            .where(lt(invalidatedTokens.expiresAt, now));
 
         // Cleanup old login attempts (30 days retention)
         await accountLockoutService.cleanupOldAttempts();

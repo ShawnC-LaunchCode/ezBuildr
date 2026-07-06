@@ -426,7 +426,8 @@ async function executeWithRetries(config: {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), config.timeoutMs);
-      const response = await fetch(config.url, {
+      const { safeFetch } = await import('../../utils/safeFetch');
+      const response = await safeFetch(config.url, {
         method: config.method,
         headers: config.headers,
         body: config.body ? JSON.stringify(config.body) : undefined,

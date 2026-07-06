@@ -270,7 +270,8 @@ async function sendEmailNotification(email: string, data: NotificationData): Pro
  */
 async function sendWebhookNotification(webhookUrl: string, data: NotificationData): Promise<void> {
   try {
-    const response = await fetch(webhookUrl, {
+    const { safeFetch } = await import('../utils/safeFetch');
+    const response = await safeFetch(webhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

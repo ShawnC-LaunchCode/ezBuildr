@@ -1,5 +1,16 @@
 import { URL } from "url";
 import dns from "dns/promises";
+export const isInternalIp = (ip: string) => {
+    // IPv4 private ranges
+    if (/^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|169\.254\.)/.test(ip)) {
+        return true;
+    }
+    // IPv6 local/private ranges
+    if (/^([fF][cCdD]|fe80|::1)/.test(ip)) {
+        return true;
+    }
+    return false;
+};
 
 /**
  * Validates a URL for SSRF protection.
@@ -27,18 +38,6 @@ export async function validateSafeUrl(targetUrl: string, allowedProtocols = ["ht
 
         // DNS resolution to catch DNS rebinding to internal IPs
         const addresses = await dns.resolve(parsed.hostname);
-        
-        const isInternalIp = (ip: string) => {
-            // IPv4 private ranges
-            if (/^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|169\.254\.)/.test(ip)) {
-                return true;
-            }
-            // IPv6 local/private ranges
-            if (/^([fF][cCdD]|fe80|::1)/.test(ip)) {
-                return true;
-            }
-            return false;
-        };
 
         for (const addr of addresses) {
             if (isInternalIp(addr)) {

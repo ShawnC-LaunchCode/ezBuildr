@@ -10,7 +10,44 @@ import { dataSourceService } from '../services/DataSourceService';
 import { workflowService } from '../services/WorkflowService';
 import { asyncHandler } from '../utils/asyncHandler';
 
+
+const nativeConfigSchema = z.object({});
+const externalConfigSchema = z.object({
+    url: z.string().url(),
+}).passthrough();
+const postgresConfigSchema = z.object({
+    connectionString: z.string().optional(),
+    host: z.string().optional(),
+    port: z.number().int().optional(),
+    database: z.string().optional(),
+    user: z.string().optional(),
+    password: z.string().optional(),
+    ssl: z.boolean().optional()
+}).refine(c => c.connectionString || c.host, 'need connectionString or host');
+const airtableConfigSchema = z.object({
+    apiUrl: z.string().url().optional(),
+    baseId: z.string(),
+    apiKey: z.string(),
+});
+const googleSheetsConfigSchema = z.object({
+    spreadsheetId: z.string(),
+    credentials: z.any().optional(),
+});
+const nativeTableConfigSchema = z.object({
+    tableId: z.string().optional(),
+});
+
+const dataSourceConfigUnion = z.discriminatedUnion('type', [
+    z.object({ type: z.literal('external'), name: z.string().min(1).max(255), description: z.string().optional(), scopeType: z.enum(['account', 'project', 'workflow']).default('account'), scopeId: z.string().uuid().optional(), config: externalConfigSchema }),
+    z.object({ type: z.literal('postgres'), name: z.string().min(1).max(255), description: z.string().optional(), scopeType: z.enum(['account', 'project', 'workflow']).default('account'), scopeId: z.string().uuid().optional(), config: postgresConfigSchema }),
+    z.object({ type: z.literal('airtable'), name: z.string().min(1).max(255), description: z.string().optional(), scopeType: z.enum(['account', 'project', 'workflow']).default('account'), scopeId: z.string().uuid().optional(), config: airtableConfigSchema }),
+    z.object({ type: z.literal('google_sheets'), name: z.string().min(1).max(255), description: z.string().optional(), scopeType: z.enum(['account', 'project', 'workflow']).default('account'), scopeId: z.string().uuid().optional(), config: googleSheetsConfigSchema }),
+    z.object({ type: z.literal('native'), name: z.string().min(1).max(255), description: z.string().optional(), scopeType: z.enum(['account', 'project', 'workflow']).default('account'), scopeId: z.string().uuid().optional(), config: nativeConfigSchema }),
+    z.object({ type: z.literal('native_table'), name: z.string().min(1).max(255), description: z.string().optional(), scopeType: z.enum(['account', 'project', 'workflow']).default('account'), scopeId: z.string().uuid().optional(), config: nativeTableConfigSchema }),
+]);
+
 export const dataSourceRouter = Router();
+
 
 // Apply auth to all routes
 dataSourceRouter.use(hybridAuth);
@@ -143,16 +180,7 @@ dataSourceRouter.post('/', asyncHandler(async (req, res) => {
     try {
         const tenantId = getTenant(req);
 
-        const schema = z.object({
-            name: z.string().min(1).max(255),
-            description: z.string().optional(),
-            type: z.enum(['native', 'native_table', 'postgres', 'google_sheets', 'airtable', 'external']),
-            config: z.record(z.any()).default({}),
-            scopeType: z.enum(['account', 'project', 'workflow']).default('account'),
-            scopeId: z.string().uuid().optional(),
-        });
-
-        const data = schema.parse(req.body);
+        const data = dataSourceConfigUnion.parse(req.body);
         
         // SEC-005: Validate URL/Host for SSRF across all relevant types, not just external
         const checkSsrf = async (urlStr: string, allowedProtocols?: string[]) => {
@@ -214,6 +242,20 @@ dataSourceRouter.patch('/:id', asyncHandler(async (req, res) => {
         });
 
         const data = schema.parse(req.body);
+        if (data.config) {
+            const existing = await dataSourceService.getDataSource(id, tenantId);
+            if (!existing) { return res.status(404).json({message: "Not found"}); }
+            
+            // Validate config against the proper schema based on existing type
+            const typeForValidation = existing.type;
+            const fullDataForValidation = { 
+                type: typeForValidation, 
+                name: data.name ?? existing.name, 
+                description: data.description ?? existing.description,
+                config: data.config 
+            };
+            dataSourceConfigUnion.parse(fullDataForValidation);
+        }
         
         // SEC-005: Validate URL/Host for SSRF across all relevant types, not just external
         const checkSsrf = async (urlStr: string, allowedProtocols?: string[]) => {

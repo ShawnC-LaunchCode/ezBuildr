@@ -107,7 +107,8 @@ export class ExternalSendRunner {
             const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
             try {
-                const response = await fetch(destConfig.url, {
+                const { safeFetch } = await import('../../utils/safeFetch');
+                const response = await safeFetch(destConfig.url, {
                     method: destConfig.method ?? 'POST',
                     headers: {
                         'Content-Type': 'application/json',

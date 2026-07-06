@@ -450,7 +450,8 @@ export async function testConnection(
     await assertOutboundUrlAllowed(connection.baseUrl);
 
     // Make test request
-    const response = await fetch(connection.baseUrl, {
+    const { safeFetch } = await import('../utils/safeFetch');
+    const response = await safeFetch(connection.baseUrl, {
       method: 'GET',
       headers,
       signal: AbortSignal.timeout(connection.timeoutMs),
