@@ -1,10 +1,19 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
+import apicache from "apicache";
 
 import { creatorOrRunTokenAuth } from "../middleware/runTokenAuth";
 import { googlePlacesService } from "../services/GooglePlacesService";
 import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
+const cache = apicache.middleware;
+
+const placesRateLimit = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 60, // 60 requests per minute
+    message: { error: "Too many places requests" }
+});
 
 // Allow either standard user session/JWT OR a valid run token (for preview/public runners)
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
@@ -20,7 +29,7 @@ router.use(creatorOrRunTokenAuth);
 // Actually, looking at `routes/index.ts`: `registerAuthRoutes(app)` etc.
 // `server/middleware/auth.ts` probably exists. 
 
-router.get("/autocomplete", asyncHandler(async (req, res) => {
+router.get("/autocomplete", placesRateLimit, cache("15 minutes"), asyncHandler(async (req, res) => {
     try {
         const input = req.query.input as string;
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
@@ -41,7 +50,7 @@ router.get("/autocomplete", asyncHandler(async (req, res) => {
     }
 }));
 
-router.get("/details", asyncHandler(async (req, res) => {
+router.get("/details", placesRateLimit, cache("1 hour"), asyncHandler(async (req, res) => {
     try {
         const placeId = req.query.placeId as string;
         if (!placeId) {

@@ -123,7 +123,7 @@ export function registerRunRoutes(app: Express): void {
       if (error instanceof Error) {
         logger.error({
           message: error.message,
-          stack: error.stack,
+          ...(process.env.NODE_ENV === 'development' && { stack: error.stack }),
           name: error.name,
           workflowId: req.params.workflowId
         }, "Error creating run");
@@ -225,7 +225,7 @@ export function registerRunRoutes(app: Express): void {
     } catch (error) {
       const reqWithAuth = req as AuthRequest & RunAuthRequest & { user?: unknown };
       logger.error({
-        error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+        error: error instanceof Error ? { message: error.message, ...(process.env.NODE_ENV === 'development' && { stack: error.stack }) } : error,
         runId: req.params.runId,
         hasUser: reqWithAuth.user != null,
         hasRunAuth: (req as RunAuthRequest).runAuth != null,

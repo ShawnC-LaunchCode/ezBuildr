@@ -532,7 +532,7 @@ export function registerAuthRoutes(app: Express): void {
    */
   app.get('/api/auth/csrf-token', (req, res) => {
     logger.warn({ ip: req.ip, userAgent: req.headers['user-agent'] }, 'DEPRECATED: CSRF token endpoint called. Update client to remove this dependency.');
-    res.json({ csrfToken: "deprecated-no-csrf-needed" });
+    res.status(410).json({ error: "endpoint_deprecated", message: "CSRF protection has been migrated to stateless Bearer tokens" });
   });
   // Cookie-to-Token Exchange (for WebSockets/etc)
   app.get('/api/auth/token', hybridAuth, asyncHandler(async (req: Request, res: Response) => {

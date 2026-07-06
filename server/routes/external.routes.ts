@@ -69,6 +69,13 @@ router.post("/workflows/:id/runs", asyncHandler(async (req, res) => {
             res.status(404).json({ error: "Workflow not found" });
             return;
         }
+
+        // Gate: Only allow runs on 'active' workflows
+        if (workflow.status !== 'active') {
+            res.status(403).json({ error: "Workflow is not active" });
+            return;
+        }
+
         // Create Run (Mock)
         // In real impl, insert into 'survey_results' or 'workflow_runs'
         const runId = `run_${Math.random().toString(36).substring(2, 11)}`;

@@ -33,7 +33,6 @@ interface HealthCheckResponse {
   status: 'healthy' | 'degraded' | 'unhealthy';
   timestamp: string;
   uptime: number;
-  version: string;
   environment: string;
   database: {
     connected: boolean;
@@ -48,7 +47,6 @@ router.get('/health', asyncHandler(async (req: Request, res: Response) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    version: process.env.npm_package_version ?? '1.7.0',
     environment: process.env.NODE_ENV ?? 'development',
     database: {
       connected: false,

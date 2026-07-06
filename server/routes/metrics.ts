@@ -18,15 +18,15 @@ export function registerMetricsRoutes(app: Express): void {
    */
   // eslint-disable-next-line @typescript-eslint/require-await
   app.get('/metrics', asyncHandler(async (req: Request, res: Response) => {
-    // Optional API key protection
+    // Enforce API key protection unless in test environment
+    const isTestEnv = process.env.NODE_ENV === 'test';
     const metricsApiKey = process.env.METRICS_API_KEY;
 
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (metricsApiKey) {
+    if (!isTestEnv) {
       const providedKey = req.headers['x-api-key'] ?? req.query.apiKey;
-
+      
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-      if (!providedKey || providedKey !== metricsApiKey) {
+      if (!providedKey || !metricsApiKey || providedKey !== metricsApiKey) {
         logger.warn({ ip: req.ip }, 'Unauthorized metrics access attempt');
         return res.status(401).json({ message: 'Unauthorized' });
       }

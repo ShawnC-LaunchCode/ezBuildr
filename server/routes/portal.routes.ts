@@ -12,6 +12,9 @@ import { asyncHandler } from "../utils/asyncHandler";
 
 const router = Router();
 
+// In-memory token blacklist for stateless portal tokens
+const tokenBlacklist = new Set<string>();
+
 // SECURITY FIX: Rate limiting for magic link generation
 const magicLinkLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -50,6 +53,10 @@ const requirePortalAuth = (req: Request, res: Response, next: (...args: unknown[
     }
 
     const token = authHeader.substring(7);
+    if (tokenBlacklist.has(token)) {
+        return res.status(401).json({ error: "Token has been invalidated" });
+    }
+
     try {
         const { email } = authService.verifyPortalToken(token);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express augmentation for portal auth
@@ -65,7 +72,7 @@ const requirePortalAuth = (req: Request, res: Response, next: (...args: unknown[
  * Deprecated: CSRF removed in favor of Mutation-Strict Bearer Auth
  */
 router.get("/auth/csrf-token", (req, res) => {
-    res.json({ csrfToken: "deprecated-no-csrf-needed" });
+    res.status(410).json({ error: "endpoint_deprecated", message: "CSRF protection has been migrated to stateless Bearer tokens" });
 });
 
 /**
@@ -121,6 +128,11 @@ router.post("/auth/verify", asyncHandler(async (req: Request, res: Response) => 
  * Stateless - client discards token
  */
 router.post("/auth/logout", (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith("Bearer ")) {
+        const token = authHeader.substring(7);
+        tokenBlacklist.add(token);
+    }
     res.json({ success: true });
 });
 
@@ -148,11 +160,13 @@ router.get("/me", (req, res) => {
     const authHeader = req.headers.authorization;
     if (authHeader?.startsWith("Bearer ")) {
         const token = authHeader.substring(7);
-        try {
-            const { email } = authService.verifyPortalToken(token);
-            return res.json({ authenticated: true, email });
-        } catch {
-            // Invalid token
+        if (!tokenBlacklist.has(token)) {
+            try {
+                const { email } = authService.verifyPortalToken(token);
+                return res.json({ authenticated: true, email });
+            } catch {
+                // Invalid token
+            }
         }
     }
     res.json({ authenticated: false });

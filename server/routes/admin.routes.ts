@@ -747,6 +747,10 @@ export function registerAdminRoutes(app: Express): void {
         offset: 0,
       };
 
+      if (!query.from || !query.to) {
+        return res.status(400).json({ error: "Missing required date boundaries", message: "Date boundaries 'from' and 'to' are required for exports." });
+      }
+
       const { filename, csv } = await activityLogService.exportCsv(query);
 
       logger.info(
