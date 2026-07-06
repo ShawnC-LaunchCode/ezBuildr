@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { getQueryFn } from "@/lib/queryClient";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 
 interface ActivityLog {
@@ -48,6 +49,7 @@ export default function AdminLogs() {
 
   // Pagination state
   const [page, setPage] = useState(0);
+  const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null);
   const [pageSize, setPageSize] = useState(50);
   const limit = pageSize;
 
@@ -271,7 +273,7 @@ export default function AdminLogs() {
                   </thead>
                   <tbody>
                     {logs.map((log) => (
-                      <tr key={log.id} className="border-b hover:bg-gray-50">
+                      <tr key={log.id} className="border-b hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedLog(log)}>
                         <td className="px-4 py-3 whitespace-nowrap text-gray-700">
                           {formatTimestamp(log.timestamp)}
                         </td>
@@ -378,6 +380,51 @@ export default function AdminLogs() {
           )}
         </div>
       </main>
+
+      {/* Log Details Dialog */}
+      <Dialog open={!!selectedLog} onOpenChange={(open) => !open && setSelectedLog(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Activity Log Details</DialogTitle>
+          </DialogHeader>
+          {selectedLog && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-semibold block text-gray-500">Event</span>
+                  {selectedLog.event}
+                </div>
+                <div>
+                  <span className="font-semibold block text-gray-500">Timestamp</span>
+                  {formatTimestamp(selectedLog.timestamp)}
+                </div>
+                <div>
+                  <span className="font-semibold block text-gray-500">Actor</span>
+                  {selectedLog.actorEmail || selectedLog.actorId || "System"}
+                </div>
+                <div>
+                  <span className="font-semibold block text-gray-500">Status</span>
+                  {selectedLog.status || "N/A"}
+                </div>
+                <div>
+                  <span className="font-semibold block text-gray-500">IP Address</span>
+                  {selectedLog.ipAddress || "N/A"}
+                </div>
+                <div>
+                  <span className="font-semibold block text-gray-500">User Agent</span>
+                  {selectedLog.userAgent || "N/A"}
+                </div>
+              </div>
+              <div>
+                <span className="font-semibold block text-gray-500 mb-2 text-sm">Raw JSON</span>
+                <pre className="bg-gray-50 p-4 rounded-md overflow-x-auto text-xs font-mono border">
+                  {JSON.stringify(selectedLog, null, 2)}
+                </pre>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

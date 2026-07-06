@@ -26,6 +26,13 @@ export class ActivityLogRepository {
   }
 
   /**
+   * Helper to safely prefix columns with table name
+   */
+  private col(name: string): string {
+    return `${this.tableName}.${name}`;
+  }
+
+  /**
    * Find activity logs with filtering, pagination, and sorting
    */
   // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
@@ -54,11 +61,11 @@ export class ActivityLogRepository {
     if (q !== null && q !== undefined && q !== '') {
       const qLike = `%${q}%`;
       const searchConditions: SQL[] = [
-        sql`${sql.raw(this.columns.event)} ILIKE ${qLike}`
+        sql`${sql.raw(this.col(this.columns.event))} ILIKE ${qLike}`
       ];
       if (this.columns.actorEmail !== null && this.columns.actorEmail !== undefined) {
         searchConditions.push(
-          sql`${sql.raw(this.columns.actorEmail)} ILIKE ${qLike}`
+          sql`${sql.raw(this.col(this.columns.actorEmail))} ILIKE ${qLike}`
         );
       }
       const orSep = sql` OR `;
@@ -67,7 +74,7 @@ export class ActivityLogRepository {
 
     // Event filter
     if (event !== null && event !== undefined && this.columns.event) {
-      conditions.push(sql`${sql.raw(this.columns.event)} = ${event}`);
+      conditions.push(sql`${sql.raw(this.col(this.columns.event))} = ${event}`);
     }
 
     // Actor filter (use ILIKE for partial email matching, only use ID if it looks like a UUID)
@@ -76,38 +83,38 @@ export class ActivityLogRepository {
       if (this.columns.actorEmail) {
         // Use ILIKE for partial matching (e.g., "scooter" matches "scooter4356@gmail.com")
         const actorLike = `%${actor}%`;
-        conditions.push(sql`${sql.raw(this.columns.actorEmail)} ILIKE ${actorLike}`);
+        conditions.push(sql`${sql.raw(this.col(this.columns.actorEmail))} ILIKE ${actorLike}`);
       } else if (this.columns.actorId !== null && this.columns.actorId !== undefined) {
         // Only try to match by ID if the input looks like a valid UUID
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (uuidRegex.test(actor)) {
-          conditions.push(sql`${sql.raw(this.columns.actorId)} = ${actor}`);
+          conditions.push(sql`${sql.raw(this.col(this.columns.actorId))} = ${actor}`);
         }
       }
     }
 
     // Entity type filter
     if (entityType !== null && entityType !== undefined && this.columns.entityType) {
-      conditions.push(sql`${sql.raw(this.columns.entityType)} = ${entityType}`);
+      conditions.push(sql`${sql.raw(this.col(this.columns.entityType))} = ${entityType}`);
     }
 
     // Entity ID filter
     if (entityId !== null && entityId !== undefined && this.columns.entityId) {
-      conditions.push(sql`${sql.raw(this.columns.entityId)} = ${entityId}`);
+      conditions.push(sql`${sql.raw(this.col(this.columns.entityId))} = ${entityId}`);
     }
 
     // Status filter
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (status !== null && status !== undefined && this.columns.status) {
-      conditions.push(sql`${sql.raw(this.columns.status)} = ${status}`);
+      conditions.push(sql`${sql.raw(this.col(this.columns.status))} = ${status}`);
     }
 
     // Date range filters
     if (from !== null && from !== undefined && this.columns.timestamp) {
-      conditions.push(sql`${sql.raw(this.columns.timestamp)} >= ${from}::timestamptz`);
+      conditions.push(sql`${sql.raw(this.col(this.columns.timestamp))} >= ${from}::timestamptz`);
     }
     if (to !== null && to !== undefined && this.columns.timestamp) {
-      conditions.push(sql`${sql.raw(this.columns.timestamp)} <= ${to}::timestamptz`);
+      conditions.push(sql`${sql.raw(this.col(this.columns.timestamp))} <= ${to}::timestamptz`);
     }
 
     // Build WHERE clause
@@ -130,45 +137,44 @@ export class ActivityLogRepository {
 
     // Build SELECT columns
     const selectColumns = [
-      sql`${sql.raw(this.columns.id)} as id`,
-      sql`${sql.raw(this.columns.timestamp)} as timestamp`,
-      sql`${sql.raw(this.columns.event)} as event`,
+      sql`${sql.raw(this.col(this.columns.id))} as id`,
+      sql`${sql.raw(this.col(this.columns.timestamp))} as timestamp`,
+      sql`${sql.raw(this.col(this.columns.event))} as event`,
       this.columns.actorId
-        ? sql`${sql.raw(this.columns.actorId)} as "actorId"`
+        ? sql`${sql.raw(this.col(this.columns.actorId))} as "actorId"`
         : sql`NULL as "actorId"`,
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-      this.columns.actorEmail
-        ? sql`${sql.raw(this.columns.actorEmail)} as "actorEmail"`
+      this.columns.actorId
+        ? sql`users.email as "actorEmail"`
         : sql`NULL as "actorEmail"`,
       this.columns.entityType
-        ? sql`${sql.raw(this.columns.entityType)} as "entityType"`
+        ? sql`${sql.raw(this.col(this.columns.entityType))} as "entityType"`
         : sql`NULL as "entityType"`,
       this.columns.entityId
-        ? sql`${sql.raw(this.columns.entityId)} as "entityId"`
+        ? sql`${sql.raw(this.col(this.columns.entityId))} as "entityId"`
         : sql`NULL as "entityId"`,
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       this.columns.status
-        ? sql`${sql.raw(this.columns.status)} as status`
+        ? sql`${sql.raw(this.col(this.columns.status))} as status`
         : sql`NULL as status`,
       this.columns.ipAddress
-        ? sql`${sql.raw(this.columns.ipAddress)} as "ipAddress"`
+        ? sql`${sql.raw(this.col(this.columns.ipAddress))} as "ipAddress"`
         : sql`NULL as "ipAddress"`,
       this.columns.userAgent
-        ? sql`${sql.raw(this.columns.userAgent)} as "userAgent"`
+        ? sql`${sql.raw(this.col(this.columns.userAgent))} as "userAgent"`
         : sql`NULL as "userAgent"`,
       this.columns.metadata
-        ? sql`${sql.raw(this.columns.metadata)} as metadata`
+        ? sql`${sql.raw(this.col(this.columns.metadata))} as metadata`
         : sql`NULL as metadata`
     ];
 
     // Determine sort order
     const orderDirection = sort === "timestamp_asc" ? sql`ASC` : sql`DESC`;
-    const orderBy = sql`ORDER BY ${sql.raw(this.columns.timestamp)} ${orderDirection}`;
+    const orderBy = sql`ORDER BY ${sql.raw(this.col(this.columns.timestamp))} ${orderDirection}`;
 
-    // Build main query
     const dataQuery = sql`
       SELECT ${sql.join(selectColumns, sql`, `)}
       FROM ${sql.raw(this.tableName)}
+      LEFT JOIN users ON ${sql.raw(this.tableName)}.${sql.raw(this.columns.actorId ?? "user_id")} = users.id
       ${whereClause}
       ${orderBy}
       LIMIT ${limit}
