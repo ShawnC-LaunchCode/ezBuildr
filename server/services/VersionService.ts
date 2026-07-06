@@ -272,6 +272,11 @@ export class VersionService {
     notes?: string,
     force: boolean = false
   ): Promise<WorkflowVersion> {
+    const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'edit');
+    if (!hasAccess) {
+      throw new Error("Access denied - insufficient permissions for this workflow");
+    }
+
     // Validate workflow
     const validation = this.validateWorkflow(workflowId, graphJson);
     if (!validation.valid && !force) {
@@ -347,6 +352,11 @@ export class VersionService {
     userId: string,
     notes?: string
   ): Promise<void> {
+    const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'edit');
+    if (!hasAccess) {
+      throw new Error("Access denied - insufficient permissions for this workflow");
+    }
+
     // Verify version exists and belongs to workflow
     const version = await this.getVersion(toVersionId);
     if (!version || version.workflowId !== workflowId) {
@@ -423,6 +433,11 @@ export class VersionService {
     versionId: string,
     userId: string
   ): Promise<void> {
+    const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'edit');
+    if (!hasAccess) {
+      throw new Error("Access denied - insufficient permissions for this workflow");
+    }
+
     // Verify version exists and belongs to workflow
     const version = await this.getVersion(versionId);
     if (!version || version.workflowId !== workflowId) {
@@ -450,6 +465,11 @@ export class VersionService {
    * Unpin version (removes pinnedVersionId)
    */
   async unpinVersion(workflowId: string, userId: string): Promise<void> {
+    const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'edit');
+    if (!hasAccess) {
+      throw new Error("Access denied - insufficient permissions for this workflow");
+    }
+
     await db
       .update(schema.workflows)
       .set({
@@ -470,18 +490,29 @@ export class VersionService {
   /**
    * Compute diff between two versions
    */
-  async diffVersions(versionId1: string, versionId2: string): Promise<WorkflowDiff> {
+  async diffVersions(versionId1: string, versionId2: string, userId: string): Promise<WorkflowDiff> {
     const version1 = await this.getVersion(versionId1);
     const version2 = await this.getVersion(versionId2);
     if (!version1 || !version2) {
       throw new Error("One or both versions not found");
     }
+
+    const hasAccess = await aclService.hasWorkflowRole(userId, version1.workflowId, 'view');
+    if (!hasAccess) {
+      throw new Error("Access denied - insufficient permissions for this workflow");
+    }
+
     return workflowDiffService.diff(version1.graphJson as WorkflowJSON, version2.graphJson as WorkflowJSON);
   }
   /**
    * Export workflow versions as JSON
    */
-  async exportVersions(workflowId: string): Promise<Record<string, unknown>> {
+  async exportVersions(workflowId: string, userId: string): Promise<Record<string, unknown>> {
+    const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'view');
+    if (!hasAccess) {
+      throw new Error("Access denied - insufficient permissions for this workflow");
+    }
+
     const versions = await this.listVersions(workflowId);
     return {
       workflowId,

@@ -65,7 +65,12 @@ export function registerVersionRoutes(app: Express): void {
     try {
       const { versionId, otherVersionId } = req.params;
 
-      const diff = await versionService.diffVersions(versionId, otherVersionId);
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
+
+      const diff = await versionService.diffVersions(versionId, otherVersionId, userId);
 
       res.json({
         success: true,
@@ -215,7 +220,12 @@ export function registerVersionRoutes(app: Express): void {
     try {
       const { id } = req.params;
 
-      const exportData = await versionService.exportVersions(id);
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized" });
+      }
+
+      const exportData = await versionService.exportVersions(id, userId);
 
       // Set headers for file download
       res.setHeader('Content-Type', 'application/json');
