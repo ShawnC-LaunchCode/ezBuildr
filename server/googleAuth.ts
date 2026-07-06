@@ -146,7 +146,7 @@ export async function setupAuth(app: Express): Promise<void> {
       const payload = await verifyGoogleToken(googleToken);
       await upsertUser(payload);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      const dbUser = await userRepository.findById(payload.sub);
+      const dbUser = payload.email ? await userRepository.findByEmail(payload.email) : await userRepository.findById(payload.sub);
       if (!dbUser) { throw new Error('User not found after upsert'); }
 
       // CHECK ACTIVE STATUS
