@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { workflowBlueprints, workflows, workflowVersions } from '../../shared/schema';
 import { db } from '../db';
+import { workflowService } from './WorkflowService';
 export interface CreateTemplateParams {
   name: string;
   description?: string;
@@ -29,6 +30,10 @@ class TemplateService {
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async createFromWorkflow(params: CreateTemplateParams) {
     const { name, description, sourceWorkflowId, sourceVersionId, creatorId, tenantId, metadata, isPublic } = params;
+    
+    // Verify user has view access to the source workflow
+    await workflowService.verifyAccess(sourceWorkflowId, creatorId, 'view');
+    
     // 1. Fetch source workflow version definition
     let versionId = sourceVersionId;
     if (!versionId) {

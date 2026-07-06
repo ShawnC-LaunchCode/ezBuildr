@@ -16,12 +16,13 @@ import {
 import { db } from '../db';
 import logger from '../logger';
 import { hybridAuth } from '../middleware';
-// New Analytics Services
+import { aclService } from '../services/AclService';
 import { analyticsService } from '../services/analytics/AnalyticsService';
 import { branchingService } from '../services/analytics/BranchingService';
 import { dropoffService } from '../services/analytics/DropoffService';
 import { heatmapService } from '../services/analytics/HeatmapService';
 import sli from '../services/sli';
+import { workflowService } from '../services/WorkflowService';
 import { asyncHandler } from '../utils/asyncHandler';
 
 import type { Express } from 'express';
@@ -168,6 +169,12 @@ router.get('/overview', hybridAuth, asyncHandler(async (req, res) => {
 router.get('/timeseries', hybridAuth, asyncHandler(async (req, res) => {
   try {
     const query = timeseriesQuerySchema.parse(req.query);
+    const userId = (req as any).userId;
+    if (query.workflowId) {
+      await workflowService.verifyAccess(query.workflowId, userId, 'view');
+    } else {
+      await aclService.hasProjectRole(userId, query.projectId, 'view');
+    }
     const windowMs = parseWindow(query.window);
     const windowStart = new Date(Date.now() - windowMs);
     // Query rollups for the specified bucket size
@@ -214,6 +221,12 @@ router.get('/timeseries', hybridAuth, asyncHandler(async (req, res) => {
 router.get('/sli', hybridAuth, asyncHandler(async (req, res) => {
   try {
     const query = overviewQuerySchema.parse(req.query);
+    const userId = (req as any).userId;
+    if (query.workflowId) {
+      await workflowService.verifyAccess(query.workflowId, userId, 'view');
+    } else {
+      await aclService.hasProjectRole(userId, query.projectId, 'view');
+    }
     // Compute current SLI
     const sliResult = await sli.computeSLI({
       projectId: query.projectId,
@@ -253,6 +266,15 @@ router.get('/sli', hybridAuth, asyncHandler(async (req, res) => {
 router.post('/sli-config', hybridAuth, asyncHandler(async (req, res) => {
   try {
     const body = sliConfigCreateSchema.parse(req.body);
+    const userId = (req as any).userId;
+    if (body.workflowId) {
+      await workflowService.verifyAccess(body.workflowId, userId, 'edit');
+    } else {
+      const hasAccess = await aclService.hasProjectRole(userId, body.projectId, 'edit');
+      if (!hasAccess) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+    }
     // Check if config exists
     const existing = await sli.getConfig({
       projectId: body.projectId,
@@ -297,6 +319,23 @@ router.post('/sli-config', hybridAuth, asyncHandler(async (req, res) => {
 router.put('/sli-config/:id', hybridAuth, asyncHandler(async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = (req as any).userId;
+
+    const existingConfig = await db.query.sliConfigs.findFirst({
+      where: (cfg, { eq }) => eq(cfg.id, id)
+    });
+    
+    if (existingConfig) {
+      if (existingConfig.workflowId) {
+        await workflowService.verifyAccess(existingConfig.workflowId, userId, 'edit');
+      } else if (existingConfig.projectId) {
+        const hasAccess = await aclService.hasProjectRole(userId, existingConfig.projectId, 'edit');
+        if (!hasAccess) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+    }
+
     const body = sliConfigUpdateSchema.parse(req.body);
     const updated = await sli.updateConfig({
       id,
@@ -315,8 +354,19 @@ router.put('/sli-config/:id', hybridAuth, asyncHandler(async (req, res) => {
  * POST /api/workflow-analytics/events
  * Record a new analytics event
  */
-router.post('/events', asyncHandler(async (req, res) => {
+router.post('/events', hybridAuth, asyncHandler(async (req, res) => {
   try {
+    const body = req.body;
+    const userId = (req as any).userId;
+    if (body && body.workflowId && userId) {
+      try {
+        await workflowService.verifyAccess(body.workflowId, userId, 'view');
+      } catch (err) {
+        return res.status(403).json({ error: "Access denied to workflow" });
+      }
+    } else if (!userId) {
+       return res.status(401).json({ error: "Unauthorized" });
+    }
     // We'll trust the body for now, but validation is critical
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     await analyticsService.recordEvent(req.body);
@@ -332,6 +382,8 @@ router.post('/events', asyncHandler(async (req, res) => {
 router.get('/:workflowId/dropoff', hybridAuth, asyncHandler(async (req, res) => {
   try {
     const { workflowId } = req.params;
+    const userId = (req as any).userId;
+    await workflowService.verifyAccess(workflowId, userId, 'view');
     const { versionId } = req.query;
     if (versionId === undefined || typeof versionId !== 'string') {
       return res.status(400).json({ error: "versionId required" });
@@ -349,6 +401,8 @@ router.get('/:workflowId/dropoff', hybridAuth, asyncHandler(async (req, res) => 
 router.get('/:workflowId/heatmap', hybridAuth, asyncHandler(async (req, res) => {
   try {
     const { workflowId } = req.params;
+    const userId = (req as any).userId;
+    await workflowService.verifyAccess(workflowId, userId, 'view');
     const { versionId } = req.query;
     if (versionId === undefined || typeof versionId !== 'string') {
       return res.status(400).json({ error: "versionId required" });
@@ -366,6 +420,8 @@ router.get('/:workflowId/heatmap', hybridAuth, asyncHandler(async (req, res) => 
 router.get('/:workflowId/branching', hybridAuth, asyncHandler(async (req, res) => {
   try {
     const { workflowId } = req.params;
+    const userId = (req as any).userId;
+    await workflowService.verifyAccess(workflowId, userId, 'view');
     const { versionId } = req.query;
     if (versionId === undefined || typeof versionId !== 'string') {
       return res.status(400).json({ error: "versionId required" });
@@ -384,6 +440,8 @@ router.get('/:workflowId/branching', hybridAuth, asyncHandler(async (req, res) =
 router.get('/:workflowId/health', hybridAuth, asyncHandler(async (req, res) => {
   try {
     const { workflowId } = req.params;
+    const userId = (req as any).userId;
+    await workflowService.verifyAccess(workflowId, userId, 'view');
     const { versionId } = req.query;
 
     // Default window: 30 days

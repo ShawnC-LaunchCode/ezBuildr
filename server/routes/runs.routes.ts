@@ -496,6 +496,10 @@ export function registerRunRoutes(app: Express): void {
       if (!userId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
+      
+      // Verify user has access to the run
+      await runService.getRun(runId, userId);
+      
       const documents = await runService.getGeneratedDocuments(runId);
       res.json({ success: true, documents });
     } catch (error) {
@@ -523,11 +527,21 @@ export function registerRunRoutes(app: Express): void {
           error: "Invalid run ID - runId cannot be null or undefined"
         });
       }
+      const userId = (req as AuthRequest).userId;
       const runAuth = (req as RunAuthRequest).runAuth;
       // For run token auth, verify the runId matches
-      if (runAuth && runAuth.runId !== runId) {
-        return res.status(403).json({ success: false, error: "Access denied - run mismatch" });
+      if (runAuth) {
+        if (runAuth.runId !== runId) {
+          return res.status(403).json({ success: false, error: "Access denied - run mismatch" });
+        }
+      } else {
+        // For session auth, verify user ID and access
+        if (!userId) {
+          return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+        }
+        await runService.getRun(runId, userId);
       }
+      
       // Trigger document generation
       await runService.generateDocuments(runId);
       return res.json({ success: true, message: "Documents generation triggered" });
@@ -554,11 +568,21 @@ export function registerRunRoutes(app: Express): void {
           error: "Invalid run ID - runId cannot be null or undefined"
         });
       }
+      const userId = (req as AuthRequest).userId;
       const runAuth = (req as RunAuthRequest).runAuth;
       // For run token auth, verify the runId matches
-      if (runAuth && runAuth.runId !== runId) {
-        return res.status(403).json({ success: false, error: "Access denied - run mismatch" });
+      if (runAuth) {
+        if (runAuth.runId !== runId) {
+          return res.status(403).json({ success: false, error: "Access denied - run mismatch" });
+        }
+      } else {
+        // For session auth, verify user ID and access
+        if (!userId) {
+          return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+        }
+        await runService.getRun(runId, userId);
       }
+      
       // Delete all documents for this run
       await runService.deleteGeneratedDocuments(runId);
       return res.json({ success: true, message: "Documents deleted successfully" });

@@ -23,6 +23,8 @@ import { logger } from "../../logger";
 import { lifecycleHookRepository } from "../../repositories/LifecycleHookRepository";
 import { scriptExecutionLogRepository } from "../../repositories/ScriptExecutionLogRepository";
 import { workflowRepository } from "../../repositories/WorkflowRepository";
+import { runAuthResolver } from "../runs/RunAuthResolver";
+import { workflowService } from "../WorkflowService";
 
 import { scriptEngine } from "./ScriptEngine";
 
@@ -294,10 +296,7 @@ export class LifecycleHookService {
     if (!workflow) {
       throw new Error("Workflow not found");
     }
-    if (workflow.creatorId && workflow.creatorId !== userId) {
-      // eslint-disable-next-line sonarjs/no-duplicate-string
-      throw new Error("Unauthorized: You do not own this workflow");
-    }
+    await workflowService.verifyAccess(workflowId, userId, 'edit');
 
     // Create hook
     const hook = await lifecycleHookRepository.create({
@@ -332,9 +331,10 @@ export class LifecycleHookService {
     }
 
     const workflow = await workflowRepository.findById(hook.workflowId);
-    if (!workflow || (workflow.creatorId && workflow.creatorId !== userId)) {
-      throw new Error("Unauthorized: You do not own this workflow");
+    if (!workflow) {
+      throw new Error("Workflow not found");
     }
+    await workflowService.verifyAccess(hook.workflowId, userId, 'edit');
 
     // Update hook
     const updated = await lifecycleHookRepository.update(hookId, data);
@@ -361,9 +361,10 @@ export class LifecycleHookService {
     }
 
     const workflow = await workflowRepository.findById(hook.workflowId);
-    if (!workflow || (workflow.creatorId && workflow.creatorId !== userId)) {
-      throw new Error("Unauthorized: You do not own this workflow");
+    if (!workflow) {
+      throw new Error("Workflow not found");
     }
+    await workflowService.verifyAccess(hook.workflowId, userId, 'edit');
 
     // Delete hook
     await lifecycleHookRepository.delete(hookId);
@@ -392,9 +393,10 @@ export class LifecycleHookService {
     }
 
     const workflow = await workflowRepository.findById(hook.workflowId);
-    if (!workflow || (workflow.creatorId && workflow.creatorId !== userId)) {
-      throw new Error("Unauthorized: You do not own this workflow");
+    if (!workflow) {
+      throw new Error("Workflow not found");
     }
+    await workflowService.verifyAccess(hook.workflowId, userId, 'view');
 
     // Execute hook with test data
     const result = await scriptEngine.execute({
@@ -432,9 +434,7 @@ export class LifecycleHookService {
     if (!workflow) {
       throw new Error("Workflow not found");
     }
-    if (workflow.creatorId && workflow.creatorId !== userId) {
-      throw new Error("Unauthorized: You do not own this workflow");
-    }
+    await workflowService.verifyAccess(workflowId, userId, 'view');
 
     return await lifecycleHookRepository.findByWorkflowId(workflowId) as LifecycleHook[];
   }
@@ -442,16 +442,22 @@ export class LifecycleHookService {
   /**
    * Get execution logs for a run
    */
-  async getExecutionLogs(runId: string, _userId: string): Promise<ScriptExecutionLog[]> {
-    // TODO: Verify run ownership via RunService
+  async getExecutionLogs(runId: string, userId: string): Promise<ScriptExecutionLog[]> {
+    const { access } = await runAuthResolver.resolveRun(runId, userId);
+    if (access === 'none') {
+      throw new Error("Unauthorized: You do not have access to this run");
+    }
     return await scriptExecutionLogRepository.findByRunId(runId) as ScriptExecutionLog[];
   }
 
   /**
    * Clear execution logs for a run
    */
-  async clearExecutionLogs(runId: string, _userId: string): Promise<void> {
-    // TODO: Verify run ownership via RunService
+  async clearExecutionLogs(runId: string, userId: string): Promise<void> {
+    const { access } = await runAuthResolver.resolveRun(runId, userId);
+    if (access === 'none') {
+      throw new Error("Unauthorized: You do not have access to this run");
+    }
     await scriptExecutionLogRepository.deleteByRunId(runId);
   }
 

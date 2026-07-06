@@ -26,6 +26,21 @@ export class TeamService {
   }
 
   /**
+   * Verify user belongs to the same tenant as the team
+   */
+  private async verifyTeamTenantAccess(teamId: string, userId: string, tx?: DbTransaction): Promise<Team> {
+    const team = await this.teamRepo.findById(teamId, tx);
+    if (!team) throw new Error("Team not found");
+
+    const user = await this.userRepo.findById(userId, tx);
+    if (!user || user.tenantId !== team.tenantId) {
+      throw new Error("Access denied - team belongs to a different tenant");
+    }
+    
+    return team;
+  }
+
+  /**
    * Create a new team (creator automatically becomes admin)
    */
   async createTeam(data: { name: string }, creatorId: string, tx?: DbTransaction): Promise<Team> {
@@ -69,11 +84,8 @@ export class TeamService {
    */
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async getTeamWithMembers(teamId: string, userId: string, tx?: DbTransaction) {
-    const team = await this.teamRepo.findById(teamId, tx);
-
-    if (!team) {
-      throw new Error("Team not found");
-    }
+    // Verify tenant scoping
+    const team = await this.verifyTeamTenantAccess(teamId, userId, tx);
 
     // Verify user is a member of this team
     const membership = await this.teamMemberRepo.findByTeamAndUser(teamId, userId, tx);
@@ -122,6 +134,9 @@ export class TeamService {
     data: { userId: string; role: TeamRole },
     tx?: DbTransaction
   ): Promise<TeamMember> {
+    // Verify tenant scoping for requestor
+    const team = await this.verifyTeamTenantAccess(teamId, requestorId, tx);
+
     // Verify requestor is a team admin
     const isAdmin = await this.isTeamAdmin(teamId, requestorId, tx);
     if (!isAdmin) {
@@ -132,6 +147,11 @@ export class TeamService {
     const targetUser = await this.userRepo.findById(data.userId, tx);
     if (!targetUser) {
       throw new Error("User not found");
+    }
+
+    // Verify target user belongs to the same tenant
+    if (targetUser.tenantId !== team.tenantId) {
+      throw new Error("Cannot add user from a different tenant");
     }
 
     // Check if member already exists
@@ -166,6 +186,9 @@ export class TeamService {
     targetUserId: string,
     tx?: DbTransaction
   ): Promise<void> {
+    // Verify tenant scoping for requestor
+    await this.verifyTeamTenantAccess(teamId, requestorId, tx);
+
     // Verify requestor is a team admin
     const isAdmin = await this.isTeamAdmin(teamId, requestorId, tx);
     if (!isAdmin) {
@@ -194,6 +217,9 @@ export class TeamService {
     data: { name: string },
     tx?: DbTransaction
   ): Promise<Team> {
+    // Verify tenant scoping
+    await this.verifyTeamTenantAccess(teamId, userId, tx);
+
     // Verify user is a team admin
     const isAdmin = await this.isTeamAdmin(teamId, userId, tx);
     if (!isAdmin) {
@@ -213,6 +239,9 @@ export class TeamService {
    * Delete a team (admin only)
    */
   async deleteTeam(teamId: string, userId: string, tx?: DbTransaction): Promise<void> {
+    // Verify tenant scoping
+    await this.verifyTeamTenantAccess(teamId, userId, tx);
+
     // Verify user is a team admin
     const isAdmin = await this.isTeamAdmin(teamId, userId, tx);
     if (!isAdmin) {

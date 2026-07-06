@@ -80,6 +80,10 @@ export function registerAdminRoutes(app: Express): void {
 
       const updatedUser = await userRepository.updateIsActive(userId, isActive);
       invalidateUserCache(userId);
+      
+      if (!isActive) {
+          await authService.revokeAllUserTokens(userId);
+      }
 
       logger.info(
         { adminId: req.adminUser.id, targetUserId: userId, isActive },

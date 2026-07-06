@@ -4,11 +4,16 @@
  * Endpoints for attaching/detaching templates to workflow versions
  */
 
+import { eq } from 'drizzle-orm';
 import express from 'express';
 import { z } from 'zod';
 
+import { workflowVersions } from '@shared/schema';
+
+import { db } from '../db';
 import { asyncHandler } from '../middleware';
-import { hybridAuth } from '../middleware/auth';
+import { hybridAuth, type AuthRequest } from '../middleware/auth';
+import { workflowService } from '../services/WorkflowService';
 import { workflowTemplateService } from '../services/WorkflowTemplateService';
 import { createError } from '../utils/errors';
 
@@ -26,7 +31,12 @@ router.use(hybridAuth);
 router.get(
   '/:workflowId/versions/:versionId/templates',
   asyncHandler(async (req, res) => {
-    const { versionId } = req.params;
+    const { workflowId, versionId } = req.params;
+    
+    // SECURITY FIX: Verify user has access to this workflow
+    const userId = (req as AuthRequest).userId;
+    if (!userId) throw createError.unauthorized('Authentication required');
+    await workflowService.verifyAccess(workflowId, userId);
 
     const templates = await workflowTemplateService.listTemplates(versionId);
 
@@ -44,7 +54,12 @@ router.get(
 router.get(
   '/:workflowId/versions/:versionId/templates/primary',
   asyncHandler(async (req, res) => {
-    const { versionId } = req.params;
+    const { workflowId, versionId } = req.params;
+    
+    // SECURITY FIX: Verify user has access to this workflow
+    const userId = (req as AuthRequest).userId;
+    if (!userId) throw createError.unauthorized('Authentication required');
+    await workflowService.verifyAccess(workflowId, userId);
 
     const primary = await workflowTemplateService.getPrimaryTemplate(versionId);
 
@@ -62,7 +77,12 @@ router.get(
 router.get(
   '/:workflowId/versions/:versionId/templates/:key',
   asyncHandler(async (req, res) => {
-    const { versionId, key } = req.params;
+    const { workflowId, versionId, key } = req.params;
+    
+    // SECURITY FIX: Verify user has access to this workflow
+    const userId = (req as AuthRequest).userId;
+    if (!userId) throw createError.unauthorized('Authentication required');
+    await workflowService.verifyAccess(workflowId, userId);
 
     const template = await workflowTemplateService.getTemplateByKey(versionId, key);
 
@@ -88,7 +108,12 @@ const attachSchema = z.object({
 router.post(
   '/:workflowId/versions/:versionId/templates',
   asyncHandler(async (req, res) => {
-    const { versionId } = req.params;
+    const { workflowId, versionId } = req.params;
+    
+    // SECURITY FIX: Verify user has access to this workflow
+    const userId = (req as AuthRequest).userId;
+    if (!userId) throw createError.unauthorized('Authentication required');
+    await workflowService.verifyAccess(workflowId, userId);
 
     // Validate request body
     const body = attachSchema.parse(req.body);
@@ -129,6 +154,15 @@ router.patch(
       throw createError.validation('workflowVersionId query parameter is required');
     }
 
+    // SECURITY FIX: Verify user has access to this workflow
+    const userId = (req as AuthRequest).userId;
+    if (!userId) throw createError.unauthorized('Authentication required');
+    const version = await db.query.workflowVersions.findFirst({
+      where: eq(workflowVersions.id, workflowVersionId)
+    });
+    if (!version) throw createError.notFound('Workflow version');
+    await workflowService.verifyAccess(version.workflowId, userId);
+
     // Validate request body
     const body = updateSchema.parse(req.body);
 
@@ -160,6 +194,15 @@ router.post(
       throw createError.validation('workflowVersionId query parameter is required');
     }
 
+    // SECURITY FIX: Verify user has access to this workflow
+    const userId = (req as AuthRequest).userId;
+    if (!userId) throw createError.unauthorized('Authentication required');
+    const version = await db.query.workflowVersions.findFirst({
+      where: eq(workflowVersions.id, workflowVersionId)
+    });
+    if (!version) throw createError.notFound('Workflow version');
+    await workflowService.verifyAccess(version.workflowId, userId);
+
     const updated = await workflowTemplateService.setPrimaryTemplate(
       mappingId,
       workflowVersionId
@@ -186,6 +229,15 @@ router.delete(
     if (!workflowVersionId || typeof workflowVersionId !== 'string') {
       throw createError.validation('workflowVersionId query parameter is required');
     }
+
+    // SECURITY FIX: Verify user has access to this workflow
+    const userId = (req as AuthRequest).userId;
+    if (!userId) throw createError.unauthorized('Authentication required');
+    const version = await db.query.workflowVersions.findFirst({
+      where: eq(workflowVersions.id, workflowVersionId)
+    });
+    if (!version) throw createError.notFound('Workflow version');
+    await workflowService.verifyAccess(version.workflowId, userId);
 
     await workflowTemplateService.detachTemplate(mappingId, workflowVersionId);
 

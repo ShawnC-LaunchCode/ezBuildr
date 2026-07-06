@@ -355,6 +355,10 @@ export function registerAuthRoutes(app: Express): void {
         // eslint-disable-next-line sonarjs/no-duplicate-string
         return res.status(401).json({ message: 'User not found' });
       }
+      if (!user.isActive) {
+        metricsService.recordAuthLatency(startTime, 'refresh', 401);
+        return res.status(401).json({ message: 'Account deactivated' });
+      }
       const newAccessToken = authService.createToken(user);
       res.setHeader('Set-Cookie', serialize('refresh_token', result.newRefreshToken, {
         httpOnly: true,

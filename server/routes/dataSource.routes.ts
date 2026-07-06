@@ -6,6 +6,7 @@ import { hybridAuth, getAuthUserTenantId, getAuthUserId } from '../middleware/au
 import { datavaultDatabasesRepository } from '../repositories/DatavaultDatabasesRepository';
 import { datavaultTablesRepository } from '../repositories/DatavaultTablesRepository';
 import { dataSourceService } from '../services/DataSourceService';
+import { workflowService } from '../services/WorkflowService';
 import { asyncHandler } from '../utils/asyncHandler';
 
 export const dataSourceRouter = Router();
@@ -224,7 +225,11 @@ dataSourceRouter.delete('/:id', asyncHandler(async (req, res) => {
 dataSourceRouter.get('/workflow/:workflowId', asyncHandler(async (req, res) => {
     try {
         const { workflowId } = req.params;
-        // Optional: Verify workflow ownership/access here or in service
+        const userId = getAuthUserId(req);
+        if (!userId) { return res.status(401).json({ message: 'Authentication required' }); }
+        
+        await workflowService.verifyAccess(workflowId, userId, 'view');
+        
         const dataSources = await dataSourceService.listDataSourcesForWorkflow(workflowId);
         res.json(dataSources);
     } catch (error) {
@@ -246,6 +251,10 @@ dataSourceRouter.post('/:id/link', asyncHandler(async (req, res) => {
         });
 
         const { workflowId } = schema.parse(req.body);
+        const userId = getAuthUserId(req);
+        if (!userId) { return res.status(401).json({ message: 'Authentication required' }); }
+        
+        await workflowService.verifyAccess(workflowId, userId, 'edit');
 
         await dataSourceService.linkDataSourceToWorkflow(workflowId, id, tenantId);
         res.status(200).json({ success: true });
@@ -266,8 +275,10 @@ dataSourceRouter.post('/:id/link', asyncHandler(async (req, res) => {
 dataSourceRouter.delete('/:id/link/:workflowId', asyncHandler(async (req, res) => {
     try {
         const { id, workflowId } = req.params;
-        // const tenantId = getTenant(req); // Service doesn't currently require tenantId for unlink, but typically should for safety.
-        // The service method is: unlinkDataSourceFromWorkflow(workflowId, dataSourceId)
+        const userId = getAuthUserId(req);
+        if (!userId) { return res.status(401).json({ message: 'Authentication required' }); }
+        
+        await workflowService.verifyAccess(workflowId, userId, 'edit');
 
         await dataSourceService.unlinkDataSourceFromWorkflow(workflowId, id);
         res.status(204).send();

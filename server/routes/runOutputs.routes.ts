@@ -9,11 +9,13 @@ import path from 'path';
 import { eq } from 'drizzle-orm';
 import express from 'express';
 
-import { runOutputs } from '@shared/schema';
+import { runOutputs, workflows } from '@shared/schema';
 
 import { db } from '../db';
 import { asyncHandler } from '../middleware';
-import { hybridAuth } from '../middleware/auth';
+import { hybridAuth, type AuthRequest } from '../middleware/auth';
+import { workflowRunRepository } from '../repositories';
+import { aclService } from '../services/AclService';
 import { getOutputFilePath } from '../services/templates';
 import { createError } from '../utils/errors';
 
@@ -29,6 +31,30 @@ router.get(
   '/:runId/outputs',
   asyncHandler(async (req, res) => {
     const { runId } = req.params;
+    
+    // SECURITY FIX: Verify user has access to this run
+    const userId = (req as AuthRequest).userId;
+    if (!userId) {
+      throw createError.unauthorized('Authentication required');
+    }
+    const run = await workflowRunRepository.findById(runId);
+    if (!run) {
+      throw createError.notFound('Run');
+    }
+    const userOwnsRun = run.createdBy === userId || run.createdBy === `creator:${userId}`;
+    if (!userOwnsRun) {
+      const workflow = await db.query.workflows.findFirst({
+        where: eq(workflows.id, run.workflowId)
+      });
+      if (!workflow) throw createError.forbidden('Access denied');
+      if (!workflow.projectId) {
+        if (workflow.creatorId !== userId) throw createError.forbidden('Access denied');
+      } else {
+        const hasAccess = await aclService.hasProjectRole(userId, workflow.projectId, 'view');
+        if (!hasAccess) throw createError.forbidden('Access denied');
+      }
+    }
+
     const outputs = await db.query.runOutputs.findMany({
       where: eq(runOutputs.runId, runId),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Drizzle orderBy callback types
@@ -48,6 +74,30 @@ router.get(
   '/:runId/outputs/:outputId/download',
   asyncHandler(async (req, res) => {
     const { runId, outputId } = req.params;
+    
+    // SECURITY FIX: Verify user has access to this run
+    const userId = (req as AuthRequest).userId;
+    if (!userId) {
+      throw createError.unauthorized('Authentication required');
+    }
+    const run = await workflowRunRepository.findById(runId);
+    if (!run) {
+      throw createError.notFound('Run');
+    }
+    const userOwnsRun = run.createdBy === userId || run.createdBy === `creator:${userId}`;
+    if (!userOwnsRun) {
+      const workflow = await db.query.workflows.findFirst({
+        where: eq(workflows.id, run.workflowId)
+      });
+      if (!workflow) throw createError.forbidden('Access denied');
+      if (!workflow.projectId) {
+        if (workflow.creatorId !== userId) throw createError.forbidden('Access denied');
+      } else {
+        const hasAccess = await aclService.hasProjectRole(userId, workflow.projectId, 'view');
+        if (!hasAccess) throw createError.forbidden('Access denied');
+      }
+    }
+
     // Fetch output
     const output = await db.query.runOutputs.findFirst({
       where: eq(runOutputs.id, outputId),
@@ -97,6 +147,30 @@ router.post(
   '/:runId/outputs/:outputId/retry',
   asyncHandler(async (req, res) => {
     const { runId, outputId } = req.params;
+    
+    // SECURITY FIX: Verify user has access to this run
+    const userId = (req as AuthRequest).userId;
+    if (!userId) {
+      throw createError.unauthorized('Authentication required');
+    }
+    const run = await workflowRunRepository.findById(runId);
+    if (!run) {
+      throw createError.notFound('Run');
+    }
+    const userOwnsRun = run.createdBy === userId || run.createdBy === `creator:${userId}`;
+    if (!userOwnsRun) {
+      const workflow = await db.query.workflows.findFirst({
+        where: eq(workflows.id, run.workflowId)
+      });
+      if (!workflow) throw createError.forbidden('Access denied');
+      if (!workflow.projectId) {
+        if (workflow.creatorId !== userId) throw createError.forbidden('Access denied');
+      } else {
+        const hasAccess = await aclService.hasProjectRole(userId, workflow.projectId, 'view');
+        if (!hasAccess) throw createError.forbidden('Access denied');
+      }
+    }
+
     // Fetch output
     const output = await db.query.runOutputs.findFirst({
       where: eq(runOutputs.id, outputId),

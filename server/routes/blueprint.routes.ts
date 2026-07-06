@@ -12,7 +12,8 @@ const router = Router();
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
 router.get('/', requireAuth, asyncHandler(async (req, res) => {
     try {
-        const tenantId = req.user?.tenantId ?? 'default-tenant';
+        if (!req.user?.tenantId) { return res.status(401).json({ error: 'Tenant required' }); }
+        const tenantId = req.user.tenantId;
         // Reuse listTemplates but maybe rename method later for consistency
         const templates = await templateService.listTemplates(tenantId, req.user?.id, true);
         res.json({ data: templates });
@@ -38,7 +39,7 @@ router.post('/', requireAuth, asyncHandler(async (req, res) => {
             description,
             sourceWorkflowId,
             creatorId: req.user!.id as string,
-            tenantId: req.user?.tenantId ?? 'default-tenant',
+            tenantId: req.user!.tenantId!,
             metadata,
             isPublic
         });
@@ -65,7 +66,7 @@ router.post('/:id/instantiate', requireAuth, asyncHandler(async (req, res) => {
             templateId: id,
             projectId,
             userId: req.user!.id as string,
-            tenantId: req.user?.tenantId ?? 'default-tenant',
+            tenantId: req.user!.tenantId!,
             name
         });
 
