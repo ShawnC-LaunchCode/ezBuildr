@@ -515,7 +515,8 @@ export class OrganizationService {
     });
     const inviterName = inviter?.fullName ?? inviter?.email ?? 'A team member';
     // Build branded email
-    const baseUrl = process.env.BASE_URL ?? 'http://localhost:5000';
+    let baseUrl = process.env.NODE_ENV === 'production' ? 'https://ezbuildr.com' : (process.env.VITE_BASE_URL ?? process.env.BASE_URL ?? 'http://localhost:5000');
+    baseUrl = baseUrl.replace(/\/+$/, '');
     const acceptUrl = `${baseUrl}/invites/${token}/accept`;
     const senderName = branding?.emailSenderName ?? 'ezBuildr';
     const primaryColor = branding?.primaryColor ?? '#3B82F6';
