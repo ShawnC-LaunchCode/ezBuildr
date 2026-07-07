@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import { assertOutboundUrlAllowed } from '../lib/security/ssrfGuard';
 import { logger } from '../logger';
 import { redactObject, decrypt } from '../utils/encryption';
+import { safeFetch } from '../utils/safeFetch';
 
 import { oauth2Cache } from './cache';
 /**
@@ -112,7 +113,7 @@ async function fetchOAuth2Token(config: OAuth2ClientCredentialsConfig): Promise<
     // SECURITY: block SSRF — tokenUrl is connection-configured by the user.
     await assertOutboundUrlAllowed(tokenUrl);
     // Make request
-    const response = await fetch(tokenUrl, {
+    const response = await safeFetch(tokenUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -329,7 +330,7 @@ export async function exchangeOAuth2Code(
     // SECURITY: block SSRF — tokenUrl is connection-configured by the user.
     await assertOutboundUrlAllowed(config.tokenUrl);
     // Make request
-    const response = await fetch(config.tokenUrl, {
+    const response = await safeFetch(config.tokenUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -392,7 +393,7 @@ export async function refreshOAuth2Token(
     // SECURITY: block SSRF — tokenUrl is connection-configured by the user.
     await assertOutboundUrlAllowed(config.tokenUrl);
     // Make request
-    const response = await fetch(config.tokenUrl, {
+    const response = await safeFetch(config.tokenUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',

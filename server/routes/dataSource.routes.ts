@@ -14,7 +14,7 @@ import { asyncHandler } from '../utils/asyncHandler';
 const nativeConfigSchema = z.object({});
 const externalConfigSchema = z.object({
     url: z.string().url(),
-}).passthrough();
+});
 const postgresConfigSchema = z.object({
     connectionString: z.string().optional(),
     host: z.string().optional(),
@@ -191,19 +191,26 @@ dataSourceRouter.post('/', asyncHandler(async (req, res) => {
             return true;
         };
 
-        if (data.type === 'external' && typeof data.config.url === 'string') {
-            if (!(await checkSsrf(data.config.url))) {
-                return res.status(400).json({ message: "Invalid or unsafe external URL" });
-            }
-        } else if (data.type === 'postgres') {
-            if (typeof data.config.connectionString === 'string') {
-                if (!(await checkSsrf(data.config.connectionString, ["postgres:", "postgresql:", "http:", "https:"]))) {
-                    return res.status(400).json({ message: "Invalid or unsafe postgres connection string" });
-                }
-            } else if (typeof data.config.host === 'string') {
-                // For host-only, we prepend a dummy protocol so URL parsing works in validateSafeUrl
-                if (!(await checkSsrf(`postgres://${data.config.host}`, ["postgres:"]))) {
-                    return res.status(400).json({ message: "Invalid or unsafe postgres host" });
+        const NETWORK_KEYS: Record<string, string[]> = {
+            external: ['url'],
+            postgres: ['connectionString', 'host'],
+            airtable: ['apiUrl'],
+            google_sheets: [],
+            native: [],
+            native_table: [],
+        };
+
+        const protocolsFor = (type: string, key: string): string[] | undefined => {
+            if (type === 'postgres') return ["postgres:", "postgresql:", "http:", "https:"];
+            return undefined;
+        };
+
+        for (const key of NETWORK_KEYS[data.type] || []) {
+            const val = (data.config as Record<string, unknown>)[key];
+            if (typeof val === 'string') {
+                const checkVal = (data.type === 'postgres' && key === 'host') ? `postgres://${val}` : val;
+                if (!(await checkSsrf(checkVal, protocolsFor(data.type, key)))) {
+                    return res.status(400).json({ message: `Invalid or unsafe ${key}` });
                 }
             }
         }
@@ -255,31 +262,37 @@ dataSourceRouter.patch('/:id', asyncHandler(async (req, res) => {
                 config: data.config 
             };
             dataSourceConfigUnion.parse(fullDataForValidation);
-        }
-        
-        // SEC-005: Validate URL/Host for SSRF across all relevant types, not just external
-        const checkSsrf = async (urlStr: string, allowedProtocols?: string[]) => {
-            const isSafe = await validateSafeUrl(urlStr, allowedProtocols);
-            if (!isSafe) {
-                return false;
-            }
-            return true;
-        };
 
-        if (data.config) {
-            if (typeof data.config.url === 'string') {
-                if (!(await checkSsrf(data.config.url))) {
-                    return res.status(400).json({ message: "Invalid or unsafe external URL" });
+            // SEC-005: Validate URL/Host for SSRF across all relevant types, not just external
+            const checkSsrf = async (urlStr: string, allowedProtocols?: string[]) => {
+                const isSafe = await validateSafeUrl(urlStr, allowedProtocols);
+                if (!isSafe) {
+                    return false;
                 }
-            }
-            if (typeof data.config.connectionString === 'string') {
-                if (!(await checkSsrf(data.config.connectionString, ["postgres:", "postgresql:", "http:", "https:"]))) {
-                    return res.status(400).json({ message: "Invalid or unsafe postgres connection string" });
-                }
-            }
-            if (typeof data.config.host === 'string') {
-                if (!(await checkSsrf(`postgres://${data.config.host}`, ["postgres:"]))) {
-                    return res.status(400).json({ message: "Invalid or unsafe postgres host" });
+                return true;
+            };
+
+            const NETWORK_KEYS: Record<string, string[]> = {
+                external: ['url'],
+                postgres: ['connectionString', 'host'],
+                airtable: ['apiUrl'],
+                google_sheets: [],
+                native: [],
+                native_table: [],
+            };
+
+            const protocolsFor = (type: string, key: string): string[] | undefined => {
+                if (type === 'postgres') return ["postgres:", "postgresql:", "http:", "https:"];
+                return undefined;
+            };
+
+            for (const key of NETWORK_KEYS[typeForValidation] || []) {
+                const val = (data.config as Record<string, unknown>)[key];
+                if (typeof val === 'string') {
+                    const checkVal = (typeForValidation === 'postgres' && key === 'host') ? `postgres://${val}` : val;
+                    if (!(await checkSsrf(checkVal, protocolsFor(typeForValidation, key)))) {
+                        return res.status(400).json({ message: `Invalid or unsafe ${key}` });
+                    }
                 }
             }
         }

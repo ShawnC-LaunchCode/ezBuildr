@@ -130,7 +130,8 @@ export async function evaluateAndAlert(params: {
  */
 async function sendWebhook(url: string, alert: AlertPayload): Promise<void> {
   try {
-    const response = await fetch(url, {
+    const { safeFetch } = await import('../utils/safeFetch');
+    const response = await safeFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
