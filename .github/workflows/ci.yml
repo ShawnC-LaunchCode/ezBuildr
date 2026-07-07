@@ -87,7 +87,9 @@ jobs:
       env:
         NODE_ENV: test
         DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/test_db"
-        SESSION_SECRET: "test-secret"
+        # Must be >=32 chars — env.ts rejects shorter secrets and, in test mode,
+        # only injects a fallback when the var is UNSET (not when set too short).
+        SESSION_SECRET: "test-session-secret-minimum-32-characters-long-for-ci"
         JWT_SECRET: "test-jwt-secret-minimum-32-characters-long-for-ci"
         # Use secret or fallback for PRs from forks
         VL_MASTER_KEY: ${{ secrets.VL_MASTER_KEY_TEST || 'dGVzdC1tYXN0ZXIta2V5LTMyLWJ5dGVzLWxvbmctZm9yLXRlc3Rpbmc=' }}

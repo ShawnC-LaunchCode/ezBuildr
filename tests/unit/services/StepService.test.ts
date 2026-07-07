@@ -46,12 +46,12 @@ describe("StepService", () => {
         createTestStep(section.id, { order: 2 }),
       ];
 
-      const newStepData: Omit<InsertStep, 'sectionId'> = {
+      // Intentionally omit `order` to exercise the service's auto-increment.
+      const newStepData: Omit<InsertStep, 'sectionId' | 'order'> = {
         type: "short_text",
         title: "New Step",
         required: false,
         options: {},
-        order: 0,
       };
 
       const createdStep = createTestStep(section.id, { ...newStepData, order: 3 });
@@ -61,7 +61,7 @@ describe("StepService", () => {
       mockStepRepo.findBySectionId.mockResolvedValue(existingSteps as unknown as Step[]);
       mockStepRepo.create.mockResolvedValue(createdStep as unknown as Step);
 
-      const result = await service.createStep(workflow.id, section.id, "user-123", newStepData);
+      const result = await service.createStep(workflow.id, section.id, "user-123", newStepData as Omit<InsertStep, 'sectionId'>);
 
       expect(result.order).toBe(3);
       expect(mockStepRepo.create).toHaveBeenCalledWith(

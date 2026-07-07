@@ -12,8 +12,13 @@ import type { LifecycleHook } from '@shared/types/scripting';
 import { lifecycleHookRepository } from '../../server/repositories/LifecycleHookRepository';
 import { scriptExecutionLogRepository } from '../../server/repositories/ScriptExecutionLogRepository';
 import { workflowRepository } from '../../server/repositories/WorkflowRepository';
+import { workflowService } from '../../server/services/WorkflowService';
 import { LifecycleHookService } from '../../server/services/scripting/LifecycleHookService';
 import { scriptEngine } from '../../server/services/scripting/ScriptEngine';
+
+// Actual production denial message thrown by WorkflowService.verifyAccess
+// when a genuine non-owner (workflow exists, no access) is rejected.
+const ACCESS_DENIED_MESSAGE = 'Access denied - insufficient permissions for this workflow';
 
 
 // Mock dependencies
@@ -367,6 +372,9 @@ describe('LifecycleHookService', () => {
 
       vi.mocked(workflowRepository.findById).mockResolvedValue(mockWorkflow as any);
       vi.mocked(lifecycleHookRepository.create).mockResolvedValue(mockHook as any);
+      const verifyAccessSpy = vi
+        .spyOn(workflowService, 'verifyAccess')
+        .mockResolvedValue(mockWorkflow as any);
 
       const result = await lifecycleHookService.createHook('workflow-1', 'user-1', {
         workflowId: 'workflow-1',
@@ -384,6 +392,7 @@ describe('LifecycleHookService', () => {
 
       expect(result).toEqual(mockHook);
       expect(workflowRepository.findById).toHaveBeenCalledWith('workflow-1');
+      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-1', 'edit');
       expect(lifecycleHookRepository.create).toHaveBeenCalled();
     });
 
@@ -408,8 +417,13 @@ describe('LifecycleHookService', () => {
     });
 
     it('should reject creation for non-owner', async () => {
+      // Workflow exists but the requesting user has no access: verifyAccess
+      // reaches its real denial path and rejects.
       const mockWorkflow = { id: 'workflow-1', creatorId: 'user-1' };
       vi.mocked(workflowRepository.findById).mockResolvedValue(mockWorkflow as any);
+      const verifyAccessSpy = vi
+        .spyOn(workflowService, 'verifyAccess')
+        .mockRejectedValue(new Error(ACCESS_DENIED_MESSAGE));
 
       await expect(
         lifecycleHookService.createHook('workflow-1', 'user-2', {
@@ -425,7 +439,9 @@ describe('LifecycleHookService', () => {
           timeoutMs: 1000,
           mutationMode: false,
         })
-      ).rejects.toThrow('Unauthorized');
+      ).rejects.toThrow(ACCESS_DENIED_MESSAGE);
+      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-2', 'edit');
+      expect(lifecycleHookRepository.create).not.toHaveBeenCalled();
     });
   });
 
@@ -438,12 +454,16 @@ describe('LifecycleHookService', () => {
       vi.mocked(lifecycleHookRepository.findByIdWithWorkflow).mockResolvedValue(mockHook as any);
       vi.mocked(workflowRepository.findById).mockResolvedValue(mockWorkflow as any);
       vi.mocked(lifecycleHookRepository.update).mockResolvedValue(updatedHook as any);
+      const verifyAccessSpy = vi
+        .spyOn(workflowService, 'verifyAccess')
+        .mockResolvedValue(mockWorkflow as any);
 
       const result = await lifecycleHookService.updateHook('hook-1', 'user-1', {
         name: 'Updated Hook',
       });
 
       expect(result).toEqual(updatedHook);
+      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-1', 'edit');
       expect(lifecycleHookRepository.update).toHaveBeenCalledWith('hook-1', { name: 'Updated Hook' });
     });
 
@@ -453,10 +473,15 @@ describe('LifecycleHookService', () => {
 
       vi.mocked(lifecycleHookRepository.findByIdWithWorkflow).mockResolvedValue(mockHook as any);
       vi.mocked(workflowRepository.findById).mockResolvedValue(mockWorkflow as any);
+      const verifyAccessSpy = vi
+        .spyOn(workflowService, 'verifyAccess')
+        .mockRejectedValue(new Error(ACCESS_DENIED_MESSAGE));
 
       await expect(
         lifecycleHookService.updateHook('hook-1', 'user-2', { name: 'Updated Hook' })
-      ).rejects.toThrow('Unauthorized');
+      ).rejects.toThrow(ACCESS_DENIED_MESSAGE);
+      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-2', 'edit');
+      expect(lifecycleHookRepository.update).not.toHaveBeenCalled();
     });
   });
 
@@ -468,9 +493,13 @@ describe('LifecycleHookService', () => {
       vi.mocked(lifecycleHookRepository.findByIdWithWorkflow).mockResolvedValue(mockHook as any);
       vi.mocked(workflowRepository.findById).mockResolvedValue(mockWorkflow as any);
       vi.mocked(lifecycleHookRepository.delete).mockResolvedValue(undefined as any);
+      const verifyAccessSpy = vi
+        .spyOn(workflowService, 'verifyAccess')
+        .mockResolvedValue(mockWorkflow as any);
 
       await lifecycleHookService.deleteHook('hook-1', 'user-1');
 
+      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-1', 'edit');
       expect(lifecycleHookRepository.delete).toHaveBeenCalledWith('hook-1');
     });
 
@@ -480,8 +509,15 @@ describe('LifecycleHookService', () => {
 
       vi.mocked(lifecycleHookRepository.findByIdWithWorkflow).mockResolvedValue(mockHook as any);
       vi.mocked(workflowRepository.findById).mockResolvedValue(mockWorkflow as any);
+      const verifyAccessSpy = vi
+        .spyOn(workflowService, 'verifyAccess')
+        .mockRejectedValue(new Error(ACCESS_DENIED_MESSAGE));
 
-      await expect(lifecycleHookService.deleteHook('hook-1', 'user-2')).rejects.toThrow('Unauthorized');
+      await expect(lifecycleHookService.deleteHook('hook-1', 'user-2')).rejects.toThrow(
+        ACCESS_DENIED_MESSAGE
+      );
+      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-2', 'edit');
+      expect(lifecycleHookRepository.delete).not.toHaveBeenCalled();
     });
   });
 
@@ -500,6 +536,9 @@ describe('LifecycleHookService', () => {
 
       vi.mocked(lifecycleHookRepository.findByIdWithWorkflow).mockResolvedValue(mockHook as any);
       vi.mocked(workflowRepository.findById).mockResolvedValue(mockWorkflow as any);
+      const verifyAccessSpy = vi
+        .spyOn(workflowService, 'verifyAccess')
+        .mockResolvedValue(mockWorkflow as any);
       vi.mocked(scriptEngine.execute).mockResolvedValue({
         ok: true,
         output: { result: 84 },
@@ -514,6 +553,7 @@ describe('LifecycleHookService', () => {
       expect(result.success).toBe(true);
       expect(result.output).toEqual({ result: 84 });
       expect(result.durationMs).toBe(15);
+      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-1', 'view');
     });
   });
 
@@ -527,18 +567,29 @@ describe('LifecycleHookService', () => {
 
       vi.mocked(workflowRepository.findById).mockResolvedValue(mockWorkflow as any);
       vi.mocked(lifecycleHookRepository.findByWorkflowId).mockResolvedValue(mockHooks as any);
+      const verifyAccessSpy = vi
+        .spyOn(workflowService, 'verifyAccess')
+        .mockResolvedValue(mockWorkflow as any);
 
       const result = await lifecycleHookService.listHooks('workflow-1', 'user-1');
 
       expect(result).toEqual(mockHooks);
+      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-1', 'view');
       expect(lifecycleHookRepository.findByWorkflowId).toHaveBeenCalledWith('workflow-1');
     });
 
     it('should reject listing for non-owner', async () => {
       const mockWorkflow = { id: 'workflow-1', creatorId: 'user-1' };
       vi.mocked(workflowRepository.findById).mockResolvedValue(mockWorkflow as any);
+      const verifyAccessSpy = vi
+        .spyOn(workflowService, 'verifyAccess')
+        .mockRejectedValue(new Error(ACCESS_DENIED_MESSAGE));
 
-      await expect(lifecycleHookService.listHooks('workflow-1', 'user-2')).rejects.toThrow('Unauthorized');
+      await expect(lifecycleHookService.listHooks('workflow-1', 'user-2')).rejects.toThrow(
+        ACCESS_DENIED_MESSAGE
+      );
+      expect(verifyAccessSpy).toHaveBeenCalledWith('workflow-1', 'user-2', 'view');
+      expect(lifecycleHookRepository.findByWorkflowId).not.toHaveBeenCalled();
     });
   });
 });

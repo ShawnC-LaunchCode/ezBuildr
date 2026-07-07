@@ -331,10 +331,14 @@ describe('BrandingService', () => {
       const result = await brandingService.addDomain('test-tenant-id', 'ACME.ezBuildr.com');
 
       expect(result).toEqual(mockDomain);
-      expect(mockInsert.values).toHaveBeenCalledWith({
-        tenantId: 'test-tenant-id',
-        domain: 'acme.ezbuildr.com', // Should be normalized to lowercase
-      });
+      expect(mockInsert.values).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'test-tenant-id',
+          domain: 'acme.ezbuildr.com', // Should be normalized to lowercase
+          verified: false,
+          verificationToken: expect.any(String),
+        })
+      );
     });
 
     it('should throw error when domain already exists', async () => {

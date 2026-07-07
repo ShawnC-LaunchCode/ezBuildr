@@ -13,8 +13,16 @@ import {
   testOAuth2Credentials,
   type OAuth2ClientCredentialsConfig,
 } from '../../../server/services/oauth2';
-// Mock fetch for OAuth2 token requests
-global.fetch = vi.fn();
+import { safeFetch } from '../../../server/utils/safeFetch';
+
+// oauth2.ts issues token requests via safeFetch (SSRF-guarded), NOT global.fetch,
+// so mocking global.fetch never intercepts them. Mock safeFetch instead, keeping
+// the module's other exports intact.
+vi.mock('../../../server/utils/safeFetch', async (importActual) => ({
+  ...(await importActual<typeof import('../../../server/utils/safeFetch')>()),
+  safeFetch: vi.fn(),
+}));
+const mockFetch = vi.mocked(safeFetch);
 describe('OAuth2 Client Credentials Flow', () => {
   const mockConfig: OAuth2ClientCredentialsConfig = {
     tokenUrl: 'https://auth.example.com/oauth/token',
