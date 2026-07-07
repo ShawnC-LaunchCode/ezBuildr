@@ -7,7 +7,7 @@ import { db } from "../db";
 
 /**
  * Repository for system-wide statistics
- * Maintains historical counters for surveys and responses
+ * Maintains lifetime counters for users and workflows
  */
 export class SystemStatsRepository {
   /**
@@ -21,10 +21,8 @@ export class SystemStatsRepository {
       // Initialize stats row
       await db.insert(systemStats).values({
         id: 1,
-        totalSurveysCreated: 0,
-        totalSurveysDeleted: 0,
-        totalResponsesCollected: 0,
-        totalResponsesDeleted: 0,
+        totalUsersCreated: 0,
+        totalWorkflowsCreated: 0,
         updatedAt: new Date(),
       });
 
@@ -33,68 +31,6 @@ export class SystemStatsRepository {
 
     if (stats[0] == null) {throw new Error("Failed to initialize system stats");}
     return stats[0];
-  }
-
-  /**
-   * Increment surveys created counter
-   */
-  async incrementSurveysCreated(count: number = 1): Promise<void> {
-    await this.getOrInitialize(); // Ensure row exists
-
-    await db
-      .update(systemStats)
-      .set({
-        totalSurveysCreated: sql`${systemStats.totalSurveysCreated} + ${count}`,
-        updatedAt: new Date(),
-      })
-      .where(eq(systemStats.id, 1));
-  }
-
-  /**
-   * Increment surveys deleted counter
-   * Also counts the responses that were deleted with the survey
-   */
-  async incrementSurveysDeleted(surveyCount: number = 1, responseCount: number = 0): Promise<void> {
-    await this.getOrInitialize(); // Ensure row exists
-
-    await db
-      .update(systemStats)
-      .set({
-        totalSurveysDeleted: sql`${systemStats.totalSurveysDeleted} + ${surveyCount}`,
-        totalResponsesDeleted: sql`${systemStats.totalResponsesDeleted} + ${responseCount}`,
-        updatedAt: new Date(),
-      })
-      .where(eq(systemStats.id, 1));
-  }
-
-  /**
-   * Increment responses collected counter
-   */
-  async incrementResponsesCollected(count: number = 1): Promise<void> {
-    await this.getOrInitialize(); // Ensure row exists
-
-    await db
-      .update(systemStats)
-      .set({
-        totalResponsesCollected: sql`${systemStats.totalResponsesCollected} + ${count}`,
-        updatedAt: new Date(),
-      })
-      .where(eq(systemStats.id, 1));
-  }
-
-  /**
-   * Increment responses deleted counter
-   */
-  async incrementResponsesDeleted(count: number = 1): Promise<void> {
-    await this.getOrInitialize(); // Ensure row exists
-
-    await db
-      .update(systemStats)
-      .set({
-        totalResponsesDeleted: sql`${systemStats.totalResponsesDeleted} + ${count}`,
-        updatedAt: new Date(),
-      })
-      .where(eq(systemStats.id, 1));
   }
 
   /**

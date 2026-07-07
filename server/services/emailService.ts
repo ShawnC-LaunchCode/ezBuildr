@@ -83,41 +83,6 @@ export async function sendVerificationEmail(email: string, token: string): Promi
   await sendEmail(email, subject, html);
 }
 
-export async function sendNotificationEmail(
-  recipientEmail: string,
-  surveyTitle: string,
-  respondentName: string,
-  responseViewUrl: string
-): Promise<void> {
-  const subject = `New Response: ${surveyTitle}`;
-  const html = `
-    <div style="font-family: sans-serif;">
-      <h2>New Survey Response</h2>
-      <p>You have received a new response for <strong>${escapeHtml(surveyTitle)}</strong> from ${escapeHtml(respondentName)}.</p>
-      <p><a href="${responseViewUrl}">View Response</a></p>
-    </div>
-  `;
-  await sendEmail(recipientEmail, subject, html);
-}
-
-export async function sendSurveyInvitation(
-  recipientEmail: string,
-  recipientName: string,
-  surveyTitle: string,
-  surveyUrl: string
-): Promise<void> {
-  const subject = `Invitation: ${surveyTitle}`;
-  const html = `
-    <div style="font-family: sans-serif;">
-      <h2>Invited to ${escapeHtml(surveyTitle)}</h2>
-      <p>Hello ${escapeHtml(recipientName)},</p>
-      <p>You are invited to participate in a survey.</p>
-      <p><a href="${surveyUrl}">Start Survey</a></p>
-    </div>
-  `;
-  await sendEmail(recipientEmail, subject, html);
-}
-
 export interface IntakeReceiptData {
   to: string;
   tenantId: string;

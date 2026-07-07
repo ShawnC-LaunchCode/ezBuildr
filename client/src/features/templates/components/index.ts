@@ -1,1 +1,0 @@
-export { AddTemplateModal } from "./AddTemplateModal";

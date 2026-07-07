@@ -2,9 +2,6 @@
 import { apiLimiter } from "../lib/rateLimit";
 
 import { registerAccountRoutes } from "./account.routes";
-import enterpriseAdminRouter from "./admin";
-import { registerAdminAiSettingsRoutes } from "./admin.aiSettings.routes";
-import { registerAdminRoutes } from "./admin.routes";
 import { registerAiWorkflowEditRoutes } from "./ai/workflowEdit.routes";
 import aiDocRouter from "./ai.doc.routes";
 import { registerAiFeedbackRoutes } from "./ai.feedback.routes";
@@ -26,7 +23,6 @@ import { registerDashboardRoutes } from "./dashboard.routes";
 import { dataSourceRouter } from "./dataSource.routes";
 import { registerDatavaultRoutes } from "./datavault.routes";
 import { registerDatavaultApiTokenRoutes } from "./datavaultApiTokens.routes";
-import { registerDebugRoutes } from "./debug.routes";
 import { registerDocsRoutes } from "./docs.routes";
 import documentHooksRoutes from "./documentHooks.routes";
 import { registerDocumentRoutes } from "./documents.routes";
@@ -37,7 +33,6 @@ import { registerFileRoutes } from "./files.routes";
 import { registerFinalBlockRoutes } from "./finalBlock.routes";
 import { registerIntakeRoutes } from "./intake.routes";
 import lifecycleHooksRoutes from "./lifecycleHooks.routes";
-import marketplaceRouter from "./marketplace";
 import { registerMetricsRoutes } from "./metrics";
 // SECURITY: the self-hosted OAuth2 provider (./oauth.routes) is DISABLED. Its endpoints
 // were unauthenticated: /oauth/approve trusted a client-supplied user_id, /oauth/token
@@ -54,7 +49,6 @@ import { registerRunOutputsRoutes } from "./runOutputs.routes";
 import { registerRunRoutes } from "./runs.routes";
 import { registerSecretsRoutes } from "./secrets.routes";
 import { registerSectionRoutes } from "./sections.routes";
-import sharingRouter from "./sharing";
 import { registerSnapshotRoutes } from "./snapshots.routes";
 import { registerStepRoutes } from "./steps.routes";
 import { registerTeamRoutes } from "./teams.routes";
@@ -115,7 +109,6 @@ export function registerAllRoutes(app: Express): void {
 
   // Debug Routes (temporary)
   if (process.env.NODE_ENV === 'development') {
-    registerDebugRoutes(app);
   }
 
   // Legacy Workflow Routes (MUST come before new API routes to avoid shadowing)
@@ -148,8 +141,6 @@ export function registerAllRoutes(app: Express): void {
   registerFileRoutes(app);
   registerAiRoutes(app);
   registerAiFeedbackRoutes(app);
-  registerAdminRoutes(app);
-  registerAdminAiSettingsRoutes(app);
   registerProjectRoutes(app);
   registerSnapshotRoutes(app);
   registerWorkflowTemplateRoutes(app);
@@ -172,14 +163,11 @@ export function registerAllRoutes(app: Express): void {
   registerCollectionsRoutes(app);
   registerDatavaultRoutes(app);
   registerDatavaultApiTokenRoutes(app);
-  app.use("/api", marketplaceRouter);
 
   // Google Places
   app.use("/api/places", placesRouter);
 
   // Enterprise Routes
-  app.use("/api/sharing", sharingRouter);
-  app.use("/api/enterprise/admin", enterpriseAdminRouter);
   registerBillingRoutes(app);
   registerPreviewRoutes(app);
 

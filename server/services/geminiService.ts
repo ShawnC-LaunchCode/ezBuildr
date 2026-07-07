@@ -1,11 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Legacy survey imports - DISABLED (survey system removed Nov 2025)
-// import type { Survey, Question, Response, Answer } from "@shared/schema";
-// import { SURVEY_ANALYSIS_PROMPT, fillPromptVariables } from "../config/aiPrompts";
-// import { surveyRepository, pageRepository, responseRepository } from "../repositories";
-// import { extractTextValue } from "../utils/answerFormatting";
 import { logger } from "../logger";
 
 /**
