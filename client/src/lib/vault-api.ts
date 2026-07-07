@@ -1373,15 +1373,6 @@ export const templateAPI = {
     fetchAPI<ApiTemplate[]>(`/api/templates`),
   get: (id: string) =>
     fetchAPI<ApiTemplate>(`/api/templates/${id}`),
-  createFromWorkflow: (workflowId: string, name: string, description?: string, tags?: string[]) =>
-    fetchAPI<ApiTemplate>(`/api/templates/from-survey/${workflowId}`, {
-      method: 'POST',
-      body: JSON.stringify({ name, description, tags }),
-    }),
-  insertIntoWorkflow: (templateId: string, workflowId: string) =>
-    fetchAPI<{ success: boolean; insertedPages: number; insertedBlocks: number }>(`/api/templates/${templateId}/insert/${workflowId}`, {
-      method: 'POST',
-    }),
   update: (id: string, data: Partial<ApiTemplate>) =>
     fetchAPI<ApiTemplate>(`/api/templates/${id}`, {
       method: 'PUT',

@@ -4,7 +4,6 @@
  */
 
 export { StatusBadge } from './StatusBadge';
-export type { SurveyStatus } from './StatusBadge';
 
 export { EntityCard } from './EntityCard';
 export type { EntityAction, EntityCardProps } from './EntityCard';

@@ -226,10 +226,6 @@ beforeAll(async () => {
           // Fix 0: system_stats (no migration file exists for this table)
           await db.execute(`CREATE TABLE IF NOT EXISTS "${currentTestSchema}"."system_stats" (
             "id" integer PRIMARY KEY,
-            "total_surveys_created" integer NOT NULL DEFAULT 0,
-            "total_surveys_deleted" integer NOT NULL DEFAULT 0,
-            "total_responses_collected" integer NOT NULL DEFAULT 0,
-            "total_responses_deleted" integer NOT NULL DEFAULT 0,
             "total_users_created" integer NOT NULL DEFAULT 0,
             "total_workflows_created" integer NOT NULL DEFAULT 0,
             "updated_at" timestamp DEFAULT now()

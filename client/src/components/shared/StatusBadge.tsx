@@ -1,14 +1,11 @@
-import { Circle, CheckCircle2, XCircle, AlertCircle, Archive, LucideIcon } from "lucide-react";
+import { Circle, CheckCircle2, AlertCircle, Archive, LucideIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 
-export type SurveyStatus = "draft" | "open" | "closed" | "active" | "archived";
-
 interface StatusBadgeProps {
-  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
-  status: SurveyStatus | string;
+  status: string;
   showIcon?: boolean;
   customLabels?: Record<string, string>;
   variant?: "default" | "secondary" | "destructive" | "outline";
@@ -34,18 +31,6 @@ const statusConfigs: Record<string, StatusConfig> = {
     variant: "default",
     icon: CheckCircle2,
     className: "bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400",
-  },
-  open: {
-    label: "Open",
-    variant: "default",
-    icon: CheckCircle2,
-    className: "bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400",
-  },
-  closed: {
-    label: "Closed",
-    variant: "destructive",
-    icon: XCircle,
-    className: "bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400",
   },
   archived: {
     label: "Archived",

@@ -15,7 +15,7 @@ export type ActivityLog = {
   event: string;                  // Event type/name
   actorId?: string | null;        // ID of the user/entity that performed the action
   actorEmail?: string | null;     // Email of the actor (if available)
-  entityType?: string | null;     // Type of entity being acted upon (e.g., "survey", "question")
+  entityType?: string | null;     // Type of entity being acted upon (e.g., "workflow", "step")
   entityId?: string | null;       // ID of the entity being acted upon
   status?: string | null;         // Event status: "success", "error", "info", "warn"
   ipAddress?: string | null;      // IP address of the actor

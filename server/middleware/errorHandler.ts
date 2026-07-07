@@ -8,7 +8,7 @@
  * - Helper functions for async route handlers
  *
  * Usage:
- * 1. Throw custom errors from services/routes: `throw new NotFoundError("Survey not found")`
+ * 1. Throw custom errors from services/routes: `throw new NotFoundError("Workflow not found")`
  * 2. Use asyncHandler wrapper for routes: `app.get('/path', asyncHandler(async (req, res) => { ... }))`
  * 3. Register error handler middleware at the end of route definitions
  */
@@ -301,19 +301,19 @@ type AsyncRouteHandler = (
  *
  * @example
  * // Instead of:
- * app.get('/api/surveys/:id', async (req, res) => {
+ * app.get('/api/workflows/:id', async (req, res) => {
  *   try {
- *     const survey = await getSurvey(req.params.id);
- *     res.json(survey);
+ *     const workflow = await getWorkflow(req.params.id);
+ *     res.json(workflow);
  *   } catch (error) {
  *     next(error);
  *   }
  * });
  *
  * // You can write:
- * app.get('/api/surveys/:id', asyncHandler(async (req, res) => {
- *   const survey = await getSurvey(req.params.id);
- *   res.json(survey);
+ * app.get('/api/workflows/:id', asyncHandler(async (req, res) => {
+ *   const workflow = await getWorkflow(req.params.id);
+ *   res.json(workflow);
  * }));
  */
 export function asyncHandler(fn: AsyncRouteHandler) {
@@ -331,8 +331,8 @@ export function asyncHandler(fn: AsyncRouteHandler) {
  * Useful for checking if a resource exists
  *
  * @example
- * const survey = await db.findSurvey(id);
- * assertFound(survey, "Survey not found");
+ * const workflow = await db.findWorkflow(id);
+ * assertFound(workflow, "Workflow not found");
  */
 export function assertFound<T>(
   value: T | null | undefined,
@@ -348,7 +348,7 @@ export function assertFound<T>(
  * Useful for authorization checks
  *
  * @example
- * assertAuthorized(survey.creatorId === userId, "Access denied - you do not own this survey");
+ * assertAuthorized(workflow.creatorId === userId, "Access denied - you do not own this workflow");
  */
 export function assertAuthorized(
   condition: boolean,
@@ -380,7 +380,7 @@ export function assertAuthenticated(
  * Returns the parsed and validated data
  *
  * @example
- * const validatedData = validateInput(createSurveySchema, req.body);
+ * const validatedData = validateInput(createWorkflowSchema, req.body);
  */
 export function validateInput<T>(
   schema: { parse: (data: unknown) => T },

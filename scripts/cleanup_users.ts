@@ -1,7 +1,7 @@
 
-import { _count, _eq, like, inArray, or, sql } from "drizzle-orm";
+import { like, inArray, or, sql } from "drizzle-orm";
 
-import { users, _systemStats, auditLogs, surveys, workspaceInvitations, workflows, workflowVersions } from "@shared/schema";
+import { users, auditLogs, workspaceInvitations, workflows, workflowVersions } from "@shared/schema";
 
 import { db, initializeDatabase } from "../server/db";
 import { systemStatsRepository } from "../server/repositories/SystemStatsRepository";
@@ -51,15 +51,11 @@ async function main() {
         .set({ userId: null })
         .where(inArray(auditLogs.userId, userIds));
 
-    // 3. Delete dependent surveys
-    console.log("Deleting dependent surveys...");
-    await db.delete(surveys).where(inArray(surveys.creatorId, userIds));
-
-    // 4. Delete dependent invitations
+    // 3. Delete dependent invitations
     console.log("Deleting dependent workspace invitations...");
     await db.delete(workspaceInvitations).where(inArray(workspaceInvitations.invitedBy, userIds));
 
-    // 5. Delete workflows (Creator or Owner)
+    // 4. Delete workflows (Creator or Owner)
     // This will cascade delete versions belonging to these workflows
     console.log("Deleting dependent workflows...");
     await db.delete(workflows).where(
@@ -69,13 +65,13 @@ async function main() {
         )
     );
 
-    // 6. Delete workflow versions created by users (on workflows owned by OTHERS)
+    // 5. Delete workflow versions created by users (on workflows owned by OTHERS)
     console.log("Deleting remaining workflow versions...");
     // Note: versions belonging to the workflows in step 4 are already gone. 
     // This catches stragglers.
     await db.delete(workflowVersions).where(inArray(workflowVersions.createdBy, userIds));
 
-    // 7. Delete users
+    // 6. Delete users
     console.log("Deleting users...");
     await db.delete(users).where(inArray(users.id, userIds));
 

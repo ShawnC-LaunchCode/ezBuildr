@@ -19,7 +19,6 @@
     "db:migrate:datavault": "tsx scripts/applyDatavaultMigrations.ts",
     "db:seed": "tsx scripts/seed.ts",
     "set-admin": "tsx scripts/setAdmin.ts",
-    "generate-fake-data": "tsx scripts/generateFakeData.ts",
     "test-gemini": "tsx scripts/testGeminiApi.ts",
     "test-gemini-direct": "tsx scripts/testGeminiApiDirect.ts",
     "test": "cross-env VITEST_INTEGRATION=true VITEST_SINGLE_FORK=true vitest run --coverage",

@@ -4,7 +4,7 @@
  *
  * Usage:
  * - Use these keys in useQuery and useMutation hooks
- * - Invalidate queries using queryClient.invalidateQueries(queryKeys.surveys.all())
+ * - Invalidate queries using queryClient.invalidateQueries(queryKeys.workflows.all())
  */
 
 export const queryKeys = {

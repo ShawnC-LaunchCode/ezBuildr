@@ -20,12 +20,12 @@ interface QuickActionButtonProps {
  *
  * @example
  * <QuickActionButton
- *   href="/surveys/new"
+ *   href="/workflows/new"
  *   icon={Plus}
  *   iconColor="text-primary"
  *   iconBgColor="bg-primary/10"
- *   label="Create New Survey"
- *   testId="button-quick-create-survey"
+ *   label="Create New Workflow"
+ *   testId="button-quick-create-workflow"
  * />
  *
  * @example

@@ -19,7 +19,7 @@ interface HeaderProps {
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: "fas fa-home" },
-  { name: "Workflows", href: "/surveys", icon: "fas fa-list-ul" },
+  { name: "Workflows", href: "/workflows", icon: "fas fa-list-ul" },
   { name: "Templates", href: "/templates", icon: "fas fa-puzzle-piece" },
 ];
 

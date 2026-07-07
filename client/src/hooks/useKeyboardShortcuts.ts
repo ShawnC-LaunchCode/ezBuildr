@@ -15,7 +15,7 @@ interface UseKeyboardShortcutsOptions {
 }
 
 /**
- * Hook for managing keyboard shortcuts in the survey builder
+ * Hook for managing keyboard shortcuts in the workflow builder
  * Supports Ctrl/Cmd modifiers and prevents conflicts with browser shortcuts
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type

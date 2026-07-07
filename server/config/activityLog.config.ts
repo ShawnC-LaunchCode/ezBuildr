@@ -34,23 +34,8 @@ export const activityLogSource = {
  * Add new events here as they're introduced to your application.
  */
 export const eventDisplayMap: Record<string, { label: string; tone: "info" | "success" | "warn" | "error" }> = {
-  // Survey lifecycle events
-  "survey_start": { label: "Survey Started", tone: "info" },
-  "survey_complete": { label: "Survey Completed", tone: "success" },
-  "survey_abandon": { label: "Survey Abandoned", tone: "warn" },
-
-  // Page navigation events
-  "page_view": { label: "Page Viewed", tone: "info" },
-  "page_leave": { label: "Page Left", tone: "info" },
-
-  // Question interaction events
-  "question_focus": { label: "Question Focused", tone: "info" },
-  "question_blur": { label: "Question Blurred", tone: "info" },
-  "question_answer": { label: "Question Answered", tone: "success" },
-  "question_skip": { label: "Question Skipped", tone: "warn" },
-
-  // AI-related events (if you're tracking AI survey generation)
-  "ai.generated": { label: "AI Survey Generated", tone: "success" },
+  // AI-related events
+  "ai.generated": { label: "AI Workflow Generated", tone: "success" },
   "ai.error": { label: "AI Generation Failed", tone: "error" },
 
   // Admin / Security Events
