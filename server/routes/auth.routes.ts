@@ -283,10 +283,13 @@ export function registerAuthRoutes(app: Express): void {
         const mfaError = new MfaRequiredError(undefined, 'MFA required');
         metricsService.recordLoginAttempt('mfa_required', 'local');
         metricsService.recordAuthLatency(startTime, 'login', 200);
+        
+        const mfaPendingToken = authService.createToken(user, true);
+        
         return res.status(200).json({
           message: mfaError.message,
           requiresMfa: true,
-          userId: user.id, // Client needs this to verify MFA
+          mfaPendingToken,
           error: mfaError.code
         })
       }
@@ -615,15 +618,35 @@ export function registerAuthRoutes(app: Express): void {
   app.post('/api/auth/mfa/verify-login', authRateLimit, asyncHandler(async (req: Request, res: Response) => {
     const startTime = Date.now();
     try {
-      const { userId, token, backupCode } = req.body as { userId: string; token?: string; backupCode?: string };
-      if (!userId) {
+      const { mfaPendingToken, token, backupCode } = req.body as { mfaPendingToken: string; token?: string; backupCode?: string };
+      if (!mfaPendingToken) {
         metricsService.recordAuthLatency(startTime, 'mfa_verify', 400);
-        return res.status(400).json({ message: "User ID required" });
+        return res.status(400).json({ message: "MFA pending token required" });
       }
+      
+      let payload;
+      try {
+          payload = authService.verifyToken(mfaPendingToken, true);
+          if (!payload.mfaPending) {
+              throw new Error('Not an MFA pending token');
+          }
+      } catch (e) {
+          metricsService.recordAuthLatency(startTime, 'mfa_verify', 401);
+          return res.status(401).json({ message: "Invalid or expired MFA token" });
+      }
+
+      const userId = payload.userId;
       const user = await userRepository.findById(userId);
       if (!user) {
         metricsService.recordAuthLatency(startTime, 'mfa_verify', 404);
         return res.status(404).json({ message: "User not found" });
+      }
+      
+      // CHECK ACCOUNT LOCK (Totp failures)
+      const lockStatus = await accountLockoutService.isAccountLocked(user.id, user.email, req.ip);
+      if (lockStatus.locked) {
+        logger.warn({ userId: user.id, email: user.email }, 'MFA blocked: account locked');
+        return res.status(403).json({ message: `Account locked until ${lockStatus.lockedUntil?.toISOString()}` });
       }
       let verified = false;
       let usedBackupCode = false;
@@ -640,11 +663,14 @@ export function registerAuthRoutes(app: Express): void {
         logger.warn({ userId }, 'MFA verification failed during login');
         metricsService.recordMfaEvent('verification_failed', userId);
         metricsService.recordAuthLatency(startTime, 'mfa_verify', 401);
+        await accountLockoutService.recordAttempt(user.email, req.ip, false); // Record TOTP failure
         return res.status(401).json({
           message: "Invalid authentication code",
           error: "invalid_mfa_code"
         });
       }
+      
+      await accountLockoutService.recordAttempt(user.email, req.ip, true); // Reset failure count on success
       // Generate tokens
       const accessToken = authService.createToken(user);
       const refreshToken = await authService.createRefreshToken(userId, {

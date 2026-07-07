@@ -1,4 +1,5 @@
 
+import crypto from "crypto";
 import { createLogger } from "../../../logger";
 
 import { BillingProvider, CreateCustomerParams, CreateSubscriptionParams } from "./BillingProvider";
@@ -11,14 +12,14 @@ export class StripeProvider implements BillingProvider {
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     async createCustomer(params: CreateCustomerParams) {
         logger.info({ params }, "Stripe: Creating customer");
-        return { id: `cus_mock_${Math.random().toString(36).substring(7)}` };
+        return { id: `cus_mock_${crypto.randomUUID().replace(/-/g, '').substring(0, 7)}` };
     }
 
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     async createSubscription(params: CreateSubscriptionParams) {
         logger.info({ params }, "Stripe: Creating subscription");
         return {
-            id: `sub_mock_${Math.random().toString(36).substring(7)}`,
+            id: `sub_mock_${crypto.randomUUID().replace(/-/g, '').substring(0, 7)}`,
             status: 'active',
             clientSecret: 'seti_mock_secret'
         };

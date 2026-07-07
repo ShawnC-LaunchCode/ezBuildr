@@ -26,7 +26,7 @@ export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false);
     // MFA State
     const [mfaRequired, setMfaRequired] = useState(false);
-    const [mfaUserId, setMfaUserId] = useState<string>("");
+    const [mfaPendingToken, setMfaPendingToken] = useState<string>("");
     const [mfaToken, setMfaToken] = useState("");
     const form = useForm<LoginFormValues>({
         resolver: zodResolver(loginSchema),
@@ -54,7 +54,7 @@ export default function LoginPage() {
             // Check for MFA requirement
             if ((response as any).requiresMfa) {
                 setMfaRequired(true);
-                setMfaUserId((response as any).userId);
+                setMfaPendingToken((response as any).mfaPendingToken);
                 toast({
                     title: "Two-Factor Authentication Required",
                     description: "Please enter the code from your authenticator app.",
@@ -77,7 +77,7 @@ export default function LoginPage() {
         if (!mfaToken) { return; }
         setIsLoading(true);
         try {
-            const response = await authAPI.verifyMfaLogin(mfaUserId, mfaToken);
+            const response = await authAPI.verifyMfaLogin(mfaPendingToken, mfaToken);
             await handleSuccess(response);
         } catch (error) {
             toast({

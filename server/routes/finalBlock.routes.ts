@@ -393,6 +393,14 @@ export function registerFinalBlockRoutes(app: Express): void {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         const sanitizedFilename = path.basename(filename);
 
+        // Security check: ensure the file belongs to this run
+        // ZIP files are prefixed with final-docs-{runId.slice(0, 8)}
+        // Individual files are prefixed with {runId}_
+        if (!sanitizedFilename.includes(runId) && !sanitizedFilename.includes(`final-docs-${runId.slice(0, 8)}`)) {
+          logger.warn({ runId, filename: sanitizedFilename }, 'Attempted to access file not belonging to run');
+          throw createError.notFound('File', filename);
+        }
+
         // Check in archives directory
         const archivesDir = path.join(process.cwd(), 'server', 'files', 'archives');
         const filePath = path.join(archivesDir, sanitizedFilename);

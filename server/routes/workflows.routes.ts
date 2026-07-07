@@ -142,7 +142,13 @@ export function registerWorkflowRoutes(app: Express): void {
       }
 
       const { workflowId } = req.params;
-      const updateData = updateWorkflowSchema.parse(req.body);
+      const parsedData = updateWorkflowSchema.parse(req.body);
+
+      // SECURITY FIX: Strip protected fields to prevent mass assignment by edit-only users
+      const updateData = { ...parsedData };
+      delete updateData.ownerType;
+      delete updateData.ownerUuid;
+      delete updateData.status;
 
       let workflow;
       // Deep update if sections are provided (e.g. from AI)
@@ -391,7 +397,13 @@ export function registerWorkflowRoutes(app: Express): void {
    */
   app.get('/api/workflows/:workflowId/logic-rules', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
       const { workflowId } = req.params;
+      await workflowService.verifyAccess(workflowId, userId, 'view');
       const logicRules = await logicRuleRepository.findByWorkflowId(workflowId);
       res.json(logicRules);
     } catch (error) {

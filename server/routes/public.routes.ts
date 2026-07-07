@@ -64,58 +64,63 @@ router.post("/w/:slug/complete", apiLimiter, strictLimiter, asyncHandler(async (
     const { slug } = req.params;
     const { runToken } = req.body;
 
-    // Find workflow to get workspaceId
-    const workflow = await db.query.workflows.findFirst({
-        where: eq(workflows.slug, slug)
-    });
-
-    // Verify workflow exists
-    if (!workflow) {
-        return res.status(404).json({ error: "Workflow not found" });
-    }
-    
-    if (!runToken || typeof runToken !== 'string') {
-        return res.status(400).json({ error: "Missing or invalid runToken" });
-    }
-
-    // Attempt to resolve real run from DB using secure token
-    const run = await workflowRunRepository.findByToken(runToken);
-
-    if (!run || run.workflowId !== workflow.id) {
-        logger.warn({ slug, tokenLength: runToken?.length }, "Failed token lookup on public complete endpoint");
-        return res.status(404).json({ error: "Run not found or invalid for workflow" });
-    }
-
-    // Verify token hasn't expired
-    if (run.tokenExpiresAt && new Date() > run.tokenExpiresAt) {
-        return res.status(401).json({ error: "Run token has expired" });
-    }
-
-    // Construct Server-Side Payload from actual database records
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const values = await db.query.stepValues.findMany({
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        where: eq(require('@shared/schema').stepValues.runId, run.id)
-    });
-
-    const serverPayload = values.reduce((acc, curr) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        acc[curr.stepId] = curr.value;
-        return acc;
-    }, {} as Record<string, unknown>);
-
-    // Trigger Webhook
-    if (workflow.projectId) {
-        await WebhookDispatcher.dispatch(workflow.projectId, 'run.completed', {
-            event: 'run.completed',
-            workflowId: workflow.id,
-            runId: run.id,
-            data: serverPayload,
-            timestamp: new Date().toISOString()
+    try {
+        // Find workflow to get workspaceId
+        const workflow = await db.query.workflows.findFirst({
+            where: eq(workflows.slug, slug)
         });
-    }
 
-    res.json({ status: "completed" });
+        // Verify workflow exists
+        if (!workflow) {
+            return res.status(404).json({ error: "Workflow not found" });
+        }
+        
+        if (!runToken || typeof runToken !== 'string') {
+            return res.status(400).json({ error: "Missing or invalid runToken" });
+        }
+
+        // Attempt to resolve real run from DB using secure token
+        const run = await workflowRunRepository.findByToken(runToken);
+
+        if (!run || run.workflowId !== workflow.id) {
+            logger.warn({ slug, tokenLength: runToken?.length }, "Failed token lookup on public complete endpoint");
+            return res.status(404).json({ error: "Run not found or invalid for workflow" });
+        }
+
+        // Verify token hasn't expired
+        if (run.tokenExpiresAt && new Date() > run.tokenExpiresAt) {
+            return res.status(401).json({ error: "Run token has expired" });
+        }
+
+        // Construct Server-Side Payload from actual database records
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const values = await db.query.stepValues.findMany({
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+            where: eq(require('@shared/schema').stepValues.runId, run.id)
+        });
+
+        const serverPayload = values.reduce((acc, curr) => {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            acc[curr.stepId] = curr.value;
+            return acc;
+        }, {} as Record<string, unknown>);
+
+        // Trigger Webhook
+        if (workflow.projectId) {
+            await WebhookDispatcher.dispatch(workflow.projectId, 'run.completed', {
+                event: 'run.completed',
+                workflowId: workflow.id,
+                runId: run.id,
+                data: serverPayload,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        res.json({ status: "completed" });
+    } catch (error) {
+        logger.error({ err: error, slug }, "Public complete error");
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 }));
 
 export default router;

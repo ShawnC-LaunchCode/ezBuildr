@@ -115,6 +115,9 @@ export interface FinalBlockRenderOptions {
 
   /** Normalization options */
   normalizationOptions?: NormalizationOptions;
+
+  /** Run ID to prefix files with for security */
+  runId?: string;
 }
 
 /**
@@ -402,7 +405,7 @@ export class EnhancedDocumentEngine {
           templatePath: doc.templatePath,
           rawData: stepValues, // Pass raw data, will be normalized internally
           mapping: doc.mapping,
-          outputName: doc.alias,
+          outputName: options.runId ? `${options.runId}_${doc.alias}` : doc.alias,
           outputDir,
           toPdf,
           pdfStrategy,

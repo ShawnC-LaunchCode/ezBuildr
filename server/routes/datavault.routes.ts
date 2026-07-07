@@ -509,7 +509,13 @@ export function registerDatavaultRoutes(app: Express): void {
   app.patch('/api/datavault/columns/:columnId', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
       const { columnId } = req.params;
+      const colData = await datavaultColumnsService.getColumn(columnId, tenantId);
+      await datavaultTablesService.requirePermission(userId, colData.tableId, tenantId, 'write');
       const updateSchema = z.object({
         name: z.string().min(1).optional(),
         slug: z.string().min(1).optional(),
@@ -539,7 +545,13 @@ export function registerDatavaultRoutes(app: Express): void {
   app.delete('/api/datavault/columns/:columnId', deleteLimiter, hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
       const { columnId } = req.params;
+      const colData = await datavaultColumnsService.getColumn(columnId, tenantId);
+      await datavaultTablesService.requirePermission(userId, colData.tableId, tenantId, 'write');
       await datavaultColumnsService.deleteColumn(columnId, tenantId);
       res.status(204).send();
     } catch (error) {
@@ -556,7 +568,12 @@ export function registerDatavaultRoutes(app: Express): void {
   app.post('/api/datavault/tables/:tableId/columns/reorder', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
       const { tableId } = req.params;
+      await datavaultTablesService.requirePermission(userId, tableId, tenantId, 'write');
       const reorderSchema = z.object({
         columnIds: z.array(z.string().uuid()),
       });
@@ -587,6 +604,10 @@ export function registerDatavaultRoutes(app: Express): void {
   app.post('/api/datavault/references/batch', batchLimiter, hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
       const schema = z.object({
         requests: z.array(
           z.object({
@@ -597,6 +618,13 @@ export function registerDatavaultRoutes(app: Express): void {
         ),
       });
       const { requests } = schema.parse(req.body);
+      
+      // Enforce read permission for each table
+      const uniqueTableIds = [...new Set(requests.map(r => r.tableId))];
+      await Promise.all(uniqueTableIds.map(tableId => 
+        datavaultTablesService.requirePermission(userId, tableId, tenantId, 'read')
+      ));
+
       // DOS PROTECTION FIX: Validate batch size to prevent resource exhaustion
       if (requests.length > DATAVAULT_CONFIG.MAX_BATCH_REQUESTS) {
         return res.status(400).json({
@@ -724,11 +752,16 @@ export function registerDatavaultRoutes(app: Express): void {
   app.get('/api/datavault/rows/:rowId', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
       const { rowId } = req.params;
       const row = await datavaultRowsService.getRow(rowId, tenantId);
       if (!row) {
         return res.status(404).json({ message: 'Row not found' });
       }
+      await datavaultTablesService.requirePermission(userId, row.row.tableId, tenantId, 'read');
       res.json(row);
     } catch (error) {
       logger.error({ error }, 'Error fetching DataVault row');
@@ -784,7 +817,16 @@ export function registerDatavaultRoutes(app: Express): void {
   app.get('/api/datavault/rows/:rowId/references', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
       const { rowId } = req.params;
+      const rowData = await datavaultRowsService.getRow(rowId, tenantId);
+      if (!rowData) {
+        return res.status(404).json({ message: 'Row not found' });
+      }
+      await datavaultTablesService.requirePermission(userId, rowData.row.tableId, tenantId, 'read');
       const references = await datavaultRowsService.getRowReferences(rowId, tenantId);
       res.json({
         rowId,
@@ -841,7 +883,16 @@ export function registerDatavaultRoutes(app: Express): void {
   app.patch('/api/datavault/rows/:rowId/archive', hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
       const { rowId } = req.params;
+      const rowData = await datavaultRowsService.getRow(rowId, tenantId);
+      if (!rowData) {
+        return res.status(404).json({ message: 'Row not found' });
+      }
+      await datavaultTablesService.requirePermission(userId, rowData.row.tableId, tenantId, 'write');
       await datavaultRowsService.archiveRow(tenantId, rowId);
       res.json({ success: true, message: 'Row archived successfully' });
     } catch (error) {
@@ -860,7 +911,16 @@ export function registerDatavaultRoutes(app: Express): void {
   app.patch('/api/datavault/rows/:rowId/unarchive', hybridAuth, async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
       const { rowId } = req.params;
+      const rowData = await datavaultRowsService.getRow(rowId, tenantId);
+      if (!rowData) {
+        return res.status(404).json({ message: 'Row not found' });
+      }
+      await datavaultTablesService.requirePermission(userId, rowData.row.tableId, tenantId, 'write');
       await datavaultRowsService.unarchiveRow(tenantId, rowId);
       res.json({ success: true, message: 'Row unarchived successfully' });
     } catch (error) {
@@ -882,6 +942,17 @@ export function registerDatavaultRoutes(app: Express): void {
         rowIds: z.array(z.string().uuid()).min(1).max(100),
       });
       const { rowIds } = schema.parse(req.body);
+      
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+      const firstRow = await datavaultRowsService.getRow(rowIds[0], tenantId);
+      if (!firstRow) {
+        return res.status(404).json({ message: 'Row not found' });
+      }
+      await datavaultTablesService.requirePermission(userId, firstRow.row.tableId, tenantId, 'write');
+
       await datavaultRowsService.bulkArchiveRows(tenantId, rowIds);
       res.json({
         success: true,
@@ -913,6 +984,17 @@ export function registerDatavaultRoutes(app: Express): void {
         rowIds: z.array(z.string().uuid()).min(1).max(100),
       });
       const { rowIds } = schema.parse(req.body);
+      
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+      const firstRow = await datavaultRowsService.getRow(rowIds[0], tenantId);
+      if (!firstRow) {
+        return res.status(404).json({ message: 'Row not found' });
+      }
+      await datavaultTablesService.requirePermission(userId, firstRow.row.tableId, tenantId, 'write');
+
       await datavaultRowsService.bulkUnarchiveRows(tenantId, rowIds);
       res.json({
         success: true,
@@ -944,6 +1026,17 @@ export function registerDatavaultRoutes(app: Express): void {
         rowIds: z.array(z.string().uuid()).min(1).max(100),
       });
       const { rowIds } = schema.parse(req.body);
+      
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+      const firstRow = await datavaultRowsService.getRow(rowIds[0], tenantId);
+      if (!firstRow) {
+        return res.status(404).json({ message: 'Row not found' });
+      }
+      await datavaultTablesService.requirePermission(userId, firstRow.row.tableId, tenantId, 'write');
+
       await datavaultRowsService.bulkDeleteRows(rowIds, tenantId);
       res.json({
         success: true,
@@ -973,7 +1066,16 @@ export function registerDatavaultRoutes(app: Express): void {
   app.get('/api/datavault/rows/:rowId/notes', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
       const { rowId } = req.params;
+      const row = await datavaultRowsService.getRow(rowId, tenantId);
+      if (!row) {
+        return res.status(404).json({ message: 'Row not found' });
+      }
+      await datavaultTablesService.requirePermission(userId, row.row.tableId, tenantId, 'read');
       const notes = await datavaultRowNotesService.getNotesByRowId(rowId, tenantId);
       res.json(notes);
     } catch (error) {
@@ -996,6 +1098,11 @@ export function registerDatavaultRoutes(app: Express): void {
       if (!userId) {
         return res.status(401).json({ message: 'Authentication required' });
       }
+      const row = await datavaultRowsService.getRow(rowId, tenantId);
+      if (!row) {
+        return res.status(404).json({ message: 'Row not found' });
+      }
+      await datavaultTablesService.requirePermission(userId, row.row.tableId, tenantId, 'write');
       const schema = z.object({
         text: z.string()
           .min(1, { message: 'Note text cannot be empty' })
@@ -1029,6 +1136,14 @@ export function registerDatavaultRoutes(app: Express): void {
       const { noteId } = req.params;
       if (!userId) {
         return res.status(401).json({ message: 'Authentication required' });
+      }
+      const note = await datavaultRowNotesService.getNoteById(noteId, tenantId);
+      if (!note) {
+        return res.status(404).json({ message: 'Note not found' });
+      }
+      const row = await datavaultRowsService.getRow(note.rowId, tenantId);
+      if (row) {
+        await datavaultTablesService.requirePermission(userId, row.row.tableId, tenantId, 'write');
       }
       await datavaultRowNotesService.deleteNote(noteId, tenantId, userId);
       res.json({ success: true, message: 'Note deleted successfully' });

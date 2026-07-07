@@ -170,6 +170,7 @@ npm run kill-server      # Kill server on port 5000
 | [Shared Components](./docs/architecture/SHARED_COMPONENTS.md) | UI component library |
 | [Error Handling](./docs/architecture/ERROR_HANDLING.md) | Error middleware |
 | [Step Aliases Architecture](./docs/architecture/STEP_ALIASES_ARCHITECTURE.md) | Aliases deep dive |
+| [Security Threat Model](./docs/architecture/SECURITY_THREAT_MODEL.md) | SSRF + mass-assignment invariants; why `safeFetch` and discriminated unions exist |
 
 ### Testing & Deployment
 | Document | Contents |

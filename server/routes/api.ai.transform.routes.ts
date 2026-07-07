@@ -60,8 +60,7 @@ router.post("/generate", hybridAuth, aiRateLimit, asyncHandler(async (req, res) 
         res.json(result);
     } catch (error: unknown) {
         logger.error({ error }, "AI Transform Generation Error");
-        const message = error instanceof Error ? error.message : "Failed to generate transforms";
-        res.status(500).json({ error: message });
+        res.status(500).json({ error: "Failed to generate transforms" });
     }
 }));
 
@@ -89,8 +88,7 @@ router.post("/revise", hybridAuth, aiRateLimit, asyncHandler(async (req, res) =>
         res.json(result);
     } catch (error: unknown) {
         logger.error({ error }, "AI Transform Revision Error");
-        const message = error instanceof Error ? error.message : "Failed to revise transforms";
-        res.status(500).json({ error: message });
+        res.status(500).json({ error: "Failed to revise transforms" });
     }
 }));
 
@@ -110,8 +108,7 @@ router.post("/debug", hybridAuth, aiRateLimit, asyncHandler(async (req, res) => 
         res.json({ issues });
     } catch (error: unknown) {
         logger.error({ error }, "Transform Debug Error");
-        const message = error instanceof Error ? error.message : "Failed to debug transforms";
-        res.status(500).json({ error: message });
+        res.status(500).json({ error: "Failed to debug transforms" });
     }
 }));
 
@@ -132,8 +129,7 @@ router.post("/auto-fix", hybridAuth, aiRateLimit, asyncHandler(async (req, res) 
         res.json({ fixes });
     } catch (error: unknown) {
         logger.error({ error }, "Transform Auto-fix Error");
-        const message = error instanceof Error ? error.message : "Failed to generate auto-fixes";
-        res.status(500).json({ error: message });
+        res.status(500).json({ error: "Failed to generate auto-fixes" });
     }
 }));
 
@@ -159,8 +155,7 @@ router.post("/schema-align", hybridAuth, aiRateLimit, asyncHandler(async (req, r
         res.json(result);
     } catch (error: unknown) {
         logger.error({ error }, "Schema Align Error");
-        const message = error instanceof Error ? error.message : "Failed to align schema";
-        res.status(500).json({ error: message });
+        res.status(500).json({ error: "Failed to align schema" });
     }
 }));
 

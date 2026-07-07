@@ -78,6 +78,27 @@ export function registerCollectionsRoutes(app: Express): void {
   }));
 
   /**
+   * GET /api/tenants/:tenantId/collections/slug/:slug
+   * Get collection by slug
+   */
+  app.get('/api/tenants/:tenantId/collections/slug/:slug', hybridAuth, validateTenantParam, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const { tenantId, slug } = req.params;
+
+      const collection = await collectionService.getCollectionBySlug(tenantId, slug);
+
+      if (!collection) {
+        return res.status(404).json({ message: 'Collection not found' });
+      }
+
+      res.json(collection);
+    } catch (error) {
+      logger.error({ error }, 'Error fetching collection by slug');
+      res.status(500).json({ message: 'Failed to fetch collection' });
+    }
+  }));
+
+  /**
    * GET /api/tenants/:tenantId/collections/:collectionId
    * Get a single collection with optional fields
    */
@@ -97,27 +118,6 @@ export function registerCollectionsRoutes(app: Express): void {
       // eslint-disable-next-line sonarjs/no-duplicate-string
       const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
       res.status(status).json({ message });
-    }
-  }));
-
-  /**
-   * GET /api/tenants/:tenantId/collections/slug/:slug
-   * Get collection by slug
-   */
-  app.get('/api/tenants/:tenantId/collections/slug/:slug', hybridAuth, validateTenantParam, asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const { tenantId, slug } = req.params;
-
-      const collection = await collectionService.getCollectionBySlug(tenantId, slug);
-
-      if (!collection) {
-        return res.status(404).json({ message: 'Collection not found' });
-      }
-
-      res.json(collection);
-    } catch (error) {
-      logger.error({ error }, 'Error fetching collection by slug');
-      res.status(500).json({ message: 'Failed to fetch collection' });
     }
   }));
 
@@ -500,6 +500,22 @@ export function registerCollectionsRoutes(app: Express): void {
   }));
 
   /**
+   * GET /api/tenants/:tenantId/collections/:collectionId/records/count
+   * Count records in a collection
+   */
+  app.get('/api/tenants/:tenantId/collections/:collectionId/records/count', hybridAuth, validateTenantParam, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const { tenantId, collectionId } = req.params;
+
+      const count = await recordService.countRecords(collectionId, tenantId);
+      res.json({ count });
+    } catch (error) {
+      logger.error({ error }, 'Error counting records');
+      res.status(500).json({ message: 'Failed to count records' });
+    }
+  }));
+
+  /**
    * GET /api/tenants/:tenantId/collections/:collectionId/records/:recordId
    * Get a single record
    */
@@ -556,22 +572,6 @@ export function registerCollectionsRoutes(app: Express): void {
       const message = error instanceof Error ? error.message : 'Failed to delete record';
       const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
       res.status(status).json({ message });
-    }
-  }));
-
-  /**
-   * GET /api/tenants/:tenantId/collections/:collectionId/records/count
-   * Count records in a collection
-   */
-  app.get('/api/tenants/:tenantId/collections/:collectionId/records/count', hybridAuth, validateTenantParam, asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const { tenantId, collectionId } = req.params;
-
-      const count = await recordService.countRecords(collectionId, tenantId);
-      res.json({ count });
-    } catch (error) {
-      logger.error({ error }, 'Error counting records');
-      res.status(500).json({ message: 'Failed to count records' });
     }
   }));
 }

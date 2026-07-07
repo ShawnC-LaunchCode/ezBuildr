@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { eq } from "drizzle-orm";
 import { Router } from "express";
 
@@ -78,7 +79,7 @@ router.post("/workflows/:id/runs", asyncHandler(async (req, res) => {
 
         // Create Run (Mock)
         // In real impl, insert into 'survey_results' or 'workflow_runs'
-        const runId = `run_${Math.random().toString(36).substring(2, 11)}`;
+        const runId = `run_${crypto.randomUUID().replace(/-/g, '').substring(0, 9)}`;
         // Resolve organization ID from workspace
         const workspace = await db.query.workspaces.findFirst({
             where: eq(workspaces.id, workspaceId)

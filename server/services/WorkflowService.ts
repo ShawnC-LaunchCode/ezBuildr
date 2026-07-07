@@ -1,5 +1,6 @@
 /* eslint-disable max-depth */
 import { eq, inArray } from "drizzle-orm";
+import crypto from "crypto";
 
 import type { Workflow, InsertWorkflow, Step, WorkflowAccess, PrincipalType, AccessRole, InsertStep, InsertLogicRule } from "@shared/schema";
 import { workflowVersions, workflows, sections, steps, logicRules, auditLogs, projects } from "@shared/schema";
@@ -282,7 +283,7 @@ export class WorkflowService {
       const candidate = `${baseSlug}-${counter}`;
       if (!takenByOthers.has(candidate)) { return candidate; }
     }
-    return `${baseSlug}-${Math.random().toString(36).substring(2, 8)}`;
+    return `${baseSlug}-${crypto.randomUUID().replace(/-/g, '').substring(0, 6)}`;
   }
   /**
    * Delete workflow

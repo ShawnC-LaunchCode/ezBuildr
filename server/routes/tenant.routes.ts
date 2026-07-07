@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { eq, and } from "drizzle-orm";
+import { z } from "zod";
 
 import { tenants, users, projects } from "@shared/schema";
 
@@ -117,7 +118,21 @@ export function registerTenantRoutes(app: Express): void {
   app.put('/api/tenants/:tenantId', hybridAuth, validateTenantParam, requireOwner, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { tenantId } = req.params;
-      const { name, billingEmail, plan } = req.body;
+      const UpdateTenantSchema = z.object({
+        name: z.string().min(1).optional(),
+        billingEmail: z.string().email().optional(),
+      }).strict();
+
+      const parsed = UpdateTenantSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: 'Invalid request body',
+          error: 'validation_error',
+          details: parsed.error.errors
+        });
+      }
+
+      const { name, billingEmail } = parsed.data;
 
       // Validate input
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic update fields for tenant
@@ -127,7 +142,6 @@ export function registerTenantRoutes(app: Express): void {
 
       if (name !== undefined) { updateData.name = name; }
       if (billingEmail !== undefined) { updateData.billingEmail = billingEmail; }
-      if (plan !== undefined) { updateData.plan = plan; }
 
       // Update tenant
       const [updatedTenant] = await db

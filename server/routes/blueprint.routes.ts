@@ -58,9 +58,11 @@ router.post('/:id/instantiate', requireAuth, asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { projectId, name } = req.body;
 
-        // if (!projectId) {
-        //     return res.status(400).json({ error: "Target Project ID is required" });
-        // }
+        if (projectId) {
+            const { ProjectService } = await import('../services/ProjectService');
+            const projectService = new ProjectService();
+            await projectService.verifyOwnership(projectId, req.user!.id as string);
+        }
 
         const result = await templateService.instantiate({
             templateId: id,

@@ -8,23 +8,25 @@ import { SubscriptionService } from "../lib/billing/SubscriptionService";
 import { UsageAggregator } from "../lib/metering/usageAggregator";
 import { logger } from '../logger';
 import { asyncHandler } from '../utils/asyncHandler';
+import { hybridAuth, type AuthRequest } from "../middleware/auth";
 
 const router = Router();
 const provider = new StripeProvider();
 
-// All billing routes require workspace context/auth
+// All billing routes require authentication and workspace context
+router.use(hybridAuth);
 router.use(requireWorkspace);
 
 // Get Current Subscription & Usage
 router.get("/subscription", asyncHandler(async (req, res) => {
     try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with organizationId/workspaceId
-        const organizationId = (req as any).organizationId || (req as any).workspaceId; // Assuming 1:1 for now or resolved upstream
+        const authReq = req as AuthRequest;
+        // The middleware sets tenantId securely from the DB/token, not the client header.
+        const finalOrgId = authReq.tenantId;
 
-        // Mock resolution of org from workspace if they are different tables
-        // In this implementation plan we conflated them slightly or need a lookup
-        // For now, let's assume specific Logic to get Org ID
-        const finalOrgId = organizationId;
+        if (!finalOrgId) {
+            return res.status(403).json({ error: "No organization associated with this account" });
+        }
 
         const sub = await SubscriptionService.getSubscription(finalOrgId);
         const limits = await SubscriptionService.getPlanLimits(finalOrgId);
@@ -42,19 +44,28 @@ router.get("/subscription", asyncHandler(async (req, res) => {
         });
     } catch (e: unknown) {
         logger.error({ error: e }, "Billing Error");
-        const message = e instanceof Error ? e.message : 'Unknown error';
-        res.status(500).json({ error: message });
+        res.status(500).json({ error: "Internal Server Error" });
     }
 }));
 
 // Create Stripe Portal Session
 router.post("/portal", asyncHandler(async (req, res) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with workspaceId
-    const _organizationId = (req as any).workspaceId;
-    // Look up customer ID ... 
-    // Simplified:
-    const url = await provider.getPortalUrl("mock_cus_id");
-    res.json({ url });
+    try {
+        const authReq = req as AuthRequest;
+        const finalOrgId = authReq.tenantId;
+
+        if (!finalOrgId) {
+            return res.status(403).json({ error: "No organization associated with this account" });
+        }
+
+        // Look up customer ID ... 
+        // Simplified:
+        const url = await provider.getPortalUrl("mock_cus_id");
+        res.json({ url });
+    } catch (e: unknown) {
+        logger.error({ error: e }, "Billing Portal Error");
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-function-return-type

@@ -57,6 +57,7 @@ export interface JWTPayload {
     tenantRole?: 'owner' | 'builder' | 'runner' | 'viewer' | null;
     iat?: number;
     exp?: number;
+    mfaPending?: boolean;
 }
 
 export interface RefreshTokenMetadata {
@@ -80,7 +81,7 @@ export class AuthService {
     /**
      * Create a JWT token for a user
      */
-    createToken(user: User): string {
+    createToken(user: User, mfaPending: boolean = false): string {
         if (!JWT_SECRET) {
             throw new Error('JWT_SECRET not configured');
         }
@@ -95,6 +96,10 @@ export class AuthService {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
                 tenantRole: user.tenantRole as any, // Tenant role (owner/builder/etc)
             };
+
+            if (mfaPending) {
+                payload.mfaPending = true;
+            }
 
             const options: SignOptions = {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
@@ -142,13 +147,16 @@ export class AuthService {
      * }
      * ```
      */
-    verifyToken(token: string): JWTPayload {
+    verifyToken(token: string, allowMfaPending: boolean = false): JWTPayload {
         if (!JWT_SECRET) { throw new Error('JWT not configured'); }
 
         try {
             const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as any;
             if (payload.portal) {
                 throw new InvalidTokenError('Portal tokens cannot be used as access tokens');
+            }
+            if (payload.mfaPending && !allowMfaPending) {
+                throw new InvalidTokenError('MFA pending tokens cannot be used as access tokens');
             }
             return payload as JWTPayload;
         } catch (error) {

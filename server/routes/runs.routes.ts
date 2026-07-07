@@ -1,9 +1,19 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { createLogger } from "../logger";
 import { hybridAuth, optionalHybridAuth, type AuthRequest } from '../middleware/auth';
+import { z } from "zod";
+
 import { creatorOrRunTokenAuth, type RunAuthRequest } from "../middleware/runTokenAuth";
 import { runService } from "../services/RunService";
 import { asyncHandler } from "../utils/asyncHandler";
+
+const CreateRunBodySchema = z.object({
+  initialValues: z.record(z.any()).optional(),
+  snapshotId: z.string().uuid().optional(),
+  randomize: z.boolean().optional(),
+  clientEmail: z.string().email().optional(),
+  metadata: z.record(z.any()).optional()
+}).strict();
 
 import type { Express, Request, Response } from "express";
 const logger = createLogger({ module: "runs-routes" });
@@ -69,11 +79,9 @@ export function registerRunRoutes(app: Express): void {
     try {
       const { workflowId } = req.params;
       const { publicLink } = req.query;
-      const { initialValues, snapshotId, randomize, ...runData } = req.body as {
-        initialValues?: Record<string, unknown>;
-        snapshotId?: string;
-        randomize?: boolean;
-      };
+      
+      const parsedBody = CreateRunBodySchema.parse(req.body);
+      const { initialValues, snapshotId, randomize, ...runData } = parsedBody;
       // Check if this is an anonymous run request
       const isAnonymous = publicLink != null && publicLink !== '';
       // For authenticated runs, require user ID from AuthRequest (populated by middleware)

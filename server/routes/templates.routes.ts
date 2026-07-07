@@ -1,4 +1,5 @@
 /* eslint-disable max-lines -- route file with many endpoints */
+import crypto from 'crypto';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
@@ -54,7 +55,7 @@ const upload = multer({
   storage: multer.diskStorage({
     destination: os.tmpdir(),
     filename: (_req, file, cb) => {
-      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+      const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
       cb(null, `${file.fieldname}-${uniqueSuffix}${path.extname(file.originalname)}`);
     }
   }),

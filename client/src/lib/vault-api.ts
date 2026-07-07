@@ -439,9 +439,9 @@ export const authAPI = {
     method: "POST",
     body: JSON.stringify({ token })
   }),
-  verifyMfaLogin: (userId: string, token: string, backupCode?: string) => fetchAPI<{ message: string; token: string; user: ApiUser }>("/api/auth/mfa/verify-login", {
+  verifyMfaLogin: (mfaPendingToken: string, token: string, backupCode?: string) => fetchAPI<{ message: string; token: string; user: ApiUser }>("/api/auth/mfa/verify-login", {
     method: "POST",
-    body: JSON.stringify({ userId, token, backupCode })
+    body: JSON.stringify({ mfaPendingToken, token, backupCode }),
   }),
   setupMfa: () => fetchAPI<{ message: string; qrCodeDataUrl: string; backupCodes: string[] }>("/api/auth/mfa/setup", {
     method: "POST"

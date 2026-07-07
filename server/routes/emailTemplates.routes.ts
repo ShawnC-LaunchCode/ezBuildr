@@ -1,8 +1,7 @@
 import { updateEmailTemplateMetadataSchema } from '@shared/types/branding';
 
 import { createLogger } from '../logger';
-import { hybridAuth } from '../middleware/auth';
-import { requirePermission } from '../middleware/rbac';
+import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { emailTemplateMetadataService } from '../services/EmailTemplateMetadataService';
 import { asyncHandler } from '../utils/asyncHandler';
 
@@ -76,10 +75,14 @@ export function registerEmailTemplateRoutes(app: Express): void {
   app.patch(
     '/api/email-templates/:id/metadata',
     hybridAuth,
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-    requirePermission('tenant:update' as any),
     asyncHandler(async (req: Request, res: Response) => {
       try {
+        const authReq = req as AuthRequest;
+        if (authReq.systemRole !== 'admin' && authReq.systemRole !== 'creator') {
+           res.status(403).json({ message: 'Forbidden: requires platform admin role' });
+           return;
+        }
+        
         const { id } = req.params;
 
         // Validate request body

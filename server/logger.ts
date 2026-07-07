@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import pino from 'pino';
 
 /**
@@ -60,7 +61,7 @@ export const createLogger = (context: Record<string, unknown>) => {
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const requestLogger = (req: unknown, res: unknown, next: unknown) => {
   const start = Date.now();
-  const requestId = Math.random().toString(36).substring(7);
+  const requestId = crypto.randomUUID();
 
   const reqTyped = req as { id?: string; log?: unknown; method?: string; url?: string; ip?: string; get?: (key: string) => string | undefined };
   const resTyped = res as { on: (event: string, handler: () => void) => void; statusCode?: number };

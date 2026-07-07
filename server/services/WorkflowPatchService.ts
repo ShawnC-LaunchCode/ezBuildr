@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+import crypto from "crypto";
 import type { _Section, _Step, _LogicRule } from "@shared/schema";
 
 import { createLogger } from "../logger";
@@ -636,11 +637,11 @@ export class WorkflowPatchService {
       if (canonicalOp === 'is_empty' || canonicalOp === 'is_not_empty' || canonicalOp === 'is_true' || canonicalOp === 'is_false') {
         return {
           type: 'group',
-          id: `cond_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          id: `cond_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').substring(0, 9)}`,
           operator: 'AND',
           conditions: [{
             type: 'condition',
-            id: `cond_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            id: `cond_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').substring(0, 9)}`,
             variable: left,
             operator: canonicalOp,
             valueType: 'constant',
@@ -684,11 +685,11 @@ export class WorkflowPatchService {
       // Return ConditionGroup format
       return {
         type: 'group',
-        id: `cond_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: `cond_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').substring(0, 9)}`,
         operator: 'AND',
         conditions: [{
           type: 'condition',
-          id: `cond_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          id: `cond_${Date.now()}_${crypto.randomUUID().replace(/-/g, '').substring(0, 9)}`,
           variable: left,
           operator: canonicalOp,
           value: rightValue,

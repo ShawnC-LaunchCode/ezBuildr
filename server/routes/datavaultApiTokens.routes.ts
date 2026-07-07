@@ -1,9 +1,10 @@
 import { z } from 'zod';
 
 import { logger } from '../logger';
-import { hybridAuth, getAuthUserTenantId, getAuthUserId } from '../middleware/auth';
+import { hybridAuth, getAuthUserTenantId, getAuthUserId, getAuthUserRole } from '../middleware/auth';
 import { createLimiter, deleteLimiter } from '../middleware/rateLimiter';
 import { datavaultApiTokensService } from '../services/DatavaultApiTokensService';
+import { datavaultDatabasesService } from '../services/DatavaultDatabasesService';
 import { asyncHandler } from '../utils/asyncHandler';
 
 import type { Express, Request, Response } from 'express';
@@ -46,10 +47,19 @@ export function registerDatavaultApiTokenRoutes(app: Express): void {
     asyncHandler(async (req: Request, res: Response) => {
       try {
         const tenantId = getTenantId(req);
+        const userId = getAuthUserId(req);
+        const userRole = getAuthUserRole(req);
         const { databaseId } = req.params;
 
         if (!databaseId) {
           return res.status(400).json({ message: 'Database ID is required' });
+        }
+
+        const dbInfo = await datavaultDatabasesService.getDatabaseById(databaseId, tenantId);
+        const isTenantAdmin = userRole === 'owner' || userRole === 'builder';
+        const isDbOwner = dbInfo.ownerType === 'user' && dbInfo.ownerUuid === userId;
+        if (!isTenantAdmin && !isDbOwner) {
+          return res.status(403).json({ message: 'Access denied: DB ownership or tenant admin role required' });
         }
 
         const tokens = await datavaultApiTokensService.getTokensByDatabaseId(
@@ -79,10 +89,19 @@ export function registerDatavaultApiTokenRoutes(app: Express): void {
     asyncHandler(async (req: Request, res: Response) => {
       try {
         const tenantId = getTenantId(req);
+        const userId = getAuthUserId(req);
+        const userRole = getAuthUserRole(req);
         const { databaseId } = req.params;
 
         if (!databaseId) {
           return res.status(400).json({ message: 'Database ID is required' });
+        }
+
+        const dbInfo = await datavaultDatabasesService.getDatabaseById(databaseId, tenantId);
+        const isTenantAdmin = userRole === 'owner' || userRole === 'builder';
+        const isDbOwner = dbInfo.ownerType === 'user' && dbInfo.ownerUuid === userId;
+        if (!isTenantAdmin && !isDbOwner) {
+          return res.status(403).json({ message: 'Access denied: DB ownership or tenant admin role required' });
         }
 
         // Validate request body
@@ -161,6 +180,8 @@ export function registerDatavaultApiTokenRoutes(app: Express): void {
     asyncHandler(async (req: Request, res: Response) => {
       try {
         const tenantId = getTenantId(req);
+        const userId = getAuthUserId(req);
+        const userRole = getAuthUserRole(req);
         const { tokenId } = req.params;
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-member-access -- extracting from req.body or query
         const databaseId = (req.body.databaseId || req.query.databaseId) as string;
@@ -171,6 +192,13 @@ export function registerDatavaultApiTokenRoutes(app: Express): void {
 
         if (!databaseId) {
           return res.status(400).json({ message: 'Database ID is required' });
+        }
+
+        const dbInfo = await datavaultDatabasesService.getDatabaseById(databaseId, tenantId);
+        const isTenantAdmin = userRole === 'owner' || userRole === 'builder';
+        const isDbOwner = dbInfo.ownerType === 'user' && dbInfo.ownerUuid === userId;
+        if (!isTenantAdmin && !isDbOwner) {
+          return res.status(403).json({ message: 'Access denied: DB ownership or tenant admin role required' });
         }
 
         // Delete token

@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+import crypto from "crypto";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
@@ -10,7 +11,7 @@ import multer from "multer";
 import { documentAIAssistService } from "../lib/ai/DocumentAIAssistService";
 import { logger } from "../logger";
 import { hybridAuth } from "../middleware/auth";
-import { uploadLimiter } from "../middleware/rateLimiter";
+import { uploadLimiter, strictLimiter } from "../middleware/rateLimiter";
 import { MAX_FILE_SIZE } from "../services/fileService";
 import { asyncHandler } from "../utils/asyncHandler";
 
@@ -21,7 +22,7 @@ const upload = multer({
     storage: multer.diskStorage({
         destination: os.tmpdir(),
         filename: (req, file, cb) => {
-            const uniqueSuffix = `${Date.now()  }-${  Math.round(Math.random() * 1E9)}`;
+            const uniqueSuffix = `${Date.now()  }-${  crypto.randomBytes(4).toString('hex')}`;
             cb(null, `${file.fieldname  }-${  uniqueSuffix  }${path.extname(file.originalname)}`);
         }
     }),
@@ -137,8 +138,7 @@ router.post("/analyze", uploadLimiter, (req, res, next) => {
         res.json({ data: result });
     } catch (err) {
         logger.error({ error: err }, 'Template analysis failed');
-        const message = err instanceof Error ? err.message : 'Analysis failed';
-        res.status(500).json({ error: message });
+        res.status(500).json({ error: 'Analysis failed due to an internal error.' });
     } finally {
         await cleanupFile(req.file?.path);
     }
@@ -177,7 +177,7 @@ router.post("/extract-text", uploadLimiter, (req, res, next) => {
  * POST /api/ai/template/suggest-mappings
  * Body: { templateVariables: [...], workflowVariables: [...] }
  */
-router.post("/suggest-mappings", asyncHandler(async (req, res) => {
+router.post("/suggest-mappings", strictLimiter, asyncHandler(async (req, res) => {
     try {
         const { templateVariables, workflowVariables } = req.body;
         const mappings = await documentAIAssistService.suggestMappings(templateVariables, workflowVariables);
@@ -193,7 +193,7 @@ router.post("/suggest-mappings", asyncHandler(async (req, res) => {
  * Body: { variables: [...] }
  * Returns aliases, formatting suggestions
  */
-router.post("/suggest-improvements", asyncHandler(async (req, res) => {
+router.post("/suggest-improvements", strictLimiter, asyncHandler(async (req, res) => {
     try {
         const { variables } = req.body;
         const result = await documentAIAssistService.suggestImprovements(variables);

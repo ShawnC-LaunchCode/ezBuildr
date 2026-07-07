@@ -10,6 +10,7 @@ import { createLogger } from '../logger';
 import { hybridAuth } from "../middleware/auth";
 import { requireAssetAccess } from "../utils/ownershipAccess";
 import { asyncHandler } from '../utils/asyncHandler';
+import { strictLimiter } from "../middleware/rateLimiter";
 
 const logger = createLogger({ module: 'ai-personalization-routes' });
 
@@ -81,7 +82,7 @@ const getUserContext = asyncHandler(async (req: any, res: any, next: any) => {
 });
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with personalizationContext
-router.post("/block", hybridAuth, getUserContext, asyncHandler(async (req: any, res) => {
+router.post("/block", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req: any, res) => {
     try {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Express req body
         const { block } = req.body;
@@ -101,12 +102,12 @@ router.post("/block", hybridAuth, getUserContext, asyncHandler(async (req: any, 
         res.json({ text: rewrittenText });
     } catch (error) {
         logger.error({ error }, "Personalization Block Error");
-        res.status(500).json({ error: "Personalization failed", details: error instanceof Error ? error.message : String(error) });
+        res.status(500).json({ error: "Personalization failed" });
     }
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with personalizationContext
-router.post("/help", hybridAuth, getUserContext, asyncHandler(async (req: any, res) => {
+router.post("/help", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req: any, res) => {
     try {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Express req body
         const { text } = req.body;
@@ -126,12 +127,12 @@ router.post("/help", hybridAuth, getUserContext, asyncHandler(async (req: any, r
         res.json({ text: helpText });
     } catch (error) {
         logger.error({ error }, "Personalization Help Error");
-        res.status(500).json({ error: "Help generation failed", details: error instanceof Error ? error.message : String(error) });
+        res.status(500).json({ error: "Help generation failed" });
     }
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with personalizationContext
-router.post("/clarify", hybridAuth, getUserContext, asyncHandler(async (req: any, res) => {
+router.post("/clarify", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req: any, res) => {
     try {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Express req body
         const { question, answer } = req.body;
@@ -153,12 +154,12 @@ router.post("/clarify", hybridAuth, getUserContext, asyncHandler(async (req: any
         res.json({ clarification });
     } catch (error) {
         logger.error({ error }, "Personalization Clarify Error");
-        res.status(500).json({ error: "Clarification generation failed", details: error instanceof Error ? error.message : String(error) });
+        res.status(500).json({ error: "Clarification generation failed" });
     }
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with personalizationContext
-router.post("/followup", hybridAuth, getUserContext, asyncHandler(async (req: any, res) => {
+router.post("/followup", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req: any, res) => {
     try {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Express req body
         const { question, answer } = req.body;
@@ -167,12 +168,12 @@ router.post("/followup", hybridAuth, getUserContext, asyncHandler(async (req: an
         res.json({ followup: result });
     } catch (error) {
         logger.error({ error }, "Personalization Followup Error");
-        res.status(500).json({ error: "Followup generation failed", details: error instanceof Error ? error.message : String(error) });
+        res.status(500).json({ error: "Followup generation failed" });
     }
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with personalizationContext
-router.post("/translate", hybridAuth, getUserContext, asyncHandler(async (req: any, res) => {
+router.post("/translate", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req: any, res) => {
     try {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Express req body
         const { text, targetLanguage } = req.body;
@@ -182,12 +183,11 @@ router.post("/translate", hybridAuth, getUserContext, asyncHandler(async (req: a
             return;
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-argument -- Express req body validated
         const translated = await personalizationService.translateText(text, targetLanguage);
         res.json({ text: translated });
     } catch (error) {
         logger.error({ error }, "Personalization Translate Error");
-        res.status(500).json({ error: "Translation failed", details: error instanceof Error ? error.message : String(error) });
+        res.status(500).json({ error: "Translation failed" });
     }
 }));
 

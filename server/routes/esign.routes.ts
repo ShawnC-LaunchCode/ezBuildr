@@ -54,7 +54,14 @@ const ExecuteSignatureBlockSchema = z.object({
     signerEmail: z.string().optional(),
     signerName: z.string().optional(),
     message: z.string().optional(),
-    redirectUrl: z.string().optional(),
+    redirectUrl: z.string().url().refine(val => {
+      try {
+        const url = new URL(val);
+        return ['http:', 'https:'].includes(url.protocol);
+      } catch {
+        return false;
+      }
+    }, 'Must be a valid HTTP/HTTPS URL').optional(),
   }),
   variableData: z.record(z.any()),
   preview: z.boolean().optional(),
@@ -155,6 +162,13 @@ router.get(
       }
 
       await workflowService.verifyAccess(run.workflowId, userId, 'view');
+
+      // Security check: Verify envelopeId belongs to this run (if DB is implemented)
+      const sigReq = await SignatureBlockService.findSignatureRequestByEnvelope(envelopeId);
+      if (sigReq && sigReq.runId !== runId) {
+        res.status(403).json({ error: "Access denied: envelope does not belong to run" });
+        return;
+      }
 
       const providerInstance = EsignProviderFactory.getProvider(provider);
       const status = await providerInstance.getEnvelopeStatus(envelopeId);

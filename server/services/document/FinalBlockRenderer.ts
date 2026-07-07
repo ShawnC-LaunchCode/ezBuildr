@@ -186,6 +186,7 @@ export class FinalBlockRenderer {
       stepValues: enhancedStepValues,
       outputDir,
       toPdf,
+      runId,
     });
 
     logger.info({

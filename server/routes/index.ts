@@ -1,4 +1,4 @@
-﻿
+
 import { apiLimiter } from "../lib/rateLimit";
 
 import { registerAccountRoutes } from "./account.routes";
@@ -13,7 +13,6 @@ import aiOptimizationRouter from "./api.ai.optimization.routes";
 import aiPersonalizationRouter from "./api.ai.personalization.routes";
 import aiTransformRouter from "./api.ai.transform.routes";
 import { registerApiProjectRoutes } from "./api.projects.routes";
-import { registerApiRunRoutes } from "./api.runs.routes";
 import { registerApiTemplateRoutes } from "./api.templates.routes";
 import { registerApiWorkflowRoutes } from "./api.workflows.routes";
 import { registerAuthRoutes } from "./auth.routes";
@@ -130,7 +129,6 @@ export function registerAllRoutes(app: Express): void {
   registerApiProjectRoutes(app);
   registerApiWorkflowRoutes(app);
   registerApiTemplateRoutes(app);
-  registerApiRunRoutes(app);
 
   // Authentication & Core
   registerAuthRoutes(app);

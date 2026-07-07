@@ -299,7 +299,7 @@ export class SignatureBlockService {
   /**
    * Find signature request by envelope ID
    */
-  private static async findSignatureRequestByEnvelope(
+  static async findSignatureRequestByEnvelope(
     envelopeId: string
   ): Promise<{ id: string; runId: string; stepId: string } | null> {
     // TODO: Query signatureRequests table by providerRequestId

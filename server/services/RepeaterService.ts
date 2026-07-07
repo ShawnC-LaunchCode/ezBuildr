@@ -4,6 +4,7 @@
  * Handles repeating groups/subforms for Intake Runner 2.0.
  * Provides validation, instance management, and data flattening.
  */
+import crypto from "crypto";
 import { createLogger } from "../logger";
 import { evaluateCondition, type EvaluationContext } from "../workflows/conditions";
 
@@ -149,7 +150,7 @@ export class RepeaterService {
         }
       }
       instances.push({
-        instanceId: `instance-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 5)}`,
+        instanceId: `instance-${Date.now()}-${i}-${crypto.randomUUID().replace(/-/g, '').substring(0, 5)}`,
         index: i,
         values
       });
@@ -164,7 +165,7 @@ export class RepeaterService {
    */
   private createEmptyInstance(index: number): RepeaterInstance {
     return {
-      instanceId: `instance-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      instanceId: `instance-${Date.now()}-${crypto.randomUUID().replace(/-/g, '').substring(0, 9)}`,
       index,
       values: {},
     };
