@@ -241,6 +241,7 @@ async function seed() {
         prefix: 'sk_test',
         keyHash: `hashed_api_key_${nanoid()}`,
         scopes: ['read', 'write'],
+        name: 'Seed Test API Key',
       })
       .returning();
 
