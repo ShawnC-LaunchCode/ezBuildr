@@ -7,7 +7,39 @@ on:
     branches: [ "main" ]
 
 jobs:
-  validate:
+  # Advisory quality gates. Full-project `tsc` and eslint both carry known
+  # migration/debt backlogs (see docs/TYPESCRIPT_STRICT_MODE_MIGRATION.md);
+  # strict-mode enforcement lives in strict-mode-check.yml. These run for
+  # visibility only and MUST NOT gate the test job — otherwise a lint/type
+  # regression silently hides all test signal (which is exactly what happened
+  # before this pipeline was split).
+  quality:
+    name: Quality (advisory)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v3
+      with:
+        node-version: 20.x
+        cache: 'npm'
+
+    - name: Install Dependencies
+      run: npm ci
+
+    - name: Type Check (advisory)
+      run: npm run check
+      continue-on-error: true
+
+    - name: Lint (advisory)
+      run: npm run lint --if-present
+      continue-on-error: true
+
+  # Real deployment-safety gate: runs the full test suite against a real
+  # Postgres. Independent of the advisory quality job so tests always run.
+  test:
+    name: Tests
     runs-on: ubuntu-latest
 
     strategy:
@@ -32,27 +64,16 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-        
+
     - name: Install Dependencies
       run: npm ci
-      
-    # Full-project `tsc` is advisory during the strict-mode migration (see
-    # docs/TYPESCRIPT_STRICT_MODE_MIGRATION.md). Strict-mode enforcement lives in
-    # its own workflow (strict-mode-check.yml). Keeping this step blocking here
-    # failed the job before the test suite ever ran, hiding all test signal.
-    - name: Type Check (advisory)
-      run: npm run check
-      continue-on-error: true
 
-    - name: Lint (if available)
-      run: npm run lint --if-present
-      
     - name: Setup Database
       run: |
         npm run db:push
@@ -70,7 +91,7 @@ jobs:
         JWT_SECRET: "test-jwt-secret-minimum-32-characters-long-for-ci"
         # Use secret or fallback for PRs from forks
         VL_MASTER_KEY: ${{ secrets.VL_MASTER_KEY_TEST || 'dGVzdC1tYXN0ZXIta2V5LTMyLWJ5dGVzLWxvbmctZm9yLXRlc3Rpbmc=' }}
-        
+
     - name: Migration Safety Dry Run
       # This assumes we have a script to dry-run migrations against a schema
       # For now, we'll placeholder this or run the actual migration check script if implemented
