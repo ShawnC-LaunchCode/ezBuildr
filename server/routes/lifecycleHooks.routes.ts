@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 
 import { hybridAuth } from "../middleware/auth";
+import { testLimiter } from "../middleware/rateLimiter";
 import { lifecycleHookService } from "../services/scripting/LifecycleHookService";
 import { asyncHandler } from '../utils/asyncHandler';
 
@@ -81,7 +82,7 @@ router.get(
     } catch (error) {
       res.status(error instanceof Error && error.message.includes("Unauthorized") ? 403 : 500).json({
         success: false,
-        error: error instanceof Error ? error.message : "Failed to list lifecycle hooks",
+        error: "Failed to list lifecycle hooks",
       });
     }
   })
@@ -120,7 +121,7 @@ router.post(
       } else {
         res.status(error instanceof Error && error.message.includes("Unauthorized") ? 403 : 500).json({
           success: false,
-          error: error instanceof Error ? error.message : "Failed to create lifecycle hook",
+          error: "Failed to create lifecycle hook",
         });
       }
     }
@@ -148,7 +149,7 @@ router.get("/lifecycle-hooks/:hookId", hybridAuth, asyncHandler(async (req, res)
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : "Failed to get lifecycle hook",
+      error: "Failed to get lifecycle hook",
     });
   }
 }));
@@ -180,7 +181,7 @@ router.put("/lifecycle-hooks/:hookId", hybridAuth, asyncHandler(async (req, res)
     } else {
       res.status(error instanceof Error && error.message.includes("Unauthorized") ? 403 : 500).json({
         success: false,
-        error: error instanceof Error ? error.message : "Failed to update lifecycle hook",
+        error: "Failed to update lifecycle hook",
       });
     }
   }
@@ -203,7 +204,7 @@ router.delete("/lifecycle-hooks/:hookId", hybridAuth, asyncHandler(async (req, r
   } catch (error) {
     res.status(error instanceof Error && error.message.includes("Unauthorized") ? 403 : 500).json({
       success: false,
-      error: error instanceof Error ? error.message : "Failed to delete lifecycle hook",
+      error: "Failed to delete lifecycle hook",
     });
   }
 }));
@@ -212,7 +213,7 @@ router.delete("/lifecycle-hooks/:hookId", hybridAuth, asyncHandler(async (req, r
  * POST /api/lifecycle-hooks/:hookId/test
  * Test a lifecycle hook with sample data
  */
-router.post("/lifecycle-hooks/:hookId/test", hybridAuth, asyncHandler(async (req, res) => {
+router.post("/lifecycle-hooks/:hookId/test", hybridAuth, testLimiter, asyncHandler(async (req, res) => {
   const authReq = req as AuthRequest;
   try {
     const { hookId } = req.params;
@@ -235,7 +236,7 @@ router.post("/lifecycle-hooks/:hookId/test", hybridAuth, asyncHandler(async (req
     } else {
       res.status(error instanceof Error && error.message.includes("Unauthorized") ? 403 : 500).json({
         success: false,
-        error: error instanceof Error ? error.message : "Failed to test lifecycle hook",
+        error: "Failed to test lifecycle hook",
       });
     }
   }
@@ -262,7 +263,7 @@ router.get("/runs/:runId/script-console", hybridAuth, asyncHandler(async (req, r
   } catch (error) {
     res.status(error instanceof Error && error.message.includes("Unauthorized") ? 403 : 500).json({
       success: false,
-      error: error instanceof Error ? error.message : "Failed to get script console logs",
+      error: "Failed to get script console logs",
     });
   }
 }));
@@ -284,7 +285,7 @@ router.delete("/runs/:runId/script-console", hybridAuth, asyncHandler(async (req
   } catch (error) {
     res.status(error instanceof Error && error.message.includes("Unauthorized") ? 403 : 500).json({
       success: false,
-      error: error instanceof Error ? error.message : "Failed to clear script console logs",
+      error: "Failed to clear script console logs",
     });
   }
 }));

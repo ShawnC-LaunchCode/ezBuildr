@@ -77,7 +77,7 @@ router.get(
     } catch (error) {
       res.status(error instanceof Error && error.message.includes("Unauthorized") ? 403 : 500).json({
         success: false,
-        error: error instanceof Error ? error.message : "Failed to list document hooks",
+        error: "Failed to list document hooks",
       });
     }
   })
@@ -116,7 +116,7 @@ router.post(
       } else {
         res.status(error instanceof Error && error.message.includes("Unauthorized") ? 403 : 500).json({
           success: false,
-          error: error instanceof Error ? error.message : "Failed to create document hook",
+          error: "Failed to create document hook",
         });
       }
     }
@@ -143,7 +143,7 @@ router.get("/document-hooks/:hookId", hybridAuth, asyncHandler(async (req, res) 
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : "Failed to get document hook",
+      error: "Failed to get document hook",
     });
   }
 }));
@@ -175,7 +175,7 @@ router.put("/document-hooks/:hookId", hybridAuth, asyncHandler(async (req, res) 
     } else {
       res.status(error instanceof Error && error.message.includes("Unauthorized") ? 403 : 500).json({
         success: false,
-        error: error instanceof Error ? error.message : "Failed to update document hook",
+        error: "Failed to update document hook",
       });
     }
   }
@@ -198,7 +198,7 @@ router.delete("/document-hooks/:hookId", hybridAuth, asyncHandler(async (req, re
   } catch (error) {
     res.status(error instanceof Error && error.message.includes("Unauthorized") ? 403 : 500).json({
       success: false,
-      error: error instanceof Error ? error.message : "Failed to delete document hook",
+      error: "Failed to delete document hook",
     });
   }
 }));
@@ -230,7 +230,7 @@ router.post("/document-hooks/:hookId/test", hybridAuth, asyncHandler(async (req,
     } else {
       res.status(error instanceof Error && error.message.includes("Unauthorized") ? 403 : 500).json({
         success: false,
-        error: error instanceof Error ? error.message : "Failed to test document hook",
+        error: "Failed to test document hook",
       });
     }
   }

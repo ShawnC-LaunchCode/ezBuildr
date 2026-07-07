@@ -119,7 +119,7 @@ export function registerEmailTemplateRoutes(app: Express): void {
         logger.error({ error }, 'Failed to update email template metadata');
         res.status(500).json({
           message: 'Failed to update template metadata',
-          error: error instanceof Error ? error.message : 'internal_error',
+          error: 'internal_error',
         });
       }
     })

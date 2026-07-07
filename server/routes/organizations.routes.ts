@@ -55,7 +55,7 @@ export function registerOrganizationRoutes(app: Express): void {
       res.status(201).json(organization);
     } catch (error) {
       logger.error({ error, userId: (req as AuthRequest).userId }, 'Error creating organization');
-      const message = error instanceof Error ? error.message : 'Failed to create organization';
+      const message = 'Failed to create organization';
       const status = message.includes('validation') ? 400 : 500;
       res.status(status).json({ message });
     }
@@ -100,7 +100,7 @@ export function registerOrganizationRoutes(app: Express): void {
         { error, orgId: req.params.orgId, userId: (req as AuthRequest).userId },
         'Error fetching organization'
       );
-      const message = error instanceof Error ? error.message : 'Failed to fetch organization';
+      const message = 'Failed to fetch organization';
       // eslint-disable-next-line sonarjs/no-duplicate-string
       const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
       res.status(status).json({ message });
@@ -129,7 +129,7 @@ export function registerOrganizationRoutes(app: Express): void {
         { error, orgId: req.params.orgId, userId: (req as AuthRequest).userId },
         'Error updating organization'
       );
-      const message = error instanceof Error ? error.message : 'Failed to update organization';
+      const message = 'Failed to update organization';
       const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
       res.status(status).json({ message });
     }
@@ -155,7 +155,7 @@ export function registerOrganizationRoutes(app: Express): void {
         { error, orgId: req.params.orgId, userId: (req as AuthRequest).userId },
         'Error fetching organization members'
       );
-      const message = error instanceof Error ? error.message : 'Failed to fetch members';
+      const message = 'Failed to fetch members';
       const status = message.includes('Access denied') ? 403 : 500;
       res.status(status).json({ message });
     }
@@ -190,7 +190,7 @@ export function registerOrganizationRoutes(app: Express): void {
           },
           'Error promoting member'
         );
-        const message = error instanceof Error ? error.message : 'Failed to promote member';
+        const message = 'Failed to promote member';
         const status = message.includes('Access denied') ? 403 : message.includes('not a member') ? 400 : 500;
         res.status(status).json({ message });
       }
@@ -226,7 +226,7 @@ export function registerOrganizationRoutes(app: Express): void {
           },
           'Error demoting member'
         );
-        const message = error instanceof Error ? error.message : 'Failed to demote member';
+        const message = 'Failed to demote member';
         const status = message.includes('Access denied') ? 403 : message.includes('not a member') ? 400 : 500;
         res.status(status).json({ message });
       }
@@ -262,7 +262,7 @@ export function registerOrganizationRoutes(app: Express): void {
           },
           'Error removing member'
         );
-        const message = error instanceof Error ? error.message : 'Failed to remove member';
+        const message = 'Failed to remove member';
         const status = message.includes('Access denied') ? 403 : message.includes('not a member') ? 400 : 500;
         res.status(status).json({ message });
       }
@@ -290,7 +290,7 @@ export function registerOrganizationRoutes(app: Express): void {
         { error, orgId: req.params.orgId, userId: (req as AuthRequest).userId },
         'Error leaving organization'
       );
-      const message = error instanceof Error ? error.message : 'Failed to leave organization';
+      const message = 'Failed to leave organization';
       const status = message.includes('not a member') ? 400 : 500;
       res.status(status).json({ message });
     }
@@ -327,7 +327,7 @@ export function registerOrganizationRoutes(app: Express): void {
         { error, orgId: req.params.orgId, userId: (req as AuthRequest).userId },
         'Error adding member'
       );
-      const message = error instanceof Error ? error.message : 'Failed to add member';
+      const message = 'Failed to add member';
       const status = message.includes('Access denied')
         ? 403
         : message.includes('already a member')
@@ -363,7 +363,7 @@ export function registerOrganizationRoutes(app: Express): void {
         { error, orgId: req.params.orgId, userId: (req as AuthRequest).userId },
         'Error creating invite'
       );
-      const message = error instanceof Error ? error.message : 'Failed to create invite';
+      const message = 'Failed to create invite';
       const status = message.includes('Access denied')
         ? 403
         : message.includes('already exists') || message.includes('already a member')
@@ -393,7 +393,7 @@ export function registerOrganizationRoutes(app: Express): void {
         { error, orgId: req.params.orgId, userId: (req as AuthRequest).userId },
         'Error fetching invites'
       );
-      const message = error instanceof Error ? error.message : 'Failed to fetch invites';
+      const message = 'Failed to fetch invites';
       const status = message.includes('Access denied') ? 403 : 500;
       res.status(status).json({ message });
     }
@@ -440,7 +440,7 @@ export function registerOrganizationRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, token: req.params.token, userId: (req as AuthRequest).userId }, 'Error accepting invite');
-      const message = error instanceof Error ? error.message : 'Failed to accept invite';
+      const message = 'Failed to accept invite';
       const status = message.includes('not found')
         ? 404
         : message.includes('expired') || message.includes('already') || message.includes('revoked')
@@ -476,7 +476,7 @@ export function registerOrganizationRoutes(app: Express): void {
           { error, inviteId: req.params.inviteId, userId: (req as AuthRequest).userId },
           'Error revoking invite'
         );
-        const message = error instanceof Error ? error.message : 'Failed to revoke invite';
+        const message = 'Failed to revoke invite';
         const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
         res.status(status).json({ message });
       }
@@ -505,7 +505,7 @@ export function registerOrganizationRoutes(app: Express): void {
         { error, orgId: req.params.orgId, userId: (req as AuthRequest).userId },
         'Error deleting organization'
       );
-      const message = error instanceof Error ? error.message : 'Failed to delete organization';
+      const message = 'Failed to delete organization';
       const status = message.includes('not found')
         ? 404
         : message.includes('Access denied') || message.includes('Cannot delete')

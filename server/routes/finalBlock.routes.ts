@@ -22,6 +22,7 @@ import { z } from 'zod';
 import { createLogger } from '../logger.js';
 import { hybridAuth, type AuthRequest } from '../middleware/auth.js';
 import { creatorOrRunTokenAuth, type RunAuthRequest } from '../middleware/runTokenAuth.js';
+import { strictLimiter } from '../middleware/rateLimiter.js';
 import { documentTemplateRepository, stepRepository, stepValueRepository } from '../repositories/index.js';
 import { finalBlockRenderer, createTemplateResolver } from '../services/document/FinalBlockRenderer.js';
 import { runService } from '../services/RunService.js';
@@ -80,6 +81,7 @@ export function registerFinalBlockRoutes(app: Express): void {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.post(
     '/api/runs/:runId/generate-final',
+    strictLimiter,
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     creatorOrRunTokenAuth,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -220,7 +222,7 @@ export function registerFinalBlockRoutes(app: Express): void {
           runId: req.params.runId,
         }, 'Failed to generate Final Block documents');
 
-        const message = error instanceof Error ? error.message : 'Document generation failed';
+        const message = 'Document generation failed';
         const status = message.includes('not found') ? 404 : 500;
 
         res.status(status).json({
@@ -240,6 +242,7 @@ export function registerFinalBlockRoutes(app: Express): void {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.post(
     '/api/workflows/:workflowId/preview/generate-final',
+    strictLimiter,
     hybridAuth,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     asyncHandler(async (req: any, res: Response) => {
@@ -327,7 +330,7 @@ export function registerFinalBlockRoutes(app: Express): void {
           workflowId: req.params.workflowId,
         }, 'Failed to generate preview Final Block documents');
 
-        const message = error instanceof Error ? error.message : 'Document generation failed';
+        const message = 'Document generation failed';
         const status = message.includes('not found') ? 404 : 500;
 
         res.status(status).json({

@@ -166,7 +166,7 @@ dataSourceRouter.get('/:id/tables', asyncHandler(async (req, res) => {
         res.json(tables);
     } catch (error) {
         logger.error({ error }, 'Error listing data source tables');
-        const message = error instanceof Error ? error.message : 'Failed to list tables';
+        const message = 'Failed to list tables';
         const status = message.includes('not found') ? 404 : 500;
         res.status(status).json({ message });
     }

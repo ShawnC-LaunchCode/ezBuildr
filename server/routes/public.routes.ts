@@ -92,6 +92,16 @@ router.post("/w/:slug/complete", apiLimiter, strictLimiter, asyncHandler(async (
             return res.status(401).json({ error: "Run token has expired" });
         }
 
+        // Idempotency guard (SEC-025)
+        if (run.completed) {
+            return res.json({
+                success: true,
+                message: "Run was already completed",
+                runId: run.id
+            });
+        }
+        await workflowRunRepository.markComplete(run.id);
+
         // Construct Server-Side Payload from actual database records
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const values = await db.query.stepValues.findMany({

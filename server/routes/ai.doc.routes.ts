@@ -13,9 +13,19 @@ import { logger } from "../logger";
 import { hybridAuth } from "../middleware/auth";
 import { uploadLimiter, strictLimiter } from "../middleware/rateLimiter";
 import { MAX_FILE_SIZE } from "../services/fileService";
+import { z } from "zod";
 import { asyncHandler } from "../utils/asyncHandler";
 
 const router = Router();
+
+const variableArraySchema = z.array(z.string().max(200)).max(500);
+const suggestMappingsSchema = z.object({
+  templateVariables: variableArraySchema,
+  workflowVariables: variableArraySchema
+});
+const suggestImprovementsSchema = z.object({
+  variables: variableArraySchema
+});
 
 // SECURITY FIX: Use disk storage instead of memory to prevent DoS (OOM)
 const upload = multer({
@@ -179,10 +189,13 @@ router.post("/extract-text", uploadLimiter, (req, res, next) => {
  */
 router.post("/suggest-mappings", strictLimiter, asyncHandler(async (req, res) => {
     try {
-        const { templateVariables, workflowVariables } = req.body;
+        const { templateVariables, workflowVariables } = suggestMappingsSchema.parse(req.body);
         const mappings = await documentAIAssistService.suggestMappings(templateVariables, workflowVariables);
         res.json({ data: mappings });
     } catch (err) {
+        if (err instanceof z.ZodError) {
+            return res.status(400).json({ error: "Invalid input", details: err.errors });
+        }
         logger.error({ error: err }, 'Mapping suggestion failed');
         res.status(500).json({ error: "Mapping suggestion failed" });
     }
@@ -195,10 +208,13 @@ router.post("/suggest-mappings", strictLimiter, asyncHandler(async (req, res) =>
  */
 router.post("/suggest-improvements", strictLimiter, asyncHandler(async (req, res) => {
     try {
-        const { variables } = req.body;
+        const { variables } = suggestImprovementsSchema.parse(req.body);
         const result = await documentAIAssistService.suggestImprovements(variables);
         res.json({ data: result });
     } catch (err) {
+        if (err instanceof z.ZodError) {
+            return res.status(400).json({ error: "Invalid input", details: err.errors });
+        }
         logger.error({ error: err }, 'Improvement suggestion failed');
         res.status(500).json({ error: "Improvement suggestion failed" });
     }

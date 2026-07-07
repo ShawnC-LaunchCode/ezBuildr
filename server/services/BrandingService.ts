@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { eq } from 'drizzle-orm';
 
 import { tenants, tenantDomains } from '@shared/schema';
@@ -137,11 +138,15 @@ export class BrandingService {
    */
   async addDomain(tenantId: string, domain: string): Promise<TenantDomain> {
     try {
+      const verificationToken = crypto.randomBytes(16).toString('hex');
+
       const [newDomain] = await db
         .insert(tenantDomains)
         .values({
           tenantId,
           domain: domain.toLowerCase(), // Normalize to lowercase
+          verified: false,
+          verificationToken,
         })
         .returning();
 

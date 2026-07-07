@@ -462,16 +462,11 @@ export function registerAuthRoutes(app: Express): void {
     if (!email) { return res.status(400).json({ message: "Email required" }); }
     try {
       const user = await userRepository.findByEmail(email);
-      // Don't reveal if user exists (security best practice)
-      if (!user) {
-        return res.json({ message: "If an account exists with that email, a verification email has been sent." });
+      if (user && !user.emailVerified) {
+        // Generate and send new verification token
+        await authService.generateEmailVerificationToken(user.id, user.email);
       }
-      if (user.emailVerified) {
-        return res.status(400).json({ message: "Email already verified" });
-      }
-      // Generate and send new verification token
-      await authService.generateEmailVerificationToken(user.id, user.email);
-      res.json({ message: "Verification email sent. Please check your inbox." });
+      return res.json({ message: "If an account exists with that email, a verification email has been sent." });
     } catch (error: unknown) {
       logger.error({ error: error as Error }, "Resend verification error");
       res.status(500).json({ message: "Internal error" });
@@ -929,7 +924,24 @@ export function registerAuthRoutes(app: Express): void {
   app.post('/api/auth/trust-device', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
-      if (!userId) { return res.status(401).json({ message: "Unauthorized" }); }
+      const user = await userRepository.findById(userId);
+      if (!user) { return res.status(401).json({ message: "Unauthorized" }); }
+      
+      if (user.mfaEnabled) {
+          const { code } = req.body as { code?: string };
+          if (!code) return res.status(403).json({ message: "MFA code required to trust device" });
+          const isValid = await mfaService.verifyTotp(userId, code);
+          if (!isValid) return res.status(403).json({ message: "Invalid MFA code" });
+      } else {
+          const { password } = req.body as { password?: string };
+          if (!password) return res.status(403).json({ message: "Password required to trust device" });
+          try {
+             await validateCredentials(user.email, password, req);
+          } catch (e) {
+             return res.status(403).json({ message: "Invalid password" });
+          }
+      }
+
       const deviceFingerprint = generateDeviceFingerprint(req);
       const deviceName = parseDeviceName(req.headers['user-agent']);
       const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() ?? req.ip;

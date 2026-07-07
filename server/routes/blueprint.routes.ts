@@ -47,7 +47,7 @@ router.post('/', requireAuth, asyncHandler(async (req, res) => {
         res.json({ data: template });
     } catch (error) {
         logger.error({ error }, 'Create blueprint error');
-        res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to create blueprint' });
+        res.status(500).json({ error: 'Failed to create blueprint' });
     }
 }));
 
@@ -75,7 +75,7 @@ router.post('/:id/instantiate', requireAuth, asyncHandler(async (req, res) => {
         res.json({ data: result });
     } catch (error) {
         logger.error({ error }, 'Instantiate blueprint error');
-        res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to instantiate blueprint' });
+        res.status(500).json({ error: 'Failed to instantiate blueprint' });
     }
 }));
 

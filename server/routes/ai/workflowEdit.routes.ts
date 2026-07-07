@@ -99,7 +99,7 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
           logger.error({ error, workflowId }, "AI model call failed");
           return res.status(500).json({
             success: false,
-            error: `AI model call failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+            error: `AI model call failed: ${"Unknown error"}`,
           });
         }
         // 6. Apply patch operations
@@ -192,7 +192,7 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
         });
       } catch (error) {
         logger.error({ error, workflowId: req.params.workflowId }, "Error in AI workflow edit");
-        const message = error instanceof Error ? error.message : "Failed to process AI edit";
+        const message = "Failed to process AI edit";
         // Map common validation/duplicate errors to 400
         const isUserError = message.includes("Access denied") ||
           message.includes("already exists") ||

@@ -40,7 +40,7 @@ try {
     info: {
       title: "ezBuildr API",
       version: "1.7.0",
-      description: `API documentation failed to load: ${error instanceof Error ? error.message : 'Unknown error'}`
+      description: `API documentation failed to load: ${'Unknown error'}`
     },
     paths: {}
   };

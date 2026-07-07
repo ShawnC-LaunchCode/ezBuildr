@@ -250,7 +250,7 @@ export function registerTenantRoutes(app: Express): void {
   app.post('/api/tenants', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const authReq = req as AuthRequest;
-      const { name, billingEmail, plan } = req.body;
+      const { name, billingEmail } = req.body;
 
       // Validate input
       if (!name) {
@@ -266,7 +266,7 @@ export function registerTenantRoutes(app: Express): void {
         .values({
           name,
           billingEmail: billingEmail ?? null,
-          plan: plan || 'free',
+          plan: 'free',
         })
         .returning();
 

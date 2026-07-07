@@ -1,5 +1,6 @@
 import type { InsertBlock } from "@shared/schema";
 import type { BlockPhase } from "@shared/types/blocks";
+import { z } from "zod";
 
 import { createLogger } from "../logger";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
@@ -94,7 +95,7 @@ export function registerBlockRoutes(app: Express): void {
       res.status(201).json({ success: true, data: block });
     } catch (error: unknown) {
       logger.error({ error }, "Error creating block");
-      const message = error instanceof Error ? error.message : "Failed to create block";
+      const message = "Failed to create block";
       // eslint-disable-next-line sonarjs/no-duplicate-string
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, errors: [message] });
@@ -117,7 +118,7 @@ export function registerBlockRoutes(app: Express): void {
       res.json({ success: true, data: blocks });
     } catch (error: unknown) {
       logger.error({ error }, "Error listing blocks");
-      const message = error instanceof Error ? error.message : "Failed to list blocks";
+      const message = "Failed to list blocks";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, errors: [message] });
     }
@@ -138,7 +139,7 @@ export function registerBlockRoutes(app: Express): void {
       res.json({ success: true, data: block });
     } catch (error: unknown) {
       logger.error({ error }, "Error fetching block");
-      const message = error instanceof Error ? error.message : "Failed to fetch block";
+      const message = "Failed to fetch block";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, errors: [message] });
     }
@@ -196,7 +197,7 @@ export function registerBlockRoutes(app: Express): void {
       res.json({ success: true, data: updatedBlock });
     } catch (error: unknown) {
       logger.error({ error }, "Error updating block");
-      const message = error instanceof Error ? error.message : "Failed to update block";
+      const message = "Failed to update block";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, errors: [message] });
     }
@@ -226,7 +227,7 @@ export function registerBlockRoutes(app: Express): void {
       res.json({ success: true, data: { message: "Block deleted successfully" } });
     } catch (error: unknown) {
       logger.error({ error }, "Error deleting block");
-      const message = error instanceof Error ? error.message : "Failed to delete block";
+      const message = "Failed to delete block";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, errors: [message] });
     }
@@ -256,7 +257,7 @@ export function registerBlockRoutes(app: Express): void {
       res.json({ success: true, data: { message: "Blocks reordered successfully" } });
     } catch (error: unknown) {
       logger.error({ error }, "Error reordering blocks");
-      const message = error instanceof Error ? error.message : "Failed to reorder blocks";
+      const message = "Failed to reorder blocks";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, errors: [message] });
     }
@@ -275,8 +276,31 @@ export function registerBlockRoutes(app: Express): void {
         return;
       }
       const { workflowId, stepId } = req.params;
+      const transformConfigSchema = z.object({
+        filters: z.array(z.any()).optional(),
+        sort: z.object({
+          field: z.string(),
+          direction: z.enum(['asc', 'desc'])
+        }).optional(),
+        limit: z.number().int().min(1).max(1000).optional(),
+        offset: z.number().int().min(0).optional(),
+        dedupe: z.boolean().optional(),
+        select: z.array(z.string()).optional()
+      }).optional().nullable();
+
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const { sourceListVar, transformConfig, sectionId } = req.body;
+      const { sourceListVar, sectionId } = req.body;
+      let transformConfig: z.infer<typeof transformConfigSchema>;
+      
+      try {
+        transformConfig = transformConfigSchema.parse(req.body.transformConfig);
+      } catch (err) {
+        if (err instanceof z.ZodError) {
+          return res.status(400).json({ success: false, errors: err.errors.map(e => e.message) });
+        }
+        return res.status(400).json({ success: false, errors: ["Invalid transformConfig"] });
+      }
+
       // Validation
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (!sourceListVar) {
@@ -374,7 +398,7 @@ export function registerBlockRoutes(app: Express): void {
       });
     } catch (error: unknown) {
       logger.error({ error }, "Error creating inline List Tools block");
-      const message = error instanceof Error ? error.message : "Failed to create List Tools block";
+      const message = "Failed to create List Tools block";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, errors: [message] });
     }

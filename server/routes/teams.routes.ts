@@ -106,7 +106,7 @@ export function registerTeamRoutes(app: Express): void {
       logger.error({ error }, "Error fetching team");
 
       const message =
-        error instanceof Error ? error.message : "Failed to fetch team";
+        "Failed to fetch team";
       const status = message.includes("not found")
         ? 404
         : message.includes(ACCESS_DENIED)
@@ -146,7 +146,7 @@ export function registerTeamRoutes(app: Express): void {
       }
 
       const message =
-        error instanceof Error ? error.message : "Failed to update team";
+        "Failed to update team";
       const status = message.includes(ACCESS_DENIED) ? 403 : 500;
 
       res.status(status).json({ success: false, error: message });
@@ -172,7 +172,7 @@ export function registerTeamRoutes(app: Express): void {
       logger.error({ error }, "Error deleting team");
 
       const message =
-        error instanceof Error ? error.message : "Failed to delete team";
+        "Failed to delete team";
       const status = message.includes(ACCESS_DENIED) ? 403 : 500;
 
       res.status(status).json({ success: false, error: message });
@@ -208,7 +208,7 @@ export function registerTeamRoutes(app: Express): void {
       }
 
       const message =
-        error instanceof Error ? error.message : "Failed to add team member";
+        "Failed to add team member";
       const status = message.includes(ACCESS_DENIED)
         ? 403
         : message.includes("not found")
@@ -238,7 +238,7 @@ export function registerTeamRoutes(app: Express): void {
       logger.error({ error }, "Error removing team member");
 
       const message =
-        error instanceof Error ? error.message : "Failed to remove team member";
+        "Failed to remove team member";
       const status = message.includes(ACCESS_DENIED)
         ? 403
         : message.includes("Cannot remove")

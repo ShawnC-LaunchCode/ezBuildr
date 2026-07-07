@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { createLogger } from '../logger';
 import { getPrometheusExporter } from '../observability/telemetry';
 import { asyncHandler } from '../utils/asyncHandler';
@@ -23,10 +24,26 @@ export function registerMetricsRoutes(app: Express): void {
     const metricsApiKey = process.env.METRICS_API_KEY;
 
     if (!isTestEnv) {
-      const providedKey = req.headers['x-api-key'] ?? req.query.apiKey;
+      const providedKey = req.headers['x-api-key'];
       
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-      if (!providedKey || !metricsApiKey || providedKey !== metricsApiKey) {
+      if (!providedKey || typeof providedKey !== 'string' || !metricsApiKey) {
+        logger.warn({ ip: req.ip }, 'Unauthorized metrics access attempt (missing or invalid key)');
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      let isMatch = false;
+      try {
+          const providedBuffer = Buffer.from(providedKey);
+          const expectedBuffer = Buffer.from(metricsApiKey);
+          
+          if (providedBuffer.length === expectedBuffer.length) {
+              isMatch = crypto.timingSafeEqual(providedBuffer, expectedBuffer);
+          }
+      } catch (err) {
+          isMatch = false;
+      }
+
+      if (!isMatch) {
         logger.warn({ ip: req.ip }, 'Unauthorized metrics access attempt');
         return res.status(401).json({ message: 'Unauthorized' });
       }

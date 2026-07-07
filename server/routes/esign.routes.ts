@@ -22,6 +22,7 @@ import { workflowRuns } from '@shared/schema';
 import { db } from '../db';
 import { logger } from '../logger';
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
+import { strictLimiter } from '../middleware/rateLimiter';
 import { EsignProviderFactory } from '../services/esign';
 import { SignatureBlockService } from '../services/esign/SignatureBlockService';
 import { workflowService } from '../services/WorkflowService';
@@ -57,11 +58,17 @@ const ExecuteSignatureBlockSchema = z.object({
     redirectUrl: z.string().url().refine(val => {
       try {
         const url = new URL(val);
-        return ['http:', 'https:'].includes(url.protocol);
+        if (!['http:', 'https:'].includes(url.protocol)) return false;
+        
+        const allowedHosts = ['localhost', 'ezbuildr.com'];
+        if (process.env.PUBLIC_URL) {
+          try { allowedHosts.push(new URL(process.env.PUBLIC_URL).hostname); } catch {}
+        }
+        return allowedHosts.includes(url.hostname);
       } catch {
         return false;
       }
-    }, 'Must be a valid HTTP/HTTPS URL').optional(),
+    }, 'Must be a valid HTTP/HTTPS URL from an allowed host').optional(),
   }),
   variableData: z.record(z.any()),
   preview: z.boolean().optional(),
@@ -82,6 +89,7 @@ const ExecuteSignatureBlockSchema = z.object({
  */
 router.post(
   '/execute/:runId/:stepId',
+  strictLimiter,
   hybridAuth,
   asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     try {

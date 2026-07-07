@@ -94,7 +94,7 @@ export function registerIntakeRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, slug: req.params.slug }, "Error fetching published workflow");
-      const message = error instanceof Error ? error.message : "Failed to fetch workflow";
+      const message = "Failed to fetch workflow";
       const status = message.includes("not found") ? 404 : 500;
       res.status(status).json({ success: false, error: message });
     }
@@ -144,7 +144,7 @@ export function registerIntakeRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error }, "Error creating intake run");
-      const message = error instanceof Error ? error.message : "Failed to create run";
+      const message = "Failed to create run";
       const status = message.includes("required") ? 401 : message.includes("not found") ? 404 : 500;
       res.status(status).json({ success: false, error: message });
     }
@@ -179,7 +179,7 @@ export function registerIntakeRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, token: req.params.token }, "Error saving intake progress");
-      const message = error instanceof Error ? error.message : "Failed to save progress";
+      const message = "Failed to save progress";
       const status = message.includes("not found") ? 404 : 500;
       res.status(status).json({ success: false, error: message });
     }
@@ -211,7 +211,7 @@ export function registerIntakeRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, token: req.params.token }, "Error submitting intake run");
-      const message = error instanceof Error ? error.message : "Failed to submit run";
+      const message = "Failed to submit run";
       const status = message.includes("not found") ? 404 : message.includes("already completed") ? 400 : 500;
       res.status(status).json({ success: false, error: message });
     }
@@ -230,7 +230,7 @@ export function registerIntakeRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, token: req.params.token }, "Error fetching run status");
-      const message = error instanceof Error ? error.message : "Failed to fetch status";
+      const message = "Failed to fetch status";
       const status = message.includes("not found") ? 404 : 500;
       res.status(status).json({ success: false, error: message });
     }
@@ -268,7 +268,7 @@ export function registerIntakeRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, token: req.params.token }, "Error downloading document");
-      const message = error instanceof Error ? error.message : "Failed to download document";
+      const message = "Failed to download document";
       res.status(500).json({ success: false, error: message });
     }
   }));
@@ -303,11 +303,18 @@ export function registerIntakeRoutes(app: Express): void {
       const fileRef = randomUUID() + path.extname(req.file.originalname);
       
       const fileBuffer = await import('fs').then(fs => fs.promises.readFile(req.file!.path));
+      
+      const { validateMagicBytes } = await import('../utils/magicBytes');
+      const isValidMagic = validateMagicBytes(fileBuffer, req.file!.originalname);
+      if (!isValidMagic) {
+        return res.status(400).json({ error: "File type mismatch (Magic Bytes validation failed)" });
+      }
+
       const scanResult = await virusScanner().scan(fileBuffer, req.file.originalname);
       
-      if (!scanResult.isClean) {
-          logger.warn({ file: req.file.originalname, threats: scanResult.threats }, "Malicious file detected during intake upload");
-          return res.status(400).json({ error: "File rejected by security scan" });
+      if (!scanResult.safe) {
+          logger.warn({ file: req.file.originalname, threat: scanResult.threatName }, "Malicious file detected during intake upload");
+          return res.status(400).json({ error: `File rejected by security scan: ${scanResult.threatName}` });
       }
 
       res.json({
@@ -321,7 +328,7 @@ export function registerIntakeRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error }, "Error uploading file");
-      const message = error instanceof Error ? error.message : "Failed to upload file";
+      const message = "Failed to upload file";
       res.status(500).json({ success: false, error: message });
     }
   }));

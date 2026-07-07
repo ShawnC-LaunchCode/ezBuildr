@@ -51,7 +51,7 @@ export function registerVersionRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, workflowId: req.params.id }, "Error listing versions");
-      const message = error instanceof Error ? error.message : "Failed to list versions";
+      const message = "Failed to list versions";
       const status = message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ success: false, error: message });
     }
@@ -78,7 +78,7 @@ export function registerVersionRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, versionId: req.params.versionId, otherVersionId: req.params.otherVersionId }, "Error computing diff");
-      const message = error instanceof Error ? error.message : "Failed to compute diff";
+      const message = "Failed to compute diff";
       const status = message.includes("not found") ? 404 : 500;
       res.status(status).json({ success: false, error: message });
     }
@@ -117,7 +117,7 @@ export function registerVersionRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, workflowId: req.params.id }, "Error publishing version");
-      const message = error instanceof Error ? error.message : "Failed to publish version";
+      const message = "Failed to publish version";
       const status = message.includes("Validation failed") ? 400 : 500;
       res.status(status).json({ success: false, error: message });
     }
@@ -148,7 +148,7 @@ export function registerVersionRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, workflowId: req.params.id }, "Error rolling back version");
-      const message = error instanceof Error ? error.message : "Failed to rollback";
+      const message = "Failed to rollback";
       const status = message.includes("not found") ? 404 : 500;
       res.status(status).json({ success: false, error: message });
     }
@@ -179,7 +179,7 @@ export function registerVersionRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, workflowId: req.params.id }, "Error pinning version");
-      const message = error instanceof Error ? error.message : "Failed to pin version";
+      const message = "Failed to pin version";
       const status = message.includes("not found") ? 404 : 500;
       res.status(status).json({ success: false, error: message });
     }
@@ -207,7 +207,7 @@ export function registerVersionRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, workflowId: req.params.id }, "Error unpinning version");
-      const message = error instanceof Error ? error.message : "Failed to unpin version";
+      const message = "Failed to unpin version";
       res.status(500).json({ success: false, error: message });
     }
   }));
@@ -234,7 +234,7 @@ export function registerVersionRoutes(app: Express): void {
       res.json(exportData);
     } catch (error) {
       logger.error({ error, workflowId: req.params.id }, "Error exporting versions");
-      const message = error instanceof Error ? error.message : "Failed to export versions";
+      const message = "Failed to export versions";
       res.status(500).json({ success: false, error: message });
     }
   }));

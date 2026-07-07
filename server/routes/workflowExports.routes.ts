@@ -42,7 +42,7 @@ export function registerWorkflowExportRoutes(app: Express): void {
       }
     } catch (error) {
       logger.error({ error }, "Error exporting workflow");
-      const message = error instanceof Error ? error.message : "Failed to export workflow";
+      const message = "Failed to export workflow";
       const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
       res.status(status).json({ message });
     }

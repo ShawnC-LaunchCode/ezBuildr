@@ -130,7 +130,7 @@ export function registerBrandingRoutes(app: Express): void {
         const { tenantId } = req.params;
         // Validate request body
         const createTenantDomainSchema = z.object({
-          domain: z.string().min(1) // Assuming schema structure or defining locally if import fails? No, import should work.
+          domain: z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/i, "Invalid hostname format")
         });
         // Actually, importing schema is better. Line 1 imports it.
         // Assuming req.body matches schema. I'll rely on original logic unless I see it.
@@ -158,8 +158,9 @@ export function registerBrandingRoutes(app: Express): void {
         const newDomain = await brandingService.addDomain(tenantId, domain);
         logger.info({ tenantId, domain }, 'Custom domain added');
         res.status(201).json({
-          message: 'Domain added successfully',
+          message: 'Domain added successfully. Please verify ownership.',
           domain: newDomain,
+          verificationInstructions: `Please create a TXT record for ${domain} with the value: ${newDomain.verificationToken}`
         });
       } catch (error: unknown) {
         if (error instanceof Error && error.message === 'Domain already exists') {

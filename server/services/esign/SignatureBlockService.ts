@@ -14,6 +14,10 @@
  */
 
 import crypto from 'crypto';
+import { eq } from 'drizzle-orm';
+
+import { signatureRequests } from '../../../shared/schema';
+import { db } from '../../db';
 
 import { env } from '../../config/env';
 import { createLogger } from '../../logger';
@@ -302,13 +306,16 @@ export class SignatureBlockService {
   static async findSignatureRequestByEnvelope(
     envelopeId: string
   ): Promise<{ id: string; runId: string; stepId: string } | null> {
-    // TODO: Query signatureRequests table by providerRequestId
-    // const repo = new SignatureRequestRepository();
-    // return await repo.findByProviderRequestId(envelopeId);
-
-    // Placeholder
-    logger.debug({ envelopeId }, 'Finding request by envelope (placeholder)');
-    return null;
+    const request = await db.query.signatureRequests.findFirst({
+      where: eq(signatureRequests.providerRequestId, envelopeId),
+      columns: {
+        id: true,
+        runId: true,
+        stepId: true
+      }
+    });
+    
+    return request || null;
   }
 
   /**

@@ -105,7 +105,7 @@ function registerWorkflowStepRoutes(app: Express): void {
       res.status(201).json(step);
     } catch (error) {
       logger.error({ error }, "Error creating step");
-      const message = error instanceof Error ? error.message : "Failed to create step";
+      const message = "Failed to create step";
       const status = errorStatus(message);
       res.status(status).json({ message });
     }
@@ -126,7 +126,7 @@ function registerWorkflowStepRoutes(app: Express): void {
       res.json(steps);
     } catch (error) {
       logger.error({ error }, "Error fetching steps");
-      const message = error instanceof Error ? error.message : "Failed to fetch steps";
+      const message = "Failed to fetch steps";
       const status = errorStatus(message);
       res.status(status).json({ message });
     }
@@ -152,7 +152,7 @@ function registerWorkflowStepRoutes(app: Express): void {
       res.status(200).json({ message: "Steps reordered successfully" });
     } catch (error) {
       logger.error({ error }, "Error reordering steps");
-      const message = error instanceof Error ? error.message : "Failed to reorder steps";
+      const message = "Failed to reorder steps";
       const status = errorStatus(message);
       res.status(status).json({ message });
     }
@@ -179,7 +179,7 @@ function registerSimplifiedStepRoutes(app: Express): void {
       res.json(steps);
     } catch (error) {
       logger.error({ error }, "Error fetching steps");
-      const message = error instanceof Error ? error.message : "Failed to fetch steps";
+      const message = "Failed to fetch steps";
       const status = errorStatus(message);
       res.status(status).json({ message });
     }
@@ -202,7 +202,7 @@ function registerSimplifiedStepRoutes(app: Express): void {
       res.status(201).json(step);
     } catch (error) {
       logger.error({ error }, "Error creating step");
-      const message = error instanceof Error ? error.message : "Failed to create step";
+      const message = "Failed to create step";
       const status = errorStatus(message);
       res.status(status).json({ message });
     }
@@ -228,7 +228,7 @@ function registerSimplifiedStepRoutes(app: Express): void {
       res.status(200).json({ message: "Steps reordered successfully" });
     } catch (error) {
       logger.error({ error }, "Error reordering steps");
-      const message = error instanceof Error ? error.message : "Failed to reorder steps";
+      const message = "Failed to reorder steps";
       const status = errorStatus(message);
       res.status(status).json({ message });
     }
@@ -249,7 +249,7 @@ function registerSimplifiedStepRoutes(app: Express): void {
       res.json(step);
     } catch (error) {
       logger.error({ error }, "Error fetching step");
-      const message = error instanceof Error ? error.message : "Failed to fetch step";
+      const message = "Failed to fetch step";
       const status = errorStatus(message);
       res.status(status).json({ message });
     }
@@ -272,7 +272,7 @@ function registerSimplifiedStepRoutes(app: Express): void {
       res.json(updatedStep);
     } catch (error) {
       logger.error({ error }, "Error updating step");
-      const message = error instanceof Error ? error.message : "Failed to update step";
+      const message = "Failed to update step";
       const status = errorStatus(message);
       res.status(status).json({ message });
     }
@@ -294,7 +294,7 @@ function registerSimplifiedStepRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, "Error deleting step");
-      const message = error instanceof Error ? error.message : "Failed to delete step";
+      const message = "Failed to delete step";
       const status = errorStatus(message);
       res.status(status).json({ message });
     }

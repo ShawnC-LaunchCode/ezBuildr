@@ -70,7 +70,7 @@ export function registerDatavaultApiTokenRoutes(app: Express): void {
         res.json({ tokens });
       } catch (error) {
         logger.error({ error, databaseId: req.params.databaseId }, 'Error fetching API tokens');
-        const message = error instanceof Error ? error.message : 'Failed to fetch API tokens';
+        const message = 'Failed to fetch API tokens';
         const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
         res.status(status).json({ message });
       }
@@ -161,7 +161,7 @@ export function registerDatavaultApiTokenRoutes(app: Express): void {
           { error, databaseId: req.params.databaseId },
           'Error creating API token'
         );
-        const message = error instanceof Error ? error.message : 'Failed to create API token';
+        const message = 'Failed to create API token';
         const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : message.includes('Validation') ? 400 : 500;
         res.status(status).json({ message });
       }
@@ -207,7 +207,7 @@ export function registerDatavaultApiTokenRoutes(app: Express): void {
         res.json({ message: 'API token revoked successfully' });
       } catch (error) {
         logger.error({ error, tokenId: req.params.tokenId }, 'Error revoking API token');
-        const message = error instanceof Error ? error.message : 'Failed to revoke API token';
+        const message = 'Failed to revoke API token';
         const status = message.includes('not found') || message.includes('Access denied') ? 404 : 500;
         res.status(status).json({ message });
       }

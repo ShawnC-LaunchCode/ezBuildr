@@ -72,7 +72,7 @@ export function registerCollectionsRoutes(app: Express): void {
         });
       }
 
-      const message = error instanceof Error ? error.message : 'Failed to create collection';
+      const message = 'Failed to create collection';
       res.status(500).json({ message });
     }
   }));
@@ -114,7 +114,7 @@ export function registerCollectionsRoutes(app: Express): void {
       res.json(collection);
     } catch (error) {
       logger.error({ error }, 'Error fetching collection');
-      const message = error instanceof Error ? error.message : 'Failed to fetch collection';
+      const message = 'Failed to fetch collection';
       // eslint-disable-next-line sonarjs/no-duplicate-string
       const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
       res.status(status).json({ message });
@@ -149,7 +149,7 @@ export function registerCollectionsRoutes(app: Express): void {
         });
       }
 
-      const message = error instanceof Error ? error.message : 'Failed to update collection';
+      const message = 'Failed to update collection';
       const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
       res.status(status).json({ message });
     }
@@ -167,7 +167,7 @@ export function registerCollectionsRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error deleting collection');
-      const message = error instanceof Error ? error.message : 'Failed to delete collection';
+      const message = 'Failed to delete collection';
       const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
       res.status(status).json({ message });
     }
@@ -192,7 +192,7 @@ export function registerCollectionsRoutes(app: Express): void {
       res.json(fields);
     } catch (error) {
       logger.error({ error }, 'Error fetching fields');
-      const message = error instanceof Error ? error.message : 'Failed to fetch fields';
+      const message = 'Failed to fetch fields';
       const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
       res.status(status).json({ message });
     }
@@ -226,7 +226,7 @@ export function registerCollectionsRoutes(app: Express): void {
         });
       }
 
-      const message = error instanceof Error ? error.message : 'Failed to create field';
+      const message = 'Failed to create field';
       const status = message.includes('not found') ? 404 : message.includes('requires options') || message.includes('must be') ? 400 : 500;
       res.status(status).json({ message });
     }
@@ -262,7 +262,7 @@ export function registerCollectionsRoutes(app: Express): void {
         });
       }
 
-      const message = error instanceof Error ? error.message : 'Failed to create fields';
+      const message = 'Failed to create fields';
       res.status(500).json({ message });
     }
   }));
@@ -292,7 +292,7 @@ export function registerCollectionsRoutes(app: Express): void {
       res.json(field);
     } catch (error) {
       logger.error({ error }, 'Error fetching field');
-      const message = error instanceof Error ? error.message : 'Failed to fetch field';
+      const message = 'Failed to fetch field';
       res.status(500).json({ message });
     }
   }));
@@ -330,7 +330,7 @@ export function registerCollectionsRoutes(app: Express): void {
         });
       }
 
-      const message = error instanceof Error ? error.message : 'Failed to update field';
+      const message = 'Failed to update field';
       const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : message.includes('must be') ? 400 : 500;
       res.status(status).json({ message });
     }
@@ -351,7 +351,7 @@ export function registerCollectionsRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error deleting field');
-      const message = error instanceof Error ? error.message : 'Failed to delete field';
+      const message = 'Failed to delete field';
       const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
       res.status(status).json({ message });
     }
@@ -395,7 +395,7 @@ export function registerCollectionsRoutes(app: Express): void {
       res.json(records);
     } catch (error) {
       logger.error({ error }, 'Error fetching records');
-      const message = error instanceof Error ? error.message : 'Failed to fetch records';
+      const message = 'Failed to fetch records';
       const status = message.includes('not found') || message.includes('access denied') ? 404 : 500;
       res.status(status).json({ message });
     }
@@ -429,7 +429,7 @@ export function registerCollectionsRoutes(app: Express): void {
         });
       }
 
-      const message = error instanceof Error ? error.message : 'Failed to create record';
+      const message = 'Failed to create record';
       const status = message.includes('Required field') || message.includes('must be') || message.includes('Unknown field') ? 400 : 500;
       res.status(status).json({ message });
     }
@@ -463,7 +463,7 @@ export function registerCollectionsRoutes(app: Express): void {
         });
       }
 
-      const message = error instanceof Error ? error.message : 'Failed to create records';
+      const message = 'Failed to create records';
       res.status(500).json({ message });
     }
   }));
@@ -494,7 +494,7 @@ export function registerCollectionsRoutes(app: Express): void {
         });
       }
 
-      const message = error instanceof Error ? error.message : 'Failed to query records';
+      const message = 'Failed to query records';
       res.status(500).json({ message });
     }
   }));
@@ -527,7 +527,7 @@ export function registerCollectionsRoutes(app: Express): void {
       res.json(record);
     } catch (error) {
       logger.error({ error }, 'Error fetching record');
-      const message = error instanceof Error ? error.message : 'Failed to fetch record';
+      const message = 'Failed to fetch record';
       const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
       res.status(status).json({ message });
     }
@@ -551,7 +551,7 @@ export function registerCollectionsRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, 'Error updating record');
 
-      const message = error instanceof Error ? error.message : 'Failed to update record';
+      const message = 'Failed to update record';
       const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : message.includes('must be') || message.includes('Unknown field') ? 400 : 500;
       res.status(status).json({ message });
     }
@@ -569,7 +569,7 @@ export function registerCollectionsRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error deleting record');
-      const message = error instanceof Error ? error.message : 'Failed to delete record';
+      const message = 'Failed to delete record';
       const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
       res.status(status).json({ message });
     }

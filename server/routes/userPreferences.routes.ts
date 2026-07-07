@@ -1,5 +1,6 @@
 import { createLogger } from "../logger";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
+import { z } from "zod";
 import { userPreferencesService } from "../services/UserPreferencesService";
 import { asyncHandler } from "../utils/asyncHandler";
 
@@ -43,12 +44,20 @@ export function registerUserPreferencesRoutes(app: Express): void {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- req.body parsed by express
-      const updates = req.body;
+      const preferencesUpdateSchema = z.record(
+        z.string().max(50),
+        z.union([z.string().max(500), z.number(), z.boolean(), z.null()])
+      ).refine(data => JSON.stringify(data).length < 5000, "Payload too large");
+
+      const updates = preferencesUpdateSchema.parse(req.body);
+      
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       const updated = await userPreferencesService.update(userId, updates);
       res.json(updated);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid preferences format", details: error.errors });
+      }
       logger.error({ error }, "Error updating user preferences");
       res.status(500).json({ message: "Failed to update preferences" });
     }

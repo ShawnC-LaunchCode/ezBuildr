@@ -73,7 +73,7 @@ export function registerSectionRoutes(app: Express): void {
       res.status(201).json(section);
     } catch (error) {
       logger.error({ error }, "Error creating section");
-      const message = error instanceof Error ? error.message : "Failed to create section";
+      const message = "Failed to create section";
       res.status(errorStatus(message)).json({ message });
     }
   }));
@@ -93,7 +93,7 @@ export function registerSectionRoutes(app: Express): void {
       res.json(sections);
     } catch (error) {
       logger.error({ error }, "Error fetching sections");
-      const message = error instanceof Error ? error.message : "Failed to fetch sections";
+      const message = "Failed to fetch sections";
       res.status(errorStatus(message)).json({ message });
     }
   }));
@@ -113,7 +113,7 @@ export function registerSectionRoutes(app: Express): void {
       res.json(section);
     } catch (error) {
       logger.error({ error }, "Error fetching section");
-      const message = error instanceof Error ? error.message : "Failed to fetch section";
+      const message = "Failed to fetch section";
       res.status(errorStatus(message)).json({ message });
     }
   }));
@@ -151,7 +151,7 @@ export function registerSectionRoutes(app: Express): void {
       res.status(200).json({ message: "Sections reordered successfully" });
     } catch (error) {
       logger.error({ error }, "Error reordering sections");
-      const message = error instanceof Error ? error.message : "Failed to reorder sections";
+      const message = "Failed to reorder sections";
       res.status(errorStatus(message)).json({ message });
     }
   }));
@@ -173,7 +173,7 @@ export function registerSectionRoutes(app: Express): void {
       res.json(section);
     } catch (error) {
       logger.error({ error }, "Error updating section");
-      const message = error instanceof Error ? error.message : "Failed to update section";
+      const message = "Failed to update section";
       res.status(errorStatus(message)).json({ message });
     }
   }));
@@ -194,7 +194,7 @@ export function registerSectionRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, "Error deleting section");
-      const message = error instanceof Error ? error.message : "Failed to delete section";
+      const message = "Failed to delete section";
       res.status(errorStatus(message)).json({ message });
     }
   }));
@@ -221,7 +221,7 @@ export function registerSectionRoutes(app: Express): void {
       res.json(updatedSection);
     } catch (error) {
       logger.error({ error }, "Error updating section");
-      const message = error instanceof Error ? error.message : "Failed to update section";
+      const message = "Failed to update section";
       res.status(errorStatus(message)).json({ message });
     }
   }));
@@ -242,7 +242,7 @@ export function registerSectionRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, "Error deleting section");
-      const message = error instanceof Error ? error.message : "Failed to delete section";
+      const message = "Failed to delete section";
       res.status(errorStatus(message)).json({ message });
     }
   }));
