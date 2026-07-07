@@ -197,6 +197,14 @@ beforeAll(async () => {
           // search_path on every connection checkout, guaranteeing fork isolation.
           console.log(`✅ Enforced search_path: ${schema}, public`);
         }
+        // pgcrypto provides digest() (used by portal token hashing and some
+        // migrations). Create it in public — which is on the search_path — before
+        // migrations run so digest() resolves in the isolated test schemas.
+        try {
+          await db.execute(`CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public`);
+        } catch (e: any) {
+          console.warn(`⚠️ Could not ensure pgcrypto extension: ${e?.message}`);
+        }
         // Run database migrations for test DB
         await applyManualMigrations(db);
         // CLEAN DATA when reusing schemas to prevent stale FK violations
@@ -244,6 +252,10 @@ beforeAll(async () => {
           await db.execute(`ALTER TABLE "${currentTestSchema}"."audit_logs" ADD COLUMN IF NOT EXISTS "entity_id" varchar DEFAULT 'system' NOT NULL`);
           await db.execute(`ALTER TABLE "${currentTestSchema}"."audit_logs" ADD COLUMN IF NOT EXISTS "details" jsonb`);
           await db.execute(`ALTER TABLE "${currentTestSchema}"."audit_logs" ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now()`);
+          // Fix 4: users.is_active — added to the Drizzle schema (shared/schema/auth.ts)
+          // after the 0000 baseline migration, with no follow-up migration file. Every
+          // user insert/select references it, so its absence fails setupIntegrationTest.
+          await db.execute(`ALTER TABLE "${currentTestSchema}"."users" ADD COLUMN IF NOT EXISTS "is_active" boolean DEFAULT true NOT NULL`);
           console.log("✅ Applied failsafe schema fixes");
         } catch (e: any) {
           console.log(`⚠️ Failed to apply manual failsafe fixes: ${e.message}`);
