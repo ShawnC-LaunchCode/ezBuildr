@@ -14,7 +14,7 @@ import type {
   LogicRuleRepository,
   ProjectRepository,
   WorkflowAccessRepository,
-  type DbTransaction
+  DbTransaction
 } from "../../../server/repositories";
 
 const validUUID = "123e4567-e89b-12d3-a456-426614174000";

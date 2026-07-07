@@ -4,7 +4,7 @@ import {
     getConfigSchema,
     validateStepConfig,
     FinalBlockConfigSchema,
-    _TextAdvancedConfigSchema,
+    TextAdvancedConfigSchema as _TextAdvancedConfigSchema,
     ChoiceAdvancedConfigSchema
 } from '../../../../shared/validation/stepConfigSchemas';
 

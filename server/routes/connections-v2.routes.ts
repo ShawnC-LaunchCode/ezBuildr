@@ -91,7 +91,6 @@ export function registerConnectionsV2Routes(app: Express): void {
       logger.error({ error }, 'Failed to list connections:');
       res.status(500).json({
         error: 'Failed to list connections',
-        message: (error as Error).message,
       });
     }
   }));
@@ -116,7 +115,6 @@ export function registerConnectionsV2Routes(app: Express): void {
       logger.error({ error }, 'Failed to get connection:');
       res.status(500).json({
         error: 'Failed to get connection',
-        message: (error as Error).message,
       });
     }
   }));
@@ -167,7 +165,6 @@ export function registerConnectionsV2Routes(app: Express): void {
       logger.error({ error }, 'Failed to create connection:');
       res.status(500).json({
         error: 'Failed to create connection',
-        message: (error as Error).message,
       });
     }
   }));
@@ -214,7 +211,6 @@ export function registerConnectionsV2Routes(app: Express): void {
       logger.error({ error }, 'Failed to update connection:');
       res.status(500).json({
         error: 'Failed to update connection',
-        message: (error as Error).message,
       });
     }
   }));
@@ -239,7 +235,6 @@ export function registerConnectionsV2Routes(app: Express): void {
       logger.error({ error }, 'Failed to delete connection:');
       res.status(500).json({
         error: 'Failed to delete connection',
-        message: (error as Error).message,
       });
     }
   }));
@@ -266,7 +261,6 @@ export function registerConnectionsV2Routes(app: Express): void {
       logger.error({ error }, 'Failed to test connection:');
       res.status(500).json({
         error: 'Failed to test connection',
-        message: (error as Error).message,
       });
     }
   }));
@@ -286,7 +280,6 @@ export function registerConnectionsV2Routes(app: Express): void {
       logger.error({ error }, 'Failed to get connection status:');
       res.status(500).json({
         error: 'Failed to get connection status',
-        message: (error as Error).message,
       });
     }
   }));
@@ -336,7 +329,6 @@ export function registerConnectionsV2Routes(app: Express): void {
       logger.error({ error }, 'Failed to initiate OAuth2 flow:');
       res.status(500).json({
         error: 'Failed to initiate OAuth2 flow',
-        message: (error as Error).message,
       });
     }
   }));
@@ -409,7 +401,6 @@ export function registerConnectionsV2Routes(app: Express): void {
       logger.error({ error }, 'Failed to handle OAuth2 callback:');
       res.status(500).json({
         error: 'Failed to handle OAuth2 callback',
-        message: (error as Error).message,
       });
     }
   }));
