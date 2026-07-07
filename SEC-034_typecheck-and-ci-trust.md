@@ -80,5 +80,20 @@ Requested: move the audited security routes (billing, webhooks, auth, datavault,
 - **D:** `npm run check:strict-zones` exits 0; `strict-mode-check.yml` enforced step is green.
 - **E:** a documented, per-route plan exists for bringing security routes into strict zones; at least the smallest-closure security route is added and passing.
 
+## Part F — Integration test-harness backlog now visible (183 failures)
+
+Once tests actually ran (Parts B + the SESSION_SECRET fix), the suite went from 1508 to **2376 tests executing** — ~900 integration/unit-db tests that had been silently skipped now run. Result: **1860 pass, 183 fail**. The failures are a PRE-EXISTING backlog that was hidden because CI never ran tests; they are NOT regressions from the security work (the security-stale unit tests were fixed separately and are green, and the security-adjacent integration failures all die at harness *setup*, never reaching their assertions).
+
+Dominant root causes (test-DB provisioning, not product bugs):
+1. **`users.is_active` missing** in the per-worker test schemas (PG 42703 `errorMissingColumn`) — registration/login `select ... is_active ... from users` fails, so `setupIntegrationTest` (which registers a user) throws `internal_error`, cascading to dozens of integration files (ownershipAccess, hardening/*, datavault.permissions, api.*, auth/*, etc.). Likely `drizzle-kit push` not reflecting the current `users` schema / a migration-only column.
+2. **`pgcrypto` not enabled** — `function digest(text, unknown) does not exist`; test DB setup needs `CREATE EXTENSION IF NOT EXISTS pgcrypto`.
+3. **Constraint idempotency** — `constraint "ai_settings_updated_by_users_id_fk" already exists` during schema setup.
+4. **CI test-DB seed uses `root`** — repeated `FATAL: role "root" does not exist` in PG logs; a health-check/psql call defaults to the `root` user.
+5. Remaining unit-db failures (WorkflowTemplateService/Repository, templateNode, PdfQueueService) — need per-file triage; likely factory/schema drift similar to the unit stale-mocks already fixed.
+
+**This is a distinct workstream, not security.** It should be done with a working local DB (`docker-compose.test.yml`) after Part A (`npm ci`) so it can iterate without slow CI round-trips. Fixing root cause #1 alone should recover a large fraction of the 183.
+
+**Verified fixed under this effort (green in CI):** AccountLockoutService, BrandingService, StepService, LifecycleHookService unit tests; the CI pipeline split (tests run independently of lint/typecheck); the `db:seed` `api_keys.name` bug; the `SESSION_SECRET` length bug; and the oauth2.client-credentials `safeFetch` mock.
+
 ## Related
 - Follow-up to SEC-020..033 (Express route security remediation). The type/CI issues are independent of those fixes but were masking whether they had any test coverage.
