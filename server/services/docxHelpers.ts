@@ -293,6 +293,29 @@ export function parseHelperArg(rawArg: string): unknown {
 }
 
 /**
+ * Resolve a helper-argument token against the template scope:
+ * quoted/numeric/boolean tokens are literals (via parseHelperArg); a bare
+ * word that matches a variable path in scope resolves to that variable's
+ * value ({{multiply basePrice quantity}}), otherwise it stays a literal
+ * string ({{formatDate dob MM/DD/YYYY}}).
+ */
+export function resolveHelperArg(scope: Record<string, unknown>, rawArg: string): unknown {
+  const parsed = parseHelperArg(rawArg);
+  if (typeof parsed !== 'string' || parsed !== rawArg) {
+    return parsed; // quoted string, number, or boolean literal
+  }
+
+  let current: unknown = scope;
+  for (const key of rawArg.split('.')) {
+    if (current === null || current === undefined || typeof current !== 'object') {
+      return rawArg;
+    }
+    current = (current as Record<string, unknown>)[key];
+  }
+  return current === undefined ? rawArg : current;
+}
+
+/**
  * Join an array for scalar display in a document ({{tag}} used on an array
  * value). Primitives are joined with ", "; object elements are JSON-encoded.
  * Loop tags ({{#tag}}) receive the raw array instead — see the expression

@@ -21,7 +21,7 @@ import { logger } from '../logger';
 import { ApiError , createError } from '../utils/errors';
 
 import { PdfConverter } from './document/PdfConverter';
-import { docxHelpers, formatArrayForDisplay, parseHelperArg, tokenizeTag } from './docxHelpers';
+import { docxHelpers, formatArrayForDisplay, resolveHelperArg, tokenizeTag } from './docxHelpers';
 
 /** Subset of the context docxtemplater passes to parser.get */
 interface ParserContext {
@@ -86,7 +86,7 @@ function createExpressionParser(tag: string): { get(scope: Record<string, unknow
         if (typeof helper === 'function') {
           const valuePath = parts[1];
           const value = getNestedValue(scope, valuePath);
-          const args = parts.slice(2).map(parseHelperArg);
+          const args = parts.slice(2).map((arg) => resolveHelperArg(scope, arg));
 
           try {
             return (helper as (...args: unknown[]) => unknown)(value, ...args);

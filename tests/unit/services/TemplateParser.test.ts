@@ -127,6 +127,17 @@ describe('TemplateParser', () => {
       expect(text).toContain('Total: $1,234.50');
     });
 
+    it('should resolve helper arguments that reference other variables', async () => {
+      const text = await render('Total: {{formatCurrency total currencyCode}} for {{multiply price quantity}} units', {
+        total: 99.5,
+        currencyCode: 'USD',
+        price: 3,
+        quantity: 4,
+      });
+      expect(text).toContain('Total: $99.50');
+      expect(text).toContain('for 12 units');
+    });
+
     it('should call helpers on nested paths', async () => {
       const text = await render('{{upper client.name}}', {
         client: { name: 'acme co' },

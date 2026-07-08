@@ -22,6 +22,7 @@ import {
   docxHelpers,
   tokenizeTag,
   parseHelperArg,
+  resolveHelperArg,
 } from '../../../server/services/docxHelpers';
 
 /**
@@ -389,6 +390,36 @@ describe('DOCX Helpers', () => {
       it('should pass through bare words', () => {
         expect(parseHelperArg('USD')).toBe('USD');
         expect(parseHelperArg('MM/DD/YYYY')).toBe('MM/DD/YYYY');
+      });
+    });
+
+    describe('resolveHelperArg', () => {
+      const scope = {
+        quantity: 4,
+        client: { name: 'Acme' },
+        USD: 'should not shadow quoted literals',
+      };
+
+      it('should resolve bare words that match scope variables', () => {
+        expect(resolveHelperArg(scope, 'quantity')).toBe(4);
+      });
+
+      it('should resolve dot paths from scope', () => {
+        expect(resolveHelperArg(scope, 'client.name')).toBe('Acme');
+      });
+
+      it('should keep quoted tokens as literals even when scope has the key', () => {
+        expect(resolveHelperArg(scope, '"USD"')).toBe('USD');
+      });
+
+      it('should keep numbers and booleans as literals', () => {
+        expect(resolveHelperArg(scope, '2')).toBe(2);
+        expect(resolveHelperArg(scope, 'false')).toBe(false);
+      });
+
+      it('should fall back to the literal string for unknown words', () => {
+        expect(resolveHelperArg(scope, 'MM/DD/YYYY')).toBe('MM/DD/YYYY');
+        expect(resolveHelperArg(scope, 'EUR')).toBe('EUR');
       });
     });
   });

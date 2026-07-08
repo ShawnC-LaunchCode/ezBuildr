@@ -7,7 +7,7 @@ import PizZip from 'pizzip';
 
 import { logger } from '../../logger';
 import { createError } from '../../utils/errors';
-import { docxHelpers, formatArrayForDisplay, parseHelperArg, tokenizeTag } from '../docxHelpers';
+import { docxHelpers, formatArrayForDisplay, resolveHelperArg, tokenizeTag } from '../docxHelpers';
 
 const TEMPLATE_SYNTAX_ERROR_PREFIX = 'Template syntax error: ';
 const ERROR_SEPARATOR = ' | ';
@@ -91,8 +91,9 @@ export class TemplateParser {
                         const valuePath = parts[1];
                         const value = getNestedValue(scope, valuePath);
 
-                        // Additional arguments (quotes stripped, numbers/booleans coerced)
-                        const args = parts.slice(2).map(parseHelperArg);
+                        // Additional arguments: literals (quoted/number/boolean)
+                        // or variable paths resolved from scope
+                        const args = parts.slice(2).map((arg) => resolveHelperArg(scope, arg));
 
                         try {
                             return helper(value, ...args);
