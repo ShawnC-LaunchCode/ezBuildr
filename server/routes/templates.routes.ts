@@ -564,6 +564,54 @@ router.get(
 );
 
 /**
+ * GET /templates/:id/validate?workflowId=...
+ * Compare the template's placeholders against a workflow's variables.
+ * Returns matched/missing (with fuzzy suggestions), loop-scoped fields,
+ * unused variables, and steps whose answers are dropped for lack of alias.
+ */
+router.get(
+  '/templates/:id/validate',
+  hybridAuth,
+  requireTenant,
+  requirePermission(PERMISSION_VIEW),
+  asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const authReq = req as AuthRequest;
+      const tenantId = authReq.tenantId!;
+      const userId = authReq.userId;
+      if (userId === undefined || userId === null || userId === '') {
+        throw createError.unauthorized('Unauthorized - no user ID');
+      }
+      const params = templateParamsSchema.parse(req.params);
+      const query = z.object({ workflowId: z.string().uuid() }).parse(req.query);
+
+      const template = await db.query.templates.findFirst({
+        where: eq(schema.templates.id, params.id),
+        with: { project: true },
+      });
+      if (!template) {
+        throw createError.notFound('Template', params.id);
+      }
+      if (template.project.tenantId !== tenantId) {
+        throw createError.forbidden(ACCESS_DENIED_MSG);
+      }
+
+      const { templateValidationService } = await import('../services/TemplateValidationService');
+      const report = await templateValidationService.validate(
+        template.id,
+        template.fileRef,
+        query.workflowId,
+        userId
+      );
+      res.json(report);
+    } catch (error) {
+      const formatted = formatErrorResponse(error);
+      res.status(formatted.status).json(formatted.body);
+    }
+  })
+);
+
+/**
  * POST /templates/:id/preview
  * Generate a preview of the template with sample data
  */

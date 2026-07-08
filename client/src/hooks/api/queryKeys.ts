@@ -30,4 +30,6 @@ export const queryKeys = {
     workflowDataSources: (workflowId: string) => ["workflows", workflowId, "dataSources"] as const,
     dataSource: (id: string) => ["dataSources", id] as const,
     logicRules: (workflowId: string) => ["workflows", workflowId, "logicRules"] as const,
+    templateValidation: (templateId: string, workflowId: string) =>
+        ["templates", templateId, "validation", workflowId] as const,
 };

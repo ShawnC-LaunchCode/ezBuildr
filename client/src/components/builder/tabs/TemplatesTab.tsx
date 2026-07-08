@@ -47,6 +47,11 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
 
   const workflowVariableAliases = new Set(workflowVariables.map(v => v.alias).filter((a): a is string => !!a));
 
+  // Steps without an alias contribute nothing to generated documents
+  const stepsWithoutAlias = (variables ?? []).filter(
+    (v: ApiWorkflowVariable) => (v.alias == null || v.alias === '') && v.type !== 'display' && v.type !== 'final_documents'
+  );
+
   // Fetch templates for this project
   const fetchTemplates = async () => {
     try {
@@ -59,11 +64,11 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
         id: t.id as string,
         name: t.name as string,
         key: t.id as string,
-        type: (t.type ?? "docx") as string,
+        type: (t.type === "pdf" ? "pdf" : "docx") as "docx" | "pdf",
         lastUpdated: (t.updatedAt ?? t.createdAt) as string,
         fileSize: t.fileSize as number | undefined,
-        // Mock variables if backend doesn't return them yet, for UX demonstration
-        variables: (t.variables ?? ["clientName", "matterDate", "unmatched_variable"]) as string[]
+        // Used only for PDF cards; DOCX cards validate against the server
+        variables: (t.variables ?? []) as string[]
       }));
       /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
       setTemplates(mappedTemplates);
@@ -218,6 +223,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
             key={template.id}
             // eslint-disable-next-line @typescript-eslint/no-misused-promises
             template={template}
+            workflowId={workflowId}
             workflowVariableAliases={workflowVariableAliases}
             onEdit={setEditingTemplate}
             // eslint-disable-next-line @typescript-eslint/no-misused-promises
@@ -258,6 +264,29 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
 
       <BuilderLayoutContent>
         <div className="space-y-12">
+          {/* Steps without variable names never reach generated documents */}
+          {stepsWithoutAlias.length > 0 && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              <p className="font-semibold mb-1">
+                {stepsWithoutAlias.length} question{stepsWithoutAlias.length === 1 ? '' : 's'} without a variable name
+              </p>
+              <p className="mb-1.5">
+                Answers to these questions are not available to document templates.
+                Set a variable name on each step to use its answer in a document:
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {stepsWithoutAlias.slice(0, 6).map((s: ApiWorkflowVariable) => (
+                  <span key={s.stepId} className="bg-white px-1.5 py-0.5 rounded border border-amber-200" title={s.sectionTitle}>
+                    {s.label}
+                  </span>
+                ))}
+                {stepsWithoutAlias.length > 6 && (
+                  <span className="self-center">+{stepsWithoutAlias.length - 6} more</span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Word Templates Section */}
           <section className="space-y-4">
             <div className="flex items-center justify-between border-b pb-2">
