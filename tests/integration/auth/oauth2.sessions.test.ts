@@ -400,7 +400,8 @@ describe('OAuth2 Session Management', () => {
         const response = await request(app)
           .post('/api/auth/trust-device')
           .set('Authorization', `Bearer ${authToken}`)
-          .set('User-Agent', 'Test Browser/1.0');
+          .set('User-Agent', 'Test Browser/1.0')
+          .send({ password: 'StrongTestUser123!@#' });
 
         expect(response.status).toBe(200);
         expect(response.body).toMatchObject({
@@ -420,7 +421,8 @@ describe('OAuth2 Session Management', () => {
         await request(app)
           .post('/api/auth/trust-device')
           .set('Authorization', `Bearer ${authToken}`)
-          .set('User-Agent', 'Test Browser/1.0');
+          .set('User-Agent', 'Test Browser/1.0')
+          .send({ password: 'StrongTestUser123!@#' });
 
         const initialDevice = await db.query.trustedDevices.findFirst({
           where: eq(trustedDevices.userId, testUserId),
@@ -430,7 +432,8 @@ describe('OAuth2 Session Management', () => {
         await request(app)
           .post('/api/auth/trust-device')
           .set('Authorization', `Bearer ${authToken}`)
-          .set('User-Agent', 'Test Browser/1.0');
+          .set('User-Agent', 'Test Browser/1.0')
+          .send({ password: 'StrongTestUser123!@#' });
 
         const devices = await db.select().from(trustedDevices)
           .where(eq(trustedDevices.userId, testUserId));

@@ -8,7 +8,7 @@ import { eq } from 'drizzle-orm';
 import express from 'express';
 import { nanoid } from 'nanoid';
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 
 import { users, tenants, projects, externalConnections as connections, secrets } from '@shared/schema';
 
@@ -22,6 +22,16 @@ import {
 } from '../../../server/services/oauth2';
 
 import type { Express } from 'express';
+
+// The connections route runs validateSafeUrl(baseUrl), which does real DNS
+// resolution as SSRF protection. The example hosts used here (api.example.com)
+// don't resolve, so creation would 400. This suite tests the OAuth flow, not
+// SSRF, so allow the URLs through.
+vi.mock('../../../server/utils/ssrfValidator', async (importActual) => ({
+  ...(await importActual<typeof import('../../../server/utils/ssrfValidator')>()),
+  validateSafeUrl: vi.fn().mockResolvedValue(true),
+}));
+
 describe('OAuth2 3-Legged Flow - Callback Handling', () => {
   let app: Express;
   let testTenantId: string;

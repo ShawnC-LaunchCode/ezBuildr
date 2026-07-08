@@ -18,13 +18,20 @@ import { asyncHandler } from "../utils/asyncHandler";
 
 const router = Router();
 
-const variableArraySchema = z.array(z.string().max(200)).max(500);
+// Callers send arrays of variable OBJECTS (e.g. { name, type } / { id, name, type }),
+// which the service consumes via v.name/v.id/v.label/v.type. Validate that real
+// shape while keeping the SEC-028 bounds (require a name; cap count and lengths;
+// allow the other known fields).
+const variableObjectSchema = z
+  .object({ name: z.string().max(200) })
+  .passthrough();
+const variableObjectArraySchema = z.array(variableObjectSchema).max(500);
 const suggestMappingsSchema = z.object({
-  templateVariables: variableArraySchema,
-  workflowVariables: variableArraySchema
+  templateVariables: variableObjectArraySchema,
+  workflowVariables: variableObjectArraySchema
 });
 const suggestImprovementsSchema = z.object({
-  variables: variableArraySchema
+  variables: variableObjectArraySchema
 });
 
 // SECURITY FIX: Use disk storage instead of memory to prevent DoS (OOM)
@@ -190,8 +197,10 @@ router.post("/extract-text", uploadLimiter, (req, res, next) => {
 router.post("/suggest-mappings", strictLimiter, asyncHandler(async (req, res) => {
     try {
         const { templateVariables, workflowVariables } = suggestMappingsSchema.parse(req.body);
-        // @ts-ignore - TODO: fix type
-        const mappings = await documentAIAssistService.suggestMappings(templateVariables, workflowVariables);
+        const mappings = await documentAIAssistService.suggestMappings(
+            templateVariables as Parameters<typeof documentAIAssistService.suggestMappings>[0],
+            workflowVariables as Parameters<typeof documentAIAssistService.suggestMappings>[1]
+        );
         res.json({ data: mappings });
     } catch (err) {
         if (err instanceof z.ZodError) {
@@ -210,7 +219,8 @@ router.post("/suggest-mappings", strictLimiter, asyncHandler(async (req, res) =>
 router.post("/suggest-improvements", strictLimiter, asyncHandler(async (req, res) => {
     try {
         const { variables } = suggestImprovementsSchema.parse(req.body);
-        const result = await documentAIAssistService.suggestImprovements(variables);
+        // Service takes variable names (string[]); callers send objects.
+        const result = await documentAIAssistService.suggestImprovements(variables.map(v => v.name));
         res.json({ data: result });
     } catch (err) {
         if (err instanceof z.ZodError) {

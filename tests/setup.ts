@@ -256,6 +256,11 @@ beforeAll(async () => {
           // after the 0000 baseline migration, with no follow-up migration file. Every
           // user insert/select references it, so its absence fails setupIntegrationTest.
           await db.execute(`ALTER TABLE "${currentTestSchema}"."users" ADD COLUMN IF NOT EXISTS "is_active" boolean DEFAULT true NOT NULL`);
+          // Fix 5: workflow_runs.token_expires_at / share_token_expires_at — added by
+          // migration 0007 (run-token expiry), which is skipped on schema REUSE, so a
+          // reused local schema lacks them and every workflow_run insert fails.
+          await db.execute(`ALTER TABLE "${currentTestSchema}"."workflow_runs" ADD COLUMN IF NOT EXISTS "token_expires_at" timestamp`);
+          await db.execute(`ALTER TABLE "${currentTestSchema}"."workflow_runs" ADD COLUMN IF NOT EXISTS "share_token_expires_at" timestamp`);
           console.log("✅ Applied failsafe schema fixes");
         } catch (e: any) {
           console.log(`⚠️ Failed to apply manual failsafe fixes: ${e.message}`);
