@@ -135,30 +135,49 @@ function main(): void {
 
   // 4. Run tests related to changed files
   console.log('\n4. Running tests related to changed files...');
-  const testFiles = stagedFiles
-    .filter(file => file.includes('server/') || file.includes('shared/'))
-    .map(file => {
-      // Try to find corresponding test file
-      const withoutExt = file.replace(/\.(ts|tsx|js|jsx)$/, '');
-      const possibleTestFiles = [
-        `${withoutExt}.test.ts`,
-        `${withoutExt}.test.tsx`,
-        `tests/unit/${path.basename(withoutExt)}.test.ts`,
-        `tests/integration/${path.basename(withoutExt)}.test.ts`
-      ];
-      return possibleTestFiles.find(f => existsSync(f));
-    })
-    .filter(Boolean);
+  // Only unit tests run here: `npm run test:unit` covers the unit-fast/unit-db
+  // vitest projects only, so passing a tests/integration/* path makes vitest
+  // exit 1 with "No test files found". Integration tests also need the test
+  // database, so they are left to `npm run test:integration` / CI.
+  const unitTestFiles = new Set<string>();
+  const integrationTestFiles = new Set<string>();
 
-  if (testFiles.length > 0) {
-    const testFilesList = testFiles.join(' ');
+  for (const file of stagedFiles) {
+    if (!file.includes('server/') && !file.includes('shared/')) {
+      continue;
+    }
+    const withoutExt = file.replace(/\.(ts|tsx|js|jsx)$/, '');
+    const unitCandidates = [
+      `${withoutExt}.test.ts`,
+      `${withoutExt}.test.tsx`,
+      `tests/unit/${path.basename(withoutExt)}.test.ts`
+    ];
+    const unitMatch = unitCandidates.find(f => existsSync(f));
+    if (unitMatch) {
+      unitTestFiles.add(unitMatch);
+    }
+    const integrationCandidate = `tests/integration/${path.basename(withoutExt)}.test.ts`;
+    if (existsSync(integrationCandidate)) {
+      integrationTestFiles.add(integrationCandidate);
+    }
+  }
+
+  if (integrationTestFiles.size > 0) {
+    console.log('Related integration tests (not run pre-commit; run via "npm run test:integration" or CI):');
+    for (const file of integrationTestFiles) {
+      console.log(`  - ${file}`);
+    }
+  }
+
+  if (unitTestFiles.size > 0) {
+    const testFilesList = [...unitTestFiles].join(' ');
     const testsPassed = runCommand(
       `npm run test:unit -- ${testFilesList}`,
       'Related Unit Tests'
     );
     allPassed = allPassed && testsPassed;
   } else {
-    console.log('No related test files found, skipping test run.');
+    console.log('No related unit test files found, skipping test run.');
     results.push({
       name: 'Related Unit Tests',
       passed: true,
