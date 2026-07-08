@@ -10,6 +10,7 @@ import { collectionFieldService } from '../services/CollectionFieldService';
 import { collectionService } from '../services/CollectionService';
 import { recordService } from '../services/RecordService';
 import { asyncHandler } from '../utils/asyncHandler';
+import { classifyRouteError } from '../utils/routeErrors';
 
 import type { Express, Request, Response } from 'express';
 
@@ -114,9 +115,7 @@ export function registerCollectionsRoutes(app: Express): void {
       res.json(collection);
     } catch (error) {
       logger.error({ error }, 'Error fetching collection');
-      const message = 'Failed to fetch collection';
-      // eslint-disable-next-line sonarjs/no-duplicate-string
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyRouteError(error, 'Failed to fetch collection');
       res.status(status).json({ message });
     }
   }));
@@ -149,8 +148,7 @@ export function registerCollectionsRoutes(app: Express): void {
         });
       }
 
-      const message = 'Failed to update collection';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyRouteError(error, 'Failed to update collection');
       res.status(status).json({ message });
     }
   }));
@@ -167,8 +165,7 @@ export function registerCollectionsRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error deleting collection');
-      const message = 'Failed to delete collection';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyRouteError(error, 'Failed to delete collection');
       res.status(status).json({ message });
     }
   }));
@@ -192,8 +189,7 @@ export function registerCollectionsRoutes(app: Express): void {
       res.json(fields);
     } catch (error) {
       logger.error({ error }, 'Error fetching fields');
-      const message = 'Failed to fetch fields';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyRouteError(error, 'Failed to fetch fields');
       res.status(status).json({ message });
     }
   }));
@@ -226,8 +222,7 @@ export function registerCollectionsRoutes(app: Express): void {
         });
       }
 
-      const message = 'Failed to create field';
-      const status = message.includes('not found') ? 404 : message.includes('requires options') || message.includes('must be') ? 400 : 500;
+      const { status, message } = classifyRouteError(error, 'Failed to create field');
       res.status(status).json({ message });
     }
   }));
@@ -330,8 +325,7 @@ export function registerCollectionsRoutes(app: Express): void {
         });
       }
 
-      const message = 'Failed to update field';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : message.includes('must be') ? 400 : 500;
+      const { status, message } = classifyRouteError(error, 'Failed to update field');
       res.status(status).json({ message });
     }
   }));
@@ -351,8 +345,7 @@ export function registerCollectionsRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error deleting field');
-      const message = 'Failed to delete field';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyRouteError(error, 'Failed to delete field');
       res.status(status).json({ message });
     }
   }));
@@ -395,8 +388,7 @@ export function registerCollectionsRoutes(app: Express): void {
       res.json(records);
     } catch (error) {
       logger.error({ error }, 'Error fetching records');
-      const message = 'Failed to fetch records';
-      const status = message.includes('not found') || message.includes('access denied') ? 404 : 500;
+      const { status, message } = classifyRouteError(error, 'Failed to fetch records');
       res.status(status).json({ message });
     }
   }));
@@ -429,8 +421,7 @@ export function registerCollectionsRoutes(app: Express): void {
         });
       }
 
-      const message = 'Failed to create record';
-      const status = message.includes('Required field') || message.includes('must be') || message.includes('Unknown field') ? 400 : 500;
+      const { status, message } = classifyRouteError(error, 'Failed to create record');
       res.status(status).json({ message });
     }
   }));
@@ -527,8 +518,7 @@ export function registerCollectionsRoutes(app: Express): void {
       res.json(record);
     } catch (error) {
       logger.error({ error }, 'Error fetching record');
-      const message = 'Failed to fetch record';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyRouteError(error, 'Failed to fetch record');
       res.status(status).json({ message });
     }
   }));
@@ -551,8 +541,7 @@ export function registerCollectionsRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, 'Error updating record');
 
-      const message = 'Failed to update record';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : message.includes('must be') || message.includes('Unknown field') ? 400 : 500;
+      const { status, message } = classifyRouteError(error, 'Failed to update record');
       res.status(status).json({ message });
     }
   }));
@@ -569,8 +558,7 @@ export function registerCollectionsRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error deleting record');
-      const message = 'Failed to delete record';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyRouteError(error, 'Failed to delete record');
       res.status(status).json({ message });
     }
   }));

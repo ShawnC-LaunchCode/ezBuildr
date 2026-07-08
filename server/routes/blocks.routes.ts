@@ -12,6 +12,7 @@ import { listToolsBlockService } from "../services/ListToolsBlockService";
 import { queryBlockService } from "../services/QueryBlockService";
 import { readTableBlockService } from "../services/ReadTableBlockService";
 import { asyncHandler } from '../utils/asyncHandler';
+import { classifyRouteError } from '../utils/routeErrors';
 
 import type { Express, Request, Response } from "express";
 
@@ -95,9 +96,7 @@ export function registerBlockRoutes(app: Express): void {
       res.status(201).json({ success: true, data: block });
     } catch (error: unknown) {
       logger.error({ error }, "Error creating block");
-      const message = "Failed to create block";
-      // eslint-disable-next-line sonarjs/no-duplicate-string
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to create block");
       res.status(status).json({ success: false, errors: [message] });
     }
   }));
@@ -118,8 +117,7 @@ export function registerBlockRoutes(app: Express): void {
       res.json({ success: true, data: blocks });
     } catch (error: unknown) {
       logger.error({ error }, "Error listing blocks");
-      const message = "Failed to list blocks";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to list blocks");
       res.status(status).json({ success: false, errors: [message] });
     }
   }));
@@ -139,8 +137,7 @@ export function registerBlockRoutes(app: Express): void {
       res.json({ success: true, data: block });
     } catch (error: unknown) {
       logger.error({ error }, "Error fetching block");
-      const message = "Failed to fetch block";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to fetch block");
       res.status(status).json({ success: false, errors: [message] });
     }
   }));
@@ -197,8 +194,7 @@ export function registerBlockRoutes(app: Express): void {
       res.json({ success: true, data: updatedBlock });
     } catch (error: unknown) {
       logger.error({ error }, "Error updating block");
-      const message = "Failed to update block";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to update block");
       res.status(status).json({ success: false, errors: [message] });
     }
   }));
@@ -227,8 +223,7 @@ export function registerBlockRoutes(app: Express): void {
       res.json({ success: true, data: { message: "Block deleted successfully" } });
     } catch (error: unknown) {
       logger.error({ error }, "Error deleting block");
-      const message = "Failed to delete block";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to delete block");
       res.status(status).json({ success: false, errors: [message] });
     }
   }));
@@ -257,8 +252,7 @@ export function registerBlockRoutes(app: Express): void {
       res.json({ success: true, data: { message: "Blocks reordered successfully" } });
     } catch (error: unknown) {
       logger.error({ error }, "Error reordering blocks");
-      const message = "Failed to reorder blocks";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to reorder blocks");
       res.status(status).json({ success: false, errors: [message] });
     }
   }));
@@ -398,8 +392,7 @@ export function registerBlockRoutes(app: Express): void {
       });
     } catch (error: unknown) {
       logger.error({ error }, "Error creating inline List Tools block");
-      const message = "Failed to create List Tools block";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to create List Tools block");
       res.status(status).json({ success: false, errors: [message] });
     }
   }));

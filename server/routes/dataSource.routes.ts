@@ -9,6 +9,7 @@ import { datavaultTablesRepository } from '../repositories/DatavaultTablesReposi
 import { dataSourceService } from '../services/DataSourceService';
 import { workflowService } from '../services/WorkflowService';
 import { asyncHandler } from '../utils/asyncHandler';
+import { classifyRouteError } from '../utils/routeErrors';
 
 
 const nativeConfigSchema = z.object({});
@@ -166,8 +167,7 @@ dataSourceRouter.get('/:id/tables', asyncHandler(async (req, res) => {
         res.json(tables);
     } catch (error) {
         logger.error({ error }, 'Error listing data source tables');
-        const message = 'Failed to list tables';
-        const status = message.includes('not found') ? 404 : 500;
+        const { status, message } = classifyRouteError(error, 'Failed to list tables');
         res.status(status).json({ message });
     }
 }));

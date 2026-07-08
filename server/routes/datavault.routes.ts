@@ -31,6 +31,22 @@ import { validationMessages } from '../utils/validationMessages';
 import type { Express, Request, Response } from 'express';
 const aclService = new AclService();
 /**
+ * Classify a caught error into an HTTP status + response message.
+ *
+ * Derives the status from the ACTUAL thrown error (not a hardcoded string),
+ * returning the intentional thrown message for 4xx cases while keeping 5xx
+ * responses generic so internal error details are never leaked to clients.
+ */
+function classifyDatavaultError(
+  error: unknown,
+  fallback: string
+): { status: number; message: string } {
+  const raw = error instanceof Error ? error.message : '';
+  if (raw.includes('not found')) return { status: 404, message: raw };
+  if (raw.includes('Access denied') || raw.includes('Unauthorized')) return { status: 403, message: raw };
+  return { status: 500, message: fallback };
+}
+/**
  * Register DataVault routes
  * DataVault Phase 1: Tenant-scoped custom data tables
  *
@@ -167,8 +183,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json(database);
     } catch (error) {
       logger.error({ error }, 'Error fetching DataVault database');
-      const message = 'Failed to fetch database';
-      const status = message.includes('not found') ? 404 : message.includes('Unauthorized') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to fetch database');
       res.status(status).json({ message });
     }
   }));
@@ -207,8 +222,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const message = 'Failed to update database';
-      const status = message.includes('not found') ? 404 : message.includes('Unauthorized') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to update database');
       res.status(status).json({ message });
     }
   }));
@@ -224,8 +238,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error deleting DataVault database');
-      const message = 'Failed to delete database';
-      const status = message.includes('not found') ? 404 : message.includes('Unauthorized') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to delete database');
       res.status(status).json({ message });
     }
   }));
@@ -241,8 +254,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json(tables);
     } catch (error) {
       logger.error({ error }, 'Error fetching database tables');
-      const message = 'Failed to fetch tables';
-      const status = message.includes('not found') ? 404 : message.includes('Unauthorized') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to fetch tables');
       res.status(status).json({ message });
     }
   }));
@@ -324,9 +336,7 @@ export function registerDatavaultRoutes(app: Express): void {
     } catch (error) {
       // eslint-disable-next-line sonarjs/no-duplicate-string
       logger.error({ error }, 'Error fetching DataVault table');
-      const message = 'Failed to fetch table';
-      // eslint-disable-next-line sonarjs/no-duplicate-string
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to fetch table');
       res.status(status).json({ message });
     }
   }));
@@ -361,8 +371,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const message = 'Failed to update table';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to update table');
       res.status(status).json({ message });
     }
   }));
@@ -388,8 +397,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const message = 'Failed to move table';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to move table');
       res.status(status).json({ message });
     }
   }));
@@ -412,8 +420,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error deleting DataVault table');
-      const message = 'Failed to delete table';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to delete table');
       res.status(status).json({ message });
     }
   }));
@@ -440,8 +447,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json(schema);
     } catch (error) {
       logger.error({ error }, 'Error fetching DataVault table schema');
-      const message = 'Failed to fetch table schema';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to fetch table schema');
       res.status(status).json({ message });
     }
   }));
@@ -463,8 +469,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json(columns);
     } catch (error) {
       logger.error({ error }, 'Error fetching DataVault columns');
-      const message = 'Failed to fetch columns';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to fetch columns');
       res.status(status).json({ message });
     }
   }));
@@ -497,8 +502,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const message = 'Failed to create column';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to create column');
       res.status(status).json({ message });
     }
   }));
@@ -533,8 +537,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const message = 'Failed to update column';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to update column');
       res.status(status).json({ message });
     }
   }));
@@ -556,8 +559,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error deleting DataVault column');
-      const message = 'Failed to delete column';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to delete column');
       res.status(status).json({ message });
     }
   }));
@@ -588,8 +590,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const message = 'Failed to reorder columns';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to reorder columns');
       res.status(status).json({ message });
     }
   }));
@@ -647,8 +648,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const message = 'Failed to resolve references';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to resolve references');
       res.status(status).json({ message });
     }
   }));
@@ -703,8 +703,7 @@ export function registerDatavaultRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error }, 'Error fetching DataVault rows');
-      const message = 'Failed to fetch rows';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to fetch rows');
       res.status(status).json({ message });
     }
   }));
@@ -738,10 +737,12 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const message = 'Failed to create row';
-      const status = message.includes('not found') ? 404 :
-        message.includes('Access denied') ? 403 :
-          message.includes('not a valid option') || message.includes('missing') || message.includes('Required') ? 400 : 500;
+      // Validation errors from the row service are intentional 4xx messages.
+      const raw = error instanceof Error ? error.message : '';
+      if (raw.includes('not a valid option') || raw.includes('missing') || raw.includes('Required')) {
+        return res.status(400).json({ message: raw });
+      }
+      const { status, message } = classifyDatavaultError(error, 'Failed to create row');
       res.status(status).json({ message });
     }
   }));
@@ -765,8 +766,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json(row);
     } catch (error) {
       logger.error({ error }, 'Error fetching DataVault row');
-      const message = 'Failed to fetch row';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to fetch row');
       res.status(status).json({ message });
     }
   }));
@@ -804,8 +804,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const message = 'Failed to update row';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to update row');
       res.status(status).json({ message });
     }
   }));
@@ -836,8 +835,7 @@ export function registerDatavaultRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error }, 'Error checking row references');
-      const message = 'Failed to check references';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to check references');
       res.status(status).json({ message });
     }
   }));
@@ -866,8 +864,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error deleting DataVault row');
-      const message = 'Failed to delete row';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to delete row');
       res.status(status).json({ message });
     }
   }));
@@ -897,8 +894,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json({ success: true, message: 'Row archived successfully' });
     } catch (error) {
       logger.error({ error }, 'Error archiving DataVault row');
-      const message = 'Failed to archive row';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to archive row');
       res.status(status).json({ message });
     }
   });
@@ -925,8 +921,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json({ success: true, message: 'Row unarchived successfully' });
     } catch (error) {
       logger.error({ error }, 'Error unarchiving DataVault row');
-      const message = 'Failed to unarchive row';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to unarchive row');
       res.status(status).json({ message });
     }
   });
@@ -967,8 +962,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const message = 'Failed to archive rows';
-      const status = message.includes('not found') || message.includes('unauthorized') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to archive rows');
       res.status(status).json({ message });
     }
   }));
@@ -1009,8 +1003,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const message = 'Failed to unarchive rows';
-      const status = message.includes('not found') || message.includes('unauthorized') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to unarchive rows');
       res.status(status).json({ message });
     }
   }));
@@ -1051,8 +1044,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const message = 'Failed to delete rows';
-      const status = message.includes('not found') || message.includes('unauthorized') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to delete rows');
       res.status(status).json({ message });
     }
   }));
@@ -1080,8 +1072,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json(notes);
     } catch (error) {
       logger.error({ error }, 'Error fetching row notes');
-      const message = 'Failed to fetch notes';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to fetch notes');
       res.status(status).json({ message });
     }
   }));
@@ -1119,8 +1110,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const message = 'Failed to create note';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to create note');
       res.status(status).json({ message });
     }
   }));
@@ -1149,8 +1139,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json({ success: true, message: 'Note deleted successfully' });
     } catch (error) {
       logger.error({ error }, 'Error deleting row note');
-      const message = 'Failed to delete note';
-      const status = message.includes('not found') ? 404 : message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to delete note');
       res.status(status).json({ message });
     }
   }));
@@ -1177,8 +1166,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json(permissions);
     } catch (error) {
       logger.error({ error }, 'Error fetching table permissions');
-      const message = 'Failed to fetch permissions';
-      const status = message.includes('Access denied') ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to fetch permissions');
       res.status(status).json({ message });
     }
   }));
@@ -1217,15 +1205,19 @@ export function registerDatavaultRoutes(app: Express): void {
       res.status(201).json(permission);
     } catch (error) {
       logger.error({ error }, 'Error granting table permission');
-      const message = 'Failed to grant permission';
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           message: 'Validation error',
           errors: error.errors
         });
       }
-      const status = message.includes('Access denied') ? 403 :
-        message.includes('not found') ? 404 : 500;
+      // Intentional business-rule error: surface the specific (safe, hardcoded)
+      // message so callers understand why the owner grant was rejected.
+      const raw = error instanceof Error ? error.message : '';
+      if (raw.includes('Cannot modify permissions for table owner')) {
+        return res.status(500).json({ message: 'Cannot modify permissions for table owner' });
+      }
+      const { status, message } = classifyDatavaultError(error, 'Failed to grant permission');
       res.status(status).json({ message });
     }
   }));
@@ -1256,9 +1248,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json({ success: true, message: 'Permission revoked successfully' });
     } catch (error) {
       logger.error({ error }, 'Error revoking table permission');
-      const message = 'Failed to revoke permission';
-      const status = message.includes('Access denied') ? 403 :
-        message.includes('not found') ? 404 : 500;
+      const { status, message } = classifyDatavaultError(error, 'Failed to revoke permission');
       res.status(status).json({ message });
     }
   }));
@@ -1297,8 +1287,7 @@ export function registerDatavaultRoutes(app: Express): void {
           details: error.errors,
         });
       }
-      const message = "Failed to transfer database ownership";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyDatavaultError(error, "Failed to transfer database ownership");
       res.status(status).json({ success: false, error: message });
     }
   }));

@@ -11,6 +11,7 @@ import { templateTestService } from "../services/TemplateTestService";
 import { variableService } from "../services/VariableService";
 import { workflowService } from "../services/WorkflowService";
 import { asyncHandler } from "../utils/asyncHandler";
+import { classifyRouteError } from "../utils/routeErrors";
 
 
 
@@ -106,9 +107,7 @@ export function registerWorkflowRoutes(app: Express): void {
       res.json(workflow);
     } catch (error) {
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error fetching workflow");
-      const message = "Failed to fetch workflow";
-      // eslint-disable-next-line sonarjs/no-duplicate-string
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to fetch workflow");
       res.status(status).json({ message });
     }
   }));
@@ -161,8 +160,7 @@ export function registerWorkflowRoutes(app: Express): void {
       res.json(workflow);
     } catch (error) {
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error updating workflow");
-      const message = "Failed to update workflow";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to update workflow");
       res.status(status).json({ message });
     }
   }));
@@ -183,8 +181,7 @@ export function registerWorkflowRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error deleting workflow");
-      const message = "Failed to delete workflow";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to delete workflow");
       res.status(status).json({ message });
     }
   }));
@@ -211,8 +208,7 @@ export function registerWorkflowRoutes(app: Express): void {
       res.json(workflow);
     } catch (error) {
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId, status: req.body.status }, "Error changing workflow status");
-      const message = "Failed to change status";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to change status");
       res.status(status).json({ message });
     }
   }));
@@ -245,8 +241,7 @@ export function registerWorkflowRoutes(app: Express): void {
       res.json(workflow);
     } catch (error) {
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error updating intake config");
-      const message = "Failed to update intake config";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to update intake config");
       res.status(status).json({ message });
     }
   }));
@@ -280,8 +275,7 @@ export function registerWorkflowRoutes(app: Express): void {
         });
       }
 
-      const message = "Failed to move workflow";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to move workflow");
       res.status(status).json({ message });
     }
   }));
@@ -302,8 +296,7 @@ export function registerWorkflowRoutes(app: Express): void {
       res.json({ success: true, data: result });
     } catch (error) {
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error fetching workflow mode");
-      const message = "Failed to fetch workflow mode";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to fetch workflow mode");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -337,10 +330,12 @@ export function registerWorkflowRoutes(app: Express): void {
         });
       }
 
-      const message = "Failed to set workflow mode";
-      const status = message.includes("not found") ? 404 :
-        message.includes("Access denied") ? 403 :
-          message.includes("Invalid") ? 400 : 500;
+      // Preserve intentional validation errors as 400 (e.g. "Invalid mode value ...")
+      const raw = error instanceof Error ? error.message : "";
+      if (raw.includes("Invalid")) {
+        return res.status(400).json({ success: false, error: raw });
+      }
+      const { status, message } = classifyRouteError(error, "Failed to set workflow mode");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -362,8 +357,7 @@ export function registerWorkflowRoutes(app: Express): void {
       res.json(variables);
     } catch (error) {
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error fetching workflow variables");
-      const message = "Failed to fetch workflow variables";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to fetch workflow variables");
       res.status(status).json({ message });
     }
   }));
@@ -385,8 +379,7 @@ export function registerWorkflowRoutes(app: Express): void {
       res.json({ publicUrl });
     } catch (error) {
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error fetching workflow public link");
-      const message = "Failed to fetch workflow public link";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to fetch workflow public link");
       res.status(status).json({ message });
     }
   }));
@@ -433,8 +426,7 @@ export function registerWorkflowRoutes(app: Express): void {
       res.json({ success: true, data: access });
     } catch (error) {
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error fetching workflow access");
-      const message = "Failed to fetch workflow access";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to fetch workflow access");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -475,8 +467,12 @@ export function registerWorkflowRoutes(app: Express): void {
         });
       }
 
-      const message = "Failed to grant workflow access";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") || message.includes("Only the") ? 403 : 500;
+      // Preserve owner-only authorization denials as 403 (e.g. "Only the workflow owner ...")
+      const raw = error instanceof Error ? error.message : "";
+      if (raw.includes("Only the")) {
+        return res.status(403).json({ success: false, error: raw });
+      }
+      const { status, message } = classifyRouteError(error, "Failed to grant workflow access");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -516,8 +512,7 @@ export function registerWorkflowRoutes(app: Express): void {
         });
       }
 
-      const message = "Failed to revoke workflow access";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to revoke workflow access");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -554,8 +549,12 @@ export function registerWorkflowRoutes(app: Express): void {
         });
       }
 
-      const message = "Failed to transfer workflow ownership";
-      const status = message.includes("not found") ? 404 : message.includes("Only the") ? 403 : 500;
+      // Preserve owner-only authorization denials as 403 (e.g. "Only the current owner ...")
+      const raw = error instanceof Error ? error.message : "";
+      if (raw.includes("Only the")) {
+        return res.status(403).json({ success: false, error: raw });
+      }
+      const { status, message } = classifyRouteError(error, "Failed to transfer workflow ownership");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -668,8 +667,7 @@ export function registerWorkflowRoutes(app: Express): void {
         });
       }
 
-      const message = "Failed to transfer workflow ownership";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to transfer workflow ownership");
       res.status(status).json({ success: false, error: message });
     }
   }));
