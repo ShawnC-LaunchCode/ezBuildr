@@ -207,7 +207,7 @@ export default function OrganizationDetail() {
       console.error('Failed to delete organization:', error);
       toast({
         title: 'Failed to delete organization',
-        description: error.message || 'An error occurred',
+        description: error instanceof Error ? error.message : 'An error occurred',
         variant: 'destructive',
       });
     }

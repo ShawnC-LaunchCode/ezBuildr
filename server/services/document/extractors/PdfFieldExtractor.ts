@@ -109,7 +109,7 @@ export class PdfFieldExtractor {
         }
       } catch (error: unknown) {
         // Unexpected error, record and try next extractor
-        const errorMessage = error.message || 'Unexpected error';
+        const errorMessage = (error instanceof Error ? error.message : String(error)) || 'Unexpected error';
         errors.push({ extractor: extractor.name, error: errorMessage });
 
         logger.error(
@@ -184,7 +184,7 @@ export class PdfFieldExtractor {
       } catch (error: unknown) {
         errors.push({
           extractor: extractor.name,
-          error: error.message || 'Unexpected error',
+          error: (error instanceof Error ? error.message : String(error)) || 'Unexpected error',
         });
       }
     }

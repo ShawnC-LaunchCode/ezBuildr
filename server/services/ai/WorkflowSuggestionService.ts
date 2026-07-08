@@ -75,7 +75,7 @@ export class WorkflowSuggestionService {
                 );
             }
 
-            if (error.name === 'ZodError') {
+            if (error instanceof Error && error.name === 'ZodError') {
                 throw createAIError(
                     'AI response does not match expected schema',
                     'VALIDATION_ERROR',
@@ -149,7 +149,7 @@ export class WorkflowSuggestionService {
                 );
             }
 
-            if (error.name === 'ZodError') {
+            if (error instanceof Error && error.name === 'ZodError') {
                 throw createAIError(
                     'AI response does not match expected schema',
                     'VALIDATION_ERROR',

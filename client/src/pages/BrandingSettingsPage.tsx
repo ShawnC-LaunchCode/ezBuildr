@@ -118,8 +118,7 @@ export default function BrandingSettingsPage() {
       console.error('Failed to save branding:', error);
       toast({
         title: 'Error',
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        description: error.message || 'Failed to save branding settings',
+        description: error instanceof Error ? error.message : 'Failed to save branding settings',
         variant: 'destructive',
       });
     } finally {

@@ -26,36 +26,37 @@ import { cn } from "@/lib/utils";
 
 
 
-export interface EntityAction {
+export interface EntityBase {
+  id: string;
+  title: string;
+  description?: string | null;
+  updatedAt: string;
+}
+
+export interface EntityAction<T = unknown> {
   label: string | ReactNode;
   icon?: LucideIcon;
-  onClick?: (entity: unknown) => void;
+  onClick?: (entity: T) => void;
   href?: string;
   variant?: "default" | "destructive";
   separator?: boolean; // Add separator before this item
 }
 
-export interface EntityCardProps {
-  entity: {
-    id: string;
-    title: string;
-    description?: string | null;
-    updatedAt: string;
-    [key: string]: unknown;
-  };
+export interface EntityCardProps<T extends EntityBase> {
+  entity: T;
   icon: LucideIcon;
   iconClassName?: string;
   link?: {
     href: string;
     label?: string;
   };
-  actions?: EntityAction[];
-  renderBadge?: (entity: unknown) => ReactNode;
-  onClick?: (entity: unknown) => void;
+  actions?: EntityAction<T>[];
+  renderBadge?: (entity: T) => ReactNode;
+  onClick?: (entity: T) => void;
   className?: string;
 }
 
-export function EntityCard({
+export function EntityCard<T extends EntityBase>({
   entity,
   // eslint-disable-next-line @typescript-eslint/naming-convention
   icon: Icon,
@@ -65,7 +66,7 @@ export function EntityCard({
   renderBadge,
   onClick,
   className,
-}: EntityCardProps) {
+}: EntityCardProps<T>) {
   const hasActions = actions.length > 0;
   const [, setLocation] = useLocation();
 

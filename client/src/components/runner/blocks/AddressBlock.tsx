@@ -107,6 +107,13 @@ interface Suggestion {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   place_id: string;
 }
+/* eslint-disable @typescript-eslint/naming-convention -- Google Places API response shape */
+interface AddressComponent {
+  long_name: string;
+  short_name: string;
+  types: string[];
+}
+/* eslint-enable @typescript-eslint/naming-convention */
 // eslint-disable-next-line max-lines-per-function
 
 // eslint-disable-next-line max-lines-per-function
@@ -262,38 +269,25 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
         let state = "";
         let zip = "";
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-        (data.address_components as Array<Record<string, unknown>>).forEach((comp) => {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+        (data.address_components as AddressComponent[]).forEach((comp) => {
           if (comp.types.includes("street_number")) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
             streetNum = comp.long_name;
           }
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           if (comp.types.includes("route")) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
             route = comp.long_name;
           }
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           if (comp.types.includes("locality")) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
             city = comp.long_name;
           }
           // If locality is missing, try sublocality or neighborhood? usually locality is city.
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           if (city.length === 0 && comp.types.includes("sublocality")) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
             city = comp.long_name;
           }
 
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           if (comp.types.includes("administrative_area_level_1")) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
             state = comp.short_name;
           }
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
           if (comp.types.includes("postal_code")) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
             zip = comp.long_name;
           }
         });

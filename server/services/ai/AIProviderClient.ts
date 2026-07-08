@@ -35,7 +35,7 @@ export class AIProviderClient {
       try {
         this.provider = ProviderFactory.createProvider(config);
       } catch (error: unknown) {
-        logger.warn({ error: error.message, config: { provider: config.provider } }, 'Failed to create provider');
+        logger.warn({ error: error instanceof Error ? error.message : String(error), config: { provider: config.provider } }, 'Failed to create provider');
       }
     }
   }
@@ -93,6 +93,8 @@ export class AIProviderClient {
 
         return response;
       } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+
         // Handle rate limiting with retry
         if (isRateLimitError(error)) {
           const retryAfterMs = getRetryAfter(error);
@@ -123,7 +125,7 @@ export class AIProviderClient {
           throw new AIError(
             'AI API rate limit exceeded. Please try again later.',
             'RATE_LIMIT',
-            { originalError: error.message, retryAfterSeconds: retryAfterMs ? Math.ceil(retryAfterMs / 1000) : 60 },
+            { originalError: message, retryAfterSeconds: retryAfterMs ? Math.ceil(retryAfterMs / 1000) : 60 },
             true,
             retryAfterMs ? Math.ceil(retryAfterMs / 1000) : 60
           );
@@ -149,7 +151,7 @@ export class AIProviderClient {
             attempts: attempt + 1,
           }, 'AI request failed: timeout');
 
-          throw new AIError('AI API request timed out', 'TIMEOUT', { originalError: error.message }, true);
+          throw new AIError('AI API request timed out', 'TIMEOUT', { originalError: message }, true);
         }
 
         // Generic API error - no retry
@@ -160,7 +162,7 @@ export class AIProviderClient {
           model,
           taskType,
           errorType: 'API_ERROR',
-          errorMessage: error.message,
+          errorMessage: message,
           durationMs: duration,
           attempts: attempt + 1,
         }, 'AI request failed: API error');

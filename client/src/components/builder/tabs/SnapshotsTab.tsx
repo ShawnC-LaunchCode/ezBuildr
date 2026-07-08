@@ -60,8 +60,7 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
     } catch (error: unknown) {
       toast({
         title: "Error",
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        description: error.message || "Failed to rename snapshot",
+        description: error instanceof Error ? error.message : "Failed to rename snapshot",
         variant: "destructive",
       });
     }
@@ -82,8 +81,7 @@ export function SnapshotsTab({ workflowId }: SnapshotsTabProps) {
     } catch (error: unknown) {
       toast({
         title: "Error",
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        description: error.message || "Failed to delete snapshot",
+        description: error instanceof Error ? error.message : "Failed to delete snapshot",
         variant: "destructive",
       });
     }

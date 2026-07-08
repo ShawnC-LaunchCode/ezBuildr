@@ -350,7 +350,7 @@ Do NOT include any explanation or markdown - just the JSON object.`;
         transformBlocks: (parsed.transformBlocks || fallback.transformBlocks) ?? [],
       };
     } catch (error: unknown) {
-      logger.error({ error: error.message }, 'Failed to parse improved workflow, using fallback');
+      logger.error({ error: error instanceof Error ? error.message : String(error) }, 'Failed to parse improved workflow, using fallback');
       return fallback;
     }
   }

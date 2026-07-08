@@ -135,7 +135,7 @@ export class PdfService {
             };
         } catch (error: unknown) {
             logger.error({ error }, 'Failed to extract PDF fields');
-            throw createError.internal(`Failed to parse PDF: ${  error.message}`);
+            throw createError.internal(`Failed to parse PDF: ${  error instanceof Error ? error.message : String(error)}`);
         }
     }
     /**
@@ -173,7 +173,7 @@ export class PdfService {
             return Buffer.from(await pdfDoc.save());
         } catch (error: unknown) {
             logger.error({ error }, 'Failed to fill PDF');
-            throw createError.internal(`Failed to generate PDF: ${  error.message}`);
+            throw createError.internal(`Failed to generate PDF: ${  error instanceof Error ? error.message : String(error)}`);
         }
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

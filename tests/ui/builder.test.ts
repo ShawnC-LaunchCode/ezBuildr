@@ -37,7 +37,7 @@ describe('Visual Workflow Builder Store', () => {
     useBuilderStore.getState().addNode('question', { x: 100, y: 100 });
     useBuilderStore.getState().addNode('compute', { x: 200, y: 200 });
 
-    const exported = useBuilderStore.getState().exportGraph();
+    const exported = useBuilderStore.getState().exportGraph() as { nodes: unknown[]; edges: unknown[]; startNodeId: string | null };
 
     expect(exported).toHaveProperty('nodes');
     expect(exported).toHaveProperty('edges');

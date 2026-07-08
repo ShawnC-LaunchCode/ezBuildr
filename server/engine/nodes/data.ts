@@ -165,8 +165,8 @@ export async function executeQueryNode(input: QueryNodeInput): Promise<QueryNode
                         case 'eq': return rowValue == filterValue;
                         // eslint-disable-next-line eqeqeq
                         case 'neq': return rowValue != filterValue;
-                        case 'gt': return rowValue > filterValue;
-                        case 'lt': return rowValue < filterValue;
+                        case 'gt': return (rowValue as number) > (filterValue as number);
+                        case 'lt': return (rowValue as number) < (filterValue as number);
                         case 'contains': return String(rowValue).includes(String(filterValue));
                         case 'in': return Array.isArray(filterValue) && filterValue.includes(rowValue);
                         default: return true;

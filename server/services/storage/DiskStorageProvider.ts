@@ -9,6 +9,10 @@ import { createError } from '../../utils/errors';
 
 import { StorageProvider } from './types';
 
+function isErrorWithCode(err: unknown): err is Error & { code: string } {
+    return err instanceof Error && 'code' in err;
+}
+
 export class DiskStorageProvider implements StorageProvider {
     private baseDir: string;
 
@@ -55,7 +59,7 @@ export class DiskStorageProvider implements StorageProvider {
         try {
             await fs.unlink(filePath);
         } catch (error: unknown) {
-            if (error.code !== 'ENOENT') {
+            if (!isErrorWithCode(error) || error.code !== 'ENOENT') {
                 logger.error({ error, fileRef }, 'Failed to delete file from disk');
             }
         }
@@ -105,7 +109,7 @@ export class DiskStorageProvider implements StorageProvider {
                 contentType: 'application/octet-stream', // We don't store mime type on disk currently
             };
         } catch (error: unknown) {
-            if (error.code === 'ENOENT') {
+            if (isErrorWithCode(error) && error.code === 'ENOENT') {
                 throw createError.notFound('File not found');
             }
             throw error;
@@ -125,7 +129,7 @@ export class DiskStorageProvider implements StorageProvider {
             const files = await fs.readdir(dir);
             return files.map(f => path.join(prefix, f).replace(/\\/g, '/'));
         } catch (error: unknown) {
-            if (error.code === 'ENOENT') {
+            if (isErrorWithCode(error) && error.code === 'ENOENT') {
                 return [];
             }
             throw error;

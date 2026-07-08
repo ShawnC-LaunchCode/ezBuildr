@@ -43,13 +43,12 @@ export default function AcceptInvite() {
           description: `You've joined ${result.orgName}`,
         });
       } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
         setStatus('error');
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        setErrorMessage(error.message || 'Failed to accept invitation');
+        setErrorMessage(message || 'Failed to accept invitation');
         toast({
           title: 'Failed to accept invite',
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-          description: error.message || 'An error occurred',
+          description: message || 'An error occurred',
           variant: 'destructive',
         });
       }

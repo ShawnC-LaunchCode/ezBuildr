@@ -53,7 +53,7 @@ export function BrandingSettings({ tenantId }: BrandingSettingsProps) {
       alert('Branding updated successfully');
     } catch (error: unknown) {
       // eslint-disable-next-line no-alert
-      alert(`Failed to update branding: ${error.message}`);
+      alert(`Failed to update branding: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 

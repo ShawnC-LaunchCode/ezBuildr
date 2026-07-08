@@ -65,6 +65,28 @@ async function rollupBucket(params: RollupParams): Promise<void> {
   }
 }
 /**
+ * Row shape returned by the rollup aggregation query.
+ * Postgres returns COUNT/PERCENTILE aggregates as strings.
+ */
+/* eslint-disable @typescript-eslint/naming-convention -- raw SQL column names */
+interface RollupQueryRow {
+  tenant_id: string;
+  project_id: string;
+  workflow_id: string | null;
+  runs_count: string;
+  runs_success: string;
+  runs_error: string;
+  dur_p50: string | null;
+  dur_p95: string | null;
+  pdf_success: string;
+  pdf_error: string;
+  docx_success: string;
+  docx_error: string;
+  queue_enqueued: string;
+  queue_dequeued: string;
+}
+/* eslint-enable @typescript-eslint/naming-convention */
+/**
  * Rollup a single time bucket
  */
 async function rollupSingleBucket(params: {
@@ -95,7 +117,7 @@ async function rollupSingleBucket(params: {
   `;
   const results = await db.execute(query);
   // Upsert rollups for each group
-  for (const row of results.rows as unknown[]) {
+  for (const row of results.rows as unknown as RollupQueryRow[]) {
     const rollupData: InsertMetricsRollup = {
       tenantId: row.tenant_id,
       projectId: row.project_id,
@@ -105,8 +127,8 @@ async function rollupSingleBucket(params: {
       runsCount: parseInt(row.runs_count) || 0,
       runsSuccess: parseInt(row.runs_success) || 0,
       runsError: parseInt(row.runs_error) || 0,
-      durP50: row.dur_p50 ? Math.round(parseFloat(row.dur_p50)) : null,
-      durP95: row.dur_p95 ? Math.round(parseFloat(row.dur_p95)) : null,
+      durP50: row.dur_p50 != null ? Math.round(parseFloat(row.dur_p50)) : null,
+      durP95: row.dur_p95 != null ? Math.round(parseFloat(row.dur_p95)) : null,
       pdfSuccess: parseInt(row.pdf_success) || 0,
       pdfError: parseInt(row.pdf_error) || 0,
       docxSuccess: parseInt(row.docx_success) || 0,
@@ -183,17 +205,18 @@ export async function computeAndSaveSLIs(): Promise<void> {
     WHERE bucket_start >= NOW() - INTERVAL '30 days'
   `;
   const results = await db.execute(query);
-  for (const row of results.rows as unknown[]) {
+  const targetRows = results.rows as unknown as Array<Pick<RollupQueryRow, 'tenant_id' | 'project_id' | 'workflow_id'>>;
+  for (const row of targetRows) {
     try {
       const sliResult = await sli.computeSLI({
         projectId: row.project_id,
-        workflowId: row.workflow_id,
+        workflowId: row.workflow_id ?? undefined,
         window: '7d',
       });
       await sli.saveSLIWindow({
         tenantId: row.tenant_id,
         projectId: row.project_id,
-        workflowId: row.workflow_id,
+        workflowId: row.workflow_id ?? undefined,
         sli: sliResult,
       });
     } catch (error) {

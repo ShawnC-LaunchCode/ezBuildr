@@ -35,7 +35,7 @@ export class AutoTestRunner {
                 const result = await this.executeSingleRun(previewConfig);
                 results.push(result);
             } catch (e: unknown) {
-                errors.push(`Run ${i + 1} failed: ${e.message}`);
+                errors.push(`Run ${i + 1} failed: ${e instanceof Error ? e.message : String(e)}`);
             }
         }
         const successCount = results.filter(r => r.success).length;

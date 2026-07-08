@@ -84,8 +84,7 @@ export default function DomainSettingsPage() {
       console.error('Failed to add domain:', error);
       toast({
         title: 'Error',
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        description: error.message || 'Failed to add domain',
+        description: error instanceof Error ? error.message : 'Failed to add domain',
         variant: 'destructive',
       });
       throw error; // Re-throw to let modal handle it
@@ -107,8 +106,7 @@ export default function DomainSettingsPage() {
       console.error('Failed to delete domain:', error);
       toast({
         title: 'Error',
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        description: error.message || 'Failed to remove domain',
+        description: error instanceof Error ? error.message : 'Failed to remove domain',
         variant: 'destructive',
       });
     } finally {

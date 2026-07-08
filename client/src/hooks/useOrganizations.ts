@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
+import type { UseMutationResult } from '@tanstack/react-query';
+
 import * as api from '../lib/api/organizations';
 
 import type { UpdateOrganizationInput, CreateInviteInput } from '../lib/api/organizations';
@@ -169,7 +171,7 @@ export function useRevokeInvite(orgId: string): ReturnType<typeof useMutation> {
   });
 }
 
-export function useAcceptInvite(): ReturnType<typeof useMutation> {
+export function useAcceptInvite(): UseMutationResult<{ orgId: string; orgName: string }, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({

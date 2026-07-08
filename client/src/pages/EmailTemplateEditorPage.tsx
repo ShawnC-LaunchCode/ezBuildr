@@ -142,8 +142,7 @@ export default function EmailTemplateEditorPage() {
       console.error('Failed to save template:', error);
       toast({
         title: 'Error',
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        description: error.message || 'Failed to save template metadata',
+        description: error instanceof Error ? error.message : 'Failed to save template metadata',
         variant: 'destructive',
       });
     } finally {

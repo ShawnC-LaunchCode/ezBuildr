@@ -43,7 +43,7 @@ export default function PublicRunner() {
             const data = await res.json();
             setWorkflow(data);
         } catch (err: unknown) {
-            setError(err.message);
+            setError(err instanceof Error ? err.message : String(err));
         } finally {
             setLoading(false);
         }
@@ -61,7 +61,7 @@ export default function PublicRunner() {
                 setRunState('completed');
             }, 1000);
         } catch (err: unknown) {
-            setError(err.message);
+            setError(err instanceof Error ? err.message : String(err));
             setRunState('idle');
         }
     };

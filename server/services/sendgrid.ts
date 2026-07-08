@@ -14,6 +14,15 @@ interface EmailParams {
   html?: string;
 }
 
+interface SendGridError extends Error {
+  response?: { body?: { errors?: Array<{ message?: string }> } };
+  code?: number;
+}
+
+function isSendGridError(error: unknown): error is SendGridError {
+  return error instanceof Error;
+}
+
 export async function sendEmail(params: EmailParams): Promise<{ success: boolean; error?: string }> {
   try {
     if (!process.env.SENDGRID_API_KEY) {
@@ -48,15 +57,16 @@ export async function sendEmail(params: EmailParams): Promise<{ success: boolean
     
     // Extract meaningful error message from SendGrid response
     let errorMessage = 'Failed to send email';
-    if (error.response?.body?.errors) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      errorMessage = error.response.body.errors.map((e: any) => e.message).join(', ');
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-    
-    if (error.code === 403) {
-      errorMessage = 'SendGrid authentication failed. Please check API key permissions and sender verification.';
+    if (isSendGridError(error)) {
+      if (error.response?.body?.errors) {
+        errorMessage = error.response.body.errors.map((e) => e.message).join(', ');
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      if (error.code === 403) {
+        errorMessage = 'SendGrid authentication failed. Please check API key permissions and sender verification.';
+      }
     }
     
     return { success: false, error: errorMessage };

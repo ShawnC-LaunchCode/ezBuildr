@@ -36,7 +36,7 @@ export function DomainList({ tenantId }: DomainListProps) {
       alert('Domain added successfully');
     } catch (error: unknown) {
       // eslint-disable-next-line no-alert
-      alert(`Failed to add domain: ${error.message}`);
+      alert(`Failed to add domain: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -52,7 +52,7 @@ export function DomainList({ tenantId }: DomainListProps) {
       alert('Domain removed successfully');
     } catch (error: unknown) {
       // eslint-disable-next-line no-alert
-      alert(`Failed to remove domain: ${error.message}`);
+      alert(`Failed to remove domain: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 

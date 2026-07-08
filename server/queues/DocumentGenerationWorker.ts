@@ -205,8 +205,7 @@ async function processDocumentGenerationJob(
             metadata: {
               ...(run.metadata as Record<string, unknown>),
               documentsGenerated: false,
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-              documentGenerationError: error.message,
+              documentGenerationError: error instanceof Error ? error.message : String(error),
               documentGenerationErrorAt: new Date().toISOString(),
             },
           })

@@ -142,7 +142,7 @@ export class WorkflowGenerationService {
                 );
             }
 
-            if (error.name === 'ZodError') {
+            if (error instanceof Error && error.name === 'ZodError') {
                 throw createAIError(
                     'AI response does not match expected schema',
                     'VALIDATION_ERROR',

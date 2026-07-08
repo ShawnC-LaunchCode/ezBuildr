@@ -61,6 +61,10 @@ export interface SanitizationResult {
 // SANITIZER CLASS
 // ============================================================================
 
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export class DocxSanitizer {
   // Dangerous files to remove
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -194,7 +198,7 @@ export class DocxSanitizer {
       };
     } catch (error: unknown) {
       logger.error({ error }, 'DOCX sanitization failed');
-      throw new Error(`Failed to sanitize DOCX: ${error.message}`);
+      throw new Error(`Failed to sanitize DOCX: ${describeError(error)}`);
     }
   }
 

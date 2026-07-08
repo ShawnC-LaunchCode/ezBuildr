@@ -153,10 +153,16 @@ export default function OptimizationWizard() {
     );
 }
 // --- Sub-components (Will expand these) ---
+interface OverviewMetrics {
+    totalPages: number;
+    totalBlocks: number;
+    estimatedCompletionTimeMs: number;
+}
+
 function OverviewStep({ analysis, onNext }: { analysis: unknown, onNext: () => void }) {
     if (analysis == null) {return null;}
     /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
-    const metrics = (analysis as Record<string, unknown>).metrics;
+    const metrics = (analysis as { metrics: OverviewMetrics }).metrics;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const suggestions = (analysis as Record<string, unknown>).suggestions as Array<Record<string, unknown>>;
     /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
@@ -165,12 +171,9 @@ function OverviewStep({ analysis, onNext }: { analysis: unknown, onNext: () => v
         <div className="space-y-6">
             <h2 className="text-2xl font-semibold">Analysis Overview</h2>
             <div className="grid grid-cols-3 gap-4">
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                <MetricCard title="Total Pages" value={metrics.totalPages as number} />
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                <MetricCard title="Total Blocks" value={metrics.totalBlocks as number} />
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                <MetricCard title="Est. Time" value={`${Math.round((metrics.estimatedCompletionTimeMs as number) / 1000 / 60)} min`} />
+                <MetricCard title="Total Pages" value={metrics.totalPages} />
+                <MetricCard title="Total Blocks" value={metrics.totalBlocks} />
+                <MetricCard title="Est. Time" value={`${Math.round(metrics.estimatedCompletionTimeMs / 1000 / 60)} min`} />
             </div>
             <div className="space-y-4">
                 <h3 className="text-lg font-medium">Top Suggestions</h3>
@@ -180,10 +183,8 @@ function OverviewStep({ analysis, onNext }: { analysis: unknown, onNext: () => v
                         <CardHeader>
                             <CardTitle className="text-base flex items-center gap-2">
                                 <Wand2 className="h-4 w-4 text-primary" />
-                                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                                 {sugg.title as string}
                             </CardTitle>
-                            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                             <CardDescription>{sugg.description as string}</CardDescription>
                         </CardHeader>
                     </Card>
