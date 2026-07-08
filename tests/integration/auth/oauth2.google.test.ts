@@ -153,7 +153,8 @@ describe('OAuth2 Google Authentication Flow', () => {
         });
       expect(response.status).toBe(401);
       expect(response.body).toMatchObject({
-        message: 'Authentication failed',
+        // googleAuth appends the underlying reason, e.g. "Authentication failed: Invalid token"
+        message: expect.stringContaining('Authentication failed'),
         error: 'auth_failed',
       });
     });
