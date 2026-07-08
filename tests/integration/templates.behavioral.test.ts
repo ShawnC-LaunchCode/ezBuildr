@@ -190,7 +190,6 @@ describe.sequential('Templates Behavioral Tests - DB Failure Simulation', () => 
     const _originalDb = dbModule.db;
 
     // Create a proxy that throws on .update().set().where().returning()
-    const _newFileSaved = false;
     let newFileRef: string | null = null;
 
     // Spy on saveTemplateFile to track when new file is created
@@ -204,7 +203,6 @@ describe.sequential('Templates Behavioral Tests - DB Failure Simulation', () => 
         const filePath = getTemplateFilePath(newFileRef);
         await fs.mkdir(path.dirname(filePath), { recursive: true });
         await fs.writeFile(filePath, buffer);
-        newFileSaved = true;
         return newFileRef;
       }
     );

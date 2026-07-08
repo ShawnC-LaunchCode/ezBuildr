@@ -84,3 +84,6 @@ shared/schema.ts
 # Migration scripts (reviewed separately)
 scripts/migration*.ts
 scripts/*Migration*.ts
+
+# Archived scripts (excluded from tsconfig, so typed linting cannot run)
+scripts/archive/
