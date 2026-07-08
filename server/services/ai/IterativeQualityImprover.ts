@@ -205,8 +205,7 @@ export class IterativeQualityImprover {
         currentWorkflow = improvedWorkflow;
         currentScore = newScore;
 
-      } catch (e: unknown) {
-      const error = e as any;
+      } catch (error: unknown) {
         logger.error({ error, iteration: i }, 'Error during quality improvement iteration');
         // On error, return best result so far
         break;

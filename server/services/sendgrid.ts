@@ -53,8 +53,7 @@ export async function sendEmail(params: EmailParams): Promise<{ success: boolean
     logger.info(`Email sent successfully to ${params.to}`);
     return { success: true };
   } catch (error: unknown) {
-    // @ts-ignore - TODO: fix type
-    logger.error('SendGrid email error:', error);
+    logger.error({ error }, 'SendGrid email error');
     
     // Extract meaningful error message from SendGrid response
     let errorMessage = 'Failed to send email';

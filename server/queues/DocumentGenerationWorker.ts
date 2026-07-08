@@ -290,10 +290,8 @@ async function sendWebhookNotification(webhookUrl: string, data: NotificationDat
           workflowId: data.workflowId,
           result: {
             generated: data.result.totalGenerated,
-            // @ts-ignore - TODO: fix type
-            skipped: data.result.skipped.length,
-            // @ts-ignore - TODO: fix type
-            failed: data.result.failed.length,
+            skipped: data.result.skipped?.length ?? 0,
+            failed: data.result.failed?.length ?? 0,
           },
         },
       }),

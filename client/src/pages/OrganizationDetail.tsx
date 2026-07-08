@@ -1,4 +1,3 @@
-// @ts-nocheck
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { ArrowLeft, Users, Mail, Crown, UserMinus, Shield, AlertCircle } from 'lucide-react';
 import React, { useState } from 'react';
@@ -277,9 +276,9 @@ export default function OrganizationDetail() {
                   </div>
                 ) : (
                   <>
-                    <CardTitle className="text-2xl">{(organization as any).name}</CardTitle>
-                    {(organization as any).description && (
-                      <CardDescription className="mt-2">{(organization as any).description}</CardDescription>
+                    <CardTitle className="text-2xl">{organization?.name}</CardTitle>
+                    {organization?.description && (
+                      <CardDescription className="mt-2">{organization?.description}</CardDescription>
                     )}
                   </>
                 )}
@@ -335,7 +334,7 @@ export default function OrganizationDetail() {
             </div>
           ) : (
             <div className="space-y-2">
-              {members.map((member: any) => (
+              {members.map((member) => (
                 <div
                   key={member.userId}
                   className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
@@ -415,7 +414,7 @@ export default function OrganizationDetail() {
               </div>
             ) : (
               <div className="space-y-2">
-                {invites.map((invite: any) => (
+                {invites.map((invite) => (
                   <div
                     key={invite.inviteId}
                     className="flex items-center justify-between p-4 rounded-lg border bg-card"
@@ -488,7 +487,7 @@ export default function OrganizationDetail() {
           <DialogHeader>
             <DialogTitle>Invite Member</DialogTitle>
             <DialogDescription>
-              Send an invitation to join {(organization as any).name}
+              Send an invitation to join {organization?.name}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); void handleCreateInvite(e); }}>
@@ -526,7 +525,7 @@ export default function OrganizationDetail() {
           <DialogHeader>
             <DialogTitle>Leave Organization</DialogTitle>
             <DialogDescription>
-              Are you sure you want to leave {(organization as any).name}? You will lose access to all
+              Are you sure you want to leave {organization?.name}? You will lose access to all
               organization resources.
             </DialogDescription>
           </DialogHeader>
@@ -550,7 +549,7 @@ export default function OrganizationDetail() {
           <DialogHeader>
             <DialogTitle>Delete Organization</DialogTitle>
             <DialogDescription>
-              Are you sure you want to permanently delete {(organization as any).name}?
+              Are you sure you want to permanently delete {organization?.name}?
               This will remove all members and cannot be undone.
             </DialogDescription>
           </DialogHeader>

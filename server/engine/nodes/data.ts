@@ -320,8 +320,7 @@ export async function executeWriteNode(input: WriteNodeInput): Promise<WriteNode
 
         if (config.operation === 'create') {
             const { row } = await datavaultRowsRepository.createRowWithValues(
-                // @ts-ignore - TODO: fix type
-                { tableId: config.tableId, tenantId } as DatavaultRow,
+                { tableId: config.tableId, tenantId } as unknown as DatavaultRow,
                 Object.entries(dataToWrite).map(([k, v]) => ({ columnId: k, value: v }))
             );
             result = row;

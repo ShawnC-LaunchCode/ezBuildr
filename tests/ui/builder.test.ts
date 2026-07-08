@@ -42,7 +42,6 @@ describe('Visual Workflow Builder Store', () => {
     expect(exported).toHaveProperty('nodes');
     expect(exported).toHaveProperty('edges');
     expect(exported).toHaveProperty('startNodeId');
-    // @ts-ignore - TODO: fix type
     expect(exported.nodes.length).toBe(2);
   });
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
     Loader2,
@@ -22,6 +21,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 
 import { workflowAPI } from "@/lib/vault-api";
+
+/** Shape of the analyze endpoint response (only the fields read directly here). */
+interface AnalysisResponse {
+    optimizationScore: number;
+}
+
 // Assuming fetchWorkflow exists or I'll implement fetch logic inline or from a hook
 export default function OptimizationWizard() {
     const { workflowId } = useParams();
@@ -53,7 +58,7 @@ export default function OptimizationWizard() {
                 body: JSON.stringify({ workflow: wf, workflowId })
             });
             if (!res.ok) {throw new Error("Analysis failed");}
-            return res.json() as Promise<unknown>;
+            return res.json() as Promise<AnalysisResponse>;
         }
     });
     // Run analysis when workflow is loaded
@@ -118,12 +123,10 @@ export default function OptimizationWizard() {
                             </CardHeader>
                             <CardContent>
                                 <div className="flex items-center justify-center py-4">
-                                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                                    <span className="text-4xl font-bold text-primary">{analysis.optimizationScore as number}</span>
+                                    <span className="text-4xl font-bold text-primary">{analysis.optimizationScore}</span>
                                     <span className="text-muted-foreground ml-1">/100</span>
                                 </div>
-                                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                                <Progress value={analysis.optimizationScore as number} className="h-2" />
+                                <Progress value={analysis.optimizationScore} className="h-2" />
                             </CardContent>
                         </Card>
                     )}

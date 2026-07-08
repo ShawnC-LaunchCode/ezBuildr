@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Stage 17: Branding Settings Page
  *

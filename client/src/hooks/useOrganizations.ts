@@ -1,11 +1,10 @@
-// @ts-nocheck
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-import type { UseMutationResult } from '@tanstack/react-query';
+import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 
 import * as api from '../lib/api/organizations';
 
-import type { UpdateOrganizationInput, CreateInviteInput } from '../lib/api/organizations';
+import type { Organization, OrganizationMember, OrganizationInvite, CreateOrganizationInput, UpdateOrganizationInput, CreateInviteInput } from '../lib/api/organizations';
 
 // ============================================================================
 // Query Keys
@@ -26,14 +25,14 @@ export const organizationKeys = {
 // Organization Queries
 // ============================================================================
 
-export function useOrganizations(): ReturnType<typeof useQuery> {
+export function useOrganizations(): UseQueryResult<Organization[]> {
   return useQuery({
     queryKey: organizationKeys.list(),
     queryFn: api.getOrganizations,
   });
 }
 
-export function useOrganization(orgId: string | undefined): ReturnType<typeof useQuery> {
+export function useOrganization(orgId: string | undefined): UseQueryResult<Organization> {
   return useQuery({
     queryKey: orgId ? organizationKeys.detail(orgId) : ['organizations', 'null'],
     queryFn: () => {
@@ -46,7 +45,7 @@ export function useOrganization(orgId: string | undefined): ReturnType<typeof us
   });
 }
 
-export function useOrganizationMembers(orgId: string | undefined): ReturnType<typeof useQuery> {
+export function useOrganizationMembers(orgId: string | undefined): UseQueryResult<OrganizationMember[]> {
   return useQuery({
     queryKey: orgId ? organizationKeys.members(orgId) : ['organizations', 'null', 'members'],
     queryFn: () => {
@@ -59,7 +58,7 @@ export function useOrganizationMembers(orgId: string | undefined): ReturnType<ty
   });
 }
 
-export function useOrganizationInvites(orgId: string | undefined): ReturnType<typeof useQuery> {
+export function useOrganizationInvites(orgId: string | undefined): UseQueryResult<OrganizationInvite[]> {
   return useQuery({
     queryKey: orgId ? organizationKeys.invites(orgId) : ['organizations', 'null', 'invites'],
     queryFn: () => {
@@ -72,7 +71,7 @@ export function useOrganizationInvites(orgId: string | undefined): ReturnType<ty
   });
 }
 
-export function usePendingInvites(): ReturnType<typeof useQuery> {
+export function usePendingInvites(): UseQueryResult<OrganizationInvite[]> {
   return useQuery({
     queryKey: organizationKeys.pendingInvites(),
     queryFn: api.getPendingInvites,
@@ -83,7 +82,7 @@ export function usePendingInvites(): ReturnType<typeof useQuery> {
 // Organization Mutations
 // ============================================================================
 
-export function useCreateOrganization(): ReturnType<typeof useMutation> {
+export function useCreateOrganization(): UseMutationResult<Organization, Error, CreateOrganizationInput> {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -94,7 +93,7 @@ export function useCreateOrganization(): ReturnType<typeof useMutation> {
   });
 }
 
-export function useUpdateOrganization(orgId: string): ReturnType<typeof useMutation> {
+export function useUpdateOrganization(orgId: string): UseMutationResult<Organization, Error, UpdateOrganizationInput> {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -106,7 +105,7 @@ export function useUpdateOrganization(orgId: string): ReturnType<typeof useMutat
   });
 }
 
-export function usePromoteMember(orgId: string): ReturnType<typeof useMutation> {
+export function usePromoteMember(orgId: string): UseMutationResult<void, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -117,7 +116,7 @@ export function usePromoteMember(orgId: string): ReturnType<typeof useMutation> 
   });
 }
 
-export function useDemoteMember(orgId: string): ReturnType<typeof useMutation> {
+export function useDemoteMember(orgId: string): UseMutationResult<void, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -128,7 +127,7 @@ export function useDemoteMember(orgId: string): ReturnType<typeof useMutation> {
   });
 }
 
-export function useRemoveMember(orgId: string): ReturnType<typeof useMutation> {
+export function useRemoveMember(orgId: string): UseMutationResult<void, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -139,7 +138,7 @@ export function useRemoveMember(orgId: string): ReturnType<typeof useMutation> {
   });
 }
 
-export function useLeaveOrganization(): ReturnType<typeof useMutation> {
+export function useLeaveOrganization(): UseMutationResult<void, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -150,7 +149,7 @@ export function useLeaveOrganization(): ReturnType<typeof useMutation> {
   });
 }
 
-export function useCreateInvite(orgId: string): ReturnType<typeof useMutation> {
+export function useCreateInvite(orgId: string): UseMutationResult<{ inviteId: string }, Error, CreateInviteInput> {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -161,7 +160,7 @@ export function useCreateInvite(orgId: string): ReturnType<typeof useMutation> {
   });
 }
 
-export function useRevokeInvite(orgId: string): ReturnType<typeof useMutation> {
+export function useRevokeInvite(orgId: string): UseMutationResult<void, Error, string> {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -184,7 +183,7 @@ export function useAcceptInvite(): UseMutationResult<{ orgId: string; orgName: s
   });
 }
 
-export function useDeleteOrganization(orgId: string): ReturnType<typeof useMutation> {
+export function useDeleteOrganization(orgId: string): UseMutationResult<void, Error, void> {
   const queryClient = useQueryClient();
 
   return useMutation({

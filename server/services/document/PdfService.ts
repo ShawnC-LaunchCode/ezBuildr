@@ -51,8 +51,7 @@ export class PdfService {
             // This command removes restrictions (like filling prevention)
             await execFileAsync('qpdf', ['--decrypt', inputPath, outputPath]);
             return await fs.readFile(outputPath);
-        } catch (e: unknown) {
-      const error = e as any;
+        } catch (error: unknown) {
             logger.error({ error }, 'Failed to unlock PDF with qpdf');
             // Fallback: If qpdf fails or isn't installed, return original buffer
             // The caller might still be able to use it if it wasn't actually locked
@@ -134,8 +133,7 @@ export class PdfService {
                 fields: extractedFields,
                 isEncrypted: pdfDoc.isEncrypted,
             };
-        } catch (e: unknown) {
-      const error = e as any;
+        } catch (error: unknown) {
             logger.error({ error }, 'Failed to extract PDF fields');
             throw createError.internal(`Failed to parse PDF: ${  error instanceof Error ? error.message : String(error)}`);
         }
@@ -173,8 +171,7 @@ export class PdfService {
             // Flatten the form to prevent further editing (optional, but good for final docs)
             form.flatten();
             return Buffer.from(await pdfDoc.save());
-        } catch (e: unknown) {
-      const error = e as any;
+        } catch (error: unknown) {
             logger.error({ error }, 'Failed to fill PDF');
             throw createError.internal(`Failed to generate PDF: ${  error instanceof Error ? error.message : String(error)}`);
         }

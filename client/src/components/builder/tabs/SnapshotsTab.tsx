@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * SnapshotsTab - Manage workflow test snapshots
  * Fully integrated with backend API for snapshot management

@@ -63,8 +63,7 @@ export class WorkflowSuggestionService {
             );
 
             return validated;
-        } catch (e: unknown) {
-      const error = e as any;
+        } catch (error: unknown) {
             const duration = Date.now() - startTime;
             logger.error({ error, duration }, 'AI workflow suggestion failed');
 
@@ -138,8 +137,7 @@ export class WorkflowSuggestionService {
             );
 
             return result;
-        } catch (e: unknown) {
-      const error = e as any;
+        } catch (error: unknown) {
             const duration = Date.now() - startTime;
             logger.error({ error, duration }, 'AI binding suggestion failed');
 
@@ -266,8 +264,7 @@ export class WorkflowSuggestionService {
             );
 
             return parsed.values || parsed;
-        } catch (e: unknown) {
-      const error = e as any;
+        } catch (error: unknown) {
             const duration = Date.now() - startTime;
             logger.error({ error, duration }, 'AI value suggestion failed');
 
