@@ -2,8 +2,8 @@
 
 **The Complete Guide to Using Workflow Variables in Document Generation**
 
-Version: 1.0.0
-Last Updated: November 14, 2025
+Version: 1.1.0
+Last Updated: July 8, 2026
 Audience: VaultLogic Users (Workflow Creators, Business Users)
 
 ---
@@ -879,25 +879,30 @@ Preview: This is a comprehensive document generation system
 
 Conditionally show content based on whether fields are empty.
 
+> **Closing-tag rule:** a closing tag must repeat the opening tag's text
+> exactly (`{{#isPremium}}...{{/isPremium}}`) or be the empty close
+> `{{/}}`. Helper-driven sections like `{{#isNotEmpty notes}}` should be
+> closed with `{{/}}`.
+
 **Template:**
 ```
 OPTIONAL INFORMATION
 
 {{#isNotEmpty middleName}}
 Middle Name: {{middleName}}
-{{/isNotEmpty}}
+{{/}}
 
 {{#isNotEmpty suffix}}
 Suffix: {{suffix}}
-{{/isNotEmpty}}
+{{/}}
 
 {{#isEmpty notes}}
 No additional notes provided.
-{{/isEmpty}}
+{{/}}
 
 {{#isNotEmpty notes}}
 Additional Notes: {{notes}}
-{{/isNotEmpty}}
+{{/}}
 ```
 
 **Workflow Variables:**
@@ -1050,7 +1055,7 @@ MEDICAL HISTORY
 
 {{#isEmpty medicalConditions}}
 No pre-existing conditions reported.
-{{/isEmpty}}
+{{/}}
 
 CURRENT MEDICATIONS
 
@@ -1058,12 +1063,12 @@ CURRENT MEDICATIONS
 {{#isNotEmpty medications}}
 {{medicationName}} - {{dosage}} - {{frequency}}
 Prescribing Doctor: {{prescribingDoctor}}
-{{/isNotEmpty}}
+{{/}}
 {{/medications}}
 
 {{#isEmpty medications}}
 No current medications.
-{{/isEmpty}}
+{{/}}
 
 ALLERGIES
 
@@ -1073,7 +1078,7 @@ ALLERGIES
 
 {{#isEmpty allergies}}
 No known allergies.
-{{/isEmpty}}
+{{/}}
 
 EMERGENCY CONTACT
 
@@ -1220,12 +1225,12 @@ Features Enabled: {{length enabledFeatures}}
 Integrations Configured:
 {{#integrations}}
 - {{integrationName}}: {{status}}
-  {{#isNotEmpty notes}}Notes: {{notes}}{{/isNotEmpty}}
+  {{#isNotEmpty notes}}Notes: {{notes}}{{/}}
 {{/integrations}}
 
 {{#isEmpty integrations}}
 No integrations configured yet.
-{{/isEmpty}}
+{{/}}
 
 TRAINING
 
@@ -1368,7 +1373,7 @@ RECOMMENDATIONS
 
 {{#isEmpty recommendations}}
 No recommendations at this time. Portfolio is well-positioned.
-{{/isEmpty}}
+{{/}}
 
 MARKET COMMENTARY
 
@@ -1496,7 +1501,7 @@ Always test templates before using in production:
 ✓ Good:
   {{#isNotEmpty phoneNumber}}
   Phone: {{phoneNumber}}
-  {{/isNotEmpty}}
+  {{/}}
 
 ✗ Bad:
   Phone: {{phoneNumber}}
@@ -1700,7 +1705,7 @@ malformed/split by Word formatting.)
 
    {{#isEmpty items}}
    No items available.
-   {{/isEmpty}}
+   {{/}}
    ```
 
 ---
@@ -2078,9 +2083,9 @@ BASE SERVICES
 
 ADD-ON SERVICES
 
-{{#isEmpty addOns}}
+{{^addOns}}
 No add-on services selected.
-{{/isEmpty}}
+{{/addOns}}
 
 {{#addOns}}
 {{serviceName}}: {{formatCurrency price "USD"}}
