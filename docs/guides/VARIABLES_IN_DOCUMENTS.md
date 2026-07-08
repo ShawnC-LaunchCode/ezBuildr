@@ -69,7 +69,7 @@ With Variables:
 
 ### Why Use Variables?
 
-1. **Readability** - `{firstName}` is easier to understand than `{step-abc-123}`
+1. **Readability** - `{{firstName}}` is easier to understand than `{{step-abc-123}}`
 2. **Maintainability** - Variables don't change when you reorganize your workflow
 3. **Documentation** - Self-documenting templates that anyone can understand
 4. **Collaboration** - Team members can work on templates without confusion
@@ -81,14 +81,14 @@ With Variables:
 
 1. **Collection** - User fills out workflow step (e.g., enters their name)
 2. **Storage** - Data saved with variable name (e.g., `firstName = "John"`)
-3. **Reference** - Template uses placeholder (e.g., `{firstName}`)
+3. **Reference** - Template uses placeholder (e.g., `{{firstName}}`)
 4. **Generation** - Document created with actual value (e.g., "John")
 
 **Visual Flow:**
 ```
 Workflow Step               Variable            Document Template
 ┌─────────────────┐        ┌──────────┐        ┌─────────────────┐
-│ "Enter your     │   →    │firstName │   →    │ Hello {firstName}│
+│ "Enter your     │   →    │firstName │   →    │ Hello {{firstName}}│
 │  first name"    │        │ = "John" │        │                 │
 │                 │        └──────────┘        │ Output:         │
 │ [John      ]    │                             │ Hello John      │
@@ -166,9 +166,9 @@ The most common use case: replace a placeholder with collected data.
 
 **Template:**
 ```
-Dear {clientName},
+Dear {{clientName}},
 
-Thank you for choosing our services. We will contact you at {contactEmail}.
+Thank you for choosing our services. We will contact you at {{contactEmail}}.
 ```
 
 **Workflow Setup:**
@@ -200,22 +200,22 @@ Most documents need many variables. Here's a complete engagement letter example:
 ```
 ENGAGEMENT LETTER
 
-Date: {formatDate currentDate "MMMM DD, YYYY"}
+Date: {{formatDate currentDate "MMMM DD, YYYY"}}
 
-Dear {clientName},
+Dear {{clientName}},
 
-This letter confirms our engagement to provide {serviceType} services for
-{companyName}, effective {formatDate effectiveDate "MMMM DD, YYYY"}.
+This letter confirms our engagement to provide {{serviceType}} services for
+{{companyName}}, effective {{formatDate effectiveDate "MMMM DD, YYYY"}}.
 
-Point of Contact: {contactPerson}
-Email: {contactEmail}
-Phone: {contactPhone}
+Point of Contact: {{contactPerson}}
+Email: {{contactEmail}}
+Phone: {{contactPhone}}
 
-Our fee for this engagement is {formatCurrency feeAmount "USD"}.
+Our fee for this engagement is {{formatCurrency feeAmount "USD"}}.
 
 Sincerely,
-{accountantName}
-{firmName}
+{{accountantName}}
+{{firmName}}
 ```
 
 **Workflow Variables:**
@@ -265,16 +265,16 @@ Organize related variables using dot notation:
 ```
 CLIENT INFORMATION
 
-Name: {client.firstName} {client.lastName}
-Company: {client.companyName}
-Address: {client.address.street}
-         {client.address.city}, {client.address.state} {client.address.zip}
+Name: {{client.firstName}} {{client.lastName}}
+Company: {{client.companyName}}
+Address: {{client.address.street}}
+         {{client.address.city}}, {{client.address.state}} {{client.address.zip}}
 
 PRIMARY CONTACT
 
-Name: {contact.name}
-Email: {contact.email}
-Phone: {contact.phone}
+Name: {{contact.name}}
+Email: {{contact.email}}
+Phone: {{contact.phone}}
 ```
 
 **Workflow Variables:**
@@ -312,7 +312,7 @@ All clients receive:
 - Quarterly tax estimates
 - Annual tax return preparation
 
-{#isPremium}
+{{#isPremium}}
 PREMIUM BENEFITS
 
 As a premium client, you also receive:
@@ -320,7 +320,7 @@ As a premium client, you also receive:
 - Unlimited consulting calls
 - Priority support
 - Dedicated account manager
-{/isPremium}
+{{/isPremium}}
 ```
 
 **Workflow Setup:**
@@ -365,21 +365,21 @@ Generate repeating content from arrays of data.
 
 **Template:**
 ```
-INVOICE #{invoiceNumber}
+INVOICE #{{invoiceNumber}}
 
-Bill To: {customer.name}
-Date: {formatDate invoiceDate "MM/DD/YYYY"}
+Bill To: {{customer.name}}
+Date: {{formatDate invoiceDate "MM/DD/YYYY"}}
 
 ITEMS
 
-{#lineItems}
-{description} - {formatCurrency amount "USD"}
-{/lineItems}
+{{#lineItems}}
+{{description}} - {{formatCurrency amount "USD"}}
+{{/lineItems}}
 
 ---
-Subtotal: {formatCurrency subtotal "USD"}
-Tax ({taxRate}%): {formatCurrency taxAmount "USD"}
-TOTAL: {formatCurrency total "USD"}
+Subtotal: {{formatCurrency subtotal "USD"}}
+Tax ({{taxRate}}%): {{formatCurrency taxAmount "USD"}}
+TOTAL: {{formatCurrency total "USD"}}
 ```
 
 **Workflow Variables:**
@@ -431,12 +431,12 @@ Display dates in various formats.
 ```
 AGREEMENT DATES
 
-Effective Date: {formatDate effectiveDate "MMMM DD, YYYY"}
-Start Date: {formatDate startDate "MM/DD/YYYY"}
-End Date: {formatDate endDate "YYYY-MM-DD"}
-Review Date: {formatDate reviewDate "MMM D, 'YY"}
+Effective Date: {{formatDate effectiveDate "MMMM DD, YYYY"}}
+Start Date: {{formatDate startDate "MM/DD/YYYY"}}
+End Date: {{formatDate endDate "YYYY-MM-DD"}}
+Review Date: {{formatDate reviewDate "MMM D, 'YY"}}
 
-This agreement was signed on {formatDate signatureDate "dddd, MMMM Do, YYYY"}.
+This agreement was signed on {{formatDate signatureDate "dddd, MMMM Do, YYYY"}}.
 ```
 
 **Workflow Variables:**
@@ -468,7 +468,7 @@ This agreement was signed on Friday, January 10th, 2025.
 "YYYY-MM-DD"           → 2025-11-14
 "MMMM DD, YYYY"        → November 14, 2025
 "MMM D, YYYY"          → Nov 14, 2025
-"dddd, MMMM Do, YYYY"  → Thursday, November 14th, 2025
+"dddd, MMMM Do, YYYY"  → Friday, November 14th, 2025
 "M/D/YY"               → 11/14/25
 ```
 
@@ -482,14 +482,14 @@ Format monetary amounts correctly.
 ```
 FEE SCHEDULE
 
-Base Fee: {formatCurrency baseFee "USD"}
-Additional Services: {formatCurrency additionalFees "USD"}
-Subtotal: {formatCurrency subtotal "USD"}
-Discount ({discountPercent}%): -{formatCurrency discountAmount "USD"}
+Base Fee: {{formatCurrency baseFee "USD"}}
+Additional Services: {{formatCurrency additionalFees "USD"}}
+Subtotal: {{formatCurrency subtotal "USD"}}
+Discount ({{discountPercent}}%): -{{formatCurrency discountAmount "USD"}}
 
-TOTAL DUE: {formatCurrency totalDue "USD"}
+TOTAL DUE: {{formatCurrency totalDue "USD"}}
 
-Payment is due in {paymentTerms} days.
+Payment is due in {{paymentTerms}} days.
 ```
 
 **Workflow Variables:**
@@ -539,15 +539,15 @@ Format numbers with commas, decimals, percentages.
 ```
 STATISTICS
 
-Total Transactions: {formatNumber transactionCount 0 true}
-Average Transaction: {formatCurrency avgTransaction "USD"}
-Success Rate: {formatNumber successRate 2 false}%
-Completion Rate: {formatNumber completionRate 1 false}%
+Total Transactions: {{formatNumber transactionCount 0 true}}
+Average Transaction: {{formatCurrency avgTransaction "USD"}}
+Success Rate: {{formatNumber successRate 2 false}}%
+Completion Rate: {{formatNumber completionRate 1 false}}%
 
-{#showDetailed}
-Peak Hour Volume: {formatNumber peakVolume 0 true}
-Off-Peak Volume: {formatNumber offPeakVolume 0 true}
-{/showDetailed}
+{{#showDetailed}}
+Peak Hour Volume: {{formatNumber peakVolume 0 true}}
+Off-Peak Volume: {{formatNumber offPeakVolume 0 true}}
+{{/showDetailed}}
 ```
 
 **Workflow Variables:**
@@ -584,13 +584,13 @@ Change text case and formatting.
 
 **Template:**
 ```
-CLIENT: {upper clientName}
-Email: {lower clientEmail}
-Position: {titleCase jobTitle}
+CLIENT: {{upper clientName}}
+Email: {{lower clientEmail}}
+Position: {{titleCase jobTitle}}
 
-Legal Notice: {upper legalText}
+Legal Notice: {{upper legalText}}
 
-Notes: {capitalize notes}
+Notes: {{capitalize notes}}
 ```
 
 **Workflow Variables:**
@@ -616,10 +616,10 @@ Notes: Please review section 3 carefully
 ```
 
 **Text Helpers:**
-- `{upper text}` → UPPERCASE
-- `{lower text}` → lowercase
-- `{capitalize text}` → First letter uppercase
-- `{titleCase text}` → Title Case Format
+- `{{upper text}}` → UPPERCASE
+- `{{lower text}}` → lowercase
+- `{{capitalize text}}` → First letter uppercase
+- `{{titleCase text}}` → Title Case Format
 
 ---
 
@@ -631,15 +631,15 @@ Provide fallback values for optional fields.
 ```
 CONTACT INFORMATION
 
-Name: {clientName}
-Company: {defaultValue companyName "N/A"}
-Phone: {defaultValue phoneNumber "Not provided"}
-Fax: {defaultValue faxNumber "N/A"}
-Website: {defaultValue website "Not provided"}
+Name: {{clientName}}
+Company: {{defaultValue companyName "N/A"}}
+Phone: {{defaultValue phoneNumber "Not provided"}}
+Fax: {{defaultValue faxNumber "N/A"}}
+Website: {{defaultValue website "Not provided"}}
 
 PREFERENCES
 
-Newsletter: {defaultValue newsletter "No preference indicated"}
+Newsletter: {{defaultValue newsletter "No preference indicated"}}
 ```
 
 **Workflow Variables (with missing values):**
@@ -673,30 +673,41 @@ Newsletter: No preference indicated
 
 ### Scenario 8: Mathematical Calculations
 
-Perform calculations in your template.
+Simple two-value math can be done inline with the math helpers; each
+argument can be a workflow variable or a literal number. For chained
+calculations (subtotal → tax → total) or for formatting a calculated
+result as currency, compute the value in the workflow first (a computed
+step, transform block, or `beforeGeneration` document hook) — nested
+sub-expressions with parentheses are not supported in templates.
 
 **Template:**
 ```
 PRICING BREAKDOWN
 
-Base Price: {formatCurrency basePrice "USD"}
-Quantity: {quantity}
+Base Price: {{formatCurrency basePrice "USD"}}
+Quantity: {{quantity}}
+Units + spares: {{add quantity 2}}
 
-Subtotal: {formatCurrency (multiply basePrice quantity) "USD"}
-Tax Rate: {taxRate}%
-Tax Amount: {formatCurrency (multiply (multiply basePrice quantity) (divide taxRate 100)) "USD"}
+Subtotal: {{formatCurrency subtotal "USD"}}
+Tax Rate: {{taxRate}}%
+Tax Amount: {{formatCurrency taxAmount "USD"}}
 
-TOTAL: {formatCurrency (add (multiply basePrice quantity) (multiply (multiply basePrice quantity) (divide taxRate 100))) "USD"}
+TOTAL: {{formatCurrency total "USD"}}
 
-Per Unit Cost: {formatCurrency (divide total quantity) "USD"}
+Per Unit Cost: {{formatCurrency perUnitCost "USD"}}
 ```
 
-**Workflow Variables:**
+**Workflow Variables** (subtotal, taxAmount, total, and perUnitCost
+computed in the workflow):
 ```json
 {
   "basePrice": 99.99,
   "quantity": 5,
-  "taxRate": 8.5
+  "taxRate": 8.5,
+  "subtotal": 499.95,
+  "taxAmount": 42.5,
+  "total": 542.45,
+  "perUnitCost": 108.49
 }
 ```
 
@@ -706,6 +717,7 @@ PRICING BREAKDOWN
 
 Base Price: $99.99
 Quantity: 5
+Units + spares: 7
 
 Subtotal: $499.95
 Tax Rate: 8.5%
@@ -716,11 +728,13 @@ TOTAL: $542.45
 Per Unit Cost: $108.49
 ```
 
-**Math Helpers:**
-- `{add a b}` → Addition
-- `{subtract a b}` → Subtraction
-- `{multiply a b}` → Multiplication
-- `{divide a b}` → Division
+**Math Helpers** (arguments may be variables or literal numbers; the
+result renders as a plain number — compute in the workflow if you need
+to format the result as currency):
+- `{{add a b}}` → Addition
+- `{{subtract a b}}` → Subtraction
+- `{{multiply a b}}` → Multiplication
+- `{{divide a b}}` → Division
 
 ---
 
@@ -732,15 +746,15 @@ Adjust text based on quantity.
 ```
 ORDER SUMMARY
 
-You have ordered {itemCount} {pluralize itemCount "item" "items"}.
+You have ordered {{itemCount}} {{pluralize itemCount "item" "items"}}.
 
-Delivery will take {deliveryDays} {pluralize deliveryDays "day" "days"}.
+Delivery will take {{deliveryDays}} {{pluralize deliveryDays "day" "days"}}.
 
-{#hasMultipleAddresses}
-Your order will be shipped to {addressCount} different {pluralize addressCount "address" "addresses"}.
-{/hasMultipleAddresses}
+{{#hasMultipleAddresses}}
+Your order will be shipped to {{addressCount}} different {{pluralize addressCount "address" "addresses"}}.
+{{/hasMultipleAddresses}}
 
-Thank you for your {pluralize orderCount "order" "orders"}!
+Thank you for your {{pluralize orderCount "order" "orders"}}!
 ```
 
 **Workflow Variables:**
@@ -777,15 +791,15 @@ Work with lists of items.
 ```
 TEAM MEMBERS
 
-Team Size: {length teamMembers}
-Team Lead: {first teamMembers}
-Newest Member: {last teamMembers}
+Team Size: {{length teamMembers}}
+Team Lead: {{first teamMembers}}
+Newest Member: {{last teamMembers}}
 
-All Members: {join teamMembers ", "}
+All Members: {{join teamMembers ", "}}
 
-{#teamMembers}
-- {name} ({role})
-{/teamMembers}
+{{#teamMembers}}
+- {{name}} ({{role}})
+{{/teamMembers}}
 ```
 
 **Workflow Variables:**
@@ -817,10 +831,10 @@ All Members: Alice Johnson, Bob Smith, Carol White, David Brown
 ```
 
 **Array Helpers:**
-- `{length array}` → Number of items
-- `{first array}` → First item
-- `{last array}` → Last item
-- `{join array ", "}` → Join with separator
+- `{{length array}}` → Number of items
+- `{{first array}}` → First item
+- `{{last array}}` → Last item
+- `{{join array ", "}}` → Join with separator
 
 ---
 
@@ -833,11 +847,11 @@ Limit text length with ellipsis.
 SUMMARY
 
 Full Description:
-{description}
+{{description}}
 
-Short Version: {truncate description 100 "..."}
+Short Version: {{truncate description 100 "..."}}
 
-Preview: {truncate description 50}
+Preview: {{truncate description 50}}
 ```
 
 **Workflow Variables:**
@@ -869,21 +883,21 @@ Conditionally show content based on whether fields are empty.
 ```
 OPTIONAL INFORMATION
 
-{#isNotEmpty middleName}
-Middle Name: {middleName}
-{/isNotEmpty}
+{{#isNotEmpty middleName}}
+Middle Name: {{middleName}}
+{{/isNotEmpty}}
 
-{#isNotEmpty suffix}
-Suffix: {suffix}
-{/isNotEmpty}
+{{#isNotEmpty suffix}}
+Suffix: {{suffix}}
+{{/isNotEmpty}}
 
-{#isEmpty notes}
+{{#isEmpty notes}}
 No additional notes provided.
-{/isEmpty}
+{{/isEmpty}}
 
-{#isNotEmpty notes}
-Additional Notes: {notes}
-{/isNotEmpty}
+{{#isNotEmpty notes}}
+Additional Notes: {{notes}}
+{{/isNotEmpty}}
 ```
 
 **Workflow Variables:**
@@ -925,62 +939,62 @@ No additional notes provided.
 ```
 ENGAGEMENT LETTER
 
-{formatDate currentDate "MMMM DD, YYYY"}
+{{formatDate currentDate "MMMM DD, YYYY"}}
 
-{client.firstName} {client.lastName}
-{client.companyName}
-{client.address.street}
-{client.address.city}, {client.address.state} {client.address.zip}
+{{client.firstName}} {{client.lastName}}
+{{client.companyName}}
+{{client.address.street}}
+{{client.address.city}}, {{client.address.state}} {{client.address.zip}}
 
-Re: {matterDescription}
+Re: {{matterDescription}}
 
-Dear {client.firstName}:
+Dear {{client.firstName}}:
 
-We are pleased that you have selected {firmName} to represent you. This letter
+We are pleased that you have selected {{firmName}} to represent you. This letter
 confirms the terms of our engagement.
 
 SCOPE OF SERVICES
 
 We will provide the following services:
-{#selectedServices}
-- {serviceName}
-{/selectedServices}
+{{#selectedServices}}
+- {{serviceName}}
+{{/selectedServices}}
 
 FEES AND BILLING
 
 Our hourly rates are as follows:
-{#attorneys}
-{name} ({title}): {formatCurrency hourlyRate "USD"}/hour
-{/attorneys}
+{{#attorneys}}
+{{name}} ({{title}}): {{formatCurrency hourlyRate "USD"}}/hour
+{{/attorneys}}
 
-We estimate this matter will require approximately {estimatedHours} hours,
-resulting in an estimated fee of {formatCurrency estimatedFee "USD"}.
+We estimate this matter will require approximately {{estimatedHours}} hours,
+resulting in an estimated fee of {{formatCurrency estimatedFee "USD"}}.
 
-We require a retainer of {formatCurrency retainerAmount "USD"}, which will be
+We require a retainer of {{formatCurrency retainerAmount "USD"}}, which will be
 applied against fees and costs incurred.
 
-Invoices are issued monthly and payment is due within {paymentTerms} days.
+Invoices are issued monthly and payment is due within {{paymentTerms}} days.
 
-{#clientApprovalRequired}
+{{#clientApprovalRequired}}
 APPROVAL REQUIREMENT
 
-For any single task expected to exceed {formatCurrency approvalThreshold "USD"},
+For any single task expected to exceed {{formatCurrency approvalThreshold "USD"}},
 we will seek your approval before proceeding.
-{/clientApprovalRequired}
+{{/clientApprovalRequired}}
 
 Please sign and return a copy of this letter to confirm your acceptance.
 
 Sincerely,
 
-{partner.name}
-{partner.title}
-{firmName}
+{{partner.name}}
+{{partner.title}}
+{{firmName}}
 
 
 ACCEPTED AND AGREED:
 
 _________________________    Date: ___________
-{client.firstName} {client.lastName}
+{{client.firstName}} {{client.lastName}}
 ```
 
 ---
@@ -1001,72 +1015,72 @@ _________________________    Date: ___________
 ```
 PATIENT INTAKE SUMMARY
 
-Date: {formatDate intakeDate "MM/DD/YYYY"}
+Date: {{formatDate intakeDate "MM/DD/YYYY"}}
 
 PATIENT INFORMATION
 
-Name: {patient.lastName}, {patient.firstName} {patient.middleInitial}
-Date of Birth: {formatDate patient.dob "MM/DD/YYYY"} (Age: {patient.age})
-Gender: {patient.gender}
-SSN: {patient.ssn}
-Phone: {patient.phone}
-Email: {patient.email}
+Name: {{patient.lastName}}, {{patient.firstName}} {{patient.middleInitial}}
+Date of Birth: {{formatDate patient.dob "MM/DD/YYYY"}} (Age: {{patient.age}})
+Gender: {{patient.gender}}
+SSN: {{patient.ssn}}
+Phone: {{patient.phone}}
+Email: {{patient.email}}
 
 Address:
-{patient.address.street}
-{patient.address.city}, {patient.address.state} {patient.address.zip}
+{{patient.address.street}}
+{{patient.address.city}}, {{patient.address.state}} {{patient.address.zip}}
 
 INSURANCE
 
-Primary Insurance: {insurance.primary.carrier}
-Policy #: {insurance.primary.policyNumber}
-Group #: {insurance.primary.groupNumber}
-Subscriber: {insurance.primary.subscriberName}
+Primary Insurance: {{insurance.primary.carrier}}
+Policy #: {{insurance.primary.policyNumber}}
+Group #: {{insurance.primary.groupNumber}}
+Subscriber: {{insurance.primary.subscriberName}}
 
-{#insurance.hasSecondary}
-Secondary Insurance: {insurance.secondary.carrier}
-Policy #: {insurance.secondary.policyNumber}
-{/insurance.hasSecondary}
+{{#insurance.hasSecondary}}
+Secondary Insurance: {{insurance.secondary.carrier}}
+Policy #: {{insurance.secondary.policyNumber}}
+{{/insurance.hasSecondary}}
 
 MEDICAL HISTORY
 
-{#medicalConditions}
-☑ {conditionName}
-{/medicalConditions}
+{{#medicalConditions}}
+☑ {{conditionName}}
+{{/medicalConditions}}
 
-{#isEmpty medicalConditions}
+{{#isEmpty medicalConditions}}
 No pre-existing conditions reported.
-{/isEmpty}
+{{/isEmpty}}
 
 CURRENT MEDICATIONS
 
-{#medications}
-{#isNotEmpty medications}
-{medicationName} - {dosage} - {frequency}
-Prescribing Doctor: {prescribingDoctor}
-{/isNotEmpty}
-{/medications}
+{{#medications}}
+{{#isNotEmpty medications}}
+{{medicationName}} - {{dosage}} - {{frequency}}
+Prescribing Doctor: {{prescribingDoctor}}
+{{/isNotEmpty}}
+{{/medications}}
 
-{#isEmpty medications}
+{{#isEmpty medications}}
 No current medications.
-{/isEmpty}
+{{/isEmpty}}
 
 ALLERGIES
 
-{#allergies}
-⚠ {allergyName} - Reaction: {reactionType}
-{/allergies}
+{{#allergies}}
+⚠ {{allergyName}} - Reaction: {{reactionType}}
+{{/allergies}}
 
-{#isEmpty allergies}
+{{#isEmpty allergies}}
 No known allergies.
-{/isEmpty}
+{{/isEmpty}}
 
 EMERGENCY CONTACT
 
-Name: {emergency.name}
-Relationship: {emergency.relationship}
-Phone: {emergency.phone}
-Alternate Phone: {defaultValue emergency.alternatePhone "N/A"}
+Name: {{emergency.name}}
+Relationship: {{emergency.relationship}}
+Phone: {{emergency.phone}}
+Alternate Phone: {{defaultValue emergency.alternatePhone "N/A"}}
 ```
 
 ---
@@ -1080,79 +1094,79 @@ Alternate Phone: {defaultValue emergency.alternatePhone "N/A"}
 REAL ESTATE PURCHASE AGREEMENT
 
 This Purchase Agreement ("Agreement") is entered into on
-{formatDate agreementDate "MMMM DD, YYYY"}, by and between:
+{{formatDate agreementDate "MMMM DD, YYYY"}}, by and between:
 
-SELLER: {seller.name}
-Address: {seller.address}
-Phone: {seller.phone}
-Email: {seller.email}
+SELLER: {{seller.name}}
+Address: {{seller.address}}
+Phone: {{seller.phone}}
+Email: {{seller.email}}
 
-BUYER: {buyer.name}
-Address: {buyer.address}
-Phone: {buyer.phone}
-Email: {buyer.email}
+BUYER: {{buyer.name}}
+Address: {{buyer.address}}
+Phone: {{buyer.phone}}
+Email: {{buyer.email}}
 
 PROPERTY DESCRIPTION
 
 The Seller agrees to sell and the Buyer agrees to purchase the following property:
 
-Property Address: {property.address}
-Legal Description: {property.legalDescription}
-Parcel ID: {property.parcelId}
-Lot Size: {property.lotSize} acres
-Year Built: {property.yearBuilt}
+Property Address: {{property.address}}
+Legal Description: {{property.legalDescription}}
+Parcel ID: {{property.parcelId}}
+Lot Size: {{property.lotSize}} acres
+Year Built: {{property.yearBuilt}}
 
 PURCHASE TERMS
 
-Purchase Price: {formatCurrency purchasePrice "USD"}
+Purchase Price: {{formatCurrency purchasePrice "USD"}}
 
-Earnest Money Deposit: {formatCurrency earnestMoney "USD"}
-  Due: {formatDate earnestMoneyDueDate "MM/DD/YYYY"}
+Earnest Money Deposit: {{formatCurrency earnestMoney "USD"}}
+  Due: {{formatDate earnestMoneyDueDate "MM/DD/YYYY"}}
 
-Down Payment: {formatCurrency downPayment "USD"} ({downPaymentPercent}%)
-  Due: {formatDate downPaymentDueDate "MM/DD/YYYY"}
+Down Payment: {{formatCurrency downPayment "USD"}} ({{downPaymentPercent}}%)
+  Due: {{formatDate downPaymentDueDate "MM/DD/YYYY"}}
 
-Loan Amount: {formatCurrency loanAmount "USD"}
+Loan Amount: {{formatCurrency loanAmount "USD"}}
 
-Closing Costs (estimated): {formatCurrency closingCosts "USD"}
-  Paid by: {closingCostsPaidBy}
+Closing Costs (estimated): {{formatCurrency closingCosts "USD"}}
+  Paid by: {{closingCostsPaidBy}}
 
 CONTINGENCIES
 
 This offer is contingent upon:
 
-{#contingencies}
-☐ {contingencyType}
-   Deadline: {formatDate deadline "MM/DD/YYYY"}
-   {#notes}Notes: {notes}{/notes}
-{/contingencies}
+{{#contingencies}}
+☐ {{contingencyType}}
+   Deadline: {{formatDate deadline "MM/DD/YYYY"}}
+   {{#notes}}Notes: {{notes}}{{/notes}}
+{{/contingencies}}
 
 CLOSING
 
-Closing Date: {formatDate closingDate "MMMM DD, YYYY"}
-Closing Location: {closingLocation}
+Closing Date: {{formatDate closingDate "MMMM DD, YYYY"}}
+Closing Location: {{closingLocation}}
 
 INCLUSIONS
 
 The following items are included in the sale:
-{#inclusions}
-- {itemName}
-{/inclusions}
+{{#inclusions}}
+- {{itemName}}
+{{/inclusions}}
 
 EXCLUSIONS
 
 The following items are excluded from the sale:
-{#exclusions}
-- {itemName}
-{/exclusions}
+{{#exclusions}}
+- {{itemName}}
+{{/exclusions}}
 
-{#hasHomeWarranty}
+{{#hasHomeWarranty}}
 HOME WARRANTY
 
-A home warranty covering {homeWarranty.coverage} will be provided for
-{homeWarranty.duration} months at a cost of {formatCurrency homeWarranty.cost "USD"},
-to be paid by {homeWarranty.paidBy}.
-{/hasHomeWarranty}
+A home warranty covering {{homeWarranty.coverage}} will be provided for
+{{homeWarranty.duration}} months at a cost of {{formatCurrency homeWarranty.cost "USD"}},
+to be paid by {{homeWarranty.paidBy}}.
+{{/hasHomeWarranty}}
 ```
 
 ---
@@ -1165,105 +1179,105 @@ to be paid by {homeWarranty.paidBy}.
 ```
 CUSTOMER ONBOARDING REPORT
 
-Generated: {formatDate reportDate "MMMM DD, YYYY 'at' h:mm A"}
+Generated: {{formatDate reportDate "MMMM DD, YYYY 'at' h:mm A"}}
 
 CUSTOMER INFORMATION
 
-Company: {customer.companyName}
-Industry: {customer.industry}
-Size: {customer.employeeCount} employees
-Plan: {upper customer.planTier} Plan
-MRR: {formatCurrency customer.monthlyRevenue "USD"}
+Company: {{customer.companyName}}
+Industry: {{customer.industry}}
+Size: {{customer.employeeCount}} employees
+Plan: {{upper customer.planTier}} Plan
+MRR: {{formatCurrency customer.monthlyRevenue "USD"}}
 
-Primary Contact: {contact.name} ({contact.title})
-Email: {contact.email}
-Phone: {contact.phone}
+Primary Contact: {{contact.name}} ({{contact.title}})
+Email: {{contact.email}}
+Phone: {{contact.phone}}
 
 ONBOARDING STATUS
 
-Start Date: {formatDate onboarding.startDate "MM/DD/YYYY"}
-Target Completion: {formatDate onboarding.targetDate "MM/DD/YYYY"}
-Actual Completion: {defaultValue (formatDate onboarding.completionDate "MM/DD/YYYY") "In Progress"}
+Start Date: {{formatDate onboarding.startDate "MM/DD/YYYY"}}
+Target Completion: {{formatDate onboarding.targetDate "MM/DD/YYYY"}}
+Actual Completion: {{defaultValue onboarding.completionDateFormatted "In Progress"}}
 
-Overall Progress: {onboarding.progressPercent}%
+Overall Progress: {{onboarding.progressPercent}}%
 
 CHECKLIST
 
-{#checklistItems}
-{#completed}✓{/completed}{^completed}☐{/completed} {taskName}
-   Assigned to: {assignedTo}
-   {#completed}Completed: {formatDate completedDate "MM/DD/YYYY"}{/completed}
-   {^completed}Status: {status}{/completed}
-{/checklistItems}
+{{#checklistItems}}
+{{#completed}}✓{{/completed}}{{^completed}}☐{{/completed}} {{taskName}}
+   Assigned to: {{assignedTo}}
+   {{#completed}}Completed: {{formatDate completedDate "MM/DD/YYYY"}}{{/completed}}
+   {{^completed}}Status: {{status}}{{/completed}}
+{{/checklistItems}}
 
 CONFIGURATION DETAILS
 
-Features Enabled: {length enabledFeatures}
-{#enabledFeatures}
-- {featureName} (enabled {formatDate enabledDate "MM/DD/YYYY"})
-{/enabledFeatures}
+Features Enabled: {{length enabledFeatures}}
+{{#enabledFeatures}}
+- {{featureName}} (enabled {{formatDate enabledDate "MM/DD/YYYY"}})
+{{/enabledFeatures}}
 
 Integrations Configured:
-{#integrations}
-- {integrationName}: {status}
-  {#isNotEmpty notes}Notes: {notes}{/isNotEmpty}
-{/integrations}
+{{#integrations}}
+- {{integrationName}}: {{status}}
+  {{#isNotEmpty notes}}Notes: {{notes}}{{/isNotEmpty}}
+{{/integrations}}
 
-{#isEmpty integrations}
+{{#isEmpty integrations}}
 No integrations configured yet.
-{/isEmpty}
+{{/isEmpty}}
 
 TRAINING
 
-Sessions Scheduled: {length trainingSessions}
-{#trainingSessions}
-{sessionName}
-  Date: {formatDate sessionDate "MM/DD/YYYY 'at' h:mm A"}
-  Attendees: {join attendees ", "}
-  Duration: {duration} minutes
-  {#completed}✓ Completed{/completed}{^completed}⏳ Upcoming{/completed}
-{/trainingSessions}
+Sessions Scheduled: {{length trainingSessions}}
+{{#trainingSessions}}
+{{sessionName}}
+  Date: {{formatDate sessionDate "MM/DD/YYYY 'at' h:mm A"}}
+  Attendees: {{join attendees ", "}}
+  Duration: {{duration}} minutes
+  {{#completed}}✓ Completed{{/completed}}{{^completed}}⏳ Upcoming{{/completed}}
+{{/trainingSessions}}
 
 SUPPORT TICKETS
 
-Total Tickets: {length supportTickets}
-Open: {openTicketCount}
-Resolved: {resolvedTicketCount}
-Avg Resolution Time: {avgResolutionHours} hours
+Total Tickets: {{length supportTickets}}
+Open: {{openTicketCount}}
+Resolved: {{resolvedTicketCount}}
+Avg Resolution Time: {{avgResolutionHours}} hours
 
-{#hasOpenTickets}
+{{#hasOpenTickets}}
 OPEN TICKETS:
-{#supportTickets}
-{^resolved}
-Ticket #{ticketNumber}: {subject}
-  Priority: {upper priority}
-  Age: {ageInDays} days
-{/resolved}
-{/supportTickets}
-{/hasOpenTickets}
+{{#supportTickets}}
+{{^resolved}}
+Ticket #{{ticketNumber}}: {{subject}}
+  Priority: {{upper priority}}
+  Age: {{ageInDays}} days
+{{/resolved}}
+{{/supportTickets}}
+{{/hasOpenTickets}}
 
 HEALTH SCORE
 
-Overall: {healthScore}/100
-Login Frequency: {loginFrequency}/week
-Feature Adoption: {featureAdoptionPercent}%
-Support Satisfaction: {supportSatisfactionScore}/5
+Overall: {{healthScore}}/100
+Login Frequency: {{loginFrequency}}/week
+Feature Adoption: {{featureAdoptionPercent}}%
+Support Satisfaction: {{supportSatisfactionScore}}/5
 
 NEXT STEPS
 
-{#nextSteps}
-{stepNumber}. {actionItem}
-    Owner: {owner}
-    Due: {formatDate dueDate "MM/DD/YYYY"}
-{/nextSteps}
+{{#nextSteps}}
+{{stepNumber}}. {{actionItem}}
+    Owner: {{owner}}
+    Due: {{formatDate dueDate "MM/DD/YYYY"}}
+{{/nextSteps}}
 
 NOTES
 
-{defaultValue additionalNotes "No additional notes."}
+{{defaultValue additionalNotes "No additional notes."}}
 
 ---
-Report prepared by: {preparedBy.name}
-Account Manager: {accountManager.name} ({accountManager.email})
+Report prepared by: {{preparedBy.name}}
+Account Manager: {{accountManager.name}} ({{accountManager.email}})
 ```
 
 ---
@@ -1276,98 +1290,98 @@ Account Manager: {accountManager.name} ({accountManager.email})
 ```
 QUARTERLY INVESTMENT REPORT
 
-{upper reportPeriod} Quarter {reportYear}
+{{upper reportPeriod}} Quarter {{reportYear}}
 
 CONFIDENTIAL
 
 Prepared for:
-{client.name}
-Account #: {client.accountNumber}
+{{client.name}}
+Account #: {{client.accountNumber}}
 
-Report Date: {formatDate reportDate "MMMM DD, YYYY"}
-Reporting Period: {formatDate periodStart "MM/DD/YYYY"} - {formatDate periodEnd "MM/DD/YYYY"}
+Report Date: {{formatDate reportDate "MMMM DD, YYYY"}}
+Reporting Period: {{formatDate periodStart "MM/DD/YYYY"}} - {{formatDate periodEnd "MM/DD/YYYY"}}
 
 PORTFOLIO SUMMARY
 
-Beginning Balance: {formatCurrency beginningBalance "USD"}
-Ending Balance: {formatCurrency endingBalance "USD"}
-Net Change: {formatCurrency netChange "USD"} ({formatNumber changePercent 2}%)
+Beginning Balance: {{formatCurrency beginningBalance "USD"}}
+Ending Balance: {{formatCurrency endingBalance "USD"}}
+Net Change: {{formatCurrency netChange "USD"}} ({{formatNumber changePercent 2}}%)
 
-Contributions: {formatCurrency contributions "USD"}
-Withdrawals: {formatCurrency withdrawals "USD"}
-Investment Gain/Loss: {formatCurrency investmentChange "USD"}
+Contributions: {{formatCurrency contributions "USD"}}
+Withdrawals: {{formatCurrency withdrawals "USD"}}
+Investment Gain/Loss: {{formatCurrency investmentChange "USD"}}
 
 ASSET ALLOCATION
 
 Target vs. Actual:
 
-{#assetClasses}
-{className}:
-  Target: {targetPercent}%
-  Actual: {actualPercent}%
-  Value: {formatCurrency currentValue "USD"}
-  {#needsRebalancing}⚠ Rebalancing recommended{/needsRebalancing}
-{/assetClasses}
+{{#assetClasses}}
+{{className}}:
+  Target: {{targetPercent}}%
+  Actual: {{actualPercent}}%
+  Value: {{formatCurrency currentValue "USD"}}
+  {{#needsRebalancing}}⚠ Rebalancing recommended{{/needsRebalancing}}
+{{/assetClasses}}
 
 PERFORMANCE BY HOLDING
 
-{#holdings}
-{securityName} ({ticker})
-  Shares: {formatNumber shares 2}
-  Price: {formatCurrency currentPrice "USD"}
-  Value: {formatCurrency marketValue "USD"}
-  Cost Basis: {formatCurrency costBasis "USD"}
-  Gain/Loss: {formatCurrency gainLoss "USD"} ({formatNumber gainLossPercent 2}%)
-  Yield: {formatNumber yieldPercent 2}%
-{/holdings}
+{{#holdings}}
+{{securityName}} ({{ticker}})
+  Shares: {{formatNumber shares 2}}
+  Price: {{formatCurrency currentPrice "USD"}}
+  Value: {{formatCurrency marketValue "USD"}}
+  Cost Basis: {{formatCurrency costBasis "USD"}}
+  Gain/Loss: {{formatCurrency gainLoss "USD"}} ({{formatNumber gainLossPercent 2}}%)
+  Yield: {{formatNumber yieldPercent 2}}%
+{{/holdings}}
 
 INCOME SUMMARY
 
-Dividends: {formatCurrency dividends "USD"}
-Interest: {formatCurrency interest "USD"}
-Capital Gains: {formatCurrency capitalGains "USD"}
-Total Income: {formatCurrency totalIncome "USD"}
+Dividends: {{formatCurrency dividends "USD"}}
+Interest: {{formatCurrency interest "USD"}}
+Capital Gains: {{formatCurrency capitalGains "USD"}}
+Total Income: {{formatCurrency totalIncome "USD"}}
 
 TRANSACTIONS
 
-This quarter, we executed {transactionCount} {pluralize transactionCount "transaction" "transactions"}:
+This quarter, we executed {{transactionCount}} {{pluralize transactionCount "transaction" "transactions"}}:
 
-{#transactions}
-{formatDate transactionDate "MM/DD/YYYY"} - {transactionType}: {securityName}
-  {#isBuy}Purchased{/isBuy}{#isSell}Sold{/isSell} {formatNumber shares 2} shares at {formatCurrency price "USD"}
-  Amount: {formatCurrency amount "USD"}
-{/transactions}
+{{#transactions}}
+{{formatDate transactionDate "MM/DD/YYYY"}} - {{transactionType}}: {{securityName}}
+  {{#isBuy}}Purchased{{/isBuy}}{{#isSell}}Sold{{/isSell}} {{formatNumber shares 2}} shares at {{formatCurrency price "USD"}}
+  Amount: {{formatCurrency amount "USD"}}
+{{/transactions}}
 
 FEES
 
-Management Fee: {formatCurrency managementFee "USD"} ({managementFeePercent}% annually)
-Other Fees: {formatCurrency otherFees "USD"}
-Total Fees: {formatCurrency totalFees "USD"}
+Management Fee: {{formatCurrency managementFee "USD"}} ({{managementFeePercent}}% annually)
+Other Fees: {{formatCurrency otherFees "USD"}}
+Total Fees: {{formatCurrency totalFees "USD"}}
 
 RECOMMENDATIONS
 
-{#recommendations}
-{recommendationNumber}. {recommendationText}
-   Rationale: {rationale}
-   {#urgency}{upper urgency} Priority{/urgency}
-{/recommendations}
+{{#recommendations}}
+{{recommendationNumber}}. {{recommendationText}}
+   Rationale: {{rationale}}
+   {{#urgency}}{{upper urgency}} Priority{{/urgency}}
+{{/recommendations}}
 
-{#isEmpty recommendations}
+{{#isEmpty recommendations}}
 No recommendations at this time. Portfolio is well-positioned.
-{/isEmpty}
+{{/isEmpty}}
 
 MARKET COMMENTARY
 
-{marketCommentary}
+{{marketCommentary}}
 
 NEXT REVIEW
 
-Your next quarterly review is scheduled for {formatDate nextReviewDate "MMMM DD, YYYY"}.
+Your next quarterly review is scheduled for {{formatDate nextReviewDate "MMMM DD, YYYY"}}.
 
 ---
-Prepared by: {advisor.name}, {advisor.credentials}
-{firmName}
-Phone: {advisor.phone} | Email: {advisor.email}
+Prepared by: {{advisor.name}}, {{advisor.credentials}}
+{{firmName}}
+Phone: {{advisor.phone}} | Email: {{advisor.email}}
 
 This report is for informational purposes only and does not constitute
 investment advice. Past performance does not guarantee future results.
@@ -1460,7 +1474,7 @@ Always test templates before using in production:
 - [ ] Numbers format with correct decimals
 - [ ] Text transformations work (upper, lower, etc.)
 - [ ] Default values appear when expected
-- [ ] No placeholder text remains (e.g., `{missingVar}`)
+- [ ] No unexpected blank spots (missing variables render as empty strings)
 
 ---
 
@@ -1469,23 +1483,23 @@ Always test templates before using in production:
 **Use Default Values:**
 ```
 ✓ Good:
-  Middle Initial: {defaultValue middleInitial "N/A"}
-  Fax: {defaultValue faxNumber "Not provided"}
+  Middle Initial: {{defaultValue middleInitial "N/A"}}
+  Fax: {{defaultValue faxNumber "Not provided"}}
 
 ✗ Bad:
-  Middle Initial: {middleInitial}
+  Middle Initial: {{middleInitial}}
   (Shows nothing if empty)
 ```
 
 **Check Before Displaying:**
 ```
 ✓ Good:
-  {#isNotEmpty phoneNumber}
-  Phone: {phoneNumber}
-  {/isNotEmpty}
+  {{#isNotEmpty phoneNumber}}
+  Phone: {{phoneNumber}}
+  {{/isNotEmpty}}
 
 ✗ Bad:
-  Phone: {phoneNumber}
+  Phone: {{phoneNumber}}
   (Shows "Phone: " with no number)
 ```
 
@@ -1495,22 +1509,22 @@ Always test templates before using in production:
 
 **Dates - Always Format:**
 ```
-✓ Good: {formatDate signatureDate "MMMM DD, YYYY"}
-✗ Bad: {signatureDate}
+✓ Good: {{formatDate signatureDate "MMMM DD, YYYY"}}
+✗ Bad: {{signatureDate}}
   (Shows: 2025-11-14T00:00:00Z - not user-friendly)
 ```
 
 **Currency - Always Format:**
 ```
-✓ Good: {formatCurrency totalAmount "USD"}
+✓ Good: {{formatCurrency totalAmount "USD"}}
 ✗ Bad: ${totalAmount}
   (Shows: $5000 instead of $5,000.00)
 ```
 
 **Large Numbers - Use Commas:**
 ```
-✓ Good: {formatNumber quantity 0 true}
-✗ Bad: {quantity}
+✓ Good: {{formatNumber quantity 0 true}}
+✗ Bad: {{quantity}}
   (Shows: 150000 instead of 150,000)
 ```
 
@@ -1518,29 +1532,30 @@ Always test templates before using in production:
 
 ### 6. Keep Templates Maintainable
 
-**Use Comments:**
-```
-{# This section only shows for premium clients #}
-{#isPremium}
-Premium Benefits:
-...
-{/isPremium}
+**Document Your Sections:**
 
-{# Loop through selected services #}
-{#services}
-- {serviceName}
-{/services}
-```
+Template comments are not supported — any `{{...}}` tag is treated as a
+variable or section. Keep authoring notes outside the merge area (for
+example in the template's description in ezBuildr, or in a separate
+reference copy of the document).
 
 **Break Complex Expressions:**
-```
-✗ Hard to read:
-  Total: {formatCurrency (add (multiply basePrice quantity) (multiply (multiply basePrice quantity) (divide taxRate 100))) "USD"}
 
-✓ Better (use computed variables in workflow):
-  Subtotal: {formatCurrency subtotal "USD"}
-  Tax: {formatCurrency taxAmount "USD"}
-  Total: {formatCurrency total "USD"}
+Nested sub-expressions with parentheses are **not supported**. Compute
+derived values in the workflow (a computed step, transform block, or a
+`beforeGeneration` document hook), then reference the result:
+
+```
+✗ Not supported:
+  Total: {{formatCurrency (add subtotal taxAmount) "USD"}}
+
+✓ Supported (compute subtotal/taxAmount/total in the workflow):
+  Subtotal: {{formatCurrency subtotal "USD"}}
+  Tax: {{formatCurrency taxAmount "USD"}}
+  Total: {{formatCurrency total "USD"}}
+
+✓ Simple two-variable math works inline:
+  Line total: {{multiply price quantity}}
 ```
 
 ---
@@ -1581,13 +1596,17 @@ Variable: effectiveDate
 
 ### Problem: Variable Not Showing in Document
 
-**Symptom:** Template shows `{variableName}` instead of the actual value.
+**Symptom:** The spot where a value should appear is **blank** in the
+generated document. (Unmatched variables render as an empty string —
+you will not see `{{variableName}}` left behind. If you DO see the raw
+`{{...}}` text, the template was not processed at all, or the tag is
+malformed/split by Word formatting.)
 
 **Possible Causes:**
 
 1. **Variable name mismatch**
    ```
-   Template: {firstName}
+   Template: {{firstName}}
    Workflow Variable: first_name
 
    Fix: Make sure names match exactly (case-sensitive)
@@ -1598,7 +1617,7 @@ Variable: effectiveDate
    User skipped the question or field was optional
 
    Fix: Use default value:
-   {defaultValue firstName "Not provided"}
+   {{defaultValue firstName "Not provided"}}
    ```
 
 3. **Wrong template mapping**
@@ -1625,8 +1644,8 @@ Variable: effectiveDate
 
 **Fix:**
 ```
-✗ Wrong: {effectiveDate}
-✓ Correct: {formatDate effectiveDate "MMMM DD, YYYY"}
+✗ Wrong: {{effectiveDate}}
+✓ Correct: {{formatDate effectiveDate "MMMM DD, YYYY"}}
 ```
 
 ---
@@ -1640,7 +1659,7 @@ Variable: effectiveDate
 **Fix:**
 ```
 ✗ Wrong: ${totalAmount}
-✓ Correct: {formatCurrency totalAmount "USD"}
+✓ Correct: {{formatCurrency totalAmount "USD"}}
 ```
 
 ---
@@ -1653,8 +1672,8 @@ Variable: effectiveDate
 
 1. **Incorrect syntax**
    ```
-   ✗ Wrong: {#items}{name}{/item}
-   ✓ Correct: {#items}{name}{/items}
+   ✗ Wrong: {{#items}}{{name}}{{/item}}
+   ✓ Correct: {{#items}}{{name}}{{/items}}
 
    (Opening and closing tags must match)
    ```
@@ -1675,13 +1694,13 @@ Variable: effectiveDate
    ```
    Add fallback:
 
-   {#items}
-   - {name}
-   {/items}
+   {{#items}}
+   - {{name}}
+   {{/items}}
 
-   {#isEmpty items}
+   {{#isEmpty items}}
    No items available.
-   {/isEmpty}
+   {{/isEmpty}}
    ```
 
 ---
@@ -1700,7 +1719,7 @@ Variable: effectiveDate
 
 2. **Wrong variable in condition**
    ```
-   Template: {#isPremium}
+   Template: {{#isPremium}}
    Workflow Variable: premium_status
 
    Fix: Names must match exactly
@@ -1709,9 +1728,9 @@ Variable: effectiveDate
 3. **Inverted logic**
    ```
    To show when FALSE, use caret:
-   {^isPremium}
+   {{^isPremium}}
    This shows for standard clients
-   {/isPremium}
+   {{/isPremium}}
    ```
 
 ---
@@ -1722,12 +1741,12 @@ Variable: effectiveDate
 
 **Fix:**
 ```
-{formatNumber value decimalPlaces useCommas}
+{{formatNumber value decimalPlaces useCommas}}
 
 Examples:
-{formatNumber count 0 true}      → 1,234
-{formatNumber percent 2 false}   → 99.99
-{formatNumber amount 2 true}     → 1,234.56
+{{formatNumber count 0 true}}      → 1,234
+{{formatNumber percent 2 false}}   → 99.99
+{{formatNumber amount 2 true}}     → 1,234.56
 ```
 
 ---
@@ -1781,34 +1800,34 @@ Test: ñ é ü ö ā € £ ¥ © ® ™ • – — " " ' '
 | Helper | Syntax | Example Input | Example Output |
 |--------|--------|---------------|----------------|
 | **Text Transformation** |
-| `upper` | `{upper text}` | "hello" | "HELLO" |
-| `lower` | `{lower text}` | "HELLO" | "hello" |
-| `capitalize` | `{capitalize text}` | "hello world" | "Hello world" |
-| `titleCase` | `{titleCase text}` | "hello world" | "Hello World" |
+| `upper` | `{{upper text}}` | "hello" | "HELLO" |
+| `lower` | `{{lower text}}` | "HELLO" | "hello" |
+| `capitalize` | `{{capitalize text}}` | "hello world" | "Hello world" |
+| `titleCase` | `{{titleCase text}}` | "hello world" | "Hello World" |
 | **Date Formatting** |
-| `formatDate` | `{formatDate date "format"}` | "2025-11-14", "MM/DD/YYYY" | "11/14/2025" |
+| `formatDate` | `{{formatDate date "format"}}` | "2025-11-14", "MM/DD/YYYY" | "11/14/2025" |
 | **Currency Formatting** |
-| `formatCurrency` | `{formatCurrency amount "currency"}` | 1234.56, "USD" | "$1,234.56" |
+| `formatCurrency` | `{{formatCurrency amount "currency"}}` | 1234.56, "USD" | "$1,234.56" |
 | **Number Formatting** |
-| `formatNumber` | `{formatNumber num decimals commas}` | 1234.567, 2, true | "1,234.57" |
+| `formatNumber` | `{{formatNumber num decimals commas}}` | 1234.567, 2, true | "1,234.57" |
 | **Array Operations** |
-| `length` | `{length array}` | [1,2,3] | 3 |
-| `first` | `{first array}` | ["a","b","c"] | "a" |
-| `last` | `{last array}` | ["a","b","c"] | "c" |
-| `join` | `{join array "separator"}` | ["a","b","c"], ", " | "a, b, c" |
+| `length` | `{{length array}}` | [1,2,3] | 3 |
+| `first` | `{{first array}}` | ["a","b","c"] | "a" |
+| `last` | `{{last array}}` | ["a","b","c"] | "c" |
+| `join` | `{{join array "separator"}}` | ["a","b","c"], ", " | "a, b, c" |
 | **Conditional** |
-| `isEmpty` | `{isEmpty value}` | "" | true |
-| `isNotEmpty` | `{isNotEmpty value}` | "text" | true |
-| `defaultValue` | `{defaultValue value "default"}` | "", "N/A" | "N/A" |
+| `isEmpty` | `{{isEmpty value}}` | "" | true |
+| `isNotEmpty` | `{{isNotEmpty value}}` | "text" | true |
+| `defaultValue` | `{{defaultValue value "default"}}` | "", "N/A" | "N/A" |
 | **Math** |
-| `add` | `{add a b}` | 5, 3 | 8 |
-| `subtract` | `{subtract a b}` | 5, 3 | 2 |
-| `multiply` | `{multiply a b}` | 5, 3 | 15 |
-| `divide` | `{divide a b}` | 6, 3 | 2 |
+| `add` | `{{add a b}}` | 5, 3 | 8 |
+| `subtract` | `{{subtract a b}}` | 5, 3 | 2 |
+| `multiply` | `{{multiply a b}}` | 5, 3 | 15 |
+| `divide` | `{{divide a b}}` | 6, 3 | 2 |
 | **String Operations** |
-| `pluralize` | `{pluralize count "sing" "plur"}` | 2, "item", "items" | "items" |
-| `truncate` | `{truncate text length "suffix"}` | "Hello World", 5, "..." | "Hello..." |
-| `replace` | `{replace text "old" "new"}` | "Hello World", "World", "There" | "Hello There" |
+| `pluralize` | `{{pluralize count "sing" "plur"}}` | 2, "item", "items" | "items" |
+| `truncate` | `{{truncate text length "suffix"}}` | "Hello World", 5, "..." | "Hello..." |
+| `replace` | `{{replace text "old" "new"}}` | "Hello World", "World", "There" | "Hello There" |
 
 ---
 
@@ -1824,13 +1843,18 @@ Test: ñ é ü ö ā € £ ¥ © ® ™ • – — " " ' '
 | `M` | Month | 11 |
 | `DD` | 2-digit day | 14 |
 | `D` | Day | 14 |
-| `dddd` | Full day name | Thursday |
-| `ddd` | Short day name | Thu |
+| `Do` | Day with ordinal | 14th |
+| `dddd` | Full day name | Friday |
+| `ddd` | Short day name | Fri |
 | `HH` | 24-hour (00-23) | 14 |
 | `hh` | 12-hour (01-12) | 02 |
+| `h` | 12-hour (1-12) | 2 |
 | `mm` | Minutes | 30 |
 | `ss` | Seconds | 45 |
 | `A` | AM/PM | PM |
+
+Literal text goes in single quotes: `"MMMM DD, YYYY 'at' h:mm A"` →
+`November 14, 2025 at 3:30 PM`.
 
 **Common Combinations:**
 ```
@@ -1838,7 +1862,7 @@ Test: ñ é ü ö ā € £ ¥ © ® ™ • – — " " ' '
 "MMMM DD, YYYY"        → November 14, 2025
 "MMM D, YYYY"          → Nov 14, 2025
 "YYYY-MM-DD"           → 2025-11-14
-"dddd, MMMM D, YYYY"   → Thursday, November 14, 2025
+"dddd, MMMM D, YYYY"   → Friday, November 14, 2025
 "M/D/YY"               → 11/14/25
 "MMMM Do, YYYY"        → November 14th, 2025
 ```
@@ -1956,56 +1980,56 @@ Section 4: Service Selection
 ```
 CLIENT ONBOARDING SUMMARY
 
-Generated: {formatDate today "MMMM DD, YYYY"}
+Generated: {{formatDate today "MMMM DD, YYYY"}}
 
 ══════════════════════════════════════════════════
 
 COMPANY PROFILE
 
-Company Name: {companyName}
-Industry: {industry}
-Founded: {yearFounded}
-Size: {formatNumber employeeCount 0 true} employees
-Annual Revenue: {formatCurrency annualRevenue "USD"}
+Company Name: {{companyName}}
+Industry: {{industry}}
+Founded: {{yearFounded}}
+Size: {{formatNumber employeeCount 0 true}} employees
+Annual Revenue: {{formatCurrency annualRevenue "USD"}}
 
 ══════════════════════════════════════════════════
 
 PRIMARY CONTACT
 
-{contact.firstName} {contact.lastName}
-{contact.title}
+{{contact.firstName}} {{contact.lastName}}
+{{contact.title}}
 
-📧 {contact.email}
-📱 {contact.phone}
+📧 {{contact.email}}
+📱 {{contact.phone}}
 
 ══════════════════════════════════════════════════
 
 BILLING INFORMATION
 
-{billing.address}
-{billing.city}, {billing.state} {billing.zip}
+{{billing.address}}
+{{billing.city}}, {{billing.state}} {{billing.zip}}
 
-Payment Method: {billing.paymentMethod}
+Payment Method: {{billing.paymentMethod}}
 
 ══════════════════════════════════════════════════
 
 SELECTED SERVICES
 
-{#services}
-✓ {serviceName}
-  {#description}Description: {description}{/description}
-  {#pricing}Price: {formatCurrency monthlyPrice "USD"}/month{/pricing}
-{/services}
+{{#services}}
+✓ {{serviceName}}
+  {{#description}}Description: {{description}}{{/description}}
+  {{#pricing}}Price: {{formatCurrency monthlyPrice "USD"}}/month{{/pricing}}
+{{/services}}
 
-Total Services: {length services}
+Total Services: {{length services}}
 
 ══════════════════════════════════════════════════
 
 CONTRACT DETAILS
 
-Start Date: {formatDate startDate "MMMM DD, YYYY"}
-Initial Term: {contractTerm} months
-End Date: {formatDate endDate "MMMM DD, YYYY"}
+Start Date: {{formatDate startDate "MMMM DD, YYYY"}}
+Initial Term: {{contractTerm}} months
+End Date: {{formatDate endDate "MMMM DD, YYYY"}}
 
 ══════════════════════════════════════════════════
 
@@ -2013,13 +2037,13 @@ NEXT STEPS
 
 1. Review and sign service agreement
 2. Complete payment setup
-3. Attend kickoff meeting on {formatDate kickoffDate "MMMM DD, YYYY"}
+3. Attend kickoff meeting on {{formatDate kickoffDate "MMMM DD, YYYY"}}
 4. Begin onboarding process
 
 Questions? Contact your Account Manager:
-{accountManager.name}
-{accountManager.email}
-{accountManager.phone}
+{{accountManager.name}}
+{{accountManager.email}}
+{{accountManager.phone}}
 ```
 
 ---
@@ -2030,73 +2054,73 @@ Questions? Contact your Account Manager:
 ```
 PRICING PROPOSAL
 
-{upper companyName}
-Prepared for: {contact.name}
-Date: {formatDate proposalDate "MMMM DD, YYYY"}
+{{upper companyName}}
+Prepared for: {{contact.name}}
+Date: {{formatDate proposalDate "MMMM DD, YYYY"}}
 
 ═══════════════════════════════════════════════════════
 
 BASE SERVICES
 
-{#baseServices}
-{serviceName}
-{description}
+{{#baseServices}}
+{{serviceName}}
+{{description}}
 
-  Base Price: {formatCurrency basePrice "USD"}
-  {#hasDiscount}
-  Discount ({discountPercent}%): -{formatCurrency (multiply basePrice (divide discountPercent 100)) "USD"}
-  Discounted Price: {formatCurrency (subtract basePrice (multiply basePrice (divide discountPercent 100))) "USD"}
-  {/hasDiscount}
+  Base Price: {{formatCurrency basePrice "USD"}}
+  {{#hasDiscount}}
+  Discount ({{discountPercent}}%): -{{formatCurrency discountAmount "USD"}}
+  Discounted Price: {{formatCurrency discountedPrice "USD"}}
+  {{/hasDiscount}}
 
-{/baseServices}
+{{/baseServices}}
 
 ═══════════════════════════════════════════════════════
 
 ADD-ON SERVICES
 
-{#isEmpty addOns}
+{{#isEmpty addOns}}
 No add-on services selected.
-{/isEmpty}
+{{/isEmpty}}
 
-{#addOns}
-{serviceName}: {formatCurrency price "USD"}
-  {#description}{description}{/description}
-{/addOns}
+{{#addOns}}
+{{serviceName}}: {{formatCurrency price "USD"}}
+  {{#description}}{{description}}{{/description}}
+{{/addOns}}
 
 ═══════════════════════════════════════════════════════
 
 PRICING SUMMARY
 
-Base Services Total: {formatCurrency baseTotal "USD"}
-Add-On Services: {formatCurrency addOnsTotal "USD"}
-Subtotal: {formatCurrency subtotal "USD"}
+Base Services Total: {{formatCurrency baseTotal "USD"}}
+Add-On Services: {{formatCurrency addOnsTotal "USD"}}
+Subtotal: {{formatCurrency subtotal "USD"}}
 
-{#hasVolumeDiscount}
-Volume Discount ({volumeDiscountPercent}%): -{formatCurrency volumeDiscountAmount "USD"}
-{/hasVolumeDiscount}
+{{#hasVolumeDiscount}}
+Volume Discount ({{volumeDiscountPercent}}%): -{{formatCurrency volumeDiscountAmount "USD"}}
+{{/hasVolumeDiscount}}
 
-Tax ({taxRate}%): {formatCurrency taxAmount "USD"}
-
-═══════════════════════════════════════════════════════
-
-TOTAL: {formatCurrency grandTotal "USD"}
-
-{#paymentPlan}
-Payment Plan: {planName}
-{#installments}
-- Payment {installmentNumber}: {formatCurrency amount "USD"} due {formatDate dueDate "MM/DD/YYYY"}
-{/installments}
-{/paymentPlan}
+Tax ({{taxRate}}%): {{formatCurrency taxAmount "USD"}}
 
 ═══════════════════════════════════════════════════════
 
-PROPOSAL VALID UNTIL: {formatDate expirationDate "MMMM DD, YYYY"}
+TOTAL: {{formatCurrency grandTotal "USD"}}
 
-To accept this proposal, please sign and return by {formatDate acceptanceDeadline "MMMM DD, YYYY"}.
+{{#paymentPlan}}
+Payment Plan: {{planName}}
+{{#installments}}
+- Payment {{installmentNumber}}: {{formatCurrency amount "USD"}} due {{formatDate dueDate "MM/DD/YYYY"}}
+{{/installments}}
+{{/paymentPlan}}
+
+═══════════════════════════════════════════════════════
+
+PROPOSAL VALID UNTIL: {{formatDate expirationDate "MMMM DD, YYYY"}}
+
+To accept this proposal, please sign and return by {{formatDate acceptanceDeadline "MMMM DD, YYYY"}}.
 
 _____________________________    Date: ___________
-{contact.name}
-{contact.title}, {companyName}
+{{contact.name}}
+{{contact.title}}, {{companyName}}
 ```
 
 ---
@@ -2134,6 +2158,6 @@ This guide has covered:
 
 **End of Guide**
 
-*Last Updated: November 14, 2025*
-*Version: 1.0.0*
+*Last Updated: July 7, 2026*
+*Version: 1.1.0 — syntax aligned with the shipped engine: double-brace `{{...}}` delimiters, missing values render as empty strings, helper arguments may reference variables, nested parenthesized expressions are not supported.*
 *Maintained by: VaultLogic Documentation Team*
