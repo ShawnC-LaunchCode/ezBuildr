@@ -124,7 +124,8 @@ export class WorkflowGenerationService {
             (validated as any).__qualityScore = qualityScore;
 
             return validated;
-        } catch (error: unknown) {
+        } catch (e: unknown) {
+      const error = e as any;
             const duration = Date.now() - startTime;
 
             // Re-throw QualityThresholdError without additional wrapping

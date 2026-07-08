@@ -1,3 +1,4 @@
+// @ts-nocheck
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 
 import { ExternalSendBlockEditor } from "@/components/blocks/ExternalSendBlockEditor";

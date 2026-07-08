@@ -34,7 +34,8 @@ export class AIProviderClient {
     if (config.provider && config.apiKey) {
       try {
         this.provider = ProviderFactory.createProvider(config);
-      } catch (error: unknown) {
+      } catch (e: unknown) {
+      const error = e as any;
         logger.warn({ error: error.message, config: { provider: config.provider } }, 'Failed to create provider');
       }
     }
@@ -92,7 +93,8 @@ export class AIProviderClient {
         }, 'AI request succeeded');
 
         return response;
-      } catch (error: unknown) {
+      } catch (e: unknown) {
+      const error = e as any;
         // Handle rate limiting with retry
         if (isRateLimitError(error)) {
           const retryAfterMs = getRetryAfter(error);

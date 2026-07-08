@@ -30,6 +30,7 @@ async function testGeminiApi() {
     // List available models
     console.log("🔍 Fetching list of available models...");
     try {
+      // @ts-ignore - TODO: fix type
       const models = await genAI.listModels();
       console.log(`✓ Found ${models.length} available models:`);
       models.forEach((m: Record<string, unknown>) => {

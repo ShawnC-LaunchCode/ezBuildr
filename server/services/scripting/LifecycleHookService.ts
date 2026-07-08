@@ -134,7 +134,7 @@ export class LifecycleHookService {
                 for (const key of hook.outputKeys) {
                   // eslint-disable-next-line max-depth
                   if (key in result.output) {
-                    resultData[key] = result.output[key];
+                    resultData[key] = (result.output as any)[key];
                   }
                 }
 

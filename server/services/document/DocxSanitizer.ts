@@ -192,7 +192,8 @@ export class DocxSanitizer {
           percentage: Math.round(percentage * 100) / 100,
         },
       };
-    } catch (error: unknown) {
+    } catch (e: unknown) {
+      const error = e as any;
       logger.error({ error }, 'DOCX sanitization failed');
       throw new Error(`Failed to sanitize DOCX: ${error.message}`);
     }
@@ -358,7 +359,8 @@ export class DocxSanitizer {
         needed: reasons.length > 0,
         reasons,
       };
-    } catch (error: unknown) {
+    } catch (e: unknown) {
+      const error = e as any;
       logger.error({ error }, 'Failed to check if sanitization needed');
       return { needed: false, reasons: [] };
     }

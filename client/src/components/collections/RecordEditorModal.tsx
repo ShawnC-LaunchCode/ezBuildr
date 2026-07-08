@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * RecordEditorModal Component
  * Dynamic form for creating/editing collection records

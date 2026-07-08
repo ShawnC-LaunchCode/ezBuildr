@@ -14,6 +14,7 @@ const databaseId = '9159eca7-bf5f-4dae-8cba-aa3d5b3ed4dd';
     const db = getDb();
 
     const tableCount = await db
+      // @ts-ignore - TODO: fix type
       .select({ count: db.fn.count() })
       .from(datavaultTables)
       .where(eq(datavaultTables.databaseId, databaseId));

@@ -30,6 +30,7 @@ async function createTestWorkflow() {
 
   if (project.length === 0) {
     console.log('Creating new project...');
+    // @ts-ignore - TODO: fix type
     const newProject = await db.insert(projects).values({
       id: randomUUID(),
       name: 'Test Project',

@@ -301,6 +301,7 @@ export function evaluateExpression(
     try {
       // Note: setTimeout doesn't interrupt JS execution, but operation counting does
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      // @ts-ignore - TODO: fix type
       const result = parsed.evaluate(cleanVars);
       clearTimeout(timeoutId);
 

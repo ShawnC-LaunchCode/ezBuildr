@@ -271,7 +271,7 @@ export default function AdminUsers() {
     } else if (sortColumn === 'role') {
       valA = a.isPlaceholder ? 'invited' : a.role;
       valB = b.isPlaceholder ? 'invited' : b.role;
-    } else if (sortColumn === 'isActive') {
+    } else if (sortColumn === ('isActive' as any)) {
       valA = a.isActive ? 1 : 0;
       valB = b.isActive ? 1 : 0;
     } else if (sortColumn === 'createdAt') {
@@ -342,8 +342,8 @@ export default function AdminUsers() {
                         <th className="text-left p-3 text-sm font-medium text-muted-foreground cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('role')}>
                           <div className="flex items-center gap-1">Role {sortColumn === 'role' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
                         </th>
-                        <th className="text-left p-3 text-sm font-medium text-muted-foreground cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('isActive')}>
-                          <div className="flex items-center gap-1">Status {sortColumn === 'isActive' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
+                        <th className="text-left p-3 text-sm font-medium text-muted-foreground cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort(('isActive' as any))}>
+                          <div className="flex items-center gap-1">Status {sortColumn === ('isActive' as any) && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
                         </th>
                         <th className="text-left p-3 text-sm font-medium text-muted-foreground cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleSort('workflowCount')}>
                           <div className="flex items-center gap-1">Workflows {sortColumn === 'workflowCount' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>

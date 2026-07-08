@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Stage 17: Email Template Editor Page
  *

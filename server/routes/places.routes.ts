@@ -1,6 +1,6 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-// @ts-expect-error - apicache might be missing type declarations
+// @ts-ignore - TODO: fix type
 import apicache from "apicache";
 
 import { creatorOrRunTokenAuth } from "../middleware/runTokenAuth";

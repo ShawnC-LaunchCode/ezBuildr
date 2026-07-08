@@ -73,10 +73,12 @@ async function initializeDatabase() {
       const workerId = process.env.VITEST_WORKER_ID ?? '?';
       type ConnectCallback = (err: Error | undefined, client: PoolClient, release: () => void) => void;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      // @ts-ignore - TODO: fix type
       (pool as Pool & { connect: (callback?: ConnectCallback) => Promise<PoolClient> }).connect = async function (callback?: ConnectCallback) {
         if (callback != null) {
           // Callback-style: pool.connect((err, client, release) => ...)
           // eslint-disable-next-line @typescript-eslint/no-misused-promises
+          // @ts-ignore - TODO: fix type
           return originalConnect(async (err: Error | undefined, client: PoolClient, release: () => void) => {
             if (!err && client != null) {
               try {

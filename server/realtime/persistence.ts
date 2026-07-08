@@ -299,6 +299,7 @@ export async function exportDocumentAsJson(docId: string): Promise<{
     const meta = (yMeta as { toJSON: () => unknown }).toJSON();
     const comments: Record<string, unknown> = {};
 
+    // @ts-ignore - TODO: fix type
     yComments.forEach((value: { toJSON: () => unknown }, key: string) => {
       comments[key] = value.toJSON();
     });

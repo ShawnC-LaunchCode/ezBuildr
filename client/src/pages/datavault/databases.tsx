@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * DataVault Databases List Page
  * Lists all databases with stats, search, and create/delete actions

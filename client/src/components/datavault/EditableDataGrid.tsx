@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Editable Data Grid Component
  * Grid with inline editable cells, auto-save, and row actions

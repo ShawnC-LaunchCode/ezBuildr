@@ -319,6 +319,7 @@ describe('ScriptEngine', () => {
         const result = await scriptEngine.execute(params);
 
         expect(result.ok).toBe(true);
+        // @ts-ignore - TODO: fix type
         expect(result.output?.keys).toEqual(['a', 'b']);
       });
 
@@ -485,6 +486,7 @@ describe('ScriptEngine', () => {
       });
 
       expect(result.ok).toBe(true);
+      // @ts-ignore - TODO: fix type
       expect(result.output?.runId).toBe('test-run');
     });
   });

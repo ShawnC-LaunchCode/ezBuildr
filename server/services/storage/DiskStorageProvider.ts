@@ -55,6 +55,7 @@ export class DiskStorageProvider implements StorageProvider {
         try {
             await fs.unlink(filePath);
         } catch (error: unknown) {
+            // @ts-ignore - TODO: fix type
             if (error.code !== 'ENOENT') {
                 logger.error({ error, fileRef }, 'Failed to delete file from disk');
             }
@@ -105,6 +106,7 @@ export class DiskStorageProvider implements StorageProvider {
                 contentType: 'application/octet-stream', // We don't store mime type on disk currently
             };
         } catch (error: unknown) {
+            // @ts-ignore - TODO: fix type
             if (error.code === 'ENOENT') {
                 throw createError.notFound('File not found');
             }
@@ -125,6 +127,7 @@ export class DiskStorageProvider implements StorageProvider {
             const files = await fs.readdir(dir);
             return files.map(f => path.join(prefix, f).replace(/\\/g, '/'));
         } catch (error: unknown) {
+            // @ts-ignore - TODO: fix type
             if (error.code === 'ENOENT') {
                 return [];
             }

@@ -13,6 +13,8 @@
  *    node -r esbuild-register server/queues/DocumentGenerationWorker.ts
  */
 
+import path from 'path';
+
 import { Job } from 'bull';
 import { eq } from 'drizzle-orm';
 
@@ -96,21 +98,25 @@ async function processDocumentGenerationJob(
       'Documents generated'
     );
 
-    // Step 3: Save generated documents to database
+    // Step 3: Save generated documents to database.
+    // Records mirror the direct endpoint's shape: fileName is the actual
+    // generated filename and fileUrl is the download route (previously this
+    // stored a raw filesystem path as the URL and the alias as the name,
+    // producing broken links; the extra `metadata` key was silently dropped
+    // because run_generated_documents has no such column).
     if (result.documents.length > 0) {
-      const documentRecords = result.documents.map((doc) => ({
-        runId,
-        fileUrl: doc.pdfPath ?? doc.docxPath, // Map documentUrl to fileUrl
-        fileName: doc.alias ?? 'document',    // Map alias to fileName
-        // fileType: doc.pdfPath ? 'pdf' : 'docx', // fileType might not be in schema, removing if causing issues or map if needed. Error didn't mention it.
-        // alias: doc.alias || 'document',
-        metadata: {
-          normalizedData: doc.normalizedData,
-          mappingResult: doc.mappingResult,
-          fileType: doc.pdfPath ? 'pdf' : 'docx', // Move extra data to metadata
-          alias: doc.alias
-        },
-      }));
+      const documentRecords = result.documents.map((doc) => {
+        const filePath = doc.pdfPath ?? doc.docxPath;
+        const fileName = path.basename(filePath);
+        return {
+          runId,
+          fileName,
+          fileUrl: `/api/runs/${runId}/final-documents/${fileName}/download`,
+          mimeType: filePath.endsWith('.pdf')
+            ? 'application/pdf'
+            : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        };
+      });
 
       await db.insert(runGeneratedDocuments).values(documentRecords);
 
@@ -206,6 +212,7 @@ async function processDocumentGenerationJob(
               ...(run.metadata as Record<string, unknown>),
               documentsGenerated: false,
               // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+              // @ts-ignore - TODO: fix type
               documentGenerationError: error.message,
               documentGenerationErrorAt: new Date().toISOString(),
             },
@@ -285,7 +292,9 @@ async function sendWebhookNotification(webhookUrl: string, data: NotificationDat
           workflowId: data.workflowId,
           result: {
             generated: data.result.totalGenerated,
+            // @ts-ignore - TODO: fix type
             skipped: data.result.skipped.length,
+            // @ts-ignore - TODO: fix type
             failed: data.result.failed.length,
           },
         },

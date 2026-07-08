@@ -33,6 +33,7 @@ async function main() {
     console.log("Password hashed.");
 
     // Create User
+    // @ts-ignore - TODO: fix type
     const [newUser] = await db.insert(users).values({
         email,
         firstName,

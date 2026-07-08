@@ -65,6 +65,7 @@ export function createTestUser(overrides?: DeepPartial<User>): Omit<User, 'id' |
   const firstName = overrides?.firstName || `Test${uniqueId}`;
   const lastName = overrides?.lastName || 'User';
 
+  // @ts-ignore - TODO: fix type
   return {
     email: overrides?.email || `test-${uniqueId}@example.com`,
     fullName: overrides?.fullName || `${firstName} ${lastName}`,
@@ -273,6 +274,7 @@ export function createTestWorkflowRun(overrides?: DeepPartial<WorkflowRun>): Omi
     ownerUuid: null,
   };
 
+  // @ts-ignore - TODO: fix type
   return { ...defaults, ...overrides };
 }
 

@@ -190,6 +190,7 @@ router.post("/extract-text", uploadLimiter, (req, res, next) => {
 router.post("/suggest-mappings", strictLimiter, asyncHandler(async (req, res) => {
     try {
         const { templateVariables, workflowVariables } = suggestMappingsSchema.parse(req.body);
+        // @ts-ignore - TODO: fix type
         const mappings = await documentAIAssistService.suggestMappings(templateVariables, workflowVariables);
         res.json({ data: mappings });
     } catch (err) {

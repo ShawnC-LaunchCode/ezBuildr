@@ -245,6 +245,7 @@ Requirements:
                 const buffer = await fs.readFile(filePath);
                 // PDFParse is a function in v1.1.1
                 const data = await documentProcessingLimiter.run(() => pdfLib(buffer));
+                // @ts-ignore - TODO: fix type
                 return data.text;
             } catch (e) {
                 logger.error({ error: e }, "PDF parsing failed");

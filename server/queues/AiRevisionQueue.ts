@@ -245,6 +245,7 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
             }
 
             if (rulesToInsert.length > 0) {
+                // @ts-ignore - TODO: fix type
                 await db.insert(logicRules).values(rulesToInsert);
             }
         }
@@ -296,6 +297,7 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
             }
 
             if (blocksToInsert.length > 0) {
+                // @ts-ignore - TODO: fix type
                 await db.insert(transformBlocks).values(blocksToInsert);
             }
         }

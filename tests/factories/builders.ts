@@ -54,6 +54,7 @@ export class SectionBuilder {
    */
   addStep(type: string, overrides?: Record<string, unknown>): this {
     const step = createTestStep({
+      // @ts-ignore - TODO: fix type
       type,
       order: this.steps.length,
       ...overrides,

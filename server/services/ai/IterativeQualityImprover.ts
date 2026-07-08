@@ -205,7 +205,8 @@ export class IterativeQualityImprover {
         currentWorkflow = improvedWorkflow;
         currentScore = newScore;
 
-      } catch (error: unknown) {
+      } catch (e: unknown) {
+      const error = e as any;
         logger.error({ error, iteration: i }, 'Error during quality improvement iteration');
         // On error, return best result so far
         break;
@@ -349,7 +350,8 @@ Do NOT include any explanation or markdown - just the JSON object.`;
         logicRules: (parsed.logicRules || fallback.logicRules) ?? [],
         transformBlocks: (parsed.transformBlocks || fallback.transformBlocks) ?? [],
       };
-    } catch (error: unknown) {
+    } catch (e: unknown) {
+      const error = e as any;
       logger.error({ error: error.message }, 'Failed to parse improved workflow, using fallback');
       return fallback;
     }

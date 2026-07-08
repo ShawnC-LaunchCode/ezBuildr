@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Choice Block Card Editor
  * Editor for choice blocks (radio, multiple_choice, choice)

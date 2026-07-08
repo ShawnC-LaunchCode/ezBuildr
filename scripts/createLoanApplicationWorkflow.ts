@@ -30,6 +30,7 @@ async function createLoanApplicationWorkflow() {
   let project = await db.select().from(projects).where(eq(projects.createdBy, user.id)).limit(1);
   if (project.length === 0) {
     console.log('Creating new project...');
+    // @ts-ignore - TODO: fix type
     const newProject = await db.insert(projects).values({
       id: randomUUID(),
       name: 'Financial Services',

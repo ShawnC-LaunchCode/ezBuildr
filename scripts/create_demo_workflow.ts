@@ -107,6 +107,7 @@ async function main() {
 
     // Insert Version
     const versionId = uuidv4();
+    // @ts-ignore - TODO: fix type
     await db.insert(workflowVersions).values({
         id: versionId,
         workflowId: workflowId,

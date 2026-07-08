@@ -32,6 +32,7 @@ async function main() {
     }
   }
 
+  // @ts-ignore - TODO: fix type
   logger.info('Starting metrics rollup', { bucket, since, until });
 
   try {

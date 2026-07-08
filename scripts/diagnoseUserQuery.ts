@@ -10,6 +10,7 @@ import { users } from '../shared/schema';
 
 async function diagnoseUserQuery() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // @ts-ignore - TODO: fix type
   neonConfig.webSocketConstructor = ws.default as any;
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const client = await pool.connect();
