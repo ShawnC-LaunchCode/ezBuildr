@@ -448,11 +448,12 @@ describe.sequential("Session Management Integration Tests", () => {
                     password: testUser.password,
                 })
                 .expect(200);
-            // Trust device
+            // Trust device — SEC-022 requires fresh password (or MFA) re-verification
             await request(ctx.baseURL)
                 .post("/api/auth/trust-device")
                 .set("Authorization", `Bearer ${session.body.token}`)
                 .set("Cookie", session.headers['set-cookie'])
+                .send({ password: testUser.password })
                 .expect(200);
             // Revoke all sessions
             await request(ctx.baseURL)
