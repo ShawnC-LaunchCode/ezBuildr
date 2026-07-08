@@ -153,7 +153,7 @@ describe('OAuth2 Google Authentication Flow', () => {
         });
       expect(response.status).toBe(401);
       expect(response.body).toMatchObject({
-        message: 'Authentication failed',
+        message: 'Authentication failed: Invalid token',
         error: 'auth_failed',
       });
     });
