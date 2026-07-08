@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { describe, it, expect, beforeEach, vi, type Mocked } from "vitest";
 
-import { StepService } from "../../../server/services/StepService";
+import { StepService, generateAliasFromLabel } from "../../../server/services/StepService";
 import { stepRepository, sectionRepository } from "../../../server/repositories";
 import { createTestStep, createTestSection, createTestWorkflow } from "../../factories/workflowFactory";
 import { workflowService } from "../../../server/services/WorkflowService";
@@ -122,29 +122,78 @@ describe("StepService", () => {
       ).rejects.toThrow("Alias \"firstName\" is already in use");
     });
 
-    it("should allow creating step with null alias", async () => {
+    it("should auto-generate an alias from the label when none is provided", async () => {
       const workflow = createTestWorkflow();
       const section = createTestSection(workflow.id);
 
       const newStepData: Omit<InsertStep, "sectionId"> = {
         type: "short_text",
-        title: "No Alias Step",
+        title: "What is your first name?",
         alias: null,
         required: false,
         options: {},
         order: 1,
       };
 
-      const createdStep = createTestStep(section.id, { ...newStepData });
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
+      mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(section);
+      mockSectionRepo.findByWorkflowId.mockResolvedValue([section]);
+      mockStepRepo.findBySectionId.mockResolvedValue([]);
+      mockStepRepo.create.mockImplementation(async (data) => data as unknown as Step);
+
+      await service.createStep(workflow.id, section.id, "user-123", newStepData as InsertStep);
+
+      expect(mockStepRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ alias: "whatIsYourFirstName" })
+      );
+    });
+
+    it("should suffix the auto-generated alias when the name is taken", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+      const existingSteps = [createTestStep(section.id, { alias: "email" })];
+
+      const newStepData: Omit<InsertStep, "sectionId"> = {
+        type: "email",
+        title: "Email",
+        required: false,
+        options: {},
+        order: 1,
+      };
 
       mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
       mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(section);
+      mockSectionRepo.findByWorkflowId.mockResolvedValue([section]);
+      mockStepRepo.findBySectionIds.mockResolvedValue(existingSteps as unknown as Step[]);
       mockStepRepo.findBySectionId.mockResolvedValue([]);
-      mockStepRepo.create.mockResolvedValue(createdStep as unknown as Step);
+      mockStepRepo.create.mockImplementation(async (data) => data as unknown as Step);
 
-      const result = await service.createStep(workflow.id, section.id, "user-123", newStepData as InsertStep);
+      await service.createStep(workflow.id, section.id, "user-123", newStepData as InsertStep);
 
-      expect(result.alias).toBeNull();
+      expect(mockStepRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ alias: "email2" })
+      );
+    });
+
+    it("should reject aliases with invalid characters", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+
+      const newStepData: Omit<InsertStep, "sectionId"> = {
+        type: "short_text",
+        title: "Dotted",
+        alias: "client.name",
+        required: false,
+        options: {},
+        order: 1,
+      };
+
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
+      mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(section);
+
+      await expect(
+        service.createStep(workflow.id, section.id, "user-123", newStepData as InsertStep)
+      ).rejects.toThrow(/letters, numbers, and underscores/);
     });
 
     it("should throw error if section not found", async () => {
@@ -196,8 +245,12 @@ describe("StepService", () => {
       const updatedStep = { ...step, title: "Updated Title" };
 
       mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
-      mockStepRepo.findById.mockResolvedValue(step as unknown as Step);
-      mockSectionRepo.findById.mockResolvedValue(section);
+      // findById is a shared BaseRepository mock; dispatch by id for step vs section
+      mockStepRepo.findById.mockImplementation(
+        (async (id: string) => (id === step.id ? step : section)) as never
+      );
+      mockSectionRepo.findByWorkflowId.mockResolvedValue([section]);
+      mockStepRepo.findBySectionIds.mockResolvedValue([step as unknown as Step]);
       mockStepRepo.update.mockResolvedValue(updatedStep as unknown as Step);
 
       const result = await service.updateStep(step.id, workflow.id, "user-123", {
@@ -205,7 +258,11 @@ describe("StepService", () => {
       });
 
       expect(result.title).toBe("Updated Title");
-      expect(mockStepRepo.update).toHaveBeenCalledWith(step.id, { title: "Updated Title" });
+      // The step had no custom alias, so the label change also fills the alias
+      expect(mockStepRepo.update).toHaveBeenCalledWith(
+        step.id,
+        expect.objectContaining({ title: "Updated Title", alias: "updatedTitle" })
+      );
     });
 
     it("should validate alias uniqueness when updating alias", async () => {
@@ -310,6 +367,90 @@ describe("StepService", () => {
       await expect(
         service.deleteStep(step.id, workflow.id, "user-123")
       ).rejects.toThrow("Step not found in this workflow");
+    });
+  });
+
+  describe("generateAliasFromLabel", () => {
+    it("should camelCase question labels", () => {
+      expect(generateAliasFromLabel("What is your first name?")).toBe("whatIsYourFirstName");
+      expect(generateAliasFromLabel("Email")).toBe("email");
+      expect(generateAliasFromLabel("Client Name")).toBe("clientName");
+    });
+
+    it("should prefix labels that start with a digit", () => {
+      expect(generateAliasFromLabel("2nd Address Line")).toBe("_2ndAddressLine");
+    });
+
+    it("should return null for labels without usable characters", () => {
+      expect(generateAliasFromLabel("???")).toBeNull();
+      expect(generateAliasFromLabel("")).toBeNull();
+    });
+  });
+
+  describe("updateStep alias follow-the-label", () => {
+    function setupUpdate(step: Step, section: ReturnType<typeof createTestSection>): void {
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
+      // stepRepository.findById and sectionRepository.findById are the same
+      // auto-mocked BaseRepository prototype method, so a single id-dispatching
+      // implementation must serve both lookups
+      mockStepRepo.findById.mockImplementation(
+        (async (id: string) => (id === step.id ? step : section)) as never
+      );
+      mockSectionRepo.findByWorkflowId.mockResolvedValue([section]);
+      mockStepRepo.findBySectionIds.mockResolvedValue([step]);
+      mockStepRepo.update.mockImplementation(async (_id, data) => ({ ...step, ...data }) as Step);
+    }
+
+    it("should regenerate an auto-derived alias when the label changes", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+      const step = createTestStep(section.id, {
+        title: "Untitled",
+        alias: "untitled",
+      }) as unknown as Step;
+      setupUpdate(step, section);
+
+      await service.updateStep(step.id, section.workflowId, "user-123", {
+        title: "What is your email?",
+      });
+
+      expect(mockStepRepo.update).toHaveBeenCalledWith(
+        step.id,
+        expect.objectContaining({ alias: "whatIsYourEmail" })
+      );
+    });
+
+    it("should fill in an alias when the label changes and none is set", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+      const step = createTestStep(section.id, { title: "Untitled", alias: null }) as unknown as Step;
+      setupUpdate(step, section);
+
+      await service.updateStep(step.id, section.workflowId, "user-123", {
+        title: "Company name",
+      });
+
+      expect(mockStepRepo.update).toHaveBeenCalledWith(
+        step.id,
+        expect.objectContaining({ alias: "companyName" })
+      );
+    });
+
+    it("should never touch a customized alias on label change", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+      const step = createTestStep(section.id, {
+        title: "Untitled",
+        alias: "clientEmail",
+      }) as unknown as Step;
+      setupUpdate(step, section);
+
+      await service.updateStep(step.id, section.workflowId, "user-123", {
+        title: "Totally new label",
+      });
+
+      const updatePayload = mockStepRepo.update.mock.calls[0][1];
+      expect(updatePayload).not.toHaveProperty("alias");
     });
   });
 });
