@@ -50,6 +50,16 @@ export interface EnhancedGenerationOptions extends Omit<DocumentGenerationOption
 
   /** PDF conversion strategy */
   pdfStrategy?: 'puppeteer' | 'libreoffice';
+
+  /** Template row id (uuid) — enables generation metrics tracking */
+  templateId?: string;
+
+  /**
+   * Graph-engine run id recorded with generation metrics. CAUTION:
+   * template_generation_metrics.run_id references the graph `runs` table,
+   * NOT workflow_runs — only the engine template node may pass this.
+   */
+  runId?: string;
 }
 
 /**
@@ -179,8 +189,12 @@ export class EnhancedDocumentEngine {
       mapping,
       normalizationOptions = {},
       normalize = true,
+      templateId,
+      runId,
       ...baseOptions
     } = options;
+    // Metrics columns are uuids; preview runs use synthetic "preview-*" ids
+    const metricsRunId = runId && !runId.startsWith('preview-') ? runId : undefined;
 
     logger.info({
       outputName: baseOptions.outputName,
@@ -260,14 +274,17 @@ export class EnhancedDocumentEngine {
           durationMs: duration,
         }, 'Document generated successfully');
 
-        // Track successful generation (if templateId is available)
-        if (baseOptions.templatePath && !baseOptions.templatePath.startsWith('preview-')) {
+        // Track successful generation. Only when the caller provided the
+        // template row id — both metric columns are uuids, and the previous
+        // code passed the template file PATH and outputName here, so every
+        // insert failed with a uuid parse error.
+        if (templateId) {
           templateAnalytics.trackGeneration(
-            baseOptions.templatePath,
+            templateId,
             'success',
             duration,
             undefined,
-            baseOptions.outputName
+            metricsRunId
           ).catch((err) => {
             logger.warn({ error: err }, 'Failed to track generation metric');
           });
@@ -276,13 +293,13 @@ export class EnhancedDocumentEngine {
         const duration = Date.now() - startTime;
 
         // Track failed generation
-        if (baseOptions.templatePath && !baseOptions.templatePath.startsWith('preview-')) {
+        if (templateId) {
           templateAnalytics.trackGeneration(
-            baseOptions.templatePath,
+            templateId,
             'failure',
             duration,
             (error as Error).message,
-            baseOptions.outputName
+            metricsRunId
           ).catch((err) => {
             logger.warn({ error: err }, 'Failed to track generation metric');
           });
@@ -404,6 +421,9 @@ export class EnhancedDocumentEngine {
           pdfStrategy,
           normalizationOptions,
           normalize: true,
+          // No runId here: metrics run_id references the graph runs table,
+          // and Final Block runIds are workflow_runs ids
+          templateId: doc.documentId,
         });
 
         results.push({

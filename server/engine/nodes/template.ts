@@ -181,11 +181,13 @@ export async function executeTemplateNode(
         templatePath,
         rawData: resolvedBindings,
         outputDir,
-        outputName: config.outputName || 'generated-document',
+        outputName: config.outputName ?? 'generated-document',
         toPdf,
         normalize: false, // data is already resolved bindings
+        templateId: (template as { id: string }).id,
+        runId, // graph run id — matches template_generation_metrics.run_id FK
       });
-      if (!renderResult.docxPath) throw new Error('Document generation failed to produce a DOCX path');
+      if (!renderResult.docxPath) {throw new Error('Document generation failed to produce a DOCX path');}
       result = {
         fileRef: path.basename(renderResult.docxPath),
         pdfRef: renderResult.pdfPath ? path.basename(renderResult.pdfPath) : undefined,

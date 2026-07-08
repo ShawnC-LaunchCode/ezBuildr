@@ -12,6 +12,7 @@
  */
 
 import fs from 'fs/promises';
+import path from 'path';
 
 import Docxtemplater from 'docxtemplater';
 import PizZip from 'pizzip';
@@ -19,7 +20,7 @@ import PizZip from 'pizzip';
 import { createError } from '../utils/errors';
 
 import { docxHelpers } from './docxHelpers';
-import { templateFileExists, getTemplateFilePath } from './templateFiles';
+import { getTemplateFilePath } from './templateFiles';
 
 export interface PlaceholderInfo {
   name: string;
@@ -73,26 +74,35 @@ export interface ValidationWarning {
 }
 
 /**
- * Analyze a DOCX template
+ * Analyze a DOCX template.
+ * Accepts either a storage fileRef or an absolute file path — callers are
+ * split between the two (extractPlaceholders passes fileRefs; the renderers
+ * and test service pass resolved absolute paths).
  */
-export async function analyzeTemplate(fileRef: string): Promise<TemplateAnalysis> {
-  // Verify file exists
-  const exists = await templateFileExists(fileRef);
-  if (!exists) {
+export async function analyzeTemplate(fileRefOrPath: string): Promise<TemplateAnalysis> {
+  const templatePath = path.isAbsolute(fileRefOrPath)
+    ? fileRefOrPath
+    : getTemplateFilePath(fileRefOrPath);
+
+  try {
+    await fs.access(templatePath);
+  } catch {
     throw createError.notFound('Template file');
   }
-
-  const templatePath = getTemplateFilePath(fileRef);
 
   try {
     // Read template file
     const content = await fs.readFile(templatePath, 'binary');
     const zip = new PizZip(content);
 
-    // Create docxtemplater instance
+    // Create docxtemplater instance. Delimiters must match the product's
+    // {{...}} syntax — the library defaults to single braces and throws
+    // "duplicate open tag" when compiling real templates. (Only getFullText
+    // is used here; placeholder parsing below is regex-based.)
     const doc = new Docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true,
+      delimiters: { start: '{{', end: '}}' },
     });
 
     // Get full text
