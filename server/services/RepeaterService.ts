@@ -9,14 +9,7 @@ import { createLogger } from "../logger";
 import { evaluateCondition, type EvaluationContext } from "../workflows/conditions";
 
 import type { QueryListVariable } from "../../shared/types/query";
-import type {
-  RepeaterConfig,
-  RepeaterValue,
-  RepeaterInstance,
-  RepeaterValidationResult,
-  _RepeaterFieldValidation,
-  FlattenedRepeaterData,
-} from "../../shared/types/repeater";
+import type { RepeaterConfig, RepeaterValue, RepeaterInstance, RepeaterValidationResult, FlattenedRepeaterData } from "../../shared/types/repeater";
 const logger = createLogger({ module: "repeater-service" });
 export class RepeaterService {
   /**

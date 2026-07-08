@@ -276,7 +276,7 @@ describe('Expression Editor Hooks', () => {
           }),
         });
 
-      const { result, _rerender } = renderHook(
+      const { result, rerender: _rerender } = renderHook(
         () => useExpressionValidation('workflow-1', 'node-1', 100),
         { wrapper: createWrapper() }
       );

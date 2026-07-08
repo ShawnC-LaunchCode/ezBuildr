@@ -107,7 +107,7 @@ interface DocumentCardProps {
   index: number;
   preview: boolean;
 }
-function DocumentCard({ document, _index, preview }: DocumentCardProps) {
+function DocumentCard({ document, index: _index, preview }: DocumentCardProps) {
   // eslint-disable-next-line no-alert
   const handleDownload = () => {
     // Placeholder - actual download will be implemented in Prompt 10

@@ -10,7 +10,7 @@ import { createLogger } from '../../logger';
 import { AIError } from './AIError';
 import { ModelRegistry } from './ModelRegistry';
 
-import type { AIErrorCode, _TokenEstimate, _CostEstimate, _TruncationCheck } from './types';
+import type { AIErrorCode } from './types';
 import type { AIGeneratedWorkflow } from '../../../shared/types/ai';
 
 const logger = createLogger({ module: 'ai-service-utils' });

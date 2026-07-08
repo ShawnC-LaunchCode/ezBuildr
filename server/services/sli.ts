@@ -8,15 +8,7 @@
  */
 import { eq, and, gte, lte, isNull, desc } from 'drizzle-orm';
 
-import {
-  sliConfigs,
-  sliWindows,
-  metricsRollups,
-  _metricsEvents,
-  type InsertSliConfig,
-  type InsertSliWindow,
-  type SliConfig,
-} from '../../shared/schema';
+import { sliConfigs, sliWindows, metricsRollups, type InsertSliConfig, type InsertSliWindow, type SliConfig } from '../../shared/schema';
 import { db } from '../db';
 import logger from '../logger';
 export interface SliResult {

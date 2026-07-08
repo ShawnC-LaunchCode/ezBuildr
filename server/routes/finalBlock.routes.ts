@@ -223,9 +223,8 @@ export function registerFinalBlockRoutes(app: Express): void {
           runId: req.params.runId,
         }, 'Failed to generate Final Block documents');
 
-        const __r = classifyRouteError(error, 'Document generation failed');
-      res.status(__r.status).json({ success: false,
-          error: __r.message, });
+        const { status, message } = classifyRouteError(error, 'Document generation failed');
+      res.status(status).json({ success: false, error: message });
       }
     })
   );
@@ -327,9 +326,8 @@ export function registerFinalBlockRoutes(app: Express): void {
           workflowId: req.params.workflowId,
         }, 'Failed to generate preview Final Block documents');
 
-        const __r = classifyRouteError(error, 'Document generation failed');
-      res.status(__r.status).json({ success: false,
-          error: __r.message, });
+        const { status, message } = classifyRouteError(error, 'Document generation failed');
+      res.status(status).json({ success: false, error: message });
       }
     })
   );

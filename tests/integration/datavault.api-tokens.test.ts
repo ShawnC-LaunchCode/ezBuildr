@@ -2,15 +2,10 @@ import express, { type Express } from 'express';
 import _request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
-import {
-  _datavaultApiTokens,
-  _datavaultDatabases,
-  _tenants,
-  _users,
-} from '@shared/schema';
+
 
 import { registerDatavaultApiTokenRoutes } from '../../server/routes/datavaultApiTokens.routes';
-import { _hashToken, _generateApiToken } from '../../server/utils/encryption';
+
 /**
  * DataVault v4 Micro-Phase 5: API Tokens Integration Tests
  *

@@ -1,5 +1,4 @@
 import { randomUUID } from "crypto";
-import { classifyRouteError } from '../utils/routeErrors';
 import path from "path";
 
 import multer from "multer";
@@ -10,6 +9,7 @@ import { optionalHybridAuth, type AuthRequest } from '../middleware/auth';
 import { CaptchaService } from "../services/CaptchaService.js";
 import { intakeService } from "../services/IntakeService";
 import { asyncHandler } from '../utils/asyncHandler';
+import { classifyRouteError } from '../utils/routeErrors';
 import { uploadLimiter, strictLimiter } from "../middleware/rateLimiter";
 import { virusScanner } from "../services/security/VirusScanner";
 
@@ -95,8 +95,8 @@ export function registerIntakeRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, slug: req.params.slug }, "Error fetching published workflow");
-      const __r = classifyRouteError(error, "Failed to fetch workflow");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to fetch workflow");
+      res.status(status).json({ success: false, error: message });
     }
   }));
   /**
@@ -144,8 +144,8 @@ export function registerIntakeRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error }, "Error creating intake run");
-      const __r = classifyRouteError(error, "Failed to create run");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to create run");
+      res.status(status).json({ success: false, error: message });
     }
   }));
   /**
@@ -178,8 +178,8 @@ export function registerIntakeRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, token: req.params.token }, "Error saving intake progress");
-      const __r = classifyRouteError(error, "Failed to save progress");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to save progress");
+      res.status(status).json({ success: false, error: message });
     }
   }));
   /**
@@ -209,8 +209,8 @@ export function registerIntakeRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, token: req.params.token }, "Error submitting intake run");
-      const __r = classifyRouteError(error, "Failed to submit run");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to submit run");
+      res.status(status).json({ success: false, error: message });
     }
   }));
   /**
@@ -227,8 +227,8 @@ export function registerIntakeRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, token: req.params.token }, "Error fetching run status");
-      const __r = classifyRouteError(error, "Failed to fetch status");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to fetch status");
+      res.status(status).json({ success: false, error: message });
     }
   }));
   /**

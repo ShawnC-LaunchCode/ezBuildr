@@ -17,7 +17,7 @@ interface DevToolsPanelProps {
     onClose: () => void;
 }
 
-export function DevToolsPanel({ env, isOpen, _onClose }: DevToolsPanelProps) {
+export function DevToolsPanel({ env, isOpen, onClose: _onClose }: DevToolsPanelProps) {
     const state = usePreviewEnvironment(env);
     const [localOpen, setLocalOpen] = useState(true);
 

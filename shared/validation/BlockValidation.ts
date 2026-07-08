@@ -1,23 +1,4 @@
-import {
-    StepConfig,
-    TextAdvancedConfig,
-    _NumberAdvancedConfig,
-    _PhoneAdvancedConfig,
-    _EmailAdvancedConfig,
-    _WebsiteAdvancedConfig,
-    _ScaleAdvancedConfig,
-    _ChoiceAdvancedConfig,
-    _LegacyMultipleChoiceConfig,
-    _LegacyRadioConfig,
-    _DateTimeUnifiedConfig,
-    _DateConfig,
-    _AddressConfig,
-    _AddressAdvancedConfig,
-    _MultiFieldConfig,
-    isNumberConfig,
-    _isChoiceConfig,
-    _isAddressConfig,
-} from "../types/stepConfigs";
+import { StepConfig, TextAdvancedConfig, isNumberConfig } from "../types/stepConfigs";
 
 import { ValidationRule } from "./ValidationRule";
 import { ValidationSchema } from "./ValidationSchema";

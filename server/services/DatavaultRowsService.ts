@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-import type { DatavaultRow, _InsertDatavaultRow, DatavaultColumn } from "@shared/schema";
+import type { DatavaultRow, DatavaultColumn } from "@shared/schema";
 
 /** Typed union of all possible coerced cell values stored in DataVault */
 type CoercedValue = string | number | boolean | string[] | object | null;
@@ -529,7 +529,7 @@ export class DatavaultRowsService {
     const rowData = await this.rowsRepo.batchFindByIds(requests, tx);
 
     // Extract display values
-    requests.forEach(({ _tableId, rowIds, displayColumnSlug }) => {
+    requests.forEach(({ tableId: _tableId, rowIds, displayColumnSlug }) => {
       rowIds.forEach(rowId => {
         const data = rowData.get(rowId);
         if (!data) {

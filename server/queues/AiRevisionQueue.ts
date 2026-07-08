@@ -10,10 +10,8 @@ import { sectionService } from '../services/SectionService';
 import { stepService } from '../services/StepService';
 import { workflowService } from '../services/WorkflowService';
 
-
-
-import type { InsertSection, InsertStep, Workflow, Step, _InsertLogicRule, _InsertTransformBlock } from '../../shared/schema';
-import type { AIWorkflowRevisionRequest, _AIWorkflowRevisionResponse, AIGeneratedWorkflow } from '../../shared/types/ai';
+import type { InsertSection, InsertStep, Workflow, Step } from '../../shared/schema';
+import type { AIWorkflowRevisionRequest, AIGeneratedWorkflow } from '../../shared/types/ai';
 
 const logger = createLogger({ module: 'ai-revision-queue' });
 

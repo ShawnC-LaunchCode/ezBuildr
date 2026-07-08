@@ -298,7 +298,7 @@ test.describe("Token Security", () => {
       }
     }
   });
-  test("should enforce HTTPS in production", async ({ _page }) => {
+  test("should enforce HTTPS in production", async ({ page: _page }) => {
     // This test verifies the configuration
     // In production, tokens should only be sent over HTTPS
     const baseURL = process.env.PLAYWRIGHT_TEST_BASE_URL || "http://localhost:5174";

@@ -18,7 +18,7 @@ interface IntakeAssignmentSectionProps {
     runValues: Record<string, unknown>;
     onComplete?: () => void;
 }
-export function IntakeAssignmentSection({ workflow, runValues, _onComplete }: IntakeAssignmentSectionProps) {
+export function IntakeAssignmentSection({ workflow, runValues, onComplete: _onComplete }: IntakeAssignmentSectionProps) {
     // Fetch candidate workflows to display their names/details
     const { data: projectWorkflows } = useProjectWorkflows(workflow.projectId ?? undefined);
     // Evaluate assignments

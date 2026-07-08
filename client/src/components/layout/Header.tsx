@@ -7,9 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { _apiRequest, _queryClient } from "@/lib/queryClient";
-
-
 
 interface HeaderProps {
   title: string;

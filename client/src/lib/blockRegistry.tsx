@@ -12,28 +12,7 @@
  * @date December 2025
  */
 
-import {
-  Type,
-  AlignLeft,
-  ToggleLeft,
-  Phone,
-  Mail,
-  Globe,
-  Calendar,
-  Clock,
-  CalendarClock,
-  Circle,
-  CheckSquare,
-  Hash,
-  DollarSign,
-  Star,
-  FileText,
-  MapPin,
-  Grid3x3,
-  Code2,
-  _FileDown,
-  _PenTool,
-} from "lucide-react";
+import { Type, AlignLeft, ToggleLeft, Phone, Mail, Globe, Calendar, Clock, CalendarClock, Circle, CheckSquare, Hash, DollarSign, Star, FileText, MapPin, Grid3x3, Code2 } from "lucide-react";
 
 import type { StepConfig } from "@shared/types/stepConfigs";
 

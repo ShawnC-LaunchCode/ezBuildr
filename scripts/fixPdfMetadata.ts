@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 
 import { db, initializeDatabase } from '../server/db';
-import { _logger } from '../server/logger';
+
 import { getPdfFieldExtractor } from '../server/services/document/extractors/PdfFieldExtractor';
 // eslint-disable-next-line import/no-unresolved
 import { LocalStorageProvider } from '../server/services/storage/LocalStorageProvider';

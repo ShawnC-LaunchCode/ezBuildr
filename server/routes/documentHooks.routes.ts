@@ -4,6 +4,7 @@ import { z } from "zod";
 import { hybridAuth } from "../middleware/auth";
 import { documentHookService } from "../services/scripting/DocumentHookService";
 import { asyncHandler } from '../utils/asyncHandler';
+import { classifyRouteError } from '../utils/routeErrors';
 
 import type { AuthRequest } from "../middleware/auth";
 
@@ -75,10 +76,8 @@ router.get(
 
       res.json({ success: true, data: hooks });
     } catch (error) {
-      res.status(error instanceof Error && error.message.includes("Unauthorized") ? 403 : 500).json({
-        success: false,
-        error: "Failed to list document hooks",
-      });
+      const { status, message } = classifyRouteError(error, "Failed to list document hooks");
+      res.status(status).json({ success: false, error: message });
     }
   })
 );
@@ -114,10 +113,8 @@ router.post(
           details: error.errors,
         });
       } else {
-        res.status(error instanceof Error && error.message.includes("Unauthorized") ? 403 : 500).json({
-          success: false,
-          error: "Failed to create document hook",
-        });
+        const { status, message } = classifyRouteError(error, "Failed to create document hook");
+        res.status(status).json({ success: false, error: message });
       }
     }
   })
@@ -173,10 +170,8 @@ router.put("/document-hooks/:hookId", hybridAuth, asyncHandler(async (req, res) 
         details: error.errors,
       });
     } else {
-      res.status(error instanceof Error && error.message.includes("Unauthorized") ? 403 : 500).json({
-        success: false,
-        error: "Failed to update document hook",
-      });
+      const { status, message } = classifyRouteError(error, "Failed to update document hook");
+      res.status(status).json({ success: false, error: message });
     }
   }
 }));
@@ -196,10 +191,8 @@ router.delete("/document-hooks/:hookId", hybridAuth, asyncHandler(async (req, re
 
     res.json({ success: true });
   } catch (error) {
-    res.status(error instanceof Error && error.message.includes("Unauthorized") ? 403 : 500).json({
-      success: false,
-      error: "Failed to delete document hook",
-    });
+    const { status, message } = classifyRouteError(error, "Failed to delete document hook");
+    res.status(status).json({ success: false, error: message });
   }
 }));
 
@@ -228,10 +221,8 @@ router.post("/document-hooks/:hookId/test", hybridAuth, asyncHandler(async (req,
         details: error.errors,
       });
     } else {
-      res.status(error instanceof Error && error.message.includes("Unauthorized") ? 403 : 500).json({
-        success: false,
-        error: "Failed to test document hook",
-      });
+      const { status, message } = classifyRouteError(error, "Failed to test document hook");
+      res.status(status).json({ success: false, error: message });
     }
   }
 }));

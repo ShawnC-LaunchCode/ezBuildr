@@ -5,7 +5,7 @@
  * and integration with conditional visibility.
  */
 
-import type { Step, _Section } from "@shared/schema";
+import type { Step } from "@shared/schema";
 import type { RepeaterConfig, RepeaterValue } from "@shared/types/repeater";
 
 import { repeaterService } from "../services/RepeaterService";

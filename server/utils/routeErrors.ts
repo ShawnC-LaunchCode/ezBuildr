@@ -23,7 +23,9 @@ export function classifyRouteError(
   if (raw.includes('not found')) {
     return { status: 404, message: raw };
   }
-  if (raw.includes('Access denied') || raw.includes('Unauthorized')) {
+  // "Only the ..." covers owner-only operations, e.g. "Only the project owner
+  // can grant owner access to others" (ProjectService / WorkflowService).
+  if (raw.includes('Access denied') || raw.includes('Unauthorized') || raw.includes('Only the')) {
     return { status: 403, message: raw };
   }
   return { status: 500, message: fallback };

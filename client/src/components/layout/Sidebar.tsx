@@ -5,7 +5,7 @@ import logo from "@/assets/images/logo.png";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { _apiRequest, _queryClient } from "@/lib/queryClient";
+
 interface SidebarProps {
   className?: string;
 }

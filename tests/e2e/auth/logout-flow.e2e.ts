@@ -9,7 +9,7 @@ test.describe("Logout Flow", () => {
   test("should successfully logout and clear session", async ({
     page,
     devLogin,
-    _dashboardPage,
+    dashboardPage: _dashboardPage,
   }) => {
     // First login
     await devLogin();
@@ -54,7 +54,7 @@ test.describe("Logout Flow", () => {
   test("should redirect to login page after logout", async ({
     page,
     devLogin,
-    _dashboardPage,
+    dashboardPage: _dashboardPage,
   }) => {
     // Login
     await devLogin();
@@ -104,7 +104,7 @@ test.describe("Logout Flow", () => {
 
   test("should handle logout from multiple tabs/windows", async ({
     browser,
-    _devLogin,
+    devLogin: _devLogin,
   }) => {
     // Create two browser contexts (simulating tabs)
     const context1 = await browser.newContext();

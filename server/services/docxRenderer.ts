@@ -11,7 +11,7 @@ import path from 'path';
 // import { promisify } from 'util'; // Removed
 
 import Docxtemplater from 'docxtemplater';
-import { _PDFDocument, _StandardFonts, _rgb } from 'pdf-lib';
+
 import PizZip from 'pizzip';
 
 import { logger } from '../logger';

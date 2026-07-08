@@ -2,7 +2,7 @@ import { and, eq, exists, sql, desc, asc } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 import { datavaultRows, datavaultValues } from '@shared/schema';
-import type { WorkflowQuery, QueryFilter, _QuerySort, QueryListVariable } from '@shared/types/query';
+import type { WorkflowQuery, QueryFilter, QueryListVariable } from '@shared/types/query';
 
 import { db } from '../../db';
 import { datavaultRowsRepository } from '../../repositories/DatavaultRowsRepository';

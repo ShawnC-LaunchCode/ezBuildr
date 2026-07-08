@@ -8,20 +8,13 @@ import { createLimiter } from "../middleware/rateLimiting";
 import { sectionRepository } from "../repositories/SectionRepository";
 import { sectionService } from "../services/SectionService";
 import { asyncHandler } from "../utils/asyncHandler";
+import { classifyRouteError } from "../utils/routeErrors";
 
 import type { Express, Request, Response, NextFunction } from "express";
 
 const logger = createLogger({ module: "sections-routes" });
 
 const UNAUTHORIZED_MSG = "Unauthorized - no user ID";
-const ACCESS_DENIED = "Access denied";
-
-function errorStatus(message: string): number {
-  if (message.includes("not found")) { return 404; }
-  if (message.includes(ACCESS_DENIED)) { return 403; }
-  return 500;
-}
-
 /**
  * Middleware helper: Look up workflowId from sectionId before auto-revert
  * This allows auto-revert to work on simplified endpoints (without workflowId in path)
@@ -73,8 +66,8 @@ export function registerSectionRoutes(app: Express): void {
       res.status(201).json(section);
     } catch (error) {
       logger.error({ error }, "Error creating section");
-      const message = "Failed to create section";
-      res.status(errorStatus(message)).json({ message });
+      const { status, message } = classifyRouteError(error, "Failed to create section");
+      res.status(status).json({ message });
     }
   }));
 
@@ -93,8 +86,8 @@ export function registerSectionRoutes(app: Express): void {
       res.json(sections);
     } catch (error) {
       logger.error({ error }, "Error fetching sections");
-      const message = "Failed to fetch sections";
-      res.status(errorStatus(message)).json({ message });
+      const { status, message } = classifyRouteError(error, "Failed to fetch sections");
+      res.status(status).json({ message });
     }
   }));
 
@@ -113,8 +106,8 @@ export function registerSectionRoutes(app: Express): void {
       res.json(section);
     } catch (error) {
       logger.error({ error }, "Error fetching section");
-      const message = "Failed to fetch section";
-      res.status(errorStatus(message)).json({ message });
+      const { status, message } = classifyRouteError(error, "Failed to fetch section");
+      res.status(status).json({ message });
     }
   }));
 
@@ -151,8 +144,8 @@ export function registerSectionRoutes(app: Express): void {
       res.status(200).json({ message: "Sections reordered successfully" });
     } catch (error) {
       logger.error({ error }, "Error reordering sections");
-      const message = "Failed to reorder sections";
-      res.status(errorStatus(message)).json({ message });
+      const { status, message } = classifyRouteError(error, "Failed to reorder sections");
+      res.status(status).json({ message });
     }
   }));
 
@@ -173,8 +166,8 @@ export function registerSectionRoutes(app: Express): void {
       res.json(section);
     } catch (error) {
       logger.error({ error }, "Error updating section");
-      const message = "Failed to update section";
-      res.status(errorStatus(message)).json({ message });
+      const { status, message } = classifyRouteError(error, "Failed to update section");
+      res.status(status).json({ message });
     }
   }));
 
@@ -194,8 +187,8 @@ export function registerSectionRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, "Error deleting section");
-      const message = "Failed to delete section";
-      res.status(errorStatus(message)).json({ message });
+      const { status, message } = classifyRouteError(error, "Failed to delete section");
+      res.status(status).json({ message });
     }
   }));
 
@@ -221,8 +214,8 @@ export function registerSectionRoutes(app: Express): void {
       res.json(updatedSection);
     } catch (error) {
       logger.error({ error }, "Error updating section");
-      const message = "Failed to update section";
-      res.status(errorStatus(message)).json({ message });
+      const { status, message } = classifyRouteError(error, "Failed to update section");
+      res.status(status).json({ message });
     }
   }));
 
@@ -242,8 +235,8 @@ export function registerSectionRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, "Error deleting section");
-      const message = "Failed to delete section";
-      res.status(errorStatus(message)).json({ message });
+      const { status, message } = classifyRouteError(error, "Failed to delete section");
+      res.status(status).json({ message });
     }
   }));
 }

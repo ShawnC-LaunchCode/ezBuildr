@@ -3,16 +3,7 @@
  *
  * Manage email template metadata and branding token bindings
  */
-import {
-  Mail,
-  Search,
-  Edit,
-  _Eye,
-  ArrowLeft,
-  Loader2,
-  FileText,
-  Tag,
-} from 'lucide-react';
+import { Mail, Search, Edit, ArrowLeft, Loader2, FileText, Tag } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'wouter';
 
@@ -28,7 +19,7 @@ import { emailTemplateAPI, type EmailTemplateMetadata } from '@/lib/vault-api';
 export default function EmailTemplatesPage() {
   const { id: projectId } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
-  const { _user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user: _user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const [templates, setTemplates] = useState<EmailTemplateMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(true);

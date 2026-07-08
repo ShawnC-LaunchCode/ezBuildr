@@ -6,16 +6,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-import {
-  NoOpVirusScanner,
-  ClamAVVirusScanner,
-  getVirusScanner,
-  virusScanner,
-  resetVirusScannerInstance,
-  setVirusScannerInstance,
-  type IVirusScanner,
-  type _ScanResult,
-} from '../../../server/services/security/VirusScanner';
+import { NoOpVirusScanner, ClamAVVirusScanner, getVirusScanner, virusScanner, resetVirusScannerInstance, setVirusScannerInstance, type IVirusScanner } from '../../../server/services/security/VirusScanner';
 
 describe('VirusScanner', () => {
   beforeEach(() => {

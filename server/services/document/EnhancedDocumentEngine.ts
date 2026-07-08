@@ -15,14 +15,7 @@
  * @date December 6, 2025
  */
 
-import {
-  _DocumentGenerationError,
-  createNormalizationError,
-  createMappingError,
-  createRenderError,
-  wrapAsDocumentGenerationError,
-  isDocumentGenerationError
-} from '../../errors/DocumentGenerationError.js';
+import { createNormalizationError, createMappingError, createRenderError, wrapAsDocumentGenerationError, isDocumentGenerationError } from '../../errors/DocumentGenerationError.js';
 import { createLogger } from '../../logger.js';
 import { templateAnalytics } from '../TemplateAnalyticsService.js';
 
@@ -31,7 +24,7 @@ import { applyMapping, type DocumentMapping, type MappingResult } from './Mappin
 import { normalizeVariables, type NormalizedData, type NormalizationOptions } from './VariableNormalizer.js';
 
 import type { DocumentGenerationOptions, DocumentGenerationResult } from './DocumentEngine.js';
-import type { _FinalBlockConfig, LogicExpression } from '../../../shared/types/stepConfigs.js';
+import type { LogicExpression } from '../../../shared/types/stepConfigs.js';
 
 const logger = createLogger({ module: 'enhanced-doc-engine' });
 

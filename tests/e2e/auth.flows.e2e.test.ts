@@ -10,7 +10,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 describe("E2E Authentication Flows", () => {
   let _baseURL: string;
   beforeAll(async () => {
-    baseURL = process.env.TEST_BASE_URL || "http://localhost:5000";
+    _baseURL = process.env.TEST_BASE_URL || "http://localhost:5000";
   });
   describe("Complete Registration Flow", () => {
     it("should complete full registration and email verification flow", async () => {

@@ -15,7 +15,7 @@ import { ProviderFactory } from './providers/ProviderFactory';
 
 import type { IAIProvider } from './providers/types';
 import type { TaskType } from './types';
-import type { _AIProvider, AIProviderConfig } from '../../../shared/types/ai';
+import type { AIProviderConfig } from '../../../shared/types/ai';
 
 const logger = createLogger({ module: 'ai-provider-client' });
 

@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { generateOptionsFromList } from '../../../client/src/lib/choice-utils';
-import { _transformList, _arrayToListVariable } from '../../../shared/listPipeline';
+
 
 import type { ListVariable } from '../../../shared/types/blocks';
 import type { DynamicOptionsConfig } from '../../../shared/types/stepConfigs';

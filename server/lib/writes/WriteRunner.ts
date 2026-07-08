@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-import type { WriteBlockConfig, WriteResult, _ColumnMapping, BlockContext } from "@shared/types/blocks";
+import type { WriteBlockConfig, WriteResult, BlockContext } from "@shared/types/blocks";
 
 import { db } from "../../db";
 import { createLogger } from "../../logger";

@@ -19,7 +19,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { _useToast } from "@/hooks/use-toast";
+
 import { workflowAPI } from "@/lib/vault-api";
 // Assuming fetchWorkflow exists or I'll implement fetch logic inline or from a hook
 export default function OptimizationWizard() {

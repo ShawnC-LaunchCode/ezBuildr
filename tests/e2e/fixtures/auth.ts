@@ -45,7 +45,7 @@ export const test = base.extend<AuthFixtures>({
     await use(user);
   },
 
-  authenticatedPage: async ({ page, _testUser }, use) => {
+  authenticatedPage: async ({ page, testUser: _testUser }, use) => {
     // Session is already set up from testUser fixture
     // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(page);

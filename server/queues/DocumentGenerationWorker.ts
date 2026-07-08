@@ -49,7 +49,7 @@ async function processDocumentGenerationJob(
   job: Job<DocumentGenerationJobData>
 ): Promise<DocumentGenerationJobResult> {
   const startTime = Date.now();
-  const { runId, workflowId, _userId, _tenantId, renderOptions, notification } = job.data;
+  const { runId, workflowId, userId: _userId, tenantId: _tenantId, renderOptions, notification } = job.data;
 
   logger.info(
     {

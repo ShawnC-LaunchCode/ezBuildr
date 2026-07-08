@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { useQuery } from "@tanstack/react-query";
 
-import type { ApiWorkflow, _ApiRun, ApiStep } from "@/lib/vault-api";
+import type { ApiWorkflow, ApiStep } from "@/lib/vault-api";
 
 interface IntakeData {
     values: Record<string, unknown>; // alias -> value

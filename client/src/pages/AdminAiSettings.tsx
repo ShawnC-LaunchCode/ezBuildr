@@ -25,7 +25,7 @@ export default function AdminAiSettings() {
     const [prompt, setPrompt] = useState("");
 
     // Fetch current settings
-    const { data, isLoading, _error } = useQuery<AiSettingsResponse>({
+    const { data, isLoading, error: _error } = useQuery<AiSettingsResponse>({
         queryKey: ["/api/admin/ai-settings"],
         enabled: !!isAuthenticated && user?.role === 'admin',
     });

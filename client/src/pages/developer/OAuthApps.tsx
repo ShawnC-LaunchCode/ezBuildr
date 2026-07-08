@@ -2,7 +2,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 
-import { _Alert, _AlertDescription, _AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,7 +12,7 @@ export default function OAuthApps() {
     const [newRedirectUri, setNewRedirectUri] = useState("");
     const _queryClient = useQueryClient();
     // Mock Query - In real implementation, add GET /api/oauth-apps endpoint
-    const { data: apps, _isLoading } = useQuery({
+    const { data: apps, isLoading: _isLoading } = useQuery({
         queryKey: ['oauth-apps'],
         queryFn: async () => {
             // return fetch('/api/oauth-apps').then(res => res.json());

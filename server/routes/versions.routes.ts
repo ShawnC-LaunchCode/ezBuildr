@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { classifyRouteError } from '../utils/routeErrors';
 
 import { createLogger } from "../logger";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { versionService } from "../services/VersionService";
 import { asyncHandler } from "../utils/asyncHandler";
+import { classifyRouteError } from '../utils/routeErrors';
 
 import type { Express, Request, Response } from "express";
 
@@ -52,8 +52,8 @@ export function registerVersionRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, workflowId: req.params.id }, "Error listing versions");
-      const __r = classifyRouteError(error, "Failed to list versions");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to list versions");
+      res.status(status).json({ success: false, error: message });
     }
   }));
 
@@ -78,8 +78,8 @@ export function registerVersionRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, versionId: req.params.versionId, otherVersionId: req.params.otherVersionId }, "Error computing diff");
-      const __r = classifyRouteError(error, "Failed to compute diff");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to compute diff");
+      res.status(status).json({ success: false, error: message });
     }
   }));
 
@@ -116,8 +116,8 @@ export function registerVersionRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, workflowId: req.params.id }, "Error publishing version");
-      const __r = classifyRouteError(error, "Failed to publish version");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to publish version");
+      res.status(status).json({ success: false, error: message });
     }
   }));
 
@@ -146,8 +146,8 @@ export function registerVersionRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, workflowId: req.params.id }, "Error rolling back version");
-      const __r = classifyRouteError(error, "Failed to rollback");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to rollback");
+      res.status(status).json({ success: false, error: message });
     }
   }));
 
@@ -176,8 +176,8 @@ export function registerVersionRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, workflowId: req.params.id }, "Error pinning version");
-      const __r = classifyRouteError(error, "Failed to pin version");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to pin version");
+      res.status(status).json({ success: false, error: message });
     }
   }));
 

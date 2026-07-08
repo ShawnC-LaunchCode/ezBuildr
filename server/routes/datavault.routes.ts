@@ -1,11 +1,7 @@
 import { z } from 'zod';
 
 import { DATAVAULT_CONFIG } from '@shared/config';
-import {
-  insertDatavaultTableSchema,
-  insertDatavaultColumnSchema,
-  _insertDatavaultRowSchema,
-} from '@shared/schema';
+import { insertDatavaultTableSchema, insertDatavaultColumnSchema } from '@shared/schema';
 
 import { logger } from '../logger';
 import { hybridAuth, getAuthUserTenantId, getAuthUserId } from '../middleware/auth';
@@ -23,29 +19,13 @@ import {
   datavaultRowNotesService,
   datavaultTablePermissionsService,
 } from '../services';
-import { AclService } from '../services/AclService';
+import { aclService } from '../services/AclService';
 import { datavaultDatabasesService } from '../services/DatavaultDatabasesService';
 import { asyncHandler } from '../utils/asyncHandler';
+import { classifyRouteError } from '../utils/routeErrors';
 import { validationMessages } from '../utils/validationMessages';
 
 import type { Express, Request, Response } from 'express';
-const aclService = new AclService();
-/**
- * Classify a caught error into an HTTP status + response message.
- *
- * Derives the status from the ACTUAL thrown error (not a hardcoded string),
- * returning the intentional thrown message for 4xx cases while keeping 5xx
- * responses generic so internal error details are never leaked to clients.
- */
-function classifyDatavaultError(
-  error: unknown,
-  fallback: string
-): { status: number; message: string } {
-  const raw = error instanceof Error ? error.message : '';
-  if (raw.includes('not found')) return { status: 404, message: raw };
-  if (raw.includes('Access denied') || raw.includes('Unauthorized')) return { status: 403, message: raw };
-  return { status: 500, message: fallback };
-}
 /**
  * Register DataVault routes
  * DataVault Phase 1: Tenant-scoped custom data tables
@@ -183,7 +163,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json(database);
     } catch (error) {
       logger.error({ error }, 'Error fetching DataVault database');
-      const { status, message } = classifyDatavaultError(error, 'Failed to fetch database');
+      const { status, message } = classifyRouteError(error, 'Failed to fetch database');
       res.status(status).json({ message });
     }
   }));
@@ -222,7 +202,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const { status, message } = classifyDatavaultError(error, 'Failed to update database');
+      const { status, message } = classifyRouteError(error, 'Failed to update database');
       res.status(status).json({ message });
     }
   }));
@@ -238,7 +218,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error deleting DataVault database');
-      const { status, message } = classifyDatavaultError(error, 'Failed to delete database');
+      const { status, message } = classifyRouteError(error, 'Failed to delete database');
       res.status(status).json({ message });
     }
   }));
@@ -254,7 +234,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json(tables);
     } catch (error) {
       logger.error({ error }, 'Error fetching database tables');
-      const { status, message } = classifyDatavaultError(error, 'Failed to fetch tables');
+      const { status, message } = classifyRouteError(error, 'Failed to fetch tables');
       res.status(status).json({ message });
     }
   }));
@@ -336,7 +316,7 @@ export function registerDatavaultRoutes(app: Express): void {
     } catch (error) {
       // eslint-disable-next-line sonarjs/no-duplicate-string
       logger.error({ error }, 'Error fetching DataVault table');
-      const { status, message } = classifyDatavaultError(error, 'Failed to fetch table');
+      const { status, message } = classifyRouteError(error, 'Failed to fetch table');
       res.status(status).json({ message });
     }
   }));
@@ -371,7 +351,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const { status, message } = classifyDatavaultError(error, 'Failed to update table');
+      const { status, message } = classifyRouteError(error, 'Failed to update table');
       res.status(status).json({ message });
     }
   }));
@@ -397,7 +377,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const { status, message } = classifyDatavaultError(error, 'Failed to move table');
+      const { status, message } = classifyRouteError(error, 'Failed to move table');
       res.status(status).json({ message });
     }
   }));
@@ -420,7 +400,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error deleting DataVault table');
-      const { status, message } = classifyDatavaultError(error, 'Failed to delete table');
+      const { status, message } = classifyRouteError(error, 'Failed to delete table');
       res.status(status).json({ message });
     }
   }));
@@ -447,7 +427,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json(schema);
     } catch (error) {
       logger.error({ error }, 'Error fetching DataVault table schema');
-      const { status, message } = classifyDatavaultError(error, 'Failed to fetch table schema');
+      const { status, message } = classifyRouteError(error, 'Failed to fetch table schema');
       res.status(status).json({ message });
     }
   }));
@@ -469,7 +449,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json(columns);
     } catch (error) {
       logger.error({ error }, 'Error fetching DataVault columns');
-      const { status, message } = classifyDatavaultError(error, 'Failed to fetch columns');
+      const { status, message } = classifyRouteError(error, 'Failed to fetch columns');
       res.status(status).json({ message });
     }
   }));
@@ -502,7 +482,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const { status, message } = classifyDatavaultError(error, 'Failed to create column');
+      const { status, message } = classifyRouteError(error, 'Failed to create column');
       res.status(status).json({ message });
     }
   }));
@@ -537,7 +517,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const { status, message } = classifyDatavaultError(error, 'Failed to update column');
+      const { status, message } = classifyRouteError(error, 'Failed to update column');
       res.status(status).json({ message });
     }
   }));
@@ -559,7 +539,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error deleting DataVault column');
-      const { status, message } = classifyDatavaultError(error, 'Failed to delete column');
+      const { status, message } = classifyRouteError(error, 'Failed to delete column');
       res.status(status).json({ message });
     }
   }));
@@ -590,7 +570,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const { status, message } = classifyDatavaultError(error, 'Failed to reorder columns');
+      const { status, message } = classifyRouteError(error, 'Failed to reorder columns');
       res.status(status).json({ message });
     }
   }));
@@ -648,7 +628,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const { status, message } = classifyDatavaultError(error, 'Failed to resolve references');
+      const { status, message } = classifyRouteError(error, 'Failed to resolve references');
       res.status(status).json({ message });
     }
   }));
@@ -703,7 +683,7 @@ export function registerDatavaultRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error }, 'Error fetching DataVault rows');
-      const { status, message } = classifyDatavaultError(error, 'Failed to fetch rows');
+      const { status, message } = classifyRouteError(error, 'Failed to fetch rows');
       res.status(status).json({ message });
     }
   }));
@@ -742,7 +722,7 @@ export function registerDatavaultRoutes(app: Express): void {
       if (raw.includes('not a valid option') || raw.includes('missing') || raw.includes('Required')) {
         return res.status(400).json({ message: raw });
       }
-      const { status, message } = classifyDatavaultError(error, 'Failed to create row');
+      const { status, message } = classifyRouteError(error, 'Failed to create row');
       res.status(status).json({ message });
     }
   }));
@@ -766,7 +746,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json(row);
     } catch (error) {
       logger.error({ error }, 'Error fetching DataVault row');
-      const { status, message } = classifyDatavaultError(error, 'Failed to fetch row');
+      const { status, message } = classifyRouteError(error, 'Failed to fetch row');
       res.status(status).json({ message });
     }
   }));
@@ -804,7 +784,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const { status, message } = classifyDatavaultError(error, 'Failed to update row');
+      const { status, message } = classifyRouteError(error, 'Failed to update row');
       res.status(status).json({ message });
     }
   }));
@@ -835,7 +815,7 @@ export function registerDatavaultRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error }, 'Error checking row references');
-      const { status, message } = classifyDatavaultError(error, 'Failed to check references');
+      const { status, message } = classifyRouteError(error, 'Failed to check references');
       res.status(status).json({ message });
     }
   }));
@@ -864,7 +844,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error deleting DataVault row');
-      const { status, message } = classifyDatavaultError(error, 'Failed to delete row');
+      const { status, message } = classifyRouteError(error, 'Failed to delete row');
       res.status(status).json({ message });
     }
   }));
@@ -894,7 +874,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json({ success: true, message: 'Row archived successfully' });
     } catch (error) {
       logger.error({ error }, 'Error archiving DataVault row');
-      const { status, message } = classifyDatavaultError(error, 'Failed to archive row');
+      const { status, message } = classifyRouteError(error, 'Failed to archive row');
       res.status(status).json({ message });
     }
   });
@@ -921,7 +901,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json({ success: true, message: 'Row unarchived successfully' });
     } catch (error) {
       logger.error({ error }, 'Error unarchiving DataVault row');
-      const { status, message } = classifyDatavaultError(error, 'Failed to unarchive row');
+      const { status, message } = classifyRouteError(error, 'Failed to unarchive row');
       res.status(status).json({ message });
     }
   });
@@ -962,7 +942,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const { status, message } = classifyDatavaultError(error, 'Failed to archive rows');
+      const { status, message } = classifyRouteError(error, 'Failed to archive rows');
       res.status(status).json({ message });
     }
   }));
@@ -1003,7 +983,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const { status, message } = classifyDatavaultError(error, 'Failed to unarchive rows');
+      const { status, message } = classifyRouteError(error, 'Failed to unarchive rows');
       res.status(status).json({ message });
     }
   }));
@@ -1044,7 +1024,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const { status, message } = classifyDatavaultError(error, 'Failed to delete rows');
+      const { status, message } = classifyRouteError(error, 'Failed to delete rows');
       res.status(status).json({ message });
     }
   }));
@@ -1072,7 +1052,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json(notes);
     } catch (error) {
       logger.error({ error }, 'Error fetching row notes');
-      const { status, message } = classifyDatavaultError(error, 'Failed to fetch notes');
+      const { status, message } = classifyRouteError(error, 'Failed to fetch notes');
       res.status(status).json({ message });
     }
   }));
@@ -1110,7 +1090,7 @@ export function registerDatavaultRoutes(app: Express): void {
           errors: error.errors,
         });
       }
-      const { status, message } = classifyDatavaultError(error, 'Failed to create note');
+      const { status, message } = classifyRouteError(error, 'Failed to create note');
       res.status(status).json({ message });
     }
   }));
@@ -1139,7 +1119,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json({ success: true, message: 'Note deleted successfully' });
     } catch (error) {
       logger.error({ error }, 'Error deleting row note');
-      const { status, message } = classifyDatavaultError(error, 'Failed to delete note');
+      const { status, message } = classifyRouteError(error, 'Failed to delete note');
       res.status(status).json({ message });
     }
   }));
@@ -1166,7 +1146,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json(permissions);
     } catch (error) {
       logger.error({ error }, 'Error fetching table permissions');
-      const { status, message } = classifyDatavaultError(error, 'Failed to fetch permissions');
+      const { status, message } = classifyRouteError(error, 'Failed to fetch permissions');
       res.status(status).json({ message });
     }
   }));
@@ -1217,7 +1197,7 @@ export function registerDatavaultRoutes(app: Express): void {
       if (raw.includes('Cannot modify permissions for table owner')) {
         return res.status(500).json({ message: 'Cannot modify permissions for table owner' });
       }
-      const { status, message } = classifyDatavaultError(error, 'Failed to grant permission');
+      const { status, message } = classifyRouteError(error, 'Failed to grant permission');
       res.status(status).json({ message });
     }
   }));
@@ -1248,7 +1228,7 @@ export function registerDatavaultRoutes(app: Express): void {
       res.json({ success: true, message: 'Permission revoked successfully' });
     } catch (error) {
       logger.error({ error }, 'Error revoking table permission');
-      const { status, message } = classifyDatavaultError(error, 'Failed to revoke permission');
+      const { status, message } = classifyRouteError(error, 'Failed to revoke permission');
       res.status(status).json({ message });
     }
   }));
@@ -1287,7 +1267,7 @@ export function registerDatavaultRoutes(app: Express): void {
           details: error.errors,
         });
       }
-      const { status, message } = classifyDatavaultError(error, "Failed to transfer database ownership");
+      const { status, message } = classifyRouteError(error, "Failed to transfer database ownership");
       res.status(status).json({ success: false, error: message });
     }
   }));

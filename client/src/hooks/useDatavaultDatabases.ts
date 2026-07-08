@@ -2,12 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import * as api from '../lib/api/datavault';
 
-import type {
-  _DatavaultDatabase,
-  CreateDatabaseInput,
-  UpdateDatabaseInput,
-  DatavaultScopeType,
-} from '../lib/types/datavault';
+import type { CreateDatabaseInput, UpdateDatabaseInput, DatavaultScopeType } from '../lib/types/datavault';
 
 // ============================================================================
 // Query Keys

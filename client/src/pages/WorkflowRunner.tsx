@@ -43,7 +43,7 @@ interface SectionConfig {
 }
 
 // eslint-disable-next-line max-lines-per-function, complexity, sonarjs/cognitive-complexity
-export function WorkflowRunner({ runId, previewEnvironment, _isPreview = false, onPreviewComplete }: WorkflowRunnerProps) {
+export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPreview = false, onPreviewComplete }: WorkflowRunnerProps) {
   const [actualRunId, setActualRunId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);

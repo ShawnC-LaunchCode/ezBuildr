@@ -1,7 +1,7 @@
 import { neon, neonConfig } from '@neondatabase/serverless';
 import dotenv from 'dotenv';
-import { _sql } from 'drizzle-orm';
-import { _drizzle } from 'drizzle-orm/neon-http';
+
+
 
 dotenv.config();
 

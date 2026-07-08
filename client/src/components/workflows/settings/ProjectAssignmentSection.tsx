@@ -40,7 +40,7 @@ interface ProjectAssignmentSectionProps {
 }
 
 export function ProjectAssignmentSection({
-  _workflowId,
+  workflowId: _workflowId,
   workflowName,
   currentProjectId,
   currentProjectName,

@@ -2,7 +2,7 @@ import express, { type Express } from 'express';
 import _request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
-import { _tenants, _users, _tenantDomains } from '@shared/schema';
+
 import type { TenantBranding } from '@shared/types/branding';
 
 import { registerBrandingRoutes } from '../../server/routes/branding.routes';

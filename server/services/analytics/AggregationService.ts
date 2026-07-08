@@ -5,13 +5,7 @@
  */
 import { eq, and } from "drizzle-orm";
 
-import {
-    workflowRunEvents,
-    workflowRunMetrics,
-    blockMetrics,
-    _workflowAnalyticsSnapshots,
-    _workflowRuns
-} from "../../../shared/schema";
+import { workflowRunEvents, workflowRunMetrics, blockMetrics } from "../../../shared/schema";
 import { db } from "../../db";
 import logger from "../../logger";
 class AggregationService {

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, type _UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
 
 import { blockAPI, type ApiBlock } from "../../lib/vault-api";
 

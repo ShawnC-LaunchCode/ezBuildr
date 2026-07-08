@@ -1,18 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-import {
-  hasPermission,
-  requirePermission,
-  requireAnyPermission,
-  requireAllPermissions,
-  requireRole,
-  requireOwner,
-  requireBuilder,
-  requireRunner,
-  getUserPermissions,
-  type UserRole,
-  type _Permission,
-} from '../../../server/middleware/rbac';
+import { hasPermission, requirePermission, requireAnyPermission, requireAllPermissions, requireRole, requireOwner, requireBuilder, requireRunner, getUserPermissions, type UserRole } from '../../../server/middleware/rbac';
 
 import type { AuthRequest } from '../../../server/middleware/auth';
 import type { Request, Response, NextFunction } from 'express';

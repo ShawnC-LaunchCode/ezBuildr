@@ -64,7 +64,7 @@ export default function VisualWorkflowBuilder() {
     setDirty,
     setSaving,
     setSaveError,
-    _nodes,
+    nodes: _nodes,
     duplicateNode,
     deleteNode,
     selectedNodeId,

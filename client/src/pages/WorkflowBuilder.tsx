@@ -36,13 +36,7 @@ import FeedbackWidget from "@/components/FeedbackWidget";
 import Sidebar from "@/components/layout/Sidebar";
 import { PreviewRunner } from "@/components/preview/PreviewRunner";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  _DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -96,7 +90,6 @@ export default function WorkflowBuilder() {
     (searchParams.get("tab") as BuilderTab) ?? "sections"
   );
   const mode = workflowMode?.mode ?? 'easy';
-
 
   // Sort versions to find latest published
   const versionsArray = Array.isArray(versions) ? versions : [];

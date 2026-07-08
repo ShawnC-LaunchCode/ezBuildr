@@ -14,7 +14,7 @@ interface ResultsPanelProps {
 }
 
 // eslint-disable-next-line complexity
-export function ResultsPanel({ _status, result }: ResultsPanelProps) {
+export function ResultsPanel({ status: _status, result }: ResultsPanelProps) {
   const hasErrors = result?.errors && result.errors.length > 0;
   const hasOutputs = result?.docxUrl ?? result?.pdfUrl;
 

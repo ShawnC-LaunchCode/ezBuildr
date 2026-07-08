@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { insertProjectSchema } from "@shared/schema";
-import type { PrincipalType, _User } from "@shared/schema";
+import type { PrincipalType } from "@shared/schema";
 
 import { logger } from "../logger";
 import { hybridAuth } from '../middleware/auth';
@@ -9,40 +9,13 @@ import { requireUser } from '../middleware/requireUser';
 import { validateProjectId } from '../middleware/validateId';
 import { projectService } from "../services/ProjectService";
 import { asyncHandler } from "../utils/asyncHandler";
+import { classifyRouteError } from "../utils/routeErrors";
 
 import type { UserRequest } from '../middleware/requireUser';
 import type { Express, Request, Response } from "express";
 
 const ERR_CREATING_PROJECT = "Failed to create project";
-const ERR_NOT_FOUND = "not found";
-const ERR_ACCESS_DENIED = "Access denied";
-const STATUS_NOT_FOUND = 404;
-const STATUS_FORBIDDEN = 403;
 const STATUS_INTERNAL = 500;
-
-function errorStatus(message: string): number {
-  if (message.includes(ERR_NOT_FOUND)) {
-    return STATUS_NOT_FOUND;
-  }
-  if (message.includes(ERR_ACCESS_DENIED)) {
-    return STATUS_FORBIDDEN;
-  }
-  return STATUS_INTERNAL;
-}
-
-function errorStatusWithOwner(message: string): number {
-  if (message.includes(ERR_NOT_FOUND)) {
-    return STATUS_NOT_FOUND;
-  }
-  if (message.includes(ERR_ACCESS_DENIED) || message.includes("Only the")) {
-    return STATUS_FORBIDDEN;
-  }
-  return STATUS_INTERNAL;
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
-}
 
 /**
  * Register project-related routes
@@ -119,8 +92,7 @@ export function registerProjectRoutes(app: Express): void {
       res.json(project);
     } catch (error) {
       logger.error({ error }, "Error fetching project");
-      const message = getErrorMessage(error, "Failed to fetch project");
-      const status = errorStatus(message);
+      const { status, message } = classifyRouteError(error, "Failed to fetch project");
       res.status(status).json({ message });
     }
   }));
@@ -139,8 +111,7 @@ export function registerProjectRoutes(app: Express): void {
       res.json(workflows);
     } catch (error) {
       logger.error({ error }, "Error fetching project workflows");
-      const message = getErrorMessage(error, "Failed to fetch project workflows");
-      const status = errorStatus(message);
+      const { status, message } = classifyRouteError(error, "Failed to fetch project workflows");
       res.status(status).json({ message });
     }
   }));
@@ -165,8 +136,7 @@ export function registerProjectRoutes(app: Express): void {
       res.json(project);
     } catch (error) {
       logger.error({ error }, "Error updating project");
-      const message = getErrorMessage(error, "Failed to update project");
-      const status = errorStatus(message);
+      const { status, message } = classifyRouteError(error, "Failed to update project");
       res.status(status).json({ message });
     }
   }));
@@ -185,8 +155,7 @@ export function registerProjectRoutes(app: Express): void {
       res.json(project);
     } catch (error) {
       logger.error({ error }, "Error archiving project");
-      const message = getErrorMessage(error, "Failed to archive project");
-      const status = errorStatus(message);
+      const { status, message } = classifyRouteError(error, "Failed to archive project");
       res.status(status).json({ message });
     }
   }));
@@ -205,8 +174,7 @@ export function registerProjectRoutes(app: Express): void {
       res.json(project);
     } catch (error) {
       logger.error({ error }, "Error unarchiving project");
-      const message = getErrorMessage(error, "Failed to unarchive project");
-      const status = errorStatus(message);
+      const { status, message } = classifyRouteError(error, "Failed to unarchive project");
       res.status(status).json({ message });
     }
   }));
@@ -226,8 +194,7 @@ export function registerProjectRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, "Error deleting project");
-      const message = getErrorMessage(error, "Failed to delete project");
-      const status = errorStatus(message);
+      const { status, message } = classifyRouteError(error, "Failed to delete project");
       res.status(status).json({ message });
     }
   }));
@@ -250,8 +217,7 @@ export function registerProjectRoutes(app: Express): void {
       res.json({ success: true, data: access });
     } catch (error) {
       logger.error({ error }, "Error fetching project access");
-      const message = getErrorMessage(error, "Failed to fetch project access");
-      const status = errorStatus(message);
+      const { status, message } = classifyRouteError(error, "Failed to fetch project access");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -294,8 +260,7 @@ export function registerProjectRoutes(app: Express): void {
         });
       }
 
-      const message = getErrorMessage(error, "Failed to grant project access");
-      const status = errorStatusWithOwner(message);
+      const { status, message } = classifyRouteError(error, "Failed to grant project access");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -332,8 +297,7 @@ export function registerProjectRoutes(app: Express): void {
         });
       }
 
-      const message = getErrorMessage(error, "Failed to revoke project access");
-      const status = errorStatus(message);
+      const { status, message } = classifyRouteError(error, "Failed to revoke project access");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -367,8 +331,7 @@ export function registerProjectRoutes(app: Express): void {
         });
       }
 
-      const message = getErrorMessage(error, "Failed to transfer project ownership");
-      const status = errorStatusWithOwner(message);
+      const { status, message } = classifyRouteError(error, "Failed to transfer project ownership");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -411,8 +374,7 @@ export function registerProjectRoutes(app: Express): void {
         });
       }
 
-      const message = getErrorMessage(error, "Failed to transfer project ownership");
-      const status = errorStatus(message);
+      const { status, message } = classifyRouteError(error, "Failed to transfer project ownership");
       res.status(status).json({ success: false, error: message });
     }
   }));

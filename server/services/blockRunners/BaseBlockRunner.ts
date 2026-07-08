@@ -6,16 +6,7 @@
 
 import { logger } from "../../logger";
 
-import type {
-  BlockContext,
-  BlockResult,
-  Block,
-  IBlockRunner,
-  ComparisonOperator,
-  WhenCondition,
-  AssertExpression,
-  _ReadTableOperator,
-} from "./types";
+import type { BlockContext, BlockResult, Block, IBlockRunner, ComparisonOperator, WhenCondition, AssertExpression } from "./types";
 
 // Security: limit regex pattern size to prevent ReDoS
 const MAX_REGEX_PATTERN_LENGTH = 100;

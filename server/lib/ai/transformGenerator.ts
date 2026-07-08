@@ -26,7 +26,7 @@ const getModel = () => {
         generateContent: async () => ({
           response: { text: () => "{ \"transforms\": [] }" }
         })
-      } as unknown as ReturnType<typeof genAI.getGenerativeModel>;
+      } as unknown as ReturnType<GoogleGenerativeAI['getGenerativeModel']>;
     }
     throw e;
   }

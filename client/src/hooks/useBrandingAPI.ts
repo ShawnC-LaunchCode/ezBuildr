@@ -1,17 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-import type {
-  TenantBranding,
-  TenantDomain,
-  GetBrandingResponse,
-  _UpdateBrandingRequest,
-  UpdateBrandingResponse,
-  GetDomainsResponse,
-  CreateDomainRequest,
-  CreateDomainResponse,
-  _DeleteDomainResponse,
-} from '@shared/types/branding';
+import type { TenantBranding, TenantDomain, GetBrandingResponse, UpdateBrandingResponse, GetDomainsResponse, CreateDomainRequest, CreateDomainResponse } from '@shared/types/branding';
 
 /**
  * Stage 17: Branding API Hooks

@@ -229,7 +229,7 @@ export type WriteNodeOutput = QueryNodeOutput; // Same structure
 
 // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 export async function executeWriteNode(input: WriteNodeInput): Promise<WriteNodeOutput> {
-    const { nodeId, config, context, tenantId, _userInputs } = input;
+    const { nodeId, config, context, tenantId, userInputs: _userInputs } = input;
 
     try {
         // IDEMPOTENCY GUARD (PART 4)

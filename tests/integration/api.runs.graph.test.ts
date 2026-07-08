@@ -239,8 +239,11 @@ describe("Stage 8: Runs API Integration Tests", () => {
   afterAll(async () => {
     try {
       if (tenantId) {
-        // Clean up workflows first (cascades to workflow_versions and runs)
-        await db.delete(schema.workflows).where(eq((schema.workflows as any).tenantId, tenantId));
+        // Clean up workflows first (cascades to workflow_versions and runs).
+        // NOTE: the `workflows` table has no tenantId column — workflows are owned via
+        // creatorId/ownerId (and linked to a tenant only indirectly through project).
+        // Delete by creatorId (the fixed test user) to match the RBAC-test cleanup pattern.
+        await db.delete(schema.workflows).where(eq(schema.workflows.creatorId, userId));
         // Delete tenant (cascades to projects, users, etc.)
         await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
       }

@@ -6,11 +6,7 @@ import { refreshTokens } from "@shared/schema";
 
 import { db } from "../../server/db";
 import { createTestApp } from "../helpers/testApp";
-import {
-  _cleanAuthTables,
-  deleteTestUser,
-  createVerifiedUser,
-} from "../helpers/testUtils";
+import { deleteTestUser, createVerifiedUser } from "../helpers/testUtils";
 
 import type { Express } from "express";
 /**

@@ -24,7 +24,7 @@ import { documentHookService } from '../scripting/DocumentHookService.js';
 import { enhancedDocumentEngine } from './EnhancedDocumentEngine.js';
 import { createFinalBlockZip, type ZipDocument, type ZipResult } from './ZipBundler.js';
 
-import type { EnhancedGenerationResult, _FinalBlockRenderResult } from './EnhancedDocumentEngine.js';
+import type { EnhancedGenerationResult } from './EnhancedDocumentEngine.js';
 import type { FinalBlockConfig } from '../../../shared/types/stepConfigs.js';
 
 

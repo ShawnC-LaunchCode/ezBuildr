@@ -10,7 +10,7 @@
  *   tsx scripts/migrateTransformBlockVirtualSteps.ts
  */
 
-import { eq, isNull, _and } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 
 import { transformBlocks, steps, sections } from "@shared/schema";
 

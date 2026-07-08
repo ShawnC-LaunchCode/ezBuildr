@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto';
 
 import { eq } from 'drizzle-orm';
 
-import { workflows, sections, steps, _templates, projects, users } from '@shared/schema';
+import { workflows, sections, steps, projects, users } from '@shared/schema';
 
 import { initializeDatabase, getDb } from '../server/db';
 

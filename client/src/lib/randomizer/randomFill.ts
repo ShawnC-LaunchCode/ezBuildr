@@ -17,20 +17,7 @@
 
 import type { ApiStep } from '@/lib/vault-api';
 
-import type {
-  ChoiceAdvancedConfig,
-  MultiFieldConfig,
-  AddressConfig,
-  ScaleConfig,
-  NumberConfig,
-  CurrencyConfig,
-  _PhoneConfig,
-  _EmailConfig,
-  _DateConfig,
-  _TimeConfig,
-  _DateTimeConfig,
-  BooleanAdvancedConfig,
-} from '../../../../shared/types/stepConfigs';
+import type { ChoiceAdvancedConfig, MultiFieldConfig, AddressConfig, ScaleConfig, NumberConfig, CurrencyConfig, BooleanAdvancedConfig } from '../../../../shared/types/stepConfigs';
 
 // ============================================================================
 // RANDOM DATA GENERATORS

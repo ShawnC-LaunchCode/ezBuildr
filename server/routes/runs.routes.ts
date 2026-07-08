@@ -7,6 +7,7 @@ import { creatorOrRunTokenAuth, type RunAuthRequest } from "../middleware/runTok
 import { strictLimiter } from "../middleware/rateLimiter";
 import { runService } from "../services/RunService";
 import { asyncHandler } from "../utils/asyncHandler";
+import { classifyRouteError } from "../utils/routeErrors";
 
 const CreateRunBodySchema = z.object({
   initialValues: z.record(z.any()).optional(),
@@ -24,7 +25,6 @@ const logger = createLogger({ module: "runs-routes" });
 const ERROR_UNAUTHORIZED_NO_USER = "Unauthorized - no user ID";
 // eslint-disable-next-line sonarjs/no-duplicate-string
 const ERROR_ACCESS_DENIED = "Access denied";
-const ERROR_NOT_FOUND = "not found";
 
 /**
  * Register workflow run-related routes
@@ -54,10 +54,7 @@ export function registerRunRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, slug: req.params.publicLinkSlug }, "Error starting anonymous run");
-      const message = "Failed to start workflow";
-      const status = message.includes(ERROR_NOT_FOUND) ? 404 :
-        message.includes("not active") ? 403 :
-          message.includes("not public") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to start workflow");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -142,11 +139,7 @@ export function registerRunRoutes(app: Express): void {
           workflowId: req.params.workflowId
         }, "Error creating run (non-Error object)");
       }
-      const message = "Failed to create run";
-      const status = message.includes(ERROR_NOT_FOUND) ? 404 :
-        message.includes(ERROR_ACCESS_DENIED) ? 403 :
-          message.includes("not active") ? 403 :
-            message.includes("not configured") ? 503 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to create run");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -169,8 +162,7 @@ export function registerRunRoutes(app: Express): void {
       res.json({ success: true, data: run });
     } catch (error) {
       logger.error({ error }, "Error fetching run");
-      const message = "Failed to fetch run";
-      const status = message.includes(ERROR_NOT_FOUND) ? 404 : message.includes(ERROR_ACCESS_DENIED) ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to fetch run");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -192,8 +184,7 @@ export function registerRunRoutes(app: Express): void {
       res.json({ success: true, message: "Run token revoked" });
     } catch (error) {
       logger.error({ error }, "Error revoking run token");
-      const message = "Failed to revoke run token";
-      const status = message.includes(ERROR_NOT_FOUND) ? 404 : message.includes(ERROR_ACCESS_DENIED) ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to revoke run token");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -240,8 +231,7 @@ export function registerRunRoutes(app: Express): void {
         hasRunAuth: (req as RunAuthRequest).runAuth != null,
         userId: (req as AuthRequest).userId
       }, "Error fetching run with values");
-      const message = "Failed to fetch run";
-      const status = message.includes(ERROR_NOT_FOUND) ? 404 : message.includes(ERROR_ACCESS_DENIED) ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to fetch run");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -281,8 +271,7 @@ export function registerRunRoutes(app: Express): void {
       res.status(200).json({ success: true, message: "Step value saved" });
     } catch (error) {
       logger.error({ error }, "Error saving step value");
-      const message = "Failed to save step value";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to save step value");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -343,10 +332,7 @@ export function registerRunRoutes(app: Express): void {
         runId,
         sectionId,
       }, "Error submitting section values");
-      const message = "Failed to submit section values";
-      const status = message.includes("not found") ? 404 :
-        message.includes("Access denied") ? 403 :
-          message.includes("already completed") ? 400 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to submit section values");
       res.status(status).json({ success: false, errors: [message] });
     }
   }));
@@ -378,8 +364,7 @@ export function registerRunRoutes(app: Express): void {
       res.json({ success: true, data: result });
     } catch (error) {
       logger.error({ error }, "Error navigating to next section");
-      const message = "Failed to navigate to next section";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to navigate to next section");
       res.status(status).json({ success: false, errors: [message] });
     }
   }));
@@ -415,8 +400,7 @@ export function registerRunRoutes(app: Express): void {
       res.status(200).json({ success: true, message: "Step values saved" });
     } catch (error) {
       logger.error({ error }, "Error saving step values");
-      const message = "Failed to save step values";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to save step values");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -448,8 +432,7 @@ export function registerRunRoutes(app: Express): void {
       res.json({ success: true, data: run });
     } catch (error) {
       logger.error({ error }, "Error completing run");
-      const message = "Failed to complete run";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : message.includes("Missing required") ? 400 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to complete run");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -469,8 +452,7 @@ export function registerRunRoutes(app: Express): void {
       res.json(runs);
     } catch (error) {
       logger.error({ error }, "Error listing runs");
-      const message = "Failed to list runs";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to list runs");
       res.status(status).json({ message });
     }
   }));
@@ -513,8 +495,7 @@ export function registerRunRoutes(app: Express): void {
       res.json({ success: true, documents });
     } catch (error) {
       logger.error({ error, runId: req.params.runId }, "Error fetching generated documents");
-      const message = "Failed to fetch documents";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to fetch documents");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -556,8 +537,7 @@ export function registerRunRoutes(app: Express): void {
       return res.json({ success: true, message: "Documents generation triggered" });
     } catch (error) {
       logger.error({ error, runId: req.params.runId }, "Error generating documents");
-      const message = "Failed to generate documents";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to generate documents");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -597,8 +577,7 @@ export function registerRunRoutes(app: Express): void {
       return res.json({ success: true, message: "Documents deleted successfully" });
     } catch (error) {
       logger.error({ error, runId: req.params.runId }, "Error deleting documents");
-      const message = "Failed to delete documents";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to delete documents");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -620,8 +599,7 @@ export function registerRunRoutes(app: Express): void {
       res.json({ success: true, data: result });
     } catch (error) {
       logger.error({ error, runId: req.params.runId }, "Error sharing run");
-      const message = "Failed to share run";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
+      const { status, message } = classifyRouteError(error, "Failed to share run");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -636,8 +614,11 @@ export function registerRunRoutes(app: Express): void {
       res.json({ success: true, data: result });
     } catch (error) {
       logger.error({ error, token: req.params.token }, "Error fetching shared run");
-      const message = "Failed to fetch shared run";
-      const status = message.includes("not found") ? 404 : 400; // 400 for expired
+      // Expired share links are a client-fixable condition, not a server error
+      if (error instanceof Error && error.message.includes("expired")) {
+        return res.status(400).json({ success: false, error: error.message });
+      }
+      const { status, message } = classifyRouteError(error, "Failed to fetch shared run");
       res.status(status).json({ success: false, error: message });
     }
   }));

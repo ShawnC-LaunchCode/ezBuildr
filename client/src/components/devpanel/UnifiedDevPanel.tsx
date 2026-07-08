@@ -20,7 +20,7 @@ interface UnifiedDevPanelProps {
 }
 
 export function UnifiedDevPanel({
-    _workflowId,
+    workflowId: _workflowId,
     isOpen,
     onToggle,
     className,

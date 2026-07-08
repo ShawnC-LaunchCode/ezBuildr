@@ -27,7 +27,7 @@ export function ExpressionEditor({
   onChange,
   nodeId,
   workflowId,
-  _placeholder = 'Enter expression...',
+  placeholder: _placeholder = 'Enter expression...',
   height = '100px',
   language = 'plaintext',
 }: ExpressionEditorProps) {

@@ -2,7 +2,7 @@ import express, { type Express } from 'express';
 import _request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
-import { _datavaultTables, _datavaultColumns, _datavaultRows, _datavaultValues } from '@shared/schema';
+
 
 import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
 /**

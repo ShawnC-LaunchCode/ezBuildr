@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { classifyRouteError } from '../utils/routeErrors';
 
 import { logger } from "../logger";
 import { hybridAuth } from '../middleware/auth';
 import { requireUser, type UserRequest } from '../middleware/requireUser';
 import { accountService } from "../services/AccountService";
 import { asyncHandler } from '../utils/asyncHandler';
+import { classifyRouteError } from '../utils/routeErrors';
 
 import type { Express, Request, Response } from "express";
 
@@ -27,8 +27,8 @@ export function registerAccountRoutes(app: Express): void {
       res.json({ success: true, data: preferences });
     } catch (error) {
       logger.error({ err: error }, "Error fetching account preferences");
-      const __r = classifyRouteError(error, "Failed to fetch preferences");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to fetch preferences");
+      res.status(status).json({ success: false, error: message });
     }
   }));
 
@@ -61,8 +61,8 @@ export function registerAccountRoutes(app: Express): void {
         });
       }
 
-      const __r = classifyRouteError(error, "Failed to update preferences");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to update preferences");
+      res.status(status).json({ success: false, error: message });
     }
   }));
 }

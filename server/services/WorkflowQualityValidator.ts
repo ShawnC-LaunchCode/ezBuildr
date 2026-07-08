@@ -7,7 +7,7 @@
 
 import { createLogger } from '../logger';
 
-import type { AIGeneratedWorkflow, _AIGeneratedStep, _AIGeneratedSection } from '../../shared/types/ai';
+import type { AIGeneratedWorkflow } from '../../shared/types/ai';
 
 const logger = createLogger({ module: 'workflow-quality-validator' });
 

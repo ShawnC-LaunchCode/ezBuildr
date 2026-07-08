@@ -26,7 +26,7 @@ import helmet from 'helmet';
 
 import { createLogger } from '../logger.js';
 
-import type { _Request, _Response, _NextFunction } from 'express';
+
 
 const logger = createLogger({ module: 'security-headers' });
 

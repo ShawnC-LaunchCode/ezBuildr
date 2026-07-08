@@ -15,19 +15,11 @@
  * }
  */
 
-
 import { Loader2, MapPin } from "lucide-react";
 import React, { useRef, useState, useEffect } from "react";
 
 // Removed wouter hooks to safely handle URLs without re-renders
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  _CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -150,7 +142,6 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
       );
     }
   }, []);
-
 
   // Helper to get auth headers
   const getHeaders = () => {
@@ -333,7 +324,6 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [wrapperRef]);
-
 
   return (
     <div className="space-y-3" ref={wrapperRef}>

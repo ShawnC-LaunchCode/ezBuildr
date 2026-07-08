@@ -8,7 +8,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 
-import { describe, it, expect, vi, beforeEach, _afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Read the source file to verify it uses execFile
 describe('PdfService Security - Command Execution', () => {

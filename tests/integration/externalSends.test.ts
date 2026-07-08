@@ -3,12 +3,7 @@ import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { describe, it, expect, beforeEach, afterAll, beforeAll, vi } from 'vitest';
 
-import {
-    tenants, projects, workflows, sections, steps, blocks,
-    users, workspaces, externalDestinations, workflowVersions,
-    type _InsertTenant, type _InsertProject, type _InsertWorkflow,
-    type _InsertSection, type _InsertStep, type _InsertBlock, type _InsertExternalDestination
-} from '@shared/schema';
+import { tenants, projects, workflows, sections, steps, blocks, users, workspaces, externalDestinations, workflowVersions } from '@shared/schema';
 
 import { db } from '../../server/db';
 import { runExecutionCoordinator, type ExecutionContext } from '../../server/services/runs/RunExecutionCoordinator';

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { evaluateConditionExpression } from "@shared/conditionEvaluator";
-import type { Section, _Step, LogicRule } from "@shared/schema";
+import type { Section, LogicRule } from "@shared/schema";
 import {
   evaluateRules,
   calculateNextSection,

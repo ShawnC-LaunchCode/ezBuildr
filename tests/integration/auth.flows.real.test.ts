@@ -6,14 +6,7 @@ import { loginAttempts, accountLocks } from "@shared/schema";
 
 import { db } from "../../server/db";
 import { createTestApp } from "../helpers/testApp";
-import {
-  _cleanAuthTables,
-  deleteTestUser,
-  randomEmail,
-  randomPassword,
-  createVerifiedUser,
-  generateTotpCode,
-} from "../helpers/testUtils";
+import { deleteTestUser, randomEmail, randomPassword, createVerifiedUser, generateTotpCode } from "../helpers/testUtils";
 
 import type { Express } from "express";
 /**

@@ -8,7 +8,7 @@ interface TransformListProps {
     setTransforms: (t: any[]) => void;
 }
 
-export const TransformList: React.FC<TransformListProps> = ({ transforms, _setTransforms }) => {
+export const TransformList: React.FC<TransformListProps> = ({ transforms, setTransforms: _setTransforms }) => {
     return (
         <div className="space-y-2">
             {transforms.length === 0 && (

@@ -94,7 +94,7 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
     }
   }, [runId]); // Only run once when runId changes
   // Fetch generated documents for this run - only if runId is valid
-  const { data: documents = [], _isLoading, error } = useQuery({
+  const { data: documents = [], isLoading: _isLoading, error } = useQuery({
     queryKey: ["run-documents", runId],
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions

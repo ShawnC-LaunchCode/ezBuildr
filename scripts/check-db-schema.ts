@@ -2,7 +2,7 @@
 import dotenv from 'dotenv';
 import pg from 'pg';
 
-import { _SchemaManager } from '../tests/helpers/schemaManager';
+
 
 dotenv.config();
 

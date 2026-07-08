@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { classifyRouteError } from '../utils/routeErrors';
 
 import { createLogger } from "../logger";
 import { hybridAuth, type AuthRequest } from "../middleware/auth";
 import { teamService } from "../services/TeamService";
 import { asyncHandler } from "../utils/asyncHandler";
+import { classifyRouteError } from '../utils/routeErrors';
 
 import type { Express, Request, Response } from "express";
 
@@ -25,7 +25,6 @@ const updateTeamSchema = z.object({
 });
 
 const UNAUTHORIZED_MSG = "Unauthorized - no user ID";
-const ACCESS_DENIED = "Access denied";
 
 /**
  * Register team-related routes
@@ -106,8 +105,8 @@ export function registerTeamRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error fetching team");
 
-      const __r = classifyRouteError(error, "Failed to fetch team");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to fetch team");
+      res.status(status).json({ success: false, error: message });
     }
   }));
 
@@ -139,8 +138,8 @@ export function registerTeamRoutes(app: Express): void {
         });
       }
 
-      const __r = classifyRouteError(error, "Failed to update team");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to update team");
+      res.status(status).json({ success: false, error: message });
     }
   }));
 
@@ -162,8 +161,8 @@ export function registerTeamRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error deleting team");
 
-      const __r = classifyRouteError(error, "Failed to delete team");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to delete team");
+      res.status(status).json({ success: false, error: message });
     }
   }));
 
@@ -195,8 +194,8 @@ export function registerTeamRoutes(app: Express): void {
         });
       }
 
-      const __r = classifyRouteError(error, "Failed to add team member");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to add team member");
+      res.status(status).json({ success: false, error: message });
     }
   }));
 
@@ -218,8 +217,8 @@ export function registerTeamRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error removing team member");
 
-      const __r = classifyRouteError(error, "Failed to remove team member");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to remove team member");
+      res.status(status).json({ success: false, error: message });
     }
   }));
 }

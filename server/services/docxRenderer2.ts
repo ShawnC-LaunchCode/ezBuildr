@@ -14,14 +14,13 @@ import path from 'path';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 import Docxtemplater from 'docxtemplater';
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 // eslint-disable-next-line @typescript-eslint/naming-convention
 import PizZip from 'pizzip';
 
 import { logger } from '../logger';
 import { ApiError , createError } from '../utils/errors';
 
-
+import { PdfConverter } from './document/PdfConverter';
 import { docxHelpers, parseHelperArg, tokenizeTag } from './docxHelpers';
 
 export interface RenderOptions2 {
@@ -229,55 +228,15 @@ export async function renderDocx2(options: RenderOptions2): Promise<RenderResult
 }
 
 /**
- * Convert DOCX to PDF
- * Attempts multiple conversion methods in order of preference
+ * Convert DOCX to PDF using the real converter (Mammoth DOCX->HTML,
+ * Puppeteer HTML->PDF). Kept as a thin wrapper so existing callers
+ * (PdfQueueService, renderDocx2) keep their path-in/path-out contract.
  */
 export async function convertDocxToPdf2(docxPath: string): Promise<string> {
   const pdfPath = docxPath.replace(/\.docx$/i, '.pdf');
-
-  try {
-    // Generate a placeholder PDF using pdf-lib
-    const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage();
-    const { height } = page.getSize();
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const fontSize = 18;
-
-    const filename = path.basename(docxPath);
-
-    page.drawText('Document Preview (Conversion Disabled)', {
-      x: 50,
-      y: height - 100,
-      size: fontSize,
-      font: font,
-      color: rgb(0, 0, 0),
-    });
-
-    page.drawText(`File: ${filename}`, {
-      x: 50,
-      y: height - 150,
-      size: 12,
-      font: font,
-      color: rgb(0.5, 0.5, 0.5),
-    });
-
-    page.drawText('Real conversion requires LibreOffice. This is a placeholder.', {
-      x: 50,
-      y: height - 180,
-      size: 10,
-      font: font,
-      color: rgb(1, 0, 0),
-    });
-
-    const pdfBytes = await pdfDoc.save();
-    await fs.writeFile(pdfPath, pdfBytes);
-
-    return pdfPath;
-  } catch (err: unknown) {
-    logger.error({ error: err }, 'Failed to generate mock PDF');
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    throw createError.internal(`Failed to generate PDF: ${message}`);
-  }
+  const converter = new PdfConverter();
+  await converter.convert({ docxPath, outputPath: pdfPath });
+  return pdfPath;
 }
 
 /**

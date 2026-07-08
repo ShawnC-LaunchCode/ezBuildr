@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { z } from 'zod';
-import { classifyRouteError } from '../utils/routeErrors';
 
 import { logger } from '../logger';
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { organizationService } from '../services/OrganizationService';
 import { asyncHandler } from '../utils/asyncHandler';
+import { classifyRouteError } from '../utils/routeErrors';
 
 import type { Express, Request, Response } from 'express';
 
@@ -56,8 +56,8 @@ export function registerOrganizationRoutes(app: Express): void {
       res.status(201).json(organization);
     } catch (error) {
       logger.error({ error, userId: (req as AuthRequest).userId }, 'Error creating organization');
-      const __r = classifyRouteError(error, 'Failed to create organization');
-      res.status(__r.status).json({ message: __r.message });
+      const { status, message } = classifyRouteError(error, 'Failed to create organization');
+      res.status(status).json({ message: message });
     }
   }));
 
@@ -127,8 +127,8 @@ export function registerOrganizationRoutes(app: Express): void {
         { error, orgId: req.params.orgId, userId: (req as AuthRequest).userId },
         'Error updating organization'
       );
-      const __r = classifyRouteError(error, 'Failed to update organization');
-      res.status(__r.status).json({ message: __r.message });
+      const { status, message } = classifyRouteError(error, 'Failed to update organization');
+      res.status(status).json({ message: message });
     }
   }));
 
@@ -152,8 +152,8 @@ export function registerOrganizationRoutes(app: Express): void {
         { error, orgId: req.params.orgId, userId: (req as AuthRequest).userId },
         'Error fetching organization members'
       );
-      const __r = classifyRouteError(error, 'Failed to fetch members');
-      res.status(__r.status).json({ message: __r.message });
+      const { status, message } = classifyRouteError(error, 'Failed to fetch members');
+      res.status(status).json({ message: message });
     }
   }));
 
@@ -186,8 +186,8 @@ export function registerOrganizationRoutes(app: Express): void {
           },
           'Error promoting member'
         );
-        const __r = classifyRouteError(error, 'Failed to promote member');
-      res.status(__r.status).json({ message: __r.message });
+        const { status, message } = classifyRouteError(error, 'Failed to promote member');
+      res.status(status).json({ message: message });
       }
     })
   );
@@ -221,8 +221,8 @@ export function registerOrganizationRoutes(app: Express): void {
           },
           'Error demoting member'
         );
-        const __r = classifyRouteError(error, 'Failed to demote member');
-      res.status(__r.status).json({ message: __r.message });
+        const { status, message } = classifyRouteError(error, 'Failed to demote member');
+      res.status(status).json({ message: message });
       }
     })
   );
@@ -256,8 +256,8 @@ export function registerOrganizationRoutes(app: Express): void {
           },
           'Error removing member'
         );
-        const __r = classifyRouteError(error, 'Failed to remove member');
-      res.status(__r.status).json({ message: __r.message });
+        const { status, message } = classifyRouteError(error, 'Failed to remove member');
+      res.status(status).json({ message: message });
       }
     })
   );
@@ -283,8 +283,8 @@ export function registerOrganizationRoutes(app: Express): void {
         { error, orgId: req.params.orgId, userId: (req as AuthRequest).userId },
         'Error leaving organization'
       );
-      const __r = classifyRouteError(error, 'Failed to leave organization');
-      res.status(__r.status).json({ message: __r.message });
+      const { status, message } = classifyRouteError(error, 'Failed to leave organization');
+      res.status(status).json({ message: message });
     }
   }));
 
@@ -319,8 +319,8 @@ export function registerOrganizationRoutes(app: Express): void {
         { error, orgId: req.params.orgId, userId: (req as AuthRequest).userId },
         'Error adding member'
       );
-      const __r = classifyRouteError(error, 'Failed to add member');
-      res.status(__r.status).json({ message: __r.message });
+      const { status, message } = classifyRouteError(error, 'Failed to add member');
+      res.status(status).json({ message: message });
     }
   }));
 
@@ -350,8 +350,8 @@ export function registerOrganizationRoutes(app: Express): void {
         { error, orgId: req.params.orgId, userId: (req as AuthRequest).userId },
         'Error creating invite'
       );
-      const __r = classifyRouteError(error, 'Failed to create invite');
-      res.status(__r.status).json({ message: __r.message });
+      const { status, message } = classifyRouteError(error, 'Failed to create invite');
+      res.status(status).json({ message: message });
     }
   }));
 
@@ -375,8 +375,8 @@ export function registerOrganizationRoutes(app: Express): void {
         { error, orgId: req.params.orgId, userId: (req as AuthRequest).userId },
         'Error fetching invites'
       );
-      const __r = classifyRouteError(error, 'Failed to fetch invites');
-      res.status(__r.status).json({ message: __r.message });
+      const { status, message } = classifyRouteError(error, 'Failed to fetch invites');
+      res.status(status).json({ message: message });
     }
   }));
 
@@ -421,8 +421,8 @@ export function registerOrganizationRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, token: req.params.token, userId: (req as AuthRequest).userId }, 'Error accepting invite');
-      const __r = classifyRouteError(error, 'Failed to accept invite');
-      res.status(__r.status).json({ message: __r.message });
+      const { status, message } = classifyRouteError(error, 'Failed to accept invite');
+      res.status(status).json({ message: message });
     }
   }));
 
@@ -450,8 +450,8 @@ export function registerOrganizationRoutes(app: Express): void {
           { error, inviteId: req.params.inviteId, userId: (req as AuthRequest).userId },
           'Error revoking invite'
         );
-        const __r = classifyRouteError(error, 'Failed to revoke invite');
-      res.status(__r.status).json({ message: __r.message });
+        const { status, message } = classifyRouteError(error, 'Failed to revoke invite');
+      res.status(status).json({ message: message });
       }
     })
   );
@@ -478,8 +478,8 @@ export function registerOrganizationRoutes(app: Express): void {
         { error, orgId: req.params.orgId, userId: (req as AuthRequest).userId },
         'Error deleting organization'
       );
-      const __r = classifyRouteError(error, 'Failed to delete organization');
-      res.status(__r.status).json({ message: __r.message });
+      const { status, message } = classifyRouteError(error, 'Failed to delete organization');
+      res.status(status).json({ message: message });
     }
   }));
 }

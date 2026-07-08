@@ -134,7 +134,7 @@ dbInitPromise = (isInitialConfigured && !isTest)
 // Getter to ensure db is initialized before use
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function getDb() {
-  if (!dbInitialized) {
+  if (!dbInitialized || _db == null) {
     throw new Error("Database not initialized. Call await initializeDatabase() first.");
   }
   return _db;

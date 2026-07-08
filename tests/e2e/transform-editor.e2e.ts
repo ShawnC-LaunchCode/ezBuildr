@@ -60,7 +60,7 @@ test.describe("Transform Editor (List Tools) - Manual Paths", () => {
         if (!createSectionRes.ok()) {console.log(await createSectionRes.text());}
         expect(createSectionRes.ok()).toBeTruthy();
         const section = await createSectionRes.json();
-        sectionId = section.id;
+        _sectionId = section.id;
 
         // 4. Navigate to Standard Builder
         console.log("Navigating to Builder...");

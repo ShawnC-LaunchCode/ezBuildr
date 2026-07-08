@@ -278,7 +278,7 @@ describe('OAuth2 3-Legged Flow - Callback Handling', () => {
     });
     it('should store OAuth2 state in connection metadata', async () => {
       const connectionId = nanoid();
-      const { state, _authorizationUrl } = generateOAuth2AuthorizationUrl(
+      const { state, authorizationUrl: _authorizationUrl } = generateOAuth2AuthorizationUrl(
         {
           authUrl: 'https://auth.example.com/oauth/authorize',
           tokenUrl: 'https://auth.example.com/oauth/token',

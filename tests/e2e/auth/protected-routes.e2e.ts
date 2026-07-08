@@ -114,7 +114,7 @@ test.describe("Protected Route Access", () => {
 
   test("should handle direct URL access to protected routes", async ({
     browser,
-    _devLogin,
+    devLogin: _devLogin,
   }) => {
     const context = await browser.newContext();
     const page = await context.newPage();

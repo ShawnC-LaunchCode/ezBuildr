@@ -53,7 +53,7 @@ test.describe("Login Flow", () => {
 
   test("should display login page for unauthenticated users", async ({
     loginPage,
-    _page,
+    page: _page,
   }) => {
     await loginPage.goto();
 
@@ -98,7 +98,7 @@ test.describe("Login Flow", () => {
   test("should persist authentication across page reloads", async ({
     page,
     devLogin,
-    _dashboardPage,
+    dashboardPage: _dashboardPage,
   }) => {
     // Login
     await devLogin();
@@ -150,7 +150,7 @@ test.describe("Login Flow", () => {
 
   test("should handle concurrent login requests gracefully", async ({
     page,
-    _devLogin,
+    devLogin: _devLogin,
   }) => {
     // Attempt multiple concurrent logins
     await Promise.all([

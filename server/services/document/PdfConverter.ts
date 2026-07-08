@@ -1,5 +1,5 @@
 import mammoth from 'mammoth';
-import puppeteer from 'puppeteer';
+import puppeteer, { type Browser } from 'puppeteer';
 
 import { logger } from '../../logger';
 import { createError } from '../../utils/errors';
@@ -20,6 +20,50 @@ export interface PdfConversionStrategy {
  * Cons: Layout fidelity depends on Mammoth's conversion quality
  */
 export class PuppeteerStrategy implements PdfConversionStrategy {
+    /**
+     * Shared browser instance, launched lazily and reused across conversions.
+     * Launching Chromium per conversion is too expensive for callers like
+     * PdfQueueService that convert on a polling loop.
+     */
+    private static browserPromise: Promise<Browser> | null = null;
+
+    private static async getBrowser(): Promise<Browser> {
+        if (PuppeteerStrategy.browserPromise !== null) {
+            try {
+                const existing = await PuppeteerStrategy.browserPromise;
+                if (existing.connected) { return existing; }
+            } catch {
+                // fall through and relaunch
+            }
+            PuppeteerStrategy.browserPromise = null;
+        }
+
+        PuppeteerStrategy.browserPromise = puppeteer.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox'], // Required for some container environments
+        });
+
+        try {
+            return await PuppeteerStrategy.browserPromise;
+        } catch (error) {
+            PuppeteerStrategy.browserPromise = null;
+            throw error;
+        }
+    }
+
+    /** Close the shared browser (e.g. on graceful shutdown or in tests). */
+    static async closeBrowser(): Promise<void> {
+        if (PuppeteerStrategy.browserPromise === null) { return; }
+        const promise = PuppeteerStrategy.browserPromise;
+        PuppeteerStrategy.browserPromise = null;
+        try {
+            const browser = await promise;
+            await browser.close();
+        } catch (error) {
+            logger.warn({ error }, 'Failed to close shared Puppeteer browser');
+        }
+    }
+
     async convert({ docxPath, outputPath }: PdfConversionOptions): Promise<void> {
         try {
             // 1. Convert DOCX to HTML using Mammoth
@@ -73,30 +117,31 @@ export class PuppeteerStrategy implements PdfConversionStrategy {
         </html>
       `;
 
-            // 3. Launch Puppeteer to generate PDF
-            const browser = await puppeteer.launch({
-                headless: true,
-                args: ['--no-sandbox', '--disable-setuid-sandbox'], // Required for some container environments
-            });
+            // 3. Generate PDF via the shared headless browser
+            const browser = await PuppeteerStrategy.getBrowser();
             const page = await browser.newPage();
 
-            // Set content
-            await page.setContent(styledHtml, { waitUntil: 'networkidle0' });
+            try {
+                // Set content
+                await page.setContent(styledHtml, { waitUntil: 'networkidle0' });
 
-            // Generate PDF
-            await page.pdf({
-                path: outputPath,
-                format: 'A4',
-                printBackground: true,
-                margin: {
-                    top: '20mm',
-                    right: '20mm',
-                    bottom: '20mm',
-                    left: '20mm',
-                },
-            });
-
-            await browser.close();
+                // Generate PDF
+                await page.pdf({
+                    path: outputPath,
+                    format: 'A4',
+                    printBackground: true,
+                    margin: {
+                        top: '20mm',
+                        right: '20mm',
+                        bottom: '20mm',
+                        left: '20mm',
+                    },
+                });
+            } finally {
+                await page.close().catch((closeError: unknown) => {
+                    logger.warn({ error: closeError }, 'Failed to close Puppeteer page');
+                });
+            }
         } catch (error: unknown) {
             logger.error({ error }, 'Puppeteer PDF conversion failed');
             throw createError.internal(`PDF conversion failed: ${error instanceof Error ? error.message : 'Unknown error'}`);

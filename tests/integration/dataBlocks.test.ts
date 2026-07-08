@@ -3,19 +3,7 @@ import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-import {
-    users,
-    tenants,
-    projects,
-    workflows,
-    sections,
-    blocks,
-    datavaultDatabases,
-    _datavaultTables,
-    _datavaultColumns,
-    workflowQueries,
-    steps
-} from '@shared/schema';
+import { users, tenants, projects, workflows, sections, blocks, datavaultDatabases, workflowQueries, steps } from '@shared/schema';
 
 import { db } from '../../server/db';
 import { stepValueRepository } from '../../server/repositories';

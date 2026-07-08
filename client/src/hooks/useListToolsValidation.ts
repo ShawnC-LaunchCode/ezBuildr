@@ -6,7 +6,7 @@
 import { useMemo } from 'react';
 
 import { useTableColumns } from '@/hooks/useTableColumns';
-import type { ApiBlock, _ApiSection, _ApiCollectionField } from '@/lib/vault-api';
+import type { ApiBlock } from '@/lib/vault-api';
 import { useBlocks, useSections } from '@/lib/vault-hooks';
 
 import type { ChoiceCardState } from './useChoiceConfig';

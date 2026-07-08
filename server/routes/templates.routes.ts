@@ -8,6 +8,7 @@ import { eq, and, desc, lt } from 'drizzle-orm';
 import { Router, type Request, type Response } from 'express';
 import { type FileFilterCallback } from 'multer';
 import multer from 'multer';
+import { z } from 'zod';
 
 import * as schema from '@shared/schema';
 

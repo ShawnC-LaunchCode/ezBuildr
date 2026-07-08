@@ -65,7 +65,7 @@ export function useUpdateColumn() {
   return useMutation({
     mutationFn: ({
       columnId,
-      _tableId,
+      tableId: _tableId,
       input,
     }: {
       columnId: string;
@@ -94,7 +94,7 @@ export function useDeleteColumn() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ columnId, _tableId }: { columnId: string; tableId: string }) =>
+    mutationFn: ({ columnId, tableId: _tableId }: { columnId: string; tableId: string }) =>
       api.deleteColumn(columnId),
     onSuccess: (_, variables) => {
       // Invalidate columns for this table

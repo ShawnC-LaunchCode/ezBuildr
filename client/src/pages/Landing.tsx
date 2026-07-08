@@ -12,7 +12,7 @@ import {
   GitBranch,
   Sparkles,
 } from "lucide-react";
-import { _Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 
 import logo from "@/assets/images/logo.png";
 import { GoogleLogin } from "@/components/GoogleLogin";

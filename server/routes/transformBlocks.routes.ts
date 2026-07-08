@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { z } from "zod";
-import { classifyRouteError } from '../utils/routeErrors';
 
 import { insertTransformBlockSchema } from "@shared/schema";
 
@@ -11,6 +10,7 @@ import { testLimiter } from "../middleware/rateLimiting";
 import { transformBlockRepository } from "../repositories/TransformBlockRepository";
 import { transformBlockService } from "../services/TransformBlockService";
 import { asyncHandler } from "../utils/asyncHandler";
+import { classifyRouteError } from '../utils/routeErrors';
 
 import type { Express, Request, Response } from "express";
 
@@ -74,8 +74,8 @@ export function registerTransformBlockRoutes(app: Express): void {
       res.json({ success: true, data: blocks });
     } catch (error) {
       logger.error({ error }, "Error listing transform blocks");
-      const __r = classifyRouteError(error, "Failed to list transform blocks");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to list transform blocks");
+      res.status(status).json({ success: false, error: message });
     }
   }));
 
@@ -95,8 +95,8 @@ export function registerTransformBlockRoutes(app: Express): void {
       res.json({ success: true, data: block });
     } catch (error) {
       logger.error({ error }, "Error fetching transform block");
-      const __r = classifyRouteError(error, "Failed to fetch transform block");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to fetch transform block");
+      res.status(status).json({ success: false, error: message });
     }
   }));
 
@@ -128,8 +128,8 @@ export function registerTransformBlockRoutes(app: Express): void {
       res.json({ success: true, data: updatedBlock });
     } catch (error) {
       logger.error({ error }, "Error updating transform block");
-      const __r = classifyRouteError(error, "Failed to update transform block");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to update transform block");
+      res.status(status).json({ success: false, error: message });
     }
   }));
 
@@ -160,8 +160,8 @@ export function registerTransformBlockRoutes(app: Express): void {
       res.status(200).json({ success: true, message: "Transform block deleted" });
     } catch (error) {
       logger.error({ error }, "Error deleting transform block");
-      const __r = classifyRouteError(error, "Failed to delete transform block");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to delete transform block");
+      res.status(status).json({ success: false, error: message });
     }
   }));
 
@@ -198,8 +198,8 @@ export function registerTransformBlockRoutes(app: Express): void {
       }
     } catch (error) {
       logger.error({ error }, "Error testing transform block");
-      const __r = classifyRouteError(error, "Failed to test transform block");
-      res.status(__r.status).json({ success: false, error: __r.message });
+      const { status, message } = classifyRouteError(error, "Failed to test transform block");
+      res.status(status).json({ success: false, error: message });
     }
   }));
 }

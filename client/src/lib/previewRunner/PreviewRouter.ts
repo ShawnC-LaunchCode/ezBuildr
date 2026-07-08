@@ -1,4 +1,4 @@
-import type { ApiSection, _ApiStep } from '@/lib/vault-api';
+import type { ApiSection } from '@/lib/vault-api';
 
 import { PreviewEnvironment } from './PreviewEnvironment';
 

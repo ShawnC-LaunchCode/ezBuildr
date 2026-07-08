@@ -33,7 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { _Card, _CardContent, _CardDescription, _CardHeader, _CardTitle } from "@/components/ui/card";
+
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,

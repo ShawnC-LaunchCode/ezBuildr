@@ -11,15 +11,15 @@ import fs from 'fs/promises';
 import path from 'path';
 
 
-import { eq, _and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi, type _Mock } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 
 import * as schema from '@shared/schema';
 
 import { db } from '../../server/db';
-import { getTemplateFilePath, _deleteTemplateFile } from '../../server/services/templates';
+import { getTemplateFilePath } from '../../server/services/templates';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
 
 // Mock template scanner to avoid needing valid DOCX files

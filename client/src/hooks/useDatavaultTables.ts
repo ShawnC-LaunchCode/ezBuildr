@@ -4,13 +4,7 @@ import * as api from '../lib/api/datavault';
 
 import { datavaultKeys } from './useDatavaultDatabases';
 
-import type {
-  _DatavaultTable,
-  CreateTableInput,
-  UpdateTableInput,
-  MoveTableInput,
-  _TableSchema,
-} from '../lib/types/datavault';
+import type { CreateTableInput, UpdateTableInput, MoveTableInput } from '../lib/types/datavault';
 
 // ============================================================================
 // Query Keys

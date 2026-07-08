@@ -5,7 +5,7 @@
 
 import { eq, and } from 'drizzle-orm';
 
-import { workflows, _projects } from '@shared/schema';
+import { workflows } from '@shared/schema';
 
 import { getDb, initializeDatabase } from '../server/db';
 

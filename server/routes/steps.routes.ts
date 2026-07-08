@@ -9,20 +9,13 @@ import { sectionRepository } from "../repositories/SectionRepository";
 import { stepRepository } from "../repositories/StepRepository";
 import { stepService } from "../services/StepService";
 import { asyncHandler } from "../utils/asyncHandler";
+import { classifyRouteError } from "../utils/routeErrors";
 
 import type { Express, Request, Response, NextFunction } from "express";
 
 const logger = createLogger({ module: "steps-routes" });
 
 const UNAUTHORIZED_MSG = "Unauthorized - no user ID";
-const ACCESS_DENIED = "Access denied";
-
-function errorStatus(message: string): number {
-  if (message.includes("not found")) { return 404; }
-  if (message.includes(ACCESS_DENIED)) { return 403; }
-  return 500;
-}
-
 /**
  * Middleware helper: Look up workflowId from stepId before auto-revert
  * This allows auto-revert to work on simplified endpoints (without workflowId in path)
@@ -105,8 +98,7 @@ function registerWorkflowStepRoutes(app: Express): void {
       res.status(201).json(step);
     } catch (error) {
       logger.error({ error }, "Error creating step");
-      const message = "Failed to create step";
-      const status = errorStatus(message);
+      const { status, message } = classifyRouteError(error, "Failed to create step");
       res.status(status).json({ message });
     }
   }));
@@ -126,8 +118,7 @@ function registerWorkflowStepRoutes(app: Express): void {
       res.json(steps);
     } catch (error) {
       logger.error({ error }, "Error fetching steps");
-      const message = "Failed to fetch steps";
-      const status = errorStatus(message);
+      const { status, message } = classifyRouteError(error, "Failed to fetch steps");
       res.status(status).json({ message });
     }
   }));
@@ -152,8 +143,7 @@ function registerWorkflowStepRoutes(app: Express): void {
       res.status(200).json({ message: "Steps reordered successfully" });
     } catch (error) {
       logger.error({ error }, "Error reordering steps");
-      const message = "Failed to reorder steps";
-      const status = errorStatus(message);
+      const { status, message } = classifyRouteError(error, "Failed to reorder steps");
       res.status(status).json({ message });
     }
   }));
@@ -179,8 +169,7 @@ function registerSimplifiedStepRoutes(app: Express): void {
       res.json(steps);
     } catch (error) {
       logger.error({ error }, "Error fetching steps");
-      const message = "Failed to fetch steps";
-      const status = errorStatus(message);
+      const { status, message } = classifyRouteError(error, "Failed to fetch steps");
       res.status(status).json({ message });
     }
   }));
@@ -202,8 +191,7 @@ function registerSimplifiedStepRoutes(app: Express): void {
       res.status(201).json(step);
     } catch (error) {
       logger.error({ error }, "Error creating step");
-      const message = "Failed to create step";
-      const status = errorStatus(message);
+      const { status, message } = classifyRouteError(error, "Failed to create step");
       res.status(status).json({ message });
     }
   }));
@@ -228,8 +216,7 @@ function registerSimplifiedStepRoutes(app: Express): void {
       res.status(200).json({ message: "Steps reordered successfully" });
     } catch (error) {
       logger.error({ error }, "Error reordering steps");
-      const message = "Failed to reorder steps";
-      const status = errorStatus(message);
+      const { status, message } = classifyRouteError(error, "Failed to reorder steps");
       res.status(status).json({ message });
     }
   }));
@@ -249,8 +236,7 @@ function registerSimplifiedStepRoutes(app: Express): void {
       res.json(step);
     } catch (error) {
       logger.error({ error }, "Error fetching step");
-      const message = "Failed to fetch step";
-      const status = errorStatus(message);
+      const { status, message } = classifyRouteError(error, "Failed to fetch step");
       res.status(status).json({ message });
     }
   }));
@@ -272,8 +258,7 @@ function registerSimplifiedStepRoutes(app: Express): void {
       res.json(updatedStep);
     } catch (error) {
       logger.error({ error }, "Error updating step");
-      const message = "Failed to update step";
-      const status = errorStatus(message);
+      const { status, message } = classifyRouteError(error, "Failed to update step");
       res.status(status).json({ message });
     }
   }));
@@ -294,8 +279,7 @@ function registerSimplifiedStepRoutes(app: Express): void {
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, "Error deleting step");
-      const message = "Failed to delete step";
-      const status = errorStatus(message);
+      const { status, message } = classifyRouteError(error, "Failed to delete step");
       res.status(status).json({ message });
     }
   }));

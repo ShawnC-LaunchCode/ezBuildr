@@ -3,8 +3,10 @@ import { Router, Express } from 'express';
 
 import { logger } from '../logger';
 import { requireAuth } from '../middleware/auth';
+import { projectService } from '../services/ProjectService';
 import { templateService } from '../services/TemplateService';
 import { asyncHandler } from '../utils/asyncHandler';
+import { classifyRouteError } from '../utils/routeErrors';
 
 const router = Router();
 
@@ -59,8 +61,6 @@ router.post('/:id/instantiate', requireAuth, asyncHandler(async (req, res) => {
         const { projectId, name } = req.body;
 
         if (projectId) {
-            const { ProjectService } = await import('../services/ProjectService');
-            const projectService = new ProjectService();
             await projectService.verifyOwnership(projectId, req.user!.id as string);
         }
 
@@ -75,7 +75,8 @@ router.post('/:id/instantiate', requireAuth, asyncHandler(async (req, res) => {
         res.json({ data: result });
     } catch (error) {
         logger.error({ error }, 'Instantiate blueprint error');
-        res.status(500).json({ error: 'Failed to instantiate blueprint' });
+        const { status, message } = classifyRouteError(error, 'Failed to instantiate blueprint');
+        res.status(status).json({ error: message });
     }
 }));
 

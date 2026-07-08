@@ -3,14 +3,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { logger } from "../../logger";
 
-import {
-    OptimizationIssue,
-    OptimizationResult,
-    OptimizationSuggestion,
-    WorkflowMetrics,
-    OptimizationFix,
-    _OptimizationCategory,
-} from "@shared/types/optimization";
+import { OptimizationIssue, OptimizationResult, OptimizationSuggestion, WorkflowMetrics, OptimizationFix } from "@shared/types/optimization";
 import { WorkflowJSON, WorkflowPage, WorkflowBlock } from "@shared/types/workflow";
 
 export class WorkflowOptimizationService {
@@ -324,7 +317,6 @@ export class WorkflowOptimizationService {
             }
         }
     }
-
 
     // =========================================================================
     // HELPER METHODS

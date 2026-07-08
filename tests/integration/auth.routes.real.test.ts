@@ -7,17 +7,8 @@ import { users, loginAttempts } from "@shared/schema";
 import { db } from "../../server/db";
 import { createTestApp ,
 } from "../helpers/testApp";
-import {
-  _cleanAuthTables, // Keeping import if needed for heavy reset, but favoring specific
-  _cleanTestUser,
-  deleteTestUser,
-  createVerifiedUser,
-  createUserWithMfa,
-  randomEmail,
-  randomPassword,
-  generateTotpCode,
-  createPasswordResetToken
-} from "../helpers/testUtils";
+import { // Keeping import if needed for heavy reset, but favoring specific
+  _cleanTestUser, deleteTestUser, createVerifiedUser, createUserWithMfa, randomEmail, randomPassword, generateTotpCode, createPasswordResetToken } from "../helpers/testUtils";
 
 import type { Express } from "express";
 /**

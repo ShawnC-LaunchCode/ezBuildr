@@ -13,21 +13,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
 import { db } from "../../server/db";
 import { evaluateVisibility } from "../../server/workflows/conditionAdapter";
-import {
-    tenants,
-    organizations,
-    users,
-    projects,
-    workflows,
-    workflowVersions,
-    sections,
-    steps,
-    workflowRuns,
-    _stepValues,
-    datavaultDatabases as _databases,
-    datavaultTables as _tablesSchema,
-    datavaultRows as _table_rows
-} from "../../shared/schema";
+import { tenants, organizations, users, projects, workflows, workflowVersions, sections, steps, workflowRuns, datavaultDatabases as _databases, datavaultTables as _tablesSchema, datavaultRows as _table_rows } from "../../shared/schema";
 // Helper to evaluate visibility expressions
 function evaluateVisibilityExpression(expr: string | undefined, data: Record<string, any>): boolean {
     return evaluateVisibility(expr, data);

@@ -6,13 +6,7 @@ import { mfaSecrets, mfaBackupCodes, users, tenants } from "@shared/schema";
 
 import { db } from "../../server/db";
 import { createTestApp } from "../helpers/testApp";
-import {
-  _cleanAuthTables,
-  deleteTestUser,
-  createVerifiedUser,
-  createUserWithMfa,
-  generateTotpCode,
-} from "../helpers/testUtils";
+import { deleteTestUser, createVerifiedUser, createUserWithMfa, generateTotpCode } from "../helpers/testUtils";
 
 import type { Express } from "express";
 /**
@@ -281,7 +275,7 @@ describe("MFA Flow Integration Tests (REAL)", () => {
       expect(backupCodeResponse.body.token).toBeDefined();
     });
     it("should mark backup code as used", async () => {
-      const { _email, _password, userId } = await createUserWithMfa();
+      const { email: _email, password: _password, userId } = await createUserWithMfa();
       trackUser(userId);
       // Get backup codes
       const storedCodes = await db.query.mfaBackupCodes.findMany({

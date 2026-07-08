@@ -13,10 +13,8 @@ import { workflowPatchService } from "../../services/WorkflowPatchService";
 import { workflowService } from "../../services/WorkflowService";
 
 import type { AuthRequest } from "../../middleware/auth";
-import type { _AiWorkflowEditResponse, AiModelResponse } from "../../schemas/aiWorkflowEdit.schema";
+import type { AiModelResponse } from "../../schemas/aiWorkflowEdit.schema";
 import type { Express, Request, Response } from "express";
-
-
 
 const logger = createLogger({ module: "ai-workflow-edit-routes" });
 
@@ -39,7 +37,6 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
     hybridAuth,
     // eslint-disable-next-line @typescript-eslint/no-misused-promises, complexity, sonarjs/cognitive-complexity
     async (req: Request, res: Response) => {
-
 
       try {
         const { workflowId } = req.params;
@@ -105,7 +102,7 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
         // 6. Apply patch operations
         // eslint-disable-next-line no-useless-catch
         try {
-          const { _summary, errors } = await workflowPatchService.applyOps(
+          const { summary: _summary, errors } = await workflowPatchService.applyOps(
             workflowId,
             userId,
             aiResponse.ops

@@ -4,21 +4,7 @@
  * Allows users to configure tenant branding including logo, colors, dark mode,
  * header text, and email sender information.
  */
-import {
-  Palette,
-  Upload,
-  Moon,
-  Sun,
-  Mail,
-  _User,
-  MessageSquare,
-  Loader2,
-  Save,
-  RotateCcw,
-  Eye,
-  Globe,
-  ExternalLink,
-} from 'lucide-react';
+import { Palette, Upload, Moon, Sun, Mail, MessageSquare, Loader2, Save, RotateCcw, Eye, Globe, ExternalLink } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'wouter';
 

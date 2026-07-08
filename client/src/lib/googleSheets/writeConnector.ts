@@ -6,7 +6,7 @@
 
 import { ColumnUUIDManager } from './columnMapping';
 
-import type { SheetColumn, SheetWriteOptions, SheetWriteResult, _SheetWriteError } from './columnMapping';
+import type { SheetColumn, SheetWriteOptions, SheetWriteResult } from './columnMapping';
 
 export interface WriteRowData {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

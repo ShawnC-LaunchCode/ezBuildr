@@ -7,11 +7,7 @@
  */
 import { sql } from 'drizzle-orm';
 
-import {
-  _metricsEvents,
-  _metricsRollups,
-  type InsertMetricsRollup,
-} from '../../shared/schema';
+import { type InsertMetricsRollup } from '../../shared/schema';
 import { db } from '../db';
 import logger from '../logger';
 import sli from '../services/sli';

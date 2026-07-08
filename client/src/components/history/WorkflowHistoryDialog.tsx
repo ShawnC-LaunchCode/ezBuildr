@@ -1,17 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import {
-    History, Play, _FileText, Download, _AlertCircle, CheckCircle2,
-    Clock, _RotateCcw, GitCommit
-} from "lucide-react";
+import { History, Play, Download, CheckCircle2, Clock, GitCommit } from "lucide-react";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-    Dialog, DialogContent, DialogHeader, DialogTitle,
-    DialogDescription, _DialogFooter
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow

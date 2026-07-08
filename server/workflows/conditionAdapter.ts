@@ -22,17 +22,8 @@
  */
 
 
-import {
-  evaluateConditionExpression as evaluateNewCondition,
-  type _DataMap,
-} from "@shared/conditionEvaluator";
-import type {
-  ConditionExpression as _NewConditionExpression,
-  Condition as NewCondition,
-  ConditionGroup as NewConditionGroup,
-  ComparisonOperator as NewOperator,
-  _ScriptCondition,
-} from "@shared/types/conditions";
+import { evaluateConditionExpression as evaluateNewCondition } from "@shared/conditionEvaluator";
+import type { ConditionExpression as _NewConditionExpression, Condition as NewCondition, ConditionGroup as NewConditionGroup, ComparisonOperator as NewOperator } from "@shared/types/conditions";
 
 import { logger } from "../logger";
 
