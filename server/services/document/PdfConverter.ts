@@ -155,7 +155,7 @@ export class PuppeteerStrategy implements PdfConversionStrategy {
 export class ApiStrategy implements PdfConversionStrategy {
     async convert(options: PdfConversionOptions): Promise<void> {
         const apiUrl = process.env.PDF_CONVERTER_API_URL;
-        if (!apiUrl) throw new Error('PDF_CONVERTER_API_URL is not set');
+        if (!apiUrl) {throw new Error('PDF_CONVERTER_API_URL is not set');}
         
         logger.info({ docxPath: options.docxPath, apiUrl }, 'Converting PDF via API');
         
@@ -170,21 +170,35 @@ export class ApiStrategy implements PdfConversionStrategy {
 }
 
 /**
- * Factory to get the appropriate strategy
+ * Factory to get the appropriate strategy. When PDF_CONVERTER_API_URL is
+ * set the API strategy is tried first, falling back to local Puppeteer on
+ * failure — the API strategy is not fully implemented yet, and setting the
+ * env var must not take down PDF generation.
  */
 export class PdfConverter {
     private strategy: PdfConversionStrategy;
+    private fallback: PdfConversionStrategy | null;
 
     constructor() {
         if (process.env.PDF_CONVERTER_API_URL) {
             this.strategy = new ApiStrategy();
+            this.fallback = new PuppeteerStrategy();
         } else {
             this.strategy = new PuppeteerStrategy();
+            this.fallback = null;
         }
     }
 
     async convert(options: PdfConversionOptions): Promise<void> {
-        return this.strategy.convert(options);
+        try {
+            return await this.strategy.convert(options);
+        } catch (error) {
+            if (this.fallback === null) {
+                throw error;
+            }
+            logger.warn({ error }, 'API PDF conversion failed; falling back to local Puppeteer');
+            return this.fallback.convert(options);
+        }
     }
 }
 
