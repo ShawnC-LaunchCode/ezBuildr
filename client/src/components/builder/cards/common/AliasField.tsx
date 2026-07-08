@@ -50,9 +50,10 @@ export function AliasField({ value, onChange, placeholder = "variable_name" }: A
       return "Must start with a letter or underscore";
     }
 
-    // Check if it contains only valid characters
-    if (!/^[a-zA-Z0-9_.]+$/.test(alias)) {
-      return "Can only contain letters, numbers, underscores, and dots";
+    // Dots are not allowed in new variable names: they collide with the
+    // dot-notation keys documents use for nested values (address.city)
+    if (!/^[a-zA-Z0-9_]+$/.test(alias)) {
+      return "Can only contain letters, numbers, and underscores";
     }
 
     return null;
@@ -94,7 +95,8 @@ export function AliasField({ value, onChange, placeholder = "variable_name" }: A
         className={error ? "border-destructive" : "font-mono"}
       />
       <p className="text-xs text-muted-foreground">
-        Used to reference this value in logic and transformations
+        Used in documents ({"{{name}}"}), logic, and transformations.
+        Generated from the question label until you customize it.
       </p>
       {error && (
         <div className="flex items-start gap-2 text-xs text-destructive">

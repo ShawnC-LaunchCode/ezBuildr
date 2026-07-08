@@ -24,7 +24,7 @@ import { createLogger } from '../logger.js';
 import { hybridAuth, type AuthRequest } from '../middleware/auth.js';
 import { creatorOrRunTokenAuth, type RunAuthRequest } from '../middleware/runTokenAuth.js';
 import { strictLimiter } from '../middleware/rateLimiter.js';
-import { documentTemplateRepository, stepRepository, stepValueRepository } from '../repositories/index.js';
+import { documentTemplateRepository, runGeneratedDocumentsRepository, stepRepository, stepValueRepository } from '../repositories/index.js';
 import { finalBlockRenderer, createTemplateResolver } from '../services/document/FinalBlockRenderer.js';
 import { runService } from '../services/RunService.js';
 import { workflowService } from '../services/WorkflowService.js';
@@ -203,6 +203,27 @@ export function registerFinalBlockRoutes(app: Express): void {
           generated: result.totalGenerated,
           skipped: result.skipped.length,
         }, 'Final Block documents generated successfully');
+
+        // Step 6.5: Persist document records so they appear in the run's
+        // document list (previously this endpoint returned file paths
+        // without writing run_generated_documents at all)
+        for (const doc of result.documents) {
+          try {
+            await runGeneratedDocumentsRepository.createDocument({
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+              runId: run.id,
+              fileName: doc.filename,
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              fileUrl: `/api/runs/${run.id}/final-documents/${doc.filename}/download`,
+              mimeType: doc.mimeType,
+              fileSize: doc.size,
+              templateId: null,
+            });
+          } catch (persistError) {
+            logger.warn({ persistError, filename: doc.filename }, 'Failed to persist generated document record');
+            // Non-breaking: the files were generated and are returned below
+          }
+        }
 
         // Step 7: Return response
         res.status(200).json({

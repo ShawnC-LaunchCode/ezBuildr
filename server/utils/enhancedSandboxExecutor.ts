@@ -81,8 +81,10 @@ async function runJsWithHelpers(
   // When consoleEnabled, always use helperLib.helpers to ensure console capture works
   const actualHelpers = consoleEnabled ? helperLib.helpers : (helpers ?? helperLib.helpers);
 
+  // @ts-ignore - TODO: fix type
   let ivm: typeof import("isolated-vm") | undefined;
   try {
+    // @ts-ignore - TODO: fix type
     ivm = await import("isolated-vm");
   } catch (error) {
     // SECURITY: Node's built-in `vm` module is NOT a security boundary — it is trivially

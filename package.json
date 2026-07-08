@@ -209,6 +209,7 @@
     "@testing-library/react": "^16.3.1",
     "@testing-library/user-event": "^14.5.2",
     "@types/apicache": "^1.6.8",
+    "@types/archiver": "^8.0.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/canvas-confetti": "^1.9.0",
     "@types/connect-pg-simple": "^7.0.3",

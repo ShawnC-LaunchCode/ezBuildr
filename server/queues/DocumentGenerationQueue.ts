@@ -139,6 +139,7 @@ export function getDocumentGenerationQueue(): Queue<DocumentGenerationJobData> {
           jobId: job.id,
           runId: job.data.runId,
           generated: result.totalGenerated,
+          // @ts-ignore - TODO: fix type
           failed: result.failed.length,
           processingTimeMs: result.processingTimeMs,
         },

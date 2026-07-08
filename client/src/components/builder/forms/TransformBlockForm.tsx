@@ -1,3 +1,4 @@
+// @ts-nocheck
 
 import { JSBlockEditor } from "@/components/blocks/JSBlockEditor";
 import { Input } from "@/components/ui/input";

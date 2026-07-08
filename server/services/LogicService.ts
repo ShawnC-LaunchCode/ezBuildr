@@ -79,14 +79,8 @@ export class LogicService {
     const sectionIds = sections.map((s) => s.id);
     const steps = await this.stepRepo.findBySectionIds(sectionIds);
     const logicRules = await this.logicRuleRepo.findByWorkflowId(workflowId);
-    const currentValues = await this.valueRepo.findByRunId(runId);
-
     // Build data object for evaluation
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- data contains arbitrary workflow values
-    const data: Record<string, any> = {};
-    currentValues.forEach((v) => {
-      data[v.stepId] = v.value;
-    });
+    const data = await this.valueRepo.getRunDataAsJson(runId);
 
     // OPTIMIZATION: Pre-build rule indexes (O(n) once instead of O(n*m) repeatedly)
     const sectionHideRulesMap = new Map<string, LogicRule[]>();
@@ -227,14 +221,9 @@ export class LogicService {
     const sectionIds = sections.map((s) => s.id);
     const steps = await this.stepRepo.findBySectionIds(sectionIds);
     const logicRules = await this.logicRuleRepo.findByWorkflowId(workflowId);
-    const currentValues = await this.valueRepo.findByRunId(runId);
 
     // Build data object for evaluation
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- data contains arbitrary workflow values
-    const data: Record<string, any> = {};
-    currentValues.forEach((v) => {
-      data[v.stepId] = v.value;
-    });
+    const data = await this.valueRepo.getRunDataAsJson(runId);
 
     // OPTIMIZATION: Pre-build rule indexes
     const sectionHideRulesMap = new Map<string, LogicRule[]>();

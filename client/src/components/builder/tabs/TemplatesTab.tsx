@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { generateSampleData } from "@/lib/sampleData";
 import { type ApiWorkflowVariable } from "@/lib/vault-api";
 import { useWorkflow, useProjects, useWorkflowVariables } from "@/lib/vault-hooks";
 import { DocumentTemplateEditor } from "@/pages/visual-builder/components/DocumentTemplateEditor";
@@ -64,7 +65,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
         id: t.id as string,
         name: t.name as string,
         key: t.id as string,
-        type: (t.type === "pdf" ? "pdf" : "docx") as "docx" | "pdf",
+        type: t.type === "pdf" ? ("pdf" as const) : ("docx" as const),
         lastUpdated: (t.updatedAt ?? t.createdAt) as string,
         fileSize: t.fileSize as number | undefined,
         // Used only for PDF cards; DOCX cards validate against the server
@@ -137,25 +138,27 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
     }
   };
 
-  // Handle template test
+  // Handle template test: render the template with generated sample data
+  // via the preview endpoint and open the signed URL. (The previous
+  // /api/templates/:id/test endpoint never existed server-side.)
   const handleTest = async (templateId: string) => {
     try {
       toast({
         title: "Testing template",
-        description: "Generating test document...",
+        description: "Rendering with sample data...",
       });
-      const response = await axios.post(`/api/templates/${templateId}/test`, {
-        workflowId,
+      const sampleData = generateSampleData(variables ?? []);
+      const response = await axios.post(`/api/templates/${templateId}/preview`, {
+        sampleData,
+        outputFormat: "pdf",
       });
 
       const data: unknown = response.data;
-      if (data != null && typeof data === 'object' && 'url' in data) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
-        window.open((data as any).url, "_blank");
+      if (data != null && typeof data === 'object' && 'previewUrl' in data) {
+        window.open((data as { previewUrl: string }).previewUrl, "_blank");
         toast({
-          title: "Test successful",
-          description: "Test document generated and opened.",
+          title: "Preview ready",
+          description: "Sample document opened in a new tab (link valid ~5 minutes).",
         });
       }
     } catch (error: unknown) {

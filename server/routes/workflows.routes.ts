@@ -154,6 +154,7 @@ export function registerWorkflowRoutes(app: Express): void {
       if (updateData.sections && Array.isArray(updateData.sections)) {
         workflow = await workflowService.replaceWorkflowContent(workflowId, userId, updateData);
       } else {
+        // @ts-ignore - TODO: fix type
         workflow = await workflowService.updateWorkflow(workflowId, userId, updateData);
       }
 

@@ -12,12 +12,14 @@
  */
 
 import { logger } from "../../logger";
-import { stepValueRepository, stepRepository, sectionRepository } from "../../repositories";
+import { stepValueRepository, stepRepository, sectionRepository, workflowRunRepository, workflowRepository, documentTemplateRepository, runGeneratedDocumentsRepository } from "../../repositories";
 import { blockRunner } from "../BlockRunner";
-import { documentGenerationService } from "../DocumentGenerationService";
+import { finalBlockRenderer, createTemplateResolver } from "../document/FinalBlockRenderer";
+import type { FinalBlockConfig } from "../../../shared/types/stepConfigs";
 import { logicService } from "../LogicService";
 import { RunPersistenceWriter } from "../runs/RunPersistenceWriter";
 import { writebackExecutionService } from "../WritebackExecutionService";
+import { createError } from "../../utils/errors";
 
 import type { PopulateValuesOptions, SnapshotValueMap, DocumentGenerationResult, WritebackExecutionResult } from "./types";
 
@@ -323,16 +325,86 @@ export class RunLifecycleService {
    */
   async generateDocuments(runId: string): Promise<DocumentGenerationResult> {
     try {
-      await documentGenerationService.generateDocumentsForRun(runId);
-      logger.info({ runId }, 'Documents generated successfully');
+      // 1. Get run and workflow
+      const run = await workflowRunRepository.findById(runId);
+      if (!run) {throw createError.notFound('Workflow run', runId);}
+      const workflowId = run.workflowId;
 
-      // Count generated documents
-      const { runGeneratedDocumentsRepository } = await import('../../repositories');
-      const documents = await runGeneratedDocumentsRepository.findByRunId(runId);
+      // 2. Collect document configs from BOTH shapes the product writes:
+      //    - Final Block steps (step.options as FinalBlockConfig); the
+      //      actual step types are 'final' and 'final_documents'
+      //    - Legacy Final Documents sections (section.config.finalBlock
+      //      with config.templates), which WorkflowService still creates
+      const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId);
+      const finalBlockConfigs: FinalBlockConfig[] = [];
+      for (const step of allSteps) {
+        if (step.type !== 'final' && step.type !== 'final_documents') {continue;}
+        const config = step.options as FinalBlockConfig | null;
+        if (config?.documents && config.documents.length > 0) {
+          finalBlockConfigs.push(config);
+        }
+      }
+
+      const legacyConfig = await this.buildLegacyFinalBlockConfig(workflowId);
+      if (legacyConfig) {
+        finalBlockConfigs.push(legacyConfig);
+      }
+
+      if (finalBlockConfigs.length === 0) {
+        logger.info({ runId }, 'No Final Block steps or Final Documents sections found, skipping document generation');
+        return { success: true, documentsGenerated: 0 };
+      }
+
+      // 3. Get step values mapped by alias
+      const stepValues = await this.valueRepo.getRunDataWithAliases(runId, allSteps);
+
+      // 4. Create Template Resolver
+      const workflow = await workflowRepository.findById(workflowId);
+      if (!workflow) {throw createError.notFound('Workflow', workflowId);}
+      if (!workflow.projectId) {throw createError.validation('Workflow has no projectId');}
+
+      const resolveTemplate = createTemplateResolver(async (documentId: string) => {
+        const template = await documentTemplateRepository.findByIdAndProjectId(documentId, workflow.projectId as string);
+        if (!template) {
+          throw createError.notFound('Template', documentId);
+        }
+        return template;
+      });
+
+      // 5. Generate documents for each config (hooks run inside the renderer)
+      let totalGenerated = 0;
+      for (const finalBlockConfig of finalBlockConfigs) {
+        const generationResult = await finalBlockRenderer.render({
+          finalBlockConfig,
+          stepValues,
+          workflowId: run.workflowId,
+          runId: run.id,
+          resolveTemplate
+        });
+        totalGenerated += generationResult.totalGenerated;
+
+        // 6. Persist records so documents appear in the run's document list
+        for (const doc of generationResult.documents) {
+          try {
+            await runGeneratedDocumentsRepository.createDocument({
+              runId: run.id,
+              fileName: doc.filename,
+              fileUrl: `/api/runs/${run.id}/final-documents/${doc.filename}/download`,
+              mimeType: doc.mimeType,
+              fileSize: doc.size,
+              templateId: null,
+            });
+          } catch (persistError) {
+            logger.warn({ persistError, runId, filename: doc.filename }, 'Failed to persist generated document record');
+          }
+        }
+      }
+
+      logger.info({ runId, totalGenerated }, 'Documents generated successfully');
 
       return {
         success: true,
-        documentsGenerated: documents.length
+        documentsGenerated: totalGenerated
       };
     } catch (error) {
       logger.error({ error, runId }, 'Document generation failed');
@@ -342,6 +414,46 @@ export class RunLifecycleService {
         errors: [(error as Error).message]
       };
     }
+  }
+
+  /**
+   * Synthesize a FinalBlockConfig from legacy Final Documents sections
+   * (section.config.finalBlock === true with config.templates: string[]).
+   * Template-level mapping and metadata.visibleIf conditions carry over so
+   * the unified renderer path preserves the old behavior.
+   */
+  private async buildLegacyFinalBlockConfig(workflowId: string): Promise<FinalBlockConfig | null> {
+    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
+    const templateIds: string[] = [];
+    for (const section of sections) {
+      const config = section.config as { finalBlock?: boolean; templates?: string[] } | null;
+      if (config?.finalBlock === true && Array.isArray(config.templates)) {
+        templateIds.push(...config.templates);
+      }
+    }
+
+    if (templateIds.length === 0) {
+      return null;
+    }
+
+    const documents: FinalBlockConfig['documents'] = [];
+    for (const templateId of templateIds) {
+      const template = await documentTemplateRepository.findById(templateId);
+      if (!template) {
+        logger.warn({ workflowId, templateId }, 'Legacy Final Documents section references missing template, skipping');
+        continue;
+      }
+      const metadata = template.metadata as { visibleIf?: unknown } | null;
+      documents.push({
+        id: templateId,
+        documentId: templateId,
+        alias: template.name,
+        conditions: (metadata?.visibleIf ?? null) as FinalBlockConfig['documents'][number]['conditions'],
+        mapping: (template.mapping ?? undefined) as FinalBlockConfig['documents'][number]['mapping'],
+      });
+    }
+
+    return documents.length > 0 ? { markdownHeader: '', documents } : null;
   }
 
   /**

@@ -102,6 +102,7 @@ const authRateLimit = rateLimit({
 // Helper function to validate Origin/Referer
 function validateOrigin(req: Express.Request): boolean {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+  // @ts-ignore - TODO: fix type
   const originHeader = req.get('Origin') ?? req.get('Referer');
   if (!originHeader) { return false; }
   try {

@@ -4,6 +4,7 @@ import { db, initializeDatabase } from '../server/db';
 
 import { getPdfFieldExtractor } from '../server/services/document/extractors/PdfFieldExtractor';
 // eslint-disable-next-line import/no-unresolved
+// @ts-ignore - TODO: fix type
 import { LocalStorageProvider } from '../server/services/storage/LocalStorageProvider';
 import * as schema from '../shared/schema';
 

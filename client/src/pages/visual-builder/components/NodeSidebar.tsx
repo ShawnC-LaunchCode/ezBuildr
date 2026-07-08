@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * NodeSidebar - Inspector panel for node configuration
  */

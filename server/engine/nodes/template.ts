@@ -8,8 +8,8 @@ import * as schema from '@shared/schema';
 import { db } from '../../db';
 import { logger } from '../../logger';
 import { pdfService } from '../../services/document/PdfService';
-import { renderDocx2 } from '../../services/docxRenderer2';
-import { renderTemplate , getTemplateFilePath } from '../../services/templates';
+import { enhancedDocumentEngine } from '../../services/document/EnhancedDocumentEngine';
+import { getTemplateFilePath } from '../../services/templates';
 import { evaluateExpression } from '../expr';
 
 import type { EvalContext } from '../expr';
@@ -129,8 +129,11 @@ export async function executeTemplateNode(
     if ((template as { project: { tenantId: string }; id: string }).project.tenantId !== tenantId) {
       throw new Error(`Access denied to template ${(template as { id: string }).id}`);
     }
-    // Choose rendering engine (default to v2)
-    const engine = config.engine ?? 'v2';
+    // All DOCX rendering goes through the shared render core (via
+    // renderDocx2); the 'legacy' engine option is accepted but ignored
+    if (config.engine === 'legacy') {
+      logger.info({ nodeId }, "Template node requested 'legacy' engine; rendering with the shared core");
+    }
     const toPdf = config.toPdf ?? false;
     let result: { fileRef: string; pdfRef?: string; size: number; format: string };
     const templateTyped = template as { type: string; fileRef: string; mapping?: Record<string, string> };
@@ -168,31 +171,27 @@ export async function executeTemplateNode(
         size: filledBuffer.length,
         format: 'pdf'
       };
-    } else if (engine === 'v2') {
-      // Use new docxRenderer2 with loops, conditionals, helpers
+    } else {
+      // DOCX rendering via the shared core (loops, conditionals, helpers)
       const templatePath = getTemplateFilePath(templateTyped.fileRef);
       const outputDir = path.join(process.cwd(), 'server', 'files', 'outputs');
       // Ensure output directory exists
       await fs.mkdir(outputDir, { recursive: true });
-      const renderResult = await renderDocx2({
+      const renderResult = await enhancedDocumentEngine.generateWithMapping({
         templatePath,
-        data: resolvedBindings,
+        rawData: resolvedBindings,
         outputDir,
-        outputName: config.outputName,
+        outputName: config.outputName || 'generated-document',
         toPdf,
+        normalize: false, // data is already resolved bindings
       });
+      if (!renderResult.docxPath) throw new Error('Document generation failed to produce a DOCX path');
       result = {
         fileRef: path.basename(renderResult.docxPath),
         pdfRef: renderResult.pdfPath ? path.basename(renderResult.pdfPath) : undefined,
         size: renderResult.size,
         format: 'docx',
       };
-    } else {
-      // Legacy rendering engine
-      result = await renderTemplate(templateTyped.fileRef, resolvedBindings, {
-        outputName: config.outputName,
-        toPdf,
-      });
     }
     // Store output in runOutputs table if runId is provided
     if (runId && workflowVersionId) {

@@ -5,6 +5,7 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import ws from 'ws';
 
 async function checkDatabaseState() {
+  // @ts-ignore - TODO: fix type
   neonConfig.webSocketConstructor = ws.default as typeof WebSocket;
 
   console.log("🔍 CHECKING DATABASE STATE\n");

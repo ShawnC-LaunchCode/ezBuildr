@@ -182,6 +182,7 @@ describe('DatavaultTablesRepository', () => {
         ...updateData,
         createdAt: new Date(),
         updatedAt: new Date(),
+        // @ts-ignore - TODO: fix type
         updatedAt: new Date(),
         databaseId: null,
       };

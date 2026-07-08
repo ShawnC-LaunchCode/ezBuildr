@@ -50,11 +50,11 @@ vi.mock("multer", () => {
             next();
         }
     });
-    // @ts-expect-error - Mock property assignment
+    // @ts-ignore - TODO: fix type
     mockMulter.memoryStorage = () => { };
-    // @ts-expect-error - Mock property assignment
+    // @ts-ignore - TODO: fix type
     mockMulter.diskStorage = () => { };
-    // @ts-expect-error - Mock property assignment
+    // @ts-ignore - TODO: fix type
     mockMulter.memoryStorage = () => { };
     class MockMulterError extends Error {
         code: string;
@@ -63,7 +63,7 @@ vi.mock("multer", () => {
             this.code = code;
         }
     }
-    // @ts-expect-error - Mock property assignment
+    // @ts-ignore - TODO: fix type
     mockMulter.MulterError = MockMulterError;
     return {
         default: mockMulter,

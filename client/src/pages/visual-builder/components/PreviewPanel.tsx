@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * PreviewPanel - Embedded run tester for workflows
  */

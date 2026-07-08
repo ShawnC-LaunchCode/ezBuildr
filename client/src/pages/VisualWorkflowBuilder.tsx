@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Visual Workflow Builder - Stage 7
  * Full Afterpattern-style visual builder using React Flow

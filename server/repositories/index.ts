@@ -49,6 +49,10 @@ export { RecordRepository, recordRepository } from "./RecordRepository";
 export { DocumentTemplateRepository, documentTemplateRepository } from "./DocumentTemplateRepository";
 export { WorkflowTemplateRepository, workflowTemplateRepository } from "./WorkflowTemplateRepository";
 
+// Custom scripting repositories
+export { DocumentHookRepository, documentHookRepository } from "./DocumentHookRepository";
+export { LifecycleHookRepository, lifecycleHookRepository } from "./LifecycleHookRepository";
+
 // DataVault Phase 1 repositories
 export { DatavaultDatabasesRepository, datavaultDatabasesRepository } from "./DatavaultDatabasesRepository";
 export { DatavaultTablesRepository, datavaultTablesRepository } from "./DatavaultTablesRepository";

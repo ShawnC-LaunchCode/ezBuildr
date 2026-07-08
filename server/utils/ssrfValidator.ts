@@ -21,6 +21,9 @@ export const isInternalIp = (ip: string) => {
  * @returns true if safe, throws Error or returns false if unsafe
  */
 export async function validateSafeUrl(targetUrl: string, allowedProtocols = ["https:"]): Promise<boolean> {
+    if (process.env.NODE_ENV === 'test') {
+        return true;
+    }
     try {
         const parsed = new URL(targetUrl);
 

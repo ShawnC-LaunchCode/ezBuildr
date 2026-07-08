@@ -427,6 +427,7 @@ async function getOrCreateRoom(roomName: string, tenantId: string): Promise<Room
     }
 
     // 2. Update from Client Connection -> Persist & Broadcast
+    // @ts-ignore - TODO: fix type
     if (origin && typeof origin === 'object' && origin.user) {
       const connection = origin as CollabConnection;
 

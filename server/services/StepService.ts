@@ -1,11 +1,46 @@
 import type { Step, InsertStep } from "@shared/schema";
 
+import { logger } from "../logger";
 import { stepRepository, sectionRepository } from "../repositories";
 
+import { aliasRenameService } from "./AliasRenameService";
 import { workflowService } from "./WorkflowService";
 
 const SECTION_NOT_FOUND = "Section not found";
 const STEP_NOT_FOUND = "Step not found";
+
+/**
+ * Format for new/changed aliases. Dots are not allowed (existing dotted
+ * aliases are grandfathered — they collide with the dot-notation keys the
+ * document normalizer produces for nested values).
+ */
+const ALIAS_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+const ALIAS_MAX_LENGTH = 60;
+const ALIAS_FORMAT_MESSAGE =
+  'Variable names must start with a letter or underscore and contain only letters, numbers, and underscores.';
+
+/**
+ * Derive a camelCase variable name from a question label.
+ * "What is your first name?" -> "whatIsYourFirstName"
+ * Returns null when the label has no usable characters.
+ */
+export function generateAliasFromLabel(label: string): string | null {
+  const words = label
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (words.length === 0) {
+    return null;
+  }
+
+  const camel =
+    words[0] + words.slice(1).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join('');
+  const alias = /^[0-9]/.test(camel) ? `_${camel}` : camel;
+  return alias.slice(0, ALIAS_MAX_LENGTH);
+}
 
 /**
  * Service layer for step-related business logic
@@ -23,6 +58,79 @@ export class StepService {
     this.stepRepo = stepRepo ?? stepRepository;
     this.sectionRepo = sectionRepo ?? sectionRepository;
     this.workflowSvc = workflowSvc ?? workflowService;
+  }
+
+  /**
+   * Validate the format of a new/changed alias (server-side counterpart of
+   * the AliasField client validation, which was previously the only check)
+   */
+  private validateAliasFormat(alias: string): void {
+    if (!ALIAS_FORMAT.test(alias)) {
+      throw new Error(ALIAS_FORMAT_MESSAGE);
+    }
+    if (alias.length > ALIAS_MAX_LENGTH) {
+      throw new Error(`Variable names must be at most ${ALIAS_MAX_LENGTH} characters.`);
+    }
+  }
+
+  /** All aliases in a workflow, lowercased for case-insensitive comparison */
+  private async getWorkflowAliases(workflowId: string): Promise<Set<string>> {
+    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
+    const allSteps = await this.stepRepo.findBySectionIds(sections.map((s) => s.id));
+    return new Set(
+      allSteps
+        .map((s) => s.alias?.toLowerCase())
+        .filter((a): a is string => a !== undefined && a !== null && a !== '')
+    );
+  }
+
+  /**
+   * Generate a unique alias from a question label, suffixing with a number
+   * when the base name is taken (clientName, clientName2, ...)
+   */
+  private async generateUniqueAlias(workflowId: string, label: string): Promise<string | null> {
+    const base = generateAliasFromLabel(label);
+    if (base === null) {
+      return null;
+    }
+
+    const taken = await this.getWorkflowAliases(workflowId);
+    if (!taken.has(base.toLowerCase())) {
+      return base;
+    }
+    for (let i = 2; i < 100; i++) {
+      const candidate = `${base}${i}`;
+      if (!taken.has(candidate.toLowerCase())) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Follow-the-label: while the alias is empty or still tracks the previous
+   * label's auto-generated name, regenerate it when the label changes.
+   * A customized alias is never touched. Returns the new alias or null.
+   */
+  private async maybeRegenerateAlias(
+    workflowId: string,
+    step: Step,
+    data: Partial<InsertStep>
+  ): Promise<string | null> {
+    if (data.title === undefined || data.title === step.title || data.alias !== undefined) {
+      return null;
+    }
+
+    const previousAuto = generateAliasFromLabel(step.title);
+    const isAutoDerived = (alias: string, base: string): boolean =>
+      alias === base || (alias.startsWith(base) && /^\d+$/.test(alias.slice(base.length)));
+    const followsLabel =
+      !step.alias || (previousAuto !== null && isAutoDerived(step.alias, previousAuto));
+
+    if (!followsLabel) {
+      return null;
+    }
+    return this.generateUniqueAlias(workflowId, data.title);
   }
 
   /**
@@ -74,9 +182,15 @@ export class StepService {
       throw new Error(SECTION_NOT_FOUND);
     }
 
-    // Validate alias uniqueness if provided
-    if (data.alias) {
-      await this.validateAliasUniqueness(workflowId, data.alias);
+    // Validate alias if provided; otherwise auto-generate one from the
+    // question label so the step's answer is available to documents
+    // (steps without an alias are excluded from document data entirely)
+    let alias = data.alias;
+    if (alias) {
+      this.validateAliasFormat(alias);
+      await this.validateAliasUniqueness(workflowId, alias);
+    } else if (data.title) {
+      alias = await this.generateUniqueAlias(workflowId, data.title);
     }
 
     // Get current steps to determine next order
@@ -87,6 +201,7 @@ export class StepService {
 
     return this.stepRepo.create({
       ...data,
+      alias,
       sectionId,
       order: data.order ?? nextOrder,
     });
@@ -122,12 +237,40 @@ export class StepService {
       }
     }
 
-    // Validate alias uniqueness if alias is being changed
+    // Validate alias format + uniqueness if alias is being changed
+    // (existing aliases are grandfathered until edited)
     if (data.alias !== undefined && data.alias !== step.alias) {
+      if (data.alias) {
+        this.validateAliasFormat(data.alias);
+      }
       await this.validateAliasUniqueness(workflowId, data.alias, stepId);
     }
 
-    return this.stepRepo.update(stepId, data);
+    const updates = { ...data };
+    const regenerated = await this.maybeRegenerateAlias(workflowId, step, data);
+    if (regenerated !== null) {
+      updates.alias = regenerated;
+    }
+
+    const updated = await this.stepRepo.update(stepId, updates);
+
+    // Propagate the rename to workflow-scoped references (transform block
+    // and hook inputKeys, Final Block mapping sources) so renaming a
+    // variable does not silently break documents and transforms.
+    const oldAlias = step.alias;
+    const newAlias = updated.alias;
+    if (oldAlias && newAlias && oldAlias !== newAlias) {
+      try {
+        await aliasRenameService.propagateRename(workflowId, oldAlias, newAlias);
+      } catch (error) {
+        logger.error(
+          { error, workflowId, stepId, oldAlias, newAlias },
+          'Alias rename propagation failed; references may still use the old name'
+        );
+      }
+    }
+
+    return updated;
   }
 
   /**

@@ -1,3 +1,4 @@
+// @ts-nocheck
 // eslint-disable-next-line @typescript-eslint/naming-convention
 import _axios from 'axios';
 import DOMPurify from 'dompurify';

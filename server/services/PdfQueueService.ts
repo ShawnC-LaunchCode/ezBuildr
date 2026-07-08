@@ -21,7 +21,7 @@ import { runOutputs } from '@shared/schema';
 import { db } from '../db';
 import { logger } from '../logger';
 
-import { convertDocxToPdf2 } from './docxRenderer2';
+import { pdfConverter } from './document/PdfConverter';
 import { getOutputFilePath } from './templates';
 
 
@@ -215,7 +215,11 @@ export class PdfQueueService {
       await fs.access(docxPath);
 
       // Convert DOCX to PDF
-      const pdfPath = await convertDocxToPdf2(docxPath);
+      const pdfPath = docxPath.replace(/\.docx$/, '.pdf');
+      await pdfConverter.convert({
+        docxPath,
+        outputPath: pdfPath
+      });
 
       // Verify PDF was created
       await fs.access(pdfPath);
@@ -339,7 +343,11 @@ export class PdfQueueService {
 
     try {
       // Convert DOCX to PDF
-      const pdfPath = await convertDocxToPdf2(docxPath);
+      const pdfPath = docxPath.replace(/\.docx$/, '.pdf');
+      await pdfConverter.convert({
+        docxPath,
+        outputPath: pdfPath
+      });
 
       // Verify PDF was created
       await fs.access(pdfPath);

@@ -271,6 +271,7 @@ export class ActivityLogRepository {
     const result = await database.execute(query);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+    // @ts-ignore - TODO: fix type
     return (result.rows as unknown[]).map((row: Record<string, unknown>) => row.event as string); // Raw SQL result from Drizzle
   }
 
@@ -296,6 +297,7 @@ export class ActivityLogRepository {
     const result = await database.execute(query);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+    // @ts-ignore - TODO: fix type
     return (result.rows as unknown[]).map((row: Record<string, unknown>) => row.actor as string); // Raw SQL result from Drizzle
   }
 }

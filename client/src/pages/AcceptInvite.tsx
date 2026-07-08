@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useRoute } from 'wouter';

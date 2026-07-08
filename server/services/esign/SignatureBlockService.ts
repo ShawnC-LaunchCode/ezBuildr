@@ -310,12 +310,11 @@ export class SignatureBlockService {
       where: eq(signatureRequests.providerRequestId, envelopeId),
       columns: {
         id: true,
-        runId: true,
-        stepId: true
+        runId: true
       }
     });
     
-    return request || null;
+    return request as any || null;
   }
 
   /**

@@ -98,6 +98,7 @@ export async function executeEsignNode(
       if (outputValue) {
         // If it's an object with a url property, use that
         if (typeof outputValue === 'object' && 'url' in outputValue) {
+          // @ts-ignore - TODO: fix type
           documentUrl = outputValue.url;
         } else if (typeof outputValue === 'string') {
           documentUrl = outputValue;

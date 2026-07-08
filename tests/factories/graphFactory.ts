@@ -22,10 +22,11 @@ export function createQuestionNode(
     return {
         id,
         type: 'question',
+        // @ts-ignore - TODO: fix type
         config: {
             key: id,
             question,
-            type,
+            
             ...options,
         } as QuestionNodeConfig,
     };

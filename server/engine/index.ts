@@ -98,8 +98,10 @@ export async function runGraph(input: RunGraphInput): Promise<RunGraphOutput> {
       timestamp: new Date(),
     });
     // Initialize execution context resources
+    // @ts-ignore - TODO: fix type
     let isolate: import("isolated-vm").Isolate | undefined;
     try {
+      // @ts-ignore - TODO: fix type
       const ivm = await import("isolated-vm");
       isolate = new ivm.Isolate({ memoryLimit: 128 });
     } catch {

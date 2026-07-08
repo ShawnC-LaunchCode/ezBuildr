@@ -150,17 +150,56 @@ export class PuppeteerStrategy implements PdfConversionStrategy {
 }
 
 /**
- * Factory to get the appropriate strategy
- * Enforced to PuppeteerStrategy
+ * Strategy using Gotenberg API (or similar)
+ */
+export class ApiStrategy implements PdfConversionStrategy {
+    async convert(options: PdfConversionOptions): Promise<void> {
+        const apiUrl = process.env.PDF_CONVERTER_API_URL;
+        if (!apiUrl) {throw new Error('PDF_CONVERTER_API_URL is not set');}
+        
+        logger.info({ docxPath: options.docxPath, apiUrl }, 'Converting PDF via API');
+        
+        // Pseudo-implementation for API conversion
+        // e.g. POST to Gotenberg /forms/chromium/convert/html (after Mammoth HTML conversion)
+        // or /forms/libreoffice/convert for raw docx.
+        
+        // For now, we will just simulate a failed API call so it falls back or fails cleanly
+        // if the API isn't actually implemented
+        throw new Error('API PDF conversion not fully implemented');
+    }
+}
+
+/**
+ * Factory to get the appropriate strategy. When PDF_CONVERTER_API_URL is
+ * set the API strategy is tried first, falling back to local Puppeteer on
+ * failure — the API strategy is not fully implemented yet, and setting the
+ * env var must not take down PDF generation.
  */
 export class PdfConverter {
     private strategy: PdfConversionStrategy;
+    private fallback: PdfConversionStrategy | null;
 
     constructor() {
-        this.strategy = new PuppeteerStrategy();
+        if (process.env.PDF_CONVERTER_API_URL) {
+            this.strategy = new ApiStrategy();
+            this.fallback = new PuppeteerStrategy();
+        } else {
+            this.strategy = new PuppeteerStrategy();
+            this.fallback = null;
+        }
     }
 
     async convert(options: PdfConversionOptions): Promise<void> {
-        return this.strategy.convert(options);
+        try {
+            return await this.strategy.convert(options);
+        } catch (error) {
+            if (this.fallback === null) {
+                throw error;
+            }
+            logger.warn({ error }, 'API PDF conversion failed; falling back to local Puppeteer');
+            return this.fallback.convert(options);
+        }
     }
 }
+
+export const pdfConverter = new PdfConverter();
