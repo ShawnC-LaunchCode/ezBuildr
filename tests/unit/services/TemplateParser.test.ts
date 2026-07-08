@@ -113,6 +113,20 @@ describe('TemplateParser', () => {
       expect(text).toMatch(/Born: 01\/1[45]\/2000/); // day depends on local TZ
     });
 
+    it('should call formatDate with a quoted multi-word format', async () => {
+      // Local-time date keeps the assertion timezone-independent
+      const dob = new Date(2025, 10, 14, 15, 30);
+      const text = await render('Signed: {{formatDate dob "MMMM DD, YYYY \'at\' h:mm A"}}', {
+        dob,
+      });
+      expect(text).toContain('Signed: November 14, 2025 at 3:30 PM');
+    });
+
+    it('should call formatCurrency with quoted currency code', async () => {
+      const text = await render('Total: {{formatCurrency amount "USD"}}', { amount: 1234.5 });
+      expect(text).toContain('Total: $1,234.50');
+    });
+
     it('should call helpers on nested paths', async () => {
       const text = await render('{{upper client.name}}', {
         client: { name: 'acme co' },

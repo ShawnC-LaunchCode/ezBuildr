@@ -22,7 +22,7 @@ import { logger } from '../logger';
 import { ApiError , createError } from '../utils/errors';
 
 
-import { docxHelpers } from './docxHelpers';
+import { docxHelpers, parseHelperArg, tokenizeTag } from './docxHelpers';
 
 export interface RenderOptions2 {
   templatePath: string;
@@ -64,7 +64,7 @@ function createExpressionParser(tag: string): { get(scope: Record<string, unknow
         return scope;
       }
 
-      const parts = tag.trim().split(/\s+/);
+      const parts = tokenizeTag(tag);
 
       if (parts.length > 1 && parts[0] in docxHelpers) {
         const helperName = parts[0];
@@ -73,7 +73,7 @@ function createExpressionParser(tag: string): { get(scope: Record<string, unknow
         if (typeof helper === 'function') {
           const valuePath = parts[1];
           const value = getNestedValue(scope, valuePath);
-          const args = parts.slice(2);
+          const args = parts.slice(2).map(parseHelperArg);
 
           try {
             return (helper as (...args: unknown[]) => unknown)(value, ...args);

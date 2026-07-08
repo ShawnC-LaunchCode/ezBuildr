@@ -11,6 +11,8 @@
  * - Conditional helpers
  */
 
+import { format as formatDateFns } from 'date-fns';
+
 import { formatters } from '../utils/formatters';
 
 /**
@@ -85,8 +87,59 @@ export function defaultValue(value: any, defaultVal: any): any {
 }
 
 /**
- * Format date with custom format string
- * Supports: YYYY, MM, DD, HH, mm, ss
+ * Moment-style tokens (used throughout existing templates and docs) mapped to
+ * their date-fns equivalents. Tokens not listed (MMMM, MMM, MM, M, HH, H, hh,
+ * h, mm, m, ss, s) are identical in both systems and pass through unchanged.
+ */
+const MOMENT_TO_DATE_FNS_TOKENS: Record<string, string> = {
+  YYYY: 'yyyy',
+  YY: 'yy',
+  dddd: 'EEEE',
+  ddd: 'EEE',
+  Do: 'do',
+  DD: 'dd',
+  D: 'd',
+  A: 'a',
+  a: 'aaa',
+};
+
+/**
+ * Translate a Moment-style format string to date-fns syntax.
+ * Quoted literals ('at') pass through untouched (date-fns uses the same
+ * quoting); a lone unmatched apostrophe (e.g. 'YY for "'25") becomes an
+ * escaped literal quote.
+ */
+function translateDateFormat(momentFormat: string): string {
+  let out = '';
+  let i = 0;
+
+  while (i < momentFormat.length) {
+    if (momentFormat[i] === "'") {
+      const close = momentFormat.indexOf("'", i + 1);
+      if (close === -1) {
+        out += "''";
+        i += 1;
+      } else {
+        out += momentFormat.slice(i, close + 1);
+        i = close + 1;
+      }
+    } else {
+      let next = momentFormat.indexOf("'", i);
+      if (next === -1) {next = momentFormat.length;}
+      out += momentFormat
+        .slice(i, next)
+        .replace(/YYYY|YY|dddd|ddd|Do|DD|D|A|a/g, (token) => MOMENT_TO_DATE_FNS_TOKENS[token] ?? token);
+      i = next;
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Format date with a Moment-style format string.
+ * Supports: YYYY, YY, MMMM, MMM, MM, M, DD, D, Do, dddd, ddd, HH, H, hh, h,
+ * mm, ss, A, a, and quoted literals ('at').
  */
 export function formatDate(
   iso: string | Date | null | undefined,
@@ -99,20 +152,7 @@ export function formatDate(
     const d = typeof iso === 'string' ? new Date(iso) : iso;
     if (isNaN(d.getTime())) {return '';}
 
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const seconds = String(d.getSeconds()).padStart(2, '0');
-
-    return format
-      .replace('YYYY', String(year))
-      .replace('MM', month)
-      .replace('DD', day)
-      .replace('HH', hours)
-      .replace('mm', minutes)
-      .replace('ss', seconds);
+    return formatDateFns(d, translateDateFormat(format));
   } catch (error) {
     return '';
   }
@@ -222,6 +262,34 @@ export function replace(
 ): string {
   if (!s) {return '';}
   return s.replace(new RegExp(search, 'g'), replacement);
+}
+
+/**
+ * Split a template tag into tokens, keeping quoted segments intact.
+ * Example: `formatDate dob "MMMM DD, YYYY"` -> ['formatDate', 'dob', '"MMMM DD, YYYY"']
+ * Used by the expression parsers; not a template helper itself.
+ */
+export function tokenizeTag(tag: string): string[] {
+  return tag.trim().match(/"[^"]*"|'[^']*'|\S+/g) ?? [];
+}
+
+/**
+ * Convert a raw helper-argument token to its runtime value:
+ * quoted strings are unwrapped, numbers and booleans are coerced,
+ * everything else passes through as-is.
+ */
+export function parseHelperArg(rawArg: string): unknown {
+  if (
+    rawArg.length >= 2 &&
+    ((rawArg.startsWith('"') && rawArg.endsWith('"')) ||
+      (rawArg.startsWith("'") && rawArg.endsWith("'")))
+  ) {
+    return rawArg.slice(1, -1);
+  }
+  if (rawArg === 'true') {return true;}
+  if (rawArg === 'false') {return false;}
+  if (rawArg !== '' && !Number.isNaN(Number(rawArg))) {return Number(rawArg);}
+  return rawArg;
 }
 
 /**

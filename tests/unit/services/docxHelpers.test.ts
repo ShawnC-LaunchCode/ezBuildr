@@ -20,6 +20,8 @@ import {
   truncate,
   replace,
   docxHelpers,
+  tokenizeTag,
+  parseHelperArg,
 } from '../../../server/services/docxHelpers';
 
 /**
@@ -179,6 +181,42 @@ describe('DOCX Helpers', () => {
         expect(formatDate(null)).toBe('');
         expect(formatDate('invalid')).toBe('');
       });
+
+      describe('documented Moment-style tokens', () => {
+        // Local-time constructor keeps assertions timezone-independent.
+        // Nov 14 2025 is a Friday.
+        const date = new Date(2025, 10, 14, 15, 30, 5);
+
+        it('should support long month names (MMMM)', () => {
+          expect(formatDate(date, 'MMMM DD, YYYY')).toBe('November 14, 2025');
+        });
+
+        it('should support short month names and single-digit day (MMM D)', () => {
+          expect(formatDate(date, 'MMM D, YYYY')).toBe('Nov 14, 2025');
+        });
+
+        it("should support abbreviated year with literal apostrophe ('YY)", () => {
+          expect(formatDate(date, "MMM D, 'YY")).toBe("Nov 14, '25");
+        });
+
+        it('should support weekday and ordinal day (dddd, Do)', () => {
+          expect(formatDate(date, 'dddd, MMMM Do, YYYY')).toBe('Friday, November 14th, 2025');
+        });
+
+        it('should support 12-hour time with AM/PM (h:mm A)', () => {
+          expect(formatDate(date, 'h:mm A')).toBe('3:30 PM');
+        });
+
+        it('should support 24-hour time with seconds (HH:mm:ss)', () => {
+          expect(formatDate(date, 'HH:mm:ss')).toBe('15:30:05');
+        });
+
+        it("should support quoted literal text ('at')", () => {
+          expect(formatDate(date, "MMMM DD, YYYY 'at' h:mm A")).toBe(
+            'November 14, 2025 at 3:30 PM'
+          );
+        });
+      });
     });
 
     describe('formatCurrency', () => {
@@ -285,6 +323,73 @@ describe('DOCX Helpers', () => {
       expect(docxHelpers.upper('hello')).toBe('HELLO');
       expect(docxHelpers.lower('HELLO')).toBe('hello');
       expect(docxHelpers.titleCase('hello world')).toBe('Hello World');
+    });
+
+    it('should not expose parser utilities as template helpers', () => {
+      expect('tokenizeTag' in docxHelpers).toBe(false);
+      expect('parseHelperArg' in docxHelpers).toBe(false);
+    });
+  });
+
+  describe('Tag Tokenization', () => {
+    describe('tokenizeTag', () => {
+      it('should split on whitespace', () => {
+        expect(tokenizeTag('upper name')).toEqual(['upper', 'name']);
+        expect(tokenizeTag('  formatDate  dob  ')).toEqual(['formatDate', 'dob']);
+      });
+
+      it('should keep double-quoted segments intact', () => {
+        expect(tokenizeTag('formatDate dob "MMMM DD, YYYY"')).toEqual([
+          'formatDate',
+          'dob',
+          '"MMMM DD, YYYY"',
+        ]);
+      });
+
+      it('should keep single-quoted segments intact', () => {
+        expect(tokenizeTag("defaultValue company 'N/A or unknown'")).toEqual([
+          'defaultValue',
+          'company',
+          "'N/A or unknown'",
+        ]);
+      });
+
+      it('should handle multiple quoted arguments', () => {
+        expect(tokenizeTag('replace text "old value" "new value"')).toEqual([
+          'replace',
+          'text',
+          '"old value"',
+          '"new value"',
+        ]);
+      });
+
+      it('should handle empty input', () => {
+        expect(tokenizeTag('')).toEqual([]);
+        expect(tokenizeTag('   ')).toEqual([]);
+      });
+    });
+
+    describe('parseHelperArg', () => {
+      it('should unwrap quoted strings', () => {
+        expect(parseHelperArg('"USD"')).toBe('USD');
+        expect(parseHelperArg("'N/A'")).toBe('N/A');
+        expect(parseHelperArg('"MMMM DD, YYYY"')).toBe('MMMM DD, YYYY');
+      });
+
+      it('should coerce numbers', () => {
+        expect(parseHelperArg('20')).toBe(20);
+        expect(parseHelperArg('-3.5')).toBe(-3.5);
+      });
+
+      it('should coerce booleans', () => {
+        expect(parseHelperArg('true')).toBe(true);
+        expect(parseHelperArg('false')).toBe(false);
+      });
+
+      it('should pass through bare words', () => {
+        expect(parseHelperArg('USD')).toBe('USD');
+        expect(parseHelperArg('MM/DD/YYYY')).toBe('MM/DD/YYYY');
+      });
     });
   });
 });

@@ -7,7 +7,7 @@ import PizZip from 'pizzip';
 
 import { logger } from '../../logger';
 import { createError } from '../../utils/errors';
-import { docxHelpers } from '../docxHelpers';
+import { docxHelpers, parseHelperArg, tokenizeTag } from '../docxHelpers';
 
 const TEMPLATE_SYNTAX_ERROR_PREFIX = 'Template syntax error: ';
 const ERROR_SEPARATOR = ' | ';
@@ -65,7 +65,7 @@ export class TemplateParser {
                     return scope;
                 }
 
-                const parts = tag.trim().split(/\s+/);
+                const parts = tokenizeTag(tag);
 
                 // If first part is a helper function, call it
                 if (parts.length > 1 && parts[0] in docxHelpers) {
@@ -77,8 +77,8 @@ export class TemplateParser {
                         const valuePath = parts[1];
                         const value = getNestedValue(scope, valuePath);
 
-                        // Additional arguments
-                        const args = parts.slice(2);
+                        // Additional arguments (quotes stripped, numbers/booleans coerced)
+                        const args = parts.slice(2).map(parseHelperArg);
 
                         try {
                             return helper(value, ...args);
