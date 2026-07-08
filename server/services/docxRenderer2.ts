@@ -21,21 +21,8 @@ import { logger } from '../logger';
 import { ApiError , createError } from '../utils/errors';
 
 import { PdfConverter } from './document/PdfConverter';
-import { docxHelpers, formatArrayForDisplay, resolveHelperArg, tokenizeTag } from './docxHelpers';
-
-/** Subset of the context docxtemplater passes to parser.get */
-interface ParserContext {
-  meta?: {
-    part?: {
-      module?: string;
-    };
-  };
-}
-
-/** True when the tag is a loop/inverted section, which needs the raw array */
-function isLoopContext(context: unknown): boolean {
-  return (context as ParserContext)?.meta?.part?.module === 'loop';
-}
+import { renderDocxBuffer } from './document/RenderCore';
+import { docxHelpers } from './docxHelpers';
 
 export interface RenderOptions2 {
   templatePath: string;
@@ -51,81 +38,6 @@ export interface RenderResult2 {
   pdfPath?: string;
   size: number;
   placeholdersUsed?: string[];
-}
-
-interface DocxTemplateError extends Error {
-  properties?: {
-    errors?: Array<{
-      name?: string;
-      message?: string;
-      properties?: {
-        id?: string;
-        explanation?: string;
-      };
-    }>;
-  };
-}
-
-/**
- * Custom expression parser for docxtemplater
- * Enables angular-like syntax with helper functions
- */
-function createExpressionParser(tag: string): { get(scope: Record<string, unknown>, _context: unknown): unknown } {
-  return {
-    get(scope: Record<string, unknown>, context: unknown): unknown {
-      if (tag === '.') {
-        return scope;
-      }
-
-      const parts = tokenizeTag(tag);
-
-      if (parts.length > 1 && parts[0] in docxHelpers) {
-        const helperName = parts[0];
-        const helper = docxHelpers[helperName as keyof typeof docxHelpers];
-
-        if (typeof helper === 'function') {
-          const valuePath = parts[1];
-          const value = getNestedValue(scope, valuePath);
-          const args = parts.slice(2).map((arg) => resolveHelperArg(scope, arg));
-
-          try {
-            return (helper as (...args: unknown[]) => unknown)(value, ...args);
-          } catch (error) {
-            logger.error({ error, helperName }, `Helper ${helperName} failed`);
-            return '';
-          }
-        }
-      }
-
-      const value = getNestedValue(scope, tag);
-
-      // Arrays used as a scalar {{tag}} render as joined text;
-      // loop tags ({{#tag}}) receive the raw array for iteration
-      if (Array.isArray(value) && !isLoopContext(context)) {
-        return formatArrayForDisplay(value);
-      }
-
-      return value;
-    },
-  };
-}
-
-/**
- * Get nested value from object using dot notation
- * Example: "user.address.city" -> scope.user.address.city
- */
-function getNestedValue(obj: Record<string, unknown>, pathStr: string): unknown {
-  if (!pathStr) { return obj; }
-
-  const keys = pathStr.split('.');
-  let current: unknown = obj;
-
-  for (const key of keys) {
-    if (current === null || current === undefined) { return undefined; }
-    current = (current as Record<string, unknown>)[key];
-  }
-
-  return current;
 }
 
 /**
@@ -155,63 +67,14 @@ export async function renderDocx2(options: RenderOptions2): Promise<RenderResult
   await fs.mkdir(outputDir, { recursive: true });
 
   try {
-    // Read template file
-    const content = await fs.readFile(templatePath, 'binary');
-    const zip = new PizZip(content);
-
-    // Merge data with helpers for template use
-    const templateData = {
-      ...data,
-      ...docxHelpers,
-    };
-
-    // Create docxtemplater instance with enhanced options
-    const doc = new Docxtemplater(zip, {
-      paragraphLoop: true,
-      linebreaks: true,
-      delimiters: { start: '{{', end: '}}' },
-      nullGetter: (): string => '',
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment -- docxtemplater parser type is not publicly exported
-      parser: ((parsedTag: string) => createExpressionParser(parsedTag)) as any,
-    });
-
-    try {
-      doc.render(templateData);
-    } catch (err: unknown) {
-      const error = err as DocxTemplateError;
-      if (error.properties?.errors) {
-        const errorDetails = error.properties.errors
-          .map((templateErr) => {
-            const errorParts = [templateErr.name];
-            if (templateErr.message) { errorParts.push(templateErr.message); }
-            if (templateErr.properties?.id) { errorParts.push(`at ${templateErr.properties.id}`); }
-            if (templateErr.properties?.explanation) { errorParts.push(`- ${templateErr.properties.explanation}`); }
-            return errorParts.join(': ');
-          })
-          .join(' | ');
-
-        throw createError.internal(`DOCX rendering failed: ${errorDetails}`, {
-          errors: error.properties.errors,
-        });
-      }
-
-      throw createError.internal(
-        `DOCX rendering failed: ${error.message ?? 'Unknown error'}`,
-        { stack: error.stack }
-      );
-    }
+    // Render via the shared core (single parser/options implementation)
+    const buffer = await renderDocxBuffer({ templatePath, data });
 
     // Generate output filename
     const timestamp = Date.now();
     const basename = outputName ?? path.basename(templatePath, '.docx');
     const outputFileName = `${basename}-${timestamp}.docx`;
     const outputPath = path.join(outputDir, outputFileName);
-
-    // Write rendered document
-    const buffer = doc.getZip().generate({
-      type: 'nodebuffer',
-      compression: 'DEFLATE',
-    });
 
     await fs.writeFile(outputPath, buffer);
 
