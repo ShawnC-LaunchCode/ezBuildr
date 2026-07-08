@@ -19,7 +19,7 @@ import PizZip from 'pizzip';
 import { createError } from '../utils/errors';
 
 import { docxHelpers } from './docxHelpers';
-import { templateFileExists, getTemplateFilePath } from './templates';
+import { templateFileExists, getTemplateFilePath } from './templateFiles';
 
 export interface PlaceholderInfo {
   name: string;

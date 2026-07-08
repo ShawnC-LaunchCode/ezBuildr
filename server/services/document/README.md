@@ -642,21 +642,20 @@ if (mapping[field] && !normalizedData[mapping[field].source]) {
 
 ---
 
-## Migration from Existing System
+## Migration from Existing System (completed July 2026)
 
-**Backward Compatibility:**
-- Existing templates continue to work unchanged
-- Existing DocumentGenerationService remains functional
-- New Final Block system is additive, not replacement
+The legacy generators (`DocumentGenerationService`, `docxRenderer`,
+`docxRenderer2`) have been deleted. All paths — automatic run completion
+(`RunLifecycleService.generateDocuments`), the explicit
+`POST /api/runs/:runId/generate-final` endpoint, the graph engine template
+node, and the Bull queue worker — render through
+`FinalBlockRenderer` / `EnhancedDocumentEngine` on top of `RenderCore`.
 
-**Coexistence:**
-- Old: `DocumentGenerationService.generateDocumentsForRun(runId)`
-- New: `FinalBlockRenderer.renderFinalBlock(config, values, workflowId, runId)`
-
-**Future Deprecation Path:**
-- Migrate existing "Final Documents" sections to Final Blocks
-- Consolidate into single document generation pipeline
-- Archive old service after migration complete
+**Backward compatibility:** legacy "Final Documents" sections
+(`section.config.finalBlock` + `config.templates`) are still supported —
+`RunLifecycleService.buildLegacyFinalBlockConfig` synthesizes a
+`FinalBlockConfig` from them, carrying template-level mapping and
+`visibleIf` conditions into the unified path.
 
 ---
 

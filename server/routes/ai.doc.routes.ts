@@ -20,11 +20,18 @@ const router = Router();
 
 // Callers send arrays of variable OBJECTS (e.g. { name, type } / { id, name, type }),
 // which the service consumes via v.name/v.id/v.label/v.type. Validate that real
-// shape while keeping the SEC-028 bounds (require a name; cap count and lengths;
-// allow the other known fields).
+// shape while keeping the SEC-028 bounds: every field is enumerated and
+// length-capped, and unknown keys are stripped — .passthrough() would let
+// arbitrarily large unknown fields flow through to the AI prompt.
 const variableObjectSchema = z
-  .object({ name: z.string().max(200) })
-  .passthrough();
+  .object({
+    name: z.string().max(200),
+    id: z.string().max(200).optional(),
+    label: z.string().max(500).optional(),
+    type: z.string().max(100).optional(),
+    description: z.string().max(1000).optional(),
+  })
+  .strip();
 const variableObjectArraySchema = z.array(variableObjectSchema).max(500);
 const suggestMappingsSchema = z.object({
   templateVariables: variableObjectArraySchema,

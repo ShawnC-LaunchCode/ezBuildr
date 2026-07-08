@@ -1,16 +1,18 @@
 /**
  * Template Test Service
- * PR4: Template testing orchestration with stub implementations
  *
- * Handles template validation and rendering for the test runner.
- * Uses real services where available, stubs where not yet implemented.
+ * Backs the Templates Test Runner: renders a template with caller-supplied
+ * sample data and returns download URLs plus template analysis.
  */
 import path from 'path';
 
 import { logger } from '../logger';
+import { documentTemplateRepository } from '../repositories';
 
 import { enhancedDocumentEngine } from './document/EnhancedDocumentEngine';
-import { type TemplateAnalysis } from './TemplateAnalysisService';
+import { analyzeTemplate, type TemplateAnalysis } from './TemplateAnalysisService';
+import { getTemplateFilePath, templateFileExists } from './templateFiles';
+
 export interface TemplateTestRequest {
   workflowId: string;
   templateId: string;
@@ -59,8 +61,8 @@ export class TemplateTestService {
           ],
         };
       }
-      // 2. Get template file path (STUB - will be replaced with actual template lookup)
-      // eslint-disable-next-line @typescript-eslint/await-thenable
+
+      // 2. Resolve the template's file path from the database
       const templatePath = await this.getTemplatePath(request.templateId);
       if (!templatePath) {
         return {
@@ -75,39 +77,37 @@ export class TemplateTestService {
           ],
         };
       }
-      // 3. Analyze template (if analysis service available)
+
+      // 3. Analyze template (non-fatal: analysis enriches the result)
       let analysis: TemplateAnalysis | undefined;
       try {
-        // STUB: For now, skip analysis if template doesn't exist yet
-        // In real implementation, this would call analyzeTemplate(templatePath)
-        logger.info({ templateId: request.templateId }, 'Skipping template analysis (stub)');
+        analysis = await analyzeTemplate(templatePath);
       } catch (error) {
         logger.warn({ error, templateId: request.templateId }, 'Template analysis failed (non-fatal)');
       }
-      // 4. Render DOCX
-      let renderResult: { docxPath: string, pdfPath?: string, size: number } | undefined;
-      let docxUrl: string | undefined;
-      let pdfUrl: string | undefined;
+
+      // 4. Render
       try {
-        // Use real renderDocx via helper
         const toPdf = request.outputType === 'pdf' || request.outputType === 'both';
-        renderResult = await this.renderTemplateInternal(
-          request.templateId,
-          request.sampleData,
-          toPdf
-        );
-        // Create URLs for the generated files
-        if (renderResult.docxPath) {
-          docxUrl = `/api/files/test-outputs/${path.basename(renderResult.docxPath)}`;
-        }
-        if (renderResult.pdfPath) {
-          pdfUrl = `/api/files/test-outputs/${path.basename(renderResult.pdfPath)}`;
-        }
-        const durationMs = Date.now() - startTime;
+        const renderResult = await enhancedDocumentEngine.generateWithMapping({
+          templatePath,
+          rawData: request.sampleData,
+          outputName: `test-render-${request.templateId}`,
+          toPdf,
+          normalize: false, // test data is already prepared by the caller
+        });
+
+        const docxUrl = renderResult.docxPath
+          ? `/api/files/download/${path.basename(renderResult.docxPath)}`
+          : undefined;
+        const pdfUrl = renderResult.pdfPath
+          ? `/api/files/download/${path.basename(renderResult.pdfPath)}`
+          : undefined;
+
         return {
           ok: true,
           status: 'rendered',
-          durationMs,
+          durationMs: Date.now() - startTime,
           docxUrl: request.outputType !== 'pdf' ? docxUrl : undefined,
           pdfUrl: request.outputType !== 'docx' ? pdfUrl : undefined,
           analysis: analysis
@@ -147,52 +147,23 @@ export class TemplateTestService {
       };
     }
   }
+
   /**
-   * Get template file path (STUB)
-   * TODO: Replace with actual template repository lookup
+   * Look up the template row and return its on-disk file path, or null when
+   * the template (or its file) does not exist. Workflow-level authorization
+   * happens at the route.
    */
-  private getTemplatePath(templateId: string): string | null {
-    // STUB: Return a dummy path
-    // In real implementation, this would look up the template in the database
-    // and return the actual file path
-    return `/tmp/template-${templateId}.docx`;
-  }
-  /**
-   * Stub DOCX renderer
-   * TODO: Replace with actual renderDocx call when templates exist
-   */
-  /*
-   * Render DOCX using the real renderer
-   */
-  private async renderTemplateInternal(
-    templateId: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- data is dynamically typed workflow data
-    data: Record<string, any>,
-    toPdf: boolean
-  ): Promise<{ docxPath: string, pdfPath?: string, size: number }> {
-    // In real implementation, this would look up the template in the database
-    // For now, we still need a template path. 
-    // We will assume the template is at a fixed location or use a dummy for testing if not found.
-    // But better to fail if not found.
-    // eslint-disable-next-line @typescript-eslint/await-thenable
-    const templatePath = await this.getTemplatePath(templateId);
-    if (!templatePath) {
-      throw new Error(`Template ${templateId} not found`);
+  private async getTemplatePath(templateId: string): Promise<string | null> {
+    const template = await documentTemplateRepository.findById(templateId);
+    if (!template) {
+      return null;
     }
-    // Use the enhanced document engine
-    return enhancedDocumentEngine.generateWithMapping({
-      templatePath,
-      rawData: data,
-      outputName: `test-render-${templateId}`,
-      toPdf,
-      normalize: false // Assume test data is already prepared
-    });
-  }
-  /**
-   * Convert DOCX to PDF using real converter
-   */
-  private async _stubConvertToPdf(_docxPath: string): Promise<string | null> {
-    return null; // Placeholder
+    const exists = await templateFileExists(template.fileRef);
+    if (!exists) {
+      logger.warn({ templateId, fileRef: template.fileRef }, 'Template row exists but file is missing');
+      return null;
+    }
+    return getTemplateFilePath(template.fileRef);
   }
 }
 // Singleton instance

@@ -1,17 +1,16 @@
 
-import path from 'path';
-
-import { logger } from '../logger';
 import { createError } from '../utils/errors';
 
 import { analyzeTemplate } from './TemplateAnalysisService';
-import { enhancedDocumentEngine } from './document/EnhancedDocumentEngine';
 import { storageProvider } from './storage';
+import { templateFileExists, getTemplateFilePath } from './templateFiles';
 
 import type { PlaceholderInfo } from '../api/validators/templates';
 
-
-const OUTPUTS_DIR = path.join(process.cwd(), 'server', 'files', 'outputs');
+// Path helpers live in templateFiles.ts (leaf module, no service imports)
+// so that TemplateAnalysisService and others can use them without creating
+// an import cycle with this file.
+export { getTemplateFilePath, templateFileExists, getOutputFilePath, outputFileExists, OUTPUTS_DIR } from './templateFiles';
 
 /**
  * Initialize file storage directory
@@ -49,43 +48,6 @@ export async function deleteTemplateFile(fileRef: string): Promise<void> {
 }
 
 /**
- * Get file path for a template
- */
-export function getTemplateFilePath(fileRef: string): string {
-  // Legacy support: We assume disk storage provider structure for now.
-  return path.join(process.cwd(), 'server', 'files', fileRef);
-}
-
-/**
- * Check if template file exists
- */
-export async function templateFileExists(fileRef: string): Promise<boolean> {
-  return storageProvider.exists(fileRef);
-}
-
-/**
- * Get file path for an output file
- */
-export function getOutputFilePath(fileRef: string): string {
-  return path.join(OUTPUTS_DIR, fileRef);
-}
-
-/**
- * Check if output file exists
- */
-export async function outputFileExists(fileRef: string): Promise<boolean> {
-  // Outputs are still local-only for now
-  const fs = await import('fs/promises');
-  try {
-    const filePath = getOutputFilePath(fileRef);
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Validate template against allowed placeholders
  */
 export async function validateTemplate(
@@ -115,10 +77,9 @@ export async function extractPlaceholders(fileRef: string): Promise<PlaceholderI
 
   const templatePath = getTemplateFilePath(fileRef);
   const analysis = await analyzeTemplate(templatePath);
-  const placeholderNames = analysis.variables.map((v: any) => v.name);
 
-  const placeholders: PlaceholderInfo[] = placeholderNames.map((name: string) => ({
-    name,
+  const placeholders: PlaceholderInfo[] = analysis.variables.map((v) => ({
+    name: v.name,
     type: 'text',
     example: '',
   }));
@@ -126,46 +87,6 @@ export async function extractPlaceholders(fileRef: string): Promise<PlaceholderI
   return placeholders;
 }
 
-/**
- * Render template with context data
- */
-export async function renderTemplate(
-  fileRef: string,
-  context: Record<string, unknown>,
-  options?: {
-    toPdf?: boolean;
-    outputName?: string;
-  }
-): Promise<{ fileRef: string; pdfRef?: string; size: number; format: string }> {
-  const exists = await templateFileExists(fileRef);
-  if (!exists) {
-    throw createError.notFound('Template file');
-  }
-
-  const templatePath = getTemplateFilePath(fileRef);
-
-  try {
-    const result = await enhancedDocumentEngine.generateWithMapping({
-      templatePath,
-      rawData: context,
-      outputDir: OUTPUTS_DIR,
-      outputName: options?.outputName || 'generated-document',
-      toPdf: options?.toPdf ?? false,
-      normalize: true
-    });
-    if (!result.docxPath) throw new Error('Generation failed to produce DOCX path');
-
-    const docxFileRef = path.basename(result.docxPath);
-    const pdfFileRef = result.pdfPath ? path.basename(result.pdfPath) : undefined;
-
-    return {
-      fileRef: docxFileRef,
-      pdfRef: pdfFileRef,
-      size: result.size,
-      format: 'docx',
-    };
-  } catch (error) {
-    logger.error({ error }, 'Failed to render template');
-    throw createError.internal('Failed to render template');
-  }
-}
+// NOTE: template rendering lives in the document services
+// (EnhancedDocumentEngine / FinalBlockRenderer / RenderCore); this module is
+// file storage and placeholder extraction only.
