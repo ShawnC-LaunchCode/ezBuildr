@@ -24,6 +24,7 @@ import { createError } from '../utils/errors';
 
 import { documentEngine } from './document/DocumentEngine';
 import { applyMapping, type DocumentMapping } from './document/MappingInterpreter';
+import { documentHookService } from './scripting/DocumentHookService';
 import { getTemplateFilePath } from './templates';
 
 
@@ -92,6 +93,27 @@ export class DocumentGenerationService {
 
       log.info({ dataKeys: Object.keys(data).length }, 'Built data object for template rendering');
 
+      // 4.5 Execute beforeGeneration document hooks. Previously these only
+      // ran on the explicit Final Block endpoint; the automatic
+      // run-completion path silently skipped them.
+      let enhancedData = data;
+      try {
+        const beforeHooksResult = await documentHookService.executeHooksForPhase({
+          workflowId: run.workflowId,
+          runId,
+          phase: 'beforeGeneration',
+          data,
+        });
+        enhancedData = beforeHooksResult.data;
+
+        if (beforeHooksResult.errors && beforeHooksResult.errors.length > 0) {
+          log.warn({ errors: beforeHooksResult.errors }, 'Document hooks (beforeGeneration) had errors');
+        }
+      } catch (error) {
+        log.error({ error }, 'Failed to execute beforeGeneration hooks');
+        // Non-breaking: continue with original data
+      }
+
       // 5. Generate documents for each Final Documents section
       for (const section of finalDocsSections) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- section config is dynamically typed
@@ -111,7 +133,7 @@ export class DocumentGenerationService {
         // Generate each template
         for (const templateId of templateIds) {
           try {
-            await this.generateDocument(run, templateId, data);
+            await this.generateDocument(run, templateId, enhancedData);
           } catch (error) {
             log.error(
               { error, templateId, sectionId: section.id },
@@ -120,6 +142,23 @@ export class DocumentGenerationService {
             // Continue with other templates even if one fails
           }
         }
+      }
+
+      // 6. Execute afterGeneration document hooks (audit logging etc.)
+      try {
+        const afterHooksResult = await documentHookService.executeHooksForPhase({
+          workflowId: run.workflowId,
+          runId,
+          phase: 'afterGeneration',
+          data: enhancedData,
+        });
+
+        if (afterHooksResult.errors && afterHooksResult.errors.length > 0) {
+          log.warn({ errors: afterHooksResult.errors }, 'Document hooks (afterGeneration) had errors');
+        }
+      } catch (error) {
+        log.error({ error }, 'Failed to execute afterGeneration hooks');
+        // Non-breaking
       }
 
       log.info('Document generation completed successfully');
@@ -144,7 +183,7 @@ export class DocumentGenerationService {
   private async generateDocument(
     run: WorkflowRun,
     templateId: string,
-    data: Record<string, unknown>
+    data: any
   ): Promise<void> {
     const log = logger.child({ runId: run.id, templateId, service: 'DocumentGenerationService' });
 
