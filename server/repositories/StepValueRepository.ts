@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 import { stepValues, type StepValue, type InsertStepValue } from "@shared/schema";
 
@@ -43,6 +43,35 @@ export class StepValueRepository extends BaseRepository<
   }
 
   /**
+   * Get all run values as a flattened JSON object keyed by stepId
+   */
+  async getRunDataAsJson(runId: string, tx?: DbTransaction): Promise<Record<string, unknown>> {
+    const values = await this.findByRunId(runId, tx);
+    const dataMap: Record<string, unknown> = {};
+    for (const v of values) {
+      dataMap[v.stepId] = v.value;
+    }
+    return dataMap;
+  }
+
+  /**
+   * Get all run values mapped to their aliases (or stepIds if no alias)
+   */
+  async getRunDataWithAliases(runId: string, steps: { id: string, alias?: string | null }[], tx?: DbTransaction): Promise<Record<string, unknown>> {
+    const values = await this.findByRunId(runId, tx);
+    const stepMap = new Map(steps.map(s => [s.id, s]));
+    const dataMap: Record<string, unknown> = {};
+    for (const v of values) {
+      const step = stepMap.get(v.stepId);
+      if (step) {
+        const key = step.alias ?? step.id;
+        dataMap[key] = v.value;
+      }
+    }
+    return dataMap;
+  }
+
+  /**
    * Upsert a step value (insert or update)
    *
    * PERFORMANCE OPTIMIZED (Dec 2025):
@@ -73,6 +102,33 @@ export class StepValueRepository extends BaseRepository<
 
     if (result == null) {throw new Error("Failed to upsert step value");}
     return result;
+  }
+
+  /**
+   * Bulk upsert multiple step values
+   */
+  async upsertMany(dataList: InsertStepValue[], tx?: DbTransaction): Promise<StepValue[]> {
+    if (dataList.length === 0) return [];
+    const database = this.getDb(tx);
+    
+    // Add timestamps to all items
+    const values = dataList.map(data => ({
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
+
+    return await database
+      .insert(stepValues)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [stepValues.runId, stepValues.stepId],
+        set: {
+          value: sql`excluded.value`,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
   }
 }
 

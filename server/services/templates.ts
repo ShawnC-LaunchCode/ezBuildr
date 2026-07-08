@@ -4,10 +4,8 @@ import path from 'path';
 import { logger } from '../logger';
 import { createError } from '../utils/errors';
 
-import {
-  extractPlaceholdersFromDocx,
-  renderDocx,
-} from './docxRenderer';
+import { analyzeTemplate } from './TemplateAnalysisService';
+import { enhancedDocumentEngine } from './document/EnhancedDocumentEngine';
 import { storageProvider } from './storage';
 
 import type { PlaceholderInfo } from '../api/validators/templates';
@@ -116,9 +114,10 @@ export async function extractPlaceholders(fileRef: string): Promise<PlaceholderI
   }
 
   const templatePath = getTemplateFilePath(fileRef);
-  const placeholderNames = await extractPlaceholdersFromDocx(templatePath);
+  const analysis = await analyzeTemplate(templatePath);
+  const placeholderNames = analysis.variables.map((v: any) => v.name);
 
-  const placeholders: PlaceholderInfo[] = placeholderNames.map((name) => ({
+  const placeholders: PlaceholderInfo[] = placeholderNames.map((name: string) => ({
     name,
     type: 'text',
     example: '',
@@ -146,13 +145,15 @@ export async function renderTemplate(
   const templatePath = getTemplateFilePath(fileRef);
 
   try {
-    const result = await renderDocx({
+    const result = await enhancedDocumentEngine.generateWithMapping({
       templatePath,
-      data: context,
+      rawData: context,
       outputDir: OUTPUTS_DIR,
-      outputName: options?.outputName,
+      outputName: options?.outputName || 'generated-document',
       toPdf: options?.toPdf ?? false,
+      normalize: true
     });
+    if (!result.docxPath) throw new Error('Generation failed to produce DOCX path');
 
     const docxFileRef = path.basename(result.docxPath);
     const pdfFileRef = result.pdfPath ? path.basename(result.pdfPath) : undefined;

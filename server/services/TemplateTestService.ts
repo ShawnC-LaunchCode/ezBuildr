@@ -9,7 +9,7 @@ import path from 'path';
 
 import { logger } from '../logger';
 
-import { renderDocx, type RenderResult } from './docxRenderer';
+import { enhancedDocumentEngine } from './document/EnhancedDocumentEngine';
 import { type TemplateAnalysis } from './TemplateAnalysisService';
 export interface TemplateTestRequest {
   workflowId: string;
@@ -85,7 +85,7 @@ export class TemplateTestService {
         logger.warn({ error, templateId: request.templateId }, 'Template analysis failed (non-fatal)');
       }
       // 4. Render DOCX
-      let renderResult: RenderResult | undefined;
+      let renderResult: { docxPath: string, pdfPath?: string, size: number } | undefined;
       let docxUrl: string | undefined;
       let pdfUrl: string | undefined;
       try {
@@ -168,8 +168,8 @@ export class TemplateTestService {
     templateId: string,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- data is dynamically typed workflow data
     data: Record<string, any>,
-    _toPdf: boolean
-  ): Promise<RenderResult> {
+    toPdf: boolean
+  ): Promise<{ docxPath: string, pdfPath?: string, size: number }> {
     // In real implementation, this would look up the template in the database
     // For now, we still need a template path. 
     // We will assume the template is at a fixed location or use a dummy for testing if not found.
@@ -179,31 +179,20 @@ export class TemplateTestService {
     if (!templatePath) {
       throw new Error(`Template ${templateId} not found`);
     }
-    // Use the real service
-    return renderDocx({
+    // Use the enhanced document engine
+    return enhancedDocumentEngine.generateWithMapping({
       templatePath,
-      data,
-      toPdf: false // We handle PDF separately in runTest
+      rawData: data,
+      outputName: `test-render-${templateId}`,
+      toPdf,
+      normalize: false // Assume test data is already prepared
     });
   }
   /**
    * Convert DOCX to PDF using real converter
    */
   private async _stubConvertToPdf(_docxPath: string): Promise<string | null> {
-    try {
-      await import('./docxRenderer');
-      // Check if we can export convertDocxToPdf from docxRenderer.ts
-      // It is not exported in the file I read!
-      // So I should just call renderDocx with toPdf: true if I want PDF.
-      // But runTest logic separates them.
-      // Let's assume we update docxRenderer to export it or usage renderDocx options.
-      // Re-reading docxRenderer.ts: convertDocxToPdf is NOT exported.
-      // But renderDocx returns result.pdfPath if toPdf=true.
-      // So I should refactor runTest to just call renderDocx with toPdf: true if needed.
-      return null; // Placeholder until refactor
-    } catch (e) {
-      return null;
-    }
+    return null; // Placeholder
   }
 }
 // Singleton instance

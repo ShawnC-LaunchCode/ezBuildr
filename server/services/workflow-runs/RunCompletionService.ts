@@ -33,11 +33,7 @@ export class RunCompletionService {
         }
         try {
             // Get all step values for this run
-            const allValues = await this.valueRepo.findByRunId(runId);
-            const dataMap = allValues.reduce((acc, v) => {
-                acc[v.stepId] = v.value;
-                return acc;
-            }, {} as Record<string, unknown>);
+            const dataMap = await this.valueRepo.getRunDataAsJson(runId);
             // Execute onRunComplete blocks (transform + validate)
             const blockResult = await blockRunner.runPhase({
                 workflowId: run.workflowId,
@@ -76,17 +72,24 @@ export class RunCompletionService {
             }
             // Mark run as complete
             const completedRun = await this.stateService.markCompleted(runId);
-            // Execute DataVault writebacks (non-blocking)
-            await this.lifecycleService.executeWritebacks(runId, run.workflowId, userId);
-            // Generate documents (non-blocking)
-            await this.lifecycleService.generateDocuments(runId);
+            // Execute DataVault writebacks and Document Generation (truly non-blocking)
+            Promise.allSettled([
+                this.lifecycleService.executeWritebacks(runId, run.workflowId, userId),
+                this.lifecycleService.generateDocuments(runId)
+            ]).then((results) => {
+                for (const result of results) {
+                    if (result.status === 'rejected') {
+                        _logger.error({ runId, error: result.reason }, "Background execution failed");
+                    }
+                }
+            }).catch(err => _logger.error({ runId, error: err }, "Unhandled error in background execution"));
             // Capture success metrics
             await this.metricsService.captureRunSucceeded(
                 run.workflowId,
                 run.id,
                 run.workflowVersionId ?? undefined,
                 Date.now() - startTime,
-                allValues.length
+                Object.keys(dataMap).length
             );
             return completedRun;
         } catch (error) {

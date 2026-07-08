@@ -142,30 +142,31 @@ export class IntakeService {
       }
 
       // Process prefill parameters
+      const prefillData = [];
       for (const [key, value] of Object.entries(prefillParams)) {
         // Only prefill if key is in allowedPrefillKeys
         if (intakeConfig.allowedPrefillKeys.includes(key)) {
           const stepId = aliasToStepId.get(key);
           if (stepId) {
-            await stepValueRepository.upsert({
-              runId: run.id,
-              stepId,
-              value,
-            });
+            prefillData.push({ runId: run.id, stepId, value });
             logger.info({ runId: run.id, key, stepId }, "Prefilled value from URL");
           }
         }
+      }
+      if (prefillData.length > 0) {
+        await stepValueRepository.upsertMany(prefillData);
       }
     }
 
     // Save initial answers if provided (takes precedence over prefill)
     if (initialAnswers) {
-      for (const [stepId, value] of Object.entries(initialAnswers)) {
-        await stepValueRepository.upsert({
-          runId: run.id,
-          stepId,
-          value,
-        });
+      const initialData = Object.entries(initialAnswers).map(([stepId, value]) => ({
+        runId: run.id,
+        stepId,
+        value,
+      }));
+      if (initialData.length > 0) {
+        await stepValueRepository.upsertMany(initialData);
       }
     }
 
@@ -203,12 +204,13 @@ export class IntakeService {
     }
 
     // Save all answers
-    for (const [stepId, value] of Object.entries(answers)) {
-      await stepValueRepository.upsert({
-        runId: run.id,
-        stepId,
-        value,
-      });
+    const answersData = Object.entries(answers).map(([stepId, value]) => ({
+      runId: run.id,
+      stepId,
+      value,
+    }));
+    if (answersData.length > 0) {
+      await stepValueRepository.upsertMany(answersData);
     }
 
     logger.info({ runId: run.id, answerCount: Object.keys(answers).length }, "Saved intake progress");
@@ -270,12 +272,13 @@ export class IntakeService {
     }
 
     // Save final answers
-    for (const [stepId, value] of Object.entries(finalAnswers)) {
-      await stepValueRepository.upsert({
-        runId: run.id,
-        stepId,
-        value,
-      });
+    const finalAnswersData = Object.entries(finalAnswers).map(([stepId, value]) => ({
+      runId: run.id,
+      stepId,
+      value,
+    }));
+    if (finalAnswersData.length > 0) {
+      await stepValueRepository.upsertMany(finalAnswersData);
     }
 
     // Complete the run using RunService

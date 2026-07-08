@@ -8,7 +8,7 @@ import * as schema from '@shared/schema';
 import { db } from '../../db';
 import { logger } from '../../logger';
 import { pdfService } from '../../services/document/PdfService';
-import { renderDocx2 } from '../../services/docxRenderer2';
+import { enhancedDocumentEngine } from '../../services/document/EnhancedDocumentEngine';
 import { getTemplateFilePath } from '../../services/templates';
 import { evaluateExpression } from '../expr';
 
@@ -177,13 +177,15 @@ export async function executeTemplateNode(
       const outputDir = path.join(process.cwd(), 'server', 'files', 'outputs');
       // Ensure output directory exists
       await fs.mkdir(outputDir, { recursive: true });
-      const renderResult = await renderDocx2({
+      const renderResult = await enhancedDocumentEngine.generateWithMapping({
         templatePath,
-        data: resolvedBindings,
+        rawData: resolvedBindings,
         outputDir,
-        outputName: config.outputName,
+        outputName: config.outputName || 'generated-document',
         toPdf,
+        normalize: false, // data is already resolved bindings
       });
+      if (!renderResult.docxPath) throw new Error('Document generation failed to produce a DOCX path');
       result = {
         fileRef: path.basename(renderResult.docxPath),
         pdfRef: renderResult.pdfPath ? path.basename(renderResult.pdfPath) : undefined,

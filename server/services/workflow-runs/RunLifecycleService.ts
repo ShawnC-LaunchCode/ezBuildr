@@ -12,12 +12,14 @@
  */
 
 import { logger } from "../../logger";
-import { stepValueRepository, stepRepository, sectionRepository } from "../../repositories";
+import { stepValueRepository, stepRepository, sectionRepository, workflowRunRepository, documentTemplateRepository } from "../../repositories";
 import { blockRunner } from "../BlockRunner";
-import { documentGenerationService } from "../DocumentGenerationService";
+import { finalBlockRenderer, createTemplateResolver } from "../document/FinalBlockRenderer";
+import type { FinalBlockConfig } from "../../../shared/types/stepConfigs";
 import { logicService } from "../LogicService";
 import { RunPersistenceWriter } from "../runs/RunPersistenceWriter";
 import { writebackExecutionService } from "../WritebackExecutionService";
+import { createError } from "../../utils/errors";
 
 import type { PopulateValuesOptions, SnapshotValueMap, DocumentGenerationResult, WritebackExecutionResult } from "./types";
 
@@ -323,16 +325,56 @@ export class RunLifecycleService {
    */
   async generateDocuments(runId: string): Promise<DocumentGenerationResult> {
     try {
-      await documentGenerationService.generateDocumentsForRun(runId);
-      logger.info({ runId }, 'Documents generated successfully');
+      // 1. Get run and workflow
+      const run = await workflowRunRepository.findById(runId);
+      if (!run) throw createError.notFound('Workflow run', runId);
+      const workflowId = run.workflowId;
 
-      // Count generated documents
-      const { runGeneratedDocumentsRepository } = await import('../../repositories');
-      const documents = await runGeneratedDocumentsRepository.findByRunId(runId);
+      // 2. Find Final Block steps
+      const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId);
+      const finalBlockSteps = allSteps.filter(s => (s.type as string) === 'final_block');
+
+      if (finalBlockSteps.length === 0) {
+        logger.info({ runId }, 'No Final Block steps found, skipping document generation');
+        return { success: true, documentsGenerated: 0 };
+      }
+
+      // 3. Get step values mapped by alias
+      const stepValues = await this.valueRepo.getRunDataWithAliases(runId, allSteps);
+
+      // 4. Create Template Resolver
+      const { workflowRepository } = await import('../../repositories');
+      const workflow = await workflowRepository.findById(workflowId);
+      if (!workflow) throw createError.notFound('Workflow', workflowId);
+      if (!workflow.projectId) throw createError.validation('Workflow has no projectId');
+      
+      const resolveTemplate = createTemplateResolver(async (documentId: string) => {
+        const template = await documentTemplateRepository.findByIdAndProjectId(documentId, workflow.projectId as string);
+        return template as any; // Resolver expects an object with fileRef
+      });
+
+      // 5. Generate documents for each final block
+      let totalGenerated = 0;
+      for (const step of finalBlockSteps) {
+        const finalBlockConfig = step.options as FinalBlockConfig;
+        if (!finalBlockConfig || !finalBlockConfig.documents) continue;
+
+        const runIdToPass = (run.id || '').toString();
+        const generationResult = await finalBlockRenderer.render({
+          finalBlockConfig: step.options as FinalBlockConfig,
+          stepValues,
+          workflowId: run.workflowId,
+          runId: runIdToPass,
+          resolveTemplate
+        });
+        totalGenerated += generationResult.totalGenerated;
+      }
+
+      logger.info({ runId, totalGenerated }, 'Documents generated successfully');
 
       return {
         success: true,
-        documentsGenerated: documents.length
+        documentsGenerated: totalGenerated
       };
     } catch (error) {
       logger.error({ error, runId }, 'Document generation failed');

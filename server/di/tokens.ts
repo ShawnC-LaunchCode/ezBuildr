@@ -41,7 +41,7 @@ import type { RunService } from '../services/RunService';
 import type { LogicService } from '../services/LogicService';
 import type { BlockRunner } from '../services/BlockRunner';
 import type { IntakeService } from '../services/IntakeService';
-import type { DocumentGenerationService } from '../services/DocumentGenerationService';
+
 import type { DatavaultDatabasesService } from '../services/DatavaultDatabasesService';
 import type { DatavaultTablesService } from '../services/DatavaultTablesService';
 import type { DatavaultRowsService } from '../services/DatavaultRowsService';
@@ -221,7 +221,7 @@ export const SERVICE_ANALYTICS = Symbol('AnalyticsService');
 /**
  * Document generation service
  */
-export const SERVICE_DOCUMENT_GENERATION = Symbol('DocumentGenerationService');
+
 
 /**
  * Script engine service (for custom scripting)
@@ -293,7 +293,7 @@ export interface ServiceMap {
   [SERVICE_BLOCK_RUNNER]: BlockRunner;
   [SERVICE_INTAKE]: IntakeService;
   [SERVICE_ANALYTICS]: unknown;      // AnalyticsService removed (Nov 2025)
-  [SERVICE_DOCUMENT_GENERATION]: DocumentGenerationService;
+
   [SERVICE_SCRIPT_ENGINE]: unknown;  // ScriptEngine — no single class export
   [SERVICE_DATAVAULT_DATABASES]: DatavaultDatabasesService;
   [SERVICE_DATAVAULT_TABLES]: DatavaultTablesService;

@@ -21,6 +21,7 @@ import { createLogger } from '../../logger.js';
 import { createError } from '../../utils/errors.js';
 import { documentHookService } from '../scripting/DocumentHookService.js';
 
+import { validateTemplateWithData } from '../TemplateAnalysisService.js';
 import { enhancedDocumentEngine } from './EnhancedDocumentEngine.js';
 import { createFinalBlockZip, type ZipDocument, type ZipResult } from './ZipBundler.js';
 
@@ -157,6 +158,23 @@ export class FinalBlockRenderer {
     logger.debug({
       count: documentsWithPaths.length,
     }, 'Template paths resolved');
+
+    // Step 1.25: Pre-generation validation
+    for (const doc of documentsWithPaths) {
+      if (!doc.templatePath) continue;
+      
+      try {
+        const validationResult = await validateTemplateWithData(doc.templatePath, stepValues);
+        if (!validationResult.valid && validationResult.warnings.length > 0) {
+          logger.warn({
+            documentId: doc.documentId,
+            warnings: validationResult.warnings,
+          }, 'Template validation generated warnings before rendering');
+        }
+      } catch (validationErr) {
+        logger.warn({ error: validationErr, documentId: doc.documentId }, 'Failed to validate template before rendering');
+      }
+    }
 
     // Step 1.5: Execute beforeGeneration document hooks
     let enhancedStepValues = stepValues;
