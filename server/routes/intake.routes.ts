@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { classifyRouteError } from '../utils/routeErrors';
 import path from "path";
 
 import multer from "multer";
@@ -94,9 +95,8 @@ export function registerIntakeRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, slug: req.params.slug }, "Error fetching published workflow");
-      const message = "Failed to fetch workflow";
-      const status = message.includes("not found") ? 404 : 500;
-      res.status(status).json({ success: false, error: message });
+      const __r = classifyRouteError(error, "Failed to fetch workflow");
+      res.status(__r.status).json({ success: false, error: __r.message });
     }
   }));
   /**
@@ -144,9 +144,8 @@ export function registerIntakeRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error }, "Error creating intake run");
-      const message = "Failed to create run";
-      const status = message.includes("required") ? 401 : message.includes("not found") ? 404 : 500;
-      res.status(status).json({ success: false, error: message });
+      const __r = classifyRouteError(error, "Failed to create run");
+      res.status(__r.status).json({ success: false, error: __r.message });
     }
   }));
   /**
@@ -179,9 +178,8 @@ export function registerIntakeRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, token: req.params.token }, "Error saving intake progress");
-      const message = "Failed to save progress";
-      const status = message.includes("not found") ? 404 : 500;
-      res.status(status).json({ success: false, error: message });
+      const __r = classifyRouteError(error, "Failed to save progress");
+      res.status(__r.status).json({ success: false, error: __r.message });
     }
   }));
   /**
@@ -211,9 +209,8 @@ export function registerIntakeRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, token: req.params.token }, "Error submitting intake run");
-      const message = "Failed to submit run";
-      const status = message.includes("not found") ? 404 : message.includes("already completed") ? 400 : 500;
-      res.status(status).json({ success: false, error: message });
+      const __r = classifyRouteError(error, "Failed to submit run");
+      res.status(__r.status).json({ success: false, error: __r.message });
     }
   }));
   /**
@@ -230,9 +227,8 @@ export function registerIntakeRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, token: req.params.token }, "Error fetching run status");
-      const message = "Failed to fetch status";
-      const status = message.includes("not found") ? 404 : 500;
-      res.status(status).json({ success: false, error: message });
+      const __r = classifyRouteError(error, "Failed to fetch status");
+      res.status(__r.status).json({ success: false, error: __r.message });
     }
   }));
   /**

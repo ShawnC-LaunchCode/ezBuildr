@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { classifyRouteError } from '../utils/routeErrors';
 
 import { createLogger } from "../logger";
 import { hybridAuth, type AuthRequest } from "../middleware/auth";
@@ -105,15 +106,8 @@ export function registerTeamRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error fetching team");
 
-      const message =
-        "Failed to fetch team";
-      const status = message.includes("not found")
-        ? 404
-        : message.includes(ACCESS_DENIED)
-          ? 403
-          : 500;
-
-      res.status(status).json({ success: false, error: message });
+      const __r = classifyRouteError(error, "Failed to fetch team");
+      res.status(__r.status).json({ success: false, error: __r.message });
     }
   }));
 
@@ -145,11 +139,8 @@ export function registerTeamRoutes(app: Express): void {
         });
       }
 
-      const message =
-        "Failed to update team";
-      const status = message.includes(ACCESS_DENIED) ? 403 : 500;
-
-      res.status(status).json({ success: false, error: message });
+      const __r = classifyRouteError(error, "Failed to update team");
+      res.status(__r.status).json({ success: false, error: __r.message });
     }
   }));
 
@@ -171,11 +162,8 @@ export function registerTeamRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error deleting team");
 
-      const message =
-        "Failed to delete team";
-      const status = message.includes(ACCESS_DENIED) ? 403 : 500;
-
-      res.status(status).json({ success: false, error: message });
+      const __r = classifyRouteError(error, "Failed to delete team");
+      res.status(__r.status).json({ success: false, error: __r.message });
     }
   }));
 
@@ -207,15 +195,8 @@ export function registerTeamRoutes(app: Express): void {
         });
       }
 
-      const message =
-        "Failed to add team member";
-      const status = message.includes(ACCESS_DENIED)
-        ? 403
-        : message.includes("not found")
-          ? 404
-          : 500;
-
-      res.status(status).json({ success: false, error: message });
+      const __r = classifyRouteError(error, "Failed to add team member");
+      res.status(__r.status).json({ success: false, error: __r.message });
     }
   }));
 
@@ -237,15 +218,8 @@ export function registerTeamRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error removing team member");
 
-      const message =
-        "Failed to remove team member";
-      const status = message.includes(ACCESS_DENIED)
-        ? 403
-        : message.includes("Cannot remove")
-          ? 400
-          : 500;
-
-      res.status(status).json({ success: false, error: message });
+      const __r = classifyRouteError(error, "Failed to remove team member");
+      res.status(__r.status).json({ success: false, error: __r.message });
     }
   }));
 }

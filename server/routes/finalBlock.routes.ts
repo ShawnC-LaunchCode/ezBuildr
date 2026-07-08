@@ -15,6 +15,7 @@
  */
 
 import { promises as fs } from 'fs';
+import { classifyRouteError } from '../utils/routeErrors';
 import path from 'path';
 
 import { z } from 'zod';
@@ -222,13 +223,9 @@ export function registerFinalBlockRoutes(app: Express): void {
           runId: req.params.runId,
         }, 'Failed to generate Final Block documents');
 
-        const message = 'Document generation failed';
-        const status = message.includes('not found') ? 404 : 500;
-
-        res.status(status).json({
-          success: false,
-          error: message,
-        });
+        const __r = classifyRouteError(error, 'Document generation failed');
+      res.status(__r.status).json({ success: false,
+          error: __r.message, });
       }
     })
   );
@@ -330,13 +327,9 @@ export function registerFinalBlockRoutes(app: Express): void {
           workflowId: req.params.workflowId,
         }, 'Failed to generate preview Final Block documents');
 
-        const message = 'Document generation failed';
-        const status = message.includes('not found') ? 404 : 500;
-
-        res.status(status).json({
-          success: false,
-          error: message,
-        });
+        const __r = classifyRouteError(error, 'Document generation failed');
+      res.status(__r.status).json({ success: false,
+          error: __r.message, });
       }
     })
   );

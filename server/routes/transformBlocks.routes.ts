@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { z } from "zod";
+import { classifyRouteError } from '../utils/routeErrors';
 
 import { insertTransformBlockSchema } from "@shared/schema";
 
@@ -45,14 +46,14 @@ export function registerTransformBlockRoutes(app: Express): void {
       res.status(201).json({ success: true, data: block });
     } catch (error) {
       logger.error({ error }, "Error creating transform block");
-      const message = "Failed to create transform block";
-
       if (error instanceof z.ZodError) {
         return res.status(400).json({ success: false, error: "Invalid request data", details: error.errors });
       }
-
-      // eslint-disable-next-line sonarjs/no-duplicate-string
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : message.includes("limit") ? 400 : 500;
+      const raw = error instanceof Error ? error.message : "";
+      if (raw.includes("limit")) {
+        return res.status(400).json({ success: false, error: raw });
+      }
+      const { status, message } = classifyRouteError(error, "Failed to create transform block");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -73,9 +74,8 @@ export function registerTransformBlockRoutes(app: Express): void {
       res.json({ success: true, data: blocks });
     } catch (error) {
       logger.error({ error }, "Error listing transform blocks");
-      const message = "Failed to list transform blocks";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
-      res.status(status).json({ success: false, error: message });
+      const __r = classifyRouteError(error, "Failed to list transform blocks");
+      res.status(__r.status).json({ success: false, error: __r.message });
     }
   }));
 
@@ -95,9 +95,8 @@ export function registerTransformBlockRoutes(app: Express): void {
       res.json({ success: true, data: block });
     } catch (error) {
       logger.error({ error }, "Error fetching transform block");
-      const message = "Failed to fetch transform block";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
-      res.status(status).json({ success: false, error: message });
+      const __r = classifyRouteError(error, "Failed to fetch transform block");
+      res.status(__r.status).json({ success: false, error: __r.message });
     }
   }));
 
@@ -129,9 +128,8 @@ export function registerTransformBlockRoutes(app: Express): void {
       res.json({ success: true, data: updatedBlock });
     } catch (error) {
       logger.error({ error }, "Error updating transform block");
-      const message = "Failed to update transform block";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : message.includes("limit") ? 400 : 500;
-      res.status(status).json({ success: false, error: message });
+      const __r = classifyRouteError(error, "Failed to update transform block");
+      res.status(__r.status).json({ success: false, error: __r.message });
     }
   }));
 
@@ -162,9 +160,8 @@ export function registerTransformBlockRoutes(app: Express): void {
       res.status(200).json({ success: true, message: "Transform block deleted" });
     } catch (error) {
       logger.error({ error }, "Error deleting transform block");
-      const message = "Failed to delete transform block";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
-      res.status(status).json({ success: false, error: message });
+      const __r = classifyRouteError(error, "Failed to delete transform block");
+      res.status(__r.status).json({ success: false, error: __r.message });
     }
   }));
 
@@ -201,9 +198,8 @@ export function registerTransformBlockRoutes(app: Express): void {
       }
     } catch (error) {
       logger.error({ error }, "Error testing transform block");
-      const message = "Failed to test transform block";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
-      res.status(status).json({ success: false, error: message });
+      const __r = classifyRouteError(error, "Failed to test transform block");
+      res.status(__r.status).json({ success: false, error: __r.message });
     }
   }));
 }

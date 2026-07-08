@@ -1,4 +1,5 @@
 import { createLogger } from "../logger";
+import { classifyRouteError } from '../utils/routeErrors';
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { workflowExportService } from "../services/WorkflowExportService";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -42,9 +43,8 @@ export function registerWorkflowExportRoutes(app: Express): void {
       }
     } catch (error) {
       logger.error({ error }, "Error exporting workflow");
-      const message = "Failed to export workflow";
-      const status = message.includes("not found") ? 404 : message.includes("Access denied") ? 403 : 500;
-      res.status(status).json({ message });
+      const __r = classifyRouteError(error, "Failed to export workflow");
+      res.status(__r.status).json({ message: __r.message });
     }
   }));
 }

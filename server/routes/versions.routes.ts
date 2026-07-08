@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { classifyRouteError } from '../utils/routeErrors';
 
 import { createLogger } from "../logger";
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
@@ -51,9 +52,8 @@ export function registerVersionRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, workflowId: req.params.id }, "Error listing versions");
-      const message = "Failed to list versions";
-      const status = message.includes("Access denied") ? 403 : 500;
-      res.status(status).json({ success: false, error: message });
+      const __r = classifyRouteError(error, "Failed to list versions");
+      res.status(__r.status).json({ success: false, error: __r.message });
     }
   }));
 
@@ -78,9 +78,8 @@ export function registerVersionRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, versionId: req.params.versionId, otherVersionId: req.params.otherVersionId }, "Error computing diff");
-      const message = "Failed to compute diff";
-      const status = message.includes("not found") ? 404 : 500;
-      res.status(status).json({ success: false, error: message });
+      const __r = classifyRouteError(error, "Failed to compute diff");
+      res.status(__r.status).json({ success: false, error: __r.message });
     }
   }));
 
@@ -117,9 +116,8 @@ export function registerVersionRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, workflowId: req.params.id }, "Error publishing version");
-      const message = "Failed to publish version";
-      const status = message.includes("Validation failed") ? 400 : 500;
-      res.status(status).json({ success: false, error: message });
+      const __r = classifyRouteError(error, "Failed to publish version");
+      res.status(__r.status).json({ success: false, error: __r.message });
     }
   }));
 
@@ -148,9 +146,8 @@ export function registerVersionRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, workflowId: req.params.id }, "Error rolling back version");
-      const message = "Failed to rollback";
-      const status = message.includes("not found") ? 404 : 500;
-      res.status(status).json({ success: false, error: message });
+      const __r = classifyRouteError(error, "Failed to rollback");
+      res.status(__r.status).json({ success: false, error: __r.message });
     }
   }));
 
@@ -179,9 +176,8 @@ export function registerVersionRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error, workflowId: req.params.id }, "Error pinning version");
-      const message = "Failed to pin version";
-      const status = message.includes("not found") ? 404 : 500;
-      res.status(status).json({ success: false, error: message });
+      const __r = classifyRouteError(error, "Failed to pin version");
+      res.status(__r.status).json({ success: false, error: __r.message });
     }
   }));
 
