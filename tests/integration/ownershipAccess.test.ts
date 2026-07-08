@@ -80,9 +80,12 @@ describe('Ownership Access Control', () => {
       const hasAccess = await canAccessAsset(userId2, 'org', orgId1);
       expect(hasAccess).toBe(false);
     });
-    it('should allow access to null ownership (legacy data)', async () => {
+    it('should DENY access to null/unknown ownership (fail-closed)', async () => {
+      // Security hardening: canAccessAsset now fails closed on null ownership
+      // (`if (!ownerType || !ownerUuid) return false`) rather than treating
+      // unowned/legacy assets as world-readable.
       const hasAccess = await canAccessAsset(userId1, null, null);
-      expect(hasAccess).toBe(true);
+      expect(hasAccess).toBe(false);
     });
   });
   describe('isOrgMember', () => {
