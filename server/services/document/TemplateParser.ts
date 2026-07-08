@@ -65,7 +65,7 @@ export class TemplateParser {
                     return scope;
                 }
 
-                const parts = tag.trim().split(/s+/);
+                const parts = tag.trim().split(/\s+/);
 
                 // If first part is a helper function, call it
                 if (parts.length > 1 && parts[0] in docxHelpers) {
@@ -121,11 +121,8 @@ export class TemplateParser {
                 parser: ((tag: string) => this.createExpressionParser(tag)) as any,
             });
 
-            // Set data and render
-            doc.setData(templateData);
-
             try {
-                doc.render();
+                doc.render(templateData);
             } catch (error: unknown) {
                 this.handleRenderError(error as RenderError);
             }
