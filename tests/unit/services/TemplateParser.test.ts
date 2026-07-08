@@ -163,5 +163,32 @@ describe('TemplateParser', () => {
       const text = await render('{{^completed}}Pending{{/completed}}', { completed: false });
       expect(text).toContain('Pending');
     });
+
+    it('should render an array used as a scalar tag as joined text', async () => {
+      const text = await render('Hobbies: {{hobbies}}', { hobbies: ['biking', 'hiking'] });
+      expect(text).toContain('Hobbies: biking, hiking');
+    });
+
+    it('should support the same array in both loop and scalar positions', async () => {
+      const text = await render('{{#tags}}[{{.}}]{{/tags}} Summary: {{tags}}', {
+        tags: ['red', 'blue'],
+      });
+      expect(text).toContain('[red][blue]');
+      expect(text).toContain('Summary: red, blue');
+    });
+
+    it('should render loops over arrays of objects with amounts', async () => {
+      const text = await render(
+        '{{#lineItems}}{{description}}: {{formatCurrency amount "USD"}}; {{/lineItems}}',
+        {
+          lineItems: [
+            { description: 'Widget', amount: 10 },
+            { description: 'Gadget', amount: 20.5 },
+          ],
+        }
+      );
+      expect(text).toContain('Widget: $10.00');
+      expect(text).toContain('Gadget: $20.50');
+    });
   });
 });

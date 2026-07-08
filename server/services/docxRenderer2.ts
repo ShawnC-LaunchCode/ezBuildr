@@ -21,7 +21,21 @@ import { logger } from '../logger';
 import { ApiError , createError } from '../utils/errors';
 
 import { PdfConverter } from './document/PdfConverter';
-import { docxHelpers, parseHelperArg, tokenizeTag } from './docxHelpers';
+import { docxHelpers, formatArrayForDisplay, parseHelperArg, tokenizeTag } from './docxHelpers';
+
+/** Subset of the context docxtemplater passes to parser.get */
+interface ParserContext {
+  meta?: {
+    part?: {
+      module?: string;
+    };
+  };
+}
+
+/** True when the tag is a loop/inverted section, which needs the raw array */
+function isLoopContext(context: unknown): boolean {
+  return (context as ParserContext)?.meta?.part?.module === 'loop';
+}
 
 export interface RenderOptions2 {
   templatePath: string;
@@ -58,7 +72,7 @@ interface DocxTemplateError extends Error {
  */
 function createExpressionParser(tag: string): { get(scope: Record<string, unknown>, _context: unknown): unknown } {
   return {
-    get(scope: Record<string, unknown>, _context: unknown): unknown {
+    get(scope: Record<string, unknown>, context: unknown): unknown {
       if (tag === '.') {
         return scope;
       }
@@ -83,7 +97,15 @@ function createExpressionParser(tag: string): { get(scope: Record<string, unknow
         }
       }
 
-      return getNestedValue(scope, tag);
+      const value = getNestedValue(scope, tag);
+
+      // Arrays used as a scalar {{tag}} render as joined text;
+      // loop tags ({{#tag}}) receive the raw array for iteration
+      if (Array.isArray(value) && !isLoopContext(context)) {
+        return formatArrayForDisplay(value);
+      }
+
+      return value;
     },
   };
 }

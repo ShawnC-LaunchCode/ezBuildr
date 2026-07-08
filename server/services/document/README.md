@@ -211,10 +211,14 @@ Output (with prefix):
 ```typescript
 const normalized = normalizeVariables(stepValues, {
   flattenNested: true,
-  joinArrays: true,
-  arrayDelimiter: ", "
 });
 ```
+
+Arrays are preserved by default so templates can loop over them with
+`{{#items}}...{{/items}}`. When an array value is used as a plain scalar
+`{{tag}}`, the renderer joins it for display ("a, b, c"). Pass
+`joinArrays: true` (with optional `arrayDelimiter`) only if you need the
+normalized output itself to contain joined strings.
 
 ---
 

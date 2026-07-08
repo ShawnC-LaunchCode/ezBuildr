@@ -293,6 +293,23 @@ export function parseHelperArg(rawArg: string): unknown {
 }
 
 /**
+ * Join an array for scalar display in a document ({{tag}} used on an array
+ * value). Primitives are joined with ", "; object elements are JSON-encoded.
+ * Loop tags ({{#tag}}) receive the raw array instead — see the expression
+ * parsers. Not a template helper itself.
+ */
+export function formatArrayForDisplay(arr: unknown[]): string {
+  return arr
+    .map((item) => {
+      if (item === null || item === undefined) {return '';}
+      if (typeof item === 'object') {return JSON.stringify(item);}
+      return String(item);
+    })
+    .filter((item) => item !== '')
+    .join(', ');
+}
+
+/**
  * Combine all helpers into single object
  * This includes both formatters from utils/formatters.ts and new helpers
  */

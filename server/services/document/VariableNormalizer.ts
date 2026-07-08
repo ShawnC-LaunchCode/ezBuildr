@@ -6,7 +6,8 @@
  *
  * Capabilities:
  * - Flatten nested objects using dot notation
- * - Convert arrays to comma-separated strings
+ * - Preserve arrays so templates can loop over them ({{#items}}...{{/items}});
+ *   the renderers join arrays for display when used as a scalar {{tag}}
  * - Handle multi-field values (address, name, etc.)
  * - Preserve simple values unchanged
  * - Type-safe with TypeScript
@@ -28,7 +29,11 @@ export interface NormalizationOptions {
   /** Whether to flatten nested objects with dot notation (default: true) */
   flattenNested?: boolean;
 
-  /** Whether to convert arrays to comma-separated strings (default: true) */
+  /**
+   * Whether to convert arrays to comma-separated strings (default: false).
+   * Leave false so templates can loop over arrays with {{#items}}...{{/items}};
+   * scalar {{tag}} usage of an array is joined for display at render time.
+   */
   joinArrays?: boolean;
 
   /** Delimiter for joining arrays (default: ", ") */
@@ -42,9 +47,10 @@ export interface NormalizationOptions {
 }
 
 /**
- * Normalized data structure (flat key-value pairs)
+ * Normalized data structure (flat key-value pairs; arrays are preserved
+ * so document templates can loop over them)
  */
-export type NormalizedData = Record<string, string | number | boolean | string[]>;
+export type NormalizedData = Record<string, string | number | boolean | unknown[]>;
 
 // ============================================================================
 // MAIN FUNCTION
@@ -75,7 +81,7 @@ export type NormalizedData = Record<string, string | number | boolean | string[]
  *   "lastName": "Doe",
  *   "address.street": "123 Main St",
  *   "address.city": "NYC",
- *   "hobbies": "biking, hiking"
+ *   "hobbies": ["biking", "hiking"]
  * }
  * ```
  */
@@ -85,7 +91,7 @@ export function normalizeVariables(
 ): NormalizedData {
   const opts: Required<NormalizationOptions> = {
     flattenNested: options.flattenNested ?? true,
-    joinArrays: options.joinArrays ?? true,
+    joinArrays: options.joinArrays ?? false,
     arrayDelimiter: options.arrayDelimiter ?? ', ',
     includeEmpty: options.includeEmpty ?? true,
     maxDepth: options.maxDepth ?? 10,
@@ -136,12 +142,13 @@ function processValue(
     return;
   }
 
-  // Handle arrays
+  // Handle arrays: preserve them so templates can loop ({{#items}}...{{/items}}).
+  // Joining is opt-in; scalar {{tag}} display of arrays happens at render time.
   if (Array.isArray(value)) {
     if (opts.joinArrays) {
       result[key] = joinArray(value, opts.arrayDelimiter);
     } else {
-      result[key] = JSON.stringify(value);
+      result[key] = value;
     }
     return;
   }

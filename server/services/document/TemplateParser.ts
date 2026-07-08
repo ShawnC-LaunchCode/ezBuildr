@@ -7,7 +7,7 @@ import PizZip from 'pizzip';
 
 import { logger } from '../../logger';
 import { createError } from '../../utils/errors';
-import { docxHelpers, parseHelperArg, tokenizeTag } from '../docxHelpers';
+import { docxHelpers, formatArrayForDisplay, parseHelperArg, tokenizeTag } from '../docxHelpers';
 
 const TEMPLATE_SYNTAX_ERROR_PREFIX = 'Template syntax error: ';
 const ERROR_SEPARATOR = ' | ';
@@ -31,6 +31,20 @@ interface RenderError extends Error {
 }
 
 type HelperFunction = (...args: unknown[]) => unknown;
+
+/** Subset of the context docxtemplater passes to parser.get */
+interface ParserContext {
+    meta?: {
+        part?: {
+            module?: string;
+        };
+    };
+}
+
+/** True when the tag is a loop/inverted section, which needs the raw array */
+function isLoopContext(context: unknown): boolean {
+    return (context as ParserContext)?.meta?.part?.module === 'loop';
+}
 
 export interface TemplateParserOptions {
     templatePath: string;
@@ -57,7 +71,7 @@ export class TemplateParser {
         };
 
         return {
-            get: (scope: Record<string, unknown>, _context: Record<string, unknown>): unknown => {
+            get: (scope: Record<string, unknown>, context: Record<string, unknown>): unknown => {
                 // Parse tag which may include filters/helpers
                 // Example: "upper name" -> call upper(scope.name)
 
@@ -90,7 +104,15 @@ export class TemplateParser {
                 }
 
                 // Otherwise, just get the value
-                return getNestedValue(scope, tag);
+                const value = getNestedValue(scope, tag);
+
+                // Arrays used as a scalar {{tag}} render as joined text;
+                // loop tags ({{#tag}}) receive the raw array for iteration
+                if (Array.isArray(value) && !isLoopContext(context)) {
+                    return formatArrayForDisplay(value);
+                }
+
+                return value;
             }
         };
     }
