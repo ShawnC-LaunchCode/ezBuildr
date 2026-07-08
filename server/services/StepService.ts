@@ -1,7 +1,9 @@
 import type { Step, InsertStep } from "@shared/schema";
 
+import { logger } from "../logger";
 import { stepRepository, sectionRepository } from "../repositories";
 
+import { aliasRenameService } from "./AliasRenameService";
 import { workflowService } from "./WorkflowService";
 
 const SECTION_NOT_FOUND = "Section not found";
@@ -103,6 +105,32 @@ export class StepService {
       }
     }
     return null;
+  }
+
+  /**
+   * Follow-the-label: while the alias is empty or still tracks the previous
+   * label's auto-generated name, regenerate it when the label changes.
+   * A customized alias is never touched. Returns the new alias or null.
+   */
+  private async maybeRegenerateAlias(
+    workflowId: string,
+    step: Step,
+    data: Partial<InsertStep>
+  ): Promise<string | null> {
+    if (data.title === undefined || data.title === step.title || data.alias !== undefined) {
+      return null;
+    }
+
+    const previousAuto = generateAliasFromLabel(step.title);
+    const isAutoDerived = (alias: string, base: string): boolean =>
+      alias === base || (alias.startsWith(base) && /^\d+$/.test(alias.slice(base.length)));
+    const followsLabel =
+      !step.alias || (previousAuto !== null && isAutoDerived(step.alias, previousAuto));
+
+    if (!followsLabel) {
+      return null;
+    }
+    return this.generateUniqueAlias(workflowId, data.title);
   }
 
   /**
@@ -218,26 +246,31 @@ export class StepService {
       await this.validateAliasUniqueness(workflowId, data.alias, stepId);
     }
 
-    // Follow-the-label: while the alias is empty or still tracks the previous
-    // label's auto-generated name, regenerate it when the label changes.
-    // A customized alias is never touched.
     const updates = { ...data };
-    if (data.title !== undefined && data.title !== step.title && data.alias === undefined) {
-      const previousAuto = generateAliasFromLabel(step.title);
-      const isAutoDerived = (alias: string, base: string): boolean =>
-        alias === base ||
-        (alias.startsWith(base) && /^\d+$/.test(alias.slice(base.length)));
-      const followsLabel =
-        !step.alias || (previousAuto !== null && isAutoDerived(step.alias, previousAuto));
-      if (followsLabel) {
-        const regenerated = await this.generateUniqueAlias(workflowId, data.title);
-        if (regenerated !== null) {
-          updates.alias = regenerated;
-        }
+    const regenerated = await this.maybeRegenerateAlias(workflowId, step, data);
+    if (regenerated !== null) {
+      updates.alias = regenerated;
+    }
+
+    const updated = await this.stepRepo.update(stepId, updates);
+
+    // Propagate the rename to workflow-scoped references (transform block
+    // and hook inputKeys, Final Block mapping sources) so renaming a
+    // variable does not silently break documents and transforms.
+    const oldAlias = step.alias;
+    const newAlias = updated.alias;
+    if (oldAlias && newAlias && oldAlias !== newAlias) {
+      try {
+        await aliasRenameService.propagateRename(workflowId, oldAlias, newAlias);
+      } catch (error) {
+        logger.error(
+          { error, workflowId, stepId, oldAlias, newAlias },
+          'Alias rename propagation failed; references may still use the old name'
+        );
       }
     }
 
-    return this.stepRepo.update(stepId, updates);
+    return updated;
   }
 
   /**

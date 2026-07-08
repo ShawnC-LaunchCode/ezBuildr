@@ -62,8 +62,10 @@ export function CollisionRow({
                             <AlertDescription className="text-xs text-amber-800 flex items-start gap-1">
                                 <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
                                 <span>
-                                    This Snip may already be mapped to document templates.
-                                    Changing Snip aliases can break document outputs.
+                                    Renaming updates mappings, transforms, and hooks in this
+                                    workflow automatically, but placeholder text typed inside
+                                    uploaded Word templates cannot be rewritten — check the
+                                    template validation panel after renaming.
                                 </span>
                             </AlertDescription>
                         </Alert>
