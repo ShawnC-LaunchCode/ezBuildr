@@ -850,61 +850,11 @@ export function registerDatavaultRoutes(app: Express): void {
   }));
   // ===================================================================
   // ROW ARCHIVING ENDPOINTS (DataVault v3)
+  //
+  // NOTE: The literal /rows/bulk/* routes MUST be registered before the
+  // parameterized /rows/:rowId/* routes. Express matches in registration
+  // order, so registering :rowId first would capture 'bulk' as a rowId.
   // ===================================================================
-  /**
-   * PATCH /api/datavault/rows/:rowId/archive
-   // eslint-disable-next-line @typescript-eslint/no-misused-promises
-   * Archive (soft delete) a row
-   */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  app.patch('/api/datavault/rows/:rowId/archive', hybridAuth, async (req: Request, res: Response) => {
-    try {
-      const tenantId = getTenantId(req);
-      const userId = getAuthUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: 'Authentication required' });
-      }
-      const { rowId } = req.params;
-      const rowData = await datavaultRowsService.getRow(rowId, tenantId);
-      if (!rowData) {
-        return res.status(404).json({ message: 'Row not found' });
-      }
-      await datavaultTablesService.requirePermission(userId, rowData.row.tableId, tenantId, 'write');
-      await datavaultRowsService.archiveRow(tenantId, rowId);
-      res.json({ success: true, message: 'Row archived successfully' });
-    } catch (error) {
-      logger.error({ error }, 'Error archiving DataVault row');
-      const { status, message } = classifyRouteError(error, 'Failed to archive row');
-      res.status(status).json({ message });
-    }
-  });
-  /**
-   * PATCH /api/datavault/rows/:rowId/unarchive
-   // eslint-disable-next-line @typescript-eslint/no-misused-promises
-   * Unarchive (restore) a row
-   */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  app.patch('/api/datavault/rows/:rowId/unarchive', hybridAuth, async (req: Request, res: Response) => {
-    try {
-      const tenantId = getTenantId(req);
-      const userId = getAuthUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: 'Authentication required' });
-      }
-      const { rowId } = req.params;
-      const rowData = await datavaultRowsService.getRow(rowId, tenantId);
-      if (!rowData) {
-        return res.status(404).json({ message: 'Row not found' });
-      }
-      await datavaultTablesService.requirePermission(userId, rowData.row.tableId, tenantId, 'write');
-      await datavaultRowsService.unarchiveRow(tenantId, rowId);
-      res.json({ success: true, message: 'Row unarchived successfully' });
-    } catch (error) {
-      logger.error({ error }, 'Error unarchiving DataVault row');
-      const { status, message } = classifyRouteError(error, 'Failed to unarchive row');
-      res.status(status).json({ message });
-    }
-  });
   /**
    * PATCH /api/datavault/rows/bulk/archive
    * Bulk archive rows
@@ -1028,6 +978,58 @@ export function registerDatavaultRoutes(app: Express): void {
       res.status(status).json({ message });
     }
   }));
+  /**
+   * PATCH /api/datavault/rows/:rowId/archive
+   * Archive (soft delete) a row
+   */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  app.patch('/api/datavault/rows/:rowId/archive', hybridAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+      const { rowId } = req.params;
+      const rowData = await datavaultRowsService.getRow(rowId, tenantId);
+      if (!rowData) {
+        return res.status(404).json({ message: 'Row not found' });
+      }
+      await datavaultTablesService.requirePermission(userId, rowData.row.tableId, tenantId, 'write');
+      await datavaultRowsService.archiveRow(tenantId, rowId);
+      res.json({ success: true, message: 'Row archived successfully' });
+    } catch (error) {
+      logger.error({ error }, 'Error archiving DataVault row');
+      const { status, message } = classifyRouteError(error, 'Failed to archive row');
+      res.status(status).json({ message });
+    }
+  });
+  /**
+   * PATCH /api/datavault/rows/:rowId/unarchive
+   * Unarchive (restore) a row
+   */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  app.patch('/api/datavault/rows/:rowId/unarchive', hybridAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+      const { rowId } = req.params;
+      const rowData = await datavaultRowsService.getRow(rowId, tenantId);
+      if (!rowData) {
+        return res.status(404).json({ message: 'Row not found' });
+      }
+      await datavaultTablesService.requirePermission(userId, rowData.row.tableId, tenantId, 'write');
+      await datavaultRowsService.unarchiveRow(tenantId, rowId);
+      res.json({ success: true, message: 'Row unarchived successfully' });
+    } catch (error) {
+      logger.error({ error }, 'Error unarchiving DataVault row');
+      const { status, message } = classifyRouteError(error, 'Failed to unarchive row');
+      res.status(status).json({ message });
+    }
+  });
   // ===================================================================
   // ROW NOTES ENDPOINTS (v4 Micro-Phase 3)
   // ===================================================================
