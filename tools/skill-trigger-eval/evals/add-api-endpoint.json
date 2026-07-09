@@ -1,0 +1,21 @@
+[
+  {"query": "add an endpoint to archive a workflow, something like POST /api/workflows/:id/archive", "should_trigger": true},
+  {"query": "I need CRUD routes for marketplace templates — server/lib/templates/MarketplaceService.ts already exists, wire it up to the API", "should_trigger": true},
+  {"query": "GET /api/secrets/:id returns a 500 when the secret doesn't exist, it should be a 404", "should_trigger": true},
+  {"query": "add a service method and route so org admins can list pending invites for their org", "should_trigger": true},
+  {"query": "expose the metrics rollup data through an authenticated API for the dashboard", "should_trigger": true},
+  {"query": "my new route returns 500 'Failed to update template' when the caller lacks access even though I throw new Error('no permission') in the service — why?", "should_trigger": true},
+  {"query": "add pagination (limit/offset) to GET /api/tenants/:tenantId/collections", "should_trigger": true},
+  {"query": "create a repository class for the template_shares table with a findByTemplateId method", "should_trigger": true},
+  {"query": "refactor server/routes/webhooks.routes.ts to use our standard error handling and tenancy checks", "should_trigger": true},
+  {"query": "add a marketplace page at /marketplace in the client that lists templates from the API", "should_trigger": false},
+  {"query": "add a progress_pct column to workflow_runs with a migration", "should_trigger": false},
+  {"query": "the builder should support a new rating step type, 1-5 stars", "should_trigger": false},
+  {"query": "call the OpenAI API from a transform block to summarize the run answers", "should_trigger": false},
+  {"query": "fetch data from the github REST API inside a lifecycle hook script", "should_trigger": false},
+  {"query": "the TanStack query for /api/projects refetches on every window focus, make it stop", "should_trigger": false},
+  {"query": "run the integration tests for the collections routes and tell me if they pass", "should_trigger": false},
+  {"query": "generate a typescript API client SDK from our existing public endpoints", "should_trigger": false},
+  {"query": "which endpoints exist for datavault tables? just list them", "should_trigger": false},
+  {"query": "the express-session cookie isn't persisting my login in dev, debug it", "should_trigger": false}
+]

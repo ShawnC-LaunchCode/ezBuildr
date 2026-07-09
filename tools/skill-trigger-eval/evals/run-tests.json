@@ -1,0 +1,21 @@
+[
+  {"query": "just refactored RunCompletionService.ts, can you run whatever tests cover it and make sure nothing broke", "should_trigger": true},
+  {"query": "why is tests/integration/js_helpers.test.ts failing on my machine? it passes in CI", "should_trigger": true},
+  {"query": "run the full test suite before I push this branch", "should_trigger": true},
+  {"query": "I added MarketplaceService.publishTemplate — where should its test live and how do I run just that one file", "should_trigger": true},
+  {"query": "the vitest run takes forever and organizationService integration tests keep timing out in beforeAll, whats going on", "should_trigger": true},
+  {"query": "can u check my BaseRepository changes didnt break anything, run the unit tests", "should_trigger": true},
+  {"query": "tests pass locally but the github actions run fails with some worker fork error, help me figure it out", "should_trigger": true},
+  {"query": "docker desktop is up — set up the test database and run the db-dependent unit tests against it", "should_trigger": true},
+  {"query": "write an integration test for POST /api/tenants/:tenantId/collections cross-tenant access and run it", "should_trigger": true},
+  {"query": "add an 'archived' boolean column to the workflows table", "should_trigger": false},
+  {"query": "create an endpoint to list marketplace templates for a tenant", "should_trigger": false},
+  {"query": "boot the app so I can click through the new builder tab myself", "should_trigger": false},
+  {"query": "npm run build fails with an esbuild error about server/production.ts, fix it", "should_trigger": false},
+  {"query": "set up a github actions workflow that deploys to Railway when I push a tag", "should_trigger": false},
+  {"query": "eslint reports 3 errors in server/lib/templates/MarketplaceService.ts, clean them up", "should_trigger": false},
+  {"query": "the workflow runs list API takes 4 seconds, profile it and find the slow query", "should_trigger": false},
+  {"query": "write a k6 load test script that hammers the runs API with 200 virtual users", "should_trigger": false},
+  {"query": "my coworker cant get google oauth working locally, walk me through the env vars he needs", "should_trigger": false},
+  {"query": "npm run dev crashes on startup with EADDRINUSE port 5000", "should_trigger": false}
+]
