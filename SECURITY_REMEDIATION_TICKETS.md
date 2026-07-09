@@ -5,24 +5,37 @@
 
 **Numbering:** continues from SEC-019 (last committed).
 
-## Summary
+## Triage — 2026-07-08
 
-| Ticket | Title | Severity | Status before |
-|--------|-------|----------|---------------|
-| SEC-020 | Intake upload virus-scan is broken (rejects all uploads) | **High (regression)** | Partial/broken |
-| SEC-021 | Missing rate limits on code-exec & document-generation endpoints | Medium | Not started |
-| SEC-022 | Trust-device requires no password/MFA re-verification | Medium | Not started |
-| SEC-023 | E-sign envelope→run binding check is inert (stub) | Medium | Partial |
-| SEC-024 | `POST /api/tenants` allows client-controlled `plan` | Medium | Partial |
-| SEC-025 | Public workflow-complete endpoint has no idempotency guard | Medium | Not started |
-| SEC-026 | Custom domain registration lacks format + ownership verification | Medium | Not started |
-| SEC-027 | `/metrics` key via query string + non-timing-safe compare | Medium | Partial |
-| SEC-028 | AI-doc endpoints missing input validation | Medium | Partial |
-| SEC-029 | Raw `error.message` leaked to clients (multiple routers) | Low | Not started |
-| SEC-030 | Account enumeration via resend-verification response shape | Low | Partial |
-| SEC-031 | `PUT /api/preferences` stores unvalidated JSON, no size cap | Low | Not started |
-| SEC-032 | `create-list-tools` block config unvalidated | Low | Not started |
-| SEC-033 | E-sign `redirectUrl` has no host allowlist; no rate limit on execute | Low | Partial |
+Re-verified every ticket against the current code. **12 of 14 are now closed**; only SEC-026 has real remaining work, and SEC-027 was not re-checked here (an active edit to `metrics.ts` was in flight in a parallel session). SEC-026, SEC-022, and SEC-029 carry per-ticket "Triage" notes below; the rest were confirmed closed at these locations:
+
+- **SEC-020:** `intake.routes.ts:304-314` — now uses `validateMagicBytes` + `!scanResult.safe`/`scanResult.threatName` (the real `ScanResult` API).
+- **SEC-021:** `testLimiter` on `lifecycleHooks.routes.ts:209`; `strictLimiter` on `finalBlock.routes.ts:85,262` and `runs.routes.ts:510` (generate-documents).
+- **SEC-023:** `SignatureBlockService.findSignatureRequestByEnvelope` is a real `db.query` lookup; `esign.routes.ts:150-175` verifies access and the run binding.
+- **SEC-024:** `tenant.routes.ts` POST reads only `{name, billingEmail}` and forces `plan: 'free'`.
+- **SEC-025:** `public.routes.ts:96` idempotency guard returns before `markComplete` + webhook dispatch.
+- **SEC-028:** `ai.doc.routes.ts` has Zod schemas (`variableObjectArraySchema.max(500)`, suggest-mappings/improvements).
+- **SEC-030:** `auth.routes.ts` resend-verification returns one generic response for unknown/unverified/verified.
+- **SEC-031:** `userPreferences.routes.ts:47` Zod `z.record` with key/value size caps.
+- **SEC-032:** `blocks.routes.ts:273` `transformConfigSchema` validates the create-list-tools body.
+- **SEC-033:** `esign.routes.ts:58` `redirectUrl` host allowlist (`localhost`, `ezbuildr.com`, `PUBLIC_URL`); `strictLimiter` on execute (`esign.routes.ts:92`).
+
+| Ticket | Title | Severity | Status before | Status now (2026-07-08) |
+|--------|-------|----------|---------------|--------------------------|
+| SEC-020 | Intake upload virus-scan is broken (rejects all uploads) | **High (regression)** | Partial/broken | ✅ Closed |
+| SEC-021 | Missing rate limits on code-exec & document-generation endpoints | Medium | Not started | ✅ Closed |
+| SEC-022 | Trust-device requires no password/MFA re-verification | Medium | Not started | ✅ Closed (note test-env bypass) |
+| SEC-023 | E-sign envelope→run binding check is inert (stub) | Medium | Partial | ✅ Closed |
+| SEC-024 | `POST /api/tenants` allows client-controlled `plan` | Medium | Partial | ✅ Closed |
+| SEC-025 | Public workflow-complete endpoint has no idempotency guard | Medium | Not started | ✅ Closed |
+| SEC-026 | Custom domain registration lacks format + ownership verification | Medium | Not started | ⚠️ Partial — format done, **DNS ownership still missing** |
+| SEC-027 | `/metrics` key via query string + non-timing-safe compare | Medium | Partial | ⏭️ Not re-checked (parallel edit in flight) |
+| SEC-028 | AI-doc endpoints missing input validation | Medium | Partial | ✅ Closed |
+| SEC-029 | Raw `error.message` leaked to clients (multiple routers) | Low | Not started | ✅ Closed (named routers converted; remainder dev-gated or intentionally unconverted) |
+| SEC-030 | Account enumeration via resend-verification response shape | Low | Partial | ✅ Closed |
+| SEC-031 | `PUT /api/preferences` stores unvalidated JSON, no size cap | Low | Not started | ✅ Closed |
+| SEC-032 | `create-list-tools` block config unvalidated | Low | Not started | ✅ Closed |
+| SEC-033 | E-sign `redirectUrl` has no host allowlist; no rate limit on execute | Low | Partial | ✅ Closed |
 
 ---
 
@@ -64,6 +77,7 @@
 - **Problem:** Guarded only by `hybridAuth`. A stolen 15-minute access token can register the attacker's device fingerprint as trusted for 30 days, permanently suppressing MFA on future logins from that device. Compare `POST /api/auth/mfa/disable`, which correctly re-verifies the password.
 - **Fix:** Require a fresh TOTP (or password) verification in the trust-device request, or only allow trusting a device inside the MFA verify-login flow itself.
 - **Acceptance criteria:** Trusting a device without a fresh factor returns 401/403; trusting with a valid fresh TOTP succeeds.
+- **Triage (2026-07-08):** ✅ **Closed.** `POST /api/auth/trust-device` now re-verifies a factor: when `user.mfaEnabled` it requires a valid TOTP `code` (`mfaService.verifyTotp`), otherwise it re-checks the password via `validateCredentials`. Note a `process.env.NODE_ENV !== 'test'` bypass around the password branch — harmless in prod but the same test-only-escape-hatch smell that SEC (ssrfValidator) was cleaned up for; prefer mocking in tests over a runtime env check.
 
 ---
 
@@ -104,6 +118,7 @@
 - **Problem:** `domain: z.string().min(1)` accepts any string; `addDomain` only lowercases and inserts with a first-come duplicate check. A tenant can pre-register/squat any third party's domain, enabling branding spoofing if that domain is ever pointed at the platform (domain resolves tenant branding via `domainTenant` middleware).
 - **Fix:** Validate hostname format, and require DNS TXT-record ownership verification before a domain becomes active.
 - **Acceptance criteria:** Malformed hostnames rejected; a domain stays inactive until a TXT challenge is verified.
+- **Triage (2026-07-08):** ⚠️ **Partial.** Hostname format is now validated in `branding.routes.ts` (`z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/i)` on `POST /api/tenants/:tenantId/domains`), so the first acceptance criterion is met. **DNS TXT ownership verification is still not implemented** — `BrandingService.addDomain` only checks availability (`isDomainAvailable`) and inserts the domain as immediately usable, so a tenant can still register a domain it does not own. Remaining work is a real feature, not a pattern-copy: a domain-status/verification-token schema change (deferred — needs the schema-decision sign-off), a challenge issue + `dns.resolveTxt` verify endpoint, and gating branding resolution on `verified`. Also clean up the leftover AI-authored scratch comments in the POST handler (`branding.routes.ts:135-139`, "Actually, importing schema is better…").
 
 ---
 
@@ -134,6 +149,7 @@
 - **Problem:** These return `error instanceof Error ? error.message : ...` directly in the response body, leaking internal service/DB/driver error text on the 500 path.
 - **Fix:** Return a generic message for unknown errors; only pass through messages for known/whitelisted error classes. Log full detail server-side. Consider centralizing in the existing error-handler middleware.
 - **Acceptance criteria:** 500 responses contain no internal error text; details still logged server-side.
+- **Triage (2026-07-08):** ✅ **Closed** for the security concern. The named routers (`teams`, `account`, `connections-v2`, `collections`, `datavault`, `dataSource`, `organizations`) no longer emit raw `error.message` on the 500 path (0 matches). The ~27 remaining `error.message` uses in responses are either (a) gated behind `process.env.NODE_ENV === 'development'` (undefined in prod), or (b) in `snapshots`/`secrets`/`esign` — intentionally left on their own known-error (404/409) handling per the route-error-classification convention. One ungated pass-through remains at `esign.routes.ts:359` (`error: … ? error.message : String(error)`) — low-risk but worth folding into the generic path if that router is revisited.
 
 ---
 
