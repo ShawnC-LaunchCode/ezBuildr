@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ezbuildr-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5000
+    },
+    {
+      "name": "ezbuildr-test-mode",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:test"],
+      "port": 5174
+    }
+  ]
+}
