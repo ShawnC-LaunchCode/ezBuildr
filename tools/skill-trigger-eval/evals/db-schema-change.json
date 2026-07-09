@@ -1,0 +1,21 @@
+[
+  {"query": "add an 'archived' boolean to the workflows table, default false", "should_trigger": true},
+  {"query": "we need a template_reviews table — rating, comment, tenant scoped, FK to workflow_templates", "should_trigger": true},
+  {"query": "after pulling main I get 'column runs.progress_pct does not exist' everywhere", "should_trigger": true},
+  {"query": "add 'rating' to the step_type postgres enum", "should_trigger": true},
+  {"query": "why doesn't my new 0009 migration run when I do npm run db:migrate? the sql file is right there in migrations/", "should_trigger": true},
+  {"query": "integration tests explode in beforeAll with 'relation template_reviews does not exist' — I added that table yesterday and db:push worked fine", "should_trigger": true},
+  {"query": "rename projects.owner_uuid to owner_id without breaking prod", "should_trigger": true},
+  {"query": "queries on step_values are slow, add an index on (run_id, step_id)", "should_trigger": true},
+  {"query": "whats the difference between db:push and db:migrate in this repo and which should I use for the new column", "should_trigger": true},
+  {"query": "query the database and tell me how many tenants have more than 100 workflows", "should_trigger": false},
+  {"query": "seed my dev database with a few sample workflows and runs", "should_trigger": false},
+  {"query": "the neon connection keeps getting killed idle-in-transaction, tune the pool settings", "should_trigger": false},
+  {"query": "add a zod schema for the marketplace publish request body", "should_trigger": false},
+  {"query": "back up the production database before we ship the release tonight", "should_trigger": false},
+  {"query": "creating a datavault table through the UI 500s on the tableRows POST, fix it", "should_trigger": false},
+  {"query": "run the unit-db test project and show me failures", "should_trigger": false},
+  {"query": "add a new field to the workflow settings jsonb config for autosave interval", "should_trigger": false},
+  {"query": "this drizzle query in WorkflowRunRepository does a seq scan, optimize the query code", "should_trigger": false},
+  {"query": "hook up a read replica connection string for reporting queries", "should_trigger": false}
+]

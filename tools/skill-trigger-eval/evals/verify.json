@@ -1,0 +1,21 @@
+[
+  {"query": "start the app and screenshot the new marketplace page for me", "should_trigger": true},
+  {"query": "I just merged the datavault routes split — make sure the app still boots and the datavault pages actually load", "should_trigger": true},
+  {"query": "verify the new archive endpoint works end to end against the running server, not just in tests", "should_trigger": true},
+  {"query": "how do I log in locally without google oauth so I can test my change in the browser?", "should_trigger": true},
+  {"query": "run the dev server and click through creating a workflow to confirm the builder nav still works", "should_trigger": true},
+  {"query": "before I commit this RunCompletionService change, prove a run actually completes in the real app", "should_trigger": true},
+  {"query": "port 5000 is stuck from an old process — restart the dev server and check the console for errors", "should_trigger": true},
+  {"query": "does the signature block still render after my change? check it in the browser", "should_trigger": true},
+  {"query": "spin up the app in test mode on 5174 and hit the runs API manually with a real token", "should_trigger": true},
+  {"query": "run the unit tests for RunCompletionService", "should_trigger": false},
+  {"query": "deploy the latest main to railway", "should_trigger": false},
+  {"query": "verify the migration journal is consistent with the sql files in migrations/", "should_trigger": false},
+  {"query": "add playwright e2e coverage for the login flow", "should_trigger": false},
+  {"query": "verify my zod schema rejects negative currency values — add unit tests for it", "should_trigger": false},
+  {"query": "users are reporting 502s on the production site, check if it's up", "should_trigger": false},
+  {"query": "set up HTTPS for local dev with mkcert", "should_trigger": false},
+  {"query": "review this PR diff for security issues before I merge", "should_trigger": false},
+  {"query": "check the client bundle size after the vite 7 upgrade", "should_trigger": false},
+  {"query": "write api docs for the new marketplace endpoints", "should_trigger": false}
+]

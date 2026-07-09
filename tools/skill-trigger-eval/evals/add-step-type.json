@@ -1,0 +1,21 @@
+[
+  {"query": "add a 'rating' step type to the workflow builder — 1 to 5 stars", "should_trigger": true},
+  {"query": "we want a slider question type users can drop onto the canvas", "should_trigger": true},
+  {"query": "add a matrix/grid question block like typeform has", "should_trigger": true},
+  {"query": "make the file_upload block usable inside repeaters", "should_trigger": true},
+  {"query": "add a net promoter score block, 0-10 with min/max labels", "should_trigger": true},
+  {"query": "the AI generator errors when it tries to output the 'rating' step we added last week — I think the type isn't fully wired up, finish it", "should_trigger": true},
+  {"query": "create a color picker question type for the branding workflow", "should_trigger": true},
+  {"query": "extend the multiple choice step with an 'other — please specify' free text option", "should_trigger": true},
+  {"query": "the signature step doesn't appear in the easy mode palette and it should support conditional logic too", "should_trigger": true},
+  {"query": "add a new lifecycle hook phase that fires before document render", "should_trigger": false},
+  {"query": "the date picker renders wrong in dark mode, fix the styling", "should_trigger": false},
+  {"query": "add a 'starts_with' operator to the conditional logic engine", "should_trigger": false},
+  {"query": "add a base64 encode helper to the transform block helper library", "should_trigger": false},
+  {"query": "add a step to the CI pipeline that runs eslint before tests", "should_trigger": false},
+  {"query": "drag and drop reordering of steps in the builder sidebar is broken", "should_trigger": false},
+  {"query": "which step types support the between operator? quick question", "should_trigger": false},
+  {"query": "add a document hook that fires after PDF generation completes", "should_trigger": false},
+  {"query": "users want to duplicate a section including all its steps and logic", "should_trigger": false},
+  {"query": "the phone step should default to US format in the runner settings panel", "should_trigger": true}
+]
