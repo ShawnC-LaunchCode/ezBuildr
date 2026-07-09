@@ -11,16 +11,17 @@
  * Provides validation against sample data and coverage analysis
  */
 
-import fs from 'fs/promises';
 import path from 'path';
-
-import Docxtemplater from 'docxtemplater';
-import PizZip from 'pizzip';
 
 import { createError } from '../utils/errors';
 
-import { docxHelpers } from './docxHelpers';
+import { docxHelpers, tokenizeTag } from './docxHelpers';
 import { getTemplateFilePath } from './templateFiles';
+import {
+  extractPlaceholdersDetailed,
+  TemplateSyntaxError,
+  type PlaceholderInfo as SharedPlaceholderInfo,
+} from './templatePlaceholders';
 
 export interface PlaceholderInfo {
   name: string;
@@ -78,173 +79,106 @@ export interface ValidationWarning {
  * Accepts either a storage fileRef or an absolute file path — callers are
  * split between the two (extractPlaceholders passes fileRefs; the renderers
  * and test service pass resolved absolute paths).
+ *
+ * Placeholder extraction is delegated to the shared, loop-scope-aware parser
+ * (templatePlaceholders); this function only categorizes the result into the
+ * structural TemplateAnalysis shape (variables / loops / conditionals /
+ * helpers / stats).
  */
 export async function analyzeTemplate(fileRefOrPath: string): Promise<TemplateAnalysis> {
   const templatePath = path.isAbsolute(fileRefOrPath)
     ? fileRefOrPath
     : getTemplateFilePath(fileRefOrPath);
 
+  let extracted: SharedPlaceholderInfo[];
   try {
-    await fs.access(templatePath);
-  } catch {
-    throw createError.notFound('Template file');
+    extracted = await extractPlaceholdersDetailed(templatePath);
+  } catch (error) {
+    if (error instanceof TemplateSyntaxError) {
+      throw createError.badRequest(`Failed to analyze template: ${error.message}`);
+    }
+    throw error;
   }
 
-  try {
-    // Read template file
-    const content = await fs.readFile(templatePath, 'binary');
-    const zip = new PizZip(content);
+  const variables: PlaceholderInfo[] = [];
+  const loops: LoopInfo[] = [];
+  const conditionals: ConditionalInfo[] = [];
+  const helpersUsed = new Set<string>();
 
-    // Create docxtemplater instance. Delimiters must match the product's
-    // {{...}} syntax — the library defaults to single braces and throws
-    // "duplicate open tag" when compiling real templates. (Only getFullText
-    // is used here; placeholder parsing below is regex-based.)
-    const doc = new Docxtemplater(zip, {
-      paragraphLoop: true,
-      linebreaks: true,
-      delimiters: { start: '{{', end: '}}' },
-    });
-
-    // Get full text
-    const fullText = doc.getFullText();
-
-    // Extract all placeholders
-    const placeholders = extractAllPlaceholders(fullText);
-
-    // Categorize placeholders
-    const variables: PlaceholderInfo[] = [];
-    const loops: LoopInfo[] = [];
-    const conditionals: ConditionalInfo[] = [];
-    const helpersUsed = new Set<string>();
-
-    for (const ph of placeholders) {
-      if (ph.type === 'loop') {
-        loops.push({
-          variable: ph.name,
-          depth: ph.depth ?? 0,
-        });
-      } else if (ph.type === 'conditional') {
-        conditionals.push({
-          variable: ph.name,
-          type: ph.conditionalType as 'if' | 'unless',
-        });
-      // eslint-disable-next-line sonarjs/no-collapsible-if
-      } else if (ph.type === 'helper') {
-        if (ph.helperName) {
-          helpersUsed.add(ph.helperName);
-        }
-      }
-      variables.push(ph);
+  for (const raw of extracted) {
+    const ph = toAnalysisPlaceholder(raw);
+    if (ph.type === 'loop') {
+      loops.push({ variable: ph.name, depth: ph.depth ?? 0 });
+    } else if (ph.type === 'conditional') {
+      conditionals.push({ variable: ph.name, type: ph.conditionalType ?? 'if' });
+    } else if (ph.type === 'helper' && ph.helperName !== undefined) {
+      helpersUsed.add(ph.helperName);
     }
+    variables.push(ph);
+  }
 
-    // Calculate stats
-    const uniqueVars = new Set(
-      variables.filter((v) => v.type === 'variable').map((v) => v.name)
-    );
+  const uniqueVars = new Set(
+    variables.filter((v) => v.type === 'variable').map((v) => v.name)
+  );
 
-    const stats = {
-      totalPlaceholders: placeholders.length,
-      uniqueVariables: uniqueVars.size,
-      loopCount: loops.length,
-      conditionalCount: conditionals.length,
-      helperCallCount: Array.from(helpersUsed).length,
-      maxNestingDepth: calculateMaxDepth(loops),
-    };
+  const stats = {
+    totalPlaceholders: extracted.length,
+    uniqueVariables: uniqueVars.size,
+    loopCount: loops.length,
+    conditionalCount: conditionals.length,
+    helperCallCount: helpersUsed.size,
+    maxNestingDepth: calculateMaxDepth(loops),
+  };
 
+  return {
+    variables,
+    loops,
+    conditionals,
+    helpers: Array.from(helpersUsed).sort(),
+    stats,
+  };
+}
+
+/** Map a shared parser placeholder into the structural analysis shape. */
+function toAnalysisPlaceholder(ph: SharedPlaceholderInfo): PlaceholderInfo {
+  if (ph.kind === 'helper') {
     return {
-      variables,
-      loops,
-      conditionals,
-      helpers: Array.from(helpersUsed).sort(),
-      stats,
+      name: ph.name,
+      type: 'helper',
+      helperName: ph.helper,
+      path: ph.name.includes('.') ? ph.name : undefined,
     };
-  } catch (error: unknown) {
-    if (error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
-      throw createError.notFound('Template file', templatePath);
-    }
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw createError.internal(
-      `Failed to analyze template: ${errorMessage}`
-    );
   }
+
+  if (ph.kind === 'section') {
+    return classifySection(ph);
+  }
+
+  return {
+    name: ph.name,
+    type: 'variable',
+    path: ph.name.includes('.') ? ph.name : undefined,
+  };
 }
 
 /**
- * Extract all placeholders from template text
+ * A section tag ({{#x}}, {{^x}}, {{#if x}}, {{#each rows}}) is either a loop
+ * or a conditional. In this product `{{#x}}` is data-driven (array => loop,
+ * truthy => conditional), so we classify by syntax: inverted ('^') and
+ * if/unless read as conditionals; everything else reads as a loop, with its
+ * nesting depth taken from the enclosing loop scope.
  */
-function extractAllPlaceholders(text: string): PlaceholderInfo[] {
-  const placeholders: PlaceholderInfo[] = [];
-  // eslint-disable-next-line no-useless-escape
-  const regex = /\{([#\/]?)([^{}]+?)\}/g;
-  let match;
+function classifySection(ph: SharedPlaceholderInfo): PlaceholderInfo {
+  const prefix = ph.raw.charAt(0);
+  const keyword = tokenizeTag(ph.raw.slice(1))[0];
 
-  const loopStack: { name: string; depth: number }[] = [];
-
-  while ((match = regex.exec(text)) !== null) {
-    const prefix = match[1]; // '#' for opening, '/' for closing, '' for simple
-    const content = match[2].trim();
-
-    if (prefix === '/') {
-      // Closing tag - pop from loop stack
-      loopStack.pop();
-      continue;
-    }
-
-    const parts = content.split(/\s+/);
-    const currentDepth = loopStack.length;
-
-    if (prefix === '#') {
-      // Control structure
-      const controlType = parts[0];
-
-      if (['if', 'unless'].includes(controlType)) {
-        // Conditional
-        const varName = parts[1] ?? '';
-        placeholders.push({
-          name: varName,
-          type: 'conditional',
-          conditionalType: controlType,
-        } as PlaceholderInfo);
-      } else if (['each', 'for'].includes(controlType)) {
-        // Loop with explicit keyword
-        const varName = parts[1] ?? '';
-        loopStack.push({ name: varName, depth: currentDepth });
-        placeholders.push({
-          name: varName,
-          type: 'loop',
-          depth: currentDepth,
-        } as PlaceholderInfo);
-      } else {
-        // Simple loop syntax: {#items}
-        loopStack.push({ name: controlType, depth: currentDepth });
-        placeholders.push({
-          name: controlType,
-          type: 'loop',
-          depth: currentDepth,
-        } as PlaceholderInfo);
-      }
-    } else {
-      // Simple variable or helper call
-      if (parts.length > 1 && parts[0] in docxHelpers) {
-        // Helper call: {helper variable}
-        placeholders.push({
-          name: parts[1],
-          type: 'helper',
-          helperName: parts[0],
-          path: parts[1].includes('.') ? parts[1] : undefined,
-        });
-      } else {
-        // Simple variable: {variable} or {user.name}
-        placeholders.push({
-          name: parts[0],
-          type: 'variable',
-          path: parts[0].includes('.') ? parts[0] : undefined,
-        });
-      }
-    }
+  if (prefix === '^') {
+    return { name: ph.name, type: 'conditional', conditionalType: 'unless' };
   }
-
-  return placeholders;
+  if (keyword === 'if' || keyword === 'unless') {
+    return { name: ph.name, type: 'conditional', conditionalType: keyword };
+  }
+  return { name: ph.name, type: 'loop', depth: ph.loopScope.length };
 }
 
 /**

@@ -1,391 +1,191 @@
-import * as fs from 'fs/promises';
+import fs from 'fs/promises';
+import os from 'os';
+import path from 'path';
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import PizZip from 'pizzip';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import {
   analyzeTemplate,
   validateTemplateWithData,
   generateSampleData,
   compareTemplates,
-  type TemplateAnalysis,
-  type ValidationResult,
 } from '../../../server/services/TemplateAnalysisService';
-import * as templatesModule from '../../../server/services/templates';
 
 /**
- * Stage 21 PR 4: Template Analysis Service Tests
- *
- * Unit tests for template analysis and validation
+ * Real coverage for the structural analysis service. Placeholder extraction
+ * is now delegated to the shared templatePlaceholders parser; these tests
+ * exercise analyzeTemplate against actual DOCX fixtures and the derived
+ * validation / sample-generation / comparison helpers.
  */
 
-// Mock modules
-vi.mock('fs/promises');
-vi.mock('../../../server/services/templates');
-vi.mock('pizzip');
-vi.mock('docxtemplater');
+function createDocxBuffer(content: string): Buffer {
+  const zip = new PizZip();
+  zip.file(
+    '[Content_Types].xml',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`
+  );
+  zip.file(
+    '_rels/.rels',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`
+  );
+  zip.file(
+    'word/document.xml',
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>${content}</w:t></w:r></w:p>
+  </w:body>
+</w:document>`
+  );
+  return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
+}
 
 describe('TemplateAnalysisService', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  const tmpDir = path.join(os.tmpdir(), `tas-test-${Date.now()}`);
+
+  beforeAll(async () => {
+    await fs.mkdir(tmpDir, { recursive: true });
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
+  afterAll(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  async function writeDocx(name: string, content: string): Promise<string> {
+    const filePath = path.join(tmpDir, name);
+    await fs.writeFile(filePath, createDocxBuffer(content));
+    return filePath;
+  }
+
+  describe('analyzeTemplate', () => {
+    it('extracts plain variables with stats', async () => {
+      const file = await writeDocx('vars.docx', 'Hello {{name}}, your email is {{email}}');
+      const analysis = await analyzeTemplate(file);
+
+      const names = analysis.variables.filter((v) => v.type === 'variable').map((v) => v.name);
+      expect(names).toContain('name');
+      expect(names).toContain('email');
+      expect(analysis.stats.uniqueVariables).toBe(2);
+      expect(analysis.stats.loopCount).toBe(0);
+      expect(analysis.stats.conditionalCount).toBe(0);
+    });
+
+    it('attributes helper tags to their helper and variable', async () => {
+      const file = await writeDocx('helper.docx', '{{upper name}}');
+      const analysis = await analyzeTemplate(file);
+
+      const helper = analysis.variables.find((v) => v.type === 'helper');
+      expect(helper).toMatchObject({ name: 'name', type: 'helper', helperName: 'upper' });
+      expect(analysis.helpers).toContain('upper');
+      expect(analysis.stats.helperCallCount).toBe(1);
+    });
+
+    it('classifies array sections as loops and reports nesting depth', async () => {
+      const file = await writeDocx(
+        'nested.docx',
+        '{{#departments}}{{deptName}}{{#employees}}{{firstName}}{{/employees}}{{/departments}}'
+      );
+      const analysis = await analyzeTemplate(file);
+
+      const loopVars = analysis.loops.map((l) => l.variable);
+      expect(loopVars).toContain('departments');
+      expect(loopVars).toContain('employees');
+
+      const employees = analysis.loops.find((l) => l.variable === 'employees');
+      expect(employees?.depth).toBe(1);
+      expect(analysis.stats.maxNestingDepth).toBe(2);
+    });
+
+    it('classifies inverted sections as conditionals', async () => {
+      const file = await writeDocx('inverted.docx', '{{^hasItems}}No items found{{/hasItems}}');
+      const analysis = await analyzeTemplate(file);
+
+      expect(analysis.conditionals).toEqual([{ variable: 'hasItems', type: 'unless' }]);
+      expect(analysis.stats.conditionalCount).toBe(1);
+    });
+
+    it('records the dotted path for nested variables', async () => {
+      const file = await writeDocx('nested-path.docx', '{{user.address.city}}');
+      const analysis = await analyzeTemplate(file);
+
+      const nested = analysis.variables.find((v) => v.name === 'user.address.city');
+      expect(nested?.path).toBe('user.address.city');
+    });
+
+    it('throws a bad-request error for a malformed template', async () => {
+      const file = await writeDocx('broken.docx', '{{#unclosed}} no closing tag');
+      await expect(analyzeTemplate(file)).rejects.toMatchObject({
+        statusCode: 400,
+      });
+    });
   });
 
   describe('validateTemplateWithData', () => {
-    it('should validate complete data', async () => {
-      // Mock template file exists
-      vi.spyOn(templatesModule, 'templateFileExists').mockResolvedValue(true);
-      vi.spyOn(templatesModule, 'getTemplateFilePath').mockReturnValue('/path/to/template.docx');
+    it('reports missing, extra, and coverage', async () => {
+      const file = await writeDocx('validate.docx', '{{name}} {{email}} {{phone}}');
+      const result = await validateTemplateWithData(file, { name: 'Ada', extra: 'x' });
 
-      // Mock file read
-      vi.mocked(fs.readFile).mockResolvedValue(Buffer.from('mock docx'));
-
-      // This would require full mocking of PizZip and Docxtemplater
-      // For now, test the validation logic directly
-      expect(true).toBe(true);
+      expect(result.missing).toEqual(expect.arrayContaining(['email', 'phone']));
+      expect(result.extra).toContain('extra');
+      expect(result.coverage).toBe(33); // 1 of 3 provided
+      expect(result.valid).toBe(false);
     });
 
-    it('should detect missing variables', () => {
-      // Test validation logic
-      const templateVars = new Set(['name', 'email', 'date']);
-      const sampleData = { name: 'John' };
+    it('warns when a loop variable is not an array', async () => {
+      const file = await writeDocx('loop-type.docx', '{{#items}}{{label}}{{/items}}');
+      const result = await validateTemplateWithData(file, { items: 'not-an-array' });
 
-      const missing = Array.from(templateVars).filter(
-        (v) => !(v in sampleData)
-      );
-
-      expect(missing).toContain('email');
-      expect(missing).toContain('date');
-      expect(missing).toHaveLength(2);
+      const typeWarning = result.warnings.find((w) => w.code === 'TYPE_MISMATCH');
+      expect(typeWarning).toBeDefined();
+      expect(typeWarning?.severity).toBe('error');
+      expect(result.valid).toBe(false);
     });
 
-    it('should detect type mismatches', () => {
-      // Loop variable should be array
-      const _loopVar = 'items';
-      const value = 'not an array';
+    it('warns about empty loop arrays', async () => {
+      const file = await writeDocx('empty-array.docx', '{{#items}}{{label}}{{/items}}');
+      const result = await validateTemplateWithData(file, { items: [] });
 
-      expect(Array.isArray(value)).toBe(false);
-    });
-
-    it('should calculate coverage percentage', () => {
-      const total = 10;
-      const provided = 8;
-      const coverage = Math.round((provided / total) * 100);
-
-      expect(coverage).toBe(80);
-    });
-
-    it('should handle empty template variables', () => {
-      const templateVars = new Set<string>();
-      const _sampleData = {};
-
-      const coverage = templateVars.size > 0 ? 0 : 100;
-
-      expect(coverage).toBe(100);
+      expect(result.warnings.some((w) => w.code === 'EMPTY_ARRAY')).toBe(true);
     });
   });
 
   describe('generateSampleData', () => {
-    it('should generate date values for date fields', () => {
-      const generateSampleValue = (varName: string): unknown => {
-        const lower = varName.toLowerCase();
-        if (lower.includes('date') || lower.includes('time')) {
-          return new Date().toISOString();
-        }
-        return `Sample ${varName}`;
-      };
+    it('generates typed sample values keyed by variable', async () => {
+      const file = await writeDocx('sample.docx', '{{clientName}} {{invoiceDate}} {{totalAmount}}');
+      const sample = await generateSampleData(file);
 
-      expect(typeof generateSampleValue('createdDate')).toBe('string');
-      expect(generateSampleValue('createdDate')).toContain('T');
+      expect(typeof sample.clientName).toBe('string');
+      expect(typeof sample.invoiceDate).toBe('string');
+      expect(sample.invoiceDate).toContain('T'); // ISO date
+      expect(sample.totalAmount).toBe(1234.56);
     });
 
-    it('should generate numeric values for amount fields', () => {
-      const generateSampleValue = (varName: string): unknown => {
-        const lower = varName.toLowerCase();
-        if (
-          lower.includes('amount') ||
-          lower.includes('price') ||
-          lower.includes('total')
-        ) {
-          return 1234.56;
-        }
-        return `Sample ${varName}`;
-      };
+    it('generates arrays for loop variables', async () => {
+      const file = await writeDocx('sample-loop.docx', '{{#items}}{{label}}{{/items}}');
+      const sample = await generateSampleData(file);
 
-      expect(generateSampleValue('totalAmount')).toBe(1234.56);
-      expect(typeof generateSampleValue('price')).toBe('number');
-    });
-
-    it('should generate boolean values for boolean fields', () => {
-      const generateSampleValue = (varName: string): unknown => {
-        const lower = varName.toLowerCase();
-        if (lower.includes('is') || lower.includes('has') || lower.includes('enabled')) {
-          return true;
-        }
-        return `Sample ${varName}`;
-      };
-
-      expect(generateSampleValue('isActive')).toBe(true);
-      expect(generateSampleValue('hasAccess')).toBe(true);
-    });
-
-    it('should generate email for email fields', () => {
-      const generateSampleValue = (varName: string): unknown => {
-        const lower = varName.toLowerCase();
-        if (lower.includes('email')) {
-          return 'sample@example.com';
-        }
-        return `Sample ${varName}`;
-      };
-
-      expect(generateSampleValue('userEmail')).toBe('sample@example.com');
-    });
-
-    it('should generate arrays for loop variables', () => {
-      const loopVar = 'items';
-      const sampleArray = [
-        { id: 1, name: `Sample ${loopVar} 1` },
-        { id: 2, name: `Sample ${loopVar} 2` },
-      ];
-
-      expect(Array.isArray(sampleArray)).toBe(true);
-      expect(sampleArray).toHaveLength(2);
+      expect(Array.isArray(sample.items)).toBe(true);
     });
   });
 
   describe('compareTemplates', () => {
-    it('should identify added variables', () => {
-      const vars1 = new Set(['name', 'email']);
-      const vars2 = new Set(['name', 'email', 'phone']);
+    it('reports added, removed, and unchanged variables', async () => {
+      const before = await writeDocx('before.docx', '{{name}} {{email}}');
+      const after = await writeDocx('after.docx', '{{name}} {{phone}}');
+      const diff = await compareTemplates(before, after);
 
-      const added = Array.from(vars2).filter((v) => !vars1.has(v));
-
-      expect(added).toContain('phone');
-      expect(added).toHaveLength(1);
-    });
-
-    it('should identify removed variables', () => {
-      const vars1 = new Set(['name', 'email', 'phone']);
-      const vars2 = new Set(['name', 'email']);
-
-      const removed = Array.from(vars1).filter((v) => !vars2.has(v));
-
-      expect(removed).toContain('phone');
-      expect(removed).toHaveLength(1);
-    });
-
-    it('should identify unchanged variables', () => {
-      const vars1 = new Set(['name', 'email']);
-      const vars2 = new Set(['name', 'email', 'phone']);
-
-      const unchanged = Array.from(vars1).filter((v) => vars2.has(v));
-
-      expect(unchanged).toContain('name');
-      expect(unchanged).toContain('email');
-      expect(unchanged).toHaveLength(2);
-    });
-  });
-
-  describe('Placeholder Extraction', () => {
-    it('should extract simple variables', () => {
-      const text = 'Hello {name}, your email is {email}';
-      const regex = /\{([^{}]+?)\}/g;
-      const matches = Array.from(text.matchAll(regex));
-
-      expect(matches).toHaveLength(2);
-      expect(matches[0][1]).toBe('name');
-      expect(matches[1][1]).toBe('email');
-    });
-
-    it('should extract loop variables', () => {
-      const text = '{#items}Item: {name}{/items}';
-      // eslint-disable-next-line no-useless-escape
-      const regex = /\{([#\/]?)([^{}]+?)\}/g;
-      const matches = Array.from(text.matchAll(regex));
-
-      const loopOpen = matches.find((m) => m[1] === '#' && m[2] === 'items');
-      expect(loopOpen).toBeDefined();
-    });
-
-    it('should extract conditional variables', () => {
-      const text = '{#if isActive}Active{/if}';
-      // eslint-disable-next-line no-useless-escape
-      const regex = /\{([#\/]?)([^{}]+?)\}/g;
-      const matches = Array.from(text.matchAll(regex));
-
-      const conditional = matches.find((m) => m[1] === '#' && m[2].startsWith('if'));
-      expect(conditional).toBeDefined();
-    });
-
-    it('should extract helper calls', () => {
-      const text = '{upper name} and {currency amount}';
-      const regex = /\{([^{}]+?)\}/g;
-      const matches = Array.from(text.matchAll(regex));
-
-      expect(matches).toHaveLength(2);
-      expect(matches[0][1]).toBe('upper name');
-      expect(matches[1][1]).toBe('currency amount');
-    });
-
-    it('should handle nested paths', () => {
-      const text = '{user.address.city}';
-      const regex = /\{([^{}]+?)\}/g;
-      const matches = Array.from(text.matchAll(regex));
-
-      expect(matches[0][1]).toBe('user.address.city');
-      expect(matches[0][1].includes('.')).toBe(true);
-    });
-  });
-
-  describe('Loop Depth Calculation', () => {
-    it('should calculate simple loop depth', () => {
-      const loops = [{ variable: 'items', depth: 0 }];
-      const maxDepth = Math.max(...loops.map((l) => l.depth)) + 1;
-
-      expect(maxDepth).toBe(1);
-    });
-
-    it('should calculate nested loop depth', () => {
-      const loops = [
-        { variable: 'departments', depth: 0 },
-        { variable: 'employees', depth: 1 },
-      ];
-      const maxDepth = Math.max(...loops.map((l) => l.depth)) + 1;
-
-      expect(maxDepth).toBe(2);
-    });
-
-    it('should handle deeply nested loops', () => {
-      const loops = [
-        { variable: 'level1', depth: 0 },
-        { variable: 'level2', depth: 1 },
-        { variable: 'level3', depth: 2 },
-        { variable: 'level4', depth: 3 },
-      ];
-      const maxDepth = Math.max(...loops.map((l) => l.depth)) + 1;
-
-      expect(maxDepth).toBe(4);
-    });
-
-    it('should return 0 for no loops', () => {
-      const loops: Array<{ variable: string; depth: number }> = [];
-      const maxDepth = loops.length === 0 ? 0 : Math.max(...loops.map((l) => l.depth)) + 1;
-
-      expect(maxDepth).toBe(0);
-    });
-  });
-
-  describe('Validation Warnings', () => {
-    it('should warn about type mismatches', () => {
-      const warnings: Array<{ code: string; message: string; variable: string; severity: 'warning' | 'error' | 'info' }> = [];
-      const loopVar = 'items';
-      const value: unknown = 'not an array';
-
-      if (value !== undefined && !Array.isArray(value)) {
-        warnings.push({
-          code: 'TYPE_MISMATCH',
-          message: `Loop variable '${loopVar}' should be an array`,
-          variable: loopVar,
-          severity: 'error',
-        });
-      }
-
-      expect(warnings).toHaveLength(1);
-      expect(warnings[0].severity).toBe('error');
-    });
-
-    it('should warn about empty arrays', () => {
-      const warnings: Array<{ code: string; message: string; variable: string; severity: 'warning' | 'error' | 'info' }> = [];
-      const loopVar = 'items';
-      const value: unknown[] = [];
-
-      if (Array.isArray(value) && value.length === 0) {
-        warnings.push({
-          code: 'EMPTY_ARRAY',
-          message: `Loop variable '${loopVar}' is an empty array`,
-          variable: loopVar,
-          severity: 'warning',
-        });
-      }
-
-      expect(warnings).toHaveLength(1);
-      expect(warnings[0].severity).toBe('warning');
-    });
-
-    it('should categorize warning severities', () => {
-      const warnings = [
-        { code: 'TYPE_MISMATCH', severity: 'error' },
-        { code: 'EMPTY_ARRAY', severity: 'warning' },
-        { code: 'HELPER_USED', severity: 'info' },
-      ];
-
-      const errors = warnings.filter((w) => w.severity === 'error');
-      const warningsOnly = warnings.filter((w) => w.severity === 'warning');
-      const info = warnings.filter((w) => w.severity === 'info');
-
-      expect(errors).toHaveLength(1);
-      expect(warningsOnly).toHaveLength(1);
-      expect(info).toHaveLength(1);
-    });
-  });
-
-  describe('Helper Function Detection', () => {
-    it('should detect helper usage', () => {
-      const helpersUsed = new Set<string>();
-      const placeholders = [
-        { type: 'helper', helperName: 'upper' },
-        { type: 'helper', helperName: 'currency' },
-        { type: 'helper', helperName: 'upper' }, // Duplicate
-      ];
-
-      for (const ph of placeholders) {
-        if (ph.type === 'helper' && ph.helperName) {
-          helpersUsed.add(ph.helperName);
-        }
-      }
-
-      expect(helpersUsed.size).toBe(2); // Deduped
-      expect(Array.from(helpersUsed)).toContain('upper');
-      expect(Array.from(helpersUsed)).toContain('currency');
-    });
-  });
-
-  describe('Statistics Calculation', () => {
-    it('should calculate template statistics', () => {
-      const placeholders = [
-        { name: 'name', type: 'variable' },
-        { name: 'email', type: 'variable' },
-        { name: 'items', type: 'loop' },
-        { name: 'isActive', type: 'conditional' },
-        { name: 'name', type: 'helper', helperName: 'upper' },
-      ];
-
-      const uniqueVars = new Set(
-        placeholders.filter((p: { type: string, name: string, helperName?: string }) => p.type === 'variable').map((p) => p.name)
-      );
-      const loops = placeholders.filter((p: { type: string, name: string, helperName?: string }) => p.type === 'loop');
-      const conditionals = placeholders.filter((p: { type: string, name: string, helperName?: string }) => p.type === 'conditional');
-      const helpers = new Set(
-        placeholders
-          .filter((p: { type: string, name: string, helperName?: string }) => p.type === 'helper' && p.helperName)
-          .map((p: { type: string, name: string, helperName?: string }) => p.helperName!)
-      );
-
-      const stats = {
-        totalPlaceholders: placeholders.length,
-        uniqueVariables: uniqueVars.size,
-        loopCount: loops.length,
-        conditionalCount: conditionals.length,
-        helperCallCount: helpers.size,
-      };
-
-      expect(stats.totalPlaceholders).toBe(5);
-      expect(stats.uniqueVariables).toBe(2);
-      expect(stats.loopCount).toBe(1);
-      expect(stats.conditionalCount).toBe(1);
-      expect(stats.helperCallCount).toBe(1);
+      expect(diff.added).toContain('phone');
+      expect(diff.removed).toContain('email');
+      expect(diff.unchanged).toContain('name');
     });
   });
 });
