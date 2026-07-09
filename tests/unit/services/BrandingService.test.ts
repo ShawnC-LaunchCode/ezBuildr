@@ -1,3 +1,5 @@
+import dns from 'dns/promises';
+
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 import type { TenantBranding } from '@shared/types/branding';
@@ -30,6 +32,11 @@ vi.mock('../../../server/logger', () => ({
     warn: vi.fn(),
     error: vi.fn(),
   }),
+}));
+
+// Mock DNS resolution for domain verification
+vi.mock('dns/promises', () => ({
+  default: { resolveTxt: vi.fn() },
 }));
 
 describe('BrandingService', () => {
@@ -336,7 +343,7 @@ describe('BrandingService', () => {
           tenantId: 'test-tenant-id',
           domain: 'acme.ezbuildr.com', // Should be normalized to lowercase
           verified: false,
-          verificationToken: expect.any(String),
+          verificationToken: expect.any(String) as unknown,
         })
       );
     });
@@ -467,6 +474,94 @@ describe('BrandingService', () => {
 
       expect(mockSelect.where).toHaveBeenCalled();
       // Domain should be normalized to lowercase in the query
+    });
+  });
+
+  describe('buildDomainChallenge', () => {
+    it('builds a dedicated-subdomain TXT challenge with a prefixed value', () => {
+      const challenge = brandingService.buildDomainChallenge('ACME.com', 'tok123');
+      expect(challenge).toEqual({
+        host: '_ezbuildr-challenge.acme.com',
+        value: 'ezbuildr-verification=tok123',
+      });
+    });
+  });
+
+  describe('verifyDomain', () => {
+    const domainRow = {
+      id: 'domain-1',
+      tenantId: 'test-tenant-id',
+      domain: 'acme.com',
+      verified: false,
+      verificationToken: 'tok123',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    function mockDomainLookup(row: unknown): void {
+      const mockSelect = {
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue(row === undefined ? [] : [row]),
+      };
+      vi.mocked(db.select).mockReturnValue(mockSelect as unknown as ReturnType<typeof db.select>);
+    }
+
+    it('throws when the domain does not exist', async () => {
+      mockDomainLookup(undefined);
+      await expect(brandingService.verifyDomain('test-tenant-id', 'missing')).rejects.toThrow(
+        'Domain not found'
+      );
+    });
+
+    it('throws when the domain belongs to another tenant', async () => {
+      mockDomainLookup({ ...domainRow, tenantId: 'other-tenant' });
+      await expect(brandingService.verifyDomain('test-tenant-id', 'domain-1')).rejects.toThrow(
+        'Domain does not belong to this tenant'
+      );
+    });
+
+    it('short-circuits to verified without a DNS lookup when already verified', async () => {
+      mockDomainLookup({ ...domainRow, verified: true });
+      const result = await brandingService.verifyDomain('test-tenant-id', 'domain-1');
+      expect(result).toEqual({ verified: true });
+      expect(dns.resolveTxt).not.toHaveBeenCalled();
+    });
+
+    it('marks the domain verified when the TXT record matches', async () => {
+      mockDomainLookup(domainRow);
+      vi.mocked(dns.resolveTxt).mockResolvedValue([['ezbuildr-verification=tok123']]);
+      const mockUpdate = {
+        set: vi.fn().mockReturnThis(),
+        where: vi.fn().mockResolvedValue([]),
+      };
+      vi.mocked(db.update).mockReturnValue(mockUpdate as unknown as ReturnType<typeof db.update>);
+
+      const result = await brandingService.verifyDomain('test-tenant-id', 'domain-1');
+
+      expect(result).toEqual({ verified: true });
+      expect(dns.resolveTxt).toHaveBeenCalledWith('_ezbuildr-challenge.acme.com');
+      expect(mockUpdate.set).toHaveBeenCalledWith(expect.objectContaining({ verified: true }));
+    });
+
+    it('fails (without marking verified) when the TXT record is absent', async () => {
+      mockDomainLookup(domainRow);
+      vi.mocked(dns.resolveTxt).mockRejectedValue(new Error('ENOTFOUND'));
+
+      const result = await brandingService.verifyDomain('test-tenant-id', 'domain-1');
+
+      expect(result.verified).toBe(false);
+      expect(result.reason).toContain('_ezbuildr-challenge.acme.com');
+      expect(db.update).not.toHaveBeenCalled();
+    });
+
+    it('fails when the TXT record exists but does not match the token', async () => {
+      mockDomainLookup(domainRow);
+      vi.mocked(dns.resolveTxt).mockResolvedValue([['ezbuildr-verification=WRONG']]);
+
+      const result = await brandingService.verifyDomain('test-tenant-id', 'domain-1');
+
+      expect(result.verified).toBe(false);
+      expect(db.update).not.toHaveBeenCalled();
     });
   });
 });
