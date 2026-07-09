@@ -3,7 +3,7 @@
  * PR1: Added tab-based navigation structure
  */
 import { useQueryClient } from "@tanstack/react-query";
-import { Eye, ChevronDown, ArrowLeft, Database, Sparkles, GitGraph } from "lucide-react";
+import { Eye, ChevronDown, ArrowLeft, Database, Sparkles } from "lucide-react";
 
 // Removed AdvancedModeBanner
 // Tab components
@@ -231,11 +231,6 @@ export default function WorkflowBuilder() {
                         }}
                       />
                     </div>
-                    {mode === 'advanced' && (
-                      <Button variant="outline" size="sm" onClick={() => { void navigate(`/workflows/${workflowId}/visual-builder`); }} className="mr-2">
-                        <GitGraph className="w-4 h-4 mr-2" /> Visual Builder
-                      </Button>
-                    )}
                     <Button variant="outline" size="sm" onClick={() => setIsPreviewMode(true)} disabled={launchingPreview}>
                       <Eye className="w-4 h-4 mr-2" /> Preview
                     </Button>

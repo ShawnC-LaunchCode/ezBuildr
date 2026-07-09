@@ -26,7 +26,7 @@ function AppContent({ isBuilder }: { isBuilder: boolean }) {
 function App() {
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
   const [location] = useLocation();
-  const isBuilder = location.includes('/builder') || location.includes('/visual-builder');
+  const isBuilder = location.includes('/builder');
 
   if (googleClientId === null || googleClientId === undefined || googleClientId === '') {
     console.warn('VITE_GOOGLE_CLIENT_ID environment variable is not set - running in development mode');

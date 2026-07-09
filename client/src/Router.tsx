@@ -25,7 +25,6 @@ const AdminAiSettings = lazy(() => import("@/pages/AdminAiSettings"));
 const Marketplace = lazy(() => import("@/pages/Marketplace"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const WorkflowBuilder = lazy(() => import("@/pages/WorkflowBuilder"));
-const VisualWorkflowBuilder = lazy(() => import("@/pages/VisualWorkflowBuilder"));
 const NewWorkflow = lazy(() => import("@/pages/NewWorkflow"));
 const WorkflowRunner = lazy(() => import("@/pages/WorkflowRunner").then(module => ({ default: module.WorkflowRunner })));
 const WorkflowAnalytics = lazy(() => import("@/pages/WorkflowAnalytics").then(module => ({ default: module.WorkflowAnalytics })));
@@ -112,7 +111,6 @@ export default function Router() {
                         <Route path="/workflows" component={WorkflowsList} />
                         <Route path="/workflows/new" component={NewWorkflow} />
                         <Route path="/workflows/:id/builder" component={WorkflowBuilder} />
-                        <Route path="/workflows/:id/visual-builder" component={VisualWorkflowBuilder} />
                         <Route path="/workflows/:id/analytics" component={WorkflowAnalytics} />
                         <Route path="/workflows/:workflowId/optimize" component={OptimizationWizard} />
                         {/* Template Test Runner - PR1 */}
