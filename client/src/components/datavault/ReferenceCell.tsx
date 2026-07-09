@@ -12,7 +12,7 @@ import type { DatavaultColumn } from '@/lib/types/datavault';
 interface ReferenceCellProps {
   value: string | null | undefined;
   column: DatavaultColumn;
-  batchData?: Record<string, { displayValue: string; row: Record<string, unknown> }>;
+  batchData?: Record<string, { displayValue: string; row: unknown }>;
 }
 
 export function ReferenceCell({ value, column, batchData }: ReferenceCellProps) {

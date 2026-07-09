@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * NodeCard - Visual representation of workflow nodes in React Flow
  */
@@ -55,18 +54,23 @@ const NODE_ICONS = {
   final: CheckCircle2,
 };
 
-export const NodeCard = memo(({ data, selected }: NodeProps<BuilderNode['data']>) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-  const nodeType = (data as any).nodeType || 'question';
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-  const colors = NODE_COLORS[nodeType as keyof typeof NODE_COLORS] || NODE_COLORS.question;
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-  const Icon = NODE_ICONS[nodeType as keyof typeof NODE_ICONS] || MessageSquare;
+interface NodeCardConfig {
+  condition?: string;
+  key?: string;
+  outputKey?: string;
+  inputType?: string;
+  expression?: string;
+  branches?: unknown[];
+  templateId?: string;
+}
 
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-  const config = data.config || {};
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  const hasCondition = config.condition && config.condition.trim() !== '';
+export const NodeCard = memo(({ data, selected }: NodeProps<BuilderNode['data']>) => {
+  const config = (data.config ?? {}) as NodeCardConfig;
+  const nodeType = (data as { nodeType?: string }).nodeType ?? 'question';
+  const colors = NODE_COLORS[nodeType as keyof typeof NODE_COLORS] ?? NODE_COLORS.question;
+  const Icon = NODE_ICONS[nodeType as keyof typeof NODE_ICONS] ?? MessageSquare;
+
+  const hasCondition = config.condition != null && config.condition.trim() !== '';
 
   // Get variable name based on node type
   const getVariableName = () => {

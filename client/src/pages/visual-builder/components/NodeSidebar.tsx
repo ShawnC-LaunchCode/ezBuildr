@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * NodeSidebar - Inspector panel for node configuration
  */
@@ -99,7 +98,7 @@ export function NodeSidebar() {
                   }}
                 />
                 <ExpressionEditor
-                  value={localConfig.condition ?? ''}
+                  value={(localConfig.condition as string | undefined) ?? ''}
                   onChange={(value) => handleUpdate({ condition: value })}
                   nodeId={selectedNode.id}
                   workflowId={workflowId}
@@ -162,7 +161,7 @@ function QuestionConfig({ config, onUpdate }: { config: Record<string, unknown>;
           <Label htmlFor="key">Variable Key</Label>
           <Input
             id="key"
-            value={config.key ?? ''}
+            value={(config.key as string | undefined) ?? ''}
             onChange={(e) => onUpdate({ key: e.target.value })}
             placeholder="e.g., user_age"
             className="font-mono"
@@ -190,7 +189,7 @@ function QuestionConfig({ config, onUpdate }: { config: Record<string, unknown>;
         <div className="flex items-center space-x-2">
           <Checkbox
             id="required"
-            checked={config.required ?? false}
+            checked={(config.required as boolean | undefined) ?? false}
             onCheckedChange={(checked) => onUpdate({ required: checked })}
           />
           <Label htmlFor="required" className="cursor-pointer">
@@ -234,7 +233,7 @@ function ComputeConfig({
             }}
           />
           <ExpressionEditor
-            value={config.expression ?? ''}
+            value={(config.expression as string | undefined) ?? ''}
             onChange={(value) => onUpdate({ expression: value })}
             nodeId={nodeId}
             workflowId={workflowId}
@@ -246,7 +245,7 @@ function ComputeConfig({
           <Label htmlFor="outputKey">Output Variable</Label>
           <Input
             id="outputKey"
-            value={config.outputKey ?? ''}
+            value={(config.outputKey as string | undefined) ?? ''}
             onChange={(e) => onUpdate({ outputKey: e.target.value })}
             placeholder="e.g., calculated_value"
             className="font-mono"
@@ -378,7 +377,7 @@ function TemplateConfig({
           <Label htmlFor="templateId">Template ID</Label>
           <Input
             id="templateId"
-            value={config.templateId ?? ''}
+            value={(config.templateId as string | undefined) ?? ''}
             onChange={(e) => onUpdate({ templateId: e.target.value })}
             placeholder="Enter template ID"
           />

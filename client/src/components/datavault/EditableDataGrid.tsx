@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Editable Data Grid Component
  * Grid with inline editable cells, auto-save, and row actions
@@ -172,7 +171,7 @@ export function EditableDataGrid({
       // Calculate next autonumber
       const maxValue = rows.reduce((max, row) => {
         const value = row.values[autoNumberColumn.id];
-        const num = typeof value === 'number' ? value : parseInt(value, 10);
+        const num = typeof value === 'number' ? value : parseInt(String(value), 10);
         return !isNaN(num) && num > max ? num : max;
       }, 0);
 

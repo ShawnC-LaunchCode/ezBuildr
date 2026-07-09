@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Choice Block Card Editor
  * Editor for choice blocks (radio, multiple_choice, choice)
@@ -300,7 +299,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
           offset: blockConfig['offset'],
           dedupe: blockConfig['dedupe'],
           select: blockConfig['select']
-        };
+        } as ChoiceCardState['dynamicOptions']['transform'];
       } else {
         // Warning if block not found?
         toast({

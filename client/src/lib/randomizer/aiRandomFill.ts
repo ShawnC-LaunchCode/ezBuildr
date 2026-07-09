@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * AI-Assisted Random Data Generator
  *
@@ -215,7 +214,7 @@ function sanitizeAIValue(value: unknown, step: ApiStep): unknown {
       case 'currency':
       case 'scale':
         // eslint-disable-next-line no-case-declarations
-        const num = typeof value === 'number' ? value : parseFloat(value);
+        const num = typeof value === 'number' ? value : parseFloat(String(value));
         if (!isNaN(num)) {
           return num;
         }

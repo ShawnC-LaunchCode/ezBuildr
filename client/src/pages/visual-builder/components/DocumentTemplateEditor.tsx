@@ -1,4 +1,3 @@
-// @ts-nocheck
 // eslint-disable-next-line @typescript-eslint/naming-convention
 import _axios from 'axios';
 import DOMPurify from 'dompurify';
@@ -119,7 +118,7 @@ export function DocumentTemplateEditor({ templateId, isOpen, onClose, workflowVa
                     </div>
                     {/* AI Assist Sidebar */}
                     <AIAssistPanel
-                        templateId={templateId}
+                        _templateId={templateId}
                         fileBuffer={fileBuffer}
                         fileName={fileName}
                         onApplyMapping={handleApplyMapping}

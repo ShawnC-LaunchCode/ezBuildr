@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 
-import type { Node, Edge, NodeChange, EdgeChange } from 'reactflow';
+import type { Node, Edge, NodeChange, EdgeChange, Connection } from 'reactflow';
+
+import type { WorkflowGraph } from '../hooks/useWorkflowAPI';
 
 export interface BuilderNode extends Node {
   type: 'question' | 'compute' | 'branch' | 'template' | 'final';
@@ -32,7 +34,7 @@ export interface BuilderState {
   // Graph operations
   onNodesChange: (changes: unknown[]) => void;
   onEdgesChange: (changes: unknown[]) => void;
-  onConnect: (connection: Record<string, unknown>) => void;
+  onConnect: (connection: Connection) => void;
 
   // Save state
   setDirty: (dirty: boolean) => void;
@@ -40,10 +42,10 @@ export interface BuilderState {
   setSaveError: (error: string | null) => void;
 
   // Load from API
-  loadGraph: (graphJson: Record<string, unknown>) => void;
+  loadGraph: (graphJson: WorkflowGraph) => void;
 
   // Export to API format
-  exportGraph: () => Record<string, unknown>;
+  exportGraph: () => WorkflowGraph;
 
   // Power User Actions
   duplicateNode: (nodeId: string) => void;

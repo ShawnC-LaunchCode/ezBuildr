@@ -1,4 +1,3 @@
-// @ts-nocheck
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 // eslint-disable-next-line import/no-unresolved
 import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
@@ -64,7 +63,7 @@ export function useCreateRow(): ReturnType<typeof useMutation<unknown, unknown, 
   });
 }
 
-export function useUpdateRow(): ReturnType<typeof useMutation<void, unknown, { rowId: string; tableId: string; data: Record<string, unknown> }>> {
+export function useUpdateRow(): ReturnType<typeof useMutation<DatavaultRow, unknown, { rowId: string; tableId: string; data: Record<string, unknown> }, { previousData: unknown; tableId: string }>> {
   const queryClient = useQueryClient();
 
   return useMutation({

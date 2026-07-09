@@ -1,11 +1,10 @@
-// @ts-nocheck
 
 import { JSBlockEditor } from "@/components/blocks/JSBlockEditor";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-import type { BlockFormData } from "../BlockEditorDialog";
+import type { BlockFormData } from "../BlockEditorDialog.hooks";
 
 interface TransformBlockFormProps {
     formData: BlockFormData;

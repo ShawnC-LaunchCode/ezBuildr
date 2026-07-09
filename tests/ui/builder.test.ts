@@ -50,7 +50,7 @@ describe('Visual Workflow Builder Store', () => {
       nodes: [
         {
           id: 'node1',
-          type: 'question',
+          type: 'question' as const,
           config: { key: 'q1', label: 'Test Question', inputType: 'text' },
         },
       ],

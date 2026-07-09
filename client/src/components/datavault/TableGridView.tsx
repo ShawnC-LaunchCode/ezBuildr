@@ -1,4 +1,3 @@
-// @ts-nocheck
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Table Grid View - With Infinite Scroll (PR 7 + PR 8 + PR 9)
@@ -33,7 +32,11 @@ import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import { datavaultAPI } from "@/lib/datavault-api";
 import { datavaultQueryKeys } from "@/lib/datavault-hooks";
 
-import type { DatavaultColumn } from "@shared/schema";
+import type { DatavaultColumn } from "@/lib/types/datavault";
+// SortableColumnHeader/AddRowButton are typed against the Drizzle DB column
+// shape (Date fields); the API returns the JSON shape above. Same runtime
+// object, so cast at those two boundaries.
+import type { DatavaultColumn as DbColumn } from "@shared/schema";
 
 import { AddRowButton } from "./AddRowButton";
 import { CellRenderer } from "./CellRenderer";
@@ -67,7 +70,8 @@ export function TableGridView({ tableId }: TableGridViewProps) {
   // Fetch table schema (columns)
   const { data: schema, isLoading: schemaLoading } = useQuery({
     queryKey: [...datavaultQueryKeys.table(tableId), 'schema'],
-    queryFn: () => datavaultAPI.getTableSchema(tableId),
+    queryFn: async () =>
+      (await datavaultAPI.getTableSchema(tableId)) as unknown as { columns: DatavaultColumn[] },
   });
   // Initialize local columns when schema loads (replaces deprecated onSuccess)
   if (schema?.columns !== null && schema?.columns !== undefined && localColumns.length === 0) {
@@ -181,7 +185,7 @@ export function TableGridView({ tableId }: TableGridViewProps) {
                     strategy={horizontalListSortingStrategy}
                   >
                     {sortedColumns.map((col) => (
-                      <SortableColumnHeader key={col.id} column={col} />
+                      <SortableColumnHeader key={col.id} column={col as unknown as DbColumn} />
                     ))}
                   </SortableContext>
                   <th className="border-b px-3 py-2 bg-gray-50 dark:bg-gray-800 w-20">
@@ -284,7 +288,7 @@ export function TableGridView({ tableId }: TableGridViewProps) {
       </div>
       <AddRowButton
         tableId={tableId}
-        columns={sortedColumns}
+        columns={sortedColumns as unknown as DbColumn[]}
         onAdd={() => { void queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.tableRows(tableId) }); }}
       />
     </div>

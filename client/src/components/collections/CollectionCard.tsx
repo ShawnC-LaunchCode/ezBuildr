@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * CollectionCard Component
  * Displays a collection data table card with stats

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * DataVault Databases List Page
  * Lists all databases with stats, search, and create/delete actions
@@ -152,7 +151,7 @@ export default function DataVaultDatabasesPage(): React.JSX.Element {
       <CreateDatabaseModal
         open={createModalOpen}
         onOpenChange={setCreateModalOpen}
-        onSubmit={(data) => { void handleCreate(data); }}
+        onSubmit={handleCreate}
         isLoading={createDatabaseMutation.isPending}
       />
 

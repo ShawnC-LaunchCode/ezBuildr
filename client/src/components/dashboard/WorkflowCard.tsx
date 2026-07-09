@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * WorkflowCard Component
  * Displays a workflow document card with status

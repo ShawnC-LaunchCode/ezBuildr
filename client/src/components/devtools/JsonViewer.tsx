@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { ChevronRight, ChevronDown, Copy, Check } from "lucide-react";
 import { useState, useEffect, useRef, type MouseEvent } from "react";
 
@@ -183,8 +182,7 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
                                 name={isArray ? null : key} // Don't show index keys for arrays generally, or do? usually no.
                                 // Actually for debugging, index is useful `[0]`. But user prefers cleanly list.
                                 // Let's show index if array?
-                                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-                                value={value[key]}
+                                value={(value as Record<string, unknown>)[key]}
                                 isLast={i === keys.length - 1}
                                 depth={depth + 1}
                                 path={path ? `${path}.${key}` : key}

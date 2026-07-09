@@ -39,7 +39,7 @@ async function fetchAPI<T>(
 export interface WorkflowGraph {
   nodes: Array<{
     id: string;
-    type: 'question' | 'compute' | 'branch' | 'template';
+    type: 'question' | 'compute' | 'branch' | 'template' | 'final';
     position?: { x: number; y: number };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     config: any;

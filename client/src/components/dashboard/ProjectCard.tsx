@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * ProjectCard Component
  * Displays a project folder card with workflow count

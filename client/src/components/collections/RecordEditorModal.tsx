@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * RecordEditorModal Component
  * Dynamic form for creating/editing collection records
@@ -134,7 +133,7 @@ export function RecordEditorModal({
       case "text":
         return (
           <Input
-            value={value ?? ""}
+            value={(value as string | undefined) ?? ""}
             onChange={(e) => updateField(field.slug, e.target.value)}
             placeholder={`Enter ${field.name.toLowerCase()}`}
           />
@@ -143,7 +142,7 @@ export function RecordEditorModal({
         return (
           <Input
             type="number"
-            value={value ?? ""}
+            value={(value as string | undefined) ?? ""}
             onChange={(e) => updateField(field.slug, e.target.value)}
             placeholder="0"
           />
@@ -152,7 +151,7 @@ export function RecordEditorModal({
         return (
           <div className="flex items-center gap-2">
             <Checkbox
-              checked={value}
+              checked={Boolean(value)}
               onCheckedChange={(checked) => updateField(field.slug, checked)}
             />
             <span className="text-sm text-muted-foreground">
@@ -164,7 +163,7 @@ export function RecordEditorModal({
         return (
           <Input
             type="date"
-            value={value ?? ""}
+            value={(value as string | undefined) ?? ""}
             onChange={(e) => updateField(field.slug, e.target.value)}
           />
         );
@@ -172,7 +171,7 @@ export function RecordEditorModal({
         return (
           <Input
             type="datetime-local"
-            value={value ?? ""}
+            value={(value as string | undefined) ?? ""}
             onChange={(e) => updateField(field.slug, e.target.value)}
           />
         );
@@ -181,7 +180,7 @@ export function RecordEditorModal({
         const selectOptions = Array.isArray(field.options) ? field.options as string[] : [];
         return (
           <Select
-            value={value ?? ""}
+            value={(value as string | undefined) ?? ""}
             onValueChange={(val) => updateField(field.slug, val)}
           >
             <SelectTrigger>
@@ -239,9 +238,9 @@ export function RecordEditorModal({
                 }
               }}
             />
-            {value && (
+            {Boolean(value) && (
               <p className="text-sm text-muted-foreground">
-                Current: {value}
+                Current: {String(value)}
               </p>
             )}
           </div>
@@ -249,7 +248,7 @@ export function RecordEditorModal({
       // eslint-disable-next-line no-case-declarations
       case "json":
         // eslint-disable-next-line no-case-declarations
-        const jsonValue = typeof value === "object" ? JSON.stringify(value, null, 2) : value;
+        const jsonValue = typeof value === "object" ? JSON.stringify(value, null, 2) : (value as string | undefined);
         return (
           <Textarea
             value={jsonValue ?? ""}
@@ -262,7 +261,7 @@ export function RecordEditorModal({
       default:
         return (
           <Textarea
-            value={value ?? ""}
+            value={(value as string | undefined) ?? ""}
             onChange={(e) => updateField(field.slug, e.target.value)}
             placeholder={`Enter ${field.name.toLowerCase()}`}
             rows={3}

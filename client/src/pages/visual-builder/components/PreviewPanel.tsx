@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * PreviewPanel - Embedded run tester for workflows
  */
@@ -76,7 +75,7 @@ export function PreviewPanel({ workflowId, onClose }: PreviewPanelProps) {
                 <Label htmlFor="test-input-1">Sample Input 1</Label>
                 <Input
                   id="test-input-1"
-                  value={inputs.input1 ?? ''}
+                  value={(inputs.input1 as string | undefined) ?? ''}
                   onChange={(e) => { void handleInputChange('input1', e.target.value); }}
                   placeholder="Enter test value"
                 />
@@ -86,7 +85,7 @@ export function PreviewPanel({ workflowId, onClose }: PreviewPanelProps) {
                 <Label htmlFor="test-input-2">Sample Input 2</Label>
                 <Input
                   id="test-input-2"
-                  value={inputs.input2 ?? ''}
+                  value={(inputs.input2 as string | undefined) ?? ''}
                   onChange={(e) => { void handleInputChange('input2', e.target.value); }}
                   placeholder="Enter test value"
                 />
@@ -215,7 +214,7 @@ export function PreviewPanel({ workflowId, onClose }: PreviewPanelProps) {
                 </div>
 
                 {/* Download buttons for generated documents */}
-                {runData.outputs.documentUrl && (
+                {Boolean(runData.outputs.documentUrl) && (
                   <Button
                     variant="outline"
                     size="sm"

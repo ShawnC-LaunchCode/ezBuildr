@@ -1,4 +1,3 @@
-// @ts-nocheck
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 
 import { ExternalSendBlockEditor } from "@/components/blocks/ExternalSendBlockEditor";
@@ -15,7 +14,8 @@ import { getAvailableBlockTypes, type Mode } from "@/lib/mode";
 
 import type { ExternalSendBlockConfig, QueryBlockConfig, ReadTableConfig, ValidateConfig, WriteBlockConfig } from "@shared/types/blocks";
 
-import type { BlockFormData, UniversalBlock } from "../BlockEditorDialog";
+import type { UniversalBlock } from "../BlockEditorDialog";
+import type { BlockFormData } from "../BlockEditorDialog.hooks";
 
 interface RegularBlockFormProps {
     formData: BlockFormData;
