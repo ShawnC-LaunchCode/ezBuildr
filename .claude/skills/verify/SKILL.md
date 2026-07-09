@@ -1,6 +1,6 @@
 ---
 name: verify
-description: How to boot ezBuildr locally and verify a change actually works end-to-end — dev server startup, required env, getting an authenticated session without Google OAuth, and driving the workflow builder/runner. Use this before committing any nontrivial change to server or client code, whenever asked to "run the app", "check it works", or screenshot the UI.
+description: Boot ezBuildr locally and prove a change works end-to-end in the real app. TRIGGER this skill when the user asks to start, run, or restart the dev server, screenshot or click through a page, check the app still boots after a merge, verify or demo an endpoint or feature against the running server rather than just tests, or log in locally (Google OAuth can't be driven headlessly — this skill has the workaround). Also trigger before committing any nontrivial server or client change, when you should confirm the affected flow actually works. DO NOT TRIGGER for running unit/integration test suites (use run-tests), deployments, production incident checks, or adding e2e test coverage.
 ---
 
 # Verifying Changes in ezBuildr

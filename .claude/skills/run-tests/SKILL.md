@@ -1,6 +1,6 @@
 ---
 name: run-tests
-description: How to run ezBuildr's Vitest test suite correctly and interpret failures. Use this BEFORE running any tests in this repo — whenever you need to run unit tests, integration tests, a single test file, verify a change didn't break anything, or debug a failing/flaky test. The suite is split into 3 Vitest projects with different DB requirements and several known local-environment failures; running the wrong command wastes minutes and produces misleading failures.
+description: Run, write, or debug tests in ezBuildr. Running npm test or vitest directly WILL produce wrong results here — the suite is split into 3 Vitest projects with separate commands and database setup, and some tests fail locally by design. TRIGGER this skill when the user asks to run tests (full suite, unit, integration, or one file), wants to verify a change or refactor didn't break anything, wants tests run before pushing a branch, reports a test failing, timing out, hanging, or flaky (especially passes-in-CI-but-fails-locally), or asks to write a new test that will then be executed. Also trigger when you decide on your own to run tests to validate code you changed. DO NOT TRIGGER for lint/typecheck-only work, load/performance testing, or tasks where no test will actually be run.
 ---
 
 # Running Tests in ezBuildr

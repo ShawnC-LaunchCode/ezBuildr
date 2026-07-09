@@ -1,6 +1,6 @@
 ---
 name: db-schema-change
-description: How to change the ezBuildr database schema safely — Drizzle table definitions, SQL migrations, the drifted-journal reality, and keeping the test schema-applier working. Use this whenever you add or alter a table/column/enum/index, write a migration, touch anything under shared/schema/ or migrations/, or hit "column does not exist" errors. Schema changes here break tests in non-obvious ways if you skip steps.
+description: Change the ezBuildr database schema without breaking migrations or tests. TRIGGER this skill when the user adds, renames, or removes a table, column, index, or Postgres enum value, writes or debugs a SQL migration, asks why a migration didn't apply via npm run db:migrate, hits 'column does not exist' or 'relation does not exist' errors, or asks about db:push vs db:migrate. Also trigger when your own change requires editing shared/schema/ or migrations/. The migration journal has drifted and tests apply migrations their own way — skipping this skill produces schema changes that pass locally and break integration tests. DO NOT TRIGGER for data-only work — querying or seeding data, DataVault tables created through the app UI, jsonb config content changes, connection/pool tuning, or optimizing query code.
 ---
 
 # Database Schema Changes

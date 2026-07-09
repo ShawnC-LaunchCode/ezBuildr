@@ -1,6 +1,6 @@
 ---
 name: add-step-type
-description: Complete touchpoint map for adding a new workflow step/block type (or extending an existing one) in ezBuildr. Use this whenever a task involves creating a new question/step/block type, adding it to the builder palette, rendering it in the runner/preview, or making it work with conditional logic, repeaters, or AI generation. The type string is enumerated in ~10 places across shared/, client builder, and client runner — missing one produces a type that half-works.
+description: Add a new workflow step/question/block type to ezBuildr, or extend what an existing step type supports. TRIGGER this skill when the user asks for a new question or block type in the builder (rating, slider, matrix, NPS, color picker, etc.), wants an existing step type to work in more places (repeaters, conditional logic, AI generation, the easy-mode palette), or reports a step type that only half-works or is missing from a palette. A step type is enumerated in ~10 places across shared/, the builder, and the runner — implementing from memory always misses some. DO NOT TRIGGER for CI pipeline steps, lifecycle or document hooks, transform-block helpers, new logic operators, styling fixes to existing blocks, or builder UX bugs unrelated to a type's definition.
 ---
 
 # Adding a Step Type
