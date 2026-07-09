@@ -61,7 +61,8 @@ export class OrganizationService {
         userId: creatorId,
         role: 'admin',
       });
-      // Audit log
+      // Audit log — run on the SAME transaction (tx) to avoid deadlocking on the
+      // single test-pool connection the transaction already holds.
       await AuditLogger.log({
         userId: creatorId,
         action: 'organization.create',
@@ -69,7 +70,7 @@ export class OrganizationService {
         resourceId: org.id,
         workspaceId: null, // Organization level event
         after: { name: org.name, slug: org.slug },
-      });
+      }, tx);
       return org;
     });
   }

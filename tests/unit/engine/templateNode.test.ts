@@ -22,17 +22,19 @@ import { createTestFactory, TestFactory } from '../../helpers/testFactory';
 import type { TemplateNodeConfig, TemplateNodeInput } from '../../../server/engine/nodes/template';
 
 
-// Mock the docxRenderer2 module
-vi.mock('../../../server/services/docxRenderer2', () => ({
-  renderDocx2: vi.fn(async (options: any) => {
-    return {
+// Mock the document render entry point actually used by executeTemplateNode.
+// `template.ts` renders via `enhancedDocumentEngine.generateWithMapping`, which
+// (through DocumentEngine → TemplateParser) reads the real template file from
+// disk. These tests exercise binding resolution / output tracking, not docx
+// rendering, so we stub the render call to return a synthetic result.
+vi.mock('../../../server/services/document/EnhancedDocumentEngine', () => ({
+  enhancedDocumentEngine: {
+    generateWithMapping: vi.fn(async (options: any) => ({
       docxPath: path.join(options.outputDir, 'test-output.docx'),
       pdfPath: options.toPdf ? path.join(options.outputDir, 'test-output.pdf') : undefined,
       size: 1024,
-    };
-  }),
-  extractPlaceholders2: vi.fn(async () => ['name', 'email']),
-  validateTemplateData2: vi.fn(() => ({ valid: true, missing: [], extra: [] })),
+    })),
+  },
 }));
 
 // Mock template file operations

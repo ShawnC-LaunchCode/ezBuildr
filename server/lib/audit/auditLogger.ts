@@ -16,10 +16,19 @@ export interface AuditEvent {
     userAgent?: string;
 }
 
+/**
+ * Executor that can run the audit insert — either the shared `db` handle or an
+ * open transaction (`tx`). Callers writing inside a `db.transaction(async (tx) =>
+ * ...)` block MUST pass `tx`; otherwise the insert tries to check out a second
+ * pooled connection while the transaction holds one, which deadlocks (the test
+ * pool has max=1, so it hangs until the hook timeout).
+ */
+type AuditExecutor = Pick<typeof db, "insert">;
+
 export class AuditLogger {
-    static async log(event: AuditEvent): Promise<void> {
+    static async log(event: AuditEvent, executor: AuditExecutor = db): Promise<void> {
         try {
-            await db.insert(auditLogs).values({
+            await executor.insert(auditLogs).values({
                 workspaceId: event.workspaceId ?? null,
                 userId: event.userId,
                 action: event.action,

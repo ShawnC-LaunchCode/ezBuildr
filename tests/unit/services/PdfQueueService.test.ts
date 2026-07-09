@@ -25,11 +25,18 @@ vi.mock('../../../server/logger', () => ({
   },
 }));
 
-// Mock the docxRenderer2 module
-vi.mock('../../../server/services/docxRenderer2', () => ({
-  convertDocxToPdf2: vi.fn(async (docxPath: string) => {
-    return docxPath.replace(/\.docx$/i, '.pdf');
-  }),
+// Mock the PDF converter actually used by PdfQueueService. It calls
+// `pdfConverter.convert()` (which shells out to LibreOffice/soffice); these
+// unit tests cover queue/retry/transaction logic, not real PDF conversion, so
+// we stub the converter to succeed. PDF-file existence is satisfied by the
+// mocked `fs.access` below.
+vi.mock('../../../server/services/document/PdfConverter', () => ({
+  pdfConverter: {
+    convert: vi.fn(async (opts: { docxPath: string; outputPath: string }) => ({
+      pdfPath: opts.outputPath,
+      size: 1024,
+    })),
+  },
 }));
 
 // Mock template file operations

@@ -8,7 +8,7 @@ import { db } from "../../db";
 import { logger } from "../../logger";
 
 import type { TemplateManifest } from "./types";
-export class TemplateService {
+export class MarketplaceService {
     /**
      * List available templates with filtering
      * TODO: Implement once marketplaceTemplates table is added to schema
@@ -22,7 +22,7 @@ export class TemplateService {
         limit?: number;
         offset?: number;
     }) {
-        logger.warn('TemplateService.listTemplates: marketplaceTemplates table not yet implemented');
+        logger.warn('MarketplaceService.listTemplates: marketplaceTemplates table not yet implemented');
         return [];
     }
     /**
@@ -31,7 +31,7 @@ export class TemplateService {
      */
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     async getTemplate(_templateId: string) {
-        logger.warn('TemplateService.getTemplate: marketplaceTemplates table not yet implemented');
+        logger.warn('MarketplaceService.getTemplate: marketplaceTemplates table not yet implemented');
         return null;
     }
     /**
@@ -77,7 +77,7 @@ export class TemplateService {
         _metadata: Partial<TemplateManifest>,
         _userContext: { userId: string, organizationId?: string }
     ) {
-        logger.warn('TemplateService.publishTemplate: marketplaceTemplates table not yet implemented');
+        logger.warn('MarketplaceService.publishTemplate: marketplaceTemplates table not yet implemented');
         throw new Error('Marketplace functionality not yet available');
     }
     /**
@@ -89,8 +89,8 @@ export class TemplateService {
         _templateId: string,
         _userContext: { userId: string, projectId: string }
     ) {
-        logger.warn('TemplateService.installTemplate: marketplaceTemplates table not yet implemented');
+        logger.warn('MarketplaceService.installTemplate: marketplaceTemplates table not yet implemented');
         throw new Error('Marketplace functionality not yet available');
     }
 }
-export const templateService = new TemplateService();
+export const marketplaceService = new MarketplaceService();

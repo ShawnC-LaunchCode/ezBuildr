@@ -738,7 +738,10 @@ export class WorkflowService {
           }).filter((r): r is NonNullable<typeof r> => r !== null);
         await tx.insert(logicRules).values(mappedRules);
       }
-      await db.insert(auditLogs).values({
+      // Use the transaction handle (tx), not the global db: a nested global-db
+      // insert would deadlock waiting for the single pooled connection this
+      // transaction already holds (fatal with the test pool max=1).
+      await tx.insert(auditLogs).values({
         userId: userId,
         entityType: 'workflow',
         entityId: workflowId,

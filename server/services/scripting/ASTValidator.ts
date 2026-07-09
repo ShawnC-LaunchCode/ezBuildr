@@ -115,6 +115,11 @@ export class ASTValidator {
           ecmaVersion: 2020,
           sourceType: "script",
           locations: true,
+          // User script blocks are executed wrapped in
+          // `(function(input, context, helpers) { <code> })`, so a top-level
+          // `return` is valid at runtime. Parse with the same allowance or the
+          // validator rejects legitimate scripts as "'return' outside of function".
+          allowReturnOutsideFunction: true,
         });
       } catch (parseError) {
         return {

@@ -79,12 +79,10 @@ describe("Analytics Service Integration", () => {
         expect(eventsAfterStart.some(e => e.type === 'run.start')).toBe(true);
 
         // 3. Complete Run
-        // completeRun(runId, data, context)
-
-
-        // We'll call completeRun directly.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await runService.completeRun(runId, { someOutput: "test" } as any);
+        // This run was created anonymously (no user), so use the no-auth
+        // completion path. `completeRun(runId, userId)` is auth-gated and would
+        // reject an anonymous run with "Run not found".
+        await runService.completeRunNoAuth(runId);
 
         // 4. Verify Events (workflow.complete)
         const events = await db.select().from(workflowRunEvents).where(eq(workflowRunEvents.runId, runId));
