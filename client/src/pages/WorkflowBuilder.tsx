@@ -313,15 +313,12 @@ export default function WorkflowBuilder() {
             </div>
           }
           rightPanel={
-            <>
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              <AiConversationPanel
-                workflowId={workflowId}
-                currentWorkflow={workflowAny} // eslint-disable-line @typescript-eslint/no-unsafe-assignment
-                transformBlocks={transformBlocksAny} // eslint-disable-line @typescript-eslint/no-unsafe-assignment
-                initialPrompt={searchParams.get("prompt") ?? undefined}
-              />
-            </>
+            <AiConversationPanel
+              workflowId={workflowId}
+              currentWorkflow={workflowAny} // eslint-disable-line @typescript-eslint/no-unsafe-assignment
+              transformBlocks={transformBlocksAny} // eslint-disable-line @typescript-eslint/no-unsafe-assignment
+              initialPrompt={searchParams.get("prompt") ?? undefined}
+            />
           }
         />
       </IntakeProvider>

@@ -8,7 +8,7 @@ type Props = {
   onBlankClick?: () => void;
 };
 
-export default function AIHeroCard({ className = "", onAIClick: _onAIClick, onBlankClick }: Props) {
+export default function AIHeroCard({ className = "", onAIClick, onBlankClick }: Props) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -36,12 +36,14 @@ export default function AIHeroCard({ className = "", onAIClick: _onAIClick, onBl
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-          <div
-            className="inline-flex items-center justify-center rounded-xl bg-white/50 text-slate-900/50 cursor-not-allowed px-4 py-2.5 font-medium shadow-sm transition-colors"
+          <Link
+            href="/workflows/new?tab=ai"
+            onClick={onAIClick}
+            className="inline-flex items-center justify-center rounded-xl bg-white text-slate-900 hover:bg-white/90 px-4 py-2.5 font-medium shadow-sm transition-colors"
           >
             <Wand2 className="mr-2 h-4 w-4" aria-hidden="true" />
-            Generate with AI (Coming Soon)
-          </div>
+            Generate with AI
+          </Link>
 
           <Link
             href="/workflows/new"

@@ -29,6 +29,8 @@ export default function NewWorkflow() {
     description: "",
   });
   const [aiPrompt, setAiPrompt] = useState("");
+  const requestedTab = new URLSearchParams(window.location.search).get("tab");
+  const defaultTab = requestedTab === "ai" || requestedTab === "template" ? requestedTab : "manual";
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -146,7 +148,7 @@ export default function NewWorkflow() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="manual" className="space-y-4">
+            <Tabs defaultValue={defaultTab} className="space-y-4">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="manual">Manual Creation</TabsTrigger>
                 <TabsTrigger value="template">Start from Template</TabsTrigger>
@@ -249,7 +251,7 @@ export default function NewWorkflow() {
                       disabled={createWorkflowMutation.isPending}
                     >
                       <Sparkles className="w-4 h-4 mr-2" />
-                      {createWorkflowMutation.isPending ? "Projecting..." : "Generate Workflow"}
+                      {createWorkflowMutation.isPending ? "Generating..." : "Generate Workflow"}
                     </Button>
                   </div>
                 </div>

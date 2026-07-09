@@ -187,10 +187,9 @@ export class DatavaultRowsRepository extends BaseRepository<
       .where(inArray(datavaultValues.rowId, rowIds));
     // Group values by row
     const valuesByRow = allValues.reduce<Record<string, Record<string, unknown>>>((acc, value: DatavaultValue) => {
-      if (acc[value.rowId] === undefined) {
-        acc[value.rowId] = {};
-      }
-      acc[value.rowId][value.columnId] = value.value;
+      const rowValues = acc[value.rowId] ?? {};
+      rowValues[value.columnId] = value.value;
+      acc[value.rowId] = rowValues;
       return acc;
     }, {});
     // Combine rows with their values
@@ -512,10 +511,9 @@ export class DatavaultRowsRepository extends BaseRepository<
       .where(inArray(datavaultValues.rowId, allRowIds));
     // Group values by rowId
     const valuesByRow = values.reduce<Record<string, Record<string, unknown>>>((acc, value: DatavaultValue) => {
-      if (acc[value.rowId] === undefined) {
-        acc[value.rowId] = {};
-      }
-      acc[value.rowId][value.columnId] = value.value;
+      const rowValues = acc[value.rowId] ?? {};
+      rowValues[value.columnId] = value.value;
+      acc[value.rowId] = rowValues;
       return acc;
     }, {});
     // Build result map

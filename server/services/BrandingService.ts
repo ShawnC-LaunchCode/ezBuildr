@@ -1,5 +1,7 @@
 import crypto from 'crypto';
-import { eq } from 'drizzle-orm';
+import dns from 'dns/promises';
+
+import { and, eq } from 'drizzle-orm';
 
 import { tenants, tenantDomains } from '@shared/schema';
 import type { TenantBranding } from '@shared/types/branding';
@@ -89,16 +91,18 @@ export class BrandingService {
     branding: TenantBranding | null;
   } | null> {
     try {
-      // Look up domain
+      // Look up domain — only *verified* domains resolve branding, so a tenant
+      // cannot influence branding for a domain it has not proven ownership of
+      // (SEC-026). Unverified/squatted domains behave as if unregistered.
       const [domainRecord] = await db
         .select({
           tenantId: tenantDomains.tenantId,
         })
         .from(tenantDomains)
-        .where(eq(tenantDomains.domain, domain));
+        .where(and(eq(tenantDomains.domain, domain.toLowerCase()), eq(tenantDomains.verified, true)));
 
       if (domainRecord === undefined) {
-        logger.debug({ domain }, 'Domain not found');
+        logger.debug({ domain }, 'Domain not found or not verified');
         return null;
       }
 
@@ -196,6 +200,71 @@ export class BrandingService {
       logger.error({ error, tenantId, domainId }, 'Failed to remove domain from tenant');
       throw error;
     }
+  }
+
+  /**
+   * The DNS TXT challenge a tenant must publish to prove ownership of a domain.
+   * A dedicated `_ezbuildr-challenge` subdomain avoids clobbering the apex's
+   * other TXT records. Single source of truth for both the instructions shown
+   * on domain creation and the verification lookup.
+   */
+  buildDomainChallenge(domain: string, verificationToken: string): { host: string; value: string } {
+    return {
+      host: `_ezbuildr-challenge.${domain.toLowerCase()}`,
+      value: `ezbuildr-verification=${verificationToken}`,
+    };
+  }
+
+  /**
+   * Verify domain ownership by resolving the DNS TXT challenge. On success the
+   * domain is marked `verified` and begins resolving branding (SEC-026).
+   */
+  async verifyDomain(
+    tenantId: string,
+    domainId: string
+  ): Promise<{ verified: boolean; reason?: string }> {
+    const [domain] = await db
+      .select()
+      .from(tenantDomains)
+      .where(eq(tenantDomains.id, domainId));
+
+    if (domain === undefined) {
+      throw new Error('Domain not found');
+    }
+    if (domain.tenantId !== tenantId) {
+      logger.warn({ tenantId, domainId, actualTenantId: domain.tenantId }, 'Domain does not belong to tenant');
+      throw new Error('Domain does not belong to this tenant');
+    }
+    if (domain.verified === true) {
+      return { verified: true };
+    }
+    if (domain.verificationToken === null || domain.verificationToken === undefined) {
+      return { verified: false, reason: 'No verification token issued for this domain' };
+    }
+
+    const challenge = this.buildDomainChallenge(domain.domain, domain.verificationToken);
+
+    let records: string[][];
+    try {
+      records = await dns.resolveTxt(challenge.host);
+    } catch (error) {
+      logger.debug({ domainId, host: challenge.host, error }, 'DNS TXT lookup failed during domain verification');
+      return { verified: false, reason: `No TXT record found at ${challenge.host}` };
+    }
+
+    // A single TXT record can be split into multiple strings; join before comparing.
+    const found = records.some((chunks) => chunks.join('').trim() === challenge.value);
+    if (!found) {
+      return { verified: false, reason: 'TXT record found but did not match the expected verification value' };
+    }
+
+    await db
+      .update(tenantDomains)
+      .set({ verified: true, updatedAt: new Date() })
+      .where(eq(tenantDomains.id, domainId));
+
+    logger.info({ tenantId, domainId, domain: domain.domain }, 'Domain ownership verified');
+    return { verified: true };
   }
 
   /**

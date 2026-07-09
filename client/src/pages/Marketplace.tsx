@@ -73,7 +73,7 @@ export default function Marketplace() {
             // Redirect to builder
             setTimeout(() => {
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                setLocation(`/builder/${workflow.id}`);
+                setLocation(`/workflows/${workflow.id}/builder`);
             }, 1000);
         },
         onError: () => {

@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   FileText, PlayCircle, TrendingUp, History,
   Home, Settings, Zap, Plus,
-  BarChart3, Download, Clock, ExternalLink, Sparkles, Wand2,
+  BarChart3, Clock, ExternalLink, Wand2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -100,24 +100,6 @@ export default function Dashboard() {
         />
 
         <div className="flex-1 overflow-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
-          {/* AI Availability Banner */}
-          <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-xl p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/20">
-                <Sparkles className="h-4 w-4 text-indigo-500" />
-              </span>
-              <div>
-                <h3 className="font-medium text-foreground">AI Generated Workflows Coming Soon</h3>
-                <p className="text-sm text-muted-foreground">Full AI generation capabilities will be available in early January.</p>
-              </div>
-            </div>
-            <Link href="/workflows/new">
-              <Button variant="outline" size="sm" className="hidden sm:flex">
-                Get Ready
-              </Button>
-            </Link>
-          </div>
-
           {/* AI Hero Card */}
           <AIHeroCard
             onAIClick={() => track("ai_workflow_entry_clicked", { source: "dashboard_hero" })}
@@ -125,7 +107,7 @@ export default function Dashboard() {
           />
 
           {/* Enhanced Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
             <StatsCard
               title="Total Workflows"
               value={stats?.totalWorkflows ?? 0}
@@ -162,7 +144,7 @@ export default function Dashboard() {
               icon={History}
               iconColor="text-accent"
               change="currently"
-              changeLabel="rurnning"
+              changeLabel="running"
               isLoading={statsLoading}
             />
           </div>
@@ -198,16 +180,15 @@ export default function Dashboard() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2 sm:space-y-3">
-                    <div className="opacity-50 pointer-events-none grayscale">
-                      <QuickActionButton
-                        href="#"
-                        icon={Wand2}
-                        iconColor="text-indigo-600"
-                        iconBgColor="bg-indigo-50"
-                        label="Generate (Coming Soon)"
-                        testId="button-quick-ai-workflow"
-                      />
-                    </div>
+                    <QuickActionButton
+                      href="/workflows/new?tab=ai"
+                      icon={Wand2}
+                      iconColor="text-indigo-600"
+                      iconBgColor="bg-indigo-50"
+                      label="Generate with AI"
+                      testId="button-quick-ai-workflow"
+                      onClick={() => { track("ai_workflow_entry_clicked", { source: "quick_actions" }); }}
+                    />
 
                     <QuickActionButton
                       href="/workflows/new"
@@ -237,13 +218,6 @@ export default function Dashboard() {
                       testId="button-quick-view-runs"
                     />
 
-                    <QuickActionButton
-                      icon={Download}
-                      iconColor="text-warning"
-                      iconBgColor="bg-warning/10"
-                      label="Export Data"
-                      testId="button-quick-export-data"
-                    />
                   </CardContent>
                 </Card>
 
@@ -267,8 +241,8 @@ export default function Dashboard() {
                       <div className="space-y-2 sm:space-y-3">
                         {workflows.slice(0, 4).map((workflow) => {
                           const targetUrl = workflow.status === 'draft'
-                            ? `/builder/${workflow.id}`
-                            : `/workflows/${workflow.id}/results`;
+                            ? `/workflows/${workflow.id}/builder`
+                            : `/workflows/${workflow.id}/analytics`;
 
                           return (
                             <Link key={workflow.id} href={targetUrl}>

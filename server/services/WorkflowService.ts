@@ -535,7 +535,7 @@ export class WorkflowService {
    */
   private constructPublicUrl(slug: string): string {
     const baseUrl = process.env.BASE_URL ?? process.env.VITE_BASE_URL ?? 'http://localhost:5000';
-    return `${baseUrl}/run/${slug}`;
+    return `${baseUrl}/w/${slug}`;
   }
   /**
    * Specifically ensures 'final' nodes are converted to Final Sections for the Runner
@@ -650,6 +650,9 @@ export class WorkflowService {
                 config: sectionData.config ?? {},
               })
               .returning();
+            if (newSection === undefined) {
+              throw new Error("Failed to create section while applying workflow content");
+            }
             sectionId = newSection.id;
           }
           if (sectionData.id) {
@@ -688,6 +691,9 @@ export class WorkflowService {
                   options: stepData.options ?? [],
                   order: stepData.order ?? stepIndex,
                 }).returning();
+                if (newStep === undefined) {
+                  throw new Error("Failed to create step while applying workflow content");
+                }
                 effectiveStepId = newStep.id;
               }
               if (effectiveStepId) {

@@ -1,6 +1,6 @@
 import { eq, and, gte, lt } from "drizzle-orm";
 
-import { loginAttempts, accountLocks, users } from "@shared/schema";
+import { loginAttempts, accountLocks } from "@shared/schema";
 
 import { db } from "../db";
 import { createLogger } from "../logger";
@@ -33,7 +33,7 @@ export class AccountLockoutService {
     /**
      * Check if account should be locked based on failed attempts
      */
-    async checkAndLockAccount(email: string): Promise<void> {
+    async checkAndLockAccount(_email: string): Promise<void> {
         // No-op: We now evaluate lockouts dynamically based on (Email, IP) in isAccountLocked
         // This prevents targeted DoS attacks that intentionally lock out legitimate users globally.
     }
@@ -71,8 +71,17 @@ export class AccountLockoutService {
             });
 
             if (recentFailedAttempts.length >= MAX_FAILED_ATTEMPTS) {
-                const mostRecent = recentFailedAttempts.sort((a, b) => b.attemptedAt!.getTime() - a.attemptedAt!.getTime())[0];
-                const lockedUntil = new Date(mostRecent.attemptedAt!.getTime() + LOCKOUT_DURATION_MINUTES * 60 * 1000);
+                const mostRecentAttemptAt = recentFailedAttempts.reduce<Date | null>((latest, attempt) => {
+                    if (attempt.attemptedAt === null) { return latest; }
+                    if (latest === null || attempt.attemptedAt > latest) { return attempt.attemptedAt; }
+                    return latest;
+                }, null);
+
+                if (mostRecentAttemptAt === null) {
+                    return { locked: false };
+                }
+
+                const lockedUntil = new Date(mostRecentAttemptAt.getTime() + LOCKOUT_DURATION_MINUTES * 60 * 1000);
                 
                 if (lockedUntil > now) {
                     return { locked: true, lockedUntil };
