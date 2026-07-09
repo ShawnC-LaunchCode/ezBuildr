@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { generateSampleData } from "@/lib/sampleData";
 import { type ApiWorkflowVariable } from "@/lib/vault-api";
 import { useWorkflow, useProjects, useWorkflowVariables } from "@/lib/vault-hooks";
-import { DocumentTemplateEditor } from "@/pages/visual-builder/components/DocumentTemplateEditor";
+import { DocumentTemplateEditor } from "@/components/builder/templates/DocumentTemplateEditor";
 
 import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
 import { PdfMappingEditor } from "../templates/PdfMappingEditor";

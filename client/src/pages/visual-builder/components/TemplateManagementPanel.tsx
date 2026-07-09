@@ -39,7 +39,7 @@ import {
 } from '../../../components/ui/select';
 
 
-import { DocumentTemplateEditor } from './DocumentTemplateEditor';
+import { DocumentTemplateEditor } from '@/components/builder/templates/DocumentTemplateEditor';
 import { TemplateUploadWizard } from './TemplateUploadWizard';
 
 interface WorkflowTemplate {
