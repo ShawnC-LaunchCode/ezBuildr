@@ -132,10 +132,6 @@ export function registerBrandingRoutes(app: Express): void {
         const createTenantDomainSchema = z.object({
           domain: z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/i, "Invalid hostname format")
         });
-        // Actually, importing schema is better. Line 1 imports it.
-        // Assuming req.body matches schema. I'll rely on original logic unless I see it.
-        // Original: const validationResult = createTenantDomainSchema.safeParse(req.body);
-        // Correct.
         const validationResult = createTenantDomainSchema.safeParse(req.body);
         if (!validationResult.success) {
           res.status(400).json({
@@ -156,11 +152,13 @@ export function registerBrandingRoutes(app: Express): void {
           return;
         }
         const newDomain = await brandingService.addDomain(tenantId, domain);
+        const challenge = brandingService.buildDomainChallenge(domain, newDomain.verificationToken ?? '');
         logger.info({ tenantId, domain }, 'Custom domain added');
         res.status(201).json({
           message: 'Domain added successfully. Please verify ownership.',
           domain: newDomain,
-          verificationInstructions: `Please create a TXT record for ${domain} with the value: ${newDomain.verificationToken}`
+          verification: { host: challenge.host, type: 'TXT', value: challenge.value },
+          verificationInstructions: `Create a DNS TXT record at "${challenge.host}" with value "${challenge.value}", then POST to the verify endpoint.`,
         });
       } catch (error: unknown) {
         if (error instanceof Error && error.message === 'Domain already exists') {
@@ -175,6 +173,45 @@ export function registerBrandingRoutes(app: Express): void {
           message: 'Failed to add domain',
           error: 'internal_error',
         });
+      }
+    })
+  );
+  /**
+   * POST /api/tenants/:tenantId/domains/:domainId/verify
+   * Verify domain ownership via the DNS TXT challenge (owner/builder only).
+   * Until verified, the domain does not resolve branding (SEC-026).
+   */
+  app.post(
+    '/api/tenants/:tenantId/domains/:domainId/verify',
+    hybridAuth,
+    validateTenantParam,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
+    requirePermission('tenant:update' as any),
+    asyncHandler(async (req: Request, res: Response) => {
+      try {
+        const { tenantId, domainId } = req.params;
+        const result = await brandingService.verifyDomain(tenantId, domainId);
+        if (!result.verified) {
+          res.status(400).json({
+            message: 'Domain verification failed',
+            error: 'verification_failed',
+            reason: result.reason,
+          });
+          return;
+        }
+        logger.info({ tenantId, domainId }, 'Custom domain verified');
+        res.json({ message: 'Domain verified successfully', verified: true });
+      } catch (error: unknown) {
+        if (error instanceof Error && error.message === 'Domain does not belong to this tenant') {
+          res.status(403).json({ message: 'Domain does not belong to this tenant', error: 'forbidden' });
+          return;
+        }
+        if (error instanceof Error && error.message === 'Domain not found') {
+          res.status(404).json({ message: 'Domain not found', error: 'domain_not_found' });
+          return;
+        }
+        logger.error({ error }, 'Failed to verify domain');
+        res.status(500).json({ message: 'Failed to verify domain', error: 'internal_error' });
       }
     })
   );
