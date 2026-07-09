@@ -43,3 +43,6 @@ testDoc.docx
 .claude/settings.local.json
 cookies.txt
 test-output.txt
+
+# Skill trigger-eval harness output (see tools/skill-trigger-eval/README.md)
+tools/skill-trigger-eval/results/
