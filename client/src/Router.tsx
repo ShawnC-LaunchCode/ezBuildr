@@ -31,9 +31,6 @@ const WorkflowAnalytics = lazy(() => import("@/pages/WorkflowAnalytics").then(mo
 const OptimizationWizard = lazy(() => import("@/pages/optimization/OptimizationWizard"));
 const WorkflowPreview = lazy(() => import("@/pages/WorkflowPreview"));
 const ProjectView = lazy(() => import("@/pages/ProjectView"));
-const RunsDashboard = lazy(() => import("@/pages/RunsDashboard")); // Stage 8
-const RunDetails = lazy(() => import("@/pages/RunDetails")); // Stage 8
-const RunsCompare = lazy(() => import("@/pages/RunsCompare")); // Stage 8
 const BrandingSettingsPage = lazy(() => import("@/pages/BrandingSettingsPage")); // Stage 17
 const DomainSettingsPage = lazy(() => import("@/pages/DomainSettingsPage")); // Stage 17
 const IntakePreviewPage = lazy(() => import("@/pages/IntakePreviewPage")); // Stage 17
@@ -119,10 +116,6 @@ export default function Router() {
                         </Route>
                         {/* Project routes */}
                         <Route path="/projects/:id" component={ProjectView} />
-                        {/* Stage 8: Document Runs routes */}
-                        <Route path="/runs" component={RunsDashboard} />
-                        <Route path="/runs/compare" component={RunsCompare} />
-                        <Route path="/runs/:id" component={RunDetails} />
                         <Route path="/marketplace" component={Marketplace} />
                         <Route path="/settings" component={SettingsPage} />
                         {/* Stage 17: Branding Settings */}

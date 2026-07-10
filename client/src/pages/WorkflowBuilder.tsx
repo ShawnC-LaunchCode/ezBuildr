@@ -7,7 +7,6 @@ import { Eye, ChevronDown, ArrowLeft, Database, Sparkles } from "lucide-react";
 
 // Removed AdvancedModeBanner
 // Tab components
-// VisualBuilderTab removed
 // Versioning Imports
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
