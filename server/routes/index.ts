@@ -34,6 +34,7 @@ import { registerFileRoutes } from "./files.routes";
 import { registerFinalBlockRoutes } from "./finalBlock.routes";
 import { registerIntakeRoutes } from "./intake.routes";
 import lifecycleHooksRoutes from "./lifecycleHooks.routes";
+import marketplaceRouter from "./marketplace";
 import { registerMetricsRoutes } from "./metrics";
 // SECURITY: the self-hosted OAuth2 provider (./oauth.routes) is DISABLED. Its endpoints
 // were unauthenticated: /oauth/approve trusted a client-supplied user_id, /oauth/token
@@ -143,6 +144,9 @@ export function registerAllRoutes(app: Express): void {
   registerProjectRoutes(app);
   registerSnapshotRoutes(app);
   registerWorkflowTemplateRoutes(app);
+
+  // Template Marketplace (browse / install / publish)
+  app.use("/api", marketplaceRouter);
 
   app.use("/api", lifecycleHooksRoutes);
   app.use("/api", documentHooksRoutes);
