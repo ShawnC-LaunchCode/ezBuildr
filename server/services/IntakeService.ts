@@ -6,8 +6,8 @@ import type { Workflow } from "@shared/schema";
 import { IntakeConfigSchema } from "../../shared/zod-schemas.js";
 import { RUN_TOKEN_CONFIG } from "../config/auth";
 import { createLogger } from "../logger";
-import { AppError } from "../middleware/errorHandler";
 import { hashToken } from "../utils/encryption";
+import { assertStepValueSizesWithinLimit } from "../utils/valueSizeLimit";
 import { workflowRepository, workflowRunRepository, stepValueRepository, sectionRepository, projectRepository, stepRepository } from "../repositories";
 
 import { CaptchaService } from "./CaptchaService.js";
@@ -17,26 +17,6 @@ import { runService } from "./RunService";
 import type { IntakeConfig, IntakeSubmitResult, CaptchaResponse } from "../../shared/types/intake.js";
 
 const logger = createLogger({ module: "intake-service" });
-
-// Per-answer size cap for run-submitted step values. These jsonb columns are
-// written from public run endpoints; the global express body limit (~10mb) caps
-// the whole request, this caps any single answer so one field can't be bloated.
-// Generous enough for signatures/base64; override via MAX_STEP_VALUE_BYTES.
-const MAX_STEP_VALUE_BYTES = Number(process.env.MAX_STEP_VALUE_BYTES ?? 1024 * 1024);
-
-function assertStepValueSizesWithinLimit(
-  answersData: { stepId: string; value: unknown }[]
-): void {
-  for (const { stepId, value } of answersData) {
-    const bytes = Buffer.byteLength(JSON.stringify(value ?? null), "utf8");
-    if (bytes > MAX_STEP_VALUE_BYTES) {
-      throw new AppError(
-        `Answer for step ${stepId} is too large (${bytes} bytes; limit ${MAX_STEP_VALUE_BYTES} bytes).`,
-        413
-      );
-    }
-  }
-}
 
 /**
  * Service for public intake portal

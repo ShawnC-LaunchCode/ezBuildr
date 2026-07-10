@@ -125,12 +125,18 @@ intent is correct, but the delivery mechanism needs to match the runner.
 
 ## SEC-122 — No per-field size cap on run-submitted jsonb — P3 — ✅ FIXED
 
-> Resolved: `IntakeService` now enforces a per-answer byte cap
-> (`MAX_STEP_VALUE_BYTES`, default 1 MB, env-overridable) on both the
-> save-progress and submit paths, throwing `AppError(…, 413)` on oversize
-> values — [IntakeService.ts](../../server/services/IntakeService.ts)
-> (`assertStepValueSizesWithinLimit`). This sits under the global ~10 MB
-> `express.json` limit and caps any single step value.
+> Resolved: a single shared byte-accurate cap
+> ([server/utils/valueSizeLimit.ts](../../server/utils/valueSizeLimit.ts)) —
+> `MAX_VALUE_BYTES`, default **1 MB**, env-overridable via `MAX_STEP_VALUE_BYTES`,
+> measured with `Buffer.byteLength` — is enforced everywhere user JSONB is
+> written: intake save/submit ([IntakeService.ts](../../server/services/IntakeService.ts)),
+> the run step-value endpoints ([runs.routes.ts](../../server/routes/runs.routes.ts),
+> 413 responses), and DataVault cell values
+> ([DatavaultRowsService.ts](../../server/services/DatavaultRowsService.ts)).
+> Reconciled from three divergent implementations (50 KB char-length in
+> runs.routes, 1 MB byte-length elsewhere) to one helper; 1 MB chosen so
+> signature/base64 data URIs aren't rejected. Sits under the global ~10 MB
+> `express.json` limit.
 
 **Files:**
 [server/services/IntakeService.ts](../../server/services/IntakeService.ts),

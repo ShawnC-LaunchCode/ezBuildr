@@ -5,6 +5,7 @@ import type { DatavaultRow, DatavaultColumn } from "@shared/schema";
 type CoercedValue = string | number | boolean | string[] | object | null;
 
 import { db } from "../db";
+import { assertValueSizeWithinLimit } from "../utils/valueSizeLimit";
 import {
   datavaultRowsRepository,
   datavaultTablesRepository,
@@ -76,10 +77,7 @@ export class DatavaultRowsService {
   // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
   private validateAndCoerceValue(value: unknown, column: DatavaultColumn): CoercedValue {
     if (value !== null && value !== undefined) {
-      const size = Buffer.byteLength(JSON.stringify(value), 'utf8');
-      if (size > 1024 * 1024) { // 1MB limit
-        throw new Error(`Column '${column.name}' value exceeds 1MB limit`);
-      }
+      assertValueSizeWithinLimit(value, `Column '${column.name}' value`);
     }
 
     if (value === null || value === undefined) {

@@ -8,6 +8,7 @@ import { strictLimiter } from "../middleware/rateLimiter";
 import { runService } from "../services/RunService";
 import { asyncHandler } from "../utils/asyncHandler";
 import { classifyRouteError } from "../utils/routeErrors";
+import { exceedsValueSizeLimit, MAX_VALUE_BYTES } from "../utils/valueSizeLimit";
 
 const CreateRunBodySchema = z.object({
   initialValues: z.record(z.any()).optional(),
@@ -251,9 +252,9 @@ export function registerRunRoutes(app: Express): void {
         return res.status(400).json({ success: false, error: "stepId is required" });
       }
 
-      // SEC-122: Per-field JSONB size cap (50KB)
-      if (value !== undefined && JSON.stringify(value).length > 50000) {
-        return res.status(413).json({ success: false, error: "Payload too large. Value exceeds 50KB limit." });
+      // SEC-122: Per-field JSONB size cap (shared limit, byte-accurate)
+      if (value !== undefined && exceedsValueSizeLimit(value)) {
+        return res.status(413).json({ success: false, error: `Payload too large. Value exceeds ${MAX_VALUE_BYTES}-byte limit.` });
       }
       // For run token auth
       if (runAuth) {
@@ -306,10 +307,10 @@ export function registerRunRoutes(app: Express): void {
         return res.status(400).json({ success: false, errors: ["values must be an array"] });
       }
 
-      // SEC-122: Per-field JSONB size cap (50KB)
+      // SEC-122: Per-field JSONB size cap (shared limit, byte-accurate)
       for (const v of values) {
-        if (v?.value !== undefined && JSON.stringify(v.value).length > 50000) {
-          return res.status(413).json({ success: false, errors: [`Payload too large. Value for step ${v.stepId} exceeds 50KB limit.`] });
+        if (v?.value !== undefined && exceedsValueSizeLimit(v.value)) {
+          return res.status(413).json({ success: false, errors: [`Payload too large. Value for step ${v.stepId} exceeds ${MAX_VALUE_BYTES}-byte limit.`] });
         }
       }
       // For run token auth
