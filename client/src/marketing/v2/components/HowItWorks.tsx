@@ -3,13 +3,13 @@ import { motion } from "framer-motion";
 const STEPS = [
   {
     num: "01",
-    title: "Sketch the flow",
-    body: "Drag sections and steps onto the canvas — 15+ step types from short text to signatures. No blank-page dread; start from a template or let AI draft it.",
+    title: "Start with your document",
+    body: "Paste a link or upload the form itself — blank or previously filled out. AI reads it and drafts about 90% of your workflow: sections, steps, and logic, in minutes.",
   },
   {
     num: "02",
-    title: "Wire the logic",
-    body: "Add conditions, computed fields, and transform blocks. Visual rules for the everyday, JS or Python for the gnarly parts. Preview runs instantly.",
+    title: "Finish the last 10%",
+    body: "Refine conditions, computed fields, and transform blocks. Visual rules for the everyday, JS or Python for the gnarly parts. Preview runs instantly.",
   },
   {
     num: "03",
@@ -38,7 +38,7 @@ export default function HowItWorks() {
           transition={{ duration: 0.5, delay: 0.08 }}
           className="text-4xl sm:text-5xl font-bold tracking-tight max-w-2xl mb-16"
         >
-          From idea to running workflow before the meeting ends.
+          From document to running workflow before the meeting ends.
         </motion.h2>
 
         <div className="grid md:grid-cols-3 gap-10 md:gap-6">
