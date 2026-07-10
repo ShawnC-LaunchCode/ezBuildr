@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
 
-import { projectAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWorkflow } from "../../lib/vault-api";
+import { projectAPI, type ApiProject, type ApiProjectAccess, type ApiProjectWithWorkflows, type ApiWorkflow } from "../../lib/vault-api";
 
 import { queryKeys } from "./queryKeys";
 
@@ -39,11 +39,60 @@ export function useProjectWorkflows(projectId: string | undefined): UseQueryResu
     });
 }
 
+export function useProjectAccess(
+    projectId: string | undefined,
+    options?: Omit<UseQueryOptions<ApiProjectAccess[]>, "queryKey" | "queryFn">
+): UseQueryResult<ApiProjectAccess[]> {
+    return useQuery({
+        queryKey: queryKeys.projectAccess(projectId ?? ""),
+        queryFn: () => projectAPI.getAccess(projectId ?? ""),
+        enabled: !!projectId && projectId !== "undefined",
+        retry: false,
+        ...options,
+    });
+}
+
 export function useOrganizationProjects(orgId: string | undefined): UseQueryResult<ApiProject[]> {
     return useQuery({
         queryKey: queryKeys.organizationProjects(orgId ?? ""),
         queryFn: () => projectAPI.listForOrganization(orgId ?? ""),
         enabled: !!orgId && orgId !== "undefined",
+    });
+}
+
+export function useGrantProjectAccess(): UseMutationResult<
+    ApiProjectAccess[],
+    unknown,
+    {
+        projectId: string;
+        entries: Array<{ principalType: 'user' | 'team'; principalId: string; role: 'view' | 'edit' | 'owner' }>;
+    }
+> {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ projectId, entries }) => projectAPI.grantAccess(projectId, entries),
+        onSuccess: async (_, variables) => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.projectAccess(variables.projectId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.project(variables.projectId) });
+        },
+    });
+}
+
+export function useRevokeProjectAccess(): UseMutationResult<
+    unknown,
+    unknown,
+    {
+        projectId: string;
+        entries: Array<{ principalType: 'user' | 'team'; principalId: string }>;
+    }
+> {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ projectId, entries }) => projectAPI.revokeAccess(projectId, entries),
+        onSuccess: async (_, variables) => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.projectAccess(variables.projectId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.project(variables.projectId) });
+        },
     });
 }
 

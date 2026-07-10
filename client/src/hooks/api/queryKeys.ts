@@ -2,6 +2,7 @@ export const queryKeys = {
     projects: ["projects"] as const,
     organizationProjects: (orgId: string) => ["organizations", orgId, "projects"] as const,
     project: (id: string) => ["projects", id] as const,
+    projectAccess: (projectId: string) => ["projects", projectId, "access"] as const,
     projectWorkflows: (projectId: string) => ["projects", projectId, "workflows"] as const,
     workflows: ["workflows"] as const,
     workflowsUnfiled: ["workflows", "unfiled"] as const,

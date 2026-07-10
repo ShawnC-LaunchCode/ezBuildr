@@ -7,6 +7,7 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ""
 
 interface ApiErrorResponse {
   message?: string;
+  error?: string;
   errors?: string[];
 }
 
@@ -98,7 +99,7 @@ export async function fetchAPI<T>(
   }
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: response.statusText })) as ApiErrorResponse;
-    throw new Error(error.message ?? `HTTP ${response.status}`);
+    throw new Error(error.message ?? error.error ?? `HTTP ${response.status}`);
   }
   // Check for auto-revert header and dispatch event
   if (response.headers.get('X-Workflow-Auto-Reverted') === 'true') {
@@ -192,6 +193,14 @@ export interface ApiProject {
 export interface ApiProjectWithWorkflows extends ApiProject {
   workflows: ApiWorkflow[];
 }
+export interface ApiProjectAccess {
+  id: string;
+  projectId: string;
+  principalType: 'user' | 'team';
+  principalId: string;
+  role: 'view' | 'edit' | 'owner';
+  createdAt: string | null;
+}
 export const projectAPI = {
   list: async (activeOnly?: boolean): Promise<ApiProject[]> => {
     const query = activeOnly ? '?active=true' : '';
@@ -242,6 +251,25 @@ export const projectAPI = {
     }
     return response.items ?? [];
   },
+  getAccess: (projectId: string) =>
+    fetchAPI<{ success: boolean; data: ApiProjectAccess[] }>(`/api/projects/${projectId}/access`)
+      .then((response) => response.data ?? []),
+  grantAccess: (
+    projectId: string,
+    entries: Array<{ principalType: 'user' | 'team'; principalId: string; role: 'view' | 'edit' | 'owner' }>
+  ) =>
+    fetchAPI<{ success: boolean; data: ApiProjectAccess[] }>(`/api/projects/${projectId}/access`, {
+      method: "PUT",
+      body: JSON.stringify({ entries }),
+    }).then((response) => response.data ?? []),
+  revokeAccess: (
+    projectId: string,
+    entries: Array<{ principalType: 'user' | 'team'; principalId: string }>
+  ) =>
+    fetchAPI<{ success: boolean; message: string }>(`/api/projects/${projectId}/access`, {
+      method: "DELETE",
+      body: JSON.stringify({ entries }),
+    }),
   transfer: (id: string, targetOwnerType: 'user' | 'org', targetOwnerUuid: string) =>
     fetchAPI<ApiProject>(`/api/projects/${id}/transfer`, {
       method: "POST",

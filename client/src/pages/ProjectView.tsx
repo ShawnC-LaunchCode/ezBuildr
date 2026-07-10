@@ -8,6 +8,7 @@ import { useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
 
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
+import { ProjectAccessPanel } from "@/components/projects/ProjectAccessPanel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -236,6 +237,8 @@ export default function ProjectView() {
             </div>
           </div>
         </div>
+
+        <ProjectAccessPanel project={projectWithWorkflows} />
 
         {/* Workflows Grid */}
         {projectWithWorkflows.workflows.length === 0 ? (
