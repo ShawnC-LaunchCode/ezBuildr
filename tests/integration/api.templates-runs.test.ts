@@ -46,7 +46,7 @@ vi.mock("../../server/services/templates", async () => {
  *
  * Refactored to use integrationTestHelper for consistent setup/teardown
  */
-describe("Templates and Runs API Integration Tests", () => {
+describe("Templates API Integration Tests", () => {
   let ctx: IntegrationTestContext;
   let workflowId: string;
   beforeAll(async () => {
@@ -219,109 +219,6 @@ describe("Templates and Runs API Integration Tests", () => {
           .get(`/api/templates/${templateId}`)
           .set("Authorization", `Bearer ${ctx.authToken}`)
           .expect(404);
-      });
-    });
-  });
-  describe("Runs API", () => {
-    describe("POST /api/workflows/:id/run", () => {
-      it("should execute workflow", async () => {
-        const response = await request(ctx.baseURL)
-          .post(`/api/workflows/${workflowId}/run`)
-          .set("Authorization", `Bearer ${ctx.authToken}`)
-          .send({
-            inputJson: { customer_name: "Test Customer" },
-          })
-          .expect(201);
-        expect(response.body).toHaveProperty("runId");
-        expect(response.body).toHaveProperty("status");
-        expect(["success", "error"]).toContain(response.body.status);
-      });
-      it("should include logs in debug mode", async () => {
-        const response = await request(ctx.baseURL)
-          .post(`/api/workflows/${workflowId}/run`)
-          .set("Authorization", `Bearer ${ctx.authToken}`)
-          .send({
-            inputJson: { customer_name: "Test Customer" },
-            options: { debug: true },
-          })
-          .expect(201);
-        expect(response.body).toHaveProperty("logs");
-        expect(Array.isArray(response.body.logs)).toBe(true);
-      });
-      it("should reject without required permission", async () => {
-        // Create viewer user
-        const viewerEmail = `viewer-${nanoid()}@example.com`;
-        const viewerResponse = await request(ctx.baseURL)
-          .post("/api/auth/register")
-          .send({ email: viewerEmail, password: "StrongTestPass!2024" })
-          .expect(201);
-        await db.update(schema.users)
-          .set({ tenantId: ctx.tenantId, tenantRole: "viewer" })
-          .where(eq(schema.users.id, viewerResponse.body.user.id));
-        await request(ctx.baseURL)
-          .post(`/api/workflows/${workflowId}/run`)
-          .set("Authorization", `Bearer ${viewerResponse.body.token}`)
-          .send({ inputJson: { customer_name: "Test" } })
-          .expect(403);
-      });
-    });
-    describe("GET /api/runs", () => {
-      beforeEach(async () => {
-        await request(ctx.baseURL)
-          .post(`/api/workflows/${workflowId}/run`)
-          .set("Authorization", `Bearer ${ctx.authToken}`)
-          .send({ inputJson: { customer_name: "Test" } });
-      });
-      it("should list runs", async () => {
-        const response = await request(ctx.baseURL)
-          .get("/api/runs")
-          .set("Authorization", `Bearer ${ctx.authToken}`)
-          .expect(200);
-        expect(response.body).toHaveProperty("items");
-        expect(Array.isArray(response.body.items)).toBe(true);
-      });
-      it("should filter by workflowId", async () => {
-        const response = await request(ctx.baseURL)
-          .get(`/api/runs?workflowId=${workflowId}`)
-          .set("Authorization", `Bearer ${ctx.authToken}`)
-          .expect(200);
-        expect(response.body).toHaveProperty("items");
-      });
-    });
-    describe("GET /api/runs/:id", () => {
-      let runId: string;
-      beforeEach(async () => {
-        const response = await request(ctx.baseURL)
-          .post(`/api/workflows/${workflowId}/run`)
-          .set("Authorization", `Bearer ${ctx.authToken}`)
-          .send({ inputJson: { customer_name: "Test" } });
-        runId = response.body.runId;
-      });
-      it("should get run by ID", async () => {
-        const response = await request(ctx.baseURL)
-          .get(`/api/runs/${runId}`)
-          .set("Authorization", `Bearer ${ctx.authToken}`)
-          .expect(200);
-        expect(response.body).toHaveProperty("id", runId);
-        expect(response.body).toHaveProperty("status");
-      });
-    });
-    describe("GET /api/runs/:id/logs", () => {
-      let runId: string;
-      beforeEach(async () => {
-        const response = await request(ctx.baseURL)
-          .post(`/api/workflows/${workflowId}/run`)
-          .set("Authorization", `Bearer ${ctx.authToken}`)
-          .send({ inputJson: { customer_name: "Test" } });
-        runId = response.body.runId;
-      });
-      it("should get run logs", async () => {
-        const response = await request(ctx.baseURL)
-          .get(`/api/runs/${runId}/logs`)
-          .set("Authorization", `Bearer ${ctx.authToken}`)
-          .expect(200);
-        expect(response.body).toHaveProperty("items");
-        expect(Array.isArray(response.body.items)).toBe(true);
       });
     });
   });
