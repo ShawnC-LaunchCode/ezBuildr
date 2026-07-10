@@ -9,7 +9,6 @@ import { registerAiRoutes } from "./ai.routes";
 import aiOptimizationRouter from "./api.ai.optimization.routes";
 import aiPersonalizationRouter from "./api.ai.personalization.routes";
 import aiTransformRouter from "./api.ai.transform.routes";
-import { registerApiRunRoutes } from "./api.runs.routes";
 import { registerApiTemplateRoutes } from "./api.templates.routes";
 import { registerApiWorkflowRoutes } from "./api.workflows.routes";
 import { registerAuthRoutes } from "./auth.routes";
@@ -45,7 +44,6 @@ import portalRouter from "./portal.routes";
 import { registerPreviewRoutes } from "./preview.routes";
 import { registerProjectRoutes } from "./projects.routes";
 import publicRouter from "./public.routes";
-import { registerRunOutputsRoutes } from "./runOutputs.routes";
 import { registerRunRoutes } from "./runs.routes";
 import { registerSecretsRoutes } from "./secrets.routes";
 import { registerSectionRoutes } from "./sections.routes";
@@ -107,10 +105,6 @@ export function registerAllRoutes(app: Express): void {
   // AI Workflow Editing (Stage 22)
   registerAiWorkflowEditRoutes(app);
 
-  // Debug Routes (temporary)
-  if (process.env.NODE_ENV === 'development') {
-  }
-
   // Legacy Workflow Routes (MUST come before new API routes to avoid shadowing)
   registerWorkflowRoutes(app);
   registerSectionRoutes(app);
@@ -121,7 +115,6 @@ export function registerAllRoutes(app: Express): void {
   // REST API Endpoints (New graph-based workflow system)
   registerApiWorkflowRoutes(app);
   registerApiTemplateRoutes(app);
-  registerApiRunRoutes(app);
 
   // Authentication & Core
   registerAuthRoutes(app);
@@ -153,7 +146,6 @@ export function registerAllRoutes(app: Express): void {
   registerRunRoutes(app);
   registerWorkflowExportRoutes(app);
   registerTemplateAnalysisRoutes(app);
-  registerRunOutputsRoutes(app);
   registerDocumentRoutes(app);
   registerFinalBlockRoutes(app);
   registerEsignRoutes(app);
