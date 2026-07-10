@@ -65,6 +65,13 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    # qpdf is a runtime dependency of the PDF form-filling feature
+    # (server/services/document/PdfService.ts unlockPdf → `qpdf --decrypt`).
+    # Install it so the PDF tests exercise the real unlock path instead of the
+    # missing-binary fallback.
+    - name: Install system dependencies (qpdf)
+      run: sudo apt-get update && sudo apt-get install -y qpdf
+
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v3
       with:

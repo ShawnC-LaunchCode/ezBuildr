@@ -44,7 +44,14 @@ FROM node:20-bookworm-slim
 
 WORKDIR /app
 
-# Install minimal runtime deps if needed
+# Install qpdf — used AT RUNTIME to decrypt/unlock restricted PDF templates before
+# AcroForm filling (server/services/document/PdfService.ts unlockPdf). Without it,
+# locked/encrypted PDF forms silently fall back to the original (un-fillable) buffer.
+# Runtime-only; --no-install-recommends + apt cleanup keeps the image lean.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends qpdf \
+    && rm -rf /var/lib/apt/lists/*
+
 # dumb-init removed to prevent path mismatches on Debian
 # RUN apt-get update && apt-get install -y dumb-init
 

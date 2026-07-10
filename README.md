@@ -20,7 +20,7 @@ Originally inspired by Legacy App, evolved into next-generation workflow automat
 
 ## 🚀 Quick Start
 
-**Prerequisites:** Node.js 20.19.0+, PostgreSQL (Neon recommended)
+**Prerequisites:** Node.js 20.19.0+, PostgreSQL (Neon recommended), and [`qpdf`](https://qpdf.sourceforge.io/) on `PATH` (used to unlock encrypted PDF form templates before filling — `apt-get install qpdf` / `brew install qpdf` / `choco install qpdf`)
 
 ### Step 1: Clone and Install
 
