@@ -16,6 +16,7 @@ const AuthRedirect = () => {
 // Lazy load pages
 const NotFound = lazy(() => import("@/pages/not-found"));
 const Landing = lazy(() => import("@/marketing/LandingPage"));
+const LandingV2 = lazy(() => import("@/marketing/v2/LandingV2"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const WorkflowsList = lazy(() => import("@/pages/WorkflowsList"));
 const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
@@ -88,6 +89,8 @@ export default function Router() {
                 <Route path="/intake/preview" component={IntakePreviewPage} />
                 {/* Documentation - available to everyone */}
                 <Route path="/docs/url-parameters" component={UrlParametersDoc} />
+                {/* Secondary marketing landing page - available to everyone */}
+                <Route path="/landing-v2" component={LandingV2} />
                 {isLoading || !isAuthenticated ? (
                     <>
                         <Route path="/" component={Landing} />
