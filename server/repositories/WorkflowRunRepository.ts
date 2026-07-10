@@ -129,13 +129,10 @@ export class WorkflowRunRepository extends BaseRepository<
   async findByShareToken(token: string, tx?: DbTransaction): Promise<WorkflowRun | null> {
     const database = this.getDb(tx);
     const hashed = hashToken(token);
-    const predicate = HASH_SHAPE.test(token)
-      ? eq(workflowRuns.shareToken, hashed)
-      : or(eq(workflowRuns.shareToken, hashed), eq(workflowRuns.shareToken, token));
     const [run] = await database
       .select()
       .from(workflowRuns)
-      .where(predicate)
+      .where(eq(workflowRuns.shareTokenHash, hashed))
       .limit(1);
     return run ?? null;
   }

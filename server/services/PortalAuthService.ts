@@ -30,11 +30,11 @@ export class PortalAuthService {
             });
             // 3. Send Email (Stub for now)
             // In production, use `emailService.sendMagicLink(email, plainToken)`
-            const magicLinkUrl = `${process.env.VITE_BASE_URL ?? 'http://localhost:5000'}/portal/auth/verify?token=${plainToken}`;
+            const magicLinkUrl = `${process.env.VITE_BASE_URL ?? 'http://localhost:5000'}/portal/auth/verify?token=${plainToken.slice(0, 8)}...`;
             logger.info({
                 event: "PORTAL_MAGIC_LINK_SENT",
                 email,
-                magicLinkUrl, // Logged for dev/testing - contains plaintext token
+                magicLinkUrl, // Logged for dev/testing - contains truncated token
             }, "Magic link generated");
             return { success: true, message: "Magic link sent to your email." };
         } catch (error) {

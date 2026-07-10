@@ -250,6 +250,11 @@ export function registerRunRoutes(app: Express): void {
       if (!stepId) {
         return res.status(400).json({ success: false, error: "stepId is required" });
       }
+
+      // SEC-122: Per-field JSONB size cap (50KB)
+      if (value !== undefined && JSON.stringify(value).length > 50000) {
+        return res.status(413).json({ success: false, error: "Payload too large. Value exceeds 50KB limit." });
+      }
       // For run token auth
       if (runAuth) {
         if (runAuth.runId !== runId) {
@@ -299,6 +304,13 @@ export function registerRunRoutes(app: Express): void {
       if (!Array.isArray(values)) {
         logger.warn({ runId, sectionId, values }, "values is not an array");
         return res.status(400).json({ success: false, errors: ["values must be an array"] });
+      }
+
+      // SEC-122: Per-field JSONB size cap (50KB)
+      for (const v of values) {
+        if (v?.value !== undefined && JSON.stringify(v.value).length > 50000) {
+          return res.status(413).json({ success: false, errors: [`Payload too large. Value for step ${v.stepId} exceeds 50KB limit.`] });
+        }
       }
       // For run token auth
       if (runAuth) {

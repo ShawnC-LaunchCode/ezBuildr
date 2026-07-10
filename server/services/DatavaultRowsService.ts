@@ -75,6 +75,13 @@ export class DatavaultRowsService {
    */
   // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
   private validateAndCoerceValue(value: unknown, column: DatavaultColumn): CoercedValue {
+    if (value !== null && value !== undefined) {
+      const size = Buffer.byteLength(JSON.stringify(value), 'utf8');
+      if (size > 1024 * 1024) { // 1MB limit
+        throw new Error(`Column '${column.name}' value exceeds 1MB limit`);
+      }
+    }
+
     if (value === null || value === undefined) {
       if (column.required && column.type !== 'auto_number' && column.type !== 'autonumber') {
         throw new Error(`Column '${column.name}' is required`);

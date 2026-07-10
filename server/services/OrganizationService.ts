@@ -12,6 +12,7 @@ import {
 import { db } from '../db';
 import { AuditLogger } from '../lib/audit/auditLogger';
 import { logger } from '../logger';
+import { hashToken } from '../utils/encryption';
 import {  requireOrgAdmin, isOrgMember } from '../utils/ownershipAccess';
 
 import { brandingService } from './BrandingService';
@@ -462,6 +463,7 @@ export class OrganizationService {
     }
     // Generate secure token
     const token = crypto.randomBytes(32).toString('hex');
+    const hashedToken = hashToken(token);
     // Create invite (expires in 7 days)
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
@@ -471,7 +473,7 @@ export class OrganizationService {
       invitedEmail: normalizedEmail,
       invitedUserId: existingUser.id,
       invitedByUserId: adminUserId,
-      token,
+      token: hashedToken,
       status: 'pending',
       expiresAt,
     }).returning();
@@ -511,7 +513,7 @@ export class OrganizationService {
         resourceType: 'organization',
         resourceId: orgId,
         workspaceId: null,
-        after: { invitedEmail: normalizedEmail, token },
+        after: { invitedEmail: normalizedEmail, inviteId: invite.id },
       });
     }
     return { inviteId: invite.id, token };
@@ -634,9 +636,10 @@ export class OrganizationService {
    * Accept an organization invite
    */
   async acceptInvite(token: string, userId: string): Promise<{ orgId: string; orgName: string }> {
+    const hashedToken = hashToken(token);
     // Find invite by token
     const invite = await db.query.organizationInvites.findFirst({
-      where: eq(organizationInvites.token, token),
+      where: eq(organizationInvites.token, hashedToken),
     });
     if (!invite) {
       throw new Error('Invite not found');

@@ -160,7 +160,7 @@ export const oauthApps = pgTable("oauth_apps", {
 
 // OAuth Auth Codes
 export const oauthAuthCodes = pgTable("oauth_auth_codes", {
-    code: varchar("code").primaryKey(),
+    codeHash: varchar("code_hash").primaryKey(),
     clientId: varchar("client_id").references(() => oauthApps.clientId, { onDelete: 'cascade' }).notNull(),
     userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
     scope: jsonb("scope"),
@@ -171,8 +171,8 @@ export const oauthAuthCodes = pgTable("oauth_auth_codes", {
 
 // OAuth Access Tokens
 export const oauthAccessTokens = pgTable("oauth_access_tokens", {
-    accessToken: varchar("access_token").primaryKey(),
-    refreshToken: varchar("refresh_token").unique(),
+    accessTokenHash: varchar("access_token_hash").primaryKey(),
+    refreshTokenHash: varchar("refresh_token_hash").unique(),
     clientId: varchar("client_id").references(() => oauthApps.clientId, { onDelete: 'cascade' }).notNull(),
     userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }), // Nullable for client_credentials
     workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: 'cascade' }).notNull(),

@@ -15,6 +15,83 @@
       "when": 1768496000000,
       "tag": "0001_fix_collection_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1768496100000,
+      "tag": "0002_fix_audit_logs",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1768496200000,
+      "tag": "0003_fix_ai_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1768496300000,
+      "tag": "0004_restore_autonumber",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1768496400000,
+      "tag": "0005_fix_owner_uuid_type",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1768496500000,
+      "tag": "0006_workflow_personalization_cascade_delete",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1768496600000,
+      "tag": "0007_run_token_expiry",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1768496700000,
+      "tag": "0008_hash_run_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1768496800000,
+      "tag": "0009_unique_user_email",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1768496900000,
+      "tag": "0010_concurrent_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1768497000000,
+      "tag": "0011_unique_steps_alias",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1783640285206,
+      "tag": "0012_security_hardening_fixes",
+      "breakpoints": true
     }
   ]
 }

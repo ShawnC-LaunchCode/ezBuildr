@@ -91,7 +91,7 @@ export const datavaultColumns = pgTable("datavault_columns", {
     autonumberPrefix: text("autonumber_prefix"),
     autonumberPadding: integer("autonumber_padding").default(4),
     autonumberResetPolicy: autonumberResetPolicyEnum("autonumber_reset_policy").default('never'),
-    referenceTableId: uuid("reference_table_id"),
+    referenceTableId: uuid("reference_table_id").references(() => datavaultTables.id, { onDelete: 'set null' }),
     referenceDisplayColumnSlug: text("reference_display_column_slug"),
     options: jsonb("options"),
     createdAt: timestamp("created_at").defaultNow(),

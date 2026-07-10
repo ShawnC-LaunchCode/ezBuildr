@@ -8,7 +8,8 @@ import {
     text,
     uuid,
     integer,
-    pgEnum
+    pgEnum,
+    check
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
@@ -54,6 +55,7 @@ export const files = pgTable("files", {
     index("files_uploader_idx").on(table.uploaderId),
     index("files_context_idx").on(table.context),
     index("files_deleted_at_idx").on(table.deletedAt), // For cleanup jobs
+    check("files_size_check", sql`${table.size} > 0`),
 ]);
 
 // ===================================================================

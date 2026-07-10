@@ -22,6 +22,7 @@ import { db } from "../../db";
 import { logger } from "../../logger";
 import { workflowRunRepository, runGeneratedDocumentsRepository } from "../../repositories";
 
+import { hashToken } from "../../utils/encryption";
 import type { ShareTokenResult, SharedRunDetails } from "./types";
 
 export class RunStateService {
@@ -78,7 +79,7 @@ export class RunStateService {
     expiresAt.setDate(expiresAt.getDate() + expirationDays);
 
     await this.runRepo.update(runId, {
-      shareToken,
+      shareTokenHash: hashToken(shareToken),
       shareTokenExpiresAt: expiresAt
     });
 

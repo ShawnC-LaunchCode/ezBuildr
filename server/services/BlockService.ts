@@ -6,6 +6,7 @@ import {
   workflowRepository,
   sectionRepository,
 } from "../repositories";
+import { workflowService } from "./WorkflowService";
 
 /**
  * Service layer for block-related business logic
@@ -15,28 +16,25 @@ export class BlockService {
   private blockRepo: typeof blockRepository;
   private workflowRepo: typeof workflowRepository;
   private sectionRepo: typeof sectionRepository;
+  private workflowSvc: typeof workflowService;
 
   constructor(
     blockRepo?: typeof blockRepository,
     workflowRepo?: typeof workflowRepository,
-    sectionRepo?: typeof sectionRepository
+    sectionRepo?: typeof sectionRepository,
+    workflowSvc?: typeof workflowService
   ) {
     this.blockRepo = blockRepo ?? blockRepository;
     this.workflowRepo = workflowRepo ?? workflowRepository;
     this.sectionRepo = sectionRepo ?? sectionRepository;
+    this.workflowSvc = workflowSvc ?? workflowService;
   }
 
   /**
    * Verify user owns the workflow
    */
   private async verifyWorkflowOwnership(workflowId: string, userId: string): Promise<void> {
-    const workflow = await this.workflowRepo.findById(workflowId);
-    if (!workflow) {
-      throw new Error("Workflow not found");
-    }
-    if (workflow.creatorId !== userId) {
-      throw new Error("Access denied: You do not own this workflow");
-    }
+    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
   }
 
   /**

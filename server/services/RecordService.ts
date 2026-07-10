@@ -219,7 +219,13 @@ export class RecordService {
     userId?: string,
     tx?: DbTransaction
   ): Promise<CollectionRecord> {
-    await this.verifyCollectionExists(data.collectionId, tx);
+    const collection = await this.collectionRepo.findById(data.collectionId, tx);
+    if (!collection) {
+      throw new Error("Collection not found");
+    }
+    if (collection.tenantId !== data.tenantId) {
+      throw new Error("Access denied - collection belongs to a different tenant");
+    }
 
     // Apply default values
     const recordData = (typeof data.data === 'object' && data.data !== null && !Array.isArray(data.data))

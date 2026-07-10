@@ -69,7 +69,7 @@ export const users = pgTable("users", {
     updatedAt: timestamp("updated_at").defaultNow(),
     // lastLoginAt: timestamp("last_login_at"), // Temporarily removed to fix test DB mismatch
 }, (table) => [
-    index("users_email_idx").on(table.email),
+    uniqueIndex("users_email_idx").on(table.email),
     index("users_tenant_idx").on(table.tenantId),
     index("users_tenant_email_idx").on(table.tenantId, table.email),
     index("idx_users_is_placeholder").on(table.isPlaceholder),
@@ -145,7 +145,7 @@ export const workspaceMembers = pgTable("workspace_members", {
     userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
     role: workspaceRoleEnum("role").default('viewer').notNull(),
     joinedAt: timestamp("joined_at").defaultNow(),
-    invitedBy: varchar("invited_by").references(() => users.id),
+    invitedBy: varchar("invited_by").references(() => users.id, { onDelete: 'set null' }),
 }, (table) => [
     uniqueIndex("workspace_member_idx").on(table.workspaceId, table.userId),
 ]);
@@ -157,7 +157,7 @@ export const workspaceInvitations = pgTable("workspace_invitations", {
     role: workspaceRoleEnum("role").default('viewer').notNull(),
     token: varchar("token").notNull(),
     expiresAt: timestamp("expires_at").notNull(),
-    invitedBy: varchar("invited_by").references(() => users.id).notNull(),
+    invitedBy: varchar("invited_by").references(() => users.id, { onDelete: 'cascade' }).notNull(),
     createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
     index("invitation_token_idx").on(table.token),
@@ -328,7 +328,7 @@ export const auditLogs = pgTable("audit_logs", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     tenantId: uuid("tenant_id").references(() => tenants.id),
     workspaceId: uuid("workspace_id"),
-    userId: varchar("user_id").references(() => users.id),
+    userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }),
     action: varchar("action").notNull(),
     entityType: varchar("entity_type").notNull(),
     entityId: varchar("entity_id").notNull(),
@@ -344,6 +344,7 @@ export const auditLogs = pgTable("audit_logs", {
     index("audit_logs_tenant_idx").on(table.tenantId),
     index("audit_logs_user_idx").on(table.userId),
     index("audit_logs_action_idx").on(table.action),
+    index("audit_logs_ts_entity_idx").on(table.timestamp, table.entityType, table.entityId),
 ]);
 // Resource Permissions (for granular RBAC)
 export const resourcePermissions = pgTable("resource_permissions", {

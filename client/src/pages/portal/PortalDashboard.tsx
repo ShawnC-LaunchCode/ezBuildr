@@ -5,6 +5,7 @@ import { useLocation } from "wouter";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 interface PortalRun {
     id: string;
@@ -20,12 +21,16 @@ interface PortalRun {
         // eslint-disable-next-line @typescript-eslint/naming-convention
         allow_redownload: boolean;
     };
-    shareToken?: string;
+    // The runs list no longer returns a reusable token (share tokens are stored
+    // hashed at rest). It exposes only whether a share link exists; a fresh
+    // plaintext token is minted on demand via POST /api/runs/:id/share.
+    hasShareToken?: boolean;
 }
 export default function PortalDashboard() {
     const [runs, setRuns] = useState<PortalRun[]>([]);
     const [loading, setLoading] = useState(true);
     const [, setLocation] = useLocation();
+    const { toast } = useToast();
     useEffect(() => {
         const fetchRuns = async () => {
             try {
@@ -140,8 +145,20 @@ export default function PortalDashboard() {
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        {run.status === 'completed' && run.accessSettings?.allow_redownload !== false && run.shareToken && (
-                                            <Button variant="outline" size="sm" onClick={() => { void setLocation(`/share/${run.shareToken}`); }}>
+                                        {run.status === 'completed' && run.accessSettings?.allow_redownload !== false && (
+                                            <Button variant="outline" size="sm" onClick={() => { 
+                                                // Dynamically generate share token to support hashed-at-rest tokens
+                                                fetch(`/api/runs/${run.id}/share`, { method: 'POST' })
+                                                    .then(res => res.json())
+                                                    .then(data => {
+                                                        if (data.data?.shareToken) {
+                                                            void setLocation(`/share/${data.data.shareToken}`);
+                                                        } else {
+                                                            toast({ title: "Error", description: "Failed to generate download link", variant: "destructive" });
+                                                        }
+                                                    })
+                                                    .catch(() => toast({ title: "Error", description: "Network error", variant: "destructive" }));
+                                            }}>
                                                 <FileText className="h-4 w-4 mr-2" />
                                                 View Documents
                                             </Button>

@@ -10,6 +10,7 @@ import { mfaSecrets, mfaBackupCodes, users } from "@shared/schema";
 
 import { db } from "../db";
 import { createLogger } from "../logger";
+import { encrypt, decrypt } from "../utils/encryption";
 
 
 
@@ -51,17 +52,19 @@ export class MfaService {
         const backupCodes = this.generateBackupCodes();
 
         // Store secret in database (disabled by default until verified)
+        const encryptedSecret = encrypt(secret.base32);
+        
         await db.insert(mfaSecrets)
             .values({
                 userId,
-                secret: secret.base32,
+                secret: encryptedSecret,
                 enabled: false,
                 createdAt: new Date()
             })
             .onConflictDoUpdate({
                 target: mfaSecrets.userId,
                 set: {
-                    secret: secret.base32,
+                    secret: encryptedSecret,
                     enabled: false, // Reset to disabled when regenerating
                     createdAt: new Date()
                 }
@@ -93,9 +96,16 @@ export class MfaService {
             return false;
         }
 
+        let plainSecret = mfaSecret.secret;
+        try {
+            plainSecret = decrypt(mfaSecret.secret);
+        } catch (error) {
+            // Fallback for pre-encryption secrets (before backfill runs)
+        }
+
         // Verify the TOTP token
         const isValid = speakeasy.totp.verify({
-            secret: mfaSecret.secret,
+            secret: plainSecret,
             encoding: 'base32',
             token,
             window: 2 // Allow 2 time steps before/after (60 seconds total window)
@@ -145,9 +155,16 @@ export class MfaService {
             return false;
         }
 
+        let plainSecret = mfaSecret.secret;
+        try {
+            plainSecret = decrypt(mfaSecret.secret);
+        } catch (error) {
+            // Fallback for pre-encryption secrets
+        }
+
         // Verify the TOTP token
         const isValid = speakeasy.totp.verify({
-            secret: mfaSecret.secret,
+            secret: plainSecret,
             encoding: 'base32',
             token,
             window: 2 // Allow 2 time steps before/after

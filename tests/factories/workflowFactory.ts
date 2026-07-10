@@ -123,7 +123,7 @@ export function createTestWorkflowRun(workflowId: string, overrides?: Partial<Wo
     clientEmail: null,
     portalAccessKey: null,
     accessMode: "anonymous",
-    shareToken: null,
+    shareTokenHash: null,
     shareTokenExpiresAt: null,
     ownerType: null,
     ownerUuid: null,

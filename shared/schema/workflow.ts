@@ -12,6 +12,7 @@ import {
     boolean,
     integer,
     pgEnum,
+    check
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
@@ -145,7 +146,7 @@ export const workflowVersions = pgTable("workflow_versions", {
     changelog: jsonb("changelog"),
     notes: text("notes"),
     checksum: text("checksum"),
-    createdBy: varchar("created_by").references(() => users.id).notNull(),
+    createdBy: varchar("created_by").references(() => users.id, { onDelete: 'set null' }),
     published: boolean("published").default(false).notNull(),
     publishedAt: timestamp("published_at"),
     createdAt: timestamp("created_at").defaultNow(),
@@ -209,7 +210,7 @@ export const templateVersions = pgTable("template_versions", {
 export const workflowBlueprints = pgTable("workflow_blueprints", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }),
-    creatorId: varchar("creator_id").references(() => users.id).notNull(),
+    creatorId: varchar("creator_id").references(() => users.id, { onDelete: 'set null' }),
     name: varchar("name", { length: 255 }).notNull(),
     description: text("description"),
     graphJson: jsonb("graph_json").notNull(),
@@ -268,6 +269,7 @@ export const steps = pgTable("steps", {
     updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
     index("steps_section_idx").on(table.sectionId),
+    uniqueIndex("steps_section_alias_unique").on(table.sectionId, table.alias),
 ]);
 
 // Logic Rules
@@ -323,7 +325,9 @@ export const transformBlocks = pgTable("transform_blocks", {
     timeoutMs: integer("timeout_ms").default(1000),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+    check("transform_blocks_timeout_check", sql`${table.timeoutMs} > 0`),
+]);
 
 // Lifecycle Hooks
 export const lifecycleHooks = pgTable("lifecycle_hooks", {
@@ -343,7 +347,9 @@ export const lifecycleHooks = pgTable("lifecycle_hooks", {
     mutationMode: boolean("mutation_mode").default(false),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+    check("lifecycle_hooks_timeout_check", sql`${table.timeoutMs} > 0`),
+]);
 
 // Document Hooks
 export const documentHooks = pgTable("document_hooks", {
@@ -361,7 +367,9 @@ export const documentHooks = pgTable("document_hooks", {
     timeoutMs: integer("timeout_ms").default(3000),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+    check("document_hooks_timeout_check", sql`${table.timeoutMs} > 0`),
+]);
 
 // Project Access
 export const projectAccess = pgTable("project_access", {

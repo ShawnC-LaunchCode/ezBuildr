@@ -6,7 +6,7 @@ import { oauthAccessTokens, apiKeys } from "@shared/schema";
 
 import { db } from "../../db";
 import { logger } from "../../logger";
-import { verifyToken } from "../../utils/encryption";
+import { hashToken, verifyToken } from "../../utils/encryption";
 
 export interface ExternalAuthRequest extends Request {
     externalAuth?: {
@@ -28,8 +28,9 @@ export async function requireExternalAuth(req: ExternalAuthRequest, res: Respons
         // OAuth Flow
         const token = authHeader.split(' ')[1];
         try {
+            const tokenHash = hashToken(token);
             const accessToken = await db.query.oauthAccessTokens.findFirst({
-                where: eq(oauthAccessTokens.accessToken, token)
+                where: eq(oauthAccessTokens.accessTokenHash, tokenHash)
             });
 
             if (!accessToken) {

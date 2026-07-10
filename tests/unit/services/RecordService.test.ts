@@ -72,7 +72,7 @@ describe('RecordService', () => {
         updatedBy: mockUserId,
       };
 
-      mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId } as unknown as Collection);
+      mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId, tenantId: mockTenantId } as unknown as Collection);
       mockFieldRepo.findByCollectionId.mockResolvedValue(fields as unknown as CollectionField[]);
       mockRecordRepo.create.mockResolvedValue(createdRecord as unknown as CollectionRecord);
 
@@ -111,7 +111,7 @@ describe('RecordService', () => {
         data: {}, // Missing required 'email' field
       };
 
-      mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId } as unknown as Collection);
+      mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId, tenantId: mockTenantId } as unknown as Collection);
       mockFieldRepo.findByCollectionId.mockResolvedValue(fields as unknown as CollectionField[]);
 
       await expect(service.createRecord(insertData, mockUserId)).rejects.toThrow(
@@ -152,7 +152,7 @@ describe('RecordService', () => {
         updatedBy: mockUserId,
       };
 
-      mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId } as unknown as Collection);
+      mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId, tenantId: mockTenantId } as unknown as Collection);
       mockFieldRepo.findByCollectionId.mockResolvedValue(fields as unknown as CollectionField[]);
       mockRecordRepo.create.mockResolvedValue(createdRecord as unknown as CollectionRecord);
 
@@ -183,7 +183,7 @@ describe('RecordService', () => {
         data: { unknownField: 'value' },
       };
 
-      mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId } as unknown as Collection);
+      mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId, tenantId: mockTenantId } as unknown as Collection);
       mockFieldRepo.findByCollectionId.mockResolvedValue(fields as unknown as CollectionField[]);
 
       await expect(service.createRecord(insertData, mockUserId)).rejects.toThrow(
@@ -213,7 +213,7 @@ describe('RecordService', () => {
         data: { email: 123 }, // Invalid: should be string
       };
 
-      mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId } as unknown as Collection);
+      mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId, tenantId: mockTenantId } as unknown as Collection);
       mockFieldRepo.findByCollectionId.mockResolvedValue(fields as unknown as CollectionField[]);
 
       await expect(service.createRecord(insertData, mockUserId)).rejects.toThrow(
@@ -243,7 +243,7 @@ describe('RecordService', () => {
         data: { age: 'not a number' }, // Invalid
       };
 
-      mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId } as unknown as Collection);
+      mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId, tenantId: mockTenantId } as unknown as Collection);
       mockFieldRepo.findByCollectionId.mockResolvedValue(fields as unknown as CollectionField[]);
 
       await expect(service.createRecord(insertData, mockUserId)).rejects.toThrow(
@@ -273,7 +273,7 @@ describe('RecordService', () => {
         data: { status: 'InvalidStatus' }, // Not in options
       };
 
-      mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId } as unknown as Collection);
+      mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId, tenantId: mockTenantId } as unknown as Collection);
       mockFieldRepo.findByCollectionId.mockResolvedValue(fields as unknown as CollectionField[]);
 
       await expect(service.createRecord(insertData, mockUserId)).rejects.toThrow(
@@ -303,7 +303,7 @@ describe('RecordService', () => {
         data: { tags: ['Tag1', 'InvalidTag'] }, // InvalidTag not in options
       };
 
-      mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId } as unknown as Collection);
+      mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId, tenantId: mockTenantId } as unknown as Collection);
       mockFieldRepo.findByCollectionId.mockResolvedValue(fields as unknown as CollectionField[]);
 
       await expect(service.createRecord(insertData, mockUserId)).rejects.toThrow(
@@ -342,7 +342,7 @@ describe('RecordService', () => {
         updatedBy: mockUserId,
       };
 
-      mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId } as unknown as Collection);
+      mockCollectionRepo.findById.mockResolvedValue({ id: mockCollectionId, tenantId: mockTenantId } as unknown as Collection);
       mockFieldRepo.findByCollectionId.mockResolvedValue(fields as unknown as CollectionField[]);
       mockRecordRepo.create.mockResolvedValue(createdRecord as unknown as CollectionRecord);
 

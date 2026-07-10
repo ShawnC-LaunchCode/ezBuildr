@@ -10,7 +10,8 @@ import {
     uuid,
     boolean,
     integer,
-    pgEnum
+    pgEnum,
+    check
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
@@ -53,6 +54,7 @@ export const subscriptions = pgTable("subscriptions", {
     updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
     uniqueIndex("sub_org_idx").on(table.organizationId), // One active subscription per org for now
+    check("subscription_seat_quantity_check", sql`${table.seatQuantity} > 0`),
 ]);
 // Subscription Seats (for per-seat billing)
 export const subscriptionSeats = pgTable("subscription_seats", {
@@ -87,6 +89,7 @@ export const usageRecords = pgTable("usage_records", {
     recordedAt: timestamp("recorded_at").defaultNow(),
 }, (table) => [
     index("usage_org_metric_date_idx").on(table.organizationId, table.metric, table.recordedAt),
+    check("usage_quantity_check", sql`${table.quantity} > 0`),
 ]);
 export const insertBillingPlanSchema = createInsertSchema(billingPlans);
 export const insertSubscriptionSchema = createInsertSchema(subscriptions);

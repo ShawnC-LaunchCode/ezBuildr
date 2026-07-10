@@ -150,7 +150,7 @@ export class DatavaultRowsRepository extends BaseRepository<
   } | null> {
     const database = this.getDb(tx);
     const row = await this.findById(rowId, tx);
-    if (!row) { return null; }
+    if (!row || row.deletedAt !== null) { return null; }
     const values = await database
       .select()
       .from(datavaultValues)
@@ -502,7 +502,12 @@ export class DatavaultRowsRepository extends BaseRepository<
     const rows = await database
       .select()
       .from(datavaultRows)
-      .where(inArray(datavaultRows.id, allRowIds));
+      .where(
+        and(
+          inArray(datavaultRows.id, allRowIds),
+          isNull(datavaultRows.deletedAt)
+        )
+      );
     if (rows.length === 0) { return resultMap; }
     // Fetch all values for these rows in a single query
     const values = await database

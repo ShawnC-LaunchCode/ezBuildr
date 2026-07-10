@@ -32,7 +32,10 @@ function createSecureCacheKey(parts: {
   const baseKey = `${type}:${tenantId}:${projectId ?? 'global'}:${identifier}`;
 
   // Add HMAC to prevent key crafting
-  const secret = process.env.CACHE_KEY_SECRET ?? process.env.SESSION_SECRET ?? 'default-cache-secret';
+  const secret = process.env.CACHE_KEY_SECRET ?? process.env.SESSION_SECRET;
+  if (!secret) {
+    throw new Error('CACHE_KEY_SECRET or SESSION_SECRET must be configured in environment');
+  }
   const hmac = crypto.createHmac('sha256', secret)
     .update(baseKey)
     .digest('hex')

@@ -7,6 +7,7 @@ import {
   workflowRepository,
   projectRepository,
 } from "../repositories";
+import { hashToken } from "../utils/encryption";
 import { createError } from "../utils/errors";
 
 
@@ -61,11 +62,12 @@ export class SignatureRequestService {
 
     // Generate secure token
     const token = this.generateToken();
+    const hashedToken = hashToken(token);
 
     // Create the signature request
     const request = await this.signatureRequestRepo.create({
       ...data,
-      token,
+      token: hashedToken,
     });
 
     // Create 'sent' event
@@ -81,7 +83,7 @@ export class SignatureRequestService {
     // TODO: Send email with signing link to signer
     // This would integrate with the email service
 
-    return request;
+    return { ...request, token }; // Return plaintext token to caller
   }
 
   /**
@@ -113,7 +115,8 @@ export class SignatureRequestService {
    * No authentication required
    */
   async getSignatureRequestByToken(token: string): Promise<SignatureRequest> {
-    const request = await this.signatureRequestRepo.findByToken(token);
+    const hashedToken = hashToken(token);
+    const request = await this.signatureRequestRepo.findByToken(hashedToken);
     if (!request) {
       throw createError.notFound("Invalid signature link");
     }

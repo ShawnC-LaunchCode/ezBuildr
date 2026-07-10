@@ -5,6 +5,15 @@ import type { WorkflowRun, InsertWorkflowRun, InsertStepValue, StepValue } from 
 import { RUN_TOKEN_CONFIG } from "../config/auth";
 import { logger } from "../logger";
 import { hashToken } from "../utils/encryption";
+import { createError } from "../utils/errors";
+
+function validateJsonbSize(value: unknown, fieldName: string): void {
+  if (value === undefined || value === null) return;
+  const size = Buffer.byteLength(JSON.stringify(value), 'utf8');
+  if (size > 1024 * 1024) { // 1MB
+    throw createError.validation(`Payload exceeds 1MB limit for ${fieldName}`);
+  }
+}
 import {
   workflowRunRepository,
   stepValueRepository,
@@ -164,6 +173,10 @@ export class RunService {
     // Load snapshot values if snapshotId provided
     let snapshotValueMap: Record<string, { value: unknown; stepId: string; stepUpdatedAt: string }> | undefined;
     let mergedInitialValues = { ...initialValues };
+    if (data.metadata) {
+      validateJsonbSize(data.metadata, 'metadata');
+    }
+
     if (options?.snapshotId) {
       const { values, valueMap } = await this.lifecycleService.loadSnapshotValues(options.snapshotId);
       mergedInitialValues = { ...mergedInitialValues, ...values };
@@ -273,6 +286,7 @@ export class RunService {
     if (!run || access === 'none') { throw new Error(ERR_RUN_NOT_FOUND); }
     // Check if run is completed? 
     if (run.completed) { throw new Error(ERR_RUN_ALREADY_COMPLETED); }
+    validateJsonbSize(data.value, 'step value');
     await this.persistenceWriter.saveStepValue(runId, data.stepId, data.value, run.workflowId);
   }
   /**
@@ -296,6 +310,7 @@ export class RunService {
     if (!section || section.workflowId !== run.workflowId) {
       throw new Error("Step does not belong to this workflow");
     }
+    validateJsonbSize(data.value, 'step value');
     await this.valueRepo.upsert(data);
   }
   /**
@@ -311,6 +326,7 @@ export class RunService {
   ): Promise<void> {
     const { run, access } = await this.authResolver.resolveRun(runId, userId);
     if (!run || access === 'none') { throw new Error(ERR_RUN_NOT_FOUND); }
+    values.forEach(v => validateJsonbSize(v.value, 'step value'));
     await this.persistenceWriter.bulkSaveValues(runId, values, run.workflowId);
   }
   /**
@@ -322,6 +338,7 @@ export class RunService {
   ): Promise<void> {
     const run = await this.runRepo.findById(runId);
     if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
+    values.forEach(v => validateJsonbSize(v.value, 'step value'));
     await this.persistenceWriter.bulkSaveValues(runId, values, run.workflowId);
   }
   /**
@@ -348,6 +365,7 @@ export class RunService {
       throw new Error(ERR_RUN_NOT_FOUND);
     }
     if (run.completed) { throw new Error(ERR_RUN_ALREADY_COMPLETED); }
+    values.forEach(v => validateJsonbSize(v.value, 'step value'));
     return this.executionCoordinator.submitSection(
       { runId, workflowId: run.workflowId, userId, mode: 'live' },
       sectionId,
@@ -366,6 +384,7 @@ export class RunService {
     const run = await this.runRepo.findById(runId);
     if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
     if (run.completed) { throw new Error(ERR_RUN_ALREADY_COMPLETED); }
+    values.forEach(v => validateJsonbSize(v.value, 'step value'));
     return this.executionCoordinator.submitSection(
       { runId, workflowId: run.workflowId, mode: 'live' }, // No userId
       sectionId,

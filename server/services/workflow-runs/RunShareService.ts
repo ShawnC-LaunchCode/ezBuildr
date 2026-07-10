@@ -54,18 +54,14 @@ export class RunShareService {
             if (!matches) { throw new Error("Access denied"); }
         }
 
-        // NOTE: share tokens are intentionally NOT hashed at rest yet. The portal
-        // dashboard reads the stored value back out (PortalService.listRuns ->
-        // /share/:token), which only works while the stored value is the plaintext.
-        // Hashing share tokens requires reworking that portal redownload flow first;
-        // tracked as a follow-up. findByShareToken already supports hashed lookups
-        // via dual-read, so this can flip later without a lookup change.
+        // Note: share tokens are now hashed at rest (SEC-120).
+        // findByShareToken hashes incoming tokens to match the stored `shareTokenHash`.
         const shareToken = randomUUID();
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 30); // 30 days default expiration
 
         await this.runRepo.update(runId, {
-            shareToken,
+            shareTokenHash: hashToken(shareToken),
             shareTokenExpiresAt: expiresAt
         });
 

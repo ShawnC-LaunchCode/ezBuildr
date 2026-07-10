@@ -38,7 +38,10 @@ export class PortalService {
                 updatedAt: run.updatedAt,
                 completedAt: run.completedAt,
                 accessSettings: run.workflow?.accessSettings,
-                shareToken: run.shareToken
+                // Share tokens are stored hashed (share_token_hash); the plaintext
+                // token is only returned once at share-creation time and cannot be
+                // reconstructed here. Expose only whether a share link exists.
+                hasShareToken: Boolean(run.shareTokenHash)
             }));
         } catch (error) {
             logger.error({ error, email }, "Error listing portal runs");

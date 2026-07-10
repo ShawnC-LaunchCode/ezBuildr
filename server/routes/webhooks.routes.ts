@@ -10,7 +10,16 @@ import { db } from "../db";
 import { logger } from "../logger";
 import { requireExternalAuth, ExternalAuthRequest } from "../lib/authz/externalAuth";
 import { asyncHandler } from "../utils/asyncHandler";
+import { encrypt, decrypt } from "../utils/encryption";
 import { validateSafeUrl } from "../utils/ssrfValidator";
+
+function tryDecrypt(value: string): string {
+    try {
+        return decrypt(value);
+    } catch {
+        return value;
+    }
+}
 
 /**
  * Generate a cryptographically secure webhook signing secret.
@@ -31,7 +40,11 @@ router.get("/", asyncHandler(async (req: ExternalAuthRequest, res) => {
         const subs = await db.query.webhookSubscriptions.findMany({
             where: eq(webhookSubscriptions.workspaceId, workspaceId)
         });
-        res.json({ data: subs });
+        const decryptedSubs = subs.map(sub => ({
+            ...sub,
+            secret: tryDecrypt(sub.secret)
+        }));
+        res.json({ data: decryptedSubs });
     } catch (err) {
         res.status(500).json({ error: "Internal Error" });
     }
@@ -60,11 +73,11 @@ router.post("/", asyncHandler(async (req: ExternalAuthRequest, res) => {
             targetUrl: url, // eslint-disable-line @typescript-eslint/no-unsafe-assignment
             events: events, // array // eslint-disable-line @typescript-eslint/no-unsafe-assignment
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/strict-boolean-expressions
-            secret: secret || generateWebhookSecret(),
+            secret: encrypt(secret || generateWebhookSecret()),
             enabled: true
         }).returning();
 
-        res.json({ data: sub });
+        res.json({ data: { ...sub, secret: tryDecrypt(sub.secret) } });
 
     } catch (err) {
         logger.error({ err }, "Webhook subscription creation error");
@@ -121,7 +134,7 @@ router.patch("/:id", asyncHandler(async (req: ExternalAuthRequest, res) => {
             return res.status(404).json({ error: "Webhook not found" });
         }
 
-        res.json({ data: sub });
+        res.json({ data: { ...sub, secret: tryDecrypt(sub.secret) } });
     } catch (err) {
         res.status(500).json({ error: "Internal Error" });
     }

@@ -11,7 +11,8 @@ import {
     uuid,
     boolean,
     integer,
-    pgEnum
+    pgEnum,
+    check
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
@@ -60,9 +61,9 @@ export const runs = pgTable("runs", {
     error: text("error"),
     durationMs: integer("duration_ms"),
     runToken: varchar("run_token").unique(),
-    shareToken: varchar("share_token").unique(),
+    shareTokenHash: varchar("share_token_hash").unique(),
     shareTokenExpiresAt: timestamp("share_token_expires_at"),
-    createdBy: varchar("created_by").references(() => users.id),
+    createdBy: varchar("created_by").references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -93,7 +94,7 @@ export const workflowRuns = pgTable("workflow_runs", {
     clientEmail: varchar("client_email"),
     portalAccessKey: varchar("portal_access_key"),
     accessMode: portalAccessModeEnum("access_mode").default('anonymous'),
-    shareToken: varchar("share_token").unique(),
+    shareTokenHash: varchar("share_token_hash").unique(),
     shareTokenExpiresAt: timestamp("share_token_expires_at"),
     ownerType: varchar("owner_type", { length: 50 }),
     ownerUuid: varchar("owner_uuid"),
@@ -102,10 +103,11 @@ export const workflowRuns = pgTable("workflow_runs", {
     index("workflow_runs_version_idx").on(table.workflowVersionId),
     index("workflow_runs_completed_idx").on(table.completed),
     index("workflow_runs_run_token_idx").on(table.runToken),
-    index("workflow_runs_share_token_idx").on(table.shareToken),
+    index("workflow_runs_share_token_idx").on(table.shareTokenHash),
     index("workflow_runs_current_section_idx").on(table.currentSectionId),
     index("workflow_runs_created_at_idx").on(table.createdAt),
     index("workflow_runs_owner_idx").on(table.ownerType, table.ownerUuid),
+    index("workflow_runs_portal_access_key_idx").on(table.portalAccessKey),
 ]);
 
 // Step values (Answers)
@@ -126,7 +128,7 @@ export const stepValues = pgTable("step_values", {
 // Run Logs
 export const runLogs = pgTable("run_logs", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-    runId: uuid("run_id").references(() => runs.id, { onDelete: 'cascade' }).notNull(),
+    runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
     nodeId: varchar("node_id", { length: 100 }),
     level: logLevelEnum("level").notNull(),
     message: text("message").notNull(),
@@ -141,7 +143,7 @@ export const runLogs = pgTable("run_logs", {
 // Review Tasks
 export const reviewTasks = pgTable("review_tasks", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-    runId: uuid("run_id").references(() => runs.id, { onDelete: 'cascade' }).notNull(),
+    runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
     nodeId: text("node_id").notNull(),
     tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
@@ -164,7 +166,7 @@ export const reviewTasks = pgTable("review_tasks", {
 // Signature Requests
 export const signatureRequests = pgTable("signature_requests", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-    runId: uuid("run_id").references(() => runs.id, { onDelete: 'cascade' }).notNull(),
+    runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
     nodeId: text("node_id").notNull(),
     tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
@@ -201,7 +203,7 @@ export const signatureEvents = pgTable("signature_events", {
 // Run Outputs
 export const runOutputs = pgTable("run_outputs", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-    runId: uuid("run_id").references(() => runs.id, { onDelete: 'cascade' }).notNull(),
+    runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
     workflowVersionId: uuid("workflow_version_id").references(() => workflowVersions.id, { onDelete: 'cascade' }).notNull(),
     templateKey: text("template_key").notNull(),
     fileType: outputFileTypeEnum("file_type").notNull(),
@@ -336,6 +338,7 @@ export const aiWorkflowFeedback = pgTable("ai_workflow_feedback", {
     createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
     index("ai_feedback_workflow_idx").on(table.workflowId),
+    check("ai_workflow_feedback_rating_check", sql`${table.rating} >= 0`),
 ]);
 
 // Workflow Analytics Snapshots

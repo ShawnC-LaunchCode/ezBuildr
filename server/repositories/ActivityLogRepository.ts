@@ -59,7 +59,8 @@ export class ActivityLogRepository {
 
     // Free text search: search across event and actorEmail (if available)
     if (q !== null && q !== undefined && q !== '') {
-      const qLike = `%${q}%`;
+      const qSafe = String(q).slice(0, 100).replace(/[%_\\]/g, '\\$&');
+      const qLike = `%${qSafe}%`;
       const searchConditions: SQL[] = [
         sql`${sql.raw(this.col(this.columns.event))} ILIKE ${qLike}`
       ];
@@ -82,7 +83,8 @@ export class ActivityLogRepository {
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (this.columns.actorEmail) {
         // Use ILIKE for partial matching (e.g., "scooter" matches "scooter4356@gmail.com")
-        const actorLike = `%${actor}%`;
+        const actorSafe = String(actor).slice(0, 100).replace(/[%_\\]/g, '\\$&');
+        const actorLike = `%${actorSafe}%`;
         conditions.push(sql`${sql.raw(this.col(this.columns.actorEmail))} ILIKE ${actorLike}`);
       } else if (this.columns.actorId !== null && this.columns.actorId !== undefined) {
         // Only try to match by ID if the input looks like a valid UUID
