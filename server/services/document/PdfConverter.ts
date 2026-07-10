@@ -22,8 +22,8 @@ export interface PdfConversionStrategy {
 export class PuppeteerStrategy implements PdfConversionStrategy {
     /**
      * Shared browser instance, launched lazily and reused across conversions.
-     * Launching Chromium per conversion is too expensive for callers like
-     * PdfQueueService that convert on a polling loop.
+     * Launching Chromium per conversion is too expensive when converting many
+     * documents in a row.
      */
     private static browserPromise: Promise<Browser> | null = null;
 
