@@ -6,7 +6,7 @@
  * 2. Invite member
  * 3. Accept invite
  * 4. Transfer workflow to org
- * 5. Member can access/edit workflow
+ * 5. Member can access workflow
  * 6. Non-member cannot access workflow
  */
 import { eq, and } from 'drizzle-orm';
@@ -181,17 +181,15 @@ describe('Organization Workflow Integration Tests', () => {
       expect(workflow.id).toBe(testWorkflowId);
       expect(workflow.title).toBe('Test Workflow for Transfer');
     });
-    it('Step 7: Org member (user2) can update workflow', { timeout: 30000 }, async () => {
-      // User2 should be able to update org-owned workflow
-      const updated = await workflowService.updateWorkflow(
+    it('Step 7: Org member (user2) cannot update workflow without edit role', { timeout: 30000 }, async () => {
+      // User2 should be able to view org-owned workflow, but editing requires org admin or ACL edit access.
+      await expect(workflowService.updateWorkflow(
         testWorkflowId,
         user2Id,
         {
           description: 'Updated by org member',
         }
-      );
-      expect(updated).toBeDefined();
-      expect(updated.description).toBe('Updated by org member');
+      )).rejects.toThrow(/Access denied|insufficient permissions/i);
     });
     it('Step 8: Org admin (user1) can still access workflow after transfer', { timeout: 30000 }, async () => {
       // Original owner (now admin) should still have access

@@ -1,6 +1,6 @@
 import { eq, and, desc, or, inArray, getTableColumns, isNull, sql } from "drizzle-orm";
 
-import { projects, organizations, projectAccess, type Project, type InsertProject } from "@shared/schema";
+import { projects, organizations, projectAccess, teamMembers, type Project, type InsertProject } from "@shared/schema";
 
 import { db } from "../db";
 import { getAccessibleOwnershipFilter } from "../utils/ownershipAccess";
@@ -28,9 +28,21 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
       .select({ projectId: projectAccess.projectId })
       .from(projectAccess)
       .where(
-        and(
-          eq(projectAccess.principalType, "user"),
-          eq(projectAccess.principalId, creatorId)
+        or(
+          and(
+            eq(projectAccess.principalType, "user"),
+            eq(projectAccess.principalId, creatorId)
+          ),
+          and(
+            eq(projectAccess.principalType, "team"),
+            inArray(
+              projectAccess.principalId,
+              database
+                .select({ teamId: sql<string>`${teamMembers.teamId}::text` })
+                .from(teamMembers)
+                .where(eq(teamMembers.userId, creatorId))
+            )
+          )
         )
       );
     // Primary: New ownership model
@@ -114,9 +126,21 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
       .select({ projectId: projectAccess.projectId })
       .from(projectAccess)
       .where(
-        and(
-          eq(projectAccess.principalType, "user"),
-          eq(projectAccess.principalId, creatorId)
+        or(
+          and(
+            eq(projectAccess.principalType, "user"),
+            eq(projectAccess.principalId, creatorId)
+          ),
+          and(
+            eq(projectAccess.principalType, "team"),
+            inArray(
+              projectAccess.principalId,
+              database
+                .select({ teamId: sql<string>`${teamMembers.teamId}::text` })
+                .from(teamMembers)
+                .where(eq(teamMembers.userId, creatorId))
+            )
+          )
         )
       );
     // Primary: New ownership model

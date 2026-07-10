@@ -802,8 +802,8 @@ export class WorkflowService {
     // Validate transfer permissions
     await transferService.validateTransfer(
       userId,
-      workflow.ownerType,
-      workflow.ownerUuid,
+      workflow.ownerType ?? 'user',
+      workflow.ownerUuid ?? workflow.ownerId ?? workflow.creatorId ?? userId,
       targetOwnerType,
       targetOwnerUuid
     );

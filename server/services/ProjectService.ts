@@ -282,8 +282,8 @@ export class ProjectService {
     // Validate transfer permissions
     await transferService.validateTransfer(
       userId,
-      project.ownerType,
-      project.ownerUuid,
+      project.ownerType ?? 'user',
+      project.ownerUuid ?? project.ownerId ?? project.createdBy ?? project.creatorId,
       targetOwnerType,
       targetOwnerUuid
     );

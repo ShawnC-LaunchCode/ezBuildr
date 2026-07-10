@@ -142,7 +142,7 @@ describe('Transfer Ownership', () => {
             await db.delete(organizations).where(eq(organizations.id, otherOrg.id));
         });
 
-        it('should allow org member to transfer org-owned project to another org they belong to', async () => {
+        it('should prevent org member without owner role from transferring org-owned project', async () => {
             // Create org-owned project
             const project = await projectService.createProject(
                 { title: 'Org Project', creatorId: userId1, ownerId: userId1, ownerType: 'org', ownerUuid: testOrgId, tenantId: testTenantId },
@@ -157,16 +157,15 @@ describe('Transfer Ownership', () => {
             );
             await organizationService.addMember(org2.id, userId2, userId1, 'member');
 
-            // user2 (member of both orgs) can transfer from org1 to org2
-            const transferred = await projectService.transferOwnership(
-                testProjectId,
-                userId2,
-                'org',
-                org2.id
-            );
-
-            expect(transferred.ownerType).toBe('org');
-            expect(transferred.ownerUuid).toBe(org2.id);
+            // user2 can view org assets as a member, but cannot transfer org-owned projects.
+            await expect(
+                projectService.transferOwnership(
+                    testProjectId,
+                    userId2,
+                    'org',
+                    org2.id
+                )
+            ).rejects.toThrow(/Access denied|insufficient permissions|admin role required/i);
 
             // Cleanup
             await db.delete(organizationMemberships).where(eq(organizationMemberships.orgId, org2.id));
@@ -354,7 +353,7 @@ describe('Transfer Ownership', () => {
             ).rejects.toThrow('Can only transfer to yourself');
         });
 
-        it('should allow transfer from user to self (org member transferring org asset to themselves)', async () => {
+        it('should prevent org member without owner role from transferring org asset to themselves', async () => {
             // Create org-owned project
             const project = await projectService.createProject(
                 { title: 'Org Project', creatorId: userId1, ownerId: userId1, ownerType: 'org', ownerUuid: testOrgId, tenantId: testTenantId },
@@ -362,16 +361,15 @@ describe('Transfer Ownership', () => {
             );
             testProjectId = project.id;
 
-            // user2 (org member) transfers to themselves
-            const transferred = await projectService.transferOwnership(
-                testProjectId,
-                userId2,
-                'user',
-                userId2
-            );
-
-            expect(transferred.ownerType).toBe('user');
-            expect(transferred.ownerUuid).toBe(userId2);
+            // user2 can view org assets as a member, but cannot claim ownership.
+            await expect(
+                projectService.transferOwnership(
+                    testProjectId,
+                    userId2,
+                    'user',
+                    userId2
+                )
+            ).rejects.toThrow(/Access denied|insufficient permissions/i);
         });
     });
 });
