@@ -8,6 +8,7 @@ import {
   workflowRepository,
   type DbTransaction,
 } from "../repositories";
+import { canManageOrg, isOrgMember } from "../utils/ownershipAccess";
 
 /**
  * Service for Access Control List (ACL) resolution
@@ -62,10 +63,11 @@ export class AclService {
    * Returns: 'owner' | 'edit' | 'view' | 'none'
    *
    * Resolution order:
-   * 1. Check if user is owner → 'owner'
-   * 2. Check direct user ACL entry
-   * 3. Check team ACL entries (highest wins)
-   * 4. Default → 'none'
+   * 1. Check ownership fields and legacy owner fields
+   * 2. Org-owned projects grant view to members and owner to org admins
+   * 3. Check direct user ACL entry
+   * 4. Check team ACL entries (highest wins)
+   * 5. Default → 'none'
    */
   async resolveRoleForProject(
     userId: string,
@@ -78,11 +80,24 @@ export class AclService {
       return "none";
     }
 
-    if (project.ownerId === userId) {
-      return "owner";
+    let highestRole: AccessRole = "none";
+
+    if (
+      project.ownerId === userId ||
+      project.createdBy === userId ||
+      project.creatorId === userId ||
+      (project.ownerType === "user" && project.ownerUuid === userId)
+    ) {
+      highestRole = "owner";
     }
 
-    let highestRole: AccessRole = "none";
+    if (project.ownerType === "org" && project.ownerUuid) {
+      if (await canManageOrg(userId, project.ownerUuid)) {
+        highestRole = this.getHighestRole(highestRole, "owner");
+      } else if (await isOrgMember(userId, project.ownerUuid)) {
+        highestRole = this.getHighestRole(highestRole, "view");
+      }
+    }
 
     // 2. Check direct user ACL entry
     const userAcl = await this.projectAccessRepo.findByProjectAndUser(
@@ -117,10 +132,11 @@ export class AclService {
    * Returns: 'owner' | 'edit' | 'view' | 'none'
    *
    * Resolution order:
-   * 1. Check if user is owner → 'owner'
-   * 2. Check direct workflow ACL for user
-   * 3. Check team ACL for workflow
-   * 4. If no workflow ACL exists, fallback to project ACL (if workflow belongs to a project)
+   * 1. Check ownership fields and legacy owner fields
+   * 2. Org-owned workflows grant view to members and owner to org admins
+   * 3. Check direct workflow ACL for user
+   * 4. Check team ACL for workflow
+   * 5. Merge project ACL if workflow belongs to a project
    */
   async resolveRoleForWorkflow(
     userId: string,
@@ -133,11 +149,23 @@ export class AclService {
       return "none";
     }
 
-    if (workflow.ownerId === userId) {
-      return "owner";
+    let highestRole: AccessRole = "none";
+
+    if (
+      workflow.ownerId === userId ||
+      workflow.creatorId === userId ||
+      (workflow.ownerType === "user" && workflow.ownerUuid === userId)
+    ) {
+      highestRole = "owner";
     }
 
-    let highestRole: AccessRole = "none";
+    if (workflow.ownerType === "org" && workflow.ownerUuid) {
+      if (await canManageOrg(userId, workflow.ownerUuid)) {
+        highestRole = this.getHighestRole(highestRole, "owner");
+      } else if (await isOrgMember(userId, workflow.ownerUuid)) {
+        highestRole = this.getHighestRole(highestRole, "view");
+      }
+    }
 
     // 2. Check direct user ACL entry for workflow
     const userWorkflowAcl = await this.workflowAccessRepo.findByWorkflowAndUser(
@@ -168,14 +196,14 @@ export class AclService {
       }
     }
 
-    // 4. If no workflow-specific ACL found and workflow belongs to a project,
-    //    fallback to project ACL
-    if (highestRole === "none" && workflow.projectId) {
-      highestRole = await this.resolveRoleForProject(
+    // 4. Project roles apply to contained workflows. Highest role wins.
+    if (workflow.projectId) {
+      const projectRole = await this.resolveRoleForProject(
         userId,
         workflow.projectId,
         tx
       );
+      highestRole = this.getHighestRole(highestRole, projectRole);
     }
 
     return highestRole;

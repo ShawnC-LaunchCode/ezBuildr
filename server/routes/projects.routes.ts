@@ -9,6 +9,7 @@ import { requireUser } from '../middleware/requireUser';
 import { validateProjectId } from '../middleware/validateId';
 import { projectService } from "../services/ProjectService";
 import { asyncHandler } from "../utils/asyncHandler";
+import { createPaginatedResponse } from "../utils/pagination";
 import { classifyRouteError } from "../utils/routeErrors";
 
 import type { UserRequest } from '../middleware/requireUser';
@@ -16,6 +17,29 @@ import type { Express, Request, Response } from "express";
 
 const ERR_CREATING_PROJECT = "Failed to create project";
 const STATUS_INTERNAL = 500;
+
+const createProjectBodySchema = z.object({
+  title: z.string().trim().min(1).max(255).optional(),
+  name: z.string().trim().min(1).max(255).optional(),
+  description: z.string().max(5000).optional(),
+  ownerType: z.enum(['user', 'org']).optional(),
+  ownerUuid: z.string().uuid().optional(),
+}).refine((body) => Boolean(body.title ?? body.name), {
+  message: "Project name is required",
+  path: ["name"],
+});
+
+const updateProjectBodySchema = z.object({
+  title: z.string().trim().min(1).max(255).optional(),
+  name: z.string().trim().min(1).max(255).optional(),
+  description: z.string().max(5000).optional().nullable(),
+  status: z.enum(['active', 'archived']).optional(),
+});
+
+const listProjectsQuerySchema = z.object({
+  active: z.enum(['true', 'false']).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
 
 /**
  * Register project-related routes
@@ -36,22 +60,34 @@ export function registerProjectRoutes(app: Express): void {
         return res.status(400).json({ message: "User does not have a tenant assigned" });
       }
 
-      const body = req.body as Record<string, unknown>;
+      const parsedBody = createProjectBodySchema.parse(req.body);
+      const title = parsedBody.title ?? parsedBody.name ?? 'Untitled Project';
+      const ownerType = parsedBody.ownerType ?? 'user';
       const projectData = insertProjectSchema.parse({
-        ...body,
-        title: (body.name as string | undefined) ?? (body.title as string | undefined) ?? 'Untitled Project',
+        title,
+        name: parsedBody.name ?? title,
+        description: parsedBody.description,
         creatorId: user.id,
         createdBy: user.id,
         ownerId: user.id,
         tenantId: user.tenantId,
+        ownerType,
+        ownerUuid: parsedBody.ownerUuid ?? user.id,
       });
 
       const project = await projectService.createProject(projectData, user.id);
       res.status(201).json(project);
     } catch (error) {
       logger.error({ error }, "Error creating project");
-      res.status(STATUS_INTERNAL).json({
-        message: ERR_CREATING_PROJECT,
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          error: "Invalid input",
+          details: error.errors,
+        });
+      }
+      const { status, message } = classifyRouteError(error, ERR_CREATING_PROJECT);
+      res.status(status === STATUS_INTERNAL ? STATUS_INTERNAL : status).json({
+        message,
         error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined,
       });
     }
@@ -66,15 +102,49 @@ export function registerProjectRoutes(app: Express): void {
     try {
       const user = (req as UserRequest).user;
 
-      const activeOnly = req.query.active === 'true';
+      const query = listProjectsQuerySchema.parse(req.query);
+      const activeOnly = query.active === 'true';
       const projects = activeOnly
         ? await projectService.listActiveProjects(user.id)
         : await projectService.listProjects(user.id);
 
-      res.json(projects);
+      res.json(createPaginatedResponse(projects.slice(0, query.limit + 1), query.limit));
     } catch (error) {
       logger.error({ error }, "Error fetching projects");
-      res.status(STATUS_INTERNAL).json({ message: "Failed to fetch projects" });
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          error: "Invalid input",
+          details: error.errors,
+        });
+      }
+      const { status, message } = classifyRouteError(error, "Failed to fetch projects");
+      res.status(status).json({ message });
+    }
+  }));
+
+  /**
+   * GET /api/organizations/:orgId/projects
+   * Get projects owned by an organization.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  app.get('/api/organizations/:orgId/projects', hybridAuth, requireUser, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = (req as UserRequest).user;
+      const { orgId } = z.object({ orgId: z.string().uuid() }).parse(req.params);
+      const { active } = z.object({ active: z.enum(['true', 'false']).optional() }).parse(req.query);
+
+      const projects = await projectService.listOrganizationProjects(orgId, user.id, active !== 'false');
+      res.json(projects);
+    } catch (error) {
+      logger.error({ error }, "Error fetching organization projects");
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          error: "Invalid input",
+          details: error.errors,
+        });
+      }
+      const { status, message } = classifyRouteError(error, "Failed to fetch organization projects");
+      res.status(status).json({ message });
     }
   }));
 
@@ -126,16 +196,57 @@ export function registerProjectRoutes(app: Express): void {
       const user = (req as UserRequest).user;
       const { projectId } = req.params;
 
-      const updateData = z.object({
-        title: z.string().optional(),
-        description: z.string().optional(),
-        status: z.enum(['active', 'archived']).optional(),
-      }).parse(req.body);
+      const parsed = updateProjectBodySchema.parse(req.body);
+      const title = parsed.title ?? parsed.name;
+      const updateData = insertProjectSchema.partial().parse({
+        ...(title !== undefined && { title, name: parsed.name ?? title }),
+        ...(parsed.description !== undefined && { description: parsed.description }),
+        ...(parsed.status !== undefined && { status: parsed.status, archived: parsed.status === 'archived' }),
+      });
 
       const project = await projectService.updateProject(projectId, user.id, updateData);
       res.json(project);
     } catch (error) {
       logger.error({ error }, "Error updating project");
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          error: "Invalid input",
+          details: error.errors,
+        });
+      }
+      const { status, message } = classifyRouteError(error, "Failed to update project");
+      res.status(status).json({ message });
+    }
+  }));
+
+  /**
+   * PATCH /api/projects/:projectId
+   * Update a project (compatibility with graph API clients)
+   */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  app.patch('/api/projects/:projectId', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = (req as UserRequest).user;
+      const { projectId } = req.params;
+
+      const parsed = updateProjectBodySchema.parse(req.body);
+      const title = parsed.title ?? parsed.name;
+      const updateData = insertProjectSchema.partial().parse({
+        ...(title !== undefined && { title, name: parsed.name ?? title }),
+        ...(parsed.description !== undefined && { description: parsed.description }),
+        ...(parsed.status !== undefined && { status: parsed.status, archived: parsed.status === 'archived' }),
+      });
+
+      const project = await projectService.updateProject(projectId, user.id, updateData);
+      res.json(project);
+    } catch (error) {
+      logger.error({ error }, "Error updating project");
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          error: "Invalid input",
+          details: error.errors,
+        });
+      }
       const { status, message } = classifyRouteError(error, "Failed to update project");
       res.status(status).json({ message });
     }

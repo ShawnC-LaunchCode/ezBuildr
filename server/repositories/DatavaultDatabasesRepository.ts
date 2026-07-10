@@ -103,7 +103,7 @@ export class DatavaultDatabasesRepository {
         organizations,
         and(
           eq(datavaultDatabases.ownerType, 'org'),
-          eq(datavaultDatabases.ownerUuid, organizations.id)
+          eq(datavaultDatabases.ownerUuid, sql`${organizations.id}::text`)
         )
       )
       .where(

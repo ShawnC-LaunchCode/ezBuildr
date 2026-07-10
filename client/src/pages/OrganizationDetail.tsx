@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-import { ArrowLeft, Users, Mail, Crown, UserMinus, Shield, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Users, Mail, Crown, UserMinus, Shield, AlertCircle, Folder, FolderPlus } from 'lucide-react';
 import React, { useState } from 'react';
 import { useParams, useLocation } from 'wouter';
 
@@ -24,6 +24,7 @@ import {
   useLeaveOrganization,
   useDeleteOrganization,
 } from '@/hooks/useOrganizations';
+import { useCreateProject, useOrganizationProjects } from '@/lib/vault-hooks';
 // eslint-disable-next-line max-lines-per-function, complexity
 export default function OrganizationDetail() {
   const { id: orgId } = useParams<{ id: string }>();
@@ -33,6 +34,7 @@ export default function OrganizationDetail() {
   const { data: organization, isLoading: orgLoading, error: orgError } = useOrganization(orgId);
   const { data: members, isLoading: membersLoading } = useOrganizationMembers(orgId);
   const { data: invites, isLoading: invitesLoading } = useOrganizationInvites(orgId);
+  const { data: projects, isLoading: projectsLoading } = useOrganizationProjects(orgId);
   const updateOrg = useUpdateOrganization(orgId);
   const promoteMember = usePromoteMember(orgId);
   const demoteMember = useDemoteMember(orgId);
@@ -41,9 +43,13 @@ export default function OrganizationDetail() {
   const revokeInvite = useRevokeInvite(orgId);
   const leaveOrg = useLeaveOrganization();
   const deleteOrg = useDeleteOrganization(orgId);
+  const createProject = useCreateProject();
   const [isEditingOrg, setIsEditingOrg] = useState(false);
   const [orgName, setOrgName] = useState('');
   const [orgDescription, setOrgDescription] = useState('');
+  const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
+  const [projectName, setProjectName] = useState('');
+  const [projectDescription, setProjectDescription] = useState('');
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false);
@@ -155,6 +161,39 @@ export default function OrganizationDetail() {
       toast({
         title: 'Error',
         description: 'Failed to send invitation. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+  const handleCreateProject = async () => {
+    if (!orgId) { return; }
+    if (!projectName.trim()) {
+      toast({
+        title: 'Name required',
+        description: 'Project name cannot be empty',
+        variant: 'destructive',
+      });
+      return;
+    }
+    try {
+      await createProject.mutateAsync({
+        title: projectName.trim(),
+        description: projectDescription.trim() || undefined,
+        ownerType: 'org',
+        ownerUuid: orgId,
+      });
+      toast({
+        title: 'Project created',
+        description: 'Organization project is ready',
+      });
+      setIsProjectDialogOpen(false);
+      setProjectName('');
+      setProjectDescription('');
+    } catch (error) {
+      console.error('Failed to create organization project:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to create project. Please try again.',
         variant: 'destructive',
       });
     }
@@ -305,6 +344,59 @@ export default function OrganizationDetail() {
           </CardHeader>
         </Card>
       </div>
+      {/* Projects Section */}
+      <Card className="mb-8">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Projects</CardTitle>
+              <CardDescription>Work owned by this organization</CardDescription>
+            </div>
+            {isAdmin && (
+              <Button onClick={() => { void setIsProjectDialogOpen(true); }}>
+                <FolderPlus className="h-4 w-4 mr-2" />
+                New Project
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {projectsLoading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading projects...</p>
+            </div>
+          ) : !projects || projects.length === 0 ? (
+            <div className="text-center py-8">
+              <Folder className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No organization projects yet</p>
+            </div>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {projects.map((project) => (
+                <div
+                  key={project.id}
+                  className="flex items-center justify-between rounded-lg border bg-card p-4 hover:bg-accent/50 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{project.name ?? project.title}</p>
+                    {project.description && (
+                      <p className="text-sm text-muted-foreground truncate">{project.description}</p>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { void navigate(`/projects/${project.id}`); }}
+                  >
+                    Open
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
       {/* Members Section */}
       <Card className="mb-8">
         <CardHeader>
@@ -481,6 +573,53 @@ export default function OrganizationDetail() {
           )}
         </CardContent>
       </Card>
+      {/* Project Dialog */}
+      <Dialog open={isProjectDialogOpen} onOpenChange={setIsProjectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Organization Project</DialogTitle>
+            <DialogDescription>
+              Create a project owned by {organization?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="projectName">Project Name</Label>
+              <Input
+                id="projectName"
+                value={projectName}
+                onChange={(e) => { void setProjectName(e.target.value); }}
+                placeholder="Project name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="projectDescription">Description</Label>
+              <Textarea
+                id="projectDescription"
+                value={projectDescription}
+                onChange={(e) => { void setProjectDescription(e.target.value); }}
+                placeholder="Optional description"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => { void setIsProjectDialogOpen(false); }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => { void handleCreateProject(); }}
+              disabled={createProject.isPending || !projectName.trim()}
+            >
+              {createProject.isPending ? 'Creating...' : 'Create Project'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {/* Invite Dialog */}
       <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
         <DialogContent>

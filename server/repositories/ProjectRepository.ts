@@ -1,6 +1,6 @@
-import { eq, and, desc, or, inArray, getTableColumns } from "drizzle-orm";
+import { eq, and, desc, or, inArray, getTableColumns, isNull, sql } from "drizzle-orm";
 
-import { projects, organizations, type Project, type InsertProject } from "@shared/schema";
+import { projects, organizations, projectAccess, type Project, type InsertProject } from "@shared/schema";
 
 import { db } from "../db";
 import { getAccessibleOwnershipFilter } from "../utils/ownershipAccess";
@@ -24,6 +24,15 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
     // Build conditions for ownership access
     // Prioritize new ownership model to avoid duplicates
     const conditions = [];
+    const sharedProjectIds = database
+      .select({ projectId: projectAccess.projectId })
+      .from(projectAccess)
+      .where(
+        and(
+          eq(projectAccess.principalType, "user"),
+          eq(projectAccess.principalId, creatorId)
+        )
+      );
     // Primary: New ownership model
     if (isUuid(creatorId)) {
       conditions.push(
@@ -36,11 +45,12 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
         and(eq(projects.ownerType, 'org'), inArray(projects.ownerUuid, orgIds))
       );
     }
+    // Explicit project sharing through ACL
+    conditions.push(inArray(projects.id, sharedProjectIds));
     // Fallback: Legacy ownership (only for projects without new ownership)
     conditions.push(
       and(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
-        eq(projects.ownerType, null as any), // Drizzle null check for legacy data
+        isNull(projects.ownerType),
         or(eq(projects.createdBy, creatorId), eq(projects.creatorId, creatorId))
       )
     );
@@ -55,7 +65,7 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
         organizations,
         and(
           eq(projects.ownerType, 'org'),
-          eq(projects.ownerUuid, organizations.id)
+          eq(projects.ownerUuid, sql`${organizations.id}::text`)
         )
       )
       .where(or(...conditions))
@@ -100,6 +110,15 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
     // Build conditions for ownership access
     // Prioritize new ownership model to avoid duplicates
     const conditions = [];
+    const sharedProjectIds = database
+      .select({ projectId: projectAccess.projectId })
+      .from(projectAccess)
+      .where(
+        and(
+          eq(projectAccess.principalType, "user"),
+          eq(projectAccess.principalId, creatorId)
+        )
+      );
     // Primary: New ownership model
     if (isUuid(creatorId)) {
       conditions.push(
@@ -120,11 +139,17 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
         )
       );
     }
+    // Explicit project sharing through ACL
+    conditions.push(
+      and(
+        inArray(projects.id, sharedProjectIds),
+        eq(projects.status, 'active')
+      )
+    );
     // Fallback: Legacy ownership (only for projects without new ownership)
     conditions.push(
       and(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
-        eq(projects.ownerType, null as any), // Drizzle null check for legacy data
+        isNull(projects.ownerType),
         or(eq(projects.createdBy, creatorId), eq(projects.creatorId, creatorId)),
         eq(projects.status, 'active')
       )
@@ -134,6 +159,42 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
       .from(projects)
       .where(or(...conditions))
       .orderBy(desc(projects.updatedAt));
+  }
+
+  /**
+   * Find projects by ownership. Used for organization project lists.
+   */
+  async findByOwner(
+    ownerType: 'user' | 'org',
+    ownerUuid: string,
+    activeOnly = false,
+    tx?: DbTransaction
+  ): Promise<Project[]> {
+    const database = this.getDb(tx);
+    const conditions = [
+      eq(projects.ownerType, ownerType),
+      eq(projects.ownerUuid, ownerUuid),
+    ];
+    if (activeOnly) {
+      conditions.push(eq(projects.status, 'active'));
+    }
+    const results = await database
+      .select({
+        ...getTableColumns(projects),
+        ownerName: organizations.name,
+      })
+      .from(projects)
+      .leftJoin(
+        organizations,
+        and(
+          eq(projects.ownerType, 'org'),
+          eq(projects.ownerUuid, sql`${organizations.id}::text`)
+        )
+      )
+      .where(and(...conditions))
+      .orderBy(desc(projects.updatedAt));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
+    return results as any;
   }
 }
 // Singleton instance

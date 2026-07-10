@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach, vi, type Mock, type Mocked } from "vi
 import { aclService } from "../../../server/services/AclService";
 import { createTestWorkflow, createTestSection, createTestLogicRule } from "../../factories/workflowFactory";
 
-import type { InsertWorkflow } from "../../../shared/schema";
+import type { InsertWorkflow, Project } from "../../../shared/schema";
 import type { WorkflowService } from "../../../server/services/WorkflowService";
 import type {
   WorkflowRepository,
@@ -191,6 +191,7 @@ describe("WorkflowService", () => {
         title: "Section 1",
         order: 1,
       });
+      mockProjectRepo.findById.mockResolvedValue({ id: "project-123", ownerType: "user", ownerUuid: "user-123" } as unknown as Project);
       mockWorkflowRepo.create.mockResolvedValue(createdWorkflow);
       mockSectionRepo.create.mockResolvedValue(createdSection);
       const result = await service.createWorkflow(workflowData, "user-123");

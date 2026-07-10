@@ -1,4 +1,4 @@
-import type { Project, InsertProject, Workflow, ProjectAccess, PrincipalType } from "@shared/schema";
+import type { Project, InsertProject, Workflow, ProjectAccess, PrincipalType, AccessRole } from "@shared/schema";
 
 import {
   projectRepository,
@@ -6,7 +6,9 @@ import {
   projectAccessRepository,
   type DbTransaction,
 } from "../repositories";
-import { canAccessAsset } from "../utils/ownershipAccess";
+import { canCreateWithOwnership, canManageOrg, isOrgMember } from "../utils/ownershipAccess";
+
+import { aclService } from "./AclService";
 /**
  * Service layer for project-related business logic
  */
@@ -23,25 +25,40 @@ export class ProjectService {
     this.workflowRepo = workflowRepo ?? workflowRepository;
     this.projectAccessRepo = projectAccessRepo ?? projectAccessRepository;
   }
-  /**
-   * Verify user owns or has access to the project (ownership-based access)
-   */
-  async verifyOwnership(projectId: string, userId: string): Promise<Project> {
+
+  private hasMinimumRole(userRole: AccessRole, minRole: Exclude<AccessRole, 'none'>): boolean {
+    const rolePrecedence: Record<AccessRole, number> = {
+      owner: 4,
+      edit: 3,
+      view: 2,
+      none: 1,
+    };
+    return rolePrecedence[userRole] >= rolePrecedence[minRole];
+  }
+
+  async verifyProjectAccess(
+    projectId: string,
+    userId: string,
+    minRole: Exclude<AccessRole, 'none'> = 'view'
+  ): Promise<Project> {
     const project = await this.projectRepo.findById(projectId);
     if (!project) {
       throw new Error("Project not found");
     }
-    // Check ownership-based access (new model)
-    const hasAccess = await canAccessAsset(userId, project.ownerType, project.ownerUuid);
-    if (hasAccess) {
-      return project;
+
+    const userRole = await aclService.resolveRoleForProject(userId, projectId);
+    if (!this.hasMinimumRole(userRole, minRole)) {
+      throw new Error("Access denied - insufficient permissions for this project");
     }
-    // Fallback: Check legacy ownership
-    const projectCreator = project.createdBy ?? project.creatorId;
-    if (projectCreator === userId) {
-      return project;
-    }
-    throw new Error("Access denied - you do not have permission to access this project");
+
+    return project;
+  }
+
+  /**
+   * Verify user owns or has access to the project (ownership-based access)
+   */
+  async verifyOwnership(projectId: string, userId: string): Promise<Project> {
+    return this.verifyProjectAccess(projectId, userId, 'view');
   }
   /**
    * Create a new project
@@ -50,13 +67,24 @@ export class ProjectService {
     // Validate ownership before creating
     const ownerType = data.ownerType ?? 'user';
     const ownerUuid = data.ownerUuid ?? creatorId;
-    const { canCreateWithOwnership } = await import('../utils/ownershipAccess');
-    const canCreate = await canCreateWithOwnership(creatorId, ownerType, ownerUuid);
-    if (!canCreate) {
-      throw new Error('Access denied: You do not have permission to create assets with this ownership');
+
+    if (ownerType === 'org') {
+      const canManage = await canManageOrg(creatorId, ownerUuid);
+      if (!canManage) {
+        throw new Error('Access denied: Organization admin role required to create organization projects');
+      }
+    } else {
+      const canCreate = await canCreateWithOwnership(creatorId, ownerType, ownerUuid);
+      if (!canCreate) {
+        throw new Error('Access denied: You do not have permission to create assets with this ownership');
+      }
     }
+
+    const title = data.title ?? data.name ?? 'Untitled Project';
     return this.projectRepo.create({
       ...data,
+      title,
+      name: data.name ?? title,
       creatorId: creatorId, // Legacy field (required)
       createdBy: creatorId,
       ownerId: creatorId, // Creator is also the initial owner (legacy)
@@ -70,7 +98,7 @@ export class ProjectService {
    */
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   async getProjectWithWorkflows(projectId: string, userId: string) {
-    const project = await this.verifyOwnership(projectId, userId);
+    const project = await this.verifyProjectAccess(projectId, userId, 'view');
     const workflows = await this.workflowRepo.findByProjectId(projectId);
     return {
       ...project,
@@ -90,6 +118,16 @@ export class ProjectService {
     return this.projectRepo.findActiveByCreatorId(creatorId);
   }
   /**
+   * List projects owned by a specific organization.
+   */
+  async listOrganizationProjects(orgId: string, userId: string, activeOnly = true): Promise<Project[]> {
+    const isMember = await isOrgMember(userId, orgId);
+    if (!isMember) {
+      throw new Error("Access denied - you do not have permission to access this organization");
+    }
+    return this.projectRepo.findByOwner('org', orgId, activeOnly);
+  }
+  /**
    * Update project
    */
   async updateProject(
@@ -97,25 +135,27 @@ export class ProjectService {
     userId: string,
     data: Partial<InsertProject>
   ): Promise<Project> {
-    await this.verifyOwnership(projectId, userId);
+    await this.verifyProjectAccess(projectId, userId, 'edit');
     return this.projectRepo.update(projectId, data);
   }
   /**
    * Archive project (soft delete)
    */
   async archiveProject(projectId: string, userId: string): Promise<Project> {
-    await this.verifyOwnership(projectId, userId);
+    await this.verifyProjectAccess(projectId, userId, 'edit');
     return this.projectRepo.update(projectId, {
       status: 'archived',
+      archived: true,
     });
   }
   /**
    * Unarchive project
    */
   async unarchiveProject(projectId: string, userId: string): Promise<Project> {
-    await this.verifyOwnership(projectId, userId);
+    await this.verifyProjectAccess(projectId, userId, 'edit');
     return this.projectRepo.update(projectId, {
       status: 'active',
+      archived: false,
     });
   }
   /**
@@ -123,21 +163,24 @@ export class ProjectService {
    * Note: Workflows will have their projectId set to null (on delete set null)
    */
   async deleteProject(projectId: string, userId: string): Promise<void> {
-    await this.verifyOwnership(projectId, userId);
-    await this.projectRepo.delete(projectId);
+    await this.verifyProjectAccess(projectId, userId, 'owner');
+    await this.projectRepo.update(projectId, {
+      status: 'archived',
+      archived: true,
+    });
   }
   /**
    * Get workflows in a project
    */
   async getProjectWorkflows(projectId: string, userId: string): Promise<Workflow[]> {
-    await this.verifyOwnership(projectId, userId);
+    await this.verifyProjectAccess(projectId, userId, 'view');
     return this.workflowRepo.findByProjectId(projectId);
   }
   /**
    * Count workflows in a project
    */
   async countProjectWorkflows(projectId: string, userId: string): Promise<number> {
-    await this.verifyOwnership(projectId, userId);
+    await this.verifyProjectAccess(projectId, userId, 'view');
     const workflows = await this.workflowRepo.findByProjectId(projectId);
     return workflows.length;
   }
@@ -148,7 +191,7 @@ export class ProjectService {
    * Get all ACL entries for a project
    */
   async getProjectAccess(projectId: string, userId: string, tx?: DbTransaction): Promise<ProjectAccess[]> {
-    await this.verifyOwnership(projectId, userId);
+    await this.verifyProjectAccess(projectId, userId, 'owner');
     return this.projectAccessRepo.findByProjectId(projectId, tx);
   }
   /**
@@ -161,13 +204,9 @@ export class ProjectService {
     entries: Array<{ principalType: PrincipalType; principalId: string; role: string }>,
     tx?: DbTransaction
   ): Promise<ProjectAccess[]> {
-    const project = await this.verifyOwnership(projectId, requestorId);
+    await this.verifyProjectAccess(projectId, requestorId, 'owner');
     const results: ProjectAccess[] = [];
     for (const entry of entries) {
-      // Only owner can grant 'owner' role
-      if (entry.role === 'owner' && project.ownerId !== requestorId) {
-        throw new Error("Only the project owner can grant owner access to others");
-      }
       const acl = await this.projectAccessRepo.upsert(
         projectId,
         entry.principalType,
@@ -188,7 +227,7 @@ export class ProjectService {
     entries: Array<{ principalType: PrincipalType; principalId: string }>,
     tx?: DbTransaction
   ): Promise<void> {
-    await this.verifyOwnership(projectId, requestorId);
+    await this.verifyProjectAccess(projectId, requestorId, 'owner');
     for (const entry of entries) {
       await this.projectAccessRepo.deleteByPrincipal(
         projectId,
@@ -208,10 +247,7 @@ export class ProjectService {
     newOwnerId: string,
     tx?: DbTransaction
   ): Promise<Project> {
-    const project = await this.verifyOwnership(projectId, currentOwnerId);
-    if (project.ownerId !== currentOwnerId) {
-      throw new Error("Only the current owner can transfer ownership");
-    }
+    await this.verifyProjectAccess(projectId, currentOwnerId, 'owner');
     return this.projectRepo.update(
       projectId,
       {
@@ -239,7 +275,10 @@ export class ProjectService {
     const { workflowRuns } = await import('@shared/schema');
     const { inArray } = await import('drizzle-orm');
     const { db } = await import('../db');
-    const project = await this.verifyOwnership(projectId, userId);
+    const project = await this.verifyProjectAccess(projectId, userId, 'owner');
+    if (targetOwnerType === 'org' && !(await canManageOrg(userId, targetOwnerUuid))) {
+      throw new Error('Access denied: Organization admin role required to transfer projects to this organization');
+    }
     // Validate transfer permissions
     await transferService.validateTransfer(
       userId,

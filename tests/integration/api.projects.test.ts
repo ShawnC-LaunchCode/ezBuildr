@@ -239,7 +239,7 @@ describe.sequential("Projects API Integration Tests", () => {
       await request(baseURL)
         .get(`/api/projects/${projectId}`)
         .set("Authorization", `Bearer ${otherAuthToken}`)
-        .expect(404);
+        .expect(403);
     });
   });
 });

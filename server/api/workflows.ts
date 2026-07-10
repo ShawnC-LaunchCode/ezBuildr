@@ -2,6 +2,7 @@ import { eq, and, desc, lt, ilike, ExtractTablesWithRelations } from 'drizzle-or
 import { Router, type Request, Response } from 'express';
 
 import * as schema from '@shared/schema';
+import type { AccessRole } from '@shared/schema';
 
 import { db } from '../db';
 import { validateGraphStructure } from '../engine';
@@ -11,6 +12,7 @@ import { logger } from '../logger';
 import { hybridAuth } from '../middleware/auth';
 import { requirePermission } from '../middleware/rbac';
 import { requireTenant } from '../middleware/tenant';
+import { aclService } from '../services/AclService';
 import { workflowService } from '../services/WorkflowService';
 import { asyncHandler } from '../utils/asyncHandler';
 import { createError, formatErrorResponse } from '../utils/errors';
@@ -31,6 +33,27 @@ import type { AuthRequest } from '../middleware/auth';
 import type { PgTransaction } from 'drizzle-orm/pg-core';
 import type { PostgresJsQueryResultHKT } from 'drizzle-orm/postgres-js';
 const router = Router();
+
+type WorkflowAccessSubject = {
+  id: string;
+  ownerId: string | null;
+  project?: { tenantId: string | null } | null;
+};
+
+async function assertWorkflowRole(
+  workflow: WorkflowAccessSubject,
+  userId: string,
+  tenantId: string,
+  minRole: Exclude<AccessRole, 'none'>,
+  resourceName = 'workflow'
+): Promise<void> {
+  if (workflow.project && workflow.project.tenantId !== tenantId) {
+    throw createError.forbidden(`Access denied to this ${resourceName}`);
+  }
+  if (!(await aclService.hasWorkflowRole(userId, workflow.id, minRole))) {
+    throw createError.forbidden(`Access denied to this ${resourceName}`);
+  }
+}
 /**
  * GET /projects/:projectId/workflows
  * List workflows for a project
@@ -45,6 +68,7 @@ router.get(
     try {
       const authReq = req as AuthRequest;
       const tenantId = authReq.tenantId!;
+      const userId = authReq.userId!;
       // Validate params and query
       const params = projectIdParamsSchema.parse(req.params);
       const query = listWorkflowsQuerySchema.parse(req.query);
@@ -58,6 +82,9 @@ router.get(
       });
       if (!project) {
         throw createError.notFound('Project', params.projectId);
+      }
+      if (!(await aclService.hasProjectRole(userId, params.projectId, 'view'))) {
+        throw createError.forbidden('Access denied to this project');
       }
       // Build where clause
       const whereConditions = [eq(schema.workflows.projectId, params.projectId)];
@@ -119,6 +146,11 @@ router.post(
       if (!project) {
         throw createError.notFound('Project', params.projectId);
       }
+      if (!(await aclService.hasProjectRole(userId, params.projectId, 'edit'))) {
+        throw createError.forbidden('Access denied to this project');
+      }
+      const ownerType = project.ownerType ?? 'user';
+      const ownerUuid = project.ownerUuid ?? project.ownerId ?? userId;
       // Validate graph structure if provided
       if (data.graphJson) {
         validateGraphStructure(data.graphJson);
@@ -143,6 +175,8 @@ router.post(
             name: data.name,
             projectId: params.projectId,
             status: 'draft',
+            ownerType,
+            ownerUuid,
           })
           .returning();
         // Create initial draft version
@@ -201,15 +235,7 @@ router.get(
       if (!workflow) {
         throw createError.notFound('Workflow', params.id);
       }
-      // Verify tenant access
-      if (workflow.project) {
-        if (workflow.project.tenantId !== tenantId) {
-          // eslint-disable-next-line sonarjs/no-duplicate-string
-          throw createError.forbidden('Access denied to this workflow');
-        }
-      } else if (workflow.ownerId !== userId) {
-        throw createError.forbidden('Access denied to this workflow');
-      }
+      await assertWorkflowRole(workflow, userId, tenantId, 'view');
       res.json(workflow);
     } catch (error) {
       const formatted = formatErrorResponse(error);
@@ -246,14 +272,7 @@ router.patch(
       if (!workflow) {
         throw createError.notFound('Workflow', params.id);
       }
-      // Verify tenant access
-      if (workflow.project) {
-        if (workflow.project.tenantId !== tenantId) {
-          throw createError.forbidden('Access denied to this workflow');
-        }
-      } else if (workflow.ownerId !== userId) {
-        throw createError.forbidden('Access denied to this workflow');
-      }
+      await assertWorkflowRole(workflow, userId, tenantId, 'edit');
       // Only allow editing draft workflows
       if (workflow.status !== 'draft') {
         throw createError.workflowNotDraft();
@@ -336,14 +355,7 @@ router.post(
       if (!workflow) {
         throw createError.notFound('Workflow', params.id);
       }
-      // Verify tenant access
-      if (workflow.project) {
-        if (workflow.project.tenantId !== tenantId) {
-          throw createError.forbidden('Access denied to this workflow');
-        }
-      } else if (workflow.ownerId !== userId) {
-        throw createError.forbidden('Access denied to this workflow');
-      }
+      await assertWorkflowRole(workflow, userId, tenantId, 'edit');
       // Must have a current version
       if (!workflow.currentVersion) {
         throw createError.workflowNoVersion();
@@ -422,14 +434,7 @@ router.get(
       if (!workflow) {
         throw createError.notFound('Workflow', params.id);
       }
-      // Verify tenant access
-      if (workflow.project) {
-        if (workflow.project.tenantId !== tenantId) {
-          throw createError.forbidden('Access denied to this workflow');
-        }
-      } else if (workflow.ownerId !== userId) {
-        throw createError.forbidden('Access denied to this workflow');
-      }
+      await assertWorkflowRole(workflow, userId, tenantId, 'view');
       // Build where clause
       const whereConditions = [eq(schema.workflowVersions.workflowId, params.id)];
       if (cursor) {
@@ -500,14 +505,7 @@ router.get(
       if (!version) {
         throw createError.notFound('WorkflowVersion', params.versionId);
       }
-      // Verify tenant access
-      if (version.workflow.project) {
-        if (version.workflow.project.tenantId !== tenantId) {
-          throw createError.forbidden('Access denied to this version');
-        }
-      } else if (version.workflow.ownerId !== userId) {
-        throw createError.forbidden('Access denied to this version');
-      }
+      await assertWorkflowRole(version.workflow, userId, tenantId, 'view', 'version');
       res.json(version);
     } catch (error) {
       const formatted = formatErrorResponse(error);
@@ -553,14 +551,7 @@ router.post(
       if (!workflow) {
         throw createError.notFound('Workflow', workflowId);
       }
-      // Verify tenant access
-      if (workflow.project) {
-        if (workflow.project.tenantId !== tenantId) {
-          throw createError.forbidden('Access denied to this workflow');
-        }
-      } else if (workflow.ownerId !== userId) {
-        throw createError.forbidden('Access denied to this workflow');
-      }
+      await assertWorkflowRole(workflow, userId, tenantId, 'view');
       // Get current graph
       const graphJson = workflow.currentVersion?.graphJson as GraphJson;
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
@@ -624,14 +615,7 @@ router.get(
       if (!workflow) {
         throw createError.notFound('Workflow', workflowId);
       }
-      // Verify tenant access
-      if (workflow.project) {
-        if (workflow.project.tenantId !== tenantId) {
-          throw createError.forbidden('Access denied to this workflow');
-        }
-      } else if (workflow.ownerId !== userId) {
-        throw createError.forbidden('Access denied to this workflow');
-      }
+      await assertWorkflowRole(workflow, userId, tenantId, 'view');
       // Get current graph
       const graphJson = workflow.currentVersion?.graphJson as GraphJson;
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions

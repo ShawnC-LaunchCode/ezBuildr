@@ -4,6 +4,14 @@ import { projectAPI, type ApiProject, type ApiProjectWithWorkflows, type ApiWork
 
 import { queryKeys } from "./queryKeys";
 
+export interface CreateProjectInput {
+    title?: string;
+    name?: string;
+    description?: string;
+    ownerType?: 'user' | 'org';
+    ownerUuid?: string;
+}
+
 export function useProjects(activeOnly?: boolean): UseQueryResult<ApiProject[]> {
     return useQuery({
         queryKey: queryKeys.projects,
@@ -31,12 +39,23 @@ export function useProjectWorkflows(projectId: string | undefined): UseQueryResu
     });
 }
 
-export function useCreateProject(): UseMutationResult<ApiProject, unknown, { title: string; description?: string }> {
+export function useOrganizationProjects(orgId: string | undefined): UseQueryResult<ApiProject[]> {
+    return useQuery({
+        queryKey: queryKeys.organizationProjects(orgId ?? ""),
+        queryFn: () => projectAPI.listForOrganization(orgId ?? ""),
+        enabled: !!orgId && orgId !== "undefined",
+    });
+}
+
+export function useCreateProject(): UseMutationResult<ApiProject, unknown, CreateProjectInput> {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: projectAPI.create,
-        onSuccess: async () => {
+        onSuccess: async (project) => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+            if (project.ownerType === 'org' && project.ownerUuid) {
+                await queryClient.invalidateQueries({ queryKey: queryKeys.organizationProjects(project.ownerUuid) });
+            }
         },
     });
 }

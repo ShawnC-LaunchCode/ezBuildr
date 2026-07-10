@@ -9,7 +9,6 @@ import { registerAiRoutes } from "./ai.routes";
 import aiOptimizationRouter from "./api.ai.optimization.routes";
 import aiPersonalizationRouter from "./api.ai.personalization.routes";
 import aiTransformRouter from "./api.ai.transform.routes";
-import { registerApiProjectRoutes } from "./api.projects.routes";
 import { registerApiRunRoutes } from "./api.runs.routes";
 import { registerApiTemplateRoutes } from "./api.templates.routes";
 import { registerApiWorkflowRoutes } from "./api.workflows.routes";
@@ -120,7 +119,6 @@ export function registerAllRoutes(app: Express): void {
   registerTransformBlockRoutes(app);
 
   // REST API Endpoints (New graph-based workflow system)
-  registerApiProjectRoutes(app);
   registerApiWorkflowRoutes(app);
   registerApiTemplateRoutes(app);
   registerApiRunRoutes(app);

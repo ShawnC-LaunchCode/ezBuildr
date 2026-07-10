@@ -3,7 +3,7 @@ import { eq, inArray } from "drizzle-orm";
 import crypto from "crypto";
 
 import type { Workflow, InsertWorkflow, Step, WorkflowAccess, PrincipalType, AccessRole, InsertStep, InsertLogicRule } from "@shared/schema";
-import { workflowVersions, workflows, sections, steps, logicRules, auditLogs, projects } from "@shared/schema";
+import { workflowVersions, workflows, sections, steps, logicRules, auditLogs, projects, workflowRuns } from "@shared/schema";
 
 interface GraphConfig {
   title?: string;
@@ -63,7 +63,7 @@ import {
   projectRepository,
   type DbTransaction,
 } from "../repositories";
-import { canAccessAsset } from "../utils/ownershipAccess";
+import { canCreateWithOwnership, canManageOrg } from "../utils/ownershipAccess";
 
 import { aclService } from "./AclService";
 /**
@@ -121,17 +121,6 @@ export class WorkflowService {
     if (!workflow) {
       throw new Error("Workflow not found");
     }
-    // First check ownership-based access (new model)
-    const hasOwnershipAccess = await canAccessAsset(
-      userId,
-      workflow.ownerType,
-      workflow.ownerUuid
-    );
-    // If ownership access granted, allow (for MVP, members can read+write)
-    if (hasOwnershipAccess) {
-      return workflow;
-    }
-    // Fallback to ACL service for shared workflows
     const hasAclAccess = await aclService.hasWorkflowRole(userId, workflow.id, minRole);
     if (!hasAclAccess) {
       throw new Error("Access denied - insufficient permissions for this workflow");
@@ -142,14 +131,32 @@ export class WorkflowService {
    * Create a new workflow with a default first section
    */
   async createWorkflow(data: InsertWorkflow, creatorId: string): Promise<Workflow> {
-    // Validate ownership before creating
-    const ownerType = data.ownerType ?? 'user';
-    const ownerUuid = data.ownerUuid ?? creatorId;
-    const { canCreateWithOwnership } = await import('../utils/ownershipAccess');
-    const canCreate = await canCreateWithOwnership(creatorId, ownerType, ownerUuid);
-    if (!canCreate) {
-      throw new Error('Access denied: You do not have permission to create assets with this ownership');
+    let ownerType = data.ownerType ?? 'user';
+    let ownerUuid = data.ownerUuid ?? creatorId;
+
+    if (data.projectId) {
+      const project = await this.projectRepo.findById(data.projectId);
+      if (!project) {
+        throw new Error("Project not found");
+      }
+      const hasProjectAccess = await aclService.hasProjectRole(creatorId, data.projectId, 'edit');
+      if (!hasProjectAccess) {
+        throw new Error("Access denied - insufficient permissions for this project");
+      }
+      ownerType = project.ownerType ?? 'user';
+      ownerUuid = project.ownerUuid ?? project.ownerId ?? creatorId;
+    } else if (ownerType === 'org') {
+      const canManage = await canManageOrg(creatorId, ownerUuid);
+      if (!canManage) {
+        throw new Error('Access denied: Organization admin role required to create organization workflows');
+      }
+    } else {
+      const canCreate = await canCreateWithOwnership(creatorId, ownerType, ownerUuid);
+      if (!canCreate) {
+        throw new Error('Access denied: You do not have permission to create assets with this ownership');
+      }
     }
+
     return this.workflowRepo.transaction(async (tx) => {
       // Create workflow
       const workflow = await this.workflowRepo.create(
@@ -344,13 +351,27 @@ export class WorkflowService {
       if (!project) {
         throw new Error("Target project not found");
       }
-      // Verify user owns or has access to the target project (use ACL)
       const hasProjectAccess = await aclService.hasProjectRole(userId, projectId, 'edit');
       if (!hasProjectAccess) {
         throw new Error("Access denied - you do not have access to the target project");
       }
+      const ownerType = project.ownerType ?? 'user';
+      const ownerUuid = project.ownerUuid ?? project.ownerId ?? userId;
+      const workflow = await this.workflowRepo.update(workflowId, {
+        projectId,
+        ownerType,
+        ownerUuid,
+      });
+      await db
+        .update(workflowRuns)
+        .set({
+          ownerType,
+          ownerUuid,
+        })
+        .where(eq(workflowRuns.workflowId, workflowId));
+      return workflow;
     }
-    return this.workflowRepo.moveToProject(workflowId, projectId);
+    return this.workflowRepo.update(workflowId, { projectId });
   }
   /**
    * Get unfiled workflows (workflows with no project) for a creator
@@ -501,7 +522,7 @@ export class WorkflowService {
    * Creates a unique slug-based link if one doesn't exist
    */
   async getOrGeneratePublicLink(workflowId: string, userId: string): Promise<string> {
-    const workflow = await this.verifyAccess(workflowId, userId, 'edit');
+    const workflow = await this.verifyAccess(workflowId, userId, 'owner');
     // If publicLink already exists, return it
     if (workflow.publicLink) {
       return this.constructPublicUrl(workflow.publicLink);
@@ -774,7 +795,10 @@ export class WorkflowService {
     targetOwnerUuid: string
   ): Promise<Workflow & { detachedFromProject?: boolean; detachmentReason?: string }> {
     const { transferService } = await import('./TransferService');
-    const workflow = await this.verifyAccess(workflowId, userId, 'edit');
+    const workflow = await this.verifyAccess(workflowId, userId, 'owner');
+    if (targetOwnerType === 'org' && !(await canManageOrg(userId, targetOwnerUuid))) {
+      throw new Error('Access denied: Organization admin role required to transfer workflows to this organization');
+    }
     // Validate transfer permissions
     await transferService.validateTransfer(
       userId,
@@ -805,8 +829,6 @@ export class WorkflowService {
     }
     // Update workflow ownership
     const updatedWorkflow = await this.workflowRepo.update(workflowId, updateData);
-    // Cascade ownership to all runs for this workflow
-    const { workflowRuns } = await import('@shared/schema');
     await db
       .update(workflowRuns)
       .set({

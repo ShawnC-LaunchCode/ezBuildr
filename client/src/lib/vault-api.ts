@@ -179,6 +179,7 @@ export function apiWithToken(runToken: string) {
 export interface ApiProject {
   id: string;
   title: string;
+  name?: string | null;
   description: string | null;
   creatorId: string;
   status: "active" | "archived";
@@ -202,10 +203,18 @@ export const projectAPI = {
     return response.items ?? [];
   },
   get: (id: string) => fetchAPI<ApiProjectWithWorkflows>(`/api/projects/${id}`),
-  create: (data: { title: string; description?: string }) =>
+  listForOrganization: (orgId: string, activeOnly = true) => {
+    const query = activeOnly ? '?active=true' : '?active=false';
+    return fetchAPI<ApiProject[]>(`/api/organizations/${orgId}/projects${query}`);
+  },
+  create: (data: { title?: string; name?: string; description?: string; ownerType?: 'user' | 'org'; ownerUuid?: string }) =>
     fetchAPI<ApiProject>("/api/projects", {
       method: "POST",
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...data,
+        title: data.title ?? data.name,
+        name: data.name ?? data.title,
+      }),
     }),
   update: (id: string, data: Partial<Omit<ApiProject, 'id' | 'creatorId' | 'createdAt' | 'updatedAt'>>) =>
     fetchAPI<ApiProject>(`/api/projects/${id}`, {
@@ -224,8 +233,15 @@ export const projectAPI = {
     fetchAPI<void>(`/api/projects/${id}`, {
       method: "DELETE",
     }),
-  getWorkflows: (projectId: string) =>
-    fetchAPI<ApiWorkflow[]>(`/api/projects/${projectId}/workflows`),
+  getWorkflows: async (projectId: string) => {
+    const response = await fetchAPI<ApiWorkflow[] | { items: ApiWorkflow[], nextCursor: string | null, hasMore: boolean }>(
+      `/api/projects/${projectId}/workflows`
+    );
+    if (Array.isArray(response)) {
+      return response;
+    }
+    return response.items ?? [];
+  },
   transfer: (id: string, targetOwnerType: 'user' | 'org', targetOwnerUuid: string) =>
     fetchAPI<ApiProject>(`/api/projects/${id}/transfer`, {
       method: "POST",
