@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
 
 import { DevPanelBus } from "../../lib/devpanelBus";
-import { workflowAPI, type ApiWorkflow } from "../../lib/vault-api";
+import { workflowAPI, type ApiAccessResponse, type ApiWorkflow, type ApiWorkflowAccess } from "../../lib/vault-api";
 
 import { queryKeys } from "./queryKeys";
 
@@ -28,7 +28,7 @@ export function useWorkflow(id: string | undefined, options?: Omit<UseQueryOptio
     });
 }
 
-export function useCreateWorkflow(): UseMutationResult<ApiWorkflow, unknown, { title: string; projectId?: string | null; description?: string }> {
+export function useCreateWorkflow(): UseMutationResult<ApiWorkflow, unknown, { title: string; projectId?: string | null; description?: string; ownerType?: 'user' | 'org'; ownerUuid?: string }> {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: workflowAPI.create,
@@ -97,4 +97,53 @@ export function useTransferWorkflow(): UseMutationResult<ApiWorkflow, unknown, {
       await queryClient.invalidateQueries({ queryKey: queryKeys.workflowsUnfiled });
     },
   });
+}
+
+export function useWorkflowAccess(
+    workflowId: string | undefined,
+    options?: Omit<UseQueryOptions<ApiAccessResponse<ApiWorkflowAccess>>, "queryKey" | "queryFn">
+): UseQueryResult<ApiAccessResponse<ApiWorkflowAccess>> {
+    return useQuery({
+        queryKey: queryKeys.workflowAccess(workflowId ?? ""),
+        queryFn: () => workflowAPI.getAccessDetails(workflowId ?? ""),
+        enabled: !!workflowId && workflowId !== "undefined",
+        retry: false,
+        ...options,
+    });
+}
+
+export function useGrantWorkflowAccess(): UseMutationResult<
+    ApiWorkflowAccess[],
+    unknown,
+    {
+        workflowId: string;
+        entries: Array<{ principalType: 'user' | 'team'; principalId: string; role: 'view' | 'edit' | 'owner' }>;
+    }
+> {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ workflowId, entries }) => workflowAPI.grantAccess(workflowId, entries),
+        onSuccess: async (_, variables) => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.workflowAccess(variables.workflowId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.workflow(variables.workflowId) });
+        },
+    });
+}
+
+export function useRevokeWorkflowAccess(): UseMutationResult<
+    unknown,
+    unknown,
+    {
+        workflowId: string;
+        entries: Array<{ principalType: 'user' | 'team'; principalId: string }>;
+    }
+> {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ workflowId, entries }) => workflowAPI.revokeAccess(workflowId, entries),
+        onSuccess: async (_, variables) => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.workflowAccess(variables.workflowId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.workflow(variables.workflowId) });
+        },
+    });
 }

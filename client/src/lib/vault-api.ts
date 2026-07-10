@@ -201,6 +201,15 @@ export interface ApiProjectAccess {
   role: 'view' | 'edit' | 'owner';
   createdAt: string | null;
 }
+export type AccessRole = 'view' | 'edit' | 'owner';
+export type EffectiveAccessRole = AccessRole | 'none';
+export type AccessPrincipalType = 'user' | 'team';
+
+export interface ApiAccessResponse<TEntry> {
+  success: boolean;
+  data: TEntry[];
+  currentUserRole: EffectiveAccessRole;
+}
 export const projectAPI = {
   list: async (activeOnly?: boolean): Promise<ApiProject[]> => {
     const query = activeOnly ? '?active=true' : '';
@@ -252,11 +261,13 @@ export const projectAPI = {
     return response.items ?? [];
   },
   getAccess: (projectId: string) =>
-    fetchAPI<{ success: boolean; data: ApiProjectAccess[] }>(`/api/projects/${projectId}/access`)
+    fetchAPI<ApiAccessResponse<ApiProjectAccess>>(`/api/projects/${projectId}/access`)
       .then((response) => response.data ?? []),
+  getAccessDetails: (projectId: string) =>
+    fetchAPI<ApiAccessResponse<ApiProjectAccess>>(`/api/projects/${projectId}/access`),
   grantAccess: (
     projectId: string,
-    entries: Array<{ principalType: 'user' | 'team'; principalId: string; role: 'view' | 'edit' | 'owner' }>
+    entries: Array<{ principalType: AccessPrincipalType; principalId: string; role: AccessRole }>
   ) =>
     fetchAPI<{ success: boolean; data: ApiProjectAccess[] }>(`/api/projects/${projectId}/access`, {
       method: "PUT",
@@ -264,17 +275,17 @@ export const projectAPI = {
     }).then((response) => response.data ?? []),
   revokeAccess: (
     projectId: string,
-    entries: Array<{ principalType: 'user' | 'team'; principalId: string }>
+    entries: Array<{ principalType: AccessPrincipalType; principalId: string }>
   ) =>
     fetchAPI<{ success: boolean; message: string }>(`/api/projects/${projectId}/access`, {
       method: "DELETE",
       body: JSON.stringify({ entries }),
     }),
   transfer: (id: string, targetOwnerType: 'user' | 'org', targetOwnerUuid: string) =>
-    fetchAPI<ApiProject>(`/api/projects/${id}/transfer`, {
+    fetchAPI<{ success: boolean; data: ApiProject }>(`/api/projects/${id}/transfer`, {
       method: "POST",
       body: JSON.stringify({ targetOwnerType, targetOwnerUuid }),
-    }),
+    }).then((response) => response.data),
 };
 // ============================================================================
 // Workflows
@@ -289,6 +300,9 @@ export interface ApiWorkflow {
   creatorId: string;
   projectId: string | null;
   status: "draft" | "active" | "archived";
+  ownerType?: 'user' | 'org' | null;
+  ownerUuid?: string | null;
+  ownerName?: string | null;
   createdAt: string;
   updatedAt: string;
   modeOverride?: 'easy' | 'advanced' | null;
@@ -302,11 +316,19 @@ export interface ApiWorkflow {
   };
   /* eslint-enable @typescript-eslint/naming-convention */
 }
+export interface ApiWorkflowAccess {
+  id: string;
+  workflowId: string;
+  principalType: AccessPrincipalType;
+  principalId: string;
+  role: AccessRole;
+  createdAt: string | null;
+}
 export const workflowAPI = {
   list: () => fetchAPI<ApiWorkflow[]>("/api/workflows"),
   listUnfiled: () => fetchAPI<ApiWorkflow[]>("/api/workflows/unfiled"),
   get: (id: string) => fetchAPI<ApiWorkflow>(`/api/workflows/${id}`),
-  create: (data: { title: string; description?: string; projectId?: string | null }) =>
+  create: (data: { title: string; description?: string; projectId?: string | null; ownerType?: 'user' | 'org'; ownerUuid?: string }) =>
     fetchAPI<ApiWorkflow>("/api/workflows", {
       method: "POST",
       body: JSON.stringify(data),
@@ -327,11 +349,29 @@ export const workflowAPI = {
     }),
   getPublicLink: (id: string) =>
     fetchAPI<{ publicUrl: string }>(`/api/workflows/${id}/public-link`),
+  getAccessDetails: (workflowId: string) =>
+    fetchAPI<ApiAccessResponse<ApiWorkflowAccess>>(`/api/workflows/${workflowId}/access`),
+  grantAccess: (
+    workflowId: string,
+    entries: Array<{ principalType: AccessPrincipalType; principalId: string; role: AccessRole }>
+  ) =>
+    fetchAPI<{ success: boolean; data: ApiWorkflowAccess[] }>(`/api/workflows/${workflowId}/access`, {
+      method: "PUT",
+      body: JSON.stringify({ entries }),
+    }).then((response) => response.data ?? []),
+  revokeAccess: (
+    workflowId: string,
+    entries: Array<{ principalType: AccessPrincipalType; principalId: string }>
+  ) =>
+    fetchAPI<{ success: boolean; message: string }>(`/api/workflows/${workflowId}/access`, {
+      method: "DELETE",
+      body: JSON.stringify({ entries }),
+    }),
   transfer: (id: string, targetOwnerType: 'user' | 'org', targetOwnerUuid: string) =>
-    fetchAPI<ApiWorkflow>(`/api/workflows/${id}/transfer`, {
+    fetchAPI<{ success: boolean; data: ApiWorkflow }>(`/api/workflows/${id}/transfer`, {
       method: "POST",
       body: JSON.stringify({ targetOwnerType, targetOwnerUuid }),
-    }),
+    }).then((response) => response.data),
 };
 // ============================================================================
 // Workflow Versions

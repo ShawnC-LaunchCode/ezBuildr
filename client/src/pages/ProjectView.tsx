@@ -3,12 +3,12 @@
  * Displays a single project with its contained workflows
  */
 
-import { ArrowLeft, Plus, Edit } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Share2 } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
 
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
-import { ProjectAccessPanel } from "@/components/projects/ProjectAccessPanel";
+import { ResourceAccessDialog } from "@/components/access/ResourceAccessDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,6 +55,7 @@ export default function ProjectView() {
   // Dialog states
   const [isCreateWorkflowOpen, setIsCreateWorkflowOpen] = useState(false);
   const [isEditProjectOpen, setIsEditProjectOpen] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
   const [deleteWorkflowId, setDeleteWorkflowId] = useState<string | null>(null);
 
   // Form states
@@ -226,6 +227,10 @@ export default function ProjectView() {
               )}
             </div>
             <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setIsShareOpen(true)}>
+                <Share2 className="w-4 h-4 mr-2" />
+                Share
+              </Button>
               <Button variant="outline" onClick={openEditDialog}>
                 <Edit className="w-4 h-4 mr-2" />
                 Edit Project
@@ -237,8 +242,6 @@ export default function ProjectView() {
             </div>
           </div>
         </div>
-
-        <ProjectAccessPanel project={projectWithWorkflows} />
 
         {/* Workflows Grid */}
         {projectWithWorkflows.workflows.length === 0 ? (
@@ -269,6 +272,16 @@ export default function ProjectView() {
           </div>
         )}
       </div>
+
+      <ResourceAccessDialog
+        open={isShareOpen}
+        onOpenChange={setIsShareOpen}
+        resourceType="project"
+        resourceId={projectWithWorkflows.id}
+        resourceName={projectWithWorkflows.title}
+        ownerType={projectWithWorkflows.ownerType}
+        ownerUuid={projectWithWorkflows.ownerUuid}
+      />
 
       {/* Edit Project Dialog */}
       <Dialog open={isEditProjectOpen} onOpenChange={setIsEditProjectOpen}>

@@ -5,6 +5,7 @@ import { logger } from '../logger';
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
 import { organizationService } from '../services/OrganizationService';
 import { asyncHandler } from '../utils/asyncHandler';
+import { maskSecret } from '../utils/encryption';
 import { classifyRouteError } from '../utils/routeErrors';
 
 import type { Express, Request, Response } from 'express';
@@ -413,14 +414,14 @@ export function registerOrganizationRoutes(app: Express): void {
       const { token } = req.params;
       const result = await organizationService.acceptInvite(token, userId);
 
-      logger.info({ token, userId, orgId: result.orgId }, 'Invite accepted');
+      logger.info({ token: maskSecret(token), userId, orgId: result.orgId }, 'Invite accepted');
       res.json({
         message: `Successfully joined ${result.orgName}`,
         orgId: result.orgId,
         orgName: result.orgName,
       });
     } catch (error) {
-      logger.error({ error, token: req.params.token, userId: (req as AuthRequest).userId }, 'Error accepting invite');
+      logger.error({ error, token: maskSecret(req.params.token), userId: (req as AuthRequest).userId }, 'Error accepting invite');
       const { status, message } = classifyRouteError(error, 'Failed to accept invite');
       res.status(status).json({ message: message });
     }

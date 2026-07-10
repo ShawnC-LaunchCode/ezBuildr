@@ -92,6 +92,20 @@
       "when": 1783640285206,
       "tag": "0012_security_hardening_fixes",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1783640385206,
+      "tag": "0013_hash_remaining_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1783640485206,
+      "tag": "0014_datavault_ownership_access",
+      "breakpoints": true
     }
   ]
 }

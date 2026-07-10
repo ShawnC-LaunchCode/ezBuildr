@@ -1,12 +1,22 @@
-import type { DatavaultTable, InsertDatavaultTable, DatavaultTableRole } from "@shared/schema";
+import type {
+  AccessRole,
+  DatavaultTable,
+  DatavaultTableAccess,
+  InsertDatavaultTable,
+  PrincipalType,
+} from "@shared/schema";
 
 import {
+  datavaultTableAccessRepository,
   datavaultTablesRepository,
   datavaultColumnsRepository,
   datavaultRowsRepository,
   datavaultTablePermissionsRepository,
   type DbTransaction,
 } from "../repositories";
+import { canManageOrg } from "../utils/ownershipAccess";
+
+import { datavaultAclService } from "./DatavaultAclService";
 
 import type { TablePermissionFlags } from "./DatavaultTablePermissionsService";
 
@@ -18,18 +28,19 @@ export class DatavaultTablesService {
   private tablesRepo: typeof datavaultTablesRepository;
   private columnsRepo: typeof datavaultColumnsRepository;
   private rowsRepo: typeof datavaultRowsRepository;
-  private permissionsRepo: typeof datavaultTablePermissionsRepository;
+  private accessRepo: typeof datavaultTableAccessRepository;
 
   constructor(
     tablesRepo?: typeof datavaultTablesRepository,
     columnsRepo?: typeof datavaultColumnsRepository,
     rowsRepo?: typeof datavaultRowsRepository,
-    permissionsRepo?: typeof datavaultTablePermissionsRepository
+    _permissionsRepo?: typeof datavaultTablePermissionsRepository,
+    accessRepo?: typeof datavaultTableAccessRepository
   ) {
     this.tablesRepo = tablesRepo ?? datavaultTablesRepository;
     this.columnsRepo = columnsRepo ?? datavaultColumnsRepository;
     this.rowsRepo = rowsRepo ?? datavaultRowsRepository;
-    this.permissionsRepo = permissionsRepo ?? datavaultTablePermissionsRepository;
+    this.accessRepo = accessRepo ?? datavaultTableAccessRepository;
   }
 
   /**
@@ -47,7 +58,6 @@ export class DatavaultTablesService {
     tenantId: string,
     tx?: DbTransaction
   ): Promise<TablePermissionFlags> {
-    // Get the table to check if user is the owner
     const table = await this.tablesRepo.findById(tableId, tx);
 
     if (!table) {
@@ -59,34 +69,20 @@ export class DatavaultTablesService {
       return { read: false, write: false, owner: false };
     }
 
-    // Check if user is the table creator/owner (ownerUserId)
-    if (table.ownerUserId === userId) {
-      return { read: true, write: true, owner: true };
-    }
-
-    // Check explicit permission in datavault_table_permissions
-    const permission = await this.permissionsRepo.findByTableAndUser(tableId, userId, tx);
-
-    if (!permission) {
-      // No permission row = deny access (fallback to table owner only)
-      return { read: false, write: false, owner: false };
-    }
-
-    // Map role to permission flags
-    return this.roleToPermissionFlags(permission.role);
+    const role = await datavaultAclService.resolveRoleForTable(userId, tableId, tx);
+    return this.accessRoleToPermissionFlags(role);
   }
 
-  /**
-   * Convert role to permission flags
-   */
-  private roleToPermissionFlags(role: DatavaultTableRole): TablePermissionFlags {
+  private accessRoleToPermissionFlags(role: AccessRole): TablePermissionFlags {
     switch (role) {
       case "owner":
         return { read: true, write: true, owner: true };
-      case "write":
+      case "edit":
         return { read: true, write: true, owner: false };
-      case "read":
+      case "view":
         return { read: true, write: false, owner: false };
+      case "none":
+        return { read: false, write: false, owner: false };
     }
   }
 
@@ -167,11 +163,30 @@ export class DatavaultTablesService {
     const baseSlug = data.slug ?? this.generateSlug(data.name);
     const uniqueSlug = await this.ensureUniqueSlug(data.tenantId, baseSlug, undefined, tx);
 
+    let ownerType = data.ownerType ?? (data.ownerUserId ? 'user' : undefined);
+    let ownerUuid = data.ownerUuid ?? data.ownerUserId ?? undefined;
+
+    if (data.databaseId) {
+      const { datavaultDatabasesRepository } = await import('../repositories/DatavaultDatabasesRepository');
+      const database = await datavaultDatabasesRepository.findById(data.databaseId, tx);
+      if (database) {
+        ownerType = database.ownerType ?? ownerType;
+        ownerUuid = database.ownerUuid ?? ownerUuid;
+      }
+    } else if (ownerType === 'org' && ownerUuid && data.ownerUserId) {
+      const canManage = await canManageOrg(data.ownerUserId, ownerUuid);
+      if (!canManage) {
+        throw new Error('Access denied: Organization admin role required to create organization tables');
+      }
+    }
+
     // Create the table
     const table = await this.tablesRepo.create(
       {
         ...data,
         slug: uniqueSlug,
+        ownerType,
+        ownerUuid,
       },
       tx
     );
@@ -325,23 +340,104 @@ export class DatavaultTablesService {
     tableId: string,
     tenantId: string,
     databaseId: string | null,
+    userId?: string,
     tx?: DbTransaction
   ): Promise<DatavaultTable> {
     // Verify table ownership
     await this.verifyTenantOwnership(tableId, tenantId, tx);
 
+    if (userId) {
+      await this.requirePermission(userId, tableId, tenantId, 'owner', tx);
+    }
+
+    let ownerUpdate: Pick<InsertDatavaultTable, 'ownerType' | 'ownerUuid'> = {};
+
     // If moving to a database, verify it exists and belongs to the same tenant
     if (databaseId) {
       const { datavaultDatabasesRepository } = await import('../repositories/DatavaultDatabasesRepository');
-      const databaseExists = await datavaultDatabasesRepository.existsForTenant(databaseId, tenantId);
+      const database = await datavaultDatabasesRepository.findById(databaseId, tx);
 
-      if (!databaseExists) {
+      if (!database || database.tenantId !== tenantId) {
         throw new Error('Database not found or access denied');
       }
+      if (userId) {
+        const hasDatabaseAccess = await datavaultAclService.hasDatabaseRole(userId, databaseId, 'edit', tx);
+        if (!hasDatabaseAccess) {
+          throw new Error('Access denied - insufficient permissions for target database');
+        }
+      }
+      ownerUpdate = {
+        ownerType: database.ownerType ?? undefined,
+        ownerUuid: database.ownerUuid ?? undefined,
+      };
     }
 
     // Update the table's databaseId
-    return this.tablesRepo.update(tableId, { databaseId }, tx);
+    return this.tablesRepo.update(tableId, { databaseId, ...ownerUpdate }, tx);
+  }
+
+  async getTableAccess(tableId: string, tenantId: string, userId: string): Promise<{
+    entries: DatavaultTableAccess[];
+    currentUserRole: AccessRole;
+  }> {
+    await this.requirePermission(userId, tableId, tenantId, 'read');
+    const [entries, currentUserRole] = await Promise.all([
+      this.accessRepo.findByTableId(tableId),
+      datavaultAclService.resolveRoleForTable(userId, tableId),
+    ]);
+    return { entries, currentUserRole };
+  }
+
+  async grantTableAccess(
+    tableId: string,
+    tenantId: string,
+    requestorId: string,
+    entries: Array<{ principalType: PrincipalType; principalId: string; role: AccessRole }>
+  ): Promise<DatavaultTableAccess[]> {
+    await this.requirePermission(requestorId, tableId, tenantId, 'owner');
+    const results: DatavaultTableAccess[] = [];
+    for (const entry of entries) {
+      const acl = await this.accessRepo.upsert(tableId, entry.principalType, entry.principalId, entry.role);
+      results.push(acl);
+    }
+    return results;
+  }
+
+  async revokeTableAccess(
+    tableId: string,
+    tenantId: string,
+    requestorId: string,
+    entries: Array<{ principalType: PrincipalType; principalId: string }>
+  ): Promise<void> {
+    await this.requirePermission(requestorId, tableId, tenantId, 'owner');
+    await this.accessRepo.deleteManyByPrincipals(tableId, entries);
+  }
+
+  async transferOwnership(
+    tableId: string,
+    tenantId: string,
+    userId: string,
+    targetOwnerType: 'user' | 'org',
+    targetOwnerUuid: string
+  ): Promise<DatavaultTable> {
+    const { transferService } = await import('./TransferService');
+    const table = await this.verifyTenantOwnership(tableId, tenantId);
+    await this.requirePermission(userId, tableId, tenantId, 'owner');
+    if (targetOwnerType === 'org' && !(await canManageOrg(userId, targetOwnerUuid))) {
+      throw new Error('Access denied: Organization admin role required to transfer tables to this organization');
+    }
+    await transferService.validateTransfer(
+      userId,
+      table.ownerType ?? 'user',
+      table.ownerUuid ?? table.ownerUserId ?? userId,
+      targetOwnerType,
+      targetOwnerUuid
+    );
+    return this.tablesRepo.update(tableId, {
+      databaseId: null,
+      ownerType: targetOwnerType,
+      ownerUuid: targetOwnerUuid,
+    });
   }
 }
 

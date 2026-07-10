@@ -11,6 +11,7 @@ import {
     datavaultDatabases, datavaultTables, datavaultColumns, datavaultRows,
     datavaultValues,
     datavaultApiTokens,
+    datavaultDatabaseAccess, datavaultTableAccess,
     workflowDataSources, workflowQueries,
     collections, collectionFields, records
 } from './datavault';
@@ -512,7 +513,15 @@ export const datavaultDatabasesRelations = relations(datavaultDatabases, ({ one,
     }),
     tables: many(datavaultTables),
     apiTokens: many(datavaultApiTokens),
+    access: many(datavaultDatabaseAccess),
     workflows: many(workflowDataSources),
+}));
+
+export const datavaultDatabaseAccessRelations = relations(datavaultDatabaseAccess, ({ one }) => ({
+    database: one(datavaultDatabases, {
+        fields: [datavaultDatabaseAccess.databaseId],
+        references: [datavaultDatabases.id],
+    }),
 }));
 
 export const workflowDataSourcesRelations = relations(workflowDataSources, ({ one }) => ({
@@ -541,6 +550,14 @@ export const datavaultTablesRelations = relations(datavaultTables, ({ one, many 
     }),
     columns: many(datavaultColumns),
     rows: many(datavaultRows),
+    access: many(datavaultTableAccess),
+}));
+
+export const datavaultTableAccessRelations = relations(datavaultTableAccess, ({ one }) => ({
+    table: one(datavaultTables, {
+        fields: [datavaultTableAccess.tableId],
+        references: [datavaultTables.id],
+    }),
 }));
 
 export const datavaultColumnsRelations = relations(datavaultColumns, ({ one, many }) => ({

@@ -1,6 +1,17 @@
-import { eq, and, desc, sql, or, inArray, getTableColumns } from 'drizzle-orm';
+import { eq, and, desc, sql, or, inArray, getTableColumns, isNull } from 'drizzle-orm';
 
-import { datavaultDatabases, datavaultTables, workflowDataSources, projects, workflows, projectAccess, workflowAccess, organizations } from '../../shared/schema';
+import {
+  datavaultDatabases,
+  datavaultTables,
+  workflowDataSources,
+  projects,
+  workflows,
+  projectAccess,
+  workflowAccess,
+  organizations,
+  datavaultDatabaseAccess,
+  teamMembers,
+} from '../../shared/schema';
 import { db } from '../db';
 import { getAccessibleOwnershipFilter } from '../utils/ownershipAccess';
 
@@ -39,9 +50,31 @@ export class DatavaultDatabasesRepository {
       .from(workflowAccess)
       .where(eq(workflowAccess.principalId, userId));
 
+    const sharedDatabaseIds = db
+      .select({ id: datavaultDatabaseAccess.databaseId })
+      .from(datavaultDatabaseAccess)
+      .where(
+        or(
+          and(
+            eq(datavaultDatabaseAccess.principalType, "user"),
+            eq(datavaultDatabaseAccess.principalId, userId)
+          ),
+          and(
+            eq(datavaultDatabaseAccess.principalType, "team"),
+            inArray(
+              datavaultDatabaseAccess.principalId,
+              db
+                .select({ teamId: sql<string>`${teamMembers.teamId}::text` })
+                .from(teamMembers)
+                .where(eq(teamMembers.userId, userId))
+            )
+          )
+        )
+      );
+
     const scopeConditions = [
-      // Account Scope: Visible to everyone in tenant
-      eq(datavaultDatabases.scopeType, 'account'),
+      // Legacy account databases without owner fields remain tenant-wide.
+      and(eq(datavaultDatabases.scopeType, 'account'), isNull(datavaultDatabases.ownerType)),
 
       // Project Scope: User owns project OR has shared access
       and(
@@ -83,6 +116,9 @@ export class DatavaultDatabasesRepository {
 
       // Direct ownership: User-owned
       and(eq(datavaultDatabases.ownerType, 'user'), eq(datavaultDatabases.ownerUuid, userId)),
+
+      // Explicit sharing through DataVault database ACL
+      inArray(datavaultDatabases.id, sharedDatabaseIds),
     ];
 
     // Add org-owned condition if user is member of any orgs

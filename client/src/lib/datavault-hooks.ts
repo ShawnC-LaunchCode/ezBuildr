@@ -14,6 +14,8 @@ import {
   type ApiDatavaultRowWithValues,
   type ApiDatavaultApiToken,
   type ApiCreateTokenResponse,
+  type AccessGrantEntry,
+  type AccessRevokeEntry,
 } from "./datavault-api";
 
 // ============================================================================
@@ -23,11 +25,13 @@ import {
 export const datavaultQueryKeys = {
   databases: ["datavault", "databases"] as const,
   database: (id: string) => ["datavault", "databases", id] as const,
+  databaseAccess: (id: string) => ["datavault", "databases", id, "access"] as const,
   databaseTables: (databaseId: string) => ["datavault", "databases", databaseId, "tables"] as const,
   databasesByScope: (scopeType?: string, scopeId?: string) =>
     ["datavault", "databases", "scope", scopeType, scopeId] as const,
   tables: ["datavault", "tables"] as const,
   table: (id: string) => ["datavault", "tables", id] as const,
+  tableAccess: (id: string) => ["datavault", "tables", id, "access"] as const,
   tableColumns: (tableId: string) => ["datavault", "tables", tableId, "columns"] as const,
   tableRows: (tableId: string) => ["datavault", "tables", tableId, "rows"] as const,
   row: (id: string) => ["datavault", "rows", id] as const,
@@ -127,6 +131,52 @@ export function useTransferDatavaultDatabase(): UseMutationResult<DatavaultDatab
   });
 }
 
+export function useDatavaultDatabaseAccess(databaseId: string | undefined): UseQueryResult<Awaited<ReturnType<typeof datavaultAPI.getDatabaseAccess>>> {
+  return useQuery({
+    queryKey: databaseId
+      ? datavaultQueryKeys.databaseAccess(databaseId)
+      : ['datavault', 'databases', 'null', 'access'],
+    queryFn: () => {
+      if (!databaseId) { throw new Error('Database ID is required'); }
+      return datavaultAPI.getDatabaseAccess(databaseId);
+    },
+    enabled: !!databaseId,
+    retry: false,
+  });
+}
+
+export function useGrantDatavaultDatabaseAccess(): UseMutationResult<
+  Awaited<ReturnType<typeof datavaultAPI.grantDatabaseAccess>>,
+  unknown,
+  { databaseId: string; entries: AccessGrantEntry[] }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ databaseId, entries }) => datavaultAPI.grantDatabaseAccess(databaseId, entries),
+    onSuccess: async (_, variables) => {
+      await queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.databaseAccess(variables.databaseId) });
+      await queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.database(variables.databaseId) });
+      await queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.databaseTables(variables.databaseId) });
+    },
+  });
+}
+
+export function useRevokeDatavaultDatabaseAccess(): UseMutationResult<
+  void,
+  unknown,
+  { databaseId: string; entries: AccessRevokeEntry[] }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ databaseId, entries }) => datavaultAPI.revokeDatabaseAccess(databaseId, entries),
+    onSuccess: async (_, variables) => {
+      await queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.databaseAccess(variables.databaseId) });
+      await queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.database(variables.databaseId) });
+      await queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.databaseTables(variables.databaseId) });
+    },
+  });
+}
+
 interface MoveTableParams {
   tableId: string;
   databaseId: string | null;
@@ -137,6 +187,25 @@ export function useMoveDatavaultTable(): UseMutationResult<DatavaultTable, unkno
   return useMutation({
     mutationFn: ({ tableId, databaseId }: MoveTableParams) =>
       datavaultAPI.moveTable(tableId, databaseId),
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.table(result.id) });
+      await queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.tables });
+      await queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.databases });
+    },
+  });
+}
+
+interface TransferTableParams {
+  tableId: string;
+  targetOwnerType: 'user' | 'org';
+  targetOwnerUuid: string;
+}
+
+export function useTransferDatavaultTable(): UseMutationResult<DatavaultTable, unknown, TransferTableParams> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tableId, targetOwnerType, targetOwnerUuid }: TransferTableParams) =>
+      datavaultAPI.transferTable(tableId, targetOwnerType, targetOwnerUuid),
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.table(result.id) });
       await queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.tables });
@@ -171,6 +240,50 @@ export function useDatavaultTableSchema(tableId: string | undefined): UseQueryRe
     queryKey: [...datavaultQueryKeys.table(tableId!), 'schema'],
     queryFn: () => datavaultAPI.getTableSchema(tableId!),
     enabled: isUuid,
+  });
+}
+
+export function useDatavaultTableAccess(tableId: string | undefined): UseQueryResult<Awaited<ReturnType<typeof datavaultAPI.getTableAccess>>> {
+  return useQuery({
+    queryKey: tableId
+      ? datavaultQueryKeys.tableAccess(tableId)
+      : ['datavault', 'tables', 'null', 'access'],
+    queryFn: () => {
+      if (!tableId) { throw new Error('Table ID is required'); }
+      return datavaultAPI.getTableAccess(tableId);
+    },
+    enabled: !!tableId,
+    retry: false,
+  });
+}
+
+export function useGrantDatavaultTableAccess(): UseMutationResult<
+  Awaited<ReturnType<typeof datavaultAPI.grantTableAccess>>,
+  unknown,
+  { tableId: string; entries: AccessGrantEntry[] }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tableId, entries }) => datavaultAPI.grantTableAccess(tableId, entries),
+    onSuccess: async (_, variables) => {
+      await queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.tableAccess(variables.tableId) });
+      await queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.table(variables.tableId) });
+    },
+  });
+}
+
+export function useRevokeDatavaultTableAccess(): UseMutationResult<
+  void,
+  unknown,
+  { tableId: string; entries: AccessRevokeEntry[] }
+> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tableId, entries }) => datavaultAPI.revokeTableAccess(tableId, entries),
+    onSuccess: async (_, variables) => {
+      await queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.tableAccess(variables.tableId) });
+      await queryClient.invalidateQueries({ queryKey: datavaultQueryKeys.table(variables.tableId) });
+    },
   });
 }
 

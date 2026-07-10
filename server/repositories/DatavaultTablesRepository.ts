@@ -1,8 +1,19 @@
-import { eq, and, desc, sql, asc, or, inArray, ne } from "drizzle-orm";
+import { eq, and, desc, sql, asc, or, inArray, ne, isNull } from "drizzle-orm";
 
-import { datavaultTables, datavaultColumns, datavaultTablePermissions, type DatavaultTable, type InsertDatavaultTable } from "@shared/schema";
+import {
+  datavaultTables,
+  datavaultColumns,
+  datavaultDatabases,
+  datavaultTablePermissions,
+  datavaultTableAccess,
+  datavaultDatabaseAccess,
+  teamMembers,
+  type DatavaultTable,
+  type InsertDatavaultTable,
+} from "@shared/schema";
 
 import { db } from "../db";
+import { getAccessibleOwnershipFilter } from "../utils/ownershipAccess";
 
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
@@ -37,12 +48,65 @@ export class DatavaultTablesRepository extends BaseRepository<
    */
   async findByTenantAndUser(tenantId: string, userId: string, tx?: DbTransaction): Promise<DatavaultTable[]> {
     const database = this.getDb(tx);
+    const { orgIds } = await getAccessibleOwnershipFilter(userId);
 
-    // Subquery for shared tables
-    const sharedTableIds = database
+    const sharedLegacyTableIds = database
       .select({ tableId: datavaultTablePermissions.tableId })
       .from(datavaultTablePermissions)
       .where(eq(datavaultTablePermissions.userId, userId));
+
+    const sharedTableIds = database
+      .select({ tableId: datavaultTableAccess.tableId })
+      .from(datavaultTableAccess)
+      .where(
+        or(
+          and(
+            eq(datavaultTableAccess.principalType, "user"),
+            eq(datavaultTableAccess.principalId, userId)
+          ),
+          and(
+            eq(datavaultTableAccess.principalType, "team"),
+            inArray(
+              datavaultTableAccess.principalId,
+              database
+                .select({ teamId: sql<string>`${teamMembers.teamId}::text` })
+                .from(teamMembers)
+                .where(eq(teamMembers.userId, userId))
+            )
+          )
+        )
+      );
+
+    const accessibleDatabaseIds = database
+      .select({ databaseId: datavaultDatabases.id })
+      .from(datavaultDatabases)
+      .leftJoin(datavaultDatabaseAccess, eq(datavaultDatabaseAccess.databaseId, datavaultDatabases.id))
+      .where(
+        and(
+          eq(datavaultDatabases.tenantId, tenantId),
+          or(
+            and(eq(datavaultDatabases.scopeType, "account"), isNull(datavaultDatabases.ownerType)),
+            and(eq(datavaultDatabases.ownerType, "user"), eq(datavaultDatabases.ownerUuid, userId)),
+            ...(orgIds.length > 0
+              ? [and(eq(datavaultDatabases.ownerType, "org"), inArray(datavaultDatabases.ownerUuid, orgIds))]
+              : []),
+            and(
+              eq(datavaultDatabaseAccess.principalType, "user"),
+              eq(datavaultDatabaseAccess.principalId, userId)
+            ),
+            and(
+              eq(datavaultDatabaseAccess.principalType, "team"),
+              inArray(
+                datavaultDatabaseAccess.principalId,
+                database
+                  .select({ teamId: sql<string>`${teamMembers.teamId}::text` })
+                  .from(teamMembers)
+                  .where(eq(teamMembers.userId, userId))
+              )
+            )
+          )
+        )
+      );
 
     return database
       .select()
@@ -52,7 +116,13 @@ export class DatavaultTablesRepository extends BaseRepository<
           eq(datavaultTables.tenantId, tenantId),
           or(
             eq(datavaultTables.ownerUserId, userId),
-            inArray(datavaultTables.id, sharedTableIds)
+            and(eq(datavaultTables.ownerType, "user"), eq(datavaultTables.ownerUuid, userId)),
+            ...(orgIds.length > 0
+              ? [and(eq(datavaultTables.ownerType, "org"), inArray(datavaultTables.ownerUuid, orgIds))]
+              : []),
+            inArray(datavaultTables.id, sharedLegacyTableIds),
+            inArray(datavaultTables.id, sharedTableIds),
+            inArray(datavaultTables.databaseId, accessibleDatabaseIds)
           )
         )
       )
@@ -139,6 +209,19 @@ export class DatavaultTablesRepository extends BaseRepository<
       .where(eq(datavaultTables.tenantId, tenantId));
 
     return result?.count ?? 0;
+  }
+
+  async updateOwnerByDatabaseId(
+    databaseId: string,
+    ownerType: 'user' | 'org',
+    ownerUuid: string,
+    tx?: DbTransaction
+  ): Promise<void> {
+    const database = this.getDb(tx);
+    await database
+      .update(datavaultTables)
+      .set({ ownerType, ownerUuid, updatedAt: new Date() })
+      .where(eq(datavaultTables.databaseId, databaseId));
   }
 
   /**

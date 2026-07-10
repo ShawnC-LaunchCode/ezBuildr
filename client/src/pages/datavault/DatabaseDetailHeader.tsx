@@ -4,7 +4,7 @@
  * back button, database info, and settings dropdown.
  */
 
-import { Database as DatabaseIcon, ArrowLeft, Settings, MoreVertical } from "lucide-react";
+import { Database as DatabaseIcon, ArrowLeft, Settings, MoreVertical, Share2 } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/common/Breadcrumbs";
 import { Button } from "@/components/ui/button";
@@ -19,12 +19,14 @@ interface DatabaseDetailHeaderProps {
     database: { name: string; description?: string | null };
     onNavigateBack: () => void;
     onNavigateSettings: () => void;
+    onOpenShare: () => void;
 }
 
 export function DatabaseDetailHeader({
     database,
     onNavigateBack,
     onNavigateSettings,
+    onOpenShare,
 }: DatabaseDetailHeaderProps): React.JSX.Element {
     return (
         <div className="border-b bg-background px-4 py-3">
@@ -54,19 +56,25 @@ export function DatabaseDetailHeader({
                     </div>
                 </div>
 
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                            <MoreVertical className="w-4 h-4" aria-hidden="true" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={onNavigateSettings}>
-                            <Settings className="w-4 h-4 mr-2" aria-hidden="true" />
-                            Settings
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={onOpenShare}>
+                        <Share2 className="w-4 h-4 mr-2" aria-hidden="true" />
+                        Share
+                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                                <MoreVertical className="w-4 h-4" aria-hidden="true" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={onNavigateSettings}>
+                                <Settings className="w-4 h-4 mr-2" aria-hidden="true" />
+                                Settings
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
             </div>
         </div>
     );

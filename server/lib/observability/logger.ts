@@ -1,14 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import pino from "pino";
 
-import { env } from "../../../client/src/lib/config/environment";
-
 import type { Request, Response, NextFunction } from "express";
 
-const isDev = env.NODE_ENV === "development";
+const isDev = process.env.NODE_ENV === "development";
 
 export const logger = pino({
-    level: env.LOG_LEVEL ?? "info",
+    level: process.env.LOG_LEVEL ?? "info",
     transport: isDev
         ? {
             target: "pino-pretty",
@@ -19,7 +17,7 @@ export const logger = pino({
         }
         : undefined,
     base: {
-        env: env.NODE_ENV,
+        env: process.env.NODE_ENV,
     },
 });
 

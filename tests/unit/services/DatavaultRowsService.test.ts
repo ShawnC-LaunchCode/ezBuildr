@@ -58,7 +58,7 @@ describe('DatavaultRowsService', () => {
       const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
-        ownerUserId: 'user-1',
+        ownerUserId: 'user-1', ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: null,
@@ -74,7 +74,7 @@ describe('DatavaultRowsService', () => {
       };
 
       const mockColumns: DatavaultColumn[] = [
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - mock omits non-essential fields
         {
           id: mockColumnId,
           tableId: mockTableId,
@@ -129,7 +129,7 @@ describe('DatavaultRowsService', () => {
       const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
-        ownerUserId: 'user-1',
+        ownerUserId: 'user-1', ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: null,
@@ -145,7 +145,7 @@ describe('DatavaultRowsService', () => {
       };
 
       const mockColumns: DatavaultColumn[] = [
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - mock omits non-essential fields
         {
           id: mockColumnId,
           tableId: mockTableId,
@@ -207,7 +207,7 @@ describe('DatavaultRowsService', () => {
       const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
-        ownerUserId: 'user-1',
+        ownerUserId: 'user-1', ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: null,
@@ -223,7 +223,7 @@ describe('DatavaultRowsService', () => {
       };
 
       const mockColumns: DatavaultColumn[] = [
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - mock omits non-essential fields
         {
           id: mockColumnId,
           tableId: mockTableId,
@@ -259,7 +259,7 @@ describe('DatavaultRowsService', () => {
       const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
-        ownerUserId: 'user-1',
+        ownerUserId: 'user-1', ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: null,
@@ -274,7 +274,7 @@ describe('DatavaultRowsService', () => {
 
       };
 
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - mock omits non-essential fields
       const mockRow: DatavaultRow = {
         id: mockRowId,
         tableId: mockTableId,
@@ -285,7 +285,7 @@ describe('DatavaultRowsService', () => {
       };
 
       const mockColumns: DatavaultColumn[] = [
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - mock omits non-essential fields
         {
           id: mockColumnId,
           tableId: mockTableId,
@@ -327,7 +327,7 @@ describe('DatavaultRowsService', () => {
       const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
-        ownerUserId: 'user-1',
+        ownerUserId: 'user-1', ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: null,
@@ -342,7 +342,7 @@ describe('DatavaultRowsService', () => {
 
       };
 
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - mock omits non-essential fields
       const mockRow: DatavaultRow = {
         id: mockRowId,
         tableId: mockTableId,
@@ -367,7 +367,7 @@ describe('DatavaultRowsService', () => {
       const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
-        ownerUserId: 'user-1',
+        ownerUserId: 'user-1', ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: null,
@@ -383,7 +383,7 @@ describe('DatavaultRowsService', () => {
       };
 
       const mockColumns: DatavaultColumn[] = [
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - mock omits non-essential fields
         {
           id: mockColumnId,
           tableId: mockTableId,
@@ -435,7 +435,7 @@ describe('DatavaultRowsService', () => {
       const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
-        ownerUserId: 'user-1',
+        ownerUserId: 'user-1', ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: null,
@@ -451,7 +451,7 @@ describe('DatavaultRowsService', () => {
       };
 
       const mockColumns: DatavaultColumn[] = [
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - mock omits non-essential fields
         {
           id: mockColumnId,
           tableId: mockTableId,

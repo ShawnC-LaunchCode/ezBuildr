@@ -4,7 +4,17 @@
  * API functions for DataVault Phase 1 & Phase 2 (Databases)
  */
 
-import type { DatavaultTable, DatavaultColumn, DatavaultRow, DatavaultRowNote, DatavaultApiToken, DatavaultTablePermission, DatavaultTableRole } from "@shared/schema";
+import type {
+  DatavaultTable,
+  DatavaultColumn,
+  DatavaultRow,
+  DatavaultRowNote,
+  DatavaultApiToken,
+  DatavaultTablePermission,
+  DatavaultTableRole,
+  DatavaultDatabaseAccess,
+  DatavaultTableAccess,
+} from "@shared/schema";
 
 import { apiRequest } from "./queryClient";
 
@@ -26,9 +36,33 @@ export interface DatavaultDatabase {
   description: string | null;
   scopeType: 'account' | 'project' | 'workflow';
   scopeId: string | null;
+  ownerType?: 'user' | 'org' | null;
+  ownerUuid?: string | null;
+  ownerName?: string | null;
   createdAt: string;
   updatedAt: string;
   tableCount?: number;
+}
+
+export type AccessRole = 'view' | 'edit' | 'owner';
+export type EffectiveAccessRole = AccessRole | 'none';
+export type AccessPrincipalType = 'user' | 'team';
+
+export interface ApiAccessResponse<TEntry> {
+  success: boolean;
+  data: TEntry[];
+  currentUserRole: EffectiveAccessRole;
+}
+
+export interface AccessGrantEntry {
+  principalType: AccessPrincipalType;
+  principalId: string;
+  role: AccessRole;
+}
+
+export interface AccessRevokeEntry {
+  principalType: AccessPrincipalType;
+  principalId: string;
 }
 
 export interface ApiDatavaultApiToken extends Omit<DatavaultApiToken, 'tokenHash'> {
@@ -70,6 +104,8 @@ export const datavaultAPI = {
     description?: string;
     scopeType: 'account' | 'project' | 'workflow';
     scopeId?: string;
+    ownerType?: 'user' | 'org';
+    ownerUuid?: string;
   }): Promise<DatavaultDatabase> => {
     const res = await apiRequest('POST', '/api/datavault/databases', data);
     return res.json();
@@ -104,7 +140,32 @@ export const datavaultAPI = {
       targetOwnerType,
       targetOwnerUuid,
     });
+    const payload = await res.json() as { success: boolean; data: DatavaultDatabase };
+    return payload.data;
+  },
+
+  getDatabaseAccess: async (databaseId: string): Promise<ApiAccessResponse<DatavaultDatabaseAccess>> => {
+    const res = await apiRequest('GET', `/api/datavault/databases/${databaseId}/access`);
     return res.json();
+  },
+
+  grantDatabaseAccess: async (
+    databaseId: string,
+    entries: AccessGrantEntry[]
+  ): Promise<DatavaultDatabaseAccess[]> => {
+    const res = await apiRequest('PUT', `/api/datavault/databases/${databaseId}/access`, { entries });
+    const payload = await res.json() as { success: boolean; data: DatavaultDatabaseAccess[] };
+    return payload.data;
+  },
+
+  revokeDatabaseAccess: async (
+    databaseId: string,
+    entries: AccessRevokeEntry[]
+  ): Promise<void> => {
+    const res = await apiRequest('DELETE', `/api/datavault/databases/${databaseId}/access`, { entries });
+    if (res.status !== 200) {
+      await res.json();
+    }
   },
 
   getTablesInDatabase: async (databaseId: string): Promise<DatavaultTable[]> => {
@@ -130,7 +191,9 @@ export const datavaultAPI = {
     name: string;
     slug?: string;
     description?: string;
-    databaseId?: string;
+    databaseId?: string | null;
+    ownerType?: 'user' | 'org';
+    ownerUuid?: string;
   }): Promise<DatavaultTable> => {
     const res = await apiRequest('POST', '/api/datavault/tables', data);
     return res.json();
@@ -158,6 +221,43 @@ export const datavaultAPI = {
   getTableSchema: async (tableId: string): Promise<Record<string, unknown>> => {
     const res = await apiRequest('GET', `/api/datavault/tables/${tableId}/schema`);
     return res.json();
+  },
+
+  transferTable: async (
+    tableId: string,
+    targetOwnerType: 'user' | 'org',
+    targetOwnerUuid: string
+  ): Promise<DatavaultTable> => {
+    const res = await apiRequest('POST', `/api/datavault/tables/${tableId}/transfer`, {
+      targetOwnerType,
+      targetOwnerUuid,
+    });
+    const payload = await res.json() as { success: boolean; data: DatavaultTable };
+    return payload.data;
+  },
+
+  getTableAccess: async (tableId: string): Promise<ApiAccessResponse<DatavaultTableAccess>> => {
+    const res = await apiRequest('GET', `/api/datavault/tables/${tableId}/access`);
+    return res.json();
+  },
+
+  grantTableAccess: async (
+    tableId: string,
+    entries: AccessGrantEntry[]
+  ): Promise<DatavaultTableAccess[]> => {
+    const res = await apiRequest('PUT', `/api/datavault/tables/${tableId}/access`, { entries });
+    const payload = await res.json() as { success: boolean; data: DatavaultTableAccess[] };
+    return payload.data;
+  },
+
+  revokeTableAccess: async (
+    tableId: string,
+    entries: AccessRevokeEntry[]
+  ): Promise<void> => {
+    const res = await apiRequest('DELETE', `/api/datavault/tables/${tableId}/access`, { entries });
+    if (res.status !== 200) {
+      await res.json();
+    }
   },
 
   // Columns

@@ -439,13 +439,9 @@ export class WorkflowService {
     entries: Array<{ principalType: PrincipalType; principalId: string; role: string }>,
     tx?: DbTransaction
   ): Promise<WorkflowAccess[]> {
-    const workflow = await this.verifyAccess(workflowId, requestorId, 'owner');
+    await this.verifyAccess(workflowId, requestorId, 'owner');
     const results: WorkflowAccess[] = [];
     for (const entry of entries) {
-      // Only owner can grant 'owner' role
-      if (entry.role === 'owner' && workflow.ownerId !== requestorId) {
-        throw new Error("Only the workflow owner can grant owner access to others");
-      }
       const acl = await this.workflowAccessRepo.upsert(
         workflowId,
         entry.principalType,

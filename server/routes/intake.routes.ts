@@ -9,6 +9,7 @@ import { optionalHybridAuth, type AuthRequest } from '../middleware/auth';
 import { CaptchaService } from "../services/CaptchaService.js";
 import { intakeService } from "../services/IntakeService";
 import { asyncHandler } from '../utils/asyncHandler';
+import { maskSecret } from '../utils/encryption';
 import { classifyRouteError } from '../utils/routeErrors';
 import { uploadLimiter, strictLimiter } from "../middleware/rateLimiter";
 import { virusScanner } from "../services/security/VirusScanner";
@@ -165,9 +166,8 @@ export function registerIntakeRoutes(app: Express): void {
       const data = saveProgressSchema.parse(req.body);
       
       if (data.captcha) {
-         // @ts-ignore - TODO: fix type
-         const isValid = await CaptchaService.validate(data.captcha);
-         if (!isValid) {
+         const captchaResult = await CaptchaService.validateCaptcha(data.captcha as CaptchaResponse, '');
+         if (!captchaResult.valid) {
              return res.status(403).json({ error: "Invalid CAPTCHA" });
          }
       }
@@ -178,7 +178,7 @@ export function registerIntakeRoutes(app: Express): void {
         message: "Progress saved",
       });
     } catch (error) {
-      logger.error({ error, token: req.params.token }, "Error saving intake progress");
+      logger.error({ error, token: maskSecret(req.params.token) }, "Error saving intake progress");
       const { status, message } = classifyRouteError(error, "Failed to save progress");
       res.status(status).json({ success: false, error: message });
     }
@@ -209,7 +209,7 @@ export function registerIntakeRoutes(app: Express): void {
         data: result,
       });
     } catch (error) {
-      logger.error({ error, token: req.params.token }, "Error submitting intake run");
+      logger.error({ error, token: maskSecret(req.params.token) }, "Error submitting intake run");
       const { status, message } = classifyRouteError(error, "Failed to submit run");
       res.status(status).json({ success: false, error: message });
     }
@@ -227,7 +227,7 @@ export function registerIntakeRoutes(app: Express): void {
         data: status,
       });
     } catch (error) {
-      logger.error({ error, token: req.params.token }, "Error fetching run status");
+      logger.error({ error, token: maskSecret(req.params.token) }, "Error fetching run status");
       const { status, message } = classifyRouteError(error, "Failed to fetch status");
       res.status(status).json({ success: false, error: message });
     }
@@ -264,7 +264,7 @@ export function registerIntakeRoutes(app: Express): void {
         error: "Document download not yet implemented",
       });
     } catch (error) {
-      logger.error({ error, token: req.params.token }, "Error downloading document");
+      logger.error({ error, token: maskSecret(req.params.token) }, "Error downloading document");
       const message = "Failed to download document";
       res.status(500).json({ success: false, error: message });
     }
@@ -278,7 +278,8 @@ export function registerIntakeRoutes(app: Express): void {
   app.post('/intake/upload', uploadLimiter, optionalHybridAuth, upload.single('file'), asyncHandler(async (req: Request, res: Response) => {
     try {
       // SEC-011: Require a valid intake runToken or session to bind uploads to an in-progress run
-      const runToken = req.query.runToken || req.headers['x-run-token'];
+      const rawRunToken = req.query.runToken ?? req.headers['x-run-token'];
+      const runToken = typeof rawRunToken === 'string' ? rawRunToken : undefined;
       const authReq = req as AuthRequest;
       const hasSession = !!authReq.userId;
 
@@ -302,7 +303,7 @@ export function registerIntakeRoutes(app: Express): void {
       const fileBuffer = await import('fs').then(fs => fs.promises.readFile(req.file!.path));
       
       const { validateMagicBytes } = await import('../utils/magicBytes');
-      const isValidMagic = validateMagicBytes(fileBuffer, req.file!.originalname);
+      const isValidMagic = validateMagicBytes(fileBuffer, req.file.originalname);
       if (!isValidMagic) {
         return res.status(400).json({ error: "File type mismatch (Magic Bytes validation failed)" });
       }

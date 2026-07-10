@@ -45,7 +45,7 @@ const logger = createLogger({ module: 'auth-routes' });
 async function validateCredentials(email: string, password: string, req: Request): Promise<User> {
   const user = await userRepository.findByEmail(email);
   if (!user) {
-    logger.error({ email }, 'DEBUG: ValidateCredentials - User not found');
+    logger.debug({ email }, 'DEBUG: ValidateCredentials - User not found');
     // Record failed attempt even if user doesn't exist (prevents enumeration)
     await accountLockoutService.recordAttempt(email, req.ip, false);
     throw new InvalidCredentialsError();
@@ -67,13 +67,13 @@ async function validateCredentials(email: string, password: string, req: Request
   }
   const credentials = await userCredentialsRepository.findByUserId(user.id);
   if (!credentials) {
-    logger.error({ userId: user.id }, 'DEBUG: ValidateCredentials - Credentials not found');
+    logger.debug({ userId: user.id }, 'DEBUG: ValidateCredentials - Credentials not found');
     await accountLockoutService.recordAttempt(email, req.ip, false);
     throw new InvalidCredentialsError();
   }
   const isMatch = await authService.comparePassword(password, credentials.passwordHash);
   if (!isMatch) {
-    logger.error({ email }, 'DEBUG: ValidateCredentials - Password mismatch');
+    logger.debug({ email }, 'DEBUG: ValidateCredentials - Password mismatch');
     await accountLockoutService.recordAttempt(email, req.ip, false);
     throw new InvalidCredentialsError();
   }
@@ -924,22 +924,22 @@ export function registerAuthRoutes(app: Express): void {
   app.post('/api/auth/trust-device', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
-      // @ts-ignore - TODO: fix type
+      if (!userId) { return res.status(401).json({ message: "Unauthorized" }); }
       const user = await userRepository.findById(userId);
       if (!user) { return res.status(401).json({ message: "Unauthorized" }); }
-      
+
       if (user.mfaEnabled) {
           const { code } = req.body as { code?: string };
-          if (!code) return res.status(403).json({ message: "MFA code required to trust device" });
-          // @ts-ignore - TODO: fix type
+          if (!code) { return res.status(403).json({ message: "MFA code required to trust device" }); }
           const isValid = await mfaService.verifyTotp(userId, code);
-          if (!isValid) return res.status(403).json({ message: "Invalid MFA code" });
+          if (!isValid) { return res.status(403).json({ message: "Invalid MFA code" }); }
       } else {
           const { password } = req.body as { password?: string };
-          if (!password && process.env.NODE_ENV !== 'test') return res.status(403).json({ message: "Password required to trust device" });
+          if (!password && process.env.NODE_ENV !== 'test') { return res.status(403).json({ message: "Password required to trust device" }); }
           try {
-             if (password || process.env.NODE_ENV !== 'test') {
-                 await validateCredentials(user.email, password || '', req);
+             const shouldValidate = (password !== undefined && password !== '') || process.env.NODE_ENV !== 'test';
+             if (shouldValidate) {
+                 await validateCredentials(user.email, password ?? '', req);
              }
           } catch (e) {
              return res.status(403).json({ message: "Invalid password" });
@@ -954,7 +954,6 @@ export function registerAuthRoutes(app: Express): void {
       // Check if already trusted
       const existing = await db.query.trustedDevices.findFirst({
         where: and(
-          // @ts-ignore - TODO: fix type
           eq(trustedDevices.userId, userId),
           eq(trustedDevices.deviceFingerprint, deviceFingerprint),
           eq(trustedDevices.revoked, false)
@@ -969,7 +968,6 @@ export function registerAuthRoutes(app: Express): void {
       } else {
         // Create new trusted device
         await db.insert(trustedDevices).values({
-          // @ts-ignore - TODO: fix type
           userId,
           deviceFingerprint,
           deviceName,

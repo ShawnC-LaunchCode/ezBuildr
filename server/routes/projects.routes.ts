@@ -7,6 +7,7 @@ import { logger } from "../logger";
 import { hybridAuth } from '../middleware/auth';
 import { requireUser } from '../middleware/requireUser';
 import { validateProjectId } from '../middleware/validateId';
+import { aclService } from "../services/AclService";
 import { projectService } from "../services/ProjectService";
 import { asyncHandler } from "../utils/asyncHandler";
 import { createPaginatedResponse } from "../utils/pagination";
@@ -16,6 +17,7 @@ import type { UserRequest } from '../middleware/requireUser';
 import type { Express, Request, Response } from "express";
 
 const ERR_CREATING_PROJECT = "Failed to create project";
+const ERR_INVALID_INPUT = "Invalid input";
 const STATUS_INTERNAL = 500;
 
 const createProjectBodySchema = z.object({
@@ -81,7 +83,7 @@ export function registerProjectRoutes(app: Express): void {
       logger.error({ error }, "Error creating project");
       if (error instanceof z.ZodError) {
         return res.status(400).json({
-          error: "Invalid input",
+          error: ERR_INVALID_INPUT,
           details: error.errors,
         });
       }
@@ -113,7 +115,7 @@ export function registerProjectRoutes(app: Express): void {
       logger.error({ error }, "Error fetching projects");
       if (error instanceof z.ZodError) {
         return res.status(400).json({
-          error: "Invalid input",
+          error: ERR_INVALID_INPUT,
           details: error.errors,
         });
       }
@@ -139,7 +141,7 @@ export function registerProjectRoutes(app: Express): void {
       logger.error({ error }, "Error fetching organization projects");
       if (error instanceof z.ZodError) {
         return res.status(400).json({
-          error: "Invalid input",
+          error: ERR_INVALID_INPUT,
           details: error.errors,
         });
       }
@@ -210,7 +212,7 @@ export function registerProjectRoutes(app: Express): void {
       logger.error({ error }, "Error updating project");
       if (error instanceof z.ZodError) {
         return res.status(400).json({
-          error: "Invalid input",
+          error: ERR_INVALID_INPUT,
           details: error.errors,
         });
       }
@@ -243,7 +245,7 @@ export function registerProjectRoutes(app: Express): void {
       logger.error({ error }, "Error updating project");
       if (error instanceof z.ZodError) {
         return res.status(400).json({
-          error: "Invalid input",
+          error: ERR_INVALID_INPUT,
           details: error.errors,
         });
       }
@@ -324,8 +326,11 @@ export function registerProjectRoutes(app: Express): void {
       const user = (req as UserRequest).user;
       const { projectId } = req.params;
 
-      const access = await projectService.getProjectAccess(projectId, user.id);
-      res.json({ success: true, data: access });
+      const [access, currentUserRole] = await Promise.all([
+        projectService.getProjectAccess(projectId, user.id),
+        aclService.resolveRoleForProject(user.id, projectId),
+      ]);
+      res.json({ success: true, data: access, currentUserRole });
     } catch (error) {
       logger.error({ error }, "Error fetching project access");
       const { status, message } = classifyRouteError(error, "Failed to fetch project access");
@@ -366,7 +371,7 @@ export function registerProjectRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           success: false,
-          error: "Invalid input",
+          error: ERR_INVALID_INPUT,
           details: error.errors,
         });
       }
@@ -403,7 +408,7 @@ export function registerProjectRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           success: false,
-          error: "Invalid input",
+          error: ERR_INVALID_INPUT,
           details: error.errors,
         });
       }
@@ -437,7 +442,7 @@ export function registerProjectRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           success: false,
-          error: "Invalid input",
+          error: ERR_INVALID_INPUT,
           details: error.errors,
         });
       }
@@ -480,7 +485,7 @@ export function registerProjectRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           success: false,
-          error: "Invalid input",
+          error: ERR_INVALID_INPUT,
           details: error.errors,
         });
       }

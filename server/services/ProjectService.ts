@@ -191,7 +191,7 @@ export class ProjectService {
    * Get all ACL entries for a project
    */
   async getProjectAccess(projectId: string, userId: string, tx?: DbTransaction): Promise<ProjectAccess[]> {
-    await this.verifyProjectAccess(projectId, userId, 'owner');
+    await this.verifyProjectAccess(projectId, userId, 'view');
     return this.projectAccessRepo.findByProjectId(projectId, tx);
   }
   /**

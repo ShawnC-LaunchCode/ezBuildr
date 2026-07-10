@@ -3,7 +3,7 @@
  * PR1: Added tab-based navigation structure
  */
 import { useQueryClient } from "@tanstack/react-query";
-import { Eye, ChevronDown, ArrowLeft, Database, Sparkles } from "lucide-react";
+import { Eye, ChevronDown, ArrowLeft, Database, Sparkles, Share2 } from "lucide-react";
 
 // Removed AdvancedModeBanner
 // Tab components
@@ -12,6 +12,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 
 import { ActivateToggle } from "@/components/builder/ActivateToggle";
+import { ResourceAccessDialog } from "@/components/access/ResourceAccessDialog";
 import { AiConversationPanel } from "@/components/builder/ai/AiConversationPanel";
 import { CollectionsDrawer } from "@/components/builder/data-sources/CollectionsDrawer";
 import { IntakeProvider } from "@/components/builder/IntakeContext";
@@ -62,6 +63,7 @@ export default function WorkflowBuilder() {
   const [collectionsDrawerOpen, setCollectionsDrawerOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [diffOpen, setDiffOpen] = useState(false);
   const [diffBaseVersion, setDiffBaseVersion] = useState<ApiWorkflowVersion | null>(null);
   const [diffTargetVersion, setDiffTargetVersion] = useState<ApiWorkflowVersion | null>(null);
@@ -233,6 +235,9 @@ export default function WorkflowBuilder() {
                     <Button variant="outline" size="sm" onClick={() => setIsPreviewMode(true)} disabled={launchingPreview}>
                       <Eye className="w-4 h-4 mr-2" /> Preview
                     </Button>
+                    <Button variant="outline" size="sm" onClick={() => setShareOpen(true)}>
+                      <Share2 className="w-4 h-4 mr-2" /> Share
+                    </Button>
                     <Button
                       variant={aiPanelOpen ? "secondary" : "outline"}
                       size="sm"
@@ -276,6 +281,15 @@ export default function WorkflowBuilder() {
                 {activeTab === "assignment" && <AssignmentTab workflowId={workflowId} />}
               </div>
               <CollectionsDrawer open={collectionsDrawerOpen} onOpenChange={setCollectionsDrawerOpen} workflowId={workflowId} />
+              <ResourceAccessDialog
+                open={shareOpen}
+                onOpenChange={setShareOpen}
+                resourceType="workflow"
+                resourceId={workflowId}
+                resourceName={workflow.title}
+                ownerType={workflow.ownerType}
+                ownerUuid={workflow.ownerUuid}
+              />
               {/* Versioning Components */}
               <VersionHistoryPanel
                 workflowId={workflowId}

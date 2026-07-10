@@ -45,6 +45,16 @@ describe('DatavaultTablesService', () => {
     datavaultTablePermissionsRepository: {
       findByTableAndUser: vi.fn(),
     },
+    // Needed at module load: AclService / DatavaultAclService singletons are
+    // constructed on import and default these repos from the mocked module.
+    teamMemberRepository: { findByUserId: vi.fn() },
+    projectAccessRepository: {},
+    workflowAccessRepository: {},
+    projectRepository: {},
+    workflowRepository: {},
+    datavaultDatabaseAccessRepository: {},
+    datavaultTableAccessRepository: {},
+    datavaultDatabasesRepository: {},
   }));
 
   beforeEach(() => {
@@ -64,7 +74,7 @@ describe('DatavaultTablesService', () => {
         {
           id: mockTableId,
           tenantId: mockTenantId,
-          ownerUserId: mockUserId,
+          ownerUserId: mockUserId, ownerType: null, ownerUuid: null,
           name: 'Test Table',
           slug: 'test-table',
           description: 'Test',
@@ -89,7 +99,7 @@ describe('DatavaultTablesService', () => {
         {
           id: mockTableId,
           tenantId: mockTenantId,
-          ownerUserId: mockUserId,
+          ownerUserId: mockUserId, ownerType: null, ownerUuid: null,
           name: 'Test Table',
           slug: 'test-table',
           description: 'Test',
@@ -117,7 +127,7 @@ describe('DatavaultTablesService', () => {
       const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
-        ownerUserId: mockUserId,
+        ownerUserId: mockUserId, ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: 'Test',
@@ -145,7 +155,7 @@ describe('DatavaultTablesService', () => {
       const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: 'different-tenant-id',
-        ownerUserId: mockUserId,
+        ownerUserId: mockUserId, ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: 'Test',
@@ -166,7 +176,7 @@ describe('DatavaultTablesService', () => {
     it('should create table with generated slug', async () => {
       const insertData = {
         tenantId: mockTenantId,
-        ownerUserId: mockUserId,
+        ownerUserId: mockUserId, ownerType: null, ownerUuid: null,
         name: 'New Table',
         description: 'Test',
       };
@@ -197,7 +207,7 @@ describe('DatavaultTablesService', () => {
     it('should ensure unique slug by appending counter', async () => {
       const insertData = {
         tenantId: mockTenantId,
-        ownerUserId: mockUserId,
+        ownerUserId: mockUserId, ownerType: null, ownerUuid: null,
         name: 'New Table',
         description: 'Test',
       };
@@ -226,7 +236,7 @@ describe('DatavaultTablesService', () => {
     it('should use provided slug if given', async () => {
       const insertData = {
         tenantId: mockTenantId,
-        ownerUserId: mockUserId,
+        ownerUserId: mockUserId, ownerType: null, ownerUuid: null,
         name: 'New Table',
         slug: 'custom-slug',
         description: 'Test',
@@ -254,7 +264,7 @@ describe('DatavaultTablesService', () => {
       const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
-        ownerUserId: mockUserId,
+        ownerUserId: mockUserId, ownerType: null, ownerUuid: null,
         name: 'Old Name',
         slug: 'old-name',
         description: 'Old',
@@ -295,7 +305,7 @@ describe('DatavaultTablesService', () => {
       const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
-        ownerUserId: mockUserId,
+        ownerUserId: mockUserId, ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: 'Test',

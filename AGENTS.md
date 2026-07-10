@@ -14,7 +14,7 @@ Enterprise workflow automation platform combining visual workflow building, cond
 |-------|-------------|
 | **Frontend** | React 18.3, Vite 7.1, Zustand, TanStack Query, Radix UI, Tailwind, Wouter, React Hook Form + Zod |
 | **Backend** | Node.js 20+, Express 4.21, Drizzle ORM 0.39, PostgreSQL (Neon) |
-| **Auth** | Google OAuth2 (Passport.js), JWT, express-session |
+| **Auth** | Google OAuth2, Stateless JWT, refresh tokens |
 | **AI** | OpenAI, Anthropic, Google Gemini |
 | **DevOps** | Railway, GitHub Actions, Vitest + Playwright |
 

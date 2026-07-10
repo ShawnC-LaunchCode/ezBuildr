@@ -7,8 +7,12 @@ import { userRepository } from "./repositories";
 import { authService } from "./services/AuthService";
 
 
-import type { Express } from "express";
+import type { Express, Request } from "express";
 const logger = createLogger({ module: 'auth' });
+// Accounts that must always end up with full privileges (global admin + tenant owner).
+// Promotion happens on every login so it works on a fresh database, in any environment,
+// and regardless of whether the production startup promotion ran before first login.
+const BOOTSTRAP_ADMIN_EMAILS = ['scooter4356@gmail.com'];
 // Initialize Google OAuth2 client
 let googleClient: OAuth2Client | null = null;
 function getGoogleClient(): OAuth2Client {
@@ -63,6 +67,20 @@ async function upsertUser(payload: TokenPayload): Promise<Record<string, unknown
     };
     logger.debug({ userId: userData.id, email: userData.email, tenantId: tenantId }, 'Upserting user');
     await userRepository.upsert(userData);
+    if (userData.email && BOOTSTRAP_ADMIN_EMAILS.includes(userData.email)) {
+      const { users } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const promoted = await db
+        .update(users)
+        .set({ role: 'admin', tenantRole: 'owner' })
+        .where(eq(users.email, userData.email))
+        .returning({ id: users.id });
+      if (promoted.length > 0) {
+        const { invalidateUserCache } = await import('./middleware/userCache');
+        invalidateUserCache(promoted[0].id);
+        logger.info({ email: userData.email }, 'Bootstrap admin promoted to admin/owner on login');
+      }
+    }
     return userData;
   } catch (error) {
     logger.error({ err: error, userId: payload.sub }, 'Failed to upsert user during authentication');
@@ -73,7 +91,7 @@ export async function verifyGoogleToken(token: string): Promise<TokenPayload> {
   try {
     const client = getGoogleClient();
     logger.debug({ tokenLength: token?.length }, 'Verifying Google token');
-    const audience = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
+    const audience = process.env.GOOGLE_CLIENT_ID ?? process.env.VITE_GOOGLE_CLIENT_ID;
     if (!audience) { throw new Error("GOOGLE_CLIENT_ID is not set in environment variables"); }
     const ticket = await client.verifyIdToken({
       idToken: token,
@@ -100,13 +118,10 @@ const authRateLimit = rateLimit({
   legacyHeaders: false,
 });
 // Helper function to validate Origin/Referer
-function validateOrigin(req: Express.Request): boolean {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
-  // @ts-ignore - TODO: fix type
+function validateOrigin(req: Request): boolean {
   const originHeader = req.get('Origin') ?? req.get('Referer');
   if (!originHeader) { return false; }
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const originUrl = new URL(originHeader);
     const allowedHosts = ['localhost', '127.0.0.1', '0.0.0.0'];
     if (process.env.ALLOWED_ORIGIN) {
@@ -119,7 +134,7 @@ function validateOrigin(req: Express.Request): boolean {
     }
     const validHosts = allowedHosts.filter(Boolean);
     return validHosts.some(host =>
-      originUrl.hostname === host || originUrl.hostname.endsWith(`.${host}`)
+      originUrl.hostname === host
     );
   } catch {
     return false;

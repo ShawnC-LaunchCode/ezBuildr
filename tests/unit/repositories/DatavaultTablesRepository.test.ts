@@ -50,7 +50,7 @@ describe('DatavaultTablesRepository', () => {
         {
           id: mockTableId,
           tenantId: mockTenantId,
-          ownerUserId: mockUserId,
+          ownerUserId: mockUserId, ownerType: null, ownerUuid: null,
           name: 'Test Table',
           slug: 'test-table',
           description: 'Test description',
@@ -84,7 +84,7 @@ describe('DatavaultTablesRepository', () => {
       const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
-        ownerUserId: mockUserId,
+        ownerUserId: mockUserId, ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: 'Test description',
@@ -140,7 +140,7 @@ describe('DatavaultTablesRepository', () => {
     it('should create a new table', async () => {
       const insertData: InsertDatavaultTable = {
         tenantId: mockTenantId,
-        ownerUserId: mockUserId,
+        ownerUserId: mockUserId, ownerType: null, ownerUuid: null,
         name: 'New Table',
         slug: 'new-table',
         description: 'New description',
@@ -149,7 +149,7 @@ describe('DatavaultTablesRepository', () => {
       const createdTable: DatavaultTable = {
         id: mockTableId,
         ...insertData,
-        ownerUserId: mockUserId,
+        ownerUserId: mockUserId, ownerType: null, ownerUuid: null,
         description: insertData.description!,
         slug: insertData.slug!,
         createdAt: new Date(),
@@ -177,12 +177,10 @@ describe('DatavaultTablesRepository', () => {
       const updatedTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
-        ownerUserId: mockUserId,
+        ownerUserId: mockUserId, ownerType: null, ownerUuid: null,
         slug: 'test-table',
         ...updateData,
         createdAt: new Date(),
-        updatedAt: new Date(),
-        // @ts-ignore - TODO: fix type
         updatedAt: new Date(),
         databaseId: null,
       };

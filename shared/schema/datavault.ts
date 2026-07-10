@@ -66,12 +66,15 @@ export const datavaultTables = pgTable("datavault_tables", {
     name: text("name").notNull(),
     slug: text("slug").notNull(),
     description: text("description"),
+    ownerType: ownerTypeEnum("owner_type"),
+    ownerUuid: varchar("owner_uuid"),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
     index("datavault_tables_tenant_idx").on(table.tenantId),
     index("datavault_tables_owner_idx").on(table.ownerUserId),
     index("idx_tables_database").on(table.databaseId, table.tenantId),
+    index("idx_datavault_tables_owner").on(table.ownerType, table.ownerUuid),
     uniqueIndex("datavault_tables_tenant_slug_unique").on(table.tenantId, table.slug),
 ]);
 // DataVault Columns
@@ -184,6 +187,30 @@ export const datavaultTablePermissions = pgTable("datavault_table_permissions", 
     index("idx_table_permissions_table").on(table.tableId),
     uniqueIndex("unique_table_user_permission").on(table.tableId, table.userId),
 ]);
+// DataVault Database Access
+export const datavaultDatabaseAccess = pgTable("datavault_database_access", {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    databaseId: uuid("database_id").references(() => datavaultDatabases.id, { onDelete: 'cascade' }).notNull(),
+    principalType: varchar("principal_type", { length: 20 }).notNull(),
+    principalId: varchar("principal_id").notNull(),
+    role: varchar("role", { length: 20 }).notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+    index("datavault_database_access_database_idx").on(table.databaseId),
+    uniqueIndex("datavault_database_access_principal_idx").on(table.databaseId, table.principalType, table.principalId),
+]);
+// DataVault Table Access
+export const datavaultTableAccess = pgTable("datavault_table_access", {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    tableId: uuid("table_id").references(() => datavaultTables.id, { onDelete: 'cascade' }).notNull(),
+    principalType: varchar("principal_type", { length: 20 }).notNull(),
+    principalId: varchar("principal_id").notNull(),
+    role: varchar("role", { length: 20 }).notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+    index("datavault_table_access_table_idx").on(table.tableId),
+    uniqueIndex("datavault_table_access_principal_idx").on(table.tableId, table.principalType, table.principalId),
+]);
 // DataVault Writeback Mappings
 export const datavaultWritebackMappings = pgTable("datavault_writeback_mappings", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -289,6 +316,10 @@ export const insertDatavaultApiTokenSchema = createInsertSchema(datavaultApiToke
 export type InsertDatavaultApiToken = z.infer<typeof insertDatavaultApiTokenSchema>;
 export const insertDatavaultTablePermissionSchema = createInsertSchema(datavaultTablePermissions);
 export type InsertDatavaultTablePermission = z.infer<typeof insertDatavaultTablePermissionSchema>;
+export const insertDatavaultDatabaseAccessSchema = createInsertSchema(datavaultDatabaseAccess);
+export type InsertDatavaultDatabaseAccess = z.infer<typeof insertDatavaultDatabaseAccessSchema>;
+export const insertDatavaultTableAccessSchema = createInsertSchema(datavaultTableAccess);
+export type InsertDatavaultTableAccess = z.infer<typeof insertDatavaultTableAccessSchema>;
 export const insertDatavaultWritebackMappingSchema = createInsertSchema(datavaultWritebackMappings);
 export type InsertDatavaultWritebackMapping = z.infer<typeof insertDatavaultWritebackMappingSchema>;
 // Collection Schemas
@@ -306,6 +337,8 @@ export type DatavaultValue = InferSelectModel<typeof datavaultValues>;
 export type DatavaultRowNote = InferSelectModel<typeof datavaultRowNotes>;
 export type DatavaultApiToken = InferSelectModel<typeof datavaultApiTokens>;
 export type DatavaultTablePermission = InferSelectModel<typeof datavaultTablePermissions>;
+export type DatavaultDatabaseAccess = InferSelectModel<typeof datavaultDatabaseAccess>;
+export type DatavaultTableAccess = InferSelectModel<typeof datavaultTableAccess>;
 export type DatavaultWritebackMapping = InferSelectModel<typeof datavaultWritebackMappings>;
 export type Collection = InferSelectModel<typeof collections>;
 export type CollectionField = InferSelectModel<typeof collectionFields>;

@@ -1,11 +1,10 @@
 import { z } from 'zod';
 
-import { insertDatavaultTableSchema } from '@shared/schema';
-
 import { logger } from '../../logger';
 import { hybridAuth, getAuthUserId } from '../../middleware/auth';
 import { createLimiter, deleteLimiter } from '../../middleware/rateLimiter';
 import { datavaultTablesService } from '../../services';
+import { datavaultDatabasesService } from '../../services/DatavaultDatabasesService';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { classifyRouteError } from '../../utils/routeErrors';
 
@@ -18,6 +17,7 @@ const ERROR_INVALID_TABLE_ID = 'Invalid table ID format';
 /**
  * Register DataVault table endpoints
  */
+// eslint-disable-next-line max-lines-per-function
 export function registerDatavaultTableRoutes(app: Express): void {
   /**
    * GET /api/datavault/tables
@@ -49,12 +49,31 @@ export function registerDatavaultTableRoutes(app: Express): void {
     try {
       const tenantId = getTenantId(req);
       const userId = getAuthUserId(req);
-      const tableData = insertDatavaultTableSchema.parse({
-        ...req.body,
+      if (!userId) {
+        return res.status(401).json({ message: ERROR_AUTH_REQUIRED });
+      }
+      const createSchema = z.object({
+        name: z.string().min(1),
+        slug: z.string().min(1).optional(),
+        description: z.string().optional(),
+        databaseId: z.string().uuid().optional().nullable(),
+        ownerType: z.enum(['user', 'org']).optional(),
+        ownerUuid: z.string().uuid().optional(),
+      });
+      const input = createSchema.parse(req.body);
+      if (input.databaseId) {
+        await datavaultDatabasesService.verifyDatabaseAccess(input.databaseId, tenantId, userId, 'edit');
+      }
+      const table = await datavaultTablesService.createTable({
         tenantId,
         ownerUserId: userId,
+        name: input.name,
+        slug: input.slug,
+        description: input.description,
+        databaseId: input.databaseId ?? null,
+        ownerType: input.ownerType,
+        ownerUuid: input.ownerUuid,
       });
-      const table = await datavaultTablesService.createTable(tableData);
       res.status(201).json(table);
     } catch (error) {
       logger.error({ error }, 'Error creating DataVault table');
@@ -139,12 +158,16 @@ export function registerDatavaultTableRoutes(app: Express): void {
   app.patch('/api/datavault/tables/:tableId/move', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: ERROR_AUTH_REQUIRED });
+      }
       const { tableId } = req.params;
       const moveSchema = z.object({
         databaseId: z.string().uuid().nullable(),
       });
       const { databaseId } = moveSchema.parse(req.body);
-      const table = await datavaultTablesService.moveTable(tableId, tenantId, databaseId);
+      const table = await datavaultTablesService.moveTable(tableId, tenantId, databaseId, userId);
       res.json(table);
     } catch (error) {
       logger.error({ error }, 'Error moving DataVault table');
@@ -206,6 +229,125 @@ export function registerDatavaultTableRoutes(app: Express): void {
       logger.error({ error }, 'Error fetching DataVault table schema');
       const { status, message } = classifyRouteError(error, 'Failed to fetch table schema');
       res.status(status).json({ message });
+    }
+  }));
+
+  /**
+   * GET /api/datavault/tables/:tableId/access
+   * Get access entries and caller role for a table.
+   */
+  app.get('/api/datavault/tables/:tableId/access', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      const { tableId } = req.params;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: ERROR_AUTH_REQUIRED });
+      }
+      const access = await datavaultTablesService.getTableAccess(tableId, tenantId, userId);
+      res.json({ success: true, data: access.entries, currentUserRole: access.currentUserRole });
+    } catch (error) {
+      logger.error({ error }, 'Error fetching table access');
+      const { status, message } = classifyRouteError(error, 'Failed to fetch table access');
+      res.status(status).json({ success: false, error: message });
+    }
+  }));
+
+  /**
+   * PUT /api/datavault/tables/:tableId/access
+   * Grant or update table access.
+   */
+  app.put('/api/datavault/tables/:tableId/access', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      const { tableId } = req.params;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: ERROR_AUTH_REQUIRED });
+      }
+      const schema = z.object({
+        entries: z.array(z.object({
+          principalType: z.enum(['user', 'team']),
+          principalId: z.string(),
+          role: z.enum(['view', 'edit', 'owner']),
+        })),
+      });
+      const { entries } = schema.parse(req.body);
+      const access = await datavaultTablesService.grantTableAccess(tableId, tenantId, userId, entries);
+      res.json({ success: true, data: access });
+    } catch (error) {
+      logger.error({ error }, 'Error granting table access');
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: ERROR_INVALID_INPUT, details: error.errors });
+      }
+      const { status, message } = classifyRouteError(error, 'Failed to grant table access');
+      res.status(status).json({ success: false, error: message });
+    }
+  }));
+
+  /**
+   * DELETE /api/datavault/tables/:tableId/access
+   * Revoke table access.
+   */
+  app.delete('/api/datavault/tables/:tableId/access', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      const { tableId } = req.params;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: ERROR_AUTH_REQUIRED });
+      }
+      const schema = z.object({
+        entries: z.array(z.object({
+          principalType: z.enum(['user', 'team']),
+          principalId: z.string(),
+        })),
+      });
+      const { entries } = schema.parse(req.body);
+      await datavaultTablesService.revokeTableAccess(tableId, tenantId, userId, entries);
+      res.json({ success: true, message: 'Access revoked successfully' });
+    } catch (error) {
+      logger.error({ error }, 'Error revoking table access');
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: ERROR_INVALID_INPUT, details: error.errors });
+      }
+      const { status, message } = classifyRouteError(error, 'Failed to revoke table access');
+      res.status(status).json({ success: false, error: message });
+    }
+  }));
+
+  /**
+   * POST /api/datavault/tables/:tableId/transfer
+   * Transfer standalone table ownership.
+   */
+  app.post('/api/datavault/tables/:tableId/transfer', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      const { tableId } = req.params;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: ERROR_AUTH_REQUIRED });
+      }
+      const schema = z.object({
+        targetOwnerType: z.enum(['user', 'org']),
+        targetOwnerUuid: z.string().uuid(),
+      });
+      const { targetOwnerType, targetOwnerUuid } = schema.parse(req.body);
+      const table = await datavaultTablesService.transferOwnership(
+        tableId,
+        tenantId,
+        userId,
+        targetOwnerType,
+        targetOwnerUuid
+      );
+      res.json({ success: true, data: table });
+    } catch (error) {
+      logger.error({ error }, 'Error transferring table ownership');
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: ERROR_INVALID_INPUT, details: error.errors });
+      }
+      const { status, message } = classifyRouteError(error, 'Failed to transfer table ownership');
+      res.status(status).json({ success: false, error: message });
     }
   }));
 }

@@ -12,6 +12,7 @@ import { CreateTableModal } from "@/components/datavault/CreateTableModal";
 import { DatabaseTableTabs } from "@/components/datavault/DatabaseTableTabs";
 import { MoveTableModal } from "@/components/datavault/MoveTableModal";
 import { RowEditorModal } from "@/components/datavault/RowEditorModal";
+import { ResourceAccessDialog } from "@/components/access/ResourceAccessDialog";
 import Header from "@/components/layout/Header"; // eslint-disable-line @typescript-eslint/naming-convention
 import Sidebar from "@/components/layout/Sidebar"; // eslint-disable-line @typescript-eslint/naming-convention
 import {
@@ -53,6 +54,8 @@ export default function DatabaseDetailPage(): React.JSX.Element | null {
   const [editingRow, setEditingRow] = useState<{ id: string; values: Record<string, unknown> } | null>(null);
   const [deleteRowConfirm, setDeleteRowConfirm] = useState<string | null>(null);
   const [moveTableOpen, setMoveTableOpen] = useState(false);
+  const [databaseShareOpen, setDatabaseShareOpen] = useState(false);
+  const [tableShareOpen, setTableShareOpen] = useState(false);
 
   const activeTable = tables?.find((t) => t.id === activeTableId) ?? null;
 
@@ -113,6 +116,7 @@ export default function DatabaseDetailPage(): React.JSX.Element | null {
           database={database}
           onNavigateBack={() => setLocation("/datavault/databases")}
           onNavigateSettings={() => setLocation(`/datavault/databases/${databaseId}/settings`)}
+          onOpenShare={() => setDatabaseShareOpen(true)}
         />
 
         <DatabaseTableTabs
@@ -133,6 +137,7 @@ export default function DatabaseDetailPage(): React.JSX.Element | null {
               window.dispatchEvent(event);
             }}
             onOpenMoveTable={() => setMoveTableOpen(true)}
+            onOpenShare={() => setTableShareOpen(true)}
             onOpenCreateTable={() => setCreateTableOpen(true)}
             onAddRow={() => setRowEditorOpen(true)}
             onEditRow={handlers.openEditRow}
@@ -200,6 +205,26 @@ export default function DatabaseDetailPage(): React.JSX.Element | null {
         databases={allDatabases ?? []}
         onMove={handlers.handleMoveTable}
         isLoading={handlers.moveTableMutation.isPending}
+      />
+
+      <ResourceAccessDialog
+        open={databaseShareOpen}
+        onOpenChange={setDatabaseShareOpen}
+        resourceType="database"
+        resourceId={database.id}
+        resourceName={database.name}
+        ownerType={database.ownerType}
+        ownerUuid={database.ownerUuid}
+      />
+
+      <ResourceAccessDialog
+        open={tableShareOpen}
+        onOpenChange={setTableShareOpen}
+        resourceType="table"
+        resourceId={activeTable?.id}
+        resourceName={activeTable?.name ?? "Table"}
+        ownerType={activeTable?.ownerType}
+        ownerUuid={activeTable?.ownerUuid}
       />
     </div>
   );

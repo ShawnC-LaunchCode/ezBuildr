@@ -2,15 +2,20 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 
-import { dbInitPromise } from "./db";
+import { eq } from "drizzle-orm";
+import helmet from "helmet";
+
+import { db } from "./db";
 import { logger } from "./logger";
 import { errorHandler } from "./middleware/errorHandler";
+import { globalLimiter } from "./middleware/rateLimiting";
+import { requestIdMiddleware } from "./middleware/requestId";
+import { requestTimeout } from "./middleware/timeout";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { log } from "./utils";
 import { sanitizeInputs } from "./utils/sanitize";
-import { db } from "./db";
-import { eq } from "drizzle-orm";
+
 import { users } from "@shared/schema";
 // Load environment variables
 dotenv.config();
@@ -26,6 +31,46 @@ logger.info({
 }, "Environment configuration");
 logger.info("------------------------------------------");
 const app = express();
+
+// =====================================================================
+// 1️⃣ REQUEST ID TRACKING (FIRST - needed for logging)
+// =====================================================================
+app.use(requestIdMiddleware);
+
+// =====================================================================
+// 2️⃣ HELMET SECURITY HEADERS (SECOND - before content processing)
+// =====================================================================
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://accounts.google.com", "https://*.google.com", "https://*.gstatic.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com", "https://*.google.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      connectSrc: ["'self'", "https://accounts.google.com", "https://*.googleapis.com", "https://*.google.com", "https://*.gstatic.com", "wss:", "ws:"],
+      frameSrc: ["'self'", "https://accounts.google.com", "https://*.google.com"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+  hsts: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true,
+  },
+  frameguard: {
+    action: 'deny', // Prevent clickjacking
+  },
+  noSniff: true,
+  xssFilter: true,
+  referrerPolicy: {
+    policy: 'strict-origin-when-cross-origin',
+  },
+  crossOriginOpenerPolicy: {
+    policy: "same-origin-allow-popups",
+  },
+}));
 // =====================================================================
 // 💡 CORS CONFIGURATION
 // Dynamically determines allowed origins based on environment
@@ -62,7 +107,7 @@ const corsOptions = {
     if (allowedOrigin) {
       // Split by comma to support multiple origins
       const allowedHosts = allowedOrigin.split(",").map((h) => h.trim());
-      if (allowedHosts.some((host) => hostname === host || hostname.endsWith(`.${host}`))) {
+      if (allowedHosts.some((host) => hostname === host)) {
         return callback(null, true);
       }
     }
@@ -83,17 +128,45 @@ app.get('/healthz', (_req, res) => {
 });
 // XSS Protection: Sanitize all string inputs
 app.use(sanitizeInputs);
+
+// =====================================================================
+// 6️⃣ REQUEST TIMEOUT PROTECTION
+// =====================================================================
+app.use(requestTimeout);
+
+// =====================================================================
+// 7️⃣ GLOBAL RATE LIMITING (Apply before routes)
+// =====================================================================
+app.use('/api', globalLimiter);
+app.use('/intake', globalLimiter);
+app.use('/public', globalLimiter);
+app.use('/oauth', globalLimiter);
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
 (async () => {
   try {
+    // Validate master key at startup (fail fast if misconfigured)
+    const { validateMasterKey } = await import("./utils/encryption.js");
+    try {
+      validateMasterKey();
+      logger.info('Master key validated successfully');
+    } catch (error) {
+      logger.fatal({ error }, 'FATAL: VL_MASTER_KEY is not properly configured');
+      process.exit(1);
+    }
+
     // Ensure database is initialized before starting server
-    // Using static import to ensure correct bundling in production
+    // Using dynamic import to avoid DB connection side-effects before key check
+    const { dbInitPromise } = await import("./db.js");
     await dbInitPromise;
     // Initialize routes and collaboration server
     // CRITICAL: We MUST use the 'server' returned by registerRoutes, as it has the WebSocket instance attached.
-    // Ensure scooter is admin on Railway
+    // Ensure scooter is admin on Railway. tenantRole must be 'owner' too: the global
+    // 'admin' role only gates /api/admin/*, while all create/edit endpoints check the
+    // tenant role via RBAC — leaving it at 'viewer' makes the account read-only.
+    // This is a no-op on a fresh database (the row doesn't exist until first login);
+    // googleAuth.upsertUser handles promotion at login for that case.
     try {
-      await db.update(users).set({ role: 'admin' }).where(eq(users.email, 'scooter4356@gmail.com'));
+      await db.update(users).set({ role: 'admin', tenantRole: 'owner' }).where(eq(users.email, 'scooter4356@gmail.com'));
       logger.info("Automatically ensured scooter4356@gmail.com is an admin.");
     } catch (e) {
       logger.error("Failed to enforce admin role on boot");

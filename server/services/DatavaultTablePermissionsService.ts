@@ -1,4 +1,5 @@
 import type {
+  AccessRole,
   DatavaultTablePermission,
   InsertDatavaultTablePermission,
   DatavaultTableRole,
@@ -9,6 +10,8 @@ import {
   datavaultTablesRepository,
   type DbTransaction,
 } from "../repositories";
+
+import { datavaultAclService } from "./DatavaultAclService";
 
 /**
  * Permission level flags for RBAC
@@ -62,21 +65,24 @@ export class DatavaultTablePermissionsService {
       return { read: false, write: false, owner: false };
     }
 
-    // Check if user is the table creator/owner (ownerUserId)
-    if (table.ownerUserId === userId) {
-      return { read: true, write: true, owner: true };
+    const role = await datavaultAclService.resolveRoleForTable(userId, tableId, tx);
+    return this.accessRoleToPermissionFlags(role);
+  }
+
+  /**
+   * Convert unified access roles to legacy permission flags.
+   */
+  private accessRoleToPermissionFlags(role: AccessRole): TablePermissionFlags {
+    switch (role) {
+      case "owner":
+        return { read: true, write: true, owner: true };
+      case "edit":
+        return { read: true, write: true, owner: false };
+      case "view":
+        return { read: true, write: false, owner: false };
+      case "none":
+        return { read: false, write: false, owner: false };
     }
-
-    // Check explicit permission in datavault_table_permissions
-    const permission = await this.permissionsRepo.findByTableAndUser(tableId, userId, tx);
-
-    if (!permission) {
-      // No permission row = deny access (fallback to table owner only)
-      return { read: false, write: false, owner: false };
-    }
-
-    // Map role to permission flags
-    return this.roleToPermissionFlags(permission.role);
   }
 
   /**

@@ -67,6 +67,12 @@ export { DatavaultApiTokensRepository, datavaultApiTokensRepository } from "./Da
 
 // DataVault v4 Micro-Phase 6: Table Permissions
 export { DatavaultTablePermissionsRepository, datavaultTablePermissionsRepository } from "./DatavaultTablePermissionsRepository";
+export {
+  DatavaultDatabaseAccessRepository,
+  DatavaultTableAccessRepository,
+  datavaultDatabaseAccessRepository,
+  datavaultTableAccessRepository,
+} from "./DatavaultAccessRepository";
 
 // DataVault Writeback Mappings - Workflow to DataVault integration
 export { DatavaultWritebackMappingsRepository, datavaultWritebackMappingsRepository } from "./DatavaultWritebackMappingsRepository";

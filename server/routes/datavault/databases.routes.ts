@@ -16,6 +16,7 @@ import type { Express, Request, Response } from 'express';
 /**
  * Register DataVault database endpoints
  */
+// eslint-disable-next-line max-lines-per-function
 export function registerDatavaultDatabaseRoutes(app: Express): void {
   /**
    * GET /api/datavault/databases
@@ -61,7 +62,8 @@ export function registerDatavaultDatabaseRoutes(app: Express): void {
         databases = await datavaultDatabasesService.getDatabasesByScope(
           tenantId,
           scopeTypeParsed.data,
-          scopeId as string
+          scopeId as string,
+          userId
         );
       } else {
         databases = await datavaultDatabasesService.getDatabasesForTenant(tenantId, userId);
@@ -91,11 +93,18 @@ export function registerDatavaultDatabaseRoutes(app: Express): void {
           errorMap: () => ({ message: validationMessages.invalidOption('scopeType', ['account', 'project', 'workflow']) })
         }),
         scopeId: z.string().uuid({ message: validationMessages.invalidUuid }).optional(),
+        ownerType: z.enum(['user', 'org']).optional(),
+        ownerUuid: z.string().uuid({ message: validationMessages.invalidUuid }).optional(),
       });
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: ERROR_AUTH_REQUIRED });
+      }
       const input = createSchema.parse(req.body);
       const database = await datavaultDatabasesService.createDatabase({
         ...input,
         tenantId,
+        creatorId: userId,
       });
       res.status(201).json(database);
     } catch (error) {
@@ -117,8 +126,12 @@ export function registerDatavaultDatabaseRoutes(app: Express): void {
   app.get('/api/datavault/databases/:id', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: ERROR_AUTH_REQUIRED });
+      }
       const { id } = req.params;
-      const database = await datavaultDatabasesService.getDatabaseById(id, tenantId);
+      const database = await datavaultDatabasesService.getDatabaseById(id, tenantId, userId);
       res.json(database);
     } catch (error) {
       logger.error({ error }, 'Error fetching DataVault database');
@@ -133,6 +146,10 @@ export function registerDatavaultDatabaseRoutes(app: Express): void {
   app.patch('/api/datavault/databases/:id', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: ERROR_AUTH_REQUIRED });
+      }
       const { id } = req.params;
       const updateSchema = z.object({
         name: z.string()
@@ -151,7 +168,7 @@ export function registerDatavaultDatabaseRoutes(app: Express): void {
       const database = await datavaultDatabasesService.updateDatabase(id, tenantId, {
         ...input,
         scopeId: input.scopeId ?? undefined,
-      });
+      }, userId);
       res.json(database);
     } catch (error) {
       logger.error({ error }, 'Error updating DataVault database');
@@ -172,8 +189,12 @@ export function registerDatavaultDatabaseRoutes(app: Express): void {
   app.delete('/api/datavault/databases/:id', deleteLimiter, hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: ERROR_AUTH_REQUIRED });
+      }
       const { id } = req.params;
-      await datavaultDatabasesService.deleteDatabase(id, tenantId);
+      await datavaultDatabasesService.deleteDatabaseForUser(id, tenantId, userId);
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error deleting DataVault database');
@@ -188,8 +209,12 @@ export function registerDatavaultDatabaseRoutes(app: Express): void {
   app.get('/api/datavault/databases/:id/tables', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: ERROR_AUTH_REQUIRED });
+      }
       const { id } = req.params;
-      const tables = await datavaultDatabasesService.getTablesInDatabase(id, tenantId);
+      const tables = await datavaultDatabasesService.getTablesInDatabase(id, tenantId, userId);
       res.json(tables);
     } catch (error) {
       logger.error({ error }, 'Error fetching database tables');
@@ -233,6 +258,90 @@ export function registerDatavaultDatabaseRoutes(app: Express): void {
         });
       }
       const { status, message } = classifyRouteError(error, "Failed to transfer database ownership");
+      res.status(status).json({ success: false, error: message });
+    }
+  }));
+
+  /**
+   * GET /api/datavault/databases/:databaseId/access
+   * Get access entries and caller role for a database.
+   */
+  app.get('/api/datavault/databases/:databaseId/access', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ success: false, error: ERROR_AUTH_REQUIRED });
+      }
+      const { databaseId } = req.params;
+      const access = await datavaultDatabasesService.getDatabaseAccess(databaseId, tenantId, userId);
+      res.json({ success: true, data: access.entries, currentUserRole: access.currentUserRole });
+    } catch (error) {
+      logger.error({ error, databaseId: req.params.databaseId }, 'Error fetching database access');
+      const { status, message } = classifyRouteError(error, 'Failed to fetch database access');
+      res.status(status).json({ success: false, error: message });
+    }
+  }));
+
+  /**
+   * PUT /api/datavault/databases/:databaseId/access
+   * Grant or update database access.
+   */
+  app.put('/api/datavault/databases/:databaseId/access', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ success: false, error: ERROR_AUTH_REQUIRED });
+      }
+      const { databaseId } = req.params;
+      const schema = z.object({
+        entries: z.array(z.object({
+          principalType: z.enum(['user', 'team']),
+          principalId: z.string(),
+          role: z.enum(['view', 'edit', 'owner']),
+        })),
+      });
+      const { entries } = schema.parse(req.body);
+      const access = await datavaultDatabasesService.grantDatabaseAccess(databaseId, tenantId, userId, entries);
+      res.json({ success: true, data: access });
+    } catch (error) {
+      logger.error({ error, databaseId: req.params.databaseId }, 'Error granting database access');
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: ERROR_INVALID_INPUT, details: error.errors });
+      }
+      const { status, message } = classifyRouteError(error, 'Failed to grant database access');
+      res.status(status).json({ success: false, error: message });
+    }
+  }));
+
+  /**
+   * DELETE /api/datavault/databases/:databaseId/access
+   * Revoke database access.
+   */
+  app.delete('/api/datavault/databases/:databaseId/access', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
+      if (!userId) {
+        return res.status(401).json({ success: false, error: ERROR_AUTH_REQUIRED });
+      }
+      const { databaseId } = req.params;
+      const schema = z.object({
+        entries: z.array(z.object({
+          principalType: z.enum(['user', 'team']),
+          principalId: z.string(),
+        })),
+      });
+      const { entries } = schema.parse(req.body);
+      await datavaultDatabasesService.revokeDatabaseAccess(databaseId, tenantId, userId, entries);
+      res.json({ success: true, message: 'Access revoked successfully' });
+    } catch (error) {
+      logger.error({ error, databaseId: req.params.databaseId }, 'Error revoking database access');
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: ERROR_INVALID_INPUT, details: error.errors });
+      }
+      const { status, message } = classifyRouteError(error, 'Failed to revoke database access');
       res.status(status).json({ success: false, error: message });
     }
   }));

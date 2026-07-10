@@ -36,9 +36,10 @@ app.use(requestIdMiddleware);
 // removing it from script-src requires nonce/hash-based CSP wired through the frontend build;
 // that is tracked as a follow-up.)
 const cspIsProduction = process.env.NODE_ENV === 'production';
-const cspScriptSrc = ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://*.google.com", "https://*.gstatic.com"];
+const cspScriptSrc = ["'self'", "https://accounts.google.com", "https://*.google.com", "https://*.gstatic.com"];
 if (!cspIsProduction) {
     cspScriptSrc.push("'unsafe-eval'"); // Vite dev/HMR only
+    cspScriptSrc.push("'unsafe-inline'"); // Keep for dev
 }
 app.use(helmet({
     contentSecurityPolicy: {
@@ -68,7 +69,7 @@ app.use(helmet({
         policy: 'strict-origin-when-cross-origin',
     },
     crossOriginOpenerPolicy: {
-        policy: "unsafe-none",
+        policy: "same-origin-allow-popups",
     },
 }));
 // =====================================================================
@@ -112,7 +113,7 @@ const corsOptions = {
         if (allowedOrigin) {
             // Split by comma to support multiple origins
             const allowedHosts = allowedOrigin.split(",").map((h) => h.trim());
-            if (allowedHosts.some((host) => hostname === host || hostname.endsWith(`.${host}`))) {
+            if (allowedHosts.some((host) => hostname === host)) {
                 return callback(null, true);
             }
         }

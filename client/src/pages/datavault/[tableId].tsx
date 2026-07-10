@@ -5,7 +5,7 @@
  */
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, ArrowLeft, Plus, Database, FolderInput, Database as DatabaseIcon } from "lucide-react";
+import { Loader2, ArrowLeft, Plus, Database, FolderInput, Database as DatabaseIcon, Share2 } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "wouter";
 
@@ -17,6 +17,7 @@ import { InfiniteDataGrid } from "@/components/datavault/InfiniteDataGrid";
 import { MoveTableModal } from "@/components/datavault/MoveTableModal";
 import { RowEditorModal } from "@/components/datavault/RowEditorModal";
 import { TablePermissions } from "@/components/datavault/TablePermissions";
+import { ResourceAccessDialog } from "@/components/access/ResourceAccessDialog";
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
 import {
@@ -165,6 +166,7 @@ export default function TableViewPage() {
   const [editingRow, setEditingRow] = useState<{ id: string; values: Record<string, unknown> } | null>(null);
   const [deleteRowConfirm, setDeleteRowConfirm] = useState<string | null>(null);
   const [moveTableOpen, setMoveTableOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
@@ -434,15 +436,25 @@ export default function TableViewPage() {
                         Slug: <span className="font-mono">/{table.slug}</span>
                       </p>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => { void setMoveTableOpen(true); }}
-                      disabled={moveTableMutation.isPending}
-                    >
-                      <FolderInput className="w-4 h-4 mr-2" />
-                      Move Table
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShareOpen(true)}
+                      >
+                        <Share2 className="w-4 h-4 mr-2" />
+                        Share
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { void setMoveTableOpen(true); }}
+                        disabled={moveTableMutation.isPending}
+                      >
+                        <FolderInput className="w-4 h-4 mr-2" />
+                        Move Table
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -671,6 +683,16 @@ export default function TableViewPage() {
         databases={databases ?? []}
         onMove={handleMoveTable}
         isLoading={moveTableMutation.isPending}
+      />
+
+      <ResourceAccessDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        resourceType="table"
+        resourceId={table?.id}
+        resourceName={table?.name ?? "Table"}
+        ownerType={table?.ownerType}
+        ownerUuid={table?.ownerUuid}
       />
     </div>
   );

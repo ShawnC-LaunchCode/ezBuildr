@@ -7,6 +7,7 @@ export const queryKeys = {
     workflows: ["workflows"] as const,
     workflowsUnfiled: ["workflows", "unfiled"] as const,
     workflow: (id: string) => ["workflows", id] as const,
+    workflowAccess: (workflowId: string) => ["workflows", workflowId, "access"] as const,
     versions: (workflowId: string) => ["workflows", workflowId, "versions"] as const,
     snapshots: (workflowId: string) => ["workflows", workflowId, "snapshots"] as const,
     snapshot: (workflowId: string, snapshotId: string) => ["workflows", workflowId, "snapshots", snapshotId] as const,

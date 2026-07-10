@@ -31,6 +31,7 @@ export { DatavaultApiTokensService, datavaultApiTokensService } from "./Datavaul
 
 // DataVault v4 Micro-Phase 6: Table Permissions
 export { DatavaultTablePermissionsService, datavaultTablePermissionsService } from "./DatavaultTablePermissionsService";
+export { DatavaultAclService, datavaultAclService } from "./DatavaultAclService";
 
 // Utility services
 // Note: Not re-exporting emailService and sendgrid to avoid conflicts

@@ -24,10 +24,15 @@ export function registerDatavaultColumnRoutes(app: Express): void {
   app.get('/api/datavault/tables/:tableId/columns', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const tenantId = getTenantId(req);
+      const userId = getAuthUserId(req);
       const { tableId } = req.params;
+      if (!userId) {
+        return res.status(401).json({ message: ERROR_AUTH_REQUIRED });
+      }
       if (!z.string().uuid().safeParse(tableId).success) {
         return res.status(400).json({ message: 'Invalid table ID format' });
       }
+      await datavaultTablesService.requirePermission(userId, tableId, tenantId, 'read');
       const columns = await datavaultColumnsService.listColumns(tableId, tenantId);
       res.json(columns);
     } catch (error) {

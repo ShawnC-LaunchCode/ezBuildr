@@ -67,7 +67,7 @@ describe('DatavaultColumnsService', () => {
       const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
-        ownerUserId: 'user-1',
+        ownerUserId: 'user-1', ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: null,
@@ -117,7 +117,7 @@ describe('DatavaultColumnsService', () => {
       const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
-        ownerUserId: 'user-1',
+        ownerUserId: 'user-1', ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: null,
@@ -162,7 +162,7 @@ describe('DatavaultColumnsService', () => {
       const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
-        ownerUserId: 'user-1',
+        ownerUserId: 'user-1', ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: null,
@@ -207,7 +207,7 @@ describe('DatavaultColumnsService', () => {
       const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
-        ownerUserId: 'user-1',
+        ownerUserId: 'user-1', ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: null,
@@ -251,7 +251,7 @@ describe('DatavaultColumnsService', () => {
       const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
-        ownerUserId: 'user-1',
+        ownerUserId: 'user-1', ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: null,
@@ -300,7 +300,7 @@ describe('DatavaultColumnsService', () => {
       const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
-        ownerUserId: 'user-1',
+        ownerUserId: 'user-1', ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: null,
@@ -340,7 +340,7 @@ describe('DatavaultColumnsService', () => {
       const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
-        ownerUserId: 'user-1',
+        ownerUserId: 'user-1', ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: null,
@@ -381,7 +381,7 @@ describe('DatavaultColumnsService', () => {
       const mockTable: DatavaultTable = {
         id: mockTableId,
         tenantId: mockTenantId,
-        ownerUserId: 'user-1',
+        ownerUserId: 'user-1', ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: null,
@@ -406,7 +406,7 @@ describe('DatavaultColumnsService', () => {
     const mockTable: DatavaultTable = {
       id: mockTableId,
       tenantId: mockTenantId,
-      ownerUserId: 'user-1',
+      ownerUserId: 'user-1', ownerType: null, ownerUuid: null,
       name: 'Test Table',
       slug: 'test-table',
       description: null,
@@ -493,7 +493,7 @@ describe('DatavaultColumnsService', () => {
       const explicitTable: DatavaultTable = {
         id: mockTableId,
         tenantId: explicitTenantId,
-        ownerUserId: 'user-1',
+        ownerUserId: 'user-1', ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: null,
@@ -522,7 +522,7 @@ describe('DatavaultColumnsService', () => {
       const explicitTable: DatavaultTable = {
         id: mockTableId,
         tenantId: explicitTenantId,
-        ownerUserId: 'user-1',
+        ownerUserId: 'user-1', ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: null,
@@ -554,7 +554,7 @@ describe('DatavaultColumnsService', () => {
       const explicitTable: DatavaultTable = {
         id: mockTableId,
         tenantId: explicitTenantId,
-        ownerUserId: 'user-1',
+        ownerUserId: 'user-1', ownerType: null, ownerUuid: null,
         name: 'Test Table',
         slug: 'test-table',
         description: null,

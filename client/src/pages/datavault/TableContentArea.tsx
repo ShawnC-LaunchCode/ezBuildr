@@ -4,7 +4,7 @@
  * for the Database Detail page.
  */
 
-import { Database as DatabaseIcon, Plus, MoreVertical, FolderInput } from "lucide-react";
+import { Database as DatabaseIcon, Plus, MoreVertical, FolderInput, Share2 } from "lucide-react";
 
 import { InfiniteEditableDataGrid } from "@/components/datavault/InfiniteEditableDataGrid";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ interface TableContentAreaProps {
     rowsData: RowsData | undefined;
     onOpenAddColumn: () => void;
     onOpenMoveTable: () => void;
+    onOpenShare: () => void;
     onOpenCreateTable: () => void;
     onAddRow: () => void;
     onEditRow: (rowId: string, values: Record<string, unknown>) => void;
@@ -51,6 +52,7 @@ export function TableContentArea({
     rowsData,
     onOpenAddColumn,
     onOpenMoveTable,
+    onOpenShare,
     onOpenCreateTable,
     onAddRow,
     onEditRow,
@@ -96,6 +98,10 @@ export function TableContentArea({
                         <Button onClick={onOpenAddColumn} size="sm" variant="outline">
                             <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
                             Add Column
+                        </Button>
+                        <Button onClick={onOpenShare} size="sm" variant="outline">
+                            <Share2 className="w-4 h-4 mr-2" aria-hidden="true" />
+                            Share
                         </Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>

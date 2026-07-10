@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
 
-import { projectAPI, type ApiProject, type ApiProjectAccess, type ApiProjectWithWorkflows, type ApiWorkflow } from "../../lib/vault-api";
+import { projectAPI, type ApiProject, type ApiAccessResponse, type ApiProjectAccess, type ApiProjectWithWorkflows, type ApiWorkflow } from "../../lib/vault-api";
 
 import { queryKeys } from "./queryKeys";
 
@@ -46,6 +46,19 @@ export function useProjectAccess(
     return useQuery({
         queryKey: queryKeys.projectAccess(projectId ?? ""),
         queryFn: () => projectAPI.getAccess(projectId ?? ""),
+        enabled: !!projectId && projectId !== "undefined",
+        retry: false,
+        ...options,
+    });
+}
+
+export function useProjectAccessDetails(
+    projectId: string | undefined,
+    options?: Omit<UseQueryOptions<ApiAccessResponse<ApiProjectAccess>>, "queryKey" | "queryFn">
+): UseQueryResult<ApiAccessResponse<ApiProjectAccess>> {
+    return useQuery({
+        queryKey: queryKeys.projectAccess(projectId ?? ""),
+        queryFn: () => projectAPI.getAccessDetails(projectId ?? ""),
         enabled: !!projectId && projectId !== "undefined",
         retry: false,
         ...options,

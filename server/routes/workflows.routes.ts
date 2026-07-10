@@ -9,6 +9,7 @@ import { createLimiter } from "../middleware/rateLimiting";
 import { logicRuleRepository } from "../repositories/LogicRuleRepository";
 import { templateTestService } from "../services/TemplateTestService";
 import { variableService } from "../services/VariableService";
+import { aclService } from "../services/AclService";
 import { workflowService } from "../services/WorkflowService";
 import { asyncHandler } from "../utils/asyncHandler";
 import { classifyRouteError } from "../utils/routeErrors";
@@ -154,7 +155,7 @@ export function registerWorkflowRoutes(app: Express): void {
       if (updateData.sections && Array.isArray(updateData.sections)) {
         workflow = await workflowService.replaceWorkflowContent(workflowId, userId, updateData);
       } else {
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - updateData's zod-parsed shape is wider than updateWorkflow's param type
         workflow = await workflowService.updateWorkflow(workflowId, userId, updateData);
       }
 
@@ -423,8 +424,11 @@ export function registerWorkflowRoutes(app: Express): void {
       }
 
       const { workflowId } = req.params;
-      const access = await workflowService.getWorkflowAccess(workflowId, userId);
-      res.json({ success: true, data: access });
+      const [access, currentUserRole] = await Promise.all([
+        workflowService.getWorkflowAccess(workflowId, userId),
+        aclService.resolveRoleForWorkflow(userId, workflowId),
+      ]);
+      res.json({ success: true, data: access, currentUserRole });
     } catch (error) {
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error fetching workflow access");
       const { status, message } = classifyRouteError(error, "Failed to fetch workflow access");
