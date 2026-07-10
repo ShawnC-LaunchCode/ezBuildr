@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Braces, Database, Eye, GitBranch, Plug, Users } from "lucide-react";
+import { Braces, Database, Eye, GitBranch, Plug, Sparkles, Users } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 
 const fadeUp = {
@@ -40,21 +40,27 @@ function Tile({ icon, eyebrow, title, body, className = "", children }: TileProp
   );
 }
 
-/** Decorative mini node-chips for the big builder tile. */
-function CanvasPreview() {
-  const chips = ["short_text", "if / else", "computed", "signature", "file_upload", "emit()"];
+/** Decorative import-pipeline chips for the big AI tile. */
+function ImportPreview() {
+  const chips = [
+    { label: "intake-packet.pdf", lime: false },
+    { label: "42 fields mapped", lime: true },
+    { label: "9 rules detected", lime: true },
+    { label: "signature block", lime: false },
+    { label: "draft ready · ~90%", lime: true },
+  ];
   return (
     <div className="mt-auto pt-8 flex flex-wrap gap-2" aria-hidden="true">
-      {chips.map((chip, i) => (
+      {chips.map((chip) => (
         <span
-          key={chip}
+          key={chip.label}
           className={`lp2-mono text-xs px-3 py-1.5 rounded-full border ${
-            i === 1 || i === 5
+            chip.lime
               ? "border-[var(--lp2-lime)]/50 text-[var(--lp2-lime)] bg-[rgba(215,254,84,0.06)]"
               : "border-[var(--lp2-line)] text-[var(--lp2-dim)]"
           }`}
         >
-          {chip}
+          {chip.label}
         </span>
       ))}
     </div>
@@ -81,19 +87,26 @@ export default function BentoFeatures() {
             variants={fadeUp}
             className="text-4xl sm:text-5xl font-bold tracking-tight max-w-2xl mb-14"
           >
-            Everything between a question and a decision.
+            Everything between a document and a decision.
           </motion.h2>
 
           <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <Tile
-              icon={GitBranch}
-              eyebrow="visual builder"
-              title="A canvas that reads like your reasoning"
-              body="Sections, steps, and branches laid out the way you'd whiteboard them. Two-tier visibility — workflow rules plus per-step expressions — means the flow itself is the documentation."
+              icon={Sparkles}
+              eyebrow="ai import"
+              title="Start from the document you already have"
+              body="Paste a link or upload the form — blank or previously filled out. AI maps every field to a step, detects sections and required rules, and drafts about 90% of the workflow before you touch the canvas."
               className="md:col-span-4 min-h-[280px]"
             >
-              <CanvasPreview />
+              <ImportPreview />
             </Tile>
+            <Tile
+              icon={GitBranch}
+              eyebrow="visual builder"
+              title="A canvas for the last 10%"
+              body="Refine the draft the way you'd whiteboard it — sections, steps, and two-tier visibility rules that keep the flow legible."
+              className="md:col-span-2"
+            />
             <Tile
               icon={Braces}
               eyebrow="escape hatch"
@@ -120,14 +133,14 @@ export default function BentoFeatures() {
               eyebrow="collaboration"
               title="Projects, roles, portals"
               body="Organize by project, control access by role, and hand clients a branded portal instead of a login wall."
-              className="md:col-span-2"
+              className="md:col-span-3"
             />
             <Tile
               icon={Plug}
               eyebrow="integrations"
               title="API-first to the bone"
               body="Webhooks, secrets vault, e-signature, and connections with AES-256 encrypted credentials. Wire it to anything."
-              className="md:col-span-6"
+              className="md:col-span-3"
             />
           </div>
         </motion.div>

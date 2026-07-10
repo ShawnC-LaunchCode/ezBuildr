@@ -3,54 +3,55 @@ import { ArrowDown, ArrowUpRight } from "lucide-react";
 import { useLocation } from "wouter";
 
 const STATS = [
+  { value: "~90%", label: "of the build, AI-drafted" },
   { value: "15+", label: "step types" },
   { value: "2", label: "runtimes — JS & Python" },
-  { value: "40+", label: "script helpers" },
   { value: "1", label: "canvas for all of it" },
 ];
 
-/** Animated schematic of a running workflow: intake → decision → two branches. */
+/** Animated schematic of an AI import: document → AI draft → drafted workflow + your last 10%. */
 function FlowDiagram() {
   return (
     <svg
       viewBox="0 0 560 300"
       className="w-full h-auto"
       role="img"
-      aria-label="Diagram of a workflow: an intake form feeding a logic decision that branches to auto-approve or human review"
+      aria-label="Diagram of an AI document import: an uploaded form is read by AI, which drafts about 90% of the workflow and leaves the last 10% for you"
     >
       {/* connectors */}
       <path d="M138 150 H222" stroke="var(--lp2-lime)" strokeWidth="1.5" fill="none" className="lp2-flow" />
       <path d="M338 150 C380 150 380 82 418 82" stroke="var(--lp2-lime)" strokeWidth="1.5" fill="none" className="lp2-flow" />
       <path d="M338 150 C380 150 380 218 418 218" stroke="rgba(242,242,234,0.25)" strokeWidth="1.5" fill="none" className="lp2-flow" />
 
-      {/* intake node */}
+      {/* source document node */}
       <g>
         <rect x="18" y="118" width="120" height="64" rx="14" fill="var(--lp2-surface)" stroke="var(--lp2-line)" />
-        <text x="34" y="144" fill="var(--lp2-dim)" fontSize="10" className="lp2-mono" letterSpacing="2">INTAKE</text>
-        <text x="34" y="164" fill="var(--lp2-ink)" fontSize="13" fontWeight="600">loan_application</text>
+        <text x="34" y="140" fill="var(--lp2-dim)" fontSize="10" className="lp2-mono" letterSpacing="2">SOURCE</text>
+        <text x="34" y="158" fill="var(--lp2-ink)" fontSize="12" fontWeight="600">intake-packet.pdf</text>
+        <text x="34" y="174" fill="var(--lp2-dim)" fontSize="10">link or upload</text>
       </g>
 
-      {/* decision node */}
+      {/* AI draft node */}
       <g>
         <rect x="222" y="112" width="116" height="76" rx="14" fill="var(--lp2-surface)" stroke="var(--lp2-lime)" strokeOpacity="0.55" />
         <circle cx="330" cy="120" r="3.5" fill="var(--lp2-lime)" className="lp2-pulse" />
-        <text x="238" y="138" fill="var(--lp2-lime)" fontSize="10" className="lp2-mono" letterSpacing="2">IF / ELSE</text>
-        <text x="238" y="158" fill="var(--lp2-ink)" fontSize="13" fontWeight="600">dti &lt; 0.28</text>
-        <text x="238" y="176" fill="var(--lp2-dim)" fontSize="11">and score ≥ 680</text>
+        <text x="238" y="138" fill="var(--lp2-lime)" fontSize="10" className="lp2-mono" letterSpacing="2">AI DRAFT</text>
+        <text x="238" y="158" fill="var(--lp2-ink)" fontSize="13" fontWeight="600">reading fields…</text>
+        <text x="238" y="176" fill="var(--lp2-dim)" fontSize="11">steps · logic · rules</text>
       </g>
 
-      {/* approve branch */}
+      {/* drafted workflow branch */}
       <g>
         <rect x="418" y="50" width="124" height="64" rx="14" fill="rgba(215,254,84,0.08)" stroke="var(--lp2-lime)" strokeOpacity="0.7" />
-        <text x="434" y="76" fill="var(--lp2-lime)" fontSize="10" className="lp2-mono" letterSpacing="2">THEN</text>
-        <text x="434" y="96" fill="var(--lp2-ink)" fontSize="13" fontWeight="600">auto-approve</text>
+        <text x="434" y="76" fill="var(--lp2-lime)" fontSize="10" className="lp2-mono" letterSpacing="2">DRAFTED</text>
+        <text x="434" y="96" fill="var(--lp2-ink)" fontSize="13" fontWeight="600">~90% built</text>
       </g>
 
-      {/* review branch */}
+      {/* your last 10% branch */}
       <g opacity="0.75">
         <rect x="418" y="186" width="124" height="64" rx="14" fill="var(--lp2-surface)" stroke="var(--lp2-line)" />
-        <text x="434" y="212" fill="var(--lp2-dim)" fontSize="10" className="lp2-mono" letterSpacing="2">ELSE</text>
-        <text x="434" y="232" fill="var(--lp2-ink)" fontSize="13" fontWeight="600">human review</text>
+        <text x="434" y="212" fill="var(--lp2-dim)" fontSize="10" className="lp2-mono" letterSpacing="2">YOU</text>
+        <text x="434" y="232" fill="var(--lp2-ink)" fontSize="13" fontWeight="600">the last 10%</text>
       </g>
     </svg>
   );
@@ -75,17 +76,17 @@ export default function HeroV2() {
           transition={{ duration: 0.6, ease: "easeOut" }}
         >
           <p className="lp2-mono text-xs uppercase tracking-[0.3em] text-[var(--lp2-lime)] mb-6">
-            {"// workflows that think"}
+            {"// ai-drafted document automation"}
           </p>
           <h1 className="text-5xl sm:text-6xl xl:text-7xl font-bold leading-[1.02] tracking-tight">
-            Stop building forms.
+            Drop in a document.
             <br />
-            <span className="text-[var(--lp2-lime)]">Start building logic.</span>
+            <span className="text-[var(--lp2-lime)]">Get back a workflow.</span>
           </h1>
           <p className="mt-7 text-lg sm:text-xl text-[var(--lp2-dim)] max-w-xl leading-relaxed">
-            ezBuildr is the workflow platform where drag-and-drop meets real code —
-            conditional logic, JS &amp; Python blocks, and a built-in data vault, all
-            on one canvas.
+            Link to a form online or upload a copy — blank or already filled out.
+            ezBuildr&apos;s AI drafts about 90% of the automation: sections, steps,
+            and logic. The last 10% is yours, with visual rules or real code.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row gap-4">
             <button
@@ -114,7 +115,7 @@ export default function HeroV2() {
         >
           <div className="lp2-mono text-[10px] uppercase tracking-[0.25em] text-[var(--lp2-dim)] mb-3 flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--lp2-lime)] lp2-pulse" />
-            live run · loan-intake.flow
+            ai import · intake-packet.pdf
           </div>
           <FlowDiagram />
         </motion.div>

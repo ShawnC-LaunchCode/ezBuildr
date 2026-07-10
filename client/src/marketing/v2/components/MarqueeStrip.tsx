@@ -1,4 +1,5 @@
 const CAPABILITIES = [
+  "ai document import",
   "conditional logic",
   "js blocks",
   "python sandbox",
