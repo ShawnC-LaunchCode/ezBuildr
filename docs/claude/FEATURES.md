@@ -6,7 +6,7 @@ Feature status, security details, and recent architecture changes.
 
 | Feature | Description |
 |---------|-------------|
-| **Visual Workflow Builder** | 5-tab navigation, drag-and-drop, React Flow canvas, inspector panel |
+| **Workflow Builder** | Section/step builder with 5-tab navigation and inspector panel |
 | **15+ Question Types** | Text, email, phone, number, currency, address, choice, scale, date, time, signature, file upload, display, multi-field, computed |
 | **DataVault** | Complete data platform: databases, tables, rows, 7 column types, infinite scroll, permissions, API tokens, row notes |
 | **Custom Scripting System** | Lifecycle hooks (4 phases) + document hooks (2 phases), 40+ helper functions, JS/Python, script console |

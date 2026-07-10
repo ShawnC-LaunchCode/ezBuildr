@@ -209,7 +209,7 @@ Routes → Services → Repositories → Database
 ## ⚙️ Key Features
 
 ### Core Workflow Features
-- 🔀 **Visual Workflow Builder** — Drag-and-drop interface with 5-tab navigation, React Flow canvas, inspector panel
+- 🔀 **Workflow Builder** — Section/step builder with 5-tab navigation and inspector panel
 - 📋 **15+ Question Types** — Text, email, phone, number, currency, address, boolean, choice, scale, date, time, signature, file upload, display, multi-field, computed
 - 📄 **Sections & Steps** — Multi-page workflows with dynamic navigation and progress tracking
 - ⚡ **Two-Tier Visibility Logic** — Workflow rules + step-level `visibleIf` expressions with real-time evaluation 🆕

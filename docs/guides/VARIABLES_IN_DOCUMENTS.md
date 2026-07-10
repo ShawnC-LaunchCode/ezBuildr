@@ -103,7 +103,7 @@ Workflow Step               Variable            Document Template
 
 First, create the steps that will collect data:
 
-1. Open your workflow in the Visual Builder
+1. Open your workflow in the Workflow Builder
 2. Add a section (e.g., "Client Information")
 3. Add steps (questions) to collect data
 

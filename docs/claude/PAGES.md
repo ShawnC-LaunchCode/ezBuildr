@@ -16,8 +16,7 @@ Complete reference for all 30+ frontend pages with routes and features.
 |------|-------|---------|
 | Workflows List | `/workflows` | Browse all workflows with filters |
 | New Workflow | `/workflows/new` | Create new workflow |
-| Workflow Builder | `/workflows/:id/build` | 5-tab builder interface |
-| Visual Workflow Builder | `/workflows/:id/visual` | React Flow canvas editor |
+| Workflow Builder | `/workflows/:id/builder` | 5-tab builder interface |
 | Workflow Preview | `/workflows/:id/preview` | In-memory preview mode |
 | Workflow Analytics | `/workflows/:id/analytics` | Funnel, dropoff, trends |
 
