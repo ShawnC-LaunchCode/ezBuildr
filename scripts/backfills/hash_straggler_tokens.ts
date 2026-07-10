@@ -1,10 +1,8 @@
-import { sql, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db } from '../../server/db';
 import {
     organizationInvites,
     signatureRequests,
-    oauthAuthCodes,
-    oauthAccessTokens,
     webhookSubscriptions
 } from '../../shared/schema';
 import { hashToken, encrypt } from '../../server/utils/encryption';
@@ -38,48 +36,12 @@ async function main() {
     }
     console.log(`Updated ${requestCount} signature requests.`);
 
-    // 3. OAuth Auth Codes (if any)
-    console.log("Hashing OAuth auth codes...");
-    const authCodes = await db.select({ code: oauthAuthCodes.code }).from(oauthAuthCodes);
-    let codeCount = 0;
-    for (const authCode of authCodes) {
-        if (authCode.code.length !== 64) {
-            const hashed = hashToken(authCode.code);
-            await db.execute(sql`UPDATE oauth_auth_codes SET code = ${hashed} WHERE code = ${authCode.code}`);
-            codeCount++;
-        }
-    }
-    console.log(`Updated ${codeCount} OAuth auth codes.`);
+    // NOTE: OAuth auth codes and access tokens are stored hash-only
+    // (oauth_auth_codes.code_hash / oauth_access_tokens.access_token_hash) — the
+    // columns were migrated by rename, so there is no in-place plaintext to
+    // backfill for those tables. Nothing to do here.
 
-    // 4. OAuth Access Tokens (if any)
-    console.log("Hashing OAuth access tokens...");
-    const accessTokens = await db.select({ accessToken: oauthAccessTokens.accessToken, refreshToken: oauthAccessTokens.refreshToken }).from(oauthAccessTokens);
-    let tokenCount = 0;
-    for (const token of accessTokens) {
-        let updated = false;
-        let newAccess = token.accessToken;
-        let newRefresh = token.refreshToken;
-
-        if (token.accessToken.length !== 64) {
-            newAccess = hashToken(token.accessToken);
-            updated = true;
-        }
-        if (token.refreshToken && token.refreshToken.length !== 64) {
-            newRefresh = hashToken(token.refreshToken);
-            updated = true;
-        }
-        if (updated) {
-            await db.execute(sql`
-                UPDATE oauth_access_tokens 
-                SET access_token = ${newAccess}, refresh_token = ${newRefresh} 
-                WHERE access_token = ${token.accessToken}
-            `);
-            tokenCount++;
-        }
-    }
-    console.log(`Updated ${tokenCount} OAuth access tokens.`);
-
-    // 5. Webhook Secrets
+    // 3. Webhook Secrets
     console.log("Encrypting webhook secrets...");
     const webhooks = await db.select({ id: webhookSubscriptions.id, secret: webhookSubscriptions.secret }).from(webhookSubscriptions);
     let webhookCount = 0;
