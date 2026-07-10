@@ -1,7 +1,8 @@
-
 import { Check } from "lucide-react";
+import { Link } from "wouter";
 
-
+import Header from "@/components/layout/Header";
+import Sidebar from "@/components/layout/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 
@@ -16,7 +17,7 @@ const PLANS = [
         name: 'Pro',
         price: '$29',
         features: ['10 Workflows', '1,000 Runs/mo', 'Scripting Engine', 'Doc Gen', 'Email Support'],
-        current: true // Mock current
+        current: true
     },
     {
         name: 'Team',
@@ -28,35 +29,46 @@ const PLANS = [
 
 export default function PricingPage() {
     return (
-        <div className="p-12 max-w-7xl mx-auto text-center">
-            <h1 className="text-4xl font-bold mb-4">Plans & Pricing</h1>
-            <p className="text-muted-foreground mb-12">Choose the plan that fits your needs.</p>
-
-            <div className="grid md:grid-cols-3 gap-8">
-                {PLANS.map((plan) => (
-                    <Card key={plan.name} className={plan.current ? "border-primary border-2 shadow-lg" : ""}>
-                        <CardHeader>
-                            <CardTitle>{plan.name}</CardTitle>
-                            <CardDescription>
-                                <span className="text-3xl font-bold text-foreground">{plan.price}</span> / month
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4 text-left">
-                            {plan.features.map((f, i) => (
-                                <div key={i} className="flex items-center gap-2">
-                                    <Check className="w-4 h-4 text-green-500" aria-hidden="true" />
-                                    <span>{f}</span>
-                                </div>
-                            ))}
-                        </CardContent>
-                        <CardFooter>
-                            <Button className="w-full" variant={plan.current ? "outline" : "default"} disabled={plan.current}>
-                                {plan.current ? "Current Plan" : "Upgrade"}
-                            </Button>
-                        </CardFooter>
-                    </Card>
-                ))}
-            </div>
+        <div className="flex h-screen bg-background overflow-hidden">
+            <Sidebar />
+            <main className="flex-1 flex flex-col overflow-hidden">
+                <Header
+                    title="Plans & Pricing"
+                    description="Choose the plan that fits your needs"
+                    actions={
+                        <Link href="/billing">
+                            <Button variant="outline">Billing</Button>
+                        </Link>
+                    }
+                />
+                <div className="flex-1 overflow-auto p-4 sm:p-6">
+                    <div className="grid gap-6 md:grid-cols-3">
+                        {PLANS.map((plan) => (
+                            <Card key={plan.name} className={plan.current ? "border-primary shadow-md" : ""}>
+                                <CardHeader>
+                                    <CardTitle>{plan.name}</CardTitle>
+                                    <CardDescription>
+                                        <span className="text-3xl font-bold text-foreground">{plan.price}</span> / month
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    {plan.features.map((feature) => (
+                                        <div key={feature} className="flex items-center gap-2">
+                                            <Check className="w-4 h-4 text-green-500" aria-hidden="true" />
+                                            <span>{feature}</span>
+                                        </div>
+                                    ))}
+                                </CardContent>
+                                <CardFooter>
+                                    <Button className="w-full" variant={plan.current ? "outline" : "default"} disabled={plan.current}>
+                                        {plan.current ? "Current Plan" : "Upgrade"}
+                                    </Button>
+                                </CardFooter>
+                            </Card>
+                        ))}
+                    </div>
+                </div>
+            </main>
         </div>
     );
 }

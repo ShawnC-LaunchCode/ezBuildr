@@ -17,7 +17,11 @@ interface HeaderProps {
 const navigation = [
   { name: "Dashboard", href: "/", icon: "fas fa-home" },
   { name: "Workflows", href: "/workflows", icon: "fas fa-list-ul" },
-  { name: "Templates", href: "/templates", icon: "fas fa-puzzle-piece" },
+  { name: "Marketplace", href: "/marketplace", icon: "fas fa-shopping-bag" },
+  { name: "Billing", href: "/billing", icon: "fas fa-credit-card" },
+  { name: "Organizations", href: "/organizations", icon: "fas fa-users" },
+  { name: "DataVault", href: "/datavault", icon: "fas fa-folder" },
+  { name: "Settings", href: "/settings", icon: "fas fa-cog" },
 ];
 
 const adminNavigation = [

@@ -3,6 +3,7 @@ import { Search, Download, Star } from "lucide-react";
 import { useState } from 'react';
 import { useLocation } from "wouter";
 
+import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -88,15 +89,15 @@ export default function Marketplace() {
     const categories = ['all', 'legal', 'hr', 'finance', 'general', 'marketing'];
 
     return (
-        <div className="flex h-screen bg-background">
+        <div className="flex h-screen bg-background overflow-hidden">
             <Sidebar />
             <main className="flex-1 flex flex-col overflow-hidden">
-                <div className="flex-1 overflow-auto p-6">
-                    <div className="flex flex-col gap-6 max-w-7xl mx-auto">
-                        <div>
-                            <h1 className="text-3xl font-bold tracking-tight">Template Marketplace</h1>
-                            <p className="text-muted-foreground">Discover and install pre-built workflows to get started faster.</p>
-                        </div>
+                <Header
+                    title="Template Marketplace"
+                    description="Discover and install pre-built workflows"
+                />
+                <div className="flex-1 overflow-auto p-4 sm:p-6">
+                    <div className="space-y-6">
 
                         {/* Search and Filter */}
                         <div className="flex gap-4 items-center flex-wrap">
