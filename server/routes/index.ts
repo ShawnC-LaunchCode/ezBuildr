@@ -2,6 +2,8 @@
 import { apiLimiter } from "../lib/rateLimit";
 
 import { registerAccountRoutes } from "./account.routes";
+import { registerAdminAiSettingsRoutes } from "./admin.aiSettings.routes";
+import { registerAdminRoutes } from "./admin.routes";
 import { registerAiWorkflowEditRoutes } from "./ai/workflowEdit.routes";
 import aiDocRouter from "./ai.doc.routes";
 import { registerAiFeedbackRoutes } from "./ai.feedback.routes";
@@ -123,6 +125,10 @@ export function registerAllRoutes(app: Express): void {
   registerUserPreferencesRoutes(app);
   registerTeamRoutes(app);
   registerOrganizationRoutes(app);
+
+  // Platform administration (all endpoints gated by hybridAuth + isAdmin)
+  registerAdminRoutes(app);
+  registerAdminAiSettingsRoutes(app);
 
   // Validation
   app.use(validationRouter);
