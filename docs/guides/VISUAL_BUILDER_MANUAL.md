@@ -1,5 +1,7 @@
 # Visual Builder Manual
 
+> **⚠️ Removed feature (2026-07).** The React Flow–based visual/graph builder described here has been removed from the product. Workflows are authored in the **Workflow Builder** (`/workflows/:id/builder`) — the section/step interface. This document is retained for historical reference only.
+
 **VaultLogic Visual Builder** is a React Flow-based graphical interface for designing workflows. It allows creators to build complex document automation logic by dragging and dropping blocks, connecting them with edges, and configuring properties in a visual sidebar.
 
 ## Why Use the Visual Builder?

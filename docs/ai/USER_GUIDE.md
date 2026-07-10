@@ -207,7 +207,7 @@ Don't try to get everything perfect in one shot:
 1. **Start simple** - Generate a basic structure
 2. **Review quality** - Check the score and issues
 3. **Refine step by step** - Use AI Assistant for changes
-4. **Manual polish** - Fine-tune in the visual builder
+4. **Manual polish** - Fine-tune in the workflow builder
 
 ### Using Templates as Starting Points
 
