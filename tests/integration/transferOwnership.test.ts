@@ -120,14 +120,15 @@ describe('Transfer Ownership', () => {
             expect(updatedWorkflow?.ownerUuid).toBe(testOrgId);
         });
 
-        it('should prevent transfer to org if user is not a member', async () => {
+        it('should prevent transfer into an org when the user is not an org admin', async () => {
             const project = await projectService.createProject(
                 { title: 'Test Project', creatorId: userId2, ownerId: userId2, tenantId: testTenantId },
                 userId2
             );
             testProjectId = project.id;
 
-            // Try to transfer to org that userId2 is not a member of
+            // Try to transfer into an org that userId2 does not administer.
+            // Transferring assets INTO an org requires org-admin (members use copy instead).
             const otherOrg = await organizationService.createOrganization(
                 { name: 'Other Org' },
                 userId1
@@ -135,7 +136,7 @@ describe('Transfer Ownership', () => {
 
             await expect(
                 projectService.transferOwnership(testProjectId, userId2, 'org', otherOrg.id)
-            ).rejects.toThrow('not a member');
+            ).rejects.toThrow(/organization admin/i);
 
             // Cleanup
             await db.delete(organizationMemberships).where(eq(organizationMemberships.orgId, otherOrg.id));
@@ -284,7 +285,7 @@ describe('Transfer Ownership', () => {
             }
         });
 
-        it('should allow org member to transfer org database', async () => {
+        it('should allow an org admin to transfer an org database out', async () => {
             // Create org-owned database
             const database = await datavaultDatabasesService.createDatabase({
                 name: 'Org Database',
@@ -298,44 +299,36 @@ describe('Transfer Ownership', () => {
             });
             testDatabaseId = database.id;
 
-            // user2 (org member) can transfer to themselves
+            // userId1 is the org admin; admins may transfer org assets out (to themselves).
             const transferred = await datavaultDatabasesService.transferOwnership(
                 testDatabaseId,
-                userId2,
+                userId1,
                 'user',
-                userId2
+                userId1
             );
 
             if (transferred) {
                 expect(transferred.ownerType).toBe('user');
-                expect(transferred.ownerUuid).toBe(userId2);
+                expect(transferred.ownerUuid).toBe(userId1);
             }
         });
 
-        it('should prevent transfer to org if user is not a member', async () => {
+        it('should prevent an org member (non-admin) from transferring an org database out', async () => {
+            // Create org-owned database; userId2 is only a member.
             const database = await datavaultDatabasesService.createDatabase({
-                name: 'User Database',
+                name: 'Org Database (member)',
                 scopeType: 'account',
-                ownerType: 'user',
-                ownerUuid: userId1,
+                ownerType: 'org',
+                ownerUuid: testOrgId,
                 creatorId: userId1,
                 tenantId: testTenantId,
             });
             testDatabaseId = database.id;
 
-            // Create org that userId1 is not a member of
-            const otherOrg = await organizationService.createOrganization(
-                { name: 'Other Org' },
-                userId2
-            );
-
+            // Transferring an org asset OUT requires org-admin; members must copy instead.
             await expect(
-                datavaultDatabasesService.transferOwnership(testDatabaseId, userId1, 'org', otherOrg.id)
-            ).rejects.toThrow('not a member');
-
-            // Cleanup
-            await db.delete(organizationMemberships).where(eq(organizationMemberships.orgId, otherOrg.id));
-            await db.delete(organizations).where(eq(organizations.id, otherOrg.id));
+                datavaultDatabasesService.transferOwnership(testDatabaseId, userId2, 'user', userId2)
+            ).rejects.toThrow(/organization admin/i);
         });
     });
 
