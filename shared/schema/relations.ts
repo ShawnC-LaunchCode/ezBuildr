@@ -21,8 +21,8 @@ import {
 } from './integrations';
 // } from './legacy';
 import {
-    runs, workflowRuns, stepValues, runLogs, reviewTasks, signatureRequests,
-    signatureEvents, runOutputs, runGeneratedDocuments, transformBlockRuns,
+    workflowRuns, stepValues, reviewTasks, signatureRequests,
+    signatureEvents, runGeneratedDocuments, transformBlockRuns,
     scriptExecutionLog,
     metricsEvents, metricsRollups, sliConfigs, sliWindows, templateGenerationMetrics
 } from './run';
@@ -147,8 +147,7 @@ export const workflowVersionsRelations = relations(workflowVersions, ({ one, man
         fields: [workflowVersions.createdBy],
         references: [users.id],
     }),
-    runs: many(runs), // Legacy runs
-    workflowRuns: many(workflowRuns), // Modern runs?
+    workflowRuns: many(workflowRuns),
     workflowTemplates: many(workflowTemplates),
 }));
 
@@ -308,19 +307,6 @@ export const collabSnapshotsRelations = relations(collabSnapshots, ({ one }) => 
 
 
 // Run Relations
-export const runsRelations = relations(runs, ({ one, many }) => ({
-    workflowVersion: one(workflowVersions, {
-        fields: [runs.workflowVersionId],
-        references: [workflowVersions.id],
-    }),
-    createdByUser: one(users, {
-        fields: [runs.createdBy],
-        references: [users.id],
-    }),
-    logs: many(runLogs),
-    outputs: many(runOutputs),
-}));
-
 export const workflowRunsRelations = relations(workflowRuns, ({ one, many }) => ({
     workflow: one(workflows, {
         fields: [workflowRuns.workflowId],
@@ -346,17 +332,10 @@ export const stepValuesRelations = relations(stepValues, ({ one }) => ({
     }),
 }));
 
-export const runLogsRelations = relations(runLogs, ({ one }) => ({
-    run: one(runs, {
-        fields: [runLogs.runId],
-        references: [runs.id],
-    }),
-}));
-
 export const reviewTasksRelations = relations(reviewTasks, ({ one }) => ({
-    run: one(runs, {
+    run: one(workflowRuns, {
         fields: [reviewTasks.runId],
-        references: [runs.id],
+        references: [workflowRuns.id],
     }),
     workflow: one(workflows, {
         fields: [reviewTasks.workflowId],
@@ -369,9 +348,9 @@ export const reviewTasksRelations = relations(reviewTasks, ({ one }) => ({
 }));
 
 export const signatureRequestsRelations = relations(signatureRequests, ({ one, many }) => ({
-    run: one(runs, {
+    run: one(workflowRuns, {
         fields: [signatureRequests.runId],
-        references: [runs.id],
+        references: [workflowRuns.id],
     }),
     workflow: one(workflows, {
         fields: [signatureRequests.workflowId],
@@ -384,17 +363,6 @@ export const signatureEventsRelations = relations(signatureEvents, ({ one }) => 
     request: one(signatureRequests, {
         fields: [signatureEvents.signatureRequestId],
         references: [signatureRequests.id],
-    }),
-}));
-
-export const runOutputsRelations = relations(runOutputs, ({ one }) => ({
-    run: one(runs, {
-        fields: [runOutputs.runId],
-        references: [runs.id],
-    }),
-    workflowVersion: one(workflowVersions, {
-        fields: [runOutputs.workflowVersionId],
-        references: [workflowVersions.id],
     }),
 }));
 
@@ -431,10 +399,6 @@ export const templateGenerationMetricsRelations = relations(templateGenerationMe
     template: one(templates, {
         fields: [templateGenerationMetrics.templateId],
         references: [templates.id],
-    }),
-    run: one(runs, { // Or workflowRuns? Schema says runs.
-        fields: [templateGenerationMetrics.runId],
-        references: [runs.id],
     }),
 }));
 

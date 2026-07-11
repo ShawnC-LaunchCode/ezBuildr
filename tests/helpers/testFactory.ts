@@ -57,9 +57,6 @@ export interface TestWorkflow {
 export interface TestTemplate {
   template: typeof schema.templates.$inferSelect;
 }
-export interface TestRun {
-  run: typeof schema.runs.$inferSelect;
-}
 export class TestFactory {
   private db: DBInstance | DbTransaction;
   /**
@@ -256,50 +253,6 @@ export class TestFactory {
       })
       .returning();
     return workflowTemplate;
-  }
-  /**
-   * Create a run for a workflow
-   */
-  async createRun(
-    workflowVersionId: string,
-    userId: string,
-    overrides?: Partial<typeof schema.runs.$inferInsert>
-  ): Promise<TestRun> {
-    const [run] = await this.db
-      .insert(schema.runs)
-      // @ts-ignore - TODO: fix type
-      .values({
-        id: generateId(),
-        workflowVersionId,
-        createdBy: userId,
-        status: 'draft',
-        ...overrides,
-      })
-      .returning();
-    return { run };
-  }
-  /**
-   * Create a run output
-   */
-  async createRunOutput(
-    runId: string,
-    workflowVersionId: string,
-    overrides?: Partial<typeof schema.runOutputs.$inferInsert>
-  ) {
-    const [output] = await this.db
-      .insert(schema.runOutputs)
-      .values({
-        id: generateId(),
-        runId,
-        workflowVersionId,
-        // @ts-ignore - TODO: fix type
-        nodeId: `node-${generateId()}`,
-        format: 'docx',
-        status: 'pending',
-        ...overrides,
-      })
-      .returning();
-    return output;
   }
   /**
    * Create a database (DataVault)

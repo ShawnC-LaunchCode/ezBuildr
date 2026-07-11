@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { Workflow, WorkflowVersion, Run } from '../../shared/schema';
+import type { Workflow, WorkflowVersion } from '../../shared/schema';
 
 /**
  * Graph Factory
@@ -117,23 +117,4 @@ export function createGraphWorkflow(
     } as WorkflowVersion;
 
     return { workflow, version };
-}
-
-export function createGraphRun(
-    workflowVersionId: string,
-    overrides: Partial<Run> = {}
-): Run {
-    return {
-        id: uuidv4(),
-        workflowVersionId,
-        status: 'pending',
-        state: {
-            currentNodeId: 'start',
-            history: [],
-            values: {},
-        },
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        ...overrides,
-    } as Run;
 }

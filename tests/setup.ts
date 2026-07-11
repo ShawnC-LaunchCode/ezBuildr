@@ -261,13 +261,12 @@ beforeAll(async () => {
           // reused local schema lacks them and every workflow_run insert fails.
           await db.execute(`ALTER TABLE "${currentTestSchema}"."workflow_runs" ADD COLUMN IF NOT EXISTS "token_expires_at" timestamp`);
           await db.execute(`ALTER TABLE "${currentTestSchema}"."workflow_runs" ADD COLUMN IF NOT EXISTS "share_token_expires_at" timestamp`);
-          // Fix 6: runs/workflow_runs.share_token_hash — the token-hashing remediation
+          // Fix 6: workflow_runs.share_token_hash — the token-hashing remediation
           // (migration 0013) RENAMED share_token -> share_token_hash. On schema REUSE the
           // rename is skipped, so the reused schema still has share_token and every select
           // of share_token_hash fails with "column does not exist". Add the new column
           // (the stale share_token is left in place, unused).
           await db.execute(`ALTER TABLE "${currentTestSchema}"."workflow_runs" ADD COLUMN IF NOT EXISTS "share_token_hash" varchar`);
-          await db.execute(`ALTER TABLE "${currentTestSchema}"."runs" ADD COLUMN IF NOT EXISTS "share_token_hash" varchar`);
           console.log("✅ Applied failsafe schema fixes");
         } catch (e: any) {
           console.log(`⚠️ Failed to apply manual failsafe fixes: ${e.message}`);

@@ -23,18 +23,11 @@ import { projects, workflows, workflowVersions, sections, steps, templates, work
 // ENUMS
 // ===================================================================
 
-export const runStatusEnum = pgEnum('run_status', ['pending', 'success', 'error', 'waiting_review', 'waiting_signature']);
-export const logLevelEnum = pgEnum('log_level', ['info', 'warn', 'error']);
-
 // Stage 14: Review & E-Signature Enums
 export const reviewTaskStatusEnum = pgEnum('review_task_status', ['pending', 'approved', 'changes_requested', 'rejected']);
 export const signatureRequestStatusEnum = pgEnum('signature_request_status', ['pending', 'signed', 'declined', 'expired']);
 export const signatureProviderEnum = pgEnum('signature_provider', ['native', 'docusign', 'hellosign']);
 export const signatureEventTypeEnum = pgEnum('signature_event_type', ['sent', 'viewed', 'signed', 'declined']);
-
-// Stage 21: Output Enums
-export const outputStatusEnum = pgEnum('output_status', ['pending', 'ready', 'failed']);
-export const outputFileTypeEnum = pgEnum('output_file_type', ['docx', 'pdf']);
 
 export const transformBlockRunStatusEnum = pgEnum('transform_block_run_status', ['success', 'timeout', 'error']);
 export const scriptExecutionStatusEnum = pgEnum('script_execution_status', ['success', 'error', 'timeout']);
@@ -51,28 +44,6 @@ export const sliWindowEnum = pgEnum('sli_window', ['1d', '7d', '30d']);
 // ===================================================================
 
 // Legacy Run table (Deprecated?)
-export const runs = pgTable("runs", {
-    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-    workflowVersionId: uuid("workflow_version_id").references(() => workflowVersions.id, { onDelete: 'cascade' }).notNull(),
-    inputJson: jsonb("input_json"),
-    outputRefs: jsonb("output_refs"),
-    trace: jsonb("trace"),
-    status: runStatusEnum("status").default('pending').notNull(),
-    error: text("error"),
-    durationMs: integer("duration_ms"),
-    runToken: varchar("run_token").unique(),
-    shareTokenHash: varchar("share_token_hash").unique(),
-    shareTokenExpiresAt: timestamp("share_token_expires_at"),
-    createdBy: varchar("created_by").references(() => users.id, { onDelete: 'set null' }),
-    createdAt: timestamp("created_at").defaultNow(),
-    updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-    index("runs_workflow_version_idx").on(table.workflowVersionId),
-    index("runs_status_idx").on(table.status),
-    index("runs_created_by_idx").on(table.createdBy),
-    index("runs_created_at_idx").on(table.createdAt),
-]);
-
 // Workflow runs table (Modern Execution Instances)
 export const workflowRuns = pgTable("workflow_runs", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -123,21 +94,6 @@ export const stepValues = pgTable("step_values", {
     index("step_values_step_idx").on(table.stepId),
     index("step_values_run_step_idx").on(table.runId, table.stepId),
     uniqueIndex("step_values_run_step_unique").on(table.runId, table.stepId),
-]);
-
-// Run Logs
-export const runLogs = pgTable("run_logs", {
-    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-    runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
-    nodeId: varchar("node_id", { length: 100 }),
-    level: logLevelEnum("level").notNull(),
-    message: text("message").notNull(),
-    context: jsonb("context"),
-    createdAt: timestamp("created_at").defaultNow(),
-}, (table) => [
-    index("run_logs_run_idx").on(table.runId),
-    index("run_logs_level_idx").on(table.level),
-    index("run_logs_created_at_idx").on(table.createdAt),
 ]);
 
 // Review Tasks
@@ -198,23 +154,6 @@ export const signatureEvents = pgTable("signature_events", {
     payload: jsonb("payload"),
 }, (table) => [
     index("signature_events_request_idx").on(table.signatureRequestId),
-]);
-
-// Run Outputs
-export const runOutputs = pgTable("run_outputs", {
-    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-    runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
-    workflowVersionId: uuid("workflow_version_id").references(() => workflowVersions.id, { onDelete: 'cascade' }).notNull(),
-    templateKey: text("template_key").notNull(),
-    fileType: outputFileTypeEnum("file_type").notNull(),
-    storagePath: text("storage_path").notNull(),
-    status: outputStatusEnum("status").default('pending').notNull(),
-    error: text("error"),
-    createdAt: timestamp("created_at").defaultNow(),
-    updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => [
-    index("run_outputs_run_idx").on(table.runId),
-    index("run_outputs_run_template_type_idx").on(table.runId, table.templateKey, table.fileType),
 ]);
 
 // Run Generated Documents
@@ -306,7 +245,10 @@ export const workflowRunMetrics = pgTable("workflow_run_metrics", {
 export const templateGenerationMetrics = pgTable("template_generation_metrics", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     templateId: uuid("template_id").references(() => templates.id, { onDelete: 'cascade' }).notNull(),
-    runId: uuid("run_id").references(() => runs.id, { onDelete: 'cascade' }),
+    // Legacy graph-engine run id. The `runs` table was removed with the graph
+    // builder; the sole writer (engine template node) is gone, so this is now
+    // always null. Kept as a plain column (no FK) to avoid a data migration.
+    runId: uuid("run_id"),
     result: varchar("result", { length: 50 }).notNull(),
     durationMs: integer("duration_ms"),
     errorMessage: text("error_message"),
@@ -454,14 +396,11 @@ export const sliWindows = pgTable("sli_windows", {
 // INSERTS & TYPES
 // ===================================================================
 
-export const insertRunSchema = createInsertSchema(runs);
 export const insertWorkflowRunSchema = createInsertSchema(workflowRuns);
 export const insertStepValueSchema = createInsertSchema(stepValues);
-export const insertRunLogSchema = createInsertSchema(runLogs);
 export const insertReviewTaskSchema = createInsertSchema(reviewTasks);
 export const insertSignatureRequestSchema = createInsertSchema(signatureRequests);
 export const insertSignatureEventSchema = createInsertSchema(signatureEvents);
-export const insertRunOutputSchema = createInsertSchema(runOutputs);
 export const insertRunGeneratedDocumentSchema = createInsertSchema(runGeneratedDocuments);
 export const insertTransformBlockRunSchema = createInsertSchema(transformBlockRuns);
 export const insertScriptExecutionLogSchema = createInsertSchema(scriptExecutionLog);
@@ -473,22 +412,16 @@ export const insertSliConfigSchema = createInsertSchema(sliConfigs);
 export const insertSliWindowSchema = createInsertSchema(sliWindows);
 
 // Types
-export type Run = InferSelectModel<typeof runs>;
-export type InsertRun = InferInsertModel<typeof runs>;
 export type WorkflowRun = InferSelectModel<typeof workflowRuns>;
 export type InsertWorkflowRun = InferInsertModel<typeof workflowRuns>;
 export type StepValue = InferSelectModel<typeof stepValues>;
 export type InsertStepValue = InferInsertModel<typeof stepValues>;
-export type RunLog = InferSelectModel<typeof runLogs>;
-export type InsertRunLog = InferInsertModel<typeof runLogs>;
 export type ReviewTask = InferSelectModel<typeof reviewTasks>;
 export type InsertReviewTask = InferInsertModel<typeof reviewTasks>;
 export type SignatureRequest = InferSelectModel<typeof signatureRequests>;
 export type InsertSignatureRequest = InferInsertModel<typeof signatureRequests>;
 export type SignatureEvent = InferSelectModel<typeof signatureEvents>;
 export type InsertSignatureEvent = InferInsertModel<typeof signatureEvents>;
-export type RunOutput = InferSelectModel<typeof runOutputs>;
-export type InsertRunOutput = InferInsertModel<typeof runOutputs>;
 export type RunGeneratedDocument = InferSelectModel<typeof runGeneratedDocuments>;
 export type InsertRunGeneratedDocument = InferInsertModel<typeof runGeneratedDocuments>;
 export type TransformBlockRun = InferSelectModel<typeof transformBlockRuns>;

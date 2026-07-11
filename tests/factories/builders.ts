@@ -26,7 +26,7 @@ import * as schema from '@shared/schema';
 import { db } from '../../server/db';
 
 import { createTestWorkflow, createTestSection, // Added back
-  createTestStep, createTestWorkflowRun, createTestProject, createTestTenant, createTestOrganization, createTestUser } from './index';
+  createTestStep, createTestProject, createTestTenant, createTestOrganization, createTestUser } from './index';
 type Database = typeof db;
 // ===================================================================
 // Section Builder
@@ -210,131 +210,6 @@ export class WorkflowBuilder {
   }
 }
 // ===================================================================
-// Run Builder
-// ===================================================================
-/**
- * Builder for creating a workflow run with step values
- */
-export class RunBuilder {
-  private runData: ReturnType<typeof createTestWorkflowRun>;
-  private stepValues: Map<string, any> = new Map();
-  private workflowId?: string;
-  constructor(workflowId?: string) {
-    this.runData = createTestWorkflowRun(workflowId ? { workflowId } : undefined);
-    this.workflowId = workflowId;
-  }
-  /**
-   * Set the workflow for this run
-   */
-  forWorkflow(workflowId: string): this {
-    this.workflowId = workflowId;
-    this.runData.workflowId = workflowId;
-    return this;
-  }
-  /**
-   * Set the user who created this run
-   */
-  byUser(userId: string): this {
-    this.runData.createdBy = `creator:${userId}`;
-    return this;
-  }
-  /**
-   * Make this an anonymous run
-   */
-  anonymous(): this {
-    this.runData.createdBy = 'anon';
-    return this;
-  }
-  /**
-   * Mark this run as completed
-   */
-  completed(completedAt?: Date): this {
-    this.runData.completed = true;
-    this.runData.completedAt = completedAt || new Date();
-    this.runData.progress = 100;
-    return this;
-  }
-  /**
-   * Set progress percentage
-   */
-  withProgress(progress: number): this {
-    this.runData.progress = progress;
-    return this;
-  }
-  /**
-   * Add a step value to this run
-   * @param stepId Step ID or alias
-   * @param value The value to store
-   */
-  addValue(stepId: string, value: any): this {
-    this.stepValues.set(stepId, value);
-    return this;
-  }
-  /**
-   * Add multiple step values at once
-   */
-  addValues(values: Record<string, any>): this {
-    for (const [stepId, value] of Object.entries(values)) {
-      this.stepValues.set(stepId, value);
-    }
-    return this;
-  }
-  /**
-   * Override any run properties
-   */
-  with(overrides: Record<string, unknown>): this {
-    Object.assign(this.runData, overrides);
-    return this;
-  }
-  /**
-   * Build the run into the database
-   * @param database Database instance to use
-   * @returns Run with step values
-   */
-  async build(database: Database = db): Promise<{
-    run: Record<string, unknown>;
-    stepValues: Record<string, unknown>[];
-  }> {
-    if (!this.workflowId) {
-      throw new Error('WorkflowId is required. Use forWorkflow() or pass workflowId to constructor.');
-    }
-    // Insert run
-    const [run] = await database
-      .insert(schema.runs)
-      .values(this.runData as any)
-      .returning();
-    // Insert step values
-    const insertedStepValues = [];
-    for (const [stepId, value] of this.stepValues.entries()) {
-      const [stepValue] = await database
-        .insert(schema.stepValues)
-        .values({
-          runId: run.id,
-          stepId,
-          value,
-        })
-        .returning();
-      insertedStepValues.push(stepValue);
-    }
-    return {
-      run,
-      stepValues: insertedStepValues,
-    };
-  }
-  /**
-   * Get data without inserting to database
-   */
-  getData() {
-    return {
-      run: this.runData,
-      stepValues: Array.from(this.stepValues.entries()).map(([stepId, value]) => ({
-        stepId,
-        value,
-      })),
-    };
-  }
-}
-// ===================================================================
 // Complete Test Environment Builder
 // ===================================================================
 /**
@@ -476,33 +351,6 @@ export async function createSimpleWorkflow(
         });
       }
     });
-  }
-  return builder.build(database);
-}
-/**
- * Create a complete test run with sample data
- */
-export async function createCompleteRun(
-  database: Database = db,
-  workflowId: string,
-  stepIds: string[],
-  options?: {
-    userId?: string;
-    completed?: boolean;
-  }
-): Promise<{ run: any; stepValues: any[] }> {
-  const builder = new RunBuilder(workflowId);
-  if (options?.userId) {
-    builder.byUser(options.userId);
-  } else {
-    builder.anonymous();
-  }
-  if (options?.completed) {
-    builder.completed();
-  }
-  // Add sample values for each step
-  for (const stepId of stepIds) {
-    builder.addValue(stepId, `Sample value for ${stepId}`);
   }
   return builder.build(database);
 }

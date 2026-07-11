@@ -3,12 +3,8 @@ import { describe, it, expect } from 'vitest';
 import {
   templates,
   workflowTemplates,
-  runOutputs,
   insertTemplateSchema,
   insertWorkflowTemplateSchema,
-  insertRunOutputSchema,
-  outputStatusEnum,
-  outputFileTypeEnum,
 } from '@shared/schema';
 
 /**
@@ -16,6 +12,9 @@ import {
  *
  * Unit tests for the Document Engine schema definitions
  * Tests schema validation, types, and constraints
+ *
+ * NOTE: the graph-only `run_outputs` table (and its output_status/output_file_type
+ * enums) was removed with the graph builder; its coverage lived here previously.
  */
 
 describe('Document Engine 2.0 Schema', () => {
@@ -54,51 +53,6 @@ describe('Document Engine 2.0 Schema', () => {
       expect(columns).toContain('isPrimary');
       expect(columns).toContain('createdAt');
       expect(columns).toContain('updatedAt');
-    });
-  });
-
-  describe('RunOutputs Table', () => {
-    it('should have correct table name', () => {
-      expect(runOutputs).toBeDefined();
-      expect((runOutputs as any)[Symbol.for('drizzle:Name')]).toBe('run_outputs');
-    });
-
-    it('should have required columns', () => {
-      const columns = Object.keys(runOutputs);
-      expect(columns).toContain('id');
-      expect(columns).toContain('runId');
-      expect(columns).toContain('workflowVersionId');
-      expect(columns).toContain('templateKey');
-      expect(columns).toContain('fileType');
-      expect(columns).toContain('storagePath');
-      expect(columns).toContain('status');
-      expect(columns).toContain('error');
-      expect(columns).toContain('createdAt');
-      expect(columns).toContain('updatedAt');
-    });
-  });
-
-  describe('Output Status Enum', () => {
-    it('should have all expected status values', () => {
-      expect(outputStatusEnum).toBeDefined();
-
-      const expectedStatuses = ['pending', 'ready', 'failed'];
-
-      // The enum values are stored in the enumValues property
-      const enumValues = (outputStatusEnum as any).enumValues;
-      expect(enumValues).toEqual(expectedStatuses);
-    });
-  });
-
-  describe('Output File Type Enum', () => {
-    it('should have all expected file type values', () => {
-      expect(outputFileTypeEnum).toBeDefined();
-
-      const expectedTypes = ['docx', 'pdf'];
-
-      // The enum values are stored in the enumValues property
-      const enumValues = (outputFileTypeEnum as any).enumValues;
-      expect(enumValues).toEqual(expectedTypes);
     });
   });
 
@@ -197,125 +151,6 @@ describe('Document Engine 2.0 Schema', () => {
         });
       });
     });
-
-    describe('insertRunOutputSchema', () => {
-      it('should validate valid run output data', () => {
-        const validData = {
-          runId: '550e8400-e29b-41d4-a716-446655440000',
-          workflowVersionId: '660e8400-e29b-41d4-a716-446655440000',
-          templateKey: 'engagement_letter',
-          fileType: 'docx',
-          storagePath: 'outputs/run-123/engagement-letter.docx',
-          status: 'ready',
-        };
-
-        const result = insertRunOutputSchema.safeParse(validData);
-        expect(result.success).toBe(true);
-      });
-
-      it('should require runId, workflowVersionId, templateKey, fileType, storagePath, and status', () => {
-        const invalidData = {
-          error: 'Missing required fields',
-        };
-
-        const result = insertRunOutputSchema.safeParse(invalidData);
-        expect(result.success).toBe(false);
-      });
-
-      it('should validate file type enum', () => {
-        const fileTypes = ['docx', 'pdf'];
-
-        fileTypes.forEach((fileType) => {
-          const data = {
-            runId: '550e8400-e29b-41d4-a716-446655440000',
-            workflowVersionId: '660e8400-e29b-41d4-a716-446655440000',
-            templateKey: 'test_template',
-            fileType,
-            storagePath: `outputs/test.${fileType}`,
-            status: 'ready',
-          };
-
-          const result = insertRunOutputSchema.safeParse(data);
-          expect(result.success).toBe(true);
-        });
-      });
-
-      it('should reject invalid file type', () => {
-        const invalidData = {
-          runId: '550e8400-e29b-41d4-a716-446655440000',
-          workflowVersionId: '660e8400-e29b-41d4-a716-446655440000',
-          templateKey: 'test_template',
-          fileType: 'txt', // Invalid type
-          storagePath: 'outputs/test.txt',
-          status: 'ready',
-        };
-
-        const result = insertRunOutputSchema.safeParse(invalidData);
-        expect(result.success).toBe(false);
-      });
-
-      it('should validate status enum', () => {
-        const statuses = ['pending', 'ready', 'failed'];
-
-        statuses.forEach((status) => {
-          const data = {
-            runId: '550e8400-e29b-41d4-a716-446655440000',
-            workflowVersionId: '660e8400-e29b-41d4-a716-446655440000',
-            templateKey: 'test_template',
-            fileType: 'docx',
-            storagePath: 'outputs/test.docx',
-            status,
-          };
-
-          const result = insertRunOutputSchema.safeParse(data);
-          expect(result.success).toBe(true);
-        });
-      });
-
-      it('should reject invalid status', () => {
-        const invalidData = {
-          runId: '550e8400-e29b-41d4-a716-446655440000',
-          workflowVersionId: '660e8400-e29b-41d4-a716-446655440000',
-          templateKey: 'test_template',
-          fileType: 'docx',
-          storagePath: 'outputs/test.docx',
-          status: 'completed', // Invalid status
-        };
-
-        const result = insertRunOutputSchema.safeParse(invalidData);
-        expect(result.success).toBe(false);
-      });
-
-      it('should allow error to be null', () => {
-        const validData = {
-          runId: '550e8400-e29b-41d4-a716-446655440000',
-          workflowVersionId: '660e8400-e29b-41d4-a716-446655440000',
-          templateKey: 'test_template',
-          fileType: 'docx',
-          storagePath: 'outputs/test.docx',
-          status: 'ready',
-          error: null,
-        };
-
-        const result = insertRunOutputSchema.safeParse(validData);
-        expect(result.success).toBe(true);
-      });
-
-      it('should allow error message for failed outputs', () => {
-        const validData = {
-          runId: '550e8400-e29b-41d4-a716-446655440000',
-          workflowVersionId: '660e8400-e29b-41d4-a716-446655440000',
-          templateKey: 'test_template',
-          fileType: 'pdf',
-          storagePath: 'outputs/test.pdf',
-          status: 'failed',
-          error: 'PDF conversion failed: timeout after 30s',
-        };
-
-        const result = insertRunOutputSchema.safeParse(validData);
-        expect(result.success).toBe(true);
-      });
-    });
   });
 
   describe('Schema Constraints', () => {
@@ -334,18 +169,6 @@ describe('Document Engine 2.0 Schema', () => {
     it('should cascade delete workflow templates when template is deleted', () => {
       // This test documents the cascade behavior
       // Foreign key: workflow_templates.template_id -> templates.id ON DELETE CASCADE
-      expect(true).toBe(true);
-    });
-
-    it('should cascade delete run outputs when run is deleted', () => {
-      // This test documents the cascade behavior
-      // Foreign key: run_outputs.run_id -> runs.id ON DELETE CASCADE
-      expect(true).toBe(true);
-    });
-
-    it('should cascade delete run outputs when workflow version is deleted', () => {
-      // This test documents the cascade behavior
-      // Foreign key: run_outputs.workflow_version_id -> workflow_versions.id ON DELETE CASCADE
       expect(true).toBe(true);
     });
   });
@@ -393,28 +216,6 @@ describe('Document Engine 2.0 Schema', () => {
       expect(mockWorkflowTemplate.key).toBe('engagement_letter');
       expect(mockWorkflowTemplate.isPrimary).toBe(true);
     });
-
-    it('should correctly infer RunOutput type', () => {
-      type RunOutput = typeof runOutputs.$inferSelect;
-
-      const mockRunOutput: RunOutput = {
-        id: '550e8400-e29b-41d4-a716-446655440000',
-        runId: '660e8400-e29b-41d4-a716-446655440000',
-        workflowVersionId: '770e8400-e29b-41d4-a716-446655440000',
-        templateKey: 'engagement_letter',
-        fileType: 'docx',
-        storagePath: 'outputs/run-123/engagement-letter.docx',
-        status: 'ready',
-        error: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      expect(mockRunOutput).toBeDefined();
-      expect(mockRunOutput.templateKey).toBe('engagement_letter');
-      expect(mockRunOutput.fileType).toBe('docx');
-      expect(mockRunOutput.status).toBe('ready');
-    });
   });
 
   describe('Multi-Template Scenarios', () => {
@@ -442,40 +243,6 @@ describe('Document Engine 2.0 Schema', () => {
 
       templates.forEach((template) => {
         const result = insertWorkflowTemplateSchema.safeParse(template);
-        expect(result.success).toBe(true);
-      });
-    });
-
-    it('should support multiple outputs per run', () => {
-      const outputs = [
-        {
-          runId: '550e8400-e29b-41d4-a716-446655440000',
-          workflowVersionId: '660e8400-e29b-41d4-a716-446655440000',
-          templateKey: 'engagement_letter',
-          fileType: 'docx',
-          storagePath: 'outputs/run-123/engagement-letter.docx',
-          status: 'ready',
-        },
-        {
-          runId: '550e8400-e29b-41d4-a716-446655440000',
-          workflowVersionId: '660e8400-e29b-41d4-a716-446655440000',
-          templateKey: 'engagement_letter',
-          fileType: 'pdf',
-          storagePath: 'outputs/run-123/engagement-letter.pdf',
-          status: 'pending',
-        },
-        {
-          runId: '550e8400-e29b-41d4-a716-446655440000',
-          workflowVersionId: '660e8400-e29b-41d4-a716-446655440000',
-          templateKey: 'schedule_a',
-          fileType: 'docx',
-          storagePath: 'outputs/run-123/schedule-a.docx',
-          status: 'ready',
-        },
-      ];
-
-      outputs.forEach((output) => {
-        const result = insertRunOutputSchema.safeParse(output);
         expect(result.success).toBe(true);
       });
     });
