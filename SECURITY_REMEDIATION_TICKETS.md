@@ -119,6 +119,14 @@ Re-verified every ticket against the current code. **12 of 14 are now closed**; 
 - **Fix:** Validate hostname format, and require DNS TXT-record ownership verification before a domain becomes active.
 - **Acceptance criteria:** Malformed hostnames rejected; a domain stays inactive until a TXT challenge is verified.
 - **Triage (2026-07-08):** ⚠️ **Partial.** Hostname format is now validated in `branding.routes.ts` (`z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/i)` on `POST /api/tenants/:tenantId/domains`), so the first acceptance criterion is met. **DNS TXT ownership verification is still not implemented** — `BrandingService.addDomain` only checks availability (`isDomainAvailable`) and inserts the domain as immediately usable, so a tenant can still register a domain it does not own. Remaining work is a real feature, not a pattern-copy: a domain-status/verification-token schema change (deferred — needs the schema-decision sign-off), a challenge issue + `dns.resolveTxt` verify endpoint, and gating branding resolution on `verified`. Also clean up the leftover AI-authored scratch comments in the POST handler (`branding.routes.ts:135-139`, "Actually, importing schema is better…").
+- **Re-verify (2026-07-10):** ✅ **Both acceptance criteria now met — recommend Close** (the 2026-07-08 triage above is stale). The DNS-verification feature is fully implemented and the earlier "still not implemented" note no longer reflects the code:
+  - Schema change shipped — `tenant_domains.verified` + `tenant_domains.verification_token` exist (`shared/schema/auth.ts:171-172`).
+  - `BrandingService.addDomain` (`BrandingService.ts:143-158`) now inserts `verified: false` with a random `verificationToken`.
+  - Verify endpoint exists — `POST /api/tenants/:tenantId/domains/:domainId/verify` (`branding.routes.ts:184-189`), gated by `hybridAuth` + `requirePermission('tenant:update')`.
+  - `verifyDomain` (`BrandingService.ts:222-268`) resolves the `_ezbuildr-challenge.<domain>` TXT record via `dns.resolveTxt`, joins multi-string chunks before comparing, scopes `domainId` to `tenantId` (403 on mismatch), and only then sets `verified: true`.
+  - Branding resolution is gated — `getBrandingByDomain` (`BrandingService.ts:94-105`) filters `eq(tenantDomains.verified, true)`, so unverified/squatted domains behave as unregistered.
+  - Scratch comments in the POST handler are gone.
+  - **One residual gap tracked separately as SEC-045** (squat-to-deny + missing rate limit) — not part of this ticket's acceptance criteria, so it does not block closing SEC-026.
 
 ---
 
@@ -190,6 +198,23 @@ Re-verified every ticket against the current code. **12 of 14 are now closed**; 
 - **Problem:** `redirectUrl` now uses `z.string().url().refine(...)` restricting to http/https (✅), but there is no allowlist of permitted hosts — any valid https URL passes, leaving an open-redirect vector for signers. Separately, the execute endpoint (triggers provider envelope/email sends) has no rate limiter.
 - **Fix:** Restrict `redirectUrl` to an allowlist of trusted hosts (or the platform's own origin). Apply `strictLimiter` to the execute route.
 - **Acceptance criteria:** Off-allowlist redirect URLs rejected; execute endpoint returns 429 past its limit.
+
+---
+
+## SEC-045 — Custom-domain squat-to-deny + no rate limit on domain add/verify (follow-up to SEC-026)
+
+- **Severity:** Low–Medium
+- **Location:** `shared/schema/auth.ts:170` (`domain: text("domain").notNull().unique()`); `BrandingService.isDomainAvailable` / `addDomain` (`BrandingService.ts:143-158, 273+`); `branding.routes.ts:122-189` (add + verify endpoints)
+- **Problem:** SEC-026 closed the *spoofing* half of its stated threat (unverified domains no longer resolve branding). It did **not** close the *squatting* half, which the SEC-026 problem statement explicitly names ("a tenant can pre-register/squat any third party's domain"). Because `domain` is globally unique and `isDomainAvailable` rejects any already-registered domain regardless of `verified` status, a tenant can register `victim.com` **unverified** and permanently block the legitimate owner from ever adding it — a denial-of-registration. There is no expiry on unverified rows, so the squat is indefinite. Separately, neither the add nor the verify endpoint has a rate limiter, and `verifyDomain` performs an outbound `dns.resolveTxt` on each call — an authenticated user can drive unbounded DNS lookups.
+- **Fix:**
+  1. Do not let an **unverified** registration block another tenant from registering the same domain — e.g. scope the uniqueness/availability check to `verified = true`, and/or expire unverified rows after a short TTL (a background sweep or a check at insert time). Only a verified claim should lock a domain globally.
+  2. Add a rate limiter (`strictLimiter` or equivalent) to both `POST /api/tenants/:tenantId/domains` and `.../:domainId/verify`.
+  3. Minor: make `tenant_domains.verified` `NOT NULL DEFAULT false` (currently nullable, `shared/schema/auth.ts:171`); it is fail-safe today only because resolution filters `verified = true`, but the nullability is inconsistent with `users.email_verified`.
+- **Acceptance criteria:**
+  - An unverified registration of a domain by tenant A does not prevent tenant B from registering (and verifying) the same domain.
+  - A domain locked by tenant A only when A has verified ownership.
+  - Both endpoints return 429 past their limit.
+  - `tenant_domains.verified` is non-nullable.
 
 ---
 

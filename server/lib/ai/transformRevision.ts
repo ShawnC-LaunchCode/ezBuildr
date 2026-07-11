@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+import { z } from "zod";
 import { TransformBlock, TransformResult } from "shared/schema";
 import { logger } from "../../logger";
-
+import { fenceUntrusted } from "./AIServiceUtils";
 interface RevisionRequest {
   currentTransforms: TransformBlock[];
   userRequest: string;
@@ -12,7 +13,7 @@ interface RevisionRequest {
 
 // Lazy initialization helper
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const getModel = () => {
+const getModel = (systemPrompt: string) => {
   const apiKey = process.env.GEMINI_API_KEY ?? "";
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not set");
@@ -20,7 +21,10 @@ const getModel = () => {
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    return genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    return genAI.getGenerativeModel({ 
+      model: "gemini-1.5-pro",
+      systemInstruction: { role: "system", parts: [{ text: systemPrompt }] }
+    });
   } catch (e) {
     logger.warn({ err: e }, "Failed to init AI model in transformRevision");
     if (process.env.NODE_ENV === 'test') {
@@ -34,16 +38,30 @@ const getModel = () => {
   }
 };
 
+const transformResultSchema = z.object({
+  transforms: z.array(
+    z.object({
+      type: z.enum(["map", "rename", "compute", "conditional", "loop", "script"]),
+      name: z.string(),
+      inputPaths: z.array(z.string()).optional(),
+      outputPath: z.string().optional(),
+      config: z.record(z.unknown()).optional(),
+      explanation: z.string().optional(),
+    })
+  ),
+  diff: z.object({
+    added: z.array(z.string()).optional(),
+    removed: z.array(z.string()).optional(),
+    modified: z.array(z.string()).optional(),
+    details: z.record(z.unknown()).optional(),
+  }).optional(),
+  explanation: z.array(z.string()).optional(),
+});
+
 export const reviseTransforms = async (request: RevisionRequest): Promise<TransformResult> => {
-  const prompt = `
+  const systemPrompt = `
     You are an ETL expert for VaultLogic.
     Your goal is to REVISE existing data transformations based on the user's request.
-    
-    Context:
-    Workflow Structure: ${JSON.stringify(request.workflowContext, null, 2)}
-    Current Transforms: ${JSON.stringify(request.currentTransforms, null, 2)}
-    
-    User Revision Request: "${request.userRequest}"
     
     Instructions:
     1. Identify what needs to change.
@@ -55,23 +73,40 @@ export const reviseTransforms = async (request: RevisionRequest): Promise<Transf
 
     Output JSON format:
     {
-      "transforms": [ ... ],
+      "transforms": [
+        {
+          "type": "...",
+          "name": "...",
+          "inputPaths": ["..."],
+          "outputPath": "...",
+          "config": { ... },
+          "explanation": "..."
+        }
+      ],
       "diff": {
         "added": ["name_of_added_block"],
         "removed": ["name_of_removed_block"],
         "modified": ["name_of_modified_block"],
         "details": {
-             "blockName": { "before": ..., "after": ... }
+             "blockName": { "before": "...", "after": "..." }
         }
       },
       "explanation": ["Point 1", "Point 2"]
     }
   `;
 
+  const userPrompt = `
+    Context:
+    Workflow Structure: ${fenceUntrusted(JSON.stringify(request.workflowContext))}
+    Current Transforms: ${fenceUntrusted(JSON.stringify(request.currentTransforms))}
+    
+    User Revision Request: "${fenceUntrusted(request.userRequest)}"
+  `;
+
   let text = "";
   try {
-    const model = getModel();
-    const result = await model.generateContent(prompt);
+    const model = getModel(systemPrompt);
+    const result = await model.generateContent(userPrompt);
     const response = result.response;
     text = response.text();
   } catch (e) {
@@ -82,10 +117,17 @@ export const reviseTransforms = async (request: RevisionRequest): Promise<Transf
   try {
     const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
     const parsed = JSON.parse(cleanedText);
+    
+    const validationResult = transformResultSchema.safeParse(parsed);
+    if (!validationResult.success) {
+      logger.error({ errors: validationResult.error.errors }, "Generated transform revision failed schema validation");
+      throw new Error("AI generated an invalid response structure");
+    }
+
     return {
-      updatedTransforms: parsed.transforms,
-      diff: parsed.diff,
-      explanation: parsed.explanation
+      updatedTransforms: validationResult.data.transforms as TransformBlock[],
+      diff: validationResult.data.diff as TransformResult["diff"],
+      explanation: validationResult.data.explanation ?? []
     };
   } catch (e) {
     logger.error({ err: e }, "Failed to parse AI revision response");

@@ -128,7 +128,7 @@ export abstract class BaseAIProvider implements IAIProvider {
         if (!endsCorrectly) {
             logger.warn({
                 lastChar: trimmed.charAt(trimmed.length - 1),
-                last50: trimmed.substring(trimmed.length - 50),
+                responseLength: trimmed.length,
             }, 'Response does not end with closing brace/bracket');
             return true;
         }
@@ -156,7 +156,7 @@ export abstract class BaseAIProvider implements IAIProvider {
         } catch (parseError) {
             logger.warn({
                 parseError: parseError instanceof Error ? parseError.message : String(parseError),
-                last100: trimmed.substring(Math.max(0, trimmed.length - 100)),
+                responseLength: trimmed.length,
             }, 'JSON parsing failed - response appears truncated');
             return true;
         }

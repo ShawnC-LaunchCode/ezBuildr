@@ -16,6 +16,26 @@ const logger = createLogger({ module: 'ai-personalization-routes' });
 
 const router = Router();
 
+const BlockRequestSchema = z.object({
+    block: z.object({
+        text: z.string().min(1).max(10000)
+    })
+});
+
+const HelpRequestSchema = z.object({
+    text: z.string().min(1).max(5000)
+});
+
+const ClarifyFollowupRequestSchema = z.object({
+    question: z.string().min(1).max(5000),
+    answer: z.string().min(1).max(5000)
+});
+
+const TranslateRequestSchema = z.object({
+    text: z.string().min(1).max(10000),
+    targetLanguage: z.string().min(2).max(10)
+});
+
 // Middleware to get user settings
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- middleware signature requires any for Express compatibility
 const getUserContext = asyncHandler(async (req: any, res: any, next: any) => {
@@ -84,13 +104,7 @@ const getUserContext = asyncHandler(async (req: any, res: any, next: any) => {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with personalizationContext
 router.post("/block", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req: any, res) => {
     try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Express req body
-        const { block } = req.body;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Express req body validated
-        if (block?.text === null || block?.text === undefined) {
-            res.status(400).json({ error: "Block data required" });
-            return;
-        }
+        const { block } = BlockRequestSchema.parse(req.body);
 
         const rewrittenText = await personalizationService.rewriteBlockText(
             // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access -- Express req body validated
@@ -109,13 +123,7 @@ router.post("/block", hybridAuth, strictLimiter, getUserContext, asyncHandler(as
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with personalizationContext
 router.post("/help", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req: any, res) => {
     try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Express req body
-        const { text } = req.body;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Express req body validated
-        if (text === null || text === undefined) {
-            res.status(400).json({ error: "Text required" });
-            return;
-        }
+        const { text } = HelpRequestSchema.parse(req.body);
 
         const helpText = await personalizationService.generateHelpText(
             // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- Express req body validated
@@ -134,13 +142,7 @@ router.post("/help", hybridAuth, strictLimiter, getUserContext, asyncHandler(asy
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with personalizationContext
 router.post("/clarify", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req: any, res) => {
     try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Express req body
-        const { question, answer } = req.body;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Express req body validated
-        if (question === null || question === undefined || answer === null || answer === undefined) {
-            res.status(400).json({ error: "Question and answer required" });
-            return;
-        }
+        const { question, answer } = ClarifyFollowupRequestSchema.parse(req.body);
 
         const clarification = await personalizationService.generateClarification(
             // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- Express req body validated
@@ -161,8 +163,7 @@ router.post("/clarify", hybridAuth, strictLimiter, getUserContext, asyncHandler(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with personalizationContext
 router.post("/followup", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req: any, res) => {
     try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Express req body
-        const { question, answer } = req.body;
+        const { question, answer } = ClarifyFollowupRequestSchema.parse(req.body);
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access -- Express req body and middleware
         const result = await personalizationService.generateFollowUp(question, answer, req.personalizationContext);
         res.json({ followup: result });
@@ -175,13 +176,7 @@ router.post("/followup", hybridAuth, strictLimiter, getUserContext, asyncHandler
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with personalizationContext
 router.post("/translate", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req: any, res) => {
     try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Express req body
-        const { text, targetLanguage } = req.body;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Express req body validated
-        if (text === null || text === undefined || targetLanguage === null || targetLanguage === undefined) {
-            res.status(400).json({ error: "Text and targetLanguage required" });
-            return;
-        }
+        const { text, targetLanguage } = TranslateRequestSchema.parse(req.body);
 
         const translated = await personalizationService.translateText(text, targetLanguage);
         res.json({ text: translated });

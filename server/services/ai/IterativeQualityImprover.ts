@@ -143,10 +143,10 @@ export class IterativeQualityImprover {
 
       try {
         // Generate improvement prompt based on current issues
-        const improvementPrompt = this.buildImprovementPrompt(currentWorkflow, currentScore, originalRequest);
+        const prompt = this.buildImprovementPrompt(currentWorkflow, currentScore, originalRequest);
 
         // Call AI for improvement
-        const response = await this.client.callLLM(improvementPrompt, 'workflow_revision');
+        const response = await this.client.callLLM(prompt.userPrompt, 'workflow_revision', prompt.systemMessage);
         const improvedWorkflow = this.parseImprovedWorkflow(response, currentWorkflow);
 
         // Validate improved workflow
@@ -222,7 +222,7 @@ export class IterativeQualityImprover {
     workflow: AIGeneratedWorkflow,
     score: QualityScore,
     originalRequest: AIWorkflowGenerationRequest
-  ): string {
+  ): { systemMessage: string; userPrompt: string } {
     // Group issues by category
     const issuesByCategory = new Map<string, typeof score.issues>();
     for (const issue of score.issues) {
@@ -282,13 +282,10 @@ export class IterativeQualityImprover {
       categoryGuidance.push(`VALIDATION (score: ${score.breakdown.validation}/100): Mark important fields as required. Ensure choice fields have at least 2 options.`);
     }
 
-    return `You are a Workflow Quality Improvement Engine.
+    const systemMessage = `You are a Workflow Quality Improvement Engine.
 
 CURRENT WORKFLOW (Quality Score: ${score.overall}/100):
 ${JSON.stringify(workflow, null, 2)}
-
-ORIGINAL USER REQUEST:
-"${originalRequest.description}"
 
 QUALITY ISSUES TO FIX:
 ${prioritizedIssues.join('\n\n')}
@@ -315,6 +312,10 @@ Return ONLY a valid JSON object with the improved workflow structure:
 }
 
 Do NOT include any explanation or markdown - just the JSON object.`;
+
+    const userPrompt = `ORIGINAL USER REQUEST:\n${this.promptBuilder.fenceUntrusted(originalRequest.description)}`;
+
+    return { systemMessage, userPrompt };
   }
 
   /**

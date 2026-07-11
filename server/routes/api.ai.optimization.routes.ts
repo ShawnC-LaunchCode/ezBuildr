@@ -7,6 +7,8 @@ import { logger } from '../logger';
 import { workflowOptimizationService } from "../services/ai/WorkflowOptimizationService";
 import { asyncHandler } from '../utils/asyncHandler';
 import { hybridAuth } from "../middleware/auth";
+import { requireBuilder } from "../middleware/rbac";
+import { validateWorkflowSize } from "../middleware/ai.middleware";
 import { rateLimit } from 'express-rate-limit';
 
 const router = Router();
@@ -18,7 +20,7 @@ const optimizeRateLimit = rateLimit({
 });
 
 // POST /api/ai/workflows/optimize/analyze
-router.post("/analyze", hybridAuth, optimizeRateLimit, asyncHandler(async (req, res) => {
+router.post("/analyze", hybridAuth, requireBuilder, optimizeRateLimit, validateWorkflowSize(50, 50), asyncHandler(async (req, res) => {
     try {
         const validation = AnalyzeWorkflowSchema.safeParse(req.body);
         if (!validation.success) {
@@ -36,7 +38,7 @@ router.post("/analyze", hybridAuth, optimizeRateLimit, asyncHandler(async (req, 
     }
 }));
 // POST /api/ai/workflows/optimize/apply
-router.post("/apply", hybridAuth, optimizeRateLimit, asyncHandler(async (req, res) => {
+router.post("/apply", hybridAuth, requireBuilder, optimizeRateLimit, validateWorkflowSize(50, 50), asyncHandler(async (req, res) => {
     try {
         const validation = ApplyFixesSchema.safeParse(req.body);
         if (!validation.success) {

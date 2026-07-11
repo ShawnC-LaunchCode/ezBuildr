@@ -21,7 +21,7 @@ export class AIPromptBuilder {
    * than as instructions (prompt-injection defense). Neutralizes attempts to break out of the
    * fence (delimiter/role markers) and caps length to bound token usage.
    */
-  private fenceUntrusted(content: unknown, maxLen = 8000): string {
+  public fenceUntrusted(content: unknown, maxLen = 8000): string {
     const cleaned = String(content ?? '')
       // Strip fence-like and role/tag markers an attacker might use to escape the data block.
       .replace(/[`]{3,}|-{3,}|_{3,}/g, ' ')
@@ -34,16 +34,13 @@ export class AIPromptBuilder {
   /**
    * Build the prompt for workflow generation
    */
-  buildWorkflowGenerationPrompt(request: AIWorkflowGenerationRequest): string {
+  buildWorkflowGenerationPrompt(request: AIWorkflowGenerationRequest): { systemMessage: string; userPrompt: string } {
     const constraints = request.constraints ?? {};
     const maxSections = constraints.maxSections ?? 10;
     const maxStepsPerSection = constraints.maxStepsPerSection ?? 10;
 
-    return `You are an expert workflow designer for ezBuildr, a professional document automation and workflow platform.
+    const systemMessage = `You are an expert workflow designer for ezBuildr, a professional document automation and workflow platform.
 Your task is to design a HIGH-QUALITY, PRODUCTION-READY workflow based on the user's description.
-
-User Description:
-${this.fenceUntrusted(request.description)}
 
 ${request.placeholders ? `Template Placeholders Available:\n${request.placeholders.join(', ')}\n` : ''}
 
@@ -156,6 +153,10 @@ TRANSFORM BLOCK PATTERNS:
 - Date math: Use helpers.date methods for date calculations
 
 Output ONLY valid JSON, NO markdown code blocks, NO additional text.`;
+
+    const userPrompt = `User Description:\n${this.fenceUntrusted(request.description)}`;
+
+    return { systemMessage, userPrompt };
   }
 
   /**
@@ -164,12 +165,9 @@ Output ONLY valid JSON, NO markdown code blocks, NO additional text.`;
   buildWorkflowSuggestionPrompt(
     request: AIWorkflowSuggestionRequest,
     existingWorkflow: unknown,
-  ): string {
-    return `You are a workflow improvement assistant for ezBuildr.
+  ): { systemMessage: string; userPrompt: string } {
+    const systemMessage = `You are a workflow improvement assistant for ezBuildr.
 You are reviewing an existing workflow and suggesting improvements based on user request.
-
-User Request:
-${this.fenceUntrusted(request.description)}
 
 Existing Workflow:
 ${JSON.stringify(existingWorkflow, null, 2)}
@@ -199,6 +197,10 @@ Guidelines:
 - For new elements, follow the same schema and constraints as workflow generation
 
 Output ONLY the JSON object, no additional text or markdown.`;
+
+    const userPrompt = `User Request:\n${this.fenceUntrusted(request.description)}`;
+
+    return { systemMessage, userPrompt };
   }
 
   /**
@@ -207,15 +209,9 @@ Output ONLY the JSON object, no additional text or markdown.`;
   buildBindingSuggestionPrompt(
     variables: Array<{ alias: string; label: string; type: string }>,
     placeholders: string[],
-  ): string {
-    return `You are a template binding assistant for ezBuildr.
+  ): { systemMessage: string; userPrompt: string } {
+    const systemMessage = `You are a template binding assistant for ezBuildr.
 Your task is to match DOCX template placeholders to workflow variables.
-
-Available Workflow Variables:
-${variables.map((v) => `- ${v.alias} (${v.type}): ${v.label}`).join('\n')}
-
-Template Placeholders to Match:
-${placeholders.map((p) => `- {{${p}}}`).join('\n')}
 
 Output a JSON object with this exact structure:
 {
@@ -240,6 +236,10 @@ Guidelines:
 - Provide clear rationale for each suggestion
 
 Output ONLY the JSON object, no additional text or markdown.`;
+
+    const userPrompt = `Available Workflow Variables:\n${variables.map((v) => `- ${v.alias} (${v.type}): ${v.label}`).join('\n')}\n\nTemplate Placeholders to Match:\n${placeholders.map((p) => `- {{${p}}}`).join('\n')}`;
+
+    return { systemMessage, userPrompt };
   }
 
   /**
@@ -254,7 +254,7 @@ Output ONLY the JSON object, no additional text or markdown.`;
       description?: string;
     }>,
     mode: 'full' | 'partial',
-  ): string {
+  ): { systemMessage: string; userPrompt: string } {
     const stepDescriptions = steps
       .map((step) => {
         let desc = `- ${step.key} (${step.type})`;
@@ -267,10 +267,7 @@ Output ONLY the JSON object, no additional text or markdown.`;
       })
       .join('\n');
 
-    return `You are a test data generator. Generate realistic, plausible values for the following workflow fields.
-
-Fields to populate:
-${stepDescriptions}
+    const systemMessage = `You are a test data generator. Generate realistic, plausible values for the following workflow fields.
 
 Requirements:
 - Generate realistic values that make sense for each field type
@@ -292,23 +289,21 @@ Return ONLY a JSON object with this structure:
 }
 
 Do not include any markdown formatting, code blocks, or additional text. Return raw JSON only.`;
+
+    const userPrompt = `Fields to populate:\n${stepDescriptions}`;
+
+    return { systemMessage, userPrompt };
   }
 
   /**
    * Build prompt for workflow revision
    */
-  buildWorkflowRevisionPrompt(request: AIWorkflowRevisionRequest): string {
-    return `You are a ezBuildr Workflow Revision Engine.
+  buildWorkflowRevisionPrompt(request: AIWorkflowRevisionRequest): { systemMessage: string; userPrompt: string } {
+    const systemMessage = `You are a ezBuildr Workflow Revision Engine.
 Your task is to modify the Current Workflow based on the User Instruction and Conversation History.
 
 Current Workflow JSON:
 ${JSON.stringify(request.currentWorkflow, null, 2)}
-
-User Instruction:
-${this.fenceUntrusted(request.userInstruction)}
-
-Conversation History:
-${request.conversationHistory ? request.conversationHistory.map((m) => `${m.role.toUpperCase()}: ${this.fenceUntrusted(m.content)}`).join('\n') : 'None'}
 
 Mode: ${request.mode} (Respect constraints of this mode)
 
@@ -381,45 +376,45 @@ CRITICAL REQUIREMENTS:
     - Other: "scale", "address", "file_upload", "display", "signature_block"
 
     Output ONLY the JSON object.`;
+
+    const userPrompt = `User Instruction:\n${this.fenceUntrusted(request.userInstruction)}\n\nConversation History:\n${request.conversationHistory ? request.conversationHistory.map((m) => `${m.role.toUpperCase()}: ${this.fenceUntrusted(m.content)}`).join('\n') : 'None'}`;
+
+    return { systemMessage, userPrompt };
   }
 
   /**
    * Build prompt for logic generation
    */
-  buildLogicGenerationPrompt(request: AIConnectLogicRequest): string {
-    return `You are a Logic Architect for ezBuildr.
+  buildLogicGenerationPrompt(request: AIConnectLogicRequest): { systemMessage: string; userPrompt: string } {
+    const systemMessage = `You are a Logic Architect for ezBuildr.
 Task: Generate logical conditions (logicRules) to connect steps based on the user's description.
 Workflow Context:
 ${JSON.stringify(request.currentWorkflow, null, 2)}
-User Request:
-${this.fenceUntrusted(request.description)}
-
-Output JSON exactly matching AIConnectLogicResponse schema:
-{
-  "updatedWorkflow": { ... },
-  "diff": { "changes": [...] },
-  "explanation": ["..."],
-  "suggestions": ["..."]
 }
 Only return JSON.`;
+
+    const userPrompt = `User Request:\n${this.fenceUntrusted(request.description)}`;
+    return { systemMessage, userPrompt };
   }
 
   /**
    * Build prompt for logic debugging
    */
-  buildLogicDebugPrompt(request: AIDebugLogicRequest): string {
-    return `Analyze this workflow's logic for infinite loops, contradictions, or unreachable branches.
-Workflow: ${JSON.stringify(request.currentWorkflow, null, 2)}
+  buildLogicDebugPrompt(request: AIDebugLogicRequest): { systemMessage: string; userPrompt: string } {
+    const systemMessage = `Analyze this workflow's logic for infinite loops, contradictions, or unreachable branches.
 Output JSON matching AIDebugLogicResponse.`;
+    const userPrompt = `Workflow: ${JSON.stringify(request.currentWorkflow, null, 2)}`;
+    return { systemMessage, userPrompt };
   }
 
   /**
    * Build prompt for logic visualization
    */
-  buildLogicVisualizationPrompt(request: AIVisualizeLogicRequest): string {
-    return `Generate a node-edge graph representation of this workflow's logic flow.
-Workflow: ${JSON.stringify(request.currentWorkflow, null, 2)}
+  buildLogicVisualizationPrompt(request: AIVisualizeLogicRequest): { systemMessage: string; userPrompt: string } {
+    const systemMessage = `Generate a node-edge graph representation of this workflow's logic flow.
 Output JSON matching AIVisualizeLogicResponse with "graph": { "nodes": [], "edges": [] }.`;
+    const userPrompt = `Workflow: ${JSON.stringify(request.currentWorkflow, null, 2)}`;
+    return { systemMessage, userPrompt };
   }
 }
 

@@ -9,6 +9,7 @@ import { TransformDebugger } from "../lib/transforms/debugger";
 import { alignSchema } from "../lib/transforms/schemaAlign";
 import { logger } from '../logger';
 import { hybridAuth } from "../middleware/auth";
+import { requireBuilder } from "../middleware/rbac";
 import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
@@ -35,7 +36,7 @@ const reviseSchema = z.object({
     workflowContext: z.record(z.unknown()).optional().default({}),
 });
 
-router.post("/generate", hybridAuth, aiRateLimit, asyncHandler(async (req, res) => {
+router.post("/generate", hybridAuth, requireBuilder, aiRateLimit, asyncHandler(async (req, res) => {
     try {
         // Safe Parse with Zod
         const validation = generateSchema.safeParse(req.body);
@@ -64,7 +65,7 @@ router.post("/generate", hybridAuth, aiRateLimit, asyncHandler(async (req, res) 
     }
 }));
 
-router.post("/revise", hybridAuth, aiRateLimit, asyncHandler(async (req, res) => {
+router.post("/revise", hybridAuth, requireBuilder, aiRateLimit, asyncHandler(async (req, res) => {
     try {
         const validation = reviseSchema.safeParse(req.body);
 
@@ -96,7 +97,7 @@ const debugSchema = z.object({
     transforms: z.array(z.unknown()).optional().default([])
 });
 
-router.post("/debug", hybridAuth, aiRateLimit, asyncHandler(async (req, res) => {
+router.post("/debug", hybridAuth, requireBuilder, aiRateLimit, asyncHandler(async (req, res) => {
     try {
         const validation = debugSchema.safeParse(req.body);
         if (!validation.success) {
@@ -117,7 +118,7 @@ const autoFixSchema = z.object({
     issues: z.array(z.unknown()).optional().default([])
 });
 
-router.post("/auto-fix", hybridAuth, aiRateLimit, asyncHandler(async (req, res) => {
+router.post("/auto-fix", hybridAuth, requireBuilder, aiRateLimit, asyncHandler(async (req, res) => {
     try {
         const validation = autoFixSchema.safeParse(req.body);
         if (!validation.success) {
@@ -139,7 +140,7 @@ const schemaAlignSchema = z.object({
     workflowVariables: z.array(z.unknown()).optional().default([])
 });
 
-router.post("/schema-align", hybridAuth, aiRateLimit, asyncHandler(async (req, res) => {
+router.post("/schema-align", hybridAuth, requireBuilder, aiRateLimit, asyncHandler(async (req, res) => {
     try {
         const validation = schemaAlignSchema.safeParse(req.body);
         if (!validation.success) {

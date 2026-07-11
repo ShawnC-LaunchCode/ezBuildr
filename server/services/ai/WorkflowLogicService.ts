@@ -39,7 +39,7 @@ export class WorkflowLogicService {
 
         try {
             const prompt = this.promptBuilder.buildLogicGenerationPrompt(request);
-            const response = await this.client.callLLM(prompt, 'logic_generation');
+            const response = await this.client.callLLM(prompt.userPrompt, 'logic_generation', prompt.systemMessage);
 
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             const parsed = JSON.parse(response);
@@ -71,7 +71,7 @@ export class WorkflowLogicService {
 
         try {
             const prompt = this.promptBuilder.buildLogicDebugPrompt(request);
-            const response = await this.client.callLLM(prompt, 'logic_debug');
+            const response = await this.client.callLLM(prompt.userPrompt, 'logic_debug', prompt.systemMessage);
 
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             const parsed = JSON.parse(response);
@@ -120,7 +120,7 @@ export class WorkflowLogicService {
 
         try {
             const prompt = this.promptBuilder.buildLogicVisualizationPrompt(request);
-            const response = await this.client.callLLM(prompt, 'logic_visualization');
+            const response = await this.client.callLLM(prompt.userPrompt, 'logic_visualization', prompt.systemMessage);
 
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             const parsed = JSON.parse(response);

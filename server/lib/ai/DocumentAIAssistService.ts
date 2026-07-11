@@ -11,6 +11,7 @@ import { logger } from "../../logger"; // Adjust path if needed (../../logger)
 
 const require = createRequire(import.meta.url);
 import { documentProcessingLimiter } from "../../services/processingLimiter";
+import { fenceUntrusted } from "../../services/ai/AIServiceUtils";
 
 const pdfLib = require('pdf-parse');
 
@@ -118,10 +119,10 @@ export class DocumentAIAssistService {
         You are a Document Automation Expert.Match the Template Variables to the Workflow Variables.
         
         Template Variables:
-        ${JSON.stringify(templateVariables.map(v => ({ name: v.name, context: v.context })))}
+${fenceUntrusted(JSON.stringify(templateVariables.map(v => ({ name: v.name, context: v.context }))))}
 
         Workflow Variables:
-        ${JSON.stringify(workflowVariables.map(v => ({ id: v.id, name: v.name, label: v.label, type: v.type })))}
+${fenceUntrusted(JSON.stringify(workflowVariables.map(v => ({ id: v.id, name: v.name, label: v.label, type: v.type }))))}
 
         Return a JSON array of mappings.For each template variable, suggest the best workflow variable match(if any).
         If no match, suggest creating a new one(isNew: true).
@@ -146,7 +147,8 @@ export class DocumentAIAssistService {
 
         const prompt = `
          Analyze these template variables and suggest improvements.
-    Variables: ${JSON.stringify(templateVariables)}
+    Variables:
+${fenceUntrusted(JSON.stringify(templateVariables))}
 
 Requirements:
 1. Aliases: camelCase suggestions for messy names(e.g. "Create Date" -> "createDate").
@@ -269,7 +271,7 @@ Requirements:
         Return JSON: { "variables": [{ "name": "...", "type": "...", "confidence": 0.0 - 1.0, "context": "..." }], "suggestions": ["..."] }
         
         Text Sample(first 2000 chars):
-        ${text.substring(0, 2000)}
+${fenceUntrusted(text.substring(0, 2000))}
 `;
 
         const result = await this.model.generateContent(prompt);

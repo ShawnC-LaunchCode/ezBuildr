@@ -63,6 +63,17 @@ export class TransformBlockService {
       throw new Error("Code size exceeds 32KB limit");
     }
 
+    // SECURITY: SEC-041 Enforce AST validation on the save path
+    if (data.code) {
+      const validation = await scriptEngine.validate({ 
+        language: data.language as "javascript" | "python", 
+        code: data.code 
+      });
+      if (!validation.valid) {
+        throw new Error(`Script validation failed: ${validation.error}`);
+      }
+    }
+
     // Validate timeout
     if (data.timeoutMs && (data.timeoutMs < 100 || data.timeoutMs > 3000)) {
       throw new Error("Timeout must be between 100ms and 3000ms");
@@ -149,6 +160,18 @@ export class TransformBlockService {
     // Validate code size if provided
     if (data.code && data.code.length > 32 * 1024) {
       throw new Error("Code size exceeds 32KB limit");
+    }
+
+    // SECURITY: SEC-041 Enforce AST validation on the save path
+    if (data.code) {
+      const languageToValidate = data.language ?? block.language;
+      const validation = await scriptEngine.validate({ 
+        language: languageToValidate as "javascript" | "python", 
+        code: data.code 
+      });
+      if (!validation.valid) {
+        throw new Error(`Script validation failed: ${validation.error}`);
+      }
     }
 
     // Validate timeout if provided

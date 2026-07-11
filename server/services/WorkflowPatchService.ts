@@ -153,6 +153,23 @@ export class WorkflowPatchService {
     }
   }
   /**
+   * Verify that an entity (section or step) belongs to the given workflow ID.
+   * Prevents IDOR attacks where a user passes a valid ID from another tenant's workflow.
+   */
+  private async assertEntityBelongsToWorkflow(entityId: string, workflowId: string, type: 'section' | 'step'): Promise<void> {
+    if (type === 'section') {
+      const section = await sectionRepository.findById(entityId);
+      if (!section) throw new Error(`Section not found: ${entityId}`);
+      if (section.workflowId !== workflowId) throw new Error(`Section ${entityId} does not belong to workflow ${workflowId}`);
+    } else if (type === 'step') {
+      const step = await this.stepRepository.findById(entityId);
+      if (!step) throw new Error(`Step not found: ${entityId}`);
+      const section = await sectionRepository.findById(step.sectionId);
+      if (!section || section.workflowId !== workflowId) throw new Error(`Step ${entityId} does not belong to workflow ${workflowId}`);
+    }
+  }
+
+  /**
    * Apply a single operation
    */
   // eslint-disable-next-line max-lines-per-function, sonarjs/cognitive-complexity, complexity
@@ -190,6 +207,7 @@ export class WorkflowPatchService {
       case "section.update": {
         const sectionId = this.resolve(op.id ?? op.tempId);
         if (!sectionId) { throw new Error("Section ID or tempId required"); }
+        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section');
         await sectionRepository.update(sectionId, {
           title: op.title,
           order: op.order,
@@ -200,6 +218,7 @@ export class WorkflowPatchService {
       case "section.delete": {
         const sectionId = this.resolve(op.id ?? op.tempId);
         if (!sectionId) { throw new Error("Section ID or tempId required"); }
+        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section');
         await sectionRepository.delete(sectionId);
         return `Deleted section`;
       }
@@ -208,6 +227,7 @@ export class WorkflowPatchService {
         for (let i = 0; i < op.sectionIds.length; i++) {
           const sectionId = this.resolve(op.sectionIds[i]);
           if (sectionId) {
+            await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section');
             await sectionRepository.update(sectionId, { order: i + 1 });
           }
         }
@@ -241,6 +261,7 @@ export class WorkflowPatchService {
         const stepId = this.resolve(op.id || op.tempId);
         // eslint-disable-next-line sonarjs/no-duplicate-string
         if (!stepId) { throw new Error("Step ID or tempId required"); }
+        await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step');
         await this.stepRepository.update(stepId, {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- StepType enum validated by Zod schema
           type: op.type as any,
@@ -257,6 +278,7 @@ export class WorkflowPatchService {
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         const stepId = this.resolve(op.id || op.tempId);
         if (!stepId) { throw new Error("Step ID or tempId required"); }
+        await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step');
         await this.stepRepository.delete(stepId);
         return `Deleted step`;
       }
@@ -266,6 +288,9 @@ export class WorkflowPatchService {
         if (!stepId) { throw new Error("Step ID or tempId required"); }
         const toSectionId = this.resolve(op.toSectionId);
         if (!toSectionId) { throw new Error("Target section ID required"); }
+        
+        await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step');
+        await this.assertEntityBelongsToWorkflow(toSectionId, workflowId, 'section');
         const order = op.order ?? await this.getNextStepOrder(toSectionId);
         await this.stepRepository.update(stepId, {
           sectionId: toSectionId,
@@ -277,6 +302,7 @@ export class WorkflowPatchService {
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         const stepId = this.resolve(op.id || op.tempId);
         if (!stepId) { throw new Error("Step ID or tempId required"); }
+        await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step');
         await this.stepRepository.update(stepId, {
           visibleIf: op.visibleIf,
         });
@@ -286,6 +312,7 @@ export class WorkflowPatchService {
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         const stepId = this.resolve(op.id || op.tempId);
         if (!stepId) { throw new Error("Step ID or tempId required"); }
+        await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step');
         await this.stepRepository.update(stepId, {
           required: op.required,
         });
@@ -300,6 +327,7 @@ export class WorkflowPatchService {
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         const targetId = this.resolve(op.rule.target.id || op.rule.target.tempId);
         if (!targetId) { throw new Error("Logic rule target ID required"); }
+        await this.assertEntityBelongsToWorkflow(targetId, workflowId, op.rule.target.type);
         // Convert rule to ConditionExpression format
         const conditionExpr = this.parseConditionToExpression(op.rule.condition);
         if (op.rule.target.type === "step") {
@@ -325,6 +353,7 @@ export class WorkflowPatchService {
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         const targetId = this.resolve(op.rule.target.id || op.rule.target.tempId);
         if (!targetId) { throw new Error("Logic rule target ID required"); }
+        await this.assertEntityBelongsToWorkflow(targetId, workflowId, op.rule.target.type);
         const conditionExpr = op.rule.condition
           ? this.parseConditionToExpression(op.rule.condition)
           : null;
@@ -341,7 +370,13 @@ export class WorkflowPatchService {
       }
       case "logicRule.delete": {
         // Delete logic rule by ID (from logic_rules table)
-        await logicRuleRepository.delete(op.id);
+        const logicRule = await logicRuleRepository.findById(op.id);
+        if (logicRule) {
+           if (logicRule.workflowId !== workflowId) {
+               throw new Error(`Logic rule does not belong to workflow ${workflowId}`);
+           }
+           await logicRuleRepository.delete(op.id);
+        }
         return `Removed logic rule`;
       }
       // ====================================================================
@@ -453,8 +488,11 @@ export class WorkflowPatchService {
         const { tenantId } = await this.getTenantContext(workflowId);
         // Verify database exists if provided
         if (op.databaseId) {
-          // Database verification would go here
-          // For now, we'll proceed assuming it's valid
+          const { datavaultDatabasesRepository } = await import('../repositories');
+          const dbObj = await datavaultDatabasesRepository.findById(op.databaseId);
+          if (!dbObj || dbObj.tenantId !== tenantId) {
+              throw new Error(`Database ${op.databaseId} not found or does not belong to your tenant`);
+          }
         }
         // Create table with auto-generated slug
         const table = await this.datavaultTablesService.createTable({

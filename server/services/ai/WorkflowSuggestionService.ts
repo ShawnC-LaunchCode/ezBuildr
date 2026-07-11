@@ -45,7 +45,7 @@ export class WorkflowSuggestionService {
                 request,
                 existingWorkflow,
             );
-            const response = await this.client.callLLM(prompt, 'workflow_suggestion');
+            const response = await this.client.callLLM(prompt.userPrompt, 'workflow_suggestion', prompt.systemMessage);
 
             const parsed = JSON.parse(response);
             const validated = AIWorkflowSuggestionSchema.parse(parsed);
@@ -107,7 +107,7 @@ export class WorkflowSuggestionService {
                 variables,
                 placeholders,
             );
-            const response = await this.client.callLLM(prompt, 'binding_suggestion');
+            const response = await this.client.callLLM(prompt.userPrompt, 'binding_suggestion', prompt.systemMessage);
 
             const parsed = JSON.parse(response);
             const validated = AITemplateBindingsResponseSchema.parse(parsed);
@@ -248,7 +248,7 @@ export class WorkflowSuggestionService {
 
         try {
             const prompt = this.promptBuilder.buildValueSuggestionPrompt(steps, mode);
-            const response = await this.client.callLLM(prompt, 'value_suggestion');
+            const response = await this.client.callLLM(prompt.userPrompt, 'value_suggestion', prompt.systemMessage);
 
             // Parse and return the response
             const parsed = JSON.parse(response);

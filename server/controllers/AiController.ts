@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import {
     AIWorkflowGenerationRequestSchema,
     AIWorkflowSuggestionRequestSchema,
@@ -96,6 +98,10 @@ export class AiController {
 
             if (!text || typeof text !== 'string') {
                 return res.status(400).json({ message: "Text is required" });
+            }
+
+            if (text.length > 5000) {
+                return res.status(400).json({ message: "Text exceeds 5000 character limit" });
             }
 
             if (!process.env.GEMINI_API_KEY) {
@@ -444,14 +450,19 @@ export class AiController {
 
             const state = await job.getState();
             const result = job.returnvalue;
-            const error = job.failedReason;
+            // Sanitize error to prevent leaking raw provider messages or API keys
+            const rawError = job.failedReason;
+            let sanitizedError = rawError;
+            if (rawError && (rawError.includes('API_KEY') || rawError.length > 250)) {
+                sanitizedError = 'An internal AI processing error occurred.';
+            }
 
             res.json({
                 success: true,
                 jobId,
                 status: state,
                 result: state === 'completed' ? result : undefined,
-                error: state === 'failed' ? error : undefined,
+                error: state === 'failed' ? sanitizedError : undefined,
                 progress: job.progress() as number | object
             });
 
@@ -470,20 +481,20 @@ export class AiController {
      */
     static async suggestValues(req: Request, res: Response): Promise<Response | void> {
         try {
-            const body = req.body as { workflowId: string; steps: unknown; mode?: string };
-            const { workflowId, mode = 'full' } = body;
+            const AiSuggestValuesRequestSchema = z.object({
+                workflowId: z.string().uuid(),
+                mode: z.enum(['full', 'partial']).optional(),
+                steps: z.array(z.object({
+                    key: z.string(),
+                    type: z.string(),
+                    label: z.string().optional(),
+                    options: z.array(z.string()).optional(),
+                    description: z.string().optional()
+                })).min(1, 'Steps array is required and must not be empty')
+            });
 
-            const rawSteps = body.steps;
-            // Validate steps is an array and matching structure (basic check + cast)
-            if (!Array.isArray(rawSteps) || rawSteps.length === 0) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Steps array is required and must not be empty',
-                    error: 'invalid_request',
-                });
-            }
-
-            const steps = rawSteps as AiValueSuggestionStep[];
+            const body = AiSuggestValuesRequestSchema.parse(req.body);
+            const { workflowId, mode = 'full', steps } = body;
 
             // Validate AI configuration (GEMINI_API_KEY or AI_API_KEY)
             if (!process.env.GEMINI_API_KEY && !process.env.AI_API_KEY) {
@@ -623,21 +634,29 @@ export class AiController {
         }
 
         if (err.name === 'ZodError') {
+            const sanitizedErrors = Array.isArray(err.errors) 
+                ? err.errors.map((e: any) => ({ path: e.path, message: e.message, code: e.code }))
+                : undefined;
+            
             res.status(400).json({
                 success: false,
                 message: 'Invalid request data',
                 error: 'validation_error',
-                details: err.errors,
+                details: sanitizedErrors,
             });
             return;
         }
 
         if (err.code === 'VALIDATION_ERROR') {
+            const sanitizedDetails = Array.isArray(err.details) 
+                ? err.details.map((d: any) => ({ path: d.path, message: d.message, code: d.code }))
+                : undefined;
+
             res.status(422).json({
                 success: false,
                 message: 'AI generated invalid structure.',
                 error: 'ai_validation_error',
-                details: err.details,
+                details: sanitizedDetails,
             });
             return;
         }

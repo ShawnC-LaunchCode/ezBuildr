@@ -1,7 +1,15 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { z } from "zod";
 
 import { logger } from "../logger";
+import { fenceUntrusted } from "./ai/AIServiceUtils";
+
+const sentimentResponseSchema = z.object({
+  sentiment: z.enum(["positive", "negative", "neutral", "mixed"]),
+  confidence: z.number().min(0).max(100),
+  reasoning: z.string()
+});
 
 /**
  * Service for Google Gemini AI integration
@@ -58,10 +66,7 @@ export class GeminiService {
   }> {
     this.ensureInitialized();
 
-    const prompt = `Analyze the sentiment of this text and respond in JSON format:
-
-Text: "${text}"
-
+    const systemPrompt = `Analyze the sentiment of this text and respond in JSON format.
 Respond with:
 {
   "sentiment": "positive" | "negative" | "neutral" | "mixed",
@@ -69,14 +74,30 @@ Respond with:
   "reasoning": "brief explanation"
 }`;
 
-    const result = await this.model.generateContent(prompt);
+    let result;
+    try {
+      const model = this.genAI.getGenerativeModel({
+        model: process.env.GEMINI_MODEL ?? "gemini-2.0-flash",
+        systemInstruction: { role: "system", parts: [{ text: systemPrompt }] }
+      });
+      result = await model.generateContent(`Text: "${fenceUntrusted(text)}"`);
+    } catch (e) {
+      // Fallback if genAI model creation fails (e.g. in some mock setups)
+      const prompt = `${systemPrompt}\n\nText: "${fenceUntrusted(text)}"`;
+      result = await this.model.generateContent(prompt);
+    }
+    
     const response = result.response.text();
 
     // Parse JSON response
     try {
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+        const parsed = JSON.parse(jsonMatch[0]);
+        const validation = sentimentResponseSchema.safeParse(parsed);
+        if (validation.success) {
+          return validation.data;
+        }
       }
     } catch (e) {
       // Fallback if JSON parsing fails

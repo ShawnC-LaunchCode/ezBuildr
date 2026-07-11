@@ -22,7 +22,7 @@ export class GeminiProvider extends BaseAIProvider {
     async generateResponse(
         prompt: string,
         taskType: TaskType,
-        _systemMessage?: string
+        systemMessage?: string
     ): Promise<string> {
         const { model, temperature = 0.7, maxTokens } = this.config;
         const startTime = Date.now();
@@ -34,11 +34,14 @@ export class GeminiProvider extends BaseAIProvider {
         logger.debug({ model, taskType }, 'Calling Gemini');
 
         try {
-            // Note: Gemini API handles system prompts differently or not at all depending on model version/SDK
-            // For now we append it to the prompt if critical, or assume the model follows instructions well.
-            // The original implementation had a single prompt part.
+            const genAI = new GoogleGenerativeAI(this.config.apiKey);
+            const clientOptions: any = { model };
+            if (systemMessage) {
+                clientOptions.systemInstruction = systemMessage;
+            }
+            const localClient = genAI.getGenerativeModel(clientOptions, { timeout: 600000 });
 
-            const result = await this.client.generateContent({
+            const result = await localClient.generateContent({
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
                 generationConfig: {
                     temperature,

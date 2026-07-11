@@ -11,7 +11,7 @@ import { z } from "zod";
 
 export const aiPreferencesSchema = z.object({
   readingLevel: z.enum(["simple", "standard", "professional"]).optional(),
-  interviewerRole: z.string().optional(),
+  interviewerRole: z.string().max(50).regex(/^[a-zA-Z0-9 -]+$/).optional(),
   tone: z.enum(["friendly", "neutral", "formal"]).optional(),
   dropdownThreshold: z.number().min(1).max(20).optional(),
 }).optional();
@@ -227,7 +227,7 @@ export type AiModelResponse = z.infer<typeof aiModelResponseSchema>;
 // ============================================================================
 
 export const aiWorkflowEditRequestSchema = z.object({
-  userMessage: z.string().min(1),
+  userMessage: z.string().min(1).max(2000),
   workflowId: z.string().uuid(),
   documentIds: z.array(z.string().uuid()).optional(),
   preferences: aiPreferencesSchema,

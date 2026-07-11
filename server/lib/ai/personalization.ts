@@ -3,6 +3,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import { type UserPersonalizationSettings, type WorkflowPersonalizationSettings } from '../../../shared/schema';
 import { logger } from "../../logger";
+import { fenceUntrusted } from "../../services/ai/AIServiceUtils";
 
 // Types for input
 interface PersonalizationContext {
@@ -51,7 +52,8 @@ export class PersonalizationService {
         const prompt = `
       Rewrite the following survey question text to match the user's preferences.
       
-      Original Text: "${originalText}"
+      Original Text:
+${fenceUntrusted(originalText)}
       
       User Preferences:
       - Tone: ${tone}
@@ -83,7 +85,8 @@ export class PersonalizationService {
         const prompt = `
        Provide a helpful explanation for why the following question is being asked, and tips for how to answer it.
        
-       Question: "${questionText}"
+       Question:
+${fenceUntrusted(questionText)}
        
        Target Audience Preferences:
        - Tone: ${tone}
@@ -115,8 +118,11 @@ export class PersonalizationService {
         The user provided an unclear or ambiguous answer to a question.
         Generate a polite clarification request.
         
-        Question: "${questionText}"
-        User Answer: "${userAnswer}"
+        Question:
+${fenceUntrusted(questionText)}
+
+        User Answer:
+${fenceUntrusted(userAnswer)}
         
         If the answer is actually clear enough, return "CLEAR".
         Otherwise, ask the user to clarify or choose from options if applicable.
@@ -142,8 +148,11 @@ export class PersonalizationService {
         const prompt = `
         Analyze the user's answer to see if a follow-up question is needed to get more specific details.
         
-        Question: "${questionText}"
-        User Answer: "${userAnswer}"
+        Question:
+${fenceUntrusted(questionText)}
+
+        User Answer:
+${fenceUntrusted(userAnswer)}
         
         If a follow-up is relevant, provide it in JSON format: { "text": "...", "type": "text" | "yes_no" }.
         If no follow-up is needed, return "NO".
@@ -166,7 +175,7 @@ export class PersonalizationService {
     async translateText(text: string, targetLanguage: string): Promise<string> {
         if (targetLanguage === 'en') { return text; }
 
-        const prompt = `Translate the following text to ${targetLanguage}. Return only the translation.\n\nText: "${text}"`;
+        const prompt = `Translate the following text to ${targetLanguage}. Return only the translation.\n\nText:\n${fenceUntrusted(text)}`;
         try {
             // @ts-ignore - TODO: fix type
             const result = await this.model.generateContent(prompt);

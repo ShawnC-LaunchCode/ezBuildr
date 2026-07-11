@@ -12,7 +12,8 @@ import type {
   LogicRuleRepository,
   DocumentTemplateRepository,
   WorkflowTemplateRepository,
-  DatavaultWritebackMappingsRepository
+  DatavaultWritebackMappingsRepository,
+  DatavaultDatabasesRepository
 } from '../../../server/repositories';
 // Mock repositories
 vi.mock('../../../server/repositories', () => ({
@@ -21,6 +22,7 @@ vi.mock('../../../server/repositories', () => ({
     update: vi.fn(),
     delete: vi.fn(),
     findByWorkflowId: vi.fn(),
+    findById: vi.fn(),
   },
   stepRepository: {
     create: mockStepRepoCreate,
@@ -28,6 +30,7 @@ vi.mock('../../../server/repositories', () => ({
     delete: mockStepRepoDelete,
     findByWorkflowId: mockStepRepoFind,
     findBySectionId: mockStepRepoFindBySection,
+    findById: mockStepRepoFindById,
   },
   logicRuleRepository: {
     create: vi.fn(),
@@ -50,6 +53,9 @@ vi.mock('../../../server/repositories', () => ({
   datavaultWritebackMappingsRepository: {
     create: vi.fn(),
   },
+  datavaultDatabasesRepository: {
+    findById: vi.fn(),
+  },
 }));
 vi.mock('../../../server/services/WorkflowService', () => ({
   workflowService: {
@@ -57,7 +63,7 @@ vi.mock('../../../server/services/WorkflowService', () => ({
   },
 }));
 // Shared mock functions
-const { mockCreateTable, mockRequirePermission, mockCreateColumn, mockListColumns, mockStepRepoCreate, mockStepRepoUpdate, mockStepRepoDelete, mockStepRepoFind, mockStepRepoFindBySection } = vi.hoisted(() => ({
+const { mockCreateTable, mockRequirePermission, mockCreateColumn, mockListColumns, mockStepRepoCreate, mockStepRepoUpdate, mockStepRepoDelete, mockStepRepoFind, mockStepRepoFindBySection, mockStepRepoFindById } = vi.hoisted(() => ({
   mockCreateTable: vi.fn(),
   mockRequirePermission: vi.fn(),
   mockCreateColumn: vi.fn(),
@@ -67,6 +73,7 @@ const { mockCreateTable, mockRequirePermission, mockCreateColumn, mockListColumn
   mockStepRepoDelete: vi.fn(),
   mockStepRepoFind: vi.fn(),
   mockStepRepoFindBySection: vi.fn(),
+  mockStepRepoFindById: vi.fn(),
 }));
 vi.mock('../../../server/services/DatavaultTablesService', () => ({
   DatavaultTablesService: class {
@@ -90,6 +97,7 @@ describe('WorkflowPatchService', () => {
   let mockDocTemplateRepo: Mocked<DocumentTemplateRepository>;
   let mockWorkflowTemplateRepo: Mocked<WorkflowTemplateRepository>;
   let mockDatavaultWritebackRepo: Mocked<DatavaultWritebackMappingsRepository>;
+  let mockDatavaultDatabasesRepo: Mocked<DatavaultDatabasesRepository>;
 
   const mockWorkflowId = 'workflow-123';
   const mockUserId = 'user-456';
@@ -98,6 +106,7 @@ describe('WorkflowPatchService', () => {
     vi.clearAllMocks();
     mockStepRepoFind.mockReset();
     mockStepRepoCreate.mockReset();
+    mockStepRepoFindById.mockReset();
 
     const repos = await import('../../../server/repositories');
     mockSectionRepo = repos.sectionRepository as Mocked<SectionRepository>;
@@ -108,6 +117,7 @@ describe('WorkflowPatchService', () => {
     mockDocTemplateRepo = repos.documentTemplateRepository as Mocked<DocumentTemplateRepository>;
     mockWorkflowTemplateRepo = repos.workflowTemplateRepository as Mocked<WorkflowTemplateRepository>;
     mockDatavaultWritebackRepo = repos.datavaultWritebackMappingsRepository as Mocked<DatavaultWritebackMappingsRepository>;
+    mockDatavaultDatabasesRepo = repos.datavaultDatabasesRepository as Mocked<DatavaultDatabasesRepository>;
 
     service = new WorkflowPatchService(mockStepRepo);
 
@@ -121,6 +131,22 @@ describe('WorkflowPatchService', () => {
       id: 'project-123',
       tenantId: 'tenant-123',
     } as unknown as Project);
+
+    mockDatavaultDatabasesRepo.findById.mockResolvedValue({
+      id: 'db-123',
+      tenantId: 'tenant-123',
+    } as any);
+
+    // Default mock for assertEntityBelongsToWorkflow
+    mockSectionRepo.findById.mockResolvedValue({
+      id: 'section-123',
+      workflowId: mockWorkflowId,
+    } as unknown as Section);
+
+    mockStepRepoFindById.mockResolvedValue({
+      id: 'step-123',
+      sectionId: 'section-123',
+    } as unknown as Step);
   });
   describe('TempId Resolution', () => {
     it('should resolve section tempId to real UUID when creating step', async () => {
@@ -245,6 +271,7 @@ describe('WorkflowPatchService', () => {
         },
       ];
       const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
+      if (result.errors.length > 0) console.error(result.errors);
       expect(result.errors).toHaveLength(0);
       expect(result.summary).toHaveLength(4);
       // Verify step.setVisibleIf used resolved step ID

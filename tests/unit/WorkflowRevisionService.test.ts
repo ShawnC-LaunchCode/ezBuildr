@@ -574,8 +574,8 @@ describe('WorkflowRevisionService Edge Cases', () => {
       };
 
       const callTypes: string[] = [];
-      (mockClient.callLLM).mockImplementation((prompt: string) => {
-        if (prompt.includes('HIGH-LEVEL STRUCTURE ONLY')) {
+      (mockClient.callLLM as any).mockImplementation((prompt: string, type: string, systemMessage?: string) => {
+        if ((prompt && prompt.includes('HIGH-LEVEL STRUCTURE ONLY')) || (systemMessage && systemMessage.includes('HIGH-LEVEL STRUCTURE ONLY'))) {
           callTypes.push('structure-pass');
           // Return structure from pass 1
           return Promise.resolve(JSON.stringify({

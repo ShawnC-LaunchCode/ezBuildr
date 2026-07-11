@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/unbound-method -- all AiController methods are static, no `this` binding issues */
 import { AiController } from "../controllers/AiController";
 import { createLogger } from "../logger";
-import { validateWorkflowSize, aiWorkflowRateLimit } from "../middleware/ai.middleware";
+import { validateWorkflowSize, aiWorkflowRateLimit, aiDailyRateLimit } from "../middleware/ai.middleware";
 import { hybridAuth } from '../middleware/auth';
 import { requireBuilder } from "../middleware/rbac";
 import { asyncHandler } from '../utils/asyncHandler';
@@ -28,7 +28,7 @@ export function registerAiRoutes(app: Express): void {
    * POST /api/ai/sentiment
    * Quick sentiment analysis for text
    */
-  app.post('/api/ai/sentiment', hybridAuth, asyncHandler(AiController.analyzeSentiment));
+  app.post('/api/ai/sentiment', hybridAuth, aiWorkflowRateLimit, aiDailyRateLimit, asyncHandler(AiController.analyzeSentiment));
 
   // ============================================================================
   // AI Workflow Generation Endpoints (Stage 15)
@@ -43,6 +43,7 @@ export function registerAiRoutes(app: Express): void {
     hybridAuth,
     requireBuilder,
     aiWorkflowRateLimit,
+    aiDailyRateLimit,
     asyncHandler(AiController.generateWorkflow)
   );
 
@@ -55,6 +56,7 @@ export function registerAiRoutes(app: Express): void {
     hybridAuth,
     requireBuilder,
     aiWorkflowRateLimit,
+    aiDailyRateLimit,
     asyncHandler(AiController.suggestWorkflowImprovements)
   );
 
@@ -67,6 +69,7 @@ export function registerAiRoutes(app: Express): void {
     hybridAuth,
     requireBuilder,
     aiWorkflowRateLimit,
+    aiDailyRateLimit,
     asyncHandler(AiController.suggestTemplateBindings)
   );
 
@@ -80,6 +83,7 @@ export function registerAiRoutes(app: Express): void {
     requireBuilder,
     validateWorkflowSize(50, 50),
     aiWorkflowRateLimit,
+    aiDailyRateLimit,
     asyncHandler(AiController.reviseWorkflow)
   );
 
@@ -101,7 +105,9 @@ export function registerAiRoutes(app: Express): void {
   app.post(
     '/api/ai/suggest-values',
     hybridAuth,
+    requireBuilder,
     aiWorkflowRateLimit,
+    aiDailyRateLimit,
     asyncHandler(AiController.suggestValues)
   );
 
@@ -115,6 +121,7 @@ export function registerAiRoutes(app: Express): void {
     requireBuilder,
     validateWorkflowSize(50, 50),
     aiWorkflowRateLimit,
+    aiDailyRateLimit,
     asyncHandler(AiController.generateLogic)
   );
 
@@ -128,6 +135,7 @@ export function registerAiRoutes(app: Express): void {
     requireBuilder,
     validateWorkflowSize(50, 50),
     aiWorkflowRateLimit,
+    aiDailyRateLimit,
     asyncHandler(AiController.debugLogic)
   );
 
@@ -141,6 +149,7 @@ export function registerAiRoutes(app: Express): void {
     requireBuilder,
     validateWorkflowSize(50, 50),
     aiWorkflowRateLimit,
+    aiDailyRateLimit,
     asyncHandler(AiController.visualizeLogic)
   );
 

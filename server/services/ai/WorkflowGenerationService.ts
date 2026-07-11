@@ -74,7 +74,7 @@ export class WorkflowGenerationService {
 
         try {
             const prompt = this.promptBuilder.buildWorkflowGenerationPrompt(request);
-            const response = await this.client.callLLM(prompt, 'workflow_generation');
+            const response = await this.client.callLLM(prompt.userPrompt, 'workflow_generation', prompt.systemMessage);
 
             // Parse and validate the response
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -181,7 +181,7 @@ export class WorkflowGenerationService {
         const minQualityThreshold = getMinQualityThreshold(request.minQualityScore);
 
         logger.info({
-            description: request.description?.substring(0, 100),
+            descriptionLength: request.description?.length ?? 0,
             qualityConfig,
             minQualityThreshold,
         }, 'Starting workflow generation with quality loop');

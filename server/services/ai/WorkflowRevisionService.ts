@@ -10,7 +10,8 @@ import {
     createAIError,
     estimateTokenCount,
     isResponseTruncated,
-    validateWorkflowStructure
+    validateWorkflowStructure,
+    fenceUntrusted
 } from './AIServiceUtils';
 
 import type {
@@ -250,15 +251,14 @@ export class WorkflowRevisionService {
     ): Promise<AIWorkflowRevisionResponse> {
         const startTime = Date.now();
         try {
-            const prompt = this.buildWorkflowRevisionPrompt(request);
-            const response = await this.client.callLLM(prompt, 'workflow_revision');
+            const prompt = this.promptBuilder.buildWorkflowRevisionPrompt(request);
+            const response = await this.client.callLLM(prompt.userPrompt, 'workflow_revision', prompt.systemMessage);
             // FIRST: Check for truncation BEFORE attempting to parse
             if (isResponseTruncated(response)) {
                 const estimatedTokens = estimateTokenCount(response);
                 logger.error({
                     responseLength: response.length,
                     estimatedTokens,
-                    responseSuffix: response.substring(Math.max(0, response.length - 500)),
                 }, 'Detected truncated AI response - workflow too large for single-shot revision');
                 // Throw specific error that will trigger chunking retry
                 const error = new Error('Response truncated - workflow too large') as Error & {
@@ -288,10 +288,7 @@ export class WorkflowRevisionService {
                 logger.error({
                     parseError: errorMessage,
                     responseLength: response.length,
-                    responsePreview: response.substring(0, 500),
-                    responseSuffix: response.substring(Math.max(0, response.length - 500)),
                     errorPosition: position,
-                    errorContext: errorContext,
                     errorContextStart: contextStart,
                 }, 'Failed to parse AI response as JSON');
                 // Write full response to file for debugging
@@ -588,11 +585,11 @@ Section titles in this chunk: ${chunkSections.map(s => s.title).join(', ')}`,
             instruction: request.userInstruction,
         }, 'Starting two-pass workflow revision for massive section');
         // PASS 1: Create high-level structure (sections with titles only)
-        const structurePrompt = `You are a VaultLogic Workflow Architect.
+        const systemMessage = `You are a VaultLogic Workflow Architect.
 Your task is to analyze the document and create a HIGH-LEVEL STRUCTURE ONLY.
-Document Content:
-${request.userInstruction}
+
 IMPORTANT: DO NOT create detailed steps yet. Only create section structure.
+
 Output a JSON object with this structure:
 {
   "sections": [
@@ -607,15 +604,20 @@ Output a JSON object with this structure:
   ],
   "notes": "Brief overview of the workflow structure"
 }
+
 Requirements:
 - Create 5-15 logical sections that break down the document
 - Each section should cover a distinct part of the document
 - Keep descriptions brief (1-2 sentences)
 - Output ONLY valid JSON, no markdown
+
 Output ONLY the JSON object.`;
+
+        const userPrompt = `Document Content:\n${fenceUntrusted(request.userInstruction)}`;
+
         try {
             // Get structure from AI
-            const structureResponse = await this.client.callLLM(structurePrompt, 'workflow_revision');
+            const structureResponse = await this.client.callLLM(userPrompt, 'workflow_revision', systemMessage);
             interface Pass1Structure {
                 sections?: Array<{ title: string; description?: string }>;
                 notes?: string;
@@ -676,86 +678,6 @@ Output ONLY the JSON object.`;
             throw error;
         }
     }
-    /**
-     * Build prompt for workflow revision
-     */
-    private buildWorkflowRevisionPrompt(
-        request: AIWorkflowRevisionRequest,
-    ): string {
-        return `You are a VaultLogic Workflow Revision Engine.
-Your task is to modify the Current Workflow based on the User Instruction and Conversation History.
-Current Workflow JSON:
-${JSON.stringify(request.currentWorkflow, null, 2)}
-User Instruction: "${request.userInstruction}"
-Conversation History:
-${request.conversationHistory ? request.conversationHistory.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n') : 'None'}
-Mode: ${request.mode} (Respect constraints of this mode)
-Output a JSON object with this exact structure:
-{
-  "updatedWorkflow": {
-    "title": "Workflow Title",
-    "description": "Description",
-    "sections": [
-      {
-        "id": "section-1",
-        "title": "Section Title",
-        "description": null,
-        "order": 0,
-        "steps": [
-          {
-            "id": "step-1",
-            "type": "short_text",
-            "title": "What is your name?",  // REQUIRED - question text
-            "description": null,
-            "alias": "name",
-            "required": true,
-            "config": {}
-          }
-        ]
-      }
-    ],
-    "logicRules": [
-      {
-        "id": "rule-1",
-        "conditionStepAlias": "step_alias",  // REQUIRED - alias of step to check
-        "operator": "equals",  // REQUIRED - use: equals, not_equals, contains, greater_than, less_than, is_empty, etc. (never use "is")
-        "value": "some value",  // Value to compare against
-        "targetType": "step",  // REQUIRED - "step" or "section"
-        "targetAlias": "other_step",  // REQUIRED - alias of step/section to affect
-        "action": "show",  // REQUIRED - "show", "hide", "require", "make_optional", or "skip_to"
-        "description": "Show other_step if step_alias equals 'some value'"
-      }
-    ],
-    "transformBlocks": [],
-    "notes": null
-  },
-  "diff": {
-    "changes": [
-      {
-        "type": "add|remove|update|move",
-        "target": "path.to.element",
-        "before": null,
-        "after": { ... },
-        "explanation": "Added a new specific question"
-      }
-    ]
-  },
-  "explanation": ["Point 1 about what changed", "Point 2"],
-  "suggestions": ["Follow-up suggestion 1"]
-}
-CRITICAL REQUIREMENTS:
-    1. **FULL RESPONSE REQUIRED**: You MUST return the ENTIRE workflow structure in 'updatedWorkflow', including ALL existing sections and steps that you did not change.
-    2. **DELETION WARNING**: Any section or step that is missing from your 'updatedWorkflow' will be PERMANENTLY DELETED. Do not be lazy.
-    3. **TITLES**: Every step MUST have a "title" field.
-    4. **IDS**: Preserve existing IDs. Generate new UUIDs for new items.
-    5. **CONTENT GENERATION**: If the User Instruction asks to "build", "create", or "automate" a form/workflow, and the current workflow has few or no questions, you MUST generate the full structure (multiple sections, relevant questions). DO NOT just update the title. YOU MUST BUILD THE CONTENT.
-    6. **ALIASES**: Every step MUST have a unique "alias" in camelCase (e.g., "firstName", "driverLicenseNumber"). Do not leave it null or empty.
-    Valid Step Types:
-    - Text: "short_text", "long_text", "email", "phone", "website", "number", "currency"
-    - Choice: "radio", "multiple_choice", "yes_no"
-    - Date: "date", "time", "date_time"
-    - Other: "scale", "address", "file_upload", "display", "signature_block"
-    Output ONLY the JSON object.`;
-    }
+
 }
 // Singleton export removed - services create their own instances via dependency injection

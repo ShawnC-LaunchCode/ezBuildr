@@ -5,7 +5,9 @@ import type { Workflow, Section, Step, LogicRule } from "@shared/schema";
 
 import { createLogger } from "../../logger";
 import { hybridAuth } from "../../middleware/auth";
-import { aiWorkflowEditRequestSchema, aiPreferencesSchema } from "../../schemas/aiWorkflowEdit.schema";
+import { aiWorkflowRateLimit, aiDailyRateLimit } from "../../middleware/ai.middleware";
+import { aiWorkflowEditRequestSchema, aiPreferencesSchema, aiModelResponseSchema } from "../../schemas/aiWorkflowEdit.schema";
+import { fenceUntrusted } from "../../services/ai/AIServiceUtils";
 import { aiSettingsService } from "../../services/AiSettingsService";
 import { snapshotService } from "../../services/SnapshotService";
 import { versionService } from "../../services/VersionService";
@@ -35,6 +37,8 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
   app.post(
     "/api/workflows/:workflowId/ai/edit",
     hybridAuth,
+    aiWorkflowRateLimit,
+    aiDailyRateLimit,
     // eslint-disable-next-line @typescript-eslint/no-misused-promises, complexity, sonarjs/cognitive-complexity
     async (req: Request, res: Response) => {
 
@@ -46,6 +50,9 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
         if (!userId) {
           return res.status(401).json({ success: false, error: "Unauthorized" });
         }
+
+        // Verify edit access
+        await workflowService.verifyAccess(workflowId, userId, 'edit');
 
         // 1. Validate request body (merge param ID into body for schema validation)
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -223,20 +230,26 @@ async function callGeminiForWorkflowEdit(
     throw err;
   }
 
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-
-  // Build system prompt
   const systemPrompt = buildSystemPrompt(preferences, systemPromptTemplate);
+
+  const model = genAI.getGenerativeModel({ 
+    model: "gemini-1.5-pro",
+    systemInstruction: {
+      role: "system",
+      parts: [{ text: systemPrompt }]
+    }
+  });
 
   // Build workflow context
   const workflowContext = buildWorkflowContext(currentWorkflow);
 
-  // Full prompt
-  const fullPrompt = `${systemPrompt}
-## Current Workflow State
-${workflowContext}
+  // Full prompt with fenced inputs
+  const fullPrompt = `## Current Workflow State
+${fenceUntrusted(workflowContext)}
+
 ## User Request
-${userMessage}
+${fenceUntrusted(userMessage)}
+
 ## Instructions
 Analyze the user's request and generate a JSON response with the following structure:
 {
@@ -257,28 +270,36 @@ Analyze the user's request and generate a JSON response with the following struc
   ]
 }
 Return ONLY valid JSON. No markdown, no code blocks, just raw JSON.`;
+
   logger.debug({ promptLength: fullPrompt.length }, "Calling Gemini API");
   const result = await model.generateContent(fullPrompt);
   const responseText = result.response.text();
   logger.debug({ responseLength: responseText.length }, "Received Gemini response");
+
   // Parse JSON response
-  let parsedResponse: AiModelResponse;
+  let parsedJson: unknown;
   try {
     // Try to extract JSON if wrapped in markdown code blocks
     const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
     const jsonText = jsonMatch ? jsonMatch[1] : responseText;
 
-    parsedResponse = JSON.parse(jsonText) as AiModelResponse; // Explicit cast after parse
+    parsedJson = JSON.parse(jsonText);
   } catch (error) {
-    logger.error({ error, responseText }, "Failed to parse Gemini JSON response");
+    logger.error({ error, responseLength: responseText.length }, "Failed to parse Gemini JSON response");
     throw new Error("Invalid JSON response from AI model");
   }
-  // Validate structure (basic check)
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-  if (!parsedResponse.summary || !parsedResponse.ops || typeof parsedResponse.confidence !== 'number') {
-    throw new Error("Invalid AI response structure");
+
+  // Strict Zod validation instead of basic checks
+  const validationResult = aiModelResponseSchema.safeParse(parsedJson);
+  if (!validationResult.success) {
+    logger.error({ errors: validationResult.error.errors }, "AI generated an invalid response structure");
+    throw Object.assign(new Error("Invalid AI response structure"), {
+      code: 'VALIDATION_ERROR',
+      details: validationResult.error.errors
+    });
   }
-  return parsedResponse;
+
+  return validationResult.data;
 }
 /**
  * Build system prompt based on preferences

@@ -10,6 +10,12 @@ interface AuthenticatedRequest extends Request {
 
 import { registerAiRoutes } from '@server/routes/ai.routes';
 
+vi.mock('@server/middleware/ai.middleware', () => ({
+    validateWorkflowSize: vi.fn(() => (req: Request, res: Response, next: NextFunction) => next()),
+    aiWorkflowRateLimit: (req: Request, res: Response, next: NextFunction) => next(),
+    aiDailyRateLimit: (req: Request, res: Response, next: NextFunction) => next(),
+}));
+
 // Mock geminiService directly to avoid GoogleGenerativeAI constructor issues
 vi.mock('@server/services/geminiService', () => ({
     geminiService: {
@@ -67,9 +73,16 @@ vi.mock('@server/queues/AiRevisionQueue', () => ({
     enqueueAiRevision: vi.fn().mockResolvedValue({ id: 'job-123' })
 }));
 
+vi.mock('../middleware/ai.middleware', () => ({
+    validateWorkflowSize: vi.fn(() => (req: Request, res: Response, next: NextFunction) => next()),
+    aiWorkflowRateLimit: (req: Request, res: Response, next: NextFunction) => next(),
+    aiDailyRateLimit: (req: Request, res: Response, next: NextFunction) => next(),
+}));
+
 vi.mock('@server/middleware/ai.middleware', () => ({
     validateWorkflowSize: () => (req: Request, res: Response, next: NextFunction) => next(),
-    aiWorkflowRateLimit: (req: Request, res: Response, next: NextFunction) => next()
+    aiWorkflowRateLimit: (req: Request, res: Response, next: NextFunction) => next(),
+    aiDailyRateLimit: (req: Request, res: Response, next: NextFunction) => next()
 }));
 
 describe('AI Routes Integration', () => {

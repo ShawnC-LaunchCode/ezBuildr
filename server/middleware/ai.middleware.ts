@@ -88,7 +88,7 @@ export const validateWorkflowSize = (maxSections = 100, maxStepsPerSection = 100
  */
 export const aiWorkflowRateLimit = rateLimit({
     windowMs: 60 * 1000, // 1 minute
-    max: 100, // limit each user to 100 AI requests per minute
+    max: 20, // limit each tenant to 20 AI requests per minute
     message: {
         success: false,
         message: 'Too many AI requests, please try again later.',
@@ -96,10 +96,31 @@ export const aiWorkflowRateLimit = rateLimit({
     },
     standardHeaders: true,
     legacyHeaders: false,
-    // Use user ID for rate limiting (authenticated requests only)
+    // Use tenant ID for rate limiting (authenticated requests only)
     keyGenerator: (req: Request) => {
         const authReq = req as AuthRequest;
-        return authReq.userId ?? 'anonymous';
+        return authReq.tenantId ?? authReq.userId ?? 'anonymous';
     },
-    skipFailedRequests: true,
+    skipFailedRequests: false, // Count failed requests to prevent token burning loops
+});
+
+/**
+ * Daily budget rate limiting for AI workflow endpoints
+ * Prevents a single user/tenant from exhausting the API budget
+ */
+export const aiDailyRateLimit = rateLimit({
+    windowMs: 24 * 60 * 60 * 1000, // 24 hours
+    max: 500, // limit each tenant to 500 AI requests per day
+    message: {
+        success: false,
+        message: 'Daily AI request limit reached. Please try again tomorrow.',
+        error: 'daily_rate_limit_exceeded',
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req: Request) => {
+        const authReq = req as AuthRequest;
+        return authReq.tenantId ?? authReq.userId ?? 'anonymous';
+    },
+    skipFailedRequests: false,
 });
