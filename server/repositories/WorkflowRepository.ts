@@ -22,10 +22,12 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
    */
   async create(data: InsertWorkflow, tx?: DbTransaction): Promise<Workflow> {
     const workflow = await super.create(data, tx);
-    // Track lifetime stats
+    // Track lifetime stats. Pass tx through: when create() runs inside a
+    // transaction, a pool-based increment would deadlock under a
+    // single-connection pool (see SystemStatsRepository).
     try {
       const { systemStatsRepository } = await import("./SystemStatsRepository");
-      await systemStatsRepository.incrementWorkflowsCreated();
+      await systemStatsRepository.incrementWorkflowsCreated(1, tx);
     } catch (err) {
       // Don't fail the request if stats fail
       logger.warn({ err }, "Failed to increment workflow stats");

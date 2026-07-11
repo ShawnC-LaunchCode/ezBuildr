@@ -98,7 +98,9 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
       // systemStats table no longer exists in schema
       try {
         const { systemStatsRepository } = await import("./SystemStatsRepository");
-        await systemStatsRepository.incrementUsersCreated();
+        // Pass tx through: a pool-based increment would deadlock inside a
+        // transaction under a single-connection pool (see SystemStatsRepository).
+        await systemStatsRepository.incrementUsersCreated(1, tx);
       } catch (e) {
         logger.warn({ err: e }, "Failed to increment user stats");
       }

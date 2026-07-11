@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { TransformBlock } from "shared/schema";
 import { logger } from "../../logger";
-import { fenceUntrusted } from "../ai/AIServiceUtils";
+import { fenceUntrusted } from "../../services/ai/AIServiceUtils";
 
 interface SchemaAlignRequest {
     transforms: TransformBlock[];

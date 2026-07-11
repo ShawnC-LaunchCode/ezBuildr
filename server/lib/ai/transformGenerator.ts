@@ -4,7 +4,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 import { TransformBlock } from "shared/schema";
 import { logger } from "../../logger";
-import { fenceUntrusted } from "./AIServiceUtils";
+import { fenceUntrusted } from "../../services/ai/AIServiceUtils";
 interface GenerationRequest {
   workflowContext: unknown;
   description: string;
