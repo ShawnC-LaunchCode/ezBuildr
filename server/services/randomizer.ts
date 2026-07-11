@@ -1,4 +1,19 @@
-import { QuestionNodeConfig } from '../engine/nodes/question';
+/**
+ * Shape of a question used for random sample-data generation. Previously
+ * imported from the (now removed) visual graph engine; kept local since the
+ * randomizer is the only consumer.
+ */
+export interface QuestionNodeConfig {
+    key: string;
+    questionType: 'text' | 'number' | 'boolean' | 'select' | 'multiselect';
+    required?: boolean;
+    options?: Array<{ value: unknown; label: string }>;
+    validation?: {
+        min?: number;
+        max?: number;
+        pattern?: string;
+    };
+}
 
 export class RandomizerService {
     /**

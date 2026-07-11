@@ -1,15 +1,33 @@
 import { nanoid } from 'nanoid';
 import { v4 as uuidv4 } from 'uuid';
 
-import type { QuestionNodeConfig } from '../../server/engine/nodes/question';
-import type { Node } from '../../server/engine/registry';
-import type { GraphJson } from '../../server/engine/validate';
 import type { Workflow, WorkflowVersion, Run } from '../../shared/schema';
 
 /**
  * Graph Factory
  * Helpers to create valid Graph-based Workflows and Runs for testing.
+ *
+ * NOTE: The visual graph engine (server/engine) has been removed. These local
+ * type shims preserve the legacy graphJson fixture shape still used by the
+ * analytics and snapshot integration tests, without depending on engine code.
  */
+interface QuestionNodeConfig {
+    key: string;
+    question?: string;
+    [key: string]: unknown;
+}
+
+interface Node {
+    id: string;
+    type: string;
+    config: Record<string, unknown>;
+}
+
+interface GraphJson {
+    nodes: Node[];
+    edges: Array<{ id: string; source: string; target: string }>;
+    startNodeId: string;
+}
 
 export const createNodeId = (prefix: string = 'node') => `${prefix}_${nanoid(6)}`;
 
