@@ -142,8 +142,8 @@ export function decrypt(encryptedPayload: string): string {
     let version = 'v1'; // Default if unversioned
 
     if (versionMatch) {
-      version = versionMatch[1];
-      encryptedB64 = versionMatch[2];
+      version = versionMatch[1] ?? version;
+      encryptedB64 = versionMatch[2] ?? encryptedB64;
     }
 
     const keysMap = getVersionedKeys();

@@ -3,12 +3,14 @@
  * Displays a single project with its contained workflows
  */
 
-import { ArrowLeft, Plus, Edit, Share2 } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Share2, Copy, ArrowRightLeft, Trash2, Users, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
 
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
 import { ResourceAccessDialog } from "@/components/access/ResourceAccessDialog";
+import { CopyAssetDialog } from "@/components/dialogs/CopyAssetDialog";
+import { TransferOwnershipDialog } from "@/components/dialogs/TransferOwnershipDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,6 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -34,28 +37,41 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import type { ApiWorkflow } from "@/lib/vault-api";
+import { useAuth } from "@/hooks/useAuth";
+import { useOrganizations } from "@/hooks/useOrganizations";
+import { getOrgRestrictedActionReason, getOrgRoleForAsset } from "@/lib/ownership";
+import type { ApiAssetCopyOptions, ApiWorkflow } from "@/lib/vault-api";
 import {
   useProject,
   useUpdateProject,
   useArchiveProject,
   useDeleteProject,
+  useCopyProject,
+  useTransferProject,
   useCreateWorkflow,
   useUpdateWorkflow,
   useDeleteWorkflow,
+  useCopyWorkflow,
+  useTransferWorkflow,
   useMoveWorkflow,
 } from "@/lib/vault-hooks";
 
 // eslint-disable-next-line max-lines-per-function
 export default function ProjectView() {
   const { id } = useParams<{ id: string }>();
-  const [, _setLocation] = useLocation();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   // Dialog states
   const [isCreateWorkflowOpen, setIsCreateWorkflowOpen] = useState(false);
   const [isEditProjectOpen, setIsEditProjectOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isCopyProjectOpen, setIsCopyProjectOpen] = useState(false);
+  const [isTransferProjectOpen, setIsTransferProjectOpen] = useState(false);
+  const [isDeleteProjectOpen, setIsDeleteProjectOpen] = useState(false);
+  const [copyingWorkflow, setCopyingWorkflow] = useState<ApiWorkflow | null>(null);
+  const [transferringWorkflow, setTransferringWorkflow] = useState<ApiWorkflow | null>(null);
   const [deleteWorkflowId, setDeleteWorkflowId] = useState<string | null>(null);
 
   // Form states
@@ -64,14 +80,19 @@ export default function ProjectView() {
 
   // Data queries
   const { data: projectWithWorkflows, isLoading } = useProject(id);
+  const { data: organizations, isLoading: organizationsLoading } = useOrganizations();
 
   // Mutations
   const updateProjectMutation = useUpdateProject();
   const _archiveProjectMutation = useArchiveProject();
-  const _deleteProjectMutation = useDeleteProject();
+  const deleteProjectMutation = useDeleteProject();
+  const copyProjectMutation = useCopyProject();
+  const transferProjectMutation = useTransferProject();
   const createWorkflowMutation = useCreateWorkflow();
   const updateWorkflowMutation = useUpdateWorkflow();
   const deleteWorkflowMutation = useDeleteWorkflow();
+  const copyWorkflowMutation = useCopyWorkflow();
+  const transferWorkflowMutation = useTransferWorkflow();
   const moveWorkflowMutation = useMoveWorkflow();
 
   // Handlers
@@ -154,6 +175,76 @@ export default function ProjectView() {
     }
   };
 
+  const handleCopyProject = async (options: ApiAssetCopyOptions) => {
+    if (!projectWithWorkflows) { return; }
+    try {
+      const result = await copyProjectMutation.mutateAsync({ id: projectWithWorkflows.id, options });
+      toast({
+        title: "Project copied",
+        description: `Copied ${result.workflows?.length ?? 0} workflow${(result.workflows?.length ?? 0) === 1 ? "" : "s"}.`,
+      });
+      setIsCopyProjectOpen(false);
+    } catch (error) {
+      toast({ title: "Copy failed", description: error instanceof Error ? error.message : "Failed to copy project", variant: "destructive" });
+      throw error;
+    }
+  };
+
+  const handleTransferProject = async (targetOwnerType: "user" | "org", targetOwnerUuid: string) => {
+    if (!projectWithWorkflows) { return; }
+    try {
+      await transferProjectMutation.mutateAsync({
+        id: projectWithWorkflows.id,
+        targetOwnerType,
+        targetOwnerUuid,
+      });
+      toast({ title: "Project transferred", description: "Ownership is updated" });
+      setIsTransferProjectOpen(false);
+    } catch (error) {
+      toast({ title: "Transfer failed", description: error instanceof Error ? error.message : "Failed to transfer project", variant: "destructive" });
+      throw error;
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    if (!projectWithWorkflows) { return; }
+    try {
+      await deleteProjectMutation.mutateAsync(projectWithWorkflows.id);
+      toast({ title: "Project deleted" });
+      setLocation("/workflows");
+    } catch (error) {
+      toast({ title: "Delete failed", description: error instanceof Error ? error.message : "Failed to delete project", variant: "destructive" });
+    }
+  };
+
+  const handleCopyWorkflow = async (options: ApiAssetCopyOptions) => {
+    if (!copyingWorkflow) { return; }
+    try {
+      await copyWorkflowMutation.mutateAsync({ id: copyingWorkflow.id, options });
+      toast({ title: "Workflow copied" });
+      setCopyingWorkflow(null);
+    } catch (error) {
+      toast({ title: "Copy failed", description: error instanceof Error ? error.message : "Failed to copy workflow", variant: "destructive" });
+      throw error;
+    }
+  };
+
+  const handleTransferWorkflow = async (targetOwnerType: "user" | "org", targetOwnerUuid: string) => {
+    if (!transferringWorkflow) { return; }
+    try {
+      await transferWorkflowMutation.mutateAsync({
+        id: transferringWorkflow.id,
+        targetOwnerType,
+        targetOwnerUuid,
+      });
+      toast({ title: "Workflow transferred", description: "Ownership is updated" });
+      setTransferringWorkflow(null);
+    } catch (error) {
+      toast({ title: "Transfer failed", description: error instanceof Error ? error.message : "Failed to transfer workflow", variant: "destructive" });
+      throw error;
+    }
+  };
+
   const openEditDialog = () => {
     if (projectWithWorkflows) {
       setEditProject({
@@ -208,6 +299,9 @@ export default function ProjectView() {
     );
   }
 
+  const projectOrgRole = getOrgRoleForAsset(projectWithWorkflows, organizations);
+  const projectOrgRestrictedReason = getOrgRestrictedActionReason(projectWithWorkflows, organizations, organizationsLoading);
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-8 max-w-7xl">
@@ -221,19 +315,56 @@ export default function ProjectView() {
           </Link>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">{projectWithWorkflows.title}</h1>
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-3xl font-bold tracking-tight">{projectWithWorkflows.title}</h1>
+                {projectWithWorkflows.ownerType === "org" && (
+                  <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
+                    <Users className="w-3 h-3 mr-1" />
+                    {projectWithWorkflows.ownerName ?? "Organization"}
+                  </Badge>
+                )}
+                {projectOrgRole && (
+                  <Badge variant={projectOrgRole === "admin" ? "default" : "outline"} className="gap-1">
+                    {projectOrgRole === "admin" && <ShieldCheck className="w-3 h-3" />}
+                    {projectOrgRole === "admin" ? "Admin" : "Member"}
+                  </Badge>
+                )}
+              </div>
               {projectWithWorkflows.description && (
                 <p className="text-muted-foreground mt-2">{projectWithWorkflows.description}</p>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
               <Button variant="outline" onClick={() => setIsShareOpen(true)}>
                 <Share2 className="w-4 h-4 mr-2" />
                 Share
               </Button>
+              <Button variant="outline" onClick={() => setIsCopyProjectOpen(true)}>
+                <Copy className="w-4 h-4 mr-2" />
+                Copy
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setIsTransferProjectOpen(true)}
+                disabled={!!projectOrgRestrictedReason}
+                title={projectOrgRestrictedReason}
+              >
+                <ArrowRightLeft className="w-4 h-4 mr-2" />
+                Transfer
+              </Button>
               <Button variant="outline" onClick={openEditDialog}>
                 <Edit className="w-4 h-4 mr-2" />
                 Edit Project
+              </Button>
+              <Button
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+                onClick={() => setIsDeleteProjectOpen(true)}
+                disabled={!!projectOrgRestrictedReason}
+                title={projectOrgRestrictedReason}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
               </Button>
               <Button onClick={() => { void setIsCreateWorkflowOpen(true); }}>
                 <Plus className="w-4 h-4 mr-2" />
@@ -263,7 +394,12 @@ export default function ProjectView() {
               <WorkflowCard
                 key={workflow.id}
                 workflow={workflow}
+                currentUserId={user?.id}
+                currentUserOrgRole={getOrgRoleForAsset(workflow, organizations) ?? projectOrgRole}
+                orgRoleLoading={organizationsLoading}
                 onMove={(w) => { void handleMoveWorkflowOut(w); }}
+                onCopy={setCopyingWorkflow}
+                onTransfer={setTransferringWorkflow}
                 onArchive={(id) => { void handleArchiveWorkflow(id); }}
                 onActivate={(id) => { void handleActivateWorkflow(id); }}
                 onDelete={(id) => setDeleteWorkflowId(id)}
@@ -282,6 +418,50 @@ export default function ProjectView() {
         ownerType={projectWithWorkflows.ownerType}
         ownerUuid={projectWithWorkflows.ownerUuid}
       />
+
+      <CopyAssetDialog
+        open={isCopyProjectOpen}
+        onOpenChange={setIsCopyProjectOpen}
+        assetType="project"
+        assetName={projectWithWorkflows.title}
+        onCopy={handleCopyProject}
+        isPending={copyProjectMutation.isPending}
+      />
+
+      <TransferOwnershipDialog
+        open={isTransferProjectOpen}
+        onOpenChange={setIsTransferProjectOpen}
+        assetType="project"
+        assetName={projectWithWorkflows.title}
+        sourceOwnerType={projectWithWorkflows.ownerType}
+        sourceOwnerUuid={projectWithWorkflows.ownerUuid}
+        onTransfer={handleTransferProject}
+        isPending={transferProjectMutation.isPending}
+      />
+
+      {copyingWorkflow && (
+        <CopyAssetDialog
+          open={copyingWorkflow !== null}
+          onOpenChange={(open) => !open && setCopyingWorkflow(null)}
+          assetType="workflow"
+          assetName={copyingWorkflow.title}
+          onCopy={handleCopyWorkflow}
+          isPending={copyWorkflowMutation.isPending}
+        />
+      )}
+
+      {transferringWorkflow && (
+        <TransferOwnershipDialog
+          open={transferringWorkflow !== null}
+          onOpenChange={(open) => !open && setTransferringWorkflow(null)}
+          assetType="workflow"
+          assetName={transferringWorkflow.title}
+          sourceOwnerType={transferringWorkflow.ownerType ?? projectWithWorkflows.ownerType}
+          sourceOwnerUuid={transferringWorkflow.ownerUuid ?? projectWithWorkflows.ownerUuid}
+          onTransfer={handleTransferWorkflow}
+          isPending={transferWorkflowMutation.isPending}
+        />
+      )}
 
       {/* Edit Project Dialog */}
       <Dialog open={isEditProjectOpen} onOpenChange={setIsEditProjectOpen}>
@@ -364,6 +544,27 @@ export default function ProjectView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isDeleteProjectOpen} onOpenChange={setIsDeleteProjectOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. Workflows inside this project will be moved to unfiled.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { void handleDeleteProject(); }}
+              className="bg-destructive text-destructive-foreground"
+              disabled={deleteProjectMutation.isPending}
+            >
+              {deleteProjectMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Workflow Confirmation */}
       <AlertDialog open={!!deleteWorkflowId} onOpenChange={() => setDeleteWorkflowId(null)}>

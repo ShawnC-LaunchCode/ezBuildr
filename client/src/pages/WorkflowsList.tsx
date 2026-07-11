@@ -1,6 +1,6 @@
 
-import { Plus, Edit, Trash2, Wand2, ChevronDown, FolderPlus, Link as LinkIcon, Play, Loader2, ArrowRightLeft, Copy } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Plus, Edit, Trash2, Wand2, ChevronDown, FolderPlus, Link as LinkIcon, Play, Loader2, ArrowRightLeft, Copy, Users, ShieldCheck } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "wouter";
 
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
@@ -21,6 +21,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrganizations } from "@/hooks/useOrganizations";
+import { getOrgRestrictedActionReason, getOrgRoleForAsset } from "@/lib/ownership";
 import { useCreateSampleWorkflow } from "@/lib/sample-workflow";
 import { workflowAPI, type ApiAssetCopyOptions } from "@/lib/vault-api";
 import { useUnfiledWorkflows, useDeleteWorkflow, useProjects, useDeleteProject, useCreateProject, useTransferWorkflow, useTransferProject, useCopyWorkflow, useCopyProject } from "@/lib/vault-hooks";
@@ -56,6 +58,7 @@ export default function WorkflowsList() {
   }, [isAuthenticated, isLoading, toast]);
   const { data: unfiledWorkflows, isLoading: workflowsLoading } = useUnfiledWorkflows();
   const { data: projects, isLoading: projectsLoading } = useProjects();
+  const { data: organizations, isLoading: organizationsLoading } = useOrganizations();
   const deleteWorkflowMutation = useDeleteWorkflow();
   const deleteProjectMutation = useDeleteProject();
   const transferWorkflowMutation = useTransferWorkflow();
@@ -63,6 +66,14 @@ export default function WorkflowsList() {
   const copyWorkflowMutation = useCopyWorkflow();
   const copyProjectMutation = useCopyProject();
   const createProjectMutation = useCreateProject(); // Use shared hook with correct invalidation
+  const transferringWorkflowAsset = useMemo(
+    () => unfiledWorkflows?.find((workflow) => workflow.id === transferringWorkflow?.id),
+    [transferringWorkflow?.id, unfiledWorkflows]
+  );
+  const transferringProjectAsset = useMemo(
+    () => projects?.find((project) => project.id === transferringProject?.id),
+    [projects, transferringProject?.id]
+  );
   // Wrap the shared mutation to handle toast/reset logic locally
   const handleCreateProject = () => {
     if (!newProjectName.trim()) {
@@ -294,13 +305,19 @@ export default function WorkflowsList() {
                     key={project.id}
                     project={project}
                     currentUserId={user?.id}
+                    currentUserOrgRole={getOrgRoleForAsset(project, organizations)}
+                    orgRoleLoading={organizationsLoading}
                     onTransfer={(id, title) => setTransferringProject({ id, title })}
                     onCopy={(id, title) => setCopyingProject({ id, title })}
                     onDelete={(id) => setDeletingProjectId(id)}
                   />
                 ))}
                 {/* Workflows */}
-                {unfiledWorkflows?.map((workflow) => (
+                {unfiledWorkflows?.map((workflow) => {
+                  const workflowOrgRole = getOrgRoleForAsset(workflow, organizations);
+                  const orgRestrictedReason = getOrgRestrictedActionReason(workflow, organizations, organizationsLoading);
+
+                  return (
                   <Card key={workflow.id} className="hover:shadow-md transition-shadow min-h-[220px]">
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
@@ -311,6 +328,18 @@ export default function WorkflowsList() {
                           {user?.id && workflow.creatorId !== user.id ? (
                             <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 border-indigo-200 text-xs px-1.5 h-5">Shared</Badge>
                           ) : null}
+                          {workflow.ownerType === "org" && (
+                            <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200 text-xs px-1.5 h-5">
+                              <Users className="w-3 h-3 mr-1" />
+                              {workflow.ownerName ?? "Organization"}
+                            </Badge>
+                          )}
+                          {workflowOrgRole && (
+                            <Badge variant={workflowOrgRole === "admin" ? "default" : "outline"} className="text-xs px-1.5 h-5">
+                              {workflowOrgRole === "admin" && <ShieldCheck className="w-3 h-3 mr-1" />}
+                              {workflowOrgRole === "admin" ? "Admin" : "Member"}
+                            </Badge>
+                          )}
                           <StatusBadge status={workflow.status} />
                         </div>
                       </div>
@@ -345,6 +374,8 @@ export default function WorkflowsList() {
                             variant="outline"
                             size="sm"
                             onClick={() => { void setTransferringWorkflow({ id: workflow.id, title: workflow.title }); }}
+                            disabled={!!orgRestrictedReason}
+                            title={orgRestrictedReason}
                             data-testid={`button-transfer-workflow-${workflow.id}`}
                           >
                             <ArrowRightLeft className="w-4 h-4 mr-1" />
@@ -365,6 +396,8 @@ export default function WorkflowsList() {
                                 variant="outline"
                                 size="sm"
                                 className="text-destructive hover:text-destructive"
+                                disabled={!!orgRestrictedReason}
+                                title={orgRestrictedReason}
                                 data-testid={`button-delete-workflow-${workflow.id}`}
                               >
                                 <Trash2 className="w-4 h-4 mr-1" />
@@ -398,7 +431,7 @@ export default function WorkflowsList() {
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                );})}
               </>
             ) : (
               <div className="col-span-full">
@@ -529,6 +562,8 @@ export default function WorkflowsList() {
           onOpenChange={(open) => !open && setTransferringWorkflow(null)}
           assetType="workflow"
           assetName={transferringWorkflow.title}
+          sourceOwnerType={transferringWorkflowAsset?.ownerType}
+          sourceOwnerUuid={transferringWorkflowAsset?.ownerUuid}
           onTransfer={handleTransferWorkflow}
           isPending={transferWorkflowMutation.isPending}
         />
@@ -540,6 +575,8 @@ export default function WorkflowsList() {
           onOpenChange={(open) => !open && setTransferringProject(null)}
           assetType="project"
           assetName={transferringProject.title}
+          sourceOwnerType={transferringProjectAsset?.ownerType}
+          sourceOwnerUuid={transferringProjectAsset?.ownerUuid}
           onTransfer={handleTransferProject}
           isPending={transferProjectMutation.isPending}
         />
