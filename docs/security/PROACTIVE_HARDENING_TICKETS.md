@@ -51,8 +51,8 @@ the corrected tickets are numbered **SEC-053..055** to avoid collisions.
 | SEC-046 | ✅ Closed (gate green) | Removed 3 dead deps (jspdf, jspdf-autotable, expr-eval) → critical+1 high gone; remaining 3 = one unreachable OTel advisory, allowlisted → SEC-056 |
 | SEC-047 | ✅ Closed | Magic-byte validation on all 3 upload routes; inline-serving resolved |
 | SEC-049 | ✅ Closed (guard green) | reCAPTCHA call routed through `safeFetch`; no raw `fetch` in `server/` |
-| SEC-051 | 🔴 Not started | Architectural; likely a deliberate accept-risk decision |
-| SEC-053 | 🟡 Half done — **new answer-leak bug** | Store now stateless (good); but the "simple" token base64-embeds the answer |
+| SEC-051 | 🟡 Helper hardened + tested; adoption/RLS is a pending decision | `withTenant` now fails closed; broad adoption + RLS still needs your call |
+| SEC-053 | ✅ Closed | Token now carries a keyed hash, not the answer; reCAPTCHA required in prod when configured |
 | SEC-054 | ✅ Closed | `VL_KEYS` multi-key + retired keys + `scripts/rotateMasterKey.ts` |
 | SEC-055 | ✅ Closed | Shared `securityConfig.ts` used by both entrypoints; `securityHeaders.ts` deleted |
 
@@ -190,10 +190,21 @@ cheapest ways to silently reintroduce a closed vuln class — a bare `fetch(user
 
 ## SEC-051 — Tenant isolation enforced only at the service layer; no DB-level defense in depth — P3
 
-> **STATUS 2026-07-11 — 🔴 not started.** No RLS, no `app.tenant_id`, no repository
-> query-guard wrapper. This is the largest-scope item and may be a deliberate
-> accept-risk (service-layer scoping is already consistent). Needs a decision, not
-> necessarily an implementation.
+> **STATUS 2026-07-11 — 🟡 mechanism hardened + tested; adoption/RLS is a pending
+> decision.** The `withTenant` helper ([server/repositories/tenantWrapper.ts](../../server/repositories/tenantWrapper.ts))
+> now fails closed — it throws on a missing `tenantId` column and on an empty/blank
+> `tenantId` (which would otherwise match every row) — and is covered by
+> [tests/integration/tenant-isolation.test.ts](../../tests/integration/tenant-isolation.test.ts)
+> (4 passing) that verify the compiled SQL actually contains the `tenant_id`
+> predicate. **Not yet decided:** (a) the helper only applies to tables with a
+> literal `tenantId` column — core tables like `workflow_runs` are scoped
+> *indirectly* (via workflow/project) and the helper correctly refuses them, so it
+> is a partial tool; (b) it is not yet adopted in repository code (adopting it in
+> ~9 repos is a mechanical but untested change best done with the integration DB);
+> (c) Postgres RLS remains the only *structural* backstop. Recommendation: either
+> accept the risk (service-layer scoping is already consistent per the data-layer
+> audit) and close, or schedule RLS as its own project — this is a decision for the
+> owner, not something to mass-refactor blind.
 
 **Files:** repository layer (`server/repositories/*`); no RLS in `migrations/`.
 
@@ -214,15 +225,17 @@ structural backstop, so one omitted predicate is a silent cross-tenant read/writ
 
 ## SEC-053 — CAPTCHA challenge is trivially solvable and uses a non-shared in-memory store — P3 *(new; refines existing SEC-048)*
 
-> **STATUS 2026-07-11 — 🟡 half done; a new bug was introduced.** The in-memory
-> `Map` was replaced with a stateless HMAC-signed token (fixes the multi-instance
-> problem ✅) and a reCAPTCHA option was added ✅. **New problem:** the "simple"
-> token's payload is `base64url(JSON.stringify({ answer, expiresAt }))` — the answer
-> is not encrypted, just signed ([CaptchaService.ts:35](../../server/services/CaptchaService.ts)).
-> A bot receives the token, base64-decodes it, reads `answer`, and submits it — the
-> challenge is now *more* trivially bypassable than the math puzzle was. Open items:
-> (a) don't put the answer in the token (keep it server-side, or encrypt it); (b)
-> require reCAPTCHA/Turnstile in production and treat "simple" as dev-only.
+> **STATUS 2026-07-11 — ✅ CLOSED.** (a) The token no longer contains the answer:
+> it now carries `HMAC(secret, answer:expiresAt)` and validation recomputes the
+> keyed hash of the submitted answer and compares it constant-time
+> ([CaptchaService.ts](../../server/services/CaptchaService.ts)), so a bot can no
+> longer base64-decode the token to read the answer. (b) `validateCaptcha` now
+> rejects `type: "simple"` in production when `RECAPTCHA_SECRET` is configured,
+> treating the math puzzle as dev/fallback-only. A regression test asserts the
+> answer is absent from the token; the captcha unit suite is green (10 tests).
+> Note: the math puzzle is still solvable from the *question* by design — that is
+> why reCAPTCHA is the production path; wiring the reCAPTCHA client widget + site
+> key is the remaining product step, not a security hole in this service.
 
 **Files:** [server/services/CaptchaService.ts:26,32-58](../../server/services/CaptchaService.ts),
 [server/routes/auth.routes.ts:280-303](../../server/routes/auth.routes.ts)
