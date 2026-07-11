@@ -2,6 +2,7 @@ import { eq, and } from 'drizzle-orm';
 
 import { organizationMemberships } from '../../shared/schema';
 import { db } from '../db';
+import type { DbTransaction } from '../repositories';
 /**
  * Ownership Access Control Utilities
  *
@@ -49,8 +50,10 @@ export async function canAccessAsset(
  * Check if a user is a member of an organization
  * @returns true if user is a member, false otherwise
  */
-export async function isOrgMember(userId: string, orgId: string): Promise<boolean> {
-  const membership = await db
+export async function isOrgMember(userId: string, orgId: string, tx?: DbTransaction): Promise<boolean> {
+  // Accept a caller's transaction: when invoked inside db.transaction() the pooled
+  // `db` handle would wait for a second connection and deadlock the size-1 test pool.
+  const membership = await (tx ?? db)
     .select()
     .from(organizationMemberships)
     .where(
@@ -69,8 +72,9 @@ export async function isOrgMember(userId: string, orgId: string): Promise<boolea
  * @param orgId - The organization ID
  * @returns true if user is an admin, false otherwise
  */
-export async function canManageOrg(userId: string, orgId: string): Promise<boolean> {
-  const membership = await db
+export async function canManageOrg(userId: string, orgId: string, tx?: DbTransaction): Promise<boolean> {
+  // Accept a caller's transaction (see isOrgMember) to avoid a size-1 pool deadlock.
+  const membership = await (tx ?? db)
     .select()
     .from(organizationMemberships)
     .where(

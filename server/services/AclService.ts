@@ -92,9 +92,9 @@ export class AclService {
     }
 
     if (project.ownerType === "org" && project.ownerUuid) {
-      if (await canManageOrg(userId, project.ownerUuid)) {
+      if (await canManageOrg(userId, project.ownerUuid, tx)) {
         highestRole = this.getHighestRole(highestRole, "owner");
-      } else if (await isOrgMember(userId, project.ownerUuid)) {
+      } else if (await isOrgMember(userId, project.ownerUuid, tx)) {
         highestRole = this.getHighestRole(highestRole, "view");
       }
     }
@@ -160,9 +160,9 @@ export class AclService {
     }
 
     if (workflow.ownerType === "org" && workflow.ownerUuid) {
-      if (await canManageOrg(userId, workflow.ownerUuid)) {
+      if (await canManageOrg(userId, workflow.ownerUuid, tx)) {
         highestRole = this.getHighestRole(highestRole, "owner");
-      } else if (await isOrgMember(userId, workflow.ownerUuid)) {
+      } else if (await isOrgMember(userId, workflow.ownerUuid, tx)) {
         highestRole = this.getHighestRole(highestRole, "view");
       }
     }

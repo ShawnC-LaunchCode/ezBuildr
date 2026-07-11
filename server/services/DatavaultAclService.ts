@@ -75,8 +75,9 @@ export class DatavaultAclService {
     return memberships.map((membership) => membership.teamId);
   }
 
-  private async getUserTenantRole(userId: string, tenantId: string): Promise<string | null> {
-    const user = await db.query.users.findFirst({
+  private async getUserTenantRole(userId: string, tenantId: string, tx?: DbTransaction): Promise<string | null> {
+    // Accept a caller's transaction to avoid a size-1 pool deadlock (see ownershipAccess).
+    const user = await (tx ?? db).query.users.findFirst({
       where: (users, { and, eq }) => and(eq(users.id, userId), eq(users.tenantId, tenantId)),
       columns: { tenantRole: true },
     });
@@ -100,15 +101,15 @@ export class DatavaultAclService {
     }
 
     if (database.ownerType === "org" && database.ownerUuid) {
-      if (await canManageOrg(userId, database.ownerUuid)) {
+      if (await canManageOrg(userId, database.ownerUuid, tx)) {
         highestRole = this.getHighestRole(highestRole, "owner");
-      } else if (await isOrgMember(userId, database.ownerUuid)) {
+      } else if (await isOrgMember(userId, database.ownerUuid, tx)) {
         highestRole = this.getHighestRole(highestRole, "view");
       }
     }
 
     if (!database.ownerType && database.scopeType === "account") {
-      const tenantRole = await this.getUserTenantRole(userId, database.tenantId);
+      const tenantRole = await this.getUserTenantRole(userId, database.tenantId, tx);
       if (tenantRole === "owner" || tenantRole === "admin") {
         highestRole = this.getHighestRole(highestRole, "owner");
       } else if (tenantRole) {
@@ -159,9 +160,9 @@ export class DatavaultAclService {
     }
 
     if (table.ownerType === "org" && table.ownerUuid) {
-      if (await canManageOrg(userId, table.ownerUuid)) {
+      if (await canManageOrg(userId, table.ownerUuid, tx)) {
         highestRole = this.getHighestRole(highestRole, "owner");
-      } else if (await isOrgMember(userId, table.ownerUuid)) {
+      } else if (await isOrgMember(userId, table.ownerUuid, tx)) {
         highestRole = this.getHighestRole(highestRole, "view");
       }
     }
