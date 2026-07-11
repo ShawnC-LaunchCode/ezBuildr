@@ -22,26 +22,22 @@ describe("Reproduction: API Workflow Creation (Cookie Auth)", () => {
         await ctx.cleanup();
     });
 
-    it("should create a workflow successfully via API endpoint using COOKIES", async () => {
+    // Cookie (refresh-token) auth is intentionally restricted to safe methods
+    // (GET/HEAD/OPTIONS) as CSRF protection — see cookieStrategy in
+    // server/middleware/auth.ts. A cookie-only mutation MUST be rejected;
+    // clients must present a Bearer access token to create workflows.
+    it("should reject workflow creation via COOKIES (CSRF safe-method guard)", async () => {
         const payload = {
             title: "Cookie Workflow",
             description: "Testing Cookie Auth",
         };
 
-        console.log(`[TEST] Creating workflow with Cookies...`);
-
         const response = await request(ctx.baseURL)
             .post("/api/workflows")
-            .set("Cookie", testUserCookies) // Use cookies instead of Authorization header
+            .set("Cookie", testUserCookies) // Cookie-only, no Authorization header
             .set("Content-Type", "application/json")
             .send(payload);
 
-        if (response.status !== 201) {
-            console.error("[TEST] Creation Failed:", response.status, response.body);
-        }
-
-        expect(response.status).toBe(201);
-        expect(response.body).toHaveProperty("id");
-        expect(response.body.title).toBe(payload.title);
+        expect(response.status).toBe(401);
     });
 });

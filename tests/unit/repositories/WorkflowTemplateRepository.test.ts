@@ -114,6 +114,7 @@ describeWithDb('WorkflowTemplateRepository', () => {
     await db.delete(workflows).where(eq(workflows.id, testWorkflowId));
     await db.delete(templates).where(eq(templates.projectId, testProjectId));
     await db.delete(projects).where(eq(projects.id, testProjectId));
+    await db.delete(users).where(eq(users.id, testUserId));
   });
 
   describe('create', () => {

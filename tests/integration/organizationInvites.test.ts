@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { db } from '../../server/db';
 import { organizationService } from '../../server/services/OrganizationService';
+import { hashToken } from '../../server/utils/encryption';
 import { organizations, organizationMemberships, organizationInvites, users, tenants, auditLogs } from '../../shared/schema';
 
 /**
@@ -285,7 +286,8 @@ describe('Organization Invites', () => {
 
             expect(invites).toHaveLength(1);
             expect(invites[0].orgName).toBe('Invite Test Org');
-            expect(invites[0].token).toBe(inviteResult.token);
+            // Invite tokens are stored hashed; the raw token is only returned once at creation.
+            expect(invites[0].token).toBe(hashToken(inviteResult.token));
 
 
         });

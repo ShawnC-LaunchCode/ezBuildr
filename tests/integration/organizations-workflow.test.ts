@@ -16,6 +16,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { db } from '../../server/db';
 import { organizationService } from '../../server/services/OrganizationService';
 import { workflowService } from '../../server/services/WorkflowService';
+import { hashToken } from '../../server/utils/encryption';
 import {
   users,
   organizations,
@@ -132,9 +133,10 @@ describe('Organization Workflow Integration Tests', () => {
       });
       expect(membership).toBeDefined();
       expect(membership?.role).toBe('member');
-      // Verify invite was accepted (status changed to 'accepted')
+      // Verify invite was accepted (status changed to 'accepted').
+      // Tokens are stored hashed, so look up by the hash of the raw token.
       const invite = await db.query.organizationInvites.findFirst({
-        where: eq(organizationInvites.token, inviteToken),
+        where: eq(organizationInvites.token, hashToken(inviteToken)),
       });
       expect(invite).toBeDefined();
       expect(invite?.status).toBe('accepted');

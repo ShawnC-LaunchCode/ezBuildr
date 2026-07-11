@@ -14,22 +14,10 @@ const dbUnitTests = [
   "tests/unit/services/WorkflowTemplateService.test.ts",
 ];
 
-// Integration tests excluded from the default run (timeout or require special setup)
+// Integration tests excluded from the default run (require special setup)
 const excludedIntegrationTests = [
+  // Require real external credentials / services
   "tests/integration/*.real.test.ts",
-  "tests/integration/organizationService.test.ts",
-  "tests/integration/organizationInvites.test.ts",
-  "tests/integration/organizations-audit-fixes.test.ts",
-  "tests/integration/transferOwnership.test.ts",
-  // Pre-existing failures: Neon idle-in-transaction timeout kills connections
-  "tests/integration/organizations-workflow.test.ts",
-  "tests/integration/reproduction_workflow_creation.test.ts",
-  // Pre-existing failures: cookie auth / service bugs unrelated to test infra
-  "tests/integration/api_workflow_reproduction.test.ts",
-  "tests/integration/templates.behavioral.test.ts",
-  "tests/integration/api.dataSources.native.test.ts",
-  // Pre-existing failure: Neon idle-in-transaction timeout in beforeAll (>300s)
-  "tests/integration/dynamic_options_workflow.test.ts",
 ];
 
 const singleWorker = process.env.VITEST_SINGLE_FORK === 'true';

@@ -276,10 +276,8 @@ export class ProjectService {
     const { inArray } = await import('drizzle-orm');
     const { db } = await import('../db');
     const project = await this.verifyProjectAccess(projectId, userId, 'owner');
-    if (targetOwnerType === 'org' && !(await canManageOrg(userId, targetOwnerUuid))) {
-      throw new Error('Access denied: Organization admin role required to transfer projects to this organization');
-    }
-    // Validate transfer permissions
+    // Transfer-into-org requires org membership (not admin); validateTransfer
+    // checks target existence first ("not found") then membership ("not a member").
     await transferService.validateTransfer(
       userId,
       project.ownerType ?? 'user',

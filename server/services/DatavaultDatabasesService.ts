@@ -5,7 +5,7 @@ import {
   datavaultTablesRepository,
   type DbTransaction,
 } from '../repositories';
-import { canManageOrg } from '../utils/ownershipAccess';
+import { canManageOrg, isOrgMember } from '../utils/ownershipAccess';
 
 import { aclService } from './AclService';
 import { datavaultAclService } from './DatavaultAclService';
@@ -300,16 +300,19 @@ export class DatavaultDatabasesService {
       throw new NotFoundError('Database not found');
     }
 
+    // Source-side authorization: the direct owner, or any member of the org that
+    // owns the database (member-is-enough policy for transfers).
     const hasOwnerAccess = await datavaultAclService.hasDatabaseRole(userId, databaseId, 'owner');
-    if (!hasOwnerAccess) {
+    const isOrgOwnedMember =
+      database.ownerType === 'org' &&
+      database.ownerUuid != null &&
+      (await isOrgMember(userId, database.ownerUuid));
+    if (!hasOwnerAccess && !isOrgOwnedMember) {
       throw new Error('Access denied: You do not have permission to transfer this database');
     }
 
-    if (targetOwnerType === 'org' && !(await canManageOrg(userId, targetOwnerUuid))) {
-      throw new Error('Access denied: Organization admin role required to transfer databases to this organization');
-    }
-
-    // Validate transfer permissions
+    // Transfer-into-org requires org membership (not admin); validateTransfer
+    // checks target existence first ("not found") then membership ("not a member").
     await transferService.validateTransfer(
       userId,
       database.ownerType ?? 'user',

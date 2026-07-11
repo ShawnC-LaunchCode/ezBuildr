@@ -727,7 +727,7 @@ export class OrganizationService {
         action: 'organization.invite_accept',
         resourceType: 'organization',
         resourceId: invite.orgId,
-        workspaceId: '',
+        workspaceId: null,
         after: { email: invite.invitedEmail },
       });
     }

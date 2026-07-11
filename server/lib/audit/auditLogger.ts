@@ -29,7 +29,9 @@ export class AuditLogger {
     static async log(event: AuditEvent, executor: AuditExecutor = db): Promise<void> {
         try {
             await executor.insert(auditLogs).values({
-                workspaceId: event.workspaceId ?? null,
+                // Coerce empty string to null: workspaceId maps to a uuid column,
+                // and "" is not valid uuid syntax (aborts the caller's transaction).
+                workspaceId: event.workspaceId ? event.workspaceId : null,
                 userId: event.userId,
                 action: event.action,
                 entityType: event.resourceType,

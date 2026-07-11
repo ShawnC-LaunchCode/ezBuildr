@@ -792,10 +792,8 @@ export class WorkflowService {
   ): Promise<Workflow & { detachedFromProject?: boolean; detachmentReason?: string }> {
     const { transferService } = await import('./TransferService');
     const workflow = await this.verifyAccess(workflowId, userId, 'owner');
-    if (targetOwnerType === 'org' && !(await canManageOrg(userId, targetOwnerUuid))) {
-      throw new Error('Access denied: Organization admin role required to transfer workflows to this organization');
-    }
-    // Validate transfer permissions
+    // Transfer-into-org requires org membership (not admin); validateTransfer
+    // checks target existence first ("not found") then membership ("not a member").
     await transferService.validateTransfer(
       userId,
       workflow.ownerType ?? 'user',
