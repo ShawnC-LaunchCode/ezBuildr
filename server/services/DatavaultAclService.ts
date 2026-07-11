@@ -75,12 +75,12 @@ export class DatavaultAclService {
     return memberships.map((membership) => membership.teamId);
   }
 
-  private async isUserInTenant(userId: string, tenantId: string): Promise<boolean> {
+  private async getUserTenantRole(userId: string, tenantId: string): Promise<string | null> {
     const user = await db.query.users.findFirst({
       where: (users, { and, eq }) => and(eq(users.id, userId), eq(users.tenantId, tenantId)),
-      columns: { id: true },
+      columns: { tenantRole: true },
     });
-    return user !== undefined;
+    return user?.tenantRole ?? null;
   }
 
   async resolveRoleForDatabase(
@@ -107,8 +107,13 @@ export class DatavaultAclService {
       }
     }
 
-    if (!database.ownerType && database.scopeType === "account" && await this.isUserInTenant(userId, database.tenantId)) {
-      highestRole = this.getHighestRole(highestRole, "owner");
+    if (!database.ownerType && database.scopeType === "account") {
+      const tenantRole = await this.getUserTenantRole(userId, database.tenantId);
+      if (tenantRole === "owner" || tenantRole === "admin") {
+        highestRole = this.getHighestRole(highestRole, "owner");
+      } else if (tenantRole) {
+        highestRole = this.getHighestRole(highestRole, "edit");
+      }
     }
 
     if (database.scopeType === "project" && database.scopeId) {

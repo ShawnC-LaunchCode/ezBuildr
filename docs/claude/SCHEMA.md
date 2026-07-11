@@ -1,163 +1,139 @@
 # Database Schema Reference
 
-Complete reference for all 80+ PostgreSQL tables organized by domain.
+Inventory of all **103 PostgreSQL tables**, organized by the `shared/schema/*.ts` domain file that defines them (verified July 2026).
 
-## Core Workflow Tables
+**Source of truth is the Drizzle schema in `shared/schema/` — always check the domain file for exact columns before writing queries or migrations.** Entries are `sql_table_name` (`tsExportName` when it differs beyond casing). Schema changes go through the `db-schema-change` skill; update this file when tables are added or removed.
 
-| Table | Purpose | Key Columns |
-|-------|---------|-------------|
-| `projects` | Top-level containers | `id`, `name`, `description`, `createdBy`, `tenantId` |
-| `workflows` | Workflow definitions | `id`, `title`, `status`, `projectId`, `publicLink` |
-| `sections` | Pages/sections | `id`, `workflowId`, `title`, `order`, `skipLogic`, `visibleIf` |
-| `steps` | Individual steps | `id`, `sectionId`, `type`, `alias`, `required`, `config`, `visibleIf`, `defaultValue` |
-| `stepValues` | Run data | `id`, `runId`, `stepId`, `value` |
-| `workflowRuns` | Execution instances | `id`, `workflowId`, `runToken`, `createdBy`, `progress`, `completed` |
+## Workflow Core — `shared/schema/workflow.ts` (20 tables)
 
-**Step Types (15+):** short_text, long_text, email, phone, website, number, currency, address, boolean, multiple_choice, radio, checkbox, scale, date, date_time, time, display, multi_field, signature, file_upload, computed
+| Table | Purpose |
+|-------|---------|
+| `projects` | Top-level containers (tenant-scoped) |
+| `workflows` | Workflow definitions, status, public link |
+| `workflow_versions` | Published version history (JSONB snapshot) |
+| `workflow_snapshots` | Test-data snapshots for the builder |
+| `templates` / `template_versions` | Document templates + versioning |
+| `workflow_blueprints` | Template blueprint structures (JSONB) |
+| `workflow_templates` | Reusable workflow templates |
+| `sections` | Pages/sections: order, skipLogic, visibleIf |
+| `steps` | Individual steps: type, alias, config, visibleIf, defaultValue |
+| `logic_rules` | Conditional logic rules |
+| `blocks` | Reusable workflow blocks (see `blockTypeEnum` below) |
+| `transform_blocks` | JS/Python code blocks: code, inputKeys, outputKey, virtualStepId |
+| `lifecycle_hooks` | Workflow phase hooks: phase, language, code, mutationMode |
+| `document_hooks` | Document transformation hooks (`finalBlockDocumentId`, not a FK) |
+| `project_access` / `workflow_access` | Per-project / per-workflow permissions |
+| `collab_docs` / `collab_updates` / `collab_snapshots` | Real-time collaboration document state |
 
-## DataVault Tables
+## Auth & Tenancy — `shared/schema/auth.ts` (27 tables)
 
-| Table | Purpose | Key Columns |
-|-------|---------|-------------|
-| `databases` | Database definitions | `id`, `projectId`, `name`, `archived` |
-| `tables` | Table schemas | `id`, `databaseId`, `name`, `columns` (JSONB) |
-| `table_rows` | Actual data | `id`, `tableId`, `data` (JSONB) |
-| `table_permissions` | Access control | `tableId`, `userId`, `teamId`, `canView`, `canCreate`, `canUpdate`, `canDelete` |
-| `api_tokens` | External API access | `id`, `projectId`, `token`, `expiresAt` |
-| `row_notes` | Row comments | `id`, `tableId`, `rowId`, `userId`, `note` |
+| Table | Purpose |
+|-------|---------|
+| `tenants` | Workspace tenants |
+| `users` | User accounts (`role` gates /api/admin; `tenant_role` gates RBAC writes) |
+| `organizations` / `organization_memberships` / `organization_invites` | Enterprise orgs |
+| `workspaces` / `workspace_members` / `workspace_invitations` | Team workspaces |
+| `tenant_domains` | Custom domains per tenant |
+| `user_credentials` | Email/password credentials (local auth) |
+| `refresh_tokens` / `invalidated_tokens` | JWT refresh + revocation |
+| `password_reset_tokens` / `email_verification_tokens` | Account flows |
+| `login_attempts` / `account_locks` | Brute-force protection |
+| `mfa_secrets` / `mfa_backup_codes` / `trusted_devices` | MFA |
+| `user_preferences` / `user_personalization_settings` | User settings (JSONB) |
+| `portal_tokens` | Portal magic-link tokens (there is no `portal_users` table) |
+| `audit_logs` | Activity/audit trail (tenant, workspace, entity scoped) |
+| `resource_permissions` | Granular resource permissions |
+| `sessions` | Express session store |
+| `teams` / `team_members` | Teams and membership |
 
-**Column types:** text, number, date, boolean, select, multiselect, autonumber
+## Runs & Metrics — `shared/schema/run.ts` (18 tables)
 
-## Logic & Automation Tables
+| Table | Purpose |
+|-------|---------|
+| `workflow_runs` | Execution instances: runToken, progress, completed |
+| `step_values` | Run data storage per step |
+| `review_tasks` | Human-in-the-loop review gates (FK → workflow_runs) |
+| `signature_requests` / `signature_events` | E-signature requests + audit trail |
+| `run_generated_documents` | Generated PDF/DOCX artifacts |
+| `transform_block_runs` | Transform block execution audit |
+| `script_execution_log` | Hook/script execution audit (console output, duration) |
+| `workflow_run_events` / `workflow_run_metrics` | Run-level events + metrics |
+| `template_generation_metrics` | Document generation metrics (`run_id` is a plain nullable column) |
+| `ai_workflow_feedback` | Feedback on AI-generated workflows |
+| `workflow_analytics_snapshots` | Analytics snapshots (JSONB) |
+| `block_metrics` / `metrics_events` / `metrics_rollups` | Block/system metrics + rollups |
+| `sli_configs` / `sli_windows` | SLI definitions + computed windows (`npm run metrics:sli`) |
 
-| Table | Purpose | Key Columns |
-|-------|---------|-------------|
-| `logicRules` | Conditional logic | `id`, `workflowId`, `condition`, `action` |
-| `transformBlocks` | JS/Python code | `id`, `workflowId`, `code`, `inputKeys`, `outputKey`, `virtualStepId` |
-| `transformBlockRuns` | Execution audit | `id`, `runId`, `blockId`, `status`, `errorMessage` |
-| `blocks` | Reusable blocks | `id`, `workflowId`, `type`, `config` |
+> The old graph-execution tables `runs`, `run_logs`, and `run_outputs` were **dropped** (graph-builder removal, 2026). There are no legacy `surveys`/`questions`/`responses`/`answers` tables either.
 
-**Logic operators:** equals, not_equals, contains, greater_than, less_than, between, is_empty, is_not_empty
+## DataVault — `shared/schema/datavault.ts` (17 tables)
 
-**Logic actions:** show, hide, require, make_optional, set_value, skip_section
+All DataVault tables are `datavault_`-prefixed:
 
-## Custom Scripting Tables
+| Table | Purpose |
+|-------|---------|
+| `datavault_databases` | Database definitions |
+| `datavault_tables` | Table schemas |
+| `datavault_columns` | Column definitions (see column types below) |
+| `datavault_rows` / `datavault_values` | Row records + EAV cell values |
+| `datavault_number_sequences` | Auto-number sequences |
+| `datavault_row_notes` | Row comments |
+| `datavault_api_tokens` | External API access tokens |
+| `datavault_table_permissions` | Per-user table access — single `role` enum (owner/write/read) |
+| `datavault_database_access` / `datavault_table_access` | Database/table-level ACLs |
+| `datavault_writeback_mappings` | Workflow → DataVault writeback config |
+| `workflow_data_sources` / `workflow_queries` | DataVault as workflow data source |
+| `collections` / `collection_fields` / `records` | Legacy collections (still present) |
 
-| Table | Purpose | Key Columns |
-|-------|---------|-------------|
-| `lifecycle_hooks` | Workflow phase hooks | `id`, `workflowId`, `sectionId`, `name`, `phase`, `language`, `code`, `mutationMode` |
-| `document_hooks` | Document transformation hooks | `id`, `workflowId`, `documentId`, `name`, `phase`, `language`, `code` |
-| `script_execution_log` | Script execution audit trail | `id`, `runId`, `scriptType`, `scriptId`, `status`, `consoleOutput`, `durationMs` |
+**Column types (`datavaultColumnTypeEnum`):** text, number, date, datetime, boolean, select, multiselect, email, phone, url, json, reference, autonumber, auto_number
 
-**Lifecycle hook phases:** beforePage, afterPage, beforeFinalBlock, afterDocumentsGenerated
+## Integrations — `shared/schema/integrations.ts` (10 tables)
 
-**Document hook phases:** beforeGeneration, afterGeneration
-
-**Supported languages:** JavaScript (vm2/vm sandbox), Python (subprocess isolation)
-
-## Integration Tables
-
-| Table | Purpose | Key Columns |
-|-------|---------|-------------|
-| `connections` | API connections | `id`, `projectId`, `connectionType`, `authConfig`, `secretRefs`, `oauthState` |
-| `secrets` | Encrypted credentials | `id`, `projectId`, `key`, `type`, `encryptedValue`, `iv`, `authTag` |
-| `review_tasks` | Review gates | `id`, `runId`, `status`, `assignedTo`, `decision` |
-| `signature_requests` | E-signatures | `id`, `runId`, `token`, `status`, `documentUrl` |
+| Table | Purpose |
+|-------|---------|
+| `connections` (TS: `externalConnections`) | API connections: `type`, authConfig, secretRefs, oauthState, tenantId |
+| `secrets` | Encrypted credentials: key, value, valueEnc, type, metadata, environment |
+| `external_destinations` | External data destinations |
+| `api_keys` | API token storage |
+| `webhook_subscriptions` / `webhook_events` | Webhooks |
+| `oauth_apps` / `oauth_auth_codes` / `oauth_access_tokens` | OAuth provider tables |
+| `email_queue` | Outbound email queue |
 
 **Connection types:** api_key, bearer, oauth2_client_credentials, oauth2_3leg
-
 **Secret types:** api_key, bearer, oauth2, basic_auth
 
-## Team Collaboration Tables
+## Billing — `shared/schema/billing.ts` (5 tables)
 
-| Table | Purpose | Key Columns |
-|-------|---------|-------------|
-| `teams` | Team entities | `id`, `name`, `createdBy` |
-| `teamMembers` | Team membership | `teamId`, `userId`, `role` |
-| `projectAccess` | Project permissions | `projectId`, `teamId`, `userId`, `role` |
-| `workflowAccess` | Workflow permissions | `workflowId`, `teamId`, `userId`, `role` |
-| `tenants` | Workspace tenants | `id`, `name`, `slug` |
-| `organizations` | Enterprise orgs | `id`, `name`, `tenantId` |
-| `workspaces` | Team workspaces | `id`, `name`, `tenantId` |
-| `workspaceMembers` | Workspace membership | `workspaceId`, `userId`, `role` |
-| `resourcePermissions` | Granular permissions | `resourceType`, `resourceId`, `userId`, `permission` |
-| `auditLogs` | Activity tracking | `id`, `userId`, `action`, `resourceType`, `timestamp` |
+`billing_plans`, `subscriptions`, `subscription_seats`, `customer_billing_info`, `usage_records` — Stripe plans, subscriptions, seats, billing info, usage metering.
 
-## Portal & External Access Tables
+## Other domains
 
-| Table | Purpose | Key Columns |
-|-------|---------|-------------|
-| `portalUsers` | Portal user accounts | `id`, `email`, `workflowId`, `magicToken` |
-| `portalAccessLogs` | Portal login tracking | `id`, `portalUserId`, `timestamp` |
-| `anonymousResponseTracking` | Anonymous run tracking | `id`, `runId`, `fingerprint` |
+| File | Tables |
+|------|--------|
+| `shared/schema/ai.ts` | `ai_settings`, `workflow_personalization_settings` |
+| `shared/schema/template_shares.ts` | `template_shares` |
+| `shared/schema/system.ts` | `system_stats` |
+| `shared/schema/files.ts` | `files` |
+| `shared/schema/branding.ts` | `email_template_metadata` |
 
-## Templates & Sharing Tables
+`shared/schema/analytics.ts` defines TypeScript interfaces only (no tables). `relations.ts` holds Drizzle relations; `index.ts` is the barrel.
 
-| Table | Purpose | Key Columns |
-|-------|---------|-------------|
-| `workflowTemplates` | Workflow templates | `id`, `name`, `description`, `createdBy` |
-| `workflowBlueprints` | Template blueprints | `id`, `templateId`, `structure` (JSONB) |
-| `templateShares` | Sharing permissions | `id`, `templateId`, `sharedWith`, `permissions` |
-| `emailTemplateMetadata` | Email templates | `id`, `projectId`, `name`, `htmlContent` |
+## Key Enums (defined in `shared/schema/workflow.ts`)
 
-## Analytics & Metrics Tables
+**Step types (`stepTypeEnum`, 38 values):**
+- Legacy/existing: `short_text`, `long_text`, `multiple_choice`, `radio`, `yes_no`, `date_time`, `file_upload`, `loop_group`, `computed`, `js_question`, `repeater`, `final_documents`, `signature_block`
+- Easy mode: `true_false`, `phone`, `date`, `time`, `datetime`, `email`, `number`, `currency`, `scale`, `website`, `display`, `address`, `final`
+- Advanced mode: `text`, `boolean`, `phone_advanced`, `datetime_unified`, `choice`, `email_advanced`, `number_advanced`, `scale_advanced`, `website_advanced`, `address_advanced`, `multi_field`, `display_advanced`
 
-| Table | Purpose | Key Columns |
-|-------|---------|-------------|
-| `analyticsEvents` | Event tracking | `id`, `workflowId`, `runId`, `eventType`, `timestamp` |
-| `workflowRunEvents` | Run-level events | `id`, `runId`, `eventName`, `metadata` (JSONB) |
-| `workflowRunMetrics` | Run metrics | `id`, `runId`, `completionTime`, `dropoffStep` |
-| `blockMetrics` | Block performance | `id`, `blockId`, `executionTime`, `errorRate` |
-| `workflowAnalyticsSnapshots` | Analytics snapshots | `id`, `workflowId`, `snapshotDate`, `metrics` (JSONB) |
-| `metricsEvents` | Metric events | `id`, `eventType`, `value`, `timestamp` |
-| `metricsRollups` | Aggregated metrics | `id`, `period`, `aggregatedData` (JSONB) |
+(Note: there is no `checkbox` or plain `signature` step type.)
 
-## Document Generation Tables
+**Condition operators (`conditionOperatorEnum`):** equals, not_equals, contains, not_contains, greater_than, less_than, between, is_empty, is_not_empty
+(`shared/types/conditions.ts` defines a much richer 28-operator `ComparisonOperator` union for the logic engine — starts_with, date diffs, includes_all, etc.)
 
-| Table | Purpose | Key Columns |
-|-------|---------|-------------|
-| `runGeneratedDocuments` | Generated PDFs/DOCX | `id`, `runId`, `documentUrl`, `fileType`, `createdAt` |
-| `signatureEvents` | Signature audit trail | `id`, `signatureRequestId`, `eventType`, `timestamp` |
-| `finalBlock` | Final block config | `id`, `workflowId`, `templateId`, `config` (JSONB) |
+**Conditional actions (`conditionalActionEnum`):** show, hide, require, make_optional, skip_to
 
-## Billing & Enterprise Tables
+**Block types (`blockTypeEnum`):** prefill, validate, branch, create_record, update_record, find_record, delete_record, query, write, external_send, read_table, list_tools
 
-| Table | Purpose | Key Columns |
-|-------|---------|-------------|
-| `subscriptions` | Stripe subscriptions | `id`, `tenantId`, `stripeSubscriptionId`, `status`, `planId` |
-| `billingPlans` | Plan definitions | `id`, `name`, `features` (JSONB), `priceMonthly` |
-| `subscriptionSeats` | Seat management | `id`, `subscriptionId`, `userId`, `assignedAt` |
-| `customerBillingInfo` | Billing addresses | `id`, `tenantId`, `billingEmail`, `stripeCustomerId` |
-| `usageRecords` | Usage metering | `id`, `tenantId`, `period`, `runCount`, `workflowCount` |
-
-## Versioning & State Tables
-
-| Table | Purpose | Key Columns |
-|-------|---------|-------------|
-| `workflowVersions` | Version history | `id`, `workflowId`, `versionNumber`, `publishedAt`, `snapshot` (JSONB) |
-| `workflowSnapshots` | Test data snapshots | `id`, `workflowId`, `name`, `data` (JSONB) |
-| `sessions` | Express sessions | `sid`, `sess` (JSONB), `expire` |
-| `userPreferences` | User settings | `id`, `userId`, `preferences` (JSONB) |
-| `userPersonalizationSettings` | Personalization | `id`, `userId`, `settings` (JSONB) |
-| `workflowPersonalizationSettings` | Workflow personalization | `id`, `workflowId`, `settings` (JSONB) |
-
-## Legacy & Collections Tables
-
-| Table | Purpose | Key Columns |
-|-------|---------|-------------|
-| `collections` | Legacy collections | `id`, `projectId`, `name` |
-| `collectionFields` | Collection schemas | `id`, `collectionId`, `fieldName`, `fieldType` |
-| `records` | Collection records | `id`, `collectionId`, `data` (JSONB) |
-| `surveys` | Legacy surveys (deprecated) | `id`, `title`, `createdBy` |
-| `questions` | Legacy questions | `id`, `surveyId`, `questionType` |
-| `responses` / `answers` | Legacy response data | `id`, `surveyId`, `userId`, `submittedAt` |
-
-## Utility Tables
-
-| Table | Purpose | Key Columns |
-|-------|---------|-------------|
-| `files` | File storage metadata | `id`, `filename`, `mimeType`, `uploadedBy`, `url` |
-| `apiKeys` | API token storage | `id`, `projectId`, `key`, `expiresAt` |
-| `runLogs` | Run execution logs | `id`, `runId`, `logLevel`, `message`, `timestamp` |
-| `systemStats` | System metrics | `id`, `statName`, `value`, `recordedAt` |
-| `auditEvents` | Comprehensive audit trail | `id`, `userId`, `action`, `resourceType`, `before`, `after`, `timestamp` |
+**Lifecycle hook phases:** beforePage, afterPage, beforeFinalBlock, afterDocumentsGenerated
+**Document hook phases:** beforeGeneration, afterGeneration
+**Script languages:** JavaScript (vm2/vm sandbox), Python (subprocess isolation)

@@ -101,6 +101,15 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
           );
         } catch (error) {
           logger.error({ error, workflowId }, "AI model call failed");
+          
+          if (error && typeof error === 'object' && 'code' in error && (error as any).code === 'VALIDATION_ERROR') {
+            return res.status(400).json({
+              success: false,
+              error: 'Failed to apply operations',
+              details: (error as any).details.map((d: any) => `Invalid operation schema: ${d.message}`),
+            });
+          }
+
           return res.status(500).json({
             success: false,
             error: `AI model call failed: ${"Unknown error"}`,

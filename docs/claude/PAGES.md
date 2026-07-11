@@ -1,97 +1,85 @@
 # Frontend Pages Reference
 
-Complete reference for all 30+ frontend pages with routes and features.
+All client routes, taken from the Wouter `<Switch>` in `client/src/Router.tsx` (verified July 2026). **That file is the source of truth** — pages are lazy-loaded from `client/src/pages/`. Routes below are grouped by auth requirement.
 
-## Authentication & Landing
-
-| Page | Route | Purpose |
-|------|-------|---------|
-| Landing Page | `/` | Public homepage, unauthenticated users |
-| Login Page | `/login` | Google OAuth2 authentication |
-| Dashboard | `/dashboard` | Main hub after login, workflow overview |
-
-## Workflow Management
+## Public routes (no login)
 
 | Page | Route | Purpose |
 |------|-------|---------|
-| Workflows List | `/workflows` | Browse all workflows with filters |
-| New Workflow | `/workflows/new` | Create new workflow |
-| Workflow Builder | `/workflows/:id/builder` | 5-tab builder interface |
-| Workflow Preview | `/workflows/:id/preview` | In-memory preview mode |
+| Landing | `/` | Public homepage (Dashboard when authenticated) |
+| Landing v2 | `/landing-v2` | Secondary marketing landing page |
+| Public Runner | `/w/:slug` | Public workflow access by slug |
+| Workflow Runner | `/run/:id` | Run a workflow (available to everyone) |
+| Shared Run View | `/share/:token` | Public share view of a completed run |
+| Intake Preview | `/intake/preview` | Branded intake portal preview |
+| URL Parameters Doc | `/docs/url-parameters` | In-app documentation |
+
+## Auth pages (public, redirect to `/dashboard` when logged in)
+
+| Page | Route |
+|------|-------|
+| Login | `/auth/login` |
+| Register | `/auth/register` |
+| Forgot / Reset Password | `/auth/forgot-password`, `/auth/reset-password` |
+| Verify Email | `/auth/verify-email` |
+
+## Portal (independent magic-link auth)
+
+| Page | Route |
+|------|-------|
+| Portal Login | `/portal/login` |
+| Portal Magic Link Verify | `/portal/auth/verify` |
+| Portal Dashboard | `/portal` |
+
+## Authenticated app
+
+### Workflows
+
+| Page | Route | Purpose |
+|------|-------|---------|
+| Dashboard | `/dashboard` (and `/`) | Main hub after login |
+| Workflows List | `/workflows` | Browse workflows |
+| New Workflow | `/workflows/new` | Create workflow |
+| Workflow Builder | `/workflows/:id/builder` | 5-tab builder (Sections, Templates, Data Sources, Settings, Snapshots) |
+| Workflow Preview | `/workflows/:workflowId/preview` | In-memory preview (no database) |
 | Workflow Analytics | `/workflows/:id/analytics` | Funnel, dropoff, trends |
+| Optimization Wizard | `/workflows/:workflowId/optimize` | AI workflow optimization |
+| Template Test Runner | `/workflows/:workflowId/builder/templates/test/:templateId` | Test a template with sample data |
 
-### Workflow Builder Tabs
-- **Sections Tab** - Manage pages/sections
-- **Templates Tab** - Insert reusable templates
-- **Data Sources Tab** - Configure DataVault connections
-- **Settings Tab** - Workflow properties
-- **Snapshots Tab** - Save/restore test data
+### Projects & Settings
 
-## Workflow Execution
+| Page | Route |
+|------|-------|
+| Project View | `/projects/:id` |
+| Branding Settings | `/projects/:id/settings/branding` |
+| Domain Settings | `/projects/:id/settings/branding/domains` |
+| Email Templates | `/projects/:id/settings/email-templates` (+ `/:templateId` editor) |
+| User Settings | `/settings` |
+| Developer OAuth Apps | `/developer/oauth` |
 
-| Page | Route | Purpose |
-|------|-------|---------|
-| Workflow Runner | `/workflows/:id/run` | Participant completion view |
-| Public Runner | `/w/:slug` | Public workflow access (no login) |
-| Intake Preview | `/workflows/:id/intake` | Branded intake form preview |
-| Runs Dashboard | `/runs` | List all completed/in-progress runs |
-| Run Details | `/runs/:id` | View specific run (trace, inputs, outputs, logs) |
-| Run Comparison | `/runs/compare` | Compare multiple runs side-by-side |
-| Shared Run View | `/share/:token` | Public share view of completed runs |
-
-## DataVault (Data Management)
+### Data
 
 | Page | Route | Purpose |
 |------|-------|---------|
 | DataVault Dashboard | `/datavault` | Home, database overview |
-| Databases | `/datavault/databases` | List/create databases |
-| Database Details | `/datavault/databases/:id` | View tables in database |
-| Database Settings | `/datavault/databases/:id/settings` | Permissions, columns |
-| Tables List | `/datavault/tables` | All tables across projects |
-| Table View | `/datavault/tables/:id` | Data grid with infinite scroll, filtering |
-| Collections | `/datavault/collections` | Legacy data structure (deprecated) |
+| Databases | `/datavault/databases` (+ `/:databaseId`, `/:databaseId/settings`) | Database CRUD, settings |
+| Tables | `/datavault/tables` (+ `/:tableId`) | Data grid with infinite scroll |
+| Collections (legacy) | `/data` (+ `/:id`) | Legacy datastore pages |
 
-## Templates & Marketplace
+### Organizations, Marketplace, Billing, Admin
 
-| Page | Route | Purpose |
-|------|-------|---------|
-| Templates | `/templates` | Browse, create, share templates |
-| Marketplace | `/marketplace` | Discover shared templates |
-| Template Test Runner | `/templates/:id/test` | Test with sample data |
-| Template Upload | `/templates/upload` | Import templates |
+| Page | Route |
+|------|-------|
+| Organizations | `/organizations` (+ `/:id`) |
+| Accept Invite | `/invites/:token/accept` |
+| Marketplace | `/marketplace` |
+| Billing Dashboard | `/billing` |
+| Plans / Pricing | `/billing/plans` |
+| Admin Dashboard | `/admin` |
+| Admin Users / Logs / AI Settings | `/admin/users`, `/admin/logs`, `/admin/ai-settings` |
 
-## Integrations & Settings
+## Removed routes (do not reference)
 
-| Page | Route | Purpose |
-|------|-------|---------|
-| Connections | `/connections` | API connections, OAuth2 setup |
-| Branding Settings | `/branding` | Custom domains, colors, logos |
-| Domain List | `/domains` | Custom domain management |
-| Email Templates | `/email-templates` | Email template editor |
-| Settings | `/settings` | User preferences |
-
-## Portal System
-
-| Page | Route | Purpose |
-|------|-------|---------|
-| Portal Login | `/portal/login` | Magic link authentication |
-| Portal Magic Link | `/portal/verify/:token` | Verify magic link |
-| Portal Dashboard | `/portal/dashboard` | Run history for portal users |
-
-## Teams & Collaboration
-
-| Page | Route | Purpose |
-|------|-------|---------|
-| Teams | `/teams` | Team management, member invitations |
-| Team Details | `/teams/:id` | Team members, permissions |
-| Project Access | `/projects/:id/access` | Project permissions |
-
-## Admin & Enterprise
-
-| Page | Route | Purpose |
-|------|-------|---------|
-| Admin Dashboard | `/admin` | System overview |
-| Admin Users | `/admin/users` | User management |
-| Admin Logs | `/admin/logs` | Audit trail |
-| Billing Dashboard | `/billing` | Subscription management |
-| Pricing Page | `/pricing` | Plan comparison |
+- `/runs`, `/runs/:id`, `/runs/compare` — run dashboard pages removed with the graph-builder/run-tables removal (2026). Run completion is viewed via `/share/:token`.
+- `/teams` — replaced by `/organizations`.
+- `/login` → `/auth/login`; `/pricing` → `/billing/plans`; `/connections`, `/templates`, `/branding`, `/domains`, `/email-templates` as top-level routes no longer exist (settings moved under `/projects/:id/settings/*`).
