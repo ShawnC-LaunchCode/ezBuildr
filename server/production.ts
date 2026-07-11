@@ -1,6 +1,5 @@
 import { applySecurityMiddleware } from "./middleware/securityConfig";
 
-import { db } from "./db";
 import { logger } from "./logger";
 import { errorHandler } from "./middleware/errorHandler";
 import { globalLimiter } from "./middleware/rateLimiting";
@@ -12,6 +11,8 @@ import { log } from "./utils";
 import { sanitizeInputs } from "./utils/sanitize";
 
 import { users } from "@shared/schema";
+import express from "express";
+import dotenv from "dotenv";
 // Load environment variables
 dotenv.config();
 // Diagnostic logging for startup
