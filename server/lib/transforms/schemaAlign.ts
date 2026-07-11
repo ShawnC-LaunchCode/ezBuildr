@@ -112,7 +112,7 @@ export const alignSchema = async (request: SchemaAlignRequest): Promise<SchemaAl
 
         return {
             issues: validationResult.data.issues,
-            missingTransforms: validationResult.data.missingTransforms as TransformBlock[]
+            missingTransforms: validationResult.data.missingTransforms as unknown as TransformBlock[]
         };
     } catch (e) {
         logger.error({ err: e }, "Schema Align Parse Error");

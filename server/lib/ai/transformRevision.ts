@@ -125,7 +125,7 @@ export const reviseTransforms = async (request: RevisionRequest): Promise<Transf
     }
 
     return {
-      updatedTransforms: validationResult.data.transforms as TransformBlock[],
+      updatedTransforms: validationResult.data.transforms as unknown as TransformBlock[],
       diff: validationResult.data.diff as TransformResult["diff"],
       explanation: validationResult.data.explanation ?? []
     };
