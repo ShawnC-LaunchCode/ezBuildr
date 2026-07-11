@@ -63,25 +63,14 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (!isValidRunId) {
         throw new Error('Invalid run ID');
-      // eslint-disable-next-line no-console
       }
-      // eslint-disable-next-line no-console
-      console.log('[FinalDocumentsSection] Triggering document generation for runId:', runId);
       const headers: Record<string, string> = {};
       if (runToken) {
         headers['Authorization'] = `Bearer ${runToken}`;
       }
-      // eslint-disable-next-line no-console
       const response = await axios.post(`/api/runs/${runId}/generate-documents`, {}, { headers });
-      // eslint-disable-next-line no-console
-      console.log('[FinalDocumentsSection] Document generation response:', response.data);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return response.data;
-    },
-    // eslint-disable-next-line no-console
-    onSuccess: (data) => {
-      // eslint-disable-next-line no-console
-      console.log('[FinalDocumentsSection] Document generation succeeded:', data);
     },
     onError: (error) => {
       console.error('[FinalDocumentsSection] Document generation failed:', error);
@@ -89,14 +78,9 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
   });
   // Trigger document generation when component mounts - only if runId is valid
   useEffect(() => {
-    // eslint-disable-next-line no-console
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (isValidRunId) {
-      // eslint-disable-next-line no-console
-      console.log('[FinalDocumentsSection] Mounting with runId:', runId, 'runToken:', runToken ? 'present' : 'missing');
       generateDocsMutation.mutate();
-    } else {
-      console.warn('[FinalDocumentsSection] Invalid runId:', runId);
     }
   }, [runId]); // Only run once when runId changes
   // Fetch generated documents for this run - only if runId is valid
