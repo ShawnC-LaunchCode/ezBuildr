@@ -12,8 +12,13 @@ export class SchemaManager {
 
     // Generate a schema name that is unique to this worker and STABLE across test files
     // Logic: test_schema_w{workerId}
+    //
+    // The _vN suffix is the schema-cache generation. Bumped to _v4 when the
+    // migration chain was compacted into the single 0000_init_baseline.sql that
+    // builds correctly from scratch; the old _v3 schemas predated later
+    // migrations (e.g. datavault ownership columns) and the graph run-table drop.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v3`;
+        return `test_schema_w${this.workerId}_v4`;
     }
 
     /**
