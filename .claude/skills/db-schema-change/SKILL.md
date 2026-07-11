@@ -28,6 +28,17 @@ description: "Use this skill for ANY work involving ezBuildr's Postgres schema, 
 - Schema-qualify as `"public"."table"` or leave unqualified — a hardcoded other schema will break test rewriting.
 - If a past migration drifted, `tests/setup.ts` has a failsafe block (~lines 230-274) of `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` fixes. Only add there as a last resort; fixing the migration is better.
 
+## Tenant-scoped tables need an RLS policy (SEC-051)
+
+If the new/changed table has a direct `tenant_id` column, it must also get a
+`tenant_isolation` Row-Level Security policy. RLS lives in SQL migrations, not the
+Drizzle schema. Copy the pattern in [`migrations/0001_enable_rls.sql`](../../../migrations/0001_enable_rls.sql)
+into a **new** migration (don't edit 0001): add the table name to the array. If the
+table is scoped indirectly (no `tenant_id`, e.g. via a `workflow_id`), it needs a
+join-based policy instead. Full design + the enforcement rollout are in
+[docs/architecture/TENANT_ISOLATION_RLS.md](../../../docs/architecture/TENANT_ISOLATION_RLS.md).
+A tenant table without a policy is a silent cross-tenant leak once RLS is enforced.
+
 ## Enum changes
 
 `stepTypeEnum` and friends are `pgEnum`s (e.g. `shared/schema/workflow.ts:38`). Adding a value needs both the TS enum edit **and** a migration with `ALTER TYPE "step_type" ADD VALUE IF NOT EXISTS 'new_value';`. Postgres can't remove enum values — plan additions carefully.

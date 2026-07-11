@@ -51,7 +51,7 @@ the corrected tickets are numbered **SEC-053..055** to avoid collisions.
 | SEC-046 | ✅ Closed (gate green) | Removed 3 dead deps (jspdf, jspdf-autotable, expr-eval) → critical+1 high gone; remaining 3 = one unreachable OTel advisory, allowlisted → SEC-056 |
 | SEC-047 | ✅ Closed | Magic-byte validation on all 3 upload routes; inline-serving resolved |
 | SEC-049 | ✅ Closed (guard green) | reCAPTCHA call routed through `safeFetch`; no raw `fetch` in `server/` |
-| SEC-051 | 🟡 Helper hardened + tested; adoption/RLS is a pending decision | `withTenant` now fails closed; broad adoption + RLS still needs your call |
+| SEC-051 | 🟢 RLS foundation landed (Phase 1–2); enforcement rollout is staged | Policies defined on 24 tables + pooler-safe runtime context + full docs; enforcement deliberately deferred |
 | SEC-053 | ✅ Closed | Token now carries a keyed hash, not the answer; reCAPTCHA required in prod when configured |
 | SEC-054 | ✅ Closed | `VL_KEYS` multi-key + retired keys + `scripts/rotateMasterKey.ts` |
 | SEC-055 | ✅ Closed | Shared `securityConfig.ts` used by both entrypoints; `securityHeaders.ts` deleted |
@@ -190,21 +190,32 @@ cheapest ways to silently reintroduce a closed vuln class — a bare `fetch(user
 
 ## SEC-051 — Tenant isolation enforced only at the service layer; no DB-level defense in depth — P3
 
-> **STATUS 2026-07-11 — 🟡 mechanism hardened + tested; adoption/RLS is a pending
-> decision.** The `withTenant` helper ([server/repositories/tenantWrapper.ts](../../server/repositories/tenantWrapper.ts))
-> now fails closed — it throws on a missing `tenantId` column and on an empty/blank
-> `tenantId` (which would otherwise match every row) — and is covered by
-> [tests/integration/tenant-isolation.test.ts](../../tests/integration/tenant-isolation.test.ts)
-> (4 passing) that verify the compiled SQL actually contains the `tenant_id`
-> predicate. **Not yet decided:** (a) the helper only applies to tables with a
-> literal `tenantId` column — core tables like `workflow_runs` are scoped
-> *indirectly* (via workflow/project) and the helper correctly refuses them, so it
-> is a partial tool; (b) it is not yet adopted in repository code (adopting it in
-> ~9 repos is a mechanical but untested change best done with the integration DB);
-> (c) Postgres RLS remains the only *structural* backstop. Recommendation: either
-> accept the risk (service-layer scoping is already consistent per the data-layer
-> audit) and close, or schedule RLS as its own project — this is a decision for the
-> owner, not something to mass-refactor blind.
+> **STATUS 2026-07-11 — 🟢 RLS foundation landed (Phase 1–2); enforcement staged.**
+> Chose to build out Postgres RLS (the structural backstop). Delivered:
+> - **Phase 1 — policies:** [migrations/0001_enable_rls.sql](../../migrations/0001_enable_rls.sql)
+>   enables RLS + a `tenant_isolation` policy on all 24 direct-`tenant_id` tables.
+>   Verified against a fresh Docker DB: 23 policies created, `files` correctly
+>   skipped (that table isn't in the baseline — a separate drift, flagged). Safe /
+>   non-breaking: the app connects as table owner and CI as superuser, both of
+>   which bypass RLS until it is FORCEd.
+> - **Phase 2 — runtime context:** [server/utils/rlsContext.ts](../../server/utils/rlsContext.ts)
+>   sets the tenant GUC with **transaction-scoped** `set_config(...,true)` (never
+>   session-level `SET`, which would leak across pooled connections), plus
+>   [middleware/rlsContext.ts](../../server/middleware/rlsContext.ts) and an
+>   `RLS_ENFORCED` flag (default off). Proven by
+>   [tests/integration/rls-context.test.ts](../../tests/integration/rls-context.test.ts)
+>   (GUC is transaction-local, doesn't leak, fails closed on empty).
+> - **The `withTenant` app-layer helper** ([tenantWrapper.ts](../../server/repositories/tenantWrapper.ts))
+>   remains as defense in depth (fails closed; 4 tests).
+> - **Docs:** [TENANT_ISOLATION_RLS.md](../architecture/TENANT_ISOLATION_RLS.md)
+>   (design + pooling hazard + rollout runbook + manual verification), threat-model
+>   §7, SCHEMA.md, the db-schema-change skill, CLAUDE.md, and `.env.example`.
+>
+> **Deliberately deferred (needs owner/infra decisions, not blind changes):**
+> Phase 3 enforcement (FORCE mode or a non-owner role + set `RLS_ENFORCED=true`,
+> after migrating repository queries to `withTenant`), and Phase 4 join-based
+> policies for indirectly-scoped tables (`workflow_runs`, `step_values`,
+> `datavault_rows`, `secrets`, ...). Runbook in the RLS doc.
 
 **Files:** repository layer (`server/repositories/*`); no RLS in `migrations/`.
 

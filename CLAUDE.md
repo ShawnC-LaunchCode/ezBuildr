@@ -227,6 +227,7 @@ npm run db:migrate       # Run SQL migrations (see db-schema-change skill first)
 4. **Two-Tier Visibility:** workflow logic rules + step-level `visibleIf` expressions
 5. **Sandboxed Execution:** JS (vm2/vm) + Python (subprocess) with timeouts; vm2/isolated-vm are optional deps and may be missing locally
 6. **Secrets:** AES-256-GCM encrypted, accessed via the secrets service only; outbound HTTP to user URLs goes through `safeFetch`
+7. **Tenant Isolation:** service-layer `tenant_id` scoping, plus the `withTenant` helper and staged Postgres RLS (`migrations/0001_enable_rls.sql`, defined not-yet-enforced). New tenant tables need an RLS policy; never set the tenant GUC session-level — see `docs/architecture/TENANT_ISOLATION_RLS.md` (SEC-051)
 
 ---
 
