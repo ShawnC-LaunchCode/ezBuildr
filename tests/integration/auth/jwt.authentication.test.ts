@@ -370,10 +370,11 @@ describe.sequential("JWT Authentication Integration Tests", () => {
         it("should allow anonymous access to public workflows", async () => {
             // Create a workflow
             const workflowRes = await request(ctx.baseURL)
-                .post(`/api/projects/${ctx.projectId}/workflows`)
+                .post(`/api/workflows`)
                 .set("Authorization", `Bearer ${ctx.authToken}`)
                 .send({
-                    name: "Public Test Workflow",
+                    title: "Public Test Workflow",
+                    projectId: ctx.projectId,
                 })
                 .expect(201);
             // Manually set isPublic=true in DB
@@ -396,10 +397,11 @@ describe.sequential("JWT Authentication Integration Tests", () => {
         it("should attach user info if authenticated on optional auth routes", async () => {
             // Create workflow
             const workflowRes = await request(ctx.baseURL)
-                .post(`/api/projects/${ctx.projectId}/workflows`)
+                .post(`/api/workflows`)
                 .set("Authorization", `Bearer ${ctx.authToken}`)
                 .send({
-                    name: "Optional Auth Test",
+                    title: "Optional Auth Test",
+                    projectId: ctx.projectId,
                 })
                 .expect(201);
             // Manually set isPublic

@@ -12,7 +12,6 @@ import aiOptimizationRouter from "./api.ai.optimization.routes";
 import aiPersonalizationRouter from "./api.ai.personalization.routes";
 import aiTransformRouter from "./api.ai.transform.routes";
 import { registerApiTemplateRoutes } from "./api.templates.routes";
-import { registerApiWorkflowRoutes } from "./api.workflows.routes";
 import { registerAuthRoutes } from "./auth.routes";
 import { registerBillingRoutes } from "./billing.routes";
 import { registerBlockRoutes } from "./blocks.routes";
@@ -108,15 +107,14 @@ export function registerAllRoutes(app: Express): void {
   // AI Workflow Editing (Stage 22)
   registerAiWorkflowEditRoutes(app);
 
-  // Legacy Workflow Routes (MUST come before new API routes to avoid shadowing)
+  // Workflow (section/form builder) routes
   registerWorkflowRoutes(app);
   registerSectionRoutes(app);
   registerStepRoutes(app);
   registerBlockRoutes(app);
   registerTransformBlockRoutes(app);
 
-  // REST API Endpoints (New graph-based workflow system)
-  registerApiWorkflowRoutes(app);
+  // REST API Endpoints
   registerApiTemplateRoutes(app);
 
   // Authentication & Core

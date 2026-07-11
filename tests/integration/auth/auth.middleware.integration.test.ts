@@ -258,10 +258,11 @@ describe.sequential("Auth Middleware Integration Tests", () => {
             const publicLink = `hybrid-jwt-${nanoid()}`;
             // Create workflow to get valid ID
             const workflowRes = await request(ctx.baseURL)
-                .post(`/api/projects/${ctx.projectId}/workflows`)
+                .post(`/api/workflows`)
                 .set("Authorization", `Bearer ${ctx.authToken}`)
                 .send({
-                    name: "Hybrid Optional JWT",
+                    title: "Hybrid Optional JWT",
+                    projectId: ctx.projectId,
                 })
                 .expect(201);
 
@@ -286,10 +287,11 @@ describe.sequential("Auth Middleware Integration Tests", () => {
         it("should authenticate with cookie if JWT not provided", async () => {
             const publicLink = `hybrid-cookie-${nanoid()}`;
             const workflowRes = await request(ctx.baseURL)
-                .post(`/api/projects/${ctx.projectId}/workflows`)
+                .post(`/api/workflows`)
                 .set("Authorization", `Bearer ${ctx.authToken}`)
                 .send({
-                    name: "Hybrid Optional Cookie",
+                    title: "Hybrid Optional Cookie",
+                    projectId: ctx.projectId,
                 })
                 .expect(201);
 
@@ -312,10 +314,11 @@ describe.sequential("Auth Middleware Integration Tests", () => {
         it("should proceed anonymously if no auth provided", async () => {
             const publicLink = `hybrid-anon-${nanoid()}`;
             const workflowRes = await request(ctx.baseURL)
-                .post(`/api/projects/${ctx.projectId}/workflows`)
+                .post(`/api/workflows`)
                 .set("Authorization", `Bearer ${ctx.authToken}`)
                 .send({
-                    name: "Hybrid Optional Anonymous",
+                    title: "Hybrid Optional Anonymous",
+                    projectId: ctx.projectId,
                 })
                 .expect(201);
 
@@ -337,10 +340,11 @@ describe.sequential("Auth Middleware Integration Tests", () => {
         it("should proceed anonymously if both JWT and cookie are invalid", async () => {
             const publicLink = `hybrid-invalid-${nanoid()}`;
             const workflowRes = await request(ctx.baseURL)
-                .post(`/api/projects/${ctx.projectId}/workflows`)
+                .post(`/api/workflows`)
                 .set("Authorization", `Bearer ${ctx.authToken}`)
                 .send({
-                    name: "Hybrid Optional Invalid",
+                    title: "Hybrid Optional Invalid",
+                    projectId: ctx.projectId,
                 })
                 .expect(201);
 

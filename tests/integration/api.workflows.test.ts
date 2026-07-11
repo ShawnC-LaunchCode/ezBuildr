@@ -1,37 +1,24 @@
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import request from "supertest";
-import { describe, it, expect, beforeAll, afterAll, beforeEach , vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
 
 import * as schema from "@shared/schema";
-
-// Local mock to fix constructor error - use vi.fn() so tests can use mockImplementationOnce
-vi.mock('@google/generative-ai', () => {
-  const MockGoogleGenerativeAI = vi.fn().mockImplementation(() => ({
-    getGenerativeModel: vi.fn().mockReturnValue({
-      generateContent: vi.fn().mockResolvedValue({
-        response: { text: () => JSON.stringify({}) }
-      })
-    })
-  }));
-  return { GoogleGenerativeAI: MockGoogleGenerativeAI };
-});
 
 import { db } from "../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
 
 
-
-
-
 /**
- * Workflows API Integration Tests
+ * Workflow Move API Integration Tests
  *
- * Refactored to use integrationTestHelper for consistent setup/teardown
- * Using describe.sequential because tests share project/tenant setup
+ * Covers PUT /api/workflows/:id/move (section workflow relocation between
+ * projects / Main Folder, with ownership and access checks).
+ *
+ * Uses describe.sequential because tests share project/tenant setup.
  */
-describe.sequential("Workflows API Integration Tests", () => {
+describe.sequential("Workflow Move API Integration Tests", () => {
   let ctx: IntegrationTestContext;
 
   beforeAll(async () => {
@@ -48,189 +35,6 @@ describe.sequential("Workflows API Integration Tests", () => {
     await ctx.cleanup();
   });
 
-  describe("POST /api/projects/:ctx.projectId/workflows", () => {
-    it("should create a new draft workflow", async () => {
-      const response = await request(ctx.baseURL)
-        .post(`/api/projects/${ctx.projectId}/workflows`)
-        .set("Authorization", `Bearer ${ctx.authToken}`)
-        .send({
-          name: "Test Workflow",
-          graphJson: { nodes: [], edges: [] },
-        })
-        .expect(201);
-
-      expect(response.body).toHaveProperty("id");
-      expect(response.body).toHaveProperty("name", "Test Workflow");
-      expect(response.body).toHaveProperty("status", "draft");
-      expect(response.body).toHaveProperty("currentVersion");
-      expect(response.body.currentVersion).toHaveProperty("published", false);
-    });
-
-    it("should reject without permission", async () => {
-      // Create viewer user
-      const viewerEmail = `viewer-${nanoid()}@example.com`;
-      const viewerResponse = await request(ctx.baseURL)
-        .post("/api/auth/register")
-        .send({ email: viewerEmail, password: "StrongTestPassword123!" })
-        .expect(201);
-
-      await db.update(schema.users)
-        .set({ tenantId: ctx.tenantId, tenantRole: "viewer" })
-        .where(eq(schema.users.id, viewerResponse.body.user.id));
-
-      await request(ctx.baseURL)
-        .post(`/api/projects/${ctx.projectId}/workflows`)
-        .set("Authorization", `Bearer ${viewerResponse.body.token}`)
-        .send({ name: "Test Workflow" })
-        .expect(403);
-    });
-  });
-
-  describe("GET /api/projects/:ctx.projectId/workflows", () => {
-    beforeEach(async () => {
-      await request(ctx.baseURL)
-        .post(`/api/projects/${ctx.projectId}/workflows`)
-        .set("Authorization", `Bearer ${ctx.authToken}`)
-        .send({ name: `List Test ${nanoid()}` });
-    });
-
-    it("should list workflows", async () => {
-      const response = await request(ctx.baseURL)
-        .get(`/api/projects/${ctx.projectId}/workflows`)
-        .set("Authorization", `Bearer ${ctx.authToken}`)
-        .expect(200);
-
-      expect(response.body).toHaveProperty("items");
-      expect(Array.isArray(response.body.items)).toBe(true);
-      expect(response.body.items.length).toBeGreaterThan(0);
-    });
-
-    it("should filter by status", async () => {
-      const response = await request(ctx.baseURL)
-        .get(`/api/projects/${ctx.projectId}/workflows?status=draft`)
-        .set("Authorization", `Bearer ${ctx.authToken}`)
-        .expect(200);
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expect(response.body.items.every((w: any) => w.status === "draft")).toBe(true);
-    });
-
-    it("should search by name", async () => {
-      const uniqueName = `SearchTest-${nanoid()}`;
-      await request(ctx.baseURL)
-        .post(`/api/projects/${ctx.projectId}/workflows`)
-        .set("Authorization", `Bearer ${ctx.authToken}`)
-        .send({ name: uniqueName });
-
-      const response = await request(ctx.baseURL)
-        .get(`/api/projects/${ctx.projectId}/workflows?q=${uniqueName}`)
-        .set("Authorization", `Bearer ${ctx.authToken}`)
-        .expect(200);
-
-      expect(response.body.items.length).toBeGreaterThan(0);
-    });
-  });
-
-  describe("PATCH /api/workflows/:id", () => {
-    let workflowId: string;
-
-    beforeEach(async () => {
-      const response = await request(ctx.baseURL)
-        .post(`/api/projects/${ctx.projectId}/workflows`)
-        .set("Authorization", `Bearer ${ctx.authToken}`)
-        .send({
-          name: "Edit Test",
-          graphJson: { nodes: [], edges: [] }
-        });
-      workflowId = response.body.id;
-    });
-
-    it("should update draft workflow", async () => {
-      const response = await request(ctx.baseURL)
-        .patch(`/api/workflows/${workflowId}`)
-        .set("Authorization", `Bearer ${ctx.authToken}`)
-        .send({ name: "Updated Name" })
-        .expect(200);
-
-      expect(response.body).toHaveProperty("name", "Updated Name");
-    });
-
-    it("should not allow editing published workflow", async () => {
-      // Publish workflow first
-      await request(ctx.baseURL)
-        .post(`/api/workflows/${workflowId}/publish`)
-        .set("Authorization", `Bearer ${ctx.authToken}`)
-        .send({})
-        .expect(200);
-
-      // Try to edit
-      await request(ctx.baseURL)
-        .patch(`/api/workflows/${workflowId}`)
-        .set("Authorization", `Bearer ${ctx.authToken}`)
-        .send({ name: "Should Fail" })
-        .expect(400);
-    });
-  });
-
-  describe("POST /api/workflows/:id/publish", () => {
-    let workflowId: string;
-
-    beforeEach(async () => {
-      const response = await request(ctx.baseURL)
-        .post(`/api/projects/${ctx.projectId}/workflows`)
-        .set("Authorization", `Bearer ${ctx.authToken}`)
-        .send({
-          name: "Publish Test",
-          graphJson: { nodes: [], edges: [] }
-        });
-      workflowId = response.body.id;
-    });
-
-    it("should publish workflow", async () => {
-      const response = await request(ctx.baseURL)
-        .post(`/api/workflows/${workflowId}/publish`)
-        .set("Authorization", `Bearer ${ctx.authToken}`)
-        .send({})
-        .expect(200);
-
-      expect(response.body).toHaveProperty("status", "active");
-      expect(response.body.currentVersion).toHaveProperty("published", true);
-      expect(response.body.currentVersion).toHaveProperty("publishedAt");
-    });
-  });
-
-  describe("GET /api/workflows/:id/versions", () => {
-    let workflowId: string;
-
-    beforeEach(async () => {
-      const response = await request(ctx.baseURL)
-        .post(`/api/projects/${ctx.projectId}/workflows`)
-        .set("Authorization", `Bearer ${ctx.authToken}`)
-        .send({
-          name: "Versions Test",
-          graphJson: { nodes: [], edges: [] }
-        });
-      workflowId = response.body.id;
-
-      // Publish to create a version
-      await request(ctx.baseURL)
-        .post(`/api/workflows/${workflowId}/publish`)
-        .set("Authorization", `Bearer ${ctx.authToken}`)
-        .send({});
-    });
-
-    it("should list workflow versions", async () => {
-      const response = await request(ctx.baseURL)
-        .get(`/api/workflows/${workflowId}/versions`)
-        .set("Authorization", `Bearer ${ctx.authToken}`)
-        .expect(200);
-
-      expect(response.body).toHaveProperty("items");
-      expect(response.body.items.length).toBeGreaterThan(0);
-      expect(response.body.items[0]).toHaveProperty("published", true);
-    });
-  });
-
   describe("PUT /api/workflows/:id/move", () => {
     let workflowId: string;
     let targetProjectId: string;
@@ -238,11 +42,11 @@ describe.sequential("Workflows API Integration Tests", () => {
     beforeEach(async () => {
       // Create a workflow in the test project
       const workflowResponse = await request(ctx.baseURL)
-        .post(`/api/projects/${ctx.projectId}/workflows`)
+        .post(`/api/workflows`)
         .set("Authorization", `Bearer ${ctx.authToken}`)
         .send({
-          name: "Move Test Workflow",
-          graphJson: { nodes: [], edges: [] },
+          title: "Move Test Workflow",
+          projectId: ctx.projectId,
         });
 
       if (workflowResponse.status !== 201) {
@@ -437,9 +241,6 @@ describe.sequential("Workflows API Integration Tests", () => {
       const user2ProjectId = projectResponse2.body.id;
 
       // Try to move user 1's workflow to user 2's project
-      // if (!ctx.authToken) throw new Error("CTX AUTH TOKEN IS MISSING");
-      // throw new Error(`DEBUG TEST TOKEN VALUE: ${ctx.authToken.substring(0, 20)}...`);
-
       const response = await request(ctx.baseURL)
         .put(`/api/workflows/${workflowId}/move`)
         .set("Authorization", `Bearer ${ctx.authToken}`)

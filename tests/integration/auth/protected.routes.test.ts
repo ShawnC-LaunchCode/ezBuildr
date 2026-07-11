@@ -194,22 +194,22 @@ describe.sequential("Protected Routes Integration Tests", () => {
     describe("PATCH Protected Routes", () => {
         it("should allow PATCH with valid Bearer token", async () => {
             const workflowRes = await request(ctx.baseURL)
-                .post(`/api/projects/${ctx.projectId}/workflows`)
+                .post(`/api/workflows`)
                 .set("Authorization", `Bearer ${ctx.authToken}`)
-                .send({ name: "PATCH Test Workflow" })
+                .send({ title: "PATCH Test Workflow", projectId: ctx.projectId })
                 .expect(201);
 
             await request(ctx.baseURL)
-                .patch(`/api/workflows/${workflowRes.body.id}`)
+                .put(`/api/workflows/${workflowRes.body.id}`)
                 .set("Authorization", `Bearer ${ctx.authToken}`)
-                .send({ name: "Updated Name" })
+                .send({ title: "Updated Name" })
                 .expect(200);
         });
 
-        it("should reject PATCH without Bearer token", async () => {
+        it("should reject update without Bearer token", async () => {
             await request(ctx.baseURL)
-                .patch("/api/workflows/some-id")
-                .send({ name: "Updated" })
+                .put("/api/workflows/some-id")
+                .send({ title: "Updated" })
                 .expect(401);
         });
     });
@@ -492,11 +492,11 @@ describe.sequential("Protected Routes Integration Tests", () => {
             // Create public workflow
             const slug = `public-${nanoid()}`;
             const workflowRes = await request(ctx.baseURL)
-                .post(`/api/projects/${ctx.projectId}/workflows`)
+                .post(`/api/workflows`)
                 .set("Authorization", `Bearer ${ctx.authToken}`)
                 .send({
-                    name: "Public Workflow",
-                    slug: slug, // Set slug for intake access
+                    title: "Public Workflow",
+                    projectId: ctx.projectId,
                 })
                 .expect(201);
 
@@ -529,11 +529,11 @@ describe.sequential("Protected Routes Integration Tests", () => {
         it("should enhance optional auth routes with user context when authenticated", async () => {
             const slug = `optional-${nanoid()}`;
             const workflowRes = await request(ctx.baseURL)
-                .post(`/api/projects/${ctx.projectId}/workflows`)
+                .post(`/api/workflows`)
                 .set("Authorization", `Bearer ${ctx.authToken}`)
                 .send({
-                    name: "Optional Auth Workflow",
-                    slug: slug,
+                    title: "Optional Auth Workflow",
+                    projectId: ctx.projectId,
                 })
                 .expect(201);
 

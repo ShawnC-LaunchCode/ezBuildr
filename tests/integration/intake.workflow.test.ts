@@ -24,11 +24,11 @@ describe.sequential("Intake Workflow Integration Tests", () => {
     it("should allow designating a workflow as Intake", async () => {
         // 1. Create a workflow
         const createRes = await request(ctx.baseURL)
-            .post(`/api/projects/${ctx.projectId}/workflows`)
+            .post(`/api/workflows`)
             .set("Authorization", `Bearer ${ctx.authToken}`)
             .send({
-                name: "Client Intake Form",
-                graphJson: { nodes: [], edges: [] },
+                title: "Client Intake Form",
+                projectId: ctx.projectId,
             })
             .expect(201);
 
@@ -36,7 +36,7 @@ describe.sequential("Intake Workflow Integration Tests", () => {
 
         // 2. Update it to be an Intake workflow
         const updateRes = await request(ctx.baseURL)
-            .patch(`/api/workflows/${workflowId}`)
+            .put(`/api/workflows/${workflowId}`)
             .set("Authorization", `Bearer ${ctx.authToken}`)
             .send({
                 intakeConfig: {
@@ -68,26 +68,26 @@ describe.sequential("Intake Workflow Integration Tests", () => {
     it("should allow linking a downstream workflow to an intake workflow", async () => {
         // 1. Create Intake Workflow (reusing logic or creating new)
         const intakeRes = await request(ctx.baseURL)
-            .post(`/api/projects/${ctx.projectId}/workflows`)
+            .post(`/api/workflows`)
             .set("Authorization", `Bearer ${ctx.authToken}`)
-            .send({ name: "Upstream Intake" })
+            .send({ title: "Upstream Intake", projectId: ctx.projectId })
             .expect(201);
 
         await request(ctx.baseURL)
-            .patch(`/api/workflows/${intakeRes.body.id}`)
+            .put(`/api/workflows/${intakeRes.body.id}`)
             .set("Authorization", `Bearer ${ctx.authToken}`)
             .send({ intakeConfig: { isIntake: true } });
 
         // 2. Create Downstream Workflow
         const downstreamRes = await request(ctx.baseURL)
-            .post(`/api/projects/${ctx.projectId}/workflows`)
+            .post(`/api/workflows`)
             .set("Authorization", `Bearer ${ctx.authToken}`)
-            .send({ name: "Downstream Agreement" })
+            .send({ title: "Downstream Agreement", projectId: ctx.projectId })
             .expect(201);
 
         // 3. Link Downstream to Intake
         const updateRes = await request(ctx.baseURL)
-            .patch(`/api/workflows/${downstreamRes.body.id}`)
+            .put(`/api/workflows/${downstreamRes.body.id}`)
             .set("Authorization", `Bearer ${ctx.authToken}`)
             .send({
                 intakeConfig: {
