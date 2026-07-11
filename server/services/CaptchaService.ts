@@ -1,6 +1,7 @@
 import crypto from "crypto";
 
 import { createLogger } from "../logger";
+import { safeFetch } from "../utils/safeFetch";
 
 import type { CaptchaChallenge, CaptchaResponse } from "../../shared/types/intake.js";
 
@@ -121,7 +122,10 @@ export class CaptchaService {
     }
 
     try {
-      const response = await fetch("https://www.google.com/recaptcha/api/siteverify", {
+      // Routed through safeFetch (not raw fetch) to satisfy the SSRF guard and keep
+      // all outbound server HTTP on one hardened path, even though the URL is a
+      // hardcoded Google endpoint rather than user input.
+      const response = await safeFetch("https://www.google.com/recaptcha/api/siteverify", {
         method: "POST",
         headers: {
           // eslint-disable-next-line @typescript-eslint/naming-convention -- standard HTTP header name

@@ -1,0 +1,13 @@
+{
+  "$comment": "Advisories accepted with justification for the CI dependency gate (SEC-046). Each entry MUST have a reason and an owner-reviewed expiry. Anything NOT listed here, at high/critical severity, fails the build. Review on or before each expiry.",
+  "allow": [
+    {
+      "ghsa": "GHSA-q7rr-3cgh-j5r3",
+      "package": "@opentelemetry/exporter-prometheus (via sdk-node, auto-instrumentations-node)",
+      "severity": "high",
+      "reason": "Advisory is a crash in the Prometheus exporter's own HTTP server. This app constructs PrometheusExporter with preventServerStart:true (server/observability/telemetry.ts), so that HTTP server is never started and the vulnerable code path is not reachable. Only patched by a breaking-major OTel upgrade.",
+      "followUp": "SEC-056 — upgrade OpenTelemetry to a patched line and drop this exception",
+      "expires": "2026-10-11"
+    }
+  ]
+}

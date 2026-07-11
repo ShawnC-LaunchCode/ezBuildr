@@ -63,7 +63,9 @@ jobs:
       run: npm ci
 
     - name: Dependency Scanning
-      run: npm audit --omit=dev --audit-level=high
+      # Fails on any high/critical advisory not documented in .audit-allowlist.json
+      # (see SEC-046). Allowlisted entries are justified + expiring, not blanket ignores.
+      run: node scripts/ci/audit-check.mjs
 
     - name: SSRF Guard (Block raw fetch in server)
       run: |

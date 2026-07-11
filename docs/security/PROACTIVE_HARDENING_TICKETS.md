@@ -44,6 +44,18 @@ replaces the withdrawn SEC-052 and is the single most important item here.
 Numbers `SEC-048` and `SEC-050` are already used in the codebase for other work, so
 the corrected tickets are numbered **SEC-053..055** to avoid collisions.
 
+## Completion status (re-checked 2026-07-11, after concurrent fixes landed)
+
+| ID | Status | Note |
+|---|---|---|
+| SEC-046 | ✅ Closed (gate green) | Removed 3 dead deps (jspdf, jspdf-autotable, expr-eval) → critical+1 high gone; remaining 3 = one unreachable OTel advisory, allowlisted → SEC-056 |
+| SEC-047 | ✅ Closed | Magic-byte validation on all 3 upload routes; inline-serving resolved |
+| SEC-049 | ✅ Closed (guard green) | reCAPTCHA call routed through `safeFetch`; no raw `fetch` in `server/` |
+| SEC-051 | 🔴 Not started | Architectural; likely a deliberate accept-risk decision |
+| SEC-053 | 🟡 Half done — **new answer-leak bug** | Store now stateless (good); but the "simple" token base64-embeds the answer |
+| SEC-054 | ✅ Closed | `VL_KEYS` multi-key + retired keys + `scripts/rotateMasterKey.ts` |
+| SEC-055 | ✅ Closed | Shared `securityConfig.ts` used by both entrypoints; `securityHeaders.ts` deleted |
+
 ## What was checked and is already solid (no ticket)
 
 - **Auth lifecycle** — 15-min HS256 access tokens (alg-pinned); refresh-token
@@ -73,6 +85,17 @@ the corrected tickets are numbered **SEC-053..055** to avoid collisions.
 
 ## SEC-046 — Production dependency CVEs unremediated; no dependency/secret scanning in CI — P1
 
+> **STATUS 2026-07-11 — ✅ CLOSED (gate now green).** Resolved by removing three
+> **unused** direct deps — `jspdf`, `jspdf-autotable` (app uses `pdf-lib`), and
+> `expr-eval` (imported nowhere) — which cleared the jspdf **critical** (path
+> traversal) and the expr-eval **high** (prototype pollution) at the root rather
+> than by allowlisting. The remaining 3 highs all trace to a single advisory
+> (GHSA-q7rr-3cgh-j5r3, Prometheus-exporter HTTP crash) that is **not reachable**
+> here because `telemetry.ts` sets `preventServerStart: true`; it is documented in
+> [.audit-allowlist.json](../../.audit-allowlist.json) with an expiry and a follow-up
+> (**SEC-056**). The CI step now runs [scripts/ci/audit-check.mjs](../../scripts/ci/audit-check.mjs),
+> which fails on any high/critical **not** in that allowlist (so new vulns still block).
+
 **Evidence:**
 - `npm audit --omit=dev` reports **95 production vulnerabilities: 4 critical, 16
   high, 75 moderate**, concentrated in `@aws-sdk/*`, `@opentelemetry/*`, `@grpc/grpc-js`.
@@ -92,6 +115,14 @@ the corrected tickets are numbered **SEC-053..055** to avoid collisions.
 ---
 
 ## SEC-047 — File uploads accepted on extension only; content is not sniffed, and virus scanning is off by default — P2 *(rewritten)*
+
+> **STATUS 2026-07-11 — ✅ CLOSED.** `validateMagicBytes` now runs on all three
+> live upload routes (`intake.routes.ts:305`, `ai.doc.routes.ts:164,209`,
+> `templates.routes.ts:243,395`), rejecting extension/content mismatch. The
+> `finalBlock.routes.ts` inline `sendFile` is gone. Residuals folded into SEC-020:
+> `ENABLE_VIRUS_SCANNING` defaults off (content is validated but not AV-scanned
+> unless enabled in prod), and the unused `fileService.ts` multer `upload` can be
+> deleted as cleanup.
 
 **Files:** [server/routes/intake.routes.ts:21-36,311](../../server/routes/intake.routes.ts),
 [server/routes/ai.doc.routes.ts:45](../../server/routes/ai.doc.routes.ts),
@@ -130,6 +161,13 @@ validated at all — only its claimed extension. The earlier draft mis-cited
 
 ## SEC-049 — CI security gates are advisory; no guardrail against `fetch`/SSRF regressions — P2
 
+> **STATUS 2026-07-11 — ✅ CLOSED (guard now green).** The reCAPTCHA call in
+> `CaptchaService.ts` was routed through `safeFetch` instead of raw `fetch`, so the
+> SSRF Guard grep finds no raw `fetch(` in `server/` and the build passes. The gate
+> mechanism (CI grep + `no-restricted-globals` ESLint rule + blocking
+> `check:strict-zones`) is otherwise unchanged. Note: full-project lint remains
+> advisory by design (documented tsc/eslint debt); only strict zones block.
+
 **Files:** [.github/workflows/ci.yml:17-36](../../.github/workflows/ci.yml),
 [docs/architecture/SECURITY_THREAT_MODEL.md §1](../architecture/SECURITY_THREAT_MODEL.md),
 [SEC-034_typecheck-and-ci-trust.md](../../SEC-034_typecheck-and-ci-trust.md)
@@ -152,6 +190,11 @@ cheapest ways to silently reintroduce a closed vuln class — a bare `fetch(user
 
 ## SEC-051 — Tenant isolation enforced only at the service layer; no DB-level defense in depth — P3
 
+> **STATUS 2026-07-11 — 🔴 not started.** No RLS, no `app.tenant_id`, no repository
+> query-guard wrapper. This is the largest-scope item and may be a deliberate
+> accept-risk (service-layer scoping is already consistent). Needs a decision, not
+> necessarily an implementation.
+
 **Files:** repository layer (`server/repositories/*`); no RLS in `migrations/`.
 
 **Problem:** Cross-tenant isolation depends entirely on every query carrying the right
@@ -170,6 +213,16 @@ structural backstop, so one omitted predicate is a silent cross-tenant read/writ
 ---
 
 ## SEC-053 — CAPTCHA challenge is trivially solvable and uses a non-shared in-memory store — P3 *(new; refines existing SEC-048)*
+
+> **STATUS 2026-07-11 — 🟡 half done; a new bug was introduced.** The in-memory
+> `Map` was replaced with a stateless HMAC-signed token (fixes the multi-instance
+> problem ✅) and a reCAPTCHA option was added ✅. **New problem:** the "simple"
+> token's payload is `base64url(JSON.stringify({ answer, expiresAt }))` — the answer
+> is not encrypted, just signed ([CaptchaService.ts:35](../../server/services/CaptchaService.ts)).
+> A bot receives the token, base64-decodes it, reads `answer`, and submits it — the
+> challenge is now *more* trivially bypassable than the math puzzle was. Open items:
+> (a) don't put the answer in the token (keep it server-side, or encrypt it); (b)
+> require reCAPTCHA/Turnstile in production and treat "simple" as dev-only.
 
 **Files:** [server/services/CaptchaService.ts:26,32-58](../../server/services/CaptchaService.ts),
 [server/routes/auth.routes.ts:280-303](../../server/routes/auth.routes.ts)
@@ -196,6 +249,14 @@ bypassable by retrying until a request lands on the minting instance.
 
 ## SEC-054 — Encryption is versioned but single-key; no retired-key set / online rotation path — P3 *(new; refines existing SEC-050)*
 
+> **STATUS 2026-07-11 — ✅ CLOSED.** `encrypt()` selects the highest version from a
+> `VL_KEYS` map ([encryption.ts:97-101](../../server/utils/encryption.ts)); `decrypt()`
+> tries the versioned key, then `VL_MASTER_KEY`, then `VL_RETIRED_KEYS`
+> ([encryption.ts:136-187](../../server/utils/encryption.ts)); and
+> `scripts/rotateMasterKey.ts` provides the batched re-encrypt path. Suggest adding a
+> unit test that data written under v1 still decrypts after v2 becomes primary, if not
+> already present.
+
 **Files:** [server/utils/encryption.ts:18-46,73](../../server/utils/encryption.ts)
 
 **Problem:** SEC-050 added a `v1.` version prefix (good — the format is now
@@ -215,6 +276,15 @@ the rotation mechanism is the missing half.
 ---
 
 ## SEC-055 — Production security middleware has drifted from dev; prod serves without the reviewed CSP — P1 *(new; replaces withdrawn SEC-052)*
+
+> **STATUS 2026-07-11 — ✅ CLOSED.** A shared `server/middleware/securityConfig.ts`
+> (`applySecurityMiddleware`) now applies helmet+CSP, CORS, and body limits, and is
+> called by **both** `production.ts:38` and `index.ts:31` — no more drift. The prod
+> CSP includes the Google/font/websocket origins the app needs; `securityHeaders.ts`
+> (the dead third copy) was deleted; body limits reconciled to 10 MB in both.
+> Remaining (low priority, not blocking): add the automated header-assertion test
+> against the prod build, and move the hardcoded admin-email promotion
+> ([production.ts:156](../../server/production.ts)) out of source.
 
 **Files:** [server/production.ts:43-60,109-110](../../server/production.ts) (prod entry),
 [server/index.ts:38-74,131-133](../../server/index.ts) (dev entry),
@@ -249,6 +319,29 @@ hardcodes an admin-role promotion for a specific email
       and asserts CSP + HSTS + frameguard present with the expected directives.
 - [ ] (Related, low priority) move the hardcoded admin-email promotion out of source
       into config/seed.
+
+---
+
+## SEC-056 — Upgrade OpenTelemetry off the vulnerable line and drop the audit exception — P3 *(new; follow-up to SEC-046)*
+
+**Files:** [package.json](../../package.json) (`@opentelemetry/*`),
+[server/observability/telemetry.ts](../../server/observability/telemetry.ts),
+[.audit-allowlist.json](../../.audit-allowlist.json)
+
+**Problem:** Three high advisories collapse to GHSA-q7rr-3cgh-j5r3 (Prometheus
+exporter HTTP-server crash). It is currently **not reachable** — the exporter is
+built with `preventServerStart: true`, so its HTTP server never runs — and is
+therefore allowlisted for the CI audit gate. The only patch is a breaking-major
+OpenTelemetry upgrade (`auto-instrumentations-node` 0.50→0.78+, `sdk-node` /
+`exporter-prometheus` 0.53→0.220+), which needs a boot/telemetry smoke-test.
+
+**Acceptance criteria:**
+- [ ] Upgrade `@opentelemetry/{auto-instrumentations-node,sdk-node,exporter-prometheus}`
+      (and `@opentelemetry/api` as needed) to a line where GHSA-q7rr-3cgh-j5r3 is fixed.
+- [ ] `telemetry.ts` still compiles and `initTelemetry()` starts cleanly with
+      `ENABLE_TELEMETRY=true` (metrics/traces still emit).
+- [ ] Remove the GHSA-q7rr-3cgh-j5r3 entry from `.audit-allowlist.json`;
+      `node scripts/ci/audit-check.mjs` passes with 0 allowlisted, 0 blocking.
 
 ---
 
