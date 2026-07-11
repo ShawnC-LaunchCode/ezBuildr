@@ -36,13 +36,26 @@ vi.mock("mammoth", () => {
 // Mock multer to bypass file parsing
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 vi.mock("multer", () => {
+    // The AI doc routes now read the uploaded file from disk (fs.readFile(req.file.path))
+    // for magic-byte + virus-scan checks, so the mock must provide a real temp file path.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const os = require("os");
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const path = require("path");
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const fs = require("fs");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mockMulter = () => ({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         single: () => (req: any, res: any, next: any) => {
             if (multerState.hasFile) {
+                // PK\x03\x04 = ZIP/DOCX magic bytes so validateMagicBytes passes.
+                const buffer = Buffer.from("PK\x03\x04\x14\x00\x08\x00\x08\x00");
+                const filePath = path.join(os.tmpdir(), `ai-doc-test-${Date.now()}-${Math.random().toString(36).slice(2)}.docx`);
+                fs.writeFileSync(filePath, buffer);
                 req.file = {
-                    buffer: Buffer.from("PK\x03\x04\x14\x00\x08\x00\x08\x00"),
+                    buffer,
+                    path: filePath,
                     originalname: "test.docx",
                     mimetype: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 };
