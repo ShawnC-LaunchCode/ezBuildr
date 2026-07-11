@@ -3,6 +3,8 @@
  * Vault-Logic API Client
  * Handles all API calls to the workflow backend
  */
+import { getRunToken } from './runTokens';
+
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
 
 interface ApiErrorResponse {
@@ -38,6 +40,49 @@ export function setAccessToken(token: string | null): void {
 export function getAccessToken(): string | null {
   return globalAccessToken;
 }
+
+/**
+ * Centralized utility to extract the best available authentication token from the environment.
+ * Useful for ad-hoc requests (like Google Places) that don't pass through fetchAPI.
+ */
+export function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (typeof window === 'undefined') {
+    if (globalAccessToken) {
+      headers["Authorization"] = `Bearer ${globalAccessToken}`;
+    }
+    return headers;
+  }
+
+  // 1. Check for token in query params (preview/iframe)
+  const urlParams = new URLSearchParams(window.location.search);
+  const queryToken = urlParams.get('token');
+  if (queryToken) {
+    headers["Authorization"] = `Bearer ${queryToken}`;
+    return headers;
+  }
+
+  // 2. Check for Run ID in URL path to find a run-specific token
+  const pathParts = window.location.pathname.split('/');
+  for (const part of pathParts) {
+    // Check localStorage which the store persists to anyway
+    const localToken = getRunToken(part);
+    if (localToken) {
+      headers["Authorization"] = `Bearer ${localToken}`;
+      return headers;
+    }
+  }
+
+  // 3. Fallback to global access token
+  if (globalAccessToken) {
+    headers["Authorization"] = `Bearer ${globalAccessToken}`;
+  }
+
+  return headers;
+}
 // eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- core fetch wrapper handles auth refresh, token injection, and error handling in a single flow
 export async function fetchAPI<T>(
   endpoint: string,
@@ -50,7 +95,7 @@ export async function fetchAPI<T>(
   let runToken: string | null = null;
   if (runIdMatch) {
     const runId = runIdMatch[1];
-    runToken = localStorage.getItem(`run_token_${runId}`);
+    runToken = getRunToken(runId);
   }
   // IMPORTANT: Only send run tokens for run-specific endpoints
   // Builder endpoints (workflows, sections, steps, etc.) should use session auth (cookies)
@@ -210,6 +255,23 @@ export interface ApiAccessResponse<TEntry> {
   data: TEntry[];
   currentUserRole: EffectiveAccessRole;
 }
+export interface ApiAssetCopyOptions {
+  name?: string;
+  targetOwnerType?: 'user' | 'org';
+  targetOwnerUuid?: string;
+  targetProjectId?: string | null;
+  includeRelatedDatavault?: boolean;
+  includeDatavaultData?: boolean;
+  clearAccess?: boolean;
+}
+export interface ApiAssetCopyResult {
+  project?: ApiProject;
+  workflow?: ApiWorkflow;
+  workflows?: ApiWorkflow[];
+  copiedDatabases: number;
+  copiedTables: number;
+  copiedRows: number;
+}
 export const projectAPI = {
   list: async (activeOnly?: boolean): Promise<ApiProject[]> => {
     const query = activeOnly ? '?active=true' : '';
@@ -285,6 +347,11 @@ export const projectAPI = {
     fetchAPI<{ success: boolean; data: ApiProject }>(`/api/projects/${id}/transfer`, {
       method: "POST",
       body: JSON.stringify({ targetOwnerType, targetOwnerUuid }),
+    }).then((response) => response.data),
+  copy: (id: string, options: ApiAssetCopyOptions) =>
+    fetchAPI<{ success: boolean; data: ApiAssetCopyResult }>(`/api/projects/${id}/copy`, {
+      method: "POST",
+      body: JSON.stringify(options),
     }).then((response) => response.data),
 };
 // ============================================================================
@@ -371,6 +438,11 @@ export const workflowAPI = {
     fetchAPI<{ success: boolean; data: ApiWorkflow }>(`/api/workflows/${id}/transfer`, {
       method: "POST",
       body: JSON.stringify({ targetOwnerType, targetOwnerUuid }),
+    }).then((response) => response.data),
+  copy: (id: string, options: ApiAssetCopyOptions) =>
+    fetchAPI<{ success: boolean; data: ApiAssetCopyResult }>(`/api/workflows/${id}/copy`, {
+      method: "POST",
+      body: JSON.stringify(options),
     }).then((response) => response.data),
 };
 // ============================================================================
@@ -1349,15 +1421,15 @@ export const blueprintAPI = {
 export const workflowExportAPI = {
   // Triggers browser download
   downloadExport: async (workflowId: string, format: 'json' | 'csv') => {
-    // We use window.open or a hidden link for file downloads to handle the stream/headers correctly
-    // But if we want to use fetch to verify auth first:
-    const token = localStorage.getItem('auth_token');
+    // We use a hidden link for file downloads to handle the stream/headers correctly.
+    // Auth uses the in-memory access token (with cookie fallback), consistent with fetchAPI/apiRequest.
     const url = `/api/workflows/${workflowId}/export?format=${format}`;
+    const token = getAccessToken();
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const response = await fetch(url, {
-      headers: {
-        // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
-        Authorization: `Bearer ${String(token)}`
-      }
+      headers,
+      credentials: 'include',
     });
     if (!response.ok) { throw new Error('Export failed'); }
     const blob = await response.blob();

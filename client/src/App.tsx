@@ -1,6 +1,10 @@
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { useEffect } from "react";
+
+import { cleanupStaleTokens } from "@/lib/runTokens";
+import { cleanupStalePreviewTokens } from "@/store/preview";
 
 // eslint-disable-next-line @typescript-eslint/naming-convention -- React component
 import FeedbackWidget from "@/components/FeedbackWidget";
@@ -27,6 +31,12 @@ function App() {
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
   const [location] = useLocation();
   const isBuilder = location.includes('/builder');
+
+  useEffect(() => {
+    // Sweep stale/expired tokens from both token stores on mount
+    cleanupStaleTokens();
+    cleanupStalePreviewTokens();
+  }, []);
 
   if (googleClientId === null || googleClientId === undefined || googleClientId === '') {
     console.warn('VITE_GOOGLE_CLIENT_ID environment variable is not set - running in development mode');

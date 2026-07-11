@@ -99,7 +99,6 @@ export const WebsiteConfigSchema = z.object({
 
 export const DisplayConfigSchema = z.object({
   markdown: z.string(),
-  allowHtml: z.boolean().optional(),
 });
 
 export const AddressConfigSchema = z.object({
@@ -335,6 +334,28 @@ const LogicExpressionSchema = z.object({
  */
 export const FinalBlockConfigSchema = z.object({
   markdownHeader: z.string(),
+  redirectUrl: z.string().optional().refine(val => {
+    if (!val) return true;
+    try {
+      const url = new URL(val, 'http://localhost');
+      return ['http:', 'https:'].includes(url.protocol);
+    } catch {
+      return false;
+    }
+  }, { message: 'Invalid redirect URL scheme' }),
+  customLinks: z.array(z.object({
+    label: z.string(),
+    url: z.string().refine(val => {
+      try {
+        const urlObj = new URL(val, 'http://localhost');
+        return ['http:', 'https:'].includes(urlObj.protocol);
+      } catch {
+        return false;
+      }
+    }, { message: 'Invalid URL scheme in custom link' }),
+    style: z.enum(['button', 'link'])
+  })).optional(),
+  brandingColor: z.string().optional(),
   documents: z.array(z.object({
     id: z.string(),
     documentId: z.string(),

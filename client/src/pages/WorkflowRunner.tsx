@@ -14,9 +14,11 @@ import { useIntakeRuntime } from "@/hooks/useIntakeRuntime";
 import { analytics } from "@/lib/analytics";
 import { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
 import { usePreviewEnvironment } from "@/lib/previewRunner/usePreviewEnvironment";
+import { getRunToken, setRunToken, clearRunToken } from "@/lib/runTokens";
 import type { ApiStep } from "@/lib/vault-api";
 import { useRunWithValues, useSections, useSubmitSection, useNext, useCompleteRun, useWorkflow } from "@/lib/vault-hooks";
 import { isUUID, startRunFromSlug, startRunFromWorkflowId, type StepValue, type DefaultValueConfig } from "@/pages/workflow-runner/runner.utils";
+import { usePreviewStore } from "@/store/preview";
 
 import { evaluateConditionExpression } from "@shared/conditionEvaluator";
 import type { LogicRule } from "@shared/schema";
@@ -40,6 +42,54 @@ interface WorkflowRunnerProps {
 interface SectionConfig {
   finalBlock?: boolean;
   validationRules?: ValidateRule[];
+}
+
+// URL query params that are not step values and must be skipped when seeding initial values.
+const RESERVED_URL_PARAMS = ['ref', 'source', 'utm_source', 'utm_medium', 'utm_campaign', 'token', 'resume'];
+
+/**
+ * Extract initial step values from URL query params, skipping reserved keys.
+ * Values are parsed as JSON when possible, otherwise kept as raw strings.
+ */
+function parseInitialValuesFromUrl(urlParams: URLSearchParams): Record<string, StepValue> {
+  const initialValues: Record<string, StepValue> = {};
+  for (const [key, value] of urlParams.entries()) {
+    if (RESERVED_URL_PARAMS.includes(key)) {
+      continue;
+    }
+    try {
+      initialValues[key] = JSON.parse(value);
+    } catch {
+      initialValues[key] = value;
+    }
+  }
+  return initialValues;
+}
+
+/**
+ * If a run token is present in the URL (query string or hash), persist it for the run
+ * and strip it from the visible URL so it doesn't leak via history or referrer headers.
+ */
+function consumeRunTokenFromUrl(runId: string, urlParams: URLSearchParams): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const hashParams = new URLSearchParams(window.location.hash.substring(1));
+  const tokenFromUrl = urlParams.get('token') ?? hashParams.get('token');
+  if (!tokenFromUrl || !isUUID(runId)) {
+    return;
+  }
+  setRunToken(runId, tokenFromUrl);
+
+  const newUrl = new URL(window.location.href);
+  newUrl.searchParams.delete('token');
+  if (newUrl.hash.includes('token=')) {
+    const hashParamsToClean = new URLSearchParams(newUrl.hash.substring(1));
+    hashParamsToClean.delete('token');
+    const newHash = hashParamsToClean.toString();
+    newUrl.hash = newHash ? `#${newHash}` : '';
+  }
+  window.history.replaceState({}, '', newUrl.toString());
 }
 
 // eslint-disable-next-line max-lines-per-function, complexity, sonarjs/cognitive-complexity
@@ -71,48 +121,28 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
         return;
       }
       try {
-        // Parse URL parameters to get initial values
+        // Parse URL params for initial step values, and consume any run token in the URL.
         const urlParams = new URLSearchParams(window.location.search);
-        const initialValues: Record<string, StepValue> = {};
-        // Convert URL params to initialValues object
-        for (const [key, value] of urlParams.entries()) {
-          // Skip non-step parameters (like 'ref', 'source', etc.)
-          if (!['ref', 'source', 'utm_source', 'utm_medium', 'utm_campaign', 'token', 'resume'].includes(key)) {
-            // Try to parse as JSON for complex values
-            try {
-              initialValues[key] = JSON.parse(value);
-            } catch {
-              // If not JSON, keep as string
-              initialValues[key] = value;
-            }
-          }
-        }
-        // Check for resume token in URL
-        const tokenFromUrl = urlParams.get('token');
-        if (tokenFromUrl && runId && isUUID(runId)) {
-          // If token provided, save it and trust it for this run
-          localStorage.setItem(`run_token_${runId}`, tokenFromUrl);
-          localStorage.setItem('active_run_token', tokenFromUrl);
-        }
+        const initialValues = parseInitialValuesFromUrl(urlParams);
+        const initialValuesArg = Object.keys(initialValues).length > 0 ? initialValues : undefined;
+        consumeRunTokenFromUrl(runId, urlParams);
         if (isUUID(runId)) {
           // It's a UUID - could be a workflow ID or run ID
           // First, try to fetch it as a run to see if we have access
-          const runToken = localStorage.getItem(`run_token_${runId}`);
+          const runToken = getRunToken(runId);
           // If we have a run token for this ID, treat it as a run
           if (runToken) {
             setActualRunId(runId);
-            localStorage.setItem('active_run_token', runToken);
           } else {
             // No run token - try to create a new run from this UUID as a workflow ID
             try {
               const runData = await startRunFromWorkflowId(
                 runId,
-                Object.keys(initialValues).length > 0 ? initialValues : undefined
+                initialValuesArg
               );
               setActualRunId(runData.runId);
               // Store the run token in localStorage for bearer auth
-              localStorage.setItem(`run_token_${runData.runId}`, runData.runToken);
-              localStorage.setItem('active_run_token', runData.runToken);
+              setRunToken(runData.runId, runData.runToken);
             } catch (createError) {
               // If creating run fails, it might be an existing run ID we don't have access to
               // Try to fetch the run to get its workflow ID, then create a new run
@@ -138,11 +168,10 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
                     const newRunData = await startRunFromWorkflowId(
                       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
                       workflowId,
-                      Object.keys(initialValues).length > 0 ? initialValues : undefined
+                      initialValuesArg
                     );
                     setActualRunId(newRunData.runId);
-                    localStorage.setItem(`run_token_${newRunData.runId}`, newRunData.runToken);
-                    localStorage.setItem('active_run_token', newRunData.runToken);
+                    setRunToken(newRunData.runId, newRunData.runToken);
                     toast({
                       title: "New session started",
                       description: "Created a new run for this workflow",
@@ -165,13 +194,11 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
           // It's a slug - need to start a new run with initial values
           const runData = await startRunFromSlug(
             runId,
-            Object.keys(initialValues).length > 0 ? initialValues : undefined
+            initialValuesArg
           );
           setActualRunId(runData.runId);
           // Store the run token in localStorage for bearer auth
-          localStorage.setItem(`run_token_${runData.runId}`, runData.runToken);
-          // Also store as active token for other API calls (sections, steps, etc.)
-          localStorage.setItem('active_run_token', runData.runToken);
+          setRunToken(runData.runId, runData.runToken);
         }
       } catch (error) {
         setInitError(error instanceof Error ? error.message : 'Failed to load workflow');
@@ -396,9 +423,8 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
   const isLastSection = currentSectionIndex === visibleSections.length - 1;
   // Check if current section is a Final Documents section
   const isFinalDocumentsSection = (currentSection?.config as SectionConfig | undefined)?.finalBlock === true;
-  // Get run token from localStorage for Final Documents section
-  // eslint-disable-next-line complexity
-  const runToken = actualRunId ? localStorage.getItem(`run_token_${actualRunId}`) : null;
+  // Get run token for Final Documents section
+  const runToken = actualRunId ? getRunToken(actualRunId) : null;
   // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
   const handleNext = async () => {
     setErrors([]);
@@ -527,7 +553,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
               value
             }));
             // Get run token for authentication
-            const runToken = localStorage.getItem(`run_token_${actualRunId}`);
+            const runToken = getRunToken(actualRunId);
             // Save to database using bulk endpoint
             const response = await fetch(`/api/runs/${actualRunId}/values/bulk`, {
               method: 'POST',
@@ -636,6 +662,10 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
     try {
       await completeMutation.mutateAsync(actualRunId);
       toast({ title: "Success", description: "Workflow submitted successfully" });
+      // Clear the run token from both stores to prevent accumulation and leakage.
+      // clearRunToken covers production (localStorage); clearToken covers preview runs.
+      clearRunToken(actualRunId);
+      usePreviewStore.getState().clearToken(actualRunId);
       // After completion, the backend status updates.
       // The component will re-render.
       // We need to ensure we show the Final/Intake screen.

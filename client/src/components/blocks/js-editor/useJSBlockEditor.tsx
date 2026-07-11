@@ -130,15 +130,77 @@ export function useJSBlockEditor({ block, onChange, workflowId }: UseJSBlockEdit
 
     const runTest = () => {
         try {
-            // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
-            const fn = new Function("input", code);
             const mockInput = generateMockInput(inputKeys, testData, variables);
-            const result = fn(mockInput) as unknown;
+            
+            // Create a sandboxed iframe for secure execution
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            // allow-scripts is required to run the code, but without allow-same-origin
+            // the code runs in a unique origin and cannot access parent window/cookies
+            iframe.sandbox.add('allow-scripts');
+            document.body.appendChild(iframe);
 
-            toast({
-                title: "Test Run Complete ✓",
-                description: `${JSON.stringify({ input: mockInput, output: result }, null, 2).slice(0, 100)}...`
-            });
+            const messageHandler = (event: MessageEvent) => {
+                if (event.source !== iframe.contentWindow) return;
+                window.removeEventListener('message', messageHandler);
+                document.body.removeChild(iframe);
+                
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                if (event.data.error) {
+                    toast({
+                        title: "Execution Error",
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
+                        description: event.data.error,
+                        variant: "destructive"
+                    });
+                } else {
+                    toast({
+                        title: "Test Run Complete ✓",
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
+                        description: `${JSON.stringify({ input: mockInput, output: event.data.result }, null, 2).slice(0, 100)}...`
+                    });
+                }
+            };
+            window.addEventListener('message', messageHandler);
+
+            const html = `
+                <!DOCTYPE html>
+                <html>
+                <head></head>
+                <body>
+                    <script>
+                        window.addEventListener('message', function(e) {
+                            try {
+                                const fn = new Function('input', e.data.code);
+                                const result = fn(e.data.input);
+                                e.source.postMessage({ result: result }, '*');
+                            } catch (err) {
+                                e.source.postMessage({ error: err.message }, '*');
+                            }
+                        });
+                    </script>
+                </body>
+                </html>
+            `;
+            const blob = new Blob([html], { type: 'text/html' });
+            iframe.src = URL.createObjectURL(blob);
+            
+            iframe.onload = () => {
+                iframe.contentWindow?.postMessage({ code, input: mockInput }, '*');
+            };
+
+            // Timeout fallback
+            setTimeout(() => {
+                if (document.body.contains(iframe)) {
+                    window.removeEventListener('message', messageHandler);
+                    document.body.removeChild(iframe);
+                    toast({
+                        title: "Execution Error",
+                        description: "Execution timed out",
+                        variant: "destructive"
+                    });
+                }
+            }, timeoutMs + 500);
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Unknown error';
             toast({

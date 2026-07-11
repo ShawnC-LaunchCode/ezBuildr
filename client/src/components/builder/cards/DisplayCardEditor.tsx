@@ -4,8 +4,7 @@
  *
  * Config shape:
  * {
- *   markdown: string,
- *   allowHtml?: boolean
+ *   markdown: string
  * }
  *
  * Note: Display blocks do NOT have aliases (they don't output variables)
@@ -23,7 +22,7 @@ import type { DisplayConfig, DisplayAdvancedConfig } from "@shared/types/stepCon
 // eslint-disable-next-line import/no-cycle
 import { StepEditorCommonProps } from "../StepEditorRouter";
 
-import { TextAreaField, SwitchField, SectionHeader } from "./common/EditorField";
+import { TextAreaField, SectionHeader } from "./common/EditorField";
 import { VisibilityField } from "./common/VisibilityField";
 
 
@@ -34,14 +33,12 @@ export function DisplayCardEditor({ stepId, sectionId, step, workflowId }: StepE
   const config = step.config as (DisplayConfig | DisplayAdvancedConfig) | undefined;
   const [localConfig, setLocalConfig] = useState({
     markdown: config?.markdown ?? "",
-    allowHtml: config?.allowHtml ?? false,
   });
 
   useEffect(() => {
     const config = step.config as (DisplayConfig | DisplayAdvancedConfig) | undefined;
     setLocalConfig({
       markdown: config?.markdown ?? "",
-      allowHtml: config?.allowHtml ?? false,
     });
   }, [step.config]);
 
@@ -51,7 +48,6 @@ export function DisplayCardEditor({ stepId, sectionId, step, workflowId }: StepE
 
     const configToSave: DisplayConfig = {
       markdown: newConfig.markdown,
-      allowHtml: newConfig.allowHtml,
     };
 
     updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
@@ -84,23 +80,6 @@ export function DisplayCardEditor({ stepId, sectionId, step, workflowId }: StepE
           description="Supports markdown formatting"
           rows={12}
           required
-        />
-      </div>
-
-      <Separator />
-
-      {/* Advanced Options */}
-      <div className="space-y-3">
-        <SectionHeader
-          title="Advanced Options"
-          description="Configure advanced display settings"
-        />
-
-        <SwitchField
-          label="Allow HTML"
-          description="Allow raw HTML in markdown (use with caution)"
-          checked={localConfig.allowHtml}
-          onChange={(checked) => handleUpdate({ allowHtml: checked })}
         />
       </div>
 

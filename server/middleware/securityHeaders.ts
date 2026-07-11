@@ -70,8 +70,7 @@ export function securityHeaders(config: SecurityHeadersConfig = {}) {
     'default-src': ["'self'"],
     'script-src': [
       "'self'",
-      "'unsafe-inline'", // Required for React/Vite in development
-      "'unsafe-eval'",   // Required for some JS libraries (consider removing in prod)
+      ...(process.env.NODE_ENV !== 'production' ? ["'unsafe-inline'", "'unsafe-eval'"] : []),
       'https://*.google.com',
       'https://*.gstatic.com',
       'https://*.googleapis.com',

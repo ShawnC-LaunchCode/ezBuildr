@@ -152,7 +152,6 @@ export interface WebsiteConfig {
  */
 export interface DisplayConfig {
   markdown: string;        // Markdown content to display
-  allowHtml?: boolean;     // Allow HTML in markdown (default: false)
 }
 
 /**
@@ -540,6 +539,13 @@ export interface LogicExpression {
  */
 export interface FinalBlockConfig {
   markdownHeader: string;     // Markdown content shown above document list
+  redirectUrl?: string;       // URL to redirect to after finishing
+  brandingColor?: string;     // Brand color for buttons
+  customLinks?: Array<{
+    label: string;
+    url: string;
+    style: 'button' | 'link';
+  }>;
   documents: Array<{
     id: string;               // Unique ID for this document entry in the block
     documentId: string;       // Reference to uploaded template document

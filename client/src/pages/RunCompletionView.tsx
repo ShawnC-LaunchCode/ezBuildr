@@ -68,11 +68,30 @@ export default function RunCompletionView() {
     // Redirect logic
     useEffect(() => {
         if (config.redirectUrl && !isLoading && data) {
-            setTimeout(() => {
-                window.location.href = config.redirectUrl!;
-            }, 5000); // 5 second delay before redirect
+            try {
+                const url = new URL(config.redirectUrl, window.location.origin);
+                if (['http:', 'https:'].includes(url.protocol)) {
+                    setTimeout(() => {
+                        window.location.href = config.redirectUrl!;
+                    }, 5000); // 5 second delay before redirect
+                }
+            } catch (e) {
+                // Invalid URL, do nothing
+            }
         }
     }, [config.redirectUrl, isLoading, data]);
+
+    // Strip token from URL to prevent leakage
+    useEffect(() => {
+        if (token && typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            // We want to remove the token from the query params to prevent leakage in history
+            if (url.searchParams.has('token')) {
+                url.searchParams.delete('token');
+                window.history.replaceState({}, '', url.toString());
+            }
+        }
+    }, [token]);
 
     if (isLoading) {
         return (
@@ -169,7 +188,7 @@ export default function RunCompletionView() {
                 {/* Resume Action */}
                 {!run.completed && run.accessSettings?.allow_resume !== false && (
                     <div className="flex justify-center mt-8">
-                        <Button size="lg" onClick={() => window.location.href = `/run/${run.id}?token=${run.runToken}`}>
+                        <Button size="lg" onClick={() => window.location.href = `/run/${run.id}#token=${run.runToken}`}>
                             <Play className="h-5 w-5 mr-2" />
                             Resume Workflow
                         </Button>
@@ -179,7 +198,16 @@ export default function RunCompletionView() {
                 {/* Actions / Links Section */}
                 {(config.customLinks && config.customLinks.length > 0) && (
                     <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
-                        {config.customLinks.map((link, idx) => (
+                        {config.customLinks
+                            .filter(link => {
+                                try {
+                                    const url = new URL(link.url, window.location.origin);
+                                    return ['http:', 'https:'].includes(url.protocol);
+                                } catch {
+                                    return false;
+                                }
+                            })
+                            .map((link, idx) => (
                             <Button
                                 key={idx}
                                 variant={link.style === 'button' ? 'default' : 'ghost'}

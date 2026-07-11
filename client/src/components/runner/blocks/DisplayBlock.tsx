@@ -50,7 +50,6 @@ export function DisplayBlockRenderer({ step, context }: DisplayBlockProps) {
   const config = step.config as DisplayConfig;
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
   const rawMarkdown = config?.markdown || step.description || "";
-  const allowHtml = config?.allowHtml ?? false;
 
   // Interpolate variables
   const markdown = interpolateVariables(rawMarkdown, context);
@@ -65,12 +64,7 @@ export function DisplayBlockRenderer({ step, context }: DisplayBlockProps) {
 
   return (
     <div className="prose prose-sm max-w-none dark:prose-invert">
-      <ReactMarkdown
-        components={{
-          // Disable HTML if not allowed
-          html: allowHtml ? undefined : () => null,
-        }}
-      >
+      <ReactMarkdown>
         {markdown}
       </ReactMarkdown>
     </div>

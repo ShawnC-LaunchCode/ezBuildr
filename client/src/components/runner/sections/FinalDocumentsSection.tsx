@@ -4,7 +4,6 @@
  */
 import { useQuery, useMutation } from "@tanstack/react-query";
 import axios from "axios";
-import DOMPurify from "isomorphic-dompurify";
 import { FileText, Download, Loader2, CheckCircle } from "lucide-react";
 import { useEffect } from "react";
 import ReactMarkdown from "react-markdown";
@@ -43,10 +42,17 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
   // Handle Redirect
   useEffect(() => {
     if (redirectUrl) {
-      const timer = setTimeout(() => {
-        window.location.href = redirectUrl;
-      }, (redirectDelaySeconds || 5) * 1000);
-      return () => clearTimeout(timer);
+      try {
+        const url = new URL(redirectUrl, window.location.origin);
+        if (['http:', 'https:'].includes(url.protocol)) {
+          const timer = setTimeout(() => {
+            window.location.href = redirectUrl;
+          }, (redirectDelaySeconds || 5) * 1000);
+          return () => clearTimeout(timer);
+        }
+      } catch (e) {
+        // Invalid URL
+      }
     }
   }, [redirectUrl, redirectDelaySeconds]);
   // Validate runId - don't proceed if it's null/undefined/empty
@@ -200,7 +206,14 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
               return "#";
             }}
           >
-            {DOMPurify.sanitize(message, { ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'ul', 'ol', 'li', 'br', 'h1', 'h2', 'h3', 'h4'] })}
+            {/*
+              Render the raw markdown message directly. ReactMarkdown escapes HTML by
+              default (rehype-raw is intentionally NOT enabled), so any literal <tag> in
+              the message is shown as text, not executed. Do NOT add rehype-raw without a
+              sanitizer — that would turn this into an XSS sink. The prior DOMPurify wrapper
+              passed HTML as markdown source, which only garbled formatting.
+            */}
+            {message}
           </ReactMarkdown>
         </div>
       )}
@@ -266,7 +279,16 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
       {
         customLinks && customLinks.length > 0 && (
           <div className="flex flex-col gap-3 pt-4">
-            {customLinks.map((link, i) => (
+            {customLinks
+              .filter(link => {
+                try {
+                  const url = new URL(link.url, window.location.origin);
+                  return ['http:', 'https:'].includes(url.protocol);
+                } catch {
+                  return false;
+                }
+              })
+              .map((link, i) => (
               <Button
                 key={i}
                 variant={link.style === 'button' ? 'default' : 'outline'}

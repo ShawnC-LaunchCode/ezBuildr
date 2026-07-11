@@ -34,12 +34,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { usePreviewStore } from "@/store/preview";
+import { getAuthHeaders } from "@/lib/vault-api";
 import type { Step } from "@/types";
 
 import type { AddressConfig, AddressValue } from "@shared/types/stepConfigs";
-
-// Import store to get access to preview tokens
 
 // US States
 const US_STATES = [
@@ -150,48 +148,8 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
     }
   }, []);
 
-  // Helper to get auth headers
-  const getHeaders = () => {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-
-    // 1. Check for token in query params (often used in preview/iframe)
-    const urlParams = new URLSearchParams(window.location.search);
-    const queryToken = urlParams.get('token');
-    if (queryToken) {
-      headers["Authorization"] = `Bearer ${queryToken}`;
-      return headers;
-    }
-
-    // 2. Check for Run ID in URL path and match with store
-    // URL patterns: /run/:id, /preview/:id
-    const pathParts = window.location.pathname.split('/');
-    const storeState = usePreviewStore.getState();
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    const knownTokens = storeState.tokens || {};
-
-    // Iterate through path parts to find a UUID-like string that matches a known run
-    for (const part of pathParts) {
-      // Check store first (most reliable for preview)
-      if (knownTokens[part]) {
-        headers["Authorization"] = `Bearer ${knownTokens[part]}`;
-        return headers;
-      }
-      // Check localStorage as fallback
-      const localToken = localStorage.getItem(`run_token_${part}`);
-      if (localToken) {
-        headers["Authorization"] = `Bearer ${localToken}`;
-        return headers;
-      }
-    }
-
-    // 3. Fallback: Check if there's any active run token in localStorage if we can't find ID
-    // (This is a "Hail Mary" - maybe only one run exists?)
-    // Skipping for safety to avoid sending wrong token.
-
-    return headers;
-  };
+  // Use centralized auth header logic
+  const getHeaders = getAuthHeaders;
 
   // Update a single field
   const updateField = (field: keyof AddressValue, newValue: string) => {
