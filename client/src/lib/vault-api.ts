@@ -57,12 +57,17 @@ export function getAuthHeaders(): Record<string, string> {
     return headers;
   }
 
-  // 1. Check for token in query params (preview/iframe)
-  const urlParams = new URLSearchParams(window.location.search);
-  const queryToken = urlParams.get('token');
-  if (queryToken) {
-    headers["Authorization"] = `Bearer ${queryToken}`;
-    return headers;
+  // 1. Check for token in query params or hash (preview/iframe)
+  // Only trust URL tokens on run or preview routes to prevent token confusion
+  const path = window.location.pathname;
+  if (path.startsWith('/run/') || path.startsWith('/preview/')) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const urlToken = urlParams.get('token') ?? hashParams.get('token');
+    if (urlToken) {
+      headers["Authorization"] = `Bearer ${urlToken}`;
+      return headers;
+    }
   }
 
   // 2. Check for Run ID in URL path to find a run-specific token
