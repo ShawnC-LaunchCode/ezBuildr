@@ -30,6 +30,12 @@ process.env.VITE_GOOGLE_CLIENT_ID = process.env.VITE_GOOGLE_CLIENT_ID || "test-g
 process.env.JWT_SECRET = "test-jwt-secret-key-must-be-at-least-32-chars-long";
 // Required for server startup (encryption utils) - 32 bytes base64 encoded
 process.env.VL_MASTER_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+// AI SDKs are mocked; a non-empty key must exist BEFORE any test-file import so
+// the module-level AI service singletons (e.g. DocumentAIAssistService) construct
+// their mocked client instead of silently degrading to null (empty responses).
+// CI has no GEMINI_API_KEY, and per-test-file `process.env` assignments run too
+// late because ESM imports (which build the singleton) are hoisted above them.
+process.env.GEMINI_API_KEY = process.env.GEMINI_API_KEY || "test-key";
 if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = "postgres://postgres:postgres@localhost:5432/ezbuildr_test";
 }

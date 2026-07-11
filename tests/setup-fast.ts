@@ -16,6 +16,11 @@ process.env.VITE_GOOGLE_CLIENT_ID = process.env.VITE_GOOGLE_CLIENT_ID || "test-g
 process.env.JWT_SECRET = "test-jwt-secret-key-must-be-at-least-32-chars-long";
 process.env.VL_MASTER_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 process.env.NODE_ENV = "test";
+// AI SDKs are mocked; a non-empty key must exist BEFORE any test-file import so
+// the module-level AI service singletons (e.g. DocumentAIAssistService) construct
+// their mocked client instead of degrading to null. CI has no GEMINI_API_KEY, and
+// per-test-file `process.env` assignments run too late (imports are hoisted above).
+process.env.GEMINI_API_KEY = process.env.GEMINI_API_KEY || "test-key";
 
 // Load jest-dom matchers for JSDOM environment (UI tests)
 if (typeof window !== 'undefined') {
