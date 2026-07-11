@@ -96,11 +96,16 @@ vi.mock('../../../server/services/ai/WorkflowLogicService', () => {
 });
 
 vi.mock('@google/generative-ai', () => {
-    const MockGoogleGenerativeAI = vi.fn().mockImplementation(() => ({
-        getGenerativeModel: vi.fn().mockReturnValue({
-            generateContent: mockGenerateContent
-        })
-    }));
+    // Must be a real class: services do `new GoogleGenerativeAI(...)`. An arrow
+    // `vi.fn().mockImplementation(() => ...)` is not a constructor, and in the
+    // combined single-fork CI run it poisons the shared AI-service singleton
+    // (DocumentAIAssistService degrades to null model → empty responses), which
+    // breaks api.ai.doc downstream.
+    class MockGoogleGenerativeAI {
+        getGenerativeModel() {
+            return { generateContent: mockGenerateContent };
+        }
+    }
     return {
         GoogleGenerativeAI: MockGoogleGenerativeAI,
         SchemaType: { OBJECT: 'OBJECT', ARRAY: 'ARRAY', STRING: 'STRING' }
