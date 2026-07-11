@@ -1,9 +1,4 @@
-import cors from "cors";
-import dotenv from "dotenv";
-import express from "express";
-
-import { eq } from "drizzle-orm";
-import helmet from "helmet";
+import { applySecurityMiddleware } from "./middleware/securityConfig";
 
 import { db } from "./db";
 import { logger } from "./logger";
@@ -38,89 +33,9 @@ const app = express();
 app.use(requestIdMiddleware);
 
 // =====================================================================
-// 2️⃣ HELMET SECURITY HEADERS (SECOND - before content processing)
+// 2️⃣ SECURITY HEADERS, CORS, & PAYLOAD LIMITS
 // =====================================================================
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "https://accounts.google.com", "https://*.google.com", "https://*.gstatic.com"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com", "https://*.google.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https://accounts.google.com", "https://*.googleapis.com", "https://*.google.com", "https://*.gstatic.com", "wss:", "ws:"],
-      frameSrc: ["'self'", "https://accounts.google.com", "https://*.google.com"],
-      objectSrc: ["'none'"],
-      upgradeInsecureRequests: [],
-    },
-  },
-  hsts: {
-    maxAge: 31536000, // 1 year
-    includeSubDomains: true,
-    preload: true,
-  },
-  frameguard: {
-    action: 'deny', // Prevent clickjacking
-  },
-  noSniff: true,
-  xssFilter: true,
-  referrerPolicy: {
-    policy: 'strict-origin-when-cross-origin',
-  },
-  crossOriginOpenerPolicy: {
-    policy: "same-origin-allow-popups",
-  },
-}));
-// =====================================================================
-// 💡 CORS CONFIGURATION
-// Dynamically determines allowed origins based on environment
-const corsOptions = {
-  origin: function (
-    origin: string | undefined,
-    callback: (err: Error | null, allow?: boolean) => void,
-  ) {
-    const isDevelopment = process.env.NODE_ENV === "development";
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) {
-      return callback(null, true);
-    }
-    // Extract hostname from origin
-    let hostname: string;
-    try {
-      hostname = new URL(origin).hostname;
-    } catch (e) {
-      return callback(new Error("Invalid origin URL"), false);
-    }
-    // In development, allow localhost origins
-    if (isDevelopment) {
-      const allowedPatterns = [
-        /^localhost$/,
-        /^127\.0\.0\.1$/,
-        /^0\.0\.0\.0$/,
-      ];
-      if (allowedPatterns.some((pattern) => pattern.test(hostname))) {
-        return callback(null, true);
-      }
-    }
-    // In production, check against ALLOWED_ORIGIN environment variable
-    const allowedOrigin = process.env.ALLOWED_ORIGIN;
-    if (allowedOrigin) {
-      // Split by comma to support multiple origins
-      const allowedHosts = allowedOrigin.split(",").map((h) => h.trim());
-      if (allowedHosts.some((host) => hostname === host)) {
-        return callback(null, true);
-      }
-    }
-    // Default: deny
-    callback(new Error("Not allowed by CORS"), false);
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-};
-app.use(cors(corsOptions));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+applySecurityMiddleware(app);
 // Simple health check that doesn't depend on DB
 app.get('/healthz', (_req, res) => {
   logger.debug({ ip: _req.ip }, 'Healthz check received');
@@ -160,17 +75,6 @@ app.use('/oauth', globalLimiter);
     await dbInitPromise;
     // Initialize routes and collaboration server
     // CRITICAL: We MUST use the 'server' returned by registerRoutes, as it has the WebSocket instance attached.
-    // Ensure scooter is admin on Railway. tenantRole must be 'owner' too: the global
-    // 'admin' role only gates /api/admin/*, while all create/edit endpoints check the
-    // tenant role via RBAC — leaving it at 'viewer' makes the account read-only.
-    // This is a no-op on a fresh database (the row doesn't exist until first login);
-    // googleAuth.upsertUser handles promotion at login for that case.
-    try {
-      await db.update(users).set({ role: 'admin', tenantRole: 'owner' }).where(eq(users.email, 'scooter4356@gmail.com'));
-      logger.info("Automatically ensured scooter4356@gmail.com is an admin.");
-    } catch (e) {
-      logger.error("Failed to enforce admin role on boot");
-    }
 
     logger.info('Registering routes...');
     const server = await registerRoutes(app);

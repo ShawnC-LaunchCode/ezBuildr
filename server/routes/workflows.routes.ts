@@ -10,6 +10,7 @@ import { logicRuleRepository } from "../repositories/LogicRuleRepository";
 import { templateTestService } from "../services/TemplateTestService";
 import { variableService } from "../services/VariableService";
 import { aclService } from "../services/AclService";
+import { workflowClonerService } from "../services/WorkflowClonerService";
 import { workflowService } from "../services/WorkflowService";
 import { asyncHandler } from "../utils/asyncHandler";
 import { classifyRouteError } from "../utils/routeErrors";
@@ -17,6 +18,19 @@ import { classifyRouteError } from "../utils/routeErrors";
 
 
 import type { Express, Request, Response } from "express";
+
+// eslint-disable-next-line sonarjs/no-duplicate-string
+const ERR_INVALID_INPUT = "Invalid input";
+
+const copyWorkflowBodySchema = z.object({
+  name: z.string().trim().min(1).max(255).optional(),
+  targetOwnerType: z.enum(['user', 'org']).optional(),
+  targetOwnerUuid: z.string().uuid().optional(),
+  targetProjectId: z.string().uuid().nullable().optional(),
+  includeRelatedDatavault: z.boolean().optional(),
+  includeDatavaultData: z.boolean().optional(),
+  clearAccess: z.boolean().optional(),
+});
 
 /**
  * Register workflow-related routes
@@ -110,6 +124,37 @@ export function registerWorkflowRoutes(app: Express): void {
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error fetching workflow");
       const { status, message } = classifyRouteError(error, "Failed to fetch workflow");
       res.status(status).json({ message });
+    }
+  }));
+
+  /**
+   * POST /api/workflows/:workflowId/copy
+   * Copy a workflow and optionally its related DataVault resources.
+   */
+  app.post('/api/workflows/:workflowId/copy', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
+      }
+
+      const { workflowId } = req.params;
+      const options = copyWorkflowBodySchema.parse(req.body);
+      const result = await workflowClonerService.copyWorkflow(workflowId, userId, options);
+      res.status(201).json({ success: true, data: result });
+    } catch (error) {
+      logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error copying workflow");
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: ERR_INVALID_INPUT,
+          details: error.errors,
+        });
+      }
+
+      const { status, message } = classifyRouteError(error, "Failed to copy workflow");
+      res.status(status).json({ success: false, error: message, message });
     }
   }));
 

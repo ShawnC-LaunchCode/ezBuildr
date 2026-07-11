@@ -10,6 +10,7 @@ import { CreateWorkflowDialog } from "@/components/dashboard/dialogs/CreateWorkf
 import { MoveWorkflowDialog } from "@/components/dashboard/dialogs/MoveWorkflowDialog";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
+import { CopyAssetDialog } from "@/components/dialogs/CopyAssetDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import type { ApiProject, ApiWorkflow } from "@/lib/vault-api";
+import type { ApiAssetCopyOptions, ApiProject, ApiWorkflow } from "@/lib/vault-api";
 import {
   useProjects,
   useUnfiledWorkflows,
@@ -32,12 +33,14 @@ import {
   useUpdateProject,
   useDeleteProject,
   useArchiveProject,
+  useCopyProject,
   useCreateWorkflow,
   useUpdateWorkflow,
   useDeleteWorkflow,
   useMoveWorkflow,
+  useCopyWorkflow,
 } from "@/lib/vault-hooks";
-// eslint-disable-next-line max-lines-per-function
+// eslint-disable-next-line max-lines-per-function, complexity
 export default function WorkflowDashboard() {
   // Dialog states
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
@@ -45,6 +48,8 @@ export default function WorkflowDashboard() {
   const [isMoveWorkflowOpen, setIsMoveWorkflowOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<ApiProject | null>(null);
   const [movingWorkflow, setMovingWorkflow] = useState<ApiWorkflow | null>(null);
+  const [copyingProject, setCopyingProject] = useState<ApiProject | null>(null);
+  const [copyingWorkflow, setCopyingWorkflow] = useState<ApiWorkflow | null>(null);
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const [deleteWorkflowId, setDeleteWorkflowId] = useState<string | null>(null);
 
@@ -57,10 +62,12 @@ export default function WorkflowDashboard() {
   const updateProjectMutation = useUpdateProject();
   const deleteProjectMutation = useDeleteProject();
   const archiveProjectMutation = useArchiveProject();
+  const copyProjectMutation = useCopyProject();
   const createWorkflowMutation = useCreateWorkflow();
   const updateWorkflowMutation = useUpdateWorkflow();
   const deleteWorkflowMutation = useDeleteWorkflow();
   const moveWorkflowMutation = useMoveWorkflow();
+  const copyWorkflowMutation = useCopyWorkflow();
   const { toast } = useToast();
 
   // Project handlers
@@ -113,6 +120,21 @@ export default function WorkflowDashboard() {
       setDeleteProjectId(null);
     } catch (error) {
       toast({ title: "Error", description: "Failed to delete project", variant: "destructive" });
+    }
+  };
+
+  const handleCopyProject = async (options: ApiAssetCopyOptions) => {
+    if (!copyingProject) { return; }
+    try {
+      const result = await copyProjectMutation.mutateAsync({ id: copyingProject.id, options });
+      toast({
+        title: "Project copied",
+        description: `Copied ${result.workflows?.length ?? 0} workflow${(result.workflows?.length ?? 0) === 1 ? "" : "s"}.`,
+      });
+      setCopyingProject(null);
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to copy project", variant: "destructive" });
+      throw error;
     }
   };
 
@@ -175,6 +197,18 @@ export default function WorkflowDashboard() {
       setMovingWorkflow(null);
     } catch (error) {
       toast({ title: "Error", description: "Failed to move workflow", variant: "destructive" });
+    }
+  };
+
+  const handleCopyWorkflow = async (options: ApiAssetCopyOptions) => {
+    if (!copyingWorkflow) { return; }
+    try {
+      await copyWorkflowMutation.mutateAsync({ id: copyingWorkflow.id, options });
+      toast({ title: "Success", description: "Workflow copied" });
+      setCopyingWorkflow(null);
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to copy workflow", variant: "destructive" });
+      throw error;
     }
   };
 
@@ -266,6 +300,10 @@ export default function WorkflowDashboard() {
                       onEdit={openEditProjectDialog}
                       // eslint-disable-next-line @typescript-eslint/no-misused-promises
                       onArchive={handleArchiveProject}
+                      onCopy={(id) => {
+                        const found = projects.find((candidate) => candidate.id === id);
+                        setCopyingProject(found ?? project);
+                      }}
                       onDelete={(id) => setDeleteProjectId(id)}
                     />
                   ))}
@@ -283,6 +321,7 @@ export default function WorkflowDashboard() {
                       key={workflow.id}
                       workflow={workflow}
                       onMove={openMoveDialog}
+                      onCopy={setCopyingWorkflow}
                       // eslint-disable-next-line @typescript-eslint/no-misused-promises
                       onArchive={handleArchiveWorkflow}
                       // eslint-disable-next-line @typescript-eslint/no-misused-promises
@@ -325,6 +364,28 @@ export default function WorkflowDashboard() {
         onSubmit={handleMoveWorkflow}
         isLoading={moveWorkflowMutation.isPending}
       />
+
+      {copyingProject && (
+        <CopyAssetDialog
+          open={copyingProject !== null}
+          onOpenChange={(open) => !open && setCopyingProject(null)}
+          assetType="project"
+          assetName={copyingProject.title}
+          onCopy={handleCopyProject}
+          isPending={copyProjectMutation.isPending}
+        />
+      )}
+
+      {copyingWorkflow && (
+        <CopyAssetDialog
+          open={copyingWorkflow !== null}
+          onOpenChange={(open) => !open && setCopyingWorkflow(null)}
+          assetType="workflow"
+          assetName={copyingWorkflow.title}
+          onCopy={handleCopyWorkflow}
+          isPending={copyWorkflowMutation.isPending}
+        />
+      )}
 
       {/* Delete Project Confirmation */}
       <AlertDialog open={!!deleteProjectId} onOpenChange={() => setDeleteProjectId(null)}>

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
 
 import { DevPanelBus } from "../../lib/devpanelBus";
-import { workflowAPI, type ApiAccessResponse, type ApiWorkflow, type ApiWorkflowAccess } from "../../lib/vault-api";
+import { workflowAPI, type ApiAccessResponse, type ApiAssetCopyOptions, type ApiAssetCopyResult, type ApiWorkflow, type ApiWorkflowAccess } from "../../lib/vault-api";
 
 import { queryKeys } from "./queryKeys";
 
@@ -95,6 +95,24 @@ export function useTransferWorkflow(): UseMutationResult<ApiWorkflow, unknown, {
       await queryClient.invalidateQueries({ queryKey: queryKeys.workflow(data.id) });
       await queryClient.invalidateQueries({ queryKey: queryKeys.workflows });
       await queryClient.invalidateQueries({ queryKey: queryKeys.workflowsUnfiled });
+    },
+  });
+}
+
+export function useCopyWorkflow(): UseMutationResult<ApiAssetCopyResult, unknown, { id: string; options: ApiAssetCopyOptions }> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, options }: { id: string; options: ApiAssetCopyOptions }) => workflowAPI.copy(id, options),
+    onSuccess: async (data) => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.workflows });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.workflowsUnfiled });
+      if (data.workflow) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.workflow(data.workflow.id) });
+        if (data.workflow.projectId) {
+          await queryClient.invalidateQueries({ queryKey: queryKeys.projectWorkflows(data.workflow.projectId) });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.project(data.workflow.projectId) });
+        }
+      }
     },
   });
 }

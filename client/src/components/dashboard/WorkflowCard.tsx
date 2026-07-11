@@ -3,7 +3,7 @@
  * Displays a workflow document card with status
  */
 
-import { FileText, Archive, Trash2, Play, Move, Link } from "lucide-react";
+import { FileText, Archive, Trash2, Play, Move, Link, Copy } from "lucide-react";
 
 import { EntityCard, type EntityAction } from "@/components/shared/EntityCard";
 import { Badge } from "@/components/ui/badge";
@@ -14,12 +14,13 @@ import { workflowAPI } from "@/lib/vault-api";
 interface WorkflowCardProps {
   workflow: ApiWorkflow;
   onMove?: (workflow: ApiWorkflow) => void;
+  onCopy?: (workflow: ApiWorkflow) => void;
   onArchive?: (id: string) => void;
   onActivate?: (id: string) => void;
   onDelete?: (id: string) => void;
 }
 
-export function WorkflowCard({ workflow, onMove, onArchive, onActivate, onDelete }: WorkflowCardProps) {
+export function WorkflowCard({ workflow, onMove, onCopy, onArchive, onActivate, onDelete }: WorkflowCardProps) {
   const statusVariant = workflow.status === "active" ? "default" : workflow.status === "draft" ? "secondary" : "outline";
 
   const handleCopyLink = async () => {
@@ -58,6 +59,15 @@ export function WorkflowCard({ workflow, onMove, onArchive, onActivate, onDelete
       icon: Move,
       onClick: () => onMove(workflow),
       separator: true,
+    });
+  }
+
+  if (onCopy) {
+    actions.push({
+      label: "Copy",
+      icon: Copy,
+      onClick: () => onCopy(workflow),
+      separator: !onMove,
     });
   }
 

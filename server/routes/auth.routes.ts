@@ -24,6 +24,7 @@ import { userRepository, userCredentialsRepository } from "../repositories";
 import { accountLockoutService } from "../services/AccountLockoutService";
 import { auditLogService } from "../services/AuditLogService";
 import { authService } from "../services/AuthService";
+import { CaptchaService } from "../services/CaptchaService.js";
 import { metricsService } from "../services/MetricsService";
 import { mfaService } from "../services/MfaService";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -267,7 +268,7 @@ export function registerAuthRoutes(app: Express): void {
     const startTime = Date.now();
     try {
       const { email, password } = req.body as Record<string, string>;
-      // Validate required fields
+      // Check required fields
       if (!email || !password) {
         metricsService.recordAuthLatency(startTime, 'login', 400);
         return res.status(400).json({
@@ -275,6 +276,32 @@ export function registerAuthRoutes(app: Express): void {
           error: 'missing_fields'
         });
       }
+
+      // CAPTCHA check for credential stuffing protection (SEC-048)
+      const failedAttempts = await accountLockoutService.getGlobalFailedAttempts(email);
+      if (failedAttempts >= 3) {
+        if (!req.body.captcha) {
+          metricsService.recordAuthLatency(startTime, 'login', 401);
+          return res.status(401).json({
+            message: 'Suspicious activity detected. Please complete the CAPTCHA to continue.',
+            requiresCaptcha: true,
+            challenge: CaptchaService.generateSimpleChallenge()
+          });
+        }
+        
+        // Use type assertion since Express req.body is any
+        const captchaResult = await CaptchaService.validateCaptcha(req.body.captcha as any, '');
+        if (!captchaResult.valid) {
+          await accountLockoutService.recordAttempt(email, req.ip, false);
+          metricsService.recordAuthLatency(startTime, 'login', 401);
+          return res.status(401).json({
+            message: captchaResult.error || 'Invalid CAPTCHA',
+            requiresCaptcha: true,
+            challenge: CaptchaService.generateSimpleChallenge()
+          });
+        }
+      }
+
       // Step 1: Validate credentials (handles all authentication checks)
       const user = await validateCredentials(email, password, req);
       // Step 2: Check MFA requirement
@@ -398,6 +425,28 @@ export function registerAuthRoutes(app: Express): void {
   app.post('/api/auth/forgot-password', authRateLimit, asyncHandler(async (req: Request, res: Response) => {
     const { email } = req.body as { email: string };
     if (!email) { return res.status(400).json({ message: "Email required" }); }
+    
+    // CAPTCHA check for credential stuffing protection (SEC-048)
+    const failedAttempts = await accountLockoutService.getGlobalFailedAttempts(email);
+    if (failedAttempts >= 3) {
+      if (!req.body.captcha) {
+        return res.status(401).json({
+          message: 'Suspicious activity detected. Please complete the CAPTCHA to continue.',
+          requiresCaptcha: true,
+          challenge: CaptchaService.generateSimpleChallenge()
+        });
+      }
+      
+      const captchaResult = await CaptchaService.validateCaptcha(req.body.captcha as any, '');
+      if (!captchaResult.valid) {
+        return res.status(401).json({
+          message: captchaResult.error || 'Invalid CAPTCHA',
+          requiresCaptcha: true,
+          challenge: CaptchaService.generateSimpleChallenge()
+        });
+      }
+    }
+
     try {
       await authService.generatePasswordResetToken(email);
       res.json({ message: "If an account exists, a reset link has been sent." });

@@ -36,6 +36,12 @@ export class ProjectService {
     return rolePrecedence[userRole] >= rolePrecedence[minRole];
   }
 
+  private async requireOrgAdminForOrgOwnedProject(project: Project, userId: string, action: string): Promise<void> {
+    if (project.ownerType === 'org' && project.ownerUuid && !(await canManageOrg(userId, project.ownerUuid))) {
+      throw new Error(`Access denied: Organization admin role required to ${action} organization projects`);
+    }
+  }
+
   async verifyProjectAccess(
     projectId: string,
     userId: string,
@@ -142,7 +148,8 @@ export class ProjectService {
    * Archive project (soft delete)
    */
   async archiveProject(projectId: string, userId: string): Promise<Project> {
-    await this.verifyProjectAccess(projectId, userId, 'edit');
+    const project = await this.verifyProjectAccess(projectId, userId, 'edit');
+    await this.requireOrgAdminForOrgOwnedProject(project, userId, 'archive');
     return this.projectRepo.update(projectId, {
       status: 'archived',
       archived: true,
@@ -152,7 +159,8 @@ export class ProjectService {
    * Unarchive project
    */
   async unarchiveProject(projectId: string, userId: string): Promise<Project> {
-    await this.verifyProjectAccess(projectId, userId, 'edit');
+    const project = await this.verifyProjectAccess(projectId, userId, 'edit');
+    await this.requireOrgAdminForOrgOwnedProject(project, userId, 'unarchive');
     return this.projectRepo.update(projectId, {
       status: 'active',
       archived: false,
@@ -163,7 +171,8 @@ export class ProjectService {
    * Note: Workflows will have their projectId set to null (on delete set null)
    */
   async deleteProject(projectId: string, userId: string): Promise<void> {
-    await this.verifyProjectAccess(projectId, userId, 'owner');
+    const project = await this.verifyProjectAccess(projectId, userId, 'owner');
+    await this.requireOrgAdminForOrgOwnedProject(project, userId, 'delete');
     await this.projectRepo.update(projectId, {
       status: 'archived',
       archived: true,
@@ -247,7 +256,8 @@ export class ProjectService {
     newOwnerId: string,
     tx?: DbTransaction
   ): Promise<Project> {
-    await this.verifyProjectAccess(projectId, currentOwnerId, 'owner');
+    const project = await this.verifyProjectAccess(projectId, currentOwnerId, 'owner');
+    await this.requireOrgAdminForOrgOwnedProject(project, currentOwnerId, 'transfer');
     return this.projectRepo.update(
       projectId,
       {
@@ -272,10 +282,11 @@ export class ProjectService {
     targetOwnerUuid: string
   ): Promise<Project> {
     const { transferService } = await import('./TransferService');
-    const { workflowRuns } = await import('@shared/schema');
-    const { inArray } = await import('drizzle-orm');
+    const { workflowRuns, datavaultDatabases, datavaultTables, workflowDataSources } = await import('@shared/schema');
+    const { and, eq, inArray } = await import('drizzle-orm');
     const { db } = await import('../db');
     const project = await this.verifyProjectAccess(projectId, userId, 'owner');
+    await this.requireOrgAdminForOrgOwnedProject(project, userId, 'transfer');
     // Transfer-into-org requires org membership (not admin); validateTransfer
     // checks target existence first ("not found") then membership ("not a member").
     await transferService.validateTransfer(
@@ -309,6 +320,43 @@ export class ProjectService {
           ownerUuid: targetOwnerUuid,
         })
         .where(inArray(workflowRuns.workflowId, workflowIds));
+    }
+    const linkedDatabaseRows = workflowIds.length > 0
+      ? await db
+        .select({ id: workflowDataSources.dataSourceId })
+        .from(workflowDataSources)
+        .where(inArray(workflowDataSources.workflowId, workflowIds))
+      : [];
+    const databaseIds = new Set<string>(linkedDatabaseRows.map((row) => row.id));
+    const scopedDatabases = await db
+      .select({ id: datavaultDatabases.id })
+      .from(datavaultDatabases)
+      .where(and(eq(datavaultDatabases.scopeType, 'project'), eq(datavaultDatabases.scopeId, projectId)));
+    scopedDatabases.forEach((row) => databaseIds.add(row.id));
+    if (workflowIds.length > 0) {
+      const workflowScopedDatabases = await db
+        .select({ id: datavaultDatabases.id })
+        .from(datavaultDatabases)
+        .where(and(eq(datavaultDatabases.scopeType, 'workflow'), inArray(datavaultDatabases.scopeId, workflowIds)));
+      workflowScopedDatabases.forEach((row) => databaseIds.add(row.id));
+    }
+    if (databaseIds.size > 0) {
+      await db
+        .update(datavaultDatabases)
+        .set({
+          ownerType: targetOwnerType,
+          ownerUuid: targetOwnerUuid,
+          updatedAt: new Date(),
+        })
+        .where(inArray(datavaultDatabases.id, [...databaseIds]));
+      await db
+        .update(datavaultTables)
+        .set({
+          ownerType: targetOwnerType,
+          ownerUuid: targetOwnerUuid,
+          updatedAt: new Date(),
+        })
+        .where(inArray(datavaultTables.databaseId, [...databaseIds]));
     }
     return updatedProject;
   }

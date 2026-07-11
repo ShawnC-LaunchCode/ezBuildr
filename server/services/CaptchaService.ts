@@ -13,38 +13,28 @@ const logger = createLogger({ module: "captcha-service" });
  * Supports simple math puzzles (MVP) and reCAPTCHA (optional).
  */
 
-interface StoredChallenge {
-  answer: string;
-  expiresAt: number;
-  attempts: number;
-}
-
 const MAX_ATTEMPTS = 3;
 const CHALLENGE_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
-// In-memory store for challenges (would use Redis in production)
-const challengeStore = new Map<string, StoredChallenge>();
+function getCaptchaSecret(): string {
+  return process.env.SESSION_SECRET ?? "dev-captcha-secret-key-that-is-long-enough";
+}
 
 export class CaptchaService {
   /**
    * Generate a simple math CAPTCHA challenge
    */
   static generateSimpleChallenge(): CaptchaChallenge {
-    const num1 = Math.floor(Math.random() * 20) + 1; // 1-20
-    const num2 = Math.floor(Math.random() * 20) + 1; // 1-20
+    // Generate a slightly harder puzzle for SEC-053
+    const num1 = Math.floor(Math.random() * 40) + 10; // 10-49
+    const num2 = Math.floor(Math.random() * 40) + 10; // 10-49
     const answer = (num1 + num2).toString();
-    const token = crypto.randomBytes(16).toString("hex");
     const expiresAt = Date.now() + CHALLENGE_EXPIRY_MS;
-
-    // Store challenge
-    challengeStore.set(token, {
-      answer,
-      expiresAt,
-      attempts: 0,
-    });
-
-    // Clean up expired challenges periodically
-    this.cleanupExpired();
+    
+    // Create stateless token (SEC-053)
+    const payload = Buffer.from(JSON.stringify({ answer, expiresAt })).toString("base64url");
+    const signature = crypto.createHmac("sha256", getCaptchaSecret()).update(payload).digest("hex");
+    const token = `${payload}.${signature}`;
 
     return {
       type: "simple",
@@ -82,48 +72,35 @@ export class CaptchaService {
       return { valid: false, error: "Missing CAPTCHA token or answer" };
     }
 
-    const challenge = challengeStore.get(token);
-
-    if (!challenge) {
-      return { valid: false, error: "Invalid or expired CAPTCHA token" };
+    const parts = token.split(".");
+    if (parts.length !== 2) {
+      return { valid: false, error: "Invalid CAPTCHA token format" };
     }
 
-    // Check expiry
-    if (Date.now() > challenge.expiresAt) {
-      challengeStore.delete(token);
+    const [payload, signature] = parts;
+    const expectedSignature = crypto.createHmac("sha256", getCaptchaSecret()).update(payload).digest("hex");
+
+    if (signature !== expectedSignature) {
+      return { valid: false, error: "Invalid or tampered CAPTCHA token" };
+    }
+
+    let parsedPayload: { answer: string; expiresAt: number };
+    try {
+      parsedPayload = JSON.parse(Buffer.from(payload, "base64url").toString("utf-8")) as { answer: string; expiresAt: number };
+    } catch {
+      return { valid: false, error: "Malformed CAPTCHA token" };
+    }
+
+    if (Date.now() > parsedPayload.expiresAt) {
       return { valid: false, error: "CAPTCHA has expired" };
     }
 
-    // Check attempts
-    if (challenge.attempts >= MAX_ATTEMPTS) {
-      challengeStore.delete(token);
-      return { valid: false, error: "Too many attempts. Please refresh." };
+    if (answer.trim() !== parsedPayload.answer) {
+      // Because it's stateless, we cannot easily track attempts. The client will just fail.
+      return { valid: false, error: "Incorrect answer." };
     }
 
-    // Increment attempts
-    challenge.attempts++;
-
-    // Check answer
-    const isCorrect = answer.trim() === challenge.answer;
-
-    if (isCorrect) {
-      // Clean up used token
-      challengeStore.delete(token);
-      return { valid: true };
-    } else {
-      // Check if this was the last attempt
-      if (challenge.attempts >= MAX_ATTEMPTS) {
-        challengeStore.delete(token);
-        return { valid: false, error: "Too many attempts. Please refresh." };
-      }
-
-      // Update attempt count
-      challengeStore.set(token, challenge);
-      return {
-        valid: false,
-        error: `Incorrect answer. ${MAX_ATTEMPTS - challenge.attempts} attempts remaining.`,
-      };
-    }
+    return { valid: true };
   }
 
   /**
@@ -172,24 +149,12 @@ export class CaptchaService {
   }
 
   /**
-   * Clean up expired challenges
-   */
-  private static cleanupExpired(): void {
-    const now = Date.now();
-    for (const [token, challenge] of challengeStore.entries()) {
-      if (now > challenge.expiresAt) {
-        challengeStore.delete(token);
-      }
-    }
-  }
-
-  /**
    * Get challenge statistics (for monitoring)
    */
   static getStats(): { activeChallenges: number } {
-    this.cleanupExpired();
+    // Stateless CAPTCHAs do not track active challenges
     return {
-      activeChallenges: challengeStore.size,
+      activeChallenges: 0,
     };
   }
 }

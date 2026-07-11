@@ -43,41 +43,7 @@ async function ensureUploadDir() {
   }
 }
 
-// Configure multer storage
-const storage = multerInstance.diskStorage({
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  destination: async (req: Express.Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
-    await ensureUploadDir();
-    cb(null, UPLOAD_DIR);
-  },
-  filename: (req: Express.Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
-    // Generate unique filename while preserving extension
-    const ext = path.extname(file.originalname);
-    const filename = `${randomUUID()}${ext}`;
-    cb(null, filename);
-  }
-});
 
-// File filter for validation
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-function-return-type
-const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  // Check file type
-  if (!ALLOWED_FILE_TYPES.includes(file.mimetype)) {
-    return cb(new Error(`File type ${file.mimetype} is not allowed`));
-  }
-
-  cb(null, true);
-};
-
-// Create multer instance
-export const upload = multerInstance({
-  storage,
-  fileFilter,
-  limits: {
-    fileSize: MAX_FILE_SIZE,
-    files: 5 // Max 5 files per request
-  }
-});
 
 // Validate file upload configuration
 // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-function-return-type

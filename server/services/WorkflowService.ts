@@ -1,5 +1,5 @@
 /* eslint-disable max-depth */
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import crypto from "crypto";
 
 import type { Workflow, InsertWorkflow, Step, WorkflowAccess, PrincipalType, AccessRole, InsertStep, InsertLogicRule } from "@shared/schema";
@@ -91,6 +91,12 @@ export class WorkflowService {
     this.logicRuleRepo = logicRuleRepo ?? logicRuleRepository;
     this.workflowAccessRepo = workflowAccessRepo ?? workflowAccessRepository;
     this.projectRepo = projectRepo ?? projectRepository;
+  }
+
+  private async requireOrgAdminForOrgOwnedWorkflow(workflow: Workflow, userId: string, action: string): Promise<void> {
+    if (workflow.ownerType === 'org' && workflow.ownerUuid && !(await canManageOrg(userId, workflow.ownerUuid))) {
+      throw new Error(`Access denied: Organization admin role required to ${action} organization workflows`);
+    }
   }
   /**
    * Verify user owns the workflow (accepts UUID or slug)
@@ -296,7 +302,8 @@ export class WorkflowService {
    * Delete workflow
    */
   async deleteWorkflow(workflowId: string, userId: string): Promise<void> {
-    await this.verifyAccess(workflowId, userId, 'owner');
+    const workflow = await this.verifyAccess(workflowId, userId, 'owner');
+    await this.requireOrgAdminForOrgOwnedWorkflow(workflow, userId, 'delete');
     await this.workflowRepo.delete(workflowId);
   }
   /**
@@ -307,7 +314,10 @@ export class WorkflowService {
     userId: string,
     status: 'draft' | 'active' | 'archived'
   ): Promise<Workflow> {
-    await this.verifyAccess(workflowId, userId, 'edit');
+    const workflow = await this.verifyAccess(workflowId, userId, 'edit');
+    if (status === 'archived') {
+      await this.requireOrgAdminForOrgOwnedWorkflow(workflow, userId, 'archive');
+    }
     return this.workflowRepo.update(workflowId, { status });
   }
   /**
@@ -476,6 +486,7 @@ export class WorkflowService {
     tx?: DbTransaction
   ): Promise<Workflow> {
     const workflow = await this.verifyAccess(workflowId, currentOwnerId, 'owner');
+    await this.requireOrgAdminForOrgOwnedWorkflow(workflow, currentOwnerId, 'transfer');
     // Additionally verify this user is the actual owner (not just has 'owner' role via ACL)
     if (workflow.ownerId !== currentOwnerId) {
       throw new Error("Only the current owner can transfer ownership");
@@ -792,6 +803,7 @@ export class WorkflowService {
   ): Promise<Workflow & { detachedFromProject?: boolean; detachmentReason?: string }> {
     const { transferService } = await import('./TransferService');
     const workflow = await this.verifyAccess(workflowId, userId, 'owner');
+    await this.requireOrgAdminForOrgOwnedWorkflow(workflow, userId, 'transfer');
     // Transfer-into-org requires org membership (not admin); validateTransfer
     // checks target existence first ("not found") then membership ("not a member").
     await transferService.validateTransfer(
@@ -830,6 +842,7 @@ export class WorkflowService {
         ownerUuid: targetOwnerUuid,
       })
       .where(eq(workflowRuns.workflowId, workflowId));
+    await this.transferWorkflowDatavaultResources(workflowId, targetOwnerType, targetOwnerUuid);
     // Return workflow with detachment notification if applicable
     if (shouldDetachFromProject) {
       return {
@@ -839,6 +852,43 @@ export class WorkflowService {
       };
     }
     return updatedWorkflow;
+  }
+
+  private async transferWorkflowDatavaultResources(
+    workflowId: string,
+    targetOwnerType: 'user' | 'org',
+    targetOwnerUuid: string
+  ): Promise<void> {
+    const { datavaultDatabases, datavaultTables, workflowDataSources } = await import('@shared/schema');
+    const linkedDatabases = await db
+      .select({ id: workflowDataSources.dataSourceId })
+      .from(workflowDataSources)
+      .where(eq(workflowDataSources.workflowId, workflowId));
+    const databaseIds = new Set<string>(linkedDatabases.map((row) => row.id));
+    const scopedDatabases = await db
+      .select({ id: datavaultDatabases.id })
+      .from(datavaultDatabases)
+      .where(and(eq(datavaultDatabases.scopeType, 'workflow'), eq(datavaultDatabases.scopeId, workflowId)));
+    scopedDatabases.forEach((row) => databaseIds.add(row.id));
+    if (databaseIds.size === 0) {
+      return;
+    }
+    await db
+      .update(datavaultDatabases)
+      .set({
+        ownerType: targetOwnerType,
+        ownerUuid: targetOwnerUuid,
+        updatedAt: new Date(),
+      })
+      .where(inArray(datavaultDatabases.id, [...databaseIds]));
+    await db
+      .update(datavaultTables)
+      .set({
+        ownerType: targetOwnerType,
+        ownerUuid: targetOwnerUuid,
+        updatedAt: new Date(),
+      })
+      .where(inArray(datavaultTables.databaseId, [...databaseIds]));
   }
 }
 // Singleton instance

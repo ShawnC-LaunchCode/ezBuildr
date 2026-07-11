@@ -9,6 +9,7 @@ import { requireUser } from '../middleware/requireUser';
 import { validateProjectId } from '../middleware/validateId';
 import { aclService } from "../services/AclService";
 import { projectService } from "../services/ProjectService";
+import { workflowClonerService } from "../services/WorkflowClonerService";
 import { asyncHandler } from "../utils/asyncHandler";
 import { createPaginatedResponse } from "../utils/pagination";
 import { classifyRouteError } from "../utils/routeErrors";
@@ -41,6 +42,15 @@ const updateProjectBodySchema = z.object({
 const listProjectsQuerySchema = z.object({
   active: z.enum(['true', 'false']).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+const copyProjectBodySchema = z.object({
+  name: z.string().trim().min(1).max(255).optional(),
+  targetOwnerType: z.enum(['user', 'org']).optional(),
+  targetOwnerUuid: z.string().uuid().optional(),
+  includeRelatedDatavault: z.boolean().optional(),
+  includeDatavaultData: z.boolean().optional(),
+  clearAccess: z.boolean().optional(),
 });
 
 /**
@@ -185,6 +195,33 @@ export function registerProjectRoutes(app: Express): void {
       logger.error({ error }, "Error fetching project workflows");
       const { status, message } = classifyRouteError(error, "Failed to fetch project workflows");
       res.status(status).json({ message });
+    }
+  }));
+
+  /**
+   * POST /api/projects/:projectId/copy
+   * Copy a project, its workflows, and optionally related DataVault resources.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  app.post('/api/projects/:projectId/copy', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const user = (req as UserRequest).user;
+      const { projectId } = req.params;
+      const options = copyProjectBodySchema.parse(req.body);
+
+      const result = await workflowClonerService.copyProject(projectId, user.id, options);
+      res.status(201).json({ success: true, data: result });
+    } catch (error) {
+      logger.error({ error, projectId: req.params.projectId }, "Error copying project");
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: ERR_INVALID_INPUT,
+          details: error.errors,
+        });
+      }
+      const { status, message } = classifyRouteError(error, "Failed to copy project");
+      res.status(status).json({ success: false, error: message, message });
     }
   }));
 

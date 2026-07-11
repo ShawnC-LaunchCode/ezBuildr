@@ -12,6 +12,7 @@ import { documentAIAssistService } from "../lib/ai/DocumentAIAssistService";
 import { logger } from "../logger";
 import { hybridAuth } from "../middleware/auth";
 import { uploadLimiter, strictLimiter } from "../middleware/rateLimiter";
+import { virusScanner } from "../services/security/VirusScanner";
 import { MAX_FILE_SIZE } from "../services/fileService";
 import { z } from "zod";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -158,6 +159,22 @@ router.post("/analyze", uploadLimiter, (req, res, next) => {
             return;
         }
 
+        const fileBuffer = await fs.readFile(req.file.path);
+        
+        const { validateMagicBytes } = await import('../utils/magicBytes');
+        const isValidMagic = validateMagicBytes(fileBuffer, req.file.originalname);
+        if (!isValidMagic) {
+            res.status(400).json({ error: "File type mismatch (Magic Bytes validation failed)" });
+            return;
+        }
+
+        const scanResult = await virusScanner().scan(fileBuffer, req.file.originalname);
+        if (!scanResult.safe) {
+            logger.warn({ file: req.file.originalname, threat: scanResult.threatName }, "Malicious file detected in AI analyze route");
+            res.status(400).json({ error: `File rejected by security scan: ${scanResult.threatName}` });
+            return;
+        }
+
         const result = await documentAIAssistService.analyzeTemplate(req.file.path, req.file.originalname);
         res.json({ data: result });
     } catch (err) {
@@ -184,6 +201,22 @@ router.post("/extract-text", uploadLimiter, (req, res, next) => {
     try {
         if (!req.file) {
             res.status(400).json({ error: "No file provided" });
+            return;
+        }
+
+        const fileBuffer = await fs.readFile(req.file.path);
+        
+        const { validateMagicBytes } = await import('../utils/magicBytes');
+        const isValidMagic = validateMagicBytes(fileBuffer, req.file.originalname);
+        if (!isValidMagic) {
+            res.status(400).json({ error: "File type mismatch (Magic Bytes validation failed)" });
+            return;
+        }
+
+        const scanResult = await virusScanner().scan(fileBuffer, req.file.originalname);
+        if (!scanResult.safe) {
+            logger.warn({ file: req.file.originalname, threat: scanResult.threatName }, "Malicious file detected in AI extract route");
+            res.status(400).json({ error: `File rejected by security scan: ${scanResult.threatName}` });
             return;
         }
 

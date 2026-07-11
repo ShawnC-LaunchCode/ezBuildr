@@ -1,9 +1,10 @@
 
-import { Plus, Edit, Trash2, Wand2, ChevronDown, FolderPlus, Link as LinkIcon, Play, Loader2, ArrowRightLeft } from "lucide-react";
+import { Plus, Edit, Trash2, Wand2, ChevronDown, FolderPlus, Link as LinkIcon, Play, Loader2, ArrowRightLeft, Copy } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
 
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
+import { CopyAssetDialog } from "@/components/dialogs/CopyAssetDialog";
 import { TransferOwnershipDialog } from "@/components/dialogs/TransferOwnershipDialog";
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
@@ -21,8 +22,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useCreateSampleWorkflow } from "@/lib/sample-workflow";
-import { workflowAPI } from "@/lib/vault-api";
-import { useUnfiledWorkflows, useDeleteWorkflow, useProjects, useDeleteProject, useCreateProject, useTransferWorkflow, useTransferProject } from "@/lib/vault-hooks";
+import { workflowAPI, type ApiAssetCopyOptions } from "@/lib/vault-api";
+import { useUnfiledWorkflows, useDeleteWorkflow, useProjects, useDeleteProject, useCreateProject, useTransferWorkflow, useTransferProject, useCopyWorkflow, useCopyProject } from "@/lib/vault-hooks";
 import type { } from "@shared/schema";
 // eslint-disable-next-line max-lines-per-function
 export default function WorkflowsList() {
@@ -36,6 +37,8 @@ export default function WorkflowsList() {
   const [newProjectDescription, setNewProjectDescription] = useState("");
   const [transferringWorkflow, setTransferringWorkflow] = useState<{ id: string; title: string } | null>(null);
   const [transferringProject, setTransferringProject] = useState<{ id: string; title: string } | null>(null);
+  const [copyingWorkflow, setCopyingWorkflow] = useState<{ id: string; title: string } | null>(null);
+  const [copyingProject, setCopyingProject] = useState<{ id: string; title: string } | null>(null);
   // Redirect to home if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -57,6 +60,8 @@ export default function WorkflowsList() {
   const deleteProjectMutation = useDeleteProject();
   const transferWorkflowMutation = useTransferWorkflow();
   const transferProjectMutation = useTransferProject();
+  const copyWorkflowMutation = useCopyWorkflow();
+  const copyProjectMutation = useCopyProject();
   const createProjectMutation = useCreateProject(); // Use shared hook with correct invalidation
   // Wrap the shared mutation to handle toast/reset logic locally
   const handleCreateProject = () => {
@@ -174,6 +179,44 @@ export default function WorkflowsList() {
       throw error;
     }
   };
+  const handleCopyWorkflow = async (options: ApiAssetCopyOptions) => {
+    if (!copyingWorkflow) { return; }
+    try {
+      const result = await copyWorkflowMutation.mutateAsync({ id: copyingWorkflow.id, options });
+      toast({
+        title: "Workflow copied",
+        description: result.copiedTables > 0
+          ? `Copied ${result.copiedTables} table${result.copiedTables === 1 ? "" : "s"}.`
+          : "Your workflow copy is ready.",
+      });
+      setCopyingWorkflow(null);
+    } catch (error: unknown) {
+      toast({
+        title: "Copy failed",
+        description: error instanceof Error ? error.message : "Failed to copy workflow",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+  const handleCopyProject = async (options: ApiAssetCopyOptions) => {
+    if (!copyingProject) { return; }
+    try {
+      const result = await copyProjectMutation.mutateAsync({ id: copyingProject.id, options });
+      toast({
+        title: "Project copied",
+        description: `Copied ${result.workflows?.length ?? 0} workflow${(result.workflows?.length ?? 0) === 1 ? "" : "s"}.`,
+      });
+      setCopyingProject(null);
+    } catch (error: unknown) {
+      toast({
+        title: "Copy failed",
+        description: error instanceof Error ? error.message : "Failed to copy project",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
   const handleCopyLink = async (workflowId: string) => {
     try {
       const { publicUrl } = await workflowAPI.getPublicLink(workflowId);
@@ -252,6 +295,7 @@ export default function WorkflowsList() {
                     project={project}
                     currentUserId={user?.id}
                     onTransfer={(id, title) => setTransferringProject({ id, title })}
+                    onCopy={(id, title) => setCopyingProject({ id, title })}
                     onDelete={(id) => setDeletingProjectId(id)}
                   />
                 ))}
@@ -305,6 +349,15 @@ export default function WorkflowsList() {
                           >
                             <ArrowRightLeft className="w-4 h-4 mr-1" />
                             Transfer
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => { void setCopyingWorkflow({ id: workflow.id, title: workflow.title }); }}
+                            data-testid={`button-copy-workflow-${workflow.id}`}
+                          >
+                            <Copy className="w-4 h-4 mr-1" />
+                            Copy
                           </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
@@ -489,6 +542,26 @@ export default function WorkflowsList() {
           assetName={transferringProject.title}
           onTransfer={handleTransferProject}
           isPending={transferProjectMutation.isPending}
+        />
+      )}
+      {copyingWorkflow && (
+        <CopyAssetDialog
+          open={copyingWorkflow !== null}
+          onOpenChange={(open) => !open && setCopyingWorkflow(null)}
+          assetType="workflow"
+          assetName={copyingWorkflow.title}
+          onCopy={handleCopyWorkflow}
+          isPending={copyWorkflowMutation.isPending}
+        />
+      )}
+      {copyingProject && (
+        <CopyAssetDialog
+          open={copyingProject !== null}
+          onOpenChange={(open) => !open && setCopyingProject(null)}
+          assetType="project"
+          assetName={copyingProject.title}
+          onCopy={handleCopyProject}
+          isPending={copyProjectMutation.isPending}
         />
       )}
     </div>

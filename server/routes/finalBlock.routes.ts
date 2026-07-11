@@ -430,7 +430,7 @@ export function registerFinalBlockRoutes(app: Express): void {
 
           try {
             await fs.access(fallbackPath);
-            return res.sendFile(fallbackPath);
+            return res.download(fallbackPath, sanitizedFilename);
           } catch {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
             throw createError.notFound('File', filename);
@@ -438,7 +438,7 @@ export function registerFinalBlockRoutes(app: Express): void {
         }
 
         // Send file
-        res.sendFile(filePath);
+        res.download(filePath, sanitizedFilename);
       } catch (error: unknown) {
         logger.error({
           error,

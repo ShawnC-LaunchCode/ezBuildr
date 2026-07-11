@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { canAccessAsset, isOrgMember } from '../utils/ownershipAccess';
+import { canAccessAsset, canManageOrg } from '../utils/ownershipAccess';
 /**
  * Transfer Service
  *
@@ -48,14 +48,24 @@ export class TransferService {
     }
     // Step 2 - Validate target ownership permissions
     if (targetOwnerType === 'org') {
-      // User must be a member of the target org
-      const isMember = await isOrgMember(currentUserId, targetOwnerUuid);
-      if (!isMember) {
-        throw new Error('Access denied: You are not a member of the target organization');
+      // Creating or moving production assets into an org requires an org admin.
+      const canManageTarget = await canManageOrg(currentUserId, targetOwnerUuid);
+      if (!canManageTarget) {
+        throw new Error('Access denied: Organization admin role required to transfer assets to this organization');
       }
     } else if (targetOwnerType === 'user' && targetOwnerUuid !== currentUserId) {
       // Can only transfer to self
       throw new Error('Access denied: Can only transfer to yourself');
+    }
+    if (
+      currentOwnerType === 'org' &&
+      currentOwnerUuid &&
+      (targetOwnerType !== 'org' || targetOwnerUuid !== currentOwnerUuid)
+    ) {
+      const canManageSource = await canManageOrg(currentUserId, currentOwnerUuid);
+      if (!canManageSource) {
+        throw new Error('Access denied: Organization admin role required to transfer assets out of this organization');
+      }
     }
     // Step 3 - Validate user has access to current asset (last, as it might be most expensive)
     const hasAccess = await canAccessAsset(currentUserId, currentOwnerType, currentOwnerUuid);

@@ -435,6 +435,26 @@
     },
     {
       "files": [
+        "server/**/*.ts",
+        "server/**/*.js"
+      ],
+      "excludedFiles": [
+        "server/utils/safeFetch.ts",
+        "server/tests/**/*",
+        "server/**/*.test.ts"
+      ],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "fetch",
+            "message": "Use safeFetch instead of the raw fetch API to prevent SSRF vulnerabilities."
+          }
+        ]
+      }
+    },
+    {
+      "files": [
         "*.config.ts",
         "*.config.js"
       ],

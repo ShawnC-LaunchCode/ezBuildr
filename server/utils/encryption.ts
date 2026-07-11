@@ -12,6 +12,29 @@ const AUTH_TAG_LENGTH = 16; // 128 bits
 const KEY_LENGTH = 32; // 256 bits
 
 /**
+ * Parse VL_KEYS from environment to a map of version -> key buffer.
+ */
+function getVersionedKeys(): Record<string, Buffer> {
+  const vlKeysStr = process.env.VL_KEYS;
+  if (!vlKeysStr) {
+    return {};
+  }
+  try {
+    const keysMap: Record<string, string> = JSON.parse(vlKeysStr);
+    const parsed: Record<string, Buffer> = {};
+    for (const [version, keyB64] of Object.entries(keysMap)) {
+      const key = Buffer.from(keyB64, 'base64');
+      if (key.length === KEY_LENGTH) {
+        parsed[version] = key;
+      }
+    }
+    return parsed;
+  } catch {
+    return {};
+  }
+}
+
+/**
  * Get the master encryption key from environment
  * Must be a 32-byte (256-bit) key in base64 format
  */
@@ -70,8 +93,12 @@ export function encrypt(plaintext: string): string {
     // Combine: nonce + authTag + ciphertext
     const combined = Buffer.concat([iv, authTag, encrypted]);
 
-    // Return as base64
-    return combined.toString('base64');
+    // Return as base64 with version prefix
+    // Check if VL_KEYS is defined to pick highest version, else default to 'v1'
+    const keysMap = getVersionedKeys();
+    const activeVersion = Object.keys(keysMap).sort().pop() ?? 'v1';
+
+    return `${activeVersion}.${combined.toString('base64')}`;
   } catch (error) {
     throw new Error(`Encryption failed: ${(error as Error).message}`);
   }
@@ -81,27 +108,78 @@ export function encrypt(plaintext: string): string {
  * Decrypt a value encrypted with encrypt()
  * Expects a base64-encoded string containing: nonce + authTag + ciphertext
  */
-export function decrypt(encryptedB64: string): string {
+function tryDecryptWithKey(encryptedB64: string, key: Buffer): string {
+  // Decode from base64
+  const combined = Buffer.from(encryptedB64, 'base64');
+
+  // Extract components
+  const iv = combined.subarray(0, IV_LENGTH);
+  const authTag = combined.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
+  const encrypted = combined.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
+
+  // Create decipher
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+  decipher.setAuthTag(authTag);
+
+  // Decrypt
+  let decrypted = decipher.update(encrypted);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+
+  return decrypted.toString('utf8');
+}
+
+/**
+ * Decrypt a value encrypted with encrypt()
+ * Supports legacy format and versioned prefixes (v1., v2.).
+ * Reads specific key version from VL_KEYS, falling back to VL_MASTER_KEY.
+ */
+export function decrypt(encryptedPayload: string): string {
   try {
+    // Check if payload has a version prefix (e.g. "v1.ABC...")
+    const versionMatch = encryptedPayload.match(/^(v\d+)\.(.+)$/);
+    
+    let encryptedB64 = encryptedPayload;
+    let version = 'v1'; // Default if unversioned
+
+    if (versionMatch) {
+      version = versionMatch[1];
+      encryptedB64 = versionMatch[2];
+    }
+
+    const keysMap = getVersionedKeys();
+    const targetedKey = keysMap[version];
+
+    if (targetedKey) {
+      try {
+        return tryDecryptWithKey(encryptedB64, targetedKey);
+      } catch (e) {
+        // Targeted key failed, we can optionally fall back below
+      }
+    }
+
+    // Fallback to VL_MASTER_KEY for legacy/default v1 behavior
     const masterKey = getMasterKey();
-
-    // Decode from base64
-    const combined = Buffer.from(encryptedB64, 'base64');
-
-    // Extract components
-    const iv = combined.subarray(0, IV_LENGTH);
-    const authTag = combined.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
-    const encrypted = combined.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
-
-    // Create decipher
-    const decipher = crypto.createDecipheriv(ALGORITHM, masterKey, iv);
-    decipher.setAuthTag(authTag);
-
-    // Decrypt
-    let decrypted = decipher.update(encrypted);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-
-    return decrypted.toString('utf8');
+    
+    try {
+      return tryDecryptWithKey(encryptedB64, masterKey);
+    } catch (primaryError) {
+      // Final fallback to retired keys logic if the user hasn't migrated fully to VL_KEYS JSON format
+      const retiredKeysStr = process.env.VL_RETIRED_KEYS;
+      if (retiredKeysStr) {
+        const retiredKeys = retiredKeysStr.split(',').map(k => k.trim()).filter(k => k.length > 0);
+        for (const keyB64 of retiredKeys) {
+          try {
+            const key = Buffer.from(keyB64, 'base64');
+            if (key.length === KEY_LENGTH) {
+              return tryDecryptWithKey(encryptedB64, key);
+            }
+          } catch {
+            // Ignore decryption failure for this retired key, try next
+          }
+        }
+      }
+      throw primaryError;
+    }
   } catch (error) {
     // Authentication failures will throw here
     throw new Error(`Decryption failed: ${(error as Error).message}`);

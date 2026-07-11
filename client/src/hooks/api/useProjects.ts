@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
 
-import { projectAPI, type ApiProject, type ApiAccessResponse, type ApiProjectAccess, type ApiProjectWithWorkflows, type ApiWorkflow } from "../../lib/vault-api";
+import { projectAPI, type ApiAssetCopyOptions, type ApiAssetCopyResult, type ApiProject, type ApiAccessResponse, type ApiProjectAccess, type ApiProjectWithWorkflows, type ApiWorkflow } from "../../lib/vault-api";
 
 import { queryKeys } from "./queryKeys";
 
@@ -174,6 +174,21 @@ export function useTransferProject(): UseMutationResult<ApiProject, unknown, { i
         onSuccess: async (data) => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.project(data.id) });
             await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+        },
+    });
+}
+
+export function useCopyProject(): UseMutationResult<ApiAssetCopyResult, unknown, { id: string; options: ApiAssetCopyOptions }> {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, options }) => projectAPI.copy(id, options),
+        onSuccess: async (data) => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.workflows });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.workflowsUnfiled });
+            if (data.project?.ownerType === 'org' && data.project.ownerUuid) {
+                await queryClient.invalidateQueries({ queryKey: queryKeys.organizationProjects(data.project.ownerUuid) });
+            }
         },
     });
 }

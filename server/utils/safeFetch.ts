@@ -9,17 +9,15 @@ import { isInternalIp } from './ssrfValidator';
  * It manually resolves the DNS, ensures the IP is not internal/loopback,
  * and pins the Undici Agent to that exact IP address.
  */
-export async function safeFetch(url: string, init: RequestInit = {}, requireHttps = true) {
+export async function safeFetch(url: string, init: RequestInit = {}, requireHttps = true): Promise<Response> {
     const parsed = new URL(url);
     
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
         throw new Error(`SSRF Prevention: Unsupported protocol ${parsed.protocol}`);
     }
 
-    if (requireHttps && parsed.protocol !== 'https:') {
-        if (parsed.hostname !== 'localhost' || process.env.ALLOW_LOCALHOST_WEBHOOKS !== 'true') {
-            throw new Error(`SSRF Prevention: HTTPS is required`);
-        }
+    if (requireHttps && parsed.protocol !== 'https:' && (parsed.hostname !== 'localhost' || process.env.ALLOW_LOCALHOST_WEBHOOKS !== 'true')) {
+        throw new Error(`SSRF Prevention: HTTPS is required`);
     }
     
     // DNS pinning for http and https
@@ -51,6 +49,6 @@ export async function safeFetch(url: string, init: RequestInit = {}, requireHttp
     
     // Pass the custom dispatcher
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
-    const finalInit: any = { ...init, dispatcher: agent };
+    const finalInit: RequestInit = { ...init, dispatcher: agent } as any;
     return fetch(url, finalInit);
 }

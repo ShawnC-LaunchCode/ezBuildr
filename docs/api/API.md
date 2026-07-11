@@ -91,12 +91,60 @@ Authorization: Required
 Response: 204 No Content (cascades to all sections, steps, runs)
 ```
 
+#### Copy Workflow
+```
+POST /api/workflows/:workflowId/copy
+Authorization: Required
+Body: {
+  "name": "string (optional, defaults to dev_<original title>)",
+  "targetOwnerType": "user" | "org" (optional, defaults to user),
+  "targetOwnerUuid": "uuid (optional, defaults to current user)",
+  "targetProjectId": "uuid | null (optional)",
+  "includeRelatedDatavault": boolean,
+  "includeDatavaultData": boolean,
+  "clearAccess": boolean
+}
+Response: {
+  workflow: copied workflow,
+  copiedDatabases: number,
+  copiedTables: number,
+  copiedRows: number
+}
+Notes: View access is enough to copy. Copying into an organization requires organization admin.
+```
+
 #### Change Workflow Status
 ```
 PUT /api/workflows/:workflowId/status
 Authorization: Required
 Body: { "status": "draft" | "active" | "archived" }
 Response: Updated workflow object
+```
+
+---
+
+### Projects
+
+#### Copy Project
+```
+POST /api/projects/:projectId/copy
+Authorization: Required
+Body: {
+  "name": "string (optional, defaults to dev_<original title>)",
+  "targetOwnerType": "user" | "org" (optional, defaults to user),
+  "targetOwnerUuid": "uuid (optional, defaults to current user)",
+  "includeRelatedDatavault": boolean,
+  "includeDatavaultData": boolean,
+  "clearAccess": boolean
+}
+Response: {
+  project: copied project,
+  workflows: copied workflows[],
+  copiedDatabases: number,
+  copiedTables: number,
+  copiedRows: number
+}
+Notes: View access is enough to copy. Organization members can copy org-owned projects to their own accounts; only organization admins can copy into an organization, transfer org-owned assets out, or delete org-owned workflows/projects.
 ```
 
 ---

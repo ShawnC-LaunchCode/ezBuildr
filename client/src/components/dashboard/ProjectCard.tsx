@@ -3,7 +3,7 @@
  * Displays a project folder card with workflow count
  */
 
-import { Folder, Archive, Trash2, Edit, ArrowRightLeft, Users } from "lucide-react";
+import { Folder, Archive, Trash2, Edit, ArrowRightLeft, Users, Copy } from "lucide-react";
 
 import { EntityCard, type EntityAction } from "@/components/shared/EntityCard";
 import { Badge } from "@/components/ui/badge";
@@ -14,11 +14,12 @@ interface ProjectCardProps {
   currentUserId?: string;
   onEdit?: (project: ApiProject) => void;
   onArchive?: (id: string) => void;
+  onCopy?: (id: string, title: string) => void;
   onTransfer?: (id: string, title: string) => void;
   onDelete?: (id: string) => void;
 }
 
-export function ProjectCard({ project, currentUserId, onEdit, onArchive, onTransfer, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, currentUserId, onEdit, onArchive, onCopy, onTransfer, onDelete }: ProjectCardProps) {
   const actions: EntityAction[] = [];
 
   if (onEdit) {
@@ -43,6 +44,14 @@ export function ProjectCard({ project, currentUserId, onEdit, onArchive, onTrans
       label: "Transfer",
       icon: ArrowRightLeft,
       onClick: () => onTransfer(project.id, project.title),
+    });
+  }
+
+  if (onCopy) {
+    actions.push({
+      label: "Copy",
+      icon: Copy,
+      onClick: () => onCopy(project.id, project.title),
     });
   }
 
@@ -78,7 +87,7 @@ export function ProjectCard({ project, currentUserId, onEdit, onArchive, onTrans
               Shared
             </Badge>
           )}
-          <Badge variant={(entity as any).status === "active" ? "default" : "outline"}>
+          <Badge variant={entity.status === "active" ? "default" : "outline"}>
             {entity.workflowCount ?? 0} workflow{(entity.workflowCount ?? 0) !== 1 ? 's' : ''}
           </Badge>
         </div>

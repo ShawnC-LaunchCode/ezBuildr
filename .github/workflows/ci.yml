@@ -35,6 +35,43 @@ jobs:
     - name: Lint (advisory)
       run: npm run lint --if-present
       continue-on-error: true
+      
+    - name: Strict Zones Type Check
+      run: npm run check:strict-zones
+
+  # Security gate to enforce dependency health and catch committed secrets
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Secret Scanning (gitleaks)
+      uses: gitleaks/gitleaks-action@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v3
+      with:
+        node-version: 20.x
+        cache: 'npm'
+
+    - name: Install Dependencies
+      run: npm ci
+
+    - name: Dependency Scanning
+      run: npm audit --omit=dev --audit-level=high
+
+    - name: SSRF Guard (Block raw fetch in server)
+      run: |
+        if grep -rnw 'server' --exclude='safeFetch.ts' --exclude-dir='tests' -e '\bfetch(' -e '\bawait fetch('; then
+          echo "ERROR: Raw fetch found in server/. Use safeFetch instead to prevent SSRF."
+          exit 1
+        fi
+        echo "No raw fetch found."
 
   # Real deployment-safety gate: runs the full test suite against a real
   # Postgres. Independent of the advisory quality job so tests always run.

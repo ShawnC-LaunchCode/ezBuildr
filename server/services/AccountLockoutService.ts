@@ -93,6 +93,21 @@ export class AccountLockoutService {
     }
 
     /**
+     * Get the number of failed login attempts for an email across all IPs in the lockout window
+     */
+    async getGlobalFailedAttempts(email: string): Promise<number> {
+        const windowStart = new Date(Date.now() - ATTEMPT_WINDOW_MINUTES * 60 * 1000);
+        const recentFailedAttempts = await this.db.query.loginAttempts.findMany({
+            where: and(
+                eq(loginAttempts.email, email),
+                eq(loginAttempts.successful, false),
+                gte(loginAttempts.attemptedAt, windowStart)
+            )
+        });
+        return recentFailedAttempts.length;
+    }
+
+    /**
      * Manually unlock an account (admin action)
      */
     async unlockAccount(userId: string): Promise<void> {
