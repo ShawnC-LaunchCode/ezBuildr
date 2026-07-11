@@ -31,7 +31,7 @@ npm run test:docker:up    # postgres:16 on port 5434
 npm run test:docker:down
 ```
 
-`tests/setup.ts` creates one **isolated Postgres schema per worker** and applies `migrations/*.sql` manually (with hardcoded drift failsafes around lines 230-268). Schemas are reused between files by design — don't "fix" that.
+`tests/setup.ts` creates one **isolated Postgres schema per worker** and applies `migrations/*.sql` manually (now a single compacted `0000_init_baseline.sql`; hardcoded drift failsafes remain around lines 230-274). Schemas are reused between files by design — don't "fix" that.
 
 ## Known failures that are NOT your regression
 

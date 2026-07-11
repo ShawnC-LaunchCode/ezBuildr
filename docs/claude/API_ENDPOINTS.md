@@ -1,239 +1,184 @@
 # API Endpoints Reference
 
-Complete reference for all 66+ API route files organized by domain.
+Map of API domains → route files (verified July 2026). **Source of truth is `server/routes/index.ts` (`registerAllRoutes`)** — ~68 route files including the `datavault/` and `ai/` subdirectories. Before relying on an exact path/method here, grep the route file; endpoint lists below were verified at the date above but drift.
 
-## Workflows & Structure
+New endpoints follow the 3-tier pattern in the `add-api-endpoint` skill (`.claude/skills/add-api-endpoint/SKILL.md`).
 
-```
-GET/POST    /api/workflows                    # List/Create workflows
-GET/PUT/DEL /api/workflows/:id                # CRUD operations
-PATCH       /api/workflows/:id/status         # Update status (draft/active/archived)
-GET         /api/workflows/:id/variables      # Get step aliases
-POST        /api/workflows/:id/publish        # Publish new version
-POST        /api/workflows/:id/clone          # Clone workflow
-
-POST        /api/workflows/:id/sections       # Create section
-PUT/DELETE  /api/sections/:id                 # Update/Delete section
-PUT         /api/workflows/:id/sections/reorder # Reorder sections
-
-POST        /api/workflows/:wid/sections/:sid/steps # Create step
-PUT/DELETE  /api/steps/:id                    # Update/Delete step
-PUT         /api/workflows/:id/steps/reorder  # Reorder steps
-```
-
-## Workflow Execution (Bearer Token or Session Auth)
+## Workflows & Structure — `workflows.routes.ts`, `sections.routes.ts`, `steps.routes.ts`
 
 ```
-POST        /api/workflows/:id/runs           # Create run (returns runToken)
-GET         /api/runs/:id                     # Get run details
-GET/POST    /api/runs/:id/values              # Get/Save step values
-POST        /api/runs/:id/values/bulk         # Bulk save values
-POST        /api/runs/:id/sections/:sid/submit # Submit section
-POST        /api/runs/:id/next                # Navigate to next section
-PUT         /api/runs/:id/complete            # Complete run (triggers transforms)
-GET         /api/runs/:id/trace               # Get execution trace
-GET         /api/runs                         # List runs (with filters)
+GET/POST    /api/workflows                        # List / create
+GET         /api/workflows/unfiled
+GET/PUT/DEL /api/workflows/:workflowId            # CRUD
+PUT         /api/workflows/:workflowId/status     # draft/active/archived
+PUT         /api/workflows/:workflowId/intake-config
+PUT         /api/workflows/:workflowId/move       # Move between projects
+GET/PUT     /api/workflows/:workflowId/mode       # easy/advanced mode
+GET         /api/workflows/:workflowId/variables  # Step aliases
+GET         /api/workflows/:workflowId/public-link
+GET         /api/workflows/:workflowId/logic-rules
+GET/PUT/DEL /api/workflows/:workflowId/access     # Workflow ACL
+PUT         /api/workflows/:workflowId/owner
+POST        /api/workflows/:workflowId/transfer
+POST        /api/workflows/:workflowId/templates/:templateId/test
 ```
 
-## Blocks & Code Execution
+Sections and steps CRUD live in `sections.routes.ts` / `steps.routes.ts`.
+
+## Workflow Runs — `runs.routes.ts`
 
 ```
-GET/POST    /api/workflows/:id/blocks         # List/Create blocks
-PUT/DELETE  /api/blocks/:id                   # Update/Delete block
-POST        /api/blocks/:id/test              # Test block execution
-
-GET/POST    /api/workflows/:id/transform-blocks # Transform blocks
-PUT/DELETE  /api/transform-blocks/:id         # Update/Delete
-POST        /api/transform-blocks/:id/test    # Test with sample data
+POST        /api/workflows/public/:publicLinkSlug/start   # Anonymous/public start
+POST        /api/workflows/:workflowId/runs               # Create run (returns runToken)
+GET         /api/workflows/:workflowId/runs               # List runs for workflow
+GET         /api/runs/:runId
+POST        /api/runs/:runId/revoke-token
+GET/POST    /api/runs/:runId/values                       # Get / save step values
+POST        /api/runs/:runId/values/bulk
+POST        /api/runs/:runId/sections/:sectionId/submit
+POST        /api/runs/:runId/next                         # Navigate to next section
+PUT         /api/runs/:runId/complete                     # Complete (triggers transforms)
+GET/POST/DEL /api/runs/:runId/documents                   # Run documents (+ generate-documents)
+POST        /api/runs/:runId/share                        # Create share token
+GET         /api/shared/runs/:token                       # Public shared run view
 ```
 
-## Lifecycle & Document Hooks
+> The old graph-run REST API was removed with the graph builder (2026). `workflow_runs` is the only run model.
+
+## Blocks & Transform Blocks — `blocks.routes.ts`, `transformBlocks.routes.ts`
 
 ```
-# Lifecycle Hooks (4 phases)
-GET/POST    /api/workflows/:workflowId/lifecycle-hooks # List/Create hooks
-PUT/DELETE  /api/lifecycle-hooks/:hookId      # Update/Delete hook
-POST        /api/lifecycle-hooks/:hookId/test # Test hook with sample data
-
-# Document Hooks (2 phases)
-GET/POST    /api/workflows/:workflowId/document-hooks # List/Create hooks
-PUT/DELETE  /api/document-hooks/:hookId       # Update/Delete hook
-POST        /api/document-hooks/:hookId/test  # Test hook with sample data
-
-# Script Console (Execution Logs)
-GET/DELETE  /api/runs/:runId/script-console   # Get/Clear execution logs
+GET/POST    /api/workflows/:id/blocks             # Block CRUD (prefill/validate/branch/records/...)
+PUT/DELETE  /api/blocks/:blockId
+PUT         /api/workflows/:id/blocks/reorder
+GET/POST    /api/workflows/:id/transform-blocks
+PUT/DELETE  /api/transform-blocks/:blockId
+POST        /api/transform-blocks/:blockId/test   # Test with sample data (blocks have NO /test)
 ```
 
-## DataVault (Complete Data Platform)
+## Lifecycle & Document Hooks — `lifecycleHooks`/`documentHooks` routers (mounted at `/api`)
 
 ```
-# Databases
-GET/POST    /api/projects/:id/databases       # List/Create databases
-GET/PUT/DEL /api/databases/:id                # CRUD databases
-POST        /api/databases/:id/archive        # Archive database
-
-# Tables & Rows
-GET/POST    /api/databases/:id/tables         # List/Create tables
-GET/PUT/DEL /api/tables/:id                   # CRUD tables
-GET/POST    /api/tables/:id/rows              # List/Create rows (infinite scroll)
-PUT/DELETE  /api/tables/:id/rows/:rowId       # Update/Delete row
-POST        /api/tables/:id/rows/bulk         # Bulk operations
-
-# Permissions & API Tokens
-GET/POST    /api/tables/:id/permissions       # Table permissions
-POST        /api/projects/:id/api-tokens      # Create API token
-GET         /api/projects/:id/api-tokens      # List tokens
-POST        /api/projects/:id/api-tokens/:tid/revoke # Revoke token
-
-# Row Notes
-GET/POST    /api/tables/:tid/rows/:rid/notes  # Row comments
+GET/POST    /api/workflows/:workflowId/lifecycle-hooks
+PUT/DELETE  /api/lifecycle-hooks/:hookId
+POST        /api/lifecycle-hooks/:hookId/test
+GET/POST    /api/workflows/:workflowId/document-hooks
+PUT/DELETE  /api/document-hooks/:hookId
+POST        /api/document-hooks/:hookId/test
+GET/DELETE  /api/runs/:runId/script-console       # Script execution logs
 ```
 
-## Logic & Visibility
+## DataVault — `datavault.routes.ts` + `server/routes/datavault/*` (all under `/api/datavault`)
 
 ```
-GET/POST    /api/workflows/:id/logic          # List/Create logic rules
-PUT/DELETE  /api/logic/:id                    # Update/Delete rule
-POST        /api/workflows/:id/logic/validate # Validate logic
+GET/POST    /api/datavault/databases              # NOT project-scoped
+GET/PATCH/DEL /api/datavault/databases/:id
+GET/POST    /api/datavault/databases/:id/tables
+GET/PATCH/DEL /api/datavault/tables/:tableId
+GET/POST    /api/datavault/tables/:tableId/rows   # Infinite scroll pagination
+GET/PATCH/DEL /api/datavault/rows/:rowId          # Row ops are row-scoped, not table-nested
+GET/POST    /api/datavault/tables/:tableId/permissions
+DELETE      /api/datavault/permissions/:permissionId
+GET/PUT/DEL /api/datavault/databases/:id/access   # Database ACL (DatavaultAclService)
+POST        /api/datavault/databases/:databaseId/transfer
+GET/POST    /api/datavault/databases/:databaseId/tokens   # API tokens (database-scoped)
+DELETE      /api/datavault/tokens/:tokenId
 ```
 
-## Connections & Integrations
+Row notes/archive: `datavault/rowNotes.routes.ts`, `datavault/rowArchive.routes.ts`.
+
+## Auth & Account — `auth.routes.ts`, `account.routes.ts`, `userPreferences.routes.ts`
 
 ```
-GET/POST    /api/projects/:id/connections     # List/Create connections
-PATCH/DEL   /api/projects/:id/connections/:cid # Update/Delete connection
-POST        /api/projects/:id/connections/:cid/test # Test connection
-GET         /api/connections/oauth/start      # Start OAuth2 flow (3-legged)
-GET         /api/connections/oauth/callback   # OAuth2 callback handler
-
-GET/POST    /api/projects/:id/secrets         # Encrypted secrets
-DELETE      /api/secrets/:id                  # Delete secret
-
-POST        /api/webhooks                     # Create webhook subscription
-GET         /api/webhooks/:id                 # Get webhook details
+POST        /api/auth/register | login | refresh-token | logout
+POST        /api/auth/forgot-password | reset-password | verify-email
+GET         /api/auth/me | csrf-token | token
+POST/GET    /api/auth/mfa/*                       # setup, verify, verify-login, status
+GET/PUT     /api/account
+GET/PUT     /api/preferences
 ```
 
-## AI-Powered Features
+## AI — `ai.routes.ts`, `ai/workflowEdit.routes.ts`, `ai.feedback.routes.ts`, mounted routers
 
 ```
-POST        /api/ai/workflows/generate        # Generate workflow from description
-POST        /api/ai/workflows/:id/suggest     # Suggest improvements
-POST        /api/ai/workflows/:id/optimize    # Optimize workflow structure
-POST        /api/ai/templates/:tid/bindings   # AI template variable binding
-POST        /api/ai/transform/generate        # Generate transform block code
-POST        /api/ai/personalization/:wid      # Personalization suggestions
+POST        /api/ai/workflows/generate            # Generate workflow from description
+POST        /api/ai/workflows/generate-logic | debug-logic | visualize-logic | revise
+POST        /api/workflows/:workflowId/ai/edit    # AI workflow editing (Stage 22)
+POST        /api/ai/transform/*                   # Transform code generation
+POST        /api/ai/doc/*                         # AI document features
+POST        /api/ai/personalize/*                 # Personalization
+POST        /api/ai/workflows/optimize/*          # Optimization wizard backend
+GET/POST    /api/ai/feedback (+ /stats)
+GET         /api/ai/status | /api/ai/sentiment
 ```
 
-## Templates & Marketplace
+Admin AI settings: `admin.aiSettings.routes.ts` → `/api/admin/ai-settings`.
+
+## Templates & Marketplace — `marketplace.ts` (mounted at `/api`), `workflowTemplates.routes.ts`, `api.templates.routes.ts`
 
 ```
-GET/POST    /api/templates                    # List/Create templates
-GET/PUT/DEL /api/templates/:id                # CRUD templates
-POST        /api/templates/:id/share          # Share template
-GET         /api/templates/:id/test           # Test template
-POST        /api/templates/:id/insert         # Insert into workflow
-GET         /api/marketplace                  # Browse marketplace
-GET         /api/marketplace/:id              # Get marketplace item
+GET/POST    /api/templates                        # There is NO /api/marketplace prefix
+GET         /api/templates/:id
+POST        /api/templates/:id/install
 ```
 
-## Document Generation & E-Signature
+## Documents & E-Signature — `documents.routes.ts`, `finalBlock.routes.ts`, `esign.routes.ts`
+
+E-sign is mounted at **`/api/esign`** (not `/api/signatures`):
 
 ```
-# Documents
-GET/POST    /api/workflows/:id/documents      # Document templates
-PUT/DELETE  /api/documents/:id                # Update/Delete template
-POST        /api/documents/:id/generate       # Generate document
-GET         /api/runs/:rid/documents          # Get run documents
-
-# E-Signature
-POST        /api/signatures/request           # Create signature request
-GET         /api/signatures/:id               # Get request status
-POST        /api/signatures/:id/sign          # Sign document (portal)
-GET         /api/signatures/:id/download      # Download signed document
-
-# Review Gates
-POST        /api/reviews                      # Create review task
-GET         /api/reviews/:id                  # Get review task
-POST        /api/reviews/:id/approve          # Approve
-POST        /api/reviews/:id/reject           # Reject
+POST        /api/esign/execute/:runId/:stepId
+GET         /api/esign/status/:envelopeId
+POST        /api/esign/callback/:runId/:stepId  (+ /callback/docusign)
+GET         /api/esign/providers
+POST        /api/esign/test
 ```
 
-## Analytics & Reporting
+> There are **no `/api/reviews` routes** — the review-gates route layer was removed in the dead-code sweep; `ReviewTaskService`/`review_tasks` still exist but are orphaned.
+
+## Connections, Secrets, Webhooks — `connections.v2.routes.ts`, `secrets.routes.ts`, mounted routers
 
 ```
-GET         /api/workflows/:id/analytics      # Overview analytics
-GET         /api/workflows/:id/analytics/funnel # Funnel analysis
-GET         /api/workflows/:id/analytics/trends # Response trends
-GET         /api/workflows/:id/analytics/heatmap # Field-level heatmap
-GET         /api/workflows/:id/analytics/branching # Branching analysis
-GET         /api/workflows/:id/export/json    # Export JSON
-GET         /api/workflows/:id/export/csv     # Export CSV
-GET         /api/workflows/:id/export/pdf     # Export PDF
+GET/POST    /api/projects/:projectId/connections
+PATCH/DEL   /api/projects/:projectId/connections/:connectionId
+POST        /api/projects/:projectId/connections/:connectionId/test
+GET/POST    /api/projects/:projectId/secrets
+POST        /api/projects/:projectId/secrets/:secretId/test
+/api/webhooks/*                                   # webhook router
+/api/external/*                                   # external API (rate-limited)
+/api/data-sources/*                               # data source router
+/api/places/*                                     # Google Places proxy
 ```
 
-## Portal & External Access
+`oauth.routes.ts` exists but is **intentionally disabled** (commented out in index.ts — insecure self-hosted OAuth provider).
+
+## Analytics & Export — `workflowAnalytics.routes.ts`, `workflowExports.routes.ts`
+
+Funnel/trends/heatmap/branching analytics and JSON/CSV/PDF export per workflow.
+
+## Admin — `admin.routes.ts` (hybridAuth + isAdmin)
 
 ```
-POST        /api/portal/login                 # Magic link login
-GET         /api/portal/verify/:token         # Verify magic link
-GET         /api/portal/runs                  # Portal user runs
-POST        /api/portal/runs/:id/resume       # Resume workflow
-
-# Public Access
-GET         /api/public/workflows/:slug       # Public workflow access
-POST        /api/public/workflows/:slug/runs  # Create anonymous run
+GET         /api/admin/users
+PUT         /api/admin/users/:userId/role         # NOT /set-admin
+GET         /api/admin/logs (+ /export, /events, /actors)
+GET         /api/admin/stats
+GET         /api/admin/workflows*
+PUT         /api/admin/tenants/:tenantId/mfa-required
 ```
 
-## Teams & Collaboration
+## Other registered domains (see route file for endpoints)
 
-```
-GET/POST    /api/teams                        # List/Create teams
-GET/PUT/DEL /api/teams/:id                    # CRUD teams
-POST        /api/teams/:id/members            # Add member
-DELETE      /api/teams/:tid/members/:uid      # Remove member
-GET/POST    /api/projects/:pid/access         # Project access control
-GET/POST    /api/workflows/:wid/access        # Workflow access control
-```
-
-## Versioning & Snapshots
-
-```
-GET         /api/workflows/:id/versions       # List versions
-GET         /api/workflows/:id/versions/:vid  # Get version
-POST        /api/workflows/:id/versions/:vid/restore # Restore version
-GET/POST    /api/workflows/:id/snapshots      # Snapshots (test data)
-DELETE      /api/snapshots/:id                # Delete snapshot
-```
-
-## Admin & System
-
-```
-GET         /api/admin/users                  # List users
-POST        /api/admin/users/:id/set-admin    # Set admin status
-GET         /api/admin/logs                   # Audit logs
-GET         /api/admin/stats                  # System stats
-POST        /api/admin/diagnostics            # Run diagnostics
-
-GET         /api/account                      # User account
-PUT         /api/account                      # Update account
-GET/PUT     /api/preferences                  # User preferences
-```
-
-## Billing & Enterprise
-
-```
-GET         /api/billing/subscription         # Get subscription
-POST        /api/billing/subscription         # Create subscription
-PUT         /api/billing/subscription         # Update subscription
-POST        /api/billing/portal               # Stripe portal session
-GET         /api/billing/usage                # Usage metrics
-```
-
-## Branding & Customization
-
-```
-GET/PUT     /api/branding/:projectId          # Branding settings
-POST        /api/branding/:projectId/logo     # Upload logo
-GET/POST    /api/branding/:projectId/domains  # Custom domains
-GET/POST    /api/email-templates              # Email templates
-```
+| Domain | File(s) |
+|--------|---------|
+| Projects | `projects.routes.ts` |
+| Organizations / Tenants / Teams | `organizations.routes.ts`, `tenant.routes.ts`, `teams.routes.ts` |
+| Billing (Stripe) | `billing.routes.ts` |
+| Portal (magic link) | `portal` router at `/api/portal` |
+| Branding / Email templates | `branding.routes.ts`, `emailTemplates.routes.ts` |
+| Versions & Snapshots | `versions.routes.ts`, `snapshots.routes.ts` |
+| Blueprints | `blueprint.routes.ts` |
+| Collections (legacy) | `collections.routes.ts` |
+| Intake / Preview / Dashboard | `intake.routes.ts`, `preview.routes.ts`, `dashboard.routes.ts` |
+| Files | `files.routes.ts` |
+| Health / Metrics / Docs | `health.ts`, `metrics.ts`, `docs.routes.ts` |

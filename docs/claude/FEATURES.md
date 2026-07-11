@@ -1,51 +1,46 @@
 # Features & Security Reference
 
-Feature status, security details, and recent architecture changes.
+Feature status, security details, and recent architecture changes (verified July 2026).
 
 ## Complete Features (Production Ready)
 
 | Feature | Description |
 |---------|-------------|
 | **Workflow Builder** | Section/step builder with 5-tab navigation and inspector panel |
-| **15+ Question Types** | Text, email, phone, number, currency, address, choice, scale, date, time, signature, file upload, display, multi-field, computed |
-| **DataVault** | Complete data platform: databases, tables, rows, 7 column types, infinite scroll, permissions, API tokens, row notes |
+| **38 Step Types** | Text, choice, date/time, currency, address, scale, signature block, file upload, computed, repeater, multi-field, plus easy/advanced-mode variants (see `stepTypeEnum` in SCHEMA.md) |
+| **DataVault** | Data platform: databases, tables, rows, 14 column types, infinite scroll, role-based permissions, ACLs, API tokens, row notes |
 | **Custom Scripting System** | Lifecycle hooks (4 phases) + document hooks (2 phases), 40+ helper functions, JS/Python, script console |
 | **Two-Tier Visibility Logic** | Workflow rules + step-level `visibleIf` expressions with real-time evaluation |
-| **Transform Blocks** | Sandboxed JS/Python execution, virtual steps, test playground, graph view |
+| **Transform Blocks** | Sandboxed JS/Python execution, virtual steps, test playground |
 | **Step Aliases** | Human-friendly variable names for logic and transforms |
 | **Run Token Authentication** | Bearer token + JWT + session auth, anonymous runs, portal magic links |
-| **Conditional Logic** | Show/hide/require/skip sections, 8+ operators, visual editor |
+| **Conditional Logic** | Show/hide/require/skip_to actions, 9 DB operators (28 in the logic engine), visual editor |
 | **Default Values** | Pre-fill with defaults, URL parameter override |
-| **HTTP/API Integration** | Full REST client, OAuth2 (Client Credentials + 3-legged), webhooks |
+| **HTTP/API Integration** | REST client via `safeFetch`, OAuth2 (Client Credentials + 3-legged), webhooks |
 | **Secrets Management** | AES-256-GCM encrypted storage, LRU cache |
-| **Review Gates** | Human-in-the-loop approval, assign to users/teams |
-| **E-Signature** | DocuSign, HelloSign, native signatures, signing portals |
+| **E-Signature** | DocuSign + native signatures via `/api/esign`, signing callbacks |
 | **Document Generation** | PDF/DOCX generation, template variables, repeating sections, AI binding |
-| **AI-Powered Features** | Workflow generation (OpenAI/Anthropic/Gemini), suggestions, optimization, template binding |
-| **Templates & Marketplace** | Reusable templates, sharing, marketplace, test runner, import/export |
+| **AI-Powered Features** | Workflow generation and AI editing (OpenAI/Anthropic/Gemini), logic generation/debugging, optimization wizard, template binding, feedback loop |
+| **Templates & Marketplace** | Reusable templates, marketplace page (`/marketplace` UI, `/api/templates` backend), test runner |
 | **Advanced Analytics** | Funnel analysis, dropoff tracking, heatmaps, branching analysis, export (JSON/CSV/PDF) |
 | **Portal System** | Magic link authentication, external user access, run tracking |
 | **Multi-Tenant Workspaces** | Tenants, organizations, workspaces, resource permissions |
-| **Team Collaboration** | Teams, roles, project/workflow access control, invitations |
-| **Versioning & Snapshots** | Version history, publish workflow, diff viewer, restore, test data snapshots |
-| **Real-time Collaboration** | Live presence, cursors, comments on steps, activity logs |
+| **MFA & Account Security** | TOTP MFA, backup codes, trusted devices, account lockout |
+| **Versioning & Snapshots** | Version history, publish workflow, restore, test data snapshots |
+| **Real-time Collaboration** | Live presence, cursors (`client/src/components/collab/`), activity logs |
 | **Billing Integration** | Stripe subscriptions, plans, usage metering, seat management |
-| **Branding & Customization** | Custom colors, logos, domains, white-label intake forms, email templates |
-| **Admin & Audit** | Admin dashboard, user management, comprehensive audit logs, system diagnostics |
+| **Branding & Customization** | Custom colors, logos, domains, white-label intake forms, email templates (per-project settings) |
+| **Admin & Audit** | Admin dashboard, user role management, audit logs, tenant MFA enforcement, AI settings |
 
-## In Progress
+## Orphaned / Partial
 
-- **Advanced Analytics Dashboards** - Enhanced visualizations and reporting
-- **DataVault-Workflow Integration** - Use DataVault as dynamic data source in workflows
+- **Review Gates** — `ReviewTaskService` and the `review_tasks` table exist, but the `/api/reviews` route layer was removed in the 2026 dead-code sweep. No UI or API exposes it; treat as dormant, not production.
+- **Collections** (`/data`) — legacy datastore, superseded by DataVault but still present.
+- **Self-hosted OAuth provider** — `oauth.routes.ts` exists but is intentionally disabled in `server/routes/index.ts` (security).
 
-## Planned Features
+## Backlog (no committed dates)
 
-| Feature | Target | Description |
-|---------|--------|-------------|
-| Enhanced Versioning | Q1 2026 | Branch management, merge conflicts, change tracking |
-| Integration Marketplace | Q2 2026 | Third-party integrations ecosystem, plugin system |
-| Advanced Personalization | Q2 2026 | AI-powered user personalization, adaptive workflows |
-| Mobile Builder App | Q3 2026 | Native mobile app for workflow building |
+Earlier roadmap targets (enhanced versioning, integration marketplace, adaptive personalization, mobile builder) did not ship and have no current target dates. Do not treat old Q1–Q3 2026 dates as commitments.
 
 ---
 
@@ -54,89 +49,50 @@ Feature status, security details, and recent architecture changes.
 ### Scripting System Sandboxing
 
 **JavaScript (vm2/vm):**
-- No access to: `require`, `process`, `Buffer`, `global`, timers
-- Only `input`, `context`, and `helpers` objects available
-- `emit()` function for output
-- Timeout enforced (100-3000ms configurable)
-- Code size limit: 32KB
-- Output size limit: 64KB
+- No access to `require`, `process`, `Buffer`, `global`, timers
+- Only `input`, `context`, and `helpers` objects available; `emit()` for output
+- Timeout enforced (100–3000ms configurable); code limit 32KB; output limit 64KB
+- Note: `vm2`/`isolated-vm` are optional deps and may be absent locally — sandboxed JS paths can't execute on such machines (see run-tests skill)
 
 **Python (subprocess):**
-- Isolated subprocess execution
-- Restricted builtins (no `os`, `sys`, `open`, `subprocess`, `socket`)
-- No file system or network access
-- Timeout with process termination
-- Max output: 64KB
+- Isolated subprocess, restricted builtins (no `os`, `sys`, `open`, `subprocess`, `socket`)
+- No file system or network access; timeout with process termination; max output 64KB
 
-**Helper Library Security:**
-- HTTP requests proxied through backend (URL whitelist validation)
-- No direct network access from sandbox
-- Console capture instead of native console
-- Date/math operations use safe libraries (date-fns)
-- All helpers designed to prevent code injection
-
-**Script Execution Security:**
-- Input/output key whitelisting (explicit allowlists)
-- Non-breaking error handling (workflows continue on script failure)
-- Execution audit logging (all scripts logged with performance metrics)
-- Workflow ownership validation (only owners can create/modify hooks)
-- Rate limiting on test endpoints (10 req/min)
+**Helper Library & Execution:**
+- HTTP from scripts proxied through the backend (`safeFetch`, URL validation — see docs/architecture/SECURITY_THREAT_MODEL.md)
+- Console capture; input/output key allowlists; non-breaking error handling
+- Execution audit logging; workflow-ownership validation; rate limiting on test endpoints
 
 ### General Security
 
-- Google OAuth2 + JWT authentication
+- Google OAuth2 + JWT authentication (+ email/password with MFA)
 - Session management (PostgreSQL store)
-- AES-256-GCM secrets encryption with master key
-- CORS configuration
-- Zod input validation
+- AES-256-GCM secrets encryption with `VL_MASTER_KEY`
+- CORS configuration, Zod input validation (mass-assignment protection — parse explicit fields, never spread `req.body`)
 - Drizzle ORM (SQL injection protection)
-- Rate limiting (10 req/min on test endpoints)
-- File upload limits (10MB, MIME validation)
+- Rate limiting on test endpoints; file upload limits (10MB, MIME validation)
 
 ---
 
 ## Recent Architecture Changes
 
-### Custom Scripting System - Prompt 12 (Dec 7, 2025)
-Comprehensive scripting infrastructure with lifecycle hooks (beforePage, afterPage, beforeFinalBlock, afterDocumentsGenerated) and document hooks (beforeGeneration, afterGeneration). Features 40+ helper functions, context injection, console capture, mutation mode, and script console for debugging.
+### Graph Builder Removal (June–July 2026)
+The visual/graph (React Flow) builder, its execution engine, its REST API, and the `runs`/`run_logs`/`run_outputs` tables were fully removed. `workflow_runs` + `step_values` are the only execution model. The `/runs` dashboard pages were removed with it.
 
-### DataVault v4 (Nov 18-26, 2025)
-Complete data management platform with databases, tables, permissions, API tokens, and row comments. 7 column types, infinite scroll, advanced filtering, optimistic updates.
+### Migration Baseline Compaction (July 2026)
+The migration chain was compacted into a single `migrations/0000_init_baseline.sql` that builds a correct schema from scratch; the journal is clean. See the `db-schema-change` skill before touching migrations.
 
-### Visibility Logic Builder (Nov 25, 2025)
-Two-tier visibility system with workflow rules + step-level `visibleIf` expressions. React hook for real-time evaluation.
+### Test Suite Split (Feb 2026)
+Vitest is split into 3 projects: `unit-fast` (no DB, ~13s), `unit-db`, `integration` (real Postgres, `TEST_DATABASE_URL`). See the `run-tests` skill.
 
-### JWT Auth Improvements (Nov 24, 2025)
-New JWT token endpoint, cleaner auth patterns (`AuthRequest.userId` interface), better TypeScript typing.
+### Lint Zero-Error Policy (Feb–Mar 2026)
+ESLint errors reduced from 12,694 to 0; `npm run lint` runs with `--max-warnings 0` policy on errors.
 
-### Default Values & URL Parameters (Nov 25, 2025)
-Steps support `defaultValue` (JSONB), overridable via URL params for deep linking and testing.
+### Custom Scripting System (Dec 2025)
+Lifecycle hooks (beforePage, afterPage, beforeFinalBlock, afterDocumentsGenerated) and document hooks (beforeGeneration, afterGeneration), 40+ helpers, script console.
 
-### Integrations Hub - Stage 16 (Nov 13, 2025)
-Unified connection model with OAuth2 3-legged flow, webhook node, connection health tracking.
+### DataVault v4 + Visibility Logic Builder (Nov 2025)
+Data platform with databases/tables/permissions/API tokens; two-tier visibility system.
 
-### AI-Assisted Builder - Stage 15 (Nov 13, 2025)
-Workflow generation from natural language, improvement suggestions, template variable binding with semantic matching.
-
-### Review & E-Signature - Stage 14 (Nov 13, 2025)
-Human-in-the-loop workflows with review gates, native e-signature support, token-based signing portals.
-
-### HTTP/Secrets - Stage 9 (Nov 12, 2025)
-Full HTTP/API node with OAuth2 Client Credentials, AES-256-GCM secrets encryption, LRU caching.
-
-### Virtual Steps - Stage 8 (Nov 11, 2025)
-Transform block outputs persisted via virtual steps with proper UUIDs, step aliases for variables.
-
-### Survey System Removal (Nov 16, 2025)
-Complete removal of legacy survey UI (67 files, ~11,763 LOC). ezBuildr is now 100% workflow-focused.
-
-### Builder Navigation Overhaul (Nov 14-17, 2025)
-5-tab navigation (Sections, Settings, Templates, Data Sources, Snapshots), mobile-responsive, template test runner.
-
----
-
-## Version History
-
-- **v1.7.0** (Dec 26, 2025) - Custom Scripting System (Lifecycle & Document Hooks)
-- **v1.6.0** (Nov 26, 2025) - DataVault v4 + Visibility Logic Builder
-- **v1.5.0** (Nov 17, 2025) - Survey Removal + Navigation Overhaul
+### Survey System Removal (Nov 2025)
+Legacy survey UI removed (~11,763 LOC); ezBuildr is 100% workflow-focused. No survey tables remain in the schema.

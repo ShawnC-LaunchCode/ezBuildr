@@ -27,7 +27,7 @@ Google OAuth can't be driven headlessly. Two working paths:
 
 - **API change:** curl/supertest the real endpoint on the running server — status code, body shape, and the failure case (401 without token, 403/404 cross-tenant). Passing unit tests alone is not verification.
 - **Workflow engine / step change:** create a workflow via the builder or API, add the relevant step, start a run, submit values, confirm `stepValues` and execution trace look right.
-- **UI change:** drive it in the preview browser (`preview_snapshot` for text/structure, `preview_inspect` for styles) at desktop and mobile widths. Check `preview_console_logs` for errors. UI changes also require the design skill (user's global instruction).
+- **UI change:** drive it in the preview browser (`read_page` for text/structure, `javascript_tool` for computed styles, `computer` screenshot for visuals) at desktop and mobile widths (`resize_window`). Check `read_console_messages` for errors. UI changes also require the design skill (user's global instruction).
 - **Script/hook change:** note `vm2`/`isolated-vm` are not installed locally — sandboxed JS execution paths can't run on this machine; verify logic via unit tests and flag the gap.
 
 ## Fast checks that catch most breakage

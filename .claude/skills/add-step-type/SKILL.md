@@ -11,7 +11,7 @@ A step type (like `short_text`, `signature`, `computed`) is enumerated in many p
 
 | File | What |
 |---|---|
-| `shared/schema/workflow.ts:37` | `stepTypeEnum` pgEnum — the DB enum. **Requires a migration:** `ALTER TYPE "step_type" ADD VALUE IF NOT EXISTS 'my_type';` (see the db-schema-change skill) |
+| `shared/schema/workflow.ts:38` | `stepTypeEnum` pgEnum — the DB enum (38 values). **Requires a migration:** `ALTER TYPE "step_type" ADD VALUE IF NOT EXISTS 'my_type';` (see the db-schema-change skill) |
 | `shared/types/workflow.ts:12` | `StepType` string-union |
 | `shared/types/stepConfigs.ts` | Config + value types for the new type (what goes in `step.config`, what a submitted value looks like) |
 | `shared/validation/BlockValidation.ts:81` | Server-side value validation `switch` — without a case, submissions for the type are under-validated |

@@ -1,167 +1,115 @@
 # Services Reference
 
-Complete reference for all 90+ service classes organized by domain.
+Map of service classes in `server/services/` (verified July 2026): ~91 top-level files plus subdirectories (`ai/`, `analytics/`, `document/`, `esign/`, `scripting/`, `blockRunners/`, `runs/`, `storage/`, `security/`, and others) — ~185 files total. **Grep `server/services/` for the class before assuming a name here is current.**
 
-## Workflow Core Services
+Conventions: services export a module-level singleton (`export const fooService = new FooService()`) with optional constructor repo params for tests; tenancy is checked in the service layer via `verifyTenantOwnership`-style methods. See the `add-api-endpoint` skill.
+
+## Workflow Core
 
 | Service | Purpose |
 |---------|---------|
 | WorkflowService | Workflow CRUD, status management |
-| SectionService | Section management, ordering |
-| StepService | Step CRUD, type handling |
-| RunService | Run creation, execution |
+| SectionService / StepService | Section and step management |
 | LogicService | Conditional logic rules |
-| VariableService | Step alias management |
+| VariableService / AliasResolver / AliasRenameService | Step alias management |
 | BlockService | Reusable block management |
-| WorkflowClonerService | Workflow cloning |
-| WorkflowExportService | Export workflows |
-| WorkflowBundleService | Bundle workflows |
-| VersionService | Version history |
-| SnapshotService | Test data snapshots |
+| WorkflowClonerService / WorkflowExportService / WorkflowBundleService | Clone, export, bundle |
+| WorkflowPatchService | Patch-style workflow edits (used by AI edit) |
+| WorkflowQualityValidator | Workflow quality checks |
+| VersionService / SnapshotService | Version history, test-data snapshots |
 
-## Execution & Runtime Services
+## Execution & Runtime
 
 | Service | Purpose |
 |---------|---------|
 | RunService | Run lifecycle management |
-| BlockRunner | Execute workflow blocks |
-| IntakeService | Intake form processing |
-| TransformBlockService | JS/Python code execution |
-| QueryBlockService | Query execution |
-| IntakeNavigationService | Section navigation |
-| IntakeQuestionVisibilityService | Real-time visibility |
+| BlockRunner + `blockRunners/*` | Execute workflow blocks (per-type runner classes) |
+| TransformBlockService | JS/Python transform execution |
+| IntakeService / IntakeNavigationService / IntakeQuestionVisibilityService | Intake flow, navigation, real-time visibility |
+| IntakeReceiptService | Intake receipts |
 | RepeaterService | Repeating sections |
-| QueryService | Data queries |
+| QueryService / QueryBlockService | Data queries |
+| ListToolsBlockService / ReadTableBlockService | DataVault-backed blocks |
+| WritebackExecutionService | Workflow → DataVault writeback |
 
-## Custom Scripting Services
+## Custom Scripting (`scripting/`)
 
 | Service | Purpose |
 |---------|---------|
 | ScriptEngine | Unified JS/Python orchestrator |
-| HelperLibrary | 40+ utility functions |
+| HelperLibrary | 40+ sandboxed utility functions |
 | ScriptContext | Context injection |
-| LifecycleHookService | Lifecycle hook management |
-| DocumentHookService | Document hook management |
-| LifecycleHookRepository | Lifecycle hook data access |
-| DocumentHookRepository | Document hook data access |
-| ScriptExecutionLogRepository | Execution audit logging |
+| LifecycleHookService / DocumentHookService | Hook management |
 
-## DataVault Services
+## DataVault
 
 | Service | Purpose |
 |---------|---------|
-| DatavaultDatabasesService | Database CRUD |
-| DatavaultTablesService | Table CRUD |
-| DatavaultColumnsService | Column management |
-| DatavaultRowsService | Row CRUD, pagination |
+| DatavaultDatabasesService / DatavaultTablesService / DatavaultColumnsService / DatavaultRowsService | Core CRUD |
 | DatavaultRowNotesService | Row comments |
-| DatavaultTablePermissionsService | Access control |
-| DatavaultApiTokensService | API token management |
+| DatavaultTablePermissionsService | Table permissions (role enum) |
+| DatavaultAclService | Database/table ACLs |
+| DatavaultApiTokensService | API tokens |
+| TransferService | Database ownership transfer |
 
-## Document Generation Services
+## Documents (`document/`)
 
 | Service | Purpose |
 |---------|---------|
-| DocumentGenerationService | Generate documents |
+| DocumentEngine / EnhancedDocumentEngine | Document generation (the legacy `DocumentGenerationService`, `docxRenderer`, `docxRenderer2` are **deleted** — see `server/services/document/README.md`) |
 | DocumentTemplateService | Template management |
-| DocumentEngine | Core document engine |
-| EnhancedDocumentEngine | Advanced features |
 | FinalBlockRenderer | Final block rendering |
-| TemplateParser | Parse templates |
-| TemplateScanner | Scan for variables |
-| MappingInterpreter | Variable mapping |
-| VariableNormalizer | Normalize variables |
-| PdfConverter | PDF conversion |
-| ZipBundler | Bundle documents |
-| docxRenderer | DOCX rendering |
-| docxRenderer2 | Enhanced DOCX rendering |
+| TemplateParser / TemplateScanner / MappingInterpreter / VariableNormalizer | Template variable pipeline |
+| PdfConverter / ZipBundler | PDF conversion, bundling |
 
-## E-Signature Services
+## E-Signature (`esign/`)
 
 | Service | Purpose |
 |---------|---------|
 | SignatureBlockService | Signature block handling |
-| EsignProvider | E-signature provider interface |
-| DocusignProvider | DocuSign integration |
-| SignatureRequestService | Signature request management |
-| EnvelopeBuilder | Build signing envelopes |
+| EsignProvider / DocusignProvider | Provider interface + DocuSign |
+| SignatureRequestService / EnvelopeBuilder | Requests, envelopes |
 
-## AI & Optimization Services
+## AI (`ai/` + top-level)
 
 | Service | Purpose |
 |---------|---------|
-| AIService | Multi-provider AI (OpenAI, Anthropic, Gemini) |
-| GeminiService | Google Gemini integration |
-| WorkflowOptimizationService | Workflow optimization |
-| TemplateAnalysisService | Template analysis |
+| AIService | Multi-provider orchestration |
+| ai/ModelRegistry + ai/providers/* | AnthropicProvider, OpenAIProvider, ProviderFactory |
+| GeminiService | Google Gemini |
+| AiSettingsService | Tenant AI settings |
+| WorkflowOptimizationService | Optimization wizard backend |
+| TemplateAnalysisService | Template analysis / AI binding |
 
-## Analytics & Reporting Services
+## Analytics (`analytics/` + top-level)
 
-| Service | Purpose |
-|---------|---------|
-| AnalyticsService | Overview metrics |
-| DropoffService | Funnel/dropoff analysis |
-| BranchingService | Conditional flow analysis |
-| AggregationService | Data aggregation |
-| HeatmapService | Heatmap generation |
+AnalyticsService, DropoffService, BranchingService, AggregationService, HeatmapService, MetricsService, TemplateAnalyticsService.
 
-## Collections Services (Legacy)
+## Auth & Security
 
 | Service | Purpose |
 |---------|---------|
-| CollectionService | Collection CRUD |
-| CollectionFieldService | Field management |
-| RecordService | Record CRUD |
-
-## Integration & Connection Services
-
-| Service | Purpose |
-|---------|---------|
-| ConnectionService | API connection management |
-| SecretService | Encrypted secret storage |
-| OAuth2Service | OAuth2 flow handling |
-| ExternalDestinationService | External destinations |
-| GooglePlacesService | Google Places API |
-| WebhookService | Webhook management |
-
-## Authentication & Security Services
-
-| Service | Purpose |
-|---------|---------|
-| AuthService | JWT, session management |
+| AuthService | JWT, sessions, refresh tokens |
+| MfaService | TOTP MFA, backup codes |
+| AccountLockoutService | Brute-force lockout |
 | AclService | Access control lists |
+| AuditLogService | Audit trail |
 | CaptchaService | CAPTCHA verification |
-| PortalAuthService | Portal authentication |
-| PortalService | Portal user management |
+| PortalAuthService / PortalService | Portal magic-link auth |
+| PlaceholderUserCleanupService | Cleanup job |
 
-## Template & Sharing Services
+## Integrations
 
-| Service | Purpose |
-|---------|---------|
-| TemplateService | Template CRUD |
-| TemplateSharingService | Template sharing |
-| TemplateTestService | Template testing |
-| WorkflowTemplateService | Workflow template management |
-| TemplateInsertionService | Insert templates into workflows |
+Connections, secrets, and OAuth2 are lowercase **module files**, not PascalCase classes: `connections.ts` / `externalConnections.ts`, `secrets.ts`, `oauth2.ts`. Also: ExternalDestinationService, GooglePlacesService, EmailQueueService.
 
-## Business Logic Services
+## Templates
 
-| Service | Purpose |
-|---------|---------|
-| ProjectService | Project management |
-| TeamService | Team management |
-| ReviewTaskService | Review task handling |
-| BrandingService | Branding configuration |
-| DataSourceService | Data source management |
-| RandomizerService | Randomization logic |
+TemplateService, TemplateTestService, TemplateVersionService, TemplateValidationService, TemplatePreviewService, WorkflowTemplateService.
 
-## Utility Services
+## Business & Utility
 
-| Service | Purpose |
-|---------|---------|
-| ActivityLogService | Activity logging |
-| emailService | Email sending (SendGrid) |
-| fileService | File upload/management |
-| UserPreferencesService | User preferences |
-| AccountService | Account management |
-| PdfQueueService | PDF generation queue |
+ProjectService, TeamService, OrganizationService, ReviewTaskService (orphaned — its routes were removed), BrandingService, DataSourceService, RandomizerService, ActivityLogService, emailService (SendGrid), fileService, FileStorageService, StorageQuotaService, UserPreferencesService, AccountService, EmailTemplateMetadataService, CollectionService/CollectionFieldService/RecordService (legacy).
+
+## Removed — do not reference
+
+`DocumentGenerationService`, `docxRenderer`, `docxRenderer2`, `TemplateSharingService`, `TemplateInsertionService`, `PdfQueueService`, and the graph execution engine (removed with the graph builder, 2026).

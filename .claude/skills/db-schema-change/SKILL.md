@@ -7,7 +7,7 @@ description: "Use this skill for ANY work involving ezBuildr's Postgres schema, 
 
 ## Where schema lives
 
-- One file per domain under `shared/schema/` (`auth.ts`, `workflow.ts`, `run.ts`, `datavault.ts`, `integrations.ts`, `relations.ts`, `billing.ts`, `branding.ts`, `ai.ts`, `system.ts`, `template_shares.ts`, `analytics.ts`), barreled by `shared/schema/index.ts`; the top-level `shared/schema.ts` just re-exports it.
+- One file per domain under `shared/schema/` (`auth.ts`, `workflow.ts`, `run.ts`, `datavault.ts`, `integrations.ts`, `relations.ts`, `billing.ts`, `branding.ts`, `ai.ts`, `system.ts`, `files.ts`, `template_shares.ts`, `analytics.ts` — analytics.ts holds interfaces only, no tables), barreled by `shared/schema/index.ts`; the top-level `shared/schema.ts` just re-exports it.
 - Import as `import { foos, type Foo, type InsertFoo } from '@shared/schema'`.
 - Define drizzle-zod insert schemas next to the table (`insertFooSchema`) — routes validate with them.
 - `drizzle.config.ts`: schema `./shared/schema.ts`, migrations out `./migrations`.
@@ -16,8 +16,8 @@ description: "Use this skill for ANY work involving ezBuildr's Postgres schema, 
 
 1. **Edit the Drizzle table** in the right `shared/schema/*.ts` domain file (types + relations in `relations.ts` if needed).
 2. **Apply to your dev DB:** `npm run db:push` (drizzle-kit push — fine for dev/Neon).
-3. **Write a SQL migration** in `migrations/` for anything that must reach other environments: next sequential number, snake-case name (`0009_add_foo_table.sql`), statements separated by `--> statement-breakpoint` (drizzle's delimiter — the test applier splits on it too).
-4. `npm run db:migrate` runs `scripts/runMigrations.ts` (drizzle `migrate()` with `migrations/meta/_journal.json`). **The journal has drifted historically** — there are many ad-hoc `scripts/applyMigrationNNNN.ts` scripts as evidence. If you add a `.sql` file, make sure `migrations/meta/_journal.json` has an entry for it, or it will silently never run via `db:migrate`.
+3. **Write a SQL migration** in `migrations/` for anything that must reach other environments: next sequential number, snake-case name, statements separated by `--> statement-breakpoint` (drizzle's delimiter — the test applier splits on it too). The chain was **compacted in July 2026 to a single `0000_init_baseline.sql`** that builds the full schema from scratch — so the next new file is `0001_...`. Do not edit the baseline for new changes; add a new file.
+4. `npm run db:migrate` runs `scripts/runMigrations.ts` (drizzle `migrate()` with `migrations/meta/_journal.json`). The journal was reset with the compaction and now has one clean baseline entry — but the failure mode is unchanged: if you add a `.sql` file **without** a matching `migrations/meta/_journal.json` entry, it will silently never run via `db:migrate`. (The old drifted chain's leftovers — `scripts/applyMigrationNNNN.ts` — still exist but are historical; don't use them.)
 
 ## Tests apply migrations their own way — keep them working
 
@@ -26,15 +26,15 @@ description: "Use this skill for ANY work involving ezBuildr's Postgres schema, 
 - Migrations must be **runnable in order on a fresh database** — never assume manual pre-steps.
 - Prefer idempotent DDL (`IF NOT EXISTS` / `IF EXISTS`) where reasonable.
 - Schema-qualify as `"public"."table"` or leave unqualified — a hardcoded other schema will break test rewriting.
-- If a past migration drifted, `tests/setup.ts` has a failsafe block (~lines 230-268) of `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` fixes. Only add there as a last resort; fixing the migration is better.
+- If a past migration drifted, `tests/setup.ts` has a failsafe block (~lines 230-274) of `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` fixes. Only add there as a last resort; fixing the migration is better.
 
 ## Enum changes
 
-`stepTypeEnum` and friends are `pgEnum`s (e.g. `shared/schema/workflow.ts:37`). Adding a value needs both the TS enum edit **and** a migration with `ALTER TYPE "step_type" ADD VALUE IF NOT EXISTS 'new_value';`. Postgres can't remove enum values — plan additions carefully.
+`stepTypeEnum` and friends are `pgEnum`s (e.g. `shared/schema/workflow.ts:38`). Adding a value needs both the TS enum edit **and** a migration with `ALTER TYPE "step_type" ADD VALUE IF NOT EXISTS 'new_value';`. Postgres can't remove enum values — plan additions carefully.
 
 ## Troubleshooting
 
-- "column does not exist" after pulling: `npx tsx scripts/fixAllMissingColumns.ts`
+- "column does not exist" after pulling: your dev DB is behind — `npm run db:push` (the old `scripts/fixAllMissingColumns.ts` no longer exists)
 - DataVault-specific migrations: `npm run db:migrate:datavault`
 - Validate a fresh-DB run cheaply: `npm run test:docker:up` (PG 16 on port 5434, tmpfs) then run any integration test with `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5434/ezbuildr_test` — setup.ts will apply every migration from scratch.
 
