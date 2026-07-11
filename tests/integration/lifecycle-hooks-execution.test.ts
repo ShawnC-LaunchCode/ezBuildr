@@ -329,8 +329,6 @@ describe('Lifecycle Hooks Execution', () => {
           phase: 'afterPage',
           language: 'python',
           code: `
-import json
-
 name = input.get('user_name', '')
 word_count = len(name.split())
 char_count = len(name)

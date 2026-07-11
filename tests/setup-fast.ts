@@ -103,20 +103,25 @@ vi.mock("../server/services/sendgrid", () => ({
 
 // Mock AI Providers
 vi.mock("@google/generative-ai", () => {
-  const MockGoogleGenerativeAI = vi.fn().mockImplementation(() => { return {
-    getGenerativeModel: vi.fn().mockReturnValue({
-      generateContent: vi.fn().mockResolvedValue({
-        response: {
-          text: () => JSON.stringify({
-            updatedWorkflow: { title: "Mocked AI Workflow", sections: [] },
-            explanation: ["Mocked explanation"],
-            diff: { changes: [] },
-            suggestions: [],
-          }),
-        },
-      }),
-    }),
-  }; });
+  // Must be a real class: services call `new GoogleGenerativeAI(...)`, and an
+  // arrow-function `vi.fn().mockImplementation(() => …)` is not a constructor,
+  // which makes the AI-service singleton throw at import time (empty responses).
+  class MockGoogleGenerativeAI {
+    getGenerativeModel() {
+      return {
+        generateContent: vi.fn().mockResolvedValue({
+          response: {
+            text: () => JSON.stringify({
+              updatedWorkflow: { title: "Mocked AI Workflow", sections: [] },
+              explanation: ["Mocked explanation"],
+              diff: { changes: [] },
+              suggestions: [],
+            }),
+          },
+        }),
+      };
+    }
+  }
   return {
     GoogleGenerativeAI: MockGoogleGenerativeAI,
   };
