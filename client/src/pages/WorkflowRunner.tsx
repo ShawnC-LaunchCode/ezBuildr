@@ -144,6 +144,17 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
               // Store the run token in localStorage for bearer auth
               setRunToken(runData.runId, runData.runToken);
             } catch (createError) {
+              // Anonymous visitor with a public-workflow UUID link: the
+              // authenticated create endpoint 401s, but the public start
+              // endpoint accepts workflow UUIDs for public workflows
+              try {
+                const publicRunData = await startRunFromSlug(runId, initialValuesArg);
+                setActualRunId(publicRunData.runId);
+                setRunToken(publicRunData.runId, publicRunData.runToken);
+                return;
+              } catch {
+                // Not a public workflow — fall through to the run-fork fallback
+              }
               // If creating run fails, it might be an existing run ID we don't have access to
               // Try to fetch the run to get its workflow ID, then create a new run
               try {
@@ -581,13 +592,6 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
         return;
       }
     }
-    // Analytics: Track Completion (Production)
-    if (isLastSection) {
-      const vId = run?.versionId;
-      if (actualRunId && workflowId && vId) {
-        void analytics.runComplete(actualRunId, workflowId, vId);
-      }
-    }
     // PRODUCTION MODE: Submit to database and navigate
     const currentSectionStepIds = new Set(currentSectionSteps.map(s => s.id));
     // Collect values ONLY for steps in the current section
@@ -645,6 +649,18 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
         const nextIndex = visibleSections.findIndex((s) => s.id === nextResult.nextSectionId);
         if (nextIndex >= 0) {
           setCurrentSectionIndex(nextIndex);
+        } else {
+          // Server picked a section the client's local visibility eval hides
+          // (the two evaluators can disagree, e.g. skip_to rules). Don't
+          // silently stay put — advance to the next locally-visible section,
+          // or the Review screen if we're out of sections.
+          console.warn('[WorkflowRunner] Server nextSectionId not locally visible, advancing sequentially', nextResult.nextSectionId);
+          if (currentSectionIndex + 1 < visibleSections.length) {
+            setCurrentSectionIndex(currentSectionIndex + 1);
+          } else {
+            setShowReview(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }
         }
       } else {
         // Default: next in sequence
@@ -661,6 +677,12 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
     if (!actualRunId) { return; }
     try {
       await completeMutation.mutateAsync(actualRunId);
+      // Analytics: track completion on ACTUAL submission, not on reaching
+      // the last section (users who abandon at Review are not completions)
+      const vId = run?.versionId;
+      if (workflowId && vId) {
+        void analytics.runComplete(actualRunId, workflowId, vId);
+      }
       toast({ title: "Success", description: "Workflow submitted successfully" });
       // Clear the run token from both stores to prevent accumulation and leakage.
       // clearRunToken covers production (localStorage); clearToken covers preview runs.

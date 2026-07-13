@@ -52,14 +52,10 @@ export class RunStateService {
   }
 
   /**
-   * Mark run as completed
+   * Mark run as completed (atomic — refuses runs that are already completed)
    */
   async markCompleted(runId: string): Promise<WorkflowRun> {
-    return this.runRepo.update(runId, {
-      completed: true,
-      completedAt: new Date(),
-      progress: 100,
-    });
+    return this.runRepo.markComplete(runId);
   }
 
   /**

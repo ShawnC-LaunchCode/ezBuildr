@@ -40,12 +40,26 @@ export class RunPersistenceWriter {
         });
     }
     /**
-     * Bulk save values
+     * Bulk save values.
+     * One workflow-membership prefetch + one batched upsert, instead of
+     * (step lookup + section lookup + upsert) sequentially per value.
      */
     async bulkSaveValues(runId: string, values: Array<{ stepId: string, value: unknown }>, workflowId: string): Promise<void> {
+        if (values.length === 0) {return;}
+        const workflowSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId);
+        const validStepIds = new Set(workflowSteps.map(s => s.id));
+        // Dedupe by stepId (last write wins) — a single INSERT ... ON CONFLICT
+        // cannot touch the same row twice
+        const byStepId = new Map<string, unknown>();
         for (const v of values) {
-            await this.saveStepValue(runId, v.stepId, v.value, workflowId);
+            if (!validStepIds.has(v.stepId)) {
+                throw new Error(`Step ${v.stepId} does not belong to workflow ${workflowId}`);
+            }
+            byStepId.set(v.stepId, v.value);
         }
+        await this.valueRepo.upsertMany(
+            Array.from(byStepId.entries(), ([stepId, value]) => ({ runId, stepId, value }))
+        );
     }
     /**
      * Get all values for a run

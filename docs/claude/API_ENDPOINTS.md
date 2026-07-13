@@ -31,7 +31,7 @@ Sections and steps CRUD live in `sections.routes.ts` / `steps.routes.ts`.
 POST        /api/workflows/public/:publicLinkSlug/start   # Anonymous/public start
 POST        /api/workflows/:workflowId/runs               # Create run (returns runToken)
 GET         /api/workflows/:workflowId/runs               # List runs for workflow
-GET         /api/runs/:runId
+GET         /api/runs/:runId                              # Creator session OR run token
 POST        /api/runs/:runId/revoke-token
 GET/POST    /api/runs/:runId/values                       # Get / save step values
 POST        /api/runs/:runId/values/bulk

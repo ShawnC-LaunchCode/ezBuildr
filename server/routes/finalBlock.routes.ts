@@ -158,14 +158,14 @@ export function registerFinalBlockRoutes(app: Express): void {
           throw createError.validation('Final Block configuration missing or invalid');
         }
 
-        // Step 4: Load step values for this run
+        // Step 4: Load step values for this run, keyed by ALIAS (falling
+        // back to stepId) — the same contract the automatic completion path
+        // uses. Keying by raw stepId here made every {{alias}} template
+        // render blank through this endpoint.
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        const allWorkflowSteps = await stepRepository.findByWorkflowIdWithAliases(run.workflowId);
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        const stepValuesList = await stepValueRepository.findByRunId(runId);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const stepValues: Record<string, any> = {};
-        stepValuesList.forEach(sv => {
-          stepValues[sv.stepId] = sv.value;
-        });
+        const stepValues = await stepValueRepository.getRunDataWithAliases(runId, allWorkflowSteps);
 
         // Step 5: Create template resolver
         const resolveTemplate = createTemplateResolver(async (documentId: string) => {

@@ -49,7 +49,6 @@ const DatabaseSettingsPage = lazy(() => import("@/pages/datavault/DatabaseSettin
 const UrlParametersDoc = lazy(() => import("@/pages/docs/UrlParametersDoc")); // Documentation
 const BillingDashboard = lazy(() => import("@/pages/billing/BillingDashboard"));
 const PricingPage = lazy(() => import("@/pages/billing/PricingPage"));
-const PublicRunner = lazy(() => import("@/pages/public/PublicRunner"));
 const RunCompletionView = lazy(() => import("@/pages/RunCompletionView"));
 const OAuthApps = lazy(() => import("@/pages/developer/OAuthApps"));
 const LoginPage = lazy(() => import("@/pages/auth/LoginPage"));
@@ -69,8 +68,11 @@ export default function Router() {
     return (
         <Suspense fallback={<FullScreenLoader />}>
             <Switch>
-                {/* Public Workflow Runner */}
-                <Route path="/w/:slug" component={PublicRunner} />
+                {/* Public Workflow Runner — same runner as /run/:id; the old
+                    PublicRunner stub never rendered questions and faked completion */}
+                <Route path="/w/:slug">
+                    {(params) => <WorkflowRunner runId={params.slug} />}
+                </Route>
                 {/* Public Shared Run View */}
                 <Route path="/share/:token" component={RunCompletionView} />
                 {/* Client Portal Routes - Independent Auth */}

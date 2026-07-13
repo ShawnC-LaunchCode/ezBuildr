@@ -92,7 +92,10 @@ export class RunAuthResolver {
             if (isUuid) {
                 workflow = await this.workflowRepo.findById(idOrSlug);
             } else {
-                workflow = await this.workflowRepo.findByPublicLink(idOrSlug);
+                // Share links can carry either the explicit publicLink or the
+                // workflow slug (SettingsTab uses publicLink ?? slug) — accept both
+                workflow = await this.workflowRepo.findByPublicLink(idOrSlug)
+                    ?? await this.workflowRepo.findBySlug(idOrSlug);
             }
             if (!workflow) {throw new Error('Workflow not found');}
             if (workflow.status !== 'active') {throw new Error('Workflow is not active');}

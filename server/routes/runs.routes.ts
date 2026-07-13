@@ -153,6 +153,18 @@ export function registerRunRoutes(app: Express): void {
   app.get('/api/runs/:runId', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response): Promise<void> => {
     try {
       const { runId } = req.params;
+      const runAuth = (req as RunAuthRequest).runAuth;
+      // Run-token holders (anonymous respondents) are valid callers here —
+      // this endpoint previously ignored runAuth and 401'd them.
+      if (runAuth != null) {
+        if (runAuth.runId !== runId) {
+          res.status(403).json({ success: false, error: `${ERROR_ACCESS_DENIED} - run mismatch` });
+          return;
+        }
+        const tokenRun = await runService.getRunNoAuth(runId);
+        res.json({ success: true, data: tokenRun });
+        return;
+      }
       const authReq = req as AuthRequest;
       const userId = authReq.userId;
       if (!userId) {

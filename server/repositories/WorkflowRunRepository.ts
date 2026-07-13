@@ -138,7 +138,9 @@ export class WorkflowRunRepository extends BaseRepository<
   }
 
   /**
-   * Mark run as complete
+   * Mark run as complete. Conditional on completed = false so that two
+   * concurrent completions cannot both succeed (the loser gets
+   * "Run is already completed" instead of re-triggering side effects).
    */
   async markComplete(runId: string, tx?: DbTransaction): Promise<WorkflowRun> {
     const database = this.getDb(tx);
@@ -147,11 +149,16 @@ export class WorkflowRunRepository extends BaseRepository<
       .set({
         completed: true,
         completedAt: new Date(),
+        progress: 100,
         updatedAt: new Date(),
       })
-      .where(eq(workflowRuns.id, runId))
+      .where(and(eq(workflowRuns.id, runId), eq(workflowRuns.completed, false)))
       .returning();
-    if (updated == null) {throw new Error("Failed to mark run as complete");}
+    if (updated == null) {
+      const existing = await this.findById(runId, tx);
+      if (existing) {throw new Error("Run is already completed");}
+      throw new Error("Run not found");
+    }
     return updated;
   }
 

@@ -230,7 +230,11 @@ export class EnhancedDocumentEngine {
       if (mapping) {
         try {
           mappingResult = applyMapping(normalizedData, mapping);
-          finalData = mappingResult.data;
+          // Merge mapped fields OVER the full normalized set instead of
+          // replacing it: a partial mapping must not blank out every
+          // unmapped {{variable}} in the template. Mapped names win on
+          // key collisions.
+          finalData = { ...normalizedData, ...mappingResult.data };
 
           logger.debug({
             mapped: mappingResult.mapped.length,

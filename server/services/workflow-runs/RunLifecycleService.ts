@@ -320,15 +320,38 @@ export class RunLifecycleService {
     return sortedSections[sortedSections.length - 1]?.id || sortedSections[0].id;
   }
 
+  /** Per-run in-flight document generation, so concurrent triggers
+   *  (completion + the client's explicit generate call) share one run. */
+  private docGenInFlight = new Map<string, Promise<DocumentGenerationResult>>();
+
   /**
-   * Generate documents for a completed run
+   * Generate documents for a completed run.
+   * Idempotent: skips when the run already has generated documents, and
+   * concurrent calls for the same run await the same in-flight generation.
    */
   async generateDocuments(runId: string): Promise<DocumentGenerationResult> {
+    const inFlight = this.docGenInFlight.get(runId);
+    if (inFlight) {return inFlight;}
+    const generation = this.generateDocumentsInner(runId)
+      .finally(() => this.docGenInFlight.delete(runId));
+    this.docGenInFlight.set(runId, generation);
+    return generation;
+  }
+
+  private async generateDocumentsInner(runId: string): Promise<DocumentGenerationResult> {
     try {
       // 1. Get run and workflow
       const run = await workflowRunRepository.findById(runId);
       if (!run) {throw createError.notFound('Workflow run', runId);}
       const workflowId = run.workflowId;
+
+      // Idempotency gate: a double-complete, or completion racing the
+      // client's explicit generate-documents call, must not duplicate files
+      const existingDocs = await runGeneratedDocumentsRepository.findByRunId(runId);
+      if (existingDocs.length > 0) {
+        logger.info({ runId, documentCount: existingDocs.length }, 'Documents already generated for run, skipping');
+        return { success: true, documentsGenerated: 0 };
+      }
 
       // 2. Collect document configs from BOTH shapes the product writes:
       //    - Final Block steps (step.options as FinalBlockConfig); the

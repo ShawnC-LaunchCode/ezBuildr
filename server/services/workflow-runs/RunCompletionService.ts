@@ -27,6 +27,25 @@ export class RunCompletionService {
      * Complete a workflow run (with validation)
      */
     async completeRun(runId: string, run: WorkflowRun, userId: string): Promise<WorkflowRun> {
+        return this.complete(runId, run, userId);
+    }
+    /**
+     * Complete a workflow run without ownership check
+     * Used for run-token (anonymous/portal) completion
+     */
+    async completeRunNoAuth(runId: string): Promise<WorkflowRun> {
+        const run = await this.runRepo.findById(runId);
+        if (!run) {
+            throw new Error("Run not found");
+        }
+        return this.complete(runId, run, undefined);
+    }
+    /**
+     * Shared completion pipeline for both auth paths: run onRunComplete blocks,
+     * validate required steps, atomically mark completed, then kick off
+     * writebacks + document generation in the background.
+     */
+    private async complete(runId: string, run: WorkflowRun, userId: string | undefined): Promise<WorkflowRun> {
         const startTime = Date.now();
         if (run.completed) {
             throw new Error("Run is already completed");
@@ -70,19 +89,23 @@ export class RunCompletionService {
                 );
                 throw new Error(errorMsg);
             }
-            // Mark run as complete
+            // Mark run as complete. markCompleted only updates rows where
+            // completed = false, so a concurrent double-complete loses here
+            // instead of generating documents twice.
             const completedRun = await this.stateService.markCompleted(runId);
             // Execute DataVault writebacks and Document Generation (truly non-blocking)
+            // on BOTH auth paths — anonymous/token completions previously skipped
+            // writebacks entirely.
             Promise.allSettled([
                 this.lifecycleService.executeWritebacks(runId, run.workflowId, userId),
                 this.lifecycleService.generateDocuments(runId)
             ]).then((results) => {
                 for (const result of results) {
                     if (result.status === 'rejected') {
-                        _logger.error({ runId, error: result.reason }, "Background execution failed");
+                        _logger.error({ runId, error: result.reason as unknown }, "Background execution failed");
                     }
                 }
-            }).catch(err => _logger.error({ runId, error: err }, "Unhandled error in background execution"));
+            }).catch((err: unknown) => _logger.error({ runId, error: err }, "Unhandled error in background execution"));
             // Capture success metrics
             await this.metricsService.captureRunSucceeded(
                 run.workflowId,
@@ -94,71 +117,6 @@ export class RunCompletionService {
             return completedRun;
         } catch (error) {
             // Capture failure if not already captured
-            if (error instanceof Error && !error.message.includes('Validation failed') && !error.message.includes('Missing required steps')) {
-                await this.metricsService.captureRunFailed(
-                    run.workflowId,
-                    run.id,
-                    run.workflowVersionId ?? undefined,
-                    Date.now() - startTime,
-                    'unknown_error'
-                );
-            }
-            throw error;
-        }
-    }
-    /**
-     * Complete a workflow run without ownership check
-     */
-    async completeRunNoAuth(runId: string): Promise<WorkflowRun> {
-        const startTime = Date.now();
-        const run = await this.runRepo.findById(runId);
-        if (!run) {
-            throw new Error("Run not found");
-        }
-        if (run.completed) {
-            throw new Error("Run is already completed");
-        }
-        // Get all step values for this run
-        const allValues = await this.valueRepo.findByRunId(runId);
-        const dataMap = allValues.reduce((acc, v) => {
-            acc[v.stepId] = v.value;
-            return acc;
-        }, {} as Record<string, unknown>);
-        try {
-            // Execute onRunComplete blocks (transform + validate)
-            const blockResult = await blockRunner.runPhase({
-                workflowId: run.workflowId,
-                runId: run.id,
-                phase: "onRunComplete",
-                data: dataMap,
-                versionId: run.workflowVersionId ?? 'draft',
-            });
-            // If blocks produced validation errors, reject completion
-            if (!blockResult.success && blockResult.errors) {
-                throw new Error(`Validation failed: ${blockResult.errors.join(', ')}`);
-            }
-            // Validate using LogicService
-            const validation = await this.logicSvc.validateCompletion(run.workflowId, runId);
-            if (!validation.valid) {
-                const stepTitles = validation.missingStepTitles?.join(', ') ?? validation.missingSteps.join(', ');
-                throw new Error(`Missing required steps: ${stepTitles}`);
-            }
-            // Mark run as complete
-            const completedRun = await this.stateService.markCompleted(runId);
-            // Generate documents (non-blocking)
-            await this.lifecycleService.generateDocuments(runId);
-            // Capture success metrics + analytics event (workflow.complete). Anonymous
-            // and token/portal runs complete through this no-auth path, so without this
-            // they would record no completion analytics at all.
-            await this.metricsService.captureRunSucceeded(
-                run.workflowId,
-                run.id,
-                run.workflowVersionId ?? undefined,
-                Date.now() - startTime,
-                Object.keys(dataMap).length
-            );
-            return completedRun;
-        } catch (error) {
             if (error instanceof Error && !error.message.includes('Validation failed') && !error.message.includes('Missing required steps')) {
                 await this.metricsService.captureRunFailed(
                     run.workflowId,
