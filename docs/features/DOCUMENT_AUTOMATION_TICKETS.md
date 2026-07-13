@@ -65,6 +65,19 @@ Total remaining to clear the whole board (excl. DOC-110 decision): roughly **4�
 
 ---
 
+> **Third pass — 2026-07-13 ~18:00.** Gates now: `tsc` **0 errors**, unit-fast
+> **1,628 green**, DOC-109's `unknownHelpers` report finished + tested (83 tests
+> green) — but its new helper code carries 3 `strict-boolean-expressions` errors
+> (`docxHelpers.ts:169,189`), so **DOC-109 joins DOC-101/DOC-104 as functionally
+> complete, held for lint**. Full-repo lint measured and split: **799 errors =
+> 323 in files touched by this push + 476 pre-existing drift** in 121 untouched
+> files (the morning "was 0" framing was wrong — drift predates today; CI lint
+> is advisory by design, `ci.yml:10-13`). All remaining work is now packaged as
+> self-contained dev handoff tickets: **see `CLOSEOUT_HANDOFF_TICKETS.md`
+> (HND-1..8)** — HND-1 closes DOC-101/104/109; HND-3 closes DOC-102; HND-4
+> closes DOC-105; HND-5 → DOC-106; HND-6 → DOC-107; HND-7 → DOC-111; HND-8 →
+> DOC-110.
+
 ## Second verification pass — 2026-07-13 evening (close-out)
 
 All seven blockers from the morning review were re-verified: **B2–B7 are fixed**
