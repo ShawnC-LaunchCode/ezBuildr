@@ -5,6 +5,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { workflowBlueprints, workflows, workflowVersions } from '../../shared/schema';
 import { db } from '../db';
 import { workflowService } from './WorkflowService';
+import { workflowContentIngestService } from './WorkflowContentIngestService';
+import type { WorkflowContentData } from './WorkflowContentIngestService';
 export interface CreateTemplateParams {
   name: string;
   description?: string;
@@ -128,6 +130,17 @@ class TemplateService {
         }
       });
     });
+    
+    // 3. Populate sections, steps, logic rules, and blocks from the template's graphJson
+    // template.graphJson in blueprints is historically the full structural payload
+    if (template.graphJson) {
+      await workflowContentIngestService.apply(
+        workflowId, 
+        template.graphJson as unknown as any, // Cast appropriately
+        { source: 'template' }
+      );
+    }
+
     return { workflowId, versionId };
   }
 }

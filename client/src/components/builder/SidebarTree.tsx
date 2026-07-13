@@ -72,7 +72,6 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
       description: null,
       required: false,
       alias: "final_documents",
-      options: null,
       order: 0,
       config: {},
     });

@@ -14,6 +14,15 @@ export function useSteps(sectionId: string | undefined, options?: Omit<UseQueryO
     });
 }
 
+export function useWorkflowSteps(workflowId: string | undefined, options?: Omit<UseQueryOptions<ApiStep[]>, "queryKey" | "queryFn">): UseQueryResult<ApiStep[]> {
+    return useQuery({
+        queryKey: queryKeys.workflowSteps(workflowId ?? ""),
+        queryFn: () => stepAPI.listByWorkflow(workflowId ?? ""),
+        enabled: !!workflowId && workflowId !== "undefined",
+        ...options,
+    });
+}
+
 /**
  * Fetch steps for multiple sections at once
  * Returns a Record<sectionId, ApiStep[]>
@@ -45,13 +54,14 @@ export function useStep(stepId: string | undefined): UseQueryResult<ApiStep> {
     });
 }
 
-export function useCreateStep(): UseMutationResult<ApiStep, unknown, Omit<ApiStep, "id" | "createdAt" | "updatedAt"> & { sectionId: string }> {
+export function useCreateStep(): UseMutationResult<ApiStep, unknown, Omit<ApiStep, "id" | "createdAt" | "updatedAt" | "workflowId"> & { sectionId: string }> {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ sectionId, ...data }: Omit<ApiStep, "id" | "createdAt" | "updatedAt"> & { sectionId: string }) =>
+        mutationFn: ({ sectionId, ...data }: Omit<ApiStep, "id" | "createdAt" | "updatedAt" | "workflowId"> & { sectionId: string }) =>
             stepAPI.create(sectionId, data),
-        onSuccess: async (_, variables) => {
+        onSuccess: async (step, variables) => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.sectionId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.workflowSteps(step.workflowId) });
             DevPanelBus.emitWorkflowUpdate();
         },
     });
@@ -99,6 +109,9 @@ export function useUpdateStep(): UseMutationResult<ApiStep, unknown, Partial<Api
             await queryClient.invalidateQueries({ queryKey: queryKeys.step(variables.id) });
             // Invalidate variables when step alias changes
             // Invalidate everything to be safe
+            if (data?.workflowId) {
+                await queryClient.invalidateQueries({ queryKey: queryKeys.workflowSteps(data.workflowId) });
+            }
             await queryClient.invalidateQueries({ queryKey: ["workflows"] });
             DevPanelBus.emitWorkflowUpdate();
         },
@@ -136,6 +149,7 @@ export function useReorderSteps(): UseMutationResult<unknown, unknown, { section
         onSettled: async (_, __, variables) => {
             // Always refetch after error or success to ensure sync with server
             await queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.sectionId) });
+            await queryClient.invalidateQueries({ queryKey: ["steps", "workflow"] });
         },
     });
 }
@@ -147,6 +161,7 @@ export function useDeleteStep(): UseMutationResult<void, unknown, { id: string; 
             stepAPI.delete(variables.id),
         onSuccess: async (_, variables) => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.sectionId) });
+            await queryClient.invalidateQueries({ queryKey: ["steps", "workflow"] });
             DevPanelBus.emitWorkflowUpdate();
         },
     });

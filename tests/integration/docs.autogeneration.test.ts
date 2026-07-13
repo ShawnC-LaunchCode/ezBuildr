@@ -9,7 +9,7 @@
  *
  * Exercises the real service against the real database and filesystem for
  * BOTH config shapes the product writes:
- *  - Final Block steps (step type 'final', options as FinalBlockConfig)
+ *  - Final Block steps (step type 'final', config as FinalBlockConfig)
  *  - Legacy sections (section.config.finalBlock + config.templates)
  */
 import fs from 'fs/promises';
@@ -170,7 +170,7 @@ describe('Automatic document generation on run completion', () => {
       type: 'final',
       title: 'Final documents',
       order: 1,
-      options: {
+      config: {
         markdownHeader: '',
         documents: [
           { id: 'doc-1', documentId: template.id, alias: 'contract' },

@@ -396,13 +396,14 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       config: {},
     }).returning();
     await db.insert(steps).values({
+      workflowId: testWorkflowId,
       sectionId: section.id,
       type: 'email',
       title: 'Email',
       alias: 'email',
       required: true,
       order: 1,
-      options: {},
+      config: {},
     });
     // Now try to create duplicate - override AI response
     mockGenerateContent.mockResolvedValueOnce({

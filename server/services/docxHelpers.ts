@@ -11,7 +11,7 @@
  * - Conditional helpers
  */
 
-import { format as formatDateFns } from 'date-fns';
+import { format as formatDateFns, addDays as fnsAddDays, differenceInDays } from 'date-fns';
 
 import { formatters } from '../utils/formatters';
 
@@ -159,6 +159,48 @@ export function formatDate(
 }
 
 /**
+ * Add days to a date
+ */
+export function addDays(
+  iso: string | Date | null | undefined,
+  days: number = 0,
+  format: string = 'MM/DD/YYYY'
+): string {
+  if (!iso) { return ''; }
+
+  try {
+    const d = typeof iso === 'string' ? new Date(iso) : iso;
+    if (isNaN(d.getTime())) { return ''; }
+
+    const updated = fnsAddDays(d, days);
+    return formatDateFns(updated, translateDateFormat(format));
+  } catch (error) {
+    return '';
+  }
+}
+
+/**
+ * Calculate difference in days between two dates
+ */
+export function daysBetween(
+  date1: string | Date | null | undefined,
+  date2: string | Date | null | undefined
+): number {
+  if (!date1 || !date2) { return 0; }
+
+  try {
+    const d1 = typeof date1 === 'string' ? new Date(date1) : date1;
+    const d2 = typeof date2 === 'string' ? new Date(date2) : date2;
+    
+    if (isNaN(d1.getTime()) || isNaN(d2.getTime())) { return 0; }
+
+    return Math.abs(differenceInDays(d1, d2));
+  } catch (error) {
+    return 0;
+  }
+}
+
+/**
  * Format currency with symbol
  */
 export function formatCurrency(
@@ -231,6 +273,20 @@ export function divide(a: number, b: number): number {
   return (a || 0) / b;
 }
 
+export function round(a: number, decimals: number = 0): number {
+  if (a === null || a === undefined || isNaN(a)) { return 0; }
+  const factor = Math.pow(10, decimals);
+  return Math.round((a || 0) * factor) / factor;
+}
+
+export function percentage(value: number, total: number): string {
+  if (value === null || value === undefined || isNaN(value)) { return '0%'; }
+  if (!total || total === 0 || isNaN(total)) { return '0%'; }
+  
+  const pct = (value / total) * 100;
+  return `${Math.round(pct)}%`;
+}
+
 /**
  * Pluralize word based on count
  */
@@ -262,6 +318,13 @@ export function replace(
 ): string {
   if (!s) {return '';}
   return s.replace(new RegExp(search, 'g'), replacement);
+}
+
+/**
+ * Concatenate multiple strings
+ */
+export function concat(...args: unknown[]): string {
+  return args.filter(a => a !== null && a !== undefined).map(String).join('');
 }
 
 /**
@@ -369,6 +432,11 @@ export const docxHelpers = {
 
   // Utility helpers
   pluralize,
+  concat,
+  addDays,
+  daysBetween,
+  round,
+  percentage,
 };
 
 /**

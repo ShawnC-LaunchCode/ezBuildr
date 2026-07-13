@@ -92,6 +92,7 @@ export function useRunValues({
         ...(runToken ? { 'Authorization': `Bearer ${runToken}` } : {})
       },
       credentials: 'include',
+      keepalive: true, // Allow request to complete if the page is unloading
       body: JSON.stringify({ values: valuesToSave })
     });
 

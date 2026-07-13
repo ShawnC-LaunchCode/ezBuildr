@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { useMemo } from "react";
+import { FullScreenLoader } from "@/components/ui/loader";
 
 import { ClientRunnerLayout } from "@/components/runner/ClientRunnerLayout";
 import { FinalDocumentsSection } from "@/components/runner/sections/FinalDocumentsSection";
@@ -56,6 +57,22 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
   
   const effectiveAllSteps = mode === 'preview' ? previewEnvironment?.getSteps() : allSteps;
 
+  const { data: logicRules } = useQuery({
+    queryKey: ['/api/workflows', workflowId, 'logic-rules', actualRunId],
+    queryFn: () => {
+      if (runToken) {
+        const client = apiWithToken(runToken);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return client.get<any[]>(`/api/workflows/${workflowId}/logic-rules`);
+      } else {
+        return fetch(`/api/workflows/${workflowId}/logic-rules`, { credentials: 'include' }).then(res => res.json());
+      }
+    },
+    enabled: !!workflowId && mode !== 'preview',
+  });
+
+  const effectiveLogicRules = mode === 'preview' ? [] : (logicRules ?? []);
+
   // 4. Form Values & Autosave
   const { formValues, setFormValues, effectiveValues, handleUpdateValue, saveStatus, saveNow } = useRunValues({
     mode,
@@ -103,14 +120,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
 
   // Early returns for initialization and errors
   if (isInitializing) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-zinc-950">
-        <div className="flex flex-col items-center gap-2">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-          <p className="text-sm text-gray-500">Starting session...</p>
-        </div>
-      </div>
-    );
+    return <FullScreenLoader message="Starting session..." />;
   }
   if (initError) {
     return (
@@ -131,34 +141,27 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
     );
   }
   if (!sections || !workflowId || (mode === 'production' && !actualRunId)) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-zinc-950">
-        <div className="flex flex-col items-center gap-2">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-          <p className="text-sm text-gray-500">Loading workflow...</p>
-        </div>
-      </div>
-    );
+    return <FullScreenLoader message="Loading workflow..." />;
   }
 
   // Handle specific section overrides
   if (currentSection && (currentSection.config as any)?.intakeAssignment) {
     return (
-      <ClientRunnerLayout title={workflow?.title ?? "Workflow"} currentStep={currentSectionIndex} totalSteps={visibleSections.length}>
+      <ClientRunnerLayout title={workflow?.title ?? "Workflow"} progress={Math.round((currentSectionIndex / Math.max(1, visibleSections.length)) * 100)} currentStep={currentSectionIndex} totalSteps={visibleSections.length} saveStatus={saveStatus}>
         <IntakeAssignmentSection workflow={workflow as any} runValues={effectiveValues} onComplete={handleNext} />
       </ClientRunnerLayout>
     );
   }
   if (currentSection && (currentSection.config as any)?.finalBlock) {
     return (
-      <ClientRunnerLayout title={workflow?.title ?? "Workflow"} currentStep={currentSectionIndex} totalSteps={visibleSections.length}>
+      <ClientRunnerLayout title={workflow?.title ?? "Workflow"} currentStep={currentSectionIndex} totalSteps={visibleSections.length} saveStatus={saveStatus}>
         <FinalDocumentsSection runId={actualRunId!} runToken={runToken ?? undefined} sectionConfig={currentSection.config as any} />
       </ClientRunnerLayout>
     );
   }
   if (showReview) {
     return (
-      <ClientRunnerLayout title={workflow?.title ?? "Workflow"} currentStep={visibleSections.length} totalSteps={visibleSections.length}>
+      <ClientRunnerLayout title={workflow?.title ?? "Workflow"} progress={100} currentStep={visibleSections.length} totalSteps={visibleSections.length} saveStatus={saveStatus}>
         <ReviewSection 
           sections={visibleSections} 
           allSteps={effectiveAllSteps ?? []}
@@ -185,7 +188,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
   const visibleSectionSteps = currentSection ? getVisibleSectionSteps(currentSection.id, mode === 'preview' ? previewState : undefined) : [];
 
   return (
-    <ClientRunnerLayout title={workflow?.title ?? "Workflow"} currentStep={currentSectionIndex} totalSteps={visibleSections.length}>
+    <ClientRunnerLayout title={workflow?.title ?? "Workflow"} progress={Math.round((currentSectionIndex / Math.max(1, visibleSections.length)) * 100)} currentStep={currentSectionIndex} totalSteps={visibleSections.length} saveStatus={saveStatus}>
       <Card className="shadow-lg border-t-4 border-t-primary dark:bg-zinc-900 overflow-visible mt-6 md:mt-0">
         {currentSection && (
           <CardHeader className="bg-gray-50/50 dark:bg-zinc-800/50 border-b pb-6">
@@ -220,7 +223,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
               values={effectiveValues} 
               onChange={handleUpdateValue} 
               errors={fieldErrors}
-              logicRules={[]}
+              logicRules={effectiveLogicRules}
             />
           ) : (
             <div className="py-12 text-center text-gray-500 italic border border-dashed rounded-lg bg-gray-50 dark:bg-zinc-800 dark:border-zinc-700">

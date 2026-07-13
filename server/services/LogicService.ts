@@ -7,6 +7,7 @@ import {
   resolveNextSection,
   validateRequiredSteps,
   getEffectiveRequiredSteps,
+  type LogicContext,
 } from "@shared/workflowLogic";
 
 import {
@@ -56,6 +57,51 @@ export class LogicService {
     this.stepRepo = stepRepo ?? stepRepository;
     this.logicRuleRepo = logicRuleRepo ?? logicRuleRepository;
     this.valueRepo = valueRepo ?? stepValueRepository;
+  }
+
+  /**
+   * Build a LogicContext to avoid N+1 queries
+   */
+  async buildContext(
+    workflowId: string,
+    data: Record<string, any>
+  ): Promise<LogicContext> {
+    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
+    const sectionIds = sections.map((s) => s.id);
+    const steps = await this.stepRepo.findBySectionIds(sectionIds);
+    const logicRules = await this.logicRuleRepo.findByWorkflowId(workflowId);
+
+    const sectionHideRulesMap = new Map<string, LogicRule[]>();
+    const stepHideRulesMap = new Map<string, LogicRule[]>();
+    
+    for (const rule of logicRules) {
+      if (rule.action === "hide") {
+        if (rule.targetType === "section" && rule.targetSectionId) {
+          if (!sectionHideRulesMap.has(rule.targetSectionId)) {
+            sectionHideRulesMap.set(rule.targetSectionId, []);
+          }
+          sectionHideRulesMap.get(rule.targetSectionId)!.push(rule);
+        } else if (rule.targetType === "step" && rule.targetStepId) {
+          if (!stepHideRulesMap.has(rule.targetStepId)) {
+            stepHideRulesMap.set(rule.targetStepId, []);
+          }
+          stepHideRulesMap.get(rule.targetStepId)!.push(rule);
+        }
+      }
+    }
+
+    const aliasResolver = (name: string) => steps.find((s) => s.alias === name)?.id;
+
+    return {
+      workflowId,
+      sections,
+      steps,
+      rules: logicRules,
+      data,
+      sectionHideRulesMap,
+      stepHideRulesMap,
+      aliasResolver,
+    };
   }
 
   /**
@@ -215,7 +261,11 @@ export class LogicService {
    * @param runId - Run ID to validate
    * @returns Validation result
    */
-  async validateCompletion(workflowId: string, runId: string): Promise<ValidationResult> {
+  async validateCompletion(
+    workflowId: string,
+    runId: string,
+    runDataByStepId?: Record<string, unknown>
+  ): Promise<ValidationResult> {
     // Load all workflow components
     const sections = await this.sectionRepo.findByWorkflowId(workflowId);
     const sectionIds = sections.map((s) => s.id);
@@ -223,7 +273,7 @@ export class LogicService {
     const logicRules = await this.logicRuleRepo.findByWorkflowId(workflowId);
 
     // Build data object for evaluation
-    const data = await this.valueRepo.getRunDataAsJson(runId);
+    const data = runDataByStepId ?? await this.valueRepo.getRunDataAsJson(runId);
 
     // OPTIMIZATION: Pre-build rule indexes
     const sectionHideRulesMap = new Map<string, LogicRule[]>();
@@ -373,12 +423,11 @@ export class LogicService {
    * @returns true if section is visible, false otherwise
    */
   async isSectionVisible(
-    workflowId: string,
-    sectionId: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- data contains arbitrary workflow values
-    data: Record<string, any>
+    ctx: LogicContext,
+    sectionId: string
   ): Promise<boolean> {
-    const logicRules = await this.logicRuleRepo.findByWorkflowId(workflowId);
+    const logicRules = ctx.rules;
+    const data = ctx.data;
     const evalResult = evaluateRules(logicRules, data);
 
     // Check if explicitly shown
@@ -414,31 +463,26 @@ export class LogicService {
    * @returns true if step is visible, false otherwise
    */
   async isStepVisible(
-    workflowId: string,
-    stepId: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- data contains arbitrary workflow values
-    data: Record<string, any>
+    ctx: LogicContext,
+    stepId: string
   ): Promise<boolean> {
-    // Need to fetch step to check visibleIf
-    const step = await this.stepRepo.findById(stepId);
+    const data = ctx.data;
+    
+    const step = ctx.steps.find((s) => s.id === stepId);
     if (!step) {return false;}
 
     // Check step-level visibleIf
     if (step.visibleIf) {
-      const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId);
-      // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-      const aliasResolver = (name: string) => allSteps.find((s) => s.alias === name)?.id;
-
       const isVisible = evaluateConditionExpression(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         step.visibleIf as any,
         data,
-        aliasResolver
+        ctx.aliasResolver
       );
       if (!isVisible) {return false;}
     }
 
-    const logicRules = await this.logicRuleRepo.findByWorkflowId(workflowId);
+    const logicRules = ctx.rules;
     const evalResult = evaluateRules(logicRules, data);
 
     // Check if explicitly shown
@@ -474,17 +518,16 @@ export class LogicService {
    * @returns true if step is required, false otherwise
    */
   async isStepRequired(
-    workflowId: string,
-    stepId: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- data contains arbitrary workflow values
-    data: Record<string, any>
+    ctx: LogicContext,
+    stepId: string
   ): Promise<boolean> {
-    const step = await this.stepRepo.findById(stepId);
+    const data = ctx.data;
+    const step = ctx.steps.find((s) => s.id === stepId);
     if (!step) {
       return false;
     }
 
-    const logicRules = await this.logicRuleRepo.findByWorkflowId(workflowId);
+    const logicRules = ctx.rules;
     const evalResult = evaluateRules(logicRules, data);
 
     // Check if explicitly marked as required by a rule
@@ -509,17 +552,12 @@ export class LogicService {
       }
     }
 
-    // Check step-level visibleIf first (if step is hidden, it's not required)
     if (step.visibleIf) {
-      const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId);
-      // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-      const aliasResolver = (name: string) => allSteps.find((s) => s.alias === name)?.id;
-
       const isVisible = evaluateConditionExpression(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         step.visibleIf as any,
         data,
-        aliasResolver
+        ctx.aliasResolver
       );
       if (!isVisible) {return false;}
     }

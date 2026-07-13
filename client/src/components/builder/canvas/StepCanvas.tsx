@@ -103,8 +103,8 @@ export function StepCanvas({ step, sectionId }: { step: ApiStep; sectionId: stri
                         <div className="space-y-2">
                             <Label>Options</Label>
                             <SimpleOptionsEditor
-                                options={Array.isArray(step.options?.options) ? (step.options?.options as string[]) : []}
-                                onChange={(opts) => { handleUpdate("options", { ...step.options, options: opts }); }}
+                                options={Array.isArray(step.config?.options) ? (step.config?.options as string[]) : []}
+                                onChange={(opts) => { handleUpdate("config", { ...step.config, options: opts }); }}
                             />
                         </div>
                     )}

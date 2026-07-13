@@ -36,7 +36,8 @@ import { RunShareService } from "./workflow-runs/RunShareService";
 import { RunStateService } from "./workflow-runs/RunStateService";
 import { workflowService } from "./WorkflowService";
 
-import type { CreateRunOptions } from "./workflow-runs/types";
+import type { CreateRunOptions, DocumentGenerationResult } from "./workflow-runs/types";
+import type { GenerateDocumentsOptions } from "./workflow-runs/RunLifecycleService";
 
 const ERR_RUN_NOT_FOUND = "Run not found";
 const ERR_RUN_ALREADY_COMPLETED = "Run is already completed";
@@ -163,6 +164,9 @@ export class RunService {
     const workflowId = workflow.id;
     // Resolve the version to use for this run
     const targetVersionId = workflow.pinnedVersionId ?? workflow.currentVersionId;
+    if (!targetVersionId && !userId) {
+      throw new Error('Workflow has no published version for anonymous runs');
+    }
     if (!targetVersionId) {
       logger.warn({ workflowId }, "No current or pinned version found for workflow, run might be unstable");
     }
@@ -467,6 +471,10 @@ export class RunService {
     if (!workflow.isPublic) {
       throw new Error('Workflow is not public');
     }
+    const targetVersionId = workflow.pinnedVersionId ?? workflow.currentVersionId;
+    if (!targetVersionId) {
+      throw new Error('Workflow has no published version for anonymous runs');
+    }
     // Generate a unique token for this run. The plaintext is returned to the
     // caller; only its hash is persisted.
     const runToken = randomUUID();
@@ -475,7 +483,7 @@ export class RunService {
     // Create the run with anonymous creator
     const run = await this.runRepo.create({
       workflowId: workflow.id,
-      workflowVersionId: undefined,
+      workflowVersionId: targetVersionId,
       runToken: runTokenHash,
       tokenExpiresAt,
       createdBy: 'anon',
@@ -490,11 +498,11 @@ export class RunService {
       workflow.id,
       run.id,
       undefined,
-      'draft',
+      targetVersionId,
       { accessMode: 'anonymous' }
     );
     // Execute onRunStart blocks
-    await this.lifecycleService.executeOnRunStart(run.id, workflow.id, 'draft');
+    await this.lifecycleService.executeOnRunStart(run.id, workflow.id, targetVersionId);
     // Return the plaintext token to the caller; the DB only holds its hash.
     return { ...run, runToken };
   }
@@ -524,7 +532,7 @@ export class RunService {
    * Idempotent - checks if documents already exist before generating
    * Used for Final Documents sections
    */
-  async generateDocuments(runId: string): Promise<void> {
+  async generateDocuments(runId: string, options: GenerateDocumentsOptions = {}): Promise<DocumentGenerationResult> {
     const run = await this.runRepo.findById(runId);
     if (!run) {
       throw new Error(ERR_RUN_NOT_FOUND);
@@ -533,13 +541,14 @@ export class RunService {
     const existingDocuments = await this.docsRepo.findByRunId(runId);
     if (existingDocuments.length > 0) {
       logger.info({ runId, documentCount: existingDocuments.length }, 'Documents already exist, skipping generation');
-      return;
+      return { success: true, documentsGenerated: 0, documents: [] };
     }
     // Generate documents
-    const result = await this.lifecycleService.generateDocuments(runId);
+    const result = await this.lifecycleService.generateDocuments(runId, options);
     if (!result.success) {
       throw new Error(`Document generation failed: ${result.errors?.join(', ')}`);
     }
+    return result;
   }
   /**
    * Determine the appropriate start section for a run

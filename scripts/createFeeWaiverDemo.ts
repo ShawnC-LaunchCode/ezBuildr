@@ -215,7 +215,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
   ];
 
   for (const step of section1Steps) {
-    const [created] = await db.insert(steps).values(step).returning();
+    const [created] = await db.insert(steps).values({ ...step, workflowId: workflow.id }).returning();
     stepIds[step.alias] = created.id;
   }
 
@@ -313,7 +313,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
   ];
 
   for (const step of section2Steps) {
-    const [created] = await db.insert(steps).values(step).returning();
+    const [created] = await db.insert(steps).values({ ...step, workflowId: workflow.id }).returning();
     stepIds[step.alias] = created.id;
   }
 
@@ -403,7 +403,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
   ];
 
   for (const step of section3Steps) {
-    const [created] = await db.insert(steps).values(step).returning();
+    const [created] = await db.insert(steps).values({ ...step, workflowId: workflow.id }).returning();
     stepIds[step.alias] = created.id;
   }
 
@@ -476,7 +476,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
   ];
 
   for (const step of section4Steps) {
-    const [created] = await db.insert(steps).values(step).returning();
+    const [created] = await db.insert(steps).values({ ...step, workflowId: workflow.id }).returning();
     stepIds[step.alias] = created.id;
   }
 
@@ -555,7 +555,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
   ];
 
   for (const step of section5Steps) {
-    const [created] = await db.insert(steps).values(step).returning();
+    const [created] = await db.insert(steps).values({ ...step, workflowId: workflow.id }).returning();
     stepIds[step.alias] = created.id;
   }
 
@@ -602,7 +602,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
   ];
 
   for (const step of section6Steps) {
-    const [created] = await db.insert(steps).values(step).returning();
+    const [created] = await db.insert(steps).values({ ...step, workflowId: workflow.id }).returning();
     stepIds[step.alias] = created.id;
   }
 
@@ -643,6 +643,7 @@ emit(totalIncome);`,
     .insert(steps)
     // @ts-ignore - TODO: fix type
     .values({
+      workflowId: workflow.id,
       sectionId: section2.id,
       type: 'computed',
       title: 'Total Monthly Income',
@@ -702,6 +703,7 @@ emit(Math.round(threshold));`,
     .insert(steps)
     // @ts-ignore - TODO: fix type
     .values({
+      workflowId: workflow.id,
       sectionId: section2.id,
       type: 'computed',
       title: 'Poverty Threshold (150%)',
@@ -759,6 +761,7 @@ emit(status);`,
     .insert(steps)
     // @ts-ignore - TODO: fix type
     .values({
+      workflowId: workflow.id,
       sectionId: section2.id,
       type: 'computed',
       title: 'Qualification Status',
@@ -811,6 +814,7 @@ emit(totalExpenses);`,
     .insert(steps)
     // @ts-ignore - TODO: fix type
     .values({
+      workflowId: workflow.id,
       sectionId: section3.id,
       type: 'computed',
       title: 'Total Monthly Expenses',
@@ -858,6 +862,7 @@ emit(Math.round(disposable));`,
     .insert(steps)
     // @ts-ignore - TODO: fix type
     .values({
+      workflowId: workflow.id,
       sectionId: section3.id,
       type: 'computed',
       title: 'Disposable Income',
@@ -907,6 +912,7 @@ emit(totalAssets);`,
     .insert(steps)
     // @ts-ignore - TODO: fix type
     .values({
+      workflowId: workflow.id,
       sectionId: section4.id,
       type: 'computed',
       title: 'Total Assets',
@@ -954,6 +960,7 @@ emit(Math.round(netWorth));`,
     .insert(steps)
     // @ts-ignore - TODO: fix type
     .values({
+      workflowId: workflow.id,
       sectionId: section4.id,
       type: 'computed',
       title: 'Net Worth',

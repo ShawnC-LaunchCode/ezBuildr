@@ -72,6 +72,7 @@ async function migrateTransformBlocks() {
         const [virtualStep] = await db
           .insert(steps)
           .values({
+            workflowId: block.workflowId,
             sectionId: targetSectionId,
             type: "computed",
             title: `Computed: ${block.name}`,

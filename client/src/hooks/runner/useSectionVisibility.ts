@@ -30,7 +30,7 @@ export function useSectionVisibility(
         );
       } catch (error) {
         console.error('[useSectionVisibility] Error evaluating section visibility', section.id, error);
-        return true; // fail open
+        return false;
       }
     });
   }, [sections, effectiveValues, resolveAlias]);
@@ -64,7 +64,7 @@ export function useSectionVisibility(
         return isVisible;
       } catch (e) {
         console.error("[useSectionVisibility] Error evaluating step visibility", e);
-        return true; // Fail safe to visible
+        return false;
       }
     });
   }, [allSteps, effectiveValues, resolveAlias]);

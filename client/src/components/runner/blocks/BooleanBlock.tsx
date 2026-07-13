@@ -29,10 +29,13 @@ export interface BooleanBlockProps {
   value: any;
   onChange: (value: boolean | string) => void;
   readOnly?: boolean;
+  ariaDescribedBy?: string;
+  required?: boolean;
+  hasError?: boolean;
 }
 
 // eslint-disable-next-line complexity
-export function BooleanBlockRenderer({ step, value, onChange, readOnly }: BooleanBlockProps) {
+export function BooleanBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: BooleanBlockProps) {
   // Parse config
   let trueLabel = "Yes";
   let falseLabel = "No";
@@ -78,7 +81,10 @@ export function BooleanBlockRenderer({ step, value, onChange, readOnly }: Boolea
           variant={isTrue && isDefined ? "default" : "outline"}
           onClick={() => !readOnly && handleChange(true)}
           disabled={readOnly}
-          className="flex-1"
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      className="flex-1"
           aria-pressed={isTrue && isDefined}
         >
           {trueLabel}
@@ -88,7 +94,10 @@ export function BooleanBlockRenderer({ step, value, onChange, readOnly }: Boolea
           variant={!isTrue && isDefined ? "default" : "outline"}
           onClick={() => !readOnly && handleChange(false)}
           disabled={readOnly}
-          className="flex-1"
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      className="flex-1"
           aria-pressed={!isTrue && isDefined}
         >
           {falseLabel}
@@ -103,7 +112,10 @@ export function BooleanBlockRenderer({ step, value, onChange, readOnly }: Boolea
       value={isDefined ? (isTrue ? "true" : "false") : undefined}
       onValueChange={(v) => !readOnly && handleChange(v === "true")}
       disabled={readOnly}
-    >
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      >
       <div className="flex items-center space-x-2">
         <RadioGroupItem value="true" id={`${step.id}-true`} />
         <Label htmlFor={`${step.id}-true`}>{trueLabel}</Label>

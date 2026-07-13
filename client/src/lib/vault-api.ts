@@ -696,6 +696,8 @@ export type StepType =
   | "date"
   | "time"
   | "date_time"
+  | "datetime"
+  | "datetime_unified"
   // Choice Types
   | "multiple_choice"
   | "radio"
@@ -707,6 +709,12 @@ export type StepType =
   | "signature"
   | "signature_block"
   | "multi_field"
+  | "phone_advanced"
+  | "email_advanced"
+  | "number_advanced"
+  | "scale_advanced"
+  | "website_advanced"
+  | "address_advanced"
   // Display/Logic Types
   | "display"
   | "js_question"
@@ -714,16 +722,17 @@ export type StepType =
   | "final"
   | "display_advanced"
   | "final_documents"
+  | "loop_group"
+  | "repeater"
   | "true_false";
 export interface ApiStep {
   id: string;
+  workflowId: string;
   sectionId: string;
   type: StepType;
   title: string;
   description: string | null;
   required: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step options contain heterogeneous choice values
-  options: Record<string, any> | null; // JSON - for choice types
   alias: string | null; // Optional variable name for logic/blocks
   visibleIf?: unknown; // Condition expression for visibility
   order: number;
@@ -739,9 +748,11 @@ export interface ApiStep {
 export const stepAPI = {
   list: (sectionId: string) =>
     fetchAPI<ApiStep[]>(`/api/sections/${sectionId}/steps`),
+  listByWorkflow: (workflowId: string) =>
+    fetchAPI<ApiStep[]>(`/api/workflows/${workflowId}/steps`),
   get: (id: string) =>
     fetchAPI<ApiStep>(`/api/steps/${id}`),
-  create: (sectionId: string, data: Omit<ApiStep, "id" | "createdAt" | "sectionId">) =>
+  create: (sectionId: string, data: Omit<ApiStep, "id" | "createdAt" | "sectionId" | "workflowId">) =>
     fetchAPI<ApiStep>(`/api/sections/${sectionId}/steps`, {
       method: "POST",
       body: JSON.stringify(data),
@@ -1325,6 +1336,7 @@ export interface AIStepData {
   key: string;
   type: string;
   label?: string;
+  choices?: string[];
   options?: string[];
   description?: string;
 }

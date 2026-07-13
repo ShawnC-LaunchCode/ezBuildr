@@ -97,6 +97,7 @@ export class TransformBlockService {
     // Create the virtual step first
     // This step will store the transform block's output value
     const virtualStep = await this.stepRepo.create({
+      workflowId,
       sectionId: targetSectionId,
       type: 'computed',
       title: `Computed: ${data.name}`,

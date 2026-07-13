@@ -9,8 +9,26 @@ import { workflowService } from "../../../server/services/WorkflowService";
 import type { InsertStep, Step } from "@shared/schema";
 
 // Mock the repositories and services
-vi.mock("../../../server/repositories");
-vi.mock("../../../server/services/WorkflowService");
+vi.mock("../../../server/repositories", () => ({
+  stepRepository: {
+    findById: vi.fn(),
+    findBySectionId: vi.fn(),
+    findBySectionIds: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
+  sectionRepository: {
+    findById: vi.fn(),
+    findByIdAndWorkflow: vi.fn(),
+    findByWorkflowId: vi.fn(),
+  },
+}));
+vi.mock("../../../server/services/WorkflowService", () => ({
+  workflowService: {
+    verifyAccess: vi.fn(),
+  },
+}));
 
 describe("StepService", () => {
   let service: StepService;
@@ -47,11 +65,11 @@ describe("StepService", () => {
       ];
 
       // Intentionally omit `order` to exercise the service's auto-increment.
-      const newStepData: Omit<InsertStep, 'sectionId' | 'order'> = {
+      const newStepData: Omit<InsertStep, 'sectionId' | 'workflowId' | 'order'> = {
         type: "short_text",
         title: "New Step",
         required: false,
-        options: {},
+        config: {},
       };
 
       const createdStep = createTestStep(section.id, { ...newStepData, order: 3 });
@@ -61,7 +79,7 @@ describe("StepService", () => {
       mockStepRepo.findBySectionId.mockResolvedValue(existingSteps as unknown as Step[]);
       mockStepRepo.create.mockResolvedValue(createdStep as unknown as Step);
 
-      const result = await service.createStep(workflow.id, section.id, "user-123", newStepData as Omit<InsertStep, 'sectionId'>);
+      const result = await service.createStep(workflow.id, section.id, "user-123", newStepData);
 
       expect(result.order).toBe(3);
       expect(mockStepRepo.create).toHaveBeenCalledWith(
@@ -76,11 +94,11 @@ describe("StepService", () => {
       const workflow = createTestWorkflow();
       const section = createTestSection(workflow.id);
 
-      const newStepData: Omit<InsertStep, "sectionId"> = {
+      const newStepData: Omit<InsertStep, "sectionId" | "workflowId"> = {
         type: "short_text",
         title: "First Step",
         required: false,
-        options: {},
+        config: {},
         order: 1,
       };
 
@@ -91,7 +109,7 @@ describe("StepService", () => {
       mockStepRepo.findBySectionId.mockResolvedValue([]);
       mockStepRepo.create.mockResolvedValue(createdStep as unknown as Step);
 
-      const result = await service.createStep(workflow.id, section.id, "user-123", newStepData as InsertStep);
+      const result = await service.createStep(workflow.id, section.id, "user-123", newStepData);
 
       expect(result.order).toBe(1);
     });
@@ -103,12 +121,12 @@ describe("StepService", () => {
         createTestStep(section.id, { alias: "firstName" }),
       ];
 
-      const newStepData: Omit<InsertStep, "sectionId"> = {
+      const newStepData: Omit<InsertStep, "sectionId" | "workflowId"> = {
         type: "short_text",
         title: "Duplicate Alias",
         alias: "firstName",
         required: false,
-        options: {},
+        config: {},
         order: 1,
       };
 
@@ -118,7 +136,7 @@ describe("StepService", () => {
       mockStepRepo.findBySectionIds.mockResolvedValue(existingSteps as unknown as Step[]);
 
       await expect(
-        service.createStep(workflow.id, section.id, "user-123", newStepData as InsertStep)
+        service.createStep(workflow.id, section.id, "user-123", newStepData)
       ).rejects.toThrow("Alias \"firstName\" is already in use");
     });
 
@@ -126,12 +144,12 @@ describe("StepService", () => {
       const workflow = createTestWorkflow();
       const section = createTestSection(workflow.id);
 
-      const newStepData: Omit<InsertStep, "sectionId"> = {
+      const newStepData: Omit<InsertStep, "sectionId" | "workflowId"> = {
         type: "short_text",
         title: "What is your first name?",
         alias: null,
         required: false,
-        options: {},
+        config: {},
         order: 1,
       };
 
@@ -141,7 +159,7 @@ describe("StepService", () => {
       mockStepRepo.findBySectionId.mockResolvedValue([]);
       mockStepRepo.create.mockImplementation(async (data) => data as unknown as Step);
 
-      await service.createStep(workflow.id, section.id, "user-123", newStepData as InsertStep);
+      await service.createStep(workflow.id, section.id, "user-123", newStepData);
 
       expect(mockStepRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ alias: "whatIsYourFirstName" })
@@ -153,11 +171,11 @@ describe("StepService", () => {
       const section = createTestSection(workflow.id);
       const existingSteps = [createTestStep(section.id, { alias: "email" })];
 
-      const newStepData: Omit<InsertStep, "sectionId"> = {
+      const newStepData: Omit<InsertStep, "sectionId" | "workflowId"> = {
         type: "email",
         title: "Email",
         required: false,
-        options: {},
+        config: {},
         order: 1,
       };
 
@@ -168,7 +186,7 @@ describe("StepService", () => {
       mockStepRepo.findBySectionId.mockResolvedValue([]);
       mockStepRepo.create.mockImplementation(async (data) => data as unknown as Step);
 
-      await service.createStep(workflow.id, section.id, "user-123", newStepData as InsertStep);
+      await service.createStep(workflow.id, section.id, "user-123", newStepData);
 
       expect(mockStepRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ alias: "email2" })
@@ -179,12 +197,12 @@ describe("StepService", () => {
       const workflow = createTestWorkflow();
       const section = createTestSection(workflow.id);
 
-      const newStepData: Omit<InsertStep, "sectionId"> = {
+      const newStepData: Omit<InsertStep, "sectionId" | "workflowId"> = {
         type: "short_text",
         title: "Dotted",
         alias: "client.name",
         required: false,
-        options: {},
+        config: {},
         order: 1,
       };
 
@@ -192,18 +210,18 @@ describe("StepService", () => {
       mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(section);
 
       await expect(
-        service.createStep(workflow.id, section.id, "user-123", newStepData as InsertStep)
+        service.createStep(workflow.id, section.id, "user-123", newStepData)
       ).rejects.toThrow(/letters, numbers, and underscores/);
     });
 
     it("should throw error if section not found", async () => {
       const workflow = createTestWorkflow();
 
-      const newStepData: Omit<InsertStep, "sectionId"> = {
+      const newStepData: Omit<InsertStep, "sectionId" | "workflowId"> = {
         type: "short_text",
         title: "New Step",
         required: false,
-        options: {},
+        config: {},
         order: 1,
       };
 
@@ -211,7 +229,7 @@ describe("StepService", () => {
       mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(undefined);
 
       await expect(
-        service.createStep(workflow.id, "nonexistent-section", "user-123", newStepData as InsertStep)
+        service.createStep(workflow.id, "nonexistent-section", "user-123", newStepData)
       ).rejects.toThrow("Section not found");
     });
 
@@ -219,18 +237,18 @@ describe("StepService", () => {
       const workflow = createTestWorkflow({ creatorId: "user-123" });
       const section = createTestSection(workflow.id);
 
-      const newStepData: Omit<InsertStep, "sectionId"> = {
+      const newStepData: Omit<InsertStep, "sectionId" | "workflowId"> = {
         type: "short_text",
         title: "New Step",
         required: false,
-        options: {},
+        config: {},
         order: 1,
       };
 
       mockWorkflowSvc.verifyAccess.mockRejectedValue(new Error("Access denied"));
 
       await expect(
-        service.createStep(workflow.id, section.id, "other-user", newStepData as InsertStep)
+        service.createStep(workflow.id, section.id, "other-user", newStepData)
       ).rejects.toThrow("Access denied");
 
       expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "other-user");
@@ -249,6 +267,7 @@ describe("StepService", () => {
       mockStepRepo.findById.mockImplementation(
         (async (id: string) => (id === step.id ? step : section)) as never
       );
+      mockSectionRepo.findById.mockResolvedValue(section);
       mockSectionRepo.findByWorkflowId.mockResolvedValue([section]);
       mockStepRepo.findBySectionIds.mockResolvedValue([step as unknown as Step]);
       mockStepRepo.update.mockResolvedValue(updatedStep as unknown as Step);
@@ -390,12 +409,8 @@ describe("StepService", () => {
   describe("updateStep alias follow-the-label", () => {
     function setupUpdate(step: Step, section: ReturnType<typeof createTestSection>): void {
       mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
-      // stepRepository.findById and sectionRepository.findById are the same
-      // auto-mocked BaseRepository prototype method, so a single id-dispatching
-      // implementation must serve both lookups
-      mockStepRepo.findById.mockImplementation(
-        (async (id: string) => (id === step.id ? step : section)) as never
-      );
+      mockStepRepo.findById.mockResolvedValue(step);
+      mockSectionRepo.findById.mockResolvedValue(section);
       mockSectionRepo.findByWorkflowId.mockResolvedValue([section]);
       mockStepRepo.findBySectionIds.mockResolvedValue([step]);
       mockStepRepo.update.mockImplementation(async (_id, data) => ({ ...step, ...data }) as Step);

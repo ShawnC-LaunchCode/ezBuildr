@@ -22,9 +22,12 @@ export interface WebsiteBlockProps {
   value: any;
   onChange: (value: string) => void;
   readOnly?: boolean;
+  ariaDescribedBy?: string;
+  required?: boolean;
+  hasError?: boolean;
 }
 
-export function WebsiteBlockRenderer({ step, value, onChange, readOnly }: WebsiteBlockProps) {
+export function WebsiteBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: WebsiteBlockProps) {
   const config = step.config as WebsiteConfig;
   const placeholder = config?.placeholder ?? "https://example.com";
 
@@ -46,6 +49,9 @@ export function WebsiteBlockRenderer({ step, value, onChange, readOnly }: Websit
       placeholder={placeholder}
       autoComplete="url"
       disabled={readOnly}
-    />
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      />
   );
 }

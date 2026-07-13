@@ -2,9 +2,10 @@ import { insertStepSchema } from "@shared/schema";
 import type { InsertStep } from "@shared/schema";
 
 import { createLogger } from "../logger";
-import { hybridAuth, type AuthRequest } from '../middleware/auth';
+import { hybridAuth, optionalHybridAuth, type AuthRequest } from '../middleware/auth';
 import { autoRevertToDraft } from "../middleware/autoRevertToDraft";
 import { createLimiter } from "../middleware/rateLimiting";
+import { creatorOrRunTokenAuth, type RunAuthRequest } from '../middleware/runTokenAuth';
 import { sectionRepository } from "../repositories/SectionRepository";
 import { stepRepository } from "../repositories/StepRepository";
 import { stepService } from "../services/StepService";
@@ -93,7 +94,7 @@ function registerWorkflowStepRoutes(app: Express): void {
         return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
       const { workflowId, sectionId } = req.params;
-      const stepData = insertStepSchema.partial().parse(req.body) as Omit<InsertStep, 'sectionId'>;
+      const stepData = insertStepSchema.partial().parse(req.body) as Omit<InsertStep, 'sectionId' | 'workflowId'>;
       const step = await stepService.createStep(workflowId, sectionId, userId, stepData);
       res.status(201).json(step);
     } catch (error) {
@@ -119,6 +120,36 @@ function registerWorkflowStepRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error fetching steps");
       const { status, message } = classifyRouteError(error, "Failed to fetch steps");
+      res.status(status).json({ message });
+    }
+  }));
+
+  /**
+   * GET /api/workflows/:workflowId/steps
+   * Get all steps for a workflow. Used by the runner, including public runs
+   * authenticated with a run token.
+   */
+  app.get('/api/workflows/:workflowId/steps', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const { workflowId } = req.params;
+      const userId = (req as AuthRequest).userId;
+      const runAuth = (req as RunAuthRequest).runAuth;
+
+      if (runAuth != null) {
+        if (runAuth.workflowId !== workflowId) {
+          return res.status(403).json({ message: "Access denied - run token is for a different workflow" });
+        }
+      } else if (!userId) {
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
+      } else {
+        await stepService.verifyWorkflowAccess(workflowId, userId);
+      }
+
+      const steps = await stepService.getWorkflowSteps(workflowId);
+      res.json(steps);
+    } catch (error) {
+      logger.error({ error }, "Error fetching workflow steps");
+      const { status, message } = classifyRouteError(error, "Failed to fetch workflow steps");
       res.status(status).json({ message });
     }
   }));
@@ -186,7 +217,7 @@ function registerSimplifiedStepRoutes(app: Express): void {
         return res.status(401).json({ message: UNAUTHORIZED_MSG });
       }
       const { sectionId } = req.params;
-      const stepData = insertStepSchema.partial().parse(req.body) as Omit<InsertStep, 'sectionId'>;
+      const stepData = insertStepSchema.partial().parse(req.body) as Omit<InsertStep, 'sectionId' | 'workflowId'>;
       const step = await stepService.createStepBySectionId(sectionId, userId, stepData);
       res.status(201).json(step);
     } catch (error) {

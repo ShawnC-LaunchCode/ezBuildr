@@ -27,9 +27,9 @@ async function detectAliasCollisions(
             existingAliases.add(s.alias as string);
         }
         // JS question output aliases
-        const options = s.options as Record<string, unknown> | undefined;
-        if (s.type === 'js_question' && options?.outputKey != null) {
-            existingAliases.add(options.outputKey as string);
+        const config = s.config as Record<string, unknown> | undefined;
+        if (s.type === 'js_question' && config?.outputKey != null) {
+            existingAliases.add(config.outputKey as string);
         }
     });
     // TODO: Add blocks API call to check for:
@@ -189,6 +189,11 @@ export async function importSnip(
             // Apply alias mapping if exists
             const originalAlias = snipQuestion.alias;
             const finalAlias = aliasMappings[originalAlias] ?? originalAlias;
+            const config = snipQuestion.config ?? (
+                snipQuestion.options !== undefined && snipQuestion.options !== null
+                    ? { options: snipQuestion.options }
+                    : {}
+            );
             const stepPayload = {
                 sectionId: section.id as string,
                 type: snipQuestion.type,
@@ -197,12 +202,11 @@ export async function importSnip(
                 required: snipQuestion.required, // PRESERVE REQUIRED STATUS
                 alias: finalAlias,
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-                options: snipQuestion.options ?? null,
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 defaultValue: snipQuestion.defaultValue ?? null,
                 visibleIf: snipQuestion.visibleIf ?? null, // PRESERVE CONDITIONAL LOGIC
                 order: snipQuestion.order,
-                config: {},
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                config,
             };
             const stepResponse = await fetch(`/api/sections/${section.id as string}/steps`, {
                 method: "POST",

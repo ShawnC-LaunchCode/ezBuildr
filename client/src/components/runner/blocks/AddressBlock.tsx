@@ -98,6 +98,9 @@ export interface AddressBlockProps {
   value: unknown;
   onChange: (value: AddressValue) => void;
   readOnly?: boolean;
+  ariaDescribedBy?: string;
+  required?: boolean;
+  hasError?: boolean;
 }
 
 interface Suggestion {
@@ -115,7 +118,7 @@ interface AddressComponent {
 // eslint-disable-next-line max-lines-per-function
 
 // eslint-disable-next-line max-lines-per-function
-export function AddressBlockRenderer({ step, value, onChange, readOnly }: AddressBlockProps) {
+export function AddressBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: AddressBlockProps) {
   const _config = step.config as AddressConfig;
 
   // Parse current value (nested object)
@@ -296,7 +299,10 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
                   onChange={handleStreetChange}
                   placeholder="123 Main St"
                   disabled={readOnly}
-                  className="w-full"
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      className="w-full"
                   autoComplete="chrome-off"
                   data-1p-ignore // Ignore 1Password
                   data-lpignore="true" // Ignore LastPass
@@ -352,7 +358,10 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
           }}
           placeholder="Miami"
           disabled={readOnly}
-        />
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      />
       </div>
 
       {/* State & ZIP (side by side) */}
@@ -366,7 +375,10 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
             value={currentValue.state ?? ""}
             onValueChange={(newValue) => updateField("state", newValue)}
             disabled={readOnly}
-          >
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      >
             <SelectTrigger id={`${step.id}-state`}>
               <SelectValue placeholder="Select state" />
             </SelectTrigger>
@@ -395,7 +407,10 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
             placeholder="33101"
             maxLength={5}
             disabled={readOnly}
-          />
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      />
         </div>
       </div>
     </div>

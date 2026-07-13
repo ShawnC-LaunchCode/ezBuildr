@@ -8,7 +8,7 @@
  * - transform block inputKeys
  * - document hook inputKeys
  * - lifecycle hook inputKeys
- * - Final Block document mapping sources (step options.documents[].mapping)
+ * - Final Block document mapping sources (step config.documents[].mapping)
  *
  * Not rewritten (by design):
  * - templates.mapping (project-scoped, shared across workflows)
@@ -52,15 +52,15 @@ function replaceKey(keys: string[] | null | undefined, oldAlias: string, newAlia
 }
 
 /**
- * Rewrite mapping sources in a Final Block options object.
- * Returns the updated options, or null when nothing referenced the alias.
+ * Rewrite mapping sources in a Final Block config object.
+ * Returns the updated config, or null when nothing referenced the alias.
  */
 export function rewriteFinalBlockMapping(
-  options: unknown,
+  config: unknown,
   oldAlias: string,
   newAlias: string
 ): FinalBlockOptions | null {
-  const opts = options as FinalBlockOptions | null;
+  const opts = config as FinalBlockOptions | null;
   if (!opts?.documents || !Array.isArray(opts.documents)) {
     return null;
   }
@@ -159,9 +159,9 @@ export class AliasRenameService {
         if (step.type !== 'final' && step.type !== 'final_documents') {
           continue;
         }
-        const rewritten = rewriteFinalBlockMapping(step.options, oldAlias, newAlias);
+        const rewritten = rewriteFinalBlockMapping(step.config, oldAlias, newAlias);
         if (rewritten !== null) {
-          await stepRepository.update(step.id, { options: rewritten });
+          await stepRepository.update(step.id, { config: rewritten });
           result.finalBlockStepsUpdated++;
         }
       }

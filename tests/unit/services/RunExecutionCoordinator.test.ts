@@ -92,7 +92,7 @@ describe('RunExecutionCoordinator - JS Execution', () => {
         id: 'step-js-1',
         type: 'js_question',
         title: 'Calculate Total',
-        options: {
+        config: {
             code: 'return input.a + input.b;',
             inputKeys: ['a', 'b'],
             outputKey: 'result',
@@ -126,8 +126,8 @@ describe('RunExecutionCoordinator - JS Execution', () => {
 
         expect(result.success).toBe(true);
         expect(scriptEngine.execute).toHaveBeenCalledWith(expect.objectContaining({
-            code: mockJsStep.options.code,
-            inputKeys: mockJsStep.options.inputKeys,
+            code: mockJsStep.config.code,
+            inputKeys: mockJsStep.config.inputKeys,
             data: expect.objectContaining({ 'step-a': 10, 'step-b': 20 }),
             context: expect.objectContaining({
                 runId: 'run-1',

@@ -71,7 +71,7 @@ export function AddressCardEditor({ stepId, sectionId, workflowId, step }: StepE
   return (
     <div className="space-y-4 p-4 border-t bg-muted/30">
       {/* Alias */}
-      <AliasField value={step.alias} onChange={handleAliasChange} />
+      <AliasField value={step.alias} onChange={handleAliasChange} workflowId={workflowId} currentStepId={stepId} />
 
       {/* Required Toggle */}
       <RequiredToggle checked={step.required} onChange={handleRequiredChange} />

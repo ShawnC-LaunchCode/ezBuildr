@@ -75,6 +75,7 @@ async function createTestWorkflow() {
   await db.insert(steps).values([
     {
       id: randomUUID(),
+      workflowId,
       sectionId: section1[0].id,
       type: 'short_text',
       title: 'First Name',
@@ -84,6 +85,7 @@ async function createTestWorkflow() {
     },
     {
       id: randomUUID(),
+      workflowId,
       sectionId: section1[0].id,
       type: 'short_text',
       title: 'Last Name',
@@ -93,6 +95,7 @@ async function createTestWorkflow() {
     },
     {
       id: randomUUID(),
+      workflowId,
       sectionId: section1[0].id,
       type: 'short_text',
       title: 'Email',

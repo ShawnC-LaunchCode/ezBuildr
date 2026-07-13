@@ -58,7 +58,12 @@ export function evaluateConditionExpression(
     return true;
   }
 
-  return evaluateGroup(expression, data, aliasResolver);
+  try {
+    return evaluateGroup(expression, data, aliasResolver);
+  } catch (error) {
+    console.error("[conditionEvaluator] Failed to evaluate condition expression", error);
+    return false;
+  }
 }
 
 /**
@@ -84,18 +89,24 @@ export function evaluateConditionExpressionWithDetails(
       if (item.type === "group") {
         return evaluateGroupDetailed(item);
       }
-      // Script conditions - not yet implemented
+      console.warn("[conditionEvaluator] Script conditions are not supported in visibility evaluation");
       return false;
     });
 
-    if (group.operator === "AND") {
-      return results.every((r) => r);
-    } else {
-      return results.some((r) => r);
-    }
+    const groupResult = group.operator === "AND"
+      ? results.every((r) => r)
+      : results.some((r) => r);
+
+    return group.not ? !groupResult : groupResult;
   }
 
-  const visible = evaluateGroupDetailed(expression);
+  let visible = false;
+  try {
+    visible = evaluateGroupDetailed(expression);
+  } catch (error) {
+    console.error("[conditionEvaluator] Failed to evaluate condition expression", error);
+    visible = false;
+  }
 
   return {
     visible,
@@ -130,15 +141,15 @@ function evaluateGroup(
       return evaluateGroup(item, data, aliasResolver);
     }
     // Script conditions - not yet implemented, equivalent to false/hidden for safety
+    console.warn("[conditionEvaluator] Script conditions are not supported in visibility evaluation");
     return false;
   });
 
-  if (group.operator === "AND") {
-    return results.every((r) => r);
-  } else {
-    // OR
-    return results.some((r) => r);
-  }
+  const groupResult = group.operator === "AND"
+    ? results.every((r) => r)
+    : results.some((r) => r);
+
+  return group.not ? !groupResult : groupResult;
 }
 
 /**
@@ -149,9 +160,10 @@ function evaluateSingleCondition(
   data: DataMap,
   aliasResolver?: AliasResolver
 ): boolean {
-  // Skip conditions with no variable selected
+  // Conditions without a selected variable are malformed. Hide the target.
   if (!condition.variable) {
-    return true;
+    console.warn("[conditionEvaluator] Condition is missing a variable");
+    return false;
   }
 
   // Resolve the variable to get the actual value
@@ -244,6 +256,31 @@ function evaluateOperator(
       return num >= min && num <= max;
     }
 
+    // Date comparisons
+    case "before":
+      return compareDates(actualValue, compareValue, (actual, compare) => actual < compare);
+
+    case "after":
+      return compareDates(actualValue, compareValue, (actual, compare) => actual > compare);
+
+    case "on_or_before":
+      return compareDates(actualValue, compareValue, (actual, compare) => actual <= compare);
+
+    case "on_or_after":
+      return compareDates(actualValue, compareValue, (actual, compare) => actual >= compare);
+
+    case "diff_days":
+      return evaluateDateDifference(actualValue, compareValue, compareValue2, "days");
+
+    case "diff_weeks":
+      return evaluateDateDifference(actualValue, compareValue, compareValue2, "weeks");
+
+    case "diff_months":
+      return evaluateDateDifference(actualValue, compareValue, compareValue2, "months");
+
+    case "diff_years":
+      return evaluateDateDifference(actualValue, compareValue, compareValue2, "years");
+
     // Boolean shortcuts
     case "is_true":
       return toBoolean(actualValue) === true;
@@ -278,9 +315,8 @@ function evaluateOperator(
     }
 
     default:
-      // Unknown operator - default to true
-      console.warn(`Unknown operator: ${operator}`);
-      return true;
+      console.warn(`[conditionEvaluator] Unknown operator: ${operator}`);
+      return false;
   }
 }
 
@@ -363,6 +399,94 @@ function toNumber(value: unknown): number {
   if (typeof value === "boolean") {return value ? 1 : 0;}
   if (value instanceof Date) {return value.getTime();}
   return 0;
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const numberValue = typeof value === "string" ? Number(value) : toNumber(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function toDateMs(value: unknown): number | null {
+  if (value instanceof Date) {
+    const time = value.getTime();
+    return Number.isNaN(time) ? null : time;
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const time = new Date(value).getTime();
+    return Number.isNaN(time) ? null : time;
+  }
+  return null;
+}
+
+function compareDates(
+  actualValue: unknown,
+  compareValue: unknown,
+  predicate: (actual: number, compare: number) => boolean
+): boolean {
+  const actualDate = toDateMs(actualValue);
+  const compareDate = toDateMs(compareValue);
+
+  if (actualDate === null || compareDate === null) {
+    return false;
+  }
+
+  return predicate(actualDate, compareDate);
+}
+
+function evaluateDateDifference(
+  actualValue: unknown,
+  compareValue: unknown,
+  expectedDifference: unknown,
+  unit: "days" | "weeks" | "months" | "years"
+): boolean {
+  const actualDate = toDateMs(actualValue);
+  const compareDate = toDateMs(compareValue);
+  const expected = toFiniteNumber(expectedDifference);
+
+  if (actualDate === null || compareDate === null || expected === null) {
+    return false;
+  }
+
+  return getDateDifference(actualDate, compareDate, unit) === expected;
+}
+
+function getDateDifference(
+  actualDate: number,
+  compareDate: number,
+  unit: "days" | "weeks" | "months" | "years"
+): number {
+  const millisecondsPerDay = 24 * 60 * 60 * 1000;
+  const diffDays = Math.floor(Math.abs(actualDate - compareDate) / millisecondsPerDay);
+
+  if (unit === "days") {
+    return diffDays;
+  }
+  if (unit === "weeks") {
+    return Math.floor(diffDays / 7);
+  }
+
+  const earlier = new Date(Math.min(actualDate, compareDate));
+  const later = new Date(Math.max(actualDate, compareDate));
+  let months =
+    (later.getUTCFullYear() - earlier.getUTCFullYear()) * 12 +
+    later.getUTCMonth() -
+    earlier.getUTCMonth();
+
+  if (later.getUTCDate() < earlier.getUTCDate()) {
+    months -= 1;
+  }
+
+  if (unit === "months") {
+    return months;
+  }
+
+  return Math.floor(months / 12);
 }
 
 /**

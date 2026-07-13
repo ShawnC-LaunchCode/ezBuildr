@@ -23,9 +23,12 @@ export interface NumberBlockProps {
   value: any;
   onChange: (value: number | null) => void;
   readOnly?: boolean;
+  ariaDescribedBy?: string;
+  required?: boolean;
+  hasError?: boolean;
 }
 
-export function NumberBlockRenderer({ step, value, onChange, readOnly }: NumberBlockProps) {
+export function NumberBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: NumberBlockProps) {
   // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   const config = (step.config as NumberConfig) || (step.config as NumberAdvancedConfig);
 
@@ -89,6 +92,9 @@ export function NumberBlockRenderer({ step, value, onChange, readOnly }: NumberB
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       placeholder={placeholder}
       disabled={readOnly}
-    />
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      />
   );
 }

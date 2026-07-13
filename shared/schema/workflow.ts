@@ -253,12 +253,13 @@ export const sections = pgTable("sections", {
 // Steps
 export const steps = pgTable("steps", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
     sectionId: uuid("section_id").references(() => sections.id, { onDelete: 'cascade' }).notNull(),
     type: stepTypeEnum("type").notNull(),
     title: varchar("title").notNull(),
     description: text("description"),
     required: boolean("required").default(false),
-    options: jsonb("options"),
+    config: jsonb("config"),
     alias: text("alias"),
     defaultValue: jsonb("default_value"),
     order: integer("order").notNull(),
@@ -268,8 +269,11 @@ export const steps = pgTable("steps", {
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
+    index("steps_workflow_idx").on(table.workflowId),
     index("steps_section_idx").on(table.sectionId),
-    uniqueIndex("steps_section_alias_unique").on(table.sectionId, table.alias),
+    uniqueIndex("steps_workflow_alias_unique")
+        .on(table.workflowId, sql`lower(${table.alias})`)
+        .where(sql`${table.alias} IS NOT NULL AND ${table.alias} <> ''`),
 ]);
 
 // Logic Rules

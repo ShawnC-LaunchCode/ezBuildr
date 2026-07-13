@@ -24,14 +24,13 @@ import { createLogger } from '../logger.js';
 import { hybridAuth, type AuthRequest } from '../middleware/auth.js';
 import { creatorOrRunTokenAuth, type RunAuthRequest } from '../middleware/runTokenAuth.js';
 import { strictLimiter } from '../middleware/rateLimiter.js';
-import { documentTemplateRepository, runGeneratedDocumentsRepository, stepRepository, stepValueRepository } from '../repositories/index.js';
+import { documentTemplateRepository } from '../repositories/index.js';
 import { finalBlockRenderer, createTemplateResolver } from '../services/document/FinalBlockRenderer.js';
 import { runService } from '../services/RunService.js';
 import { workflowService } from '../services/WorkflowService.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { createError } from '../utils/errors.js';
 
-import type { FinalBlockConfig } from '../../shared/types/stepConfigs.js';
 import type { Express, Response } from 'express';
 
 const logger = createLogger({ module: 'finalBlock-routes' });
@@ -43,7 +42,7 @@ const logger = createLogger({ module: 'finalBlock-routes' });
 const generateFinalDocumentsSchema = z.object({
   stepId: z.string().uuid(),
   toPdf: z.boolean().optional().default(false),
-  pdfStrategy: z.enum(['puppeteer', 'libreoffice']).optional().default('puppeteer'),
+  pdfStrategy: z.enum(['puppeteer']).optional().default('puppeteer'),
 });
 
 const previewGenerateSchema = z.object({
@@ -62,7 +61,7 @@ const previewGenerateSchema = z.object({
   }),
   stepValues: z.record(z.any()),
   toPdf: z.boolean().optional().default(false),
-  pdfStrategy: z.enum(['puppeteer', 'libreoffice']).optional().default('puppeteer'),
+  pdfStrategy: z.enum(['puppeteer']).optional().default('puppeteer'),
 });
 
 // ============================================================================
@@ -118,7 +117,7 @@ export function registerFinalBlockRoutes(app: Express): void {
           userId,
         }, 'Generating Final Block documents for run');
 
-        // Step 1: Load run data
+        // Step 1: Verify run access
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const run = runAuth != null
           ? await runService.getRunWithValuesNoAuth(runId)
@@ -131,109 +130,29 @@ export function registerFinalBlockRoutes(app: Express): void {
           throw createError.notFound('Run', runId);
         }
 
-        // Step 2: Load workflow
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        const workflow = await workflowService.verifyAccess(run.workflowId, userId ?? 'anon', 'view').catch(async () => {
-          // If verifyAccess fails (e.g. anon with run token), we might need to fetch public workflow
-          // preventing error if we are authorized via run token
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
-          const w = await (workflowService as any)['workflowRepo'].findById(run.workflowId);
-          // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-return
-          if (w) { return w; }
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          throw createError.notFound('Workflow', run.workflowId);
-        });
-
-        // Step 3: Load step and validate it's a Final Block
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        const step = await stepRepository.findById(stepId);
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        if (!step || step.type !== 'final') {
-          throw createError.validation('Invalid step: must be a Final Block');
-        }
-
-        const finalBlockConfig = step.options as FinalBlockConfig;
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        if (!finalBlockConfig?.documents) {
-          throw createError.validation('Final Block configuration missing or invalid');
-        }
-
-        // Step 4: Load step values for this run, keyed by ALIAS (falling
-        // back to stepId) — the same contract the automatic completion path
-        // uses. Keying by raw stepId here made every {{alias}} template
-        // render blank through this endpoint.
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        const allWorkflowSteps = await stepRepository.findByWorkflowIdWithAliases(run.workflowId);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        const stepValues = await stepValueRepository.getRunDataWithAliases(runId, allWorkflowSteps);
-
-        // Step 5: Create template resolver
-        const resolveTemplate = createTemplateResolver(async (documentId: string) => {
-          const template = await documentTemplateRepository.findByIdAndProjectId(
-            documentId,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-non-null-assertion
-            workflow.projectId
-          );
-          if (!template) {
-            throw createError.notFound('Template', documentId);
-          }
-          // Return the template object (containing fileRef), the resolver will handle path construction
-          return template;
-        });
-
-        // Step 6: Generate documents
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        const result = await finalBlockRenderer.render({
-          finalBlockConfig,
-          stepValues, // Correct format now
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-          workflowId: workflow.id,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-          runId: run.id,
-          resolveTemplate,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        // Step 2: Generate documents through the shared run pipeline.
+        const result = await runService.generateDocuments(run.id, {
+          finalStepId: stepId,
           toPdf,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           pdfStrategy,
         });
 
         logger.info({
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           runId,
-          generated: result.totalGenerated,
-          skipped: result.skipped.length,
+          generated: result.documentsGenerated,
+          skipped: result.skipped?.length ?? 0,
         }, 'Final Block documents generated successfully');
 
-        // Step 6.5: Persist document records so they appear in the run's
-        // document list (previously this endpoint returned file paths
-        // without writing run_generated_documents at all)
-        for (const doc of result.documents) {
-          try {
-            await runGeneratedDocumentsRepository.createDocument({
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-              runId: run.id,
-              fileName: doc.filename,
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              fileUrl: `/api/runs/${run.id}/final-documents/${doc.filename}/download`,
-              mimeType: doc.mimeType,
-              fileSize: doc.size,
-              templateId: null,
-            });
-          } catch (persistError) {
-            logger.warn({ persistError, filename: doc.filename }, 'Failed to persist generated document record');
-            // Non-breaking: the files were generated and are returned below
-          }
-        }
-
-        // Step 7: Return response
+        // Step 3: Return response
         res.status(200).json({
           success: true,
           data: {
-            documents: result.documents,
+            documents: result.documents ?? [],
             archive: result.archive,
-            skipped: result.skipped,
-            failed: result.failed,
-            totalGenerated: result.totalGenerated,
+            skipped: result.skipped ?? [],
+            failed: result.failed ?? [],
+            totalGenerated: result.documentsGenerated,
             isArchived: result.isArchived,
           },
         });

@@ -385,7 +385,7 @@ function convertWorkflowToGraphJson(workflow: WorkflowWithDetails): Record<strin
         title: step.title,
         alias: step.alias ?? undefined,
         required: step.required,
-        config: step.options,
+        config: step.config,
         visibleIf: step.visibleIf,
         defaultValue: step.defaultValue,
         order: step.order,

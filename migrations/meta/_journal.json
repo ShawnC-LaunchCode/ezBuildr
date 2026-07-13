@@ -19,8 +19,21 @@
     {
       "idx": 2,
       "version": "7",
-      "when": 1784131200000,
       "tag": "0002_add_generation_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784131200000,
+      "tag": "0003_add_pdf_strategy",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783900800000,
+      "tag": "0004_runner_hardening_steps",
       "breakpoints": true
     }
   ]

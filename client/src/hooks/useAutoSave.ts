@@ -28,11 +28,23 @@ export function useAutoSave<T>({
 }: UseAutoSaveOptions<T>): UseAutoSaveReturn {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChangesState] = useState(false);
+  const hasUnsavedChangesRef = useRef(false);
+
+  const setHasUnsavedChanges = useCallback((value: boolean) => {
+    setHasUnsavedChangesState(value);
+    hasUnsavedChangesRef.current = value;
+  }, []);
 
   const timeoutRef = useRef<NodeJS.Timeout>();
-  const lastDataRef = useRef<T>(data);
+  const lastSavedDataRef = useRef<T>(data);
+  const currentDataRef = useRef<T>(data);
   const isSavingRef = useRef(false);
+
+  // Keep current data ref up to date
+  useEffect(() => {
+    currentDataRef.current = data;
+  }, [data]);
 
   // Function to perform the actual save
   const performSave = useCallback(async () => {
@@ -40,14 +52,16 @@ export function useAutoSave<T>({
       return;
     }
 
+    const dataToSave = data;
+    lastSavedDataRef.current = dataToSave; // Set immediately to prevent re-triggering during await
+
     try {
       isSavingRef.current = true;
       setSaveStatus("saving");
-      await onSave(data);
+      await onSave(dataToSave);
       setSaveStatus("saved");
       setLastSavedAt(new Date());
       setHasUnsavedChanges(false);
-      lastDataRef.current = data;
 
       // Reset to idle after showing "saved" for a moment
       setTimeout(() => {
@@ -55,6 +69,9 @@ export function useAutoSave<T>({
       }, 2000);
     } catch (error) {
       console.error("Auto-save error:", error);
+      // Revert since save failed
+      lastSavedDataRef.current = currentDataRef.current !== dataToSave ? currentDataRef.current : dataToSave; // actually we just want to ensure it tries again
+      setHasUnsavedChanges(true);
       setSaveStatus("error");
       // Reset to idle after showing error
       setTimeout(() => {
@@ -80,7 +97,7 @@ export function useAutoSave<T>({
     }
 
     // Check if data has changed
-    const dataChanged = JSON.stringify(data) !== JSON.stringify(lastDataRef.current);
+    const dataChanged = JSON.stringify(data) !== JSON.stringify(lastSavedDataRef.current);
 
     if (dataChanged) {
       setHasUnsavedChanges(true);
@@ -103,15 +120,25 @@ export function useAutoSave<T>({
     };
   }, [data, delay, enabled, performSave]);
 
-  // Save on unmount if there are unsaved changes
+  // Save on unmount or beforeunload if there are unsaved changes
   useEffect(() => {
-    return () => {
-      if (hasUnsavedChanges && !isSavingRef.current) {
-        // Fire and forget - we're unmounting
-        onSave(lastDataRef.current).catch(console.error);
+    const handleBeforeUnload = () => {
+      if (hasUnsavedChangesRef.current && !isSavingRef.current) {
+        // Fire and forget - using keepalive in fetch
+        onSave(currentDataRef.current).catch(console.error);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only run on unmount
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      if (hasUnsavedChangesRef.current && !isSavingRef.current) {
+        // Fire and forget - we're unmounting
+        onSave(currentDataRef.current).catch(console.error);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only run on mount/unmount
   }, []);
 
   return {

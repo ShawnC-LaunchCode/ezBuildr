@@ -376,7 +376,7 @@ export function createConversionError(
     runId,
     originalError,
     recoverable: true, // Can return DOCX instead
-    suggestion: 'Ensure PDF conversion service is running (Puppeteer or LibreOffice)',
+    suggestion: 'Ensure PDF conversion service is running (Puppeteer)',
   });
 }
 

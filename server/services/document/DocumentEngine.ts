@@ -12,7 +12,7 @@ export interface DocumentGenerationOptions {
     outputName: string;
     outputDir?: string;
     toPdf?: boolean;
-    pdfStrategy?: 'puppeteer' | 'libreoffice';
+    pdfStrategy?: 'puppeteer';
     unresolvedVariables?: string[];
 }
 export interface DocumentGenerationResult {

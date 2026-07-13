@@ -25,12 +25,6 @@ interface LegacyStepConfig {
     options?: (string | LegacyOption)[];
 }
 
-interface LegacyStep {
-    options?: {
-        options?: (string | LegacyOption)[];
-    };
-}
-
 interface UseChoiceOptionsResult {
     options: ChoiceOption[];
     loading: boolean;
@@ -143,11 +137,7 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
     ): ChoiceOption[] => {
         const getRawOptions = (): (string | LegacyOption)[] => {
             const config = currentStep.config as LegacyStepConfig;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const legacyStep = currentStep as unknown as LegacyStep;
-
-            // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-            return config?.options || legacyStep.options?.options || [];
+            return config?.options ?? [];
         };
 
         return parseLegacyOptions(getRawOptions());

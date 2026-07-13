@@ -150,8 +150,8 @@ export class RunExecutionCoordinator {
         const allSteps = await this.stepRepo.findBySectionId(sectionId);
         const jsQuestions = allSteps.filter(step => step.type === 'js_question');
         for (const step of jsQuestions) {
-            if (step.options === null || step.options === undefined || !isJsQuestionConfig(step.options)) { continue; }
-            const config = step.options;
+            if (step.config === null || step.config === undefined || !isJsQuestionConfig(step.config)) { continue; }
+            const config = step.config;
             const result = await scriptEngine.execute({
                 language: 'javascript',
                 code: config.code,

@@ -36,9 +36,12 @@ export interface MultiFieldBlockProps {
   value: any;
   onChange: (value: MultiFieldValue) => void;
   readOnly?: boolean;
+  ariaDescribedBy?: string;
+  required?: boolean;
+  hasError?: boolean;
 }
 
-export function MultiFieldBlockRenderer({ step, value, onChange, readOnly }: MultiFieldBlockProps) {
+export function MultiFieldBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: MultiFieldBlockProps) {
   const config = step.config as MultiFieldConfig;
   const layout = config?.layout || "first_last";
   const fields = config?.fields ?? [];
@@ -89,7 +92,10 @@ export function MultiFieldBlockRenderer({ step, value, onChange, readOnly }: Mul
           }}
           placeholder={field.placeholder || field.label}
           disabled={readOnly}
-        />
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      />
       </div>
     );
   };

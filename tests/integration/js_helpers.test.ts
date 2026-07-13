@@ -128,11 +128,12 @@ describe("Detailed Verification: JS Helper Availability", () => {
         };
     `;
         const [step] = await db.insert(steps).values({
+            workflowId,
             sectionId: section.id,
             title: "Helper Test Step",
             type: "js_question",
             order: 1,
-            options: {
+            config: {
                 display: "hidden",
                 code: code,
                 inputKeys: [],

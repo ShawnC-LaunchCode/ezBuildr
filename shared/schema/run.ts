@@ -168,6 +168,7 @@ export const runGeneratedDocuments = pgTable("run_generated_documents", {
     templateId: uuid("template_id").references(() => workflowTemplates.id, { onDelete: 'set null' }),
     unresolvedVariables: jsonb("unresolved_variables").default([]),
     pdfFailed: boolean("pdf_failed").default(false),
+    pdfStrategy: text("pdf_strategy"), // Added for DOC-107
     createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
     index("run_generated_documents_run_idx").on(table.runId),

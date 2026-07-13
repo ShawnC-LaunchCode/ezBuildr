@@ -76,6 +76,7 @@ describe('Lifecycle Hooks Execution', () => {
     await db.insert(steps).values(
       createTestStep({
         id: stepId,
+        workflowId,
         sectionId,
         type: 'short_text',
         alias: 'user_name',

@@ -22,6 +22,14 @@ import { writebackExecutionService } from "../WritebackExecutionService";
 import { createError } from "../../utils/errors";
 
 import type { PopulateValuesOptions, SnapshotValueMap, DocumentGenerationResult, WritebackExecutionResult } from "./types";
+import { runDataService, type RunData, type RunDataService } from "./RunDataService";
+
+export interface GenerateDocumentsOptions {
+  runData?: RunData;
+  finalStepId?: string;
+  toPdf?: boolean;
+  pdfStrategy?: 'puppeteer';
+}
 
 
 export class RunLifecycleService {
@@ -30,7 +38,8 @@ export class RunLifecycleService {
     private stepRepo = stepRepository,
     private sectionRepo = sectionRepository,
     private persistence = new RunPersistenceWriter(),
-    private logicSvc = logicService
+    private logicSvc = logicService,
+    private runDataSvc: RunDataService = runDataService
   ) { }
 
   /**
@@ -188,7 +197,7 @@ export class RunLifecycleService {
       type: step.type,
       label: step.title,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      options: step.options as any[] | undefined,
+      choices: (step.config as { options?: any[] } | null | undefined)?.options,
       description: step.description ?? undefined,
     }));
 
@@ -230,26 +239,20 @@ export class RunLifecycleService {
 
     // Get all steps for the workflow
     const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId);
-    const stepMap = new Map(allSteps.map(s => [s.id, s]));
-
-    // Build data map for logic evaluation
+    // Build stepId-keyed data for logic evaluation. Document generation gets a
+    // separate alias-keyed view from RunDataService; logic must stay on ids.
     const dataMap: Record<string, unknown> = {};
     for (const value of runValues) {
-      const step = stepMap.get(value.stepId);
-      if (step) {
-        const key = step.alias ?? step.id;
-        dataMap[key] = value.value;
-      }
+      dataMap[value.stepId] = value.value;
     }
+
+    // Build LogicContext once
+    const logicCtx = await this.logicSvc.buildContext(workflowId, dataMap);
 
     // Iterate through sections to find the first incomplete one
     for (const section of sortedSections) {
       // Check if section is visible using logic service
-      const sectionVisible = await this.logicSvc.isSectionVisible(
-        workflowId,
-        section.id,
-        dataMap
-      );
+      const sectionVisible = await this.logicSvc.isSectionVisible(logicCtx, section.id);
 
       if (!sectionVisible) {
         continue; // Skip invisible sections
@@ -263,22 +266,14 @@ export class RunLifecycleService {
 
       for (const step of sectionSteps) {
         // Check if step is visible
-        const stepVisible = await this.logicSvc.isStepVisible(
-          workflowId,
-          step.id,
-          dataMap
-        );
+        const stepVisible = await this.logicSvc.isStepVisible(logicCtx, step.id);
 
         if (!stepVisible) {
           continue; // Skip invisible steps
         }
 
         // Check if step is required
-        const isRequired = await this.logicSvc.isStepRequired(
-          workflowId,
-          step.id,
-          dataMap
-        );
+        const isRequired = await this.logicSvc.isStepRequired(logicCtx, step.id);
 
         if (!isRequired) {
           continue; // Skip optional steps
@@ -329,67 +324,75 @@ export class RunLifecycleService {
    * Idempotent: skips when the run already has generated documents, and
    * concurrent calls for the same run await the same in-flight generation.
    */
-  async generateDocuments(runId: string): Promise<DocumentGenerationResult> {
+  async generateDocuments(runId: string, options: GenerateDocumentsOptions = {}): Promise<DocumentGenerationResult> {
     const inFlight = this.docGenInFlight.get(runId);
     if (inFlight) {return inFlight;}
-    const generation = this.generateDocumentsInner(runId)
+    const generation = this.generateDocumentsInner(runId, options)
       .finally(() => this.docGenInFlight.delete(runId));
     this.docGenInFlight.set(runId, generation);
     return generation;
   }
 
-  private async generateDocumentsInner(runId: string): Promise<DocumentGenerationResult> {
+  private async generateDocumentsInner(runId: string, options: GenerateDocumentsOptions): Promise<DocumentGenerationResult> {
     try {
       // 1. Get run and workflow
       const run = await workflowRunRepository.findById(runId);
       if (!run) {throw createError.notFound('Workflow run', runId);}
       const workflowId = run.workflowId;
 
-      await workflowRunRepository.updateGenerationStatus(runId, 'generating');
-
-      // Idempotency gate: a double-complete, or completion racing the
-      // client's explicit generate-documents call, must not duplicate files
       const existingDocs = await runGeneratedDocumentsRepository.findByRunId(runId);
       if (existingDocs.length > 0) {
         logger.info({ runId, documentCount: existingDocs.length }, 'Documents already generated for run, skipping');
         await workflowRunRepository.updateGenerationStatus(runId, 'done');
-        return { success: true, documentsGenerated: 0 };
+        return { success: true, documentsGenerated: 0, documents: [] };
       }
 
-      // 2. Collect document configs from BOTH shapes the product writes:
-      //    - Final Block steps (step.options as FinalBlockConfig); the
-      //      actual step types are 'final' and 'final_documents'
-      //    - Legacy Final Documents sections (section.config.finalBlock
-      //      with config.templates), which WorkflowService still creates
+      const claimed = await workflowRunRepository.tryMarkGenerationStarted(runId);
+      if (!claimed) {
+        logger.info({ runId }, 'Document generation already claimed by another worker');
+        return { success: true, documentsGenerated: 0, documents: [] };
+      }
+
+      // 2. Collect document configs from every supported authoring shape:
+      //    - Final Block steps (step.config as FinalBlockConfig), for both
+      //      'final' and 'final_documents'
+      //    - Legacy Final Documents sections (section.config.finalBlock)
       const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId);
+      const workflow = await workflowRepository.findById(workflowId);
+      if (!workflow) {throw createError.notFound('Workflow', workflowId);}
+      if (!workflow.projectId) {throw createError.validation('Workflow has no projectId');}
+
       const finalBlockConfigs: FinalBlockConfig[] = [];
       for (const step of allSteps) {
         if (step.type !== 'final' && step.type !== 'final_documents') {continue;}
-        const config = step.options as FinalBlockConfig | null;
+        if (options.finalStepId !== undefined && step.id !== options.finalStepId) {continue;}
+        const config = step.config as FinalBlockConfig | null;
         if (config?.documents && config.documents.length > 0) {
           finalBlockConfigs.push(config);
         }
       }
 
-      const legacyConfig = await this.buildLegacyFinalBlockConfig(workflowId);
-      if (legacyConfig) {
-        finalBlockConfigs.push(legacyConfig);
+      if (options.finalStepId === undefined) {
+        const legacyConfig = await this.buildLegacyFinalBlockConfig(workflowId, workflow.projectId);
+        if (legacyConfig) {
+          finalBlockConfigs.push(legacyConfig);
+        }
       }
 
       if (finalBlockConfigs.length === 0) {
+        if (options.finalStepId !== undefined) {
+          throw createError.validation('Invalid step: must be a Final Block with configured documents');
+        }
         logger.info({ runId }, 'No Final Block steps or Final Documents sections found, skipping document generation');
         await workflowRunRepository.updateGenerationStatus(runId, 'done');
-        return { success: true, documentsGenerated: 0 };
+        return { success: true, documentsGenerated: 0, documents: [] };
       }
 
-      // 3. Get step values mapped by alias
-      const stepValues = await this.valueRepo.getRunDataWithAliases(runId, allSteps);
+      // 3. Get canonical run data and hand documents the alias-keyed view.
+      const runData = options.runData ?? await this.runDataSvc.buildForRun(runId, workflowId);
+      const stepValues = runData.byAlias;
 
-      // 4. Create Template Resolver
-      const workflow = await workflowRepository.findById(workflowId);
-      if (!workflow) {throw createError.notFound('Workflow', workflowId);}
-      if (!workflow.projectId) {throw createError.validation('Workflow has no projectId');}
-
+      // 4. Create scoped Template Resolver
       const resolveTemplate = createTemplateResolver(async (documentId: string) => {
         const template = await documentTemplateRepository.findByIdAndProjectId(documentId, workflow.projectId as string);
         if (!template) {
@@ -400,15 +403,27 @@ export class RunLifecycleService {
 
       // 5. Generate documents for each config (hooks run inside the renderer)
       let totalGenerated = 0;
+      const documents: NonNullable<DocumentGenerationResult['documents']> = [];
+      const skipped: string[] = [];
+      const failed: unknown[] = [];
+      let archive: DocumentGenerationResult['archive'] | undefined;
+      let isArchived = false;
       for (const finalBlockConfig of finalBlockConfigs) {
         const generationResult = await finalBlockRenderer.render({
           finalBlockConfig,
           stepValues,
           workflowId: run.workflowId,
           runId: run.id,
-          resolveTemplate
+          resolveTemplate,
+          toPdf: options.toPdf ?? false,
+          pdfStrategy: options.pdfStrategy ?? 'puppeteer',
         });
         totalGenerated += generationResult.totalGenerated;
+        documents.push(...generationResult.documents);
+        skipped.push(...generationResult.skipped);
+        failed.push(...generationResult.failed);
+        archive = generationResult.archive ?? archive;
+        isArchived = isArchived || generationResult.isArchived;
 
         // 6. Persist records so documents appear in the run's document list
         for (const doc of generationResult.documents) {
@@ -421,6 +436,7 @@ export class RunLifecycleService {
               fileSize: doc.size,
               templateId: null,
               unresolvedVariables: doc.unresolvedVariables ?? [],
+              pdfStrategy: doc.pdfStrategy ?? (options.toPdf ? options.pdfStrategy ?? 'puppeteer' : undefined),
             });
           } catch (persistError) {
             logger.warn({ persistError, runId, filename: doc.filename }, 'Failed to persist generated document record');
@@ -434,7 +450,12 @@ export class RunLifecycleService {
 
       return {
         success: true,
-        documentsGenerated: totalGenerated
+        documentsGenerated: totalGenerated,
+        documents,
+        archive,
+        skipped,
+        failed,
+        isArchived,
       };
     } catch (error) {
       logger.error({ error, runId }, 'Document generation failed');
@@ -454,7 +475,7 @@ export class RunLifecycleService {
    * Template-level mapping and metadata.visibleIf conditions carry over so
    * the unified renderer path preserves the old behavior.
    */
-  private async buildLegacyFinalBlockConfig(workflowId: string): Promise<FinalBlockConfig | null> {
+  private async buildLegacyFinalBlockConfig(workflowId: string, projectId: string): Promise<FinalBlockConfig | null> {
     const sections = await this.sectionRepo.findByWorkflowId(workflowId);
     const templateIds: string[] = [];
     for (const section of sections) {
@@ -470,7 +491,7 @@ export class RunLifecycleService {
 
     const documents: FinalBlockConfig['documents'] = [];
     for (const templateId of templateIds) {
-      const template = await documentTemplateRepository.findById(templateId);
+      const template = await documentTemplateRepository.findByIdAndProjectId(templateId, projectId);
       if (!template) {
         logger.warn({ workflowId, templateId }, 'Legacy Final Documents section references missing template, skipping');
         continue;

@@ -98,6 +98,7 @@ describe('Runtime Pipelines Integration Tests', () => {
     const [emailStep] = await db
       .insert(steps)
       .values({
+        workflowId: testWorkflowId,
         sectionId: section.id,
         type: 'email',
         title: 'Email Address',
@@ -110,6 +111,7 @@ describe('Runtime Pipelines Integration Tests', () => {
     const [phoneStep] = await db
       .insert(steps)
       .values({
+        workflowId: testWorkflowId,
         sectionId: section.id,
         type: 'phone',
         title: 'Phone Number',

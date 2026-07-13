@@ -242,6 +242,7 @@ export class WorkflowPatchService {
         // Get max order for this section if not specified
         const order = op.order ?? await this.getNextStepOrder(sectionId);
         const step = await this.stepRepository.create({
+          workflowId,
           sectionId,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- StepType enum validated by Zod schema
           type: op.type as any,

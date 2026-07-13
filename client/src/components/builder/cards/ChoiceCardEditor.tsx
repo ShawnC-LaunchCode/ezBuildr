@@ -469,7 +469,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
 
   return (
     <div className="space-y-4 p-4 border-t bg-muted/30">
-      <AliasField value={step.alias} onChange={(val) => { void handleAliasChange(val); }} />
+      <AliasField value={step.alias} onChange={(val) => { void handleAliasChange(val); }} workflowId={workflowId} currentStepId={stepId} />
       <RequiredToggle checked={step.required} onChange={(val) => { void handleRequiredChange(val); }} />
 
       <Separator />

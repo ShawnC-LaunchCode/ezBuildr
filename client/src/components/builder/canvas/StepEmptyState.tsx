@@ -21,7 +21,6 @@ export function StepEmptyState({ sectionId }: { sectionId: string }) {
             description: null,
             required: false,
             alias: null,
-            options: null,
             order: 0,
             config: {},
         });

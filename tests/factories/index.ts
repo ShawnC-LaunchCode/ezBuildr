@@ -227,12 +227,13 @@ export function createTestStep(overrides?: DeepPartial<Step>): Omit<Step, 'id' |
   const uniqueId = nanoid(8);
 
   return {
+    workflowId: overrides?.workflowId || uuidv4(),
     sectionId: overrides?.sectionId || uuidv4(), // Fix: sec-${uniqueId} -> uuidv4
     type: overrides?.type || 'short_text',
     title: overrides?.title || `Step ${uniqueId}`,
     description: overrides?.description || null,
     required: overrides?.required ?? false,
-    options: overrides?.options || null,
+    config: overrides?.config || null,
     alias: overrides?.alias || null,
     defaultValue: overrides?.defaultValue || null,
     order: overrides?.order ?? 0,
@@ -390,9 +391,11 @@ export function createTestSteps(
   sectionId: string,
   overrides?: DeepPartial<Step>
 ): Array<Omit<Step, 'id' | 'createdAt' | 'updatedAt'>> {
+  const workflowId = overrides?.workflowId || uuidv4();
   return Array.from({ length: count }, (_, index) =>
     createTestStep({
       sectionId,
+      workflowId,
       order: index,
       alias: `step_${index + 1}`,
       ...overrides,

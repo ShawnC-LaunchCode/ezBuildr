@@ -48,13 +48,17 @@ export function useRunNavigation({
   const currentSection = visibleSections[currentSectionIndex];
   const isLastSection = currentSectionIndex === visibleSections.length - 1;
 
-  const handlePrev = useCallback(() => {
+  const handlePrev = useCallback(async () => {
     if (showReview) {
       setShowReview(false);
       return;
     }
+    
+    // Flush any pending autosaves before navigating
+    await saveNow();
+
     setCurrentSectionIndex((prev) => Math.max(prev - 1, 0));
-  }, [showReview]);
+  }, [showReview, saveNow]);
 
   const handleFinalSubmit = useCallback(async () => {
     if (!actualRunId) return;
@@ -112,9 +116,24 @@ export function useRunNavigation({
         const firstErrorId = Object.keys(validationResult.blockErrors)[0];
         if (firstErrorId) {
           setTimeout(() => {
-            const element = document.getElementById(firstErrorId);
-            if (element) {
-              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Try to find the exact input first, fallback to the block container
+            const blockContainer = document.getElementById(`block-container-${firstErrorId}`);
+            const inputElement = document.getElementById(firstErrorId) as HTMLElement;
+            
+            const scrollTarget = blockContainer || inputElement;
+            if (scrollTarget) {
+              scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            // Focus the exact input if it exists and is focusable
+            if (inputElement && typeof inputElement.focus === 'function') {
+              inputElement.focus({ preventScroll: true });
+            } else if (blockContainer) {
+              // Otherwise find the first focusable element inside the block container
+              const focusable = blockContainer.querySelector('input, select, textarea, button') as HTMLElement;
+              if (focusable && typeof focusable.focus === 'function') {
+                focusable.focus({ preventScroll: true });
+              }
             }
           }, 100);
         }

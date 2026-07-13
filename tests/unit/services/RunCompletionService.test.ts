@@ -25,6 +25,7 @@ vi.mock('../../../server/services/BlockRunner', () => ({
 vi.mock('../../../server/repositories', () => ({
     workflowRunRepository: {},
     stepValueRepository: {},
+    stepRepository: {},
 }));
 
 const flushBackground = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -47,13 +48,14 @@ describe('RunCompletionService', () => {
     let stateService: any;
     let lifecycleService: any;
     let metricsService: any;
+    let runDataSvc: any;
     /* eslint-enable @typescript-eslint/no-explicit-any */
     let service: RunCompletionService;
 
     beforeEach(() => {
         vi.clearAllMocks();
         runRepo = { findById: vi.fn() };
-        valueRepo = { getRunDataAsJson: vi.fn().mockResolvedValue({ 'step-1': 'value' }) };
+        valueRepo = {};
         logicSvc = { validateCompletion: vi.fn().mockResolvedValue({ valid: true, missingSteps: [] }) };
         stateService = { markCompleted: vi.fn().mockResolvedValue(makeRun({ completed: true })) };
         lifecycleService = {
@@ -64,7 +66,25 @@ describe('RunCompletionService', () => {
             captureRunSucceeded: vi.fn().mockResolvedValue(undefined),
             captureRunFailed: vi.fn().mockResolvedValue(undefined),
         };
-        vi.mocked(blockRunner.runPhase).mockResolvedValue({ success: true, data: {} });
+        const steps = [
+            { id: 'step-1', alias: 'clientName', type: 'short_text', sectionId: 'section-1', isVirtual: false },
+        ];
+        runDataSvc = {
+            buildForRun: vi.fn().mockResolvedValue({
+                byStepId: { 'step-1': 'value' },
+                byAlias: { clientName: 'value' },
+                steps,
+            }),
+            fromStepIdData: vi.fn((data: Record<string, unknown>) => ({
+                byStepId: { ...data },
+                byAlias: {
+                    ...(data['step-1'] !== undefined ? { clientName: data['step-1'] } : {}),
+                    ...(data.total !== undefined ? { total: data.total } : {}),
+                },
+                steps,
+            })),
+        };
+        vi.mocked(blockRunner.runPhase).mockResolvedValue({ success: true, data: { 'step-1': 'value' } });
 
         service = new RunCompletionService(
             runRepo,
@@ -72,7 +92,8 @@ describe('RunCompletionService', () => {
             logicSvc,
             stateService,
             lifecycleService,
-            metricsService
+            metricsService,
+            runDataSvc
         );
     });
 
@@ -83,10 +104,36 @@ describe('RunCompletionService', () => {
         expect(stateService.markCompleted).toHaveBeenCalledWith('run-1');
         expect(result.completed).toBe(true);
         expect(metricsService.captureRunSucceeded).toHaveBeenCalled();
+        expect(blockRunner.runPhase).toHaveBeenCalledWith(expect.objectContaining({
+            data: { 'step-1': 'value' },
+        }));
+        expect(logicSvc.validateCompletion).toHaveBeenCalledWith('wf-1', 'run-1', { 'step-1': 'value' });
 
         await flushBackground();
         expect(lifecycleService.executeWritebacks).toHaveBeenCalledWith('run-1', 'wf-1', 'user-1');
-        expect(lifecycleService.generateDocuments).toHaveBeenCalledWith('run-1');
+        expect(lifecycleService.generateDocuments).toHaveBeenCalledWith('run-1', {
+            runData: expect.objectContaining({
+                byStepId: { 'step-1': 'value' },
+                byAlias: { clientName: 'value' },
+            }),
+        });
+    });
+
+    it('passes alias-keyed transformed data to document generation', async () => {
+        vi.mocked(blockRunner.runPhase).mockResolvedValue({
+            success: true,
+            data: { 'step-1': 'Ada', total: 42 },
+        });
+
+        await service.completeRun('run-1', makeRun(), 'user-1');
+
+        await flushBackground();
+        expect(lifecycleService.generateDocuments).toHaveBeenCalledWith('run-1', {
+            runData: expect.objectContaining({
+                byStepId: { 'step-1': 'Ada', total: 42 },
+                byAlias: { clientName: 'Ada', total: 42 },
+            }),
+        });
     });
 
     it('completeRunNoAuth runs writebacks too (anonymous runs previously skipped them)', async () => {
@@ -96,7 +143,7 @@ describe('RunCompletionService', () => {
 
         await flushBackground();
         expect(lifecycleService.executeWritebacks).toHaveBeenCalledWith('run-1', 'wf-1', undefined);
-        expect(lifecycleService.generateDocuments).toHaveBeenCalledWith('run-1');
+        expect(lifecycleService.generateDocuments).toHaveBeenCalledWith('run-1', expect.anything());
     });
 
     it('rejects an already-completed run without re-triggering side effects', async () => {

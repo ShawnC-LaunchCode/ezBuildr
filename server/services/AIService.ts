@@ -139,6 +139,7 @@ export class AIService {
       key: string;
       type: string;
       label?: string;
+      choices?: string[];
       options?: string[];
       description?: string;
     }>,

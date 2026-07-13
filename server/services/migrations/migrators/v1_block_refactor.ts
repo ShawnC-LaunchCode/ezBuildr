@@ -30,6 +30,7 @@ registerMigration("1.0.0", {
             const newStep = { ...step };
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
             const config = newStep.config ?? {};
+            const legacyOptions = (step as Record<string, unknown>)["options"] ?? [];
 
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             switch (step.type) {
@@ -41,7 +42,7 @@ registerMigration("1.0.0", {
                         ...config,
                         widget: "radio",
                         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-                        options: step.options ?? [],
+                        options: legacyOptions,
                         multiple: false
                     };
                     break;
@@ -54,7 +55,7 @@ registerMigration("1.0.0", {
                         ...config,
                         widget: "checkbox",
                         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-                        options: step.options ?? [],
+                        options: legacyOptions,
                         multiple: true
                     };
                     break;
@@ -107,9 +108,8 @@ registerMigration("1.0.0", {
 
             // Cleanup legacy properties if they were moved to config
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            if (step.options) {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                delete newStep.options;
+            if ((step as Record<string, unknown>)["options"]) {
+                delete (newStep as Record<string, unknown>)["options"];
             }
 
             // eslint-disable-next-line @typescript-eslint/no-unsafe-return

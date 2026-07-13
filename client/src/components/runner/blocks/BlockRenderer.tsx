@@ -30,6 +30,7 @@ import { NumberBlockRenderer } from "./NumberBlock";
 import { PhoneBlockRenderer } from "./PhoneBlock";
 import { ScaleBlockRenderer } from "./ScaleBlock";
 import { SignatureBlockRenderer } from "./SignatureBlockRenderer";
+import { getRunnerStepTypeStatus, normalizeRunnerStepType } from "./stepTypeRouting";
 import { TextBlockRenderer } from "./TextBlock";
 import { TimeBlockRenderer } from "./TimeBlock";
 import { WebsiteBlockRenderer } from "./WebsiteBlock";
@@ -66,18 +67,33 @@ export interface BlockRendererProps {
   context?: Record<string, unknown>;
 }
 
+function ExplicitRunnerTypeNotice({ type, status }: { type: string; status: "unsupported" | "unknown" }) {
+  const message = status === "unsupported"
+    ? "This question type is not available in the runner yet."
+    : "This question type is not recognized by the runner.";
+
+  return (
+    <div className="rounded-md border border-muted bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+      {message}
+      <span className="ml-1 font-mono text-xs">{type}</span>
+    </div>
+  );
+}
+
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
 export function BlockRenderer(props: BlockRendererProps) {
   const { step, value, onChange, required, error, readOnly, showValidation } = props;
+  const normalizedType = normalizeRunnerStepType(step.type);
+  const typeStatus = getRunnerStepTypeStatus(step.type);
 
   // -------------------------------------------------------------------------
   // Handle JS blocks (no UI, invisible execution)
   // -------------------------------------------------------------------------
-  if (step.type === "js_question" || step.isVirtual) {
-    // JS blocks and virtual steps do not render any UI
+  if (typeStatus === "hidden" || step.isVirtual) {
+    // Computed, JS, and virtual steps are execution-only and do not render UI.
     return null;
   }
 
@@ -93,7 +109,11 @@ export function BlockRenderer(props: BlockRendererProps) {
   // -------------------------------------------------------------------------
   // eslint-disable-next-line complexity
   const renderBlockInput = () => {
-    switch (step.type) {
+    if (typeStatus === "unsupported" || typeStatus === "unknown") {
+      return <ExplicitRunnerTypeNotice type={step.type} status={typeStatus} />;
+    }
+
+    switch (normalizedType) {
       // Text blocks
       case "short_text":
       case "long_text":
@@ -102,53 +122,49 @@ export function BlockRenderer(props: BlockRendererProps) {
         return <TextBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} />;
 
       // Boolean blocks
-      case "yes_no":
-      case "true_false":
       case "boolean":
-        return <BooleanBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <BooleanBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Validated inputs
       case "phone":
-        return <PhoneBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <PhoneBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "email":
-        return <EmailBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <EmailBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "website":
-        return <WebsiteBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <WebsiteBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Date/Time inputs
       case "date":
-        return <DateBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <DateBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "time":
-        return <TimeBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <TimeBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "date_time":
-        return <DateTimeBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <DateTimeBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Numeric inputs
       case "number":
-        return <NumberBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <NumberBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "currency":
-        return <CurrencyBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <CurrencyBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "scale":
-        return <ScaleBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <ScaleBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Choice inputs
-      case "radio":
-      case "multiple_choice":
       case "choice":
-        return <ChoiceBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} context={props.context} />;
+        return <ChoiceBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} context={props.context} />;
 
       // Complex blocks
       case "address":
-        return <AddressBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <AddressBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "multi_field":
-        return <MultiFieldBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <MultiFieldBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Display blocks
       case "display":
@@ -164,12 +180,8 @@ export function BlockRenderer(props: BlockRendererProps) {
 
       // Legacy/fallback
       default:
-        console.warn(`[BlockRenderer] Unsupported block type: ${step.type}`);
-        return (
-          <div className="text-sm text-muted-foreground italic">
-            Unsupported block type: {step.type}
-          </div>
-        );
+        console.warn(`[BlockRenderer] Unmapped block type: ${step.type}`);
+        return <ExplicitRunnerTypeNotice type={step.type} status="unknown" />;
     }
   };
 
@@ -177,12 +189,12 @@ export function BlockRenderer(props: BlockRendererProps) {
   // Render block with label and error
   // -------------------------------------------------------------------------
   // Display blocks, final blocks, and signature blocks don't have labels
-  if (step.type === "display" || step.type === "final_documents" || step.type === "signature_block") {
+  if (normalizedType === "display" || normalizedType === "final_documents" || normalizedType === "signature_block") {
     return renderBlockInput();
   }
 
   return (
-    <div className="space-y-2">
+    <div id={`block-container-${step.id}`} className="space-y-2">
       {/* Label */}
       <Label htmlFor={step.id}>
         {step.title}

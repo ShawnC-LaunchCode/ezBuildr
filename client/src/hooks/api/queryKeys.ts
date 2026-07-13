@@ -14,6 +14,7 @@ export const queryKeys = {
     variables: (workflowId: string) => ["workflows", workflowId, "variables"] as const,
     sections: (workflowId: string) => ["sections", workflowId] as const,
     section: (id: string) => ["sections", "single", id] as const,
+    workflowSteps: (workflowId: string) => ["steps", "workflow", workflowId] as const,
     steps: (sectionId: string) => ["steps", sectionId] as const,
     step: (id: string) => ["steps", "single", id] as const,
     blocks: (workflowId: string, phase?: string) => ["blocks", workflowId, phase] as const,

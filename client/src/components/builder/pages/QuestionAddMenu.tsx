@@ -60,7 +60,6 @@ export function QuestionAddMenu({
         description: null,
         required: false,
         alias: null,
-        options: config ?? null,
         config: config ?? {},
         order: nextOrder,
       });

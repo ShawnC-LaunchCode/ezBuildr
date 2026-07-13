@@ -51,7 +51,7 @@ export interface EnhancedGenerationOptions extends Omit<DocumentGenerationOption
   normalize?: boolean;
 
   /** PDF conversion strategy */
-  pdfStrategy?: 'puppeteer' | 'libreoffice';
+  pdfStrategy?: 'puppeteer';
 
   /** Template row id (uuid) — enables generation metrics tracking */
   templateId?: string;
@@ -116,7 +116,7 @@ export interface FinalBlockRenderOptions {
   toPdf?: boolean;
 
   /** PDF conversion strategy */
-  pdfStrategy?: 'puppeteer' | 'libreoffice';
+  pdfStrategy?: 'puppeteer';
 
   /** Normalization options */
   normalizationOptions?: NormalizationOptions;
@@ -404,7 +404,7 @@ export class EnhancedDocumentEngine {
       try {
         // Step 1: Evaluate conditions
         if (doc.conditions) {
-          const conditionMet = this.evaluateConditions(doc.conditions, stepValues);
+          const conditionMet = this.evaluateConditions(doc.conditions, normalizedStepValues);
 
           if (!conditionMet) {
             skipped.push({

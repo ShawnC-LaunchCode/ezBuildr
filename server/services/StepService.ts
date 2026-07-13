@@ -4,6 +4,7 @@ import { logger } from "../logger";
 import { stepRepository, sectionRepository } from "../repositories";
 
 import { aliasRenameService } from "./AliasRenameService";
+import { generateAliasFromLabel, generateUniqueAliasFromTaken } from "./stepAlias";
 import { workflowService } from "./WorkflowService";
 
 const SECTION_NOT_FOUND = "Section not found";
@@ -15,32 +16,10 @@ const STEP_NOT_FOUND = "Step not found";
  * document normalizer produces for nested values).
  */
 const ALIAS_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-const ALIAS_MAX_LENGTH = 60;
 const ALIAS_FORMAT_MESSAGE =
   'Variable names must start with a letter or underscore and contain only letters, numbers, and underscores.';
-
-/**
- * Derive a camelCase variable name from a question label.
- * "What is your first name?" -> "whatIsYourFirstName"
- * Returns null when the label has no usable characters.
- */
-export function generateAliasFromLabel(label: string): string | null {
-  const words = label
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (words.length === 0) {
-    return null;
-  }
-
-  const camel =
-    words[0] + words.slice(1).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join('');
-  const alias = /^[0-9]/.test(camel) ? `_${camel}` : camel;
-  return alias.slice(0, ALIAS_MAX_LENGTH);
-}
+type CreateStepData = Omit<InsertStep, 'sectionId' | 'workflowId' | 'order'> & Partial<Pick<InsertStep, 'order'>>;
+export { generateAliasFromLabel, generateUniqueAliasFromTaken };
 
 /**
  * Service layer for step-related business logic
@@ -76,7 +55,7 @@ export class StepService {
   /** All aliases in a workflow, lowercased for case-insensitive comparison */
   private async getWorkflowAliases(workflowId: string): Promise<Set<string>> {
     const sections = await this.sectionRepo.findByWorkflowId(workflowId);
-    const allSteps = await this.stepRepo.findBySectionIds(sections.map((s) => s.id));
+    const allSteps = await this.stepRepo.findBySectionIds(sections.map((s) => s.id), undefined, true);
     return new Set(
       allSteps
         .map((s) => s.alias?.toLowerCase())
@@ -89,22 +68,8 @@ export class StepService {
    * when the base name is taken (clientName, clientName2, ...)
    */
   private async generateUniqueAlias(workflowId: string, label: string): Promise<string | null> {
-    const base = generateAliasFromLabel(label);
-    if (base === null) {
-      return null;
-    }
-
     const taken = await this.getWorkflowAliases(workflowId);
-    if (!taken.has(base.toLowerCase())) {
-      return base;
-    }
-    for (let i = 2; i < 100; i++) {
-      const candidate = `${base}${i}`;
-      if (!taken.has(candidate.toLowerCase())) {
-        return candidate;
-      }
-    }
-    return null;
+    return generateUniqueAliasFromTaken(label, taken);
   }
 
   /**
@@ -151,7 +116,7 @@ export class StepService {
     const sectionIds = sections.map(s => s.id);
 
     // Get all steps for these sections
-    const allSteps = await this.stepRepo.findBySectionIds(sectionIds);
+    const allSteps = await this.stepRepo.findBySectionIds(sectionIds, undefined, true);
 
     // Check if alias is already used by another step
     const conflictingStep = allSteps.find(
@@ -172,7 +137,7 @@ export class StepService {
     workflowId: string,
     sectionId: string,
     userId: string,
-    data: Omit<InsertStep, 'sectionId'>
+    data: CreateStepData
   ): Promise<Step> {
     await this.workflowSvc.verifyAccess(workflowId, userId);
 
@@ -202,6 +167,7 @@ export class StepService {
     return this.stepRepo.create({
       ...data,
       alias,
+      workflowId,
       sectionId,
       order: data.order ?? nextOrder,
     });
@@ -247,6 +213,7 @@ export class StepService {
     }
 
     const updates = { ...data };
+    delete updates.workflowId;
     const regenerated = await this.maybeRegenerateAlias(workflowId, step, data);
     if (regenerated !== null) {
       updates.alias = regenerated;
@@ -331,6 +298,14 @@ export class StepService {
     return this.stepRepo.findBySectionId(sectionId);
   }
 
+  async verifyWorkflowAccess(workflowId: string, userId: string): Promise<void> {
+    await this.workflowSvc.verifyAccess(workflowId, userId, 'view');
+  }
+
+  async getWorkflowSteps(workflowId: string): Promise<Step[]> {
+    return this.stepRepo.findByWorkflowIdWithAliases(workflowId);
+  }
+
   // ===================================================================
   // SIMPLIFIED METHODS (automatically look up workflowId from section/step)
   // ===================================================================
@@ -375,7 +350,7 @@ export class StepService {
   async createStepBySectionId(
     sectionId: string,
     userId: string,
-    data: Omit<InsertStep, 'sectionId'>
+    data: CreateStepData
   ): Promise<Step> {
     // Look up the section to get its workflowId
     const section = await this.sectionRepo.findById(sectionId);

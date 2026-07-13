@@ -12,7 +12,27 @@ import {
   rewriteFinalBlockMapping,
 } from "../../../server/services/AliasRenameService";
 
-vi.mock("../../../server/repositories");
+vi.mock("../../../server/repositories", () => ({
+  transformBlockRepository: {
+    findByWorkflowId: vi.fn(),
+    update: vi.fn(),
+  },
+  documentHookRepository: {
+    findByWorkflowId: vi.fn(),
+    update: vi.fn(),
+  },
+  lifecycleHookRepository: {
+    findByWorkflowId: vi.fn(),
+    update: vi.fn(),
+  },
+  sectionRepository: {
+    findByWorkflowId: vi.fn(),
+  },
+  stepRepository: {
+    findBySectionIds: vi.fn(),
+    update: vi.fn(),
+  },
+}));
 
 describe("rewriteFinalBlockMapping", () => {
   it("should rewrite matching variable sources", () => {
@@ -91,7 +111,7 @@ describe("AliasRenameService.propagateRename", () => {
     const result = await service.propagateRename("wf-1", "oldName", "newName");
 
     expect(result.transformBlocksUpdated).toBe(1);
-    expect(mockStepRepo.update).toHaveBeenCalledWith("tb-1", {
+    expect(mockTransformRepo.update).toHaveBeenCalledWith("tb-1", {
       inputKeys: ["newName", "other"],
     });
   });
@@ -108,8 +128,8 @@ describe("AliasRenameService.propagateRename", () => {
 
     expect(result.documentHooksUpdated).toBe(1);
     expect(result.lifecycleHooksUpdated).toBe(1);
-    expect(mockStepRepo.update).toHaveBeenCalledWith("dh-1", { inputKeys: ["newName"] });
-    expect(mockStepRepo.update).toHaveBeenCalledWith("lh-1", { inputKeys: ["a", "newName", "b"] });
+    expect(mockDocHookRepo.update).toHaveBeenCalledWith("dh-1", { inputKeys: ["newName"] });
+    expect(mockLifecycleRepo.update).toHaveBeenCalledWith("lh-1", { inputKeys: ["a", "newName", "b"] });
   });
 
   it("should rewrite Final Block mapping sources", async () => {
@@ -118,23 +138,23 @@ describe("AliasRenameService.propagateRename", () => {
       {
         id: "step-final",
         type: "final",
-        options: {
+        config: {
           documents: [
             { documentId: "d1", mapping: { name: { type: "variable", source: "oldName" } } },
           ],
         },
       },
-      { id: "step-text", type: "short_text", options: null },
+      { id: "step-text", type: "short_text", config: null },
     ] as never);
 
     const result = await service.propagateRename("wf-1", "oldName", "newName");
 
     expect(result.finalBlockStepsUpdated).toBe(1);
     const updatePayload = mockStepRepo.update.mock.calls[0][1] as {
-      options?: { documents?: unknown[] };
+      config?: { documents?: unknown[] };
     };
     expect(mockStepRepo.update).toHaveBeenCalledWith("step-final", expect.anything());
-    expect(updatePayload.options?.documents).toEqual([
+    expect(updatePayload.config?.documents).toEqual([
       { documentId: "d1", mapping: { name: { type: "variable", source: "newName" } } },
     ]);
   });

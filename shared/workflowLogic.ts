@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Workflow Conditional Logic Engine
  *
  * This module provides conditional logic evaluation for Vault-Logic workflows.
@@ -9,7 +9,26 @@
  * This allows rules to reference steps by either alias or key, with everything normalized to keys.
  */
 
-import type { LogicRule } from './schema';
+import type { LogicRule, Section, Step } from './schema';
+
+/**
+ * Context containing pre-loaded workflow definition and current data state
+ * Used to avoid N+1 queries during navigation evaluation
+ */
+export interface LogicContext {
+  workflowId: string;
+  sections: Section[];
+  steps: Step[];
+  rules: LogicRule[];
+  data: Record<string, any>;
+  
+  // Pre-computed indexes for O(1) lookups
+  sectionHideRulesMap: Map<string, LogicRule[]>;
+  stepHideRulesMap: Map<string, LogicRule[]>;
+  
+  // Helper for visibleIf expressions
+  aliasResolver: (name: string) => string | undefined;
+}
 
 /**
  * Supported operators for conditional logic

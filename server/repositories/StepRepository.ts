@@ -83,12 +83,13 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
     return database
       .select({
         id: steps.id,
+        workflowId: steps.workflowId,
         sectionId: steps.sectionId,
         type: steps.type,
         title: steps.title,
         description: steps.description,
         required: steps.required,
-        options: steps.options,
+        config: steps.config,
         alias: steps.alias,
         defaultValue: steps.defaultValue,
         order: steps.order,

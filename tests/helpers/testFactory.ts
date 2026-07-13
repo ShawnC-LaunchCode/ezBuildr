@@ -1,5 +1,7 @@
 import { randomUUID } from 'crypto';
 
+import { eq } from 'drizzle-orm';
+
 import * as schema from '@shared/schema';
 
 import { getDb } from '../../server/db';
@@ -195,10 +197,23 @@ export class TestFactory {
     sectionId: string,
     overrides?: Partial<typeof schema.steps.$inferInsert>
   ) {
+    const workflowId = overrides?.workflowId ?? (
+      await this.db
+        .select({ workflowId: schema.sections.workflowId })
+        .from(schema.sections)
+        .where(eq(schema.sections.id, sectionId))
+        .limit(1)
+    )[0]?.workflowId;
+
+    if (!workflowId) {
+      throw new Error(`Cannot create test step for unknown section ${sectionId}`);
+    }
+
     const [step] = await this.db
       .insert(schema.steps)
       .values({
         id: generateId(),
+        workflowId,
         sectionId,
         type: 'short_text',
         title: 'Test Step',

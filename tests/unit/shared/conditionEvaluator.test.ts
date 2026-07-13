@@ -8,7 +8,7 @@ import {
   type DataMap,
   type AliasResolver,
 } from "@shared/conditionEvaluator";
-import type { ConditionExpression, Condition, ConditionGroup } from "@shared/types/conditions";
+import type { ConditionExpression, Condition } from "@shared/types/conditions";
 
 describe("conditionEvaluator", () => {
   describe("evaluateConditionExpression", () => {
@@ -328,6 +328,28 @@ describe("conditionEvaluator", () => {
         const result = evaluateConditionExpression(expression, data);
 
         expect(result).toBe(true);
+      });
+    });
+
+    describe("NOT groups", () => {
+      it("should negate the combined group result", () => {
+        const expression: ConditionExpression = {
+          type: "group", id: "g1",
+          operator: "AND",
+          not: true,
+          conditions: [
+            {
+              type: "condition", id: "c1",
+              variable: "status",
+              operator: "equals",
+              value: "blocked",
+              valueType: "constant",
+            },
+          ],
+        };
+
+        expect(evaluateConditionExpression(expression, { status: "blocked" })).toBe(false);
+        expect(evaluateConditionExpression(expression, { status: "active" })).toBe(true);
       });
     });
   });
@@ -1152,7 +1174,7 @@ describe("conditionEvaluator", () => {
     });
 
     describe("Unknown operator", () => {
-      it("should default to true and log warning", () => {
+      it("should fail closed and log warning", () => {
         const condition: Condition = {
           type: "condition", id: "c1",
           variable: "value",
@@ -1168,7 +1190,50 @@ describe("conditionEvaluator", () => {
         };
 
         const result = evaluateConditionExpression(expression, { value: "test" });
-        expect(result).toBe(true);
+        expect(result).toBe(false);
+      });
+    });
+
+    describe("date operators", () => {
+      it("should compare date order", () => {
+        const expression = (operator: Condition["operator"], value: string): ConditionExpression => ({
+          type: "group", id: "g1",
+          operator: "AND",
+          conditions: [{
+            type: "condition", id: "c1",
+            variable: "dueDate",
+            operator,
+            value,
+            valueType: "constant",
+          }],
+        });
+
+        expect(evaluateConditionExpression(expression("before", "2026-02-01"), { dueDate: "2026-01-31" })).toBe(true);
+        expect(evaluateConditionExpression(expression("after", "2026-02-01"), { dueDate: "2026-02-02" })).toBe(true);
+        expect(evaluateConditionExpression(expression("on_or_before", "2026-02-01"), { dueDate: "2026-02-01" })).toBe(true);
+        expect(evaluateConditionExpression(expression("on_or_after", "2026-02-01"), { dueDate: "2026-02-01" })).toBe(true);
+        expect(evaluateConditionExpression(expression("before", "not-a-date"), { dueDate: "2026-01-31" })).toBe(false);
+      });
+
+      it("should compare date differences", () => {
+        const expression = (operator: Condition["operator"], expected: number): ConditionExpression => ({
+          type: "group", id: "g1",
+          operator: "AND",
+          conditions: [{
+            type: "condition", id: "c1",
+            variable: "startDate",
+            operator,
+            value: "2026-01-15",
+            value2: expected,
+            valueType: "constant",
+          }],
+        });
+
+        expect(evaluateConditionExpression(expression("diff_days", 10), { startDate: "2026-01-25" })).toBe(true);
+        expect(evaluateConditionExpression(expression("diff_weeks", 2), { startDate: "2026-01-29" })).toBe(true);
+        expect(evaluateConditionExpression(expression("diff_months", 1), { startDate: "2026-02-15" })).toBe(true);
+        expect(evaluateConditionExpression(expression("diff_years", 1), { startDate: "2027-01-15" })).toBe(true);
+        expect(evaluateConditionExpression(expression("diff_days", 9), { startDate: "2026-01-25" })).toBe(false);
       });
     });
   });
@@ -1249,7 +1314,7 @@ describe("conditionEvaluator", () => {
       expect(result).toBe(true);
     });
 
-    it("should skip conditions with no variable selected", () => {
+    it("should fail closed when no variable is selected", () => {
       const condition: Condition = {
         type: "condition", id: "c1",
         variable: "",
@@ -1265,7 +1330,7 @@ describe("conditionEvaluator", () => {
       };
 
       const result = evaluateConditionExpression(expression, {});
-      expect(result).toBe(true); // Empty variable should skip
+      expect(result).toBe(false);
     });
   });
 

@@ -47,10 +47,13 @@ export interface ChoiceBlockProps {
   value: unknown;
   onChange: (value: string | string[]) => void;
   readOnly?: boolean;
+  ariaDescribedBy?: string;
+  required?: boolean;
+  hasError?: boolean;
   context?: Record<string, unknown>;
 }
 
-export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context }: ChoiceBlockProps) {
+export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context , ariaDescribedBy, required, hasError }: ChoiceBlockProps) {
   const {
     options,
     loading,
@@ -97,6 +100,9 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context }
           }
         }}
         disabled={readOnly}
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
       >
         {options.map((option) => (
           <div key={option.id} className="flex items-center space-x-2">
@@ -125,7 +131,10 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context }
             }
           }}
           disabled={readOnly}
-        />
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      />
       );
     }
 
@@ -138,6 +147,9 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context }
           }
         }}
         disabled={readOnly}
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
       >
         <SelectTrigger id={step.id}>
           <SelectValue placeholder="Select an option..." />
@@ -186,7 +198,10 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context }
                 checked={isChecked}
                 onCheckedChange={(checked) => handleToggle(optionAlias, checked === true)}
                 disabled={readOnly}
-              />
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      />
               <Label htmlFor={`${step.id}-${option.id}`} className="font-normal cursor-pointer">
                 {option.label}
               </Label>

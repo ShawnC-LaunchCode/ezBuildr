@@ -41,13 +41,13 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
   useEffect(() => {
     if (step) {
       // Initialize options for radio/multiple_choice
-      const stepOptions = step.options as { options?: string[] } | undefined;
+      const stepOptions = step.config as { options?: string[] } | undefined;
       if ((step.type === "radio" || step.type === "multiple_choice") && stepOptions?.options) {
         setLocalOptions(stepOptions.options);
       }
 
       // Initialize date/time type
-      const dtOptions = step.options as { dateTimeType?: DateTimeType } | undefined;
+      const dtOptions = step.config as { dateTimeType?: DateTimeType } | undefined;
       if (step.type === "date_time" && dtOptions?.dateTimeType) {
         setDateTimeType(dtOptions.dateTimeType);
       }
@@ -118,12 +118,12 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
 
   const handleOptionsCommitChange = (options: string[]) => {
     setLocalOptions(options);
-    updateStepMutation.mutate({ id: stepId, sectionId, options: { options } });
+    updateStepMutation.mutate({ id: stepId, sectionId, config: { options } });
   };
 
   const handleDateTimeTypeChange = (type: DateTimeType) => {
     setDateTimeType(type);
-    updateStepMutation.mutate({ id: stepId, sectionId, options: { dateTimeType: type } });
+    updateStepMutation.mutate({ id: stepId, sectionId, config: { dateTimeType: type } });
   };
 
   const handleTextTypeChange = (type: TextType) => {
@@ -211,5 +211,4 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
     </div>
   );
 }
-
 

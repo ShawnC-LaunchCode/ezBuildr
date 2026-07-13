@@ -126,8 +126,8 @@ export class RunShareService {
             const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(run.workflowId);
             const finalStep = allSteps.find(s => s.type === 'final');
 
-            if (finalStep?.options) {
-                finalBlockConfig = finalStep.options;
+            if (finalStep?.config) {
+                finalBlockConfig = finalStep.config;
             }
         }
 

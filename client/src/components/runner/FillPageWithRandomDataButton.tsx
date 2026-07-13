@@ -75,7 +75,7 @@ export function FillPageWithRandomDataButton({
         type: step.type,
         label: step.title,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-        options: Array.isArray((step.config as any)?.options) ? ((step.config as any)?.options as string[]) : undefined,
+        choices: Array.isArray((step.config as any)?.options) ? ((step.config as any)?.options as string[]) : undefined,
         description: step.description ?? undefined,
       }));
 

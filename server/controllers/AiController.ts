@@ -50,6 +50,7 @@ interface AiValueSuggestionStep {
     key: string;
     type: string;
     label?: string;
+    choices?: string[];
     options?: string[];
     description?: string;
 }
@@ -488,6 +489,7 @@ export class AiController {
                     key: z.string(),
                     type: z.string(),
                     label: z.string().optional(),
+                    choices: z.array(z.string()).optional(),
                     options: z.array(z.string()).optional(),
                     description: z.string().optional()
                 })).min(1, 'Steps array is required and must not be empty')

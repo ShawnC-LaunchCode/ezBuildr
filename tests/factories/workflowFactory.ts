@@ -62,6 +62,7 @@ export function createTestStep(sectionId: string, overrides?: Partial<Step>): St
   const now = new Date();
   return {
     id: `step-${  Math.random().toString(36).substring(7)}`,
+    workflowId: overrides?.workflowId ?? "workflow-test-123",
     sectionId,
     type: "short_text",
     title: "Test Step",
@@ -70,7 +71,7 @@ export function createTestStep(sectionId: string, overrides?: Partial<Step>): St
     defaultValue: null,
     required: false,
     order: 1,
-    options: {},
+    config: {},
     visibleIf: null,
     repeaterConfig: null,
     isVirtual: false,
@@ -152,7 +153,7 @@ export function createTestWorkflowWithDetails(overrides?: {
     { title: "Step 1", type: "short_text" as const },
     { title: "Step 2", type: "long_text" as const },
   ]).map((stepData, index) =>
-    createTestStep(sections[0].id, { order: index + 1, ...stepData })
+    createTestStep(sections[0].id, { workflowId: workflow.id, order: index + 1, ...stepData })
   );
 
   const logicRules = (overrides?.logicRules || []).map((ruleData) =>

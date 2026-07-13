@@ -188,7 +188,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
                         return evaluateConditionExpression(section.visibleIf as ConditionExpression, values, aliasResolver);
                     } catch (_e) {
                         console.error('Error evaluating section visibility condition:', section.id, _e);
-                        return true; // Fail-safe: show section if evaluation fails
+                        return false;
                     }
                 });
 

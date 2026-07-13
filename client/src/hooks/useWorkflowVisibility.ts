@@ -69,8 +69,6 @@ export function useWorkflowVisibility(
           }
         } catch (error) {
           console.error('Error evaluating step visibility:', error);
-          // On error, default to visible
-          finalVisibleSteps.add(step.id);
         }
       } else {
         // No visibleIf expression, step is visible by default

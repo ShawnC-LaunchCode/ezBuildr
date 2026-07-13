@@ -174,6 +174,28 @@ export class WorkflowRunRepository extends BaseRepository<
   }
 
   /**
+   * Atomically claim document generation for a run. Only pending/failed rows can
+   * transition into generating, so two app instances cannot both render the same
+   * document set after racing on a read.
+   */
+  async tryMarkGenerationStarted(runId: string, tx?: DbTransaction): Promise<boolean> {
+    const database = this.getDb(tx);
+    const [updated] = await database
+      .update(workflowRuns)
+      .set({ generationStatus: 'generating', updatedAt: new Date() })
+      .where(and(
+        eq(workflowRuns.id, runId),
+        or(
+          sql`${workflowRuns.generationStatus} IS NULL`,
+          eq(workflowRuns.generationStatus, 'pending'),
+          sql`${workflowRuns.generationStatus} LIKE 'failed:%'`
+        )
+      ))
+      .returning({ id: workflowRuns.id });
+    return updated !== undefined;
+  }
+
+  /**
    * Find run by portal access key
    */
   async findByPortalAccessKey(key: string, tx?: DbTransaction): Promise<WorkflowRun | null> {

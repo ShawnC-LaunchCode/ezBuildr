@@ -85,7 +85,7 @@ export class SectionBuilder {
     for (const stepData of this.steps) {
       const [step] = await db
         .insert(schema.steps)
-        .values({ ...stepData, sectionId: section.id })
+        .values({ ...stepData, workflowId, sectionId: section.id })
         .returning();
       insertedSteps.push(step);
     }

@@ -31,7 +31,7 @@ import { OptionsEditor, type OptionItemData } from "./OptionsEditor";
 import { StepEditorCommonProps } from "../StepEditorRouter";
 
 // eslint-disable-next-line max-lines-per-function, complexity, sonarjs/cognitive-complexity
-export function LegacyStepBody({ step, sectionId, workflowId }: StepEditorCommonProps): JSX.Element {
+export function LegacyStepBody({ step, stepId, sectionId, workflowId }: StepEditorCommonProps): JSX.Element {
     const updateStepMutation = useUpdateStep();
     const { toast } = useToast();
     const { data: modeData } = useWorkflowMode(workflowId);
@@ -45,7 +45,7 @@ export function LegacyStepBody({ step, sectionId, workflowId }: StepEditorCommon
 
     const [localOptions, setLocalOptions] = useState<OptionItemData[]>(() => {
         if (step.type === "radio" || step.type === "multiple_choice") {
-            const optsConfig = step.options as { options?: unknown[] } | null;
+            const optsConfig = step.config as { options?: unknown[] } | null;
             const opts = optsConfig?.options ?? [];
             return opts.map((opt: unknown, idx: number) => {
                 if (typeof opt === 'string') {
@@ -62,8 +62,8 @@ export function LegacyStepBody({ step, sectionId, workflowId }: StepEditorCommon
     });
 
     const [localJsConfig, setLocalJsConfig] = useState<JSQuestionConfig>(
-        step.type === "js_question" && step.options
-            ? (step.options as JSQuestionConfig)
+        step.type === "js_question" && step.config
+            ? (step.config as JSQuestionConfig)
             : {
                 display: "hidden",
                 code: "return input;",
@@ -79,7 +79,7 @@ export function LegacyStepBody({ step, sectionId, workflowId }: StepEditorCommon
         setLocalRequired(step.required ?? false);
         setLocalType(step.type);
         if (step.type === "radio" || step.type === "multiple_choice") {
-            const optsConfig = step.options as { options?: unknown[] } | null;
+            const optsConfig = step.config as { options?: unknown[] } | null;
             const opts = optsConfig?.options ?? [];
             setLocalOptions(opts.map((opt: unknown, idx: number) => {
                 if (typeof opt === 'string') {
@@ -92,7 +92,7 @@ export function LegacyStepBody({ step, sectionId, workflowId }: StepEditorCommon
                 return opt as OptionItemData;
             }));
         }
-    }, [step.required, step.type, step.options]);
+    }, [step.required, step.type, step.config]);
 
     // Handlers
     const handleAliasChange = (value: string | null) => {
@@ -126,7 +126,7 @@ export function LegacyStepBody({ step, sectionId, workflowId }: StepEditorCommon
             updateStepMutation.mutate({
                 id: step.id,
                 sectionId,
-                options: { options },
+                config: { options },
             });
         } else {
             // Backward compatibility for legacy component
@@ -135,7 +135,7 @@ export function LegacyStepBody({ step, sectionId, workflowId }: StepEditorCommon
                 updateStepMutation.mutate({
                     id: step.id,
                     sectionId,
-                    options: { options: options.options },
+                    config: { options: options.options },
                 });
             } else {
                 console.warn('[LegacyStepBody] Dynamic options not supported for this Legacy component');
@@ -148,7 +148,7 @@ export function LegacyStepBody({ step, sectionId, workflowId }: StepEditorCommon
         updateStepMutation.mutate({
             id: step.id,
             sectionId,
-            options: config,
+            config,
         });
     };
 
@@ -192,6 +192,8 @@ export function LegacyStepBody({ step, sectionId, workflowId }: StepEditorCommon
                         value={step.alias}
                         onChange={(val: string | null) => { void handleAliasChange(val); }}
                         placeholder={mode === 'easy' ? "e.g. clientName" : "e.g., user_email"}
+                        workflowId={workflowId}
+                        currentStepId={stepId}
                     />
                 </div>
             )}

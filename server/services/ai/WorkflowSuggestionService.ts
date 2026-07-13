@@ -239,6 +239,7 @@ export class WorkflowSuggestionService {
             key: string;
             type: string;
             label?: string;
+            choices?: string[];
             options?: string[];
             description?: string;
         }>,
@@ -247,7 +248,11 @@ export class WorkflowSuggestionService {
         const startTime = Date.now();
 
         try {
-            const prompt = this.promptBuilder.buildValueSuggestionPrompt(steps, mode);
+            const promptSteps = steps.map(({ options, choices, ...step }) => ({
+                ...step,
+                choices: choices ?? options,
+            }));
+            const prompt = this.promptBuilder.buildValueSuggestionPrompt(promptSteps, mode);
             const response = await this.client.callLLM(prompt.userPrompt, 'value_suggestion', prompt.systemMessage);
 
             // Parse and return the response

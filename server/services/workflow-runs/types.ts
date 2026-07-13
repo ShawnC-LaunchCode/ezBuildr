@@ -108,6 +108,19 @@ export interface DocumentGenerationResult {
   success: boolean;
   documentsGenerated: number;
   errors?: string[];
+  documents?: Array<{
+    alias: string;
+    filename: string;
+    filePath: string;
+    mimeType: string;
+    size: number;
+    unresolvedVariables?: string[];
+    pdfStrategy?: string;
+  }>;
+  archive?: unknown;
+  skipped?: string[];
+  failed?: unknown[];
+  isArchived?: boolean;
 }
 
 /**

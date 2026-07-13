@@ -532,12 +532,13 @@ export class WorkflowClonerService {
         const [newStep] = await tx
           .insert(steps)
           .values({
+            workflowId: targetWorkflowId,
             sectionId: newSection.id,
             type: sourceStep.type,
             title: sourceStep.title,
             description: sourceStep.description,
             required: sourceStep.required,
-            options: sourceStep.options,
+            config: sourceStep.config,
             alias: sourceStep.alias,
             defaultValue: sourceStep.defaultValue,
             order: sourceStep.order,
@@ -1165,7 +1166,7 @@ export class WorkflowClonerService {
     const inspectValues: unknown[] = [
       ...workflowRows.map((workflow) => workflow.intakeConfig),
       ...sectionRows.flatMap((section) => [section.config, section.visibleIf, section.skipIf]),
-      ...stepRows.flatMap((row) => [row.steps.options, row.steps.defaultValue, row.steps.visibleIf, row.steps.repeaterConfig]),
+      ...stepRows.flatMap((row) => [row.steps.config, row.steps.defaultValue, row.steps.visibleIf, row.steps.repeaterConfig]),
       ...blockRows.map((block) => block.config),
       ...versionRows.flatMap((version) => [version.graphJson, version.migrationInfo, version.changelog]),
     ];
@@ -1574,7 +1575,7 @@ export class WorkflowClonerService {
         await tx
           .update(steps)
           .set({
-            options: remapJsonIds(step.options, idMap),
+            config: remapJsonIds(step.config, idMap),
             defaultValue: remapJsonIds(step.defaultValue, idMap),
             visibleIf: remapJsonIds(step.visibleIf, idMap),
             repeaterConfig: remapJsonIds(step.repeaterConfig, idMap),

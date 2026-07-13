@@ -250,18 +250,20 @@ Output ONLY the JSON object, no additional text or markdown.`;
       key: string;
       type: string;
       label?: string;
+      choices?: string[];
       options?: string[];
       description?: string;
     }>,
     mode: 'full' | 'partial',
   ): { systemMessage: string; userPrompt: string } {
     const stepDescriptions = steps
-      .map((step) => {
-        let desc = `- ${step.key} (${step.type})`;
-        if (step.label) { desc += `: ${step.label}`; }
-        if (step.description) { desc += ` - ${step.description}`; }
-        if (step.options && step.options.length > 0) {
-          desc += ` [Options: ${step.options.join(', ')}]`;
+      .map(({ key, type, label, description, choices, options }) => {
+        const choiceValues = choices ?? options;
+        let desc = `- ${key} (${type})`;
+        if (label) { desc += `: ${label}`; }
+        if (description) { desc += ` - ${description}`; }
+        if (choiceValues && choiceValues.length > 0) {
+          desc += ` [Options: ${choiceValues.join(', ')}]`;
         }
         return desc;
       })

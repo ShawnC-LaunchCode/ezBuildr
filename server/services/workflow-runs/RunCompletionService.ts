@@ -5,6 +5,7 @@ import { workflowRunRepository, stepValueRepository } from "../../repositories";
 import { blockRunner } from "../BlockRunner";
 
 import type { RunLifecycleService } from "./RunLifecycleService";
+import { runDataService, type RunDataService } from "./RunDataService";
 import type { RunMetricsService } from "./RunMetricsService";
 import type { RunStateService } from "./RunStateService";
 import type { LogicService } from "../LogicService";
@@ -21,7 +22,8 @@ export class RunCompletionService {
         private logicSvc: LogicService,
         private stateService: RunStateService,
         private lifecycleService: RunLifecycleService,
-        private metricsService: RunMetricsService
+        private metricsService: RunMetricsService,
+        private runDataSvc: RunDataService = runDataService
     ) { }
     /**
      * Complete a workflow run (with validation)
@@ -51,14 +53,13 @@ export class RunCompletionService {
             throw new Error("Run is already completed");
         }
         try {
-            // Get all step values for this run
-            const dataMap = await this.valueRepo.getRunDataAsJson(runId);
+            const runData = await this.runDataSvc.buildForRun(runId, run.workflowId);
             // Execute onRunComplete blocks (transform + validate)
             const blockResult = await blockRunner.runPhase({
                 workflowId: run.workflowId,
                 runId: run.id,
                 phase: "onRunComplete",
-                data: dataMap,
+                data: runData.byStepId,
                 versionId: run.workflowVersionId ?? 'draft',
             });
             // If blocks produced validation errors, reject completion
@@ -75,7 +76,7 @@ export class RunCompletionService {
                 throw new Error(errorMsg);
             }
             // Validate using LogicService
-            const validation = await this.logicSvc.validateCompletion(run.workflowId, runId);
+            const validation = await this.logicSvc.validateCompletion(run.workflowId, runId, runData.byStepId);
             if (!validation.valid) {
                 const stepTitles = validation.missingStepTitles?.join(', ') ?? validation.missingSteps.join(', ');
                 const errorMsg = `Missing required steps: ${stepTitles}`;
@@ -98,7 +99,9 @@ export class RunCompletionService {
             // writebacks entirely.
             Promise.allSettled([
                 this.lifecycleService.executeWritebacks(runId, run.workflowId, userId),
-                this.lifecycleService.generateDocuments(runId)
+                this.lifecycleService.generateDocuments(runId, {
+                    runData: this.runDataSvc.fromStepIdData(blockResult.data ?? runData.byStepId, runData.steps),
+                })
             ]).then((results) => {
                 for (const result of results) {
                     if (result.status === 'rejected') {
@@ -112,7 +115,7 @@ export class RunCompletionService {
                 run.id,
                 run.workflowVersionId ?? undefined,
                 Date.now() - startTime,
-                Object.keys(dataMap).length
+                Object.keys(runData.byStepId).length
             );
             return completedRun;
         } catch (error) {

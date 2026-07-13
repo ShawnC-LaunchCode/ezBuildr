@@ -80,6 +80,7 @@ async function createWorkflowForCurrentUser() {
   await db.insert(steps).values([
     {
       id: randomUUID(),
+      workflowId: workflow[0].id,
       sectionId: section1[0].id,
       type: 'short_text',
       title: 'Your Name',
@@ -89,6 +90,7 @@ async function createWorkflowForCurrentUser() {
     },
     {
       id: randomUUID(),
+      workflowId: workflow[0].id,
       sectionId: section1[0].id,
       type: 'short_text',
       title: 'Your Email',

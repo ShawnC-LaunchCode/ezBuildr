@@ -4,7 +4,8 @@ import { z } from "zod";
 import { insertWorkflowSchema } from "@shared/schema";
 
 import { logger } from "../logger";
-import { hybridAuth, type AuthRequest } from '../middleware/auth';
+import { hybridAuth, optionalHybridAuth, type AuthRequest } from '../middleware/auth';
+import { creatorOrRunTokenAuth, type RunAuthRequest } from '../middleware/runTokenAuth';
 import { createLimiter } from "../middleware/rateLimiting";
 import { logicRuleRepository } from "../repositories/LogicRuleRepository";
 import { templateTestService } from "../services/TemplateTestService";
@@ -435,15 +436,22 @@ export function registerWorkflowRoutes(app: Express): void {
    * GET /api/workflows/:workflowId/logic-rules
    * Get all logic rules for a workflow
    */
-  app.get('/api/workflows/:workflowId/logic-rules', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.get('/api/workflows/:workflowId/logic-rules', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
+      const { workflowId } = req.params;
       const userId = (req as AuthRequest).userId;
-      if (!userId) {
+      const runAuth = (req as RunAuthRequest).runAuth;
+
+      if (runAuth != null) {
+        if (runAuth.workflowId !== workflowId) {
+          return res.status(403).json({ message: "Access denied - run token is for a different workflow" });
+        }
+      } else if (!userId) {
         return res.status(401).json({ message: "Unauthorized - no user ID" });
+      } else {
+        await workflowService.verifyAccess(workflowId, userId, 'view');
       }
 
-      const { workflowId } = req.params;
-      await workflowService.verifyAccess(workflowId, userId, 'view');
       const logicRules = await logicRuleRepository.findByWorkflowId(workflowId);
       res.json(logicRules);
     } catch (error) {

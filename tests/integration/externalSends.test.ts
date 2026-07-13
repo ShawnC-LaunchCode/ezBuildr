@@ -125,6 +125,7 @@ describe('External Send Block Integration', () => {
         const inputStepId = uuidv4();
         await db.insert(steps).values({
             id: inputStepId,
+            workflowId,
             sectionId,
             type: 'short_text',
             title: 'Input',
@@ -182,6 +183,7 @@ describe('External Send Block Integration', () => {
         const inputStepId = uuidv4();
         await db.insert(steps).values({
             id: inputStepId,
+            workflowId,
             sectionId,
             type: 'short_text',
             title: 'Input',

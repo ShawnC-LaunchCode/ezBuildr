@@ -9,6 +9,7 @@ Conventions: services export a module-level singleton (`export const fooService 
 | Service | Purpose |
 |---------|---------|
 | WorkflowService | Workflow CRUD, status management |
+| WorkflowContentIngestService | Normalizes structural blueprints |
 | SectionService / StepService | Section and step management |
 | LogicService | Conditional logic rules |
 | VariableService / AliasResolver / AliasRenameService | Step alias management |
@@ -23,6 +24,7 @@ Conventions: services export a module-level singleton (`export const fooService 
 | Service | Purpose |
 |---------|---------|
 | RunService | Run lifecycle management |
+| RunDataService | Canonical run data views: step-id keyed for runtime logic, alias-keyed for document generation |
 | BlockRunner + `blockRunners/*` | Execute workflow blocks (per-type runner classes) |
 | TransformBlockService | JS/Python transform execution |
 | IntakeService / IntakeNavigationService / IntakeQuestionVisibilityService | Intake flow, navigation, real-time visibility |

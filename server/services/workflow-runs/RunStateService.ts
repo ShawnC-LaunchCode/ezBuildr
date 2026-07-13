@@ -159,8 +159,8 @@ export class RunStateService {
       const allSteps = await stepRepository.findByWorkflowIdWithAliases(run.workflowId);
       const finalStep = allSteps.find(s => s.type === 'final');
 
-      if (finalStep?.options) {
-        finalBlockConfig = finalStep.options;
+      if (finalStep?.config) {
+        finalBlockConfig = finalStep.config;
       }
     }
 

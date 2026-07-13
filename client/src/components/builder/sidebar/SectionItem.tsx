@@ -51,7 +51,6 @@ export function SectionItem({
             description: null,
             required: false,
             alias: null,
-            options: null,
             order,
             config: {},
         });

@@ -2,6 +2,7 @@ import { Database } from "lucide-react";
 import { useMemo } from "react";
 
 import { BlockRenderer } from "@/components/runner/blocks";
+import { BlockErrorBoundary } from "@/components/runner/BlockErrorBoundary";
 import { Badge } from "@/components/ui/badge";
 import { useWorkflowVisibility } from "@/hooks/useWorkflowVisibility";
 import type { ApiStep } from "@/lib/vault-api";
@@ -74,6 +75,8 @@ export function SectionSteps({
         return isStepVisible(step.id);
     });
 
+
+
     if (visibleSteps.length === 0) {
         return <p className="text-muted-foreground text-sm">No visible steps in this section</p>;
     }
@@ -81,15 +84,16 @@ export function SectionSteps({
     return (
         <>
             {visibleSteps.map((step) => (
-                <StepField
-                    key={step.id}
-                    step={step}
-                    value={values[step.id]}
-                    onChange={(v) => { onChange(step.id, v); }}
-                    error={errors?.[step.id]?.[0]} // Pass first error message
-                    context={values}
-                    intakeSource={getIntakeSource(step, intakeData)}
-                />
+                <BlockErrorBoundary key={step.id} stepId={step.id}>
+                    <StepField
+                        step={step}
+                        value={values[step.id]}
+                        onChange={(v) => { onChange(step.id, v); }}
+                        error={errors?.[step.id]?.[0]} // Pass first error message
+                        context={values}
+                        intakeSource={getIntakeSource(step, intakeData)}
+                    />
+                </BlockErrorBoundary>
             ))}
         </>
     );

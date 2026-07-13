@@ -22,9 +22,12 @@ export interface TimeBlockProps {
   value: any;
   onChange: (value: string) => void;
   readOnly?: boolean;
+  ariaDescribedBy?: string;
+  required?: boolean;
+  hasError?: boolean;
 }
 
-export function TimeBlockRenderer({ step, value, onChange, readOnly }: TimeBlockProps) {
+export function TimeBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: TimeBlockProps) {
   const config = step.config as TimeConfig;
   const stepMinutes = config?.step ?? 15;
 
@@ -40,6 +43,9 @@ export function TimeBlockRenderer({ step, value, onChange, readOnly }: TimeBlock
       onChange={(e) => onChange(e.target.value)}
       step={stepSeconds}
       disabled={readOnly}
-    />
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      />
   );
 }

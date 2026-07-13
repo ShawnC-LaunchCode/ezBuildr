@@ -158,6 +158,7 @@ describe.sequential("Asset Copy API Integration Tests", () => {
 
     await db.insert(schema.steps).values({
       id: randomUUID(),
+      workflowId: workflow.id,
       sectionId: section.id,
       type: "short_text",
       title: "Name",

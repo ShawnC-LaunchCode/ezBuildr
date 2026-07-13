@@ -58,7 +58,7 @@ export interface FinalBlockRenderRequest {
   toPdf?: boolean;
 
   /** PDF conversion strategy */
-  pdfStrategy?: 'puppeteer' | 'libreoffice';
+  pdfStrategy?: 'puppeteer';
 
   /** Output directory (optional, defaults to server/files/archives) */
   outputDir?: string;
@@ -76,6 +76,7 @@ export interface FinalBlockRenderResponse {
     mimeType: string;
     size: number;
     unresolvedVariables?: string[];
+    pdfStrategy?: string;
   }>;
 
   /** ZIP archive (if multiple documents) */
@@ -134,6 +135,7 @@ export class FinalBlockRenderer {
       runId,
       resolveTemplate,
       toPdf = false,
+      pdfStrategy = 'puppeteer',
       outputDir = path.join(process.cwd(), 'server', 'files', 'archives'),
     } = request;
 
@@ -205,6 +207,7 @@ export class FinalBlockRenderer {
       stepValues: enhancedStepValues,
       outputDir,
       toPdf,
+      pdfStrategy,
       runId,
     });
 
@@ -236,7 +239,8 @@ export class FinalBlockRenderer {
     // Step 3: Prepare response documents
     const documents = await this.prepareResponseDocuments(
       generationResult.documents,
-      toPdf
+      toPdf,
+      pdfStrategy
     );
 
     // Step 4: Create ZIP archive if multiple documents
@@ -330,7 +334,8 @@ export class FinalBlockRenderer {
    */
   private async prepareResponseDocuments(
     results: EnhancedGenerationResult[],
-    toPdf: boolean
+    toPdf: boolean,
+    pdfStrategy: 'puppeteer'
   ): Promise<FinalBlockRenderResponse['documents']> {
     const documents: FinalBlockRenderResponse['documents'] = [];
 
@@ -351,6 +356,7 @@ export class FinalBlockRenderer {
         mimeType,
         size: stats.size,
         unresolvedVariables: result.unresolvedVariables,
+        pdfStrategy: toPdf ? pdfStrategy : undefined,
       });
     }
 
