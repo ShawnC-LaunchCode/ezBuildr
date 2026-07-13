@@ -8,6 +8,13 @@ Scope of this push: **run start → interview → variable JSON → document**, 
 path first. The AI path is the next push and every ticket here should leave an
 interface the AI path can reuse (see DOC-105).
 
+> **See also `RUNNER_HARDENING_TICKETS.md` (RUN-1..12), 2026-07-13.** A follow-up
+> runner audit that overlaps this backlog. Two cross-cutting decisions landed
+> there that affect tickets here: (1) **DOC-108 is superseded by RUN-2** (blank
+> auto-generated documents — verified). (2) The step config field will be
+> **renamed `steps.options` → `steps.config` end-to-end** (RUN-6, Option B) —
+> any new ticket touching step config should assume the field is `config`.
+
 ## Already shipped (commit `bb048426`, 2026-07-13) — for context
 
 - Idempotent run completion (conditional `markComplete`, docs-exist gate,
@@ -226,6 +233,13 @@ document record. **Phase 2 (L, separate decision):** implement a real
 ---
 
 ## DOC-108 — Completion-phase transform outputs must reach documents
+
+> **Superseded by RUN-2** (see `RUNNER_HARDENING_TICKETS.md`). Option (b) here
+> ("thread completion's post-block data into generateDocuments") was implemented
+> but stepId-keyed, which regressed *all* alias variables, not just computed
+> ones — documents auto-generated on completion now render blank. RUN-2 is the
+> verified fix and preserves this ticket's intent (computed outputs survive).
+> Track the work under RUN-2.
 
 **Priority: P3 (correctness, affects computed values in documents).** Size: M
 
