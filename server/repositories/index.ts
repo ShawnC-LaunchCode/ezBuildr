@@ -14,6 +14,7 @@ export { BaseRepository, type DbTransaction } from "./BaseRepository";
 export { UserRepository, userRepository } from "./UserRepository";
 export { UserCredentialsRepository, userCredentialsRepository } from "./UserCredentialsRepository";
 export { UserPreferencesRepository, userPreferencesRepository } from "./UserPreferencesRepository";
+export { AdminOrgStatsRepository, adminOrgStatsRepository } from "./AdminOrgStatsRepository";
 // export { AnalyticsRepository, analyticsRepository } from "./AnalyticsRepository";
 // export { FileRepository, fileRepository } from "./FileRepository";
 export { SystemStatsRepository, systemStatsRepository } from "./SystemStatsRepository";

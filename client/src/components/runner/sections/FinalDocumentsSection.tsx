@@ -84,7 +84,7 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
     }
   }, [runId]); // Only run once when runId changes
   // Fetch generated documents for this run - only if runId is valid
-  const { data: documents = [], isLoading: _isLoading, error } = useQuery({
+  const { data, isLoading: _isLoading, error } = useQuery({
     queryKey: ["run-documents", runId],
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
@@ -95,8 +95,8 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
       if (runToken) {
         headers['Authorization'] = `Bearer ${runToken}`;
       }
-      const response = await axios.get<{ documents: GeneratedDocument[] }>(`/api/runs/${runId}/documents`, { headers });
-      return response.data.documents;
+      const response = await axios.get<{ documents: GeneratedDocument[], generationStatus?: string }>(`/api/runs/${runId}/documents`, { headers });
+      return response.data;
     },
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     enabled: !!isValidRunId, // Only fetch if runId is valid
@@ -107,14 +107,23 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
         return false;
       }
       // If no documents yet, refetch every 2 seconds until they're ready
-      const docs = query.state.data;
-      if (!docs || docs.length === 0) {
+      const data = query.state.data;
+      const status = data?.generationStatus;
+      
+      if (status === 'pending' || status === 'generating') {
         return 2000;
       }
-      // Once we have documents, stop refetching
+      if (!data?.documents || data.documents.length === 0) {
+        // Fallback for older runs without generationStatus
+        if (status === undefined) return 2000;
+      }
+      // Once we have terminal status, stop refetching
       return false;
     },
   });
+
+  const documents = data?.documents || [];
+  const generationStatus = data?.generationStatus;
   const formatFileSize = (bytes?: number) => {
     if (!bytes) {
       return '';
@@ -211,16 +220,26 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {error ? (
+            {error || generationStatus?.startsWith('failed:') ? (
               <div className="text-center py-8 text-destructive p-4">
                 <p className="text-sm font-medium">Unable to load documents</p>
-                <p className="text-xs mt-1 opacity-80">{error instanceof Error ? error.message : 'Unknown error'}</p>
+                <p className="text-xs mt-1 opacity-80">
+                  {generationStatus?.startsWith('failed:') 
+                    ? generationStatus.replace('failed:', '') 
+                    : error instanceof Error ? error.message : 'Unknown error'}
+                </p>
               </div>
-            ) : documents.length === 0 ? (
+            ) : (generationStatus === 'pending' || generationStatus === 'generating') ? (
               <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
                 <Loader2 className="w-6 h-6 animate-spin text-primary mb-3" />
                 <h3 className="text-sm font-medium text-slate-900">Preparing your documents...</h3>
                 <p className="text-xs text-slate-500 mt-1">This usually takes just a moment.</p>
+              </div>
+            ) : documents.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+                <FileText className="w-6 h-6 text-slate-400 mb-3" />
+                <h3 className="text-sm font-medium text-slate-900">No documents configured</h3>
+                <p className="text-xs text-slate-500 mt-1">This workflow does not generate any documents.</p>
               </div>
             ) : (
               <div className="divide-y divide-slate-100">

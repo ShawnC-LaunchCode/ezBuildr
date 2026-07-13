@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Check, Loader2 } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { useMemo } from "react";
 
 import { ClientRunnerLayout } from "@/components/runner/ClientRunnerLayout";
 import { FinalDocumentsSection } from "@/components/runner/sections/FinalDocumentsSection";
@@ -9,861 +9,238 @@ import { ReviewSection } from "@/components/runner/sections/ReviewSection";
 import { SectionSteps } from "@/components/runner/SectionSteps";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
 import { useIntakeRuntime } from "@/hooks/useIntakeRuntime";
-import { analytics } from "@/lib/analytics";
-import { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
-import { usePreviewEnvironment } from "@/lib/previewRunner/usePreviewEnvironment";
-import { getRunToken, setRunToken, clearRunToken } from "@/lib/runTokens";
-import type { ApiStep } from "@/lib/vault-api";
-import { useRunWithValues, useSections, useSubmitSection, useNext, useCompleteRun, useWorkflow } from "@/lib/vault-hooks";
-import { isUUID, startRunFromSlug, startRunFromWorkflowId, type StepValue, type DefaultValueConfig } from "@/pages/workflow-runner/runner.utils";
-import { usePreviewStore } from "@/store/preview";
-
-import { evaluateConditionExpression } from "@shared/conditionEvaluator";
-import type { LogicRule } from "@shared/schema";
-import type { ValidateRule } from "@shared/types/blocks";
-import type { ConditionExpression } from "@shared/types/conditions";
-import { getValidationSchema } from "@shared/validation/BlockValidation";
-import { validatePage } from "@shared/validation/PageValidator";
-import type { ValidationSchema } from "@shared/validation/ValidationSchema";
+import { useRunSession } from "@/hooks/runner/useRunSession";
+import { useRunValues } from "@/hooks/runner/useRunValues";
+import { useSectionVisibility } from "@/hooks/runner/useSectionVisibility";
+import { useRunNavigation } from "@/hooks/runner/useRunNavigation";
+import type { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
+import { useSections, useWorkflow } from "@/lib/vault-hooks";
+import { apiWithToken, type ApiSection, type ApiStep } from "@/lib/vault-api";
+import { getRunToken } from "@/lib/runTokens";
 
 interface WorkflowRunnerProps {
-  // Production mode: provide runId
   runId?: string;
-  // Preview mode: provide previewEnvironment
   previewEnvironment?: PreviewEnvironment;
-  // Legacy prop (for backward compatibility)
   isPreview?: boolean;
-  // Callback when preview is completed
   onPreviewComplete?: () => void;
 }
 
-interface SectionConfig {
-  finalBlock?: boolean;
-  validationRules?: ValidateRule[];
-}
-
-// URL query params that are not step values and must be skipped when seeding initial values.
-const RESERVED_URL_PARAMS = ['ref', 'source', 'utm_source', 'utm_medium', 'utm_campaign', 'token', 'resume'];
-
-/**
- * Extract initial step values from URL query params, skipping reserved keys.
- * Values are parsed as JSON when possible, otherwise kept as raw strings.
- */
-function parseInitialValuesFromUrl(urlParams: URLSearchParams): Record<string, StepValue> {
-  const initialValues: Record<string, StepValue> = {};
-  for (const [key, value] of urlParams.entries()) {
-    if (RESERVED_URL_PARAMS.includes(key)) {
-      continue;
-    }
-    try {
-      initialValues[key] = JSON.parse(value);
-    } catch {
-      initialValues[key] = value;
-    }
-  }
-  return initialValues;
-}
-
-/**
- * If a run token is present in the URL (query string or hash), persist it for the run
- * and strip it from the visible URL so it doesn't leak via history or referrer headers.
- */
-function consumeRunTokenFromUrl(runId: string, urlParams: URLSearchParams): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  const hashParams = new URLSearchParams(window.location.hash.substring(1));
-  const tokenFromUrl = urlParams.get('token') ?? hashParams.get('token');
-  if (!tokenFromUrl || !isUUID(runId)) {
-    return;
-  }
-  setRunToken(runId, tokenFromUrl);
-
-  const newUrl = new URL(window.location.href);
-  newUrl.searchParams.delete('token');
-  if (newUrl.hash.includes('token=')) {
-    const hashParamsToClean = new URLSearchParams(newUrl.hash.substring(1));
-    hashParamsToClean.delete('token');
-    const newHash = hashParamsToClean.toString();
-    newUrl.hash = newHash ? `#${newHash}` : '';
-  }
-  window.history.replaceState({}, '', newUrl.toString());
-}
-
-// eslint-disable-next-line max-lines-per-function, complexity, sonarjs/cognitive-complexity
 export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPreview = false, onPreviewComplete }: WorkflowRunnerProps) {
-  const [actualRunId, setActualRunId] = useState<string | null>(null);
-  const [isInitializing, setIsInitializing] = useState(true);
-  const [initError, setInitError] = useState<string | null>(null);
-  const { toast } = useToast();
-  // New Preview Environment Hook
-  const previewState = usePreviewEnvironment(previewEnvironment ?? null);
-  // Determine mode
-  const mode = previewEnvironment ? 'preview' : 'production';
-  // On mount, check if runId is a UUID or a slug (production mode only)
-  useEffect(() => {
-    // In preview mode, set runId if provided (for document generation)
-    if (previewEnvironment) {
-      if (runId) {
-        setActualRunId(runId);
-      }
-      setIsInitializing(false);
-      return;
-    }
-    // Production mode: handle run initialization
-    // eslint-disable-next-line sonarjs/cognitive-complexity
-    async function initialize() {
-      if (!runId) {
-        setInitError('No run ID provided');
-        setIsInitializing(false);
-        return;
-      }
-      try {
-        // Parse URL params for initial step values, and consume any run token in the URL.
-        const urlParams = new URLSearchParams(window.location.search);
-        const initialValues = parseInitialValuesFromUrl(urlParams);
-        const initialValuesArg = Object.keys(initialValues).length > 0 ? initialValues : undefined;
-        consumeRunTokenFromUrl(runId, urlParams);
-        if (isUUID(runId)) {
-          // It's a UUID - could be a workflow ID or run ID
-          // First, try to fetch it as a run to see if we have access
-          const runToken = getRunToken(runId);
-          // If we have a run token for this ID, treat it as a run
-          if (runToken) {
-            setActualRunId(runId);
-          } else {
-            // No run token - try to create a new run from this UUID as a workflow ID
-            try {
-              const runData = await startRunFromWorkflowId(
-                runId,
-                initialValuesArg
-              );
-              setActualRunId(runData.runId);
-              // Store the run token in localStorage for bearer auth
-              setRunToken(runData.runId, runData.runToken);
-            } catch (createError) {
-              // Anonymous visitor with a public-workflow UUID link: the
-              // authenticated create endpoint 401s, but the public start
-              // endpoint accepts workflow UUIDs for public workflows
-              try {
-                const publicRunData = await startRunFromSlug(runId, initialValuesArg);
-                setActualRunId(publicRunData.runId);
-                setRunToken(publicRunData.runId, publicRunData.runToken);
-                return;
-              } catch {
-                // Not a public workflow — fall through to the run-fork fallback
-              }
-              // If creating run fails, it might be an existing run ID we don't have access to
-              // Try to fetch the run to get its workflow ID, then create a new run
-              try {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  // 1. Session & Initialization
+  const { actualRunId, isInitializing, initError, mode, previewState, run, workflowId } = useRunSession(runId, previewEnvironment);
 
-                const response = await fetch(`/api/runs/${runId}`, {
-                  credentials: 'include',
-                });
-                // eslint-disable-next-line max-depth
-                if (response.ok) {
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-                  const result = await response.json();
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-                  const workflowId = result.data?.workflowId;
-                  // eslint-disable-next-line max-depth
-                  if (workflowId) {
-                    // Create a new run from the same workflow
-                    const newRunData = await startRunFromWorkflowId(
-                      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-                      workflowId,
-                      initialValuesArg
-                    );
-                    setActualRunId(newRunData.runId);
-                    setRunToken(newRunData.runId, newRunData.runToken);
-                    toast({
-                      title: "New session started",
-                      description: "Created a new run for this workflow",
-                    });
-                  } else {
-                    throw new Error("Could not determine workflow ID");
-                  }
-                } else {
-                  // Can't access the run at all - treat the UUID as a run ID anyway
-                  // This will likely fail but will show a proper error
-                  setActualRunId(runId);
-                }
-              } catch (fetchError) {
-                // Final fallback - just use the ID as-is
-                setActualRunId(runId);
-              }
-            }
-          }
-        } else {
-          // It's a slug - need to start a new run with initial values
-          const runData = await startRunFromSlug(
-            runId,
-            initialValuesArg
-          );
-          setActualRunId(runData.runId);
-          // Store the run token in localStorage for bearer auth
-          setRunToken(runData.runId, runData.runToken);
-        }
-      } catch (error) {
-        setInitError(error instanceof Error ? error.message : 'Failed to load workflow');
-        toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : 'Failed to load workflow',
-          variant: "destructive",
-        });
-      } finally {
-        setIsInitializing(false);
-      }
-    }
-    void initialize();
-  }, [runId, toast, previewEnvironment]);
-  // Fetch run data - PRODUCTION MODE ONLY
-  // In preview mode, we use previewEnvironment data instead
-  const { data: run } = useRunWithValues(actualRunId ?? '', {
-    enabled: mode === 'production' && actualRunId !== null && !isInitializing,
-  });
-
-  // Get workflow ID from run (production) or preview environment (preview)
-  const workflowId = mode === 'preview'
-    ? previewState?.workflowId
-    : run?.workflowId;
-
-  // Fetch Intake Data (Upstream)
+  // 2. Fetch Core Data
   const intakeData = useIntakeRuntime(workflowId ?? "");
-
-  // Fetch Workflow Definition (for intake config)
   const { data: workflow } = useWorkflow(workflowId ?? "");
+  const { data: fetchedSections } = useSections(workflowId, { enabled: mode !== 'preview' });
 
-  // Get sections - from preview environment or API
-  const { data: fetchedSections } = useSections(workflowId, {
-    enabled: mode !== 'preview', // Only fetch if NOT in preview mode
-  });
-  // Memoize sections to prevent infinite re-renders from getSections() returning new array each time
+  // 3. Resolve Sections & Steps
   const sections = useMemo(() => {
-    return mode === 'preview'
-      ? previewEnvironment?.getSections()
-      : fetchedSections;
+    return mode === 'preview' ? previewEnvironment?.getSections() : fetchedSections;
   }, [mode, previewEnvironment, fetchedSections]);
 
-  // Fetch logic rules for visibility evaluation
-  const { data: logicRules } = useQuery<LogicRule[]>({
-    queryKey: ["workflow-logic-rules", workflowId],
-    queryFn: async () => {
-      const response = await fetch(`/api/workflows/${workflowId}/logic-rules`, {
-        credentials: "include",
-      });
-      if (!response.ok) { throw new Error("Failed to fetch logic rules"); }
-      return response.json() as Promise<LogicRule[]>;
-    },
-    enabled: !!workflowId,
-  });
-
-  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
-  const [formValues, setFormValues] = useState<Record<string, StepValue>>({});
-  const [errors, setErrors] = useState<string[]>([]);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
-  const [showReview, setShowReview] = useState(false);
-
-  // Sync section index from preview environment (if changed externally, e.g. by Random Fill)
-  useEffect(() => {
-    if (previewState && previewState.currentSectionIndex !== currentSectionIndex) {
-      setCurrentSectionIndex(previewState.currentSectionIndex);
-    }
-  }, [previewState?.currentSectionIndex, currentSectionIndex, previewState]);
-
-  // Use preview values in preview mode, form values in production mode - memoized to prevent re-render loops
-  const effectiveValues = useMemo(() => {
-    return mode === 'preview'
-      ? (previewState?.values ?? {})
-      : formValues;
-  }, [mode, previewState?.values, formValues]);
-
-  const submitMutation = useSubmitSection();
-  const nextMutation = useNext();
-  const completeMutation = useCompleteRun();
-
-  // Fetch all steps for alias resolution - MUST be before early returns
-  // In preview mode, get steps from previewEnvironment; in production mode, fetch from API
+  const runToken = actualRunId ? getRunToken(actualRunId) : null;
   const { data: allSteps } = useQuery({
-    queryKey: ["workflow-all-steps", workflowId, mode],
-    queryFn: async () => {
-      // Preview mode: get steps from preview environment
-      if (mode === 'preview' && previewEnvironment) {
-        return previewEnvironment.getSteps();
+    queryKey: ['/api/workflows', workflowId, 'all-steps', actualRunId],
+    queryFn: () => {
+      if (runToken) {
+        const client = apiWithToken(runToken);
+        return client.get<ApiStep[]>(`/api/workflows/${workflowId}/steps`);
+      } else {
+        return fetch(`/api/workflows/${workflowId}/steps`, { credentials: 'include' }).then(res => res.json());
       }
-      // Production mode: fetch from API
-      if (!sections) { return []; }
-      const allStepPromises = sections.map(section =>
-        fetch(`/api/sections/${section.id}/steps`, {
-          credentials: "include",
-        }).then(res => res.json() as Promise<ApiStep[]>)
-      );
-      const allStepArrays = await Promise.all(allStepPromises);
-      return allStepArrays.flat();
     },
-    enabled: (mode === 'preview' ? !!previewEnvironment : !!workflowId) && !!sections,
+    enabled: !!workflowId && mode !== 'preview',
+  });
+  
+  const effectiveAllSteps = mode === 'preview' ? previewEnvironment?.getSteps() : allSteps;
+
+  // 4. Form Values & Autosave
+  const { formValues, setFormValues, effectiveValues, handleUpdateValue, saveStatus, saveNow } = useRunValues({
+    mode,
+    actualRunId,
+    run,
+    previewState,
+    previewEnvironment,
+    allSteps: effectiveAllSteps,
+    intakeData
   });
 
-  // Memoize visible sections calculation with alias resolution - MUST be before early returns
-  const visibleSections = useMemo(() => {
-    if (!sections) { return []; }
+  // 5. Visibility Engine
+  const { visibleSections, getVisibleSectionSteps, resolveAlias } = useSectionVisibility(
+    sections,
+    effectiveAllSteps,
+    effectiveValues
+  );
 
-    // Create alias resolver for section visibility
-    const aliasResolver = (variableName: string): string | undefined => {
-      if (!allSteps) { return undefined; }
-      const step = allSteps.find((s: ApiStep) => s.alias === variableName);
-      return step?.id;
-    };
+  // 6. Navigation & Validation
+  const {
+    currentSectionIndex,
+    setCurrentSectionIndex,
+    currentSection,
+    isLastSection,
+    showReview,
+    setShowReview,
+    errors,
+    fieldErrors,
+    handleNext,
+    handlePrev,
+    handleFinalSubmit,
+    completeMutationIsPending
+  } = useRunNavigation({
+    mode,
+    actualRunId,
+    workflowId,
+    runVersionId: run?.versionId,
+    visibleSections,
+    effectiveValues,
+    previewEnvironment,
+    getVisibleSectionSteps,
+    onPreviewComplete,
+    saveNow
+  });
 
-    return sections.filter(section => {
-      if (!section.visibleIf) { return true; }
-      try {
-        // Use effectiveValues (preview or production values)
-        return evaluateConditionExpression(section.visibleIf as ConditionExpression, effectiveValues, aliasResolver);
-      } catch (error) {
-        console.error('[WorkflowRunner] Error evaluating section visibility', section.id, error);
-        return true;
-      }
-    });
-  }, [sections, effectiveValues, allSteps]);
-
-  // Initialize form values from run.values (production mode only)
-  useEffect(() => {
-    if (mode === 'production' && run?.values) {
-      const initial: Record<string, StepValue> = {};
-      run.values.forEach((v) => {
-        initial[v.stepId] = v.value;
-      });
-      setFormValues(initial);
-    }
-  }, [run, mode]);
-  // Intake Data Hydration (Production Mode)
-  useEffect(() => {
-    if (mode === 'production' && allSteps && intakeData.values !== null && intakeData.values !== undefined && !intakeData.isLoading) {
-      setFormValues((prev) => {
-        const next = { ...prev };
-        let changed = false;
-        allSteps.forEach((step: ApiStep) => {
-          // Only set if not already set
-          if (next[step.id] === undefined || next[step.id] === null || next[step.id] === "") {
-            const defVal = step.defaultValue as DefaultValueConfig | undefined;
-            if (defVal?.source === 'intake' && defVal.variable) {
-              const val = intakeData.values[defVal.variable];
-              if (val !== undefined) {
-                next[step.id] = val;
-                changed = true;
-              }
-            }
-          }
-        });
-        return changed ? next : prev;
-      });
-    }
-  }, [mode, allSteps, intakeData.values, intakeData.isLoading]);
-  // Analytics: Track Run Start (Production)
-  useEffect(() => {
-    if (mode === 'production' && run?.id && run.workflowId && run.versionId) {
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      analytics.runStart(run.id, run.workflowId, run.versionId);
-    }
-  }, [run, mode]);
-  // Calculate current section early to use in effects
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-  const currentSection = visibleSections[currentSectionIndex] || (sections ? sections[currentSectionIndex] : undefined);
-  // Analytics: Track Page Views
-  useEffect(() => {
-    if (currentSection !== null && currentSection !== undefined) {
-      const rId = mode === 'preview' ? 'preview-session' : actualRunId;
-      const wId = workflowId;
-      const vId = mode === 'preview' ? 'draft' : run?.versionId;
-      if (rId !== null && rId !== undefined && wId !== null && wId !== undefined && vId !== null && vId !== undefined) {
-        void analytics.pageView(rId, wId, vId, currentSection.id, mode === 'preview');
-      }
-      // Trace Logging (Preview Mode)
-      if (mode === 'preview' && previewEnvironment) {
-        void previewEnvironment.addTraceEntry({
-          type: 'step',
-          status: 'executed',
-          message: `Entered Page: ${currentSection.title || 'Untitled Page'}`,
-          stepId: currentSection.id,
-          details: { sectionId: currentSection.id }
-        });
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSection?.id, mode, actualRunId, workflowId, run?.versionId]);
-  // Show initializing state
+  // Early returns for initialization and errors
   if (isInitializing) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">Starting workflow...</p>
-      </div>
-    );
-  }
-  // Show error state
-  if (initError) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-destructive mb-2">Failed to load workflow</p>
-          <p className="text-sm text-muted-foreground">{initError}</p>
+      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-zinc-950">
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          <p className="text-sm text-gray-500">Starting session...</p>
         </div>
       </div>
     );
   }
-  // Show loading state while fetching run data
-  // In preview mode, we only need sections (no run needed)
-  // In production mode, we need both run and sections
-  const isLoading = mode === 'preview' ? !sections : (!run || !sections);
-  if (isLoading) {
+  if (initError) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">Loading workflow...</p>
+      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-zinc-950 p-4">
+        <Card className="w-full max-w-md shadow-lg border-destructive/20">
+          <CardHeader>
+            <CardTitle className="text-destructive">Session Error</CardTitle>
+            <CardDescription>We couldn't start this workflow.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-700 dark:text-gray-300">{initError}</p>
+            <Button className="mt-4 w-full" onClick={() => window.location.href = '/'}>
+              Return Home
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
-  // removed duplicate currentSection declaration
-  const progress = ((currentSectionIndex + 1) / visibleSections.length) * 100;
-  const isLastSection = currentSectionIndex === visibleSections.length - 1;
-  // Check if current section is a Final Documents section
-  const isFinalDocumentsSection = (currentSection?.config as SectionConfig | undefined)?.finalBlock === true;
-  // Get run token for Final Documents section
-  const runToken = actualRunId ? getRunToken(actualRunId) : null;
-  // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
-  const handleNext = async () => {
-    setErrors([]);
-    // Defensive check: ensure allSteps is loaded
-    if (!allSteps || !Array.isArray(allSteps)) {
-      console.error('[WorkflowRunner] allSteps not loaded yet', { allSteps });
-      toast({
-        title: "Error",
-        description: "Workflow data is still loading. Please wait a moment and try again.",
-        variant: "destructive"
-      });
-      return;
-    }
-    const currentSectionSteps = allSteps.filter(
-      (step: ApiStep) => step.sectionId === currentSection.id &&
-        !step.isVirtual &&
-        step.type !== 'final_documents'
-    );
-    let visibleSectionSteps: ApiStep[] = [];
-    try {
-      const stepSchemas: Record<string, ValidationSchema> = {};
-      visibleSectionSteps = currentSectionSteps.filter((step: ApiStep) => {
-        if (!step.visibleIf) { return true; }
-        try {
-          const aliasResolver = (variableName: string): string | undefined => {
-            const s = allSteps.find((as: ApiStep) => as.alias === variableName);
-            return s?.id;
-          };
-          const isVisible = evaluateConditionExpression(step.visibleIf as ConditionExpression, effectiveValues, aliasResolver);
-          // Log skipped steps in preview mode
-          if (!isVisible && mode === 'preview' && previewEnvironment) {
-            void previewEnvironment.addTraceEntry({
-              type: 'logic',
-              status: 'skipped',
-              message: `Skipped Step: ${step.title || step.id}`,
-              details: { reason: 'Condition evaluated to false', condition: step.visibleIf }
-            });
-          }
-          return isVisible;
-        } catch (e) {
-          console.error("Error evaluating visibility for validation", e);
-          return true; // Fail safe to visible (validate it)
-        }
-      });
-      visibleSectionSteps.forEach((step: ApiStep) => {
-        stepSchemas[step.id] = getValidationSchema({
-          id: step.id,
-          type: step.type,
-          config: step.config,
-          required: step.required
-        });
-      });
-      // Run validation
-      const validationResult = await validatePage({
-        schemas: stepSchemas,
-        values: effectiveValues,
-        allValues: effectiveValues,
-        pageRules: (currentSection.config as SectionConfig | undefined)?.validationRules ?? []
-      });
-      if (!validationResult.valid) {
-        setFieldErrors(validationResult.blockErrors);
-        const newErrors: string[] = [];
-        Object.values(validationResult.blockErrors).forEach(errs => newErrors.push(...errs));
-        setErrors(newErrors);
-        toast({
-          title: "Please complete all required fields",
-          description: "Some information is still needed before continuing.",
-          variant: "destructive"
-        });
-        const firstErrorId = Object.keys(validationResult.blockErrors)[0];
-        if (firstErrorId) {
-          const element = document.getElementById(firstErrorId);
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }
-        return;
-      }
-    } catch (e) {
-      console.error("Validation error", e);
-      if (mode === 'preview' && previewEnvironment) {
-        void previewEnvironment.addTraceEntry({
-          type: 'error',
-          status: 'failed',
-          message: 'Validation Exception',
-          details: { error: e }
-        });
-      }
-      // eslint-disable-next-line sonarjs/no-collapsible-if
-      toast({ title: "Unable to continue", description: "Something went wrong. Please try again.", variant: "destructive" });
-      return;
-    }
-    // eslint-disable-next-line sonarjs/no-collapsible-if
-    if (mode === 'preview') {
-      // Handle Preview Environment
-      if (previewEnvironment) {
-        // Log successful validation
-        void previewEnvironment.addTraceEntry({
-          type: 'logic',
-          status: 'executed',
-          message: 'Page Validation Passed',
-          details: { stepsValidated: visibleSectionSteps?.length }
-        });
-        if (isLastSection) {
-          previewEnvironment.completeRun();
-          void previewEnvironment.addTraceEntry({
-            type: 'step',
-            status: 'executed',
-            message: 'Workflow Completed',
-          });
-          toast({ title: "Preview Complete!", description: "Preview workflow completed successfully" });
-          if (onPreviewComplete) { onPreviewComplete(); }
-          return;
-        }
-        const nextIndex = Math.min(currentSectionIndex + 1, visibleSections.length - 1);
-        const nextSection = visibleSections[nextIndex];
-        // CRITICAL FIX: If navigating to a Final Documents section, save all preview values to database first
-        // This ensures document generation has access to the actual form values
-        if (actualRunId !== null && actualRunId !== undefined && nextSection !== null && nextSection !== undefined && (nextSection.config as SectionConfig | undefined)?.finalBlock === true) {
-          try {
-            // Get all values from preview environment
-            const allValues = previewEnvironment.getValues();
-            // Convert to array format expected by bulk API
-            const valuesToSave = Object.entries(allValues).map(([stepId, value]) => ({
-              stepId,
-              value
-            }));
-            // Get run token for authentication
-            const runToken = getRunToken(actualRunId);
-            // Save to database using bulk endpoint
-            const response = await fetch(`/api/runs/${actualRunId}/values/bulk`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(runToken ? { 'Authorization': `Bearer ${runToken}` } : {})
-              },
-              credentials: 'include',
-              body: JSON.stringify({ values: valuesToSave })
-            });
-            if (!response.ok) {
-              throw new Error('Failed to save preview values to database');
-            }
-          } catch (error) {
-            console.error('[WorkflowRunner] Failed to save preview values:', error);
-            toast({
-              title: "Warning",
-              description: "Failed to save form values. Documents may use default values.",
-              variant: "destructive"
-            });
-          }
-        }
-        setCurrentSectionIndex(nextIndex);
-        previewEnvironment.setCurrentSection(nextIndex);
-        return;
-      }
-    }
-    // PRODUCTION MODE: Submit to database and navigate
-    const currentSectionStepIds = new Set(currentSectionSteps.map(s => s.id));
-    // Collect values ONLY for steps in the current section
-    const sectionValues = Object.keys(formValues)
-      .filter((stepId) => currentSectionStepIds.has(stepId))
-      .map((stepId) => ({ stepId, value: formValues[stepId] }));
-    try {
-      // Submit section with validation
-      const result = await submitMutation.mutateAsync({
-        runId: actualRunId!,
-        sectionId: currentSection.id,
-        values: sectionValues,
-      });
-      if (!result.success && result.errors) {
-        setErrors(result.errors);
-        if (result.fieldErrors) {
-          setFieldErrors(result.fieldErrors);
-          // Scroll to first error
-          const firstErrorId = Object.keys(result.fieldErrors)[0];
-          if (firstErrorId) {
-            // Wait for render to show errors (optional, but good practice if layout shifts)
-            setTimeout(() => {
-              const element = document.getElementById(firstErrorId);
-              if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-            }, 100);
-          }
-        }
-        toast({ title: "Please complete all required fields", description: result.errors[0], variant: "destructive" });
-        return;
-      }
-      // If last section, show Review Screen instead of completing immediately
-      if (isLastSection) {
-        setShowReview(true);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        return;
-      }
-      /* 
-       * OLD DIRECT COMPLETION LOGIC - Moved to handleFinalSubmit
-       * 
-       * if (isLastSection) {
-       *   await completeMutation.mutateAsync(actualRunId!);
-       *   toast({ title: "Complete!", description: "Workflow completed successfully" });
-       *   return;
-       * }
-       */
-      // Otherwise, navigate to next section
-      const nextResult = await nextMutation.mutateAsync({
-        runId: actualRunId!,
-        currentSectionId: currentSection.id,
-      });
-      // Find next section index in visibleSections (not all sections)
-      if (nextResult.nextSectionId != null) {
-        const nextIndex = visibleSections.findIndex((s) => s.id === nextResult.nextSectionId);
-        if (nextIndex >= 0) {
-          setCurrentSectionIndex(nextIndex);
-        } else {
-          // Server picked a section the client's local visibility eval hides
-          // (the two evaluators can disagree, e.g. skip_to rules). Don't
-          // silently stay put — advance to the next locally-visible section,
-          // or the Review screen if we're out of sections.
-          console.warn('[WorkflowRunner] Server nextSectionId not locally visible, advancing sequentially', nextResult.nextSectionId);
-          if (currentSectionIndex + 1 < visibleSections.length) {
-            setCurrentSectionIndex(currentSectionIndex + 1);
-          } else {
-            setShowReview(true);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }
-        }
-      } else {
-        // Default: next in sequence
-        const newIndex = Math.min(currentSectionIndex + 1, visibleSections.length - 1);
-        setCurrentSectionIndex(newIndex);
-      }
-    } catch (error) {
-      console.error('[WorkflowRunner] Submit/next error:', error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to proceed";
-      toast({ title: "Error", description: errorMessage, variant: "destructive" });
-    }
-  }; // Close handleNext
-  const handleFinalSubmit = async () => {
-    if (!actualRunId) { return; }
-    try {
-      await completeMutation.mutateAsync(actualRunId);
-      // Analytics: track completion on ACTUAL submission, not on reaching
-      // the last section (users who abandon at Review are not completions)
-      const vId = run?.versionId;
-      if (workflowId && vId) {
-        void analytics.runComplete(actualRunId, workflowId, vId);
-      }
-      toast({ title: "Success", description: "Workflow submitted successfully" });
-      // Clear the run token from both stores to prevent accumulation and leakage.
-      // clearRunToken covers production (localStorage); clearToken covers preview runs.
-      clearRunToken(actualRunId);
-      usePreviewStore.getState().clearToken(actualRunId);
-      // After completion, the backend status updates.
-      // The component will re-render.
-      // We need to ensure we show the Final/Intake screen.
-      // Usually `useRunWithValues` or `useWorkflow` data update triggers UI change?
-      // Or we rely on `isFinalDocumentsSection` logic (which depends on runner state?).
-      // Actually, `isFinalDocumentsSection` logic usually checks if run is completed?
-      // Or if we are past the last step?
-      // Let's force a refetch or rely on mutation success.
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to submit workflow", variant: "destructive" });
-    }
-  };
-  const handlePrev = () => {
-    if (showReview) {
-      setShowReview(false);
-      return;
-    }
-    setCurrentSectionIndex((prev) => Math.max(prev - 1, 0));
-  };
-
-  // The actual "Completion" happens AFTER review relative to user flow,
-  // but logically "Final Documents" is section-based.
-  // Let's adjust:
-  // If we are past the last visible section, we show Review.
-  // AFTER Review, we show "Final Documents" or "Intake Assignment".
-  // Actually, existing logic uses isLastSection (index === length - 1).
-  // We need to inject Review BEFORE the "Final Documents" section if it exists,
-  // OR just treat Review as a virtual step before completion.
-  // Let's use a state for 'showReview' if we are at the end of sections but before submission?
-  // Or just map it as a step index.
-  // Current logic: visibleSections includes the Final Docs section?
-  // Usually Final Docs is a section.
-  // Let's treat Review as a distinct state.
-  // Update handleNext to show review before final section
-  // ... this requires deeper logic change in handleNext.
-  // For now, let's just wrap the EXISTING content in the new Layout.
-  // Safety check
-  if (currentSection === null || currentSection === undefined) {
-    console.error('[WR] No current section!', { visibleSections: visibleSections.length, currentSectionIndex });
-    return <div className="min-h-screen flex items-center justify-center"><p>Error: No section found</p></div>;
-  }
-  try {
+  if (!sections || !workflowId || (mode === 'production' && !actualRunId)) {
     return (
-      <ClientRunnerLayout
-        title={showReview ? "Review & Confirm" : (currentSection?.title || workflow?.title)}
-        progress={progress}
-        currentStep={showReview ? visibleSections.length : currentSectionIndex}
-        totalSteps={visibleSections.length}
-      >
-        {/* Section Content */}
-        {/* eslint-disable-next-line @typescript-eslint/no-unsafe-member-access */}
-        {isFinalDocumentsSection && workflow?.intakeConfig?.isIntake ? (
-          <IntakeAssignmentSection
-            workflow={workflow}
-            runValues={effectiveValues}
-          />
-        ) : isFinalDocumentsSection ? (
-          actualRunId ? (
-            <FinalDocumentsSection
-              runId={actualRunId}
-              runToken={runToken ?? undefined}
-              sectionConfig={(currentSection.config) || {
-                screenTitle: "Your Completed Documents",
-                markdownMessage: "# Thank You!\n\nYour documents are ready for download below.",
-                templates: []
-              }}
-            />
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>Initializing Document Generation...</CardTitle>
-                <CardDescription>Please wait while we prepare your documents</CardDescription>
-              </CardHeader>
-              <CardContent className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-              </CardContent>
-            </Card>
-          )
-        ) : showReview ? (
-          <>
-            <ReviewSection
-              sections={visibleSections}
-              allSteps={allSteps ?? []}
-              values={effectiveValues}
-              visibleSectionIds={visibleSections.map(s => s.id)}
-              onEditSection={(index) => {
-                setShowReview(false);
-                setCurrentSectionIndex(index);
-              }}
-            />
-            <div className="flex items-center justify-between pt-6 border-t border-slate-100 mt-8">
-              <Button
-                variant="ghost"
-                onClick={() => { void setShowReview(false); }}
-                className="text-slate-500 hover:text-slate-900"
-              >
-                <ChevronLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <Button
-                onClick={() => { void handleFinalSubmit(); }}
-                disabled={completeMutation.isPending}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white min-w-[140px]"
-              >
-                Confirm & Submit <Check className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
-          </>
-        ) : (
-          <div className="space-y-6">
-            {currentSection.description && (
-              <p className="text-slate-600 mb-6">{currentSection.description}</p>
-            )}
-            <SectionSteps
-              key={currentSection.id}
-              sectionId={currentSection.id}
-              steps={allSteps?.filter((s: ApiStep) => s.sectionId === currentSection.id)}
-              values={effectiveValues}
-              logicRules={logicRules ?? []}
-              errors={fieldErrors}
-              intakeData={intakeData}
-              onChange={(stepId, value) => {
-                if (mode === 'preview') {
-                  if (previewEnvironment) {
-                    previewEnvironment.setValue(stepId, value);
-                  }
-                } else {
-                  setFormValues((prev) => ({ ...prev, [stepId]: value }));
-                }
-                if (fieldErrors[stepId] != null) {
-                  const newFieldErrors = { ...fieldErrors };
-                  delete newFieldErrors[stepId];
-                  setFieldErrors(newFieldErrors);
-                }
-              }}
-            />
-            {errors.length > 0 && (
-              <div className="p-4 bg-red-50 text-red-700 border border-red-100 rounded-md text-sm">
-                {errors.map((error, i) => (
-                  <div key={i}>{error}</div>
-                ))}
-              </div>
-            )}
-            {/* Navigation */}
-            <div className="flex items-center justify-between pt-6 border-t border-slate-100 mt-8">
-              <Button
-                variant="ghost"
-                onClick={() => { void handlePrev(); }}
-                disabled={currentSectionIndex === 0}
-                className="text-slate-500 hover:text-slate-900"
-              >
-                <ChevronLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <Button
-                onClick={() => { void handleNext(); }}
-                disabled={submitMutation.isPending || nextMutation.isPending || completeMutation.isPending}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white min-w-[120px]"
-              >
-                {isLastSection ? (
-                  <>
-                    Complete <Check className="w-4 h-4 ml-2" />
-                  </>
-                ) : (
-                  <>
-                    Next Step <ChevronRight className="w-4 h-4 ml-2" />
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
+      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-zinc-950">
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          <p className="text-sm text-gray-500">Loading workflow...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle specific section overrides
+  if (currentSection && (currentSection.config as any)?.intakeAssignment) {
+    return (
+      <ClientRunnerLayout title={workflow?.title ?? "Workflow"} currentStep={currentSectionIndex} totalSteps={visibleSections.length}>
+        <IntakeAssignmentSection workflow={workflow as any} runValues={effectiveValues} onComplete={handleNext} />
       </ClientRunnerLayout>
     );
-  } catch (error) {
-    console.error('[WR] Render error:', error);
-    return <div className="min-h-screen flex items-center justify-center"><p>Error rendering workflow: {String(error)}</p></div>;
   }
+  if (currentSection && (currentSection.config as any)?.finalBlock) {
+    return (
+      <ClientRunnerLayout title={workflow?.title ?? "Workflow"} currentStep={currentSectionIndex} totalSteps={visibleSections.length}>
+        <FinalDocumentsSection runId={actualRunId!} runToken={runToken ?? undefined} sectionConfig={currentSection.config as any} />
+      </ClientRunnerLayout>
+    );
+  }
+  if (showReview) {
+    return (
+      <ClientRunnerLayout title={workflow?.title ?? "Workflow"} currentStep={visibleSections.length} totalSteps={visibleSections.length}>
+        <ReviewSection 
+          sections={visibleSections} 
+          allSteps={effectiveAllSteps ?? []}
+          values={effectiveValues} 
+          visibleSectionIds={visibleSections.map(s => s.id)}
+          onEditSection={(sectionIndex) => {
+            setCurrentSectionIndex(sectionIndex);
+            setShowReview(false);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
+        <div className="mt-8 flex justify-between">
+          <Button type="button" variant="outline" onClick={() => setShowReview(false)}>
+            Back
+          </Button>
+          <Button type="button" onClick={handleFinalSubmit} disabled={completeMutationIsPending}>
+            {completeMutationIsPending ? "Submitting..." : "Submit"}
+          </Button>
+        </div>
+      </ClientRunnerLayout>
+    );
+  }
+
+  const visibleSectionSteps = currentSection ? getVisibleSectionSteps(currentSection.id, mode === 'preview' ? previewState : undefined) : [];
+
+  return (
+    <ClientRunnerLayout title={workflow?.title ?? "Workflow"} currentStep={currentSectionIndex} totalSteps={visibleSections.length}>
+      <Card className="shadow-lg border-t-4 border-t-primary dark:bg-zinc-900 overflow-visible mt-6 md:mt-0">
+        {currentSection && (
+          <CardHeader className="bg-gray-50/50 dark:bg-zinc-800/50 border-b pb-6">
+            <CardTitle className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+              {currentSection.title}
+            </CardTitle>
+            {currentSection.description && (
+              <CardDescription className="text-base mt-2 whitespace-pre-wrap dark:text-gray-400">
+                {currentSection.description}
+              </CardDescription>
+            )}
+          </CardHeader>
+        )}
+        <CardContent className="pt-8 overflow-visible p-6 md:p-8">
+          {errors.length > 0 && (
+            <div className="mb-6 rounded-md bg-destructive/15 p-4 border border-destructive/20" role="alert" aria-live="assertive">
+              <h3 className="text-sm font-medium text-destructive mb-2 flex items-center">
+                <span className="w-1.5 h-1.5 rounded-full bg-destructive mr-2"></span>
+                Please fix the following errors to continue:
+              </h3>
+              <ul className="list-disc pl-5 space-y-1">
+                {errors.map((error, index) => (
+                  <li key={index} className="text-sm text-destructive/90">{error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {currentSection && visibleSectionSteps.length > 0 ? (
+            <SectionSteps 
+              sectionId={currentSection.id}
+              steps={visibleSectionSteps} 
+              values={effectiveValues} 
+              onChange={handleUpdateValue} 
+              errors={fieldErrors}
+              logicRules={[]}
+            />
+          ) : (
+            <div className="py-12 text-center text-gray-500 italic border border-dashed rounded-lg bg-gray-50 dark:bg-zinc-800 dark:border-zinc-700">
+              {currentSection ? "No questions in this section." : "No visible sections."}
+            </div>
+          )}
+        </CardContent>
+        <div className="px-6 py-4 md:px-8 border-t bg-gray-50 dark:bg-zinc-900/50 rounded-b-xl flex justify-between items-center sticky bottom-0 z-10">
+          <Button type="button" variant="outline" onClick={handlePrev} disabled={currentSectionIndex === 0} className="w-28 md:w-32 shadow-sm font-medium">
+            <ChevronLeft className="w-4 h-4 mr-2" /> Back
+          </Button>
+          <Button type="button" onClick={handleNext} className="w-28 md:w-32 shadow-sm font-medium relative group">
+            {isLastSection ? (
+              <>Review <Check className="w-4 h-4 ml-2" /></>
+            ) : (
+              <>Next <ChevronRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" /></>
+            )}
+          </Button>
+        </div>
+      </Card>
+    </ClientRunnerLayout>
+  );
 }

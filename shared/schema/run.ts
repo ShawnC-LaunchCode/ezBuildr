@@ -58,6 +58,7 @@ export const workflowRuns = pgTable("workflow_runs", {
     progress: integer("progress").default(0),
     completed: boolean("completed").default(false),
     completedAt: timestamp("completed_at"),
+    generationStatus: varchar("generation_status", { length: 50 }).default('pending'),
     metadata: jsonb("metadata"),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
@@ -165,6 +166,8 @@ export const runGeneratedDocuments = pgTable("run_generated_documents", {
     mimeType: text("mime_type"),
     fileSize: integer("file_size"),
     templateId: uuid("template_id").references(() => workflowTemplates.id, { onDelete: 'set null' }),
+    unresolvedVariables: jsonb("unresolved_variables").default([]),
+    pdfFailed: boolean("pdf_failed").default(false),
     createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
     index("run_generated_documents_run_idx").on(table.runId),

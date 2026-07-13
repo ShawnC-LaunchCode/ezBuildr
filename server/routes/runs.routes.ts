@@ -505,8 +505,8 @@ export function registerRunRoutes(app: Express): void {
           return res.status(403).json({ success: false, error: "Access denied - run mismatch" });
         }
         // Fetch documents without userId check
-        const documents = await runService.getGeneratedDocuments(runId);
-        return res.json({ success: true, documents });
+        const { documents, generationStatus } = await runService.getGeneratedDocuments(runId);
+        return res.json({ success: true, documents, generationStatus });
       }
       // For session auth, we need userId
       if (!userId) {
@@ -516,8 +516,8 @@ export function registerRunRoutes(app: Express): void {
       // Verify user has access to the run
       await runService.getRun(runId, userId);
       
-      const documents = await runService.getGeneratedDocuments(runId);
-      res.json({ success: true, documents });
+      const { documents, generationStatus } = await runService.getGeneratedDocuments(runId);
+      res.json({ success: true, documents, generationStatus });
     } catch (error) {
       logger.error({ error, runId: req.params.runId }, "Error fetching generated documents");
       const { status, message } = classifyRouteError(error, "Failed to fetch documents");

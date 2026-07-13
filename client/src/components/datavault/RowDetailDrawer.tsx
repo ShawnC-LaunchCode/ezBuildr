@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import { DocumentsTab } from "./DocumentsTab";
 import { NotesTab } from "./NotesTab";
 interface RowDetailDrawerProps {
   rowId: string | null;
@@ -41,10 +42,13 @@ export function RowDetailDrawer({
         </SheetHeader>
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-          <TabsList className="grid w-full grid-cols-2 px-6">
+          <TabsList className="grid w-full grid-cols-3 px-6">
             <TabsTrigger value="notes">Notes</TabsTrigger>
             <TabsTrigger value="history" disabled>
               History
+            </TabsTrigger>
+            <TabsTrigger value="documents">
+              Documents
             </TabsTrigger>
           </TabsList>
           <TabsContent value="notes" className="flex-1 mt-0">
@@ -56,6 +60,11 @@ export function RowDetailDrawer({
             <div className="flex items-center justify-center h-full text-muted-foreground">
               <p className="text-sm">History coming soon...</p>
             </div>
+          </TabsContent>
+          <TabsContent value="documents" className="flex-1 mt-0 overflow-y-auto">
+            {rowId && (
+              <DocumentsTab runId={rowId} />
+            )}
           </TabsContent>
         </Tabs>
       </SheetContent>

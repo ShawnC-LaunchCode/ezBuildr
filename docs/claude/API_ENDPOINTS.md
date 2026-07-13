@@ -163,6 +163,7 @@ GET         /api/admin/users
 PUT         /api/admin/users/:userId/role         # NOT /set-admin
 GET         /api/admin/logs (+ /export, /events, /actors)
 GET         /api/admin/stats
+GET         /api/admin/org-stats
 GET         /api/admin/workflows*
 PUT         /api/admin/tenants/:tenantId/mfa-required
 ```

@@ -163,6 +163,17 @@ export class WorkflowRunRepository extends BaseRepository<
   }
 
   /**
+   * Update the generation status of a run
+   */
+  async updateGenerationStatus(runId: string, status: string, tx?: DbTransaction): Promise<void> {
+    const database = this.getDb(tx);
+    await database
+      .update(workflowRuns)
+      .set({ generationStatus: status, updatedAt: new Date() })
+      .where(eq(workflowRuns.id, runId));
+  }
+
+  /**
    * Find run by portal access key
    */
   async findByPortalAccessKey(key: string, tx?: DbTransaction): Promise<WorkflowRun | null> {

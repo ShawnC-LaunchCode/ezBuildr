@@ -181,7 +181,8 @@ export class RunStateService {
       throw new Error("Run not found");
     }
 
-    return this.docsRepo.findByRunId(runId);
+    const documents = await this.docsRepo.findByRunId(runId);
+    return { documents, generationStatus: run.generationStatus };
   }
 
   /**

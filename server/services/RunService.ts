@@ -509,7 +509,7 @@ export class RunService {
    * Get generated documents for a run
    * Returns all documents generated during workflow completion
    */
-  async getGeneratedDocuments(runId: string): Promise<unknown> {
+  async getGeneratedDocuments(runId: string) {
     return this.stateService.getGeneratedDocuments(runId);
   }
   /**

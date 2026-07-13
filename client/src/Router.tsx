@@ -20,6 +20,7 @@ const LandingV2 = lazy(() => import("@/marketing/v2/LandingV2"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const WorkflowsList = lazy(() => import("@/pages/WorkflowsList"));
 const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
+const AdminOrgStats = lazy(() => import("@/pages/AdminOrgStats"));
 const AdminUsers = lazy(() => import("@/pages/AdminUsers"));
 const AdminLogs = lazy(() => import("@/pages/AdminLogs"));
 const AdminAiSettings = lazy(() => import("@/pages/AdminAiSettings"));
@@ -141,6 +142,7 @@ export default function Router() {
                         <Route path="/projects/:id/settings/email-templates/:templateId" component={EmailTemplateEditorPage} />
                         {/* Admin routes */}
                         <Route path="/admin" component={AdminDashboard} />
+                        <Route path="/admin/org-stats" component={AdminOrgStats} />
                         <Route path="/admin/users" component={AdminUsers} />
                         <Route path="/admin/logs" component={AdminLogs} />
                         <Route path="/admin/ai-settings" component={AdminAiSettings} />

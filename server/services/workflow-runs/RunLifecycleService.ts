@@ -345,11 +345,14 @@ export class RunLifecycleService {
       if (!run) {throw createError.notFound('Workflow run', runId);}
       const workflowId = run.workflowId;
 
+      await workflowRunRepository.updateGenerationStatus(runId, 'generating');
+
       // Idempotency gate: a double-complete, or completion racing the
       // client's explicit generate-documents call, must not duplicate files
       const existingDocs = await runGeneratedDocumentsRepository.findByRunId(runId);
       if (existingDocs.length > 0) {
         logger.info({ runId, documentCount: existingDocs.length }, 'Documents already generated for run, skipping');
+        await workflowRunRepository.updateGenerationStatus(runId, 'done');
         return { success: true, documentsGenerated: 0 };
       }
 
@@ -375,6 +378,7 @@ export class RunLifecycleService {
 
       if (finalBlockConfigs.length === 0) {
         logger.info({ runId }, 'No Final Block steps or Final Documents sections found, skipping document generation');
+        await workflowRunRepository.updateGenerationStatus(runId, 'done');
         return { success: true, documentsGenerated: 0 };
       }
 
@@ -416,6 +420,7 @@ export class RunLifecycleService {
               mimeType: doc.mimeType,
               fileSize: doc.size,
               templateId: null,
+              unresolvedVariables: doc.unresolvedVariables ?? [],
             });
           } catch (persistError) {
             logger.warn({ persistError, runId, filename: doc.filename }, 'Failed to persist generated document record');
@@ -425,16 +430,20 @@ export class RunLifecycleService {
 
       logger.info({ runId, totalGenerated }, 'Documents generated successfully');
 
+      await workflowRunRepository.updateGenerationStatus(runId, 'done');
+
       return {
         success: true,
         documentsGenerated: totalGenerated
       };
     } catch (error) {
       logger.error({ error, runId }, 'Document generation failed');
+      const errorMessage = (error as Error).message;
+      await workflowRunRepository.updateGenerationStatus(runId, `failed:${(error as Error).message.substring(0, 50)}`);
       return {
         success: false,
         documentsGenerated: 0,
-        errors: [(error as Error).message]
+        errors: [errorMessage]
       };
     }
   }

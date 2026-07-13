@@ -24,6 +24,8 @@ import { applyMapping, type DocumentMapping, type MappingResult } from './Mappin
 import { normalizeVariables, type NormalizedData, type NormalizationOptions } from './VariableNormalizer.js';
 
 import type { DocumentGenerationOptions, DocumentGenerationResult } from './DocumentEngine.js';
+import { evaluateConditionExpression } from '../../../shared/conditionEvaluator.js';
+import type { ConditionGroup } from '../../../shared/types/conditions.js';
 import type { LogicExpression } from '../../../shared/types/stepConfigs.js';
 
 const logger = createLogger({ module: 'enhanced-doc-engine' });
@@ -506,41 +508,21 @@ export class EnhancedDocumentEngine {
       return true;
     }
 
-    const operator = conditions.operator ?? 'AND';
-    const results = conditions.conditions.map(cond => {
-      const value = stepValues[cond.key];
+    const expression: ConditionGroup = {
+      type: 'group',
+      id: 'root',
+      operator: conditions.operator ?? 'AND',
+      conditions: conditions.conditions.map((cond, index) => ({
+        type: 'condition',
+        id: `doc_cond_${index}`,
+        variable: cond.key,
+        operator: cond.op,
+        value: cond.value,
+        valueType: 'constant'
+      }))
+    };
 
-      switch (cond.op) {
-        case 'equals':
-          return value === cond.value;
-        case 'not_equals':
-          return value !== cond.value;
-        case 'contains':
-          if (typeof value === 'string') {
-            return value.includes(String(cond.value));
-          }
-          if (Array.isArray(value)) {
-            return value.includes(cond.value);
-          }
-          return false;
-        case 'greater_than':
-          return Number(value) > Number(cond.value);
-        case 'less_than':
-          return Number(value) < Number(cond.value);
-        case 'is_empty':
-          return !value || value === '' || (Array.isArray(value) && value.length === 0);
-        case 'is_not_empty':
-          return !!value && value !== '' && (!Array.isArray(value) || value.length > 0);
-        default:
-          return true;
-      }
-    });
-
-    if (operator === 'AND') {
-      return results.every(r => r);
-    } else {
-      return results.some(r => r);
-    }
+    return evaluateConditionExpression(expression, stepValues);
   }
 }
 

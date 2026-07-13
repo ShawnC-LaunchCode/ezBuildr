@@ -75,6 +75,7 @@ export interface FinalBlockRenderResponse {
     filePath: string;
     mimeType: string;
     size: number;
+    unresolvedVariables?: string[];
   }>;
 
   /** ZIP archive (if multiple documents) */
@@ -349,6 +350,7 @@ export class FinalBlockRenderer {
         filePath,
         mimeType,
         size: stats.size,
+        unresolvedVariables: result.unresolvedVariables,
       });
     }
 

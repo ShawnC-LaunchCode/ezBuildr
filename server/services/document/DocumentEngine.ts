@@ -13,11 +13,13 @@ export interface DocumentGenerationOptions {
     outputDir?: string;
     toPdf?: boolean;
     pdfStrategy?: 'puppeteer' | 'libreoffice';
+    unresolvedVariables?: string[];
 }
 export interface DocumentGenerationResult {
     docxPath: string;
     pdfPath?: string;
     size: number;
+    unresolvedVariables?: string[];
 }
 export class DocumentEngine {
     private parser: TemplateParser;
@@ -34,12 +36,13 @@ export class DocumentEngine {
             outputName,
             outputDir = path.join(process.cwd(), 'server', 'files', 'outputs'),
             toPdf = false,
+            unresolvedVariables = [],
         } = options;
         logger.info({ templatePath, outputName, toPdf }, 'Starting document generation');
         // Ensure output directory exists
         await fs.mkdir(outputDir, { recursive: true });
         // 1. Render DOCX
-        const buffer = await this.parser.render({ templatePath, templateBuffer, data });
+        const buffer = await this.parser.render({ templatePath, templateBuffer, data, unresolvedVariables });
         // Generate output filename
         const timestamp = Date.now();
         const docxFileName = `${outputName}-${timestamp}.docx`;
@@ -50,6 +53,7 @@ export class DocumentEngine {
         const result: DocumentGenerationResult = {
             docxPath,
             size: stats.size,
+            unresolvedVariables,
         };
         // 2. Convert to PDF if requested
         if (toPdf) {

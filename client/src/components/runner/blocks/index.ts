@@ -27,4 +27,3 @@ export { DisplayBlockRenderer } from "./DisplayBlock";
 export { FinalBlockRenderer } from "./FinalBlock";
 export { SignatureBlockRenderer } from "./SignatureBlockRenderer";
 
-export { validateBlockValue, validateSectionSteps } from "./validation";
