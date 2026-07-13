@@ -15,6 +15,54 @@ interface the AI path can reuse (see DOC-105).
 > **renamed `steps.options` → `steps.config` end-to-end** (RUN-6, Option B) —
 > any new ticket touching step config should assume the field is `config`.
 
+## Verification review — 2026-07-13 PM (senior close-out pass)
+
+Every ticket re-verified against the actual code (committed `747011ad`/`0a125a00`
+plus the uncommitted working set). **Verdict: nothing closes yet.** A large,
+genuinely good implementation wave landed most of the backlog's substance, but
+the close bar is "acceptance criteria pass on a tree that builds and is green,"
+and the tree currently fails that gate:
+
+### 🚫 Release blockers (fix before ANY ticket closes)
+
+| # | Blocker | Evidence |
+|---|---|---|
+| B1 | **Working tree does not compile — 67 tsc errors.** The RUN-6 `options`→`config` rename is mid-flight; tests/scripts/5 services still reference `options` | `npx tsc --noEmit --pretty false` → 67 errors across 26 files |
+| B2 | **RUN-2 P0 active: completion auto-generates BLANK documents.** Uncommitted change passes stepId-keyed `blockResult.data` into generation; templates key on alias | `RunCompletionService.ts:101` → `generateDocuments(runId, blockResult.data)`; `RunLifecycleService.ts:377` `currentData ?? getRunDataWithAliases(...)` |
+| B3 | **Logic rules silently disabled in the runner.** The decomposed `WorkflowRunner` hardcodes `logicRules={[]}` (old runner fetched `/api/workflows/:id/logic-rules`); rule-driven show/hide/require no longer runs client-side | `client/src/pages/WorkflowRunner.tsx:210` |
+| B4 | **HEAD's runner fetches a nonexistent endpoint.** Committed `WorkflowRunner` (747011ad) loads steps from `GET /api/workflows/:workflowId/steps`, which only exists in the *uncommitted* diff — at HEAD the interview cannot load steps | `WorkflowRunner.tsx:50` vs `steps.routes.ts:132` (uncommitted) |
+| B5 | **`pdfStrategy` out-of-scope identifier** — compile error / RUN-5 crash | `FinalBlockRenderer.ts:355` references `pdfStrategy`; `prepareResponseDocuments(results, toPdf)` has no such param |
+| B6 | 4 unit suites failing: `RunCompletionService` (suite), `RunExecutionCoordinator` (2 tests — rename fallout), `StepService`, `AliasRenameService` | `npm run test:fast` |
+| B7 | Codemod junk `update_blocks.py` at repo root; must not ship | repo root |
+
+### Per-ticket verdicts
+
+| Ticket | Verdict | What's genuinely done (verified) | Returned — what's missing | Remaining effort |
+|---|---|---|---|---|
+| DOC-101 autosave | 🟡 Returned | Debounced 1.5s autosave wired (`useRunValues`+`useAutoSave`), flush on Next/Prev, `beforeunload` keepalive, preview disabled, Saving/Saved indicator in header, 3 unit tests green | (1) `performSave` doesn't throw on `!response.ok` — a 500 shows **"Saved"** and marks data clean, so no retry until the user types again; (2) no integration test proving persistence to `step_values` (AC) | **S** (~½ day) |
+| DOC-102 decompose | 🟡 Returned | 1003→233-line `WorkflowRunner`, 4 hooks extracted, `runner/blocks/validation.ts` deleted, focus-to-first-invalid added | Regressions **B3** + **B4**; still TWO visibility systems (`useSectionVisibility` visibleIf-only for nav vs `useWorkflowVisibility` rules in `SectionSteps`); 3 raw `fetch` calls remain (`WorkflowRunner.tsx:52`, `useRunValues.ts:88`, `useRunNavigation.ts:184`); preview NOT isolated (mode branches throughout `useRunNavigation`); dead-code AC unaddressed | **S urgent** (B3/B4) + **M** (1–2 days) for the rest |
+| DOC-103 conditions | 🔴 Returned | Conditions now evaluate against normalized, hook-enhanced values (one-line fix) + new 20-case test file green | The private 7-operator evaluator still exists; no delegation to `shared/conditionEvaluator`; 28-operator + nested-path ACs unmet. RUN-11 (silent no-op date operators) also still open | **M** (~1 day) |
+| DOC-104 visibility | 🟡 Returned (closest) | `nullGetter` tracks unresolved tags (`RenderCore.ts:123-131`); `unresolvedVariables` persisted; `generationStatus` pending/generating/done/failed with **CAS `tryMarkGenerating`** (also progress on RUN-10); `/documents` returns status; `FinalDocumentsSection` distinguishes generating/failed/fallback; creator DocumentsTab | `pdf_failed` column exists but **is never written** by generation code (only a metrics fn named `pdfFailed` exists); the two AC integration tests (unknown-tag report; resolver-throw → `failed:` status) missing; end-to-end value defeated by B2 until fixed | **S** (~½ day) after B2 |
+| DOC-105 AI foundations | 🟡 Returned | `WorkflowContentIngestService` exists, runs `normalizeWorkflowTypes`+`validateWorkflowStructure`; `TemplateService.instantiate` and `WorkflowService` (AI path) both delegate to it | Validated step-value write entry (AC 4) not built — `/values/bulk` still unvalidated; single variable-context service (AC 3 / RUN-1) not built; AI-vs-manual parity test missing | **M** (1–1.5 days) |
+| DOC-106 logic N+1 | 🟡 Returned | `LogicService.buildContext` + ctx-threaded `isSectionVisible/isStepVisible/isStepRequired`; `determineStartSection` builds ctx once | Confirm `evaluateNavigation`/`validateCompletion` are single-load; query-count unit test (AC) missing | **S** |
+| DOC-107 PDF honesty | 🟡 Returned | `'libreoffice'` removed from both Zod enums + all type unions; `pdf_strategy` column + migration; strategy recorded on response docs | **B5** (the strategy value isn't actually threaded — compile error); docs/README/openapi still advertise libreoffice (unverified); no `toPdf:true` regression test (RUN-5 AC) | **S** |
+| DOC-108 transforms | 🔴 → **RUN-2** | (intent implemented) | The implementation is exactly the RUN-2 P0: threading `blockResult.data` stepId-keyed regressed ALL alias variables. Fix = `toAliasKeyed` at the completion→generation boundary (RUN-2 has the design + proof) | **S** — do first |
+| DOC-109 helpers | 🟡 Returned | All 5 helpers (`concat/round/percentage/addDays/daysBetween`) implemented, registered, 83 tests green in the extended suite | Upload-time unknown-helper warning in `TemplateValidationService` (AC 2) unverified/likely absent; can close quickly once tree is green | **XS** |
+| DOC-110 submit scope | ⬜ Untouched | — | Whole ticket (audit + decision) | **S** once decided |
+| DOC-111 a11y | 🟡 Returned | 15/18 block files wired with `aria-describedby`/`aria-required`/`aria-invalid` (codemod), focus moves to first invalid field on failed submit | Verify `BlockRenderer` threads `hasError`/`required` to every renderer; keyboard walkthrough + axe pass (ACs) not done; delete `update_blocks.py` | **S** |
+| DOC-112 polish | 🟡 Returned | `FullScreenLoader`, friendly Session Error card, "Review" label fix, per-step `BlockErrorBoundary`, old comment blocks gone with the rewrite | Verify branding-aware loading (minor); close after the tree compiles & suites green | **XS** |
+
+### Suggested close-out order (fastest path to closing tickets)
+
+1. **B1** — finish the `options`→`config` rename (tests/scripts/5 services), get tsc to 0 and the 4 suites green.
+2. **B2/DOC-108** — `toAliasKeyed` at the completion handoff (RUN-2's fix sketch), plus its regression test.
+3. **B3 + B4** — re-wire logic rules into the runner; commit the steps endpoint with the runner change (never apart).
+4. **B5/DOC-107 + B7** — thread `pdfStrategy`, delete the codemod, docs alignment → close DOC-107.
+5. DOC-104 pdfFailed write + 2 integration tests → close DOC-104. DOC-109 validation warning → close. DOC-112 → close. DOC-101 error-honesty + integration test → close. DOC-111 axe pass → close.
+6. Then the structural remainder: DOC-102 (one visibility path, preview boundary), DOC-103/RUN-11, DOC-105 remainder (with RUN-1), DOC-106 test.
+
+Total remaining to clear the whole board (excl. DOC-110 decision): roughly **4–6 focused days**.
+
 ## Already shipped (commit `bb048426`, 2026-07-13) — for context
 
 - Idempotent run completion (conditional `markComplete`, docs-exist gate,
