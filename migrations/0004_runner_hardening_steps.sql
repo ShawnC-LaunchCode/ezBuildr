@@ -3,13 +3,13 @@ BEGIN
   IF EXISTS (
     SELECT 1
     FROM information_schema.columns
-    WHERE table_schema = 'public'
+    WHERE table_schema = current_schema()
       AND table_name = 'steps'
       AND column_name = 'options'
   ) AND NOT EXISTS (
     SELECT 1
     FROM information_schema.columns
-    WHERE table_schema = 'public'
+    WHERE table_schema = current_schema()
       AND table_name = 'steps'
       AND column_name = 'config'
   ) THEN
@@ -17,13 +17,13 @@ BEGIN
   ELSIF EXISTS (
     SELECT 1
     FROM information_schema.columns
-    WHERE table_schema = 'public'
+    WHERE table_schema = current_schema()
       AND table_name = 'steps'
       AND column_name = 'options'
   ) AND EXISTS (
     SELECT 1
     FROM information_schema.columns
-    WHERE table_schema = 'public'
+    WHERE table_schema = current_schema()
       AND table_name = 'steps'
       AND column_name = 'config'
   ) THEN
@@ -74,6 +74,7 @@ BEGIN
     SELECT 1
     FROM pg_constraint
     WHERE conname = 'steps_workflow_id_workflows_id_fk'
+      AND connamespace = current_schema()::regnamespace
   ) THEN
     ALTER TABLE "steps"
       ADD CONSTRAINT "steps_workflow_id_workflows_id_fk"
