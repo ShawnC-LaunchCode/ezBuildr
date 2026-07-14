@@ -46,14 +46,30 @@ interface AIError {
     qualitySuggestions?: unknown;
 }
 
-interface AiValueSuggestionStep {
-    key: string;
-    type: string;
-    label?: string;
-    choices?: string[];
-    options?: string[];
-    description?: string;
+interface SanitizedValidationIssue {
+    path: string[];
+    message: string;
+    code: string;
 }
+
+function sanitizeValidationIssue(issue: unknown): SanitizedValidationIssue {
+    if (issue === null || typeof issue !== 'object') {
+        return { path: [], message: 'Invalid value', code: 'invalid_type' };
+    }
+
+    const issueRecord = issue as Record<string, unknown>;
+    const path = Array.isArray(issueRecord.path)
+        ? issueRecord.path.map((part) => String(part))
+        : [];
+
+    return {
+        path,
+        message: typeof issueRecord.message === 'string' ? issueRecord.message : 'Invalid value',
+        code: typeof issueRecord.code === 'string' ? issueRecord.code : 'custom',
+    };
+}
+
+
 
 interface AiVariable {
     alias: string;
@@ -515,7 +531,7 @@ export class AiController {
 
             // Create AI service and generate values
             const aiService = createAIServiceFromEnv();
-            const values = await aiService.suggestValues(steps, mode as 'full' | 'partial');
+            const values = await aiService.suggestValues(steps, mode);
 
             res.json({
                 success: true,
@@ -637,7 +653,7 @@ export class AiController {
 
         if (err.name === 'ZodError') {
             const sanitizedErrors = Array.isArray(err.errors) 
-                ? err.errors.map((e: any) => ({ path: e.path, message: e.message, code: e.code }))
+                ? err.errors.map(sanitizeValidationIssue)
                 : undefined;
             
             res.status(400).json({
@@ -651,7 +667,7 @@ export class AiController {
 
         if (err.code === 'VALIDATION_ERROR') {
             const sanitizedDetails = Array.isArray(err.details) 
-                ? err.details.map((d: any) => ({ path: d.path, message: d.message, code: d.code }))
+                ? err.details.map((d: { path: string[], message: string, code: string }) => ({ path: d.path, message: d.message, code: d.code }))
                 : undefined;
 
             res.status(422).json({
@@ -688,3 +704,4 @@ export class AiController {
         });
     }
 }
+

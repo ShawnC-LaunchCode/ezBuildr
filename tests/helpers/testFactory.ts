@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-unnecessary-type-assertion */
 import { randomUUID } from 'crypto';
 
 import { eq } from 'drizzle-orm';
@@ -67,7 +68,7 @@ export class TestFactory {
    *                 Pass a transaction for automatic rollback (recommended).
    */
   constructor(txOrDb?: DBInstance | DbTransaction) {
-    this.db = txOrDb ?? getDb()!;
+    this.db = txOrDb ?? getDb();
   }
   /**
    * Create a complete tenant hierarchy (tenant -> user -> project)

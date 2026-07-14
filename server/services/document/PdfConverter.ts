@@ -16,7 +16,7 @@ export interface PdfConversionStrategy {
 /**
  * Strategy using Puppeteer (Headless Chrome)
  * Converts DOCX -> HTML (via Mammoth) -> PDF (via Puppeteer)
- * Pros: No external system dependencies (LibreOffice), highly customizable via CSS
+ * Pros: No external office-suite dependency, highly customizable via CSS
  * Cons: Layout fidelity depends on Mammoth's conversion quality
  */
 export class PuppeteerStrategy implements PdfConversionStrategy {
@@ -160,8 +160,7 @@ export class ApiStrategy implements PdfConversionStrategy {
         logger.info({ docxPath: options.docxPath, apiUrl }, 'Converting PDF via API');
         
         // Pseudo-implementation for API conversion
-        // e.g. POST to Gotenberg /forms/chromium/convert/html (after Mammoth HTML conversion)
-        // or /forms/libreoffice/convert for raw docx.
+        // e.g. POST to Gotenberg /forms/chromium/convert/html after Mammoth HTML conversion.
         
         // For now, we will just simulate a failed API call so it falls back or fails cleanly
         // if the API isn't actually implemented

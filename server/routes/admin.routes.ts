@@ -69,7 +69,7 @@ export function registerAdminRoutes(app: Express): void {
       }
 
       const { userId } = req.params;
-      const { isActive } = req.body;
+      const { isActive } = req.body as { isActive: boolean };
 
       if (typeof isActive !== 'boolean') {
         return res.status(400).json({ message: "isActive must be a boolean" });
@@ -371,7 +371,7 @@ export function registerAdminRoutes(app: Express): void {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const { email, role } = req.body;
+      const { email, role } = req.body as { email: string, role: string };
 
       if (!email || !role) {
         return res.status(400).json({ message: "Email and role are required" });
@@ -396,7 +396,7 @@ export function registerAdminRoutes(app: Express): void {
         email,
         placeholderEmail: email,
         isPlaceholder: true,
-        role: role as any,
+        role: role,
         authProvider: 'local',
         defaultMode: 'easy',
       });
@@ -421,7 +421,7 @@ export function registerAdminRoutes(app: Express): void {
         entityType: 'user',
         entityId: userId,
         metadata: { targetEmail: email, role }
-      }).catch(e => logger.error({err: e}, 'Failed to log User Invited activity'));
+      }).catch((e: unknown) => logger.error({err: e}, 'Failed to log User Invited activity'));
 
       res.status(201).json({
         message: "User invited successfully",
@@ -466,7 +466,7 @@ export function registerAdminRoutes(app: Express): void {
         entityType: 'user',
         entityId: userId,
         metadata: { targetEmail: user.email, role: user.role }
-      }).catch(e => logger.error({err: e}, 'Failed to log Invite Resent activity'));
+      }).catch((e: unknown) => logger.error({err: e}, 'Failed to log Invite Resent activity'));
 
       res.json({ message: "Invitation resent successfully" });
     } catch (error) {
@@ -899,3 +899,4 @@ export function registerAdminRoutes(app: Express): void {
     }
   }));
 }
+

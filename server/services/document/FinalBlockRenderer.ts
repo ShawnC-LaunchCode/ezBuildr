@@ -77,6 +77,7 @@ export interface FinalBlockRenderResponse {
     size: number;
     unresolvedVariables?: string[];
     pdfStrategy?: string;
+    pdfFailed?: boolean;
   }>;
 
   /** ZIP archive (if multiple documents) */
@@ -357,6 +358,7 @@ export class FinalBlockRenderer {
         size: stats.size,
         unresolvedVariables: result.unresolvedVariables,
         pdfStrategy: toPdf ? pdfStrategy : undefined,
+        pdfFailed: result.pdfFailed,
       });
     }
 

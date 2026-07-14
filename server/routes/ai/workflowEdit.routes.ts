@@ -26,6 +26,28 @@ interface WorkflowWithDetails extends Workflow {
   logicRules: LogicRule[];
 }
 
+function getValidationDetailMessages(error: unknown): string[] {
+  if (error === null || typeof error !== "object") {
+    return [];
+  }
+
+  const details = (error as { details?: unknown }).details;
+  if (!Array.isArray(details)) {
+    return [];
+  }
+
+  return details.map((detail) => {
+    if (detail !== null && typeof detail === "object") {
+      const message = (detail as { message?: unknown }).message;
+      if (typeof message === "string") {
+        return `Invalid operation schema: ${message}`;
+      }
+    }
+
+    return "Invalid operation schema: Unknown validation error";
+  });
+}
+
 /**
  * Register AI workflow editing routes
  */
@@ -102,11 +124,11 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
         } catch (error) {
           logger.error({ error, workflowId }, "AI model call failed");
           
-          if (error && typeof error === 'object' && 'code' in error && (error as any).code === 'VALIDATION_ERROR') {
+          if (error && typeof error === 'object' && 'code' in error && (error as { code: unknown }).code === 'VALIDATION_ERROR') {
             return res.status(400).json({
               success: false,
               error: 'Failed to apply operations',
-              details: (error as any).details.map((d: any) => `Invalid operation schema: ${d.message}`),
+              details: getValidationDetailMessages(error),
             });
           }
 
@@ -397,3 +419,4 @@ function convertWorkflowToGraphJson(workflow: WorkflowWithDetails): Record<strin
     },
   };
 }
+

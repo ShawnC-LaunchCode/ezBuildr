@@ -1,9 +1,8 @@
-/* eslint-disable max-depth */
 import { and, eq, inArray } from "drizzle-orm";
 import crypto from "crypto";
 
-import type { Workflow, InsertWorkflow, Step, WorkflowAccess, PrincipalType, AccessRole, InsertStep, InsertLogicRule } from "@shared/schema";
-import { workflowVersions, workflows, sections, steps, logicRules, auditLogs, projects, workflowRuns } from "@shared/schema";
+import type { Workflow, InsertWorkflow, Step, WorkflowAccess, PrincipalType, AccessRole } from "@shared/schema";
+import { workflowVersions, workflows, auditLogs, projects, workflowRuns } from "@shared/schema";
 
 interface GraphConfig {
   title?: string;

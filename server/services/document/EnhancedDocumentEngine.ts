@@ -404,7 +404,7 @@ export class EnhancedDocumentEngine {
       try {
         // Step 1: Evaluate conditions
         if (doc.conditions) {
-          const conditionMet = this.evaluateConditions(doc.conditions, normalizedStepValues);
+          const conditionMet = this.evaluateConditions(doc.conditions, stepValues);
 
           if (!conditionMet) {
             skipped.push({

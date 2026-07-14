@@ -46,7 +46,7 @@ interface DemoData {
 
 async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
   const db = getDb();
-  // @ts-ignore - TODO: fix type
+  // @ts-expect-error - TODO: fix type
   logger.info('Starting Fee Waiver demo workflow creation', { userId });
 
   // Step 1: Get or create demo project
@@ -66,17 +66,17 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
         ownerId: userId,
       })
       .returning();
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     logger.info('Created demo project', { projectId: project.id });
   } else {
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     logger.info('Using existing demo project', { projectId: project.id });
   }
 
   // Step 2: Create workflow
   const [workflow] = await db
     .insert(workflows)
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     .values({
       title: 'Fee Waiver Application',
       description:
@@ -101,7 +101,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     })
     .returning();
 
-  // @ts-ignore - TODO: fix type
+  // @ts-expect-error - TODO: fix type
   logger.info('Created workflow', { workflowId: workflow.id });
 
   const sectionIds: Record<string, string> = {};
@@ -219,7 +219,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     stepIds[step.alias] = created.id;
   }
 
-  // @ts-ignore - TODO: fix type
+  // @ts-expect-error - TODO: fix type
   logger.info('Created Section 1: Applicant Information', {
     sectionId: section1.id,
     stepCount: section1Steps.length
@@ -317,7 +317,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     stepIds[step.alias] = created.id;
   }
 
-  // @ts-ignore - TODO: fix type
+  // @ts-expect-error - TODO: fix type
   logger.info('Created Section 2: Household & Income', {
     sectionId: section2.id,
     stepCount: section2Steps.length
@@ -407,7 +407,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     stepIds[step.alias] = created.id;
   }
 
-  // @ts-ignore - TODO: fix type
+  // @ts-expect-error - TODO: fix type
   logger.info('Created Section 3: Monthly Expenses', {
     sectionId: section3.id,
     stepCount: section3Steps.length
@@ -480,7 +480,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     stepIds[step.alias] = created.id;
   }
 
-  // @ts-ignore - TODO: fix type
+  // @ts-expect-error - TODO: fix type
   logger.info('Created Section 4: Assets & Liabilities', {
     sectionId: section4.id,
     stepCount: section4Steps.length
@@ -559,7 +559,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     stepIds[step.alias] = created.id;
   }
 
-  // @ts-ignore - TODO: fix type
+  // @ts-expect-error - TODO: fix type
   logger.info('Created Section 5: Supporting Documents', {
     sectionId: section5.id,
     stepCount: section5Steps.length
@@ -606,7 +606,7 @@ async function createFeeWaiverDemo(userId: string): Promise<DemoData> {
     stepIds[step.alias] = created.id;
   }
 
-  // @ts-ignore - TODO: fix type
+  // @ts-expect-error - TODO: fix type
   logger.info('Created Section 6: Review & Certification', {
     sectionId: section6.id,
     stepCount: section6Steps.length
@@ -641,7 +641,6 @@ emit(totalIncome);`,
   // Create virtual step for totalMonthlyIncome
   const [virtualStep1] = await db
     .insert(steps)
-    // @ts-ignore - TODO: fix type
     .values({
       workflowId: workflow.id,
       sectionId: section2.id,
@@ -701,7 +700,6 @@ emit(Math.round(threshold));`,
 
   const [virtualStep2] = await db
     .insert(steps)
-    // @ts-ignore - TODO: fix type
     .values({
       workflowId: workflow.id,
       sectionId: section2.id,
@@ -759,7 +757,6 @@ emit(status);`,
 
   const [virtualStep3] = await db
     .insert(steps)
-    // @ts-ignore - TODO: fix type
     .values({
       workflowId: workflow.id,
       sectionId: section2.id,
@@ -812,7 +809,6 @@ emit(totalExpenses);`,
 
   const [virtualStep4] = await db
     .insert(steps)
-    // @ts-ignore - TODO: fix type
     .values({
       workflowId: workflow.id,
       sectionId: section3.id,
@@ -860,7 +856,6 @@ emit(Math.round(disposable));`,
 
   const [virtualStep5] = await db
     .insert(steps)
-    // @ts-ignore - TODO: fix type
     .values({
       workflowId: workflow.id,
       sectionId: section3.id,
@@ -910,7 +905,6 @@ emit(totalAssets);`,
 
   const [virtualStep6] = await db
     .insert(steps)
-    // @ts-ignore - TODO: fix type
     .values({
       workflowId: workflow.id,
       sectionId: section4.id,
@@ -958,7 +952,6 @@ emit(Math.round(netWorth));`,
 
   const [virtualStep7] = await db
     .insert(steps)
-    // @ts-ignore - TODO: fix type
     .values({
       workflowId: workflow.id,
       sectionId: section4.id,
@@ -1048,7 +1041,7 @@ emit(Math.round(netWorth));`,
 
   logger.info('Created 5 conditional logic rules');
 
-  // @ts-ignore - TODO: fix type
+  // @ts-expect-error - TODO: fix type
   logger.info('Fee Waiver demo workflow created successfully!', {
     projectId: project.id,
     workflowId: workflow.id,
@@ -1080,7 +1073,7 @@ async function main() {
       throw new Error('No users found. Please create a user first.');
     }
 
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     logger.info('Creating Fee Waiver demo workflow', { userId: user.id });
 
     const demoData = await createFeeWaiverDemo(user.id);
@@ -1109,7 +1102,7 @@ async function main() {
 
     process.exit(0);
   } catch (error: unknown) {
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     logger.error('Failed to create demo workflow', { error });
     console.error('\n❌ Error creating demo workflow:', error);
     process.exit(1);

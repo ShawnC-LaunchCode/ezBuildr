@@ -32,6 +32,7 @@ interface VariableAnalysis {
     missing: Array<{ placeholder: string; suggestion?: string }>;
     loopScopedCount: number;
     syntaxErrors: string[];
+    unknownHelpers: string[];
     loading: boolean;
 }
 
@@ -56,7 +57,7 @@ export function TemplateCard({
     const analysis: VariableAnalysis = (() => {
         if (template.type === "docx") {
             if (report === undefined) {
-                return { matched: 0, total: 0, missing: [], loopScopedCount: 0, syntaxErrors: [], loading: isLoading };
+                return { matched: 0, total: 0, missing: [], loopScopedCount: 0, syntaxErrors: [], unknownHelpers: [], loading: isLoading };
             }
             return {
                 matched: report.matched.length,
@@ -67,6 +68,7 @@ export function TemplateCard({
                 })),
                 loopScopedCount: report.loopScoped.length,
                 syntaxErrors: report.syntaxErrors,
+                unknownHelpers: report.unknownHelpers ?? [],
                 loading: false,
             };
         }
@@ -81,11 +83,12 @@ export function TemplateCard({
                 .map((v) => ({ placeholder: v })),
             loopScopedCount: 0,
             syntaxErrors: [],
+            unknownHelpers: [],
             loading: false,
         };
     })();
 
-    const hasMissing = analysis.missing.length > 0;
+    const hasMissing = analysis.missing.length > 0 || analysis.unknownHelpers.length > 0;
     const hasSyntaxErrors = analysis.syntaxErrors.length > 0;
 
     return (
@@ -123,7 +126,7 @@ export function TemplateCard({
                         ) : hasMissing ? (
                             <span className="text-amber-600 flex items-center gap-1">
                                 <AlertCircle className="w-3 h-3" />
-                                {analysis.missing.length} missing
+                                {analysis.missing.length > 0 ? `${analysis.missing.length} missing` : `${analysis.unknownHelpers.length} unknown helpers`}
                             </span>
                         ) : (
                             <span className="text-emerald-600 flex items-center gap-1">
@@ -175,6 +178,22 @@ export function TemplateCard({
                                         +{analysis.missing.length - 3}
                                     </span>
                                 )}
+                            </div>
+                        </div>
+                    )}
+                    {!hasSyntaxErrors && analysis.unknownHelpers.length > 0 && (
+                        <div className="pt-2 border-t border-slate-200/50 mt-2">
+                            <p className="font-semibold text-amber-700 mb-1.5">Unknown helpers referenced:</p>
+                            <div className="flex flex-wrap gap-1">
+                                {analysis.unknownHelpers.map((helper) => (
+                                    <code
+                                        key={helper}
+                                        className="bg-white text-amber-700 px-1 py-0.5 rounded border border-amber-200 shadow-sm text-[10px]"
+                                        title={`Helper "${helper}" is not in the registry`}
+                                    >
+                                        {helper}
+                                    </code>
+                                ))}
                             </div>
                         </div>
                     )}

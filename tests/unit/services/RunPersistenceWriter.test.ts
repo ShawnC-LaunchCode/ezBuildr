@@ -75,6 +75,66 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
         expect(valueRepo.upsertMany).not.toHaveBeenCalled();
     });
 
+    it('rejects values that do not match the step type or static options', async () => {
+        stepRepo.findByWorkflowIdWithAliases.mockResolvedValue([
+            {
+                id: 'radio-step',
+                type: 'radio',
+                title: 'Plan',
+                config: {
+                    options: [
+                        { id: 'basic', label: 'Basic' },
+                        { id: 'pro', label: 'Pro', alias: 'pro-plan' },
+                    ],
+                },
+                required: false,
+            },
+            {
+                id: 'date-step',
+                type: 'date',
+                title: 'Start Date',
+                config: {},
+                required: false,
+            },
+        ]);
+
+        await expect(writer.bulkSaveValues('run-1', [
+            { stepId: 'radio-step', value: 'enterprise' },
+            { stepId: 'date-step', value: 42 },
+        ], 'wf-1')).rejects.toMatchObject({
+            statusCode: 400,
+            details: {
+                stepIds: ['radio-step', 'date-step'],
+            },
+        });
+
+        expect(valueRepo.upsertMany).not.toHaveBeenCalled();
+    });
+
+    it('does not enforce requiredness for blank autosave values', async () => {
+        stepRepo.findByWorkflowIdWithAliases.mockResolvedValue([
+            {
+                id: 'required-radio',
+                type: 'radio',
+                title: 'Plan',
+                config: {
+                    options: [
+                        { id: 'basic', label: 'Basic' },
+                    ],
+                },
+                required: true,
+            },
+        ]);
+
+        await writer.bulkSaveValues('run-1', [
+            { stepId: 'required-radio', value: '' },
+        ], 'wf-1');
+
+        expect(valueRepo.upsertMany).toHaveBeenCalledWith([
+            { runId: 'run-1', stepId: 'required-radio', value: '' },
+        ]);
+    });
+
     it('no-ops on an empty value list', async () => {
         await writer.bulkSaveValues('run-1', [], 'wf-1');
         expect(stepRepo.findByWorkflowIdWithAliases).not.toHaveBeenCalled();

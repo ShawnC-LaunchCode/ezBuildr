@@ -27,6 +27,13 @@ const ERROR_UNAUTHORIZED_NO_USER = "Unauthorized - no user ID";
 // eslint-disable-next-line sonarjs/no-duplicate-string
 const ERROR_ACCESS_DENIED = "Access denied";
 
+function getPublicErrorDetails(error: unknown, status: number): unknown {
+  if (status >= 500 || typeof error !== 'object' || error === null || !('details' in error)) {
+    return undefined;
+  }
+  return error.details;
+}
+
 /**
  * Register workflow run-related routes
  * Handles run creation, step value updates, and completion
@@ -300,7 +307,7 @@ export function registerRunRoutes(app: Express): void {
    * Accepts creator session OR Bearer runToken
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  app.post('/api/runs/:runId/sections/:sectionId/submit', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/runs/:runId/sections/:sectionId/submit', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId, sectionId } = req.params;
       const { values } = req.body;
@@ -399,7 +406,7 @@ export function registerRunRoutes(app: Express): void {
    * Accepts creator session OR Bearer runToken
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  app.post('/api/runs/:runId/values/bulk', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/runs/:runId/values/bulk', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
       const { values } = req.body;
@@ -426,7 +433,12 @@ export function registerRunRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error saving step values");
       const { status, message } = classifyRouteError(error, "Failed to save step values");
-      res.status(status).json({ success: false, error: message });
+      const details = getPublicErrorDetails(error, status);
+      res.status(status).json({
+        success: false,
+        error: message,
+        ...(details !== undefined ? { details } : {}),
+      });
     }
   }));
   // NOTE: Duplicate route removed - /api/runs/:runId/next is already defined above with creatorOrRunTokenAuth

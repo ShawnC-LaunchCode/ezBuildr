@@ -1,17 +1,38 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import type { ApiStep } from "@/lib/vault-api";
+import { fetchAPI, type ApiStep } from "@/lib/vault-api";
 import { useAutoSave } from "@/hooks/useAutoSave";
-import { getRunToken } from "@/lib/runTokens";
+
 import type { StepValue, DefaultValueConfig } from "@/pages/workflow-runner/runner.utils";
+import type { PreviewEnvironment, PreviewRunState } from "@/lib/previewRunner/PreviewEnvironment";
 
 interface UseRunValuesProps {
   mode: 'preview' | 'production';
   actualRunId: string | null;
-  run: any; // Using any to avoid importing the huge ApiRun type if not strictly necessary here, but usually it's ApiRun & { values }
-  previewState: any;
-  previewEnvironment: any;
+  run: { values?: { stepId: string; value: StepValue }[] } | null | undefined;
+  previewState: PreviewRunState | null;
+  previewEnvironment: Pick<PreviewEnvironment, 'setValue'> | null | undefined;
   allSteps: ApiStep[] | undefined;
-  intakeData: any;
+  intakeData: { values?: Record<string, StepValue> | null; isLoading?: boolean } | null;
+}
+
+import { type SaveStatus } from "@/hooks/useAutoSave";
+
+export interface UseRunValuesReturn {
+  formValues: Record<string, StepValue>;
+  setFormValues: React.Dispatch<React.SetStateAction<Record<string, StepValue>>>;
+  effectiveValues: Record<string, StepValue>;
+  handleUpdateValue: (stepId: string, value: StepValue) => void;
+  saveStatus: SaveStatus;
+  hasUnsavedChanges: boolean;
+  saveNow: () => Promise<void>;
+}
+
+interface RunValueAdapter {
+  values: Record<string, StepValue>;
+  updateValue: (stepId: string, value: StepValue) => void;
+  hydrateFromSavedRun: boolean;
+  hydrateFromIntake: boolean;
+  autosaveEnabled: boolean;
 }
 
 export function useRunValues({
@@ -22,23 +43,61 @@ export function useRunValues({
   previewEnvironment,
   allSteps,
   intakeData
-}: UseRunValuesProps) {
+}: UseRunValuesProps): UseRunValuesReturn {
   const [formValues, setFormValues] = useState<Record<string, StepValue>>({});
+  const isProductionMode = mode === 'production';
+
+  const updateProductionValue = useCallback((stepId: string, value: StepValue) => {
+    setFormValues(prev => ({ ...prev, [stepId]: value }));
+  }, []);
+
+  const updatePreviewValue = useCallback((stepId: string, value: StepValue) => {
+    previewEnvironment?.setValue(stepId, value);
+  }, [previewEnvironment]);
+
+  const valueAdapter = useMemo<RunValueAdapter>(() => {
+    if (isProductionMode) {
+      return {
+        values: formValues,
+        updateValue: updateProductionValue,
+        hydrateFromSavedRun: true,
+        hydrateFromIntake: true,
+        autosaveEnabled: Boolean(actualRunId),
+      };
+    }
+
+    return {
+      values: previewState?.values ?? {},
+      updateValue: updatePreviewValue,
+      hydrateFromSavedRun: false,
+      hydrateFromIntake: false,
+      autosaveEnabled: false,
+    };
+  }, [isProductionMode, formValues, updateProductionValue, actualRunId, previewState?.values, updatePreviewValue]);
+
+  const {
+    values: effectiveValues,
+    updateValue,
+    hydrateFromSavedRun,
+    hydrateFromIntake,
+    autosaveEnabled,
+  } = valueAdapter;
 
   // Initialize form values from run.values (production mode only)
   useEffect(() => {
-    if (mode === 'production' && run?.values) {
+    if (hydrateFromSavedRun && run?.values) {
       const initial: Record<string, StepValue> = {};
-      run.values.forEach((v: any) => {
+      run.values.forEach((v) => {
         initial[v.stepId] = v.value;
       });
       setFormValues(initial);
     }
-  }, [run, mode]);
+  }, [run, hydrateFromSavedRun]);
 
   // Intake Data Hydration (Production Mode)
   useEffect(() => {
-    if (mode === 'production' && allSteps && intakeData?.values !== null && intakeData?.values !== undefined && !intakeData?.isLoading) {
+    const intakeValues = intakeData?.values;
+    if (hydrateFromIntake && allSteps && intakeValues !== null && intakeValues !== undefined && !intakeData?.isLoading) {
       setFormValues((prev) => {
         const next = { ...prev };
         let changed = false;
@@ -46,7 +105,7 @@ export function useRunValues({
           if (next[step.id] === undefined || next[step.id] === null || next[step.id] === "") {
             const defVal = step.defaultValue as DefaultValueConfig | undefined;
             if (defVal?.source === 'intake' && defVal.variable) {
-              const val = intakeData.values[defVal.variable];
+              const val = intakeValues[defVal.variable];
               if (val !== undefined) {
                 next[step.id] = val;
                 changed = true;
@@ -57,56 +116,33 @@ export function useRunValues({
         return changed ? next : prev;
       });
     }
-  }, [mode, allSteps, intakeData?.values, intakeData?.isLoading]);
-
-  // Effective values (preview or production)
-  const effectiveValues = useMemo(() => {
-    return mode === 'preview'
-      ? (previewState?.values ?? {})
-      : formValues;
-  }, [mode, previewState?.values, formValues]);
+  }, [hydrateFromIntake, allSteps, intakeData?.values, intakeData?.isLoading]);
 
   const handleUpdateValue = useCallback((stepId: string, value: StepValue) => {
-    if (mode === 'preview' && previewEnvironment) {
-      previewEnvironment.setValue(stepId, value);
-    } else {
-      setFormValues(prev => ({ ...prev, [stepId]: value }));
-    }
-  }, [mode, previewEnvironment]);
+    updateValue(stepId, value);
+  }, [updateValue]);
 
   // Autosave logic (DOC-101)
   const performSave = useCallback(async (dataToSave: Record<string, StepValue>) => {
-    if (mode !== 'production' || !actualRunId) return;
+    if (!actualRunId) {return;}
     
     // We only want to bulk save what actually exists in formValues
     // The endpoint expects an array of {stepId, value}
     const valuesToSave = Object.entries(dataToSave).map(([stepId, value]) => ({ stepId, value }));
-    if (valuesToSave.length === 0) return;
-
-    const runToken = getRunToken(actualRunId);
+    if (valuesToSave.length === 0) {return;}
     
-    const response = await fetch(`/api/runs/${actualRunId}/values/bulk`, {
+    await fetchAPI(`/api/runs/${actualRunId}/values/bulk`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(runToken ? { 'Authorization': `Bearer ${runToken}` } : {})
-      },
-      credentials: 'include',
       keepalive: true, // Allow request to complete if the page is unloading
       body: JSON.stringify({ values: valuesToSave })
     });
-
-    if (!response.ok) {
-      // Autosave failures are non-blocking, but could log
-      console.warn('[useRunValues] Autosave failed', response.status);
-    }
-  }, [mode, actualRunId]);
+  }, [actualRunId]);
 
   const { saveStatus, hasUnsavedChanges, saveNow } = useAutoSave({
     data: formValues,
     onSave: performSave,
     delay: 1500, // 1.5s debounce
-    enabled: mode === 'production' && !!actualRunId
+    enabled: autosaveEnabled
   });
 
   return {

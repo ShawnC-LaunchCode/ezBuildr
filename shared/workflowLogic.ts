@@ -20,7 +20,7 @@ export interface LogicContext {
   sections: Section[];
   steps: Step[];
   rules: LogicRule[];
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   
   // Pre-computed indexes for O(1) lookups
   sectionHideRulesMap: Map<string, LogicRule[]>;
@@ -49,7 +49,9 @@ export type LogicOperator =
  */
 export interface WorkflowEvaluationResult {
   visibleSections: Set<string>;
+  hiddenSections: Set<string>;
   visibleSteps: Set<string>;
+  hiddenSteps: Set<string>;
   requiredSteps: Set<string>;
   skipToSectionId?: string; // Section to skip to based on logic
   nextSectionId?: string; // Next section in normal flow
@@ -68,7 +70,9 @@ export function evaluateRules(
 ): WorkflowEvaluationResult {
   const result: WorkflowEvaluationResult = {
     visibleSections: new Set(),
+    hiddenSections: new Set(),
     visibleSteps: new Set(),
+    hiddenSteps: new Set(),
     requiredSteps: new Set(),
   };
 
@@ -86,10 +90,12 @@ export function evaluateRules(
 
       switch (rule.action) {
         case 'show':
+          result.hiddenSections.delete(targetId);
           result.visibleSections.add(targetId);
           break;
         case 'hide':
           result.visibleSections.delete(targetId);
+          result.hiddenSections.add(targetId);
           break;
         case 'skip_to':
           // Set the skip target - this takes precedence over normal flow
@@ -109,10 +115,12 @@ export function evaluateRules(
 
       switch (rule.action) {
         case 'show':
+          result.hiddenSteps.delete(targetId);
           result.visibleSteps.add(targetId);
           break;
         case 'hide':
           result.visibleSteps.delete(targetId);
+          result.hiddenSteps.add(targetId);
           result.requiredSteps.delete(targetId); // Can't require hidden steps
           break;
         case 'require':

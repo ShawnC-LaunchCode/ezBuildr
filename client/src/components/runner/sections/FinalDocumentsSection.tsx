@@ -35,6 +35,7 @@ interface GeneratedDocument {
   fileSize?: number;
   createdAt: string;
 }
+// eslint-disable-next-line max-lines-per-function, complexity
 export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalDocumentsSectionProps) {
   const title = sectionConfig.title ?? sectionConfig.screenTitle ?? "Your Completed Documents";
   const message = (sectionConfig.message ?? sectionConfig.markdownMessage) ?? "";
@@ -113,16 +114,16 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
       if (status === 'pending' || status === 'generating') {
         return 2000;
       }
-      if (!data?.documents || data.documents.length === 0) {
+      if ((!data?.documents || data.documents.length === 0) && status === undefined) {
         // Fallback for older runs without generationStatus
-        if (status === undefined) return 2000;
+        return 2000;
       }
       // Once we have terminal status, stop refetching
       return false;
     },
   });
 
-  const documents = data?.documents || [];
+  const documents = data?.documents ?? [];
   const generationStatus = data?.generationStatus;
   const formatFileSize = (bytes?: number) => {
     if (!bytes) {
@@ -220,7 +221,7 @@ export function FinalDocumentsSection({ runId, runToken, sectionConfig }: FinalD
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {error || generationStatus?.startsWith('failed:') ? (
+            {(error !== null || generationStatus?.startsWith('failed:') === true) ? (
               <div className="text-center py-8 text-destructive p-4">
                 <p className="text-sm font-medium">Unable to load documents</p>
                 <p className="text-xs mt-1 opacity-80">

@@ -1,12 +1,33 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { getRunToken, setRunToken } from "@/lib/runTokens";
+import { fetchAPI, type ApiRun, type ApiStepValue } from "@/lib/vault-api";
 import { useRunWithValues } from "@/lib/vault-hooks";
 import { isUUID, startRunFromSlug, startRunFromWorkflowId, type StepValue } from "@/pages/workflow-runner/runner.utils";
-import type { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
+import type { PreviewEnvironment, PreviewRunState } from "@/lib/previewRunner/PreviewEnvironment";
 import { usePreviewEnvironment } from "@/lib/previewRunner/usePreviewEnvironment";
 
 const RESERVED_URL_PARAMS = ['ref', 'source', 'utm_source', 'utm_medium', 'utm_campaign', 'token', 'resume'];
+
+type RunnerMode = 'preview' | 'production';
+type InitialValues = Record<string, StepValue> | undefined;
+type RunWithValues = ApiRun & { values: ApiStepValue[] };
+
+interface ResolvedRunSession {
+  runId: string;
+  runToken?: string;
+  notifyNewSession?: boolean;
+}
+
+interface UseRunSessionReturn {
+  actualRunId: string | null;
+  isInitializing: boolean;
+  initError: string | null;
+  mode: RunnerMode;
+  previewState: PreviewRunState | null;
+  run: RunWithValues | undefined;
+  workflowId: string | undefined;
+}
 
 function parseInitialValuesFromUrl(urlParams: URLSearchParams): Record<string, StepValue> {
   const initialValues: Record<string, StepValue> = {};
@@ -45,80 +66,104 @@ function consumeRunTokenFromUrl(runId: string, urlParams: URLSearchParams): void
   window.history.replaceState({}, '', newUrl.toString());
 }
 
-export function useRunSession(runId?: string, previewEnvironment?: PreviewEnvironment) {
+function toResolvedSession(runData: { runId: string; runToken: string }): ResolvedRunSession {
+  return {
+    runId: runData.runId,
+    runToken: runData.runToken,
+  };
+}
+
+async function startReplacementRunFromExistingRunId(
+  runId: string,
+  initialValues: InitialValues
+): Promise<ResolvedRunSession | null> {
+  try {
+    const result = await fetchAPI<{ data?: { workflowId?: string } }>(`/api/runs/${runId}`);
+    const workflowId = result.data?.workflowId;
+    if (!workflowId) {
+      return null;
+    }
+
+    const newRunData = await startRunFromWorkflowId(workflowId, initialValues);
+    return {
+      ...toResolvedSession(newRunData),
+      notifyNewSession: true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function resolveUuidRunSession(runId: string, initialValues: InitialValues): Promise<ResolvedRunSession> {
+  const runToken = getRunToken(runId);
+  if (runToken) {
+    return { runId };
+  }
+
+  try {
+    return toResolvedSession(await startRunFromWorkflowId(runId, initialValues));
+  } catch {
+    // UUIDs can also be public workflow identifiers or existing run IDs.
+  }
+
+  try {
+    return toResolvedSession(await startRunFromSlug(runId, initialValues));
+  } catch {
+    // Fall through to the existing-run fork fallback.
+  }
+
+  return (await startReplacementRunFromExistingRunId(runId, initialValues)) ?? { runId };
+}
+
+async function resolveRunSession(runId: string, initialValues: InitialValues): Promise<ResolvedRunSession> {
+  if (isUUID(runId)) {
+    return resolveUuidRunSession(runId, initialValues);
+  }
+
+  return toResolvedSession(await startRunFromSlug(runId, initialValues));
+}
+
+export function useRunSession(runId?: string, previewEnvironment?: PreviewEnvironment): UseRunSessionReturn {
   const [actualRunId, setActualRunId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
   const { toast } = useToast();
-  
+
   const previewState = usePreviewEnvironment(previewEnvironment ?? null);
-  const mode: 'preview' | 'production' = previewEnvironment ? 'preview' : 'production';
+  const mode: RunnerMode = previewEnvironment ? 'preview' : 'production';
 
   useEffect(() => {
     if (previewEnvironment) {
-      if (runId) setActualRunId(runId);
+      if (runId) {
+        setActualRunId(runId);
+      }
       setIsInitializing(false);
       return;
     }
 
-    async function initialize() {
+    async function initialize(): Promise<void> {
       if (!runId) {
         setInitError('No run ID provided');
         setIsInitializing(false);
         return;
       }
+
       try {
         const urlParams = new URLSearchParams(window.location.search);
         const initialValues = parseInitialValuesFromUrl(urlParams);
         const initialValuesArg = Object.keys(initialValues).length > 0 ? initialValues : undefined;
         consumeRunTokenFromUrl(runId, urlParams);
 
-        if (isUUID(runId)) {
-          const runToken = getRunToken(runId);
-          if (runToken) {
-            setActualRunId(runId);
-          } else {
-            try {
-              const runData = await startRunFromWorkflowId(runId, initialValuesArg);
-              setActualRunId(runData.runId);
-              setRunToken(runData.runId, runData.runToken);
-            } catch (createError) {
-              try {
-                const publicRunData = await startRunFromSlug(runId, initialValuesArg);
-                setActualRunId(publicRunData.runId);
-                setRunToken(publicRunData.runId, publicRunData.runToken);
-                return;
-              } catch {
-                // fall through
-              }
-              try {
-                const response = await fetch(`/api/runs/${runId}`, { credentials: 'include' });
-                if (response.ok) {
-                  const result = await response.json();
-                  const workflowId = result.data?.workflowId;
-                  if (workflowId) {
-                    const newRunData = await startRunFromWorkflowId(workflowId, initialValuesArg);
-                    setActualRunId(newRunData.runId);
-                    setRunToken(newRunData.runId, newRunData.runToken);
-                    toast({
-                      title: "New session started",
-                      description: "Created a new run for this workflow",
-                    });
-                  } else {
-                    throw new Error("Could not determine workflow ID");
-                  }
-                } else {
-                  setActualRunId(runId);
-                }
-              } catch (fetchError) {
-                setActualRunId(runId);
-              }
-            }
-          }
-        } else {
-          const runData = await startRunFromSlug(runId, initialValuesArg);
-          setActualRunId(runData.runId);
-          setRunToken(runData.runId, runData.runToken);
+        const resolvedRun = await resolveRunSession(runId, initialValuesArg);
+        setActualRunId(resolvedRun.runId);
+        if (resolvedRun.runToken) {
+          setRunToken(resolvedRun.runId, resolvedRun.runToken);
+        }
+        if (resolvedRun.notifyNewSession) {
+          toast({
+            title: "New session started",
+            description: "Created a new run for this workflow",
+          });
         }
       } catch (error) {
         setInitError(error instanceof Error ? error.message : 'Failed to load workflow');
@@ -131,6 +176,7 @@ export function useRunSession(runId?: string, previewEnvironment?: PreviewEnviro
         setIsInitializing(false);
       }
     }
+
     void initialize();
   }, [runId, toast, previewEnvironment]);
 

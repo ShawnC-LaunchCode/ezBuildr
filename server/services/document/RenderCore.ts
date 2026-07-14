@@ -126,10 +126,8 @@ export function createDocxRenderer(zip: PizZip, unresolvedVariables?: string[]):
         linebreaks: true,
         delimiters: { start: '{{', end: '}}' },
         nullGetter: (part: { value?: string }): string => {
-            if (unresolvedVariables && part?.value) {
-                if (!unresolvedVariables.includes(part.value)) {
-                    unresolvedVariables.push(part.value);
-                }
+            if (unresolvedVariables && part?.value && !unresolvedVariables.includes(part.value)) {
+                unresolvedVariables.push(part.value);
             }
             return '';
         },

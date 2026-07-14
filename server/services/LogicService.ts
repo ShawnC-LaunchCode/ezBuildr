@@ -64,7 +64,7 @@ export class LogicService {
    */
   async buildContext(
     workflowId: string,
-    data: Record<string, any>
+    data: Record<string, unknown>
   ): Promise<LogicContext> {
     const sections = await this.sectionRepo.findByWorkflowId(workflowId);
     const sectionIds = sections.map((s) => s.id);
@@ -90,7 +90,7 @@ export class LogicService {
       }
     }
 
-    const aliasResolver = (name: string) => steps.find((s) => s.alias === name)?.id;
+    const aliasResolver = (name: string): string | undefined => steps.find((s) => s.alias === name)?.id;
 
     return {
       workflowId,
@@ -128,25 +128,6 @@ export class LogicService {
     // Build data object for evaluation
     const data = await this.valueRepo.getRunDataAsJson(runId);
 
-    // OPTIMIZATION: Pre-build rule indexes (O(n) once instead of O(n*m) repeatedly)
-    const sectionHideRulesMap = new Map<string, LogicRule[]>();
-    const stepHideRulesMap = new Map<string, LogicRule[]>();
-    for (const rule of logicRules) {
-      if (rule.action === "hide") {
-        if (rule.targetType === "section" && rule.targetSectionId) {
-          if (!sectionHideRulesMap.has(rule.targetSectionId)) {
-            sectionHideRulesMap.set(rule.targetSectionId, []);
-          }
-          sectionHideRulesMap.get(rule.targetSectionId)!.push(rule);
-        } else if (rule.targetType === "step" && rule.targetStepId) {
-          if (!stepHideRulesMap.has(rule.targetStepId)) {
-            stepHideRulesMap.set(rule.targetStepId, []);
-          }
-          stepHideRulesMap.get(rule.targetStepId)!.push(rule);
-        }
-      }
-    }
-
     // Evaluate all rules
     const evalResult = evaluateRules(logicRules, data);
 
@@ -157,16 +138,7 @@ export class LogicService {
       Array.from(allSectionIds).filter((id) => {
         // If explicitly shown by a rule, include it
         if (evalResult.visibleSections.has(id)) {return true;}
-        // If not explicitly hidden, include it (default visible)
-        // OPTIMIZATION: O(1) lookup instead of O(n) filter
-        const hideRules = sectionHideRulesMap.get(id);
-        if (!hideRules || hideRules.length === 0) {return true;}
-        // If there are hide rules, check if any are triggered
-        return !hideRules.some((rule) => {
-          const actualValue = data[rule.conditionStepId];
-          // Simple condition check - should use evaluateCondition but keeping it simple
-          return actualValue !== undefined;
-        });
+        return !evalResult.hiddenSections.has(id);
       })
     );
 
@@ -192,14 +164,7 @@ export class LogicService {
           // 2. Check logic rules
           // If explicitly shown by a rule, include it
           if (evalResult.visibleSteps.has(step.id)) {return true;}
-          // If explicitly hidden by a rule, exclude it
-          // OPTIMIZATION: O(1) lookup instead of O(n) filter
-          const hideRules = stepHideRulesMap.get(step.id);
-          if (!hideRules || hideRules.length === 0) {return true;}
-          return !hideRules.some((rule) => {
-            const actualValue = data[rule.conditionStepId];
-            return actualValue !== undefined;
-          });
+          return !evalResult.hiddenSteps.has(step.id);
         })
         .map((s) => s.id)
     );
@@ -275,25 +240,6 @@ export class LogicService {
     // Build data object for evaluation
     const data = runDataByStepId ?? await this.valueRepo.getRunDataAsJson(runId);
 
-    // OPTIMIZATION: Pre-build rule indexes
-    const sectionHideRulesMap = new Map<string, LogicRule[]>();
-    const stepHideRulesMap = new Map<string, LogicRule[]>();
-    for (const rule of logicRules) {
-      if (rule.action === "hide") {
-        if (rule.targetType === "section" && rule.targetSectionId) {
-          if (!sectionHideRulesMap.has(rule.targetSectionId)) {
-            sectionHideRulesMap.set(rule.targetSectionId, []);
-          }
-          sectionHideRulesMap.get(rule.targetSectionId)!.push(rule);
-        } else if (rule.targetType === "step" && rule.targetStepId) {
-          if (!stepHideRulesMap.has(rule.targetStepId)) {
-            stepHideRulesMap.set(rule.targetStepId, []);
-          }
-          stepHideRulesMap.get(rule.targetStepId)!.push(rule);
-        }
-      }
-    }
-
     // Evaluate rules to determine visibility
     const evalResult = evaluateRules(logicRules, data);
 
@@ -301,13 +247,7 @@ export class LogicService {
     const allSectionIds = new Set(sections.map((s) => s.id));
     const visibleSections = new Set(Array.from(allSectionIds).filter((id) => {
       if (evalResult.visibleSections.has(id)) {return true;}
-      // OPTIMIZATION: O(1) lookup
-      const hideRules = sectionHideRulesMap.get(id);
-      if (!hideRules || hideRules.length === 0) {return true;}
-      return !hideRules.some((rule) => {
-        const actualValue = data[rule.conditionStepId];
-        return actualValue !== undefined;
-      });
+      return !evalResult.hiddenSections.has(id);
     }));
 
     // Build visible steps
@@ -334,13 +274,7 @@ export class LogicService {
 
           // 2. Check logic rules
           if (evalResult.visibleSteps.has(step.id)) {return true;}
-          // OPTIMIZATION: O(1) lookup
-          const hideRules = stepHideRulesMap.get(step.id);
-          if (!hideRules || hideRules.length === 0) {return true;}
-          return !hideRules.some((rule) => {
-            const actualValue = data[rule.conditionStepId];
-            return actualValue !== undefined;
-          });
+          return !evalResult.hiddenSteps.has(step.id);
         })
         .map((s) => s.id)
     );
@@ -435,23 +369,7 @@ export class LogicService {
       return true;
     }
 
-    // Check for hide rules
-    const hideRules = logicRules.filter(
-      (r) => r.targetType === "section" && r.targetSectionId === sectionId && r.action === "hide"
-    );
-
-    // If no hide rules, section is visible by default
-    if (hideRules.length === 0) {
-      return true;
-    }
-
-    // Check if any hide rules are triggered
-    const isHidden = hideRules.some((rule) => {
-      const actualValue = data[rule.conditionStepId];
-      return actualValue !== undefined;
-    });
-
-    return !isHidden;
+    return !evalResult.hiddenSections.has(sectionId);
   }
 
   /**
@@ -490,23 +408,7 @@ export class LogicService {
       return true;
     }
 
-    // Check for hide rules
-    const hideRules = logicRules.filter(
-      (r) => r.targetType === "step" && r.targetStepId === stepId && r.action === "hide"
-    );
-
-    // If no hide rules, step is visible by default
-    if (hideRules.length === 0) {
-      return true;
-    }
-
-    // Check if any hide rules are triggered
-    const isHidden = hideRules.some((rule) => {
-      const actualValue = data[rule.conditionStepId];
-      return actualValue !== undefined;
-    });
-
-    return !isHidden;
+    return !evalResult.hiddenSteps.has(stepId);
   }
 
   /**

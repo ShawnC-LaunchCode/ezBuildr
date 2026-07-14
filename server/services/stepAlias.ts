@@ -1,4 +1,4 @@
-const ALIAS_MAX_LENGTH = 60;
+export const ALIAS_MAX_LENGTH = 60;
 
 /**
  * Derive a camelCase variable name from a question label.

@@ -111,14 +111,27 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       formData.append("file", file);
       formData.append("name", name);
 
-      await axios.post(`/api/projects/${workflowProjectId}/templates`, formData, {
+      const response = await axios.post(`/api/projects/${workflowProjectId}/templates`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      toast({
-        title: "Template uploaded",
-        description: `${name} has been uploaded successfully.`,
-      });
+      const data: unknown = response.data;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+      const warnings = (data as any).warnings as string[] | undefined;
+
+      if (warnings && warnings.length > 0) {
+        toast({
+          title: "Upload Complete with Warnings",
+          description: `${name} uploaded, but: ${warnings.join(", ")}`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Template uploaded",
+          description: `${name} has been uploaded successfully.`,
+        });
+      }
+      
       setUploadDialogOpen(false);
       void fetchTemplates();
     } catch (error: unknown) {

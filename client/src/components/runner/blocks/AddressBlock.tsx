@@ -24,8 +24,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Popover,
+  PopoverAnchor,
   PopoverContent,
-  PopoverTrigger,
 } from "@/components/ui/popover";
 import {
   Select,
@@ -290,7 +290,7 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly , ariaDes
         {/* Suggestions Popover */}
         <div className="relative">
           <Popover open={showSuggestions && suggestions.length > 0} onOpenChange={setShowSuggestions}>
-            <PopoverTrigger asChild>
+            <PopoverAnchor asChild>
               <div className="relative">
                 <Input
                   id={`${step.id}-street`}
@@ -302,8 +302,8 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly , ariaDes
       aria-describedby={ariaDescribedBy}
       aria-required={required ? "true" : undefined}
       aria-invalid={hasError ? "true" : undefined}
-      className="w-full"
-                  autoComplete="chrome-off"
+                  className="w-full"
+                  autoComplete="street-address"
                   data-1p-ignore // Ignore 1Password
                   data-lpignore="true" // Ignore LastPass
                   onFocus={() => {
@@ -318,7 +318,7 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly , ariaDes
                   </div>
                 )}
               </div>
-            </PopoverTrigger>
+            </PopoverAnchor>
             <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]" align="start" onOpenAutoFocus={(e) => { e.preventDefault(); }}>
               <Command shouldFilter={false}>
                 <CommandList>

@@ -20,6 +20,17 @@ export function classifyRouteError(
   fallback: string,
 ): { status: number; message: string } {
   const raw = error instanceof Error ? error.message : '';
+  const statusCode = typeof error === 'object' &&
+    error !== null &&
+    'statusCode' in error &&
+    typeof error.statusCode === 'number'
+    ? error.statusCode
+    : undefined;
+
+  if (statusCode !== undefined && statusCode >= 400 && statusCode < 500) {
+    return { status: statusCode, message: raw };
+  }
+
   if (raw.includes('not found')) {
     return { status: 404, message: raw };
   }

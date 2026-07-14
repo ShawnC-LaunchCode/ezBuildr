@@ -4,7 +4,7 @@ import { logger } from "../logger";
 import { stepRepository, sectionRepository } from "../repositories";
 
 import { aliasRenameService } from "./AliasRenameService";
-import { generateAliasFromLabel, generateUniqueAliasFromTaken } from "./stepAlias";
+import { ALIAS_MAX_LENGTH, generateAliasFromLabel, generateUniqueAliasFromTaken } from "./stepAlias";
 import { workflowService } from "./WorkflowService";
 
 const SECTION_NOT_FOUND = "Section not found";

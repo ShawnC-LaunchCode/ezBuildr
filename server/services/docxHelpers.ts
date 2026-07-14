@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Stage 21: DOCX Template Helpers
  *
@@ -66,7 +65,7 @@ export function last(arr: any[] | null | undefined): any {
 export function isEmpty(value: any): boolean {
   if (value === null || value === undefined || value === '') {return true;}
   if (Array.isArray(value)) {return value.length === 0;}
-  if (typeof value === 'object') {return Object.keys(value).length === 0;}
+  if (typeof value === 'object') {return Object.keys(value as object).length === 0;}
   return false;
 }
 
@@ -166,7 +165,7 @@ export function addDays(
   days: number = 0,
   format: string = 'MM/DD/YYYY'
 ): string {
-  if (!iso) { return ''; }
+  if (iso == null || iso === '') { return ''; }
 
   try {
     const d = typeof iso === 'string' ? new Date(iso) : iso;
@@ -186,7 +185,7 @@ export function daysBetween(
   date1: string | Date | null | undefined,
   date2: string | Date | null | undefined
 ): number {
-  if (!date1 || !date2) { return 0; }
+  if (date1 == null || date1 === '' || date2 == null || date2 === '') { return 0; }
 
   try {
     const d1 = typeof date1 === 'string' ? new Date(date1) : date1;
@@ -447,14 +446,14 @@ export const docxHelpers = {
 export function createAngularParser() {
   return {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- scope is dynamic template data structure
-    get(scope: any, context: string) {
+    get(scope: Record<string, unknown>, context: string): unknown {
       // Handle dot notation (e.g., "user.name")
       const keys = context.split('.');
-      let current = scope;
+      let current: unknown = scope;
 
       for (const key of keys) {
         if (current == null) {return '';}
-        current = current[key];
+        current = (current as Record<string, unknown>)[key];
       }
 
       return current;

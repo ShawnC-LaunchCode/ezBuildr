@@ -251,4 +251,86 @@ describe('Automatic document generation on run completion', () => {
     expect(result.success).toBe(true);
     expect(result.documentsGenerated).toBe(0);
   });
+
+  it('reports missing variables when a template contains an unknown tag (DOC-104)', async () => {
+    const { workflow } = await factory.createWorkflow(projectId, userId);
+    const section = await factory.createSection(workflow.id);
+    const textStep = await factory.createStep(section.id, {
+      type: 'short_text',
+      title: 'Client name',
+      alias: 'clientName',
+      order: 0,
+    });
+    // Template contains {{unknownTag}} which is not provided by the workflow
+    const template = await createTemplateOnDisk(
+      'Missing Tag Doc',
+      'Hello {{clientName}}, where is the {{unknownTag}}?'
+    );
+    await factory.createStep(section.id, {
+      type: 'final',
+      title: 'Final documents',
+      order: 1,
+      config: {
+        markdownHeader: '',
+        documents: [
+          { id: 'doc-1', documentId: template.id, alias: 'contract' },
+        ],
+      },
+    });
+
+    const runId = await createRunWithValue(workflow.id, textStep.id, 'Acme Corporation');
+
+    const result = await runLifecycleService.generateDocuments(runId);
+
+    // Generation succeeds
+    expect(result.success).toBe(true);
+    expect(result.documentsGenerated).toBe(1);
+
+    // Record persisted with unresolved variables
+    const records = await db
+      .select()
+      .from(schema.runGeneratedDocuments)
+      .where(eq(schema.runGeneratedDocuments.runId, runId));
+    expect(records).toHaveLength(1);
+    
+    // The unresolved variables list should contain 'unknownTag'
+    expect(records[0].unresolvedVariables).toContain('unknownTag');
+    expect(records[0].unresolvedVariables).not.toContain('clientName');
+  });
+
+  it('marks generation status as failed if template resolver throws (DOC-104)', async () => {
+    const { workflow } = await factory.createWorkflow(projectId, userId);
+    const section = await factory.createSection(workflow.id);
+    const textStep = await factory.createStep(section.id, {
+      type: 'short_text',
+      title: 'Anything',
+      alias: 'anything',
+    });
+    
+    // Provide a non-existent template ID so the resolver throws
+    await factory.createStep(section.id, {
+      type: 'final',
+      title: 'Final documents',
+      order: 1,
+      config: {
+        markdownHeader: '',
+        documents: [
+          { id: 'doc-1', documentId: '00000000-0000-0000-0000-000000000000', alias: 'missing-template' },
+        ],
+      },
+    });
+
+    const runId = await createRunWithValue(workflow.id, textStep.id, 'value');
+
+    const result = await runLifecycleService.generateDocuments(runId);
+
+    // Overall generation process failed because template resolver threw
+    expect(result.success).toBe(false); // The catch block handles this
+    expect(result.documentsGenerated).toBe(0);
+    expect(result.documents).toBeUndefined();
+
+    // Let's check the run's generationStatus!
+    const [run] = await db.select().from(schema.workflowRuns).where(eq(schema.workflowRuns.id, runId));
+    expect(run.generationStatus).toMatch(/^failed:/);
+  });
 });

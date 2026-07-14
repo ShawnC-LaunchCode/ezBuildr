@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * RunLifecycleService
  *
@@ -33,6 +32,7 @@ export interface GenerateDocumentsOptions {
 
 
 export class RunLifecycleService {
+  // eslint-disable-next-line max-params
   constructor(
     private valueRepo = stepValueRepository,
     private stepRepo = stepRepository,
@@ -93,15 +93,13 @@ export class RunLifecycleService {
     // Get all steps for these sections
     const allSteps = await this.stepRepo.findBySectionIds(sectionIds);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const valuesToSave: Array<{ stepId: string; value: any }> = [];
+    const valuesToSave: Array<{ stepId: string; value: unknown }> = [];
 
     // Populate step values
     for (const step of allSteps) {
       if (step.isVirtual) {continue;}
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let valueToSet: any = undefined;
+      let valueToSet: unknown = undefined;
 
       // Priority 1: initialValues (by alias or stepId)
       if (initialValues) {
@@ -224,21 +222,10 @@ export class RunLifecycleService {
     workflowId: string,
     snapshotValues?: SnapshotValueMap
   ): Promise<string> {
-    // Get all sections for the workflow
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
-    if (sections.length === 0) {
-      throw new Error("Workflow has no sections");
-    }
-
-    // Sort sections by order
-    const sortedSections = [...sections].sort((a, b) => (a.order || 0) - (b.order || 0));
-
     // Get all step values for the run
     const runValues = await this.valueRepo.findByRunId(runId);
     const runValueMap = new Map(runValues.map(v => [v.stepId, v]));
 
-    // Get all steps for the workflow
-    const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId);
     // Build stepId-keyed data for logic evaluation. Document generation gets a
     // separate alias-keyed view from RunDataService; logic must stay on ids.
     const dataMap: Record<string, unknown> = {};
@@ -248,6 +235,14 @@ export class RunLifecycleService {
 
     // Build LogicContext once
     const logicCtx = await this.logicSvc.buildContext(workflowId, dataMap);
+    const sections = logicCtx.sections;
+    if (sections.length === 0) {
+      throw new Error("Workflow has no sections");
+    }
+
+    // Sort sections by order
+    const sortedSections = [...sections].sort((a, b) => (a.order || 0) - (b.order || 0));
+    const allSteps = logicCtx.steps;
 
     // Iterate through sections to find the first incomplete one
     for (const section of sortedSections) {
@@ -333,6 +328,7 @@ export class RunLifecycleService {
     return generation;
   }
 
+  // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
   private async generateDocumentsInner(runId: string, options: GenerateDocumentsOptions): Promise<DocumentGenerationResult> {
     try {
       // 1. Get run and workflow
@@ -406,6 +402,7 @@ export class RunLifecycleService {
       const documents: NonNullable<DocumentGenerationResult['documents']> = [];
       const skipped: string[] = [];
       const failed: unknown[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
       let archive: DocumentGenerationResult['archive'] | undefined;
       let isArchived = false;
       for (const finalBlockConfig of finalBlockConfigs) {

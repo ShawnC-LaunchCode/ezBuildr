@@ -1,4 +1,4 @@
-﻿import { beforeAll, afterAll, beforeEach, afterEach, vi, expect } from "vitest";
+import { beforeAll, afterAll, beforeEach, afterEach, vi, expect } from "vitest";
 import dotenv from "dotenv";
 
 // import "@testing-library/jest-dom";

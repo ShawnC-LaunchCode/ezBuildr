@@ -521,7 +521,7 @@ export interface LogicExpression {
   operator?: 'AND' | 'OR';
   conditions: Array<{
     key: string;              // Step alias to check
-    op: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than' | 'is_empty' | 'is_not_empty';
+    op: import('./conditions').ComparisonOperator | 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than' | 'is_empty' | 'is_not_empty';
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     value?: any;              // Expected value (not needed for is_empty/is_not_empty)
   }>;

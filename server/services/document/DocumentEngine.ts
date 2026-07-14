@@ -18,6 +18,7 @@ export interface DocumentGenerationOptions {
 export interface DocumentGenerationResult {
     docxPath: string;
     pdfPath?: string;
+    pdfFailed?: boolean;
     size: number;
     unresolvedVariables?: string[];
 }
@@ -70,6 +71,7 @@ export class DocumentEngine {
                 logger.info({ pdfPath }, 'PDF generated successfully');
             } catch (error) {
                 logger.warn({ error }, 'PDF conversion failed, returning DOCX only');
+                result.pdfFailed = true;
                 // Don't fail the whole process if PDF fails
             }
         }

@@ -49,6 +49,7 @@ describe("workflowLogic", () => {
         const result = evaluateRules(rules, data);
         // Should not be in visible sections (delete doesn't error if not present)
         expect(result.visibleSections.has("sec-1")).toBe(false);
+        expect(result.hiddenSections.has("sec-1")).toBe(true);
       });
       it("should set skip target when skip_to action is triggered", () => {
         const rules: LogicRule[] = [
@@ -124,6 +125,7 @@ describe("workflowLogic", () => {
         const data = { "step-1": "no" };
         const result = evaluateRules(rules, data);
         expect(result.visibleSteps.has("step-2")).toBe(false);
+        expect(result.hiddenSteps.has("step-2")).toBe(true);
         expect(result.requiredSteps.has("step-2")).toBe(false);
       });
       it("should require step when require action is triggered", () => {
@@ -697,7 +699,9 @@ describe("workflowLogic", () => {
       it("should handle empty rules array", () => {
         const result = evaluateRules([], {});
         expect(result.visibleSections.size).toBe(0);
+        expect(result.hiddenSections.size).toBe(0);
         expect(result.visibleSteps.size).toBe(0);
+        expect(result.hiddenSteps.size).toBe(0);
         expect(result.requiredSteps.size).toBe(0);
       });
       it("should handle empty data", () => {

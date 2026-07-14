@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { BlockRenderer } from "@/components/runner/blocks";
 import { BlockErrorBoundary } from "@/components/runner/BlockErrorBoundary";
 import { Badge } from "@/components/ui/badge";
-import { useWorkflowVisibility } from "@/hooks/useWorkflowVisibility";
+import { useSectionVisibility } from "@/hooks/runner/useSectionVisibility";
 import type { ApiStep } from "@/lib/vault-api";
 import { useSteps } from "@/lib/vault-hooks";
 import type { DefaultValueConfig } from "@/pages/workflow-runner/runner.utils";
@@ -57,10 +57,10 @@ export function SectionSteps({
     }, [sourceSteps]);
 
     // Use visibility hook to evaluate which steps should be shown
-    // Casting steps to any here because useWorkflowVisibility expects strict Step types which might differ slightly from ApiStep
+    // Casting steps to any here because useSectionVisibility expects strict Step types which might differ slightly from ApiStep
     // TODO: unify Step types
     // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
-    const { isStepVisible } = useWorkflowVisibility(logicRules, steps as any, values);
+    const { getVisibleSectionSteps } = useSectionVisibility(undefined, steps as any, values, logicRules);
 
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!steps || steps.length === 0) {
@@ -68,12 +68,7 @@ export function SectionSteps({
     }
 
     // Filter steps to only show visible ones
-    const visibleSteps = steps.filter((step) => {
-        // Virtual steps are never shown
-        if (step.isVirtual) { return false; }
-        // Check visibility from logic rules
-        return isStepVisible(step.id);
-    });
+    const visibleSteps = getVisibleSectionSteps(sectionId) as unknown as typeof steps;
 
 
 

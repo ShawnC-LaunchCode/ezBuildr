@@ -2,6 +2,7 @@ import { isJsQuestionConfig } from "@shared/types/steps";
 
 import { logger } from "../../logger";
 import { workflowRepository, stepRepository, sectionRepository } from "../../repositories";
+import { createError } from "../../utils/errors";
 import { validatePage } from "../../workflows/validation";
 import { blockRunner } from "../BlockRunner";
 import { intakeQuestionVisibilityService } from "../IntakeQuestionVisibilityService";
@@ -86,13 +87,24 @@ export class RunExecutionCoordinator {
         values: Array<{ stepId: string, value: any }>
     ): Promise<{ success: boolean; errors?: string[] }> {
         const { runId, workflowId } = context;
+        const steps = await this.stepRepo.findBySectionId(sectionId);
+        const sectionStepIds = new Set(steps.map(step => step.id));
+        const outOfSectionStepIds = values
+            .map(value => value.stepId)
+            .filter(stepId => !sectionStepIds.has(stepId));
+        if (outOfSectionStepIds.length > 0) {
+            throw createError.validation(
+                `Section submit contains out-of-section stepIds: ${outOfSectionStepIds.join(', ')}`,
+                { stepIds: outOfSectionStepIds }
+            );
+        }
+
         // 1. Persist Values
         await this.persistence.bulkSaveValues(runId, values, workflowId);
         // 2. Get updated data map
         const dataMap = await this.persistence.getRunValues(runId);
         const aliasMap = await this.getAliasMap(workflowId);
         // 3. Validate required fields (respecting visibility)
-        const steps = await this.stepRepo.findBySectionId(sectionId);
         const visibility = await intakeQuestionVisibilityService.evaluatePageQuestions(
             sectionId,
             runId,

@@ -96,7 +96,11 @@ export function IntakeAssignmentSection({ workflow, runValues, onComplete: _onCo
                                             </p>
                                         </div>
                                     </div>
-                                    <Button variant="outline" className="gap-2">
+                                    <Button 
+                                        variant="outline" 
+                                        className="gap-2"
+                                        onClick={() => window.location.href = `/run/${targetWorkflow!.id}`}
+                                    >
                                         Start Workflow <ArrowRight className="h-4 w-4" aria-hidden="true" />
                                     </Button>
                                 </CardContent>

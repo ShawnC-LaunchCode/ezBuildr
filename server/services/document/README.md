@@ -13,7 +13,7 @@ The VaultLogic Document Generation Engine provides enterprise-grade document tem
 ### Core Capabilities
 
 ✅ **DOCX Template Rendering** - Variable substitution with `{{ placeholder }}` syntax
-✅ **PDF Conversion** - Multi-strategy (Puppeteer/LibreOffice)
+✅ **PDF Conversion** - DOCX → Mammoth HTML → Puppeteer PDF
 ✅ **60+ Helper Functions** - Formatting, date, currency, math operations
 ✅ **Template Analysis** - Extract variables, validate coverage
 ✅ **Nested Variable Support** - Dot notation `{{ user.address.city }}`
@@ -73,9 +73,9 @@ The VaultLogic Document Generation Engine provides enterprise-grade document tem
 ### Layer 2: PDF Converter (Format Transformation)
 
 **File:** `PdfConverter.ts`
-**Strategies:** Puppeteer (default) | LibreOffice (fallback)
+**Strategy:** Puppeteer
 
-#### Strategy 1: Puppeteer Pipeline
+#### Puppeteer Pipeline
 ```
 DOCX → Mammoth (DOCX→HTML) → Puppeteer (HTML→PDF) → PDF Buffer
 ```
@@ -87,7 +87,9 @@ DOCX → Mammoth (DOCX→HTML) → Puppeteer (HTML→PDF) → PDF Buffer
 
 **Cons:**
 - Layout fidelity depends on Mammoth conversion quality
-- Complex formatting may not be preserved
+- Complex tables may be simplified by Mammoth
+- Headers, footers, comments, tracked changes, and some section-level DOCX
+  layout features are not preserved in the HTML intermediate form
 
 **Configuration:**
 - Page size: A4
@@ -95,24 +97,9 @@ DOCX → Mammoth (DOCX→HTML) → Puppeteer (HTML→PDF) → PDF Buffer
 - Print background: enabled
 - Scale: 1.0
 
-#### Strategy 2: LibreOffice CLI
-```
-DOCX → LibreOffice --headless --convert-to pdf → PDF Buffer
-```
-
-**Pros:**
-- Native DOCX support
-- Excellent layout fidelity
-- Preserves complex formatting
-
-**Cons:**
-- Requires LibreOffice installed on system
-- Platform-dependent behavior
-
-**Command:**
-```bash
-libreoffice --headless --convert-to pdf --outdir /tmp input.docx
-```
+When PDF conversion fails, the generation path records `pdfFailed: true` on the
+document record and keeps the DOCX output available rather than silently
+substituting another converter.
 
 ---
 
@@ -566,8 +553,8 @@ try {
 try {
   const pdf = await PdfConverter.convert(docx, 'puppeteer');
 } catch (error) {
-  // Fallback to LibreOffice
-  return await PdfConverter.convert(docx, 'libreoffice');
+  // Record pdfFailed: true and keep the DOCX output available.
+  logger.warn({ error }, 'PDF conversion failed');
 }
 ```
 
@@ -631,7 +618,7 @@ if (mapping[field] && !normalizedData[mapping[field].source]) {
 
 ### Integration Tests
 - End-to-end document generation
-- PDF conversion (both strategies)
+- PDF conversion through the Puppeteer pipeline
 - Multi-document ZIP creation
 - API endpoint functionality
 
@@ -669,9 +656,9 @@ node, and the Bull queue worker — render through
 
 ### Issue: PDF conversion fails
 **Check:**
-1. LibreOffice installed and in PATH
-2. Puppeteer dependencies installed
-3. Fallback strategy configured
+1. Puppeteer dependencies installed
+2. Template content can survive Mammoth's DOCX-to-HTML conversion
+3. Generated document record has `pdfFailed: true` and DOCX download remains available
 
 ### Issue: Mapping not working
 **Check:**

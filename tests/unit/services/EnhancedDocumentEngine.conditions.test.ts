@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EnhancedDocumentEngine } from '../../../server/services/document/EnhancedDocumentEngine.js';
 import { DocumentEngine } from '../../../server/services/document/DocumentEngine.js';

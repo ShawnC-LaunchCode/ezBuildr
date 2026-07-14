@@ -270,11 +270,33 @@ router.post(
               `Invalid template: ${docxScanResult.errors?.join(', ') ?? 'unknown error'}`
             );
           }
-          if (docxScanResult.fixed) {
-            fileBuffer = docxScanResult.buffer;
-            warnings = docxScanResult.repairs;
-          }
-        } catch (error: unknown) {
+            if (docxScanResult.fixed) {
+              fileBuffer = docxScanResult.buffer;
+              warnings = docxScanResult.repairs;
+            }
+            
+            // DOC-109: Validate helpers during upload
+            try {
+              const { extractPlaceholdersDetailed } = await import('../services/templatePlaceholders');
+              const { docxHelpers } = await import('../services/docxHelpers');
+              // We need to write to a temporary file first because extractPlaceholdersDetailed takes a path
+              const tempPath = path.join(os.tmpdir(), `validate-${crypto.randomBytes(4).toString('hex')}.docx`);
+              await fs.writeFile(tempPath, fileBuffer);
+              try {
+                const placeholders = await extractPlaceholdersDetailed(tempPath);
+                for (const p of placeholders) {
+                  if (p.kind === 'unknown_helper') {
+                    warnings.push(`Warning: Template references an unknown helper function "${p.helper ?? p.name}".`);
+                  }
+                }
+              } finally {
+                await fs.unlink(tempPath).catch(() => {});
+              }
+            } catch (e) {
+              logger.warn({ error: e }, "Failed to extract placeholders during template upload");
+            }
+            
+          } catch (error: unknown) {
           await cleanupFile(req.file.path);
           if (isErrorWithCode(error) && error.code === 'VALIDATION_ERROR') { throw error; }
           throw createError.validation(`Template validation failed: ${isErrorWithCode(error) ? error.message : String(error)}`);

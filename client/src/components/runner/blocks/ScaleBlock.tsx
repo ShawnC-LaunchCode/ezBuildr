@@ -29,7 +29,7 @@ export interface ScaleBlockProps {
   hasError?: boolean;
 }
 
-export function ScaleBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: ScaleBlockProps) {
+export function ScaleBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, hasError }: ScaleBlockProps) {
   const config = step.config as ScaleConfig;
   const min = config?.min ?? 1;
   const max = config?.max ?? 10;
@@ -49,6 +49,8 @@ export function ScaleBlockRenderer({ step, value, onChange, readOnly , ariaDescr
       <div className="space-y-4">
         <Slider
           id={step.id}
+          aria-label={step.title}
+          thumbAriaLabel={step.title}
           value={[currentValue]}
           onValueChange={(vals) => {
             if (!readOnly) {
@@ -60,7 +62,6 @@ export function ScaleBlockRenderer({ step, value, onChange, readOnly , ariaDescr
           step={step_value}
           disabled={readOnly}
       aria-describedby={ariaDescribedBy}
-      aria-required={required ? "true" : undefined}
       aria-invalid={hasError ? "true" : undefined}
       className="w-full"
         />
@@ -95,7 +96,6 @@ export function ScaleBlockRenderer({ step, value, onChange, readOnly , ariaDescr
             }}
             disabled={readOnly}
       aria-describedby={ariaDescribedBy}
-      aria-required={required ? "true" : undefined}
       aria-invalid={hasError ? "true" : undefined}
       className="transition-colors hover:scale-110 disabled:cursor-not-allowed"
             aria-label={`Rate ${starValue} out of ${numStars}`}

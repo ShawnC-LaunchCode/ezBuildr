@@ -73,10 +73,6 @@ export function useAutoSave<T>({
       lastSavedDataRef.current = currentDataRef.current !== dataToSave ? currentDataRef.current : dataToSave; // actually we just want to ensure it tries again
       setHasUnsavedChanges(true);
       setSaveStatus("error");
-      // Reset to idle after showing error
-      setTimeout(() => {
-        setSaveStatus("idle");
-      }, 3000);
     } finally {
       isSavingRef.current = false;
     }
@@ -122,7 +118,7 @@ export function useAutoSave<T>({
 
   // Save on unmount or beforeunload if there are unsaved changes
   useEffect(() => {
-    const handleBeforeUnload = () => {
+    const handleBeforeUnload = (): void => {
       if (hasUnsavedChangesRef.current && !isSavingRef.current) {
         // Fire and forget - using keepalive in fetch
         onSave(currentDataRef.current).catch(console.error);

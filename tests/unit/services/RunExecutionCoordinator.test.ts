@@ -168,4 +168,22 @@ describe('RunExecutionCoordinator - JS Execution', () => {
         expect(result.success).toBe(false);
         expect(result.errors).toContainEqual(expect.stringContaining('SyntaxError'));
     });
+
+    it('rejects section submits containing values from another section before writing', async () => {
+        mockStepRepo.findBySectionId.mockResolvedValue([
+            { id: 'current-step', type: 'short_text', title: 'Current Step' } as unknown as Step,
+        ]);
+
+        const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
+
+        await expect(coordinator.submitSection(context, 'section-1', [
+            { stepId: 'current-step', value: 'ok' },
+            { stepId: 'other-section-step', value: 'not ok' },
+        ])).rejects.toMatchObject({
+            statusCode: 400,
+            details: { stepIds: ['other-section-step'] },
+        });
+
+        expect(mockRunPersistence.bulkSaveValues).not.toHaveBeenCalled();
+    });
 });

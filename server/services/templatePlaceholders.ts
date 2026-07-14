@@ -25,7 +25,7 @@ export interface PlaceholderInfo {
   name: string;
   /** Raw tag content as written in the document */
   raw: string;
-  kind: 'variable' | 'section' | 'helper';
+  kind: 'variable' | 'section' | 'helper' | 'unknown_helper';
   /** Helper name when kind === 'helper' */
   helper?: string;
   /** Enclosing loop collections ([] when at top level) */
@@ -115,10 +115,16 @@ function processValueTag(state: ExtractionState, content: string): void {
   let kind: PlaceholderInfo['kind'] = 'variable';
   let helper: string | undefined;
 
-  if (parts.length > 1 && parts[0] in docxHelpers) {
-    helper = parts[0];
-    name = parts[1];
-    kind = 'helper';
+  if (parts.length > 1) {
+    if (parts[0] in docxHelpers) {
+      helper = parts[0];
+      name = parts[1];
+      kind = 'helper';
+    } else {
+      helper = parts[0];
+      name = parts[1];
+      kind = 'unknown_helper';
+    }
   }
 
   if (name === undefined || name === '' || name === '.') {

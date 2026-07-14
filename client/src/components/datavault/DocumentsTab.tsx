@@ -3,7 +3,6 @@ import { FileText, Loader2, AlertCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { datavaultAPI } from "@/lib/datavault-api";
 
 interface GeneratedDocument {
   id: string;
@@ -22,7 +21,7 @@ export function DocumentsTab({ runId }: { runId: string }) {
       // Re-use vault-api function if it exists or use fetch
       const res = await fetch(`/api/runs/${runId}/documents`);
       if (!res.ok) {
-        if (res.status === 404) return null; // Not a run
+        if (res.status === 404) {return null;} // Not a run
         throw new Error("Failed to fetch documents");
       }
       return res.json() as Promise<{ documents: GeneratedDocument[], generationStatus?: string }>;
@@ -38,7 +37,7 @@ export function DocumentsTab({ runId }: { runId: string }) {
     );
   }
 
-  if (error || !data) {
+  if (error !== null || !data) {
     return (
       <div className="p-6 text-center text-sm text-muted-foreground">
         No documents generated for this row, or this row is not a workflow run.

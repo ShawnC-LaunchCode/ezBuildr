@@ -1,9 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unnecessary-type-assertion */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RunService } from "../../../server/services/RunService";
 
 describe("RunService version pinning", () => {
-  /* eslint-disable @typescript-eslint/no-explicit-any */
   let runRepo: any;
   let workflowRepo: any;
   let authResolver: any;
@@ -11,7 +11,6 @@ describe("RunService version pinning", () => {
   let lifecycleService: any;
   let metricsService: any;
   let service: RunService;
-  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -40,22 +39,22 @@ describe("RunService version pinning", () => {
     };
 
     service = new RunService(
-      runRepo as any,
+      runRepo,
       {} as any,
-      workflowRepo as any,
-      {} as any,
-      {} as any,
+      workflowRepo,
       {} as any,
       {} as any,
       {} as any,
       {} as any,
       {} as any,
-      authResolver as any,
       {} as any,
-      persistenceWriter as any,
-      lifecycleService as any,
       {} as any,
-      metricsService as any,
+      authResolver,
+      {} as any,
+      persistenceWriter,
+      lifecycleService,
+      {} as any,
+      metricsService,
       {} as any,
       {} as any,
     );

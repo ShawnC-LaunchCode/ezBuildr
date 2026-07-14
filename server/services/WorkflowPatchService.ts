@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import crypto from "crypto";
 
 import { createLogger } from "../logger";
@@ -22,6 +21,8 @@ const logger = createLogger({ module: "workflow-patch-service" });
  * Applies atomic workflow patch operations with tempId resolution
  * Used by AI workflow editing system
  */
+import type { StepType } from "../../shared/types/workflow";
+
 export class WorkflowPatchService {
   private tempIdMap: Map<string, string> = new Map();
   private datavaultTablesService = new DatavaultTablesService();
@@ -159,13 +160,13 @@ export class WorkflowPatchService {
   private async assertEntityBelongsToWorkflow(entityId: string, workflowId: string, type: 'section' | 'step'): Promise<void> {
     if (type === 'section') {
       const section = await sectionRepository.findById(entityId);
-      if (!section) throw new Error(`Section not found: ${entityId}`);
-      if (section.workflowId !== workflowId) throw new Error(`Section ${entityId} does not belong to workflow ${workflowId}`);
+      if (!section) {throw new Error(`Section not found: ${entityId}`);}
+      if (section.workflowId !== workflowId) {throw new Error(`Section ${entityId} does not belong to workflow ${workflowId}`);}
     } else if (type === 'step') {
       const step = await this.stepRepository.findById(entityId);
-      if (!step) throw new Error(`Step not found: ${entityId}`);
+      if (!step) {throw new Error(`Step not found: ${entityId}`);}
       const section = await sectionRepository.findById(step.sectionId);
-      if (!section || section.workflowId !== workflowId) throw new Error(`Step ${entityId} does not belong to workflow ${workflowId}`);
+      if (!section || section.workflowId !== workflowId) {throw new Error(`Step ${entityId} does not belong to workflow ${workflowId}`);}
     }
   }
 
@@ -244,8 +245,7 @@ export class WorkflowPatchService {
         const step = await this.stepRepository.create({
           workflowId,
           sectionId,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- StepType enum validated by Zod schema
-          type: op.type as any,
+          type: op.type as StepType,
           title: op.title,
           alias: op.alias,
           required: op.required ?? false,
@@ -264,8 +264,7 @@ export class WorkflowPatchService {
         if (!stepId) { throw new Error("Step ID or tempId required"); }
         await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step');
         await this.stepRepository.update(stepId, {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- StepType enum validated by Zod schema
-          type: op.type as any,
+          type: op.type as StepType,
           title: op.title,
           alias: op.alias,
           required: op.required,
@@ -513,9 +512,9 @@ export class WorkflowPatchService {
             tableId: table.id,
             name: col.name,
             type: col.type,
-            // @ts-ignore - TODO: fix type
+            // @ts-expect-error - TODO: fix type
             required: col.config?.required ?? false,
-            // @ts-ignore - TODO: fix type
+            // @ts-expect-error - TODO: fix type
             description: col.config?.description ?? null,
             // Add type-specific config
             options: col.type === 'select' || col.type === 'multiselect'
@@ -549,9 +548,9 @@ export class WorkflowPatchService {
             tableId,
             name: col.name,
             type: col.type,
-            // @ts-ignore - TODO: fix type
+            // @ts-expect-error - TODO: fix type
             required: col.config?.required ?? false,
-            // @ts-ignore - TODO: fix type
+            // @ts-expect-error - TODO: fix type
             description: col.config?.description ?? null,
             options: col.type === 'select' || col.type === 'multiselect'
               ? col.config?.options ?? null
@@ -603,8 +602,7 @@ export class WorkflowPatchService {
         await datavaultWritebackMappingsRepository.create({
           workflowId,
           tableId,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- columnMappings structure is Record<string, string>
-          columnMappings: columnMappings as any,
+          columnMappings: columnMappings as Record<string, unknown>,
           triggerPhase: 'afterComplete',
           createdBy: userId,
         });
@@ -614,8 +612,7 @@ export class WorkflowPatchService {
         // TypeScript should ensure exhaustive checking
         // eslint-disable-next-line no-case-declarations
         const _exhaustive: never = op;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- fallback for unknown operation type
-        throw new Error(`Unknown operation: ${(op as any).op}`);
+        throw new Error(`Unknown operation: ${(op as { op: string }).op}`);
     }
   }
   /**
@@ -634,8 +631,7 @@ export class WorkflowPatchService {
    *   "age greater_than 18"
    *   "status is_empty"
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- returns ConditionExpression with dynamic structure
-  private parseConditionToExpression(condition: string): any {
+  private parseConditionToExpression(condition: string): unknown {
     // Trim whitespace
     // eslint-disable-next-line no-param-reassign
     condition = condition.trim();
@@ -691,8 +687,7 @@ export class WorkflowPatchService {
         };
       }
       // Parse right value
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- value can be string, number, boolean, array, etc.
-      let rightValue: any;
+      let rightValue: unknown;
       let valueType: 'constant' | 'variable' = 'constant';
       if (right.startsWith("'") && right.endsWith("'")) {
         // String literal

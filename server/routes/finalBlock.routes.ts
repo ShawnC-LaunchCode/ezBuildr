@@ -31,7 +31,7 @@ import { workflowService } from '../services/WorkflowService.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { createError } from '../utils/errors.js';
 
-import type { Express, Response } from 'express';
+import type { Express, Request, Response } from 'express';
 
 const logger = createLogger({ module: 'finalBlock-routes' });
 
@@ -85,7 +85,7 @@ export function registerFinalBlockRoutes(app: Express): void {
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     creatorOrRunTokenAuth,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    asyncHandler(async (req: any, res: Response) => {
+    asyncHandler(async (req: Request, res: Response) => {
       try {
         const runAuthReq = req as RunAuthRequest;
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
@@ -181,7 +181,7 @@ export function registerFinalBlockRoutes(app: Express): void {
     strictLimiter,
     hybridAuth,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    asyncHandler(async (req: any, res: Response) => {
+    asyncHandler(async (req: Request, res: Response) => {
       try {
         const authReq = req as AuthRequest;
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
@@ -284,7 +284,7 @@ export function registerFinalBlockRoutes(app: Express): void {
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     creatorOrRunTokenAuth,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    asyncHandler(async (req: any, res: Response) => {
+    asyncHandler(async (req: Request, res: Response) => {
       try {
         const runAuthReq = req as RunAuthRequest;
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
@@ -379,3 +379,4 @@ export function registerFinalBlockRoutes(app: Express): void {
 export default {
   registerFinalBlockRoutes,
 };
+
