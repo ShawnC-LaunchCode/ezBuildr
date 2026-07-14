@@ -45,7 +45,6 @@ import { useVersions, usePublishWorkflow, useRestoreVersion, useWorkflow, useSet
 // eslint-disable-next-line max-lines-per-function, complexity
 export default function WorkflowBuilder() {
   const { id: workflowId } = useParams<{ id: string }>();
-  // ... existing hooks ...
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
@@ -108,9 +107,6 @@ export default function WorkflowBuilder() {
   };
   const handleDiff = (version: ApiWorkflowVersion) => {
     // Diff selected version against CURRENT Draft (which implicitly is the 'latest' state in DB tables)
-    // Wait, API requires two version IDs.
-    // Does 'Draft' have a version ID?
-    // Yes, `workflow_versions` table has a row with `isDraft: true`.
     const draftVersion = versionsArray.find(v => v.isDraft);
     if (!draftVersion) {
       toast({ title: "Error", description: "Could not find current draft version." });
@@ -120,11 +116,6 @@ export default function WorkflowBuilder() {
     setDiffTargetVersion(draftVersion);
     setDiffOpen(true);
   };
-  // ... existing handlers (handleStatusChange, handleTabChange, etc.) ...
-  // ... (Paste existing handlers like handleModeChange, handleStartPreview) ...
-  // Re-implementing them briefly to ensure context is valid if replace cuts them off.
-  // Actually, I should try to preserve them. The 'TargetContent' for the replace must be careful.
-  // I will use a larger block replacement strategy.
   // Memoize collaborative user to prevent WebSocket reconnects
   // This MUST be before any early returns to comply with Rules of Hooks
   /* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- existing logic */
@@ -148,10 +139,6 @@ export default function WorkflowBuilder() {
   // Only enable collaboration when we have the token AND the user is loaded with a tenantId
   // This prevents the "default-tenant" race condition
   const isCollabReady = !!collabToken && !authLoading && !!user?.tenantId;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
-  const workflowAny = workflow as any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
-  const transformBlocksAny = transformBlocks as any;
 
   return (
     <CollaborationProvider config={{
@@ -323,8 +310,10 @@ export default function WorkflowBuilder() {
           rightPanel={
             <AiConversationPanel
               workflowId={workflowId}
-              currentWorkflow={workflowAny} // eslint-disable-line @typescript-eslint/no-unsafe-assignment
-              transformBlocks={transformBlocksAny} // eslint-disable-line @typescript-eslint/no-unsafe-assignment
+              // @ts-expect-error - TODO(ICW-B1): AiConversationPanel expects full backend WorkflowWithDetails shape which differs from client hook response
+              currentWorkflow={workflow}
+              // @ts-expect-error - TODO(ICW-B1): Type mismatch between API response and expected props
+              transformBlocks={transformBlocks}
               initialPrompt={searchParams.get("prompt") ?? undefined}
             />
           }

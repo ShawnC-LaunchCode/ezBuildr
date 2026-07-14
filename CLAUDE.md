@@ -39,7 +39,7 @@ ezBuildr/
 ├── client/src/
 │   ├── Router.tsx           # Wouter route table (source of truth for pages)
 │   ├── components/
-│   │   ├── builder/         # Workflow builder (5-tab nav, canvas, inspector)
+│   │   ├── builder/         # Workflow builder (7-tab nav, canvas, inspector)
 │   │   ├── runner/          # Run-time rendering (blocks/, sections/)
 │   │   ├── preview/         # In-memory preview shell (PreviewRunner, DevToolbar)
 │   │   ├── blocks/          # Block editors

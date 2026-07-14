@@ -24,7 +24,7 @@ Enterprise workflow automation platform combining visual workflow building, cond
 ezBuildr/
 ├── client/src/
 │   ├── components/
-│   │   ├── builder/         # Workflow builder (5-tab nav, canvas, inspector)
+│   │   ├── builder/         # Workflow builder (7-tab nav, canvas, inspector)
 │   │   ├── preview/         # Preview & runner (18 block renderers)
 │   │   ├── datavault/       # DataVault UI
 │   │   ├── logic/           # Logic builder, visibility editor

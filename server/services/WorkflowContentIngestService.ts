@@ -5,7 +5,7 @@ import { createLogger } from "../logger";
 import { sections, steps, logicRules, transformBlocks, lifecycleHooks, documentHooks } from "../../shared/schema";
 
 import { normalizeWorkflowTypes, validateWorkflowStructure } from "./ai/AIServiceUtils";
-import { generateUniqueAliasFromTaken } from "./stepAlias";
+import { generateUniqueAliasFromTaken, sanitizeAliasFormat } from "./stepAlias";
 
 import type {
   InsertDocumentHook,
@@ -149,13 +149,13 @@ export class WorkflowContentIngestService {
   async apply(
     workflowId: string,
     data: WorkflowContentData,
-    options: { source: "ai" | "template" | "manual" }
+    options: { source: "ai" | "template" | "manual"; tx?: Transaction }
   ): Promise<void> {
     logger.info({ workflowId, source: options.source }, "Applying workflow content");
 
     const normalizedData = normalizeContent(data);
 
-    return db.transaction(async (tx) => {
+    const runner = async (tx: Transaction): Promise<void> => {
       const existingSections = await tx
         .select()
         .from(sections)
@@ -175,7 +175,12 @@ export class WorkflowContentIngestService {
       await this.syncTransformBlocks(tx, workflowId, normalizedData.transformBlocks ?? []);
       await this.syncLifecycleHooks(tx, workflowId, normalizedData.lifecycleHooks);
       await this.syncDocumentHooks(tx, workflowId, normalizedData.documentHooks);
-    });
+    };
+
+    if (options.tx) {
+      return runner(options.tx);
+    }
+    return db.transaction(runner);
   }
 
   private async buildAliasState(tx: Transaction, workflowId: string): Promise<AliasSyncState> {
@@ -373,6 +378,13 @@ export class WorkflowContentIngestService {
     const previousAlias = stepId !== undefined ? aliasState.existingAliasByStepId.get(stepId) : null;
     if (previousAlias !== undefined && previousAlias !== null) {
       aliasState.takenAliases.delete(previousAlias.toLowerCase());
+    }
+
+    if (stepData.alias) {
+      stepData.alias = sanitizeAliasFormat(stepData.alias);
+      if (stepData.alias === "") {
+        stepData.alias = undefined;
+      }
     }
 
     let alias = stepData.alias ?? generateUniqueAliasFromTaken(stepData.title, aliasState.takenAliases);

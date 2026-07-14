@@ -60,9 +60,16 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.createWorkflow(workflowData, userId);
       res.status(201).json(workflow);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Invalid workflow data",
+          errors: error.errors
+        });
+      }
+      const { status, message } = classifyRouteError(error, "Failed to create workflow");
       logger.error({ error, userId: (req as AuthRequest).userId }, "Error creating workflow");
-      res.status(500).json({
-        message: "Failed to create workflow",
+      res.status(status).json({
+        message,
         error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined,
       });
     }

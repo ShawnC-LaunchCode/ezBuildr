@@ -1,5 +1,25 @@
 export const ALIAS_MAX_LENGTH = 60;
 
+export const ALIAS_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+export const ALIAS_FORMAT_MESSAGE = 'Variable names must start with a letter or underscore and contain only letters, numbers, and underscores.';
+
+export function validateAliasFormat(alias: string): void {
+  if (!ALIAS_FORMAT.test(alias)) {
+    throw new Error(ALIAS_FORMAT_MESSAGE);
+  }
+  if (alias.length > ALIAS_MAX_LENGTH) {
+    throw new Error(`Variable names must be at most ${ALIAS_MAX_LENGTH} characters.`);
+  }
+}
+
+export function sanitizeAliasFormat(alias: string): string {
+  let sanitized = alias.replace(/[^a-zA-Z0-9_]/g, '');
+  if (sanitized.length > 0 && /^[0-9]/.test(sanitized)) {
+    sanitized = `_${sanitized}`;
+  }
+  return sanitized.slice(0, ALIAS_MAX_LENGTH);
+}
+
 /**
  * Derive a camelCase variable name from a question label.
  * "What is your first name?" -> "whatIsYourFirstName"

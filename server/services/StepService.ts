@@ -4,20 +4,13 @@ import { logger } from "../logger";
 import { stepRepository, sectionRepository } from "../repositories";
 
 import { aliasRenameService } from "./AliasRenameService";
-import { ALIAS_MAX_LENGTH, generateAliasFromLabel, generateUniqueAliasFromTaken } from "./stepAlias";
+import { generateAliasFromLabel, generateUniqueAliasFromTaken, validateAliasFormat } from "./stepAlias";
 import { workflowService } from "./WorkflowService";
 
 const SECTION_NOT_FOUND = "Section not found";
 const STEP_NOT_FOUND = "Step not found";
 
-/**
- * Format for new/changed aliases. Dots are not allowed (existing dotted
- * aliases are grandfathered — they collide with the dot-notation keys the
- * document normalizer produces for nested values).
- */
-const ALIAS_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-const ALIAS_FORMAT_MESSAGE =
-  'Variable names must start with a letter or underscore and contain only letters, numbers, and underscores.';
+
 type CreateStepData = Omit<InsertStep, 'sectionId' | 'workflowId' | 'order'> & Partial<Pick<InsertStep, 'order'>>;
 export { generateAliasFromLabel, generateUniqueAliasFromTaken };
 
@@ -39,18 +32,7 @@ export class StepService {
     this.workflowSvc = workflowSvc ?? workflowService;
   }
 
-  /**
-   * Validate the format of a new/changed alias (server-side counterpart of
-   * the AliasField client validation, which was previously the only check)
-   */
-  private validateAliasFormat(alias: string): void {
-    if (!ALIAS_FORMAT.test(alias)) {
-      throw new Error(ALIAS_FORMAT_MESSAGE);
-    }
-    if (alias.length > ALIAS_MAX_LENGTH) {
-      throw new Error(`Variable names must be at most ${ALIAS_MAX_LENGTH} characters.`);
-    }
-  }
+
 
   /** All aliases in a workflow, lowercased for case-insensitive comparison */
   private async getWorkflowAliases(workflowId: string): Promise<Set<string>> {
@@ -152,7 +134,7 @@ export class StepService {
     // (steps without an alias are excluded from document data entirely)
     let alias = data.alias;
     if (alias) {
-      this.validateAliasFormat(alias);
+      validateAliasFormat(alias);
       await this.validateAliasUniqueness(workflowId, alias);
     } else if (data.title) {
       alias = await this.generateUniqueAlias(workflowId, data.title);
@@ -207,7 +189,7 @@ export class StepService {
     // (existing aliases are grandfathered until edited)
     if (data.alias !== undefined && data.alias !== step.alias) {
       if (data.alias) {
-        this.validateAliasFormat(data.alias);
+        validateAliasFormat(data.alias);
       }
       await this.validateAliasUniqueness(workflowId, data.alias, stepId);
     }

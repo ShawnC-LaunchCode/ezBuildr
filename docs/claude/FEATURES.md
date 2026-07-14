@@ -6,7 +6,7 @@ Feature status, security details, and recent architecture changes (verified July
 
 | Feature | Description |
 |---------|-------------|
-| **Workflow Builder** | Section/step builder with 5-tab navigation and inspector panel |
+| **Workflow Builder** | Section/step builder with 7-tab navigation and inspector panel |
 | **38 Step Types** | Text, choice, date/time, currency, address, scale, signature block, file upload, computed, repeater, multi-field, plus easy/advanced-mode variants (see `stepTypeEnum` in SCHEMA.md) |
 | **DataVault** | Data platform: databases, tables, rows, 14 column types, infinite scroll, role-based permissions, ACLs, API tokens, row notes |
 | **Custom Scripting System** | Lifecycle hooks (4 phases) + document hooks (2 phases), 40+ helper functions, JS/Python, script console |

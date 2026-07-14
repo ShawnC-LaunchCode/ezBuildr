@@ -624,34 +624,36 @@ export class WorkflowService {
     if (!hasAccess) {
       throw new Error("Access denied - you do not have permission to edit this workflow");
     }
-    // 2. Update Workflow Metadata
-    const [updatedWorkflow] = await db
-      .update(workflows)
-      .set({
-        title: data.title,
-        description: data.description,
-        updatedAt: new Date(),
-      })
-      .where(eq(workflows.id, workflowId))
-      .returning();
-      
-    if (updatedWorkflow === undefined) {
-      throw new Error("Workflow not found");
-    }
+    return db.transaction(async (tx) => {
+      // 2. Update Workflow Metadata
+      const [updatedWorkflow] = await tx
+        .update(workflows)
+        .set({
+          title: data.title,
+          description: data.description,
+          updatedAt: new Date(),
+        })
+        .where(eq(workflows.id, workflowId))
+        .returning();
+        
+      if (updatedWorkflow === undefined) {
+        throw new Error("Workflow not found");
+      }
 
-    // 3. Sync Sections and everything else
-    await workflowContentIngestService.apply(workflowId, data, { source: 'ai' });
+      // 3. Sync Sections and everything else
+      await workflowContentIngestService.apply(workflowId, data, { source: 'ai', tx });
 
-    // 4. Audit Log
-    await db.insert(auditLogs).values({
-      userId: userId,
-      entityType: 'workflow',
-      entityId: workflowId,
-      action: 'ai_revision_apply',
-      details: { summary: 'Full content replaced by AI' },
+      // 4. Audit Log
+      await tx.insert(auditLogs).values({
+        userId: userId,
+        entityType: 'workflow',
+        entityId: workflowId,
+        action: 'ai_revision_apply',
+        details: { summary: 'Full content replaced by AI' },
+      });
+
+      return updatedWorkflow;
     });
-
-    return updatedWorkflow;
   }
   /**
    * Transfer workflow ownership (new ownership model)

@@ -138,24 +138,18 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
           });
         }
         // 6. Apply patch operations
-        // eslint-disable-next-line no-useless-catch
-        try {
-          const { summary: _summary, errors } = await workflowPatchService.applyOps(
-            workflowId,
-            userId,
-            aiResponse.ops
-          );
-          if (errors.length > 0) {
-            logger.error({ errors, workflowId }, "Failed to apply some AI operations");
-            return res.status(400).json({
-              success: false,
-              error: "Failed to apply operations",
-              details: errors,
-            });
-          }
-        // eslint-disable-next-line sonarjs/no-useless-catch
-        } catch (applyError) {
-          throw applyError;
+        const { summary: _summary, errors } = await workflowPatchService.applyOps(
+          workflowId,
+          userId,
+          aiResponse.ops
+        );
+        if (errors.length > 0) {
+          logger.error({ errors, workflowId }, "Failed to apply some AI operations");
+          return res.status(400).json({
+            success: false,
+            error: "Failed to apply operations",
+            details: errors,
+          });
         }
 
         // 7. Get updated workflow
@@ -227,14 +221,15 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
         });
       } catch (error) {
         logger.error({ error, workflowId: req.params.workflowId }, "Error in AI workflow edit");
-        const message = "Failed to process AI edit";
-        // Map common validation/duplicate errors to 400
-        const isUserError = message.includes("Access denied") ||
-          message.includes("already exists") ||
-          message.includes("Duplicate") ||
-          message.includes("duplicate key");
-        const status = isUserError ? (message.includes("Access denied") ? 403 : 400) : 500;
-        res.status(status).json({ success: false, error: message });
+        const actual = error instanceof Error ? error.message : "";
+        const isUserError = actual.includes("Access denied") ||
+          actual.includes("already exists") ||
+          actual.includes("Duplicate") ||
+          actual.includes("duplicate key") ||
+          actual.includes("VALIDATION_ERROR");
+        const status = isUserError ? (actual.includes("Access denied") ? 403 : 400) : 500;
+        const errorMessage = status === 500 ? "Failed to process AI edit" : actual;
+        res.status(status).json({ success: false, error: errorMessage });
       }
     }
   );
