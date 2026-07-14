@@ -58,11 +58,13 @@ const ExecuteSignatureBlockSchema = z.object({
     redirectUrl: z.string().url().refine(val => {
       try {
         const url = new URL(val);
-        if (!['http:', 'https:'].includes(url.protocol)) return false;
+        if (!['http:', 'https:'].includes(url.protocol)) {return false;}
         
         const allowedHosts = ['localhost', 'ezbuildr.com'];
         if (process.env.PUBLIC_URL) {
-          try { allowedHosts.push(new URL(process.env.PUBLIC_URL).hostname); } catch {}
+          try { allowedHosts.push(new URL(process.env.PUBLIC_URL).hostname); } catch {
+            // Ignore invalid PUBLIC_URL values during redirect allow-list construction.
+          }
         }
         return allowedHosts.includes(url.hostname);
       } catch {
@@ -104,7 +106,7 @@ router.post(
 
       // Verify run ownership
       const [run] = await db.select().from(workflowRuns).where(eq(workflowRuns.id, runId));
-      if (!run) {
+      if (run === undefined) {
         res.status(404).json({ error: "Run not found" });
         return;
       }
@@ -164,7 +166,7 @@ router.get(
       }
 
       const [run] = await db.select().from(workflowRuns).where(eq(workflowRuns.id, runId));
-      if (!run) {
+      if (run === undefined) {
         res.status(404).json({ error: "Run not found" });
         return;
       }
@@ -212,7 +214,7 @@ router.post(
       const authHeader = req.headers.authorization;
       let token: string | undefined;
       
-      if (authHeader && authHeader.startsWith('Bearer ')) {
+      if (authHeader?.startsWith('Bearer ')) {
           token = authHeader.substring(7);
       } else if (req.body && typeof req.body.token === 'string') {
           token = req.body.token;

@@ -7,12 +7,9 @@ on:
     branches: [ "main" ]
 
 jobs:
-  # Advisory quality gates. Full-project `tsc` and eslint both carry known
-  # migration/debt backlogs (see docs/TYPESCRIPT_STRICT_MODE_MIGRATION.md);
-  # strict-mode enforcement lives in strict-mode-check.yml. These run for
-  # visibility only and MUST NOT gate the test job — otherwise a lint/type
-  # regression silently hides all test signal (which is exactly what happened
-  # before this pipeline was split).
+  # Quality gates. Full-project `tsc` still carries known migration/debt backlog
+  # (see docs/TYPESCRIPT_STRICT_MODE_MIGRATION.md), so type-check remains
+  # advisory. Repo-wide eslint is blocking again now that the backlog is clean.
   quality:
     name: Quality (advisory)
     runs-on: ubuntu-latest
@@ -32,9 +29,8 @@ jobs:
       run: npm run check
       continue-on-error: true
 
-    - name: Lint (advisory)
+    - name: Lint
       run: npm run lint --if-present
-      continue-on-error: true
       
     - name: Strict Zones Type Check
       run: npm run check:strict-zones

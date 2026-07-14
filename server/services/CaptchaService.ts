@@ -14,7 +14,6 @@ const logger = createLogger({ module: "captcha-service" });
  * Supports simple math puzzles (MVP) and reCAPTCHA (optional).
  */
 
-const MAX_ATTEMPTS = 3;
 const CHALLENGE_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
 function getCaptchaSecret(): string {

@@ -315,7 +315,7 @@ function evaluateOperator(
     }
 
     default:
-      console.warn(`[conditionEvaluator] Unknown operator: ${operator}`);
+      console.warn("[conditionEvaluator] Unknown operator");
       return false;
   }
 }

@@ -2,7 +2,7 @@
 import { eq } from "drizzle-orm";
 import { Router, Request, Response } from "express";
 
-import { workflows } from "@shared/schema";
+import { stepValues, workflows } from "@shared/schema";
 
 import { db } from "../db";
 import { workflowRunRepository } from "../repositories";
@@ -106,7 +106,7 @@ router.post("/w/:slug/complete", apiLimiter, strictLimiter, asyncHandler(async (
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const values = await db.query.stepValues.findMany({
             // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-            where: eq(require('@shared/schema').stepValues.runId, run.id)
+            where: eq(stepValues.runId, run.id)
         });
 
         const serverPayload = values.reduce((acc, curr) => {

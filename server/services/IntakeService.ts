@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 
-import type { Workflow } from "@shared/schema";
+import type { Section, Workflow } from "@shared/schema";
 
 
 import { IntakeConfigSchema } from "../../shared/zod-schemas.js";
@@ -29,8 +29,7 @@ export class IntakeService {
    */
   async getPublishedWorkflow(slug: string): Promise<{
     workflow: Workflow;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- sections have dynamic structure from database
-    sections: any[];
+    sections: Section[];
     intakeConfig: IntakeConfig;
     tenantBranding?: {
       name: string;
@@ -88,8 +87,7 @@ export class IntakeService {
   async createIntakeRun(
     slug: string,
     userId?: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- initialAnswers is dynamic workflow data with unknown structure
-    initialAnswers?: Record<string, any>,
+    initialAnswers?: Record<string, unknown>,
     prefillParams?: Record<string, string>
   ): Promise<{ runId: string; runToken: string }> {
     // PERFORMANCE FIX: Use indexed query instead of loading all workflows
@@ -185,8 +183,7 @@ export class IntakeService {
    */
   async saveIntakeProgress(
     runToken: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- answers is dynamic workflow data with unknown structure
-    answers: Record<string, any>
+    answers: Record<string, unknown>
   ): Promise<void> {
     // Find run by token
     const run = await workflowRunRepository.findByToken(runToken);
@@ -224,8 +221,7 @@ export class IntakeService {
    */
   async submitIntakeRun(
     runToken: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- finalAnswers is dynamic workflow data with unknown structure
-    finalAnswers: Record<string, any>,
+    finalAnswers: Record<string, unknown>,
     captchaResponse?: CaptchaResponse
   ): Promise<IntakeSubmitResult> {
     // Find run by token

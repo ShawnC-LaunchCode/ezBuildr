@@ -27,7 +27,13 @@ function isIsoDate(value: string): boolean {
 }
 
 function isIsoDateTime(value: string): boolean {
-    return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(value) && !Number.isNaN(Date.parse(value));
+    const [datePart, timePart, extraPart] = value.split('T');
+    return datePart !== undefined &&
+        timePart !== undefined &&
+        extraPart === undefined &&
+        isIsoDate(datePart) &&
+        isIsoTime(timePart) &&
+        !Number.isNaN(Date.parse(value));
 }
 
 function isIsoTime(value: string): boolean {
@@ -292,7 +298,9 @@ export class RunPersistenceWriter {
         }
 
         const submittedValues = Array.isArray(value) ? value : [value];
-        const invalidValues = submittedValues.filter(item => !allowedValues.has(item));
+        const invalidValues = submittedValues
+            .filter(item => typeof item !== 'string' || !allowedValues.has(item))
+            .map(item => String(item));
         if (invalidValues.length === 0) {
             return [];
         }

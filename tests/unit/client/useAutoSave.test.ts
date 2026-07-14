@@ -15,7 +15,7 @@ describe('useAutoSave', () => {
 
   it('debounces save calls', () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
-    const { result, rerender } = renderHook(
+    const { rerender } = renderHook(
       ({ data }) => useAutoSave({ data, onSave, delay: 1000 }),
       { initialProps: { data: { foo: 'bar' } } }
     );

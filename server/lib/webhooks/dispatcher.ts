@@ -8,6 +8,15 @@ import { db } from "../../db";
 import { logger } from "../../logger";
 import { safeFetch } from "../../utils/safeFetch";
 
+function getDeliveryId(payload: unknown, fallbackId: string): string {
+    if (typeof payload !== 'object' || payload === null || !('id' in payload)) {
+        return fallbackId;
+    }
+
+    const id = (payload as { id?: unknown }).id;
+    return typeof id === 'string' && id.length > 0 ? id : fallbackId;
+}
+
 export class WebhookDispatcher {
     /**
      * Dispatch an event to all subscribed listeners in a workspace
@@ -68,7 +77,7 @@ export class WebhookDispatcher {
                     'User-Agent': 'ezBuildr-Webhook-Dispatcher/1.0',
                     'X-ezBuildr-Signature': signature,
                     'X-ezBuildr-Event': event,
-                    'X-ezBuildr-Delivery': (payload as any).id
+                    'X-ezBuildr-Delivery': getDeliveryId(payload, eventId)
                 },
                 body: JSON.stringify(payload)
             });

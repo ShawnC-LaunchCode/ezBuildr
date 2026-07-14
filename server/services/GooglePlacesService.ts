@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 
 import { logger } from "../lib/observability/logger";
+import { safeFetch } from "../utils/safeFetch";
 
 const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 const _DISALLOWED_TYPES = ['premise', 'subpremise', 'room', 'floor', 'post_box'];
@@ -77,7 +78,7 @@ export class GooglePlacesService {
             // Log the request (masking key)
             // logger.info({ url: url.replace(GOOGLE_PLACES_API_KEY, '***') }, "Calling Google Places API");
 
-            const response = await fetch(url);
+            const response = await safeFetch(url);
             const data = await response.json();
 
             // logger.info({ status: data.status, prediction_count: data.predictions?.length }, "Google Places Response");
@@ -111,7 +112,7 @@ export class GooglePlacesService {
             const fields = "address_component,formatted_address,geometry,place_id";
             const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=${fields}&key=${GOOGLE_PLACES_API_KEY}`;
 
-            const response = await fetch(url);
+            const response = await safeFetch(url);
             const data = await response.json();
 
             if (data.status !== "OK") {

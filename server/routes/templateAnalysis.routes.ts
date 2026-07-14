@@ -4,7 +4,7 @@
  * Endpoints for analyzing and validating document templates
  */
 
-import express from 'express';
+import express, { type Express, type Request } from 'express';
 import { z } from 'zod';
 
 import { hybridAuth, asyncHandler } from '../middleware';
@@ -17,9 +17,32 @@ import {
 } from '../services/TemplateAnalysisService';
 import { aclService } from '../services/AclService';
 import { createError } from '../utils/errors';
-import type { Express } from 'express';
+import type { AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
+
+interface RequestWithOptionalUser extends AuthRequest {
+  user?: {
+    id?: string;
+  };
+}
+
+function requireProjectId(req: Request): string {
+  const { projectId } = req.query;
+  if (typeof projectId !== 'string' || projectId === '') {
+    throw createError.validation('projectId query parameter is required');
+  }
+  return projectId;
+}
+
+function requireAuthenticatedUserId(req: Request): string {
+  const authReq = req as RequestWithOptionalUser;
+  const userId = authReq.user?.id ?? authReq.userId;
+  if (userId === undefined || userId === '') {
+    throw createError.unauthorized();
+  }
+  return userId;
+}
 
 // All routes require authentication
 router.use(hybridAuth);
@@ -32,14 +55,9 @@ router.get(
   '/:templateId/analyze',
   asyncHandler(async (req, res) => {
     const { templateId } = req.params;
-    const { projectId } = req.query;
+    const projectId = requireProjectId(req);
 
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!projectId || typeof projectId !== 'string') {
-      throw createError.validation('projectId query parameter is required');
-    }
-
-    const userId = (req as any).user?.id || (req as any).userId;
+    const userId = requireAuthenticatedUserId(req);
     const hasAccess = await aclService.hasProjectRole(userId, projectId, 'view');
     if (!hasAccess) {
       throw createError.forbidden('Access denied to project');
@@ -72,14 +90,9 @@ router.post(
   '/:templateId/validate',
   asyncHandler(async (req, res) => {
     const { templateId } = req.params;
-    const { projectId } = req.query;
+    const projectId = requireProjectId(req);
 
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!projectId || typeof projectId !== 'string') {
-      throw createError.validation('projectId query parameter is required');
-    }
-
-    const userId = (req as any).user?.id || (req as any).userId;
+    const userId = requireAuthenticatedUserId(req);
     const hasAccess = await aclService.hasProjectRole(userId, projectId, 'view');
     if (!hasAccess) {
       throw createError.forbidden('Access denied to project');
@@ -109,14 +122,9 @@ router.post(
   '/:templateId/sample-data',
   asyncHandler(async (req, res) => {
     const { templateId } = req.params;
-    const { projectId } = req.query;
+    const projectId = requireProjectId(req);
 
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!projectId || typeof projectId !== 'string') {
-      throw createError.validation('projectId query parameter is required');
-    }
-
-    const userId = (req as any).user?.id || (req as any).userId;
+    const userId = requireAuthenticatedUserId(req);
     const hasAccess = await aclService.hasProjectRole(userId, projectId, 'view');
     if (!hasAccess) {
       throw createError.forbidden('Access denied to project');
@@ -148,14 +156,9 @@ const compareSchema = z.object({
 router.post(
   '/compare',
   asyncHandler(async (req, res) => {
-    const { projectId } = req.query;
+    const projectId = requireProjectId(req);
 
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!projectId || typeof projectId !== 'string') {
-      throw createError.validation('projectId query parameter is required');
-    }
-
-    const userId = (req as any).user?.id || (req as any).userId;
+    const userId = requireAuthenticatedUserId(req);
     const hasAccess = await aclService.hasProjectRole(userId, projectId, 'view');
     if (!hasAccess) {
       throw createError.forbidden('Access denied to project');

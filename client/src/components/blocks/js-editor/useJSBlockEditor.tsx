@@ -141,7 +141,7 @@ export function useJSBlockEditor({ block, onChange, workflowId }: UseJSBlockEdit
             document.body.appendChild(iframe);
 
             const messageHandler = (event: MessageEvent) => {
-                if (event.source !== iframe.contentWindow) return;
+                if (event.source !== iframe.contentWindow) {return;}
                 window.removeEventListener('message', messageHandler);
                 document.body.removeChild(iframe);
                 

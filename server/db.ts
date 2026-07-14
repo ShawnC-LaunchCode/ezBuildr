@@ -73,19 +73,21 @@ async function initializeDatabase() {
       const workerId = process.env.VITEST_WORKER_ID ?? '?';
       type ConnectCallback = (err: Error | undefined, client: PoolClient, release: () => void) => void;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       (pool as Pool & { connect: (callback?: ConnectCallback) => Promise<PoolClient> }).connect = async function (callback?: ConnectCallback) {
         if (callback != null) {
           // Callback-style: pool.connect((err, client, release) => ...)
-          // eslint-disable-next-line @typescript-eslint/no-misused-promises
-          // @ts-ignore - TODO: fix type
-          return originalConnect(async (err: Error | undefined, client: PoolClient, release: () => void) => {
+          // @ts-expect-error - TODO: fix type
+          return originalConnect((err: Error | undefined, client: PoolClient, release: () => void) => {
             if (!err && client != null) {
-              try {
-                await client.query(`SET search_path TO "${schemaStr}", public`);
-              } catch (e: unknown) {
-                logger.warn({ workerId, schema: schemaStr, err: e instanceof Error ? e.message : String(e) }, "[DB-WRAP] Failed to set search_path");
-              }
+              void client.query(`SET search_path TO "${schemaStr}", public`)
+                .catch((e: unknown) => {
+                  logger.warn({ workerId, schema: schemaStr, err: e instanceof Error ? e.message : String(e) }, "[DB-WRAP] Failed to set search_path");
+                })
+                .finally(() => {
+                  callback(err, client, release);
+                });
+              return;
             }
             callback(err, client, release);
           });

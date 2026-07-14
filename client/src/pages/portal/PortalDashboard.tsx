@@ -26,6 +26,28 @@ interface PortalRun {
     // plaintext token is minted on demand via POST /api/runs/:id/share.
     hasShareToken?: boolean;
 }
+
+interface ShareTokenResponse {
+    data?: {
+        shareToken?: string;
+    };
+}
+
+function isShareTokenResponse(value: unknown): value is ShareTokenResponse {
+    if (typeof value !== 'object' || value === null || !('data' in value)) {
+        return false;
+    }
+
+    const data = (value as { data?: unknown }).data;
+    if (data === undefined) {
+        return true;
+    }
+
+    return typeof data === 'object' && data !== null && (
+        !('shareToken' in data) || typeof (data as { shareToken?: unknown }).shareToken === 'string'
+    );
+}
+
 export default function PortalDashboard() {
     const [runs, setRuns] = useState<PortalRun[]>([]);
     const [loading, setLoading] = useState(true);
@@ -150,9 +172,10 @@ export default function PortalDashboard() {
                                                 // Dynamically generate share token to support hashed-at-rest tokens
                                                 fetch(`/api/runs/${run.id}/share`, { method: 'POST' })
                                                     .then(res => res.json())
-                                                    .then(data => {
-                                                        if (data.data?.shareToken) {
-                                                            void setLocation(`/share/${data.data.shareToken}`);
+                                                    .then((data: unknown) => {
+                                                        const shareToken = isShareTokenResponse(data) ? data.data?.shareToken : undefined;
+                                                        if (shareToken) {
+                                                            void setLocation(`/share/${shareToken}`);
                                                         } else {
                                                             toast({ title: "Error", description: "Failed to generate download link", variant: "destructive" });
                                                         }

@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 
-import type { WorkflowRun, InsertWorkflowRun, InsertStepValue, StepValue } from "@shared/schema";
+import type { WorkflowRun, InsertWorkflowRun, InsertStepValue, StepValue, RunGeneratedDocument } from "@shared/schema";
 
 import { RUN_TOKEN_CONFIG } from "../config/auth";
 import { logger } from "../logger";
@@ -517,7 +517,10 @@ export class RunService {
    * Get generated documents for a run
    * Returns all documents generated during workflow completion
    */
-  async getGeneratedDocuments(runId: string) {
+  async getGeneratedDocuments(runId: string): Promise<{
+    documents: RunGeneratedDocument[];
+    generationStatus: WorkflowRun["generationStatus"];
+  }> {
     return this.stateService.getGeneratedDocuments(runId);
   }
   /**

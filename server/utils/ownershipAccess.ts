@@ -40,7 +40,7 @@ export async function canAccessAsset(
   }
 
   if (ownerType === 'org') {
-    return await isOrgMember(userId, ownerUuid);
+    return isOrgMember(userId, ownerUuid);
   }
 
   return false;

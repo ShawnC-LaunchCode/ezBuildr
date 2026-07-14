@@ -20,6 +20,56 @@ import type { Express, Request, Response } from "express";
 
 const logger = createLogger({ module: 'tenant-routes' });
 
+async function createTenantHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const authReq = req as AuthRequest;
+    const { name, billingEmail } = req.body;
+
+    if (!name) {
+      res.status(400).json({
+        message: 'Tenant name is required',
+        error: 'missing_fields',
+      });
+      return;
+    }
+
+    const [newTenant] = await db
+      .insert(tenants)
+      .values({
+        name,
+        billingEmail: billingEmail ?? null,
+        plan: 'free',
+      })
+      .returning();
+
+    if (authReq.userId) {
+      await userRepository.updateUser(authReq.userId, {
+        tenantId: newTenant.id,
+        tenantRole: 'owner',
+      });
+    }
+
+    logger.info({ tenantId: newTenant.id, userId: authReq.userId }, 'Tenant created');
+
+    res.status(201).json({
+      message: 'Tenant created successfully',
+      tenant: {
+        id: newTenant.id,
+        name: newTenant.name,
+        billingEmail: newTenant.billingEmail,
+        plan: newTenant.plan,
+        createdAt: newTenant.createdAt,
+      },
+    });
+  } catch (error) {
+    logger.error({ error }, 'Failed to create tenant');
+    res.status(500).json({
+      message: 'Failed to create tenant',
+      error: 'internal_error',
+    });
+  }
+}
+
 /**
  * Register tenant-related routes
  * Provides APIs for tenant management and access control
@@ -247,57 +297,7 @@ export function registerTenantRoutes(app: Express): void {
    * POST /api/tenants
    * Create a new tenant (for future multi-tenant signup)
    */
-  app.post('/api/tenants', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const authReq = req as AuthRequest;
-      const { name, billingEmail } = req.body;
-
-      // Validate input
-      if (!name) {
-        return res.status(400).json({
-          message: 'Tenant name is required',
-          error: 'missing_fields',
-        });
-      }
-
-      // Create tenant
-      const [newTenant] = await db
-        .insert(tenants)
-        .values({
-          name,
-          billingEmail: billingEmail ?? null,
-          plan: 'free',
-        })
-        .returning();
-
-      // Update user's tenantId and role to owner
-      if (authReq.userId) {
-        await userRepository.updateUser(authReq.userId, {
-          tenantId: newTenant.id,
-          tenantRole: 'owner',
-        });
-      }
-
-      logger.info({ tenantId: newTenant.id, userId: authReq.userId }, 'Tenant created');
-
-      res.status(201).json({
-        message: 'Tenant created successfully',
-        tenant: {
-          id: newTenant.id,
-          name: newTenant.name,
-          billingEmail: newTenant.billingEmail,
-          plan: newTenant.plan,
-          createdAt: newTenant.createdAt,
-        },
-      });
-    } catch (error) {
-      logger.error({ error }, 'Failed to create tenant');
-      res.status(500).json({
-        message: 'Failed to create tenant',
-        error: 'internal_error',
-      });
-    }
-  }));
+  app.post('/api/tenants', hybridAuth, asyncHandler(createTenantHandler));
 
   /**
    * PUT /api/tenants/:tenantId/users/:userId/role

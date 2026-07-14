@@ -5,7 +5,7 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import ws from 'ws';
 
 async function checkWorkflowData() {
-  // @ts-ignore - TODO: fix type
+  // @ts-expect-error - TODO: fix type
   neonConfig.webSocketConstructor = ws.default as unknown as typeof WebSocket;
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const client = await pool.connect();

@@ -108,7 +108,7 @@ export class StepValueRepository extends BaseRepository<
    * Bulk upsert multiple step values
    */
   async upsertMany(dataList: InsertStepValue[], tx?: DbTransaction): Promise<StepValue[]> {
-    if (dataList.length === 0) return [];
+    if (dataList.length === 0) {return [];}
     const database = this.getDb(tx);
     
     // Add timestamps to all items
@@ -118,7 +118,7 @@ export class StepValueRepository extends BaseRepository<
       updatedAt: new Date(),
     }));
 
-    return await database
+    return database
       .insert(stepValues)
       .values(values)
       .onConflictDoUpdate({

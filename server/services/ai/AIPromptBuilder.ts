@@ -237,7 +237,9 @@ Guidelines:
 
 Output ONLY the JSON object, no additional text or markdown.`;
 
-    const userPrompt = `Available Workflow Variables:\n${variables.map((v) => `- ${v.alias} (${v.type}): ${v.label}`).join('\n')}\n\nTemplate Placeholders to Match:\n${placeholders.map((p) => `- {{${p}}}`).join('\n')}`;
+    const variableLines = variables.map((v) => `- ${v.alias} (${v.type}): ${v.label}`).join('\n');
+    const placeholderLines = placeholders.map((p) => `- {{${p}}}`).join('\n');
+    const userPrompt = `Available Workflow Variables:\n${variableLines}\n\nTemplate Placeholders to Match:\n${placeholderLines}`;
 
     return { systemMessage, userPrompt };
   }
@@ -379,7 +381,10 @@ CRITICAL REQUIREMENTS:
 
     Output ONLY the JSON object.`;
 
-    const userPrompt = `User Instruction:\n${this.fenceUntrusted(request.userInstruction)}\n\nConversation History:\n${request.conversationHistory ? request.conversationHistory.map((m) => `${m.role.toUpperCase()}: ${this.fenceUntrusted(m.content)}`).join('\n') : 'None'}`;
+    const conversationHistory = request.conversationHistory
+      ? request.conversationHistory.map((m) => `${m.role.toUpperCase()}: ${this.fenceUntrusted(m.content)}`).join('\n')
+      : 'None';
+    const userPrompt = `User Instruction:\n${this.fenceUntrusted(request.userInstruction)}\n\nConversation History:\n${conversationHistory}`;
 
     return { systemMessage, userPrompt };
   }

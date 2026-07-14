@@ -175,7 +175,7 @@ export class TemplateValidationService {
 
     for (const placeholder of placeholders) {
       if (placeholder.kind === 'unknown_helper') {
-        unknownHelpersSet.add(placeholder.helper || placeholder.name);
+        unknownHelpersSet.add(placeholder.helper ?? placeholder.name);
       }
 
       // The engine resolves dot paths from the root scope, so a placeholder

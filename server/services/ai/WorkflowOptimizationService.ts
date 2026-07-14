@@ -332,7 +332,7 @@ export class WorkflowOptimizationService {
             if (b.visibleIf) {complexity++;}
             if (b.type === 'branch') {
                 const branches = b.config?.branches ?? []; // Cast safely
-                // @ts-ignore - TODO: fix type
+                // @ts-expect-error - TODO: fix type
                 complexity += branches?.length;
             }
         });

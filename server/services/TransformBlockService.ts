@@ -66,7 +66,7 @@ export class TransformBlockService {
     // SECURITY: SEC-041 Enforce AST validation on the save path
     if (data.code) {
       const validation = await scriptEngine.validate({ 
-        language: data.language as "javascript" | "python", 
+        language: data.language, 
         code: data.code 
       });
       if (!validation.valid) {
@@ -167,7 +167,7 @@ export class TransformBlockService {
     if (data.code) {
       const languageToValidate = data.language ?? block.language;
       const validation = await scriptEngine.validate({ 
-        language: languageToValidate as "javascript" | "python", 
+        language: languageToValidate, 
         code: data.code 
       });
       if (!validation.valid) {

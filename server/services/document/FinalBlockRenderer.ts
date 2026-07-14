@@ -165,7 +165,9 @@ export class FinalBlockRenderer {
 
     // Step 1.25: Pre-generation validation
     for (const doc of documentsWithPaths) {
-      if (!doc.templatePath) continue;
+      if (!doc.templatePath) {
+        continue;
+      }
       
       try {
         const validationResult = await validateTemplateWithData(doc.templatePath, stepValues);

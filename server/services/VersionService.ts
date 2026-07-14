@@ -15,6 +15,7 @@ import { workflowDiffService, type WorkflowDiff } from "./diff/WorkflowDiffServi
 
 type WorkflowGraph = z.infer<typeof WorkflowGraphSchema>;
 const logger = createLogger({ module: "version-service" });
+const WORKFLOW_ACCESS_DENIED_MSG = "Access denied - insufficient permissions for this workflow";
 
 interface GraphNode {
   id: string;
@@ -54,7 +55,7 @@ export class VersionService {
     if (userId) {
       const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'view');
       if (!hasAccess) {
-        throw new Error("Access denied - insufficient permissions for this workflow");
+        throw new Error(WORKFLOW_ACCESS_DENIED_MSG);
       }
     }
     return db
@@ -274,7 +275,7 @@ export class VersionService {
   ): Promise<WorkflowVersion> {
     const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'edit');
     if (!hasAccess) {
-      throw new Error("Access denied - insufficient permissions for this workflow");
+      throw new Error(WORKFLOW_ACCESS_DENIED_MSG);
     }
 
     // Validate workflow
@@ -354,7 +355,7 @@ export class VersionService {
   ): Promise<void> {
     const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'edit');
     if (!hasAccess) {
-      throw new Error("Access denied - insufficient permissions for this workflow");
+      throw new Error(WORKFLOW_ACCESS_DENIED_MSG);
     }
 
     // Verify version exists and belongs to workflow
@@ -435,7 +436,7 @@ export class VersionService {
   ): Promise<void> {
     const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'edit');
     if (!hasAccess) {
-      throw new Error("Access denied - insufficient permissions for this workflow");
+      throw new Error(WORKFLOW_ACCESS_DENIED_MSG);
     }
 
     // Verify version exists and belongs to workflow
@@ -467,7 +468,7 @@ export class VersionService {
   async unpinVersion(workflowId: string, userId: string): Promise<void> {
     const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'edit');
     if (!hasAccess) {
-      throw new Error("Access denied - insufficient permissions for this workflow");
+      throw new Error(WORKFLOW_ACCESS_DENIED_MSG);
     }
 
     await db
@@ -515,7 +516,7 @@ export class VersionService {
   async exportVersions(workflowId: string, userId: string): Promise<Record<string, unknown>> {
     const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'view');
     if (!hasAccess) {
-      throw new Error("Access denied - insufficient permissions for this workflow");
+      throw new Error(WORKFLOW_ACCESS_DENIED_MSG);
     }
 
     const versions = await this.listVersions(workflowId);

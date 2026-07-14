@@ -14,7 +14,7 @@ import { SubscriptionService } from "./SubscriptionService";
  */
 export function enforceQuota(metric: keyof typeof METRIC_LIMITS, quantity: number = 1) {
     return async (req: Request, res: Response, next: NextFunction) => {
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - TODO: fix type
         const organizationId = (req as Record<string, unknown>).organizationId ?? (req.user as Record<string, unknown> | undefined)?.tenantId;
         if (!organizationId) {
             // If no org context, we arguably should block or skip. 
@@ -24,7 +24,7 @@ export function enforceQuota(metric: keyof typeof METRIC_LIMITS, quantity: numbe
         }
         try {
             // 1. Get Plan Limits
-            // @ts-ignore - TODO: fix type
+            // @ts-expect-error - TODO: fix type
             const limits = await SubscriptionService.getPlanLimits(organizationId);
             const limitKey = METRIC_LIMITS[metric];
             const maxLimit = limits[limitKey]; // e.g. limits['runs']
@@ -36,7 +36,7 @@ export function enforceQuota(metric: keyof typeof METRIC_LIMITS, quantity: numbe
             const now = new Date();
             const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
             // This is slightly expensive for middleware. Ideally cached in Redis.
-            // @ts-ignore - TODO: fix type
+            // @ts-expect-error - TODO: fix type
             const usage = await UsageAggregator.getPeriodUsage(organizationId, startOfMonth, now);
             const currentUsage = usage[metric] ?? 0;
             // 3. Check Quota
@@ -63,14 +63,14 @@ export function enforceQuota(metric: keyof typeof METRIC_LIMITS, quantity: numbe
  */
 export function requireFeature(feature: string) {
     return async (req: Request, res: Response, next: NextFunction) => {
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - TODO: fix type
         const organizationId = (req as Record<string, unknown>).organizationId ?? (req.user as Record<string, unknown> | undefined)?.tenantId;
         if (!organizationId) {
             logger.warn("Feature check skipped: no organization context");
             return next();
         }
         try {
-            // @ts-ignore - TODO: fix type
+            // @ts-expect-error - TODO: fix type
             const features = await SubscriptionService.getPlanFeatures(organizationId);
             if (!features[feature]) {
                 return res.status(403).json({

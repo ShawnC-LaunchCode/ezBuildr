@@ -65,7 +65,7 @@ ${fenceUntrusted(originalText)}
     `;
 
         try {
-            // @ts-ignore - TODO: fix type
+            // @ts-expect-error - TODO: fix type
             const result = await this.model.generateContent(prompt);
             const response = await result.response;
             const text = response.text();
@@ -97,7 +97,7 @@ ${fenceUntrusted(questionText)}
      `;
 
         try {
-            // @ts-ignore - TODO: fix type
+            // @ts-expect-error - TODO: fix type
             const result = await this.model.generateContent(prompt);
             const response = await result.response;
             return response.text().trim();
@@ -131,7 +131,7 @@ ${fenceUntrusted(userAnswer)}
       `;
 
         try {
-            // @ts-ignore - TODO: fix type
+            // @ts-expect-error - TODO: fix type
             const result = await this.model.generateContent(prompt);
             const text = result.response.text().trim();
             return text === "CLEAR" ? null : text;
@@ -159,7 +159,7 @@ ${fenceUntrusted(userAnswer)}
        `;
 
         try {
-            // @ts-ignore - TODO: fix type
+            // @ts-expect-error - TODO: fix type
             const result = await this.model.generateContent(prompt);
             const text = result.response.text().trim();
             if (text.includes("NO")) { return null; }
@@ -177,7 +177,7 @@ ${fenceUntrusted(userAnswer)}
 
         const prompt = `Translate the following text to ${targetLanguage}. Return only the translation.\n\nText:\n${fenceUntrusted(text)}`;
         try {
-            // @ts-ignore - TODO: fix type
+            // @ts-expect-error - TODO: fix type
             const result = await this.model.generateContent(prompt);
             return result.response.text().trim();
         } catch (error) {

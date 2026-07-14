@@ -10,7 +10,6 @@ import { serveStatic } from "./static";
 import { log } from "./utils";
 import { sanitizeInputs } from "./utils/sanitize";
 
-import { users } from "@shared/schema";
 import express from "express";
 import dotenv from "dotenv";
 // Load environment variables

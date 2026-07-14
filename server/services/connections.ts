@@ -431,15 +431,15 @@ export async function testConnection(
     if (connection.type === 'api_key') {
       const apiKeyLocation = connection.authConfig.apiKeyLocation || 'header';
       const apiKeyName = connection.authConfig.apiKeyName || 'X-API-Key';
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       const apiKey = resolved.secrets[connection.authConfig.apiKeyRef || 'apiKey'];
 
       if (apiKeyLocation === 'header') {
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - TODO: fix type
         headers[apiKeyName] = apiKey;
       }
     } else if (connection.type === 'bearer') {
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       const token = resolved.secrets[connection.authConfig.tokenRef || 'token'];
       headers['Authorization'] = `Bearer ${token}`;
     // eslint-disable-next-line sonarjs/no-collapsible-if
@@ -502,20 +502,20 @@ export async function initiateOAuth2Flow(
   }
 
   // Resolve secrets for client ID and secret
-  // @ts-ignore - TODO: fix type
+  // @ts-expect-error - TODO: fix type
   const clientId = (await getSecretValue(projectId, connection.authConfig.clientIdRef)) ?? '';
-  // @ts-ignore - TODO: fix type
+  // @ts-expect-error - TODO: fix type
   const clientSecret = (await getSecretValue(projectId, connection.authConfig.clientSecretRef)) ?? '';
 
   const config: OAuth2ThreeLegConfig = {
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     authUrl: connection.authConfig.authUrl,
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     tokenUrl: connection.authConfig.tokenUrl,
     clientId,
     clientSecret,
     redirectUri: `${baseUrl}/api/connections/oauth/callback`,
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     scope: connection.authConfig.scope,
     tenantId: connection.tenantId,
     projectId: connection.projectId,
@@ -542,21 +542,21 @@ export async function handleOAuth2Callback(
   }
 
   // Resolve secrets for client ID and secret
-  // @ts-ignore - TODO: fix type
+  // @ts-expect-error - TODO: fix type
   const clientId = (await getSecretValue(projectId, connection.authConfig.clientIdRef)) ?? '';
-  // @ts-ignore - TODO: fix type
+  // @ts-expect-error - TODO: fix type
   const clientSecret = (await getSecretValue(projectId, connection.authConfig.clientSecretRef)) ?? '';
 
   const config: OAuth2ThreeLegConfig = {
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     authUrl: connection.authConfig.authUrl,
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     tokenUrl: connection.authConfig.tokenUrl,
     clientId,
     clientSecret,
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     redirectUri: connection.authConfig.redirectUri,
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     scope: connection.authConfig.scope,
     tenantId: connection.tenantId,
     projectId: connection.projectId,
@@ -567,8 +567,8 @@ export async function handleOAuth2Callback(
 
   // Encrypt and store tokens
   const oauthState: OAuth2State = {
-    accessToken: encrypt(tokenResponse.access_token as any),
-    refreshToken: tokenResponse.refresh_token ? encrypt(tokenResponse.refresh_token as any) : undefined,
+    accessToken: encrypt(tokenResponse.access_token),
+    refreshToken: tokenResponse.refresh_token ? encrypt(tokenResponse.refresh_token) : undefined,
     expiresAt: Date.now() + (tokenResponse.expires_in * 1000),
     scope: tokenResponse.scope,
     tokenType: tokenResponse.token_type,
@@ -608,21 +608,21 @@ export async function refreshConnectionToken(
   }
 
   // Resolve secrets for client ID and secret
-  // @ts-ignore - TODO: fix type
+  // @ts-expect-error - TODO: fix type
   const clientId = (await getSecretValue(projectId, connection.authConfig.clientIdRef)) ?? '';
-  // @ts-ignore - TODO: fix type
+  // @ts-expect-error - TODO: fix type
   const clientSecret = (await getSecretValue(projectId, connection.authConfig.clientSecretRef)) ?? '';
 
   const config: OAuth2ThreeLegConfig = {
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     authUrl: connection.authConfig.authUrl,
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     tokenUrl: connection.authConfig.tokenUrl,
     clientId,
     clientSecret,
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     redirectUri: connection.authConfig.redirectUri,
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     scope: connection.authConfig.scope,
     tenantId: connection.tenantId,
     projectId: connection.projectId,
@@ -633,8 +633,8 @@ export async function refreshConnectionToken(
 
   // Encrypt and update tokens
   const oauthState: OAuth2State = {
-    accessToken: encrypt(tokenResponse.access_token as any),
-    refreshToken: tokenResponse.refresh_token ? encrypt(tokenResponse.refresh_token as any) : connection.oauthState.refreshToken,
+    accessToken: encrypt(tokenResponse.access_token),
+    refreshToken: tokenResponse.refresh_token ? encrypt(tokenResponse.refresh_token) : connection.oauthState.refreshToken,
     expiresAt: Date.now() + (tokenResponse.expires_in * 1000),
     scope: tokenResponse.scope,
     tokenType: tokenResponse.token_type,

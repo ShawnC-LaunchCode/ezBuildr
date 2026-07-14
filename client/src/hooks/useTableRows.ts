@@ -80,7 +80,7 @@ export function useUpdateRow(): ReturnType<typeof useMutation<DatavaultRow, unkn
       await queryClient.cancelQueries({ queryKey: tableKeys.rows(tableId) });
 
       // Snapshot the previous value
-      const previousData = queryClient.getQueryData(tableKeys.rows(tableId)) as unknown;
+      const previousData = queryClient.getQueryData(tableKeys.rows(tableId));
 
       // Optimistically update the row
       queryClient.setQueryData<InfiniteData<RowsPage>>(tableKeys.rows(tableId), (old) => {
@@ -124,7 +124,7 @@ export function useDeleteRow(): ReturnType<typeof useMutation<void, unknown, { r
       await queryClient.cancelQueries({ queryKey: tableKeys.rows(tableId) });
 
       // Snapshot the previous value
-      const previousData = queryClient.getQueryData(tableKeys.rows(tableId)) as unknown;
+      const previousData = queryClient.getQueryData(tableKeys.rows(tableId));
 
       // Optimistically remove the row
       queryClient.setQueryData<InfiniteData<RowsPage>>(tableKeys.rows(tableId), (old) => {

@@ -335,7 +335,7 @@ const LogicExpressionSchema = z.object({
 export const FinalBlockConfigSchema = z.object({
   markdownHeader: z.string(),
   redirectUrl: z.string().optional().refine(val => {
-    if (!val) return true;
+    if (!val) {return true;}
     try {
       const url = new URL(val, 'http://localhost');
       return ['http:', 'https:'].includes(url.protocol);

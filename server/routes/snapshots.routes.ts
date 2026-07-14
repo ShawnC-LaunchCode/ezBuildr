@@ -13,6 +13,8 @@ import { asyncHandler } from "../utils/asyncHandler";
 import type { Express, Request, Response } from "express";
 
 const UNAUTHORIZED_MSG = "Unauthorized - no user ID";
+const ACCESS_DENIED_MSG = "Access denied";
+const SNAPSHOT_NOT_FOUND_MSG = "Snapshot not found";
 
 // Zod schemas for request validation
 const createSnapshotSchema = z.object({
@@ -55,8 +57,8 @@ export function registerSnapshotRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error, workflowId: req.params.workflowId }, "Error fetching snapshots");
       
-      if (error instanceof Error && (error.message.includes("Access denied") || error.message.includes("not found"))) {
-          return res.status(403).json({ message: "Access denied" });
+      if (error instanceof Error && (error.message.includes(ACCESS_DENIED_MSG) || error.message.includes("not found"))) {
+          return res.status(403).json({ message: ACCESS_DENIED_MSG });
       }
       
       res.status(500).json({
@@ -85,15 +87,15 @@ export function registerSnapshotRoutes(app: Express): void {
       const snapshot = await snapshotService.getSnapshotById(snapshotId);
 
       if (!snapshot || snapshot.workflowId !== workflowId) {
-        return res.status(404).json({ message: "Snapshot not found" });
+        return res.status(404).json({ message: SNAPSHOT_NOT_FOUND_MSG });
       }
 
       res.json(snapshot);
     } catch (error) {
       logger.error({ error, snapshotId: req.params.snapshotId }, "Error fetching snapshot");
       
-      if (error instanceof Error && (error.message.includes("Access denied") || error.message.includes("not found"))) {
-          return res.status(403).json({ message: "Access denied" });
+      if (error instanceof Error && (error.message.includes(ACCESS_DENIED_MSG) || error.message.includes("not found"))) {
+          return res.status(403).json({ message: ACCESS_DENIED_MSG });
       }
       
       res.status(500).json({
@@ -126,8 +128,8 @@ export function registerSnapshotRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error, workflowId: req.params.workflowId }, "Error creating snapshot");
 
-      if (error instanceof Error && (error.message.includes("Access denied") || error.message.includes("not found"))) {
-          return res.status(403).json({ message: "Access denied" });
+      if (error instanceof Error && (error.message.includes(ACCESS_DENIED_MSG) || error.message.includes("not found"))) {
+          return res.status(403).json({ message: ACCESS_DENIED_MSG });
       }
 
       if (error instanceof Error && error.message.includes("already exists")) {
@@ -159,7 +161,7 @@ export function registerSnapshotRoutes(app: Express): void {
       
       const existingSnapshot = await snapshotService.getSnapshotById(snapshotId);
       if (!existingSnapshot || existingSnapshot.workflowId !== workflowId) {
-        return res.status(404).json({ message: "Snapshot not found" });
+        return res.status(404).json({ message: SNAPSHOT_NOT_FOUND_MSG });
       }
       
       const { name } = renameSnapshotSchema.parse(req.body);
@@ -169,8 +171,8 @@ export function registerSnapshotRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error, snapshotId: req.params.snapshotId }, "Error renaming snapshot");
 
-      if (error instanceof Error && (error.message.includes("Access denied") || error.message.includes("not found"))) {
-          return res.status(403).json({ message: "Access denied" });
+      if (error instanceof Error && (error.message.includes(ACCESS_DENIED_MSG) || error.message.includes("not found"))) {
+          return res.status(403).json({ message: ACCESS_DENIED_MSG });
       }
 
       if (error instanceof Error) {
@@ -207,7 +209,7 @@ export function registerSnapshotRoutes(app: Express): void {
       
       const snapshot = await snapshotService.getSnapshotById(snapshotId);
       if (!snapshot || snapshot.workflowId !== workflowId) {
-        return res.status(404).json({ message: "Snapshot not found" });
+        return res.status(404).json({ message: SNAPSHOT_NOT_FOUND_MSG });
       }
 
       await snapshotService.deleteSnapshot(snapshotId);
@@ -216,8 +218,8 @@ export function registerSnapshotRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error, snapshotId: req.params.snapshotId }, "Error deleting snapshot");
 
-      if (error instanceof Error && (error.message.includes("Access denied") || error.message.includes("not found"))) {
-          return res.status(403).json({ message: "Access denied" });
+      if (error instanceof Error && (error.message.includes(ACCESS_DENIED_MSG) || error.message.includes("not found"))) {
+          return res.status(403).json({ message: ACCESS_DENIED_MSG });
       }
 
       if (error instanceof Error && error.message.includes("not found")) {
@@ -250,11 +252,11 @@ export function registerSnapshotRoutes(app: Express): void {
       
       const existingSnapshot = await snapshotService.getSnapshotById(snapshotId);
       if (!existingSnapshot || existingSnapshot.workflowId !== workflowId) {
-        return res.status(404).json({ message: "Snapshot not found" });
+        return res.status(404).json({ message: SNAPSHOT_NOT_FOUND_MSG });
       }
 
       const [run] = await db.select().from(workflowRuns).where(eq(workflowRuns.id, runId));
-      if (!run || run.workflowId !== workflowId) {
+      if (run === undefined || run.workflowId !== workflowId) {
         return res.status(404).json({ message: "Run not found" });
       }
 
@@ -263,8 +265,8 @@ export function registerSnapshotRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error, snapshotId: req.params.snapshotId }, "Error saving run to snapshot");
 
-      if (error instanceof Error && (error.message.includes("Access denied") || error.message.includes("not found"))) {
-          return res.status(403).json({ message: "Access denied" });
+      if (error instanceof Error && (error.message.includes(ACCESS_DENIED_MSG) || error.message.includes("not found"))) {
+          return res.status(403).json({ message: ACCESS_DENIED_MSG });
       }
 
       if (error instanceof Error && error.message.includes("not found")) {
@@ -296,7 +298,7 @@ export function registerSnapshotRoutes(app: Express): void {
       
       const snapshot = await snapshotService.getSnapshotById(snapshotId);
       if (!snapshot || snapshot.workflowId !== workflowId) {
-        return res.status(404).json({ message: "Snapshot not found" });
+        return res.status(404).json({ message: SNAPSHOT_NOT_FOUND_MSG });
       }
 
       const values = await snapshotService.getSnapshotValues(snapshotId);
@@ -305,8 +307,8 @@ export function registerSnapshotRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error, snapshotId: req.params.snapshotId }, "Error fetching snapshot values");
 
-      if (error instanceof Error && (error.message.includes("Access denied") || error.message.includes("not found"))) {
-          return res.status(403).json({ message: "Access denied" });
+      if (error instanceof Error && (error.message.includes(ACCESS_DENIED_MSG) || error.message.includes("not found"))) {
+          return res.status(403).json({ message: ACCESS_DENIED_MSG });
       }
 
       if (error instanceof Error && error.message.includes("not found")) {
@@ -338,7 +340,7 @@ export function registerSnapshotRoutes(app: Express): void {
       
       const snapshot = await snapshotService.getSnapshotById(snapshotId);
       if (!snapshot || snapshot.workflowId !== workflowId) {
-        return res.status(404).json({ message: "Snapshot not found" });
+        return res.status(404).json({ message: SNAPSHOT_NOT_FOUND_MSG });
       }
 
       const validation = await snapshotService.validateSnapshot(snapshotId);
@@ -347,8 +349,8 @@ export function registerSnapshotRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error, snapshotId: req.params.snapshotId }, "Error validating snapshot");
 
-      if (error instanceof Error && (error.message.includes("Access denied") || error.message.includes("not found"))) {
-          return res.status(403).json({ message: "Access denied" });
+      if (error instanceof Error && (error.message.includes(ACCESS_DENIED_MSG) || error.message.includes("not found"))) {
+          return res.status(403).json({ message: ACCESS_DENIED_MSG });
       }
 
       if (error instanceof Error && error.message.includes("not found")) {

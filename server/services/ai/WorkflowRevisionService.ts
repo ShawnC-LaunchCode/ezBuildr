@@ -290,6 +290,7 @@ export class WorkflowRevisionService {
                     responseLength: response.length,
                     errorPosition: position,
                     errorContextStart: contextStart,
+                    errorContext,
                 }, 'Failed to parse AI response as JSON');
                 // Write full response to file for debugging
                 const fs = await import('fs');

@@ -104,8 +104,8 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
       .where(or(...conditions))
       .orderBy(desc(workflows.updatedAt))
       .$dynamic();
-    if (options?.limit !== undefined) { query.limit(options.limit); }
-    if (options?.offset !== undefined) { query.offset(options.offset); }
+    if (options?.limit !== undefined) { void query.limit(options.limit); }
+    if (options?.offset !== undefined) { void query.offset(options.offset); }
     return query as unknown as Promise<Workflow[]>; // Join result shape is compatible with Workflow[]
   }
   /**

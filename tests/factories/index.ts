@@ -65,7 +65,6 @@ export function createTestUser(overrides?: DeepPartial<User>): Omit<User, 'id' |
   const firstName = overrides?.firstName || `Test${uniqueId}`;
   const lastName = overrides?.lastName || 'User';
 
-  // @ts-ignore - TODO: fix type
   return {
     email: overrides?.email || `test-${uniqueId}@example.com`,
     fullName: overrides?.fullName || `${firstName} ${lastName}`,
@@ -78,6 +77,7 @@ export function createTestUser(overrides?: DeepPartial<User>): Omit<User, 'id' |
     authProvider: overrides?.authProvider || 'local',
     defaultMode: overrides?.defaultMode || 'easy',
     emailVerified: overrides?.emailVerified ?? true,
+    isActive: overrides?.isActive ?? true,
     mfaEnabled: overrides?.mfaEnabled ?? false,
     lastPasswordChange: overrides?.lastPasswordChange || null,
     isPlaceholder: overrides?.isPlaceholder ?? false,
@@ -275,8 +275,7 @@ export function createTestWorkflowRun(overrides?: DeepPartial<WorkflowRun>): Omi
     ownerUuid: null,
   };
 
-  // @ts-ignore - TODO: fix type
-  return { ...defaults, ...overrides };
+  return { ...defaults, ...overrides } as Omit<WorkflowRun, 'id' | 'createdAt' | 'updatedAt'>;
 }
 
 /**

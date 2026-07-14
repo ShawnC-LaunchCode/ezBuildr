@@ -1,19 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-import { randomUUID } from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 
-import multer from 'multer';
-
 import { logger } from '../logger';
 
 const unlinkAsync = promisify(fs.unlink);
-const mkdirAsync = promisify(fs.mkdir);
-
-// Standard ESM import for multer v2
-const multerInstance = multer;
 
 // File upload configuration
 export const UPLOAD_DIR = process.env.UPLOAD_DIR ?? './uploads';
@@ -32,18 +25,6 @@ export const ALLOWED_FILE_TYPES = [
   'text/plain',
   'text/csv'
 ];
-
-// Ensure upload directory exists
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-async function ensureUploadDir() {
-  try {
-    await fs.promises.access(UPLOAD_DIR);
-  } catch {
-    await mkdirAsync(UPLOAD_DIR, { recursive: true });
-  }
-}
-
-
 
 // Validate file upload configuration
 // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-function-return-type

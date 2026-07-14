@@ -136,7 +136,7 @@ class TemplateService {
     if (template.graphJson) {
       await workflowContentIngestService.apply(
         workflowId, 
-        template.graphJson as unknown as any, // Cast appropriately
+        template.graphJson as WorkflowContentData,
         { source: 'template' }
       );
     }

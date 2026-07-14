@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, type ModelParams } from '@google/generative-ai';
 
 import { createLogger } from '../../../logger';
 
@@ -35,7 +35,7 @@ export class GeminiProvider extends BaseAIProvider {
 
         try {
             const genAI = new GoogleGenerativeAI(this.config.apiKey);
-            const clientOptions: any = { model };
+            const clientOptions: ModelParams = { model };
             if (systemMessage) {
                 clientOptions.systemInstruction = systemMessage;
             }

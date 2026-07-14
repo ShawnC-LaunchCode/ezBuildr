@@ -34,34 +34,78 @@ export interface BooleanBlockProps {
   hasError?: boolean;
 }
 
-// eslint-disable-next-line complexity
-export function BooleanBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: BooleanBlockProps) {
-  // Parse config
-  let trueLabel = "Yes";
-  let falseLabel = "No";
-  let storeAsBoolean = true;
-  let displayStyle: "toggle" | "radio" | "checkbox" | "buttons" = "buttons";
+interface NormalizedBooleanConfig {
+  trueLabel: string;
+  falseLabel: string;
+  storeAsBoolean: boolean;
+  displayStyle: "toggle" | "radio" | "checkbox" | "buttons";
+}
 
-  if (step.type === "yes_no") {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    trueLabel = step.config?.yesLabel || "Yes";
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    falseLabel = step.config?.noLabel || "No";
-  } else if (step.type === "true_false") {
-    const config = step.config as TrueFalseConfig;
-    trueLabel = config?.trueLabel ?? "True";
-    falseLabel = config?.falseLabel ?? "False";
-  } else if (step.type === "boolean") {
-    const config = step.config as BooleanAdvancedConfig;
-    trueLabel = config?.trueLabel || "Yes";
-    falseLabel = config?.falseLabel || "No";
-    storeAsBoolean = config?.storeAsBoolean ?? true;
-    displayStyle = config?.displayStyle ?? "buttons";
+function getConfigString(config: unknown, key: string): string | undefined {
+  if (typeof config !== "object" || config === null || Array.isArray(config)) {
+    return undefined;
   }
+  const value = (config as Record<string, unknown>)[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function getBooleanConfig(step: Step): NormalizedBooleanConfig {
+  if (step.type === "yes_no") {
+    return {
+      trueLabel: getConfigString(step.config, "yesLabel") ?? "Yes",
+      falseLabel: getConfigString(step.config, "noLabel") ?? "No",
+      storeAsBoolean: true,
+      displayStyle: "buttons",
+    };
+  }
+
+  if (step.type === "true_false") {
+    const config = step.config as TrueFalseConfig;
+    return {
+      trueLabel: config?.trueLabel ?? "True",
+      falseLabel: config?.falseLabel ?? "False",
+      storeAsBoolean: true,
+      displayStyle: "buttons",
+    };
+  }
+
+  if (step.type === "boolean") {
+    const config = step.config as BooleanAdvancedConfig;
+    return {
+      trueLabel: config?.trueLabel ?? "Yes",
+      falseLabel: config?.falseLabel ?? "No",
+      storeAsBoolean: config?.storeAsBoolean ?? true,
+      displayStyle: config?.displayStyle ?? "buttons",
+    };
+  }
+
+  return {
+    trueLabel: "Yes",
+    falseLabel: "No",
+    storeAsBoolean: true,
+    displayStyle: "buttons",
+  };
+}
+
+export function BooleanBlockRenderer({
+  step,
+  value,
+  onChange,
+  readOnly,
+  ariaDescribedBy,
+  required,
+  hasError,
+}: BooleanBlockProps) {
+  const { trueLabel, falseLabel, storeAsBoolean, displayStyle } = getBooleanConfig(step);
 
   // Determine current value
   const isTrue = storeAsBoolean ? value === true : value === trueLabel;
   const isDefined = value !== undefined && value !== null;
+  const fieldA11y = {
+    "aria-describedby": ariaDescribedBy,
+    "aria-required": required === true ? true : undefined,
+    "aria-invalid": hasError === true ? true : undefined,
+  };
 
   // Handle change
   const handleChange = (newValue: boolean) => {
@@ -81,11 +125,9 @@ export function BooleanBlockRenderer({ step, value, onChange, readOnly , ariaDes
           variant={isTrue && isDefined ? "default" : "outline"}
           onClick={() => !readOnly && handleChange(true)}
           disabled={readOnly}
-      aria-describedby={ariaDescribedBy}
-      aria-required={required ? "true" : undefined}
-      aria-invalid={hasError ? "true" : undefined}
-      className="flex-1"
+          className="flex-1"
           aria-pressed={isTrue && isDefined}
+          {...fieldA11y}
         >
           {trueLabel}
         </Button>
@@ -94,11 +136,9 @@ export function BooleanBlockRenderer({ step, value, onChange, readOnly , ariaDes
           variant={!isTrue && isDefined ? "default" : "outline"}
           onClick={() => !readOnly && handleChange(false)}
           disabled={readOnly}
-      aria-describedby={ariaDescribedBy}
-      aria-required={required ? "true" : undefined}
-      aria-invalid={hasError ? "true" : undefined}
-      className="flex-1"
+          className="flex-1"
           aria-pressed={!isTrue && isDefined}
+          {...fieldA11y}
         >
           {falseLabel}
         </Button>
@@ -112,10 +152,8 @@ export function BooleanBlockRenderer({ step, value, onChange, readOnly , ariaDes
       value={isDefined ? (isTrue ? "true" : "false") : undefined}
       onValueChange={(v) => !readOnly && handleChange(v === "true")}
       disabled={readOnly}
-      aria-describedby={ariaDescribedBy}
-      aria-required={required ? "true" : undefined}
-      aria-invalid={hasError ? "true" : undefined}
-      >
+      {...fieldA11y}
+    >
       <div className="flex items-center space-x-2">
         <RadioGroupItem value="true" id={`${step.id}-true`} />
         <Label htmlFor={`${step.id}-true`}>{trueLabel}</Label>

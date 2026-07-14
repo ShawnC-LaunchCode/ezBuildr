@@ -30,13 +30,15 @@ async function createTestWorkflow() {
 
   if (project.length === 0) {
     console.log('Creating new project...');
-    // @ts-ignore - TODO: fix type
     const newProject = await db.insert(projects).values({
       id: randomUUID(),
+      title: 'Test Project',
       name: 'Test Project',
       description: 'Test project for document generation',
       createdBy: user.id,
-      tenantId: user.id, // Use user ID as tenant ID for simplicity
+      creatorId: user.id,
+      ownerId: user.id,
+      tenantId: user.tenantId,
     }).returning();
     project = newProject;
   }

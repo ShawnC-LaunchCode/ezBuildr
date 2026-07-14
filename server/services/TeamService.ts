@@ -30,7 +30,7 @@ export class TeamService {
    */
   private async verifyTeamTenantAccess(teamId: string, userId: string, tx?: DbTransaction): Promise<Team> {
     const team = await this.teamRepo.findById(teamId, tx);
-    if (!team) throw new Error("Team not found");
+    if (!team) {throw new Error("Team not found");}
 
     const user = await this.userRepo.findById(userId, tx);
     if (!user || user.tenantId !== team.tenantId) {

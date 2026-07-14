@@ -10,7 +10,7 @@ import { validatePage } from "@shared/validation/PageValidator";
 import { db } from "../db"; // Correct path: ../db because we are in server/routes/
 import { logger } from "../logger"; // Correct path: ../logger
 import { requireAssetAccess } from "../utils/ownershipAccess";
-import { hybridAuth } from "../middleware/auth";
+import { hybridAuth, type AuthRequest } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 
 export const validationRouter = Router();
@@ -29,7 +29,7 @@ validationRouter.post("/api/workflows/:workflowId/validate-page", hybridAuth, as
         return res.status(400).json({ valid: false, error: "Missing sectionId or values" });
     }
 
-    const userId = (req as any).user?.id || (req as any).userId;
+    const userId = (req as AuthRequest).userId;
     if (!userId) {
         return res.status(401).json({ valid: false, error: "Unauthorized" });
     }

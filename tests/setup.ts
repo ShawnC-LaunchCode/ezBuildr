@@ -21,8 +21,6 @@ let db: any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let initializeDatabase: any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let closeDatabase: any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let dbInitPromise: any;
 process.env.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "test-google-client-id";
 process.env.VITE_GOOGLE_CLIENT_ID = process.env.VITE_GOOGLE_CLIENT_ID || "test-google-client-id";
@@ -184,7 +182,6 @@ beforeAll(async () => {
       if ('db' in dbModule && 'initializeDatabase' in dbModule && dbModule.db && dbModule.initializeDatabase) {
         db = dbModule.db;
         initializeDatabase = dbModule.initializeDatabase;
-        closeDatabase = dbModule.closeDatabase;
         dbInitPromise = dbModule.dbInitPromise;
         // Initialize DB if not already initialized (idempotent - no-op after first call per fork)
         // We intentionally do NOT close the pool between test files to avoid "pool already ended" errors.

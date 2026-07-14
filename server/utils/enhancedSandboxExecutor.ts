@@ -5,6 +5,7 @@
  */
 
 import { spawn } from "child_process";
+import { createRequire } from "module";
 import vm from "vm";
 
 import type { ScriptExecutionResult, ScriptContextAPI, HelperLibraryAPI } from "@shared/types/scripting";
@@ -45,6 +46,25 @@ interface IvmReference {
 interface IvmScript {
   run(context: IvmContext, options?: unknown): Promise<unknown>;
 }
+interface IvmExternalCopy {
+  copyInto(): unknown;
+}
+interface IvmModule {
+  isolate: new (options: { memoryLimit: number }) => IvmIsolate;
+  externalCopy: new (value: unknown) => IvmExternalCopy;
+  reference: new (value: unknown) => IvmReference;
+}
+
+const optionalRequire = createRequire(import.meta.url);
+
+function loadIvmModule(): IvmModule {
+  const raw = optionalRequire("isolated-vm") as Record<string, unknown>;
+  return {
+    isolate: raw.Isolate as IvmModule["isolate"],
+    externalCopy: raw.ExternalCopy as IvmModule["externalCopy"],
+    reference: raw.Reference as IvmModule["reference"],
+  };
+}
 
 
 interface ExecuteCodeWithHelpersParams {
@@ -81,11 +101,9 @@ async function runJsWithHelpers(
   // When consoleEnabled, always use helperLib.helpers to ensure console capture works
   const actualHelpers = consoleEnabled ? helperLib.helpers : (helpers ?? helperLib.helpers);
 
-  // @ts-ignore - TODO: fix type
-  let ivm: typeof import("isolated-vm") | undefined;
+  let ivm: IvmModule | undefined;
   try {
-    // @ts-ignore - TODO: fix type
-    ivm = await import("isolated-vm");
+    ivm = loadIvmModule();
   } catch (error) {
     // SECURITY: Node's built-in `vm` module is NOT a security boundary — it is trivially
     // escapable (e.g. `this.constructor.constructor("return process")()`). Silently falling
@@ -129,7 +147,7 @@ async function runJsWithHelpers(
 
   // Create or reuse Isolate
   // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-  const isolate = (existingIsolate as IvmIsolate) || new ivm.Isolate({ memoryLimit: 128 });
+  const isolate = (existingIsolate as IvmIsolate) || new ivm.isolate({ memoryLimit: 128 });
   const disposeIsolate = !existingIsolate; // Only dispose if we created it
 
 
@@ -161,10 +179,10 @@ async function runJsWithHelpers(
     await jail.set("global", jail.derefInto());
 
     // 3. Transfer Input (Data)
-    await jail.set("input", new ivm.ExternalCopy(input).copyInto());
+    await jail.set("input", new ivm.externalCopy(input).copyInto());
 
     // 4. Transfer Context (Data - confirmed purely JSON)
-    await jail.set("context", new ivm.ExternalCopy(context).copyInto());
+    await jail.set("context", new ivm.externalCopy(context).copyInto());
 
     // 5. Setup Helpers Bridge
     // We can't transfer functions directly. We create a structure map and a generic caller.
@@ -183,11 +201,11 @@ async function runJsWithHelpers(
     };
 
     const helpersStructure = getStructure(actualHelpers);
-    await jail.set("_helpersStructure", new ivm.ExternalCopy(helpersStructure).copyInto());
+    await jail.set("_helpersStructure", new ivm.externalCopy(helpersStructure).copyInto());
 
     // Setup emit callback
     let emittedValue: unknown = undefined;
-    await jail.set("_emitCallback", new ivm.Reference((val: unknown) => {
+    await jail.set("_emitCallback", new ivm.reference((val: unknown) => {
       // Handle potential reference if val is object
       // But typically we want the value. ivm passes value for primitives, Reference for objects?
       // Actually with primitives it passes value.
@@ -200,13 +218,13 @@ async function runJsWithHelpers(
 
     // Setup console capture callbacks
     const capturedConsoleLogs: unknown[][] = [];
-    await jail.set("_consoleLog", new ivm.Reference((...args: unknown[]) => {
+    await jail.set("_consoleLog", new ivm.reference((...args: unknown[]) => {
       capturedConsoleLogs.push(args);
     }));
-    await jail.set("_consoleWarn", new ivm.Reference((...args: unknown[]) => {
+    await jail.set("_consoleWarn", new ivm.reference((...args: unknown[]) => {
       capturedConsoleLogs.push(['[WARN]', ...args]);
     }));
-    await jail.set("_consoleError", new ivm.Reference((...args: unknown[]) => {
+    await jail.set("_consoleError", new ivm.reference((...args: unknown[]) => {
       capturedConsoleLogs.push(['[ERROR]', ...args]);
     }));
 
@@ -226,7 +244,7 @@ async function runJsWithHelpers(
     // If we define:
     // jail.setSync("callHost", new ivm.Reference( (path, ...args) => ... ));
 
-    await jail.set("callHost", new ivm.Reference((path: string[], ...args: unknown[]) => {
+    await jail.set("callHost", new ivm.reference((path: string[], ...args: unknown[]) => {
       // With { arguments: { copy: true } }, path and args are copied by value (not References)
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- traversing dynamic helper object tree
@@ -250,7 +268,7 @@ async function runJsWithHelpers(
       // Handle void return (undefined)
       if (res === undefined) { return undefined; }
 
-      return new ivm.ExternalCopy(res).copyInto();
+      return new ivm.externalCopy(res).copyInto();
     }));
 
     // Bootstrap Script to rebuild helpers object

@@ -2,14 +2,13 @@ import { describe, it, expect, beforeEach, vi, type Mocked } from 'vitest';
 
 import { WorkflowPatchService } from '../../../server/services/WorkflowPatchService';
 
-import { type Step, type Section, type Workflow, type Project, type Template, type WorkflowTemplate, type DatavaultTable, type DatavaultColumn, type DatavaultWritebackMapping } from "@shared/schema";
+import { type Step, type Section, type Workflow, type Project, type Template, type WorkflowTemplate, type DatavaultTable, type DatavaultColumn, type DatavaultDatabase, type DatavaultWritebackMapping } from "@shared/schema";
 import type { WorkflowPatchOp } from '../../../server/schemas/aiWorkflowEdit.schema';
 import type {
   StepRepository,
   SectionRepository,
   WorkflowRepository,
   ProjectRepository,
-  LogicRuleRepository,
   DocumentTemplateRepository,
   WorkflowTemplateRepository,
   DatavaultWritebackMappingsRepository,
@@ -93,7 +92,6 @@ describe('WorkflowPatchService', () => {
   let mockStepRepo: Mocked<StepRepository>;
   let mockWorkflowRepo: Mocked<WorkflowRepository>;
   let mockProjectRepo: Mocked<ProjectRepository>;
-  let mockLogicRuleRepo: Mocked<LogicRuleRepository>;
   let mockDocTemplateRepo: Mocked<DocumentTemplateRepository>;
   let mockWorkflowTemplateRepo: Mocked<WorkflowTemplateRepository>;
   let mockDatavaultWritebackRepo: Mocked<DatavaultWritebackMappingsRepository>;
@@ -113,7 +111,6 @@ describe('WorkflowPatchService', () => {
     mockStepRepo = repos.stepRepository as Mocked<StepRepository>;
     mockWorkflowRepo = repos.workflowRepository as Mocked<WorkflowRepository>;
     mockProjectRepo = repos.projectRepository as Mocked<ProjectRepository>;
-    mockLogicRuleRepo = repos.logicRuleRepository as Mocked<LogicRuleRepository>;
     mockDocTemplateRepo = repos.documentTemplateRepository as Mocked<DocumentTemplateRepository>;
     mockWorkflowTemplateRepo = repos.workflowTemplateRepository as Mocked<WorkflowTemplateRepository>;
     mockDatavaultWritebackRepo = repos.datavaultWritebackMappingsRepository as Mocked<DatavaultWritebackMappingsRepository>;
@@ -135,7 +132,7 @@ describe('WorkflowPatchService', () => {
     mockDatavaultDatabasesRepo.findById.mockResolvedValue({
       id: 'db-123',
       tenantId: 'tenant-123',
-    } as any);
+    } as unknown as DatavaultDatabase);
 
     // Default mock for assertEntityBelongsToWorkflow
     mockSectionRepo.findById.mockResolvedValue({
@@ -271,7 +268,7 @@ describe('WorkflowPatchService', () => {
         },
       ];
       const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
-      if (result.errors.length > 0) console.error(result.errors);
+      if (result.errors.length > 0) {console.error(result.errors);}
       expect(result.errors).toHaveLength(0);
       expect(result.summary).toHaveLength(4);
       // Verify step.setVisibleIf used resolved step ID

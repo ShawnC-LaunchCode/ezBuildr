@@ -5,7 +5,7 @@
  * Endpoints for accessing metrics, rollups, SLI data, and new event-based analytics.
  */
 import { eq, and, gte, sql } from 'drizzle-orm';
-import { Router } from 'express';
+import { Router, type Express, type Request, type Response } from 'express';
 import { z } from 'zod';
 
 import {
@@ -17,7 +17,7 @@ import { db } from '../db';
 import logger from '../logger';
 import { hybridAuth } from '../middleware';
 import { aclService } from '../services/AclService';
-import { analyticsService } from '../services/analytics/AnalyticsService';
+import { analyticsService, eventSchema } from '../services/analytics/AnalyticsService';
 import { branchingService } from '../services/analytics/BranchingService';
 import { dropoffService } from '../services/analytics/DropoffService';
 import { heatmapService } from '../services/analytics/HeatmapService';
@@ -25,8 +25,10 @@ import sli from '../services/sli';
 import { workflowService } from '../services/WorkflowService';
 import { asyncHandler } from '../utils/asyncHandler';
 
-import type { Express } from 'express';
+import type { AuthRequest } from '../middleware/auth';
 const router = Router();
+const ACCESS_DENIED_ERROR = "Access denied";
+const UNAUTHORIZED_ERROR = "Unauthorized";
 // ===================================================================
 // SCHEMAS
 // ===================================================================
@@ -73,6 +75,19 @@ interface DocStatsRow {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   docx_failed: string;
 }
+
+function getAuthenticatedUserId(req: Request, res: Response): string | undefined {
+  const userId = (req as AuthRequest).userId;
+  if (userId === undefined) {
+    res.status(401).json({ error: UNAUTHORIZED_ERROR });
+    return undefined;
+  }
+  return userId;
+}
+
+function isAnalyticsWindow(value: unknown): value is '1d' | '7d' | '30d' {
+  return value === '1d' || value === '7d' || value === '30d';
+}
 // ===================================================================
 // LEGACY ROUTES (Metrics Events)
 // ===================================================================
@@ -84,13 +99,16 @@ router.get('/overview', hybridAuth, asyncHandler(async (req, res) => {
   try {
     const query = overviewQuerySchema.parse(req.query);
     
-    const userId = (req as any).userId;
+    const userId = getAuthenticatedUserId(req, res);
+    if (userId === undefined) {
+      return;
+    }
     if (query.workflowId) {
       await workflowService.verifyAccess(query.workflowId, userId, 'view');
     } else {
       const hasAccess = await aclService.hasProjectRole(userId, query.projectId, 'view');
       if (!hasAccess) {
-        return res.status(403).json({ error: "Access denied" });
+        return res.status(403).json({ error: ACCESS_DENIED_ERROR });
       }
     }
 
@@ -180,13 +198,16 @@ router.get('/overview', hybridAuth, asyncHandler(async (req, res) => {
 router.get('/timeseries', hybridAuth, asyncHandler(async (req, res) => {
   try {
     const query = timeseriesQuerySchema.parse(req.query);
-    const userId = (req as any).userId;
+    const userId = getAuthenticatedUserId(req, res);
+    if (userId === undefined) {
+      return;
+    }
     if (query.workflowId) {
       await workflowService.verifyAccess(query.workflowId, userId, 'view');
     } else {
       const hasAccess = await aclService.hasProjectRole(userId, query.projectId, 'view');
       if (!hasAccess) {
-        return res.status(403).json({ error: "Access denied" });
+        return res.status(403).json({ error: ACCESS_DENIED_ERROR });
       }
     }
     const windowMs = parseWindow(query.window);
@@ -235,13 +256,16 @@ router.get('/timeseries', hybridAuth, asyncHandler(async (req, res) => {
 router.get('/sli', hybridAuth, asyncHandler(async (req, res) => {
   try {
     const query = overviewQuerySchema.parse(req.query);
-    const userId = (req as any).userId;
+    const userId = getAuthenticatedUserId(req, res);
+    if (userId === undefined) {
+      return;
+    }
     if (query.workflowId) {
       await workflowService.verifyAccess(query.workflowId, userId, 'view');
     } else {
       const hasAccess = await aclService.hasProjectRole(userId, query.projectId, 'view');
       if (!hasAccess) {
-        return res.status(403).json({ error: "Access denied" });
+        return res.status(403).json({ error: ACCESS_DENIED_ERROR });
       }
     }
     // Compute current SLI
@@ -283,13 +307,16 @@ router.get('/sli', hybridAuth, asyncHandler(async (req, res) => {
 router.post('/sli-config', hybridAuth, asyncHandler(async (req, res) => {
   try {
     const body = sliConfigCreateSchema.parse(req.body);
-    const userId = (req as any).userId;
+    const userId = getAuthenticatedUserId(req, res);
+    if (userId === undefined) {
+      return;
+    }
     if (body.workflowId) {
       await workflowService.verifyAccess(body.workflowId, userId, 'edit');
     } else {
       const hasAccess = await aclService.hasProjectRole(userId, body.projectId, 'edit');
       if (!hasAccess) {
-        return res.status(403).json({ error: "Access denied" });
+        return res.status(403).json({ error: ACCESS_DENIED_ERROR });
       }
     }
     // Check if config exists
@@ -336,7 +363,10 @@ router.post('/sli-config', hybridAuth, asyncHandler(async (req, res) => {
 router.put('/sli-config/:id', hybridAuth, asyncHandler(async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).userId;
+    const userId = getAuthenticatedUserId(req, res);
+    if (userId === undefined) {
+      return;
+    }
 
     const existingConfig = await db.query.sliConfigs.findFirst({
       where: (cfg, { eq }) => eq(cfg.id, id)
@@ -348,7 +378,7 @@ router.put('/sli-config/:id', hybridAuth, asyncHandler(async (req, res) => {
       } else if (existingConfig.projectId) {
         const hasAccess = await aclService.hasProjectRole(userId, existingConfig.projectId, 'edit');
         if (!hasAccess) {
-          return res.status(403).json({ error: "Access denied" });
+          return res.status(403).json({ error: ACCESS_DENIED_ERROR });
         }
       }
     }
@@ -373,20 +403,19 @@ router.put('/sli-config/:id', hybridAuth, asyncHandler(async (req, res) => {
  */
 router.post('/events', hybridAuth, asyncHandler(async (req, res) => {
   try {
-    const body = req.body;
-    const userId = (req as any).userId;
-    if (body && body.workflowId && userId) {
+    const body = eventSchema.parse(req.body);
+    const userId = getAuthenticatedUserId(req, res);
+    if (userId === undefined) {
+      return;
+    }
+    if (body.workflowId) {
       try {
         await workflowService.verifyAccess(body.workflowId, userId, 'view');
       } catch (err) {
         return res.status(403).json({ error: "Access denied to workflow" });
       }
-    } else if (!userId) {
-       return res.status(401).json({ error: "Unauthorized" });
     }
-    // We'll trust the body for now, but validation is critical
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    await analyticsService.recordEvent(req.body);
+    await analyticsService.recordEvent(body);
     res.json({ success: true });
   } catch (error) {
     logger.error({ error }, 'Failed to record event');
@@ -399,7 +428,10 @@ router.post('/events', hybridAuth, asyncHandler(async (req, res) => {
 router.get('/:workflowId/dropoff', hybridAuth, asyncHandler(async (req, res) => {
   try {
     const { workflowId } = req.params;
-    const userId = (req as any).userId;
+    const userId = getAuthenticatedUserId(req, res);
+    if (userId === undefined) {
+      return;
+    }
     await workflowService.verifyAccess(workflowId, userId, 'view');
     const { versionId } = req.query;
     if (versionId === undefined || typeof versionId !== 'string') {
@@ -418,7 +450,10 @@ router.get('/:workflowId/dropoff', hybridAuth, asyncHandler(async (req, res) => 
 router.get('/:workflowId/heatmap', hybridAuth, asyncHandler(async (req, res) => {
   try {
     const { workflowId } = req.params;
-    const userId = (req as any).userId;
+    const userId = getAuthenticatedUserId(req, res);
+    if (userId === undefined) {
+      return;
+    }
     await workflowService.verifyAccess(workflowId, userId, 'view');
     const { versionId } = req.query;
     if (versionId === undefined || typeof versionId !== 'string') {
@@ -437,7 +472,10 @@ router.get('/:workflowId/heatmap', hybridAuth, asyncHandler(async (req, res) => 
 router.get('/:workflowId/branching', hybridAuth, asyncHandler(async (req, res) => {
   try {
     const { workflowId } = req.params;
-    const userId = (req as any).userId;
+    const userId = getAuthenticatedUserId(req, res);
+    if (userId === undefined) {
+      return;
+    }
     await workflowService.verifyAccess(workflowId, userId, 'view');
     const { versionId } = req.query;
     if (versionId === undefined || typeof versionId !== 'string') {
@@ -457,14 +495,17 @@ router.get('/:workflowId/branching', hybridAuth, asyncHandler(async (req, res) =
 router.get('/:workflowId/health', hybridAuth, asyncHandler(async (req, res) => {
   try {
     const { workflowId } = req.params;
-    const userId = (req as any).userId;
+    const userId = getAuthenticatedUserId(req, res);
+    if (userId === undefined) {
+      return;
+    }
     await workflowService.verifyAccess(workflowId, userId, 'view');
     const { versionId } = req.query;
+    const versionIdFilter = typeof versionId === 'string' ? versionId : undefined;
 
     // Default window: 30 days
-    const window = (req.query.window as string) ?? '30d';
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- window string is validated below
-    const windowMs = parseWindow(window as any) ?? parseWindow('30d');
+    const window = isAnalyticsWindow(req.query.window) ? req.query.window : '30d';
+    const windowMs = parseWindow(window);
     const windowStart = new Date(Date.now() - windowMs);
 
     const metricsConditions = [
@@ -472,9 +513,8 @@ router.get('/:workflowId/health', hybridAuth, asyncHandler(async (req, res) => {
       gte(workflowRunMetrics.createdAt, windowStart)
     ];
 
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (versionId && typeof versionId === 'string') {
-      metricsConditions.push(eq(workflowRunMetrics.versionId, versionId));
+    if (versionIdFilter !== undefined) {
+      metricsConditions.push(eq(workflowRunMetrics.versionId, versionIdFilter));
     }
 
     const metricsStats = await db
@@ -492,7 +532,7 @@ router.get('/:workflowId/health', hybridAuth, asyncHandler(async (req, res) => {
         FROM workflow_runs
         WHERE workflow_id = ${workflowId}
         AND created_at >= ${windowStart}
-        ${versionId ? sql`AND workflow_version_id = ${versionId}` : sql``}
+        ${versionIdFilter !== undefined ? sql`AND workflow_version_id = ${versionIdFilter}` : sql``}
       `);
 
     // Get runs with errors
@@ -502,7 +542,7 @@ router.get('/:workflowId/health', hybridAuth, asyncHandler(async (req, res) => {
         WHERE workflow_id = ${workflowId}
         AND created_at >= ${windowStart}
         AND (validation_errors > 0 OR script_errors > 0)
-        ${versionId ? sql`AND version_id = ${versionId}` : sql``}
+        ${versionIdFilter !== undefined ? sql`AND version_id = ${versionIdFilter}` : sql``}
       `);
 
     const totalRuns = safeParseInt(runsConfig.rows[0].total as string);

@@ -42,6 +42,8 @@ import type { Step } from "@/types";
 import { SearchableDropdown } from "./choice/SearchableDropdown";
 import { useChoiceOptions } from "./choice/useChoiceOptions";
 
+import type { ChoiceOption } from "@shared/types/stepConfigs";
+
 export interface ChoiceBlockProps {
   step: Step;
   value: unknown;
@@ -53,7 +55,158 @@ export interface ChoiceBlockProps {
   context?: Record<string, unknown>;
 }
 
-export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context , ariaDescribedBy, required, hasError }: ChoiceBlockProps) {
+interface ChoiceA11yProps {
+  describedBy?: string;
+  required?: boolean;
+  invalid?: boolean;
+}
+
+interface ChoiceRenderProps {
+  step: Step;
+  options: ChoiceOption[];
+  value: unknown;
+  onChange: (value: string | string[]) => void;
+  readOnly?: boolean;
+  a11y: ChoiceA11yProps;
+}
+
+function getOptionValue(option: ChoiceOption): string {
+  return option.alias ?? option.id;
+}
+
+function toSingleValue(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function getAriaProps(a11y: ChoiceA11yProps) {
+  return {
+    "aria-describedby": a11y.describedBy,
+    "aria-required": a11y.required === true ? true : undefined,
+    "aria-invalid": a11y.invalid === true ? true : undefined,
+  };
+}
+
+function renderRadioChoices({ step, options, value, onChange, readOnly, a11y }: ChoiceRenderProps) {
+  return (
+    <RadioGroup
+      value={toSingleValue(value)}
+      onValueChange={(newValue) => {
+        if (!readOnly) {
+          onChange(newValue);
+        }
+      }}
+      disabled={readOnly}
+      {...getAriaProps(a11y)}
+    >
+      {options.map((option) => (
+        <div key={option.id} className="flex items-center space-x-2">
+          <RadioGroupItem value={getOptionValue(option)} id={`${step.id}-${option.id}`} />
+          <Label htmlFor={`${step.id}-${option.id}`} className="font-normal cursor-pointer">
+            {option.label}
+          </Label>
+        </div>
+      ))}
+    </RadioGroup>
+  );
+}
+
+function renderDropdownChoice(
+  props: ChoiceRenderProps & { isSearchable: boolean }
+) {
+  const { step, options, value, onChange, readOnly, a11y, isSearchable } = props;
+
+  if (isSearchable) {
+    return (
+      <SearchableDropdown
+        options={options}
+        value={toSingleValue(value)}
+        onChange={(val) => {
+          if (!readOnly) {
+            onChange(val);
+          }
+        }}
+        disabled={readOnly}
+        ariaDescribedBy={a11y.describedBy}
+        ariaRequired={a11y.required}
+        ariaInvalid={a11y.invalid}
+      />
+    );
+  }
+
+  return (
+    <Select
+      value={toSingleValue(value)}
+      onValueChange={(newValue) => {
+        if (!readOnly) {
+          onChange(newValue);
+        }
+      }}
+      disabled={readOnly}
+      {...getAriaProps(a11y)}
+    >
+      <SelectTrigger id={step.id}>
+        <SelectValue placeholder="Select an option..." />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option.id} value={getOptionValue(option)}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function renderMultipleChoices({ step, options, value, onChange, readOnly, a11y }: ChoiceRenderProps) {
+  const selectedAliases = Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+
+  const handleToggle = (optionAlias: string, checked: boolean) => {
+    if (readOnly) {
+      return;
+    }
+
+    const nextValue = checked
+      ? [...selectedAliases, optionAlias]
+      : selectedAliases.filter((alias) => alias !== optionAlias);
+    onChange(nextValue);
+  };
+
+  return (
+    <div className="space-y-2">
+      {options.map((option) => {
+        const optionAlias = getOptionValue(option);
+        const isChecked = selectedAliases.includes(optionAlias);
+
+        return (
+          <div key={option.id} className="flex items-center space-x-2">
+            <Checkbox
+              id={`${step.id}-${option.id}`}
+              checked={isChecked}
+              onCheckedChange={(checked) => handleToggle(optionAlias, checked === true)}
+              disabled={readOnly}
+              {...getAriaProps(a11y)}
+            />
+            <Label htmlFor={`${step.id}-${option.id}`} className="font-normal cursor-pointer">
+              {option.label}
+            </Label>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function ChoiceBlockRenderer({
+  step,
+  value,
+  onChange,
+  readOnly,
+  context,
+  ariaDescribedBy,
+  required,
+  hasError,
+}: ChoiceBlockProps) {
   const {
     options,
     loading,
@@ -63,10 +216,12 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context ,
     isSearchable
   } = useChoiceOptions(step, context);
 
-  // -------------------------------------------------------------------------
-  // Value handling
-  // -------------------------------------------------------------------------
   const currentValue = value ?? (allowMultiple ? [] : "");
+  const a11y: ChoiceA11yProps = {
+    describedBy: ariaDescribedBy,
+    required,
+    invalid: hasError,
+  };
 
   // -------------------------------------------------------------------------
   // Loading & Error States
@@ -91,125 +246,21 @@ export function ChoiceBlockRenderer({ step, value, onChange, readOnly, context ,
   // Render: Radio Buttons
   // -------------------------------------------------------------------------
   if (displayMode === "radio" && !allowMultiple) {
-    return (
-      <RadioGroup
-        value={currentValue as string}
-        onValueChange={(newValue) => {
-          if (!readOnly) {
-            onChange(newValue);
-          }
-        }}
-        disabled={readOnly}
-      aria-describedby={ariaDescribedBy}
-      aria-required={required ? "true" : undefined}
-      aria-invalid={hasError ? "true" : undefined}
-      >
-        {options.map((option) => (
-          <div key={option.id} className="flex items-center space-x-2">
-            <RadioGroupItem value={option.alias ?? option.id} id={`${step.id}-${option.id}`} />
-            <Label htmlFor={`${step.id}-${option.id}`} className="font-normal cursor-pointer">
-              {option.label}
-            </Label>
-          </div>
-        ))}
-      </RadioGroup>
-    );
+    return renderRadioChoices({ step, options, value: currentValue, onChange, readOnly, a11y });
   }
 
   // -------------------------------------------------------------------------
   // Render: Dropdown (Select)
   // -------------------------------------------------------------------------
   if (displayMode === "dropdown" && !allowMultiple) {
-    if (isSearchable) {
-      return (
-        <SearchableDropdown
-          options={options}
-          value={currentValue as string}
-          onChange={(val) => {
-            if (!readOnly) {
-              onChange(val);
-            }
-          }}
-          disabled={readOnly}
-      aria-describedby={ariaDescribedBy}
-      aria-required={required ? "true" : undefined}
-      aria-invalid={hasError ? "true" : undefined}
-      />
-      );
-    }
-
-    return (
-      <Select
-        value={currentValue as string}
-        onValueChange={(newValue) => {
-          if (!readOnly) {
-            onChange(newValue);
-          }
-        }}
-        disabled={readOnly}
-      aria-describedby={ariaDescribedBy}
-      aria-required={required ? "true" : undefined}
-      aria-invalid={hasError ? "true" : undefined}
-      >
-        <SelectTrigger id={step.id}>
-          <SelectValue placeholder="Select an option..." />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option.id} value={option.alias ?? option.id}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    );
+    return renderDropdownChoice({ step, options, value: currentValue, onChange, readOnly, a11y, isSearchable });
   }
 
   // -------------------------------------------------------------------------
   // Render: Multiple Choice (Checkboxes)
   // -------------------------------------------------------------------------
   if (displayMode === "multiple" || allowMultiple) {
-    const selectedAliases = Array.isArray(currentValue) ? (currentValue as string[]) : [];
-
-    const handleToggle = (optionAlias: string, checked: boolean) => {
-      if (readOnly) {
-        return;
-      }
-
-      let newValue: string[];
-      if (checked) {
-        newValue = [...selectedAliases, optionAlias];
-      } else {
-        newValue = selectedAliases.filter((a: string) => a !== optionAlias);
-      }
-      onChange(newValue);
-    };
-
-    return (
-      <div className="space-y-2">
-        {options.map((option) => {
-          const optionAlias = option.alias ?? option.id;
-          const isChecked = selectedAliases.includes(optionAlias);
-
-          return (
-            <div key={option.id} className="flex items-center space-x-2">
-              <Checkbox
-                id={`${step.id}-${option.id}`}
-                checked={isChecked}
-                onCheckedChange={(checked) => handleToggle(optionAlias, checked === true)}
-                disabled={readOnly}
-      aria-describedby={ariaDescribedBy}
-      aria-required={required ? "true" : undefined}
-      aria-invalid={hasError ? "true" : undefined}
-      />
-              <Label htmlFor={`${step.id}-${option.id}`} className="font-normal cursor-pointer">
-                {option.label}
-              </Label>
-            </div>
-          );
-        })}
-      </div>
-    );
+    return renderMultipleChoices({ step, options, value: currentValue, onChange, readOnly, a11y });
   }
 
   // Fallback

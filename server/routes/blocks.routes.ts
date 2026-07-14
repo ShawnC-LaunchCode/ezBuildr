@@ -271,7 +271,7 @@ export function registerBlockRoutes(app: Express): void {
       }
       const { workflowId, stepId } = req.params;
       const transformConfigSchema = z.object({
-        filters: z.array(z.any()).optional(),
+        filters: z.array(z.unknown()).optional(),
         sort: z.object({
           field: z.string(),
           direction: z.enum(['asc', 'desc'])
@@ -281,19 +281,18 @@ export function registerBlockRoutes(app: Express): void {
         dedupe: z.boolean().optional(),
         select: z.array(z.string()).optional()
       }).optional().nullable();
+      const createListToolsSchema = z.object({
+        sourceListVar: z.string().min(1, "sourceListVar is required"),
+        sectionId: z.string().min(1, "sectionId is required"),
+        transformConfig: transformConfigSchema,
+      });
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const { sourceListVar, sectionId } = req.body;
-      let transformConfig: z.infer<typeof transformConfigSchema>;
-      
-      try {
-        transformConfig = transformConfigSchema.parse(req.body.transformConfig);
-      } catch (err) {
-        if (err instanceof z.ZodError) {
-          return res.status(400).json({ success: false, errors: err.errors.map(e => e.message) });
-        }
-        return res.status(400).json({ success: false, errors: ["Invalid transformConfig"] });
+      const parsedBody = createListToolsSchema.safeParse(req.body);
+      if (!parsedBody.success) {
+        return res.status(400).json({ success: false, errors: parsedBody.error.issues.map(e => e.message) });
       }
+
+      const { sourceListVar, sectionId, transformConfig } = parsedBody.data;
 
       // Validation
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions

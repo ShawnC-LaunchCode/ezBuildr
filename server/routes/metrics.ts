@@ -26,10 +26,10 @@ export function registerMetricsRoutes(app: Express): void {
     const isTestEnv = process.env.NODE_ENV === 'test';
     const metricsApiKey = process.env.METRICS_API_KEY;
 
-    if (!isTestEnv && metricsApiKey) {
+    if (!isTestEnv && metricsApiKey !== undefined && metricsApiKey !== '') {
       const providedKey = req.headers['x-api-key'];
 
-      if (!providedKey || typeof providedKey !== 'string') {
+      if (typeof providedKey !== 'string' || providedKey === '') {
         logger.warn({ ip: req.ip }, 'Unauthorized metrics access attempt (missing or invalid key)');
         return res.status(401).json({ error: 'Unauthorized' });
       }

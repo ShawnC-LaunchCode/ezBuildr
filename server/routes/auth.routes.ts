@@ -290,12 +290,12 @@ export function registerAuthRoutes(app: Express): void {
         }
         
         // Use type assertion since Express req.body is any
-        const captchaResult = await CaptchaService.validateCaptcha(req.body.captcha as any, '');
+        const captchaResult = await CaptchaService.validateCaptcha(req.body.captcha, '');
         if (!captchaResult.valid) {
           await accountLockoutService.recordAttempt(email, req.ip, false);
           metricsService.recordAuthLatency(startTime, 'login', 401);
           return res.status(401).json({
-            message: captchaResult.error || 'Invalid CAPTCHA',
+            message: captchaResult.error ?? 'Invalid CAPTCHA',
             requiresCaptcha: true,
             challenge: CaptchaService.generateSimpleChallenge()
           });
@@ -437,10 +437,10 @@ export function registerAuthRoutes(app: Express): void {
         });
       }
       
-      const captchaResult = await CaptchaService.validateCaptcha(req.body.captcha as any, '');
+      const captchaResult = await CaptchaService.validateCaptcha(req.body.captcha, '');
       if (!captchaResult.valid) {
         return res.status(401).json({
-          message: captchaResult.error || 'Invalid CAPTCHA',
+          message: captchaResult.error ?? 'Invalid CAPTCHA',
           requiresCaptcha: true,
           challenge: CaptchaService.generateSimpleChallenge()
         });

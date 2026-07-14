@@ -26,6 +26,9 @@ interface SearchableDropdownProps {
     onChange: (val: string) => void;
     disabled?: boolean;
     placeholder?: string;
+    ariaDescribedBy?: string;
+    ariaRequired?: boolean;
+    ariaInvalid?: boolean;
 }
 
 export function SearchableDropdown({
@@ -33,7 +36,10 @@ export function SearchableDropdown({
     value,
     onChange,
     disabled,
-    placeholder = "Select an option..."
+    placeholder = "Select an option...",
+    ariaDescribedBy,
+    ariaRequired,
+    ariaInvalid,
 }: SearchableDropdownProps) {
     const [open, setOpen] = useState(false);
 
@@ -42,11 +48,14 @@ export function SearchableDropdown({
             <PopoverTrigger asChild>
                 <Button
                     variant="outline"
-                    role="combobox"
-                    aria-expanded={open}
-                    className="w-full justify-between font-normal text-left"
-                    disabled={disabled}
-                >
+                     role="combobox"
+                     aria-expanded={open}
+                    aria-describedby={ariaDescribedBy}
+                    aria-required={ariaRequired ? "true" : undefined}
+                    aria-invalid={ariaInvalid ? "true" : undefined}
+                     className="w-full justify-between font-normal text-left"
+                     disabled={disabled}
+                 >
                     {value
                         ? options.find((option) => (option.alias ?? option.id) === value)?.label
                         : <span className="text-muted-foreground">{placeholder}</span>}

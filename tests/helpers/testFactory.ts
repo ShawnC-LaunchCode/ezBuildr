@@ -89,7 +89,7 @@ export class TestFactory {
         .values({
           id: generateId(),
           name: 'Test Tenant',
-          // @ts-ignore - TODO: fix type
+          // @ts-expect-error - TODO: fix type
           slug: generateSlug('test-tenant'),
           plan: 'pro',
           ...overrides?.tenant,
@@ -283,7 +283,7 @@ export class TestFactory {
       .insert(schema.datavaultDatabases)
       .values({
         id: generateId(),
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - TODO: fix type
         projectId,
         tenantId,
         name: 'Test Database',
@@ -312,7 +312,7 @@ export class TestFactory {
         slug: `test-table-${generateId()}`,
         description: 'Test table',
         ownerUserId: userId,
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - TODO: fix type
         columns: [],
         ...overrides,
       })
@@ -335,7 +335,7 @@ export class TestFactory {
         name: 'Test Collection',
         slug: `test-collection-${generateId()}`,
         description: 'Test collection',
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - TODO: fix type
         createdBy: userId,
         ...overrides,
       })

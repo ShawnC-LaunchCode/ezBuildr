@@ -104,7 +104,7 @@ export async function runTokenAuth(
  * Usage:
  *   app.post('/api/runs/:runId/values', creatorOrRunTokenAuth, handler)
  */
-export async function creatorOrRunTokenAuth(
+async function creatorOrRunTokenAuthLogic(
   req: RunAuthRequest,
   res: Response,
   next: NextFunction
@@ -181,4 +181,12 @@ export async function creatorOrRunTokenAuth(
       error: "Internal server error during authentication",
     });
   }
+}
+
+export function creatorOrRunTokenAuth(
+  req: RunAuthRequest,
+  res: Response,
+  next: NextFunction
+): void {
+  void creatorOrRunTokenAuthLogic(req, res, next);
 }

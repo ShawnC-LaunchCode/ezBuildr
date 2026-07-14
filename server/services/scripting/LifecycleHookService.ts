@@ -28,6 +28,8 @@ import { workflowService } from "../WorkflowService";
 
 import { scriptEngine } from "./ScriptEngine";
 
+const WORKFLOW_NOT_FOUND_MSG = "Workflow not found";
+
 export class LifecycleHookService {
   /**
    * Execute all hooks for a given phase
@@ -134,7 +136,7 @@ export class LifecycleHookService {
                 for (const key of hook.outputKeys) {
                   // eslint-disable-next-line max-depth
                   if (key in result.output) {
-                    resultData[key] = (result.output as any)[key];
+                    resultData[key] = (result.output as Record<string, unknown>)[key];
                   }
                 }
 
@@ -294,7 +296,7 @@ export class LifecycleHookService {
     // Verify workflow ownership
     const workflow = await workflowRepository.findById(workflowId);
     if (!workflow) {
-      throw new Error("Workflow not found");
+      throw new Error(WORKFLOW_NOT_FOUND_MSG);
     }
     await workflowService.verifyAccess(workflowId, userId, 'edit');
 
@@ -332,7 +334,7 @@ export class LifecycleHookService {
 
     const workflow = await workflowRepository.findById(hook.workflowId);
     if (!workflow) {
-      throw new Error("Workflow not found");
+      throw new Error(WORKFLOW_NOT_FOUND_MSG);
     }
     await workflowService.verifyAccess(hook.workflowId, userId, 'edit');
 
@@ -362,7 +364,7 @@ export class LifecycleHookService {
 
     const workflow = await workflowRepository.findById(hook.workflowId);
     if (!workflow) {
-      throw new Error("Workflow not found");
+      throw new Error(WORKFLOW_NOT_FOUND_MSG);
     }
     await workflowService.verifyAccess(hook.workflowId, userId, 'edit');
 
@@ -394,7 +396,7 @@ export class LifecycleHookService {
 
     const workflow = await workflowRepository.findById(hook.workflowId);
     if (!workflow) {
-      throw new Error("Workflow not found");
+      throw new Error(WORKFLOW_NOT_FOUND_MSG);
     }
     await workflowService.verifyAccess(hook.workflowId, userId, 'view');
 
@@ -432,7 +434,7 @@ export class LifecycleHookService {
     // Verify workflow ownership
     const workflow = await workflowRepository.findById(workflowId);
     if (!workflow) {
-      throw new Error("Workflow not found");
+      throw new Error(WORKFLOW_NOT_FOUND_MSG);
     }
     await workflowService.verifyAccess(workflowId, userId, 'view');
 

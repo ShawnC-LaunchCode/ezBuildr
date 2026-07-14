@@ -99,6 +99,21 @@ function isErrorWithCode(err: unknown): err is Error & { code: string } {
   return err instanceof Error && 'code' in err;
 }
 
+async function collectDocxPlaceholderWarnings(fileBuffer: Buffer): Promise<string[]> {
+  const { extractPlaceholdersDetailed } = await import('../services/templatePlaceholders');
+  const tempPath = path.join(os.tmpdir(), `validate-${crypto.randomBytes(4).toString('hex')}.docx`);
+
+  await fs.writeFile(tempPath, fileBuffer);
+  try {
+    const placeholders = await extractPlaceholdersDetailed(tempPath);
+    return placeholders
+      .filter((placeholder) => placeholder.kind === 'unknown_helper')
+      .map((placeholder) => `Warning: Template references an unknown helper function "${placeholder.helper ?? placeholder.name}".`);
+  } finally {
+    await fs.unlink(tempPath).catch(() => {});
+  }
+}
+
 /**
  * GET /templates/:id/download
  * Download template file
@@ -277,21 +292,7 @@ router.post(
             
             // DOC-109: Validate helpers during upload
             try {
-              const { extractPlaceholdersDetailed } = await import('../services/templatePlaceholders');
-              const { docxHelpers } = await import('../services/docxHelpers');
-              // We need to write to a temporary file first because extractPlaceholdersDetailed takes a path
-              const tempPath = path.join(os.tmpdir(), `validate-${crypto.randomBytes(4).toString('hex')}.docx`);
-              await fs.writeFile(tempPath, fileBuffer);
-              try {
-                const placeholders = await extractPlaceholdersDetailed(tempPath);
-                for (const p of placeholders) {
-                  if (p.kind === 'unknown_helper') {
-                    warnings.push(`Warning: Template references an unknown helper function "${p.helper ?? p.name}".`);
-                  }
-                }
-              } finally {
-                await fs.unlink(tempPath).catch(() => {});
-              }
+              warnings.push(...await collectDocxPlaceholderWarnings(fileBuffer));
             } catch (e) {
               logger.warn({ error: e }, "Failed to extract placeholders during template upload");
             }

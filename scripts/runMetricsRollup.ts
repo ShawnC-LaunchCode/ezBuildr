@@ -32,7 +32,7 @@ async function main() {
     }
   }
 
-  // @ts-ignore - TODO: fix type
+  // @ts-expect-error - TODO: fix type
   logger.info('Starting metrics rollup', { bucket, since, until });
 
   try {

@@ -36,7 +36,7 @@ async function testReadBlockCreation() {
             config: {
                 dataSourceId: 'some-ds-id',
                 tableId: 'some-table-id',
-                // @ts-ignore - TODO: fix type
+                // @ts-expect-error - TODO: fix type
                 resultMode: 'single',
                 outputKey: 'testOutput',
                 matchStrategy: 'first',

@@ -117,8 +117,8 @@ export default function Organizations() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {(organizations as any).map((org: any) => (
-            <Link key={(org as any).id} href={`/organizations/${(org as any).id}`}>
+          {organizations.map((org) => (
+            <Link key={org.id} href={`/organizations/${org.id}`}>
               <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
                 <CardHeader>
                   <div className="flex items-center justify-between mb-2">
@@ -127,9 +127,9 @@ export default function Organizations() {
                       {org.role === 'admin' ? 'Admin' : 'Member'}
                     </span>
                   </div>
-                  <CardTitle className="text-xl">{(org as any).name}</CardTitle>
-                  {(org as any).description && (
-                    <CardDescription className="line-clamp-2">{(org as any).description}</CardDescription>
+                  <CardTitle className="text-xl">{org.name}</CardTitle>
+                  {org.description && (
+                    <CardDescription className="line-clamp-2">{org.description}</CardDescription>
                   )}
                 </CardHeader>
               </Card>
