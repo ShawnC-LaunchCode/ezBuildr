@@ -490,8 +490,13 @@ export class RunLifecycleService {
     for (const templateId of templateIds) {
       const template = await documentTemplateRepository.findByIdAndProjectId(templateId, projectId);
       if (!template) {
-        logger.warn({ workflowId, templateId }, 'Legacy Final Documents section references missing template, skipping');
-        continue;
+        // RUN-12: a legacy template id that doesn't resolve within this
+        // project is either deleted or cross-project — fail the generation
+        // loudly (surfaced as generationStatus 'failed:…' by the caller)
+        // instead of silently skipping, matching the step-based path's
+        // resolver semantics.
+        logger.warn({ workflowId, templateId }, 'Legacy Final Documents section references unresolvable template');
+        throw createError.notFound('Template', templateId);
       }
       const metadata = template.metadata as { visibleIf?: unknown } | null;
       documents.push({
