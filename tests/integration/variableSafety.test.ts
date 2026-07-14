@@ -86,6 +86,7 @@ describe("Variable Schema Safety & Resolution", () => {
         } as any);
         await db.insert(stepsSchema).values({
             id: stepId1,
+            workflowId,
             sectionId,
             type: "text",
             title: "My Step",

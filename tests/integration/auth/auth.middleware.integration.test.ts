@@ -177,9 +177,9 @@ describe.sequential("Auth Middleware Integration Tests", () => {
 
         it("should reject cookie auth for PUT requests", async () => {
             await request(ctx.baseURL)
-                .put("/api/account")
+                .put("/api/account/preferences")
                 .set("Cookie", refreshCookie)
-                .send({ firstName: "Updated" })
+                .send({ preferences: { theme: "dark" } })
                 .expect(401);
         });
 
