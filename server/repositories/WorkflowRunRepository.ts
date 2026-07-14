@@ -163,13 +163,22 @@ export class WorkflowRunRepository extends BaseRepository<
   }
 
   /**
-   * Update the generation status of a run
+   * Update the generation status of a run.
+   *
+   * generation_status is varchar(50); a long `failed:<reason>` must not make
+   * the status write itself fail — that would strand the run in 'generating'.
+   * The full reason is always in the server logs; the status only needs the
+   * machine-readable prefix plus a hint.
    */
   async updateGenerationStatus(runId: string, status: string, tx?: DbTransaction): Promise<void> {
     const database = this.getDb(tx);
+    const GENERATION_STATUS_MAX_LENGTH = 50;
+    const bounded = status.length > GENERATION_STATUS_MAX_LENGTH
+      ? status.slice(0, GENERATION_STATUS_MAX_LENGTH)
+      : status;
     await database
       .update(workflowRuns)
-      .set({ generationStatus: status, updatedAt: new Date() })
+      .set({ generationStatus: bounded, updatedAt: new Date() })
       .where(eq(workflowRuns.id, runId));
   }
 
