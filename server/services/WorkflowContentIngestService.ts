@@ -4,6 +4,9 @@ import { db } from "../db";
 import { createLogger } from "../logger";
 import { sections, steps, logicRules, transformBlocks, lifecycleHooks, documentHooks } from "../../shared/schema";
 
+import { LIMITS, LimitExceededError } from "../../shared/limits";
+import { validateAndNormalizeConfig } from "../utils/stepConfigUtils";
+
 import { normalizeWorkflowTypes, validateWorkflowStructure } from "./ai/AIServiceUtils";
 import { generateUniqueAliasFromTaken, sanitizeAliasFormat } from "./stepAlias";
 
@@ -115,14 +118,26 @@ interface StepUpsertContext {
   aliasState: AliasSyncState;
 }
 
-function normalizeStepConfig(stepData: WorkflowStepData): Record<string, unknown> | null {
+function normalizeStepConfig(stepData: WorkflowStepData, workflowId: string): Record<string, unknown> | null {
+  let config: Record<string, unknown> | null = null;
   if (stepData.config !== undefined) {
-    return stepData.config;
+    config = stepData.config;
+  } else if (stepData.options !== undefined) {
+    config = { options: stepData.options };
   }
-  if (stepData.options !== undefined) {
-    return { options: stepData.options };
+
+  if (config && stepData.type) {
+    try {
+      config = validateAndNormalizeConfig(stepData.type, config as any);
+    } catch (err: any) {
+      createLogger({ module: 'ingest-service' }).warn(
+        { stepType: stepData.type, workflowId, error: err.message },
+        "Step config validation failed during ingest"
+      );
+    }
   }
-  return null;
+
+  return config;
 }
 
 function normalizeContent(data: WorkflowContentData): WorkflowContentData {
@@ -134,6 +149,24 @@ function normalizeContent(data: WorkflowContentData): WorkflowContentData {
 
   normalizeWorkflowTypes(normalizedData as unknown as AIGeneratedWorkflow);
   validateWorkflowStructure(normalizedData as unknown as AIGeneratedWorkflow);
+
+  // Aggregate size caps (ICW-11): the deep-update path replaces the whole
+  // workflow, so enforce the same ceilings the incremental path checks.
+  const sectionCount = normalizedData.sections?.length ?? 0;
+  if (sectionCount > LIMITS.MAX_SECTIONS_PER_WORKFLOW) {
+    throw new LimitExceededError(
+      `Section limit reached (${LIMITS.MAX_SECTIONS_PER_WORKFLOW} per workflow)`
+    );
+  }
+  const stepCount = (normalizedData.sections ?? []).reduce(
+    (sum, section) => sum + (section.steps?.length ?? 0),
+    0
+  );
+  if (stepCount > LIMITS.MAX_STEPS_PER_WORKFLOW) {
+    throw new LimitExceededError(
+      `Question limit reached (${LIMITS.MAX_STEPS_PER_WORKFLOW} per workflow)`
+    );
+  }
 
   return normalizedData;
 }
@@ -327,7 +360,7 @@ export class WorkflowContentIngestService {
     const existingId = stepData.id;
     const isExisting = existingId !== undefined && existingId !== null && context.existingStepIds.has(existingId);
     const alias = this.resolveStepAlias(stepData, existingId, context.aliasState);
-    const config = normalizeStepConfig(stepData);
+    const config = normalizeStepConfig(stepData, context.workflowId);
 
     if (isExisting) {
       context.incomingStepIds.add(existingId);

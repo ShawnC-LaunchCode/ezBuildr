@@ -1,4 +1,4 @@
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, sql } from "drizzle-orm";
 
 import { sections, type Section, type InsertSection } from "@shared/schema";
 
@@ -61,6 +61,18 @@ export class SectionRepository extends BaseRepository<typeof sections, Section, 
       .returning();
     if (updated == null) {throw new Error("Failed to update section order");}
     return updated;
+  }
+
+  /**
+   * Count sections by workflow ID
+   */
+  async countByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<number> {
+    const database = this.getDb(tx);
+    const result = await database
+      .select({ count: sql`count(*)` })
+      .from(sections)
+      .where(eq(sections.workflowId, workflowId));
+    return Number(result[0]?.count ?? 0);
   }
 }
 

@@ -6,6 +6,8 @@ import { stepRepository, sectionRepository } from "../../../server/repositories"
 import { createTestStep, createTestSection, createTestWorkflow } from "../../factories/workflowFactory";
 import { workflowService } from "../../../server/services/WorkflowService";
 
+import { LIMITS } from "@shared/limits";
+
 import type { InsertStep, Step } from "@shared/schema";
 
 // Mock the repositories and services
@@ -14,6 +16,7 @@ vi.mock("../../../server/repositories", () => ({
     findById: vi.fn(),
     findBySectionId: vi.fn(),
     findBySectionIds: vi.fn(),
+    countByWorkflowId: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
@@ -47,6 +50,7 @@ describe("StepService", () => {
     mockStepRepo.findById.mockResolvedValue(undefined);
     mockStepRepo.findBySectionId.mockResolvedValue([]);
     mockStepRepo.findBySectionIds.mockResolvedValue([]);
+    mockStepRepo.countByWorkflowId.mockResolvedValue(0);
 
     mockSectionRepo.findById.mockResolvedValue(undefined);
     mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(undefined);
@@ -112,6 +116,46 @@ describe("StepService", () => {
       const result = await service.createStep(workflow.id, section.id, "user-123", newStepData);
 
       expect(result.order).toBe(1);
+    });
+
+    it("should reject creation once the workflow question limit is reached (ICW-11)", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
+      mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(section);
+      mockStepRepo.countByWorkflowId.mockResolvedValue(LIMITS.MAX_STEPS_PER_WORKFLOW);
+
+      await expect(
+        service.createStep(workflow.id, section.id, "user-123", {
+          type: "short_text",
+          title: "One too many",
+          required: false,
+          config: {},
+        })
+      ).rejects.toThrow(/Question limit reached/);
+      expect(mockStepRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("should allow creation just below the workflow question limit (ICW-11)", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+      const createdStep = createTestStep(section.id, { order: 1 });
+
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
+      mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(section);
+      mockStepRepo.countByWorkflowId.mockResolvedValue(LIMITS.MAX_STEPS_PER_WORKFLOW - 1);
+      mockStepRepo.findBySectionId.mockResolvedValue([]);
+      mockStepRepo.create.mockResolvedValue(createdStep as unknown as Step);
+
+      await expect(
+        service.createStep(workflow.id, section.id, "user-123", {
+          type: "short_text",
+          title: "Last one in",
+          required: false,
+          config: {},
+        })
+      ).resolves.toBeDefined();
     });
 
     it("should validate alias uniqueness before creating", async () => {

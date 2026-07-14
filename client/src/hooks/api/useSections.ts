@@ -29,6 +29,7 @@ export function useCreateSection(): UseMutationResult<ApiSection, unknown, { wor
 export function useUpdateSection(): UseMutationResult<ApiSection, unknown, Partial<ApiSection> & { id: string; workflowId: string }> {
     const queryClient = useQueryClient();
     return useMutation({
+        meta: { errorMessage: "Failed to save section. Change has been reverted." },
         mutationFn: ({ id, workflowId: _workflowId, ...data }: Partial<ApiSection> & { id: string; workflowId: string }) =>
             sectionAPI.update(id, data),
         onMutate: async (variables) => {

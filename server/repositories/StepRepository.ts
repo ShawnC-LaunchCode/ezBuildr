@@ -1,4 +1,4 @@
-import { eq, asc, inArray, and } from "drizzle-orm";
+import { eq, asc, inArray, and, sql } from "drizzle-orm";
 
 import { steps, sections, type Step, type InsertStep } from "@shared/schema";
 
@@ -189,6 +189,18 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
       aliasMapCache.set(workflowId, { map, expiresAt: Date.now() + ALIAS_CACHE_TTL_MS });
     }
     return map;
+  }
+
+  /**
+   * Count steps by workflow ID
+   */
+  async countByWorkflowId(workflowId: string, tx?: DbTransaction): Promise<number> {
+    const database = this.getDb(tx);
+    const result = await database
+      .select({ count: sql`count(*)` })
+      .from(steps)
+      .where(eq(steps.workflowId, workflowId));
+    return Number(result[0]?.count ?? 0);
   }
 }
 

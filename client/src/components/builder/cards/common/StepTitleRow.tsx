@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 import { StepGuidance } from "./StepGuidance";
+import { useDebouncedFieldMutation } from "@/hooks/useDebouncedFieldMutation";
 
 
 interface StepTitleRowProps {
@@ -34,6 +35,11 @@ export function StepTitleRow({
 }: StepTitleRowProps) {
     const titleInputRef = useRef<HTMLInputElement>(null);
 
+    const { localValue: title, onChange: setLocalTitle, onBlur: flushTitle } = useDebouncedFieldMutation(
+        step.title,
+        onTitleChange
+    );
+
     return (
         <div className="flex items-center gap-2">
             <div className="flex-1">
@@ -42,10 +48,12 @@ export function StepTitleRow({
                         id={`question-title-${step.id}`}
                         name={`question-title-${step.id}`}
                         ref={titleInputRef}
-                        value={step.title}
-                        onChange={(e) => onTitleChange(e.target.value)}
+                        value={title}
+                        onChange={(e) => setLocalTitle(e.target.value)}
+                        onBlur={flushTitle}
                         onKeyDown={(e) => {
                             if (e.key === "Enter") {
+                                flushTitle();
                                 e.currentTarget.blur();
                                 onEnterNext?.();
                             }

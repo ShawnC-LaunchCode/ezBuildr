@@ -1,0 +1,32 @@
+/**
+ * Aggregate size limits for interview (workflow) creation — single source of
+ * truth for both the manual path (services) and the AI path (ai.middleware).
+ * Env-overridable for enterprise flexibility (ICW-11).
+ */
+
+function envInt(name: string, fallback: number): number {
+  if (typeof process === 'undefined') {
+    return fallback;
+  }
+  const raw = process.env[name];
+  const parsed = raw === undefined ? Number.NaN : parseInt(raw, 10);
+  // Guard NaN/zero/negative: a garbage env value must not silently disable a cap
+  // (`count >= NaN` is always false).
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+export const LIMITS = {
+  MAX_SECTIONS_PER_WORKFLOW: envInt('LIMIT_MAX_SECTIONS', 100),
+  MAX_STEPS_PER_WORKFLOW: envInt('LIMIT_MAX_STEPS', 250),
+  // AI generation limits are deliberately stricter than the manual path.
+  AI_MAX_SECTIONS: envInt('LIMIT_AI_MAX_SECTIONS', 50),
+  AI_MAX_STEPS_PER_SECTION: envInt('LIMIT_AI_MAX_STEPS_PER_SECTION', 50),
+};
+
+/**
+ * Thrown when a creation would exceed a LIMITS cap. `statusCode` is honored by
+ * `classifyRouteError`, so routes surface this as a 400 without special-casing.
+ */
+export class LimitExceededError extends Error {
+  readonly statusCode = 400;
+}

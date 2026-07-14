@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import rateLimit from "express-rate-limit";
 
+import { LIMITS } from "@shared/limits";
+
 import { createLogger } from "../logger";
 
 import type { AuthRequest } from './auth';
@@ -12,7 +14,10 @@ const logger = createLogger({ module: 'ai-middleware' });
  * Middleware to validate workflow size in request body
  * Prevents memory issues and API overload from huge workflow objects
  */
-export const validateWorkflowSize = (maxSections = 100, maxStepsPerSection = 100) => {
+export const validateWorkflowSize = (
+    maxSections = LIMITS.AI_MAX_SECTIONS,
+    maxStepsPerSection = LIMITS.AI_MAX_STEPS_PER_SECTION
+) => {
     return (req: Request, res: Response, next: NextFunction) => {
         try {
             const workflow = req.body.currentWorkflow;

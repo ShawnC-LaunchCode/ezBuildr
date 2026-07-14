@@ -1,7 +1,10 @@
-import type { Step, InsertStep } from "@shared/schema";
+import { LIMITS, LimitExceededError } from "@shared/limits";
+import { type Step, type InsertStep } from "@shared/schema";
 
 import { logger } from "../logger";
+import { validateAndNormalizeConfig } from "../utils/stepConfigUtils";
 import { stepRepository, sectionRepository } from "../repositories";
+import { db } from "../db";
 
 import { aliasRenameService } from "./AliasRenameService";
 import { generateAliasFromLabel, generateUniqueAliasFromTaken, validateAliasFormat } from "./stepAlias";
@@ -129,6 +132,25 @@ export class StepService {
       throw new Error(SECTION_NOT_FOUND);
     }
 
+    const currentCount = await this.stepRepo.countByWorkflowId(workflowId);
+    if (currentCount >= LIMITS.MAX_STEPS_PER_WORKFLOW) {
+      throw new LimitExceededError(
+        `Question limit reached (${LIMITS.MAX_STEPS_PER_WORKFLOW} per workflow)`
+      );
+    }
+
+    let finalConfig = data.config;
+    if (finalConfig) {
+      try {
+        finalConfig = validateAndNormalizeConfig(data.type, finalConfig as any);
+      } catch (err: any) {
+        logger.warn(
+          { stepType: data.type, workflowId, error: err.message },
+          "Step config validation failed during creation"
+        );
+      }
+    }
+
     // Validate alias if provided; otherwise auto-generate one from the
     // question label so the step's answer is available to documents
     // (steps without an alias are excluded from document data entirely)
@@ -148,6 +170,7 @@ export class StepService {
 
     return this.stepRepo.create({
       ...data,
+      config: finalConfig,
       alias,
       workflowId,
       sectionId,
@@ -196,6 +219,21 @@ export class StepService {
 
     const updates = { ...data };
     delete updates.workflowId;
+
+    let finalConfig = data.config;
+    if (finalConfig) {
+      const typeToValidate = data.type || step.type;
+      try {
+        finalConfig = validateAndNormalizeConfig(typeToValidate, finalConfig as any);
+      } catch (err: any) {
+        logger.warn(
+          { stepType: typeToValidate, workflowId, error: err.message },
+          "Step config validation failed during update"
+        );
+      }
+      updates.config = finalConfig;
+    }
+
     const regenerated = await this.maybeRegenerateAlias(workflowId, step, data);
     if (regenerated !== null) {
       updates.alias = regenerated;
@@ -260,9 +298,11 @@ export class StepService {
     }
 
     // Update each step's order
-    for (const { id, order } of stepOrders) {
-      await this.stepRepo.updateOrder(id, order);
-    }
+    await db.transaction(async (tx) => {
+      for (const { id, order } of stepOrders) {
+        await this.stepRepo.updateOrder(id, order, tx);
+      }
+    });
   }
 
   /**

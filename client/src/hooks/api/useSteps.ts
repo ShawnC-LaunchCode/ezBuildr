@@ -70,6 +70,7 @@ export function useCreateStep(): UseMutationResult<ApiStep, unknown, Omit<ApiSte
 export function useUpdateStep(): UseMutationResult<ApiStep, unknown, Partial<ApiStep> & { id: string; sectionId: string }> {
     const queryClient = useQueryClient();
     return useMutation({
+        meta: { errorMessage: "Failed to save step. Change has been reverted." },
         mutationFn: ({ id, sectionId: _sectionId, ...data }: Partial<ApiStep> & { id: string; sectionId: string }) =>
             stepAPI.update(id, data),
         onMutate: async (variables) => {

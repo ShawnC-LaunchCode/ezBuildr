@@ -54,8 +54,12 @@ export function PageCard({
     transform,
     transition,
     isDragging,
+    localTitle,
+    localDescription,
     handleTitleChange,
+    flushTitle,
     handleDescriptionChange,
+    flushDescription,
     handleDelete,
     selectSection,
     selectBlock,
@@ -88,7 +92,11 @@ export function PageCard({
             setIsCollapsed(!isCollapsed);
           }}
           onTitleChange={handleTitleChange}
+          flushTitle={flushTitle}
+          localTitle={localTitle}
           onDescriptionChange={handleDescriptionChange}
+          flushDescription={flushDescription}
+          localDescription={localDescription}
           onSelectSection={() => {
             void selectSection(page.id);
           }}

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { QueryClient, QueryFunction, MutationCache } from "@tanstack/react-query";
+import { toast } from "../hooks/use-toast";
 
 // Custom API Error class to carry status and details
 export class ApiError extends Error {
@@ -159,6 +160,22 @@ export const getQueryFn: <T>(options: {
     };
 
 export const queryClient = new QueryClient({
+  mutationCache: new MutationCache({
+    onError: (error, variables, context, mutation) => {
+      // Allow specific mutations to opt out of the global toast
+      if (mutation.meta?.suppressGlobalError) {
+        return;
+      }
+
+      const customMessage = mutation.meta?.errorMessage as string | undefined;
+
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: customMessage ?? "Change could not be saved — it has been reverted.",
+      });
+    },
+  }),
   defaultOptions: {
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),

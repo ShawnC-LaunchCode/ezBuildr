@@ -81,7 +81,7 @@ export function registerAiRoutes(app: Express): void {
     '/api/ai/workflows/revise',
     hybridAuth,
     requireBuilder,
-    validateWorkflowSize(50, 50),
+    validateWorkflowSize(),
     aiWorkflowRateLimit,
     aiDailyRateLimit,
     asyncHandler(AiController.reviseWorkflow)
@@ -119,7 +119,7 @@ export function registerAiRoutes(app: Express): void {
     '/api/ai/workflows/generate-logic',
     hybridAuth,
     requireBuilder,
-    validateWorkflowSize(50, 50),
+    validateWorkflowSize(),
     aiWorkflowRateLimit,
     aiDailyRateLimit,
     asyncHandler(AiController.generateLogic)
@@ -133,7 +133,7 @@ export function registerAiRoutes(app: Express): void {
     '/api/ai/workflows/debug-logic',
     hybridAuth,
     requireBuilder,
-    validateWorkflowSize(50, 50),
+    validateWorkflowSize(),
     aiWorkflowRateLimit,
     aiDailyRateLimit,
     asyncHandler(AiController.debugLogic)
@@ -147,7 +147,7 @@ export function registerAiRoutes(app: Express): void {
     '/api/ai/workflows/visualize-logic',
     hybridAuth,
     requireBuilder,
-    validateWorkflowSize(50, 50),
+    validateWorkflowSize(),
     aiWorkflowRateLimit,
     aiDailyRateLimit,
     asyncHandler(AiController.visualizeLogic)

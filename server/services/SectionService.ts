@@ -1,10 +1,15 @@
+import { LIMITS, LimitExceededError } from "@shared/limits";
 import type { Section, InsertSection, Step } from "@shared/schema";
+import { db } from "../db";
 
 import { sectionRepository, workflowRepository, stepRepository } from "../repositories";
 
 import { workflowService } from "./WorkflowService";
 
 const SECTION_NOT_FOUND = "Section not found";
+
+/** `order` is optional at the API boundary — the service auto-increments it. */
+type CreateSectionData = Omit<InsertSection, 'workflowId' | 'order'> & Partial<Pick<InsertSection, 'order'>>;
 
 /**
  * Service layer for section-related business logic
@@ -33,12 +38,17 @@ export class SectionService {
   async createSection(
     workflowId: string,
     userId: string,
-    data: Omit<InsertSection, 'workflowId'>
+    data: CreateSectionData
   ): Promise<Section> {
     await this.workflowSvc.verifyAccess(workflowId, userId);
 
     // Get current sections to determine next order
     const existingSections = await this.sectionRepo.findByWorkflowId(workflowId);
+    if (existingSections.length >= LIMITS.MAX_SECTIONS_PER_WORKFLOW) {
+      throw new LimitExceededError(
+        `Section limit reached (${LIMITS.MAX_SECTIONS_PER_WORKFLOW} per workflow)`
+      );
+    }
     const nextOrder = existingSections.length > 0
       ? Math.max(...existingSections.map((s) => s.order)) + 1
       : 1;
@@ -94,9 +104,11 @@ export class SectionService {
     await this.workflowSvc.verifyAccess(workflowId, userId);
 
     // Update each section's order
-    for (const { id, order } of sectionOrders) {
-      await this.sectionRepo.updateOrder(id, order);
-    }
+    await db.transaction(async (tx) => {
+      for (const { id, order } of sectionOrders) {
+        await this.sectionRepo.updateOrder(id, order, tx);
+      }
+    });
   }
 
   /**

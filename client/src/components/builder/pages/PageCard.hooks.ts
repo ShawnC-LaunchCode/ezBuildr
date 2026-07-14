@@ -4,6 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { useState } from "react";
 
 import { useToast } from "@/hooks/use-toast";
+import { useDebouncedFieldMutation } from "@/hooks/useDebouncedFieldMutation";
 import { combinePageItems, getNextOrder, PageItem } from "@/lib/dnd";
 import { ApiBlock, ApiSection, ApiStep } from "@/lib/vault-api";
 import {
@@ -38,8 +39,12 @@ interface UsePageCardLogicReturn {
     transform: any; // Transform type is complex, any or specific
     transition: string | undefined;
     isDragging: boolean;
+    localTitle: string;
+    localDescription: string;
     handleTitleChange: (title: string) => void;
+    flushTitle: () => void;
     handleDescriptionChange: (description: string) => void;
+    flushDescription: () => void;
     handleDelete: () => Promise<void>;
     selectSection: (id: string) => void;
     selectBlock: (id: string) => void;
@@ -105,13 +110,15 @@ export function usePageCardLogic(
         isDragging,
     } = useSortable({ id: page.id });
 
-    const handleTitleChange = (title: string): void => {
-        updateSectionMutation.mutate({ id: page.id, workflowId, title });
-    };
+    const { localValue: localTitle, onChange: handleTitleChange, onBlur: flushTitle } = useDebouncedFieldMutation(
+        page.title,
+        (title: string) => updateSectionMutation.mutate({ id: page.id, workflowId, title })
+    );
 
-    const handleDescriptionChange = (description: string): void => {
-        updateSectionMutation.mutate({ id: page.id, workflowId, description });
-    };
+    const { localValue: localDescription, onChange: handleDescriptionChange, onBlur: flushDescription } = useDebouncedFieldMutation(
+        page.description ?? "",
+        (description: string) => updateSectionMutation.mutate({ id: page.id, workflowId, description })
+    );
 
     const handleDelete = async (): Promise<void> => {
         if (
@@ -183,8 +190,12 @@ export function usePageCardLogic(
         transform,
         transition,
         isDragging,
+        localTitle,
+        localDescription,
         handleTitleChange,
+        flushTitle,
         handleDescriptionChange,
+        flushDescription,
         handleDelete,
         selectSection,
         selectBlock,

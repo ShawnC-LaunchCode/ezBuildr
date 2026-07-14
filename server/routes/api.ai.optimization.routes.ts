@@ -20,7 +20,7 @@ const optimizeRateLimit = rateLimit({
 });
 
 // POST /api/ai/workflows/optimize/analyze
-router.post("/analyze", hybridAuth, requireBuilder, optimizeRateLimit, validateWorkflowSize(50, 50), asyncHandler(async (req, res) => {
+router.post("/analyze", hybridAuth, requireBuilder, optimizeRateLimit, validateWorkflowSize(), asyncHandler(async (req, res) => {
     try {
         const validation = AnalyzeWorkflowSchema.safeParse(req.body);
         if (!validation.success) {
@@ -38,7 +38,7 @@ router.post("/analyze", hybridAuth, requireBuilder, optimizeRateLimit, validateW
     }
 }));
 // POST /api/ai/workflows/optimize/apply
-router.post("/apply", hybridAuth, requireBuilder, optimizeRateLimit, validateWorkflowSize(50, 50), asyncHandler(async (req, res) => {
+router.post("/apply", hybridAuth, requireBuilder, optimizeRateLimit, validateWorkflowSize(), asyncHandler(async (req, res) => {
     try {
         const validation = ApplyFixesSchema.safeParse(req.body);
         if (!validation.success) {
