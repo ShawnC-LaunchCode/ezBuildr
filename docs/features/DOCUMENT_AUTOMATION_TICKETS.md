@@ -4,6 +4,10 @@ Source: document-automation deep dive, 2026-07-13. Four parallel code audits
 (client runner, server run pipeline, document engine, AI/template paths), every
 finding verified against the code with file:line evidence.
 
+## 2026-07-14 closeout update
+
+Repo hygiene is now green: `npm run check` and `npm run lint` both pass, with lint at **0 errors / 0 warnings** and CI lint restored as a blocking gate. DOC-102 remains open because the required HND-10 live runner smoke could not be completed in this local pass: both `npm run test:fast` and `npm run dev:test` hit sandbox read restrictions, and the required unsandboxed reruns were rejected because the workspace is out of credits.
+
 Scope of this push: **run start → interview → variable JSON → document**, manual
 path first. The AI path is the next push and every ticket here should leave an
 interface the AI path can reuse (see DOC-105).
@@ -209,7 +213,7 @@ single `useSectionVisibility` hook wrapping `shared/conditionEvaluator` +
 - [x] `client/src/components/runner/blocks/validation.ts` is deleted; `shared/validation` is the only validator.
 - [x] No raw `fetch` in the runner path — everything goes through `client/src/lib/vault-api.ts` (which owns run-token attachment).
 - [ ] Preview mode is isolated behind one boundary (a provider or adapter), not `mode === 'preview'` conditionals scattered through handlers.
-- [ ] Behavior parity: existing e2e/manual flows (start, resume, skip logic, review, complete, documents) unchanged; `npm run test:fast` green.
+- [ ] Behavior parity: existing e2e/manual flows (start, resume, skip logic, review, complete, documents) unchanged; `npm run test:fast` green. 2026-07-14 attempt blocked by sandbox/approval credit state; see `CLOSEOUT_HANDOFF_TICKETS.md` HND-10.
 - [x] Dead code removed: `FillPageWithRandomDataButton` (unimported) either wired into preview or deleted; `IntakeAssignmentSection` "Start Workflow" buttons get a working `onClick` or the section is hidden.
 
 ---

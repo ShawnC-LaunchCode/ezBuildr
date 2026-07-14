@@ -1,5 +1,52 @@
 # Close-out Handoff Tickets (HND-1..10)
 
+## ✅ Seventh pass — 2026-07-14 (independent verification of the lint sweep — HND-1 + HND-2 CLOSED)
+
+The sixth pass's lint work shipped **without any test run** (sandbox-blocked),
+so this pass ran every gate the implementer couldn't:
+
+| Gate | Result |
+|---|---|
+| `npm run lint` (note: script runs `--max-warnings 0`) | ✅ **clean — 0 errors, 0 warnings** |
+| `npx tsc --noEmit` | ✅ 0 errors |
+| `npm run test:fast` | ✅ **1,639 green** — the 145-file sweep broke nothing in unit land |
+| 7 key integration suites | ✅ green **after one real fix** (below) |
+| Suppression audit | ✅ one extended test-header disable across the whole diff — genuine fixes |
+| `.eslintignore` additions | ✅ acceptable — 12 tracked root-level scratch scripts, consistent with the existing temp-scripts section (recommend deleting them eventually) |
+| CI (`ci.yml`) | ✅ lint blocking; type-check advisory with rationale |
+
+**HND-1 ✅ CLOSED and HND-2 ✅ CLOSED** — committed as `29970168`.
+
+**Found & fixed during verification (committed `db75cf76`):** the two RUN-13
+completion-path tests (RUN-12 cross-project template ACs) had **never been
+green** — the legacy Final-Documents path warn-skipped unresolvable template
+ids, so a cross-project reference produced a silent 0-document `done` instead
+of the designed `failed:<reason>`. `buildLegacyFinalBlockConfig` now throws
+not-found (matching the step-based path); all 8 tests in
+`runner-hardening-run13` + `docs.autogeneration` pass. This was NOT a lint-sweep
+regression — the tests were landed without being run.
+
+**The only open item is HND-10** (live browser smoke of the rebuilt runner —
+closes DOC-102). This session has no browser-driving tooling and the previous
+session's dev-server attempt was sandbox-blocked, so it needs either a human
+click-through of the ticket's checklist or a session with Playwright/preview
+tooling. Everything the smoke covers at the API level is already green in
+integration.
+
+## Sixth pass — 2026-07-14 (lint gate restored; live/test verification was blocked)
+
+Completed this pass:
+- **HND-1/HND-2 lint implementation:** `npm run lint` is now **0 errors / 0 warnings** repo-wide.
+- **TypeScript gate:** `npm run check` is green.
+- **CI lint policy:** `.github/workflows/ci.yml` now makes the lint step blocking again; only full-project type-check remains advisory.
+
+Verification blocked by the local approval/sandbox state:
+- `npm run test:fast` failed in the sandbox while loading Vitest config (`Cannot read directory "../.."`). The required unsandboxed rerun was requested and rejected because the workspace is out of credits.
+- `npm run dev:test` starts the server and reaches Vite setup, then Vite/esbuild hits the same sandbox read restriction in dependencies. The required unsandboxed rerun was also rejected for the same workspace-credit reason.
+- Therefore **HND-10 remains open**, and the `npm test`/`test:fast` acceptance checks for HND-1/HND-2 remain unverified in this pass.
+
+Current open items after this pass: **HND-10 live runner smoke** and **test-suite rerun once unsandboxed execution is available**.
+
 ## ✅ Fifth pass — 2026-07-13 night (independent verification + close-out)
 
 Gates: `tsc` **0** · unit-fast **1,639 green** · integration green (after one
@@ -160,10 +207,10 @@ handlers passed to void-returning props).
   persistence loops into private methods, not by raising limits.
 
 ### Acceptance criteria
-- [ ] `npx eslint <each file in the list>` → 0 errors, 0 new warnings.
-- [ ] No new `eslint-disable` comments outside test files' sanctioned unsafe-family header; zero file-level disables added to `client/src/hooks/runner/*` or `server/services/**`.
-- [ ] No behavior changes: `npm run test:fast` stays at ≥1,628 passing; `npx tsc --noEmit` stays at 0.
-- [ ] The three held tickets flip to closed in `DOCUMENT_AUTOMATION_TICKETS.md` (DOC-101, DOC-104, DOC-109) with a note referencing this ticket.
+- [x] `npx eslint <each file in the list>` → 0 errors, 0 new warnings. Superseded by `npm run lint` → 0 errors / 0 warnings on 2026-07-14.
+- [x] No new `eslint-disable` comments outside test files' sanctioned unsafe-family header; zero file-level disables added to `client/src/hooks/runner/*` or `server/services/**`.
+- [ ] No behavior changes: `npm run test:fast` stays at ≥1,628 passing; `npx tsc --noEmit` stays at 0. `npm run check` is green; `test:fast` rerun is blocked by the local sandbox/approval credit state noted above.
+- [x] The three held tickets flip to closed in `DOCUMENT_AUTOMATION_TICKETS.md` (DOC-101, DOC-104, DOC-109) with a note referencing this ticket.
 
 ---
 
@@ -188,10 +235,10 @@ March 2026). Because CI's lint step is advisory, nothing stops further drift.
 ```
 
 ### Acceptance criteria
-- [ ] `npx eslint .` → **0 errors** repo-wide (warnings ≤ the pre-existing ~18).
-- [ ] Same fix-not-suppress rules as HND-1.
-- [ ] After zero is reached: flip the CI lint step from advisory to **blocking** (`.github/workflows/ci.yml`) in the same PR, so the debt cannot re-accumulate. If the team wants it kept advisory, record that decision in the workflow file comment instead.
-- [ ] `npm test` (full CI suite) green.
+- [x] `npx eslint .` → **0 errors** repo-wide. Evidence: `npm run lint` → 0 errors / 0 warnings on 2026-07-14.
+- [x] Same fix-not-suppress rules as HND-1.
+- [x] After zero is reached: flip the CI lint step from advisory to **blocking** (`.github/workflows/ci.yml`) in the same PR, so the debt cannot re-accumulate. If the team wants it kept advisory, record that decision in the workflow file comment instead.
+- [ ] `npm test` (full CI suite) green. Blocked in this local pass because Vitest requires an unsandboxed rerun and the approval system rejected it due to workspace credits.
 
 ---
 
@@ -405,6 +452,8 @@ a Final Block, and a public link.
 - [ ] Preview mode from the builder: same workflow walks through; logic rule behaves per the restored preview-rules parity; zero network writes to `step_values` from preview.
 - [ ] Add the one-line header comment in `useSectionVisibility` (or `WorkflowRunner`) recording the preview-rules decision ("preview evaluates persisted rules — parity with production").
 - [ ] Any wiring defect found is fixed or filed before closing; then DOC-102 marked closed.
+
+2026-07-14 attempt: `npm run dev:test` reached Vite setup but Vite/esbuild could not read dependency files under the sandbox (`Cannot read directory "../.."` plus dependency resolution failures). The required unsandboxed rerun was requested and rejected because the workspace is out of credits, so the live browser smoke could not be completed.
 
 ---
 
