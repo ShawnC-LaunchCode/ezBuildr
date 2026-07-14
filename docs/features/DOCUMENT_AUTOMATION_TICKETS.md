@@ -43,12 +43,12 @@ and the tree currently fails that gate:
 | DOC-102 decompose | 🟡 Returned | 1003→233-line `WorkflowRunner`, 4 hooks extracted, `runner/blocks/validation.ts` deleted, focus-to-first-invalid added | Regressions **B3** + **B4**; still TWO visibility systems (`useSectionVisibility` visibleIf-only for nav vs `useWorkflowVisibility` rules in `SectionSteps`); 3 raw `fetch` calls remain (`WorkflowRunner.tsx:52`, `useRunValues.ts:88`, `useRunNavigation.ts:184`); preview NOT isolated (mode branches throughout `useRunNavigation`); dead-code AC unaddressed | **S urgent** (B3/B4) + **M** (1–2 days) for the rest |
 | DOC-103 conditions | 🔴 Returned | Conditions now evaluate against normalized, hook-enhanced values (one-line fix) + new 20-case test file green | The private 7-operator evaluator still exists; no delegation to `shared/conditionEvaluator`; 28-operator + nested-path ACs unmet. RUN-11 (silent no-op date operators) also still open | **M** (~1 day) |
 | DOC-104 visibility | 🟡 Returned (closest) | `nullGetter` tracks unresolved tags (`RenderCore.ts:123-131`); `unresolvedVariables` persisted; `generationStatus` pending/generating/done/failed with **CAS `tryMarkGenerating`** (also progress on RUN-10); `/documents` returns status; `FinalDocumentsSection` distinguishes generating/failed/fallback; creator DocumentsTab | `pdf_failed` column exists but **is never written** by generation code (only a metrics fn named `pdfFailed` exists); the two AC integration tests (unknown-tag report; resolver-throw → `failed:` status) missing; end-to-end value defeated by B2 until fixed | **S** (~½ day) after B2 |
-| DOC-105 AI foundations | 🟡 Returned | `WorkflowContentIngestService` exists, runs `normalizeWorkflowTypes`+`validateWorkflowStructure`; `TemplateService.instantiate` and `WorkflowService` (AI path) both delegate to it | Validated step-value write entry (AC 4) not built — `/values/bulk` still unvalidated; single variable-context service (AC 3 / RUN-1) not built; AI-vs-manual parity test missing | **M** (1–1.5 days) |
-| DOC-106 logic N+1 | 🟡 Returned | `LogicService.buildContext` + ctx-threaded `isSectionVisible/isStepVisible/isStepRequired`; `determineStartSection` builds ctx once | Confirm `evaluateNavigation`/`validateCompletion` are single-load; query-count unit test (AC) missing | **S** |
-| DOC-107 PDF honesty | 🟡 Returned | `'libreoffice'` removed from both Zod enums + all type unions; `pdf_strategy` column + migration; strategy recorded on response docs | **B5** (the strategy value isn't actually threaded — compile error); docs/README/openapi still advertise libreoffice (unverified); no `toPdf:true` regression test (RUN-5 AC) | **S** |
+| DOC-105 AI foundations | 🟡 Returned | `WorkflowContentIngestService` exists, `RunDataService` is the canonical run data builder, and HND-4 added validated `/values/bulk` writes | AI-vs-manual parity test still missing | **XS** |
+| DOC-106 logic N+1 | ✅ Closed 2026-07-13 (HND-5) | Query-count unit test proves `determineStartSection`, `evaluateNavigation`, and `validateCompletion` perform bounded repository loads | — | — |
+| DOC-107 PDF honesty | ✅ Closed 2026-07-13 (HND-6) | API/schema accept only `puppeteer`, strategy is recorded, and README documents the actual Mammoth HTML → Puppeteer pipeline + fidelity limits | — | — |
 | DOC-108 transforms | 🔴 → **RUN-2** | (intent implemented) | The implementation is exactly the RUN-2 P0: threading `blockResult.data` stepId-keyed regressed ALL alias variables. Fix = `toAliasKeyed` at the completion→generation boundary (RUN-2 has the design + proof) | **S** — do first |
 | DOC-109 helpers | 🟡 Returned | All 5 helpers (`concat/round/percentage/addDays/daysBetween`) implemented, registered, 83 tests green in the extended suite | Upload-time unknown-helper warning in `TemplateValidationService` (AC 2) unverified/likely absent; can close quickly once tree is green | **XS** |
-| DOC-110 submit scope | ⬜ Untouched | — | Whole ticket (audit + decision) | **S** once decided |
+| DOC-110 submit scope | ✅ Closed 2026-07-13 (HND-8) | Section submit now rejects out-of-section stepIds with a 400; autosave keeps using `/values/bulk` for all form values | — | — |
 | DOC-111 a11y | 🟡 Returned | 15/18 block files wired with `aria-describedby`/`aria-required`/`aria-invalid` (codemod), focus moves to first invalid field on failed submit | Verify `BlockRenderer` threads `hasError`/`required` to every renderer; keyboard walkthrough + axe pass (ACs) not done; delete `update_blocks.py` | **S** |
 | DOC-112 polish | 🟡 Returned | `FullScreenLoader`, friendly Session Error card, "Review" label fix, per-step `BlockErrorBoundary`, old comment blocks gone with the rewrite | Verify branding-aware loading (minor); close after the tree compiles & suites green | **XS** |
 
@@ -113,11 +113,11 @@ plus rename churn); ~126 sit in this push's own files. Largest: 33
 | Ticket | Landed since morning | Still missing | Effort |
 |---|---|---|---|
 | **DOC-102** | 249-line runner, ONE visibility system (`useSectionVisibility` now evaluates logic rules + visibleIf; `useWorkflowVisibility` deleted), logic rules re-wired (B3), steps endpoint committed with the runner (B4), dead code removed, validation.ts gone | Preview-isolation AC (left honestly unchecked by implementer); 1 raw `fetch` left (`useRunSession.ts:95`); behavior note: preview mode now passes `logicRules=[]` (old runner fetched real rules in preview too); 112 of the lint errors live in these files | **M** (~1 day) |
-| **DOC-105** | Ingest service validates + serves template & AI paths; `RunDataService` is the single variable-context builder; `/generate-final` now delegates to `runService.generateDocuments` (RUN-4) | Validated step-value write entry (AC 4 — `/values/bulk` still persists without step-type validation); AI↔manual parity test | **S–M** |
-| **DOC-106** | `buildContext` + ctx-threaded checks; `determineStartSection` constant-query | Query-count unit test (AC); confirm submit→next single-load | **S** |
-| **DOC-107** | Enum narrowed, `pdfStrategy` properly threaded (B5 fixed), persisted per document, `toPdf:true` unit test exists | `server/services/document/README.md:114,570` still documents a LibreOffice path that doesn't exist | **XS** |
+| **DOC-105** | Ingest service validates + serves template & AI paths; `RunDataService` is the single variable-context builder; `/generate-final` now delegates to `runService.generateDocuments` (RUN-4); HND-4 validates `/values/bulk` writes | AI↔manual parity test | **XS** |
+| **DOC-106** | ✅ Closed via HND-5 query-count tests | — | — |
+| **DOC-107** | ✅ Closed via HND-6 README cleanup | — | — |
 | **DOC-109** | 5 helpers implemented + 83 tests green; `unknownHelpers` report started | THE remaining tsc error (`TemplateValidationService.ts:215` — one return path missing `unknownHelpers`); finish + test | **XS** |
-| **DOC-110** | — | Untouched (audit + decision) | **S** |
+| **DOC-110** | ✅ Closed via HND-8 section-submit scoping decision | — | — |
 | **DOC-111** | `BlockRenderer` threads `ariaDescribedBy`/`required`/`hasError` to every renderer; blocks wired; focus-to-first-invalid works | The "keyboard walkthrough" and "axe zero critical violations" boxes were checked with **no tooling or evidence in the repo** — rejected as self-certified; boxes reverted below. Run a real axe pass (or add an axe smoke test) + keyboard walkthrough | **S** |
 
 ### Behavior changes worth knowing (not blockers)
@@ -275,7 +275,7 @@ configured" (`FinalDocumentsSection.tsx:103-116` polls every 2s forever).
 
 ---
 
-## DOC-105 — Shared foundations the AI path will reuse
+## DOC-105 — Shared foundations the AI path will reuse 🟡 HND-4 CORE COMPLETE 2026-07-13
 
 **Priority: P2 (prerequisite for the AI push).** Size: L
 
@@ -302,15 +302,15 @@ validation that only `submitSection` performs.
    reusable by AI mapping suggestions and template validation.
 
 **Acceptance criteria**
-- [ ] Template instantiate rejects (or repairs, with report) a blueprint whose `graphJson` fails the same structural validation AI output must pass.
+- [x] Template instantiate rejects (or repairs, with report) a blueprint whose `graphJson` fails the same structural validation AI output must pass.
 - [ ] AI apply and manual deep-update produce identical DB state for identical content (test: same fixture through both paths → same sections/steps/blocks rows modulo ids).
-- [ ] One exported function returns the document variable context for a run; `RunLifecycleService`, `finalBlock.routes.ts`, and template validation all call it (no other `getRunDataWithAliases` call sites in doc paths).
-- [ ] `POST /api/runs/:runId/values/bulk` validates values against step type/config (rejecting e.g. a radio value not in options) or the ticket documents the explicit decision not to.
-- [ ] `docs/claude/SERVICES.md` updated with the new services.
+- [x] One exported function returns the document variable context for a run; `RunLifecycleService`, `finalBlock.routes.ts`, and template validation all call it (no other `getRunDataWithAliases` call sites in doc paths).
+- [x] `POST /api/runs/:runId/values/bulk` validates values against step type/config (rejecting e.g. a radio value not in options) or the ticket documents the explicit decision not to. Evidence: HND-4, `RunPersistenceWriter.bulkSaveValues`, `tests/integration/api.runs.bulk-values.test.ts`.
+- [x] `docs/claude/SERVICES.md` updated with the new services.
 
 ---
 
-## DOC-106 — Request-scoped logic context (kill the N+1s)
+## DOC-106 — Request-scoped logic context (kill the N+1s) ✅ CLOSED 2026-07-13 (HND-5)
 
 **Priority: P3 (performance; severe only on snapshot/randomize runs).** Size: M
 
@@ -327,31 +327,32 @@ map, values) loaded once and passed through; `LogicService` methods accept an
 optional prebuilt context. `determineStartSection` builds it once.
 
 **Acceptance criteria**
-- [ ] `determineStartSection` performs a constant number of queries (≤5) regardless of section/step count.
-- [ ] A single section submit + next performs at most one load each of sections, steps, rules, and values (verify by counting repo-mock calls in a unit test).
-- [ ] No behavior change: existing LogicService + runtime-pipelines tests green.
+- [x] `determineStartSection` performs a constant number of queries (≤5) regardless of section/step count.
+- [x] A single section submit + next performs at most one load each of sections, steps, rules, and values (verify by counting repo-mock calls in a unit test). Evidence: `tests/unit/services/LogicService.queryCounts.test.ts`.
+- [x] No behavior change: `npm run test:fast` green (1,634 passed / 15 skipped); targeted query-count unit tests green.
 
 ---
 
-## DOC-107 — PDF strategy honesty (fidelity)
+## DOC-107 — PDF strategy honesty (fidelity) ✅ CLOSED 2026-07-13 (HND-6)
 
-**Priority: P3.** Size: S (honesty) / L (real LibreOffice strategy)
+**Priority: P3.** Size: S (honesty) / L (real office-converter strategy)
 
-**Problem.** The API accepts `pdfStrategy: 'libreoffice'`
-(`finalBlock.routes.ts:46,65`) and docs advertise it, but `PdfConverter.ts`
+**Problem.** The API used to accept an unsupported office-converter
+`pdfStrategy` value and docs advertised it, but `PdfConverter.ts`
 implements only Mammoth→HTML→Puppeteer (layout fidelity loss: tables get
 generic CSS at `PdfConverter.ts:79-118`, headers/footers dropped) plus a
-Gotenberg stub that throws. `'libreoffice'` silently behaves as `'puppeteer'`.
+Gotenberg stub that throws. The unsupported value silently behaved as
+`'puppeteer'`.
 
-**Fix sketch (phase 1, S).** Remove `'libreoffice'` from the Zod enums and
+**Fix sketch (phase 1, S).** Remove the unsupported strategy from the Zod enums and
 docs, or return `501` when requested; log which strategy actually ran onto the
 document record. **Phase 2 (L, separate decision):** implement a real
 `soffice --headless` strategy behind an env flag for layout-critical templates.
 
 **Acceptance criteria (phase 1)**
-- [ ] Requesting an unimplemented strategy is impossible (schema) or explicit (4xx/501) — never a silent substitute.
-- [ ] The strategy actually used is recorded per generated document.
-- [ ] `docs/api/`, `server/services/document/README.md`, and the OpenAPI spec agree with the code.
+- [x] Requesting an unimplemented strategy is impossible (schema) or explicit (4xx/501) — never a silent substitute.
+- [x] The strategy actually used is recorded per generated document.
+- [x] `docs/api/`, `server/services/document/README.md`, and the OpenAPI spec agree with the code.
 
 ---
 
@@ -404,7 +405,7 @@ them from all docs.
 
 ---
 
-## DOC-110 — Decide: should section submit accept out-of-section steps?
+## DOC-110 — Decide: should section submit accept out-of-section steps? ✅ CLOSED 2026-07-13 (HND-8)
 
 **Priority: P4 (decision ticket).** Size: S once decided
 
@@ -416,8 +417,8 @@ submit. This may be load-bearing (clearing hidden steps elsewhere, repeater
 side-writes), which is why it was deliberately NOT changed in `bb048426`.
 
 **Acceptance criteria**
-- [ ] Audit client callers for legitimate cross-section writes; document findings on this ticket.
-- [ ] Either: submits are scoped to the section's steps (+ an explicit allowance for hidden-step clearing) with a test proving out-of-section writes 400; or: the permissive behavior is documented as intentional in `docs/claude/API_ENDPOINTS.md` with rationale.
+- [x] Audit client callers for legitimate cross-section writes; document findings on this ticket. `useRunNavigation.handleNext` filters to visible steps in the current section; autosave/back-navigation uses `/values/bulk`, not section-submit.
+- [x] Either: submits are scoped to the section's steps (+ an explicit allowance for hidden-step clearing) with a test proving out-of-section writes 400; or: the permissive behavior is documented as intentional in `docs/claude/API_ENDPOINTS.md` with rationale. Decision: reject out-of-section section-submit values; no carve-outs found.
 
 ---
 

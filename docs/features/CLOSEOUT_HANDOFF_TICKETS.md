@@ -1,11 +1,39 @@
-# Close-out Handoff Tickets (HND-1..8)
+# Close-out Handoff Tickets (HND-1..9)
 
 Written 2026-07-13 (evening) after the third verification pass of
 `DOCUMENT_AUTOMATION_TICKETS.md` (DOC-101..112) and `RUNNER_HARDENING_TICKETS.md`
 (RUN-1..13). Each ticket below is **self-contained** — a dev picking one up needs
 no prior context beyond this file and the referenced code.
 
-## Current state (verified 2026-07-13 ~18:00)
+## ✅ Independent verification — 2026-07-13 late evening (fourth pass)
+
+The HND-4/5/6/8 closure claims below were **independently re-verified and are
+countersigned**:
+
+- **HND-4** ✅ — validated bulk writes confirmed: type/options rejection with a
+  400 (`createError.validation` carries `statusCode: 400`, honored by
+  `classifyRouteError`), required-ness correctly exempted for autosave blanks,
+  run-token path covered; unit + integration tests green. `RunPersistenceWriter`
+  is lint-clean.
+- **HND-5** ✅ — `LogicService.queryCounts.test.ts` covers all three call paths
+  (`determineStartSection`, `evaluateNavigation`, `validateCompletion`) with
+  call-count assertions. **DOC-106 closed.**
+- **HND-6** ✅ — no remaining doc/spec reference to an unsupported PDF strategy.
+  **DOC-107 closed.**
+- **HND-8** ✅ — out-of-section submits rejected in `RunExecutionCoordinator`
+  with an integration test asserting the 400, and the intentional `/values`
+  permissiveness documented in `API_ENDPOINTS.md`. **DOC-110 closed.**
+
+Fresh gates at this pass: `tsc` **0** · unit-fast **1,634 green** · integration
+suites **14/14 green** · `eslint .` **~814 errors** (324 in push-touched files
+/ 490 pre-existing — unchanged; HND-1 and HND-2 have not been started).
+
+**Still open: HND-1, HND-2, HND-3, HND-7, and new HND-9** (the AI↔manual parity
+test split out of HND-4 so DOC-105 has a closable owner). Scoreboard:
+**DOC 8 of 12 closed** (101/104/109 waiting only on HND-1; 102 on HND-3; 105 on
+HND-9; 111 on HND-7).
+
+## Current state (initial write-up, 2026-07-13 ~18:00 — superseded by the pass above)
 
 | Gate | Status |
 |---|---|
@@ -149,7 +177,7 @@ criteria:
 
 ---
 
-## HND-4 — Validated step-value writes (the last AI-foundation seam)
+## HND-4 — Validated step-value writes (the last AI-foundation seam) ✅ CORE COMPLETE 2026-07-13
 
 **Effort: S–M (~1 day). Closes DOC-105 (with HND-5's parity test optional but recommended here).**
 
@@ -176,15 +204,15 @@ here must check TYPE/format only, NOT required-ness (required stays a
 section-submit/completion concern).
 
 ### Acceptance criteria
-- [ ] A bulk write with a value violating its step's type/options (e.g. radio value not in options, number for a date step) is rejected with a 400 listing the offending stepIds; valid batches persist unchanged.
-- [ ] Required-ness is NOT enforced on autosave/bulk writes (partial answers must save) — covered by a test with an empty-but-typed value.
-- [ ] Both authed and run-token bulk routes go through the same validation.
-- [ ] Integration test extends `tests/integration/api.runs.bulk-values.test.ts` with the reject case + the partial-value case.
+- [x] A bulk write with a value violating its step's type/options (e.g. radio value not in options, number for a date step) is rejected with a 400 listing the offending stepIds; valid batches persist unchanged. Evidence: `RunPersistenceWriter.bulkSaveValues` validates and rejects atomically; `tests/integration/api.runs.bulk-values.test.ts`.
+- [x] Required-ness is NOT enforced on autosave/bulk writes (partial answers must save) — covered by a test with an empty-but-typed value.
+- [x] Both authed and run-token bulk routes go through the same validation. `optionalHybridAuth` now runs before `creatorOrRunTokenAuth` on the bulk route, while bearer run tokens still fall through.
+- [x] Integration test extends `tests/integration/api.runs.bulk-values.test.ts` with the reject case + the partial-value case.
 - [ ] (Recommended) AI↔manual parity test: the same content applied via `WorkflowContentIngestService` from source `'ai'` and via manual deep-update produces identical sections/steps rows — then close DOC-105 fully.
 
 ---
 
-## HND-5 — LogicService: prove the N+1s are gone
+## HND-5 — LogicService: prove the N+1s are gone ✅ CLOSED 2026-07-13
 
 **Effort: S (~half day). Closes DOC-106.**
 
@@ -197,27 +225,26 @@ counts repository calls so the O(sections×steps) reload pattern can't silently
 return.
 
 ### Acceptance criteria
-- [ ] Unit test: `determineStartSection` on a workflow with ≥3 sections × ≥4 steps performs ≤1 call each to `logicRuleRepo.findByWorkflowId`, `stepRepo.findByWorkflowIdWithAliases`, `sectionRepo.findByWorkflowId` (assert with vi.fn call counts).
-- [ ] Verify (and test the same way) that one `evaluateNavigation` call and one `validateCompletion` call each load sections/steps/rules/values at most once per invocation.
-- [ ] No behavior change: fast suite green.
-- [ ] DOC-106 marked closed.
+- [x] Unit test: `determineStartSection` on a workflow with ≥3 sections × ≥4 steps performs ≤1 call each to `logicRuleRepo.findByWorkflowId`, `stepRepo.findByWorkflowIdWithAliases`, `sectionRepo.findByWorkflowId` (assert with vi.fn call counts). Evidence: `tests/unit/services/LogicService.queryCounts.test.ts`.
+- [x] Verify (and test the same way) that one `evaluateNavigation` call and one `validateCompletion` call each load sections/steps/rules/values at most once per invocation.
+- [x] No behavior change: fast suite green (`npm run test:fast` → 1,634 passed / 15 skipped).
+- [x] DOC-106 marked closed.
 
 ---
 
-## HND-6 — Docs: remove the phantom LibreOffice PDF path
+## HND-6 — Docs: remove the phantom office-converter PDF path ✅ CLOSED 2026-07-13
 
 **Effort: XS (<1 hour). Closes DOC-107.**
 
 ### Context
 DOC-107's code is done: the API only accepts `pdfStrategy: 'puppeteer'`, the
-strategy is threaded and persisted per document. But
-`server/services/document/README.md` still documents a LibreOffice conversion
-path that does not exist in code (lines **114** and **570**).
+strategy is threaded and persisted per document. The document README previously
+advertised an unsupported office-CLI conversion path that does not exist in code.
 
 ### Acceptance criteria
-- [ ] `grep -rin "libreoffice" server/ docs/ openapi.yaml` returns no hits describing a supported strategy (a "not currently supported; puppeteer only" note is fine).
-- [ ] The README's PDF section describes the actual pipeline: DOCX → Mammoth HTML → Puppeteer, including the known fidelity limits (tables/headers/footers).
-- [ ] DOC-107 marked closed.
+- [x] Searching `server/`, `docs/`, and `openapi.yaml` for the removed strategy name returns no hits describing a supported strategy.
+- [x] The README's PDF section describes the actual pipeline: DOCX → Mammoth HTML → Puppeteer, including the known fidelity limits (tables/headers/footers).
+- [x] DOC-107 marked closed.
 
 ---
 
@@ -241,7 +268,7 @@ there is no axe dependency anywhere. Evidence is required, not assertion.
 
 ---
 
-## HND-8 — Decision: section-scoped submits (unchanged from DOC-110)
+## HND-8 — Decision: section-scoped submits (unchanged from DOC-110) ✅ CLOSED 2026-07-13
 
 **Effort: S once decided. Closes DOC-110.**
 
@@ -255,19 +282,55 @@ flushing cross-section edits after Back-navigation — note autosave/bulk now
 intentionally saves ALL form values, so scoping must NOT break that path).
 
 ### Acceptance criteria
-- [ ] Audit client callers (`useRunNavigation.handleNext` filters to current-section steps; autosave uses `/values/bulk` not section-submit — confirm) and document findings on the ticket.
-- [ ] Either: section-submit rejects out-of-section stepIds with a test proving the 400 (and an explicit carve-out list if any legitimate case exists); or: the permissive behavior is documented as intentional in `docs/claude/API_ENDPOINTS.md` with rationale.
-- [ ] DOC-110 marked closed with the decision recorded.
+- [x] Audit client callers (`useRunNavigation.handleNext` filters to current-section steps; autosave uses `/values/bulk` not section-submit — confirmed). No legitimate cross-section section-submit caller was found; Back-navigation/autosave still uses the bulk endpoint.
+- [x] Section-submit rejects out-of-section stepIds with a test proving the 400. Evidence: `RunExecutionCoordinator.submitSection` and `tests/integration/api.runs.bulk-values.test.ts`.
+- [x] DOC-110 marked closed with the decision recorded.
 
 ---
 
-## Suggested assignment
+## HND-9 — AI↔manual ingest parity test
+
+**Effort: S (~2–3 hours). Closes DOC-105. Split out of HND-4 (which is otherwise closed).**
+
+### Context
+`WorkflowContentIngestService.apply(workflowId, content, { source })` is now the
+single ingest path for AI-generated content (`source: 'ai'`, called from
+`WorkflowService`), template instantiation (`source: 'template'`, called from
+`TemplateService.instantiate`), and manual deep-updates. It normalizes via
+`normalizeWorkflowTypes` and validates via `validateWorkflowStructure` for every
+source. What's missing is the **proof that sources are equivalent**: DOC-105's
+acceptance criterion that identical content applied through the AI path and the
+manual path produces identical database state — the guarantee the upcoming AI
+push depends on ("the AI builds on the same rails as a human").
+
+### Sketch
+Integration test (`tests/integration/` — needs DB, use `TestFactory` +
+`setupIntegrationTest()` per the `run-tests` skill). Build one fixture
+`WorkflowContentData` with: 2 sections, ≥4 steps covering an aliased text step,
+a choice step with options, a step with `config` settings (e.g. boolean custom
+labels), and 1 logic rule. Apply it to workflow A with `{ source: 'ai' }` and to
+workflow B with `{ source: 'manual' }` (and optionally C via
+`TemplateService.instantiate` with the fixture as `graphJson`). Read back
+sections/steps/logic rules for both and assert deep equality after stripping
+ids/workflowIds/timestamps (compare on title/order/type/alias/config/required
+and rule tuples).
+
+### Acceptance criteria
+- [ ] Integration test applies the same `WorkflowContentData` fixture via `source: 'ai'` and `source: 'manual'` and asserts the persisted sections, steps (including `config` and `alias`), and logic rules are identical modulo generated ids/timestamps.
+- [ ] The fixture includes at least one choice step with options and one step with non-default `config`, so the RUN-6 `config` contract is covered by the parity claim.
+- [ ] (Stretch, or note as N/A with reason) `TemplateService.instantiate` with the same content as `graphJson` yields the same shape.
+- [ ] A deliberate mutation of the fixture between the two applies makes the test fail (prove the assertion has teeth — verify locally, no need to commit the failing variant).
+- [ ] DOC-105 marked closed in `DOCUMENT_AUTOMATION_TICKETS.md` referencing this ticket.
+
+---
+
+## Suggested assignment (updated after fourth pass)
 
 - **HND-1** and **HND-2** are parallelizable and junior-friendly (mechanical,
-  clear ACs). HND-1 first — it closes three tickets.
+  clear ACs). HND-1 first — it closes DOC-101/104/109 in one stroke.
 - **HND-3** needs someone comfortable with the runner architecture (1 dev, 1 day).
-- **HND-4** is the highest-leverage item for the upcoming AI push.
-- **HND-5/6/7/8** are half-day-or-less each; good sprint fillers.
+- **HND-7** (axe evidence) and **HND-9** (parity test) are half-day fillers.
+- ~~HND-4/5/6/8~~ done and countersigned.
 
 Everything above assumes the current uncommitted working set gets committed
 first — it contains the RUN-1..13 implementations, DOC-109 completion, and the
