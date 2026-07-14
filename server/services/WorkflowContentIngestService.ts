@@ -128,12 +128,14 @@ function normalizeStepConfig(stepData: WorkflowStepData, workflowId: string): Re
 
   if (config && stepData.type) {
     try {
-      config = validateAndNormalizeConfig(stepData.type, config as any);
+      // Enforce strict validation
+      config = validateAndNormalizeConfig(stepData.type, config as any, { strict: true }) as Record<string, unknown> | null;
     } catch (err: any) {
       createLogger({ module: 'ingest-service' }).warn(
         { stepType: stepData.type, workflowId, error: err.message },
         "Step config validation failed during ingest"
       );
+      throw new Error(`Validation error: ${err.message}`);
     }
   }
 

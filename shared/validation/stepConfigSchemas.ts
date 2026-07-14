@@ -123,7 +123,7 @@ export const TrueFalseConfigSchema = z.object({
 // ============================================================================
 
 export const TextAdvancedConfigSchema = z.object({
-  variant: z.enum(['short', 'long']),
+  variant: z.enum(['short', 'long']).optional(),
   validation: TextValidationSchema,
   placeholder: z.string().optional(),
   helpText: z.string().optional(),
@@ -131,9 +131,9 @@ export const TextAdvancedConfigSchema = z.object({
 });
 
 export const BooleanAdvancedConfigSchema = z.object({
-  trueLabel: z.string(),
-  falseLabel: z.string(),
-  storeAsBoolean: z.boolean(),
+  trueLabel: z.string().optional(),
+  falseLabel: z.string().optional(),
+  storeAsBoolean: z.boolean().optional(),
   trueAlias: z.string().optional(),
   falseAlias: z.string().optional(),
   defaultValue: z.union([z.boolean(), z.string()]).optional(),
@@ -163,7 +163,13 @@ export const DateTimeUnifiedConfigSchema = z.object({
 export const ChoiceAdvancedConfigSchema = z.object({
   display: z.enum(['radio', 'dropdown', 'multiple']),
   allowMultiple: z.boolean(),
-  options: z.array(ChoiceOptionSchema).min(1),
+  options: z.union([
+    z.array(z.union([
+      ChoiceOptionSchema,
+      z.string().transform(val => ({ id: val, label: val, alias: val }))
+    ])).min(1),
+    z.object({ type: z.enum(['static', 'list', 'table_column']) }).passthrough()
+  ]),
   min: z.number().int().min(0).optional(),
   max: z.number().int().min(1).optional(),
   allowOther: z.boolean().optional(),
@@ -259,21 +265,27 @@ export const DisplayAdvancedConfigSchema = z.object({
 // ============================================================================
 
 export const LegacyMultipleChoiceConfigSchema = z.object({
-  options: z.array(z.object({
-    id: z.string(),
-    label: z.string(),
-    alias: z.string().optional(),
-  })),
+  options: z.array(z.union([
+    z.object({
+      id: z.string(),
+      label: z.string(),
+      alias: z.string().optional(),
+    }),
+    z.string().transform(val => ({ id: val, label: val, alias: val }))
+  ])),
   minSelections: z.number().int().min(0).optional(),
   maxSelections: z.number().int().min(1).optional(),
 });
 
 export const LegacyRadioConfigSchema = z.object({
-  options: z.array(z.object({
-    id: z.string(),
-    label: z.string(),
-    alias: z.string().optional(),
-  })),
+  options: z.array(z.union([
+    z.object({
+      id: z.string(),
+      label: z.string(),
+      alias: z.string().optional(),
+    }),
+    z.string().transform(val => ({ id: val, label: val, alias: val }))
+  ])),
   displayLayout: z.enum(['vertical', 'horizontal']).optional(),
 });
 

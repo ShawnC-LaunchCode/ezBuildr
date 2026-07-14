@@ -90,7 +90,7 @@ const parityFixture: WorkflowContentData = {
           config: {
             trueLabel: 'Veteran',
             falseLabel: 'Civilian',
-            displayStyle: 'segmented',
+            displayStyle: 'toggle',
           },
           order: 0,
         },

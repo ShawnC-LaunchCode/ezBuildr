@@ -39,5 +39,8 @@ export function classifyRouteError(
   if (raw.includes('Access denied') || raw.includes('Unauthorized') || raw.includes('Only the')) {
     return { status: 403, message: raw };
   }
+  if (raw.includes('Validation error')) {
+    return { status: 400, message: raw };
+  }
   return { status: 500, message: fallback };
 }

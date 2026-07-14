@@ -142,12 +142,14 @@ export class StepService {
     let finalConfig = data.config;
     if (finalConfig) {
       try {
-        finalConfig = validateAndNormalizeConfig(data.type, finalConfig as any);
+        // Enforce strict validation
+        finalConfig = validateAndNormalizeConfig(data.type, finalConfig as any, { strict: true });
       } catch (err: any) {
         logger.warn(
           { stepType: data.type, workflowId, error: err.message },
           "Step config validation failed during creation"
         );
+        throw new Error(`Validation error: ${err.message}`);
       }
     }
 
@@ -224,12 +226,14 @@ export class StepService {
     if (finalConfig) {
       const typeToValidate = data.type || step.type;
       try {
-        finalConfig = validateAndNormalizeConfig(typeToValidate, finalConfig as any);
+        // Enforce strict validation
+        finalConfig = validateAndNormalizeConfig(typeToValidate, finalConfig as any, { strict: true });
       } catch (err: any) {
         logger.warn(
           { stepType: typeToValidate, workflowId, error: err.message },
           "Step config validation failed during update"
         );
+        throw new Error(`Validation error: ${err.message}`);
       }
       updates.config = finalConfig;
     }
