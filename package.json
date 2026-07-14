@@ -237,7 +237,7 @@
     "@vitejs/plugin-react": "^4.7.0",
     "@vitest/coverage-v8": "^4.0.5",
     "@vitest/ui": "^4.0.4",
-    "autoprefixer": "^10.4.20",
+    "autoprefixer": "^10.5.2",
     "axe-core": "^4.12.1",
     "cross-env": "^10.1.0",
     "drizzle-kit": "^0.31.8",
