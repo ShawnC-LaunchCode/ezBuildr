@@ -1,4 +1,59 @@
-# Close-out Handoff Tickets (HND-1..9)
+# Close-out Handoff Tickets (HND-1..10)
+
+## ✅ Fifth pass — 2026-07-13 night (independent verification + close-out)
+
+Gates: `tsc` **0** · unit-fast **1,639 green** · integration green (after one
+fix, below) · lint **push-touched errors 324 → 41** (typed hooks landed);
+pre-existing bucket unchanged at 476.
+
+**Verified and CLOSED this pass:**
+- **HND-7 ✅ → DOC-111 closed.** Real evidence this time: `axe-core` +
+  `vitest-axe` in package.json, `tests/unit/client/SectionSteps.a11y.test.tsx`
+  green (3/3) with a step-type coverage guard, a serious/critical-violation
+  assertion, and a userEvent keyboard-operability test; keyboard checklist in
+  the header.
+- **HND-9 ✅ → DOC-105 closed.** `workflow-content-ingest-parity.test.ts` green,
+  including the mutation-detection ("teeth") case.
+- **DOC-101 ✅ + DOC-104 ✅ closed** — their files are now lint-clean (the hook
+  typing rework cleared useRunValues/useAutoSave/FinalDocumentsSection/
+  DocumentsTab/RenderCore); all functional ACs were verified in earlier passes.
+- **DOC-109 ✅ closed** — substance fully verified; the single remaining
+  `prefer-nullish-coalescing` nit in `TemplateValidationService.ts:178` rolls
+  into HND-1's remainder.
+- **HND-3 code ACs ✅** — `RunNavigationTransport` boundary landed (zero
+  `mode === 'preview'` conditionals in navigation), zero raw fetches in the
+  runner path, preview logic rules restored to parity (the query now runs in
+  both modes). **DOC-102 stays 🟡 for exactly one AC**: the live end-to-end
+  smoke — see **HND-10**.
+
+**Found & fixed during this pass:** `generation_status` is `varchar(50)`; a
+long `failed:<reason>` overflowed it, making the failure-status write itself
+throw (run stranded in 'generating') — caught by DOC-104's own AC test after
+the RUN-3/13 fixture repair. Fixed by bounding the write in
+`WorkflowRunRepository.updateGenerationStatus` (prefix-preserving truncation;
+committed).
+
+**Scoreboard: DOC 11 of 12 closed.** Open handoff tickets: **HND-1 (re-scoped,
+now S)**, **HND-2 (unchanged)**, **HND-10 (new, closes DOC-102)**.
+
+### HND-1 re-scope (2026-07-13 night): 41 errors in 23 files remain
+
+```
+8  tests/unit/services/LogicService.queryCounts.test.ts   (any-typed repo mocks — use the sanctioned test header or typed mocks)
+3  scripts/migrateTransformBlockVirtualSteps.ts   3  server/routes/templates.routes.ts
+3  server/services/ai/AIPromptBuilder.ts          2  client/src/lib/snips/importService.ts
+2  server/services/TemplateService.ts             2  server/services/TransformBlockService.ts
+2  server/services/runs/RunPersistenceWriter.ts   (unsafe ISO regex :30, unsafe-argument :295 — new in the HND-4 rework)
+2  tests/factories/index.ts
+1 each: BooleanBlock, ChoiceBlock, createLoanApplicationWorkflow, createTestWorkflow,
+        createWorkflowForCurrentUser, steps.routes, workflows.routes, RunService,
+        TemplateValidationService (:178 ??-nit), FinalBlockRenderer,
+        shared/conditionEvaluator, tests/factories/builders + workflowFactory,
+        lifecycle-hooks-execution.test
+```
+Effort is now **S (~2–4 hours)**. Original ticket text below still applies for
+fix patterns and rules.
+
 
 Written 2026-07-13 (evening) after the third verification pass of
 `DOCUMENT_AUTOMATION_TICKETS.md` (DOC-101..112) and `RUNNER_HARDENING_TICKETS.md`
@@ -28,10 +83,10 @@ Fresh gates at this pass: `tsc` **0** · unit-fast **1,634 green** · integratio
 suites **14/14 green** · `eslint .` **~814 errors** (324 in push-touched files
 / 490 pre-existing — unchanged; HND-1 and HND-2 have not been started).
 
-**Still open: HND-1, HND-2, HND-3, HND-7, and new HND-9** (the AI↔manual parity
-test split out of HND-4 so DOC-105 has a closable owner). Scoreboard:
-**DOC 8 of 12 closed** (101/104/109 waiting only on HND-1; 102 on HND-3; 105 on
-HND-9; 111 on HND-7).
+**Still open: HND-1, HND-2, and HND-3.** HND-7 closed DOC-111 with real axe
+and keyboard evidence; HND-9 closed the AI↔manual parity proof split out of
+HND-4, so DOC-105 now has its closable owner. Scoreboard: **DOC 10 of 12
+closed** (101/104/109 waiting only on HND-1; 102 on HND-3).
 
 ## Current state (initial write-up, 2026-07-13 ~18:00 — superseded by the pass above)
 
@@ -140,7 +195,7 @@ March 2026). Because CI's lint step is advisory, nothing stops further drift.
 
 ---
 
-## HND-3 — Runner: preview isolation + last raw fetch + preview logic-rules decision
+## HND-3 — Runner: preview isolation + last raw fetch + preview logic-rules decision 🟡 CODE COMPLETE 2026-07-13
 
 **Effort: M (~1 day). Closes DOC-102.**
 
@@ -169,17 +224,17 @@ criteria:
    in-memory preview graph may have unsaved rule edits either way.
 
 ### Acceptance criteria
-- [ ] No `mode === 'preview'` conditionals inside `useRunNavigation`/`useRunValues` handler bodies — preview differences live in one transport/adapter object passed in.
-- [ ] `grep -rn "fetch(" client/src/hooks/runner client/src/pages/WorkflowRunner.tsx | grep -v fetchAPI` → empty.
-- [ ] Preview logic-rules behavior decided, implemented, and documented in `useSectionVisibility`'s header comment; a preview run with a show/hide rule behaves per the decision.
-- [ ] Behavior parity: start → autosave → skip logic → review → complete → documents flow works in production mode (manual verification via the `verify` skill) and preview mode; `npm run test:fast` green.
-- [ ] `DOCUMENT_AUTOMATION_TICKETS.md` DOC-102 marked closed.
+- [x] No `mode === 'preview'` conditionals inside `useRunNavigation`/`useRunValues` handler bodies — preview differences live in one transport/adapter object passed in. Evidence: `useRunNavigationTransport` owns preview trace/completion/final-block save behavior; `useRunValues` uses a value adapter.
+- [x] `grep -rn "fetch(" client/src/hooks/runner client/src/pages/WorkflowRunner.tsx | grep -v fetchAPI` → empty. Evidence: run-fork fallback now uses `fetchAPI`; runner raw-fetch grep returned no matches.
+- [x] Preview logic-rules behavior decided, implemented, and documented in `useSectionVisibility`'s header comment; a preview run with a show/hide rule behaves per the decision. Decision: preview evaluates persisted workflow logic rules, matching the old runner; unsaved rule edits remain out-of-scope until the builder exposes an in-memory rules feed. Evidence: `tests/unit/client/useSectionVisibility.test.tsx`.
+- [ ] Behavior parity: start → autosave → skip logic → review → complete → documents flow works in production mode (manual verification via the `verify` skill) and preview mode; `npm run test:fast` green. Evidence so far: `npm run test:fast` green (1,636 passed / 15 skipped), `npx tsc --noEmit --pretty false` green, targeted lint green, and `npm run dev:test` served HTTP 200 on `/`; full browser click-through still pending.
+- [ ] `DOCUMENT_AUTOMATION_TICKETS.md` DOC-102 marked closed after the full click-through parity check.
 
 ---
 
 ## HND-4 — Validated step-value writes (the last AI-foundation seam) ✅ CORE COMPLETE 2026-07-13
 
-**Effort: S–M (~1 day). Closes DOC-105 (with HND-5's parity test optional but recommended here).**
+**Effort: S–M (~1 day). Closes DOC-105 (with HND-9's parity test now completed).**
 
 ### Context
 DOC-105 built most of the AI foundations: `WorkflowContentIngestService`
@@ -208,7 +263,7 @@ section-submit/completion concern).
 - [x] Required-ness is NOT enforced on autosave/bulk writes (partial answers must save) — covered by a test with an empty-but-typed value.
 - [x] Both authed and run-token bulk routes go through the same validation. `optionalHybridAuth` now runs before `creatorOrRunTokenAuth` on the bulk route, while bearer run tokens still fall through.
 - [x] Integration test extends `tests/integration/api.runs.bulk-values.test.ts` with the reject case + the partial-value case.
-- [ ] (Recommended) AI↔manual parity test: the same content applied via `WorkflowContentIngestService` from source `'ai'` and via manual deep-update produces identical sections/steps rows — then close DOC-105 fully.
+- [x] (Recommended) AI↔manual parity test: the same content applied via `WorkflowContentIngestService` from source `'ai'` and via manual deep-update produces identical sections/steps rows — completed in HND-9; DOC-105 is closed.
 
 ---
 
@@ -248,7 +303,7 @@ advertised an unsupported office-CLI conversion path that does not exist in code
 
 ---
 
-## HND-7 — Runner accessibility: produce the evidence
+## HND-7 — Runner accessibility: produce the evidence ✅ CLOSED 2026-07-14
 
 **Effort: S (~half day). Closes DOC-111.**
 
@@ -256,15 +311,16 @@ advertised an unsupported office-CLI conversion path that does not exist in code
 The implementation is done and verified by code inspection: `BlockRenderer`
 threads `ariaDescribedBy`/`required`/`hasError` to every block renderer, blocks
 wire `aria-describedby`/`aria-required`/`aria-invalid`, and failed submits move
-focus to the first invalid field (`useRunNavigation.ts:118-138`). What was NOT
-done: the two verification ACs were checked off with no tooling in the repo —
-there is no axe dependency anywhere. Evidence is required, not assertion.
+focus to the first invalid field (`useRunNavigation.ts:118-138`). At handoff,
+the two verification ACs had been checked off with no tooling in the repo —
+there was no axe dependency anywhere. HND-7 now adds that evidence rather than
+leaving the claim as assertion.
 
 ### Acceptance criteria
-- [ ] Add `axe-core` (unit: `vitest-axe` against rendered `SectionSteps` with one of every block type, or e2e: `@axe-core/playwright` on a preview run) and commit a passing a11y smoke test asserting **zero serious/critical violations** in the runner.
-- [ ] Keyboard-only walkthrough (Tab/Shift-Tab/Enter/Space/Arrows) through a workflow containing every rendered block type — completes without a mouse; findings fixed or filed; walkthrough recorded as a checklist in the test file header or a doc note.
-- [ ] The two reverted checkboxes in DOC-111 get re-checked with a pointer to the test file.
-- [ ] DOC-111 marked closed.
+- [x] Add `axe-core` (unit: `vitest-axe` against rendered `SectionSteps` with one of every block type, or e2e: `@axe-core/playwright` on a preview run) and commit a passing a11y smoke test asserting **zero serious/critical violations** in the runner. Evidence: `tests/unit/client/SectionSteps.a11y.test.tsx`; `npm run test:fast` green with 1,639 passed / 15 skipped.
+- [x] Keyboard-only walkthrough (Tab/Shift-Tab/Enter/Space/Arrows) through a workflow containing every rendered block type — completes without a mouse; findings fixed or filed; walkthrough recorded as a checklist in the test file header or a doc note. Evidence: checklist header and keyboard smoke in `tests/unit/client/SectionSteps.a11y.test.tsx`.
+- [x] The two reverted checkboxes in DOC-111 get re-checked with a pointer to the test file.
+- [x] DOC-111 marked closed.
 
 ---
 
@@ -288,7 +344,7 @@ intentionally saves ALL form values, so scoping must NOT break that path).
 
 ---
 
-## HND-9 — AI↔manual ingest parity test
+## HND-9 — AI↔manual ingest parity test ✅ CLOSED 2026-07-14
 
 **Effort: S (~2–3 hours). Closes DOC-105. Split out of HND-4 (which is otherwise closed).**
 
@@ -316,21 +372,54 @@ ids/workflowIds/timestamps (compare on title/order/type/alias/config/required
 and rule tuples).
 
 ### Acceptance criteria
-- [ ] Integration test applies the same `WorkflowContentData` fixture via `source: 'ai'` and `source: 'manual'` and asserts the persisted sections, steps (including `config` and `alias`), and logic rules are identical modulo generated ids/timestamps.
-- [ ] The fixture includes at least one choice step with options and one step with non-default `config`, so the RUN-6 `config` contract is covered by the parity claim.
-- [ ] (Stretch, or note as N/A with reason) `TemplateService.instantiate` with the same content as `graphJson` yields the same shape.
-- [ ] A deliberate mutation of the fixture between the two applies makes the test fail (prove the assertion has teeth — verify locally, no need to commit the failing variant).
-- [ ] DOC-105 marked closed in `DOCUMENT_AUTOMATION_TICKETS.md` referencing this ticket.
+- [x] Integration test applies the same `WorkflowContentData` fixture via `source: 'ai'` and `source: 'manual'` and asserts the persisted sections, steps (including `config` and `alias`), and logic rules are identical modulo generated ids/timestamps. Evidence: `tests/integration/workflow-content-ingest-parity.test.ts`.
+- [x] The fixture includes at least one choice step with options and one step with non-default `config`, so the RUN-6 `config` contract is covered by the parity claim. Evidence: radio `contactPreference` options plus boolean `isVeteran` custom labels/display config.
+- [x] (Stretch, or note as N/A with reason) `TemplateService.instantiate` with the same content as `graphJson` yields the same shape. N/A for this closeout: DOC-105's required missing proof was AI↔manual parity, while template structural validation is already covered by the existing DOC-105 AC.
+- [x] A deliberate mutation of the fixture between the two applies makes the test fail (prove the assertion has teeth — verify locally, no need to commit the failing variant). Evidence: committed negative-control test mutates the boolean config and asserts the persisted shapes diverge.
+- [x] DOC-105 marked closed in `DOCUMENT_AUTOMATION_TICKETS.md` referencing this ticket.
 
 ---
 
-## Suggested assignment (updated after fourth pass)
+## HND-10 — Live end-to-end smoke of the rebuilt runner (last AC of DOC-102)
+
+**Effort: S (~2 hours). Closes DOC-102. Do this LAST, after HND-1 and after the
+working set is committed.**
+
+### Context
+The interview runner was rebuilt three times on 2026-07-13 (decomposition →
+regressions fixed → transport boundary). Every automated gate is green (1,639
+unit / all key integration suites), but no human or scripted browser session
+has walked the rebuilt runner end-to-end. DOC-102's behavior-parity AC
+deliberately requires a live pass because unit coverage cannot catch wiring
+mistakes like the earlier `logicRules={[]}` regression.
+
+### Sketch
+Use the project's `verify` skill (documents dev-server startup + the local
+auth workaround). Build a scratch workflow with: 2+ sections, a show/hide
+logic rule, a required field, an aliased text step feeding a DOCX template on
+a Final Block, and a public link.
+
+### Acceptance criteria (walk both modes)
+- [ ] Production mode via `/w/<slug>` as an anonymous respondent: start → answer → autosave indicator shows Saving→Saved → hard-refresh restores the answer → logic rule shows/hides its target live → required-field block on Next with focus moved to the field → Review → Submit → completion screen reaches "done" and the generated DOCX contains the typed answer (not blank).
+- [ ] Resume path: reopen the run link mid-run; prior answers hydrate.
+- [ ] Preview mode from the builder: same workflow walks through; logic rule behaves per the restored preview-rules parity; zero network writes to `step_values` from preview.
+- [ ] Add the one-line header comment in `useSectionVisibility` (or `WorkflowRunner`) recording the preview-rules decision ("preview evaluates persisted rules — parity with production").
+- [ ] Any wiring defect found is fixed or filed before closing; then DOC-102 marked closed.
+
+---
+
+## Suggested assignment (updated after fifth pass)
+
+- **HND-1** (now S) → then **HND-10** (live smoke) → DOC board fully closed.
+- **HND-2** remains the long-tail hygiene project; independent of everything.
+- ~~HND-3/4/5/6/7/8/9~~ all done and countersigned.
+
+## Suggested assignment (updated after fourth pass — superseded)
 
 - **HND-1** and **HND-2** are parallelizable and junior-friendly (mechanical,
   clear ACs). HND-1 first — it closes DOC-101/104/109 in one stroke.
 - **HND-3** needs someone comfortable with the runner architecture (1 dev, 1 day).
-- **HND-7** (axe evidence) and **HND-9** (parity test) are half-day fillers.
-- ~~HND-4/5/6/8~~ done and countersigned.
+- ~~HND-4/5/6/7/8/9~~ done and countersigned.
 
 Everything above assumes the current uncommitted working set gets committed
 first — it contains the RUN-1..13 implementations, DOC-109 completion, and the
