@@ -7,6 +7,8 @@ import { sections, steps, logicRules, transformBlocks, lifecycleHooks, documentH
 import { LIMITS, LimitExceededError } from "../../shared/limits";
 import { validateAndNormalizeConfig } from "../utils/stepConfigUtils";
 
+import type { StepConfig } from "../../shared/types/stepConfigs";
+
 import { normalizeWorkflowTypes, validateWorkflowStructure } from "./ai/AIServiceUtils";
 import { generateUniqueAliasFromTaken, sanitizeAliasFormat } from "./stepAlias";
 
@@ -129,13 +131,14 @@ function normalizeStepConfig(stepData: WorkflowStepData, workflowId: string): Re
   if (config && stepData.type) {
     try {
       // Enforce strict validation
-      config = validateAndNormalizeConfig(stepData.type, config as any, { strict: true }) as Record<string, unknown> | null;
-    } catch (err: any) {
+      config = validateAndNormalizeConfig(stepData.type, config as StepConfig, { strict: true }) as Record<string, unknown> | null;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
       createLogger({ module: 'ingest-service' }).warn(
-        { stepType: stepData.type, workflowId, error: err.message },
+        { stepType: stepData.type, workflowId, error: message },
         "Step config validation failed during ingest"
       );
-      throw new Error(`Validation error: ${err.message}`);
+      throw new Error(`Validation error: ${message}`);
     }
   }
 

@@ -280,30 +280,37 @@ export class WorkflowRevisionService {
                 const errorMessage = parseError instanceof Error ? parseError.message : String(parseError);
                 const positionMatch = errorMessage.match(/position (\d+)/);
                 const position = positionMatch ? parseInt(positionMatch[1]) : 0;
-                // Get context around the error position
-                const contextStart = Math.max(0, position - 200);
-                const contextEnd = Math.min(response.length, position + 200);
-                const errorContext = response.substring(contextStart, contextEnd);
-                // Log the actual response for debugging
+                // Default log carries only structural diagnostics (length + JSON
+                // error position) — never a slice of the response, which can echo
+                // tenant step titles/aliases (SEC-039).
                 logger.error({
-                    parseError: errorMessage,
                     responseLength: response.length,
                     errorPosition: position,
-                    errorContextStart: contextStart,
-                    errorContext,
                 }, 'Failed to parse AI response as JSON');
-                // Write full response to file for debugging
-                const fs = await import('fs');
-                const path = await import('path');
-                const debugPath = path.join(process.cwd(), 'logs', `ai-response-error-${Date.now()}.json`);
-                try {
-                    if (!fs.existsSync(path.dirname(debugPath))) {
-                        await fs.promises.mkdir(path.dirname(debugPath), { recursive: true });
+                // Raw-content debugging is opt-in and defaults off: the parser
+                // message, a context slice, and the full response body are only
+                // emitted when AI_LOG_RAW_RESPONSES=true.
+                if (process.env.AI_LOG_RAW_RESPONSES === 'true') {
+                    const contextStart = Math.max(0, position - 200);
+                    const contextEnd = Math.min(response.length, position + 200);
+                    const errorContext = response.substring(contextStart, contextEnd);
+                    logger.error({
+                        parseError: errorMessage,
+                        errorContextStart: contextStart,
+                        errorContext,
+                    }, '[AI_LOG_RAW_RESPONSES] AI response parse-error context');
+                    const fs = await import('fs');
+                    const path = await import('path');
+                    const debugPath = path.join(process.cwd(), 'logs', `ai-response-error-${Date.now()}.json`);
+                    try {
+                        if (!fs.existsSync(path.dirname(debugPath))) {
+                            await fs.promises.mkdir(path.dirname(debugPath), { recursive: true });
+                        }
+                        await fs.promises.writeFile(debugPath, response);
+                        logger.error({ debugPath }, 'Full AI response written to file for debugging');
+                    } catch (fsError: unknown) {
+                        logger.error({ fsError }, 'Failed to write debug file');
                     }
-                    await fs.promises.writeFile(debugPath, response);
-                    logger.error({ debugPath }, 'Full AI response written to file for debugging');
-                } catch (fsError: unknown) {
-                    logger.error({ fsError }, 'Failed to write debug file');
                 }
                 // Re-throw parse error (truncation should have been caught above)
                 throw parseError;

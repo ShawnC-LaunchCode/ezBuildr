@@ -28,8 +28,9 @@ const getModel = (systemPrompt: string) => {
 
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
-        return genAI.getGenerativeModel({ 
-            model: "gemini-1.5-pro",
+        return genAI.getGenerativeModel({
+            // Env-driven with a registry-known default; no hardcoded model pin (ICW-13).
+            model: process.env.GEMINI_MODEL ?? "gemini-2.0-flash",
             systemInstruction: { role: "system", parts: [{ text: systemPrompt }] }
         });
     } catch (e) {

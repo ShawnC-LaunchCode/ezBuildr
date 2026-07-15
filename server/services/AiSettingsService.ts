@@ -23,14 +23,13 @@ Available operation types:
 - datavault.createTable/addColumns/createWritebackMapping (stub)`;
 export class AiSettingsService {
     /**
-     * Get the effective system prompt based on hierarchy:
-     * 1. User override (future)
-     * 2. Org override (future)
-     * 3. Global settings
-     * 4. Hardcoded fallback
+     * Get the effective system prompt: the global override if configured,
+     * otherwise the hardcoded default.
+     *
+     * NOTE: per-user / per-org overrides are not implemented. Re-add scoping
+     * params here when that feature is scheduled (ICW-15).
      */
-    async getEffectivePrompt({ userId: _userId, orgId: _orgId }: { userId?: string; orgId?: string }): Promise<string> {
-        // For now, simple implementation: just get Global
+    async getEffectivePrompt(): Promise<string> {
         const globalSettings = await this.getGlobalSettings();
         if (globalSettings?.systemPrompt) {
             return globalSettings.systemPrompt;

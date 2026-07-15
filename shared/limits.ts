@@ -21,6 +21,11 @@ export const LIMITS = {
   // AI generation limits are deliberately stricter than the manual path.
   AI_MAX_SECTIONS: envInt('LIMIT_AI_MAX_SECTIONS', 50),
   AI_MAX_STEPS_PER_SECTION: envInt('LIMIT_AI_MAX_STEPS_PER_SECTION', 50),
+  // Per-tenant AI spend ceilings (SEC-038). Enforced by ai.middleware rate
+  // limiters, keyed on tenantId. Env-overridable so ops can tune without a
+  // deploy; defaults preserve the historical hardcoded caps.
+  AI_RATE_LIMIT_PER_MINUTE: envInt('AI_TENANT_RPM_LIMIT', 20),
+  AI_RATE_LIMIT_PER_DAY: envInt('AI_TENANT_DAILY_LIMIT', 500),
 };
 
 /**

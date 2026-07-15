@@ -18,6 +18,13 @@ interface AiSettingsResponse {
     defaultPrompt?: string;
 }
 
+interface SaveSettingsResponse {
+    warnings?: string[];
+}
+
+const MAX_PROMPT_LENGTH = 20_000;
+const PLACEHOLDERS = ['{{interviewerRole}}', '{{readingLevel}}', '{{tone}}'];
+
 export default function AdminAiSettings() {
     const { toast } = useToast();
     const { isAuthenticated, isLoading: authLoading, user } = useAuth();
@@ -41,17 +48,24 @@ export default function AdminAiSettings() {
 
     // Save mutation
     const saveMutation = useMutation({
-        mutationFn: async (newPrompt: string) => {
+        mutationFn: async (newPrompt: string): Promise<SaveSettingsResponse> => {
             const res = await apiRequest("PUT", "/api/admin/ai-settings", { systemPrompt: newPrompt });
-            return res.json();
+            return res.json() as Promise<SaveSettingsResponse>;
         },
-        onSuccess: () => {
+        onSuccess: (result) => {
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
             queryClient.invalidateQueries({ queryKey: ["/api/admin/ai-settings"] });
             toast({
                 title: "Settings Saved",
                 description: "Global AI system prompt has been updated.",
             });
+            // Surface non-blocking server warnings (e.g. missing placeholders).
+            for (const warning of result.warnings ?? []) {
+                toast({
+                    title: "Heads up",
+                    description: warning,
+                });
+            }
         },
         onError: (err: Error) => {
             toast({
@@ -81,8 +95,18 @@ export default function AdminAiSettings() {
             });
             return;
         }
+        if (prompt.length > MAX_PROMPT_LENGTH) {
+            toast({
+                title: "Invalid Prompt",
+                description: `Prompt must be ${MAX_PROMPT_LENGTH.toLocaleString()} characters or fewer.`,
+                variant: "destructive",
+            });
+            return;
+        }
         saveMutation.mutate(prompt);
     };
+
+    const missingPlaceholders = !PLACEHOLDERS.some(p => prompt.includes(p));
 
     // Auth protection
     if (authLoading) {return null;}
@@ -152,11 +176,19 @@ export default function AdminAiSettings() {
                                             <Textarea
                                                 value={prompt}
                                                 onChange={(e) => { void setPrompt(e.target.value); }}
+                                                maxLength={MAX_PROMPT_LENGTH}
                                                 className="min-h-[500px] font-mono text-sm leading-relaxed"
                                                 placeholder="Enter system prompt..."
                                             />
-                                            <p className="text-sm text-muted-foreground text-right">
-                                                {prompt.length} characters
+                                            {missingPlaceholders && (
+                                                <p className="text-sm text-amber-600 dark:text-amber-500">
+                                                    This prompt uses none of the personalization placeholders
+                                                    (<code>{`{{interviewerRole}}`}</code>, <code>{`{{readingLevel}}`}</code>, <code>{`{{tone}}`}</code>).
+                                                    Reading level, tone, and interviewer role preferences will be ignored.
+                                                </p>
+                                            )}
+                                            <p className={`text-sm text-right ${prompt.length >= MAX_PROMPT_LENGTH ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                                {prompt.length.toLocaleString()} / {MAX_PROMPT_LENGTH.toLocaleString()} characters
                                             </p>
                                         </div>
                                     )}

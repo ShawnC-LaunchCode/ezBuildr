@@ -5,6 +5,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 
 import { db } from '../../../server/db';
 import { registerAiWorkflowEditRoutes } from '../../../server/routes/ai/workflowEdit.routes';
+import { snapshotService } from '../../../server/services/SnapshotService';
 import { workflows, workflowVersions, projects, users, sections, steps, tenants, auditLogs } from '../../../shared/schema';
 const { mockUserId, mockTenantId, authConfig, mockGenerateContent } = vi.hoisted(() => ({
   mockUserId: crypto.randomUUID(),
@@ -386,6 +387,29 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     expect(aiMetadata.beforeSnapshotId).toBeDefined();
     expect(aiMetadata.afterSnapshotId).toBeDefined();
     expect(aiMetadata.beforeSnapshotId).not.toBe(aiMetadata.afterSnapshotId);
+  });
+  it('should fail closed (503) when the BEFORE snapshot cannot be created', async () => {
+    // ICW-16: if the pre-edit snapshot fails, abort before any mutation.
+    const spy = vi.spyOn(snapshotService, 'createSnapshot')
+      .mockRejectedValueOnce(new Error('snapshot store unavailable'));
+    try {
+      const response = await request(app)
+        .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+        .send({ userMessage: 'Add a contact section' })
+        .expect(503);
+      expect(response.body.success).toBe(false);
+      // No ops applied and no version created.
+      const sectionsAfter = await db.select()
+        .from(sections)
+        .where(eq(sections.workflowId, testWorkflowId));
+      expect(sectionsAfter).toHaveLength(0);
+      const versionsAfter = await db.select()
+        .from(workflowVersions)
+        .where(eq(workflowVersions.workflowId, testWorkflowId));
+      expect(versionsAfter).toHaveLength(0);
+    } finally {
+      spy.mockRestore();
+    }
   });
   it('should rollback on validation failure', async () => {
     // First, create a step with alias 'email'

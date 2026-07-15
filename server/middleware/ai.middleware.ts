@@ -93,7 +93,7 @@ export const validateWorkflowSize = (
  */
 export const aiWorkflowRateLimit = rateLimit({
     windowMs: 60 * 1000, // 1 minute
-    max: 20, // limit each tenant to 20 AI requests per minute
+    max: LIMITS.AI_RATE_LIMIT_PER_MINUTE, // per-tenant AI requests/min (env: AI_TENANT_RPM_LIMIT, default 20)
     message: {
         success: false,
         message: 'Too many AI requests, please try again later.',
@@ -115,7 +115,7 @@ export const aiWorkflowRateLimit = rateLimit({
  */
 export const aiDailyRateLimit = rateLimit({
     windowMs: 24 * 60 * 60 * 1000, // 24 hours
-    max: 500, // limit each tenant to 500 AI requests per day
+    max: LIMITS.AI_RATE_LIMIT_PER_DAY, // per-tenant AI requests/day (env: AI_TENANT_DAILY_LIMIT, default 500)
     message: {
         success: false,
         message: 'Daily AI request limit reached. Please try again tomorrow.',

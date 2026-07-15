@@ -82,11 +82,31 @@ const MODEL_CONFIGS: ModelConfig[] = [
   },
 
   // Gemini Models
+  // Pricing is the published per-1M-token rate at time of writing; used only for
+  // telemetry cost estimates, so approximate values are acceptable.
+  {
+    provider: 'gemini',
+    model: 'gemini-2.5-pro',
+    maxContextTokens: 1048576, // 1M tokens
+    pricing: { input: 1.25, output: 10.00 },
+  },
+  {
+    provider: 'gemini',
+    model: 'gemini-2.5-flash',
+    maxContextTokens: 1048576, // 1M tokens
+    pricing: { input: 0.30, output: 2.50 },
+  },
   {
     provider: 'gemini',
     model: 'gemini-2.0-flash',
     maxContextTokens: 1048576, // 1M tokens
     pricing: { input: 0.10, output: 0.40 },
+  },
+  {
+    provider: 'gemini',
+    model: 'gemini-1.5-flash',
+    maxContextTokens: 1048576, // 1M tokens
+    pricing: { input: 0.075, output: 0.30 },
   },
   {
     provider: 'gemini',

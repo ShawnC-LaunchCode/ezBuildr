@@ -126,8 +126,8 @@ export abstract class BaseAIProvider implements IAIProvider {
         // Check 1: Response should end with closing brace or bracket
         const endsCorrectly = trimmed.endsWith('}') || trimmed.endsWith(']');
         if (!endsCorrectly) {
+            // Log length only — never response content, which can echo tenant data (SEC-039).
             logger.warn({
-                lastChar: trimmed.charAt(trimmed.length - 1),
                 responseLength: trimmed.length,
             }, 'Response does not end with closing brace/bracket');
             return true;

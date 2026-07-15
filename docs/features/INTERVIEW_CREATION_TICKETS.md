@@ -675,9 +675,44 @@ Suggested commits (two, if ICW-9/10 straddle a data audit):
 The AI creation path is the stated next focus; this phase pays down the
 infrastructure debt before building on it.
 
+## Implementation pass — 2026-07-15
+
+All four Phase 3 tickets implemented. Highlights:
+
+- **ICW-13:** `callGeminiForWorkflowEdit` → `callAiForWorkflowEdit`, routed through
+  `AIProviderClient` (retry/backoff/timeout/telemetry). New
+  `server/services/ai/providerConfig.ts` (`resolveAiProviderConfig`) is the single
+  env→config resolver (prefers `GEMINI_API_KEY`/`GEMINI_MODEL`, registry-known
+  default `gemini-2.0-flash`). Hardcoded `gemini-1.5-pro` removed from the route
+  **and** `schemaAlign.ts`. Current Gemini ids added to `ModelRegistry`
+  (2.5-pro/flash, 1.5-flash). The three load-bearing properties preserved:
+  system/user role separation (system prompt → `systemMessage` →
+  `systemInstruction`), `fenceUntrusted` on context + user message, and
+  `aiModelResponseSchema.safeParse`. Cost/token telemetry now logged per edit via
+  the client's `ai_request_success` line. SEC-038 caps made env-configurable
+  (`shared/limits.ts` → `ai.middleware.ts`).
+- **ICW-14:** SEC-039 closed — raw response slices / full-response file write
+  gated behind `AI_LOG_RAW_RESPONSES` (default off); `lastChar` slice dropped.
+- **ICW-15:** single `DEFAULT_SYSTEM_PROMPT` (inline fallback deleted); admin PUT
+  `.max(20_000)` + non-blocking placeholder `warnings`; `getEffectivePrompt()`
+  dead params removed; `AdminAiSettings.tsx` mirrors the max/counter/warning.
+- **ICW-16:** BEFORE-snapshot failure now fails closed (503, no mutation);
+  AFTER-snapshot stays log-and-continue at error level; `// Continue? Or fail?`
+  comment gone.
+
+**Gate run (Claude, 2026-07-15):** `npm run type-check` → 0 errors ·
+lint on all touched files → clean · `npm run test:fast` → 1670 passed / 15
+skipped · new unit tests `tests/unit/services/ai/{AIProviderClient,providerConfig}.test.ts`
+green · `tests/integration/ai/workflowEdit.test.ts` → 9/9 (incl. new ICW-16
+snapshot-fail-closed case), Docker PG 5434. Left for reviewer: full
+`npm run test:integration` + a live AI edit spot-check per the phase gate.
+
+Status docs updated: SEC-038 → fully resolved, SEC-039 → resolved
+(`AI_SECURITY_REMEDIATION_TICKETS.md`).
+
 ---
 
-## ICW-13 — AI edit route bypasses the provider registry 🔲
+## ICW-13 — AI edit route bypasses the provider registry ✅
 
 **Priority: P1** · Size: M · Files: `server/routes/ai/workflowEdit.routes.ts`, `server/services/ai/*`
 
@@ -737,7 +772,7 @@ refresh.
 
 ---
 
-## ICW-14 — SEC-039: model-output slices still logged 🔲
+## ICW-14 — SEC-039: model-output slices still logged ✅
 
 **Priority: P2 (the one open AI security ticket)** · Size: S · Files: `server/services/ai/BaseAIProvider.ts`, `server/services/WorkflowRevisionService.ts`, `server/services/AIServiceUtils.ts`
 
@@ -767,7 +802,7 @@ file. Update SEC-039's status in `AI_SECURITY_REMEDIATION_TICKETS.md` when done.
 
 ---
 
-## ICW-15 — Prompt-config hygiene: duplication, bounds, stub 🔲
+## ICW-15 — Prompt-config hygiene: duplication, bounds, stub ✅
 
 **Priority: P2** · Size: S · Files: `server/services/AiSettingsService.ts`, `server/routes/ai/workflowEdit.routes.ts`, `server/routes/admin.aiSettings.routes.ts`
 
@@ -808,7 +843,7 @@ file. Update SEC-039's status in `AI_SECURITY_REMEDIATION_TICKETS.md` when done.
 
 ---
 
-## ICW-16 — AI edit: snapshot-failure policy is an unanswered question in code 🔲
+## ICW-16 — AI edit: snapshot-failure policy is an unanswered question in code ✅
 
 **Priority: P2** · Size: XS–S · File: `server/routes/ai/workflowEdit.routes.ts`
 

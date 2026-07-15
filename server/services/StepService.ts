@@ -1,5 +1,6 @@
 import { LIMITS, LimitExceededError } from "@shared/limits";
 import { type Step, type InsertStep } from "@shared/schema";
+import type { StepConfig } from "@shared/types/stepConfigs";
 
 import { logger } from "../logger";
 import { validateAndNormalizeConfig } from "../utils/stepConfigUtils";
@@ -143,13 +144,14 @@ export class StepService {
     if (finalConfig) {
       try {
         // Enforce strict validation
-        finalConfig = validateAndNormalizeConfig(data.type, finalConfig as any, { strict: true });
-      } catch (err: any) {
+        finalConfig = validateAndNormalizeConfig(data.type, finalConfig as StepConfig, { strict: true });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
         logger.warn(
-          { stepType: data.type, workflowId, error: err.message },
+          { stepType: data.type, workflowId, error: message },
           "Step config validation failed during creation"
         );
-        throw new Error(`Validation error: ${err.message}`);
+        throw new Error(`Validation error: ${message}`);
       }
     }
 
@@ -224,16 +226,17 @@ export class StepService {
 
     let finalConfig = data.config;
     if (finalConfig) {
-      const typeToValidate = data.type || step.type;
+      const typeToValidate = data.type ?? step.type;
       try {
         // Enforce strict validation
-        finalConfig = validateAndNormalizeConfig(typeToValidate, finalConfig as any, { strict: true });
-      } catch (err: any) {
+        finalConfig = validateAndNormalizeConfig(typeToValidate, finalConfig as StepConfig, { strict: true });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
         logger.warn(
-          { stepType: typeToValidate, workflowId, error: err.message },
+          { stepType: typeToValidate, workflowId, error: message },
           "Step config validation failed during update"
         );
-        throw new Error(`Validation error: ${err.message}`);
+        throw new Error(`Validation error: ${message}`);
       }
       updates.config = finalConfig;
     }

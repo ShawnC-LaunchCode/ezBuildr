@@ -107,7 +107,8 @@ Confirmed closed against the current working tree:
 
 ## SEC-038 — No per-tenant / daily AI spend ceiling (cost abuse)
 
-- **Status (2026-07-10):** ✅ **Resolved.** Both limiters are now keyed per-tenant — `keyGenerator` returns `authReq.tenantId ?? authReq.userId ?? 'anonymous'` (`ai.middleware.ts` `aiWorkflowRateLimit` and `aiDailyRateLimit`). Verified `authReq.tenantId` is genuinely populated (set from the DB user at `auth.ts:128` and re-hydrated at `auth.ts:218`), so this is a real per-tenant aggregate ceiling — 20/min and 500/day per tenant — not a silent fallback to per-user. Falls back to `userId` only for users with no tenant. **Minor (nice-to-have, not blocking):** the caps are hardcoded rather than env-configurable, so the "configurable + documented default" acceptance criterion is only partially met; consider `AI_TENANT_DAILY_LIMIT` / `AI_TENANT_RPM_LIMIT` env vars if you want ops to tune them without a deploy.
+- **Status (2026-07-15, ICW-13):** ✅ **Fully resolved.** The residual "configurable + documented default" gap is now closed: both caps read from `shared/limits.ts` — `LIMITS.AI_RATE_LIMIT_PER_MINUTE` (env `AI_TENANT_RPM_LIMIT`, default 20) and `LIMITS.AI_RATE_LIMIT_PER_DAY` (env `AI_TENANT_DAILY_LIMIT`, default 500) — consumed by `aiWorkflowRateLimit` / `aiDailyRateLimit` (`ai.middleware.ts`). Documented in `.env.example`. All four acceptance criteria now met.
+- **Status (2026-07-10):** ✅ **Resolved.** Both limiters are now keyed per-tenant — `keyGenerator` returns `authReq.tenantId ?? authReq.userId ?? 'anonymous'` (`ai.middleware.ts` `aiWorkflowRateLimit` and `aiDailyRateLimit`). Verified `authReq.tenantId` is genuinely populated (set from the DB user at `auth.ts:128` and re-hydrated at `auth.ts:218`), so this is a real per-tenant aggregate ceiling — 20/min and 500/day per tenant — not a silent fallback to per-user. Falls back to `userId` only for users with no tenant.
 - **Severity:** Medium (overlaps SEC-021)
 - **Location:** `server/middleware/ai.middleware.ts` (`aiWorkflowRateLimit`); all AI generation endpoints
 - **Problem:** The per-user limit was tightened to 20/min and now counts failed requests — a real improvement — but there is still **no per-tenant ceiling and no daily budget**. 20/min/user is ~28,800 calls/day/user against a single shared platform API key, and a tenant with many users multiplies that with no aggregate cap.
@@ -122,6 +123,11 @@ Confirmed closed against the current working tree:
 
 ## SEC-039 — Bounded AI-response previews containing tenant data still logged
 
+- **Status (2026-07-15, ICW-14):** ✅ **Resolved.** All unconditional response-content logging removed:
+  - `WorkflowRevisionService.ts` (JSON parse-error path, ~lines 278-308): default log now carries only `responseLength` + `errorPosition`; the `errorContext` substring, the raw `parseError` message, and the full-response file write are gated behind `AI_LOG_RAW_RESPONSES === 'true'` (defaults off).
+  - `AIServiceUtils.ts:113-118` and `providers/BaseAIProvider.ts:127-133`: the `lastChar` slice was dropped from `isResponseTruncated`; only `responseLength` is logged.
+  - The AI-edit route's parse/schema-failure logs (`workflowEdit.routes.ts`) log `responseLength` / Zod issue paths only, never the body.
+  - Debug flag documented in `.env.example` (`AI_LOG_RAW_RESPONSES`, default off). All three acceptance criteria met.
 - **Severity:** Low
 - **Location:**
   - `server/services/ai/WorkflowRevisionService.ts:261, 291-292` — `responsePreview` / `responseSuffix` = `response.substring(0, 500)` / last 500 chars
