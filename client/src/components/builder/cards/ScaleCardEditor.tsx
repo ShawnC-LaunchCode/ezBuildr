@@ -2,7 +2,6 @@ import { AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 
 import { Separator } from "@/components/ui/separator";
-import type { ApiStep } from "@/lib/vault-api";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
 
@@ -13,18 +12,11 @@ import { AliasField } from "./common/AliasField";
 import { SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
+import type { StepEditorCommonProps } from "./common/stepEditorProps";
 import { ScaleCardState, DisplayModeSection, RangeSection } from "./ScaleCardEditor.components";
 
 
-// Define props locally to avoid cycle with StepEditorRouter
-interface ScaleCardEditorProps {
-  stepId: string;
-  sectionId: string;
-  workflowId: string;
-  step: ApiStep;
-}
-
-export function ScaleCardEditor({ stepId, sectionId, workflowId, step }: ScaleCardEditorProps): JSX.Element {
+export function ScaleCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
 
   // Cast config safely

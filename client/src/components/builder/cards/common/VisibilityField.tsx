@@ -24,7 +24,7 @@ export function VisibilityField({ stepId, sectionId, workflowId, visibleIf, mode
 
     // Determine if we should show the field at all
     // In easy mode, we might hide it, or show simplified version (Scope for future)
-    // For now, only show in Advanced mode as per LegacyStepBody logic
+    // For now, only show in Advanced mode
     if (mode !== 'advanced') {
         return null;
     }

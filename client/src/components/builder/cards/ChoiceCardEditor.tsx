@@ -29,8 +29,7 @@ import { useUpdateStep, useWorkflowVariables, useWorkflow } from "@/lib/vault-ho
 import type { ChoiceAdvancedConfig, ChoiceOption } from "@shared/types/stepConfigs";
 
 import { BlockEditorDialog, type UniversalBlock } from "../BlockEditorDialog";
-// eslint-disable-next-line import/no-cycle
-import { StepEditorCommonProps } from "../StepEditorRouter";
+import type { StepEditorCommonProps } from "./common/stepEditorProps";
 
 import { ListToolsDialogs } from "./choices/ListToolsDialogs";
 import { AliasField } from "./common/AliasField";

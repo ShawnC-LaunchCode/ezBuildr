@@ -1,6 +1,6 @@
 # Tenant Isolation via Postgres Row-Level Security (RLS)
 
-Status: **Phase 1–2 landed (defined, not yet enforced).** Tracking ticket: SEC-051.
+Status: **Phase 1–2 landed; Phase 4 done for workflows/sections/steps (all defined, not yet enforced).** Tracking ticket: SEC-051.
 
 This document is the source of truth for how ezBuildr isolates one tenant's data
 from another at the database layer, why it is rolled out in stages, and the exact
@@ -112,18 +112,36 @@ adoption is complete, do NOT proceed to Phase 3.
 
 **Phase 4 — Indirectly-scoped tables.** Tables with no direct `tenant_id`
 (`workflow_runs`, `step_values`, `datavault_rows`, `secrets`, `workflows`,
-`sections`, `steps`, …) need policies that resolve the tenant through a join, e.g.:
+`sections`, `steps`, …) need policies that resolve the tenant through a join.
 
-```sql
-CREATE POLICY tenant_isolation ON workflow_runs USING (
-  EXISTS (SELECT 1 FROM workflows w
-          WHERE w.id = workflow_runs.workflow_id
-            AND w.tenant_id = current_setting('app.current_tenant_id', true)::uuid)
-);
-```
+⚠️ Note `workflows` itself has **no `tenant_id`** — an earlier draft of this
+section showed `w.tenant_id`, which does not exist. A workflow's tenant is derived
+from its ownership model (`owner_type`/`owner_uuid` → `users`/`organizations`,
+else `project_id` → `projects`, else legacy `owner_id`/`creator_id`).
 
-These are higher-risk (performance + correctness) and are intentionally deferred to
-their own migration. Track as a follow-up.
+**Done for `workflows` / `sections` / `steps`** —
+[`migrations/0005_rls_phase4_workflows_sections_steps.sql`](../../migrations/0005_rls_phase4_workflows_sections_steps.sql)
+(SEC-051 / ICW-B2). It adds two SECURITY-INVOKER helpers:
+
+- `app_current_tenant()` — `NULLIF(current_setting('app.current_tenant_id', true), '')::uuid`;
+  collapses both the unset and the pooled-connection empty-string reset to NULL.
+- `app_owner_tenant(owner_type, owner_uuid, owner_id, creator_id, project_id)` —
+  COALESCE-precedence resolution of a workflow's tenant (exactly one tenant per row).
+
+`workflows` resolves from its own columns; `sections`/`steps` resolve through
+their `workflow_id`. Each policy is `CASE`-guarded so a no-tenant request returns
+zero rows **without** evaluating the resolver (which reads users/orgs/projects and
+would otherwise trip 0001's raw `current_setting(...)::uuid` on an empty string).
+Verified by [`tests/integration/rls-phase4-workflows.test.ts`](../../tests/integration/rls-phase4-workflows.test.ts),
+which proves cross-tenant isolation, org-owned resolution, fail-closed, and
+WITH CHECK — under a non-owner role via `SET LOCAL ROLE` (owner/superuser bypass
+means isolation can't be observed otherwise, per §6).
+
+Still outstanding for the remaining indirectly-scoped tables (`workflow_runs`,
+`step_values`, `datavault_rows`, `secrets`, …). These are higher-risk
+(performance + correctness) and deferred to their own migration; they can reuse
+`app_current_tenant()` and the same `EXISTS (… workflows … app_owner_tenant …)`
+pattern where they hang off a workflow.
 
 ---
 
@@ -168,7 +186,9 @@ If the second `SELECT` returns only tenant A's row, enforcement works.
 
 | File | Role |
 |---|---|
-| [`migrations/0001_enable_rls.sql`](../../migrations/0001_enable_rls.sql) | Enables RLS + policies (Phase 1) |
+| [`migrations/0001_enable_rls.sql`](../../migrations/0001_enable_rls.sql) | Enables RLS + policies on direct-`tenant_id` tables (Phase 1) |
+| [`migrations/0005_rls_phase4_workflows_sections_steps.sql`](../../migrations/0005_rls_phase4_workflows_sections_steps.sql) | Phase 4 join/ownership policies for workflows/sections/steps + `app_current_tenant()` / `app_owner_tenant()` helpers |
+| [`tests/integration/rls-phase4-workflows.test.ts`](../../tests/integration/rls-phase4-workflows.test.ts) | Proves Phase 4 cross-tenant isolation, fail-closed, and WITH CHECK |
 | [`server/utils/rlsContext.ts`](../../server/utils/rlsContext.ts) | Transaction-scoped tenant GUC + `withTenant` |
 | [`server/middleware/rlsContext.ts`](../../server/middleware/rlsContext.ts) | Binds `req.tenantId` into async context |
 | [`server/repositories/tenantWrapper.ts`](../../server/repositories/tenantWrapper.ts) | App-layer `withTenant` predicate helper (defense in depth) |

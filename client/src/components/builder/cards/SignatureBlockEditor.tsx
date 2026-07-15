@@ -1,22 +1,16 @@
 import { useState, useEffect } from "react";
 
 import { Separator } from "@/components/ui/separator";
-import type { ApiStep } from "@/lib/vault-api";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
 import type { SignatureBlockConfig } from "@shared/types/stepConfigs";
 
 import { SignerSection, ProviderSection, DocumentsSection, AdvancedSection } from "./SignatureBlockEditor.components";
-
-interface SignatureBlockEditorProps {
-  stepId: string;
-  sectionId: string;
-  step: ApiStep;
-}
+import type { StepEditorCommonProps } from "./common/stepEditorProps";
 
 // --- Main Component ---
 
-export function SignatureBlockEditor({ stepId, sectionId, step }: SignatureBlockEditorProps): JSX.Element {
+export function SignatureBlockEditor({ stepId, sectionId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
 
   // Cast step.config to expected type or partial

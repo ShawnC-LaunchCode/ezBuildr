@@ -1093,7 +1093,7 @@ workflow from **B-** to **A-** territory. Remaining distance to A is the backlog
 These are pre-existing roadmap items surfaced by the audit. They are **not**
 part of the 4-phase commitment; each needs its own plan.
 
-## ICW-B1 — Complete the step-editor migration (retire `LegacyStepBody`)
+## ICW-B1 — Complete the step-editor migration (retire `LegacyStepBody`) ✅
 
 Size: L. The per-type card editors + `LegacyStepBody` catch-all
 (`StepEditorRouter.tsx:101-104`) is an incomplete migration held together by 9
@@ -1102,7 +1102,7 @@ editors). Finish migrating remaining step types to card editors, break the
 cycles (extract shared types to a leaf module), delete `LegacyStepBody`.
 Inventory which of the 38 step types still hit the fallback before estimating.
 
-## ICW-B2 — RLS Phase 4 for `workflows`/`sections`/`steps` (SEC-051)
+## ICW-B2 — RLS Phase 4 for `workflows`/`sections`/`steps` (SEC-051) ✅
 
 Size: L. These tables have no `tenant_id` and **no RLS policy at all** — they
 are the "indirectly-scoped" tables deferred to Phase 4 in

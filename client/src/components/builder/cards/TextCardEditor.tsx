@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import type { ApiStep } from "@/lib/vault-api";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
 
@@ -15,18 +14,11 @@ import { AliasField } from "./common/AliasField";
 import { DefaultValueField, DefaultValueType } from "./common/DefaultValueField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
+import type { StepEditorCommonProps } from "./common/stepEditorProps";
 import { InputTypeSection, TextValidationSection, TextCardState } from "./TextCardEditor.components";
 
 
-// Local Props
-interface TextCardEditorProps {
-  stepId: string;
-  sectionId: string;
-  workflowId: string;
-  step: ApiStep;
-}
-
-export function TextCardEditor({ stepId, sectionId, workflowId, step }: TextCardEditorProps): JSX.Element {
+export function TextCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
   const { toast } = useToast();
 
