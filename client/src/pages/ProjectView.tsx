@@ -8,6 +8,7 @@ import { useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
 
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
+import { CreateWorkflowForm } from "@/components/workflows/CreateWorkflowForm";
 import { ResourceAccessDialog } from "@/components/access/ResourceAccessDialog";
 import { CopyAssetDialog } from "@/components/dialogs/CopyAssetDialog";
 import { TransferOwnershipDialog } from "@/components/dialogs/TransferOwnershipDialog";
@@ -48,7 +49,6 @@ import {
   useDeleteProject,
   useCopyProject,
   useTransferProject,
-  useCreateWorkflow,
   useUpdateWorkflow,
   useDeleteWorkflow,
   useCopyWorkflow,
@@ -75,7 +75,6 @@ export default function ProjectView() {
   const [deleteWorkflowId, setDeleteWorkflowId] = useState<string | null>(null);
 
   // Form states
-  const [newWorkflow, setNewWorkflow] = useState({ title: "", description: "" });
   const [editProject, setEditProject] = useState({ title: "", description: "" });
 
   // Data queries
@@ -88,7 +87,6 @@ export default function ProjectView() {
   const deleteProjectMutation = useDeleteProject();
   const copyProjectMutation = useCopyProject();
   const transferProjectMutation = useTransferProject();
-  const createWorkflowMutation = useCreateWorkflow();
   const updateWorkflowMutation = useUpdateWorkflow();
   const deleteWorkflowMutation = useDeleteWorkflow();
   const copyWorkflowMutation = useCopyWorkflow();
@@ -96,25 +94,6 @@ export default function ProjectView() {
   const moveWorkflowMutation = useMoveWorkflow();
 
   // Handlers
-  const handleCreateWorkflow = async () => {
-    if (!newWorkflow.title.trim()) {
-      toast({ title: "Error", description: "Workflow title is required", variant: "destructive" });
-      return;
-    }
-
-    try {
-      const _workflow = await createWorkflowMutation.mutateAsync({
-        ...newWorkflow,
-        projectId: id,
-      });
-      toast({ title: "Success", description: "Workflow created successfully" });
-      setIsCreateWorkflowOpen(false);
-      setNewWorkflow({ title: "", description: "" });
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to create workflow", variant: "destructive" });
-    }
-  };
-
   const handleUpdateProject = async () => {
     if (!editProject.title.trim()) {
       toast({ title: "Error", description: "Project title is required", variant: "destructive" });
@@ -511,37 +490,13 @@ export default function ProjectView() {
             <DialogTitle>Create Workflow</DialogTitle>
             <DialogDescription>Create a new workflow in this project</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="workflow-title">Title *</Label>
-              <Input
-                id="workflow-title"
-                placeholder="e.g., Onboarding Survey"
-                value={newWorkflow.title}
-                onChange={(e) => { void setNewWorkflow({ ...newWorkflow, title: e.target.value }); }}
-                // eslint-disable-next-line @typescript-eslint/no-floating-promises
-                onKeyDown={(e) => { void e.key === "Enter" && handleCreateWorkflow(); }}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="workflow-description">Description</Label>
-              <Textarea
-                id="workflow-description"
-                placeholder="Optional description..."
-                value={newWorkflow.description}
-                onChange={(e) => { void setNewWorkflow({ ...newWorkflow, description: e.target.value }); }}
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { void setIsCreateWorkflowOpen(false); }}>
-              Cancel
-            </Button>
-            <Button onClick={() => { void handleCreateWorkflow(); }} disabled={createWorkflowMutation.isPending}>
-              {createWorkflowMutation.isPending ? "Creating..." : "Create"}
-            </Button>
-          </DialogFooter>
+          <CreateWorkflowForm
+            projectId={id}
+            submitLabel="Create"
+            autoFocus
+            onCancel={() => { setIsCreateWorkflowOpen(false); }}
+            onCreated={() => { setIsCreateWorkflowOpen(false); }}
+          />
         </DialogContent>
       </Dialog>
 

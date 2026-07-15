@@ -110,8 +110,13 @@ export class StepService {
     );
 
     if (conflictingStep) {
-      throw new Error(
-        `Alias "${alias}" is already in use by another step in this workflow. Please choose a unique alias.`
+      // Duplicate alias is a client input error (400), not a server fault:
+      // classifyRouteError honors statusCode and preserves this message.
+      throw Object.assign(
+        new Error(
+          `Alias "${alias}" is already in use by another step in this workflow. Please choose a unique alias.`
+        ),
+        { statusCode: 400 }
       );
     }
   }

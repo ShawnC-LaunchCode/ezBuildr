@@ -19,6 +19,7 @@ Confirmed closed against the current working tree:
 
 ## SEC-035 — `logicRule.delete` cross-workflow ownership check is inert (IDOR)
 
+- **Test coverage (2026-07-15, ICW-19):** Route-level integration test added — `tests/integration/ai/workflowEdit.test.ts` "rejects deleting a logic rule that belongs to another workflow" seeds a rule under a second workflow, drives a `logicRule.delete` op against it, and asserts a 400 (`does not belong to workflow`) with the rule still present. Satisfies AC #1/#4.
 - **Status (2026-07-10):** ✅ **Resolved.** The inert `assertEntityBelongsToWorkflow(..., 'workflow')` + dead `.catch()` is gone. `case "logicRule.delete"` now does a direct guard: `if (logicRule.workflowId !== workflowId) throw` before `logicRuleRepository.delete(op.id)` (`WorkflowPatchService.ts:373-379`). Cross-workflow deletes now throw. Acceptance criteria met.
 - **Severity:** High
 - **Location:** `server/services/WorkflowPatchService.ts`, `case "logicRule.delete"` (~line 370)
@@ -79,6 +80,7 @@ Confirmed closed against the current working tree:
 
 ## SEC-037 — `datavault.createTable` does not verify `op.databaseId` ownership
 
+- **Test coverage (2026-07-15, ICW-19):** Route-level integration test added — `tests/integration/ai/workflowEdit.test.ts` "rejects datavault.createTable with a databaseId outside the tenant" drives a `datavault.createTable` op with a foreign `databaseId` and asserts a 400 (`does not belong to your tenant`), no table created. Satisfies AC #4.
 - **Status (2026-07-10):** ✅ **Resolved.** The `// verification would go here` placeholder is replaced with a real check: `datavaultDatabasesRepository.findById(op.databaseId)` and `throw` unless `dbObj.tenantId === tenantId` (`WorkflowPatchService.ts:490-496`). A foreign `databaseId` is now rejected before the table is created. Acceptance criteria met.
 - **Severity:** Medium
 - **Location:** `server/services/WorkflowPatchService.ts`, `case "datavault.createTable"` (~lines 489-504)
@@ -144,6 +146,7 @@ Confirmed closed against the current working tree:
 
 ## SEC-040 — AI workflow-edit prompt is unfenced, unseparated, and output is not schema-validated
 
+- **Test coverage (2026-07-15, ICW-19):** `fenceUntrusted` now has unit coverage (`tests/unit/services/ai/AIServiceUtils.test.ts`: sentinels, fence/role-marker/`UNTRUSTED_INPUT` neutralization, truncation, coercion), plus an integration assertion (`workflowEdit.test.ts` "fences untrusted user input in the model prompt") that the prompt reaching the provider fences the user message and neutralizes injected markers. A malformed-output test also asserts a schema-failing model response is rejected (400) before any op is applied. Satisfies AC #1/#3.
 - **Status (2026-07-10):** ✅ **Resolved.** `callGeminiForWorkflowEdit` now fences both `workflowContext` and `userMessage` with `fenceUntrusted`, passes the instructions via `systemInstruction` (removed from the concatenated `fullPrompt`), and validates the parsed response with `aiModelResponseSchema.safeParse` before returning (throws `VALIDATION_ERROR` on failure). The edit route also gained `aiWorkflowRateLimit` + `aiDailyRateLimit`. All three acceptance criteria met.
 - **Severity:** Medium
 - **Location:** `server/routes/ai/workflowEdit.routes.ts` — `callGeminiForWorkflowEdit` (~lines 232-287), `buildWorkflowContext`

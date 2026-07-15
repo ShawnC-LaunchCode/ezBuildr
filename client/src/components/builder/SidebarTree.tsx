@@ -2,10 +2,9 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { UI_LABELS } from "@/lib/labels";
 import { Mode } from "@/lib/mode";
 import { ApiSection, ApiBlock } from "@/lib/vault-api";
-import { useSections, useCreateSection, useCreateStep, useBlocks, useWorkflow } from "@/lib/vault-hooks";
+import { useSections, useCreateSectionAtEnd, useCreateStep, useBlocks, useWorkflow } from "@/lib/vault-hooks";
 
 import { AddSnipDialog } from "./AddSnipDialog";
 import { AiAssistantDialog } from "./ai/AiAssistantDialog";
@@ -21,7 +20,7 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
   // const { data: transformBlocks } = useTransformBlocks(workflowId); // Unused
   const mode: Mode = (workflow?.modeOverride as Mode) ?? 'easy';
   const { data: blocks } = useBlocks(workflowId);
-  const createSectionMutation = useCreateSection();
+  const { createSectionAtEnd } = useCreateSectionAtEnd(workflowId);
   const createStepMutation = useCreateStep();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [editingBlock, setEditingBlock] = useState<UniversalBlock | null>(null);
@@ -42,20 +41,12 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
   }, {});
 
   const handleCreateSection = async () => {
-    const order = sections?.length ?? 0;
-    await createSectionMutation.mutateAsync({
-      workflowId,
-      title: `${UI_LABELS.PAGE} ${order + 1} `,
-      order,
-    });
+    await createSectionAtEnd();
   };
 
   const handleCreateFinalDocumentsSection = async () => {
-    const order = sections?.length ?? 0;
-    const section = await createSectionMutation.mutateAsync({
-      workflowId,
+    const section = await createSectionAtEnd({
       title: "Final Documents",
-      order,
       config: {
         finalBlock: true,
         templates: [],

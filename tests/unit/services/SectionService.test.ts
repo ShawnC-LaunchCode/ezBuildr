@@ -57,6 +57,25 @@ describe("SectionService", () => {
   });
 
   describe("createSection", () => {
+    it("should create the section, return it, and check access with (workflowId, userId)", async () => {
+      const workflow = createTestWorkflow();
+      const created = createTestSection(workflow.id, { order: 1, title: "First Section" });
+
+      mockSectionRepo.findByWorkflowId.mockResolvedValue([]);
+      mockSectionRepo.create.mockResolvedValue(created as unknown as Section);
+
+      const result = await service.createSection(workflow.id, "user-123", {
+        title: "First Section",
+      });
+
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123");
+      // Empty workflow → first section gets order 1.
+      expect(mockSectionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ workflowId: workflow.id, order: 1 })
+      );
+      expect(result).toBe(created);
+    });
+
     it("should create a section with auto-incrementing order", async () => {
       const workflow = createTestWorkflow();
       const existing = [
@@ -94,6 +113,18 @@ describe("SectionService", () => {
       await expect(
         service.createSection("wf-1", "user-123", { title: "Nope" })
       ).rejects.toThrow("Access denied");
+      expect(mockSectionRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("should propagate a workflow-not-found error and not create anything", async () => {
+      // verifyAccess is the single gate for both existence and authorization;
+      // a missing workflow surfaces as its thrown "not found" error.
+      mockWorkflowSvc.verifyAccess.mockRejectedValue(new Error("Workflow not found"));
+
+      await expect(
+        service.createSection("missing-wf", "user-123", { title: "Orphan" })
+      ).rejects.toThrow(/not found/);
+      expect(mockSectionRepo.findByWorkflowId).not.toHaveBeenCalled();
       expect(mockSectionRepo.create).not.toHaveBeenCalled();
     });
   });

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
 
 import { DevPanelBus } from "../../lib/devpanelBus";
+import { UI_LABELS } from "../../lib/labels";
 import { sectionAPI, type ApiSection } from "../../lib/vault-api";
 
 import { queryKeys } from "./queryKeys";
@@ -24,6 +25,35 @@ export function useCreateSection(): UseMutationResult<ApiSection, unknown, { wor
             DevPanelBus.emitWorkflowUpdate();
         },
     });
+}
+
+/**
+ * Append a new section at the end of a workflow (ICW-20).
+ *
+ * Single source of truth for the "add a page at the end" action shared by the
+ * builder canvas and the sidebar tree — it derives the next order from the
+ * current section count and standardizes the default title (no trailing space).
+ * Pass overrides to reuse the ordering for a specialized section (e.g. the
+ * Final Documents section keeps its own title + config).
+ */
+export function useCreateSectionAtEnd(workflowId: string): {
+    createSectionAtEnd: (overrides?: { title?: string; config?: unknown }) => Promise<ApiSection>;
+    isPending: boolean;
+} {
+    const { data: sections } = useSections(workflowId);
+    const createSection = useCreateSection();
+
+    const createSectionAtEnd = (overrides?: { title?: string; config?: unknown }): Promise<ApiSection> => {
+        const order = sections?.length ?? 0;
+        return createSection.mutateAsync({
+            workflowId,
+            title: overrides?.title ?? `${UI_LABELS.PAGE} ${order + 1}`,
+            order,
+            ...(overrides?.config !== undefined ? { config: overrides.config } : {}),
+        });
+    };
+
+    return { createSectionAtEnd, isPending: createSection.isPending };
 }
 
 export function useUpdateSection(): UseMutationResult<ApiSection, unknown, Partial<ApiSection> & { id: string; workflowId: string }> {

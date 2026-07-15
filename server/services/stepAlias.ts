@@ -4,11 +4,16 @@ export const ALIAS_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 export const ALIAS_FORMAT_MESSAGE = 'Variable names must start with a letter or underscore and contain only letters, numbers, and underscores.';
 
 export function validateAliasFormat(alias: string): void {
+  // Bad alias format is user input, not a server fault: tag statusCode 400 so
+  // classifyRouteError surfaces it as a 400 rather than collapsing to 500.
   if (!ALIAS_FORMAT.test(alias)) {
-    throw new Error(ALIAS_FORMAT_MESSAGE);
+    throw Object.assign(new Error(ALIAS_FORMAT_MESSAGE), { statusCode: 400 });
   }
   if (alias.length > ALIAS_MAX_LENGTH) {
-    throw new Error(`Variable names must be at most ${ALIAS_MAX_LENGTH} characters.`);
+    throw Object.assign(
+      new Error(`Variable names must be at most ${ALIAS_MAX_LENGTH} characters.`),
+      { statusCode: 400 }
+    );
   }
 }
 
