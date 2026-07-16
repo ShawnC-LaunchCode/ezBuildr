@@ -9,6 +9,7 @@ import {
   workflowRepository,
   projectAccessRepository,
   type DbTransaction,
+  type ProjectListOptions,
 } from "../repositories";
 import { canCreateWithOwnership, canManageOrg, isOrgMember } from "../utils/ownershipAccess";
 
@@ -119,14 +120,14 @@ export class ProjectService {
   /**
    * List all projects for a user
    */
-  async listProjects(creatorId: string): Promise<Project[]> {
-    return this.projectRepo.findByCreatorId(creatorId);
+  async listProjects(creatorId: string, options: ProjectListOptions = {}): Promise<Project[]> {
+    return this.projectRepo.findByCreatorId(creatorId, options);
   }
   /**
    * List active (non-archived) projects for a user
    */
-  async listActiveProjects(creatorId: string): Promise<Project[]> {
-    return this.projectRepo.findActiveByCreatorId(creatorId);
+  async listActiveProjects(creatorId: string, options: ProjectListOptions = {}): Promise<Project[]> {
+    return this.projectRepo.findActiveByCreatorId(creatorId, options);
   }
   /**
    * List projects owned by a specific organization.

@@ -67,10 +67,20 @@ export function decodeCursor(cursor: string): { id: string; timestamp: number } 
 }
 
 /**
+ * Decoded cursor position: the (createdAt, id) of the last row on the
+ * previous page. Repositories use this as the keyset predicate for the
+ * next page — see ProjectRepository.findByCreatorId for the convention.
+ */
+export interface CursorPosition {
+  timestamp: Date;
+  id: string;
+}
+
+/**
  * Build WHERE clause for cursor pagination
  * This uses a composite index on (createdAt, id) for efficient pagination
  */
-export function buildCursorWhere(cursor: string | undefined): { timestamp?: Date; id?: string } | null {
+export function buildCursorWhere(cursor: string | undefined): CursorPosition | null {
   if (!cursor) {
     return null;
   }

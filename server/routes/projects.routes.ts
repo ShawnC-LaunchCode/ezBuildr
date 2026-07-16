@@ -11,7 +11,8 @@ import { aclService } from "../services/AclService";
 import { projectService } from "../services/ProjectService";
 import { workflowClonerService } from "../services/WorkflowClonerService";
 import { asyncHandler } from "../utils/asyncHandler";
-import { createPaginatedResponse } from "../utils/pagination";
+import { createPaginatedResponse, paginationQuerySchema, buildCursorWhere } from "../utils/pagination";
+import type { CursorPosition } from "../utils/pagination";
 import { classifyRouteError } from "../utils/routeErrors";
 
 import type { UserRequest } from '../middleware/requireUser';
@@ -37,9 +38,8 @@ const updateProjectBodySchema = z.object({
   description: z.string().max(5000).optional().nullable(),
 });
 
-const listProjectsQuerySchema = z.object({
+const listProjectsQuerySchema = paginationQuerySchema.extend({
   active: z.enum(['true', 'false']).optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 const copyProjectBodySchema = z.object({
@@ -145,11 +145,22 @@ export function registerProjectRoutes(app: Express): void {
 
       const query = listProjectsQuerySchema.parse(req.query);
       const activeOnly = query.active === 'true';
-      const projects = activeOnly
-        ? await projectService.listActiveProjects(user.id)
-        : await projectService.listProjects(user.id);
 
-      res.json(createPaginatedResponse(projects.slice(0, query.limit + 1), query.limit));
+      let cursor: CursorPosition | undefined;
+      if (query.cursor !== undefined) {
+        const decoded = buildCursorWhere(query.cursor);
+        if (decoded === null) {
+          return res.status(400).json({ message: "Invalid cursor" });
+        }
+        cursor = decoded;
+      }
+
+      const listOptions = { limit: query.limit, cursor };
+      const projects = activeOnly
+        ? await projectService.listActiveProjects(user.id, listOptions)
+        : await projectService.listProjects(user.id, listOptions);
+
+      res.json(createPaginatedResponse(projects, query.limit));
     } catch (error) {
       logger.error({ error }, "Error fetching projects");
       if (error instanceof z.ZodError) {

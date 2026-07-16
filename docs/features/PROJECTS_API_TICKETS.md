@@ -398,9 +398,29 @@ Client-visible contract fixes and route-file cleanup. No authorization
 changes in this phase. Out of scope: everything in Backlog, and any endpoint
 outside `projects.routes.ts`.
 
-## PROJ-4 — GET /api/projects advertises a cursor it never accepts 🔲
+## PROJ-4 — GET /api/projects advertises a cursor it never accepts ✅
 
 **Priority: P2** · Size: M · Files: `server/routes/projects.routes.ts`, `server/repositories/ProjectRepository.ts`
+
+> **Verified & closed 2026-07-15 (reviewer).** Real end-to-end keyset
+> pagination: `listProjectsQuerySchema` now extends the shared
+> `paginationQuerySchema` (cursor+limit), the route decodes via
+> `buildCursorWhere` and returns **400 only when a cursor is supplied and
+> undecodable** (reviewer confirmed the `if (query.cursor !== undefined)` guard
+> means a cursor-less request never 400s), and the in-memory slice is gone. The
+> repo pushes the predicate down: `(ownership OR …) AND keyset` — reviewer
+> verified the parenthesization is correct (the OR is captured as one
+> `ownershipWhere` then AND'd, so the cursor binds all ownership branches, not
+> just the last) — with `createdAt < ts OR (createdAt = ts AND id < id)`,
+> `ORDER BY createdAt DESC, id DESC`, and `.$dynamic().limit(limit+1)`. Cursor
+> round-trip is consistent (`encodeCursor`→`buildCursorWhere`→`buildKeysetCondition`
+> all on `(createdAt,id)`). **Behavior change (intended, per ticket):** list
+> ordering moved from `updatedAt DESC` to `createdAt DESC` so the cursor is
+> stable. All four `listProjects*/findByCreatorId*` callers kept compiling via
+> defaulted optional params. Reviewer re-ran the gate: `type-check` 0 errors,
+> `lint` clean, `api.projects.test.ts`+`transferOwnership.test.ts` **30/30**,
+> `pagination.test.ts` **24/24**. B5 (repo dedup/join asymmetry) remains
+> backlog, correctly out of scope.
 
 ### Finding
 
@@ -678,7 +698,7 @@ lost.
 | PROJ-1 | Update bypasses org-admin archive gate | ✅ done | verified + committed 2026-07-15 |
 | PROJ-2 | Remove legacy owner-transfer endpoint | ✅ done | verified + committed 2026-07-15 |
 | PROJ-3 | Transfer cascade not atomic | ✅ done | verified + committed 2026-07-15 |
-| PROJ-4 | Fake cursor pagination | 🔲 open | Phase 2, after PROJ-6 |
+| PROJ-4 | Fake cursor pagination | ✅ done | verified + committed 2026-07-15 |
 | PROJ-5 | DELETE claims hard delete | ✅ done | verified + committed 2026-07-15 |
 | PROJ-6 | PUT/PATCH duplicate handlers | ✅ done | verified + committed 2026-07-15 |
 

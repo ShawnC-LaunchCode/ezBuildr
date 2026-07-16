@@ -135,6 +135,109 @@ describe.sequential("Projects API Integration Tests", () => {
         .expect(200);
       expect(response.body.items.length).toBeLessThanOrEqual(1);
     });
+    it("PROJ-4: walks the cursor to exhaustion with no overlap or gaps", async () => {
+      // Fresh, uniquely-named batch so we can assert each appears exactly once.
+      const batchTag = nanoid();
+      const createdIds: string[] = [];
+      for (let i = 0; i < 5; i++) {
+        const response = await request(baseURL)
+          .post("/api/projects")
+          .set("Authorization", `Bearer ${authToken}`)
+          .send({ name: `Cursor Walk ${batchTag} ${i}` })
+          .expect(201);
+        createdIds.push(response.body.id);
+      }
+
+      const seenIds: string[] = [];
+      let cursor: string | undefined;
+      let hasMore = true;
+      let pages = 0;
+      do {
+        const qs = cursor ? `?limit=2&cursor=${encodeURIComponent(cursor)}` : "?limit=2";
+        const response = await request(baseURL)
+          .get(`/api/projects${qs}`)
+          .set("Authorization", `Bearer ${authToken}`)
+          .expect(200);
+        expect(response.body.items.length).toBeLessThanOrEqual(2);
+        for (const item of response.body.items) {
+          seenIds.push(item.id);
+        }
+        hasMore = response.body.hasMore;
+        cursor = response.body.nextCursor ?? undefined;
+        pages += 1;
+        // Safety valve: a broken cursor implementation must not hang the suite.
+        expect(pages).toBeLessThan(500);
+      } while (hasMore);
+
+      // Final page contract.
+      expect(hasMore).toBe(false);
+      expect(cursor).toBeUndefined();
+
+      // No overlap across pages (every id seen at most once across the whole walk)...
+      const seenCounts = new Map<string, number>();
+      for (const id of seenIds) {
+        seenCounts.set(id, (seenCounts.get(id) ?? 0) + 1);
+      }
+      for (const count of seenCounts.values()) {
+        expect(count).toBe(1);
+      }
+      // ...and no gaps: every project created for this batch shows up exactly once.
+      for (const id of createdIds) {
+        expect(seenCounts.get(id)).toBe(1);
+      }
+    });
+    it("PROJ-4: composes ?active=true with the cursor, excluding archived rows on every page", async () => {
+      const batchTag = nanoid();
+      const activeResponse = await request(baseURL)
+        .post("/api/projects")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ name: `Active Compose ${batchTag} A` })
+        .expect(201);
+      const archivedResponse = await request(baseURL)
+        .post("/api/projects")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ name: `Active Compose ${batchTag} B` })
+        .expect(201);
+      const activeProjectId = activeResponse.body.id;
+      const archivedProjectId = archivedResponse.body.id;
+
+      await request(baseURL)
+        .put(`/api/projects/${archivedProjectId}/archive`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .expect(200);
+
+      const seenIds: string[] = [];
+      let cursor: string | undefined;
+      let hasMore = true;
+      let pages = 0;
+      do {
+        const qs = cursor
+          ? `?active=true&limit=2&cursor=${encodeURIComponent(cursor)}`
+          : "?active=true&limit=2";
+        const response = await request(baseURL)
+          .get(`/api/projects${qs}`)
+          .set("Authorization", `Bearer ${authToken}`)
+          .expect(200);
+        for (const item of response.body.items) {
+          expect(item.id).not.toBe(archivedProjectId);
+          seenIds.push(item.id);
+        }
+        hasMore = response.body.hasMore;
+        cursor = response.body.nextCursor ?? undefined;
+        pages += 1;
+        expect(pages).toBeLessThan(500);
+      } while (hasMore);
+
+      expect(seenIds).toContain(activeProjectId);
+      expect(seenIds).not.toContain(archivedProjectId);
+    });
+    it("PROJ-4: returns 400 for a garbage cursor instead of silently returning the first page", async () => {
+      const response = await request(baseURL)
+        .get("/api/projects?cursor=invalid-cursor")
+        .set("Authorization", `Bearer ${authToken}`)
+        .expect(400);
+      expect(response.body).toHaveProperty("message");
+    });
   });
   describe("GET /api/projects/:id", () => {
     let projectId: string;
