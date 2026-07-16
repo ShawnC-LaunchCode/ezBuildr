@@ -867,12 +867,14 @@ non-atomically:
 
 ---
 
-## Phase 3 Gate
+## Phase 3 Gate — PASSED 2026-07-16 (reviewer)
 
-- [ ] PROJ-7, PROJ-8, PROJ-9 all ✅ with dated verification notes
-- [ ] `api.projects.test.ts` green; `npm run test:fast` green;
-      `npm run type-check` 0 errors; `npm run lint` 0 errors
-- [ ] Reviewer has committed each passed ticket + this gate
+- [x] PROJ-7, PROJ-8, PROJ-9 all ✅ with dated verification notes
+- [x] `api.projects.test.ts` **25/25** green; `npm run test:fast` **1678
+      passed / 15 skipped / 0 failed**; `npm run type-check` 0 errors;
+      full-repo `npm run lint` clean (`--max-warnings 0`)
+- [x] Reviewer committed each passed ticket (c660c988, 808baa66, 0e295cf0)
+      + this gate
 
 ---
 
@@ -917,12 +919,16 @@ lost.
 | PROJ-5 | DELETE claims hard delete | ✅ done | verified + committed 2026-07-15 |
 | PROJ-6 | PUT/PATCH duplicate handlers | ✅ done | verified + committed 2026-07-15 |
 
-**This pass (2026-07-15):** all 6 tickets dispatched to sonnet dev sessions,
-reviewed by the senior model against the full gate (each AC re-verified against
-the diff, tests re-run independently, live behavior exercised via the real-HTTP
-integration suite), and committed one-per-ticket. Both phase gates passed.
-**Escalations needing decisions:** none — all three resolved before dispatch.
-**Ready to push:** **9 commits** on `main` awaiting Shawn's go-ahead —
-`eabadf8b` (tickets), `2cc1df0b` `a5f88f5e` `e6e48fb1` (PROJ-1/2/3), `1b472404`
-(Phase 1 gate), `5702f145` `97f3aeba` `1f112fcf` (PROJ-6/5/4), + the Phase 2
-gate commit. Nothing has been pushed.
+**Phases 1–2 (2026-07-15):** PROJ-1..6 dispatched to sonnet dev sessions,
+senior-reviewed against the full gate, committed one-per-ticket, both gates
+passed, and **pushed** to origin/main (`e4ba8dfb..80ea558d`).
+
+**Phase 3 (2026-07-15/16):** PROJ-7/8/9 (promoted from backlog B1/B2/B3/B5)
+dispatched to sonnet dev sessions, senior-reviewed the same way, committed
+one-per-ticket, gate passed. Commits `44f60b93` (Phase 3 tickets), `c660c988`
+(PROJ-7), `808baa66` (PROJ-8), `0e295cf0` (PROJ-9), + the Phase 3 gate commit.
+**Not yet pushed** — awaiting Shawn's go-ahead.
+
+**Escalations needing decisions:** none.
+**Remaining:** Backlog B4 (legacy creator = permanent owner) and B6 (deletedAt
+distinction) stay parked for the multi-org / ownership-model work.
