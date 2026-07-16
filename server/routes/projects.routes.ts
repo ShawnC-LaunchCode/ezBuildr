@@ -308,8 +308,10 @@ export function registerProjectRoutes(app: Express): void {
 
   /**
    * DELETE /api/projects/:projectId
-   * Delete a project (hard delete)
-   * Note: Workflows in the project will have their projectId set to null
+   * Delete a project (soft delete — archives the project)
+   * Note: Workflows in the project are retained and keep their projectId;
+   * the row is not removed, only marked archived. Requires 'owner' role
+   * (+ org-admin for org-owned projects) — see ProjectService.deleteProject.
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.delete('/api/projects/:projectId', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {

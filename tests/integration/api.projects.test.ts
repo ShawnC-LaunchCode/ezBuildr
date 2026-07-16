@@ -218,6 +218,39 @@ describe.sequential("Projects API Integration Tests", () => {
         .where(eq(schema.projects.id, projectId));
       expect(project.archived).toBe(true);
     });
+    it("rejects delete from a non-owner (edit-role) caller with 403", async () => {
+      const email = `delete-nonowner-${nanoid()}@example.com`;
+      const registerResponse = await request(baseURL)
+        .post("/api/auth/register")
+        .send({
+          email,
+          password: "TestPassword123!@#Strong",
+        })
+        .expect(201);
+      const editUserToken = registerResponse.body.token;
+      const editUserId = registerResponse.body.user.id;
+      await db.update(schema.users)
+        .set({ tenantId, tenantRole: "viewer" })
+        .where(eq(schema.users.id, editUserId));
+      await db.insert(schema.projectAccess).values({
+        projectId,
+        principalType: "user",
+        principalId: editUserId,
+        role: "edit",
+      });
+
+      await request(baseURL)
+        .delete(`/api/projects/${projectId}`)
+        .set("Authorization", `Bearer ${editUserToken}`)
+        .expect(403);
+      // Verify it was NOT archived — the edit-role caller was rejected before any write.
+      const [project] = await db
+        .select()
+        .from(schema.projects)
+        .where(eq(schema.projects.id, projectId));
+      expect(project.archived).toBe(false);
+      expect(project.status).toBe("active");
+    });
   });
   describe("Tenant Isolation", () => {
     let otherTenantId: string;

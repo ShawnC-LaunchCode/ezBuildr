@@ -462,9 +462,21 @@ emitted) — but say so explicitly in the turn-in note.
 
 ---
 
-## PROJ-5 — DELETE claims hard delete but silently archives 🔲
+## PROJ-5 — DELETE claims hard delete but silently archives ✅
 
 **Priority: P2** · Size: S · Files: `server/routes/projects.routes.ts`, `server/services/ProjectService.ts`
+
+> **Verified & closed 2026-07-15 (reviewer).** Per Decision #3 soft-delete
+> stays; only the contract changed. New private `writeArchivedState` helper is
+> the single archive write path — both `archiveProject` and `deleteProject`
+> delegate to it (can't drift). Route + service doc comments rewritten (no
+> "hard delete" / "projectId set to null"); the edit-role-can-unarchive quirk
+> is documented on both `unarchiveProject` and `deleteProject` as deliberate,
+> pointing at Backlog B6. Behavior unchanged (204, `owner`+org-admin gate).
+> API_ENDPOINTS.md/API.md don't document project delete → correctly no-op.
+> Reviewer re-ran the gate: `type-check` 0 errors, `lint` clean,
+> `api.projects.test.ts` **15/15** (adds the previously-untested 403-for-non-owner
+> DELETE case).
 
 ### Finding
 
@@ -667,7 +679,7 @@ lost.
 | PROJ-2 | Remove legacy owner-transfer endpoint | ✅ done | verified + committed 2026-07-15 |
 | PROJ-3 | Transfer cascade not atomic | ✅ done | verified + committed 2026-07-15 |
 | PROJ-4 | Fake cursor pagination | 🔲 open | Phase 2, after PROJ-6 |
-| PROJ-5 | DELETE claims hard delete | 🔲 open | Decision #3 resolved — ready to dispatch |
+| PROJ-5 | DELETE claims hard delete | ✅ done | verified + committed 2026-07-15 |
 | PROJ-6 | PUT/PATCH duplicate handlers | ✅ done | verified + committed 2026-07-15 |
 
 **Escalations needing decisions:** none — all three resolved 2026-07-15.

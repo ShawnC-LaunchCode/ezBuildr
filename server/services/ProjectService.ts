@@ -154,18 +154,35 @@ export class ProjectService {
     return this.projectRepo.update(projectId, data);
   }
   /**
-   * Archive project (soft delete)
+   * Shared write path for putting a project into the archived state.
+   * `archiveProject` and `deleteProject` both call this instead of each
+   * writing `{ status: 'archived', archived: true }` independently, so the
+   * two entry points can't drift apart (PROJ-5).
    */
-  async archiveProject(projectId: string, userId: string): Promise<Project> {
-    const project = await this.verifyProjectAccess(projectId, userId, 'edit');
-    await this.requireOrgAdminForOrgOwnedProject(project, userId, 'archive');
+  private async writeArchivedState(projectId: string): Promise<Project> {
     return this.projectRepo.update(projectId, {
       status: 'archived',
       archived: true,
     });
   }
   /**
+   * Archive project (soft delete)
+   */
+  async archiveProject(projectId: string, userId: string): Promise<Project> {
+    const project = await this.verifyProjectAccess(projectId, userId, 'edit');
+    await this.requireOrgAdminForOrgOwnedProject(project, userId, 'archive');
+    return this.writeArchivedState(projectId);
+  }
+  /**
    * Unarchive project
+   *
+   * NOTE (deliberate, Backlog B6): this is gated at 'edit', the same as
+   * archiveProject. Because `deleteProject` below writes the identical
+   * archived state as archiveProject, there is no way to distinguish an
+   * "archived" project from an owner-"deleted" one — so an edit-role user
+   * can unarchive a project that its owner deleted. Closing this requires a
+   * `deletedAt` column plus owner-gated resurrect, tracked as Backlog B6;
+   * not addressed here.
    */
   async unarchiveProject(projectId: string, userId: string): Promise<Project> {
     const project = await this.verifyProjectAccess(projectId, userId, 'edit');
@@ -176,16 +193,21 @@ export class ProjectService {
     });
   }
   /**
-   * Delete project (hard delete)
-   * Note: Workflows will have their projectId set to null (on delete set null)
+   * Delete project (soft delete — archives the project; workflows are
+   * retained, not detached or destroyed).
+   *
+   * Writes the exact same archived state as `archiveProject`, via the
+   * shared `writeArchivedState` helper, so the two paths cannot drift. The
+   * only difference is authorization: this is gated at 'owner' (+ org-admin
+   * for org-owned projects) rather than `archiveProject`'s 'edit' gate. See
+   * the note on `unarchiveProject` above (Backlog B6) for the resulting
+   * quirk: an edit-role user can unarchive a project that was "deleted" by
+   * its owner, since the row is indistinguishable from a plain archive.
    */
   async deleteProject(projectId: string, userId: string): Promise<void> {
     const project = await this.verifyProjectAccess(projectId, userId, 'owner');
     await this.requireOrgAdminForOrgOwnedProject(project, userId, 'delete');
-    await this.projectRepo.update(projectId, {
-      status: 'archived',
-      archived: true,
-    });
+    await this.writeArchivedState(projectId);
   }
   /**
    * Get workflows in a project
