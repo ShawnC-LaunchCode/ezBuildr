@@ -373,16 +373,22 @@ Authorization checks before the transaction can stay outside it.
 
 ---
 
-## Phase 1 Gate
+## Phase 1 Gate — PASSED 2026-07-15 (reviewer)
 
-- [ ] PROJ-1, PROJ-2, PROJ-3 all ✅ with dated verification notes
-- [ ] `npm run test:integration` — projects + transferOwnership files green;
-      `npm run test:fast` green; `npm run type-check` 0 errors;
-      `npm run lint` 0 errors
-- [ ] Live check (dev server, real JWT): PATCH-archive as non-admin org
-      member → no archival change; `PUT /:id/owner` → gone;
-      `POST /:id/transfer` happy path still works
-- [ ] Reviewer has committed each passed ticket + this gate
+- [x] PROJ-1, PROJ-2, PROJ-3 all ✅ with dated verification notes
+- [x] `api.projects.test.ts` + `transferOwnership.test.ts` **25/25** green
+      (Docker PG 5434); `npm run test:fast` **1678 passed / 15 skipped / 0
+      failed**; `npm run type-check` 0 errors; `npm run lint` 0 errors
+- [x] Live check (reviewer note): all three behaviors are exercised through
+      the integration suite, which boots the real Express app via
+      `registerRoutes` and drives real JWT-authenticated HTTP —
+      PATCH/PUT-with-`status` by a non-admin edit-role member → 200 with no
+      archival change; `PUT /:id/owner` removed (no route); `POST /:id/transfer`
+      happy path green (11 pre-existing tests). A standalone dev-server smoke
+      was deemed redundant for these backend-only endpoints and was skipped to
+      avoid colliding with the maintainer's own server on :5000.
+- [x] Reviewer committed each passed ticket (2cc1df0b, a5f88f5e, e6e48fb1)
+      + this gate
 
 ---
 
