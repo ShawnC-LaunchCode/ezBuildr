@@ -667,9 +667,16 @@ removal, type hardening, and input validation. Reviewer merged B2+B5 into one
 ticket (PROJ-8) because both rework the same two list methods. All `file:line`
 refs re-verified against the working tree after PROJ-1..6 landed.
 
-## PROJ-7 — Remove dead repository methods (was B1) 🔲
+## PROJ-7 — Remove dead repository methods (was B1) ✅
 
 **Priority: P2 (dead code)** · Size: S · File: `server/repositories/ProjectRepository.ts`
+
+> **Verified & closed 2026-07-15 (reviewer).** `findByStatus` +
+> `findByCreatorAndStatus` deleted (26 lines, one file, nothing else touched).
+> Reviewer re-verified: `grep` for both names in ProjectRepository.ts →
+> nothing; `type-check` 0 errors (proves no caller — a dangling call wouldn't
+> compile); `lint` clean. `test:fast` unchanged at 1678 pass. `findByOwner`
+> and the two list methods left intact for PROJ-8.
 
 ### Finding
 
@@ -873,7 +880,7 @@ lost.
 | PROJ-2 | Remove legacy owner-transfer endpoint | ✅ done | verified + committed 2026-07-15 |
 | PROJ-3 | Transfer cascade not atomic | ✅ done | verified + committed 2026-07-15 |
 | PROJ-4 | Fake cursor pagination | ✅ done | verified + committed 2026-07-15 |
-| PROJ-7 | Remove dead repository methods (B1) | 🔲 open | Phase 3 — ready to dispatch |
+| PROJ-7 | Remove dead repository methods (B1) | ✅ done | verified + committed 2026-07-15 |
 | PROJ-8 | Consolidate list methods + type join (B2+B5) | 🔲 open | Phase 3 — after PROJ-7 |
 | PROJ-9 | Validate ACL principals + transactional grant/revoke (B3) | 🔲 open | Phase 3 — after PROJ-8 |
 | PROJ-5 | DELETE claims hard delete | ✅ done | verified + committed 2026-07-15 |

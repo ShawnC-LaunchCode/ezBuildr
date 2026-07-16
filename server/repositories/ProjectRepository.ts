@@ -127,32 +127,6 @@ export class ProjectRepository extends BaseRepository<typeof projects, Project, 
     return results as any; // Drizzle join result with organization name
   }
   /**
-   * Find projects by status
-   */
-  async findByStatus(status: 'active' | 'archived', tx?: DbTransaction): Promise<Project[]> {
-    const database = this.getDb(tx);
-    return database
-      .select()
-      .from(projects)
-      .where(eq(projects.status, status))
-      .orderBy(desc(projects.updatedAt));
-  }
-  /**
-   * Find projects by creator and status
-   */
-  async findByCreatorAndStatus(
-    creatorId: string,
-    status: 'active' | 'archived',
-    tx?: DbTransaction
-  ): Promise<Project[]> {
-    const database = this.getDb(tx);
-    return database
-      .select()
-      .from(projects)
-      .where(and(eq(projects.createdBy, creatorId), eq(projects.status, status)))
-      .orderBy(desc(projects.updatedAt));
-  }
-  /**
    * Find active (non-archived) projects by creator (includes user-owned and org-owned)
    */
   async findActiveByCreatorId(
