@@ -1,7 +1,8 @@
 import { eq } from 'drizzle-orm';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 import { db } from '../../server/db';
+import { workflowRepository } from '../../server/repositories';
 import { datavaultDatabasesService } from '../../server/services/DatavaultDatabasesService';
 import { organizationService } from '../../server/services/OrganizationService';
 import { projectService } from '../../server/services/ProjectService';
@@ -118,6 +119,61 @@ describe('Transfer Ownership', () => {
 
             expect(updatedWorkflow?.ownerType).toBe('org');
             expect(updatedWorkflow?.ownerUuid).toBe(testOrgId);
+        });
+
+        it('should roll back the entire cascade if a failure occurs mid-transfer (atomicity)', async () => {
+            // Create user-owned project with a workflow, so the cascade has
+            // more than one table to touch.
+            const project = await projectService.createProject(
+                { title: 'Atomicity Test Project', creatorId: userId1, ownerId: userId1, tenantId: testTenantId },
+                userId1
+            );
+            testProjectId = project.id;
+            expect(project.ownerType).toBe('user');
+            expect(project.ownerUuid).toBe(userId1);
+
+            const workflow = await workflowService.createWorkflow(
+                { title: 'Atomicity Test Workflow', projectId: testProjectId, creatorId: userId1, ownerId: userId1 },
+                userId1
+            );
+            testWorkflowId = workflow.id;
+
+            // Force a failure partway through the cascade: the project row
+            // update happens first inside the transaction, and
+            // workflowRepo.findByProjectId is the very next query. Throwing
+            // there simulates a failure "mid-cascade" — after the project
+            // write has been issued but before workflows/runs/DataVault
+            // assets are touched.
+            const findByProjectIdSpy = vi
+                .spyOn(workflowRepository, 'findByProjectId')
+                .mockRejectedValueOnce(new Error('Injected failure for atomicity test'));
+
+            try {
+                await expect(
+                    projectService.transferOwnership(testProjectId, userId1, 'org', testOrgId)
+                ).rejects.toThrow('Injected failure for atomicity test');
+            } finally {
+                findByProjectIdSpy.mockRestore();
+            }
+
+            // If the cascade were not atomic, the project row update (which
+            // runs before the injected failure) would have committed on its
+            // own. Assert it did NOT: ownerType/ownerUuid must be exactly as
+            // they were before the failed transfer attempt.
+            const projectAfterFailure = await db.query.projects.findFirst({
+                where: eq(projects.id, testProjectId),
+            });
+            expect(projectAfterFailure?.ownerType).toBe('user');
+            expect(projectAfterFailure?.ownerUuid).toBe(userId1);
+
+            // The workflow cascade never got its own failure, but since it
+            // lives in the same rolled-back transaction it must also be
+            // untouched.
+            const workflowAfterFailure = await db.query.workflows.findFirst({
+                where: eq(workflows.id, testWorkflowId),
+            });
+            expect(workflowAfterFailure?.ownerType).toBe('user');
+            expect(workflowAfterFailure?.ownerUuid).toBe(userId1);
         });
 
         it('should prevent transfer into an org when the user is not an org admin', async () => {

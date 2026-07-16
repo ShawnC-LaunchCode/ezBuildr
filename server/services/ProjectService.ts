@@ -1,5 +1,9 @@
-import type { Project, InsertProject, Workflow, ProjectAccess, PrincipalType, AccessRole } from "@shared/schema";
+import { and, eq, inArray } from "drizzle-orm";
 
+import type { Project, InsertProject, Workflow, ProjectAccess, PrincipalType, AccessRole } from "@shared/schema";
+import { workflows, workflowRuns, datavaultDatabases, datavaultTables, workflowDataSources } from "@shared/schema";
+
+import { db } from "../db";
 import {
   projectRepository,
   workflowRepository,
@@ -9,6 +13,7 @@ import {
 import { canCreateWithOwnership, canManageOrg, isOrgMember } from "../utils/ownershipAccess";
 
 import { aclService } from "./AclService";
+import { transferService } from "./TransferService";
 /**
  * Service layer for project-related business logic
  */
@@ -265,10 +270,7 @@ export class ProjectService {
     targetOwnerType: 'user' | 'org',
     targetOwnerUuid: string
   ): Promise<Project> {
-    const { transferService } = await import('./TransferService');
-    const { workflowRuns, datavaultDatabases, datavaultTables, workflowDataSources } = await import('@shared/schema');
-    const { and, eq, inArray } = await import('drizzle-orm');
-    const { db } = await import('../db');
+    // Authorization checks run outside the transaction — they only read.
     const project = await this.verifyProjectAccess(projectId, userId, 'owner');
     await this.requireOrgAdminForOrgOwnedProject(project, userId, 'transfer');
     // Transfer-into-org requires org membership (not admin); validateTransfer
@@ -280,69 +282,85 @@ export class ProjectService {
       targetOwnerType,
       targetOwnerUuid
     );
-    // Update project ownership and cascade to workflows
-    const updatedProject = await this.projectRepo.update(projectId, {
-      ownerType: targetOwnerType,
-      ownerUuid: targetOwnerUuid,
-    });
-    // Cascade: Transfer all child workflows to same owner
-    const workflows = await this.workflowRepo.findByProjectId(projectId);
-    const workflowIds = workflows.map(w => w.id);
-    if (workflowIds.length > 0) {
-      // Update workflows
-      for (const workflow of workflows) {
-        await this.workflowRepo.update(workflow.id, {
+    // Everything below is a single multi-table cascade — wrap it in one
+    // transaction so a failure partway (network blip, constraint violation)
+    // cannot leave the project pointing at the new owner while workflows,
+    // runs, or DataVault assets still belong to the old one. Every query in
+    // this callback MUST use `tx` (not the pool `db`) — a pool query issued
+    // while the transaction still holds the connection deadlocks the size-1
+    // test pool.
+    return db.transaction(async (tx) => {
+      // Update project ownership
+      const updatedProject = await this.projectRepo.update(
+        projectId,
+        {
           ownerType: targetOwnerType,
           ownerUuid: targetOwnerUuid,
-        });
+        },
+        tx
+      );
+      // Cascade: Transfer all child workflows to same owner
+      const projectWorkflows = await this.workflowRepo.findByProjectId(projectId, undefined, tx);
+      const workflowIds = projectWorkflows.map(w => w.id);
+      if (workflowIds.length > 0) {
+        // Bulk-update every workflow in one round trip (mirrors the
+        // workflowRuns update below, instead of one query per workflow).
+        await tx
+          .update(workflows)
+          .set({
+            ownerType: targetOwnerType,
+            ownerUuid: targetOwnerUuid,
+            updatedAt: new Date(),
+          })
+          .where(inArray(workflows.id, workflowIds));
+        // Cascade ownership to all runs for these workflows
+        await tx
+          .update(workflowRuns)
+          .set({
+            ownerType: targetOwnerType,
+            ownerUuid: targetOwnerUuid,
+          })
+          .where(inArray(workflowRuns.workflowId, workflowIds));
       }
-      // FIX #1: Cascade ownership to all runs for these workflows
-      await db
-        .update(workflowRuns)
-        .set({
-          ownerType: targetOwnerType,
-          ownerUuid: targetOwnerUuid,
-        })
-        .where(inArray(workflowRuns.workflowId, workflowIds));
-    }
-    const linkedDatabaseRows = workflowIds.length > 0
-      ? await db
-        .select({ id: workflowDataSources.dataSourceId })
-        .from(workflowDataSources)
-        .where(inArray(workflowDataSources.workflowId, workflowIds))
-      : [];
-    const databaseIds = new Set<string>(linkedDatabaseRows.map((row) => row.id));
-    const scopedDatabases = await db
-      .select({ id: datavaultDatabases.id })
-      .from(datavaultDatabases)
-      .where(and(eq(datavaultDatabases.scopeType, 'project'), eq(datavaultDatabases.scopeId, projectId)));
-    scopedDatabases.forEach((row) => databaseIds.add(row.id));
-    if (workflowIds.length > 0) {
-      const workflowScopedDatabases = await db
+      const linkedDatabaseRows = workflowIds.length > 0
+        ? await tx
+          .select({ id: workflowDataSources.dataSourceId })
+          .from(workflowDataSources)
+          .where(inArray(workflowDataSources.workflowId, workflowIds))
+        : [];
+      const databaseIds = new Set<string>(linkedDatabaseRows.map((row) => row.id));
+      const scopedDatabases = await tx
         .select({ id: datavaultDatabases.id })
         .from(datavaultDatabases)
-        .where(and(eq(datavaultDatabases.scopeType, 'workflow'), inArray(datavaultDatabases.scopeId, workflowIds)));
-      workflowScopedDatabases.forEach((row) => databaseIds.add(row.id));
-    }
-    if (databaseIds.size > 0) {
-      await db
-        .update(datavaultDatabases)
-        .set({
-          ownerType: targetOwnerType,
-          ownerUuid: targetOwnerUuid,
-          updatedAt: new Date(),
-        })
-        .where(inArray(datavaultDatabases.id, [...databaseIds]));
-      await db
-        .update(datavaultTables)
-        .set({
-          ownerType: targetOwnerType,
-          ownerUuid: targetOwnerUuid,
-          updatedAt: new Date(),
-        })
-        .where(inArray(datavaultTables.databaseId, [...databaseIds]));
-    }
-    return updatedProject;
+        .where(and(eq(datavaultDatabases.scopeType, 'project'), eq(datavaultDatabases.scopeId, projectId)));
+      scopedDatabases.forEach((row) => databaseIds.add(row.id));
+      if (workflowIds.length > 0) {
+        const workflowScopedDatabases = await tx
+          .select({ id: datavaultDatabases.id })
+          .from(datavaultDatabases)
+          .where(and(eq(datavaultDatabases.scopeType, 'workflow'), inArray(datavaultDatabases.scopeId, workflowIds)));
+        workflowScopedDatabases.forEach((row) => databaseIds.add(row.id));
+      }
+      if (databaseIds.size > 0) {
+        await tx
+          .update(datavaultDatabases)
+          .set({
+            ownerType: targetOwnerType,
+            ownerUuid: targetOwnerUuid,
+            updatedAt: new Date(),
+          })
+          .where(inArray(datavaultDatabases.id, [...databaseIds]));
+        await tx
+          .update(datavaultTables)
+          .set({
+            ownerType: targetOwnerType,
+            ownerUuid: targetOwnerUuid,
+            updatedAt: new Date(),
+          })
+          .where(inArray(datavaultTables.databaseId, [...databaseIds]));
+      }
+      return updatedProject;
+    });
   }
 }
 // Singleton instance

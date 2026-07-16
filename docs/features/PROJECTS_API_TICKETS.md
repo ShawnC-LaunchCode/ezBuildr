@@ -284,9 +284,23 @@ Per Decision #2, deprecate rather than repair:
 
 ---
 
-## PROJ-3 — New-model transfer cascade is not atomic 🔲
+## PROJ-3 — New-model transfer cascade is not atomic ✅
 
 **Priority: P1** · Size: M · File: `server/services/ProjectService.ts`
+
+> **Verified & closed 2026-07-15 (reviewer).** Everything after `validateTransfer`
+> now runs in one `db.transaction`; every in-callback query uses `tx` (reviewer
+> read the full diff — no `db.*` leak that would deadlock the size-1 pool), auth
+> reads stay outside, and the per-workflow loop is now a single `inArray` bulk
+> update. Dynamic imports hoisted to top-level (no TransferService cycle).
+> Atomicity test injects a failure via `vi.spyOn(workflowRepository,
+> 'findByProjectId').mockRejectedValueOnce` immediately after the project write
+> and asserts the project + workflow ownership rolled back — a test that fails
+> against the pre-fix code. Reviewer re-ran the gate: `type-check` 0 errors,
+> `lint` clean, `transferOwnership.test.ts` + `api.projects.test.ts` **25/25
+> passed**. Deviation (accepted): spy targets `findByProjectId`, not
+> `workflowRepo.update`, because the fix removed the per-workflow update loop —
+> same injection class, retargeted to a query that still exists post-fix.
 
 ### Finding
 
@@ -633,7 +647,7 @@ lost.
 |---|---|---|---|
 | PROJ-1 | Update bypasses org-admin archive gate | ✅ done | verified + committed 2026-07-15 |
 | PROJ-2 | Remove legacy owner-transfer endpoint | ✅ done | verified + committed 2026-07-15 |
-| PROJ-3 | Transfer cascade not atomic | 🔲 open | coordinate with PROJ-2 (same file) |
+| PROJ-3 | Transfer cascade not atomic | ✅ done | verified + committed 2026-07-15 |
 | PROJ-4 | Fake cursor pagination | 🔲 open | Phase 2, after PROJ-6 |
 | PROJ-5 | DELETE claims hard delete | 🔲 open | Decision #3 resolved — ready to dispatch |
 | PROJ-6 | PUT/PATCH duplicate handlers | 🔲 open | Phase 2, after PROJ-1 |
