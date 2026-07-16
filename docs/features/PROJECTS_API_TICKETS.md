@@ -87,9 +87,21 @@ mismatches, and route-file refactors (Phase 2), and anything outside the
 projects slice (workflow/datavault services are touched only where
 `ProjectService.transferOwnership` already writes to them).
 
-## PROJ-1 — Generic update bypasses the org-admin archive gate 🔲
+## PROJ-1 — Generic update bypasses the org-admin archive gate ✅
 
 **Priority: P0 (bug)** · Size: S–M · Files: `server/services/ProjectService.ts`, `server/routes/projects.routes.ts`
+
+> **Verified & closed 2026-07-15 (reviewer).** Both halves of Decision #1 landed:
+> service-level gate in `updateProject` (mirrors `archiveProject`'s
+> `Access denied:` prefix → 403) + `status` removed from the update body schema
+> and both route handlers. Reviewer re-ran the gate independently: `type-check`
+> 0 errors, `lint` clean (`--max-warnings 0`), `api.projects.test.ts` **13/13
+> passed** on Docker PG 5434. Live path exercised via supertest against the real
+> app with real JWT bearer tokens (PATCH & PUT with `status:'archived'` by a
+> non-admin edit-role member → 200, row stays `active`; non-admin service
+> archive → `Access denied`; admin archive → succeeds). Sole production callers
+> of `updateProject` are the two route handlers (now status-free), so no
+> regression path. Committed as its own commit.
 
 ### Finding
 
@@ -609,7 +621,7 @@ lost.
 
 | Ticket | Title | Status | Notes |
 |---|---|---|---|
-| PROJ-1 | Update bypasses org-admin archive gate | 🔲 open | Decision #1 resolved — ready to dispatch |
+| PROJ-1 | Update bypasses org-admin archive gate | ✅ done | verified + committed 2026-07-15 |
 | PROJ-2 | Remove legacy owner-transfer endpoint | 🔲 open | Decision #2 resolved — ready to dispatch |
 | PROJ-3 | Transfer cascade not atomic | 🔲 open | coordinate with PROJ-2 (same file) |
 | PROJ-4 | Fake cursor pagination | 🔲 open | Phase 2, after PROJ-6 |

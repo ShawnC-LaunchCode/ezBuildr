@@ -141,7 +141,11 @@ export class ProjectService {
     userId: string,
     data: Partial<InsertProject>
   ): Promise<Project> {
-    await this.verifyProjectAccess(projectId, userId, 'edit');
+    const project = await this.verifyProjectAccess(projectId, userId, 'edit');
+    if (data.status !== undefined || data.archived !== undefined) {
+      const willArchive = data.status === 'archived' || data.archived === true;
+      await this.requireOrgAdminForOrgOwnedProject(project, userId, willArchive ? 'archive' : 'unarchive');
+    }
     return this.projectRepo.update(projectId, data);
   }
   /**

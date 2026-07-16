@@ -36,7 +36,6 @@ const updateProjectBodySchema = z.object({
   title: z.string().trim().min(1).max(255).optional(),
   name: z.string().trim().min(1).max(255).optional(),
   description: z.string().max(5000).optional().nullable(),
-  status: z.enum(['active', 'archived']).optional(),
 });
 
 const listProjectsQuerySchema = z.object({
@@ -240,7 +239,6 @@ export function registerProjectRoutes(app: Express): void {
       const updateData = insertProjectSchema.partial().parse({
         ...(title !== undefined && { title, name: parsed.name ?? title }),
         ...(parsed.description !== undefined && { description: parsed.description }),
-        ...(parsed.status !== undefined && { status: parsed.status, archived: parsed.status === 'archived' }),
       });
 
       const project = await projectService.updateProject(projectId, user.id, updateData);
@@ -273,7 +271,6 @@ export function registerProjectRoutes(app: Express): void {
       const updateData = insertProjectSchema.partial().parse({
         ...(title !== undefined && { title, name: parsed.name ?? title }),
         ...(parsed.description !== undefined && { description: parsed.description }),
-        ...(parsed.status !== undefined && { status: parsed.status, archived: parsed.status === 'archived' }),
       });
 
       const project = await projectService.updateProject(projectId, user.id, updateData);

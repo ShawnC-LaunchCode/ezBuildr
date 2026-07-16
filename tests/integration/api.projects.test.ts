@@ -10,6 +10,7 @@ import * as schema from "@shared/schema";
 
 import { db } from "../../server/db";
 import { registerRoutes } from "../../server/routes";
+import { projectService } from "../../server/services/ProjectService";
 /**
  * Projects API Integration Tests
  *
@@ -21,6 +22,7 @@ describe.sequential("Projects API Integration Tests", () => {
   let baseURL: string;
   let authToken: string;
   let tenantId: string;
+  let userId: string;
 
   beforeAll(async () => {
     // Create Express app
@@ -56,7 +58,7 @@ describe.sequential("Projects API Integration Tests", () => {
       })
       .expect(201);
     authToken = registerResponse.body.token;
-    const userId = registerResponse.body.user.id;
+    userId = registerResponse.body.user.id;
     // Assign tenant and role to user
     await db.update(schema.users)
       .set({ tenantId, tenantRole: "owner" })
@@ -240,6 +242,118 @@ describe.sequential("Projects API Integration Tests", () => {
         .get(`/api/projects/${projectId}`)
         .set("Authorization", `Bearer ${otherAuthToken}`)
         .expect(403);
+    });
+  });
+  describe("PROJ-1: org-admin archive gate on updateProject", () => {
+    let orgId: string;
+    let memberUserId: string;
+    let memberAuthToken: string;
+    let projectId: string;
+
+    beforeAll(async () => {
+      // Org owned by the main tenant, with `userId` (tenant owner) as org admin.
+      const [org] = await db.insert(schema.organizations).values({
+        name: `Archive Gate Org ${nanoid()}`,
+        tenantId,
+        createdByUserId: userId,
+      }).returning();
+      orgId = org.id;
+      await db.insert(schema.organizationMemberships).values({
+        orgId,
+        userId,
+        role: "admin",
+      });
+      // Non-admin member of the same org.
+      const email = `member-${nanoid()}@example.com`;
+      const registerResponse = await request(baseURL)
+        .post("/api/auth/register")
+        .send({
+          email,
+          password: "TestPassword123!@#Strong",
+          firstName: "Member",
+          lastName: "User",
+        })
+        .expect(201);
+      memberAuthToken = registerResponse.body.token;
+      memberUserId = registerResponse.body.user.id;
+      await db.update(schema.users)
+        .set({ tenantId, tenantRole: "viewer" })
+        .where(eq(schema.users.id, memberUserId));
+      await db.insert(schema.organizationMemberships).values({
+        orgId,
+        userId: memberUserId,
+        role: "member",
+      });
+    });
+    afterAll(async () => {
+      if (orgId) {
+        await db.delete(schema.organizations).where(eq(schema.organizations.id, orgId));
+      }
+    });
+    beforeEach(async () => {
+      // Fresh org-owned project per test, with the non-admin member granted `edit`.
+      const response = await request(baseURL)
+        .post("/api/projects")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ name: `Archive Gate Project ${nanoid()}`, ownerType: "org", ownerUuid: orgId })
+        .expect(201);
+      projectId = response.body.id;
+      await db.insert(schema.projectAccess).values({
+        projectId,
+        principalType: "user",
+        principalId: memberUserId,
+        role: "edit",
+      });
+    });
+    it("rejects a direct service archive by a non-admin org member and allows an org admin", async () => {
+      await expect(
+        projectService.updateProject(projectId, memberUserId, { status: "archived" })
+      ).rejects.toThrow(/Access denied/);
+      const [unchanged] = await db
+        .select()
+        .from(schema.projects)
+        .where(eq(schema.projects.id, projectId));
+      expect(unchanged.archived).toBe(false);
+      expect(unchanged.status).toBe("active");
+
+      await expect(
+        projectService.updateProject(projectId, memberUserId, { archived: true })
+      ).rejects.toThrow(/Access denied/);
+
+      const updated = await projectService.updateProject(projectId, userId, {
+        status: "archived",
+        archived: true,
+      });
+      expect(updated.archived).toBe(true);
+      expect(updated.status).toBe("archived");
+    });
+    it("PATCH ignores a status field: no archival change, other fields still apply", async () => {
+      const response = await request(baseURL)
+        .patch(`/api/projects/${projectId}`)
+        .set("Authorization", `Bearer ${memberAuthToken}`)
+        .send({ name: "Renamed via PATCH", status: "archived" })
+        .expect(200);
+      expect(response.body).toHaveProperty("name", "Renamed via PATCH");
+      const [row] = await db
+        .select()
+        .from(schema.projects)
+        .where(eq(schema.projects.id, projectId));
+      expect(row.archived).toBe(false);
+      expect(row.status).toBe("active");
+    });
+    it("PUT ignores a status field: no archival change, other fields still apply", async () => {
+      const response = await request(baseURL)
+        .put(`/api/projects/${projectId}`)
+        .set("Authorization", `Bearer ${memberAuthToken}`)
+        .send({ name: "Renamed via PUT", status: "archived" })
+        .expect(200);
+      expect(response.body).toHaveProperty("name", "Renamed via PUT");
+      const [row] = await db
+        .select()
+        .from(schema.projects)
+        .where(eq(schema.projects.id, projectId));
+      expect(row.archived).toBe(false);
+      expect(row.status).toBe("active");
     });
   });
 });
