@@ -179,6 +179,24 @@ describe.sequential("Projects API Integration Tests", () => {
       expect(response.body).toHaveProperty("name", "Updated Name");
     });
   });
+  describe("PUT /api/projects/:id", () => {
+    let projectId: string;
+    beforeEach(async () => {
+      const response = await request(baseURL)
+        .post("/api/projects")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ name: `Update Test Project ${nanoid()}` });
+      projectId = response.body.id;
+    });
+    it("should update project", async () => {
+      const response = await request(baseURL)
+        .put(`/api/projects/${projectId}`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ name: "Updated Name" })
+        .expect(200);
+      expect(response.body).toHaveProperty("name", "Updated Name");
+    });
+  });
   describe("DELETE /api/projects/:id", () => {
     let projectId: string;
     beforeEach(async () => {

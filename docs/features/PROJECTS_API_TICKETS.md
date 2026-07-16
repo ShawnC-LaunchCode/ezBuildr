@@ -536,9 +536,21 @@ distinction is Backlog B6.
 
 ---
 
-## PROJ-6 — PUT and PATCH update handlers are copy-paste duplicates 🔲
+## PROJ-6 — PUT and PATCH update handlers are copy-paste duplicates ✅
 
 **Priority: P2** · Size: S · File: `server/routes/projects.routes.ts`
+
+> **Verified & closed 2026-07-15 (reviewer).** Extracted one module-level
+> `handleProjectUpdate` (asyncHandler) registered for both PUT and PATCH with
+> the identical middleware chain; the duplicated body is gone
+> (`updateProjectBodySchema.parse` greps exactly once). Dead no-op ternary at
+> the POST handler replaced with `res.status(status)`, and its now-orphaned
+> `STATUS_INTERNAL` const removed (accepted deviation — direct consequence of
+> removing the ternary). Reviewer re-ran the gate: `type-check` 0 errors,
+> `lint` clean incl. `--report-unused-disable-directives` (the pre-existing
+> `max-lines-per-function` disable is still live, no new disables),
+> `api.projects.test.ts` **14/14** (adds the previously-missing PUT happy-path
+> assertion).
 
 ### Finding
 
@@ -656,7 +668,7 @@ lost.
 | PROJ-3 | Transfer cascade not atomic | ✅ done | verified + committed 2026-07-15 |
 | PROJ-4 | Fake cursor pagination | 🔲 open | Phase 2, after PROJ-6 |
 | PROJ-5 | DELETE claims hard delete | 🔲 open | Decision #3 resolved — ready to dispatch |
-| PROJ-6 | PUT/PATCH duplicate handlers | 🔲 open | Phase 2, after PROJ-1 |
+| PROJ-6 | PUT/PATCH duplicate handlers | ✅ done | verified + committed 2026-07-15 |
 
 **Escalations needing decisions:** none — all three resolved 2026-07-15.
 **Ready to push:** nothing yet — no code changes made; this file is the audit

@@ -19,7 +19,6 @@ import type { Express, Request, Response } from "express";
 
 const ERR_CREATING_PROJECT = "Failed to create project";
 const ERR_INVALID_INPUT = "Invalid input";
-const STATUS_INTERNAL = 500;
 
 const createProjectBodySchema = z.object({
   title: z.string().trim().min(1).max(255).optional(),
@@ -50,6 +49,37 @@ const copyProjectBodySchema = z.object({
   includeRelatedDatavault: z.boolean().optional(),
   includeDatavaultData: z.boolean().optional(),
   clearAccess: z.boolean().optional(),
+});
+
+/**
+ * PUT/PATCH /api/projects/:projectId
+ * Update a project (PATCH exists for compatibility with graph API clients)
+ */
+const handleProjectUpdate = asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const user = (req as UserRequest).user;
+    const { projectId } = req.params;
+
+    const parsed = updateProjectBodySchema.parse(req.body);
+    const title = parsed.title ?? parsed.name;
+    const updateData = insertProjectSchema.partial().parse({
+      ...(title !== undefined && { title, name: parsed.name ?? title }),
+      ...(parsed.description !== undefined && { description: parsed.description }),
+    });
+
+    const project = await projectService.updateProject(projectId, user.id, updateData);
+    res.json(project);
+  } catch (error) {
+    logger.error({ error }, "Error updating project");
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        error: ERR_INVALID_INPUT,
+        details: error.errors,
+      });
+    }
+    const { status, message } = classifyRouteError(error, "Failed to update project");
+    res.status(status).json({ message });
+  }
 });
 
 /**
@@ -97,7 +127,7 @@ export function registerProjectRoutes(app: Express): void {
         });
       }
       const { status, message } = classifyRouteError(error, ERR_CREATING_PROJECT);
-      res.status(status === STATUS_INTERNAL ? STATUS_INTERNAL : status).json({
+      res.status(status).json({
         message,
         error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined,
       });
@@ -229,64 +259,14 @@ export function registerProjectRoutes(app: Express): void {
    * Update a project
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  app.put('/api/projects/:projectId', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const user = (req as UserRequest).user;
-      const { projectId } = req.params;
-
-      const parsed = updateProjectBodySchema.parse(req.body);
-      const title = parsed.title ?? parsed.name;
-      const updateData = insertProjectSchema.partial().parse({
-        ...(title !== undefined && { title, name: parsed.name ?? title }),
-        ...(parsed.description !== undefined && { description: parsed.description }),
-      });
-
-      const project = await projectService.updateProject(projectId, user.id, updateData);
-      res.json(project);
-    } catch (error) {
-      logger.error({ error }, "Error updating project");
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          error: ERR_INVALID_INPUT,
-          details: error.errors,
-        });
-      }
-      const { status, message } = classifyRouteError(error, "Failed to update project");
-      res.status(status).json({ message });
-    }
-  }));
+  app.put('/api/projects/:projectId', hybridAuth, requireUser, validateProjectId(), handleProjectUpdate);
 
   /**
    * PATCH /api/projects/:projectId
    * Update a project (compatibility with graph API clients)
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  app.patch('/api/projects/:projectId', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const user = (req as UserRequest).user;
-      const { projectId } = req.params;
-
-      const parsed = updateProjectBodySchema.parse(req.body);
-      const title = parsed.title ?? parsed.name;
-      const updateData = insertProjectSchema.partial().parse({
-        ...(title !== undefined && { title, name: parsed.name ?? title }),
-        ...(parsed.description !== undefined && { description: parsed.description }),
-      });
-
-      const project = await projectService.updateProject(projectId, user.id, updateData);
-      res.json(project);
-    } catch (error) {
-      logger.error({ error }, "Error updating project");
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          error: ERR_INVALID_INPUT,
-          details: error.errors,
-        });
-      }
-      const { status, message } = classifyRouteError(error, "Failed to update project");
-      res.status(status).json({ message });
-    }
-  }));
+  app.patch('/api/projects/:projectId', hybridAuth, requireUser, validateProjectId(), handleProjectUpdate);
 
   /**
    * PUT /api/projects/:projectId/archive
