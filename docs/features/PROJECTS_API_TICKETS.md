@@ -793,9 +793,25 @@ with `return results as any` behind an eslint-disable.
 
 ---
 
-## PROJ-9 — Validate ACL principals & make grant/revoke transactional (was B3) 🔲
+## PROJ-9 — Validate ACL principals & make grant/revoke transactional (was B3) ✅
 
 **Priority: P2** · Size: M · Files: `server/routes/projects.routes.ts`, `server/services/ProjectService.ts`
+
+> **Verified & closed 2026-07-16 (reviewer).** Both access endpoints now
+> validate `principalId: z.string().uuid()` and cap `entries` `.min(1).max(50)`.
+> `grantProjectAccess`'s `role` typed as `Exclude<AccessRole,'none'>`. Grant and
+> revoke each keep the owner-gate as the first await (outside any tx), then use
+> the `if (tx) reuse; else db.transaction(...)` pattern delegating to a private
+> `_impl` where every repo call uses the tx — reviewer confirmed this matches
+> the `DatavaultRowsService` precedent and honors the size-1 pool-deadlock rule.
+> Rollback test grants `[valid, valid, invalid-role]`, expects rejection, and
+> reads back `project_access` = **0 rows** (proves entries 1–2 rolled back, not
+> just entry 3 skipped) — fails against non-transactional code. The one `as any`
+> is an isolated test fixture deliberately overflowing the role column to force
+> the mid-loop DB error (eslint-disable + justification; not production code).
+> Reviewer re-ran the gate: `type-check` 0 errors, `lint` clean,
+> `api.projects.test.ts` **25/25** (6 new: non-UUID→400 on PUT & DELETE,
+> over-cap→400, empty→400, single-entry unchanged, batch rollback).
 
 ### Finding
 
@@ -897,7 +913,7 @@ lost.
 | PROJ-4 | Fake cursor pagination | ✅ done | verified + committed 2026-07-15 |
 | PROJ-7 | Remove dead repository methods (B1) | ✅ done | verified + committed 2026-07-15 |
 | PROJ-8 | Consolidate list methods + type join (B2+B5) | ✅ done | verified + committed 2026-07-15 |
-| PROJ-9 | Validate ACL principals + transactional grant/revoke (B3) | 🔲 open | Phase 3 — after PROJ-8 |
+| PROJ-9 | Validate ACL principals + transactional grant/revoke (B3) | ✅ done | verified + committed 2026-07-16 |
 | PROJ-5 | DELETE claims hard delete | ✅ done | verified + committed 2026-07-15 |
 | PROJ-6 | PUT/PATCH duplicate handlers | ✅ done | verified + committed 2026-07-15 |
 

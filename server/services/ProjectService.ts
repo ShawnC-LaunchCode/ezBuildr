@@ -239,14 +239,37 @@ export class ProjectService {
   /**
    * Grant or update access to a project
    * Only owner can grant 'owner' role to others
+   *
+   * The authorization check runs outside any transaction (it only reads).
+   * The write loop is atomic: if a caller already holds a transaction it is
+   * reused (no nested transaction), otherwise one is opened here — mirrors
+   * `DatavaultRowsService.createRow`'s tx-reuse pattern. Every entry must
+   * apply or none do (PROJ-9); a mid-loop DB error rolls back all prior
+   * upserts in the same call instead of leaving a partial ACL change.
    */
   async grantProjectAccess(
     projectId: string,
     requestorId: string,
-    entries: Array<{ principalType: PrincipalType; principalId: string; role: string }>,
+    entries: Array<{ principalType: PrincipalType; principalId: string; role: Exclude<AccessRole, 'none'> }>,
     tx?: DbTransaction
   ): Promise<ProjectAccess[]> {
     await this.verifyProjectAccess(projectId, requestorId, 'owner');
+    if (tx) {
+      return this._grantProjectAccessImpl(projectId, entries, tx);
+    }
+    return db.transaction((newTx) => this._grantProjectAccessImpl(projectId, entries, newTx));
+  }
+  /**
+   * Internal implementation of grantProjectAccess.
+   * Must be called within a transaction; every repo call below MUST use
+   * `tx` (not the pool `db`) — a pool query issued while the transaction
+   * still holds the connection deadlocks the size-1 test pool.
+   */
+  private async _grantProjectAccessImpl(
+    projectId: string,
+    entries: Array<{ principalType: PrincipalType; principalId: string; role: Exclude<AccessRole, 'none'> }>,
+    tx: DbTransaction
+  ): Promise<ProjectAccess[]> {
     const results: ProjectAccess[] = [];
     for (const entry of entries) {
       const acl = await this.projectAccessRepo.upsert(
@@ -262,6 +285,9 @@ export class ProjectService {
   }
   /**
    * Revoke access from a project
+   *
+   * Same tx-reuse/atomicity shape as `grantProjectAccess` — see its doc
+   * comment.
    */
   async revokeProjectAccess(
     projectId: string,
@@ -270,6 +296,21 @@ export class ProjectService {
     tx?: DbTransaction
   ): Promise<void> {
     await this.verifyProjectAccess(projectId, requestorId, 'owner');
+    if (tx) {
+      return this._revokeProjectAccessImpl(projectId, entries, tx);
+    }
+    return db.transaction((newTx) => this._revokeProjectAccessImpl(projectId, entries, newTx));
+  }
+  /**
+   * Internal implementation of revokeProjectAccess.
+   * Must be called within a transaction; every repo call below MUST use
+   * `tx` (not the pool `db`) — see `_grantProjectAccessImpl` above.
+   */
+  private async _revokeProjectAccessImpl(
+    projectId: string,
+    entries: Array<{ principalType: PrincipalType; principalId: string }>,
+    tx: DbTransaction
+  ): Promise<void> {
     for (const entry of entries) {
       await this.projectAccessRepo.deleteByPrincipal(
         projectId,

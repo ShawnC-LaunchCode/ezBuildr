@@ -554,4 +554,125 @@ describe.sequential("Projects API Integration Tests", () => {
       expect(row.status).toBe("active");
     });
   });
+  describe("PROJ-9: ACL principal validation & transactional grant/revoke", () => {
+    let projectId: string;
+    beforeEach(async () => {
+      const response = await request(baseURL)
+        .post("/api/projects")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ name: `ACL Test Project ${nanoid()}` })
+        .expect(201);
+      projectId = response.body.id;
+    });
+    it("PUT /access rejects a non-UUID principalId with 400", async () => {
+      const response = await request(baseURL)
+        .put(`/api/projects/${projectId}/access`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({
+          entries: [
+            { principalType: "user", principalId: "not-a-uuid", role: "edit" },
+          ],
+        })
+        .expect(400);
+      expect(response.body.success).toBe(false);
+      const acl = await db
+        .select()
+        .from(schema.projectAccess)
+        .where(eq(schema.projectAccess.projectId, projectId));
+      expect(acl).toHaveLength(0);
+    });
+    it("DELETE /access rejects a non-UUID principalId with 400", async () => {
+      const response = await request(baseURL)
+        .delete(`/api/projects/${projectId}/access`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({
+          entries: [{ principalType: "user", principalId: "not-a-uuid" }],
+        })
+        .expect(400);
+      expect(response.body.success).toBe(false);
+    });
+    it("PUT /access rejects an entries array over the 50-item cap with 400", async () => {
+      const entries = Array.from({ length: 51 }, () => ({
+        principalType: "user" as const,
+        principalId: crypto.randomUUID(),
+        role: "view" as const,
+      }));
+      const response = await request(baseURL)
+        .put(`/api/projects/${projectId}/access`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ entries })
+        .expect(400);
+      expect(response.body.success).toBe(false);
+    });
+    it("PUT /access rejects an empty entries array with 400", async () => {
+      await request(baseURL)
+        .put(`/api/projects/${projectId}/access`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ entries: [] })
+        .expect(400);
+    });
+    it("single-entry grant then revoke flows are unchanged (same response shapes)", async () => {
+      const principalId = crypto.randomUUID();
+      const grantResponse = await request(baseURL)
+        .put(`/api/projects/${projectId}/access`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ entries: [{ principalType: "user", principalId, role: "edit" }] })
+        .expect(200);
+      expect(grantResponse.body).toMatchObject({ success: true });
+      expect(grantResponse.body.data).toHaveLength(1);
+      expect(grantResponse.body.data[0]).toMatchObject({
+        projectId,
+        principalType: "user",
+        principalId,
+        role: "edit",
+      });
+
+      const revokeResponse = await request(baseURL)
+        .delete(`/api/projects/${projectId}/access`)
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ entries: [{ principalType: "user", principalId }] })
+        .expect(200);
+      expect(revokeResponse.body).toMatchObject({
+        success: true,
+        message: "Access revoked successfully",
+      });
+      const [remaining] = await db
+        .select()
+        .from(schema.projectAccess)
+        .where(
+          eq(schema.projectAccess.projectId, projectId)
+        );
+      expect(remaining).toBeUndefined();
+    });
+    it("a grant batch with one invalid entry applies nothing — the transaction rolls back", async () => {
+      // Bypasses the route's Zod validation (which would reject an
+      // out-of-band role before it ever reaches the service) to exercise
+      // the service-level transactional guarantee directly: a mid-loop DB
+      // failure (role exceeds the varchar(20) column) must roll back the
+      // entries that already succeeded in the same call.
+      const validId1 = crypto.randomUUID();
+      const validId2 = crypto.randomUUID();
+      const badId = crypto.randomUUID();
+      const entries = [
+        { principalType: "user" as const, principalId: validId1, role: "view" as const },
+        { principalType: "user" as const, principalId: validId2, role: "edit" as const },
+        {
+          principalType: "user" as const,
+          principalId: badId,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- deliberately invalid to force a DB-level failure mid-loop
+          role: "x".repeat(25) as any,
+        },
+      ];
+
+      await expect(
+        projectService.grantProjectAccess(projectId, userId, entries)
+      ).rejects.toThrow();
+
+      const acl = await db
+        .select()
+        .from(schema.projectAccess)
+        .where(eq(schema.projectAccess.projectId, projectId));
+      expect(acl).toHaveLength(0);
+    });
+  });
 });

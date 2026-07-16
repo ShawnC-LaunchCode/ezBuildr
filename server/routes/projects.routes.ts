@@ -379,9 +379,9 @@ export function registerProjectRoutes(app: Express): void {
       const schema = z.object({
         entries: z.array(z.object({
           principalType: z.enum(['user', 'team']),
-          principalId: z.string(),
+          principalId: z.string().uuid(),
           role: z.enum(['view', 'edit', 'owner']),
-        })),
+        })).min(1).max(50),
       });
 
       const { entries } = schema.parse(req.body);
@@ -422,8 +422,8 @@ export function registerProjectRoutes(app: Express): void {
       const schema = z.object({
         entries: z.array(z.object({
           principalType: z.enum(['user', 'team']),
-          principalId: z.string(),
-        })),
+          principalId: z.string().uuid(),
+        })).min(1).max(50),
       });
 
       const { entries } = schema.parse(req.body);
