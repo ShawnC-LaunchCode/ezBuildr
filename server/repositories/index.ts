@@ -20,7 +20,7 @@ export { AdminOrgStatsRepository, adminOrgStatsRepository } from "./AdminOrgStat
 export { SystemStatsRepository, systemStatsRepository } from "./SystemStatsRepository";
 
 // Vault-Logic Workflow repositories
-export { ProjectRepository, projectRepository, type ProjectListOptions } from "./ProjectRepository";
+export { ProjectRepository, projectRepository, type ProjectListOptions, type ProjectWithOwnerName } from "./ProjectRepository";
 export { WorkflowRepository, workflowRepository } from "./WorkflowRepository";
 export { SectionRepository, sectionRepository } from "./SectionRepository";
 export { StepRepository, stepRepository } from "./StepRepository";

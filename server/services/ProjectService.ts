@@ -10,6 +10,7 @@ import {
   projectAccessRepository,
   type DbTransaction,
   type ProjectListOptions,
+  type ProjectWithOwnerName,
 } from "../repositories";
 import { canCreateWithOwnership, canManageOrg, isOrgMember } from "../utils/ownershipAccess";
 
@@ -120,19 +121,19 @@ export class ProjectService {
   /**
    * List all projects for a user
    */
-  async listProjects(creatorId: string, options: ProjectListOptions = {}): Promise<Project[]> {
+  async listProjects(creatorId: string, options: ProjectListOptions = {}): Promise<ProjectWithOwnerName[]> {
     return this.projectRepo.findByCreatorId(creatorId, options);
   }
   /**
    * List active (non-archived) projects for a user
    */
-  async listActiveProjects(creatorId: string, options: ProjectListOptions = {}): Promise<Project[]> {
+  async listActiveProjects(creatorId: string, options: ProjectListOptions = {}): Promise<ProjectWithOwnerName[]> {
     return this.projectRepo.findActiveByCreatorId(creatorId, options);
   }
   /**
    * List projects owned by a specific organization.
    */
-  async listOrganizationProjects(orgId: string, userId: string, activeOnly = true): Promise<Project[]> {
+  async listOrganizationProjects(orgId: string, userId: string, activeOnly = true): Promise<ProjectWithOwnerName[]> {
     const isMember = await isOrgMember(userId, orgId);
     if (!isMember) {
       throw new Error("Access denied - you do not have permission to access this organization");

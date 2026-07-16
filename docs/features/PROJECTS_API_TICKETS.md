@@ -707,9 +707,24 @@ still-used `findByOwner`/`findByCreatorId`/`findActiveByCreatorId`.
 
 ---
 
-## PROJ-8 — Consolidate list methods & type the ownerName join (was B2 + B5) 🔲
+## PROJ-8 — Consolidate list methods & type the ownerName join (was B2 + B5) ✅
 
 **Priority: P2** · Size: M · Files: `server/repositories/ProjectRepository.ts`, `server/services/ProjectService.ts`
+
+> **Verified & closed 2026-07-15 (reviewer).** One private
+> `buildOwnershipWhere(db, creatorId, orgIds, activeOnly)` helper now backs both
+> `findByCreatorId` and `findActiveByCreatorId`; `statusCondition` is `undefined`
+> when `activeOnly=false` and `and()` drops it, so each branch reproduces the
+> old SQL exactly. Reviewer traced all four ownership branches (user/org/ACL/legacy)
+> against the pre-consolidation code — equivalent — and confirmed
+> `findActiveByCreatorId` keeps PROJ-4's `.$dynamic().limit(limit+1)` +
+> `(createdAt,id)` keyset/ordering (the active list now also does the org join
+> and returns `ownerName`, the one intended additive change). `ProjectWithOwnerName`
+> exported and used across `findByCreatorId`/`findActiveByCreatorId`/`findByOwner`
+> and the three ProjectService list return types; all `as any` gone
+> (`grep "as any"` → empty). Reviewer re-ran the gate: `type-check` 0 errors, no
+> new suppressions, `lint` clean, `api.projects.test.ts` **19/19** (both PROJ-4
+> pagination tests + new active-list `ownerName` assertion green).
 
 ### Finding
 
@@ -881,7 +896,7 @@ lost.
 | PROJ-3 | Transfer cascade not atomic | ✅ done | verified + committed 2026-07-15 |
 | PROJ-4 | Fake cursor pagination | ✅ done | verified + committed 2026-07-15 |
 | PROJ-7 | Remove dead repository methods (B1) | ✅ done | verified + committed 2026-07-15 |
-| PROJ-8 | Consolidate list methods + type join (B2+B5) | 🔲 open | Phase 3 — after PROJ-7 |
+| PROJ-8 | Consolidate list methods + type join (B2+B5) | ✅ done | verified + committed 2026-07-15 |
 | PROJ-9 | Validate ACL principals + transactional grant/revoke (B3) | 🔲 open | Phase 3 — after PROJ-8 |
 | PROJ-5 | DELETE claims hard delete | ✅ done | verified + committed 2026-07-15 |
 | PROJ-6 | PUT/PATCH duplicate handlers | ✅ done | verified + committed 2026-07-15 |

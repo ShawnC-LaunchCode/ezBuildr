@@ -231,6 +231,50 @@ describe.sequential("Projects API Integration Tests", () => {
       expect(seenIds).toContain(activeProjectId);
       expect(seenIds).not.toContain(archivedProjectId);
     });
+    it("PROJ-8: active list carries ownerName for an org-owned project", async () => {
+      const [org] = await db.insert(schema.organizations).values({
+        name: `Owner Name Org ${nanoid()}`,
+        tenantId,
+        createdByUserId: userId,
+      }).returning();
+      await db.insert(schema.organizationMemberships).values({
+        orgId: org.id,
+        userId,
+        role: "admin",
+      });
+      const createResponse = await request(baseURL)
+        .post("/api/projects")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ name: `Org Owned ${nanoid()}`, ownerType: "org", ownerUuid: org.id })
+        .expect(201);
+      const orgProjectId = createResponse.body.id;
+
+      const seenIds: string[] = [];
+      let cursor: string | undefined;
+      let hasMore = true;
+      let match: { id: string; ownerName?: string | null } | undefined;
+      do {
+        const qs = cursor
+          ? `?active=true&limit=5&cursor=${encodeURIComponent(cursor)}`
+          : "?active=true&limit=5";
+        const response = await request(baseURL)
+          .get(`/api/projects${qs}`)
+          .set("Authorization", `Bearer ${authToken}`)
+          .expect(200);
+        for (const item of response.body.items) {
+          seenIds.push(item.id);
+          if (item.id === orgProjectId) {
+            match = item;
+          }
+        }
+        hasMore = response.body.hasMore;
+        cursor = response.body.nextCursor ?? undefined;
+      } while (hasMore && !match);
+
+      expect(seenIds).toContain(orgProjectId);
+      expect(match).toBeDefined();
+      expect(match?.ownerName).toBe(org.name);
+    });
     it("PROJ-4: returns 400 for a garbage cursor instead of silently returning the first page", async () => {
       const response = await request(baseURL)
         .get("/api/projects?cursor=invalid-cursor")
