@@ -75,7 +75,8 @@ them inside a ticket — if implementation reveals a conflict, stop and escalate
 |---|---|---|---|
 | 1 | Authorization & data-integrity correctness | PROJ-1..3 | ~2 dev-days |
 | 2 | API contract & route hygiene | PROJ-4..6 | ~1 dev-day |
-| Backlog | Not phase-gated | B1..B6 | — |
+| 3 | Repository & ACL cleanup (from backlog) | PROJ-7..9 | ~1 dev-day |
+| Backlog | Not phase-gated (B4/B6 parked) | B4, B6 | — |
 
 ---
 
@@ -657,38 +658,204 @@ dedupe whatever remains.
 
 ---
 
+# Phase 3 — Repository & ACL cleanup
+
+Promoted from Backlog B1/B2/B3/B5 on 2026-07-15 at Shawn's direction (B4/B6
+stay parked — they're ownership-model decisions for the multi-org work). No
+authorization or contract behavior changes in this phase; these are dead-code
+removal, type hardening, and input validation. Reviewer merged B2+B5 into one
+ticket (PROJ-8) because both rework the same two list methods. All `file:line`
+refs re-verified against the working tree after PROJ-1..6 landed.
+
+## PROJ-7 — Remove dead repository methods (was B1) 🔲
+
+**Priority: P2 (dead code)** · Size: S · File: `server/repositories/ProjectRepository.ts`
+
+### Finding
+
+`ProjectRepository.findByStatus` (`ProjectRepository.ts:132`) and
+`findByCreatorAndStatus` (`:143`) have zero callers repo-wide — a
+`grep` for both names returns only their definitions plus the unrelated
+same-named methods on `WorkflowRepository` (a different class). They are
+plain dead code.
+
+### Preferred fix
+
+Delete both methods and their JSDoc. Nothing else — do not touch the
+still-used `findByOwner`/`findByCreatorId`/`findActiveByCreatorId`.
+
+### Ties
+
+- PROJ-8 also edits this file (the list methods) — sequence PROJ-8 after this
+  ticket to keep diffs clean.
+- Load skills: `add-api-endpoint`, `run-tests`.
+
+### Acceptance criteria
+
+1. `findByStatus` and `findByCreatorAndStatus` are gone from
+   `ProjectRepository`; `grep -rn "findByStatus\|findByCreatorAndStatus"
+   server/repositories/ProjectRepository.ts` returns nothing.
+2. No caller anywhere breaks (there were none) — `npm run type-check` 0 errors.
+3. `npm run lint` clean; `npm run test:fast` green.
+
+---
+
+## PROJ-8 — Consolidate list methods & type the ownerName join (was B2 + B5) 🔲
+
+**Priority: P2** · Size: M · Files: `server/repositories/ProjectRepository.ts`, `server/services/ProjectService.ts`
+
+### Finding
+
+Two related problems in the same code:
+
+**Duplication + shape asymmetry (B5).** `findByCreatorId`
+(`ProjectRepository.ts:47-128`) and `findActiveByCreatorId` (`:158-238`) build
+a near-identical ownership `conditions` array + `sharedProjectIds` subquery,
+differing only by an `eq(projects.status,'active')` predicate. They have
+already drifted: `findByCreatorId` left-joins `organizations` and returns
+`ownerName`, but `findActiveByCreatorId` does a plain
+`.select().from(projects)` with **no `ownerName`** — so the "all" list and the
+"active" list return differently-shaped rows for the same UI.
+
+**Untyped join results (B2).** Because `ownerName` isn't on the `Project`
+type, `findByCreatorId` (`:126-127`) and `findByOwner` (`:272-273`) both end
+with `return results as any` behind an eslint-disable.
+
+### Preferred fix
+
+1. Define and export `type ProjectWithOwnerName = Project & { ownerName:
+   string | null }` in `ProjectRepository.ts`.
+2. Extract one private helper that builds the ownership `conditions` +
+   `sharedProjectIds` subquery, parameterized by `creatorId`, `orgIds`, and an
+   `activeOnly: boolean` that appends `eq(projects.status,'active')` — preserve
+   today's exact row set. Reimplement `findByCreatorId` and
+   `findActiveByCreatorId` on it; **both** now include the `organizations` left
+   join and return `ProjectWithOwnerName[]` (this intentionally fixes the
+   missing-`ownerName` asymmetry on the active list — call it out in the
+   turn-in). Keep the PROJ-4 keyset/ordering/`limit+1` logic intact and
+   identical across both.
+3. Type `findByOwner`'s return as `ProjectWithOwnerName[]` too. Remove all
+   `as any` casts and their eslint-disable lines — prefer a typed
+   `.select({ ...getTableColumns(projects), ownerName: organizations.name })`
+   over any cast; if a cast is truly unavoidable, cast to the named type,
+   never `any`.
+4. Update `ProjectService.listProjects`/`listActiveProjects`/
+   `listOrganizationProjects` return types to `Promise<ProjectWithOwnerName[]>`
+   (they currently claim `Promise<Project[]>` while returning the wider rows).
+   The route JSON shape is unchanged for the "all" list and `findByOwner`; the
+   active list *gains* `ownerName`, which is additive — do not change route code.
+
+### Ties
+
+- Sequence **after** PROJ-7 (same file).
+- Touches `ProjectService.ts` return types — coordinate with PROJ-9 (also in
+  that file); sequence PROJ-9 after this or keep the edits disjoint.
+- Backlog B4/B6 are out of scope.
+- Load skills: `add-api-endpoint`, `run-tests`.
+
+### Acceptance criteria
+
+1. The ownership `conditions`/`sharedProjectIds` logic exists in exactly one
+   place; `findByCreatorId`/`findActiveByCreatorId` both call the shared helper.
+2. `grep -rn "as any" server/repositories/ProjectRepository.ts` returns
+   nothing; the `no-explicit-any` eslint-disables in this file are gone.
+3. `findActiveByCreatorId` returns the same **rows** as before for all
+   ownership paths (user-owned, org-owned, ACL-shared incl. team, legacy
+   fallback) and still excludes archived rows — now with `ownerName` populated
+   for org-owned rows. Cursor pagination from PROJ-4 still works on both.
+4. Existing `api.projects.test.ts` pagination/list tests stay green; add an
+   assertion that the active list now carries `ownerName` for an org-owned
+   project.
+5. `npm run type-check` 0 errors (no new suppressions anywhere);
+   `npm run lint` clean; `api.projects.test.ts` green.
+
+---
+
+## PROJ-9 — Validate ACL principals & make grant/revoke transactional (was B3) 🔲
+
+**Priority: P2** · Size: M · Files: `server/routes/projects.routes.ts`, `server/services/ProjectService.ts`
+
+### Finding
+
+The project-access endpoints under-validate input and write
+non-atomically:
+
+- `PUT /:projectId/access` (`projects.routes.ts:374-393`) and
+  `DELETE /:projectId/access` (`:417-430`) validate `principalId` as bare
+  `z.string()` (`:382`, `:425`) — no UUID check and no existence check in the
+  service, so a typo upserts a dead row into `project_access`.
+- `grantProjectAccess` (`ProjectService.ts:242-261`) types `role` as
+  `string` (`:245`) rather than the `'view'|'edit'|'owner'` union, so a
+  non-route caller could write an arbitrary role.
+- Both `grantProjectAccess` (`:250-259`) and `revokeProjectAccess`
+  (`:272-279`) loop over `entries` doing sequential upserts/deletes with an
+  optional `tx` the routes never pass — if entry 3 of 5 fails, entries 1–2 are
+  already applied (partial ACL change with a 500).
+
+### Preferred fix
+
+1. Routes: tighten `principalId: z.string().uuid()` on both access endpoints,
+   and cap `entries` with `.min(1).max(50)`.
+2. Service: change `grantProjectAccess`'s `role: string` to the proper union
+   (`Exclude<AccessRole,'none'>` or `'view'|'edit'|'owner'` — match how
+   `@shared/schema` defines `AccessRole`). Wrap each entry loop in one
+   `db.transaction`, passing `tx` to every `projectAccessRepo` call — but
+   preserve the existing optional `tx?` param: if a caller already supplies a
+   `tx`, use it instead of opening a nested transaction. **Gotcha:** every
+   query inside the transaction callback must use `tx` (size-1 test-pool
+   deadlock — same rule PROJ-3 followed).
+3. Do not change the owner-gate ordering: `verifyProjectAccess(...,'owner')`
+   stays the first await in each method.
+
+### Ties
+
+- Coordinate with PROJ-8 (both edit `ProjectService.ts`, different methods) —
+  sequence after it.
+- Load skills: `add-api-endpoint`, `run-tests`.
+
+### Acceptance criteria
+
+1. `PUT /:projectId/access` with a non-UUID `principalId` returns **400** with
+   Zod details; an out-of-enum `role` is a compile error at the service
+   boundary and a 400 at the route.
+2. Granting `[valid, valid, invalid-role-or-shape]` applies **nothing** (the
+   transaction rolls back) — verified by reading back the ACL list.
+3. An `entries` array over the cap returns 400; single-entry grant/revoke
+   flows are behaviorally unchanged (same response shapes).
+4. New integration tests in `api.projects.test.ts` (or a sibling) assert 1–3;
+   existing access tests stay green.
+5. `npm run type-check` 0 errors; `npm run lint` clean;
+   `npm run test:integration` green for the projects file.
+
+---
+
+## Phase 3 Gate
+
+- [ ] PROJ-7, PROJ-8, PROJ-9 all ✅ with dated verification notes
+- [ ] `api.projects.test.ts` green; `npm run test:fast` green;
+      `npm run type-check` 0 errors; `npm run lint` 0 errors
+- [ ] Reviewer has committed each passed ticket + this gate
+
+---
+
 # Backlog / observations
 
 Too small or too judgment-dependent for tickets now; recorded so they aren't
 lost.
 
-- **B1 — Dead repository methods.** `ProjectRepository.findByStatus`
-  (`ProjectRepository.ts:92`) and `findByCreatorAndStatus` (:103) have zero
-  callers repo-wide (grep verified). Delete when convenient.
-- **B2 — `as any` returns in ProjectRepository.** `findByCreatorId` returns
-  `results as any` (:87) and `findByOwner` likewise (:221) because
-  `ownerName` isn't on the `Project` type. Type the join result properly
-  (define a `ProjectWithOwnerName` return type) — matches the repo-wide
-  any-type cleanup effort already in progress.
-- **B3 — ACL grant accepts unvalidated principals.** `PUT
-  /:projectId/access` takes `principalId: z.string()`
-  (`projects.routes.ts:392`) with no UUID check and no existence check in
-  `grantProjectAccess` (`ProjectService.ts:210-229`), so garbage rows can be
-  upserted into `project_access`. Low blast radius (owner-only endpoint) but
-  worth a validation pass; also the loop does N sequential upserts that could
-  be one transaction.
+- **B1 — Dead repository methods.** → **Promoted to PROJ-7** (2026-07-15).
+- **B2 — `as any` returns in ProjectRepository.** → **Promoted to PROJ-8**
+  (merged with B5, 2026-07-15).
+- **B3 — ACL grant accepts unvalidated principals.** → **Promoted to PROJ-9**
+  (2026-07-15).
 - **B4 — Legacy creator fields grant permanent owner rights.**
   `AclService.resolveRoleForProject:85-92` treats `createdBy`/`creatorId` as
   owner forever, so no transfer or ACL revocation can ever fully remove the
   original creator. Deliberate-looking (legacy back-compat) but it undermines
   transfer semantics — decide posture when the ownership model is next
   revisited (ties into the multi-org isolation exploration).
-- **B5 — `findByCreatorId` vs `findActiveByCreatorId` duplication.** ~60
-  lines of near-identical condition-building
-  (`ProjectRepository.ts:20-88` vs :118-186) that will drift; also the
-  active variant drops the `ownerName` join the other has, so the two lists
-  return differently-shaped rows. Fold into one method with an
-  `activeOnly` flag when next touched (PROJ-4 may do this naturally).
+- **B5 — `findByCreatorId` vs `findActiveByCreatorId` duplication.** →
+  **Promoted to PROJ-8** (merged with B2, 2026-07-15).
 - **B6 — Deleted vs archived distinction.** Per Decision #3: DELETE and
   archive currently produce identical rows, so an `edit`-role user can
   unarchive an owner-deleted project. Closing this properly needs a
@@ -706,6 +873,9 @@ lost.
 | PROJ-2 | Remove legacy owner-transfer endpoint | ✅ done | verified + committed 2026-07-15 |
 | PROJ-3 | Transfer cascade not atomic | ✅ done | verified + committed 2026-07-15 |
 | PROJ-4 | Fake cursor pagination | ✅ done | verified + committed 2026-07-15 |
+| PROJ-7 | Remove dead repository methods (B1) | 🔲 open | Phase 3 — ready to dispatch |
+| PROJ-8 | Consolidate list methods + type join (B2+B5) | 🔲 open | Phase 3 — after PROJ-7 |
+| PROJ-9 | Validate ACL principals + transactional grant/revoke (B3) | 🔲 open | Phase 3 — after PROJ-8 |
 | PROJ-5 | DELETE claims hard delete | ✅ done | verified + committed 2026-07-15 |
 | PROJ-6 | PUT/PATCH duplicate handlers | ✅ done | verified + committed 2026-07-15 |
 
