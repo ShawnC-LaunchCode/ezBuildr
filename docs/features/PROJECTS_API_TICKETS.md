@@ -186,9 +186,19 @@ Per Decision #1, both halves:
 
 ---
 
-## PROJ-2 — Remove the legacy ownership-transfer endpoint (it never actually transfers) 🔲
+## PROJ-2 — Remove the legacy ownership-transfer endpoint (it never actually transfers) ✅
 
 **Priority: P1** · Size: S–M · Files: `server/routes/projects.routes.ts`, `server/services/ProjectService.ts`
+
+> **Verified & closed 2026-07-15 (reviewer).** Per Decision #2 the endpoint was
+> removed, not repaired: `PUT /:projectId/owner` handler + inline schema deleted,
+> `ProjectService.transferProjectOwnership` deleted, `EPIC4_TEAMS_SHARING_TESTING.md`
+> curl example repointed to `POST /:projectId/transfer` (workflow `/owner`
+> untouched; API_ENDPOINTS.md/API.md never documented the project endpoint).
+> Reviewer re-verified: `grep -rn transferProjectOwnership server/ client/ tests/`
+> → nothing; `type-check` 0 errors; `lint` clean (confirms no orphaned imports);
+> `api.projects.test.ts` + `transferOwnership.test.ts` **24/24 passed**, the
+> latter byte-for-byte unmodified (surviving `/transfer` endpoint intact).
 
 ### Finding
 
@@ -622,7 +632,7 @@ lost.
 | Ticket | Title | Status | Notes |
 |---|---|---|---|
 | PROJ-1 | Update bypasses org-admin archive gate | ✅ done | verified + committed 2026-07-15 |
-| PROJ-2 | Remove legacy owner-transfer endpoint | 🔲 open | Decision #2 resolved — ready to dispatch |
+| PROJ-2 | Remove legacy owner-transfer endpoint | ✅ done | verified + committed 2026-07-15 |
 | PROJ-3 | Transfer cascade not atomic | 🔲 open | coordinate with PROJ-2 (same file) |
 | PROJ-4 | Fake cursor pagination | 🔲 open | Phase 2, after PROJ-6 |
 | PROJ-5 | DELETE claims hard delete | 🔲 open | Decision #3 resolved — ready to dispatch |

@@ -251,26 +251,6 @@ export class ProjectService {
     }
   }
   /**
-   * Transfer project ownership to another user
-   * Only current owner can transfer ownership
-   */
-  async transferProjectOwnership(
-    projectId: string,
-    currentOwnerId: string,
-    newOwnerId: string,
-    tx?: DbTransaction
-  ): Promise<Project> {
-    const project = await this.verifyProjectAccess(projectId, currentOwnerId, 'owner');
-    await this.requireOrgAdminForOrgOwnedProject(project, currentOwnerId, 'transfer');
-    return this.projectRepo.update(
-      projectId,
-      {
-        ownerId: newOwnerId,
-      },
-      tx
-    );
-  }
-  /**
    * Transfer project ownership (new ownership model)
    * Cascades to all child workflows AND their runs
    *

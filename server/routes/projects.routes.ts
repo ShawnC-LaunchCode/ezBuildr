@@ -453,40 +453,6 @@ export function registerProjectRoutes(app: Express): void {
   }));
 
   /**
-   * PUT /api/projects/:projectId/owner
-   * Transfer project ownership
-   * Body: { userId: string }
-   */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  app.put('/api/projects/:projectId/owner', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const user = (req as UserRequest).user;
-      const { projectId } = req.params;
-
-      const schema = z.object({
-        userId: z.string(),
-      });
-
-      const { userId: newOwnerId } = schema.parse(req.body);
-      const project = await projectService.transferProjectOwnership(projectId, user.id, newOwnerId);
-      res.json({ success: true, data: project });
-    } catch (error) {
-      logger.error({ error }, "Error transferring project ownership");
-
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          error: ERR_INVALID_INPUT,
-          details: error.errors,
-        });
-      }
-
-      const { status, message } = classifyRouteError(error, "Failed to transfer project ownership");
-      res.status(status).json({ success: false, error: message });
-    }
-  }));
-
-  /**
    * POST /api/projects/:projectId/transfer
    * Transfer project ownership (new ownership model)
    * Cascades to all child workflows
