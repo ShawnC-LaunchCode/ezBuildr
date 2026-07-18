@@ -291,3 +291,154 @@ describe("aggregate size caps (ICW-11)", () => {
     expect(overflow.body.message).toMatch(/question limit reached/i);
   });
 });
+
+describe("edit role required for structural mutations (ICW2-1)", () => {
+  let workflowId: string;
+  let sectionId: string;
+  let sharedAgent: ReturnType<typeof createAuthenticatedAgent>;
+  let aclEntryId: string;
+
+  beforeAll(async () => {
+    // Unfiled workflow owned by the main user, so the shared user's only
+    // access comes from the direct workflow ACL row inserted below (no
+    // project-role inheritance in play).
+    const wfRes = await agent.post("/api/workflows").send({ title: `ACL WF ${nanoid()}` });
+    expect(wfRes.status).toBe(201);
+    workflowId = wfRes.body.id as string;
+
+    const secRes = await agent
+      .post(`/api/workflows/${workflowId}/sections`)
+      .send({ title: "Owner section" });
+    expect(secRes.status).toBe(201);
+    sectionId = secRes.body.id as string;
+
+    // 'builder' tenant role so tenant RBAC is not the limiter — the ACL role is.
+    const sharedUser = await createTestUser(ctx, "builder");
+    sharedAgent = createAuthenticatedAgent(ctx.baseURL, sharedUser.token);
+
+    const [aclEntry] = await db
+      .insert(schema.workflowAccess)
+      .values({
+        workflowId,
+        principalType: "user",
+        principalId: sharedUser.userId,
+        role: "view",
+      })
+      .returning();
+    aclEntryId = aclEntry.id;
+  });
+
+  it("view role can read but gets 403 on section and step mutations", async () => {
+    const read = await sharedAgent.get(`/api/workflows/${workflowId}`);
+    expect(read.status).toBe(200);
+
+    const createSection = await sharedAgent
+      .post(`/api/workflows/${workflowId}/sections`)
+      .send({ title: "Not allowed" });
+    expect(createSection.status).toBe(403);
+    expect(createSection.body.message).toMatch(/access denied/i);
+
+    const createStep = await sharedAgent
+      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
+      .send({ type: "short_text", title: "Not allowed" });
+    expect(createStep.status).toBe(403);
+
+    const reorder = await sharedAgent
+      .put(`/api/workflows/${workflowId}/sections/reorder`)
+      .send({ sections: [{ id: sectionId, order: 3 }] });
+    expect(reorder.status).toBe(403);
+  });
+
+  it("the same mutations succeed once the ACL role is raised to edit", async () => {
+    await db
+      .update(schema.workflowAccess)
+      .set({ role: "edit" })
+      .where(eq(schema.workflowAccess.id, aclEntryId));
+
+    const createSection = await sharedAgent
+      .post(`/api/workflows/${workflowId}/sections`)
+      .send({ title: "Editor section" });
+    expect(createSection.status).toBe(201);
+
+    const createStep = await sharedAgent
+      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
+      .send({ type: "short_text", title: "Editor question" });
+    expect(createStep.status).toBe(201);
+  });
+});
+
+describe("reorder ids are scoped to their workflow/section (ICW2-1)", () => {
+  it("section reorder containing a foreign workflow's section id → 404, no rows changed", async () => {
+    const mine = await makeWorkflowWithSection();
+    const other = await makeWorkflowWithSection();
+
+    const orderOf = async (id: string): Promise<number> => {
+      const [row] = await db
+        .select({ order: schema.sections.order })
+        .from(schema.sections)
+        .where(eq(schema.sections.id, id));
+      return row.order;
+    };
+    const mineBefore = await orderOf(mine.sectionId);
+    const otherBefore = await orderOf(other.sectionId);
+
+    const res = await agent
+      .put(`/api/workflows/${mine.workflowId}/sections/reorder`)
+      .send({
+        sections: [
+          { id: mine.sectionId, order: 7 },
+          { id: other.sectionId, order: 9 },
+        ],
+      });
+    expect(res.status).toBe(404);
+    expect(res.body.message).toMatch(/not found/i);
+
+    // The foreign row is untouched, and the transactional reorder rolled back
+    // the in-scope update too.
+    expect(await orderOf(other.sectionId)).toBe(otherBefore);
+    expect(await orderOf(mine.sectionId)).toBe(mineBefore);
+  });
+
+  it("step reorder containing a step id from another section → 404, no rows changed", async () => {
+    const { workflowId, sectionId } = await makeWorkflowWithSection();
+    const otherSecRes = await agent
+      .post(`/api/workflows/${workflowId}/sections`)
+      .send({ title: "Section B" });
+    expect(otherSecRes.status).toBe(201);
+    const otherSectionId = otherSecRes.body.id as string;
+
+    const mkStep = async (secId: string, title: string): Promise<string> => {
+      const res = await agent
+        .post(`/api/workflows/${workflowId}/sections/${secId}/steps`)
+        .send({ type: "short_text", title });
+      expect(res.status).toBe(201);
+      return res.body.id as string;
+    };
+    const myStepId = await mkStep(sectionId, "Mine");
+    const foreignStepId = await mkStep(otherSectionId, "Foreign");
+
+    const orderOf = async (id: string): Promise<number> => {
+      const [row] = await db
+        .select({ order: schema.steps.order })
+        .from(schema.steps)
+        .where(eq(schema.steps.id, id));
+      return row.order;
+    };
+    const myBefore = await orderOf(myStepId);
+    const foreignBefore = await orderOf(foreignStepId);
+
+    const res = await agent
+      .put(`/api/workflows/${workflowId}/sections/${sectionId}/steps/reorder`)
+      .send({
+        steps: [
+          { id: myStepId, order: 4 },
+          { id: foreignStepId, order: 5 },
+        ],
+      });
+    expect(res.status).toBe(404);
+    expect(res.body.message).toMatch(/not found/i);
+
+    expect(await orderOf(foreignStepId)).toBe(foreignBefore);
+    expect(await orderOf(myStepId)).toBe(myBefore);
+  });
+});

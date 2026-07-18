@@ -295,7 +295,7 @@ describe("StepService", () => {
         service.createStep(workflow.id, section.id, "other-user", newStepData)
       ).rejects.toThrow("Access denied");
 
-      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "other-user");
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "other-user", "edit");
     });
   });
 

@@ -64,7 +64,31 @@ a reference is stale.
 Small, high-ROI fixes. No redesign. ICW2-1 and ICW2-5 both touch
 `StepService.ts` — work them sequentially (1 then 5).
 
-## ICW2-1 — Section/step mutations require only `view`; reorder IDs unscoped 🔲
+## Verification pass — 2026-07-18 (ICW2-1)
+
+Dev implementation reviewed against the tree; the fix matched the preferred
+fix exactly (all 11 mutating call sites now pass `'edit'`; read paths stay
+`view`; both `updateOrder` repo methods scope by parent id with the standard
+"not found" phrasing). **Gap closed by reviewer:** AC1/AC2 integration tests
+were missing — added 4 cases to `tests/integration/creation-routes.test.ts`
+(view-role reads 200 / mutations 403 via a direct `workflow_access` ACL row on
+an unfiled workflow; same ops succeed after raising the row to `edit`;
+section- and step-reorder payloads with foreign ids → 404 with all `order`
+values proven unchanged).
+
+- **Gate:** `npm run type-check` → 0 errors (pre-concurrent-WIP tree) ·
+  `npm run test:fast` → 1678 passed · touched unit files 29/29 ·
+  `creation-routes.test.ts` 20/20 · `creation-limits-reorder.test.ts` +
+  `creation-routes.test.ts` full pass 21/21 earlier same day (Docker PG 5434).
+- **Commit note:** `StepService.ts` was staged hunk-selectively — the working
+  tree already contained ICW2-5's in-progress order-recompute hunk, which is
+  NOT part of this commit (and currently trips `complexity`/
+  `cognitive-complexity` lint at `updateStep` — ICW2-5's dev must resolve
+  before their turn-in).
+
+**Result: ICW2-1 closed.**
+
+## ICW2-1 — Section/step mutations require only `view`; reorder IDs unscoped ✅
 
 **Priority: P0 (security-adjacent bug)** · Size: S–M · Files:
 `server/services/SectionService.ts`, `server/services/StepService.ts`,

@@ -1,4 +1,4 @@
-import { eq, asc, sql } from "drizzle-orm";
+import { eq, asc, sql, and } from "drizzle-orm";
 
 import { sections, type Section, type InsertSection } from "@shared/schema";
 
@@ -52,14 +52,14 @@ export class SectionRepository extends BaseRepository<typeof sections, Section, 
   /**
    * Update section order
    */
-  async updateOrder(sectionId: string, order: number, tx?: DbTransaction): Promise<Section> {
+  async updateOrder(sectionId: string, workflowId: string, order: number, tx?: DbTransaction): Promise<Section> {
     const database = this.getDb(tx);
     const [updated] = await database
       .update(sections)
       .set({ order })
-      .where(eq(sections.id, sectionId))
+      .where(and(eq(sections.id, sectionId), eq(sections.workflowId, workflowId)))
       .returning();
-    if (updated == null) {throw new Error("Failed to update section order");}
+    if (updated == null) {throw new Error("Section not found");}
     return updated;
   }
 

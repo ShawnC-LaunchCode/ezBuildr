@@ -40,7 +40,7 @@ export class SectionService {
     userId: string,
     data: CreateSectionData
   ): Promise<Section> {
-    await this.workflowSvc.verifyAccess(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
 
     // Get current sections to determine next order
     const existingSections = await this.sectionRepo.findByWorkflowId(workflowId);
@@ -69,7 +69,7 @@ export class SectionService {
     userId: string,
     data: Partial<InsertSection>
   ): Promise<Section> {
-    await this.workflowSvc.verifyAccess(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
 
     const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
     if (!section) {
@@ -83,7 +83,7 @@ export class SectionService {
    * Delete section
    */
   async deleteSection(sectionId: string, workflowId: string, userId: string): Promise<void> {
-    await this.workflowSvc.verifyAccess(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
 
     const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
     if (!section) {
@@ -101,12 +101,12 @@ export class SectionService {
     userId: string,
     sectionOrders: Array<{ id: string; order: number }>
   ): Promise<void> {
-    await this.workflowSvc.verifyAccess(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
 
     // Update each section's order
     await db.transaction(async (tx) => {
       for (const { id, order } of sectionOrders) {
-        await this.sectionRepo.updateOrder(id, order, tx);
+        await this.sectionRepo.updateOrder(id, workflowId, order, tx);
       }
     });
   }
@@ -159,7 +159,7 @@ export class SectionService {
       throw new Error(SECTION_NOT_FOUND);
     }
 
-    await this.workflowSvc.verifyAccess(section.workflowId, userId);
+    await this.workflowSvc.verifyAccess(section.workflowId, userId, 'edit');
     return this.sectionRepo.update(sectionId, data);
   }
 
@@ -172,7 +172,7 @@ export class SectionService {
       throw new Error(SECTION_NOT_FOUND);
     }
 
-    await this.workflowSvc.verifyAccess(section.workflowId, userId);
+    await this.workflowSvc.verifyAccess(section.workflowId, userId, 'edit');
     await this.sectionRepo.delete(sectionId);
   }
 }

@@ -130,7 +130,7 @@ export class StepService {
     userId: string,
     data: CreateStepData
   ): Promise<Step> {
-    await this.workflowSvc.verifyAccess(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
 
     // Verify section belongs to workflow
     const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
@@ -196,7 +196,7 @@ export class StepService {
     userId: string,
     data: Partial<InsertStep>
   ): Promise<Step> {
-    await this.workflowSvc.verifyAccess(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
 
     const step = await this.stepRepo.findById(stepId);
     if (!step) {
@@ -276,7 +276,7 @@ export class StepService {
    * Delete step
    */
   async deleteStep(stepId: string, workflowId: string, userId: string): Promise<void> {
-    await this.workflowSvc.verifyAccess(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
 
     const step = await this.stepRepo.findById(stepId);
     if (!step) {
@@ -301,7 +301,7 @@ export class StepService {
     userId: string,
     stepOrders: Array<{ id: string; order: number }>
   ): Promise<void> {
-    await this.workflowSvc.verifyAccess(workflowId, userId);
+    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
 
     // Verify section belongs to workflow
     const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
@@ -312,7 +312,7 @@ export class StepService {
     // Update each step's order
     await db.transaction(async (tx) => {
       for (const { id, order } of stepOrders) {
-        await this.stepRepo.updateOrder(id, order, tx);
+        await this.stepRepo.updateOrder(id, sectionId, order, tx);
       }
     });
   }

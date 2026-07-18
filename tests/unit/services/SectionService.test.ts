@@ -68,7 +68,7 @@ describe("SectionService", () => {
         title: "First Section",
       });
 
-      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123");
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
       // Empty workflow → first section gets order 1.
       expect(mockSectionRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ workflowId: workflow.id, order: 1 })

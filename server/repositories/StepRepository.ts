@@ -128,14 +128,14 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
   /**
    * Update step order
    */
-  async updateOrder(stepId: string, order: number, tx?: DbTransaction): Promise<Step> {
+  async updateOrder(stepId: string, sectionId: string, order: number, tx?: DbTransaction): Promise<Step> {
     const database = this.getDb(tx);
     const [updated] = await database
       .update(steps)
       .set({ order })
-      .where(eq(steps.id, stepId))
+      .where(and(eq(steps.id, stepId), eq(steps.sectionId, sectionId)))
       .returning();
-    if (updated == null) {throw new Error("Failed to update step order");}
+    if (updated == null) {throw new Error("Step not found");}
     return updated;
   }
 
