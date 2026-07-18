@@ -362,9 +362,19 @@ Suggested commit: `fix(creation): phase 1 bug sweep — route error contracts, a
 User-facing reliability and abuse limits. ICW-7 must land **before** ICW-8
 (debouncing without error surfacing widens the silent-loss window).
 
+## Status correction — 2026-07-18
+
+Phase 2 landed in commits `a6315922` and `e054d5af` (2026-07-15) but the
+ticket statuses below were never updated. Marked ✅ per those commits. Caveat:
+**ICW-8's rollout stopped at its first increment** (StepTitleRow +
+PageCard.hooks) — the card editors (DescriptionField, choice option editors)
+still save per-keystroke. That remainder is now tracked as **ICW2-4** in
+`INTERVIEW_CREATION_2_TICKETS.md` (the 2026-07-18 follow-up audit, which also
+re-graded the system).
+
 ---
 
-## ICW-7 — Silent save failures in the builder 🔲
+## ICW-7 — Silent save failures in the builder ✅
 
 **Priority: P0 (UX)** · Size: S · Files: `client/src/lib/queryClient.ts`, `client/src/hooks/api/useSteps.ts`, `useSections.ts`
 
@@ -416,7 +426,7 @@ ICW-8's debounce is the right fix for transient blips.
 
 ---
 
-## ICW-8 — Per-keystroke PATCH storm: debounce builder writes 🔲
+## ICW-8 — Per-keystroke PATCH storm: debounce builder writes ✅ (partial — remainder in ICW2-4)
 
 **Priority: P1** · Size: M · Files: `client/src/components/builder/**` (card editors, `StepTitleRow.tsx`, `PageCard.hooks.ts`), new shared hook
 
@@ -475,7 +485,7 @@ traffic), then the card editors. Multiple PRs are fine within the phase.
 
 ---
 
-## ICW-9 — Step `config` accepted unvalidated: wire validation in log-only mode 🔲
+## ICW-9 — Step `config` accepted unvalidated: wire validation in log-only mode ✅
 
 **Priority: P1** · Size: M · Files: `server/services/StepService.ts`, `server/utils/stepConfigUtils.ts`
 
@@ -529,7 +539,7 @@ stage 1 (observe); ICW-10 is stage 2 (enforce).**
 
 ---
 
-## ICW-10 — Step `config` validation: strict enforcement 🔲
+## ICW-10 — Step `config` validation: strict enforcement ✅
 
 **Priority: P1** · Size: S–M (depends on ICW-9 audit results) · Files: `server/services/StepService.ts`, `shared/validation/stepConfigSchemas.ts`
 
@@ -567,7 +577,7 @@ log-to-store to reject.
 
 ---
 
-## ICW-11 — No aggregate size cap on manual creation 🔲
+## ICW-11 — No aggregate size cap on manual creation ✅
 
 **Priority: P1** · Size: S · Files: `server/services/SectionService.ts`, `server/services/StepService.ts`, `server/services/WorkflowContentIngestService.ts`, `shared/` (constants)
 
@@ -616,7 +626,7 @@ to load wholesale.
 
 ---
 
-## ICW-12 — Reorders: N sequential un-transacted updates 🔲
+## ICW-12 — Reorders: N sequential un-transacted updates ✅
 
 **Priority: P2** · Size: S · Files: `server/services/SectionService.ts`, `server/services/StepService.ts`
 
