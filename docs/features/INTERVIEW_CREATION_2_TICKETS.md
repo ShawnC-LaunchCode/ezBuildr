@@ -157,21 +157,20 @@ workflows' sections/steps — a cross-tenant write.
 
 **Priority: P0 (bug, interim fix)** · Size: S · File: `server/queues/AiRevisionQueue.ts`
 
-> **Review 2026-07-18 — SENT BACK.** The approach is right (normalize-or-warn
-> config, map-based section-rule resolution) — finish these before re-turn-in:
-> 1. **Type error** at `AiRevisionQueue.ts:148`: `StepConfig` is not assignable
->    to `InsertStep`'s `Record<string, any> | null`. Bridge the types properly
->    (e.g. narrow `aiStep.config` to `StepConfig` on the way IN to
->    `validateAndNormalizeConfig`, and convert its return for the insert) —
->    do not keep the `as any`.
-> 2. **2 lint errors** at `:148` (`no-unsafe-argument`, `no-explicit-any`) —
->    fall out of fixing item 1.
-> 3. **ACs 1–3 all require tests at the worker seam** (config persisted with
->    options; section-targeted rule persisted; invalid config → warn + job
->    completes). None exist. Mock the model response; see
->    `tests/integration/ai/` for harness patterns and the `run-tests` skill.
-> 4. Re-run type-check + lint on the file + the new tests, and paste the
->    output in your report per the kickoff hard rules.
+> **Review round 2, 2026-07-18 — SENT BACK again.** Type error fixed ✓,
+> tests written ✓ — but **both new tests FAIL when run**
+> (`tests/integration/ai/AiRevisionQueue.test.ts` 0/2): the real
+> `WorkflowRevisionService.reviseWorkflow` executes and crashes in
+> `estimateTokenCount` (`AIServiceUtils.ts:23`, `text.length` on undefined)
+> because the mock intercepts the wrong seam / returns an incomplete response.
+> You turned in tests without running them — that is kickoff hard-rule 2.
+> 1. Mock so the worker receives a complete `AIGeneratedWorkflow` (mock
+>    `createAIServiceFromEnv` / `AIService.reviseWorkflow` itself, or give the
+>    provider mock a full response with the text fields the revision service
+>    token-counts). Both tests must pass via
+>    `npx vitest run --project integration tests/integration/ai/AiRevisionQueue.test.ts`.
+> 2. New lint error introduced at `AiRevisionQueue.ts:348` (`no-extra-semi`).
+> 3. Paste the actual passing output in your report.
 
 ### Finding
 
@@ -226,16 +225,12 @@ genuinely ambiguous, log a structured warning instead of silently continuing.
 **Priority: P1 (UX)** · Size: S · Files:
 `client/src/components/builder/cards/common/VisibilityField.tsx`, card editors
 
-> **Review 2026-07-18 — SENT BACK.** Behavior is correct (gate removed, same
-> control renders in Easy mode). Finish-up:
-> 1. **Delete** the commented-out gate block (`// if (mode !== 'advanced')…`)
->    — replaced code is deleted, never disabled in place.
-> 2. The `mode` prop is now unused → lint error at `VisibilityField.tsx:20`.
->    Remove it from the interface AND from every call site passing it (grep
->    the card editors), unless you use it for a real easy/advanced divergence.
-> 3. AC1 requires dev-app proof: add/edit/remove a `visibleIf` condition on a
->    step in Easy mode, screenshot attached (`verify` skill).
-> 4. Re-run lint on every touched file + `test:fast`; paste output.
+> **Review round 2, 2026-07-18 — one item left.** Gate deleted ✓, `mode` prop
+> removed from the interface and all 14 card-editor call sites ✓, lint clean ✓.
+> 1. **Delete `clean_mode.cjs`** from the repo root — the bulk-edit helper you
+>    used is scratch and must not ship (turn-in checklist item 4).
+> 2. AC1 live proof still owed (Easy-mode add/edit/remove of a condition,
+>    screenshot) — or note it for the reviewer to verify at the phase gate.
 
 ### Finding
 
@@ -278,23 +273,25 @@ existing one. **UI change → load the `design` skill.**
 
 ## ICW2-4 — Finish the debounce rollout (per-keystroke saves + lost-edit race remain) 🔄
 
-> **Review 2026-07-18 — SENT BACK.** Core rework is good (DescriptionField on
-> the hook with blur flush; `useChoiceConfig` rebuilt with dirty-flag echo
-> suppression — the race fix is real). Finish these:
-> 1. **Lint error** `useChoiceConfig.ts:151` — missing return type.
-> 2. **AC3/AC5:** a consumer-level test covering the choice-editor race
->    (type during a settling refetch → final value = typed value). The hook's
->    own tests don't cover the `useChoiceConfig` integration.
-> 3. **AC1/AC2 evidence:** network-pane proof that a typed sentence in a step
->    description and a choice option label each produce ≤2 PATCHes (`verify`
->    skill).
-> 4. **Report the sweep inventory** the ticket requires: every remaining
->    free-text field under `components/builder/cards/` that still mutates
->    per keystroke (grep `.mutate(` in `onChange` handlers), and either wire
->    it or list it as intentionally immediate with a reason.
-> 5. Minor: `handleSourceModeChange` does `flushConfig()` + immediate
->    `saveConfig` back-to-back — add a one-line comment or coalesce.
-> 6. Re-run lint on touched files + `test:fast`; paste output.
+> **Review round 2, 2026-07-18 — SENT BACK again.** Race test written and
+> passing ✓, return-type lint fixed ✓, sweep extended to `DefaultValueField` ✓
+> in intent — but **that file is now broken**: you deleted
+> `handleDefaultValueChange` and `handleIntakeLinkChange` while 8 call sites
+> still reference them → **8 type-check errors + 11 lint errors** in
+> `DefaultValueField.tsx`, and the intake-link + clear/select default paths
+> would throw at runtime. This means type-check was not run after the final
+> edit (kickoff hard-rule 2).
+> 1. Reintroduce both handlers: route the **text input** through the debounce
+>    hook (as you did), but keep **discrete controls** (selects, intake link,
+>    clear) as immediate mutations — the ticket says discrete controls stay
+>    immediate. `sectionId`/`updateStepMutation` become used again.
+> 2. `npm run type-check` must report 0 errors — note its pretty output
+>    colorizes "error", so grep for "Found .* error" or read it, don't count
+>    "error TS".
+> 3. AC1/AC2 network-pane evidence still owed (≤2 PATCHes for description and
+>    a choice option label).
+> 4. Sweep inventory report still owed (remaining per-keystroke fields, wired
+>    or justified).
 
 **Priority: P1** · Size: S–M · Files:
 `client/src/components/builder/cards/common/DescriptionField.tsx`,
@@ -355,19 +352,16 @@ build the full inventory; list it in the turn-in report.
 
 **Priority: P2 (bug)** · Size: S · File: `server/services/StepService.ts`
 
-> **Review 2026-07-18 — SENT BACK.** The append-to-end logic is correct and
-> the empty-destination default of 1 matches the section convention. Finish:
-> 1. **2 lint errors:** your branch pushes `updateStep` over both complexity
->    limits (cognitive 29/25, cyclomatic 22/20). Extract the append-order
->    logic into a small private helper (e.g. `resolveCrossSectionOrder`) —
->    do not suppress.
-> 2. **AC1 tests:** a unit test in `tests/unit/services/StepService.test.ts`
->    (cross-section move without `order` → max+1; with explicit `order` →
->    honored) and an integration assertion on the stored order. Note: ICW2-1
->    added describe blocks to `tests/integration/creation-routes.test.ts` you
->    can pattern-match; the shared-mock dispatch-by-id gotcha applies to the
->    unit file.
-> 3. Re-run type-check + lint on the file + both test files; paste output.
+> **Review round 2, 2026-07-18 — SENT BACK for two small items.** Helper
+> extracted ✓, both unit tests + the integration case written and passing ✓.
+> 1. `updateStep` is **still over both complexity limits** (cognitive 26/25,
+>    cyclomatic 21/20) — the method was near the cap before your change, so
+>    one extraction wasn't enough. Extract the whole cross-section-move block
+>    (section validation + order resolution) into one private helper; that
+>    clears both.
+> 2. **2 lint errors in your test file** (`StepService.test.ts:520` —
+>    `no-explicit-any`, `no-unsafe-return`). Type the mock instead.
+> 3. Re-run lint on both files; paste output.
 
 ### Finding
 
