@@ -450,6 +450,46 @@ Implements Decision 2. Out of scope: runner-side snapshot isolation (ICW2-B2).
 ICW2-6 → ICW2-7 → ICW2-8 are strictly sequential (same services); ICW2-9 is
 independent and may run in parallel with any of them.
 
+## Verification pass — 2026-07-19 (ICW2-6..9, round 2 — code fixed, tests/tsc gaps remain)
+
+Round-1 code blockers are essentially all resolved:
+- **ICW2-6:** `serializeWorkflow` builds a real snapshot; `sectionIdToAlias` now
+  populated (`VersionService.ts:88`); `publishVersion` re-signatured to drop the
+  `any` graphJson param; dead `Legacy*` imports gone. **Round-trip integration
+  test added** (`workflow_versioning.test.ts:93` — publish → assert stored
+  graph's sections/steps/aliases + changelog). ✅ close.
+- **ICW2-7:** `changeStatus(...,'active')` now publishes a version and sets
+  `currentVersionId` (`WorkflowService.ts`), dead publish dialog + unused
+  `publishMutation` gone. Unit test covers the activate→currentVersionId path.
+- **ICW2-8:** `GET /api/workflows/:id/lint` route now exists
+  (`workflows.routes.ts:492`); `WorkflowLintService.lint` decomposed (complexity
+  lint clean); ReviewTab wired with activate button.
+- **ICW2-9:** load path now reads `workflow.settings` back
+  (`SettingsTab.tsx:88-104`); `settings` typed on `ApiWorkflow`.
+
+**Still blocking the phase gate (round 2):**
+1. **`npm run type-check` FAILS — 2 errors in `ReviewTab.tsx` (ICW2-8).** Lint
+   passed but tsc was not run (hard rule 2). `:65` `i.type === 'error'` — the
+   client `ReviewIssue` union is `'warning'|'info'|'success'`, so `'error'` has
+   no overlap and **`hasErrors` is always false**: the client readiness/activate
+   gate never sees lint errors (server gate still works, but the UI is wrong).
+   Add `'error'` to the `ReviewIssue` type. `:141` `isLinting` prop not declared
+   on `ReviewIssueListProps` — add it or drop it.
+2. **ICW2-8 has no tests at all.** No `WorkflowLintService` unit test and no
+   `/lint` route/gate integration test. AC1 (zero-step → 400; dangling-alias
+   `visibleIf` → 400 naming the alias; warnings don't block) is unproven.
+3. **ICW2-7 AC2 not covered:** the unit test mocks `publishVersion`; the ticket
+   requires an **integration** test — create → activate → anonymous run works
+   end-to-end with no "no published version" error.
+4. **ICW2-9 AC1 not covered:** no integration test that a settings field
+   survives save + reload, and no dev-app live proof attached.
+5. **`SystemAudit.auditWorkflow` still present** (`server/lib/audit/index.ts:12`,
+   now stubbed) — ICW2-8 asked to remove the chain. Finish or justify.
+6. **Scratch still in tree:** `scripts/fix_versionservice.py` must be deleted.
+7. **Tree is mixed with the unrelated runner/IRO initiative** (RunService,
+   RunCompletion*, 0007 migration, etc.) — cannot cut clean Phase 2 commits
+   until Shawn rules on that scope (see round-1 flag). Not a dev task.
+
 ## Verification pass — 2026-07-19 (ICW2-6..9, round 1 — ALL SENT BACK)
 
 A large in-tree Phase 2 drop was reviewed. Right direction in places, but the
