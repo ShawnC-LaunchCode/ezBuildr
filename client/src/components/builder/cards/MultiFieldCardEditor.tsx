@@ -253,7 +253,6 @@ export function MultiFieldCardEditor({ stepId, sectionId, workflowId, step }: St
           sectionId={sectionId}
           workflowId={workflowId}
           visibleIf={step.visibleIf as ConditionExpression}
-          mode="advanced"
         />
       )}
     </div>

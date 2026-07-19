@@ -115,7 +115,6 @@ export function DisplayCardEditor({ stepId, sectionId, step, workflowId }: StepE
           sectionId={sectionId}
           workflowId={workflowId}
           visibleIf={step.visibleIf as ConditionExpression}
-          mode="advanced"
         />
       )}
     </div>

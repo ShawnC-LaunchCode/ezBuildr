@@ -222,7 +222,6 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: StepEd
             sectionId={sectionId}
             workflowId={workflowId}
             visibleIf={step.visibleIf as ConditionExpression}
-            mode={isAdvancedMode ? 'advanced' : 'easy'}
           />
         </>
       )}

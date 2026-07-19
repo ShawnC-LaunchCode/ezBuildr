@@ -128,7 +128,6 @@ export function WebsiteCardEditor({ stepId, sectionId, workflowId, step }: StepE
           sectionId={sectionId}
           workflowId={workflowId}
           visibleIf={step.visibleIf as ConditionExpression}
-          mode="advanced"
         />
       )}
     </div>

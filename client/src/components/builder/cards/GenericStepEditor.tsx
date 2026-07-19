@@ -83,7 +83,6 @@ export function GenericStepEditor({ stepId, sectionId, workflowId, step }: StepE
                     sectionId={sectionId}
                     workflowId={workflowId}
                     visibleIf={step.visibleIf as ConditionExpression}
-                    mode={mode}
                 />
             )}
         </div>

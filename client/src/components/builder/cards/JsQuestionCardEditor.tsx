@@ -96,7 +96,6 @@ export function JsQuestionCardEditor({ stepId, sectionId, workflowId, step }: St
                     sectionId={sectionId}
                     workflowId={workflowId}
                     visibleIf={step.visibleIf as ConditionExpression}
-                    mode={mode}
                 />
             )}
         </div>

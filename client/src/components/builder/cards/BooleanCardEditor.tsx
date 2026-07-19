@@ -209,7 +209,6 @@ export function BooleanCardEditor({ stepId, sectionId, workflowId, step }: StepE
             sectionId={sectionId}
             workflowId={workflowId}
             visibleIf={step.visibleIf as ConditionExpression}
-            mode={isAdvancedMode ? 'advanced' : 'easy'}
           />
         </>
       )}

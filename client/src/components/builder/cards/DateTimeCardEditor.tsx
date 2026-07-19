@@ -205,7 +205,6 @@ export function DateTimeCardEditor({ stepId, sectionId, workflowId, step }: Step
                     sectionId={sectionId}
                     workflowId={workflowId}
                     visibleIf={step.visibleIf as ConditionExpression}
-                    mode={mode}
                 />
             )}
         </div>

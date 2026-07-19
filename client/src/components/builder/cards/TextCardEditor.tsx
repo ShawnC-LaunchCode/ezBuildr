@@ -221,7 +221,6 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: StepEdit
             sectionId={sectionId}
             workflowId={workflowId}
             visibleIf={step.visibleIf as ConditionExpression}
-            mode={isAdvancedMode ? 'advanced' : 'easy'}
           />
         </>
       )}

@@ -113,7 +113,6 @@ export function PhoneCardEditor({ stepId, sectionId, workflowId, step }: StepEdi
           sectionId={sectionId}
           workflowId={workflowId}
           visibleIf={step.visibleIf as ConditionExpression}
-          mode="advanced"
         />
       )}
     </div>
