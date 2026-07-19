@@ -188,6 +188,41 @@ export class StepService {
   }
 
   /**
+   * Resolve append order for cross-section move
+   */
+  private async resolveCrossSectionOrder(sectionId: string): Promise<number> {
+    const destSteps = await this.stepRepo.findBySectionId(sectionId);
+    return destSteps.length > 0 ? Math.max(...destSteps.map((s) => s.order)) + 1 : 1;
+  }
+
+  private validateConfigForUpdate(typeToValidate: string, workflowId: string, finalConfig: unknown): unknown {
+    try {
+      // Enforce strict validation
+      return validateAndNormalizeConfig(typeToValidate, finalConfig as StepConfig, { strict: true });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.warn(
+        { stepType: typeToValidate, workflowId, error: message },
+        "Step config validation failed during update"
+      );
+      throw new Error(`Validation error: ${message}`);
+    }
+  }
+
+  private async handleAliasRenamePropagation(workflowId: string, stepId: string, oldAlias: string | null, newAlias: string | null): Promise<void> {
+    if (oldAlias && newAlias && oldAlias !== newAlias) {
+      try {
+        await aliasRenameService.propagateRename(workflowId, oldAlias, newAlias);
+      } catch (error) {
+        logger.error(
+          { error, workflowId, stepId, oldAlias, newAlias },
+          'Alias rename propagation failed; references may still use the old name'
+        );
+      }
+    }
+  }
+
+  /**
    * Update step
    */
   async updateStep(
@@ -215,6 +250,11 @@ export class StepService {
       if (!newSection || newSection.workflowId !== workflowId) {
         throw new Error("Cannot move step to a section in a different workflow");
       }
+
+      // If moving across sections and no explicit order provided, append to end of new section
+      if (data.order === undefined) {
+        data.order = await this.resolveCrossSectionOrder(data.sectionId);
+      }
     }
 
     // Validate alias format + uniqueness if alias is being changed
@@ -229,21 +269,10 @@ export class StepService {
     const updates = { ...data };
     delete updates.workflowId;
 
-    let finalConfig = data.config;
+    const finalConfig = data.config;
     if (finalConfig) {
       const typeToValidate = data.type ?? step.type;
-      try {
-        // Enforce strict validation
-        finalConfig = validateAndNormalizeConfig(typeToValidate, finalConfig as StepConfig, { strict: true });
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        logger.warn(
-          { stepType: typeToValidate, workflowId, error: message },
-          "Step config validation failed during update"
-        );
-        throw new Error(`Validation error: ${message}`);
-      }
-      updates.config = finalConfig;
+      updates.config = this.validateConfigForUpdate(typeToValidate, workflowId, finalConfig);
     }
 
     const regenerated = await this.maybeRegenerateAlias(workflowId, step, data);
@@ -256,18 +285,7 @@ export class StepService {
     // Propagate the rename to workflow-scoped references (transform block
     // and hook inputKeys, Final Block mapping sources) so renaming a
     // variable does not silently break documents and transforms.
-    const oldAlias = step.alias;
-    const newAlias = updated.alias;
-    if (oldAlias && newAlias && oldAlias !== newAlias) {
-      try {
-        await aliasRenameService.propagateRename(workflowId, oldAlias, newAlias);
-      } catch (error) {
-        logger.error(
-          { error, workflowId, stepId, oldAlias, newAlias },
-          'Alias rename propagation failed; references may still use the old name'
-        );
-      }
-    }
+    await this.handleAliasRenamePropagation(workflowId, stepId, step.alias, updated.alias);
 
     return updated;
   }

@@ -442,3 +442,31 @@ describe("reorder ids are scoped to their workflow/section (ICW2-1)", () => {
     expect(await orderOf(myStepId)).toBe(myBefore);
   });
 });
+
+describe("cross-section step moves assign proper order (ICW2-5)", () => {
+  it("moving a step to another section appends it to the end by default", async () => {
+    const { workflowId, sectionId: srcSectionId } = await makeWorkflowWithSection();
+    
+    // Create destination section
+    const destSecRes = await agent
+      .post(`/api/workflows/${workflowId}/sections`)
+      .send({ title: "Dest Section" });
+    const destSectionId = destSecRes.body.id as string;
+
+    // Create steps in dest section to bump the max order
+    await agent.post(`/api/workflows/${workflowId}/sections/${destSectionId}/steps`).send({ type: "short_text", title: "Dest Step 1" });
+    await agent.post(`/api/workflows/${workflowId}/sections/${destSectionId}/steps`).send({ type: "short_text", title: "Dest Step 2" });
+
+    // Create step in source section
+    const mkRes = await agent.post(`/api/workflows/${workflowId}/sections/${srcSectionId}/steps`).send({ type: "short_text", title: "Moving Step" });
+    const movingStepId = mkRes.body.id as string;
+
+    // Move step via simplified PUT endpoint
+    const moveRes = await agent
+      .put(`/api/steps/${movingStepId}`)
+      .send({ sectionId: destSectionId });
+    
+    expect(moveRes.status).toBe(200);
+    expect(moveRes.body.order).toBe(3); // Should append after the 2 existing steps
+  });
+});

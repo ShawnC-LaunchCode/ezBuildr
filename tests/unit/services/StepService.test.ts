@@ -512,4 +512,51 @@ describe("StepService", () => {
       expect(updatePayload).not.toHaveProperty("alias");
     });
   });
+
+  describe("updateStep cross-section move", () => {
+    function setupMove(step: Step, srcSection: ReturnType<typeof createTestSection>, destSection: ReturnType<typeof createTestSection>): void {
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
+      mockStepRepo.findById.mockResolvedValue(step);
+      mockSectionRepo.findById.mockImplementation(async (id) => id === srcSection.id ? srcSection : (id === destSection.id ? destSection : undefined) as unknown as ReturnType<typeof createTestSection>);
+      mockStepRepo.update.mockImplementation(async (_id, data) => ({ ...step, ...data }) as Step);
+    }
+
+    it("should append to the end of the destination section if order is not provided", async () => {
+      const workflow = createTestWorkflow();
+      const srcSection = createTestSection(workflow.id);
+      const destSection = createTestSection(workflow.id);
+      
+      const step = createTestStep(srcSection.id, { order: 2 }) as unknown as Step;
+      setupMove(step, srcSection, destSection);
+
+      // Destination has 2 steps currently
+      mockStepRepo.findBySectionId.mockResolvedValue([
+        createTestStep(destSection.id, { order: 1 }) as unknown as Step,
+        createTestStep(destSection.id, { order: 2 }) as unknown as Step,
+      ]);
+
+      await service.updateStep(step.id, workflow.id, "user-123", { sectionId: destSection.id });
+
+      expect(mockStepRepo.update).toHaveBeenCalledWith(
+        step.id,
+        expect.objectContaining({ sectionId: destSection.id, order: 3 })
+      );
+    });
+
+    it("should respect explicit order if provided during cross-section move", async () => {
+      const workflow = createTestWorkflow();
+      const srcSection = createTestSection(workflow.id);
+      const destSection = createTestSection(workflow.id);
+      
+      const step = createTestStep(srcSection.id, { order: 2 }) as unknown as Step;
+      setupMove(step, srcSection, destSection);
+
+      await service.updateStep(step.id, workflow.id, "user-123", { sectionId: destSection.id, order: 5 });
+
+      expect(mockStepRepo.update).toHaveBeenCalledWith(
+        step.id,
+        expect.objectContaining({ sectionId: destSection.id, order: 5 })
+      );
+    });
+  });
 });
