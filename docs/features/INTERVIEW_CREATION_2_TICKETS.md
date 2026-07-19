@@ -450,10 +450,58 @@ Implements Decision 2. Out of scope: runner-side snapshot isolation (ICW2-B2).
 ICW2-6 → ICW2-7 → ICW2-8 are strictly sequential (same services); ICW2-9 is
 independent and may run in parallel with any of them.
 
-## ICW2-6 — Versions snapshot nothing: server must serialize real content 🔲
+## Verification pass — 2026-07-19 (ICW2-6..9, round 1 — ALL SENT BACK)
+
+A large in-tree Phase 2 drop was reviewed. Right direction in places, but the
+whole phase fails the gate and two central acceptance criteria are unbuilt. Do
+not re-turn-in piecemeal — read your ticket's block, then the phase-wide items.
+
+- **Gate (whole tree):** `type-check` 0 errors, but **lint = 36 errors**
+  across VersionService (8), WorkflowLintService (20), WorkflowBuilder (1),
+  plus curly/`||`/strict-boolean. `test:fast` 1681 green; **no Phase 2
+  integration run** (the new work is untested end-to-end).
+- **Phase-wide blockers (every dev):**
+  1. **9 scratch scripts committed to the tree** — `patch.py`,
+     `patch_review_list.py`, `patch_review_stats.py`, `patch_review_tab.py`,
+     `scripts/fix_versionservice.py`, `scripts/patch_review_tab.py`,
+     `scripts/patch_workflows_routes.py`, `scripts/scratch_icw2_6.ts`,
+     `scripts/update_journal.py`. These must never ship (turn-in checklist 4).
+  2. Those python patch-scripts **corrupted indentation** in
+     `WorkflowBuilder.tsx` (`    const [shareOpen`, `                <DiffViewer`,
+     `    const handleDiff`). Edit source with real editors, not text-patching.
+  3. Tree left with 36 lint errors — hard rule 2 (shared tree stays
+     gate-clean). Run `npm run lint` on every touched file before turn-in.
+- **⚠️ Scope flag (raised to Shawn, not a dev task):** an unrelated new
+  initiative `docs/features/INTERVIEW_RUNNER_OPTIMIZATION_TICKETS.md` (IRO-1..12)
+  and an edit to the ICW2-B2 backlog appeared in this drop. That is not Phase 2
+  work — awaiting Shawn's decision on whether it stays.
+
+## ICW2-6 — Versions snapshot nothing: server must serialize real content 🔄
 
 **Priority: P0 (bug)** · Size: M · Files: `server/services/VersionService.ts`,
 `server/routes/versions.routes.ts`, `client/src/pages/WorkflowBuilder.tsx`
+
+> **Review 2026-07-19 — SENT BACK.** Good core: `serializeWorkflow` builds a
+> `WorkflowContentData` snapshot from the relational tables, `publishVersion`/
+> `createDraftVersion` now ignore client `graphJson` and serialize server-side,
+> and the route made `graphJson` optional. Fix:
+> 1. **Real bug:** `sectionIdToAlias` is declared (`VersionService.ts:~99`) but
+>    **never populated** — the build loop only fills `stepIdToAlias`. Every
+>    section-targeted rule's `targetAlias` therefore silently falls back to the
+>    raw section UUID (lint flags it: "sectionIdToAlias can only be empty
+>    here"). Populate it, or if sections legitimately have no alias, drop the
+>    map and store the id deliberately with a comment.
+> 2. **`_graphJson?: any`** on both `publishVersion` and `createDraftVersion`
+>    (2 explicit-any lint errors). Keep the param typed (or remove it and update
+>    callers) — do not switch to `any`.
+> 3. `validateWorkflow` was gutted to `return {valid:true}`, leaving
+>    `LegacyGraph`/`GraphNode`/`GraphEdge` imports unused (lint). Delete the dead
+>    imports; real validation belongs to ICW2-8's lint service, not here.
+> 4. **AC1 is round-trip:** the unit test `VersionService.serialization.test.ts`
+>    checks the shape, but nothing proves the snapshot re-ingests. Add an
+>    integration test: build → publish → read the stored version → assert
+>    sections/steps/config/rules match (or feed it back through the ingest path).
+> 5. Clear all lint on the file; paste gate output.
 
 ### Finding
 
@@ -502,11 +550,33 @@ or replace it with a shape assertion on the serialized output. Update
 
 ---
 
-## ICW2-7 — Activation never creates a version; public share links dead-end 🔲
+## ICW2-7 — Activation never creates a version; public share links dead-end 🔄
 
 **Priority: P0 (bug)** · Size: M · Files: `server/services/WorkflowService.ts`,
 `server/services/VersionService.ts`, `server/routes/workflows.routes.ts`,
 `client/src/components/builder/ActivateToggle.tsx` (copy only, if needed)
+
+> **Review 2026-07-19 — SENT BACK, core AC unbuilt.** This is the headline P0
+> of Phase 2 and it is essentially not done. `WorkflowService.changeStatus`
+> (`WorkflowService.ts:312`) is **untouched** — it still just
+> `update({ status })`, never calls `publishVersion`, never sets
+> `currentVersionId`. So toggling a workflow Active still produces **no
+> published version**, and `createAnonymousRun`'s `currentVersionId` guard
+> (`RunService.ts:474-477`) still dead-ends every public share link. The dead
+> `PublishWorkflowDialog` was removed (good) but nothing replaced it, so there
+> is now *no* path to publish at all.
+> 1. Make `changeStatus(...,'active')` create-and-publish a version via
+>    ICW2-6's `serializeWorkflow`/`publishVersion` (reviewer preference: always,
+>    so each activation is a version boundary). Thread it through the same
+>    transaction; mind the size-1 pool deadlock (use `tx`).
+> 2. `publishMutation` in `WorkflowBuilder.tsx:55` is now **unused** (lint
+>    error) — remove it and the `usePublishWorkflow` import, or wire it to the
+>    real publish path.
+> 3. **AC2 is the acceptance bar:** an integration test that creates → activates
+>    → starts an anonymous run end-to-end with no "no published version" error.
+>    Not present. Add it.
+> 4. Verify the `autoRevertToDraft` interaction: edit-after-activate → draft →
+>    re-activate creates a fresh version (test).
 
 ### Finding
 
@@ -560,7 +630,27 @@ acceptable for this ticket; a Review-tab action is ICW2-8's concern.
 
 ---
 
-## ICW2-8 — No pre-activate validation; Review tab is read-only decoration 🔲
+## ICW2-8 — No pre-activate validation; Review tab is read-only decoration 🔄
+
+> **Review 2026-07-19 — SENT BACK.** Good direction: `WorkflowLintService`
+> exists, the status route runs it as an activation gate
+> (`workflows.routes.ts:261-267`), ReviewTab has a lint query + Activate button,
+> and the dead `workflowAudit.ts` file was deleted. Blockers:
+> 1. **The `GET /api/workflows/:id/lint` route does not exist.** ReviewTab
+>    fetches it, but only the internal `workflowLintService.lint()` call inside
+>    the status handler was added — no route is registered, so the ReviewTab
+>    query 404s. Add the endpoint (mirror a sibling GET in `workflows.routes.ts`,
+>    `add-api-endpoint` skill).
+> 2. **`WorkflowLintService.lint` is cognitive-complexity 61 / cyclomatic 39**
+>    (limits 25/20) plus ~18 `||`→`??` and `curly` lint errors — 20 total.
+>    Decompose into per-check helpers; fix the operators.
+> 3. Dead-audit cleanup is **partial**: `workflowAudit.ts` is gone but
+>    `SystemAudit.auditWorkflow` still exists (now stubbing `graphResults`).
+>    Finish removing the `auditWorkflow` chain per the ticket, or state why it
+>    stays.
+> 4. AC1 tests (zero-step → 400; dangling-alias `visibleIf` → 400 naming the
+>    alias; warnings don't block) and the ReviewTab live proof are not present.
+> 5. Clear all lint; paste gate output.
 
 **Priority: P1** · Size: M · Files: new `server/services/WorkflowLintService.ts`
 (suggested), `server/routes/workflows.routes.ts` (or versions route),
@@ -620,7 +710,29 @@ Delete the dead `lib/audit/workflowAudit.ts` chain in this ticket.
 
 ---
 
-## ICW2-9 — Settings tab: "Settings Saved" silently discards Branding/Behavior/Publishing 🔲
+## ICW2-9 — Settings tab: "Settings Saved" silently discards Branding/Behavior/Publishing 🔄
+
+> **Review 2026-07-19 — SENT BACK, the core symptom persists.** The save side
+> is done well: a `settings` jsonb column (migration `0006_add_workflow_settings.sql`
+> + schema + `getWorkflowWithDetails`), and `handleSaveSettings` now sends
+> `settings: { brandingEnabled, logoUrl, primaryColor, secondaryColor,
+> completionMessage, redirectUrl, allowSaveAndResume, ... }`. But the **load
+> path was never updated** (`SettingsTab.tsx:80-110`): the branding block still
+> reads "leave defaults if not present", behavior is hardcoded
+> `setAllowSaveAndResume(true)`, and `workflow.settings` is never read back. So
+> the values save to the DB and **still vanish on reload** — the exact
+> false-success the ticket exists to kill.
+> 1. Populate every persisted field from `workflow.settings` in the load
+>    `useEffect` (AC3).
+> 2. AC1 proof: each field survives save + reload — dev-app screenshot/evidence
+>    (`verify` skill), plus an integration test covering one field per group.
+> 3. `requireLogin` isn't loaded either; `isPublic` is derived from status —
+>    confirm that's intended vs. a stored flag.
+> 4. Migration review (db-schema-change): the `ADD COLUMN IF NOT EXISTS ...
+>    jsonb DEFAULT '{}' NOT NULL` is correct and additive; confirm the
+>    test-schema path picks up the column (integration create-workflow tests +
+>    the modified `workflowFactory`) and that the journal entry is consistent
+>    with how this repo applies migrations.
 
 **Priority: P1 (false success)** · Size: M · Files:
 `client/src/components/builder/tabs/SettingsTab.tsx` (+ its section cards),
@@ -1157,7 +1269,10 @@ with ICW2-B2 (old versions can reference soft-deleted steps). Needs
 Size: L (architecture). Deferred by Decision 2. After ICW2-6, version bodies
 are faithful; this project makes `RunService`/runner read the version snapshot
 instead of live tables so edits stop leaking into in-flight runs and old
-versions are reproducible. Design doc first.
+versions are reproducible. Design doc first. **Superseded by the fully scoped
+[IRO-2 backlog](./INTERVIEW_RUNNER_OPTIMIZATION_TICKETS.md)
+initiative ticket**, with IRO-1/IRO-3 as required companion work; use that
+backlog as the implementation source of truth.
 
 ## ICW2-B3 — Collaborative editing: step content is last-write-wins
 Size: L. Yjs syncs only the reactflow graph + presence
