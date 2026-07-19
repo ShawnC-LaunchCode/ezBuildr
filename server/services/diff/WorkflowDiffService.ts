@@ -20,6 +20,11 @@ export interface WorkflowDiff {
     severity: Severity;
 }
 
+type WorkflowData = {
+    pages?: { blocks?: WorkflowBlock[] }[];
+    sections?: { steps?: WorkflowBlock[] }[];
+};
+
 export class WorkflowDiffService {
 
     public diff(oldVersion: WorkflowJSON, newVersion: WorkflowJSON): WorkflowDiff {
@@ -78,13 +83,22 @@ export class WorkflowDiffService {
         return diff;
     }
 
-    private flattenBlocks(workflow: WorkflowJSON): Map<string, WorkflowBlock> {
+    private flattenBlocks(workflow: WorkflowData): Map<string, WorkflowBlock> {
         const map = new Map<string, WorkflowBlock>();
-        workflow.pages.forEach(p => {
-            p.blocks.forEach(b => {
-                map.set(b.id, b);
+        if (workflow.pages) {
+            workflow.pages.forEach((p) => {
+                p.blocks?.forEach((b) => {
+                    map.set(b.id, b);
+                });
             });
-        });
+        }
+        if (workflow.sections) {
+            workflow.sections.forEach((s) => {
+                s.steps?.forEach((b) => {
+                    map.set(b.id, b);
+                });
+            });
+        }
         return map;
     }
 

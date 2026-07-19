@@ -172,16 +172,13 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
         // 7. Get updated workflow
         const updatedWorkflow = await workflowService.getWorkflowWithDetails(workflowId, userId);
         // 8. Create new version (DRAFT)
-        const graphJson = convertWorkflowToGraphJson(updatedWorkflow);
         let draftVersion;
         let noChanges = false;
         try {
           draftVersion = await versionService.createDraftVersion(
             workflowId,
             userId,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
-            graphJson as any,
-            `AI Edit: ${requestData.userMessage.substring(0, 30)}${requestData.userMessage.length > 30 ? '...' : ''}`,
+            requestData.userMessage || 'AI generated edit',
             {
               source: 'ai-edit',
               aiOpsCount: aiResponse.ops.length,
@@ -378,33 +375,3 @@ Steps: ${steps.length}
   }
   return context;
 }
-/**
- * Convert workflow object to graphJson format for versioning
- */
-function convertWorkflowToGraphJson(workflow: WorkflowWithDetails): Record<string, unknown> {
-  // For now, return a simplified representation
-  // In production, this would match the actual graphJson schema used by the builder
-  return {
-    pages: (workflow.sections ?? []).map((section: Section & { steps: Step[] }) => ({
-      id: section.id,
-      title: section.title,
-      order: section.order,
-      blocks: (section.steps ?? []).map((step: Step) => ({
-        id: step.id,
-        type: step.type,
-        title: step.title,
-        alias: step.alias ?? undefined,
-        required: step.required,
-        config: step.config,
-        visibleIf: step.visibleIf,
-        defaultValue: step.defaultValue,
-        order: step.order,
-      })),
-    })),
-    metadata: {
-      title: workflow.title,
-      description: workflow.description,
-    },
-  };
-}
-

@@ -14,7 +14,7 @@ interface AssignmentRule {
     enabled: boolean;
 }
 interface IntakeAssignmentSectionProps {
-    workflow: ApiWorkflow;
+    workflow: Pick<ApiWorkflow, 'id' | 'title' | 'description' | 'projectId' | 'intakeConfig'>;
     runValues: Record<string, unknown>;
     onComplete?: () => void;
 }

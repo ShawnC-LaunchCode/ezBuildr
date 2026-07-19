@@ -49,6 +49,13 @@
       "when": 1784422956246,
       "tag": "0006_add_workflow_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784426400000,
+      "tag": "0007_add_run_completion_jobs",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
 
-import { runAPI, type ApiRun, type ApiStepValue } from "../../lib/vault-api";
+import { runAPI, type ApiRun, type ApiRunRuntime, type ApiStepValue } from "../../lib/vault-api";
 
 import { queryKeys } from "./queryKeys";
 
@@ -24,6 +24,14 @@ export function useRunWithValues(id: string | undefined, options?: { enabled?: b
     return useQuery({
         queryKey: queryKeys.runWithValues(id ?? ""),
         queryFn: () => runAPI.getWithValues(id ?? ""),
+        enabled: options?.enabled !== undefined ? options.enabled : !!id && id !== "undefined",
+    });
+}
+
+export function useRunRuntime(id: string | undefined, options?: { enabled?: boolean }): UseQueryResult<ApiRunRuntime> {
+    return useQuery({
+        queryKey: queryKeys.runRuntime(id ?? ""),
+        queryFn: () => runAPI.getRuntime(id ?? ""),
         enabled: options?.enabled !== undefined ? options.enabled : !!id && id !== "undefined",
     });
 }

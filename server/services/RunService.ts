@@ -40,7 +40,6 @@ import type { CreateRunOptions, DocumentGenerationResult } from "./workflow-runs
 import type { GenerateDocumentsOptions } from "./workflow-runs/RunLifecycleService";
 
 const ERR_RUN_NOT_FOUND = "Run not found";
-const ERR_RUN_ALREADY_COMPLETED = "Run is already completed";
 const FIELD_STEP_VALUE = 'step value';
 /**
  * Service layer for workflow run-related business logic
@@ -299,7 +298,7 @@ export class RunService {
     const { run, access } = await this.authResolver.resolveRun(runId, userId);
     if (!run || access === 'none') { throw new Error(ERR_RUN_NOT_FOUND); }
     // Check if run is completed? 
-    if (run.completed) { throw new Error(ERR_RUN_ALREADY_COMPLETED); }
+    if (run.completed) { throw createError.runCompleted(); }
     validateJsonbSize(data.value, FIELD_STEP_VALUE);
     await this.persistenceWriter.saveStepValue(runId, data.stepId, data.value, run.workflowId);
   }
@@ -315,17 +314,8 @@ export class RunService {
     if (!run) {
       throw new Error(ERR_RUN_NOT_FOUND);
     }
-    // Verify step belongs to the workflow
-    const step = await this.stepRepo.findById(data.stepId);
-    if (!step) {
-      throw new Error("Step not found");
-    }
-    const section = await this.sectionRepo.findById(step.sectionId);
-    if (!section || section.workflowId !== run.workflowId) {
-      throw new Error("Step does not belong to this workflow");
-    }
     validateJsonbSize(data.value, FIELD_STEP_VALUE);
-    await this.valueRepo.upsert(data);
+    await this.persistenceWriter.saveStepValue(runId, data.stepId, data.value, run.workflowId);
   }
   /**
    * Bulk upsert step values
@@ -378,7 +368,7 @@ export class RunService {
     if (!run || access === 'none') {
       throw new Error(ERR_RUN_NOT_FOUND);
     }
-    if (run.completed) { throw new Error(ERR_RUN_ALREADY_COMPLETED); }
+    if (run.completed) { throw createError.runCompleted(); }
     values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
     return this.executionCoordinator.submitSection(
       { runId, workflowId: run.workflowId, userId, mode: 'live' },
@@ -397,7 +387,7 @@ export class RunService {
   ): Promise<{ success: boolean; errors?: string[] }> {
     const run = await this.runRepo.findById(runId);
     if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
-    if (run.completed) { throw new Error(ERR_RUN_ALREADY_COMPLETED); }
+    if (run.completed) { throw createError.runCompleted(); }
     values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
     return this.executionCoordinator.submitSection(
       { runId, workflowId: run.workflowId, mode: 'live' }, // No userId
@@ -418,7 +408,7 @@ export class RunService {
     if (!run || access === 'none') {
       throw new Error(ERR_RUN_NOT_FOUND);
     }
-    if (run.completed) { throw new Error(ERR_RUN_ALREADY_COMPLETED); }
+    if (run.completed) { throw createError.runCompleted(); }
     return this.executionCoordinator.next(
       { runId, workflowId: run.workflowId, userId, mode: 'live' },
       run.currentSectionId
@@ -431,7 +421,7 @@ export class RunService {
   async nextNoAuth(runId: string): Promise<NavigationResult> {
     const run = await this.runRepo.findById(runId);
     if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
-    if (run.completed) { throw new Error(ERR_RUN_ALREADY_COMPLETED); }
+    if (run.completed) { throw createError.runCompleted(); }
     return this.executionCoordinator.next(
       { runId, workflowId: run.workflowId, mode: 'live' },
       run.currentSectionId

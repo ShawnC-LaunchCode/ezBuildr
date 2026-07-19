@@ -1,6 +1,6 @@
 # Database Schema Reference
 
-Inventory of all **103 PostgreSQL tables**, organized by the `shared/schema/*.ts` domain file that defines them (verified July 2026).
+Inventory of all **104 PostgreSQL tables**, organized by the `shared/schema/*.ts` domain file that defines them (verified July 2026).
 
 **Source of truth is the Drizzle schema in `shared/schema/` — always check the domain file for exact columns before writing queries or migrations.** Entries are `sql_table_name` (`tsExportName` when it differs beyond casing). Schema changes go through the `db-schema-change` skill; update this file when tables are added or removed.
 
@@ -48,11 +48,12 @@ Inventory of all **103 PostgreSQL tables**, organized by the `shared/schema/*.ts
 | `sessions` | Express session store |
 | `teams` / `team_members` | Teams and membership |
 
-## Runs & Metrics — `shared/schema/run.ts` (18 tables)
+## Runs & Metrics — `shared/schema/run.ts` (19 tables)
 
 | Table | Purpose |
 |-------|---------|
 | `workflow_runs` | Execution instances: runToken, progress, completed |
+| `run_completion_jobs` | Durable leased outbox for idempotent post-completion writeback/document work |
 | `step_values` | Run data storage per step |
 | `review_tasks` | Human-in-the-loop review gates (FK → workflow_runs) |
 | `signature_requests` / `signature_events` | E-signature requests + audit trail |

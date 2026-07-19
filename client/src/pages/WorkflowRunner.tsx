@@ -16,8 +16,8 @@ import { useRunValues } from "@/hooks/runner/useRunValues";
 import { useSectionVisibility } from "@/hooks/runner/useSectionVisibility";
 import { useRunNavigation, useRunNavigationTransport } from "@/hooks/runner/useRunNavigation";
 import type { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
-import { useSections, useWorkflow } from "@/lib/vault-hooks";
-import { apiWithToken, fetchAPI, type ApiSection, type ApiStep, type ApiWorkflow } from "@/lib/vault-api";
+import { useWorkflow } from "@/lib/vault-hooks";
+import { fetchAPI, type ApiSection, type ApiStep, type ApiWorkflow } from "@/lib/vault-api";
 import { getRunToken } from "@/lib/runTokens";
 import type { LogicRule } from "@shared/schema";
 
@@ -27,6 +27,8 @@ interface WorkflowRunnerProps {
   isPreview?: boolean;
   onPreviewComplete?: () => void;
 }
+
+type RunnerWorkflow = Pick<ApiWorkflow, 'id' | 'title' | 'description' | 'projectId' | 'intakeConfig' | 'settings'>;
 
 type FinalSectionConfig = ComponentProps<typeof FinalDocumentsSection>['sectionConfig'];
 type SaveStatus = ComponentProps<typeof ClientRunnerLayout>['saveStatus'];
@@ -42,7 +44,7 @@ interface WorkflowRunnerScreenProps {
   workflowId: string | undefined;
   isProductionMode: boolean;
   actualRunId: string | null;
-  workflow: ApiWorkflow | undefined;
+  workflow: RunnerWorkflow | undefined;
   currentSection: ApiSection | undefined;
   currentSectionIndex: number;
   visibleSections: ApiSection[];
@@ -86,55 +88,35 @@ function getProgress(currentSectionIndex: number, totalSections: number): number
   return Math.round((currentSectionIndex / Math.max(1, totalSections)) * 100);
 }
 
-function getWorkflowTitle(workflow: ApiWorkflow | undefined): string {
+function getWorkflowTitle(workflow: RunnerWorkflow | undefined): string {
   return workflow?.title ?? "Workflow";
 }
 
 export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPreview = false, onPreviewComplete }: WorkflowRunnerProps) {
   // 1. Session & Initialization
-  const { actualRunId, isInitializing, initError, mode, previewState, run, workflowId } = useRunSession(runId, previewEnvironment);
+  const { actualRunId, isInitializing, initError, mode, previewState, run, runtime, workflowId } = useRunSession(runId, previewEnvironment);
   const isProductionMode = mode === 'production';
 
   // 2. Fetch Core Data
-  const intakeData = useIntakeRuntime(workflowId ?? "");
-  const { data: workflow } = useWorkflow(workflowId ?? "");
-  const { data: fetchedSections } = useSections(workflowId, { enabled: isProductionMode });
+  const { data: previewWorkflow } = useWorkflow(workflowId ?? "", { enabled: !isProductionMode && workflowId != null });
+  const workflow = isProductionMode ? runtime?.workflow : previewWorkflow;
+  const intakeData = useIntakeRuntime(workflowId ?? "", workflow);
 
   // 3. Resolve Sections & Steps
   const sections = useMemo(() => {
-    return isProductionMode ? fetchedSections : previewEnvironment?.getSections();
-  }, [isProductionMode, previewEnvironment, fetchedSections]);
+    return isProductionMode ? runtime?.sections : previewEnvironment?.getSections();
+  }, [isProductionMode, previewEnvironment, runtime?.sections]);
 
   const runToken = actualRunId != null ? getRunToken(actualRunId) : null;
-  const { data: allSteps } = useQuery({
-    queryKey: ['/api/workflows', workflowId, 'all-steps', actualRunId],
-    queryFn: () => {
-      if (runToken != null) {
-        const client = apiWithToken(runToken);
-        return client.get<ApiStep[]>(`/api/workflows/${workflowId}/steps`);
-      } else {
-        return fetchAPI<ApiStep[]>(`/api/workflows/${workflowId}/steps`);
-      }
-    },
-    enabled: workflowId != null && workflowId !== "" && isProductionMode,
-  });
-  
-  const effectiveAllSteps = isProductionMode ? allSteps : previewEnvironment?.getSteps();
+  const effectiveAllSteps = isProductionMode ? runtime?.steps : previewEnvironment?.getSteps();
 
   const { data: logicRules } = useQuery({
     queryKey: ['/api/workflows', workflowId, 'logic-rules', actualRunId],
-    queryFn: () => {
-      if (runToken != null) {
-        const client = apiWithToken(runToken);
-        return client.get<LogicRule[]>(`/api/workflows/${workflowId}/logic-rules`);
-      } else {
-        return fetchAPI<LogicRule[]>(`/api/workflows/${workflowId}/logic-rules`);
-      }
-    },
-    enabled: workflowId != null && workflowId !== "",
+    queryFn: () => fetchAPI<LogicRule[]>(`/api/workflows/${workflowId}/logic-rules`),
+    enabled: workflowId != null && workflowId !== "" && !isProductionMode,
   });
 
-  const effectiveLogicRules = logicRules ?? [];
+  const effectiveLogicRules = (isProductionMode ? runtime?.logicRules : logicRules) as LogicRule[] | undefined ?? [];
 
   // 4. Form Values & Autosave
   const { effectiveValues, handleUpdateValue, saveStatus, saveNow } = useRunValues({
@@ -180,7 +162,8 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
   } = useRunNavigation({
     actualRunId,
     workflowId,
-    runVersionId: run?.versionId,
+    runVersionId: run?.workflowVersionId ?? undefined,
+    initialSectionId: run?.currentSectionId,
     visibleSections,
     effectiveValues,
     transport: navigationTransport
@@ -274,7 +257,7 @@ function LoadedRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
   return <QuestionRunnerScreen {...props} />;
 }
 
-function IntakeSectionScreen(props: LoadedRunnerScreenProps & { workflow: ApiWorkflow }): ReactElement {
+function IntakeSectionScreen(props: LoadedRunnerScreenProps & { workflow: RunnerWorkflow }): ReactElement {
   const { workflow, currentSectionIndex, visibleSections, saveStatus, effectiveValues, handleNext } = props;
 
   return (

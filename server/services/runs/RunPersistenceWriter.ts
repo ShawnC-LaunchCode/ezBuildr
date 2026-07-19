@@ -98,7 +98,7 @@ export class RunPersistenceWriter {
      */
     async updateRun(runId: string, data: Partial<WorkflowRun>): Promise<void> {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any -- Drizzle update type mismatch with Partial<WorkflowRun>
-        await this.runRepo.update(runId, data as any);
+        await this.runRepo.updateIfIncomplete(runId, data as any);
     }
     /**
      * Save a single step value

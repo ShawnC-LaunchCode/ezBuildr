@@ -7,6 +7,7 @@ import { stepValues, workflows } from "@shared/schema";
 import { db } from "../db";
 import { workflowRunRepository } from "../repositories";
 import { logger } from "../logger";
+import { runService } from "../services/RunService";
 import { WebhookDispatcher } from "../lib/webhooks/dispatcher";
 import { asyncHandler } from "../utils/asyncHandler";
 import { apiLimiter, strictLimiter } from "../middleware/rateLimiter";
@@ -100,7 +101,7 @@ router.post("/w/:slug/complete", apiLimiter, strictLimiter, asyncHandler(async (
                 runId: run.id
             });
         }
-        await workflowRunRepository.markComplete(run.id);
+        await runService.completeRunNoAuth(run.id);
 
         // Construct Server-Side Payload from actual database records
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

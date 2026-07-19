@@ -10,13 +10,15 @@ interface IntakeData {
     isLoading: boolean;
 }
 
-export function useIntakeRuntime(currentWorkflowId?: string): IntakeData {
+type IntakeRuntimeWorkflow = Pick<ApiWorkflow, 'id' | 'title' | 'intakeConfig'>;
+
+export function useIntakeRuntime(currentWorkflowId?: string, runtimeWorkflow?: IntakeRuntimeWorkflow): IntakeData {
     // Allow passing source run ID via URL
     const searchParams = new URLSearchParams(window.location.search);
     const sourceRunId = searchParams.get('intake_run_id') ?? searchParams.get('source_run_id');
 
     // 1. Fetch Current Workflow to get Intake Config
-    const { data: currentWorkflow } = useQuery<ApiWorkflow>({
+    const { data: queriedWorkflow } = useQuery<ApiWorkflow>({
         queryKey: ['workflow', currentWorkflowId],
         queryFn: async () => {
             const res = await fetch(`/api/workflows/${currentWorkflowId}`);
@@ -25,10 +27,11 @@ export function useIntakeRuntime(currentWorkflowId?: string): IntakeData {
             }
             return res.json();
         },
-        enabled: !!currentWorkflowId,
+        enabled: !!currentWorkflowId && runtimeWorkflow == null,
         staleTime: 5 * 60 * 1000,
     });
 
+    const currentWorkflow = runtimeWorkflow ?? queriedWorkflow;
     const upstreamWorkflowId = currentWorkflow?.intakeConfig?.upstreamWorkflowId;
 
     // 2. Fetch Upstream Workflow (for Aliases)

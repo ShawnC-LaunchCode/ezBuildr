@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, type Dispatch, type SetStateAction } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { fetchAPI, type ApiSection, type ApiStep } from "@/lib/vault-api";
 import { useSubmitSection, useNext, useCompleteRun } from "@/lib/vault-hooks";
@@ -59,6 +59,7 @@ interface UseRunNavigationProps {
   actualRunId: string | null;
   workflowId?: string;
   runVersionId?: string;
+  initialSectionId?: string | null;
   visibleSections: ApiSection[];
   effectiveValues: RunnerValues;
   transport: RunNavigationTransport;
@@ -290,6 +291,7 @@ export function useRunNavigation({
   actualRunId,
   workflowId,
   runVersionId,
+  initialSectionId,
   visibleSections,
   effectiveValues,
   transport,
@@ -298,6 +300,18 @@ export function useRunNavigation({
   const [showReview, setShowReview] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const initializedRunRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!actualRunId || visibleSections.length === 0 || initializedRunRef.current === actualRunId) {
+      return;
+    }
+    const savedIndex = initialSectionId
+      ? visibleSections.findIndex((section) => section.id === initialSectionId)
+      : 0;
+    setCurrentSectionIndex(savedIndex >= 0 ? savedIndex : 0);
+    initializedRunRef.current = actualRunId;
+  }, [actualRunId, initialSectionId, visibleSections]);
 
   const { toast } = useToast();
   const completeMutation = useCompleteRun();

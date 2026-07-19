@@ -7,8 +7,77 @@ import {
   resolveNextSection,
   validateRequiredSteps,
   getEffectiveRequiredSteps,
+  evaluateWorkflowVisibility,
   type LogicOperator,
 } from "@shared/workflowLogic";
+
+describe("evaluateWorkflowVisibility parity contract", () => {
+  const sections = [
+    { id: "intro" },
+    {
+      id: "details",
+      visibleIf: {
+        type: "group",
+        operator: "AND",
+        conditions: [{
+          type: "condition",
+          variable: "controller",
+          operator: "equals",
+          value: "yes",
+          valueType: "constant",
+        }],
+      },
+    },
+  ];
+  const steps = [
+    { id: "controller", sectionId: "intro", required: true },
+    { id: "detail", sectionId: "details", required: true },
+  ];
+
+  it("fails closed for section visibleIf and excludes its required steps", () => {
+    const result = evaluateWorkflowVisibility({
+      sections,
+      steps,
+      rules: [],
+      data: {},
+      resolveAlias: (name) => name,
+    });
+
+    expect(Array.from(result.visibleSections)).toEqual(["intro"]);
+    expect(Array.from(result.visibleSteps)).toEqual(["controller"]);
+    expect(Array.from(result.requiredSteps)).toEqual(["controller"]);
+  });
+
+  it("keeps show-rule targets hidden until the rule matches", () => {
+    const rules: LogicRule[] = [{
+      id: "show-details",
+      workflowId: "workflow-1",
+      conditionStepId: "controller",
+      operator: "equals",
+      conditionValue: "yes",
+      targetType: "section",
+      targetSectionId: "details",
+      targetStepId: null,
+      action: "show",
+      logicalOperator: null,
+      order: 1,
+      createdAt: null,
+      updatedAt: null,
+    }];
+
+    const hidden = evaluateWorkflowVisibility({ sections, steps, rules, data: {}, resolveAlias: (name) => name });
+    const shown = evaluateWorkflowVisibility({
+      sections,
+      steps,
+      rules,
+      data: { controller: "yes" },
+      resolveAlias: (name) => name,
+    });
+
+    expect(hidden.visibleSections.has("details")).toBe(false);
+    expect(shown.visibleSections.has("details")).toBe(true);
+  });
+});
 describe("workflowLogic", () => {
   describe("evaluateRules", () => {
     describe("Section-level rules", () => {

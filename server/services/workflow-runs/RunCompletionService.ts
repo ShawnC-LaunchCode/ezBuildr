@@ -1,7 +1,7 @@
 import type { WorkflowRun } from "@shared/schema";
 
-import { createLogger } from "../../logger";
 import { workflowRunRepository, stepValueRepository } from "../../repositories";
+import { createError } from "../../utils/errors";
 import { blockRunner } from "../BlockRunner";
 
 import type { RunLifecycleService } from "./RunLifecycleService";
@@ -10,18 +10,17 @@ import type { RunMetricsService } from "./RunMetricsService";
 import type { RunStateService } from "./RunStateService";
 import type { LogicService } from "../LogicService";
 
-const _logger = createLogger({ module: 'run-completion-service' });
 /**
  * Service for handling workflow run completion logic
  */
 export class RunCompletionService {
-    // eslint-disable-next-line max-params -- dependency injection requires all 6 services
+    // eslint-disable-next-line max-params -- compatibility-preserving dependency injection
     constructor(
         private runRepo: typeof workflowRunRepository,
-        private valueRepo: typeof stepValueRepository,
+        _valueRepo: typeof stepValueRepository,
         private logicSvc: LogicService,
         private stateService: RunStateService,
-        private lifecycleService: RunLifecycleService,
+        _lifecycleService: RunLifecycleService,
         private metricsService: RunMetricsService,
         private runDataSvc: RunDataService = runDataService
     ) { }
@@ -44,13 +43,13 @@ export class RunCompletionService {
     }
     /**
      * Shared completion pipeline for both auth paths: run onRunComplete blocks,
-     * validate required steps, atomically mark completed, then kick off
-     * writebacks + document generation in the background.
+     * validate required steps, then atomically mark completed and enqueue
+     * durable writeback + document-generation jobs.
      */
     private async complete(runId: string, run: WorkflowRun, userId: string | undefined): Promise<WorkflowRun> {
         const startTime = Date.now();
         if (run.completed) {
-            throw new Error("Run is already completed");
+            throw createError.runCompleted();
         }
         try {
             const runData = await this.runDataSvc.buildForRun(runId, run.workflowId);
@@ -90,25 +89,14 @@ export class RunCompletionService {
                 );
                 throw new Error(errorMsg);
             }
-            // Mark run as complete. markCompleted only updates rows where
-            // completed = false, so a concurrent double-complete loses here
-            // instead of generating documents twice.
-            const completedRun = await this.stateService.markCompleted(runId);
-            // Execute DataVault writebacks and Document Generation (truly non-blocking)
-            // on BOTH auth paths — anonymous/token completions previously skipped
-            // writebacks entirely.
-            Promise.allSettled([
-                this.lifecycleService.executeWritebacks(runId, run.workflowId, userId),
-                this.lifecycleService.generateDocuments(runId, {
-                    runData: this.runDataSvc.fromStepIdData(blockResult.data ?? runData.byStepId, runData.steps),
-                })
-            ]).then((results) => {
-                for (const result of results) {
-                    if (result.status === 'rejected') {
-                        _logger.error({ runId, error: result.reason as unknown }, "Background execution failed");
-                    }
-                }
-            }).catch((err: unknown) => _logger.error({ runId, error: err }, "Unhandled error in background execution"));
+            // Completion and both required post-processing jobs commit together.
+            // The leased database worker owns delivery after this boundary, so a
+            // process restart cannot lose writeback or document work.
+            const completedRun = await this.stateService.markCompletedAndEnqueue(
+                runId,
+                run.workflowId,
+                userId
+            );
             // Capture success metrics
             await this.metricsService.captureRunSucceeded(
                 run.workflowId,

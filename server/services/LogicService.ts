@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-import { evaluateConditionExpression } from "@shared/conditionEvaluator";
 import type { Section, LogicRule } from "@shared/schema";
 import {
-  evaluateRules,
+  evaluateWorkflowVisibility,
   calculateNextSection,
   resolveNextSection,
   validateRequiredSteps,
-  getEffectiveRequiredSteps,
   type LogicContext,
+  type WorkflowVisibilityResult,
 } from "@shared/workflowLogic";
 
 import {
@@ -128,61 +127,14 @@ export class LogicService {
     // Build data object for evaluation
     const data = await this.valueRepo.getRunDataAsJson(runId);
 
-    // Evaluate all rules
-    const evalResult = evaluateRules(logicRules, data);
-
-    // Build visible sections set
-    // Start with all sections, then apply hide rules
-    const allSectionIds = new Set(sections.map((s) => s.id));
-    const visibleSections = new Set(
-      Array.from(allSectionIds).filter((id) => {
-        // If explicitly shown by a rule, include it
-        if (evalResult.visibleSections.has(id)) {return true;}
-        return !evalResult.hiddenSections.has(id);
-      })
-    );
-
-    // Build visible steps set (only from visible sections)
-    const visibleSteps = new Set(
-      steps
-        .filter((step) => visibleSections.has(step.sectionId))
-        .filter((step) => {
-          // 1. Check step-level visibleIf
-          if (step.visibleIf) {
-            // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-            const aliasResolver = (name: string) => steps.find((s) => s.alias === name)?.id;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- visibleIf structure varies by condition type
-            const isVisible = evaluateConditionExpression(
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              step.visibleIf as any,
-              data,
-              aliasResolver
-            );
-            if (!isVisible) {return false;}
-          }
-
-          // 2. Check logic rules
-          // If explicitly shown by a rule, include it
-          if (evalResult.visibleSteps.has(step.id)) {return true;}
-          return !evalResult.hiddenSteps.has(step.id);
-        })
-        .map((s) => s.id)
-    );
-
-    // Get initially required steps
-    const initialRequiredSteps = new Set(steps.filter((s) => s.required).map((s) => s.id));
-
-    // Get effective required steps (considering logic rules)
-    const effectiveRequiredSteps = getEffectiveRequiredSteps(
-      initialRequiredSteps,
-      logicRules,
-      data
-    );
-
-    // Filter to only include visible required steps
-    const visibleRequiredSteps = new Set(
-      Array.from(effectiveRequiredSteps).filter((id) => visibleSteps.has(id))
-    );
+    const visibility = evaluateWorkflowVisibility({
+      sections,
+      steps,
+      rules: logicRules,
+      data,
+      resolveAlias: (name) => steps.find((step) => step.alias === name)?.id,
+    });
+    const { visibleSections, visibleSteps, requiredSteps: visibleRequiredSteps } = visibility;
 
     // Calculate normal next section
     const nextSectionId = calculateNextSection(
@@ -194,7 +146,7 @@ export class LogicService {
     // Resolve final next section (considering skip logic)
     const resolvedNextSectionId = resolveNextSection(
       nextSectionId,
-      evalResult.skipToSectionId,
+      visibility.ruleEvaluation.skipToSectionId,
       sections.map((s) => ({ id: s.id, order: s.order })),
       visibleSections
     );
@@ -210,7 +162,7 @@ export class LogicService {
       visibleSections: Array.from(visibleSections),
       visibleSteps: Array.from(visibleSteps),
       requiredSteps: Array.from(visibleRequiredSteps),
-      skipToSectionId: evalResult.skipToSectionId,
+      skipToSectionId: visibility.ruleEvaluation.skipToSectionId,
       nextSectionId: resolvedNextSectionId,
       currentProgress,
     };
@@ -240,62 +192,16 @@ export class LogicService {
     // Build data object for evaluation
     const data = runDataByStepId ?? await this.valueRepo.getRunDataAsJson(runId);
 
-    // Evaluate rules to determine visibility
-    const evalResult = evaluateRules(logicRules, data);
-
-    // Build visible sections
-    const allSectionIds = new Set(sections.map((s) => s.id));
-    const visibleSections = new Set(Array.from(allSectionIds).filter((id) => {
-      if (evalResult.visibleSections.has(id)) {return true;}
-      return !evalResult.hiddenSections.has(id);
-    }));
-
-    // Build visible steps
-    const visibleStepsInVisibleSections = steps.filter((step) =>
-      visibleSections.has(step.sectionId)
-    );
-
-    const visibleSteps = new Set(
-      visibleStepsInVisibleSections
-        .filter((step) => {
-          // 1. Check step-level visibleIf
-          if (step.visibleIf) {
-            // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-            const aliasResolver = (name: string) => steps.find((s) => s.alias === name)?.id;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- visibleIf structure varies by condition type
-            const isVisible = evaluateConditionExpression(
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              step.visibleIf as any,
-              data,
-              aliasResolver
-            );
-            if (!isVisible) {return false;}
-          }
-
-          // 2. Check logic rules
-          if (evalResult.visibleSteps.has(step.id)) {return true;}
-          return !evalResult.hiddenSteps.has(step.id);
-        })
-        .map((s) => s.id)
-    );
-
-    // Get initially required steps
-    const initialRequiredSteps = new Set(steps.filter((s) => s.required).map((s) => s.id));
-
-    // Get effective required steps
-    const effectiveRequiredSteps = getEffectiveRequiredSteps(
-      initialRequiredSteps,
-      logicRules,
-      data
-    );
-
-    // Filter to only visible required steps
-    const visibleRequiredSteps = new Set(
-      Array.from(effectiveRequiredSteps).filter((id) => visibleSteps.has(id))
-    );
+    const visibility = evaluateWorkflowVisibility({
+      sections,
+      steps,
+      rules: logicRules,
+      data,
+      resolveAlias: (name) => steps.find((step) => step.alias === name)?.id,
+    });
 
     // Validate all visible required steps have values
-    const validation = validateRequiredSteps(visibleRequiredSteps, data);
+    const validation = validateRequiredSteps(visibility.requiredSteps, data);
 
     // Get step titles for missing steps
     const missingStepTitles = validation.missingSteps
@@ -360,16 +266,7 @@ export class LogicService {
     ctx: LogicContext,
     sectionId: string
   ): Promise<boolean> {
-    const logicRules = ctx.rules;
-    const data = ctx.data;
-    const evalResult = evaluateRules(logicRules, data);
-
-    // Check if explicitly shown
-    if (evalResult.visibleSections.has(sectionId)) {
-      return true;
-    }
-
-    return !evalResult.hiddenSections.has(sectionId);
+    return this.evaluateContextVisibility(ctx).visibleSections.has(sectionId);
   }
 
   /**
@@ -384,31 +281,7 @@ export class LogicService {
     ctx: LogicContext,
     stepId: string
   ): Promise<boolean> {
-    const data = ctx.data;
-    
-    const step = ctx.steps.find((s) => s.id === stepId);
-    if (!step) {return false;}
-
-    // Check step-level visibleIf
-    if (step.visibleIf) {
-      const isVisible = evaluateConditionExpression(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        step.visibleIf as any,
-        data,
-        ctx.aliasResolver
-      );
-      if (!isVisible) {return false;}
-    }
-
-    const logicRules = ctx.rules;
-    const evalResult = evaluateRules(logicRules, data);
-
-    // Check if explicitly shown
-    if (evalResult.visibleSteps.has(stepId)) {
-      return true;
-    }
-
-    return !evalResult.hiddenSteps.has(stepId);
+    return this.evaluateContextVisibility(ctx).visibleSteps.has(stepId);
   }
 
   /**
@@ -423,49 +296,17 @@ export class LogicService {
     ctx: LogicContext,
     stepId: string
   ): Promise<boolean> {
-    const data = ctx.data;
-    const step = ctx.steps.find((s) => s.id === stepId);
-    if (!step) {
-      return false;
-    }
+    return this.evaluateContextVisibility(ctx).requiredSteps.has(stepId);
+  }
 
-    const logicRules = ctx.rules;
-    const evalResult = evaluateRules(logicRules, data);
-
-    // Check if explicitly marked as required by a rule
-    if (evalResult.requiredSteps.has(stepId)) {
-      return true;
-    }
-
-    // Check for make_optional rules
-    const makeOptionalRules = logicRules.filter(
-      (r) => r.targetType === "step" && r.targetStepId === stepId && r.action === "make_optional"
-    );
-
-    // If there are make_optional rules and any are triggered, step is optional
-    if (makeOptionalRules.length > 0) {
-      const isMadeOptional = makeOptionalRules.some((rule) => {
-        const actualValue = data[rule.conditionStepId];
-        return actualValue !== undefined;
-      });
-
-      if (isMadeOptional) {
-        return false;
-      }
-    }
-
-    if (step.visibleIf) {
-      const isVisible = evaluateConditionExpression(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        step.visibleIf as any,
-        data,
-        ctx.aliasResolver
-      );
-      if (!isVisible) {return false;}
-    }
-
-    // Default to the step's base required flag
-    return step.required ?? false;
+  private evaluateContextVisibility(ctx: LogicContext): WorkflowVisibilityResult {
+    return evaluateWorkflowVisibility({
+      sections: ctx.sections,
+      steps: ctx.steps,
+      rules: ctx.rules,
+      data: ctx.data,
+      resolveAlias: ctx.aliasResolver,
+    });
   }
 }
 

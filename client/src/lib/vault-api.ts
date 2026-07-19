@@ -886,7 +886,8 @@ export const transformBlockAPI = {
 export interface ApiRun {
   id: string;
   workflowId: string;
-  versionId: string;
+  workflowVersionId: string | null;
+  currentSectionId?: string | null;
   participantId: string | null;
   completed: boolean;
   completedAt: string | null;
@@ -901,6 +902,36 @@ export interface ApiStepValue {
   value: unknown;
   createdAt: string;
   updatedAt: string;
+}
+export interface ApiRunRuntime {
+  contractVersion: 1;
+  run: {
+    id: string;
+    workflowId: string;
+    workflowVersionId: string;
+    currentSectionId: string | null;
+    completed: boolean;
+    generationStatus: string | null;
+  };
+  workflow: Pick<ApiWorkflow, 'id' | 'title' | 'description' | 'projectId' | 'intakeConfig' | 'settings'>;
+  sections: ApiSection[];
+  steps: ApiStep[];
+  logicRules: Array<{
+    id: string;
+    workflowId: string;
+    conditionStepId: string;
+    operator: string;
+    conditionValue: unknown;
+    targetType: 'section' | 'step';
+    targetStepId: string | null;
+    targetSectionId: string | null;
+    action: string;
+    logicalOperator: string | null;
+    order: number;
+    createdAt: string | null;
+    updatedAt: string | null;
+  }>;
+  values: ApiStepValue[];
 }
 // Note: This is for visual workflow runs (Stage 7+)
 export const runAPI = {
@@ -928,6 +959,8 @@ export const runAPI = {
     fetchAPI<{ success: boolean; data: ApiRun }>(`/api/runs/${id}`).then(res => res.data),
   getWithValues: (id: string) =>
     fetchAPI<{ success: boolean; data: ApiRun & { values: ApiStepValue[] } }>(`/api/runs/${id}/values`).then(res => res.data),
+  getRuntime: (id: string) =>
+    fetchAPI<{ success: boolean; data: ApiRunRuntime }>(`/api/runs/${id}/runtime`).then(res => res.data),
   getDocuments: (id: string) =>
     fetchAPI<{ success: boolean; documents: unknown[] }>(`/api/runs/${id}/documents`).then(res => res.documents),
   upsertValue: (runId: string, stepId: string, value: unknown) =>

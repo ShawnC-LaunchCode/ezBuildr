@@ -7,6 +7,7 @@ import { IntakeConfigSchema } from "../../shared/zod-schemas.js";
 import { RUN_TOKEN_CONFIG } from "../config/auth";
 import { createLogger } from "../logger";
 import { hashToken } from "../utils/encryption";
+import { createError } from "../utils/errors";
 import { assertStepValueSizesWithinLimit } from "../utils/valueSizeLimit";
 import { workflowRepository, workflowRunRepository, stepValueRepository, sectionRepository, projectRepository, stepRepository } from "../repositories";
 
@@ -198,7 +199,7 @@ export class IntakeService {
     }
 
     if (run.completed) {
-      throw new Error("Run is already completed");
+      throw createError.runCompleted();
     }
 
     // Save all answers
@@ -237,7 +238,7 @@ export class IntakeService {
     }
 
     if (run.completed) {
-      throw new Error("Run is already completed");
+      throw createError.runCompleted();
     }
 
     // Get workflow to check intakeConfig

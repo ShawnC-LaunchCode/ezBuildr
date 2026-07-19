@@ -38,10 +38,12 @@ export interface WorkflowStepData {
   alias?: string;
   visibleIf?: string;
   repeaterConfig?: Record<string, unknown>;
-  defaultValue?: Record<string, unknown>;
+  defaultValue?: unknown;
+  isVirtual?: boolean;
 }
 
 export interface WorkflowLogicRuleData {
+  id?: string;
   conditionStepAlias: string;
   conditionStepId?: string;
   operator: string;
@@ -51,9 +53,13 @@ export interface WorkflowLogicRuleData {
   targetAlias: string;
   targetId?: string;
   action: string;
+  logicalOperator?: string | null;
+  order?: number;
 }
 
 export interface WorkflowTransformBlockData {
+  id?: string;
+  sectionId?: string | null;
   phase: string;
   name: string;
   code: string;
@@ -61,19 +67,41 @@ export interface WorkflowTransformBlockData {
   inputKeys?: string[];
   outputAlias?: string;
   outputKey?: string;
+  virtualStepId?: string | null;
+  enabled?: boolean;
   order?: number;
+  timeoutMs?: number | null;
 }
 
 export interface WorkflowHookData {
+  id?: string;
+  sectionId?: string | null;
+  finalBlockDocumentId?: string | null;
   phase: string;
   name: string;
   code: string;
   language: string;
   inputKeys?: string[];
   outputAlias?: string;
+  outputKeys?: string[];
+  virtualStepIds?: string[] | null;
   order?: number;
   config?: Record<string, unknown>;
   isEnabled?: boolean;
+  enabled?: boolean;
+  timeoutMs?: number | null;
+  mutationMode?: boolean | null;
+}
+
+export interface WorkflowBlockData {
+  id?: string;
+  sectionId?: string | null;
+  type: string;
+  phase: string;
+  config: unknown;
+  virtualStepId?: string | null;
+  enabled?: boolean;
+  order?: number;
 }
 
 export interface WorkflowSectionData {
@@ -83,6 +111,7 @@ export interface WorkflowSectionData {
   order?: number;
   alias?: string;
   visibleIf?: string;
+  skipIf?: unknown;
   config?: Record<string, unknown>;
   steps?: WorkflowStepData[];
 }
@@ -90,8 +119,12 @@ export interface WorkflowSectionData {
 export interface WorkflowContentData {
   title?: string;
   description?: string;
+  projectId?: string | null;
+  settings?: Record<string, unknown>;
+  intakeConfig?: Record<string, unknown>;
   sections?: WorkflowSectionData[];
   logicRules?: WorkflowLogicRuleData[];
+  blocks?: WorkflowBlockData[];
   transformBlocks?: WorkflowTransformBlockData[];
   lifecycleHooks?: WorkflowHookData[];
   documentHooks?: WorkflowHookData[];

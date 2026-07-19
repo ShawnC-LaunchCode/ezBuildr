@@ -295,10 +295,7 @@ export class IntakeQuestionVisibilityService {
     }
     // Perform batch delete if there are items to delete
     if (idsToDelete.length > 0) {
-      // Use inArray for batch deletion
-      const { inArray } = await import("drizzle-orm");
-      const { stepValues } = await import("../../shared/schema");
-      await this.stepValueRepo.deleteWhere(inArray(stepValues.id, idsToDelete));
+      await this.stepValueRepo.deleteByIdsForRun(runId, idsToDelete);
       logger.debug(
         { runId, count: idsToDelete.length, clearedSteps },
         "Cleared values for hidden questions (batch)"

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { creatorOrRunTokenAuth, type RunAuthRequest } from "../middleware/runTokenAuth";
 import { strictLimiter } from "../middleware/rateLimiter";
 import { runService } from "../services/RunService";
+import { runRuntimeService } from "../services/workflow-runs/RunRuntimeService";
 import { asyncHandler } from "../utils/asyncHandler";
 import { classifyRouteError } from "../utils/routeErrors";
 import { exceedsValueSizeLimit, MAX_VALUE_BYTES } from "../utils/valueSizeLimit";
@@ -17,6 +18,10 @@ const CreateRunBodySchema = z.object({
   clientEmail: z.string().email().optional(),
   metadata: z.record(z.any()).optional()
 }).strict();
+
+const RunIdParamsSchema = z.object({
+  runId: z.string().uuid(),
+});
 
 import type { Express, Request, Response } from "express";
 const logger = createLogger({ module: "runs-routes" });
@@ -32,6 +37,13 @@ function getPublicErrorDetails(error: unknown, status: number): unknown {
     return undefined;
   }
   return error.details;
+}
+
+function getPublicErrorCode(error: unknown, status: number): string | undefined {
+  if (status >= 500 || typeof error !== 'object' || error === null || !('code' in error)) {
+    return undefined;
+  }
+  return typeof error.code === 'string' ? error.code : undefined;
 }
 
 /**
@@ -261,7 +273,7 @@ export function registerRunRoutes(app: Express): void {
    * Accepts creator session OR Bearer runToken
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  app.post('/api/runs/:runId/values', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/runs/:runId/values', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
       const { stepId, value } = req.body;
@@ -297,7 +309,8 @@ export function registerRunRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error saving step value");
       const { status, message } = classifyRouteError(error, "Failed to save step value");
-      res.status(status).json({ success: false, error: message });
+      const code = getPublicErrorCode(error, status);
+      res.status(status).json({ success: false, error: message, ...(code ? { code } : {}) });
     }
   }));
   /**
@@ -365,7 +378,8 @@ export function registerRunRoutes(app: Express): void {
         sectionId,
       }, "Error submitting section values");
       const { status, message } = classifyRouteError(error, "Failed to submit section values");
-      res.status(status).json({ success: false, errors: [message] });
+      const code = getPublicErrorCode(error, status);
+      res.status(status).json({ success: false, errors: [message], ...(code ? { code } : {}) });
     }
   }));
   /**
@@ -397,7 +411,8 @@ export function registerRunRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error navigating to next section");
       const { status, message } = classifyRouteError(error, "Failed to navigate to next section");
-      res.status(status).json({ success: false, errors: [message] });
+      const code = getPublicErrorCode(error, status);
+      res.status(status).json({ success: false, errors: [message], ...(code ? { code } : {}) });
     }
   }));
   /**
@@ -434,11 +449,37 @@ export function registerRunRoutes(app: Express): void {
       logger.error({ error }, "Error saving step values");
       const { status, message } = classifyRouteError(error, "Failed to save step values");
       const details = getPublicErrorDetails(error, status);
+      const code = getPublicErrorCode(error, status);
       res.status(status).json({
         success: false,
         error: message,
+        ...(code ? { code } : {}),
         ...(details !== undefined ? { details } : {}),
       });
+    }
+  }));
+  /**
+   * GET /api/runs/:runId/runtime
+   * Return the immutable, sanitized definition pinned to this run plus saved
+   * values and cursor. Accepts creator session OR the matching Bearer runToken.
+   */
+  app.get('/api/runs/:runId/runtime', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const { runId } = RunIdParamsSchema.parse(req.params);
+      const userId = (req as AuthRequest).userId;
+      const runAuth = (req as RunAuthRequest).runAuth;
+      const runtime = await runRuntimeService.getRuntime(runId, {
+        userId,
+        tokenRunId: runAuth?.runId,
+      });
+      res.json({ success: true, data: runtime });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: "Invalid input", errors: error.errors });
+      }
+      logger.error({ error, runId: req.params.runId }, "Error fetching run runtime");
+      const { status, message } = classifyRouteError(error, "Failed to fetch run runtime");
+      res.status(status).json({ success: false, error: message });
     }
   }));
   // NOTE: Duplicate route removed - /api/runs/:runId/next is already defined above with creatorOrRunTokenAuth
@@ -470,7 +511,8 @@ export function registerRunRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error completing run");
       const { status, message } = classifyRouteError(error, "Failed to complete run");
-      res.status(status).json({ success: false, error: message });
+      const code = getPublicErrorCode(error, status);
+      res.status(status).json({ success: false, error: message, ...(code ? { code } : {}) });
     }
   }));
   /**

@@ -33,6 +33,7 @@ POST        /api/workflows/public/:publicLinkSlug/start   # Anonymous/public sta
 POST        /api/workflows/:workflowId/runs               # Create run (returns runToken)
 GET         /api/workflows/:workflowId/runs               # List runs for workflow
 GET         /api/runs/:runId                              # Creator session OR run token
+GET         /api/runs/:runId/runtime                      # Sanitized pinned definition + cursor + values
 POST        /api/runs/:runId/revoke-token
 GET/POST    /api/runs/:runId/values                       # Get / save step values
 POST        /api/runs/:runId/values/bulk

@@ -20,7 +20,11 @@ import type { WorkflowRun } from "@shared/schema";
 
 import { db } from "../../db";
 import { logger } from "../../logger";
-import { workflowRunRepository, runGeneratedDocumentsRepository } from "../../repositories";
+import {
+  workflowRunRepository,
+  runGeneratedDocumentsRepository,
+  runCompletionJobRepository,
+} from "../../repositories";
 
 import { hashToken } from "../../utils/encryption";
 import type { ShareTokenResult, SharedRunDetails } from "./types";
@@ -28,7 +32,8 @@ import type { ShareTokenResult, SharedRunDetails } from "./types";
 export class RunStateService {
   constructor(
     private runRepo = workflowRunRepository,
-    private docsRepo = runGeneratedDocumentsRepository
+    private docsRepo = runGeneratedDocumentsRepository,
+    private completionJobRepo = runCompletionJobRepository
   ) {}
 
   /**
@@ -48,7 +53,7 @@ export class RunStateService {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await this.runRepo.update(runId, updates as any);
+    await this.runRepo.updateIfIncomplete(runId, updates as any);
   }
 
   /**
@@ -56,6 +61,24 @@ export class RunStateService {
    */
   async markCompleted(runId: string): Promise<WorkflowRun> {
     return this.runRepo.markComplete(runId);
+  }
+
+  /** Atomically submit the run and create all required durable follow-up work. */
+  async markCompletedAndEnqueue(
+    runId: string,
+    workflowId: string,
+    userId?: string
+  ): Promise<WorkflowRun> {
+    return this.runRepo.transaction(async (tx) => {
+      const completedRun = await this.runRepo.markComplete(runId, tx);
+      const payload = {
+        workflowId,
+        ...(userId !== undefined ? { userId } : {}),
+      };
+      await this.completionJobRepo.enqueue({ runId, kind: 'writebacks', payload }, tx);
+      await this.completionJobRepo.enqueue({ runId, kind: 'documents', payload: { workflowId } }, tx);
+      return completedRun;
+    });
   }
 
   /**

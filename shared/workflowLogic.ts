@@ -9,7 +9,34 @@
  * This allows rules to reference steps by either alias or key, with everything normalized to keys.
  */
 
+import { evaluateConditionExpression } from './conditionEvaluator';
+import type { ConditionExpression } from './types/conditions';
 import type { LogicRule, Section, Step } from './schema';
+
+export type EvaluableLogicRule = Pick<
+  LogicRule,
+  'conditionStepId' | 'operator' | 'conditionValue' | 'targetType' |
+  'targetStepId' | 'targetSectionId' | 'action'
+>;
+
+interface VisibilitySectionDefinition {
+  id: string;
+  visibleIf?: unknown;
+}
+
+interface VisibilityStepDefinition {
+  id: string;
+  sectionId: string;
+  required?: boolean | null;
+  visibleIf?: unknown;
+}
+
+export interface WorkflowVisibilityResult {
+  visibleSections: Set<string>;
+  visibleSteps: Set<string>;
+  requiredSteps: Set<string>;
+  ruleEvaluation: WorkflowEvaluationResult;
+}
 
 /**
  * Context containing pre-loaded workflow definition and current data state
@@ -65,7 +92,7 @@ export interface WorkflowEvaluationResult {
  * @returns Evaluation result with visible sections, steps, and requirements
  */
 export function evaluateRules(
-  rules: LogicRule[],
+  rules: EvaluableLogicRule[],
   data: Record<string, unknown>
 ): WorkflowEvaluationResult {
   const result: WorkflowEvaluationResult = {
@@ -137,9 +164,74 @@ export function evaluateRules(
 }
 
 /**
+ * Canonical visibility/requiredness calculation shared by runner rendering,
+ * navigation, and completion validation. Targets controlled by a `show` rule
+ * are hidden until at least one matching show rule explicitly reveals them.
+ * Invalid visibleIf expressions fail closed.
+ */
+export function evaluateWorkflowVisibility(options: {
+  sections: VisibilitySectionDefinition[];
+  steps: VisibilityStepDefinition[];
+  rules: EvaluableLogicRule[];
+  data: Record<string, unknown>;
+  resolveAlias: (name: string) => string | undefined;
+}): WorkflowVisibilityResult {
+  const { sections, steps, rules, data, resolveAlias } = options;
+  const ruleEvaluation = evaluateRules(rules, data);
+  const sectionShowTargets = new Set(
+    rules.filter((rule) => rule.targetType === 'section' && rule.action === 'show')
+      .map((rule) => rule.targetSectionId)
+      .filter((id): id is string => Boolean(id))
+  );
+  const stepShowTargets = new Set(
+    rules.filter((rule) => rule.targetType === 'step' && rule.action === 'show')
+      .map((rule) => rule.targetStepId)
+      .filter((id): id is string => Boolean(id))
+  );
+
+  const expressionVisible = (expression: unknown): boolean => {
+    if (expression == null) {return true;}
+    try {
+      return evaluateConditionExpression(expression as ConditionExpression, data, resolveAlias);
+    } catch {
+      return false;
+    }
+  };
+
+  const visibleSections = new Set(
+    sections
+      .filter((section) => expressionVisible(section.visibleIf))
+      .filter((section) => sectionShowTargets.has(section.id)
+        ? ruleEvaluation.visibleSections.has(section.id)
+        : !ruleEvaluation.hiddenSections.has(section.id))
+      .map((section) => section.id)
+  );
+
+  const visibleSteps = new Set(
+    steps
+      .filter((step) => visibleSections.has(step.sectionId))
+      .filter((step) => expressionVisible(step.visibleIf))
+      .filter((step) => stepShowTargets.has(step.id)
+        ? ruleEvaluation.visibleSteps.has(step.id)
+        : !ruleEvaluation.hiddenSteps.has(step.id))
+      .map((step) => step.id)
+  );
+
+  const initiallyRequired = new Set(
+    steps.filter((step) => step.required === true).map((step) => step.id)
+  );
+  const effectiveRequired = getEffectiveRequiredSteps(initiallyRequired, rules, data);
+  const requiredSteps = new Set(
+    Array.from(effectiveRequired).filter((stepId) => visibleSteps.has(stepId))
+  );
+
+  return { visibleSections, visibleSteps, requiredSteps, ruleEvaluation };
+}
+
+/**
  * Evaluates a single condition
  */
-function evaluateCondition(rule: LogicRule, data: Record<string, unknown>): boolean {
+function evaluateCondition(rule: EvaluableLogicRule, data: Record<string, unknown>): boolean {
   const actualValue = data[rule.conditionStepId];
   const expectedValue = rule.conditionValue;
 
@@ -391,7 +483,7 @@ export function validateRequiredSteps(
  */
 export function getEffectiveRequiredSteps(
   initialRequiredSteps: Set<string>,
-  rules: LogicRule[],
+  rules: EvaluableLogicRule[],
   data: Record<string, unknown>
 ): Set<string> {
   const result = new Set(initialRequiredSteps);

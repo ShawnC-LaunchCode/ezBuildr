@@ -83,6 +83,8 @@ app.use('/oauth', globalLimiter);
     // Start Email Queue Worker
     const { emailQueueService } = await import('./services/EmailQueueService.js');
     emailQueueService.startWorker();
+    const { runCompletionJobWorker } = await import('./services/workflow-runs/RunCompletionJobWorker.js');
+    runCompletionJobWorker.start();
     
     // Initialize Cron Jobs
     const { initCronJobs } = await import('./cron.js');

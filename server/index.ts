@@ -98,6 +98,8 @@ void (async () => {
         // Start Email Queue Worker
         const { emailQueueService } = await import('./services/EmailQueueService.js');
         emailQueueService.startWorker();
+        const { runCompletionJobWorker } = await import('./services/workflow-runs/RunCompletionJobWorker.js');
+        runCompletionJobWorker.start();
         // Initialize Cron Jobs
         const { initCronJobs } = await import('./cron.js');
         initCronJobs();
@@ -149,6 +151,8 @@ void (async () => {
             // Stop Email Queue Worker
             const { emailQueueService } = await import('./services/EmailQueueService.js');
             emailQueueService.stopWorker();
+            const { runCompletionJobWorker } = await import('./services/workflow-runs/RunCompletionJobWorker.js');
+            runCompletionJobWorker.stop();
             // Close server
             server.close(() => {
                 logger.info('Server closed successfully');

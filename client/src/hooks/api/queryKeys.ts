@@ -23,6 +23,7 @@ export const queryKeys = {
     runs: (workflowId: string) => ["runs", workflowId] as const,
     run: (id: string) => ["runs", id] as const,
     runWithValues: (id: string) => ["runs", id, "values"] as const,
+    runRuntime: (id: string) => ["runs", id, "runtime"] as const,
     accountPreferences: ["account", "preferences"] as const,
     workflowMode: (workflowId: string) => ["workflows", workflowId, "mode"] as const,
     collections: (tenantId: string) => ["collections", tenantId] as const,

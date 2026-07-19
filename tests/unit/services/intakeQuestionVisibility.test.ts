@@ -23,6 +23,7 @@ vi.mock('../../../server/repositories', () => ({
     findByRunAndStep: vi.fn(),
     delete: vi.fn(),
     deleteWhere: vi.fn(),
+    deleteByIdsForRun: vi.fn(),
   },
 }));
 
@@ -347,11 +348,11 @@ describe('IntakeQuestionVisibilityService', () => {
       mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
       mockStepValueRepo.findByRunId.mockResolvedValue(mockValues);
       mockStepValueRepo.findByRunAndStep.mockResolvedValue(mockExistingValue);
-      mockStepValueRepo.deleteWhere.mockResolvedValue(undefined); // Mock batch delete
+      mockStepValueRepo.deleteByIdsForRun.mockResolvedValue(undefined);
       const runId = 'run_clear_values'; // Unique run ID
       const cleared = await service.clearHiddenQuestionValues('section1', runId);
       expect(cleared).toEqual(['q2']);
-      // Should verify deleteWhere was called, but checking result array is good proxy if logic depends on it
+      expect(mockStepValueRepo.deleteByIdsForRun).toHaveBeenCalledWith(runId, ['value123']);
     });
     it('should not clear values for visible questions', async () => {
       const mockQuestions = [
@@ -365,6 +366,7 @@ describe('IntakeQuestionVisibilityService', () => {
       expect(cleared).toEqual([]);
       expect(mockStepValueRepo.delete).not.toHaveBeenCalled();
       expect(mockStepValueRepo.deleteWhere).not.toHaveBeenCalled();
+      expect(mockStepValueRepo.deleteByIdsForRun).not.toHaveBeenCalled();
     });
   });
   // ========================================================================

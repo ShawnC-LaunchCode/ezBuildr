@@ -22,9 +22,17 @@ export { SystemStatsRepository, systemStatsRepository } from "./SystemStatsRepos
 // Vault-Logic Workflow repositories
 export { ProjectRepository, projectRepository, type ProjectListOptions, type ProjectWithOwnerName } from "./ProjectRepository";
 export { WorkflowRepository, workflowRepository } from "./WorkflowRepository";
+export { WorkflowVersionRepository, workflowVersionRepository } from "./WorkflowVersionRepository";
 export { SectionRepository, sectionRepository } from "./SectionRepository";
 export { StepRepository, stepRepository } from "./StepRepository";
 export { WorkflowRunRepository, workflowRunRepository } from "./WorkflowRunRepository";
+export {
+  RunCompletionJobRepository,
+  runCompletionJobRepository,
+  type EnqueueRunCompletionJobInput,
+  type ClaimRunCompletionJobsOptions,
+  type RetryRunCompletionJobOptions,
+} from "./RunCompletionJobRepository";
 export { StepValueRepository, stepValueRepository } from "./StepValueRepository";
 export { LogicRuleRepository, logicRuleRepository } from "./LogicRuleRepository";
 export { BlockRepository, blockRepository } from "./BlockRepository";
