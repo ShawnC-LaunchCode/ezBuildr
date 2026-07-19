@@ -9,8 +9,10 @@ import { createAIServiceFromEnv } from '../services/AIService';
 import { sectionService } from '../services/SectionService';
 import { stepService } from '../services/StepService';
 import { workflowService } from '../services/WorkflowService';
+import { validateAndNormalizeConfig } from '../utils/stepConfigUtils';
 
 import type { InsertSection, InsertStep, Workflow, Step } from '../../shared/schema';
+import type { StepConfig } from '../../shared/types/stepConfigs';
 import type { AIWorkflowRevisionRequest, AIGeneratedWorkflow } from '../../shared/types/ai';
 
 const logger = createLogger({ module: 'ai-revision-queue' });
@@ -61,7 +63,7 @@ const JOB_OPTIONS = {
 // ============================================================================
 
 // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
-const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisionJobResult> => {
+export async function processRevisionJob(job: Job<AiRevisionJobData>): Promise<AiRevisionJobResult> {
     const startTime = Date.now();
     const { userId, ...requestData } = job.data;
 
@@ -106,6 +108,7 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
         const existingStepsByAlias = new Map<string, string>();
         const stepAliasToId = new Map<string, string>();
         const sectionMap = new Map<string, string>();
+        const sectionTitleToId = new Map<string, string>();
 
         // Build alias map
         for (const section of (existingWorkflow.sections ?? [])) {
@@ -134,9 +137,26 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
             if (aiSection.id) {
                 sectionMap.set(aiSection.id, sectionId);
             }
+            if (aiSection.title) {
+                sectionTitleToId.set(aiSection.title, sectionId);
+            }
             processedSectionIds.add(sectionId);
 
             for (const aiStep of (aiSection.steps ?? [])) {
+                let validConfig: Record<string, unknown> | null = null;
+                if (aiStep.config) {
+                    try {
+                        const stepType = (aiStep.type || 'short_text') as Step['type'];
+                        validConfig = validateAndNormalizeConfig(
+                            stepType, 
+                            aiStep.config as StepConfig, 
+                            { strict: true }
+                        ) as Record<string, unknown>;
+                    } catch (err: unknown) {
+                        logger.warn({ stepType: aiStep.type, workflowId: requestData.workflowId, error: (err as Error).message }, "Step config validation failed during AI revision");
+                    }
+                }
+
                 // Cast step type to string as DB expects
                 const stepData: Partial<InsertStep> & { type: Step['type']; title: string; order: number } = {
                     type: (aiStep.type || 'short_text') as Step['type'],
@@ -144,7 +164,7 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
                     description: aiStep.description ?? null,
                     alias: aiStep.alias ?? null,
                     required: aiStep.required ?? false,
-                    // config: aiStep.config ?? null,
+                    config: validConfig,
                     order: aiStep.order ?? 0,
                     visibleIf: aiStep.visibleIf ?? null,
                     defaultValue: aiStep.defaultValue ?? null,
@@ -207,28 +227,22 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
                 }
 
                 let targetStepId: string | null = null;
-                const targetSectionId: string | null = null;
+                let targetSectionId: string | null = null;
 
                 if (rule.targetType === 'step' && rule.targetAlias) {
                     targetStepId = stepAliasToId.get(rule.targetAlias) ?? null;
                     if (!targetStepId) {continue;} // Skip invalid target
                 } else if (rule.targetType === 'section' && rule.targetAlias) {
-                    // We need section aliases? The AI schema defines targetAlias.
-                    // But sections in AI schema often don't have explicit aliases, just IDs or titles?
-                    // The AI response usually puts the ID or Title in alias if it generated it?
-                    // Actually AIGeneratedSectionSchema DOES NOT have 'alias'.
-                    // It has 'id'. The AI likely puts the ID in targetAlias if it follows instructions, or hallucinates.
-                    // We can try to match by ID or Title.
-                    // For now, let's assume targetAlias might be an ID or Title if not found in map.
+                    if (sectionMap.has(rule.targetAlias)) {
+                        targetSectionId = sectionMap.get(rule.targetAlias) ?? null;
+                    } else if (sectionTitleToId.has(rule.targetAlias)) {
+                        targetSectionId = sectionTitleToId.get(rule.targetAlias) ?? null;
+                    }
 
-                    // Try to find section by Title match from revised sections
-                    const _targetSection = (aiWorkflow.sections ?? []).find((s: { title: string; id?: string }) => s.title === rule.targetAlias || s.id === rule.targetAlias);
-                    // We need the ACTUAL DB ID.
-                    // We need a map of Section Title/ID (AI side) -> Real DB ID.
-                    // We didn't build this map.
-                    // Let's assume validation passes if we skip complex resolution for now, or improve it.
-                    // Actually, let's skip section rules if we can't resolve easily to avoid crash.
-                    continue;
+                    if (!targetSectionId) {
+                        logger.warn({ workflowId: requestData.workflowId, targetAlias: rule.targetAlias }, "Could not resolve section target for logic rule");
+                        continue;
+                    }
                 }
 
                 rulesToInsert.push({
@@ -331,7 +345,7 @@ const processRevisionJob = async (job: Job<AiRevisionJobData>): Promise<AiRevisi
         logger.error({ error, jobId: job.id }, 'AI revision job failed');
         throw error; // Let Bull handle failure state
     }
-};
+}
 
 // ============================================================================
 // IN-MEMORY FALLBACK (For Development without Redis)
