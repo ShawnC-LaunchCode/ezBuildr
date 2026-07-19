@@ -232,9 +232,12 @@ export class RunCompletionJobRepository extends BaseRepository<
       .update(runCompletionJobs)
       .set({
         status: sql`CASE WHEN ${runCompletionJobs.attempts} >= ${runCompletionJobs.maxAttempts} THEN 'dead_letter' ELSE 'retry' END`,
+        // ${now} must be cast to timestamptz: as an untyped bind param, Postgres
+        // resolves `${now} + <interval>` via `interval + interval` and infers the
+        // whole CASE as interval, which the timestamptz column rejects.
         availableAt: sql`CASE
-          WHEN ${runCompletionJobs.attempts} >= ${runCompletionJobs.maxAttempts} THEN ${now}
-          ELSE ${now} + LEAST(
+          WHEN ${runCompletionJobs.attempts} >= ${runCompletionJobs.maxAttempts} THEN ${now}::timestamptz
+          ELSE ${now}::timestamptz + LEAST(
             ${maxDelayMs},
             ${baseDelayMs} * POWER(2, GREATEST(${runCompletionJobs.attempts} - 1, 0))
           ) * INTERVAL '1 millisecond'
@@ -242,7 +245,7 @@ export class RunCompletionJobRepository extends BaseRepository<
         leaseOwner: null,
         leaseExpiresAt: null,
         lastError: boundedError,
-        completedAt: sql`CASE WHEN ${runCompletionJobs.attempts} >= ${runCompletionJobs.maxAttempts} THEN ${now} ELSE NULL END`,
+        completedAt: sql`CASE WHEN ${runCompletionJobs.attempts} >= ${runCompletionJobs.maxAttempts} THEN ${now}::timestamptz ELSE NULL END`,
         updatedAt: now,
       })
       .where(and(
