@@ -4,9 +4,10 @@ import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 
 import { db } from '../../../server/db';
+import { aiWorkflowRateLimit, aiDailyRateLimit } from '../../../server/middleware/ai.middleware';
 import { registerAiWorkflowEditRoutes } from '../../../server/routes/ai/workflowEdit.routes';
 import { snapshotService } from '../../../server/services/SnapshotService';
-import { workflows, workflowVersions, projects, users, sections, steps, tenants, auditLogs, logicRules } from '../../../shared/schema';
+import { workflows, workflowVersions, workflowSnapshots, projects, users, sections, steps, tenants, auditLogs, logicRules } from '../../../shared/schema';
 const { mockUserId, mockTenantId, authConfig, mockGenerateContent } = vi.hoisted(() => ({
   mockUserId: crypto.randomUUID(),
   mockTenantId: crypto.randomUUID(),
@@ -101,6 +102,12 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     testProjectId = project.id;
   });
   beforeEach(async () => {
+    // Every case in this describe shares one tenant, so the per-minute AI cap
+    // is a shared budget that grows into a false failure as cases are added.
+    // Clear it per test; the cap itself is covered by the ICW-19 describe below.
+    aiWorkflowRateLimit.resetKey(mockTenantId);
+    aiDailyRateLimit.resetKey(mockTenantId);
+
     // Reset mock to default AI response for each test
     mockGenerateContent.mockReset();
     mockGenerateContent.mockResolvedValue({
@@ -704,6 +711,478 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       .expect(400);
     expect(response.body.error).toBe('Failed to apply operations');
     expect(response.body.details[0]).toContain('does not belong to your tenant');
+  });
+
+  // ==========================================================================
+  // ICW2-10 — propose (dryRun) / apply split. Manual review must not touch the
+  // database before the user hits Apply, which is what makes Discard real.
+  // ==========================================================================
+
+  /** Everything the edit pipeline could have written for this workflow. */
+  const readWorkflowState = async (): Promise<{
+    sections: unknown[];
+    steps: unknown[];
+    rules: unknown[];
+    versions: unknown[];
+    snapshots: unknown[];
+  }> => ({
+    sections: await db.select().from(sections).where(eq(sections.workflowId, testWorkflowId)),
+    steps: await db.select().from(steps).where(eq(steps.workflowId, testWorkflowId)),
+    rules: await db.select().from(logicRules).where(eq(logicRules.workflowId, testWorkflowId)),
+    versions: await db.select().from(workflowVersions).where(eq(workflowVersions.workflowId, testWorkflowId)),
+    snapshots: await db.select().from(workflowSnapshots).where(eq(workflowSnapshots.workflowId, testWorkflowId)),
+  });
+
+  it('dryRun returns ops plus a reviewable diff and writes nothing (AC2)', async () => {
+    const before = await readWorkflowState();
+
+    const response = await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({ userMessage: 'Add a contact information section', dryRun: true })
+      .expect(200);
+
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.ops).toHaveLength(2);
+    expect(response.body.data.ops[0].op).toBe('section.create');
+    expect(response.body.data.summary).toHaveLength(2);
+    expect(response.body.data.confidence).toBe(0.95);
+
+    // Human-readable diff derived from the ops, in op order.
+    expect(response.body.data.changes).toEqual([
+      { type: 'add', entity: 'section', explanation: 'Add section "Contact Information"' },
+      { type: 'add', entity: 'step', explanation: 'Add email question "Email Address"' },
+    ]);
+
+    // Nothing written: no rows, no version, and no pre-edit snapshot either.
+    const after = await readWorkflowState();
+    expect(after).toEqual(before);
+    expect(after.sections).toHaveLength(0);
+    expect(after.versions).toHaveLength(0);
+    expect(after.snapshots).toHaveLength(0);
+  });
+
+  it('discarding a proposal leaves the workflow untouched (AC4)', async () => {
+    // Discard is client-side state only; the server contract that makes it safe
+    // is that propose wrote nothing, so a proposal never applied must leave the
+    // workflow byte-identical to how it started.
+    const before = await readWorkflowState();
+
+    await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({ userMessage: 'Add a contact information section', dryRun: true })
+      .expect(200);
+
+    // ...user hits Discard: no further request is made.
+    expect(await readWorkflowState()).toEqual(before);
+
+    const [workflowAfter] = await db.select().from(workflows).where(eq(workflows.id, testWorkflowId));
+    expect(workflowAfter.status).toBe('active'); // never demoted to draft
+  });
+
+  it('applies caller-supplied ops through the snapshot pipeline without calling the model (AC3)', async () => {
+    const proposal = await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({ userMessage: 'Add a contact information section', dryRun: true })
+      .expect(200);
+
+    mockGenerateContent.mockClear();
+
+    const applied = await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({ userMessage: 'Add a contact information section', ops: proposal.body.data.ops })
+      .expect(200);
+
+    // Apply must not re-prompt the model — it commits exactly what was reviewed.
+    expect(mockGenerateContent).not.toHaveBeenCalled();
+    expect(applied.body.data.noChanges).toBe(false);
+
+    const createdSections = await db.select().from(sections).where(eq(sections.workflowId, testWorkflowId));
+    expect(createdSections).toHaveLength(1);
+    expect(createdSections[0].title).toBe('Contact Information');
+    const createdSteps = await db.select().from(steps).where(eq(steps.workflowId, testWorkflowId));
+    expect(createdSteps).toHaveLength(1);
+    expect(createdSteps[0].alias).toBe('email');
+
+    // Summary is re-derived server-side from the applied ops, not trusted from
+    // the client, and the snapshot pipeline still ran.
+    expect(applied.body.data.summary).toEqual([
+      'Add section "Contact Information"',
+      'Add email question "Email Address"',
+    ]);
+    const [version] = await db.select()
+      .from(workflowVersions)
+      .where(eq(workflowVersions.id, applied.body.data.versionId))
+      .limit(1);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const aiMetadata = (version.migrationInfo as any)?.aiMetadata;
+    expect(aiMetadata.beforeSnapshotId).toBeDefined();
+    expect(aiMetadata.afterSnapshotId).toBeDefined();
+  });
+
+  it('fails closed (503) when the BEFORE snapshot cannot be created on an ops apply (AC3)', async () => {
+    const spy = vi.spyOn(snapshotService, 'createSnapshot')
+      .mockRejectedValueOnce(new Error('snapshot store unavailable'));
+    try {
+      await request(app)
+        .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+        .send({
+          userMessage: 'Add a contact section',
+          ops: [{ op: 'section.create', title: 'Contact', order: 1 }],
+        })
+        .expect(503);
+
+      const sectionsAfter = await db.select().from(sections).where(eq(sections.workflowId, testWorkflowId));
+      expect(sectionsAfter).toHaveLength(0);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('re-validates caller-supplied ops for IDOR (proposal echo carries no extra privilege)', async () => {
+    const [otherWorkflow] = await db.insert(workflows).values({
+      title: 'Other Workflow (apply IDOR)',
+      status: 'active',
+      creatorId: testUserId,
+      ownerId: testUserId,
+      projectId: testProjectId,
+    }).returning();
+    const [foreignSection] = await db.insert(sections).values({
+      workflowId: otherWorkflow.id,
+      title: 'Foreign Section',
+      order: 1,
+      config: {},
+    }).returning();
+
+    try {
+      const response = await request(app)
+        .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+        .send({
+          userMessage: 'Rename a section',
+          ops: [{ op: 'section.update', id: foreignSection.id, title: 'Hijacked' }],
+        })
+        .expect(400);
+      expect(response.body.error).toBe('Failed to apply operations');
+      expect(response.body.details[0]).toContain('does not belong to workflow');
+
+      const [check] = await db.select().from(sections).where(eq(sections.id, foreignSection.id));
+      expect(check.title).toBe('Foreign Section');
+    } finally {
+      await db.delete(sections).where(eq(sections.workflowId, otherWorkflow.id));
+      await db.delete(workflows).where(eq(workflows.id, otherWorkflow.id));
+    }
+  });
+
+  it('rejects malformed caller-supplied ops at request validation (400, nothing written)', async () => {
+    const response = await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({
+        userMessage: 'Do something odd',
+        ops: [{ op: 'section.nuke', title: 'Contact' }],
+      })
+      .expect(400);
+
+    expect(response.body.error).toBe('Invalid request data');
+    const sectionsAfter = await db.select().from(sections).where(eq(sections.workflowId, testWorkflowId));
+    expect(sectionsAfter).toHaveLength(0);
+  });
+
+  // ==========================================================================
+  // ICW2-11 — initial generation runs through this same pipeline, so the
+  // ICW2-2 class of bug (generated step `config` silently dropped) has to be
+  // pinned at the ops seam, where it was in fact still present.
+  // ==========================================================================
+
+  it('persists step config through the ops pipeline — choice steps keep their options (ICW2-11 AC2)', async () => {
+    mockGenerateContent.mockResolvedValueOnce({
+      response: {
+        text: () => JSON.stringify({
+          ops: [
+            { op: 'section.create', tempId: 's1', title: 'Preferences', order: 1 },
+            {
+              op: 'step.create',
+              sectionRef: 's1',
+              type: 'radio',
+              title: 'Preferred contact method',
+              alias: 'contact_method',
+              config: { options: [{ label: 'Email', value: 'email' }, { label: 'Phone', value: 'phone' }] },
+            },
+            {
+              op: 'step.create',
+              sectionRef: 's1',
+              type: 'number',
+              title: 'Household size',
+              alias: 'household_size',
+              config: { validation: { min: 1, max: 12 } },
+            },
+          ],
+          summary: ['Added preferences'],
+          warnings: [],
+          questions: [],
+          confidence: 0.9,
+        }),
+      },
+    });
+
+    await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({ userMessage: 'Ask how they want to be contacted and their household size' })
+      .expect(200);
+
+    const created = await db.select().from(steps).where(eq(steps.workflowId, testWorkflowId));
+    const choice = created.find((s) => s.alias === 'contact_method');
+    const numeric = created.find((s) => s.alias === 'household_size');
+
+    expect(choice).toBeDefined();
+    expect((choice!.config as { options?: unknown[] }).options).toHaveLength(2);
+    expect((choice!.config as { options?: { value: string }[] }).options?.map((o) => o.value))
+      .toEqual(['email', 'phone']);
+
+    expect(numeric).toBeDefined();
+    expect((numeric!.config as { validation?: { min?: number; max?: number } }).validation)
+      .toEqual({ min: 1, max: 12 });
+  });
+
+  it('persists step config on step.update too (ICW2-11 AC2)', async () => {
+    const [section] = await db.insert(sections).values({
+      workflowId: testWorkflowId,
+      title: 'Existing',
+      order: 1,
+      config: {},
+    }).returning();
+    const [step] = await db.insert(steps).values({
+      workflowId: testWorkflowId,
+      sectionId: section.id,
+      type: 'radio',
+      title: 'Colour',
+      alias: 'colour',
+      order: 1,
+      config: { options: [{ label: 'Red', value: 'red' }] },
+    }).returning();
+
+    await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({
+        userMessage: 'Add blue as an option',
+        ops: [{
+          op: 'step.update',
+          id: step.id,
+          config: { options: [{ label: 'Red', value: 'red' }, { label: 'Blue', value: 'blue' }] },
+        }],
+      })
+      .expect(200);
+
+    const [updated] = await db.select().from(steps).where(eq(steps.id, step.id));
+    expect((updated.config as { options?: { value: string }[] }).options?.map((o) => o.value))
+      .toEqual(['red', 'blue']);
+  });
+
+  // ==========================================================================
+  // ICW2-12 — op-schema gaps: visibility on steps AND sections, section-targeted
+  // logic rules, and step reorder. Each new op gets the same per-op validation
+  // and IDOR checks as the existing ones.
+  // ==========================================================================
+
+  const condition = (variable: string) => ({
+    type: 'group' as const,
+    id: 'g1',
+    operator: 'AND' as const,
+    conditions: [
+      { type: 'condition' as const, id: 'c1', variable, operator: 'is_true' as const, valueType: 'constant' as const },
+    ],
+  });
+
+  const seedSectionWithStep = async (title: string): Promise<{ sectionId: string; stepId: string }> => {
+    const [section] = await db.insert(sections).values({
+      workflowId: testWorkflowId, title, order: 1, config: {},
+    }).returning();
+    const [step] = await db.insert(steps).values({
+      workflowId: testWorkflowId, sectionId: section.id, type: 'yes_no',
+      title: 'Trigger', alias: `trigger_${Date.now()}`, order: 1, config: {},
+    }).returning();
+    return { sectionId: section.id, stepId: step.id };
+  };
+
+  it('sets and clears visibleIf on a section (ICW2-12 AC3)', async () => {
+    const { sectionId } = await seedSectionWithStep('Conditional Section');
+
+    await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({
+        userMessage: 'Only show that section when the trigger is yes',
+        ops: [{ op: 'section.setVisibleIf', id: sectionId, visibleIf: condition('trigger') }],
+      })
+      .expect(200);
+
+    const [withCondition] = await db.select().from(sections).where(eq(sections.id, sectionId));
+    expect((withCondition.visibleIf as { type?: string })?.type).toBe('group');
+
+    await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({
+        userMessage: 'Always show that section',
+        ops: [{ op: 'section.setVisibleIf', id: sectionId, visibleIf: null }],
+      })
+      .expect(200);
+
+    const [cleared] = await db.select().from(sections).where(eq(sections.id, sectionId));
+    expect(cleared.visibleIf).toBeNull();
+  });
+
+  it('sets visibleIf on a step as a condition object, rejecting the old string shape', async () => {
+    const { stepId } = await seedSectionWithStep('Step Visibility');
+
+    await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({
+        userMessage: 'Make it conditional',
+        ops: [{ op: 'step.setVisibleIf', id: stepId, visibleIf: condition('trigger') }],
+      })
+      .expect(200);
+
+    const [updated] = await db.select().from(steps).where(eq(steps.id, stepId));
+    expect((updated.visibleIf as { type?: string })?.type).toBe('group');
+
+    // A bare string is not a ConditionExpression the engine can evaluate.
+    const rejected = await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({
+        userMessage: 'Make it conditional',
+        ops: [{ op: 'step.setVisibleIf', id: stepId, visibleIf: 'trigger == true' }],
+      })
+      .expect(400);
+    expect(rejected.body.error).toBe('Invalid request data');
+  });
+
+  it('rejects section.setVisibleIf targeting another workflow (IDOR)', async () => {
+    const [otherWorkflow] = await db.insert(workflows).values({
+      title: 'Other Workflow (section visibility)', status: 'active',
+      creatorId: testUserId, ownerId: testUserId, projectId: testProjectId,
+    }).returning();
+    const [foreignSection] = await db.insert(sections).values({
+      workflowId: otherWorkflow.id, title: 'Foreign', order: 1, config: {},
+    }).returning();
+
+    try {
+      const response = await request(app)
+        .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+        .send({
+          userMessage: 'Hide that section',
+          ops: [{ op: 'section.setVisibleIf', id: foreignSection.id, visibleIf: condition('trigger') }],
+        })
+        .expect(400);
+      expect(response.body.details[0]).toContain('does not belong to workflow');
+
+      const [check] = await db.select().from(sections).where(eq(sections.id, foreignSection.id));
+      expect(check.visibleIf).toBeNull();
+    } finally {
+      await db.delete(sections).where(eq(sections.workflowId, otherWorkflow.id));
+      await db.delete(workflows).where(eq(workflows.id, otherWorkflow.id));
+    }
+  });
+
+  it('reorders steps within a section (ICW2-12 AC3)', async () => {
+    const [section] = await db.insert(sections).values({
+      workflowId: testWorkflowId, title: 'Ordered', order: 1, config: {},
+    }).returning();
+    const inserted = await db.insert(steps).values([
+      { workflowId: testWorkflowId, sectionId: section.id, type: 'short_text', title: 'A', alias: 'a', order: 1, config: {} },
+      { workflowId: testWorkflowId, sectionId: section.id, type: 'short_text', title: 'B', alias: 'b', order: 2, config: {} },
+      { workflowId: testWorkflowId, sectionId: section.id, type: 'short_text', title: 'C', alias: 'c', order: 3, config: {} },
+    ]).returning();
+    const byAlias = Object.fromEntries(inserted.map((s) => [s.alias, s.id]));
+
+    await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({
+        userMessage: 'Put C first',
+        ops: [{
+          op: 'step.reorder',
+          sectionId: section.id,
+          stepIds: [byAlias.c, byAlias.a, byAlias.b],
+        }],
+      })
+      .expect(200);
+
+    const after = await db.select().from(steps).where(eq(steps.sectionId, section.id));
+    const order = after.sort((a, b) => a.order - b.order).map((s) => s.alias);
+    expect(order).toEqual(['c', 'a', 'b']);
+  });
+
+  it('rejects step.reorder containing a step from another workflow (IDOR)', async () => {
+    const [section] = await db.insert(sections).values({
+      workflowId: testWorkflowId, title: 'Reorder IDOR', order: 1, config: {},
+    }).returning();
+    const [own] = await db.insert(steps).values({
+      workflowId: testWorkflowId, sectionId: section.id, type: 'short_text',
+      title: 'Own', alias: 'own', order: 1, config: {},
+    }).returning();
+
+    const [otherWorkflow] = await db.insert(workflows).values({
+      title: 'Other Workflow (reorder)', status: 'active',
+      creatorId: testUserId, ownerId: testUserId, projectId: testProjectId,
+    }).returning();
+    const [otherSection] = await db.insert(sections).values({
+      workflowId: otherWorkflow.id, title: 'Foreign', order: 1, config: {},
+    }).returning();
+    const [foreignStep] = await db.insert(steps).values({
+      workflowId: otherWorkflow.id, sectionId: otherSection.id, type: 'short_text',
+      title: 'Foreign', alias: 'foreign_step', order: 1, config: {},
+    }).returning();
+
+    try {
+      const response = await request(app)
+        .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+        .send({
+          userMessage: 'Reorder',
+          ops: [{ op: 'step.reorder', sectionId: section.id, stepIds: [own.id, foreignStep.id] }],
+        })
+        .expect(400);
+      expect(response.body.details[0]).toContain('does not belong to workflow');
+
+      const [check] = await db.select().from(steps).where(eq(steps.id, foreignStep.id));
+      expect(check.sectionId).toBe(otherSection.id);
+    } finally {
+      await db.delete(steps).where(eq(steps.workflowId, otherWorkflow.id));
+      await db.delete(sections).where(eq(sections.workflowId, otherWorkflow.id));
+      await db.delete(workflows).where(eq(workflows.id, otherWorkflow.id));
+    }
+  });
+
+  it('creates a section-targeted logic rule (ICW2-12 AC3)', async () => {
+    const { sectionId } = await seedSectionWithStep('Rule Target');
+
+    await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({
+        userMessage: 'Hide that section unless the trigger is yes',
+        ops: [{
+          op: 'logicRule.create',
+          rule: {
+            // logicRule conditions are the "variable operator value" DSL,
+            // unlike visibleIf which is a ConditionExpression object.
+            condition: 'trigger is_true',
+            action: 'show',
+            target: { type: 'section', id: sectionId },
+          },
+        }],
+      })
+      .expect(200);
+
+    const [section] = await db.select().from(sections).where(eq(sections.id, sectionId));
+    expect(section.visibleIf).not.toBeNull();
+  });
+
+  it('rejects combining dryRun with ops (400)', async () => {
+    const response = await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({
+        userMessage: 'Add a section',
+        dryRun: true,
+        ops: [{ op: 'section.create', title: 'Contact', order: 1 }],
+      })
+      .expect(400);
+
+    expect(response.body.error).toBe('Invalid request data');
   });
 });
 

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, vi, type Mocked } from 'vitest';
 import { WorkflowPatchService } from '../../../server/services/WorkflowPatchService';
 
 import { type Step, type Section, type Workflow, type Project, type Template, type WorkflowTemplate, type DatavaultTable, type DatavaultColumn, type DatavaultDatabase, type DatavaultWritebackMapping } from "@shared/schema";
-import type { WorkflowPatchOp } from '../../../server/schemas/aiWorkflowEdit.schema';
+import type { WorkflowPatchOp } from '../../../shared/validation/aiWorkflowEdit.schema';
 import type {
   StepRepository,
   SectionRepository,
@@ -264,7 +264,15 @@ describe('WorkflowPatchService', () => {
         {
           op: 'step.setVisibleIf',
           id: 'temp-step-1', // References step tempId
-          visibleIf: JSON.stringify({ op: 'equals', left: { type: 'variable', path: 'showName' }, right: { type: 'value', value: true } }),
+          // visibleIf is a ConditionExpression object, not a JSON string (ICW2-12).
+          visibleIf: {
+            type: 'group',
+            id: 'g1',
+            operator: 'AND',
+            conditions: [
+              { type: 'condition', id: 'c1', variable: 'showName', operator: 'is_true', valueType: 'constant' },
+            ],
+          },
         },
       ];
       const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
@@ -276,7 +284,7 @@ describe('WorkflowPatchService', () => {
         'step-real-uuid-1',
         expect.objectContaining({
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-          visibleIf: expect.any(String),
+          visibleIf: expect.objectContaining({ type: 'group' }),
         })
       );
     });
@@ -665,6 +673,39 @@ describe('WorkflowPatchService', () => {
                 value: 18,
                 valueType: 'constant',
               }),
+            ]),
+          }),
+        })
+      );
+    });
+
+    it.each([
+      ['has_pet is_true', 'has_pet', 'is_true'],
+      ['has_pet is_false', 'has_pet', 'is_false'],
+      ['email is_empty', 'email', 'is_empty'],
+      ['email is_not_empty', 'email', 'is_not_empty'],
+    ])('parses the valueless operator in %s (ICW2-12)', async (expression, variable, operator) => {
+      // These end the string, so a parser that only matched ` op ` (with a
+      // trailing space) rejected every boolean/emptiness rule outright.
+      mockSectionRepo.update.mockResolvedValue({} as unknown as Section);
+      const ops: WorkflowPatchOp[] = [
+        {
+          op: 'logicRule.create',
+          rule: { condition: expression, action: 'show', target: { type: 'section', id: 'section-123' } },
+        },
+      ];
+
+      const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
+
+      expect(result.errors).toHaveLength(0);
+      expect(mockSectionRepo.update).toHaveBeenCalledWith(
+        'section-123',
+        expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          visibleIf: expect.objectContaining({
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            conditions: expect.arrayContaining([
+              expect.objectContaining({ variable, operator, valueType: 'constant' }),
             ]),
           }),
         })

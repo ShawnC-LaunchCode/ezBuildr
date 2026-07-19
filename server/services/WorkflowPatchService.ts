@@ -11,7 +11,7 @@ import {
   projectRepository,
   datavaultWritebackMappingsRepository,
 } from "../repositories";
-import { type WorkflowPatchOp, workflowPatchOpSchema } from "../schemas/aiWorkflowEdit.schema";
+import { type WorkflowPatchOp, workflowPatchOpSchema } from "@shared/validation/aiWorkflowEdit.schema";
 
 import { DatavaultColumnsService } from "./DatavaultColumnsService";
 import { DatavaultTablesService } from "./DatavaultTablesService";
@@ -234,6 +234,17 @@ export class WorkflowPatchService {
         }
         return `Reordered ${op.sectionIds.length} sections`;
       }
+      case "section.setVisibleIf": {
+        const sectionId = this.resolve(op.id ?? op.tempId);
+        if (!sectionId) { throw new Error("Section ID or tempId required"); }
+        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section');
+        await sectionRepository.update(sectionId, {
+          visibleIf: op.visibleIf,
+        });
+        return op.visibleIf === null
+          ? `Cleared section visibility condition`
+          : `Updated section visibility condition`;
+      }
       // ====================================================================
       // Step Operations
       // ====================================================================
@@ -250,6 +261,9 @@ export class WorkflowPatchService {
           alias: op.alias,
           required: op.required ?? false,
           order,
+          // Without this, choice steps land with no options and date/number
+          // steps with no validation — the ICW2-2 defect, at the ops seam.
+          config: op.config,
           defaultValue: op.defaultValue,
         });
         if (op.tempId) {
@@ -268,6 +282,7 @@ export class WorkflowPatchService {
           title: op.title,
           alias: op.alias,
           required: op.required,
+          config: op.config,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ConditionExpression validated by Zod schema
           visibleIf: op.visibleIf as any,
           defaultValue: op.defaultValue,
@@ -306,7 +321,22 @@ export class WorkflowPatchService {
         await this.stepRepository.update(stepId, {
           visibleIf: op.visibleIf,
         });
-        return `Updated step visibility condition`;
+        return op.visibleIf === null
+          ? `Cleared step visibility condition`
+          : `Updated step visibility condition`;
+      }
+      case "step.reorder": {
+        const sectionId = this.resolve(op.sectionId);
+        if (!sectionId) { throw new Error("Section ID required"); }
+        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section');
+        for (let i = 0; i < op.stepIds.length; i++) {
+          const stepId = this.resolve(op.stepIds[i]);
+          if (stepId) {
+            await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step');
+            await this.stepRepository.update(stepId, { sectionId, order: i + 1 });
+          }
+        }
+        return `Reordered ${op.stepIds.length} steps`;
       }
       case "step.setRequired": {
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
@@ -665,7 +695,14 @@ export class WorkflowPatchService {
       'is_true', 'is_false', 'between',
     ];
     for (const rawOperator of operators) {
-      const operatorIndex = condition.indexOf(` ${rawOperator} `);
+      // Valueless operators ("has_pet is_true") end the string, so match a
+      // trailing operator as well as an infix one — otherwise is_true/is_false/
+      // is_empty/is_not_empty are unparseable and the model cannot express
+      // boolean or emptiness rules at all.
+      let operatorIndex = condition.indexOf(` ${rawOperator} `);
+      if (operatorIndex === -1 && condition.endsWith(` ${rawOperator}`)) {
+        operatorIndex = condition.length - rawOperator.length - 1;
+      }
       if (operatorIndex === -1) { continue; }
       const left = condition.substring(0, operatorIndex).trim();
       const right = condition.substring(operatorIndex + rawOperator.length + 2).trim();

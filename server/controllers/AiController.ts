@@ -4,16 +4,11 @@ import {
     AIWorkflowGenerationRequestSchema,
     AIWorkflowSuggestionRequestSchema,
     AITemplateBindingsRequestSchema,
-    AIWorkflowRevisionRequestSchema,
     AIConnectLogicRequestSchema,
     AIDebugLogicRequestSchema,
     AIVisualizeLogicRequestSchema,
 } from "../../shared/types/ai";
 import { createLogger } from "../logger";
-import {
-    enqueueAiRevision,
-    getAiRevisionJob
-} from "../queues/AiRevisionQueue";
 import { createAIServiceFromEnv } from "../services/AIService";
 import { geminiService } from "../services/geminiService";
 import { variableService } from "../services/VariableService";
@@ -393,103 +388,6 @@ export class AiController {
             }, 'AI template binding suggestion failed');
 
             AiController.handleAiError(res, error);
-        }
-    }
-
-    /**
-     * Iteratively revise a workflow using natural language
-     */
-    static async reviseWorkflow(req: Request, res: Response): Promise<Response | void> {
-        const authReq = req as AuthRequest;
-        const userId = authReq.userId!;
-
-        try {
-            const requestData = AIWorkflowRevisionRequestSchema.parse(req.body);
-
-            // Verify ownership first
-            await workflowService.verifyAccess(requestData.workflowId, userId, 'edit');
-
-            // Enqueue Job
-            const job = await enqueueAiRevision({
-                ...requestData,
-                userId
-            });
-
-            aiLogger.info({
-                userId,
-                workflowId: requestData.workflowId,
-                jobId: job.id
-            }, 'AI workflow revision job enqueued');
-
-            res.status(202).json({
-                success: true,
-                message: 'AI revision started in background',
-                jobId: job.id,
-                status: 'pending'
-            });
-
-        } catch (error) {
-            const err = error as AIError;
-            aiLogger.error({
-                error: err.message ?? err,
-                stack: err.stack
-            }, 'Failed to enqueue AI revision job');
-
-            return AiController.handleAiError(res, error);
-        }
-    }
-
-    /**
-     * Check status of revision job
-     */
-    static async getRevisionJobStatus(req: Request, res: Response): Promise<Response | void> {
-        try {
-            const { jobId } = req.params;
-            const job = await getAiRevisionJob(jobId);
-
-            if (!job) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Job not found',
-                    error: 'not_found'
-                });
-            }
-
-            // Verify user owns this job (job.data.userId === req.userId)
-            const authReq = req as AuthRequest;
-            if (job.data.userId !== authReq.userId) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Access denied',
-                    error: 'forbidden'
-                });
-            }
-
-            const state = await job.getState();
-            const result = job.returnvalue;
-            // Sanitize error to prevent leaking raw provider messages or API keys
-            const rawError = job.failedReason;
-            let sanitizedError = rawError;
-            if (rawError && (rawError.includes('API_KEY') || rawError.length > 250)) {
-                sanitizedError = 'An internal AI processing error occurred.';
-            }
-
-            res.json({
-                success: true,
-                jobId,
-                status: state,
-                result: state === 'completed' ? result : undefined,
-                error: state === 'failed' ? sanitizedError : undefined,
-                progress: job.progress() as number | object
-            });
-
-        } catch (error) {
-            aiLogger.error({ error }, 'Failed to get job status');
-            res.status(500).json({
-                success: false,
-                message: 'Failed to get status',
-                error: 'internal_error'
-            });
         }
     }
 

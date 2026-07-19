@@ -5,7 +5,9 @@ import type { Workflow, Section, Step, LogicRule } from "@shared/schema";
 import { createLogger } from "../../logger";
 import { hybridAuth } from "../../middleware/auth";
 import { aiWorkflowRateLimit, aiDailyRateLimit } from "../../middleware/ai.middleware";
-import { aiWorkflowEditRequestSchema, aiPreferencesSchema, aiModelResponseSchema } from "../../schemas/aiWorkflowEdit.schema";
+import { buildOpsDiff } from "@shared/aiOpsDiff";
+import { aiWorkflowEditRequestSchema, aiPreferencesSchema, aiModelResponseSchema } from "@shared/validation/aiWorkflowEdit.schema";
+
 import { AIError } from "../../services/ai/AIError";
 import { AIProviderClient } from "../../services/ai/AIProviderClient";
 import { fenceUntrusted } from "../../services/ai/AIServiceUtils";
@@ -17,7 +19,12 @@ import { workflowPatchService } from "../../services/WorkflowPatchService";
 import { workflowService } from "../../services/WorkflowService";
 
 import type { AuthRequest } from "../../middleware/auth";
-import type { AiModelResponse } from "../../schemas/aiWorkflowEdit.schema";
+import type {
+  AiEditProposal,
+  AiModelResponse,
+  AiWorkflowEditRequest,
+  WorkflowPatchOp,
+} from "@shared/validation/aiWorkflowEdit.schema";
 import type { Express, Request, Response } from "express";
 
 const logger = createLogger({ module: "ai-workflow-edit-routes" });
@@ -63,7 +70,7 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
     hybridAuth,
     aiWorkflowRateLimit,
     aiDailyRateLimit,
-    // eslint-disable-next-line @typescript-eslint/no-misused-promises, complexity, sonarjs/cognitive-complexity
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     async (req: Request, res: Response) => {
 
       try {
@@ -100,139 +107,15 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
         if (!currentWorkflow) {
           return res.status(404).json({ success: false, error: "Workflow not found" });
         }
-        // 3. Create BEFORE snapshot.
-        // Fail closed: the AI-edit rollback story presumes a pre-edit snapshot
-        // exists, so if we cannot create one we abort before mutating anything
-        // rather than proceed with no safety net (ICW-16).
-        let beforeSnapshot;
-        try {
-          beforeSnapshot = await snapshotService.createSnapshot(
-            workflowId,
-            `AI Edit BEFORE: ${new Date().toISOString()}`
-          );
-        } catch (error) {
-          logger.error({ error, workflowId }, "Failed to create before snapshot — aborting AI edit");
-          return res.status(503).json({
-            success: false,
-            error: "Could not create a pre-edit snapshot. No changes were made — please try again.",
-          });
-        }
-        // 4. (Optional) Check permissions (handled by service mostly but context useful)
-        // 5. Call AI model (Gemini)
-        let aiResponse: AiModelResponse;
-        try {
-          const systemPromptTemplate = await aiSettingsService.getEffectivePrompt();
-          aiResponse = await callAiForWorkflowEdit(
-            requestData.userMessage,
-            currentWorkflow,
-            requestData.preferences,
-            systemPromptTemplate
-          );
-        } catch (error) {
-          logger.error({ error, workflowId }, "AI model call failed");
 
-          if (error && typeof error === 'object' && 'code' in error && (error as { code: unknown }).code === 'VALIDATION_ERROR') {
-            return res.status(400).json({
-              success: false,
-              error: 'Failed to apply operations',
-              details: getValidationDetailMessages(error),
-            });
-          }
-
-          // Provider rate-limit / transient exhaustion surfaces as a retriable 429.
-          if (error instanceof AIError && error.code === 'RATE_LIMIT') {
-            return res.status(429).json({
-              success: false,
-              error: "AI service is busy. Please try again in a moment.",
-              retryAfterSeconds: error.retryAfterSeconds,
-            });
-          }
-
-          // Everything else: generic 500, no internal detail echoed.
-          return res.status(500).json({
-            success: false,
-            error: "AI model call failed",
-          });
-        }
-        // 6. Apply patch operations
-        const { summary: _summary, errors } = await workflowPatchService.applyOps(
-          workflowId,
-          userId,
-          aiResponse.ops
-        );
-        if (errors.length > 0) {
-          logger.error({ errors, workflowId }, "Failed to apply some AI operations");
-          return res.status(400).json({
-            success: false,
-            error: "Failed to apply operations",
-            details: errors,
-          });
+        // 3. Propose-only (dry run): generate ops and return them with a diff.
+        // Nothing is written — no snapshot, no version, no rows — so Discard on
+        // the client is genuinely a no-op (ICW2-10).
+        if (requestData.dryRun === true) {
+          return await proposeEdit(res, requestData, currentWorkflow, workflowId);
         }
 
-        // 7. Get updated workflow
-        const updatedWorkflow = await workflowService.getWorkflowWithDetails(workflowId, userId);
-        // 8. Create new version (DRAFT)
-        let draftVersion;
-        let noChanges = false;
-        try {
-          draftVersion = await versionService.createDraftVersion(
-            workflowId,
-            userId,
-            requestData.userMessage || 'AI generated edit',
-            {
-              source: 'ai-edit',
-              aiOpsCount: aiResponse.ops.length,
-              aiGenerated: true,
-              userPrompt: requestData.userMessage,
-              confidence: aiResponse.confidence
-              // snapshots added after creation to avoid circular dep
-            }
-          );
-          if (!draftVersion) {
-            noChanges = true;
-          } else {
-            // If workflow was active, revert to draft (because we made changes)
-            if (updatedWorkflow.status === 'active') {
-              await workflowService.changeStatus(workflowId, userId, 'draft');
-            }
-            // 9. Create AFTER snapshot
-            let afterSnapshot;
-            try {
-              afterSnapshot = await snapshotService.createSnapshot(
-                workflowId,
-                `AI Edit AFTER: ${draftVersion.versionNumber}`,
-                draftVersion.id
-              );
-              // 10. Update version metadata with snapshot IDs
-              await versionService.updateAiMetadata(draftVersion.id, {
-                source: 'ai-edit',
-                aiOpsCount: aiResponse.ops.length,
-                aiGenerated: true,
-                userPrompt: requestData.userMessage,
-                confidence: aiResponse.confidence,
-                beforeSnapshotId: beforeSnapshot?.id,
-                afterSnapshotId: afterSnapshot?.id
-              });
-            } catch (error) {
-              logger.error({ error, workflowId }, "Failed to create after snapshot or update metadata");
-            }
-          }
-        } catch (error) {
-          logger.error({ error, workflowId }, "Failed to create draft version after AI edit");
-          // Proceed, but warn?
-        }
-        res.status(200).json({
-          success: true,
-          data: {
-            workflowId: updatedWorkflow.id,
-            versionId: draftVersion?.id ?? null,
-            versionNumber: draftVersion?.versionNumber,
-            noChanges,
-            summary: aiResponse.summary,
-            warnings: aiResponse.warnings ?? [],
-            questions: aiResponse.questions ?? []
-          }
-        });
+        return await applyEdit(res, requestData, currentWorkflow, workflowId, userId);
       } catch (error) {
         logger.error({ error, workflowId: req.params.workflowId }, "Error in AI workflow edit");
         const actual = error instanceof Error ? error.message : "";
@@ -248,6 +131,206 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
     }
   );
 }
+
+/**
+ * Map a model-call failure onto the response contract. Shared by the propose
+ * and generate-and-apply paths so both classify identically.
+ */
+function respondToModelFailure(res: Response, error: unknown, workflowId: string): Response {
+  logger.error({ error, workflowId }, "AI model call failed");
+
+  if (error !== null && typeof error === 'object' && 'code' in error && (error as { code: unknown }).code === 'VALIDATION_ERROR') {
+    return res.status(400).json({
+      success: false,
+      error: 'Failed to apply operations',
+      details: getValidationDetailMessages(error),
+    });
+  }
+
+  // Provider rate-limit / transient exhaustion surfaces as a retriable 429.
+  if (error instanceof AIError && error.code === 'RATE_LIMIT') {
+    return res.status(429).json({
+      success: false,
+      error: "AI service is busy. Please try again in a moment.",
+      retryAfterSeconds: error.retryAfterSeconds,
+    });
+  }
+
+  // Everything else: generic 500, no internal detail echoed.
+  return res.status(500).json({ success: false, error: "AI model call failed" });
+}
+
+async function generateOps(
+  requestData: AiWorkflowEditRequest,
+  currentWorkflow: WorkflowWithDetails,
+): Promise<AiModelResponse> {
+  const systemPromptTemplate = await aiSettingsService.getEffectivePrompt();
+  return callAiForWorkflowEdit(
+    requestData.userMessage ?? '',
+    currentWorkflow,
+    requestData.preferences,
+    systemPromptTemplate,
+  );
+}
+
+/**
+ * Dry run: generate ops, return them plus a reviewable diff, write nothing.
+ */
+async function proposeEdit(
+  res: Response,
+  requestData: AiWorkflowEditRequest,
+  currentWorkflow: WorkflowWithDetails,
+  workflowId: string,
+): Promise<Response> {
+  let aiResponse: AiModelResponse;
+  try {
+    aiResponse = await generateOps(requestData, currentWorkflow);
+  } catch (error) {
+    return respondToModelFailure(res, error, workflowId);
+  }
+
+  const proposal: AiEditProposal = {
+    ops: aiResponse.ops,
+    changes: buildOpsDiff(aiResponse.ops),
+    summary: aiResponse.summary,
+    confidence: aiResponse.confidence,
+    warnings: aiResponse.warnings ?? [],
+    questions: aiResponse.questions ?? [],
+  };
+
+  return res.status(200).json({ success: true, data: proposal });
+}
+
+/**
+ * Apply ops through the snapshot + transaction pipeline. Ops either come from
+ * the caller (a previously reviewed proposal) or are generated here for the
+ * easy-mode auto-apply path. Caller-supplied ops get the same per-op Zod
+ * validation (at request parse) and IDOR checks (in `applyOps`) as generated
+ * ones, so they carry no extra privilege.
+ */
+// eslint-disable-next-line sonarjs/cognitive-complexity
+async function applyEdit(
+  res: Response,
+  requestData: AiWorkflowEditRequest,
+  currentWorkflow: WorkflowWithDetails,
+  workflowId: string,
+  userId: string,
+): Promise<Response> {
+  // Create BEFORE snapshot.
+  // Fail closed: the AI-edit rollback story presumes a pre-edit snapshot
+  // exists, so if we cannot create one we abort before mutating anything
+  // rather than proceed with no safety net (ICW-16).
+  let beforeSnapshot;
+  try {
+    beforeSnapshot = await snapshotService.createSnapshot(
+      workflowId,
+      `AI Edit BEFORE: ${new Date().toISOString()}`
+    );
+  } catch (error) {
+    logger.error({ error, workflowId }, "Failed to create before snapshot — aborting AI edit");
+    return res.status(503).json({
+      success: false,
+      error: "Could not create a pre-edit snapshot. No changes were made — please try again.",
+    });
+  }
+
+  // Ops from a reviewed proposal, or freshly generated for auto-apply.
+  let ops: WorkflowPatchOp[];
+  let summary: string[];
+  let confidence: number | undefined;
+  let warnings: string[];
+  let questions: AiModelResponse['questions'];
+
+  if (requestData.ops !== undefined) {
+    ops = requestData.ops;
+    // Summary is re-derived from the ops server-side rather than trusted from
+    // the client, so the recorded changelog always matches what was applied.
+    summary = buildOpsDiff(ops).map((change) => change.explanation);
+    warnings = [];
+    questions = [];
+  } else {
+    let aiResponse: AiModelResponse;
+    try {
+      aiResponse = await generateOps(requestData, currentWorkflow);
+    } catch (error) {
+      return respondToModelFailure(res, error, workflowId);
+    }
+    ops = aiResponse.ops;
+    summary = aiResponse.summary;
+    confidence = aiResponse.confidence;
+    warnings = aiResponse.warnings ?? [];
+    questions = aiResponse.questions ?? [];
+  }
+
+  const { errors } = await workflowPatchService.applyOps(workflowId, userId, ops);
+  if (errors.length > 0) {
+    logger.error({ errors, workflowId }, "Failed to apply some AI operations");
+    return res.status(400).json({
+      success: false,
+      error: "Failed to apply operations",
+      details: errors,
+    });
+  }
+
+  const updatedWorkflow = await workflowService.getWorkflowWithDetails(workflowId, userId);
+
+  const aiMetadata = {
+    source: 'ai-edit' as const,
+    aiOpsCount: ops.length,
+    aiGenerated: true,
+    userPrompt: requestData.userMessage,
+    confidence,
+  };
+
+  let draftVersion;
+  let noChanges = false;
+  try {
+    draftVersion = await versionService.createDraftVersion(
+      workflowId,
+      userId,
+      requestData.userMessage ?? 'AI generated edit',
+      aiMetadata, // snapshots added after creation to avoid circular dep
+    );
+    if (!draftVersion) {
+      noChanges = true;
+    } else {
+      // If workflow was active, revert to draft (because we made changes)
+      if (updatedWorkflow.status === 'active') {
+        await workflowService.changeStatus(workflowId, userId, 'draft');
+      }
+      try {
+        const afterSnapshot = await snapshotService.createSnapshot(
+          workflowId,
+          `AI Edit AFTER: ${draftVersion.versionNumber}`,
+          draftVersion.id
+        );
+        await versionService.updateAiMetadata(draftVersion.id, {
+          ...aiMetadata,
+          beforeSnapshotId: beforeSnapshot?.id,
+          afterSnapshotId: afterSnapshot?.id
+        });
+      } catch (error) {
+        logger.error({ error, workflowId }, "Failed to create after snapshot or update metadata");
+      }
+    }
+  } catch (error) {
+    logger.error({ error, workflowId }, "Failed to create draft version after AI edit");
+  }
+
+  return res.status(200).json({
+    success: true,
+    data: {
+      workflowId: updatedWorkflow.id,
+      versionId: draftVersion?.id ?? null,
+      versionNumber: draftVersion?.versionNumber,
+      noChanges,
+      summary,
+      warnings,
+      questions,
+    }
+  });
+}
+
 /**
  * Generate workflow edit operations via the AI provider registry.
  *

@@ -63,7 +63,6 @@ import {
   useRestoreVersion,
   useWorkflow,
   useSetWorkflowMode,
-  useTransformBlocks,
 } from "@/lib/vault-hooks";
 // eslint-disable-next-line max-lines-per-function, complexity
 export default function WorkflowBuilder() {
@@ -72,7 +71,6 @@ export default function WorkflowBuilder() {
   const queryClient = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
   const { data: workflow, isLoading } = useWorkflow(workflowId);
-  const { data: transformBlocks } = useTransformBlocks(workflowId);
   const workflowMode = workflow
     ? { mode: workflow.modeOverride ?? "easy" }
     : undefined;
@@ -395,12 +393,10 @@ export default function WorkflowBuilder() {
             </div>
           }
           rightPanel={
+            // The panel drives the server-side ops pipeline, which reads the
+            // workflow itself — no client-shaped workflow payload needed.
             <AiConversationPanel
               workflowId={workflowId}
-              // @ts-expect-error - TODO(ICW-B1): AiConversationPanel expects full backend WorkflowWithDetails shape which differs from client hook response
-              currentWorkflow={workflow}
-              // @ts-expect-error - TODO(ICW-B1): Type mismatch between API response and expected props
-              transformBlocks={transformBlocks}
               initialPrompt={searchParams.get("prompt") ?? undefined}
             />
           }

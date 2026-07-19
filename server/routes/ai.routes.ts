@@ -73,30 +73,8 @@ export function registerAiRoutes(app: Express): void {
     asyncHandler(AiController.suggestTemplateBindings)
   );
 
-  /**
-   * POST /api/ai/workflows/revise
-   * Iteratively revise a workflow using natural language
-   */
-  app.post(
-    '/api/ai/workflows/revise',
-    hybridAuth,
-    requireBuilder,
-    validateWorkflowSize(),
-    aiWorkflowRateLimit,
-    aiDailyRateLimit,
-    asyncHandler(AiController.reviseWorkflow)
-  );
-
-  /**
-   * GET /api/ai/workflows/revise/:jobId
-   * Check status of revision job
-   */
-  app.get(
-    '/api/ai/workflows/revise/:jobId',
-    hybridAuth,
-    requireBuilder,
-    asyncHandler(AiController.getRevisionJobStatus)
-  );
+  // Workflow revision lives on the hardened ops pipeline
+  // (POST /api/workflows/:workflowId/ai/edit) — see ICW2-10/ICW2-11.
 
   /**
    * POST /api/ai/suggest-values

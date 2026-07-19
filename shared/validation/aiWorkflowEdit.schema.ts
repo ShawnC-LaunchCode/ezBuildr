@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { conditionExpressionSchema } from "../types/conditions";
+
 /**
  * AI Workflow Edit Schemas
  * Defines the contract between frontend and AI-powered workflow editing system
@@ -65,6 +67,12 @@ export const workflowPatchOpSchema = z.discriminatedUnion("op", [
     op: z.literal("section.reorder"),
     sectionIds: z.array(z.string()),
   }),
+  z.object({
+    op: z.literal("section.setVisibleIf"),
+    id: z.string().optional(),
+    tempId: z.string().optional(),
+    visibleIf: conditionExpressionSchema,
+  }),
 
   // Step operations
   z.object({
@@ -89,7 +97,10 @@ export const workflowPatchOpSchema = z.discriminatedUnion("op", [
     alias: z.string().optional(),
     required: z.boolean().optional(),
     config: z.record(z.unknown()).optional(),
-    visibleIf: z.string().optional(),
+    // `visibleIf` is a jsonb ConditionExpression, never a string — typing it as
+    // a string meant the model was taught (and validated against) a shape the
+    // engine cannot evaluate (ICW2-12).
+    visibleIf: conditionExpressionSchema.optional(),
     defaultValue: z.unknown().optional(),
   }),
   z.object({
@@ -108,7 +119,12 @@ export const workflowPatchOpSchema = z.discriminatedUnion("op", [
     op: z.literal("step.setVisibleIf"),
     id: z.string().optional(),
     tempId: z.string().optional(),
-    visibleIf: z.string().nullable(),
+    visibleIf: conditionExpressionSchema,
+  }),
+  z.object({
+    op: z.literal("step.reorder"),
+    sectionId: z.string(),
+    stepIds: z.array(z.string()),
   }),
   z.object({
     op: z.literal("step.setRequired"),
@@ -226,15 +242,60 @@ export type AiModelResponse = z.infer<typeof aiModelResponseSchema>;
 // Request/Response for API Endpoint
 // ============================================================================
 
+/**
+ * The edit endpoint serves three modes, discriminated by which optional fields
+ * are present (ICW2-10):
+ *
+ * - **propose** (`dryRun: true`): generate ops from `userMessage` and return
+ *   them with a diff. Nothing is written — no snapshot, no version, no rows.
+ * - **apply** (`ops` present): skip the model entirely and apply caller-supplied
+ *   ops through the snapshot + transaction pipeline. Ops are re-validated
+ *   per-op with the same IDOR checks as generated ops, so echoing a proposal
+ *   back is no more privileged than any other authorized write.
+ * - **generate-and-apply** (neither): the original one-shot path, used by
+ *   easy-mode auto-apply.
+ */
 export const aiWorkflowEditRequestSchema = z.object({
-  userMessage: z.string().min(1).max(2000),
+  // Required only when the model is being called; an apply request carries ops.
+  userMessage: z.string().min(1).max(2000).optional(),
   workflowId: z.string().uuid(),
   documentIds: z.array(z.string().uuid()).optional(),
   preferences: aiPreferencesSchema,
   conversationState: z.record(z.unknown()).optional(),
-});
+  dryRun: z.boolean().optional(),
+  ops: z.array(workflowPatchOpSchema).optional(),
+}).refine(
+  (data) => data.ops !== undefined || (data.userMessage !== undefined && data.userMessage.length > 0),
+  { message: "userMessage is required unless ops are supplied", path: ["userMessage"] },
+).refine(
+  (data) => !(data.dryRun === true && data.ops !== undefined),
+  { message: "dryRun cannot be combined with ops", path: ["dryRun"] },
+);
 
 export type AiWorkflowEditRequest = z.infer<typeof aiWorkflowEditRequestSchema>;
+
+// ============================================================================
+// Proposal (dry-run) response
+// ============================================================================
+
+export const aiEditChangeSchema = z.object({
+  type: z.enum(["add", "remove", "update", "move"]),
+  entity: z.enum(["workflow", "section", "step", "logic", "document", "datavault"]),
+  explanation: z.string(),
+});
+
+export type AiEditChange = z.infer<typeof aiEditChangeSchema>;
+
+export const aiEditProposalSchema = z.object({
+  ops: z.array(workflowPatchOpSchema),
+  changes: z.array(aiEditChangeSchema),
+  summary: z.array(z.string()),
+  confidence: z.number(),
+  warnings: z.array(z.string()).optional(),
+  questions: z.array(aiQuestionSchema).optional(),
+});
+
+export type AiEditProposal = z.infer<typeof aiEditProposalSchema>;
 
 export const aiWorkflowEditResponseSchema = z.object({
   workflow: z.unknown(), // ApiWorkflow type (full workflow object)
