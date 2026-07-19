@@ -88,6 +88,44 @@ values proven unchanged).
 
 **Result: ICW2-1 closed.**
 
+## Verification pass — 2026-07-19 (ICW2-2..5, round 3 — phase complete)
+
+All four remaining Phase 1 tickets verified against the tree and the live app.
+
+- **Gate:** `npm run type-check` → 0 errors · lint on every touched file → 0
+  problems · `npm run test:fast` → 1681 passed / 15 skipped ·
+  `creation-routes.test.ts` 22/22 + `creation-limits-reorder.test.ts` 5/5 +
+  `AiRevisionQueue.test.ts` 2/2 (integration).
+- **ICW2-2:** type fix + tests landed by dev, but the tests still failed at
+  round 3 (wrong request shape: `prompt`/`existingWorkflowData` instead of
+  `userInstruction`/`currentWorkflow`; response missing the
+  `{updatedWorkflow, diff}` envelope and required `id` fields). **Reviewer
+  repaired the test fixtures** (correct `AIWorkflowRevisionRequest` +
+  `AIWorkflowRevisionResponseSchema` shapes, `GEMINI_API_KEY` stub) — both
+  cases now prove config-with-options persisted and section-targeted rule
+  resolved to a real section id.
+- **ICW2-3:** `clean_mode.cjs` scratch **deleted by reviewer** (dev ignored the
+  punch item). Live-verified (dev app, real login): VisibilityField renders on
+  expanded cards in **Easy Mode**; full condition builder opens; a
+  `has_pet is_true` condition built through the UI → `PUT /api/steps/:id` 200
+  with the `visibleIf` group persisted; "Visibility updated" toast; the
+  variable picker correctly excludes the step itself.
+- **ICW2-4:** live-verified: 25 keystrokes into a step title → **1 PUT**;
+  19 keystrokes into a choice option label → **1 PUT**, typed value intact
+  after the settling refetch ("Bone (large breed only)" stored normalized in
+  config) — the lost-edit race is closed. Reworked ChoiceCardEditor renders
+  options/visibility with no errors. **Reviewer fix:** the dev's
+  `DefaultValueField` extension had wired one of its two text inputs to the
+  debounce hook but left the standard static-default input per-keystroke —
+  wired it to the same debounced trio (selects correctly stay immediate).
+  (A mid-verification browser freeze was diagnosed as a native `confirm()`
+  dialog from a blind test click — not an app defect.)
+- **ICW2-5:** `resolveCrossSectionOrder` helper extracted; complexity lint
+  clean; 2 unit + 1 integration tests green (append-to-end + explicit-order
+  honored, stored order asserted).
+
+**Result: ICW2-2..5 closed. Phase 1 complete.**
+
 ## ICW2-1 — Section/step mutations require only `view`; reorder IDs unscoped ✅
 
 **Priority: P0 (security-adjacent bug)** · Size: S–M · Files:
@@ -153,7 +191,7 @@ workflows' sections/steps — a cross-tenant write.
 
 ---
 
-## ICW2-2 — AI revision worker silently drops step `config` and section-targeted rules 🔄
+## ICW2-2 — AI revision worker silently drops step `config` and section-targeted rules ✅
 
 **Priority: P0 (bug, interim fix)** · Size: S · File: `server/queues/AiRevisionQueue.ts`
 
@@ -220,7 +258,7 @@ genuinely ambiguous, log a structured warning instead of silently continuing.
 
 ---
 
-## ICW2-3 — Per-question visibility is invisible in Easy mode (the default) 🔄
+## ICW2-3 — Per-question visibility is invisible in Easy mode (the default) ✅
 
 **Priority: P1 (UX)** · Size: S · Files:
 `client/src/components/builder/cards/common/VisibilityField.tsx`, card editors
@@ -271,7 +309,7 @@ existing one. **UI change → load the `design` skill.**
 
 ---
 
-## ICW2-4 — Finish the debounce rollout (per-keystroke saves + lost-edit race remain) 🔄
+## ICW2-4 — Finish the debounce rollout (per-keystroke saves + lost-edit race remain) ✅
 
 > **Review round 2, 2026-07-18 — SENT BACK again.** Race test written and
 > passing ✓, return-type lint fixed ✓, sweep extended to `DefaultValueField` ✓
@@ -348,7 +386,7 @@ build the full inventory; list it in the turn-in report.
 
 ---
 
-## ICW2-5 — Cross-section step move keeps stale `order` (collision) 🔄
+## ICW2-5 — Cross-section step move keeps stale `order` (collision) ✅
 
 **Priority: P2 (bug)** · Size: S · File: `server/services/StepService.ts`
 
