@@ -3,8 +3,9 @@
  * Handles config parsing, migrations, and state management
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 
+import { useDebouncedFieldMutation } from './useDebouncedFieldMutation';
 import type { ApiStep } from '@/lib/vault-api';
 
 import type {
@@ -28,6 +29,7 @@ interface UseChoiceConfigResult {
     setLocalConfig: (config: ChoiceCardState) => void;
     sourceMode: "static" | "dynamic";
     setSourceMode: (mode: "static" | "dynamic") => void;
+    flushConfig: () => void;
     isAdvancedMode: boolean;
 }
 
@@ -137,23 +139,37 @@ function parseChoiceConfig(step: ApiStep): {
 /**
  * Hook for managing Choice block configuration
  */
-export function useChoiceConfig(step: ApiStep): UseChoiceConfigResult {
-    const [localConfig, setLocalConfig] = useState<ChoiceCardState | null>(null);
-    const [sourceMode, setSourceMode] = useState<"static" | "dynamic">("static");
-    const isAdvancedMode = step.type === "choice";
+export function useChoiceConfig(
+    step: ApiStep,
+    onSaveConfig: (config: ChoiceCardState, mode: "static" | "dynamic") => void
+): UseChoiceConfigResult {
+    const parsed = useMemo(() => parseChoiceConfig(step), [step.config, step.type]);
+    
+    const modeRef = useRef(parsed.mode);
+    const [sourceModeState, setSourceModeState] = useState<"static" | "dynamic">(parsed.mode);
 
-    // Parse config on mount or when step changes
+    const setSourceMode = (mode: "static" | "dynamic"): void => {
+        modeRef.current = mode;
+        setSourceModeState(mode);
+    };
+
+    const { localValue: localConfig, onChange: setLocalConfig, onBlur: flushConfig } = useDebouncedFieldMutation(
+        parsed.config,
+        (newConfig) => onSaveConfig(newConfig, modeRef.current),
+        600
+    );
+
+    // Sync sourceMode if parsed.mode changes (e.g. initial load or external change)
     useEffect(() => {
-        const { config, mode } = parseChoiceConfig(step);
-        setLocalConfig(config);
-        setSourceMode(mode);
-    }, [step.config, step.type]);
+        setSourceMode(parsed.mode);
+    }, [parsed.mode]);
 
     return {
         localConfig,
         setLocalConfig,
-        sourceMode,
+        sourceMode: sourceModeState,
         setSourceMode,
-        isAdvancedMode
+        flushConfig,
+        isAdvancedMode: step.type === "choice"
     };
 }

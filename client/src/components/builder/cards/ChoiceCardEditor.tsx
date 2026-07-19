@@ -65,39 +65,8 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
   // Determine mode (kept for compatibility, but hook also provides this)
   const isAdvancedMode = step.type === "choice";
 
-  // Use custom hooks for config management
-  const { localConfig, setLocalConfig, sourceMode, setSourceMode } = useChoiceConfig(step);
-
   // State
   const [errors, setErrors] = useState<string[]>([]);
-
-  // Fetch Workflow Variables (for dynamic mode)
-  const { data: variables = [] } = useWorkflowVariables(workflowId);
-
-  // Filter for List variables only
-  const listVariables = useMemo(() => {
-    return (variables).filter(v => v.type === 'read_table' || v.type === 'list_tools');
-  }, [variables]);
-
-  // Use custom hook for validation
-  const {
-    timingWarning,
-    labelColumnWarning,
-    valueColumnWarning,
-    sourceBlock,
-    sourceTableId,
-    columns,
-    loadingColumns,
-    blocks
-  } = useListToolsValidation({ localConfig, workflowId, sectionId });
-
-
-  // Derived state for Dynamic Columns
-  const _selectedListVarName = localConfig?.dynamicOptions?.listVariable;
-
-  // ---------------------------------------------------------------------------
-  // HANDLERS
-  // ---------------------------------------------------------------------------
 
   const saveConfig = (newConfig: ChoiceCardState, saveSourceMode: "static" | "dynamic") => {
     // Validation
@@ -149,17 +118,48 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
     }
   };
 
+  // Use custom hooks for config management
+  const { localConfig, setLocalConfig, sourceMode, setSourceMode } = useChoiceConfig(step, saveConfig);
+
+  // Fetch Workflow Variables (for dynamic mode)
+  const { data: variables = [] } = useWorkflowVariables(workflowId);
+
+  // Filter for List variables only
+  const listVariables = useMemo(() => {
+    return (variables).filter(v => v.type === 'read_table' || v.type === 'list_tools');
+  }, [variables]);
+
+  // Use custom hook for validation
+  const {
+    timingWarning,
+    labelColumnWarning,
+    valueColumnWarning,
+    sourceBlock,
+    sourceTableId,
+    columns,
+    loadingColumns,
+    blocks
+  } = useListToolsValidation({ localConfig, workflowId, sectionId });
+
+
+  // Derived state for Dynamic Columns
+  const _selectedListVarName = localConfig?.dynamicOptions?.listVariable;
+
+  // ---------------------------------------------------------------------------
+  // HANDLERS
+  // ---------------------------------------------------------------------------
+
   const handleUpdate = (updates: Partial<ChoiceCardState>) => {
     if (!localConfig) { return; }
     const next: ChoiceCardState = { ...localConfig, ...updates };
     setLocalConfig(next);
-    saveConfig(next, sourceMode);
   };
 
   const handleSourceModeChange = (val: string) => {
     if (!localConfig) { return; }
     const newMode = val as "static" | "dynamic";
     setSourceMode(newMode);
+    // Mode changes are discrete actions; save immediately to bypass debounce queue
     saveConfig(localConfig, newMode);
   };
 

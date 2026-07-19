@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useDebouncedFieldMutation } from "@/hooks/useDebouncedFieldMutation";
 import { useUpdateStep, useWorkflow } from "@/lib/vault-hooks";
 
 import { useIntake } from "../../IntakeContext";
@@ -65,11 +66,6 @@ export function DefaultValueField({
         }
     };
 
-    // Only show if Advanced Mode OR Intake Linking is available
-    if (mode === 'easy' && !upstreamWorkflowId) {
-        return null;
-    }
-
     const handleDefaultValueChange = (value: string) => {
         let parsedValue: string | boolean | number | null = value;
 
@@ -94,11 +90,17 @@ export function DefaultValueField({
         });
     };
 
-    // Determine displayed value for static input
-    // If defaultValue is an object (link), don't show it as string in static input
-    const staticInputValue = (defaultValue === null || defaultValue === undefined || typeof defaultValue === 'object')
-        ? ""
-        : String(defaultValue);
+    const { localValue: localDefaultValue, onChange: onLocalDefaultValueChange, onBlur: onLocalDefaultValueBlur } = useDebouncedFieldMutation(
+        (defaultValue === null || defaultValue === undefined || typeof defaultValue === 'object') ? "" : String(defaultValue),
+        (value) => handleDefaultValueChange(value)
+    );
+
+    // Only show if Advanced Mode OR Intake Linking is available
+    if (mode === 'easy' && !upstreamWorkflowId) {
+        return null;
+    }
+
+    const staticInputValue = localDefaultValue;
 
     const staticSelectValue = (defaultValue === null || defaultValue === undefined || typeof defaultValue === 'object')
         ? "none"
@@ -163,7 +165,8 @@ export function DefaultValueField({
                                     id={`default-val-${stepId}`}
                                     name={`default-val-${stepId}`}
                                     value={staticInputValue}
-                                    onChange={(e) => { void handleDefaultValueChange(e.target.value); }}
+                                    onChange={(e) => onLocalDefaultValueChange(e.target.value)}
+                                    onBlur={onLocalDefaultValueBlur}
                                     placeholder="Enter default value..."
                                     className="h-9 text-sm"
                                 />
@@ -234,14 +237,9 @@ export function DefaultValueField({
                     <Input
                         id={`default-val-${stepId}`}
                         name={`default-val-${stepId}`}
-                        value={
-                            defaultValue === null || defaultValue === undefined
-                                ? ""
-                                : typeof defaultValue === "object"
-                                    ? JSON.stringify(defaultValue)
-                                    : String(defaultValue)
-                        }
-                        onChange={(e) => { void handleDefaultValueChange(e.target.value); }}
+                        value={staticInputValue}
+                        onChange={(e) => onLocalDefaultValueChange(e.target.value)}
+                        onBlur={onLocalDefaultValueBlur}
                         placeholder="Enter default value..."
                         className="h-9 text-sm"
                     />
