@@ -1,6 +1,15 @@
 -- ============================================================================
--- 0002 — DataVault autonumber PL/pgSQL functions
+-- 0002 — Runtime prerequisites: extensions + DataVault autonumber functions
 -- ============================================================================
+-- pgcrypto provides gen_random_uuid()/digest() used by the app and by column
+-- defaults; created here (idempotent) so `db:migrate` alone yields a
+-- runtime-ready database, matching what tests/setup.ts sets up.
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
+--> statement-breakpoint
+
+-- ---------------------------------------------------------------------------
+-- DataVault autonumber PL/pgSQL functions
+-- ---------------------------------------------------------------------------
 -- Production code (server/repositories/DatavaultRowsRepository.ts) calls these
 -- three functions, but they previously existed ONLY in tests/setup.ts
 -- (ensureDbFunctions) — no migration created them, so fresh/CI databases lacked

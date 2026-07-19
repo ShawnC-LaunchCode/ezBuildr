@@ -34,12 +34,26 @@ process.env.VL_MASTER_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 // CI has no GEMINI_API_KEY, and per-test-file `process.env` assignments run too
 // late because ESM imports (which build the singleton) are hoisted above them.
 process.env.GEMINI_API_KEY = process.env.GEMINI_API_KEY || "test-key";
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = "postgres://postgres:postgres@localhost:5432/ezbuildr_test";
-}
-// Enforce usage of TEST_DATABASE_URL if available
-if (process.env.TEST_DATABASE_URL) {
-  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+// Tests create/drop schemas and mutate data, so they MUST run against a
+// disposable local/test database — never the app's DATABASE_URL, which may
+// point at a shared cloud dev DB (that's how 355 stray test_schema_* schemas
+// once accumulated on Neon). Resolve the test DB from TEST_DATABASE_URL, else a
+// local default; ignore the inherited DATABASE_URL entirely.
+process.env.DATABASE_URL =
+  process.env.TEST_DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/ezbuildr_test";
+// Fail closed: refuse to run the DB-mutating setup against a remote host unless
+// explicitly opted in. This is the guardrail that stops tests polluting a
+// cloud database ever again.
+{
+  const testHost = new URL(process.env.DATABASE_URL).hostname;
+  const isLocal = testHost === "localhost" || testHost === "127.0.0.1" || testHost === "::1";
+  if (!isLocal && process.env.ALLOW_REMOTE_TEST_DB !== "true") {
+    throw new Error(
+      `Refusing to run tests against non-local database host "${testHost}". ` +
+      `Point TEST_DATABASE_URL at a local/Docker test DB (e.g. the port-5434 container), ` +
+      `or set ALLOW_REMOTE_TEST_DB=true to override deliberately.`
+    );
+  }
 }
 // Increase hook timeout for slow migrations globally
 vi.setConfig({ hookTimeout: 300000 });
