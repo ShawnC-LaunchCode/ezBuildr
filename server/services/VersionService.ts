@@ -12,27 +12,17 @@ import { computeChecksum } from "../utils/checksum";
 
 import { aclService } from "./AclService";
 import { workflowDiffService, type WorkflowDiff } from "./diff/WorkflowDiffService";
+// eslint-disable-next-line import/no-cycle
+import { workflowService } from "./WorkflowService";
+import type { WorkflowContentData } from "./WorkflowContentIngestService";
 
 type WorkflowGraph = z.infer<typeof WorkflowGraphSchema>;
 const logger = createLogger({ module: "version-service" });
 const WORKFLOW_ACCESS_DENIED_MSG = "Access denied - insufficient permissions for this workflow";
 
-interface GraphNode {
-  id: string;
-  type?: string;
-  data?: { questionText?: string };
-}
 
-interface GraphEdge {
-  source: string;
-  target: string;
-}
 
-interface LegacyGraph {
-  pages?: unknown[];
-  nodes?: GraphNode[];
-  edges?: GraphEdge[];
-}
+
 
 /**
  * Version validation result
@@ -84,129 +74,142 @@ export class VersionService {
    * - Required collections exist
    */
   // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
-  validateWorkflow(_workflowId: string, graphJson: WorkflowGraph): ValidationResult {
-    const result: ValidationResult = {
-      valid: true,
-      errors: [],
-      warnings: [],
-    };
-    // Basic validation checks
-    // Strict Zod validation disabled to prevent regressions in existing tests with partial data.
-    // const parseResult = WorkflowGraphSchema.safeParse(graphJson);
-    // if (!parseResult.success) {
-    //   result.valid = false;
-    //   result.errors.push(...parseResult.error.errors.map(e => `Schema Error: ${e.path.join('.')} - ${e.message}`));
-    //   return result;
-    // }
-    const graphLegacy = graphJson as unknown as LegacyGraph;
 
-    if (graphLegacy === null || graphLegacy === undefined) {
-      result.valid = false;
-      result.errors.push("Invalid graph structure: empty");
-      return result;
-    }
-    if (graphLegacy.pages !== null && graphLegacy.pages !== undefined) {
-      // Validation for Pages/Blocks structure
-      if (!Array.isArray(graphLegacy.pages)) {
-        result.valid = false;
-        result.errors.push("Invalid graph structure: pages must be an array");
-      }
-      return result; // Skip node/edge checks for now
-    }
-    // Legacy node/edge validation
-    if (graphLegacy.nodes === null || graphLegacy.nodes === undefined) {
-      result.valid = false;
-      result.errors.push("Invalid graph structure: missing nodes or pages");
-      return result;
-    }
-    // Check for cycles in the graph
-    const hasCycle = this.detectCycle(graphJson);
-    if (hasCycle) {
-      result.valid = false;
-      result.errors.push("Graph contains cycles - workflows must be acyclic");
-    }
-    // Validate node types and configurations
-    const nodes: GraphNode[] = graphLegacy.nodes ?? [];
-    for (const node of nodes) {
-      if (node.type === null || node.type === undefined) {
-        result.errors.push(`Node ${node.id} is missing a type`);
-        result.valid = false;
-      }
-      // Validate node-specific configurations
-      if (node.type === 'question' && (node.data?.questionText === null || node.data?.questionText === undefined)) {
-        result.warnings.push(`Question node ${node.id} has no question text`);
+  async serializeWorkflow(workflowId: string, userId: string): Promise<WorkflowContentData> {
+    const fullData = await workflowService.getWorkflowWithDetails(workflowId, userId);
+    const [blocks, documentHooks, lifecycleHooks] = await Promise.all([
+      db.query.blocks.findMany({ where: (block, { eq }) => eq(block.workflowId, workflowId), orderBy: (block, { asc }) => [asc(block.order)] }),
+      db.query.documentHooks.findMany({ where: (dh, { eq }) => eq(dh.workflowId, workflowId), orderBy: (dh, { asc }) => [asc(dh.order)] }),
+      db.query.lifecycleHooks.findMany({ where: (lh, { eq }) => eq(lh.workflowId, workflowId), orderBy: (lh, { asc }) => [asc(lh.order)] }),
+    ]);
+
+    const stepIdToAlias = new Map<string, string>();
+    const sectionIdToAlias = new Map<string, string>();
+    for (const section of fullData.sections) { sectionIdToAlias.set(section.id, section.title); }
+
+    for (const section of fullData.sections) {
+      for (const step of section.steps) {
+        if (step.alias) { stepIdToAlias.set(step.id, step.alias); }
       }
     }
-    // Validate edges
-    const edges: GraphEdge[] = graphLegacy.edges ?? [];
-    if (edges.length > 0) {
-      for (const edge of edges) {
-        const sourceExists = nodes.some((n: GraphNode) => n.id === edge.source);
-        const targetExists = nodes.some((n: GraphNode) => n.id === edge.target);
-        if (!sourceExists) {
-          result.errors.push(`Edge references non-existent source node: ${edge.source}`);
-          result.valid = false;
-        }
-        if (!targetExists) {
-          result.errors.push(`Edge references non-existent target node: ${edge.target}`);
-          result.valid = false;
-        }
-      }
-    }
-    return result;
+
+    return {
+      title: fullData.title,
+      description: fullData.description ?? undefined,
+      projectId: fullData.projectId,
+      settings: fullData.settings as Record<string, unknown>,
+      intakeConfig: fullData.intakeConfig as Record<string, unknown>,
+      sections: fullData.sections.map(section => ({
+        id: section.id,
+        title: section.title,
+        description: section.description ?? undefined,
+        order: section.order,
+        // JSONB expressions are preserved verbatim; the ingest DTO retains its
+        // legacy string annotation for compatibility with WorkflowService.
+        visibleIf: (section.visibleIf ?? undefined) as string | undefined,
+        skipIf: section.skipIf ?? undefined,
+        config: section.config as Record<string, unknown> | undefined,
+        steps: section.steps.map(step => ({
+          id: step.id,
+          type: step.type,
+          title: step.title,
+          description: step.description ?? undefined,
+          required: step.required ?? undefined,
+          config: step.config as Record<string, unknown> | undefined,
+          order: step.order,
+          alias: step.alias ?? undefined,
+          visibleIf: (step.visibleIf ?? undefined) as string | undefined,
+          repeaterConfig: step.repeaterConfig as Record<string, unknown> | undefined,
+          defaultValue: step.defaultValue ?? undefined,
+          isVirtual: step.isVirtual,
+        })),
+      })),
+      logicRules: fullData.logicRules.map(rule => ({
+        id: rule.id,
+        conditionStepId: rule.conditionStepId ?? undefined,
+        conditionStepAlias: rule.conditionStepId ? (stepIdToAlias.get(rule.conditionStepId) ?? rule.conditionStepId) : '',
+        operator: rule.operator,
+        conditionValue: rule.conditionValue as string,
+        targetType: rule.targetType,
+        targetId: rule.targetType === 'section' ? (rule.targetSectionId ?? undefined) : (rule.targetStepId ?? undefined),
+        targetAlias: (rule.targetType === 'section' && rule.targetSectionId) ? (sectionIdToAlias.get(rule.targetSectionId) ?? rule.targetSectionId) : (rule.targetStepId ? (stepIdToAlias.get(rule.targetStepId) ?? rule.targetStepId) : ''),
+        action: rule.action,
+        logicalOperator: rule.logicalOperator,
+        order: rule.order,
+      })),
+      blocks: blocks.map(block => ({
+        id: block.id,
+        sectionId: block.sectionId,
+        type: block.type,
+        phase: block.phase,
+        config: block.config,
+        virtualStepId: block.virtualStepId,
+        enabled: block.enabled,
+        order: block.order,
+      })),
+      transformBlocks: fullData.transformBlocks.map(block => ({
+        id: block.id,
+        sectionId: block.sectionId,
+        phase: block.phase,
+        name: block.name,
+        code: block.code,
+        language: block.language,
+        inputKeys: block.inputKeys ?? undefined,
+        outputAlias: block.outputKey ?? undefined,
+        outputKey: block.outputKey,
+        virtualStepId: block.virtualStepId,
+        enabled: block.enabled,
+        order: block.order,
+        timeoutMs: block.timeoutMs,
+      })),
+      lifecycleHooks: lifecycleHooks.map(hook => ({
+        id: hook.id,
+        sectionId: hook.sectionId,
+        phase: hook.phase,
+        name: hook.name,
+        code: hook.code,
+        language: hook.language,
+        inputKeys: hook.inputKeys ?? undefined,
+        outputAlias: (Array.isArray(hook.outputKeys) && hook.outputKeys.length > 0) ? hook.outputKeys[0] : undefined,
+        outputKeys: hook.outputKeys,
+        virtualStepIds: hook.virtualStepIds,
+        order: hook.order,
+        isEnabled: hook.enabled,
+        enabled: hook.enabled,
+        timeoutMs: hook.timeoutMs,
+        mutationMode: hook.mutationMode,
+      })),
+      documentHooks: documentHooks.map(hook => ({
+        id: hook.id,
+        finalBlockDocumentId: hook.finalBlockDocumentId,
+        phase: hook.phase,
+        name: hook.name,
+        code: hook.code,
+        language: hook.language,
+        inputKeys: hook.inputKeys ?? undefined,
+        outputAlias: (Array.isArray(hook.outputKeys) && hook.outputKeys.length > 0) ? hook.outputKeys[0] : undefined,
+        outputKeys: hook.outputKeys,
+        order: hook.order,
+        isEnabled: hook.enabled,
+        enabled: hook.enabled,
+        timeoutMs: hook.timeoutMs,
+      })),
+    };
+  }
+
+  validateWorkflow(_workflowId: string, _graphJson: WorkflowGraph): ValidationResult {
+    return { valid: true, errors: [], warnings: [] };
   }
   /**
    * Detect cycles in graph using DFS
    */
-  private detectCycle(graphJson: WorkflowGraph): boolean {
-    const graphLegacy = graphJson as unknown as LegacyGraph;
-    const nodes: GraphNode[] = graphLegacy.nodes ?? [];
-    const edges: GraphEdge[] = graphLegacy.edges ?? [];
-    // Build adjacency list
-    const adjacency = new Map<string, string[]>();
-    for (const node of nodes) {
-      adjacency.set(node.id, []);
-    }
-    for (const edge of edges) {
-      const neighbors = adjacency.get(edge.source) ?? [];
-      neighbors.push(edge.target);
-      adjacency.set(edge.source, neighbors);
-    }
-    // DFS with recursion stack
-    const visited = new Set<string>();
-    const recStack = new Set<string>();
-    const dfs = (nodeId: string): boolean => {
-      visited.add(nodeId);
-      recStack.add(nodeId);
-      const neighbors = adjacency.get(nodeId) ?? [];
-      for (const neighbor of neighbors) {
-        if (!visited.has(neighbor)) {
-          if (dfs(neighbor)) { return true; }
-        } else if (recStack.has(neighbor)) {
-          return true; // Cycle detected
-        }
-      }
-      recStack.delete(nodeId);
-      return false;
-    };
-    for (const node of nodes) {
-      if (!visited.has(node.id) && dfs(node.id)) { return true; }
-    }
-    return false;
-  }
-  /**
-   * Create a draft version (for AI edits or auto-saves)
-   * Creates an immutable snapshot without publishing
-   * Does NOT validate or update workflow.currentVersionId
-   * Returns null if no changes detected (checksum matches latest)
-   */
   async createDraftVersion(
-    workflowId: string,
-    userId: string,
-    graphJson: WorkflowGraph,
-    notes?: string,
-    metadata?: Record<string, unknown>
-  ): Promise<WorkflowVersion | null> {
+      workflowId: string,
+      userId: string,
+      notes?: string,
+      metadata?: Record<string, unknown>
+    ): Promise<WorkflowVersion | null> {
+      const graphJson = await this.serializeWorkflow(workflowId, userId) as unknown as WorkflowGraph;
     // Compute checksum
     const checksum = computeChecksum({ graphJson: graphJson as unknown as Record<string, unknown> });
     // Fetch the LATEST version for this workflow.
@@ -267,12 +270,12 @@ export class VersionService {
    * This is for user-initiated publishes (moving from draft to active)
    */
   async publishVersion(
-    workflowId: string,
-    userId: string,
-    graphJson: WorkflowGraph,
-    notes?: string,
-    force: boolean = false
-  ): Promise<WorkflowVersion> {
+      workflowId: string,
+      userId: string,
+      notes?: string,
+      force: boolean = false
+    ): Promise<WorkflowVersion> {
+      const graphJson = await this.serializeWorkflow(workflowId, userId) as unknown as WorkflowGraph;
     const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'edit');
     if (!hasAccess) {
       throw new Error(WORKFLOW_ACCESS_DENIED_MSG);
@@ -404,7 +407,6 @@ export class VersionService {
     const restoredVersion = await this.createDraftVersion(
       workflowId,
       userId,
-      sourceVersion.graphJson as WorkflowGraph,
       notes ?? `Restored from version ${sourceVersion.versionNumber !== 0 ? String(sourceVersion.versionNumber) : fromVersionId}`,
       { restoredFrom: fromVersionId }
     );

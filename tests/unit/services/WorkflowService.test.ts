@@ -33,6 +33,14 @@ vi.mock("../../../server/db", () => ({
   initializeDatabase: vi.fn(),
 }));
 
+vi.mock("../../../server/services/VersionService", () => ({
+  versionService: {
+    publishVersion: vi.fn().mockResolvedValue({ id: "version-1" }),
+    createDraftVersion: vi.fn().mockResolvedValue({ id: "version-1" }),
+    serializeWorkflow: vi.fn().mockResolvedValue({}),
+  },
+}));
+
 vi.mock("../../../server/services/AclService", () => ({
   aclService: {
     hasWorkflowRole: vi.fn().mockResolvedValue(true),
@@ -313,7 +321,10 @@ describe("WorkflowService", () => {
       mockWorkflowRepo.update.mockResolvedValue(updatedWorkflow);
       const result = await service.changeStatus(workflow.id, "user-123", "active");
       expect(result.status).toBe("active");
-      expect(mockWorkflowRepo.update).toHaveBeenCalledWith(workflow.id, { status: "active" });
+      expect(mockWorkflowRepo.update).toHaveBeenCalledWith(workflow.id, {
+        status: "active",
+        currentVersionId: "version-1"
+      });
     });
     it("should change workflow status to archived", async () => {
       const workflow = createTestWorkflow({ creatorId: "user-123", status: "active" });

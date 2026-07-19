@@ -470,3 +470,31 @@ describe("cross-section step moves assign proper order (ICW2-5)", () => {
     expect(moveRes.body.order).toBe(3); // Should append after the 2 existing steps
   });
 });
+
+describe("workflow settings persist across save + reload (ICW2-9)", () => {
+  it("stores branding/behavior/publishing settings and returns them on reload", async () => {
+    const wfRes = await agent
+      .post("/api/workflows")
+      .send({ title: `Settings WF ${nanoid()}`, projectId: ctx.projectId });
+    expect(wfRes.status).toBe(201);
+    const workflowId = wfRes.body.id as string;
+
+    const settings = {
+      brandingEnabled: true,
+      logoUrl: "https://example.test/logo.png",
+      primaryColor: "#123456",
+      completionMessage: "All done — thank you!",
+      redirectUrl: "https://example.test/thanks",
+      allowSaveAndResume: false,
+      requireLogin: true,
+    };
+
+    const putRes = await agent.put(`/api/workflows/${workflowId}`).send({ settings });
+    expect(putRes.status).toBe(200);
+
+    // Reload via a fresh GET — the values must survive, not reset to defaults.
+    const getRes = await agent.get(`/api/workflows/${workflowId}`);
+    expect(getRes.status).toBe(200);
+    expect(getRes.body.settings).toMatchObject(settings);
+  });
+});

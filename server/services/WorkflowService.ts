@@ -318,7 +318,16 @@ export class WorkflowService {
     if (status === 'archived') {
       await this.requireOrgAdminForOrgOwnedWorkflow(workflow, userId, 'archive');
     }
-    return this.workflowRepo.update(workflowId, { status });
+    
+    const updateData: Partial<InsertWorkflow> = { status };
+    if (status === 'active') {
+            // eslint-disable-next-line import/no-cycle
+      const { versionService } = await import("./VersionService");
+      const version = await versionService.publishVersion(workflowId, userId, 'Published from builder');
+      updateData.currentVersionId = version.id;
+    }
+    
+    return this.workflowRepo.update(workflowId, updateData);
   }
   /**
    * Ensure workflow is in draft status before editing

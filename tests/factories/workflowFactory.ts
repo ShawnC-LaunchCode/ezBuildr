@@ -25,6 +25,7 @@ export function createTestWorkflow(overrides?: Partial<Workflow>): Workflow {
     slug: null,
     requireLogin: false,
     intakeConfig: {},
+    settings: {},
     pinnedVersionId: null,
     modeOverride: null,
     sourceBlueprintId: null,

@@ -270,6 +270,10 @@ beforeAll(async () => {
           // of share_token_hash fails with "column does not exist". Add the new column
           // (the stale share_token is left in place, unused).
           await db.execute(`ALTER TABLE "${currentTestSchema}"."workflow_runs" ADD COLUMN IF NOT EXISTS "share_token_hash" varchar`);
+          // Fix 7: workflows.settings — added by migration 0006 (ICW2-9 workflow
+          // settings jsonb). Skipped on schema REUSE, so a reused schema lacks it and
+          // every workflow insert (which now emits the column) fails.
+          await db.execute(`ALTER TABLE "${currentTestSchema}"."workflows" ADD COLUMN IF NOT EXISTS "settings" jsonb DEFAULT '{}'::jsonb NOT NULL`);
           console.log("✅ Applied failsafe schema fixes");
         } catch (e: any) {
           console.log(`⚠️ Failed to apply manual failsafe fixes: ${e.message}`);

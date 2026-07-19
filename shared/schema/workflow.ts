@@ -113,6 +113,7 @@ export const workflows = pgTable("workflows", {
     slug: text("slug").unique(), // DATA INTEGRITY FIX
     requireLogin: boolean("require_login").default(false).notNull(),
     intakeConfig: jsonb("intake_config").default(sql`'{}'::jsonb`).notNull(),
+    settings: jsonb("settings").default(sql`'{}'::jsonb`).notNull(),
     // Stage 13: Version management
     pinnedVersionId: uuid("pinned_version_id"),
     // Common

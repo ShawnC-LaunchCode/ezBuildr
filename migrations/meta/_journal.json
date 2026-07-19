@@ -42,6 +42,13 @@
       "when": 1784304000000,
       "tag": "0005_rls_phase4_workflows_sections_steps",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784422956246,
+      "tag": "0006_add_workflow_settings",
+      "breakpoints": true
     }
   ]
 }

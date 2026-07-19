@@ -13,6 +13,7 @@ import { variableService } from "../services/VariableService";
 import { aclService } from "../services/AclService";
 import { workflowClonerService } from "../services/WorkflowClonerService";
 import { workflowService } from "../services/WorkflowService";
+import { workflowLintService } from "../services/WorkflowLintService";
 import { asyncHandler } from "../utils/asyncHandler";
 import { classifyRouteError } from "../utils/routeErrors";
 
@@ -180,6 +181,7 @@ export function registerWorkflowRoutes(app: Express): void {
       slug: z.string().optional(),
       requireLogin: z.boolean().optional(),
       intakeConfig: z.record(z.any()).optional(),
+      settings: z.record(z.any()).optional(),
       status: z.enum(['draft', 'published', 'archived']).optional(),
       sections: z.array(z.any()).optional(),
       modeOverride: z.string().optional(),
@@ -259,6 +261,13 @@ export function registerWorkflowRoutes(app: Express): void {
         return res.status(400).json({ message: "Invalid status" });
       }
 
+      if (status === 'active') {
+        const lintResults = await workflowLintService.lint(workflowId, userId);
+        const errors = lintResults.filter(r => r.type === 'error');
+        if (errors.length > 0) {
+          return res.status(400).json({ message: `Cannot activate workflow: ${errors.map(e => e.message).join(', ')}` });
+        }
+      }
       const workflow = await workflowService.changeStatus(workflowId, userId, status);
       res.json(workflow);
     } catch (error) {
@@ -476,6 +485,30 @@ export function registerWorkflowRoutes(app: Express): void {
    * GET /api/workflows/:workflowId/access
    * Get all ACL entries for a workflow
    */
+  /**
+   * GET /api/workflows/:workflowId/lint
+   * Get linting warnings for the workflow
+   */
+  app.get('/api/workflows/:workflowId/lint', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
+      const { workflowId } = req.params;
+      const issues = await workflowLintService.lint(workflowId, userId);
+      res.json(issues);
+    } catch (error) {
+      const { status, message } = classifyRouteError(error, "Failed to lint workflow");
+      logger.error({ error, userId: (req as AuthRequest).userId }, "Error linting workflow");
+      res.status(status).json({
+        message,
+        error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined,
+      });
+    }
+  }));
+
   app.get('/api/workflows/:workflowId/access', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;

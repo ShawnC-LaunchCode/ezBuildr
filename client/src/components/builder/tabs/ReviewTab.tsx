@@ -1,15 +1,23 @@
 import {
     ClipboardCheck,
+    CheckCircle2,
     FileText,
     HelpCircle,
     Share2,
-    Users
+    Users,
+    Rocket
 } from "lucide-react";
+import { useState } from "react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useSections, useAllSteps, ApiStep } from "@/lib/vault-hooks";
+import { useSections, useAllSteps, ApiStep, useWorkflow } from "@/lib/vault-hooks";
+import { apiRequest } from "@/lib/queryClient";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 import { ReviewIssueList, ReviewIssue } from "./review/ReviewIssueList";
 import { ReviewStatsCard } from "./review/ReviewStatsCard";
@@ -20,48 +28,32 @@ interface ReviewTabProps {
 
 export function ReviewTab({ workflowId }: ReviewTabProps) {
     const { data: sections } = useSections(workflowId);
-    // We need all steps to check for aliases/content
+    const { data: workflow, refetch: refetchWorkflow } = useWorkflow(workflowId);
     const allStepsMap = useAllSteps(sections ?? []);
-    // We don't have a direct 'publish' mutation that doesn't ask for generic JSON, 
-    // but existing usePublishWorkflow takes graphJson. We'll reuse it or just simulate for now.
     const [, setLocation] = useLocation();
+    const { toast } = useToast();
 
-    // Basic stats
+    const [isActivating, setIsActivating] = useState(false);
+
+    const { data: lintIssues = [], refetch: refetchLint, isLoading: isLinting } = useQuery({
+        queryKey: ['workflow', workflowId, 'lint'],
+        queryFn: async () => {
+            const res = await apiRequest('GET', `/api/workflows/${workflowId}/lint`);
+            if (!res.ok) { throw new Error("Failed to lint workflow"); }
+            return res.json() as Promise<ReviewIssue[]>;
+        }
+    });
+
     const totalSections = sections?.length ?? 0;
     let totalQuestions = 0;
-    let missingAliases = 0;
-    let emptyTitles = 0;
     let conditionalQuestions = 0;
 
-    const activeIssues: ReviewIssue[] = [];
-
-    // Analyze structure
+    // Analyze structure for basic stats only
     if (sections) {
         sections.forEach(section => {
             const steps = allStepsMap[section.id] ?? [];
             totalQuestions += steps.length;
-
             steps.forEach((step: ApiStep) => {
-                if (!step.title) {
-                    emptyTitles++;
-                    activeIssues.push({
-                        type: 'warning',
-                        message: `Question in "${section.title}" is missing text`,
-                        sectionId: section.id,
-                        stepId: step.id
-                    });
-                }
-
-                if (!step.alias) {
-                    missingAliases++;
-                    activeIssues.push({
-                        type: 'info',
-                        message: `Question "${step.title || 'Untitled'}" doesn't have a saved name (alias)`,
-                        sectionId: section.id,
-                        stepId: step.id
-                    });
-                }
-
                 if ((step.visibleIf as string | null | undefined)) {
                     conditionalQuestions++;
                 }
@@ -69,12 +61,43 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
         });
     }
 
-    const isReady = emptyTitles === 0;
+    const hasErrors = lintIssues.some(i => i.type === 'error');
+    const isReady = !hasErrors && !isLinting;
+
+    const handleActivate = async (): Promise<void> => {
+        setIsActivating(true);
+        try {
+            const res = await apiRequest('PUT', `/api/workflows/${workflowId}/status`, { status: 'active' });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({})) as { message?: string; error?: string };
+                throw new Error(data.message ?? data.error ?? "Failed to activate workflow");
+            }
+            toast({
+                title: "Success",
+                description: "Workflow activated and published successfully.",
+            });
+            await refetchWorkflow();
+            await refetchLint();
+        } catch (error) {
+            toast({
+                title: "Activation Failed",
+                description: error instanceof Error ? error.message : "Unknown error",
+                variant: "destructive"
+            });
+        } finally {
+            setIsActivating(false);
+        }
+    };
 
     return (
         <div className="flex-1 flex flex-col h-full bg-slate-50/50">
             <ScrollArea className="flex-1 p-6">
-                <div className="max-w-4xl mx-auto space-y-8">
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                    className="max-w-4xl mx-auto space-y-8"
+                >
                     {/* Header */}
                     <div className="space-y-2">
                         <h2 className="text-2xl font-semibold tracking-tight text-slate-900 flex items-center gap-2">
@@ -83,7 +106,7 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
                         </h2>
                         <p className="text-slate-500 max-w-2xl">
                             Review your workflow to ensure it&apos;s ready for clients.
-                            We&apos;ve checked for common issues and best practices.
+                            We run a deep structural analysis to check for missing logic, unnamed variables, and configuration issues.
                         </p>
                     </div>
 
@@ -100,35 +123,64 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
                     </div>
 
                     {/* Readiness Checklist */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Readiness Checklist</CardTitle>
+                    <Card className="border-0 shadow-sm ring-1 ring-slate-200/50 overflow-hidden backdrop-blur-sm bg-white/95">
+                        <CardHeader className="bg-slate-50/50 border-b">
+                            <CardTitle className="text-lg flex items-center justify-between">
+                                <span>Readiness Checklist</span>
+                                {isLinting && <span className="text-sm font-normal text-slate-400 animate-pulse">Running checks...</span>}
+                            </CardTitle>
                             <CardDescription>
-                                Items that might need your attention before sharing.
+                                Items that might need your attention before publishing.
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-4">
+                        <CardContent className="space-y-4 p-6">
                             <ReviewIssueList
                                 isReady={isReady}
-                                missingAliases={missingAliases}
-                                emptyTitles={emptyTitles}
-                                activeIssues={activeIssues}
+                                isLinting={isLinting}
+                                issues={lintIssues}
                                 workflowId={workflowId}
                                 onFix={setLocation}
                             />
 
                             {/* Collaboration Hint */}
-                            <div className="pt-4 border-t flex items-center gap-2 text-sm text-slate-500">
-                                <Users className="w-4 h-4" />
-                                <span>
-                                    Others can edit this workflow with you.
-                                </span>
+                            <div className="pt-6 mt-6 border-t flex items-center justify-between gap-2 text-sm text-slate-500">
+                                <div className="flex items-center gap-2">
+                                    <Users className="w-4 h-4 text-slate-400" />
+                                    <span>Team members can collaborate on this workflow.</span>
+                                </div>
                             </div>
                         </CardContent>
-                        <CardFooter className="bg-slate-50/50 border-t p-4 flex justify-end gap-2">
+                        <CardFooter className="bg-slate-50/50 border-t p-4 flex justify-end gap-3">
+                            <Button
+                                variant="outline"
+                                onClick={() => { void refetchLint(); }}
+                                disabled={isLinting}
+                            >
+                                Re-run Checks
+                            </Button>
+                            
+                            <Button 
+                                className={`min-w-[140px] shadow-sm transition-all duration-300 ${isReady && workflow?.status !== 'active' ? 'shadow-primary/25 hover:shadow-primary/40 ring-2 ring-primary/20 ring-offset-2' : ''}`}
+                                disabled={!isReady || isActivating || workflow?.status === 'active'}
+                                onClick={() => { void handleActivate(); }}
+                            >
+                                {workflow?.status === 'active' ? (
+                                    <>
+                                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                                        Published
+                                    </>
+                                ) : isActivating ? (
+                                    'Publishing...'
+                                ) : (
+                                    <>
+                                        <Rocket className="w-4 h-4 mr-2" />
+                                        Publish Workflow
+                                    </>
+                                )}
+                            </Button>
                         </CardFooter>
                     </Card>
-                </div>
+                </motion.div>
             </ScrollArea>
         </div>
     );

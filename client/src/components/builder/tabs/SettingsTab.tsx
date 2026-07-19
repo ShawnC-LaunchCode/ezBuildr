@@ -1,3 +1,5 @@
+/* eslint-disable complexity */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * SettingsTab - Workflow-specific settings
@@ -84,14 +86,23 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
       setDescription(workflow.description ?? "");
       setSlug(workflow.slug ?? "");
 
-      // Branding
-      // Note: backend support for branding config might vary, check type definition
-      // Assuming branding is stored in config or separate fields?
-      // Based on previous files, branding might be tenant level or workflow config
-      // For now, let's look for known fields or leave defaults if not present
-
-      // Behavior
-      setAllowSaveAndResume(true); // Default
+      // Load Settings from JSON
+      const settings = (workflow as any).settings;
+      if (settings) {
+        setBrandingEnabled(settings.brandingEnabled ?? false);
+        setLogoUrl(settings.logoUrl ?? "");
+        setPrimaryColor(settings.primaryColor ?? "#3b82f6");
+        setSecondaryColor(settings.secondaryColor ?? "#8b5cf6");
+        
+        setCompletionMessage(settings.completionMessage ?? "Thank you for completing this workflow!");
+        setRedirectUrl(settings.redirectUrl ?? "");
+        setAllowSaveAndResume(settings.allowSaveAndResume ?? true);
+        
+        setRequireLogin(settings.requireLogin ?? false);
+      } else {
+        // Defaults
+        setAllowSaveAndResume(true);
+      }
 
       // Publishing
       setIsPublic(workflow.status === 'active' || !!workflow.publicLink);
@@ -140,10 +151,17 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
 
       // status: isPublic ? 'active' : 'draft', // Careful changing status here?
       // Other fields handled by mutation...
-      accessSettings: {
-        allow_portal: allowPortal,
-        allow_resume: allowResume,
-        allow_redownload: allowRedownload
+settings: {
+        brandingEnabled,
+        logoUrl,
+        primaryColor,
+        secondaryColor,
+        completionMessage,
+        redirectUrl,
+        allowSaveAndResume,
+        allowPortal,
+        allowResume,
+        allowRedownload
       },
       intakeConfig: {
         isIntake,

@@ -450,6 +450,53 @@ Implements Decision 2. Out of scope: runner-side snapshot isolation (ICW2-B2).
 ICW2-6 → ICW2-7 → ICW2-8 are strictly sequential (same services); ICW2-9 is
 independent and may run in parallel with any of them.
 
+## Verification pass — 2026-07-19 (ICW2-6..9, round 3 — reviewer-fixed & closed)
+
+Shawn authorized the reviewer to fix the residual type errors and write the
+missing tests. Done — all four tickets now meet their ACs and the phase gates
+clean. Reviewer changes this round:
+
+- **ICW2-8 type errors (2) fixed:** `ReviewIssue` type gained `'error'`;
+  `ReviewIssueList` was rewired from the stale `missingAliases/emptyTitles`
+  props to the lint model (`{isReady, isLinting, issues, ...}`) and now renders
+  error/warning/info groups (design skill, R2, faithful to existing builder
+  styling). Removed the file-level `/* eslint-disable */` in `ReviewTab.tsx`
+  and fixed the underlying `||`/floating-promise/`any` issues.
+- **ICW2-8 real runtime bug fixed:** `WorkflowLintService.checkVisibleIf` called
+  `String.match` on `visibleIf`, which is a jsonb `ConditionExpression` object —
+  it would have 500'd `/lint` for any workflow with a condition. Now walks the
+  object tree (and still handles legacy string form).
+- **Dead-code + scratch:** removed the `SystemAudit`/`BlockAudit`/`ScriptAudit`
+  chain (`server/lib/audit/index.ts` + siblings, zero consumers) finishing
+  ICW2-8's cleanup; deleted `scripts/fix_versionservice.py`.
+- **Tests written (all green):**
+  - ICW2-8: `tests/unit/services/WorkflowLintService.test.ts` (7 cases — no
+    sections→error, no questions→error, dangling logic-rule alias→error,
+    object-`visibleIf` dangling alias→warning **without throwing** (regression
+    guard), valid `visibleIf`→clean, missing-alias→warning, clean workflow→0
+    errors).
+  - ICW2-7: `tests/integration/activation-publish.test.ts` — reproduces the
+    pre-fix dead-end (active + no version → "no published version"), then proves
+    `changeStatus('active')` sets `currentVersionId` and an anonymous run starts
+    end-to-end bound to that version.
+  - ICW2-9: `tests/integration/creation-routes.test.ts` — settings PUT →
+    GET reload → branding/behavior/publishing fields all survive.
+- **Schema wiring (db-schema-change):** migration 0006's `settings` column was
+  never applied to the isolated test schema (schema reuse skips it) **or the
+  dev DB** — workflow creation was 500'ing live. Added the `ADD COLUMN IF NOT
+  EXISTS` failsafe (`tests/setup.ts` "Fix 7") and applied the column to the dev
+  DB. `db:push` still owed on any other environment.
+- **Live proof:** dev app, Review tab renders the "Ready to publish" state fed
+  by the live `/lint` endpoint (verified via accessibility tree + page text;
+  the screenshot tool times out on the framer-motion-animated page).
+
+**Gate:** `type-check` 0 errors · lint clean on every touched file ·
+`test:fast` 1701 passed / 15 skipped · Phase 2 integration trio
+(activation-publish, creation-routes, workflow_versioning) 26/26.
+
+**Result: ICW2-6..9 closed. Phase 2 complete** — pending Shawn's ruling on the
+mixed-in runner/IRO initiative before commits can be cut cleanly (see below).
+
 ## Verification pass — 2026-07-19 (ICW2-6..9, round 2 — code fixed, tests/tsc gaps remain)
 
 Round-1 code blockers are essentially all resolved:

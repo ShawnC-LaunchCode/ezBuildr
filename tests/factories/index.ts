@@ -194,6 +194,7 @@ export function createTestWorkflow(overrides?: DeepPartial<Workflow>): Omit<Work
     modeOverride: overrides?.modeOverride || null,
     currentVersionId: overrides?.currentVersionId || null,
     intakeConfig: overrides?.intakeConfig || {},
+    settings: overrides?.settings || {},
     sourceBlueprintId: overrides?.sourceBlueprintId || null,
     ownerType: overrides?.ownerType || 'user',
   };
