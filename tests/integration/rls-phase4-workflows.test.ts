@@ -25,8 +25,12 @@ import { beforeAll, afterAll, describe, expect, test } from "vitest";
 
 import { db } from "../../server/db";
 
+// The phase-4 workflows/sections/steps policies (+ app_current_tenant /
+// app_owner_tenant) were consolidated into 0001_enable_rls.sql when the
+// migration chain was regenerated. Applying the whole file here is idempotent
+// (DROP POLICY IF EXISTS + to_regclass guards + CREATE OR REPLACE).
 const MIGRATION_SQL = readFileSync(
-  join(process.cwd(), "migrations", "0005_rls_phase4_workflows_sections_steps.sql"),
+  join(process.cwd(), "migrations", "0001_enable_rls.sql"),
   "utf-8",
 );
 

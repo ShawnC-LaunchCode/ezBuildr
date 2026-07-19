@@ -13,12 +13,14 @@ export class SchemaManager {
     // Generate a schema name that is unique to this worker and STABLE across test files
     // Logic: test_schema_w{workerId}
     //
-    // The _vN suffix is the schema-cache generation. Bumped to _v5 when the
-    // migration chain was compacted into the single 0000_init_baseline.sql that
-    // builds correctly from scratch; the old _v4 schemas predated later
-    // migrations (e.g. datavault ownership columns) and the graph run-table drop.
+    // The _vN suffix is the schema-cache generation. Bumped to _v6 when the
+    // migration chain was regenerated from the Drizzle schema: a fresh
+    // 0000_init_baseline (full current schema) + 0001_enable_rls +
+    // 0002_db_functions. Bumping forces a from-scratch rebuild, so stale _v5
+    // schemas (which relied on the now-removed tests/setup.ts failsafe block)
+    // are abandoned and new schemas are built by the migrations alone.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v5`;
+        return `test_schema_w${this.workerId}_v6`;
     }
 
     /**

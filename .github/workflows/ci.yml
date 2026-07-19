@@ -117,8 +117,11 @@ jobs:
       run: npm ci
 
     - name: Setup Database
+      # Build the schema by replaying the migration chain (baseline + RLS +
+      # functions), the same way prod/tests do — NOT db:push, which syncs from
+      # the Drizzle schema and silently skips RLS policies and PL/pgSQL functions.
       run: |
-        npm run db:push
+        npm run db:migrate
         npm run db:seed
       env:
         NODE_ENV: test

@@ -1,41 +1,18 @@
 -- ============================================================================
--- 0001 — Enable Row-Level Security (RLS) for tenant isolation  (SEC-051, phase 1)
+-- 0001 — Row-Level Security (tenant isolation, SEC-051)
 -- ============================================================================
+-- Consolidated from the pre-baseline chain's 0001 (direct tenant_id tables) and
+-- 0005 (ownership-derived workflows/sections/steps). drizzle-kit cannot generate
+-- RLS, so this is a hand-written --custom migration layered after the baseline.
 --
--- WHAT THIS DOES
---   Enables RLS and installs a `tenant_isolation` policy on every table that
---   carries a direct `tenant_id` column. The policy restricts every row that a
---   session can SELECT / INSERT / UPDATE / DELETE to the tenant named by the
---   `app.current_tenant_id` runtime setting (GUC).
---
--- WHY IT IS SAFE TO SHIP NOW (non-breaking)
---   Postgres does NOT apply RLS to a table's OWNER or to superusers unless the
---   table is additionally put in FORCE mode. The application connects to Neon as
---   the role that OWNS these tables, and the test/CI databases connect as the
---   `postgres` superuser — so after this migration RLS is DEFINED but NOT
---   ENFORCED anywhere. Behaviour is unchanged until enforcement is turned on
---   deliberately (see the rollout runbook in
---   docs/architecture/TENANT_ISOLATION_RLS.md).
---
--- HOW ENFORCEMENT IS TURNED ON LATER (not in this migration)
---   Phase 2: plumb `app.current_tenant_id` into every request via a
---            transaction-scoped `SET LOCAL` (server/db/rlsContext.ts).
---   Phase 3: either `ALTER TABLE ... FORCE ROW LEVEL SECURITY` or move the app
---            to a non-owner role without BYPASSRLS. Only after phase 2 is
---            verified, because once enforced a session with no tenant GUC set
---            sees ZERO rows (fail-closed).
---
--- SCOPE / LIMITS
---   Only tables with a direct `tenant_id` column are covered here (24 tables).
---   Tables scoped INDIRECTLY (workflow_runs, step_values, datavault_rows,
---   secrets, workflows, sections, steps, ...) need join/subquery policies and
---   are tracked as phase 4 in the RLS doc — deliberately not attempted here.
---
---   The policy is strict: a NULL `tenant_id` row is invisible once enforced.
---   Four covered tables allow NULL tenant_id today (users, organizations,
---   projects, collab_docs). Review those before FORCE — see the RLS doc.
+-- SAFE TO SHIP: RLS is bypassed for a table's OWNER and superusers unless FORCE
+-- mode is set. Prod connects to Neon as the table owner; CI/tests connect as the
+-- postgres superuser — so policies are DEFINED but NOT ENFORCED until a
+-- deliberate later step (docs/architecture/TENANT_ISOLATION_RLS.md).
+-- Idempotent: DROP POLICY IF EXISTS + to_regclass guards + CREATE OR REPLACE.
 -- ============================================================================
 
+-- Part 1 — direct tenant_id tables: restrict rows to the app.current_tenant_id GUC.
 DO $$
 DECLARE
   t text;
@@ -67,16 +44,11 @@ DECLARE
   ];
 BEGIN
   FOREACH t IN ARRAY tenant_tables LOOP
-    -- Skip gracefully if a table is absent (keeps the migration runnable on
-    -- partial/legacy schemas and in per-worker test schemas).
     IF to_regclass(quote_ident(t)) IS NULL THEN
       RAISE NOTICE 'RLS: table % not found, skipping', t;
       CONTINUE;
     END IF;
-
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
-
-    -- Idempotent: drop then recreate so re-running the migration is safe.
     EXECUTE format('DROP POLICY IF EXISTS tenant_isolation ON %I', t);
     EXECUTE format(
       'CREATE POLICY tenant_isolation ON %I '
@@ -85,4 +57,122 @@ BEGIN
       t
     );
   END LOOP;
+END $$;
+--> statement-breakpoint
+
+-- Part 2 — helpers for ownership-derived tenancy (workflows have no tenant_id).
+-- Both are SECURITY INVOKER and deliberately do NOT pin search_path, so they
+-- resolve public in prod and the per-worker schema in tests. '' and unset both
+-- collapse to NULL so callers treat "no tenant" uniformly (fail-closed).
+CREATE OR REPLACE FUNCTION app_current_tenant() RETURNS uuid
+LANGUAGE sql
+STABLE
+AS $fn$
+  SELECT NULLIF(current_setting('app.current_tenant_id', true), '')::uuid;
+$fn$;
+--> statement-breakpoint
+
+CREATE OR REPLACE FUNCTION app_owner_tenant(
+  p_owner_type owner_type,
+  p_owner_uuid varchar,
+  p_owner_id   varchar,
+  p_creator_id varchar,
+  p_project_id uuid
+) RETURNS uuid
+LANGUAGE sql
+STABLE
+AS $fn$
+  SELECT COALESCE(
+    CASE p_owner_type
+      WHEN 'user' THEN (SELECT u.tenant_id FROM users u WHERE u.id = p_owner_uuid)
+      WHEN 'org'  THEN (SELECT o.tenant_id FROM organizations o WHERE o.id::text = p_owner_uuid)
+    END,
+    (SELECT pr.tenant_id FROM projects pr WHERE pr.id = p_project_id),
+    (SELECT u.tenant_id FROM users u WHERE u.id = p_owner_id),
+    (SELECT u.tenant_id FROM users u WHERE u.id = p_creator_id)
+  );
+$fn$;
+--> statement-breakpoint
+
+-- Part 3 — ownership-derived policies. Each wraps logic in CASE so a NULL tenant
+-- returns false WITHOUT evaluating app_owner_tenant (avoids 22P02 on empty GUC).
+DO $$
+BEGIN
+  IF to_regclass('workflows') IS NOT NULL THEN
+    ALTER TABLE workflows ENABLE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS tenant_isolation ON workflows;
+    CREATE POLICY tenant_isolation ON workflows
+      USING (
+        CASE WHEN app_current_tenant() IS NULL THEN false
+             ELSE app_owner_tenant(owner_type, owner_uuid, owner_id, creator_id, project_id)
+                    = app_current_tenant()
+        END
+      )
+      WITH CHECK (
+        CASE WHEN app_current_tenant() IS NULL THEN false
+             ELSE app_owner_tenant(owner_type, owner_uuid, owner_id, creator_id, project_id)
+                    = app_current_tenant()
+        END
+      );
+  END IF;
+END $$;
+--> statement-breakpoint
+
+DO $$
+BEGIN
+  IF to_regclass('sections') IS NOT NULL THEN
+    ALTER TABLE sections ENABLE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS tenant_isolation ON sections;
+    CREATE POLICY tenant_isolation ON sections
+      USING (
+        CASE WHEN app_current_tenant() IS NULL THEN false
+             ELSE EXISTS (
+               SELECT 1 FROM workflows w
+               WHERE w.id = sections.workflow_id
+                 AND app_owner_tenant(w.owner_type, w.owner_uuid, w.owner_id, w.creator_id, w.project_id)
+                       = app_current_tenant()
+             )
+        END
+      )
+      WITH CHECK (
+        CASE WHEN app_current_tenant() IS NULL THEN false
+             ELSE EXISTS (
+               SELECT 1 FROM workflows w
+               WHERE w.id = sections.workflow_id
+                 AND app_owner_tenant(w.owner_type, w.owner_uuid, w.owner_id, w.creator_id, w.project_id)
+                       = app_current_tenant()
+             )
+        END
+      );
+  END IF;
+END $$;
+--> statement-breakpoint
+
+DO $$
+BEGIN
+  IF to_regclass('steps') IS NOT NULL THEN
+    ALTER TABLE steps ENABLE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS tenant_isolation ON steps;
+    CREATE POLICY tenant_isolation ON steps
+      USING (
+        CASE WHEN app_current_tenant() IS NULL THEN false
+             ELSE EXISTS (
+               SELECT 1 FROM workflows w
+               WHERE w.id = steps.workflow_id
+                 AND app_owner_tenant(w.owner_type, w.owner_uuid, w.owner_id, w.creator_id, w.project_id)
+                       = app_current_tenant()
+             )
+        END
+      )
+      WITH CHECK (
+        CASE WHEN app_current_tenant() IS NULL THEN false
+             ELSE EXISTS (
+               SELECT 1 FROM workflows w
+               WHERE w.id = steps.workflow_id
+                 AND app_owner_tenant(w.owner_type, w.owner_uuid, w.owner_id, w.creator_id, w.project_id)
+                       = app_current_tenant()
+             )
+        END
+      );
+  END IF;
 END $$;
