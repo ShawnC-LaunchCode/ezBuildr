@@ -1,70 +1,144 @@
 import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
-import { Link } from "wouter";
+import { ArrowDown, ArrowUpRight } from "lucide-react";
+import { useLocation } from "wouter";
 
-import { brand } from "@/marketing/lib/brand";
+const STATS = [
+  { value: "~90%", label: "of the build, AI-drafted" },
+  { value: "15+", label: "step types" },
+  { value: "2", label: "runtimes — JS & Python" },
+  { value: "1", label: "canvas for all of it" },
+];
 
-const CONTENT = {
-  badge: "Now with Advanced Logic Engine",
-  title: {
-    main: "Build workflows",
-    highlight: "without the chaos."
-  },
-  description: "ezBuildr makes it simple to create powerful, logic-driven workflows and forms. Guided for beginners, limitless for experts.",
-  cta: {
-    start: "Start building",
-    docs: "Documentation"
-  }
-};
+/** Animated schematic of an AI import: document → AI draft → drafted workflow + your last 10%. */
+function FlowDiagram() {
+  return (
+    <svg
+      viewBox="0 0 560 300"
+      className="w-full h-auto"
+      role="img"
+      aria-label="Diagram of an AI document import: an uploaded form is read by AI, which drafts about 90% of the workflow and leaves the last 10% for you"
+    >
+      {/* connectors */}
+      <path d="M138 150 H222" stroke="var(--lp2-lime)" strokeWidth="1.5" fill="none" className="lp2-flow" />
+      <path d="M338 150 C380 150 380 82 418 82" stroke="var(--lp2-lime)" strokeWidth="1.5" fill="none" className="lp2-flow" />
+      <path d="M338 150 C380 150 380 218 418 218" stroke="rgba(242,242,234,0.25)" strokeWidth="1.5" fill="none" className="lp2-flow" />
+
+      {/* source document node */}
+      <g>
+        <rect x="18" y="118" width="120" height="64" rx="14" fill="var(--lp2-surface)" stroke="var(--lp2-line)" />
+        <text x="34" y="140" fill="var(--lp2-dim)" fontSize="10" className="lp2-mono" letterSpacing="2">SOURCE</text>
+        <text x="34" y="158" fill="var(--lp2-ink)" fontSize="12" fontWeight="600">intake-packet.pdf</text>
+        <text x="34" y="174" fill="var(--lp2-dim)" fontSize="10">link or upload</text>
+      </g>
+
+      {/* AI draft node */}
+      <g>
+        <rect x="222" y="112" width="116" height="76" rx="14" fill="var(--lp2-surface)" stroke="var(--lp2-lime)" strokeOpacity="0.55" />
+        <circle cx="330" cy="120" r="3.5" fill="var(--lp2-lime)" className="lp2-pulse" />
+        <text x="238" y="138" fill="var(--lp2-lime)" fontSize="10" className="lp2-mono" letterSpacing="2">AI DRAFT</text>
+        <text x="238" y="158" fill="var(--lp2-ink)" fontSize="13" fontWeight="600">reading fields…</text>
+        <text x="238" y="176" fill="var(--lp2-dim)" fontSize="11">steps · logic · rules</text>
+      </g>
+
+      {/* drafted workflow branch */}
+      <g>
+        <rect x="418" y="50" width="124" height="64" rx="14" fill="rgba(215,254,84,0.08)" stroke="var(--lp2-lime)" strokeOpacity="0.7" />
+        <text x="434" y="76" fill="var(--lp2-lime)" fontSize="10" className="lp2-mono" letterSpacing="2">DRAFTED</text>
+        <text x="434" y="96" fill="var(--lp2-ink)" fontSize="13" fontWeight="600">~90% built</text>
+      </g>
+
+      {/* your last 10% branch */}
+      <g opacity="0.75">
+        <rect x="418" y="186" width="124" height="64" rx="14" fill="var(--lp2-surface)" stroke="var(--lp2-line)" />
+        <text x="434" y="212" fill="var(--lp2-dim)" fontSize="10" className="lp2-mono" letterSpacing="2">YOU</text>
+        <text x="434" y="232" fill="var(--lp2-ink)" fontSize="13" fontWeight="600">the last 10%</text>
+      </g>
+    </svg>
+  );
+}
 
 export default function Hero() {
+  const [, setLocation] = useLocation();
+
   return (
-    <section className={`${brand.sectionPad} pt-20 pb-20 sm:pt-24 sm:pb-32 ${brand.gradient} text-white overflow-hidden relative`}>
-      <div className={`${brand.maxw}`}>
+    <section id="top" className="relative pt-36 pb-20 sm:pt-44 sm:pb-28 overflow-hidden">
+      {/* ambient glow */}
+      <div
+        aria-hidden="true"
+        className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[500px] rounded-full opacity-[0.14] blur-[120px]"
+        style={{ background: "radial-gradient(closest-side, var(--lp2-violet), transparent)" }}
+      />
+
+      <div className="max-w-7xl mx-auto px-5 sm:px-8 grid lg:grid-cols-[1.1fr_1fr] gap-14 lg:gap-10 items-center">
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45 }}
-          className="max-w-3xl"
+          transition={{ duration: 0.6, ease: "easeOut" }}
         >
-          <div className="inline-flex items-center px-3 py-1 rounded-full bg-white/10 border border-white/20 text-sm font-medium mb-6 backdrop-blur-sm">
-            <span className="mr-2" aria-hidden="true">✨</span>
-            <span>{CONTENT.badge}</span>
-          </div>
-          <h1 className="text-5xl sm:text-7xl font-bold leading-tight tracking-tight mb-6">
-            {CONTENT.title.main} <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-indigo-100">
-              {CONTENT.title.highlight}
-            </span>
+          <p className="lp2-mono text-xs uppercase tracking-[0.3em] text-[var(--lp2-lime)] mb-6">
+            {"// ai-drafted document automation"}
+          </p>
+          <h1 className="text-5xl sm:text-6xl xl:text-7xl font-bold leading-[1.02] tracking-tight">
+            Drop in a document.
+            <br />
+            <span className="text-[var(--lp2-lime)]">Get back a workflow.</span>
           </h1>
-          <p className="mt-6 text-white/80 text-lg sm:text-xl max-w-2xl leading-relaxed">
-            {CONTENT.description}
+          <p className="mt-7 text-lg sm:text-xl text-[var(--lp2-dim)] max-w-xl leading-relaxed">
+            Link to a form online or upload a copy — blank or already filled out.
+            ezBuildr&apos;s AI drafts about 90% of the automation: sections, steps,
+            and logic. The last 10% is yours, with visual rules or real code.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row gap-4">
-            <Link href="/auth/register">
-              <a className="inline-flex items-center justify-center rounded-xl bg-white text-indigo-700 hover:bg-zinc-50 px-8 py-4 text-lg font-bold transition shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-                {CONTENT.cta.start} <ArrowRight className="h-5 w-5 ml-2" aria-hidden="true" />
-              </a>
-            </Link>
-            <Link href="/docs">
-              <a className="inline-flex items-center justify-center rounded-xl border border-white/30 bg-white/5 hover:bg-white/10 px-8 py-4 text-lg font-medium transition backdrop-blur-sm">
-                {CONTENT.cta.docs}
-              </a>
-            </Link>
+            <button
+              type="button"
+              onClick={() => setLocation("/auth/register")}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--lp2-lime)] text-[#0a0a0f] font-semibold text-base px-7 py-3.5 hover:brightness-110 transition shadow-[0_0_40px_rgba(215,254,84,0.25)]"
+            >
+              Start building — it&apos;s free
+              <ArrowUpRight className="w-4 h-4" aria-hidden="true" />
+            </button>
+            <a
+              href="#how"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-[var(--lp2-line)] text-[var(--lp2-ink)] font-medium text-base px-7 py-3.5 hover:border-[var(--lp2-lime)]/50 hover:bg-white/[0.03] transition"
+            >
+              See it think
+              <ArrowDown className="w-4 h-4" aria-hidden="true" />
+            </a>
           </div>
         </motion.div>
-        {/* Hero Abstract Graphic */}
-        <div 
-          className="pointer-events-none absolute -right-20 top-20 opacity-40 mix-blend-overlay"
-          aria-hidden="true"
+
+        <motion.div
+          initial={{ opacity: 0, y: 32 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.15, ease: "easeOut" }}
+          className="rounded-3xl border border-[var(--lp2-line)] bg-[var(--lp2-surface)]/60 backdrop-blur-sm p-4 sm:p-6"
         >
-          <svg width="600" height="600" viewBox="0 0 600 600" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="300" cy="300" r="150" stroke="white" strokeWidth="40" strokeOpacity="0.2" />
-            <circle cx="300" cy="300" r="250" stroke="white" strokeWidth="2" strokeOpacity="0.1" />
-            <rect x="250" y="250" width="100" height="100" rx="20" fill="white" fillOpacity="0.1" />
-          </svg>
-        </div>
+          <div className="lp2-mono text-[10px] uppercase tracking-[0.25em] text-[var(--lp2-dim)] mb-3 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--lp2-lime)] lp2-pulse" />
+            ai import · intake-packet.pdf
+          </div>
+          <FlowDiagram />
+        </motion.div>
       </div>
+
+      {/* stats strip */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.6, delay: 0.4 }}
+        className="max-w-7xl mx-auto px-5 sm:px-8 mt-20"
+      >
+        <dl className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[var(--lp2-line)] border border-[var(--lp2-line)] rounded-2xl overflow-hidden">
+          {STATS.map((stat) => (
+            <div key={stat.label} className="bg-[var(--lp2-bg)] px-6 py-6">
+              <dt className="lp2-mono text-[10px] uppercase tracking-[0.22em] text-[var(--lp2-dim)] mb-1.5">
+                {stat.label}
+              </dt>
+              <dd className="text-3xl font-bold text-[var(--lp2-ink)]">{stat.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </motion.div>
     </section>
   );
 }

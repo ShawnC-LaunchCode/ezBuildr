@@ -30,7 +30,7 @@ function QuoteSection() {
   );
 }
 
-function FinalCtaV2() {
+function FinalCta() {
   const [, setLocation] = useLocation();
   return (
     <section className="py-28 sm:py-36 border-t border-[var(--lp2-line)] relative overflow-hidden">
@@ -70,7 +70,7 @@ function FinalCtaV2() {
   );
 }
 
-function FooterV2() {
+function Footer() {
   return (
     <footer className="border-t border-[var(--lp2-line)] py-12">
       <div className="max-w-7xl mx-auto px-5 sm:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
@@ -82,9 +82,6 @@ function FooterV2() {
           </span>
         </div>
         <nav className="flex items-center gap-6" aria-label="Footer">
-          <a href="/" className="lp2-mono text-xs uppercase tracking-[0.2em] text-[var(--lp2-dim)] hover:text-[var(--lp2-ink)] transition-colors">
-            classic site
-          </a>
           <a href="/docs/url-parameters" className="lp2-mono text-xs uppercase tracking-[0.2em] text-[var(--lp2-dim)] hover:text-[var(--lp2-ink)] transition-colors">
             docs
           </a>
@@ -100,4 +97,4 @@ function FooterV2() {
   );
 }
 
-export { QuoteSection, FinalCtaV2, FooterV2 };
+export { QuoteSection, FinalCta, Footer };

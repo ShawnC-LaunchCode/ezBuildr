@@ -9,7 +9,7 @@ const LINKS = [
   { label: "Code", href: "#code" },
 ];
 
-export default function NavBarV2() {
+export default function NavBar() {
   const [, setLocation] = useLocation();
 
   return (
@@ -19,7 +19,6 @@ export default function NavBarV2() {
           <img src={logo} alt="ezBuildr" className="w-8 h-8 rounded-lg object-cover" />
           <span className="text-lg font-semibold tracking-tight">
             ezBuildr
-            <span className="lp2-mono text-[10px] align-super ml-1.5 text-[var(--lp2-lime)]">v2</span>
           </span>
         </a>
 

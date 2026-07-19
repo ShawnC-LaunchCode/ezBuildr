@@ -7,7 +7,6 @@ All client routes, taken from the Wouter `<Switch>` in `client/src/Router.tsx` (
 | Page | Route | Purpose |
 |------|-------|---------|
 | Landing | `/` | Public homepage (Dashboard when authenticated) |
-| Landing v2 | `/landing-v2` | Secondary marketing landing page |
 | Public Runner | `/w/:slug` | Public workflow access by slug |
 | Workflow Runner | `/run/:id` | Run a workflow (available to everyone) |
 | Shared Run View | `/share/:token` | Public share view of a completed run |

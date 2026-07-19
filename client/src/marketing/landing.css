@@ -1,7 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap");
 
 /*
- * Scoped design tokens for the /landing-v2 marketing page.
+ * Scoped design tokens for the marketing landing page.
  * Everything is namespaced under .lp2 so this stylesheet cannot
  * leak into the app shell even though Vite bundles CSS globally.
  */
