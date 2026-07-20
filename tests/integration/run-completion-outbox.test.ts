@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 
 import { eq } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import * as schema from '@shared/schema';
 
@@ -35,6 +35,14 @@ describe.sequential('durable run completion outbox', () => {
 
   afterAll(async () => {
     await ctx.cleanup();
+  });
+
+  // claimBatch is a deliberately global, unscoped queue claim (no runId filter —
+  // a real worker drains the whole table). Each test's assertions assume it is
+  // the only claimable work in the table, so the leftover pending rows other
+  // tests enqueue but never claim must not survive between tests.
+  beforeEach(async () => {
+    await db.delete(schema.runCompletionJobs);
   });
 
   async function createRun(): Promise<typeof schema.workflowRuns.$inferSelect> {
