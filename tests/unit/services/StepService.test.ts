@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, vi, type Mocked } from "vitest";
 
 import { StepService, generateAliasFromLabel } from "../../../server/services/StepService";
-import { stepRepository, sectionRepository } from "../../../server/repositories";
+import { stepRepository, sectionRepository, stepValueRepository } from "../../../server/repositories";
 import { createTestStep, createTestSection, createTestWorkflow } from "../../factories/workflowFactory";
 import { workflowService } from "../../../server/services/WorkflowService";
 
@@ -26,6 +26,9 @@ vi.mock("../../../server/repositories", () => ({
     findByIdAndWorkflow: vi.fn(),
     findByWorkflowId: vi.fn(),
   },
+  stepValueRepository: {
+    countImpactForSteps: vi.fn(),
+  },
 }));
 vi.mock("../../../server/services/WorkflowService", () => ({
   workflowService: {
@@ -38,6 +41,7 @@ describe("StepService", () => {
   let mockStepRepo: Mocked<typeof stepRepository>;
   let mockSectionRepo: Mocked<typeof sectionRepository>;
   let mockWorkflowSvc: Mocked<typeof workflowService>;
+  let mockStepValueRepo: Mocked<typeof stepValueRepository>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -45,6 +49,7 @@ describe("StepService", () => {
     mockStepRepo = stepRepository as Mocked<typeof stepRepository>;
     mockSectionRepo = sectionRepository as Mocked<typeof sectionRepository>;
     mockWorkflowSvc = workflowService as Mocked<typeof workflowService>;
+    mockStepValueRepo = stepValueRepository as Mocked<typeof stepValueRepository>;
 
     // Setup default mock implementations
     mockStepRepo.findById.mockResolvedValue(undefined);
@@ -56,7 +61,9 @@ describe("StepService", () => {
     mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(undefined);
     mockSectionRepo.findByWorkflowId.mockResolvedValue([]);
 
-    service = new StepService(mockStepRepo, mockSectionRepo, mockWorkflowSvc);
+    mockStepValueRepo.countImpactForSteps.mockResolvedValue({ answerCount: 0, runCount: 0 });
+
+    service = new StepService(mockStepRepo, mockSectionRepo, mockWorkflowSvc, mockStepValueRepo);
   });
 
   describe("createStep", () => {
@@ -430,6 +437,101 @@ describe("StepService", () => {
       await expect(
         service.deleteStep(step.id, workflow.id, "user-123")
       ).rejects.toThrow("Step not found in this workflow");
+    });
+  });
+
+  describe("getStepDeleteImpact (ICW2-13)", () => {
+    it("should return the answer/run counts for the step from stepValueRepo", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+      const step = createTestStep(section.id);
+
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
+      mockStepRepo.findById.mockResolvedValue(step as unknown as Step);
+      mockSectionRepo.findById.mockResolvedValue(section);
+      mockStepValueRepo.countImpactForSteps.mockResolvedValue({ answerCount: 5, runCount: 3 });
+
+      const result = await service.getStepDeleteImpact(step.id, workflow.id, "user-123");
+
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
+      expect(mockStepValueRepo.countImpactForSteps).toHaveBeenCalledWith([step.id]);
+      expect(result).toEqual({ answerCount: 5, runCount: 3 });
+    });
+
+    it("should return zero counts for a step with no stored answers", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+      const step = createTestStep(section.id);
+
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
+      mockStepRepo.findById.mockResolvedValue(step as unknown as Step);
+      mockSectionRepo.findById.mockResolvedValue(section);
+      mockStepValueRepo.countImpactForSteps.mockResolvedValue({ answerCount: 0, runCount: 0 });
+
+      const result = await service.getStepDeleteImpact(step.id, workflow.id, "user-123");
+
+      expect(result).toEqual({ answerCount: 0, runCount: 0 });
+    });
+
+    it("should throw if the step is not found", async () => {
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
+      mockStepRepo.findById.mockResolvedValue(undefined);
+
+      await expect(
+        service.getStepDeleteImpact("nonexistent", "workflow-123", "user-123")
+      ).rejects.toThrow("Step not found");
+      expect(mockStepValueRepo.countImpactForSteps).not.toHaveBeenCalled();
+    });
+
+    it("should throw if the step does not belong to the workflow", async () => {
+      const workflow = createTestWorkflow();
+      const otherWorkflow = createTestWorkflow();
+      const section = createTestSection(otherWorkflow.id);
+      const step = createTestStep(section.id);
+
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
+      mockStepRepo.findById.mockResolvedValue(step);
+      mockSectionRepo.findById.mockResolvedValue(section);
+
+      await expect(
+        service.getStepDeleteImpact(step.id, workflow.id, "user-123")
+      ).rejects.toThrow("Step not found in this workflow");
+      expect(mockStepValueRepo.countImpactForSteps).not.toHaveBeenCalled();
+    });
+
+    it("should propagate access-denied errors without leaking counts", async () => {
+      mockWorkflowSvc.verifyAccess.mockRejectedValue(new Error("Access denied - insufficient permissions for this workflow"));
+
+      await expect(
+        service.getStepDeleteImpact("step-1", "workflow-1", "user-123")
+      ).rejects.toThrow("Access denied");
+      expect(mockStepValueRepo.countImpactForSteps).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("getStepDeleteImpactById (ICW2-13)", () => {
+    it("should look up the workflow from the step and delegate to getStepDeleteImpact", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+      const step = createTestStep(section.id);
+
+      mockStepRepo.findById.mockResolvedValue(step as unknown as Step);
+      mockSectionRepo.findById.mockResolvedValue(section);
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(workflow);
+      mockStepValueRepo.countImpactForSteps.mockResolvedValue({ answerCount: 2, runCount: 1 });
+
+      const result = await service.getStepDeleteImpactById(step.id, "user-123");
+
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(section.workflowId, "user-123", "edit");
+      expect(result).toEqual({ answerCount: 2, runCount: 1 });
+    });
+
+    it("should throw when the step does not exist", async () => {
+      mockStepRepo.findById.mockResolvedValue(undefined);
+
+      await expect(
+        service.getStepDeleteImpactById("nonexistent", "user-123")
+      ).rejects.toThrow("Step not found");
     });
   });
 

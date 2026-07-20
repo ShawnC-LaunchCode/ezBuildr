@@ -623,6 +623,16 @@ export const authAPI = {
   }),
 };
 // ============================================================================
+// Delete impact (ICW2-13) — answers + distinct runs a step/section delete
+// would permanently destroy via the step_values cascade. Shared shape
+// returned by both GET .../steps/:id/delete-impact and .../sections/:id/delete-impact.
+// ============================================================================
+export interface ApiDeleteImpact {
+  answerCount: number;
+  runCount: number;
+}
+
+// ============================================================================
 // Sections
 // ============================================================================
 export interface ApiSection {
@@ -661,6 +671,8 @@ export const sectionAPI = {
       method: "DELETE",
       body: JSON.stringify({}), // Some servers require body for DELETE
     }),
+  getDeleteImpact: (id: string) =>
+    fetchAPI<ApiDeleteImpact>(`/api/sections/${id}/delete-impact`),
 };
 // ============================================================================
 // Logic Rules
@@ -773,6 +785,8 @@ export const stepAPI = {
     fetchAPI<void>(`/api/steps/${id}`, {
       method: "DELETE",
     }),
+  getDeleteImpact: (id: string) =>
+    fetchAPI<ApiDeleteImpact>(`/api/steps/${id}/delete-impact`),
 };
 // ============================================================================
 // Blocks

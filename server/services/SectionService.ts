@@ -2,7 +2,7 @@ import { LIMITS, LimitExceededError } from "@shared/limits";
 import type { Section, InsertSection, Step } from "@shared/schema";
 import { db } from "../db";
 
-import { sectionRepository, workflowRepository, stepRepository } from "../repositories";
+import { sectionRepository, workflowRepository, stepRepository, stepValueRepository, type DeleteImpact } from "../repositories";
 
 import { workflowService } from "./WorkflowService";
 
@@ -19,17 +19,20 @@ export class SectionService {
   private workflowRepo: typeof workflowRepository;
   private stepRepo: typeof stepRepository;
   private workflowSvc: typeof workflowService;
+  private stepValueRepo: typeof stepValueRepository;
 
   constructor(
     sectionRepo?: typeof sectionRepository,
     workflowRepo?: typeof workflowRepository,
     stepRepo?: typeof stepRepository,
-    workflowSvc?: typeof workflowService
+    workflowSvc?: typeof workflowService,
+    stepValueRepo?: typeof stepValueRepository
   ) {
     this.sectionRepo = sectionRepo ?? sectionRepository;
     this.workflowRepo = workflowRepo ?? workflowRepository;
     this.stepRepo = stepRepo ?? stepRepository;
     this.workflowSvc = workflowSvc ?? workflowService;
+    this.stepValueRepo = stepValueRepo ?? stepValueRepository;
   }
 
   /**
@@ -91,6 +94,37 @@ export class SectionService {
     }
 
     await this.sectionRepo.delete(sectionId);
+  }
+
+  /**
+   * Impact of deleting a section: answers + distinct runs that would be
+   * permanently destroyed via the section->steps->step_values cascade.
+   * Aggregates counts across every step in the section. Read-only — gates
+   * the client's destructive-confirm dialog (ICW2-13).
+   */
+  async getSectionDeleteImpact(sectionId: string, workflowId: string, userId: string): Promise<DeleteImpact> {
+    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
+
+    const section = await this.sectionRepo.findByIdAndWorkflow(sectionId, workflowId);
+    if (!section) {
+      throw new Error(SECTION_NOT_FOUND);
+    }
+
+    // Include virtual (computed) steps too — deleting the section cascades to all of them.
+    const steps = await this.stepRepo.findBySectionId(sectionId, undefined, true);
+    return this.stepValueRepo.countImpactForSteps(steps.map((s) => s.id));
+  }
+
+  /**
+   * Impact of deleting a section (workflow looked up automatically).
+   */
+  async getSectionDeleteImpactById(sectionId: string, userId: string): Promise<DeleteImpact> {
+    const section = await this.sectionRepo.findById(sectionId);
+    if (!section) {
+      throw new Error(SECTION_NOT_FOUND);
+    }
+
+    return this.getSectionDeleteImpact(sectionId, section.workflowId, userId);
   }
 
   /**

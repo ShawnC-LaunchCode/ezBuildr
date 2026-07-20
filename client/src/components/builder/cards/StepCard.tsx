@@ -15,11 +15,12 @@ import { useState } from "react";
 
 import { useCollaboration, useBlockCollaborators } from "@/components/collab/CollaborationContext";
 import { LogicIndicator } from "@/components/logic";
+import { DeleteImpactDialog } from "@/components/shared/DeleteImpactDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import type { ApiStep } from "@/lib/vault-api";
+import { stepAPI, type ApiStep, type ApiDeleteImpact } from "@/lib/vault-api";
 import {
     useUpdateStep,
     useDeleteStep,
@@ -104,6 +105,10 @@ export function StepCard({
 
     const [isGuidanceDismissed, setIsGuidanceDismissed] = useState(false);
 
+    // Delete-impact warning (ICW2-13): only shown when the step has stored answers.
+    const [isDeleteImpactOpen, setIsDeleteImpactOpen] = useState(false);
+    const [pendingDeleteImpact, setPendingDeleteImpact] = useState<ApiDeleteImpact | null>(null);
+
 
 
     // Make sortable
@@ -126,10 +131,7 @@ export function StepCard({
         updateStepMutation.mutate({ id: step.id, sectionId, title: value });
     };
 
-    const handleDelete = async () => {
-        // eslint-disable-next-line no-alert
-        if (!confirm(`Delete question "${step.title}"?`)) { return; }
-
+    const performDelete = async () => {
         try {
             await deleteStepMutation.mutateAsync({ id: step.id, sectionId });
             toast({
@@ -143,6 +145,28 @@ export function StepCard({
                 variant: "destructive",
             });
         }
+    };
+
+    const handleDelete = async () => {
+        try {
+            const impact = await stepAPI.getDeleteImpact(step.id);
+            if (impact.answerCount > 0) {
+                setPendingDeleteImpact(impact);
+                setIsDeleteImpactOpen(true);
+                return;
+            }
+        } catch {
+            // Impact check failed (e.g. network hiccup) — fall back to the
+            // existing plain confirmation rather than silently skipping it.
+        }
+        // eslint-disable-next-line no-alert
+        if (!confirm(`Delete question "${step.title}"?`)) { return; }
+        await performDelete();
+    };
+
+    const handleConfirmDestructiveDelete = () => {
+        setIsDeleteImpactOpen(false);
+        void performDelete();
     };
 
     return (
@@ -224,6 +248,14 @@ export function StepCard({
                     </div>
                 </CardContent>
             </Card>
+            <DeleteImpactDialog
+                open={isDeleteImpactOpen}
+                onOpenChange={setIsDeleteImpactOpen}
+                impact={pendingDeleteImpact}
+                itemLabel="question"
+                onConfirm={handleConfirmDestructiveDelete}
+                isPending={deleteStepMutation.isPending}
+            />
         </div >
     );
 }

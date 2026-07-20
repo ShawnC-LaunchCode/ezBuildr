@@ -220,6 +220,29 @@ export function registerSectionRoutes(app: Express): void {
   }));
 
   /**
+   * GET /api/sections/:sectionId/delete-impact
+   * Preview the answers/runs that would be permanently destroyed by
+   * deleting this section, aggregated across all its steps (workflow
+   * looked up automatically). Read-only — used to gate the client's
+   * destructive-confirm dialog (ICW2-13).
+   */
+  app.get('/api/sections/:sectionId/delete-impact', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
+      }
+      const { sectionId } = req.params;
+      const impact = await sectionService.getSectionDeleteImpactById(sectionId, userId);
+      res.json(impact);
+    } catch (error) {
+      logger.error({ error }, "Error fetching section delete impact");
+      const { status, message } = classifyRouteError(error, "Failed to fetch section delete impact");
+      res.status(status).json({ message });
+    }
+  }));
+
+  /**
    * DELETE /api/sections/:sectionId
    * Delete a section (workflow looked up automatically)
    */

@@ -4,7 +4,7 @@ import type { StepConfig } from "@shared/types/stepConfigs";
 
 import { logger } from "../logger";
 import { validateAndNormalizeConfig } from "../utils/stepConfigUtils";
-import { stepRepository, sectionRepository } from "../repositories";
+import { stepRepository, sectionRepository, stepValueRepository, type DeleteImpact } from "../repositories";
 import { db } from "../db";
 
 import { aliasRenameService } from "./AliasRenameService";
@@ -25,15 +25,18 @@ export class StepService {
   private stepRepo: typeof stepRepository;
   private sectionRepo: typeof sectionRepository;
   private workflowSvc: typeof workflowService;
+  private stepValueRepo: typeof stepValueRepository;
 
   constructor(
     stepRepo?: typeof stepRepository,
     sectionRepo?: typeof sectionRepository,
-    workflowSvc?: typeof workflowService
+    workflowSvc?: typeof workflowService,
+    stepValueRepo?: typeof stepValueRepository
   ) {
     this.stepRepo = stepRepo ?? stepRepository;
     this.sectionRepo = sectionRepo ?? sectionRepository;
     this.workflowSvc = workflowSvc ?? workflowService;
+    this.stepValueRepo = stepValueRepo ?? stepValueRepository;
   }
 
 
@@ -308,6 +311,46 @@ export class StepService {
     }
 
     await this.stepRepo.delete(stepId);
+  }
+
+  /**
+   * Impact of deleting a step: answers + distinct runs that would be
+   * permanently destroyed via the step_values cascade. Read-only — gates
+   * the client's destructive-confirm dialog (ICW2-13). The counting logic
+   * lives in StepValueRepository so ICW2-B1 (soft-delete) can reuse it.
+   */
+  async getStepDeleteImpact(stepId: string, workflowId: string, userId: string): Promise<DeleteImpact> {
+    await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
+
+    const step = await this.stepRepo.findById(stepId);
+    if (!step) {
+      throw new Error(STEP_NOT_FOUND);
+    }
+
+    // Verify step's section belongs to workflow
+    const section = await this.sectionRepo.findById(step.sectionId);
+    if (!section || section.workflowId !== workflowId) {
+      throw new Error("Step not found in this workflow");
+    }
+
+    return this.stepValueRepo.countImpactForSteps([stepId]);
+  }
+
+  /**
+   * Impact of deleting a step (workflow looked up automatically).
+   */
+  async getStepDeleteImpactById(stepId: string, userId: string): Promise<DeleteImpact> {
+    const step = await this.stepRepo.findById(stepId);
+    if (!step) {
+      throw new Error(STEP_NOT_FOUND);
+    }
+
+    const section = await this.sectionRepo.findById(step.sectionId);
+    if (!section) {
+      throw new Error(SECTION_NOT_FOUND);
+    }
+
+    return this.getStepDeleteImpact(stepId, section.workflowId, userId);
   }
 
   /**

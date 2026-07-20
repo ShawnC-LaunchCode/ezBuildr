@@ -7,6 +7,12 @@ import { createError } from "../utils/errors";
 
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
+/** Answers + distinct runs affected by deleting a set of steps (ICW2-13). */
+export interface DeleteImpact {
+  answerCount: number;
+  runCount: number;
+}
+
 /**
  * Repository for step value data access
  */
@@ -138,6 +144,29 @@ export class StepValueRepository extends BaseRepository<
         },
       })
       .returning();
+  }
+
+  /**
+   * Count answers (step_values rows) and distinct runs that would be
+   * permanently destroyed if the given steps were deleted — step_values
+   * cascades on `steps.id` deletion (shared/schema/run.ts). Read-only;
+   * used to gate the destructive-confirm dialog before a step/section
+   * delete (ICW2-13). Reusable by ICW2-B1 (soft-delete) impact preview.
+   */
+  async countImpactForSteps(stepIds: string[], tx?: DbTransaction): Promise<DeleteImpact> {
+    if (stepIds.length === 0) { return { answerCount: 0, runCount: 0 }; }
+    const database = this.getDb(tx);
+    const [result] = await database
+      .select({
+        answerCount: sql<number>`count(*)`,
+        runCount: sql<number>`count(distinct ${stepValues.runId})`,
+      })
+      .from(stepValues)
+      .where(inArray(stepValues.stepId, stepIds));
+    return {
+      answerCount: Number(result?.answerCount ?? 0),
+      runCount: Number(result?.runCount ?? 0),
+    };
   }
 
   /** Delete selected answers only while their run remains incomplete. */

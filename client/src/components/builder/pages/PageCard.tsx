@@ -6,6 +6,7 @@
 import { CSS } from "@dnd-kit/utilities";
 
 import { SectionLogicSheet } from "@/components/logic";
+import { DeleteImpactDialog } from "@/components/shared/DeleteImpactDialog";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { ApiSection, ApiBlock, ApiStep } from "@/lib/vault-api";
@@ -61,6 +62,11 @@ export function PageCard({
     handleDescriptionChange,
     flushDescription,
     handleDelete,
+    isDeleteImpactOpen,
+    setIsDeleteImpactOpen,
+    pendingDeleteImpact,
+    confirmDestructiveDelete,
+    isDeleteSectionPending,
     selectSection,
     selectBlock,
     selectStep,
@@ -135,6 +141,15 @@ export function PageCard({
         onOpenChange={setIsLogicSheetOpen}
         section={page}
         workflowId={workflowId}
+      />
+
+      <DeleteImpactDialog
+        open={isDeleteImpactOpen}
+        onOpenChange={setIsDeleteImpactOpen}
+        impact={pendingDeleteImpact}
+        itemLabel="page"
+        onConfirm={confirmDestructiveDelete}
+        isPending={isDeleteSectionPending}
       />
     </div>
   );

@@ -273,6 +273,28 @@ function registerSimplifiedStepRoutes(app: Express): void {
   }));
 
   /**
+   * GET /api/steps/:stepId/delete-impact
+   * Preview the answers/runs that would be permanently destroyed by
+   * deleting this step (workflow looked up automatically). Read-only —
+   * used to gate the client's destructive-confirm dialog (ICW2-13).
+   */
+  app.get('/api/steps/:stepId/delete-impact', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
+      }
+      const { stepId } = req.params;
+      const impact = await stepService.getStepDeleteImpactById(stepId, userId);
+      res.json(impact);
+    } catch (error) {
+      logger.error({ error }, "Error fetching step delete impact");
+      const { status, message } = classifyRouteError(error, "Failed to fetch step delete impact");
+      res.status(status).json({ message });
+    }
+  }));
+
+  /**
    * PUT /api/steps/:stepId
    * Update a step (workflow looked up automatically)
    */

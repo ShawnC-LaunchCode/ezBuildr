@@ -498,3 +498,71 @@ describe("workflow settings persist across save + reload (ICW2-9)", () => {
     expect(getRes.body.settings).toMatchObject(settings);
   });
 });
+
+describe("GET /api/steps/:stepId/delete-impact + /api/sections/:sectionId/delete-impact (ICW2-13)", () => {
+  /** Create a short_text step under the given workflow/section; return its id. */
+  async function makeStep(workflowId: string, sectionId: string, alias: string): Promise<string> {
+    const res = await agent
+      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
+      .send({ type: "short_text", title: alias, alias });
+    expect(res.status).toBe(201);
+    return res.body.id as string;
+  }
+
+  it("counts answers + distinct runs per step and aggregates across a section", async () => {
+    const { workflowId, sectionId } = await makeWorkflowWithSection();
+    const stepId1 = await makeStep(workflowId, sectionId, "q_one");
+    const stepId2 = await makeStep(workflowId, sectionId, "q_two");
+
+    // Two runs; step1 answered in both (2 answers / 2 runs), step2 in one (1 / 1).
+    const [run1] = await db.insert(schema.workflowRuns)
+      .values({ workflowId, runToken: nanoid(), createdBy: ctx.userId }).returning();
+    const [run2] = await db.insert(schema.workflowRuns)
+      .values({ workflowId, runToken: nanoid(), createdBy: ctx.userId }).returning();
+    await db.insert(schema.stepValues).values([
+      { runId: run1.id, stepId: stepId1, value: "a" },
+      { runId: run2.id, stepId: stepId1, value: "b" },
+      { runId: run1.id, stepId: stepId2, value: "c" },
+    ]);
+
+    const stepImpact = await agent.get(`/api/steps/${stepId1}/delete-impact`);
+    expect(stepImpact.status).toBe(200);
+    expect(stepImpact.body).toEqual({ answerCount: 2, runCount: 2 });
+
+    // Section aggregates both steps: 3 answers across 2 distinct runs.
+    const sectionImpact = await agent.get(`/api/sections/${sectionId}/delete-impact`);
+    expect(sectionImpact.status).toBe(200);
+    expect(sectionImpact.body).toEqual({ answerCount: 3, runCount: 2 });
+  });
+
+  it("returns zero impact for a step with no answers", async () => {
+    const { workflowId, sectionId } = await makeWorkflowWithSection();
+    const stepId = await makeStep(workflowId, sectionId, "q_empty");
+    const res = await agent.get(`/api/steps/${stepId}/delete-impact`);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ answerCount: 0, runCount: 0 });
+  });
+
+  it("returns 401 without auth", async () => {
+    const { workflowId, sectionId } = await makeWorkflowWithSection();
+    const stepId = await makeStep(workflowId, sectionId, "q_noauth");
+    const res = await request(ctx.baseURL).get(`/api/steps/${stepId}/delete-impact`);
+    expect(res.status).toBe(401);
+  });
+
+  it("denies impact lookup to a non-collaborator (403/404 masked)", async () => {
+    const { workflowId, sectionId } = await makeWorkflowWithSection();
+    const stepId = await makeStep(workflowId, sectionId, "q_secret");
+    const other = await createTestUser(ctx, "viewer");
+
+    const stepRes = await request(ctx.baseURL)
+      .get(`/api/steps/${stepId}/delete-impact`)
+      .set("Authorization", `Bearer ${other.token}`);
+    expect([403, 404]).toContain(stepRes.status);
+
+    const sectionRes = await request(ctx.baseURL)
+      .get(`/api/sections/${sectionId}/delete-impact`)
+      .set("Authorization", `Bearer ${other.token}`);
+    expect([403, 404]).toContain(sectionRes.status);
+  });
+});

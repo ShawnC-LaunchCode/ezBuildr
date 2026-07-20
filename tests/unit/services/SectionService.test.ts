@@ -2,13 +2,13 @@
 import { describe, it, expect, beforeEach, vi, type Mocked } from "vitest";
 
 import { SectionService } from "../../../server/services/SectionService";
-import { sectionRepository, workflowRepository, stepRepository } from "../../../server/repositories";
-import { createTestSection, createTestWorkflow } from "../../factories/workflowFactory";
+import { sectionRepository, workflowRepository, stepRepository, stepValueRepository } from "../../../server/repositories";
+import { createTestSection, createTestStep, createTestWorkflow } from "../../factories/workflowFactory";
 import { workflowService } from "../../../server/services/WorkflowService";
 
 import { LIMITS } from "@shared/limits";
 
-import type { Section } from "@shared/schema";
+import type { Section, Step } from "@shared/schema";
 
 // Mock the repositories and services
 vi.mock("../../../server/repositories", () => ({
@@ -27,6 +27,9 @@ vi.mock("../../../server/repositories", () => ({
   stepRepository: {
     findBySectionId: vi.fn(),
   },
+  stepValueRepository: {
+    countImpactForSteps: vi.fn(),
+  },
 }));
 vi.mock("../../../server/services/WorkflowService", () => ({
   workflowService: {
@@ -38,21 +41,27 @@ describe("SectionService", () => {
   let service: SectionService;
   let mockSectionRepo: Mocked<typeof sectionRepository>;
   let mockWorkflowSvc: Mocked<typeof workflowService>;
+  let mockStepRepo: Mocked<typeof stepRepository>;
+  let mockStepValueRepo: Mocked<typeof stepValueRepository>;
 
   beforeEach(() => {
     vi.clearAllMocks();
 
     mockSectionRepo = sectionRepository as Mocked<typeof sectionRepository>;
     mockWorkflowSvc = workflowService as Mocked<typeof workflowService>;
+    mockStepRepo = stepRepository as Mocked<typeof stepRepository>;
+    mockStepValueRepo = stepValueRepository as Mocked<typeof stepValueRepository>;
 
     mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
     mockSectionRepo.findByWorkflowId.mockResolvedValue([]);
+    mockStepValueRepo.countImpactForSteps.mockResolvedValue({ answerCount: 0, runCount: 0 });
 
     service = new SectionService(
       mockSectionRepo,
       workflowRepository as Mocked<typeof workflowRepository>,
-      stepRepository as Mocked<typeof stepRepository>,
-      mockWorkflowSvc
+      mockStepRepo,
+      mockWorkflowSvc,
+      mockStepValueRepo
     );
   });
 
@@ -126,6 +135,86 @@ describe("SectionService", () => {
       ).rejects.toThrow(/not found/);
       expect(mockSectionRepo.findByWorkflowId).not.toHaveBeenCalled();
       expect(mockSectionRepo.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("getSectionDeleteImpact (ICW2-13)", () => {
+    it("should aggregate the answer/run counts across every step in the section (AC3)", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+      const steps = [
+        createTestStep(section.id, { order: 1 }),
+        createTestStep(section.id, { order: 2 }),
+        createTestStep(section.id, { order: 3 }),
+      ];
+
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(workflow);
+      mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(section);
+      mockStepRepo.findBySectionId.mockResolvedValue(steps as unknown as Step[]);
+      mockStepValueRepo.countImpactForSteps.mockResolvedValue({ answerCount: 9, runCount: 4 });
+
+      const result = await service.getSectionDeleteImpact(section.id, workflow.id, "user-123");
+
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
+      // Aggregation is delegated to the repo, but it must be given every step id
+      // in the section (including virtual/computed steps, which cascade too).
+      expect(mockStepRepo.findBySectionId).toHaveBeenCalledWith(section.id, undefined, true);
+      expect(mockStepValueRepo.countImpactForSteps).toHaveBeenCalledWith(
+        steps.map((s) => s.id)
+      );
+      expect(result).toEqual({ answerCount: 9, runCount: 4 });
+    });
+
+    it("should return zero counts for a section with no steps", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(workflow);
+      mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(section);
+      mockStepRepo.findBySectionId.mockResolvedValue([]);
+      mockStepValueRepo.countImpactForSteps.mockResolvedValue({ answerCount: 0, runCount: 0 });
+
+      const result = await service.getSectionDeleteImpact(section.id, workflow.id, "user-123");
+
+      expect(mockStepValueRepo.countImpactForSteps).toHaveBeenCalledWith([]);
+      expect(result).toEqual({ answerCount: 0, runCount: 0 });
+    });
+
+    it("should throw if the section is not found", async () => {
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
+      mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(undefined);
+
+      await expect(
+        service.getSectionDeleteImpact("missing-section", "workflow-1", "user-123")
+      ).rejects.toThrow("Section not found");
+      expect(mockStepValueRepo.countImpactForSteps).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("getSectionDeleteImpactById (ICW2-13)", () => {
+    it("should look up the workflow from the section and delegate to getSectionDeleteImpact", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+      const steps = [createTestStep(section.id, { order: 1 })];
+
+      mockSectionRepo.findById.mockResolvedValue(section);
+      mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(section);
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(workflow);
+      mockStepRepo.findBySectionId.mockResolvedValue(steps as unknown as Step[]);
+      mockStepValueRepo.countImpactForSteps.mockResolvedValue({ answerCount: 3, runCount: 2 });
+
+      const result = await service.getSectionDeleteImpactById(section.id, "user-123");
+
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(section.workflowId, "user-123", "edit");
+      expect(result).toEqual({ answerCount: 3, runCount: 2 });
+    });
+
+    it("should throw when the section does not exist", async () => {
+      mockSectionRepo.findById.mockResolvedValue(undefined);
+
+      await expect(
+        service.getSectionDeleteImpactById("nonexistent", "user-123")
+      ).rejects.toThrow("Section not found");
     });
   });
 });

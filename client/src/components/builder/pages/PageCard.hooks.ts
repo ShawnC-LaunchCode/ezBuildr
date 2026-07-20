@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useDebouncedFieldMutation } from "@/hooks/useDebouncedFieldMutation";
 import { combinePageItems, getNextOrder, PageItem } from "@/lib/dnd";
-import { ApiBlock, ApiSection, ApiStep } from "@/lib/vault-api";
+import { ApiBlock, ApiSection, ApiStep, sectionAPI, type ApiDeleteImpact } from "@/lib/vault-api";
 import {
     useDeleteSection,
     useTransformBlocks,
@@ -46,6 +46,11 @@ interface UsePageCardLogicReturn {
     handleDescriptionChange: (description: string) => void;
     flushDescription: () => void;
     handleDelete: () => Promise<void>;
+    isDeleteImpactOpen: boolean;
+    setIsDeleteImpactOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    pendingDeleteImpact: ApiDeleteImpact | null;
+    confirmDestructiveDelete: () => void;
+    isDeleteSectionPending: boolean;
     selectSection: (id: string) => void;
     selectBlock: (id: string) => void;
     selectStep: (id: string) => void;
@@ -70,6 +75,10 @@ export function usePageCardLogic(
 
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isLogicSheetOpen, setIsLogicSheetOpen] = useState(false);
+
+    // Delete-impact warning (ICW2-13): only shown when the section's steps have stored answers.
+    const [isDeleteImpactOpen, setIsDeleteImpactOpen] = useState(false);
+    const [pendingDeleteImpact, setPendingDeleteImpact] = useState<ApiDeleteImpact | null>(null);
 
     // Check if this is a Final Documents section
     const isFinalDocumentsSection =
@@ -120,15 +129,7 @@ export function usePageCardLogic(
         (description: string) => updateSectionMutation.mutate({ id: page.id, workflowId, description })
     );
 
-    const handleDelete = async (): Promise<void> => {
-        if (
-            // eslint-disable-next-line no-alert
-            !window.confirm(
-                `Delete page "${page.title}"? This will remove all questions and logic blocks.`
-            )
-        ) {
-            return;
-        }
+    const performDelete = async (): Promise<void> => {
         try {
             await deleteSectionMutation.mutateAsync({ id: page.id, workflowId });
             toast({
@@ -142,6 +143,34 @@ export function usePageCardLogic(
                 variant: "destructive",
             });
         }
+    };
+
+    const handleDelete = async (): Promise<void> => {
+        try {
+            const impact = await sectionAPI.getDeleteImpact(page.id);
+            if (impact.answerCount > 0) {
+                setPendingDeleteImpact(impact);
+                setIsDeleteImpactOpen(true);
+                return;
+            }
+        } catch {
+            // Impact check failed (e.g. network hiccup) — fall back to the
+            // existing plain confirmation rather than silently skipping it.
+        }
+        if (
+            // eslint-disable-next-line no-alert
+            !window.confirm(
+                `Delete page "${page.title}"? This will remove all questions and logic blocks.`
+            )
+        ) {
+            return;
+        }
+        await performDelete();
+    };
+
+    const confirmDestructiveDelete = (): void => {
+        setIsDeleteImpactOpen(false);
+        void performDelete();
     };
 
     const handleToggleExpand = (stepId: string): void => {
@@ -197,6 +226,11 @@ export function usePageCardLogic(
         handleDescriptionChange,
         flushDescription,
         handleDelete,
+        isDeleteImpactOpen,
+        setIsDeleteImpactOpen,
+        pendingDeleteImpact,
+        confirmDestructiveDelete,
+        isDeleteSectionPending: deleteSectionMutation.isPending,
         selectSection,
         selectBlock,
         selectStep,
