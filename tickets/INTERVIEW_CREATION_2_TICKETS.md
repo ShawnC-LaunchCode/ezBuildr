@@ -1146,7 +1146,47 @@ ops if absent.
 ICW2-14 touches `AliasRenameService` + `StepService`; no overlap with the
 others — this phase can largely run in parallel.
 
-## ICW2-13 — Deleting a step/section silently destroys collected answers 🔲
+## Verification pass — 2026-07-20 (reviewer; ICW2-13, ICW2-14, ICW2-16, ICW2-17)
+
+Reviewed the uncommitted tree work against each ticket's acceptance criteria and
+committed the four passing tickets (one commit each, staging only that ticket's
+files). ICW2-15 remains open (re-scoped — see its note).
+
+- **Gate:** `npx tsc --noEmit` → 0 errors · pre-commit hook (ESLint + tsc +
+  strict-zones + related unit tests) → PASSED on all four commits ·
+  `npm run test:fast` → green.
+- **ICW2-14** (commit `846dddd3`): `renameAliasInExpression` walker verified
+  (recursive, immutable, rewrites `variable`/variable-typed `value`/`value2`);
+  service rewrites step + section `visibleIf`. Reviewer confirmed the dev's
+  deviation is correct — `logic_rules` store `conditionStepId` as a UUID FK
+  (`shared/schema/workflow.ts:284`), not an alias, so a rename cannot dangle
+  them; pinned by a regression test. Unit tests 13/13.
+- **ICW2-17** (commit `67be01c6`): unfiled branch resets ownership to the
+  personal/user model + propagates to `workflowRuns` in one `tx`; `status`
+  removed from `updateWorkflowSchema`. Unit + integration green — **reviewer
+  fixed** the move-to-unfiled integration test (it filed under a *personal*
+  project, so the original ownership assertion was a no-op; now seeds the run as
+  org-owned via `ctx.orgId` so the reset is observable). 8/8 integration.
+- **ICW2-16** (commit `817f51c5`): date operators + `diff_*` (number `value2`)
+  added to `OPERATORS_BY_STEP_TYPE`; legacy-operator fallback for old saved
+  conditions; LogicBuilder feeds choice options via `getLegacyChoiceOptions`
+  (mirrors runner `alias ?? id`). New unit tests 11/11.
+  **⚠️ AC1/AC2 live dev-app proof (screenshots) NOT yet captured** — code +
+  automated gates only.
+- **ICW2-13** (commit `02274720`): impact-count endpoint + destructive
+  DeleteImpactDialog across all three delete surfaces; counting in the repo for
+  ICW2-B1 reuse. Unit 43/43. **Reviewer fixed** a missing `Step` import in
+  `SectionService.test.ts` and **wrote the AC4 integration coverage** the dev
+  never got to (per-step counts, section aggregation, zero-impact, 401,
+  non-collaborator 403/404) — `creation-routes.test.ts` 26/26.
+  **⚠️ AC1/AC2 live dev-app proof (screenshots) NOT yet captured** — code +
+  automated gates only.
+
+Context: the four devs were dispatched in parallel; three (ICW2-13/16/17) were
+killed mid-edit by a session usage limit, so the reviewer finished and verified
+their work directly from the shared tree rather than re-dispatching.
+
+## ICW2-13 — Deleting a step/section silently destroys collected answers ✅
 
 **Priority: P1 (data loss)** · Size: S–M · Files:
 `server/services/StepService.ts`, `server/services/SectionService.ts`, new
@@ -1193,7 +1233,7 @@ Per Decision 3 (staged): warning-with-count now, soft-delete later (ICW2-B1).
 
 ---
 
-## ICW2-14 — Alias rename breaks `visibleIf` and logic-rule conditions silently 🔲
+## ICW2-14 — Alias rename breaks `visibleIf` and logic-rule conditions silently ✅
 
 **Priority: P1** · Size: M · Files: `server/services/AliasRenameService.ts`,
 `tests/unit/services/AliasRenameService.test.ts`
@@ -1235,6 +1275,20 @@ service's existing per-table update pattern and its logging.
 ---
 
 ## ICW2-15 — Template instantiation feeds `pages`-shaped graphs into `sections`-shaped ingest 🔲
+
+> **Re-scoped & still open (Shawn + reviewer, 2026-07-20).** Re-audit found
+> ICW2-6 already landed: `VersionService.serializeWorkflow` now writes
+> `graphJson` as ingest-shaped `WorkflowContentData`, so the mismatch is fixed
+> for all NEW templates. The `pagesToWorkflowContent` adapter is **descoped**
+> (no legacy `pages`-shaped blueprint data exists; if any ever surfaces, handle
+> it with a one-time migration, not permanent runtime translation — keeps the
+> single canonical shape ICW2-6 established). Remaining scope when picked up:
+> (1) empty/`{}` template → clear **400** ("Template has no content") instead of
+> silently creating an empty interview; (2) fix the `blueprint.routes.ts:63-65`
+> authz gap (`projectService.verifyOwnership` → `aclService.hasProjectRole(...,
+> 'edit')`, donor `WorkflowService.createWorkflow`); (3) a post-ICW2-6
+> build→publish→template→instantiate round-trip integration test. **Not yet
+> implemented** — no tree work exists for this ticket.
 
 **Priority: P1 (broken feature)** · Size: M · Files:
 `server/services/TemplateService.ts`, possibly a new adapter in `shared/` or
@@ -1293,7 +1347,7 @@ existing `pages`-shaped ones and empty-`{}` ones.
 
 ---
 
-## ICW2-16 — Logic UI: 8 engine operators unreachable; choice comparisons are free-text 🔲
+## ICW2-16 — Logic UI: 8 engine operators unreachable; choice comparisons are free-text ✅
 
 **Priority: P2** · Size: S–M · Files:
 `client/src/components/logic/LogicBuilder.tsx`,
@@ -1353,7 +1407,7 @@ existing `pages`-shaped ones and empty-`{}` ones.
 
 # Phase 5 — Contract cleanups
 
-## ICW2-17 — Status vocabulary + unfiled-move ownership cleanups 🔲
+## ICW2-17 — Status vocabulary + unfiled-move ownership cleanups ✅
 
 **Priority: P2** · Size: S · Files: `server/routes/workflows.routes.ts`,
 `server/services/WorkflowService.ts`
