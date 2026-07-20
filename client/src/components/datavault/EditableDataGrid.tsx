@@ -161,27 +161,6 @@ export function EditableDataGrid({
     [localColumns]
   );
 
-  // Initialize empty row with autonumber pre-filled
-  useEffect(() => {
-    const autoNumberColumn = sortedColumns.find(
-      (col) => col.type === 'auto_number' && col.isPrimaryKey
-    );
-
-    if (autoNumberColumn) {
-      // Calculate next autonumber
-      const maxValue = rows.reduce((max, row) => {
-        const value = row.values[autoNumberColumn.id];
-        const num = typeof value === 'number' ? value : parseInt(String(value), 10);
-        return !isNaN(num) && num > max ? num : max;
-      }, 0);
-
-      setEmptyRowValues((prev) => ({
-        ...prev,
-        [autoNumberColumn.id]: maxValue + 1,
-      }));
-    }
-  }, [rows, sortedColumns]);
-
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
@@ -253,8 +232,9 @@ export function EditableDataGrid({
     setEmptyRowValues(updatedValues);
     setEmptyRowTouched(true);
 
-    // Check if all required fields are filled
-    const requiredColumns = sortedColumns.filter((col) => col.required);
+    // Check if all required fields are filled (auto_number columns are
+    // server-generated, so they're excluded even when marked required)
+    const requiredColumns = sortedColumns.filter((col) => col.required && col.type !== 'auto_number');
     const allRequiredFilled = requiredColumns.every((col) => {
       const val = updatedValues[col.id];
       return val !== undefined && val !== null && val !== '';
@@ -297,7 +277,7 @@ export function EditableDataGrid({
     if (!emptyRowTouched) {return false;}
 
     const column = sortedColumns.find((col) => col.id === columnId);
-    if (!column?.required) {return false;}
+    if (!column?.required || column.type === 'auto_number') {return false;}
 
     const value = emptyRowValues[columnId];
     return value === undefined || value === null || value === '';
@@ -431,7 +411,7 @@ export function EditableDataGrid({
                     readOnly={column.isPrimaryKey && column.type === 'auto_number'}
                     placeholder={
                       column.isPrimaryKey && column.type === 'auto_number'
-                        ? String(emptyRowValues[column.id] ?? '')
+                        ? 'Auto-generated'
                         : column.required === true
                         ? 'Required'
                         : 'Optional'

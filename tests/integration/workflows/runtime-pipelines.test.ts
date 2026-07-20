@@ -28,6 +28,7 @@ import { DatavaultColumnsService } from '../../../server/services/DatavaultColum
 import { DatavaultRowsService } from '../../../server/services/DatavaultRowsService';
 import { DatavaultTablesService } from '../../../server/services/DatavaultTablesService';
 import { runService } from '../../../server/services/RunService';
+import { runCompletionJobWorker } from '../../../server/services/workflow-runs/RunCompletionJobWorker';
 import { writebackExecutionService } from '../../../server/services/WritebackExecutionService';
 describe('Runtime Pipelines Integration Tests', () => {
   const testUserId = nanoid(); // Use random ID to prevent collisions
@@ -257,8 +258,12 @@ describe('Runtime Pipelines Integration Tests', () => {
       // Get initial row count
       const rowsBefore = await datavaultRowsRepository.findByTableId(testTableId);
       const initialCount = rowsBefore.length;
-      // Complete run (should trigger writeback)
+      // Complete run: this only enqueues the durable writeback job (RCF-4's
+      // completion-outbox model). Nothing polls the outbox in the integration
+      // harness (only server/index.ts starts the worker), so the job must be
+      // claimed and run inline here, same as runner-hardening-run13.test.ts.
       await runService.completeRun(run2.id, testUserId);
+      await runCompletionJobWorker.processBatch();
       // Verify run is completed
       const completedRun = await workflowRunRepository.findById(run2.id);
       expect(completedRun?.completed).toBe(true);

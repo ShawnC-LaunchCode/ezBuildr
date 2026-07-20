@@ -73,7 +73,7 @@ describe('DatavaultGuardrails', () => {
 
         mockRowsRepo = {
             deleteValuesByColumnId: vi.fn(),
-            cleanupAutoNumberSequence: vi.fn(),
+            createNumberSequence: vi.fn(),
             checkColumnHasDuplicates: vi.fn(),
         } as unknown as Mocked<typeof datavaultRowsRepository>;
 

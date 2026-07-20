@@ -295,7 +295,7 @@ export class DatavaultColumnsService {
     // Primary key columns must be required and unique
     const required = data.isPrimaryKey ? true : (data.required ?? false);
     const isUnique = data.isPrimaryKey ? true : (data.isUnique ?? false);
-    return this.columnsRepo.create(
+    const column = await this.columnsRepo.create(
       {
         ...data,
         slug: uniqueSlug,
@@ -308,6 +308,20 @@ export class DatavaultColumnsService {
       },
       tx
     );
+    // Seed the counter row backing auto-number generation for this column.
+    // Generation also self-heals if this row is ever missing (e.g. columns
+    // created via a path that bypasses this service), so this is the normal
+    // case, not the only guarantee.
+    if (column.type === 'auto_number') {
+      await this.rowsRepo.createNumberSequence(
+        tenantId,
+        column.tableId,
+        column.id,
+        column.autoNumberStart ?? 1,
+        tx
+      );
+    }
+    return column;
   }
   /**
    * Get column by ID with tenant verification
@@ -441,11 +455,8 @@ export class DatavaultColumnsService {
     }
     // Delete all values for this column first (though CASCADE should handle it)
     await this.rowsRepo.deleteValuesByColumnId(columnId, tx);
-    // If this is an auto-number column, cleanup its PostgreSQL sequence
-    if (column.type === 'auto_number') {
-      await this.rowsRepo.cleanupAutoNumberSequence(columnId, tx);
-    }
-    // Delete the column
+    // Delete the column. Its datavault_number_sequences counter row (if any)
+    // is removed automatically via ON DELETE CASCADE on column_id.
     await this.columnsRepo.delete(columnId, tx);
   }
   /**

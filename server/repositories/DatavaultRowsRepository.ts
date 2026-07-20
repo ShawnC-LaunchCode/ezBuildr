@@ -5,6 +5,7 @@ import {
   datavaultValues,
   datavaultColumns,
   datavaultTables,
+  datavaultNumberSequences,
   type DatavaultRow,
   type InsertDatavaultRow,
   type DatavaultValue,
@@ -352,99 +353,97 @@ export class DatavaultRowsRepository extends BaseRepository<
     await database.delete(datavaultValues).where(eq(datavaultValues.columnId, columnId));
   }
   /**
-   * Get next auto-number for a column using PostgreSQL sequences
-   * Fixes race condition - guaranteed atomic and unique
+   * Get next auto-number for a column from its `datavault_number_sequences`
+   * counter row, transactionally.
    *
-   * @param tableId Table ID (for future use/validation)
+   * Locks the counter row with `FOR UPDATE` so concurrent inserts serialize on
+   * it (same boundary pattern as `StepValueRepository.assertRunsMutable`) —
+   * guaranteed distinct, increasing integers with no `MAX()` re-read and no
+   * Postgres `SEQUENCE` objects involved.
+   *
+   * Self-heals when the counter row is missing (columns created before this
+   * counter-row lifecycle existed, or via a path that skipped creating one):
+   * seeds it from `startValue` via an idempotent upsert before locking.
+   *
+   * @param tenantId Tenant ID (counter rows are tenant-scoped)
+   * @param tableId Table ID
    * @param columnId Column ID
-   * @param startValue Starting value for the sequence (default: 1)
-   * @returns Next auto-number value
+   * @param startValue Seed value when the counter row doesn't exist yet (default: 1)
+   * @returns Next auto-number value (integer)
    */
   async getNextAutoNumber(
+    tenantId: string,
     tableId: string,
     columnId: string,
     startValue: number = 1,
     tx?: DbTransaction
   ): Promise<number> {
     const database = this.getDb(tx);
-    // Use PostgreSQL function to get next value from sequence
-    // This is atomic and prevents race conditions
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Drizzle execute returns untyped result
-    const res = await database.execute(
-      sql`SELECT datavault_get_next_auto_number(${tableId}::UUID, ${columnId}::UUID, ${startValue}::INTEGER) as next_value`
-    );
-    // eslint-disable-next-line @typescript-eslint/naming-convention -- DB function returns snake_case
-    const result = Array.isArray(res) ? (res[0] as { next_value?: number } | undefined) : ((res as unknown as { rows?: Array<{ next_value?: number }> })?.rows?.[0] ?? (res as unknown as { next_value?: number }));
-    return result?.next_value ?? startValue;
-  }
-  /**
-   * Cleanup PostgreSQL sequence when auto-number column is deleted
-   *
-   * @param columnId Column ID
-   */
-  /**
-   * Get next autonumber value (v4 with prefix, padding, yearly reset)
-   * Calls datavault_get_next_autonumber PostgreSQL function
-   *
-   * @param tenantId Tenant ID for the table
-   * @param tableId Table ID
-   * @param columnId Column ID
-   * @param prefix Optional prefix (e.g., "CASE", "INV")
-   * @param padding Number of digits to pad (default 4)
-   * @param resetPolicy When to reset: 'never' or 'yearly'
-   * @param tx Optional transaction
-   * @returns Formatted autonumber string (e.g., "CASE-2025-0001")
-   */
-  async getNextAutonumber(
-    tenantId: string,
-    tableId: string,
-    columnId: string,
-    options?: {
-      prefix?: string | null;
-      padding?: number;
-      resetPolicy?: 'never' | 'yearly';
-      format?: string | null;
-      tx?: DbTransaction;
-    }
-  ): Promise<string> {
-    const prefix = options?.prefix ?? null;
-    const padding = options?.padding ?? 4;
-    const resetPolicy = options?.resetPolicy ?? 'never';
-    const format = options?.format ?? null;
-    const database = this.getDb(options?.tx);
-    // Call the database function with all parameters
-    // SQL Signature: (tenant, table, column, context_key, min_digits, prefix, format)
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Drizzle execute returns untyped result
-    const res = await database.execute(
-      sql`SELECT datavault_get_next_autonumber(
-        ${tenantId}::UUID,
-        ${tableId}::UUID,
-        ${columnId}::UUID,
-        'default'::TEXT,
-        ${padding}::INTEGER,
-        ${prefix ?? ''}::TEXT,
-        ${resetPolicy === 'yearly' ? 'YYYY' : (format ?? null)}::TEXT
-      ) as next_value`
-    );
-    // eslint-disable-next-line @typescript-eslint/naming-convention -- DB function returns snake_case
-    const result = Array.isArray(res) ? (res[0] as { next_value?: string } | undefined) : ((res as unknown as { rows?: Array<{ next_value?: string }> })?.rows?.[0] ?? (res as unknown as { next_value?: string }));
-    const nextValue = result?.next_value;
-    if (nextValue === undefined || nextValue === null) {
-      throw new Error('Failed to generate autonumber value');
-    }
+
+    // Self-heal: seed the counter row if one doesn't exist yet.
+    await database
+      .insert(datavaultNumberSequences)
+      .values({ tenantId, tableId, columnId, nextValue: startValue })
+      .onConflictDoNothing({
+        target: [
+          datavaultNumberSequences.tenantId,
+          datavaultNumberSequences.tableId,
+          datavaultNumberSequences.columnId,
+        ],
+      });
+
+    // Lock the counter row so concurrent generators serialize on it.
+    const [sequence] = await database
+      .select({ nextValue: datavaultNumberSequences.nextValue })
+      .from(datavaultNumberSequences)
+      .where(
+        and(
+          eq(datavaultNumberSequences.tenantId, tenantId),
+          eq(datavaultNumberSequences.tableId, tableId),
+          eq(datavaultNumberSequences.columnId, columnId)
+        )
+      )
+      .for('update');
+
+    const nextValue = sequence?.nextValue ?? startValue;
+
+    await database
+      .update(datavaultNumberSequences)
+      .set({ nextValue: nextValue + 1, updatedAt: new Date() })
+      .where(
+        and(
+          eq(datavaultNumberSequences.tenantId, tenantId),
+          eq(datavaultNumberSequences.tableId, tableId),
+          eq(datavaultNumberSequences.columnId, columnId)
+        )
+      );
+
     return nextValue;
   }
   /**
-   * Cleanup PostgreSQL sequence when auto-number column is deleted
-   *
-   * @param columnId Column ID
+   * Create the counter row backing an `auto_number` column's generation,
+   * seeded from the column's configured start value. Idempotent — a no-op if
+   * a row already exists for this column (normal create path only calls this
+   * once, but generation also self-heals via `getNextAutoNumber` regardless).
    */
-  async cleanupAutoNumberSequence(columnId: string, tx?: DbTransaction): Promise<void> {
+  async createNumberSequence(
+    tenantId: string,
+    tableId: string,
+    columnId: string,
+    startValue: number = 1,
+    tx?: DbTransaction
+  ): Promise<void> {
     const database = this.getDb(tx);
-    // Call PostgreSQL function to drop the sequence
-    await database.execute(
-      sql`SELECT datavault_cleanup_sequence(${columnId}::UUID)`
-    );
+    await database
+      .insert(datavaultNumberSequences)
+      .values({ tenantId, tableId, columnId, nextValue: startValue })
+      .onConflictDoNothing({
+        target: [
+          datavaultNumberSequences.tenantId,
+          datavaultNumberSequences.tableId,
+          datavaultNumberSequences.columnId,
+        ],
+      });
   }
   /**
    * Update row with automatic timestamp update
