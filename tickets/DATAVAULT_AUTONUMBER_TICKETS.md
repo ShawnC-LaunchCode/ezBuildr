@@ -164,19 +164,59 @@ cannot cleanly drop an enum value; do **not** attempt to).
 
 ---
 
-## DVA-2 — (Follow-up, not scheduled) Optional prefix + zero-padding display
+## DVA-2 — (Deferred, pickup-ready) Optional prefix + zero-padding display
 
-**Priority: P3 / enhancement.** **Size: M.** **Status: 🔲 deferred.**
+**Priority: P3 / enhancement.** **Size: M.** **Status: 🟦 deferred — build when a
+real invoice-style-ID requirement exists. Design locked below so pickup is fast.**
 
-Only if a customer wants invoice-style IDs (`INV-0001`). Apply `prefix` +
-zero-`padding` as **display formatting on read** (grid cell renderer, row
-editor, and the DataVault→document variable resolver) over the integer stored
-by DVA-1 — keep the integer canonical so sort/filter stay numerically correct
-and changing the format never rewrites stored rows. This is also the natural
-time to delete the now-dead SQL functions (`datavault_get_next_autonumber`,
-`datavault_get_next_auto_number`, `datavault_cleanup_sequence`) and the dormant
-`autonumberPrefix/Padding/ResetPolicy` columns via a proper migration. Not in
-scope until requested.
+### Why deferred (decision, 2026-07-20)
+DVA-1 stores a plain integer, so this formatting layer is **purely additive** —
+no data migration, no storage change, no rework needed to add it later. Building
+it now would be speculative (no concrete customer requirement to shape it) into a
+document-correctness-sensitive path, right after yearly-reset was cut as overkill.
+So it waits for a real need; the design is fixed here so it doesn't get
+re-litigated and so DVA-1's integer storage remains the correct foundation.
+
+### Locked design (do not re-litigate on pickup)
+- **Integer stays canonical.** The stored `datavault_values.value` remains the raw
+  integer DVA-1 generates. Prefix/zero-padding is a **presentation concern applied
+  on read**, never stored. This keeps sort/filter numerically correct and means
+  changing a column's format never rewrites historical rows (an issued ID should
+  not retroactively change).
+- **Config home:** `datavault_columns.autonumberPrefix` + `autonumberPadding`
+  (`shared/schema/datavault.ts:94-95`) — these already exist; they become live
+  (they are NOT dropped). Add column-config UI to set them
+  (`client/src/components/datavault/CreateTableModal.tsx` and any column editor).
+- **Format spec:** `{prefix}{'-' if prefix}{zeroPad(value, padding)}` → e.g.
+  prefix `INV`, padding `4`, value `1` ⇒ `INV-0001`; empty prefix, padding `1`
+  ⇒ `1`. Define this ONCE as a shared helper and apply it in all read consumers.
+- **Read consumers to format (all three, or documents/grid disagree):**
+  1. Document/workflow variable surface — `ReadTableBlockRunner` builds `rowData`
+     from the raw value at `server/services/blockRunners/ReadTableBlockRunner.ts:133`.
+  2. Grid cell display — `client/src/components/datavault/CellRenderer.tsx:54-55`.
+  3. Row editor display — `client/src/components/datavault/RowEditorModal.tsx`.
+  Prefer a single server-side formatter surfaced on the row read so the client
+  and the document path consume one source of truth (avoids a JS/SQL formatter
+  drift); the client CellRenderer then just displays it. Confirm the exact shape
+  against the row-read API when picking this up.
+- **Known accepted limitation:** `read_table` filters compare against the stored
+  integer, so an `equals "INV-0001"` filter won't match. Autonumber filters are
+  rare; document it rather than special-casing.
+
+### Fold in the dead-code cleanup (only when this ships)
+This is the migration that should also remove the now-dead artifacts, so the DB
+is touched once, not twice — and only `resetPolicy`/enum are dropped, NOT
+prefix/padding (this feature uses those):
+- Drop the three unused SQL functions: `datavault_get_next_autonumber`,
+  `datavault_get_next_auto_number`, `datavault_cleanup_sequence`
+  (`migrations/0002_db_functions.sql`; zero production callers after DVA-1 —
+  only historical one-offs under `scripts/` reference them).
+- Optionally drop `autonumberResetPolicy` (+ the `autonumber_reset_policy` enum)
+  and the dormant `autonumber` value in `datavaultColumnTypeEnum` — note that
+  removing a pgEnum value requires recreating the type; weigh that cost, it may
+  not be worth it. Follow the `db-schema-change` skill.
+
+Not in scope until a real requirement exists.
 
 ---
 
@@ -185,4 +225,4 @@ scope until requested.
 | ID | Finding | State |
 |---|---|---|
 | DVA-1 | Single integer autonumber from `datavault_number_sequences` | ✅ **DONE** 2026-07-20 (committed `ae2004c3`; full integration suite 835/0) |
-| DVA-2 | Optional prefix/padding display formatting (+ dead-code/DDL cleanup) | 🔲 deferred |
+| DVA-2 | Optional prefix/padding display formatting (+ dead-code/DDL cleanup folded in) | 🟦 deferred, design-locked & pickup-ready (build on real invoice-ID need) |
