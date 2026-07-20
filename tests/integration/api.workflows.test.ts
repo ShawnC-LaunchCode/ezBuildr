@@ -89,7 +89,26 @@ describe.sequential("Workflow Move API Integration Tests", () => {
       await request(ctx.baseURL)
         .put(`/api/workflows/${workflowId}/move`)
         .set("Authorization", `Bearer ${ctx.authToken}`)
-        .send({ projectId: targetProjectId });
+        .send({ projectId: targetProjectId })
+        .expect(200);
+
+      // Confirm the workflow is now filed under the target project.
+      const [filedWorkflow] = await db
+        .select()
+        .from(schema.workflows)
+        .where(eq(schema.workflows.id, workflowId));
+      expect(filedWorkflow.projectId).toBe(targetProjectId);
+
+      // Simulate a run created while the workflow was org-owned (an owner
+      // distinct from the acting user) so the reset to the personal/user model
+      // on unfile is observable on the run.
+      const [run] = await db.insert(schema.workflowRuns).values({
+        workflowId,
+        runToken: nanoid(),
+        createdBy: ctx.userId,
+        ownerType: "org",
+        ownerUuid: ctx.orgId,
+      }).returning();
 
       // Then move back to Main Folder
       const response = await request(ctx.baseURL)
@@ -101,6 +120,10 @@ describe.sequential("Workflow Move API Integration Tests", () => {
       expect(response.body).toHaveProperty("id", workflowId);
       expect(response.body.projectId).toBeNull();
 
+      // ICW2-17 AC2: unfiled resets ownership to the personal/user model.
+      expect(response.body.ownerType).toBe("user");
+      expect(response.body.ownerUuid).toBe(ctx.userId);
+
       // Verify the workflow was actually moved to Main Folder
       const verifyResponse = await request(ctx.baseURL)
         .get(`/api/workflows/${workflowId}`)
@@ -108,6 +131,16 @@ describe.sequential("Workflow Move API Integration Tests", () => {
         .expect(200);
 
       expect(verifyResponse.body.projectId).toBeNull();
+      expect(verifyResponse.body.ownerType).toBe("user");
+      expect(verifyResponse.body.ownerUuid).toBe(ctx.userId);
+
+      // ICW2-17 AC2: the run's owner fields were propagated in the same transaction.
+      const [updatedRun] = await db
+        .select()
+        .from(schema.workflowRuns)
+        .where(eq(schema.workflowRuns.id, run.id));
+      expect(updatedRun.ownerType).toBe("user");
+      expect(updatedRun.ownerUuid).toBe(ctx.userId);
     });
 
     it("should reject move to non-existent project", async () => {

@@ -312,6 +312,101 @@ describe("WorkflowService", () => {
       );
     });
   });
+  describe("moveToProject", () => {
+    it("should reset ownership to the project's owner and update workflow runs in the same transaction", async () => {
+      const workflow = createTestWorkflow({
+        creatorId: "user-123",
+        projectId: null,
+        ownerType: "user",
+        ownerUuid: "user-123",
+      });
+      mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
+      mockProjectRepo.findById.mockResolvedValue({
+        id: "project-123",
+        ownerType: "org",
+        ownerUuid: "org-456",
+      } as unknown as Project);
+
+      const whereMock = vi.fn().mockResolvedValue(undefined);
+      const setMock = vi.fn().mockReturnValue({ where: whereMock });
+      const updateMock = vi.fn().mockReturnValue({ set: setMock });
+      const mockTx = { update: updateMock } as unknown as DbTransaction;
+      mockWorkflowRepo.transaction.mockImplementationOnce(
+        async (callback: (tx: DbTransaction) => Promise<unknown>) => callback(mockTx)
+      );
+
+      const updatedWorkflow = {
+        ...workflow,
+        projectId: "project-123",
+        ownerType: "org" as const,
+        ownerUuid: "org-456",
+      };
+      mockWorkflowRepo.update.mockResolvedValue(updatedWorkflow);
+
+      const result = await service.moveToProject(workflow.id, "user-123", "project-123");
+
+      expect(result).toEqual(updatedWorkflow);
+      expect(mockWorkflowRepo.update).toHaveBeenCalledWith(
+        workflow.id,
+        { projectId: "project-123", ownerType: "org", ownerUuid: "org-456" },
+        mockTx
+      );
+      expect(updateMock).toHaveBeenCalledTimes(1);
+      expect(setMock).toHaveBeenCalledWith({ ownerType: "org", ownerUuid: "org-456" });
+      expect(whereMock).toHaveBeenCalledTimes(1);
+    });
+
+    // ICW2-17 AC2: moving to unfiled resets ownership to the personal/user model
+    // (mirroring createWorkflow's no-projectId branch) and propagates it to
+    // workflowRuns, in the same transaction as the workflow update.
+    it("should reset ownership to the personal/user model and update workflow runs when moving to unfiled", async () => {
+      const workflow = createTestWorkflow({
+        creatorId: "user-123",
+        projectId: "project-123",
+        ownerType: "org",
+        ownerUuid: "org-456",
+      });
+      mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
+
+      const whereMock = vi.fn().mockResolvedValue(undefined);
+      const setMock = vi.fn().mockReturnValue({ where: whereMock });
+      const updateMock = vi.fn().mockReturnValue({ set: setMock });
+      const mockTx = { update: updateMock } as unknown as DbTransaction;
+      mockWorkflowRepo.transaction.mockImplementationOnce(
+        async (callback: (tx: DbTransaction) => Promise<unknown>) => callback(mockTx)
+      );
+
+      const updatedWorkflow = {
+        ...workflow,
+        projectId: null,
+        ownerType: "user" as const,
+        ownerUuid: "user-123",
+      };
+      mockWorkflowRepo.update.mockResolvedValue(updatedWorkflow);
+
+      const result = await service.moveToProject(workflow.id, "user-123", null);
+
+      expect(result).toEqual(updatedWorkflow);
+      // Unfiled means no target project to resolve access/ownership from.
+      expect(mockProjectRepo.findById).not.toHaveBeenCalled();
+      expect(mockWorkflowRepo.update).toHaveBeenCalledWith(
+        workflow.id,
+        { projectId: null, ownerType: "user", ownerUuid: "user-123" },
+        mockTx
+      );
+      expect(setMock).toHaveBeenCalledWith({ ownerType: "user", ownerUuid: "user-123" });
+      expect(whereMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("should throw error if user does not have owner access", async () => {
+      const workflow = createTestWorkflow({ creatorId: "user-123" });
+      mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
+      vi.mocked(aclService.hasWorkflowRole).mockResolvedValue(false);
+      await expect(
+        service.moveToProject(workflow.id, "other-user", null)
+      ).rejects.toThrow("Access denied");
+    });
+  });
   describe("changeStatus", () => {
     it("should change workflow status to active", async () => {
       const workflow = createTestWorkflow({ creatorId: "user-123", status: "draft" });

@@ -182,7 +182,6 @@ export function registerWorkflowRoutes(app: Express): void {
       requireLogin: z.boolean().optional(),
       intakeConfig: z.record(z.any()).optional(),
       settings: z.record(z.any()).optional(),
-      status: z.enum(['draft', 'published', 'archived']).optional(),
       sections: z.array(z.any()).optional(),
       modeOverride: z.string().optional(),
       publicLink: z.string().optional(),
@@ -203,7 +202,6 @@ export function registerWorkflowRoutes(app: Express): void {
       const updateData = { ...parsedData };
       delete updateData.ownerType;
       delete updateData.ownerUuid;
-      delete updateData.status;
 
       let workflow;
       // Deep update if sections are provided (e.g. from AI)

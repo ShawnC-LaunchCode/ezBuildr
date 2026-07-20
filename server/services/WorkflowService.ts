@@ -365,6 +365,8 @@ export class WorkflowService {
     // Verify user has owner access to the workflow
     await this.verifyAccess(workflowId, userId, 'owner');
     // If moving to a project (not unfiled), verify user has access to target project
+    let ownerType: Workflow['ownerType'];
+    let ownerUuid: Workflow['ownerUuid'];
     if (projectId !== null) {
       const project = await this.projectRepo.findById(projectId);
       if (!project) {
@@ -374,14 +376,21 @@ export class WorkflowService {
       if (!hasProjectAccess) {
         throw new Error("Access denied - you do not have access to the target project");
       }
-      const ownerType = project.ownerType ?? 'user';
-      const ownerUuid = project.ownerUuid ?? project.ownerId ?? userId;
+      ownerType = project.ownerType ?? 'user';
+      ownerUuid = project.ownerUuid ?? project.ownerId ?? userId;
+    } else {
+      // Unfiled: reset to personal/user ownership, mirroring the no-projectId
+      // branch of createWorkflow (ownerType 'user', ownerUuid = the acting user).
+      ownerType = 'user';
+      ownerUuid = userId;
+    }
+    return this.workflowRepo.transaction(async (tx) => {
       const workflow = await this.workflowRepo.update(workflowId, {
         projectId,
         ownerType,
         ownerUuid,
-      });
-      await db
+      }, tx);
+      await tx
         .update(workflowRuns)
         .set({
           ownerType,
@@ -389,8 +398,7 @@ export class WorkflowService {
         })
         .where(eq(workflowRuns.workflowId, workflowId));
       return workflow;
-    }
-    return this.workflowRepo.update(workflowId, { projectId });
+    });
   }
   /**
    * Get unfiled workflows (workflows with no project) for a creator
