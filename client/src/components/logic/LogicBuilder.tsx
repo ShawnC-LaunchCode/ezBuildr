@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { useWorkflowVariables } from "@/lib/vault-hooks";
+import { useWorkflowVariables, useWorkflowSteps } from "@/lib/vault-hooks";
 
 import { describeConditionExpression } from "@shared/conditionEvaluator";
 import {
@@ -30,7 +30,12 @@ import type {
   VariableInfo,
 } from "@shared/types/conditions";
 
+import { getLegacyChoiceOptions } from "./choiceOptions";
 import { ConditionGroup } from "./ConditionGroup";
+
+// Step types whose config carries selectable choices (legacy radio/multiple_choice
+// options); other ConditionSupportedStepType values never have a `choices` list.
+const CHOICE_STEP_TYPES = new Set<VariableInfo["type"]>(["radio", "multiple_choice"]);
 
 interface LogicBuilderProps {
   /** The workflow ID to fetch variables from */
@@ -57,6 +62,14 @@ export function LogicBuilder({
 }: LogicBuilderProps) {
   // Fetch workflow variables
   const { data: rawVariables, isLoading } = useWorkflowVariables(workflowId);
+  // Steps carry the raw `config` (incl. choice options) that the variables
+  // endpoint doesn't return. This reuses the same workflow-steps query the
+  // step editor's AliasField already populates for this workflowId, so it's
+  // typically served from cache rather than issuing a new request.
+  const { data: workflowSteps } = useWorkflowSteps(workflowId, {
+    enabled: Boolean(workflowId),
+    staleTime: 5000,
+  });
 
   // Local state for the expression being edited
   const [localExpression, setLocalExpression] = useState<ConditionGroupType | null>(
@@ -78,18 +91,25 @@ export function LogicBuilder({
 
     return rawVariables
       .filter((v) => v.key !== elementId) // Filter out self-references
-      .map((v) => ({
-        id: v.key,
-        alias: v.alias ?? null,
-        label: v.label,
-        title: v.label,
-        type: v.type as VariableInfo["type"],
-        sectionId: v.sectionId,
-        sectionTitle: v.sectionTitle,
-        // TODO: Fetch choices for choice-based steps
-        choices: undefined,
-      }));
-  }, [rawVariables, elementId]);
+      .map((v) => {
+        const type = v.type as VariableInfo["type"];
+        const step = workflowSteps?.find((s) => s.id === v.key);
+        const choices = CHOICE_STEP_TYPES.has(type)
+          ? getLegacyChoiceOptions(step?.config ?? null)
+          : undefined;
+
+        return {
+          id: v.key,
+          alias: v.alias ?? null,
+          label: v.label,
+          title: v.label,
+          type,
+          sectionId: v.sectionId,
+          sectionTitle: v.sectionTitle,
+          choices,
+        };
+      });
+  }, [rawVariables, elementId, workflowSteps]);
 
   // Generate human-readable description
   const description = useMemo(() => {

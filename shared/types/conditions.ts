@@ -89,7 +89,11 @@ export interface OperatorConfig {
   needsValue: boolean;
   impliedValue?: unknown; // For operators like is_true/is_false
   valueType?: "text" | "number" | "boolean" | "date" | "choices" | "multi_choices";
-  needsTwoValues?: boolean; // For 'between' operator
+  // Type of the second value input, when it differs from `valueType` (e.g. the
+  // date-diff operators compare a date in `value` against a day/week/month/year
+  // count in `value2`). Defaults to `valueType` when omitted (e.g. `between`).
+  value2Type?: "text" | "number" | "boolean" | "date" | "choices" | "multi_choices";
+  needsTwoValues?: boolean; // For 'between' and date-diff operators
 }
 
 /**
@@ -153,11 +157,43 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
   date_time: [
     { value: "equals", label: "is", needsValue: true, valueType: "date" },
     { value: "not_equals", label: "is not", needsValue: true, valueType: "date" },
-    { value: "greater_than", label: "is after", needsValue: true, valueType: "date" },
-    { value: "less_than", label: "is before", needsValue: true, valueType: "date" },
-    { value: "greater_or_equal", label: "is on or after", needsValue: true, valueType: "date" },
-    { value: "less_or_equal", label: "is on or before", needsValue: true, valueType: "date" },
+    { value: "after", label: "is after", needsValue: true, valueType: "date" },
+    { value: "before", label: "is before", needsValue: true, valueType: "date" },
+    { value: "on_or_after", label: "is on or after", needsValue: true, valueType: "date" },
+    { value: "on_or_before", label: "is on or before", needsValue: true, valueType: "date" },
     { value: "between", label: "is between", needsValue: true, valueType: "date", needsTwoValues: true },
+    {
+      value: "diff_days",
+      label: "differs by N days from",
+      needsValue: true,
+      valueType: "date",
+      value2Type: "number",
+      needsTwoValues: true,
+    },
+    {
+      value: "diff_weeks",
+      label: "differs by N weeks from",
+      needsValue: true,
+      valueType: "date",
+      value2Type: "number",
+      needsTwoValues: true,
+    },
+    {
+      value: "diff_months",
+      label: "differs by N months from",
+      needsValue: true,
+      valueType: "date",
+      value2Type: "number",
+      needsTwoValues: true,
+    },
+    {
+      value: "diff_years",
+      label: "differs by N years from",
+      needsValue: true,
+      valueType: "date",
+      value2Type: "number",
+      needsTwoValues: true,
+    },
     { value: "is_empty", label: "is empty", needsValue: false },
     { value: "is_not_empty", label: "is not empty", needsValue: false },
   ],
@@ -225,6 +261,23 @@ export function getOperatorsForStepType(stepType: ConditionSupportedStepType): O
 }
 
 /**
+ * Date conditions saved before the dedicated date operators (`after`, `before`,
+ * `on_or_after`, `on_or_before`) were exposed here used the generic
+ * numeric-comparison operators instead (`greater_than`, etc). The evaluator
+ * treats both identically for date/datetime values (see
+ * `shared/conditionEvaluator.ts`'s `toNumber`), so this fallback lets already
+ * saved conditions keep resolving to a correct label and value input even
+ * though the curated `date_time` operator list now only offers the dedicated
+ * operator going forward.
+ */
+const LEGACY_OPERATOR_FALLBACK: Partial<Record<ComparisonOperator, ComparisonOperator>> = {
+  greater_than: "after",
+  less_than: "before",
+  greater_or_equal: "on_or_after",
+  less_or_equal: "on_or_before",
+};
+
+/**
  * Get operator config by value
  */
 export function getOperatorConfig(
@@ -232,7 +285,12 @@ export function getOperatorConfig(
   operator: ComparisonOperator
 ): OperatorConfig | undefined {
   const operators = getOperatorsForStepType(stepType);
-  return operators.find((op) => op.value === operator);
+  const direct = operators.find((op) => op.value === operator);
+  if (direct) {
+    return direct;
+  }
+  const fallbackOperator = LEGACY_OPERATOR_FALLBACK[operator];
+  return fallbackOperator ? operators.find((op) => op.value === fallbackOperator) : undefined;
 }
 
 // =====================================================================
