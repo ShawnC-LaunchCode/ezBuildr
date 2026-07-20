@@ -2,13 +2,15 @@ import { randomUUID } from 'crypto';
 
 import { eq } from 'drizzle-orm';
 import request, { type Response } from 'supertest';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import * as schema from '@shared/schema';
 
 import { db } from '../../server/db';
 import { workflowRunRepository } from '../../server/repositories';
+import { runService } from '../../server/services/RunService';
 import { hashToken } from '../../server/utils/encryption';
+import { ApiError } from '../../server/utils/errors';
 import {
   setupIntegrationTest,
   type IntegrationTestContext,
@@ -77,6 +79,15 @@ describe.sequential('completed run answer immutability', () => {
     await ctx.cleanup();
   });
 
+  // If a test ever times out, vitest abandons its in-flight promise without
+  // cancelling it — the `finally` block that calls markCompleteSpy.mockRestore()
+  // never runs, leaving a stale spy on the shared workflowRunRepository
+  // singleton that poisons every later test (in this file and this worker's
+  // later files) that calls markComplete. Force a clean slate regardless.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   async function createRun(completed = false): Promise<TestRun> {
     const token = `completed-immutability-${randomUUID()}`;
     const [run] = await db.insert(schema.workflowRuns).values({
@@ -135,23 +146,33 @@ describe.sequential('completed run answer immutability', () => {
     await expectNoValue(tokenRun.id);
   });
 
+  // These two cases race a write against an in-flight completion. They drive
+  // the service layer directly rather than HTTP: the race the boundary must
+  // win is between the two DB operations (markComplete's open transaction vs
+  // the write path's completion check), and going through supertest/Express
+  // adds socket accept and routing scheduling that — under a full-suite
+  // worker's load, on the single-connection test pool — reordered the steps
+  // nondeterministically and hung the paused transaction. The HTTP contract
+  // (409 + RUN_COMPLETED body) is covered by the two non-racing tests above.
   it.each([
     {
       label: 'single creator autosave',
-      path: (runId: string) => `/api/runs/${runId}/values`,
-      body: () => ({ stepId, value: 'late single value' }),
-      writeAuth: () => ctx.authToken,
+      lateWrite: (run: TestRun) =>
+        runService.upsertStepValue(run.id, ctx.userId, {
+          runId: run.id,
+          stepId,
+          value: 'late single value',
+        }),
     },
     {
       label: 'bulk run-token autosave',
-      path: (runId: string) => `/api/runs/${runId}/values/bulk`,
-      body: () => ({ values: [{ stepId, value: 'late bulk value' }] }),
-      writeAuth: (run: TestRun) => run.token,
+      lateWrite: (run: TestRun) =>
+        runService.bulkUpsertValuesNoAuth(run.id, [
+          { stepId, value: 'late bulk value' },
+        ]),
     },
   ])('prevents a $label from crossing an in-flight completion boundary', async ({
-    path,
-    body,
-    writeAuth,
+    lateWrite,
   }) => {
     const run = await createRun();
     const completionReachedBoundary = deferred();
@@ -166,29 +187,35 @@ describe.sequential('completed run answer immutability', () => {
       });
 
     try {
-      const completionRequest = request(ctx.baseURL)
-        .put(`/api/runs/${run.id}/complete`)
-        .set('Authorization', `Bearer ${run.token}`)
-        .send();
-      const completionPromise = completionRequest.then(response => response);
+      const completionPromise = runService.completeRunNoAuth(run.id);
 
+      // Completion is now paused inside its open transaction, after the run
+      // row is marked complete but before commit — the exact boundary a
+      // production race would cross.
       await completionReachedBoundary.promise;
 
-      const lateWriteResponse = await request(ctx.baseURL)
-        .post(path(run.id))
-        .set('Authorization', `Bearer ${writeAuth(run)}`)
-        .send(body());
+      // Fire the late write while completion is still uncommitted, then
+      // release. Its queries queue behind the paused transaction's pooled
+      // connection, so it observes the run only after completion commits —
+      // in production (multi-connection pool) the same ordering is enforced
+      // by assertRunsMutable's SELECT ... FOR UPDATE on the run row instead.
+      const lateWritePromise = lateWrite(run);
+      releaseCompletion.resolve();
 
-      expectRunCompleted(lateWriteResponse);
+      const [lateWriteResult, completionResult] = await Promise.allSettled([
+        lateWritePromise,
+        completionPromise,
+      ]);
+
+      expect(lateWriteResult.status).toBe('rejected');
+      const lateWriteError = (lateWriteResult as PromiseRejectedResult).reason as ApiError;
+      expect(lateWriteError).toBeInstanceOf(ApiError);
+      expect(lateWriteError.code).toBe('RUN_COMPLETED');
       await expectNoValue(run.id);
 
-      releaseCompletion.resolve();
-      const completionResponse = await completionPromise;
-      expect(completionResponse.status).toBe(200);
-      expect(completionResponse.body).toMatchObject({
-        success: true,
-        data: { id: run.id, completed: true },
-      });
+      expect(completionResult.status).toBe('fulfilled');
+      const completedRun = (completionResult as PromiseFulfilledResult<typeof schema.workflowRuns.$inferSelect>).value;
+      expect(completedRun).toMatchObject({ id: run.id, completed: true });
     } finally {
       releaseCompletion.resolve();
       markCompleteSpy.mockRestore();
