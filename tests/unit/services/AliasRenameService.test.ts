@@ -27,6 +27,7 @@ vi.mock("../../../server/repositories", () => ({
   },
   sectionRepository: {
     findByWorkflowId: vi.fn(),
+    update: vi.fn(),
   },
   stepRepository: {
     findBySectionIds: vi.fn(),
@@ -100,6 +101,7 @@ describe("AliasRenameService.propagateRename", () => {
     // NOTE: update is inherited from BaseRepository, so it is ONE shared
     // mock across every repository singleton — assert on its calls by id
     mockStepRepo.update.mockImplementation((async (_id: string, data: unknown) => data) as never);
+    mockSectionRepo.update.mockImplementation((async (_id: string, data: unknown) => data) as never);
   });
 
   it("should rewrite transform block inputKeys", async () => {
@@ -159,6 +161,162 @@ describe("AliasRenameService.propagateRename", () => {
     ]);
   });
 
+  it("should rewrite a step's visibleIf variable reference", async () => {
+    mockSectionRepo.findByWorkflowId.mockResolvedValue([{ id: "sec-1" }] as never);
+    mockStepRepo.findBySectionIds.mockResolvedValue([
+      {
+        id: "step-dependent",
+        type: "short_text",
+        config: null,
+        visibleIf: {
+          type: "group",
+          id: "g1",
+          operator: "AND",
+          conditions: [
+            { type: "condition", id: "c1", variable: "oldName", operator: "equals", value: "yes", valueType: "constant" },
+          ],
+        },
+      },
+      { id: "step-untouched", type: "short_text", config: null, visibleIf: null },
+    ] as never);
+
+    const result = await service.propagateRename("wf-1", "oldName", "newName");
+
+    expect(result.stepVisibleIfUpdated).toBe(1);
+    expect(mockStepRepo.update).toHaveBeenCalledWith("step-dependent", {
+      visibleIf: {
+        type: "group",
+        id: "g1",
+        operator: "AND",
+        conditions: [
+          { type: "condition", id: "c1", variable: "newName", operator: "equals", value: "yes", valueType: "constant" },
+        ],
+      },
+    });
+    expect(mockStepRepo.update).not.toHaveBeenCalledWith("step-untouched", expect.anything());
+  });
+
+  it("should rewrite a section's visibleIf variable reference", async () => {
+    mockSectionRepo.findByWorkflowId.mockResolvedValue([
+      {
+        id: "sec-dependent",
+        visibleIf: {
+          type: "group",
+          id: "g1",
+          operator: "AND",
+          conditions: [
+            { type: "condition", id: "c1", variable: "oldName", operator: "is_not_empty", valueType: "constant" },
+          ],
+        },
+      },
+      { id: "sec-untouched", visibleIf: null },
+    ] as never);
+    mockStepRepo.findBySectionIds.mockResolvedValue([]);
+
+    const result = await service.propagateRename("wf-1", "oldName", "newName");
+
+    expect(result.sectionVisibleIfUpdated).toBe(1);
+    expect(mockSectionRepo.update).toHaveBeenCalledWith("sec-dependent", {
+      visibleIf: {
+        type: "group",
+        id: "g1",
+        operator: "AND",
+        conditions: [
+          { type: "condition", id: "c1", variable: "newName", operator: "is_not_empty", valueType: "constant" },
+        ],
+      },
+    });
+    expect(mockSectionRepo.update).not.toHaveBeenCalledWith("sec-untouched", expect.anything());
+  });
+
+  it("should rewrite nested AND/OR condition groups without touching other aliases", async () => {
+    mockSectionRepo.findByWorkflowId.mockResolvedValue([{ id: "sec-1" }] as never);
+    mockStepRepo.findBySectionIds.mockResolvedValue([
+      {
+        id: "step-nested",
+        type: "short_text",
+        config: null,
+        visibleIf: {
+          type: "group",
+          id: "root",
+          operator: "AND",
+          conditions: [
+            { type: "condition", id: "c1", variable: "otherAlias", operator: "equals", value: "x", valueType: "constant" },
+            {
+              type: "group",
+              id: "nested",
+              operator: "OR",
+              conditions: [
+                { type: "condition", id: "c2", variable: "oldName", operator: "equals", value: "1", valueType: "constant" },
+                { type: "condition", id: "c3", variable: "otherAlias", operator: "equals", value: "y", valueType: "constant" },
+              ],
+            },
+          ],
+        },
+      },
+    ] as never);
+
+    const result = await service.propagateRename("wf-1", "oldName", "newName");
+
+    expect(result.stepVisibleIfUpdated).toBe(1);
+    const updatePayload = mockStepRepo.update.mock.calls[0][1] as {
+      visibleIf: { conditions: unknown[] };
+    };
+    expect(updatePayload.visibleIf.conditions[0]).toEqual({
+      type: "condition", id: "c1", variable: "otherAlias", operator: "equals", value: "x", valueType: "constant",
+    });
+    expect(
+      (updatePayload.visibleIf.conditions[1] as { conditions: unknown[] }).conditions
+    ).toEqual([
+      { type: "condition", id: "c2", variable: "newName", operator: "equals", value: "1", valueType: "constant" },
+      { type: "condition", id: "c3", variable: "otherAlias", operator: "equals", value: "y", valueType: "constant" },
+    ]);
+  });
+
+  it("should not rewrite visibleIf expressions that only reference other aliases", async () => {
+    mockSectionRepo.findByWorkflowId.mockResolvedValue([{ id: "sec-1" }] as never);
+    mockStepRepo.findBySectionIds.mockResolvedValue([
+      {
+        id: "step-other",
+        type: "short_text",
+        config: null,
+        visibleIf: {
+          type: "group",
+          id: "g1",
+          operator: "AND",
+          conditions: [
+            { type: "condition", id: "c1", variable: "otherAlias", operator: "equals", value: "x", valueType: "constant" },
+          ],
+        },
+      },
+    ] as never);
+
+    const result = await service.propagateRename("wf-1", "oldName", "newName");
+
+    expect(result.stepVisibleIfUpdated).toBe(0);
+    expect(mockStepRepo.update).not.toHaveBeenCalled();
+  });
+
+  it("does not need to touch logic rules: they store step/section ids, not aliases", async () => {
+    // logic_rules.conditionStepId/targetStepId/targetSectionId are UUID
+    // foreign keys resolved from alias to id once at ingest time
+    // (WorkflowContentIngestService.syncLogicRules); nothing here can go
+    // stale on rename, so propagateRename has no logic-rule reference type
+    // and this rename must not touch section/step rows that merely happen
+    // to be a logic rule's target.
+    mockSectionRepo.findByWorkflowId.mockResolvedValue([{ id: "sec-1", visibleIf: null }] as never);
+    mockStepRepo.findBySectionIds.mockResolvedValue([
+      { id: "step-target", type: "short_text", config: null, visibleIf: null },
+    ] as never);
+
+    const result = await service.propagateRename("wf-1", "oldName", "newName");
+
+    expect(result.stepVisibleIfUpdated).toBe(0);
+    expect(result.sectionVisibleIfUpdated).toBe(0);
+    expect(mockStepRepo.update).not.toHaveBeenCalled();
+    expect(mockSectionRepo.update).not.toHaveBeenCalled();
+  });
+
   it("should report zero updates when nothing references the alias", async () => {
     const result = await service.propagateRename("wf-1", "oldName", "newName");
     expect(result).toEqual({
@@ -166,6 +324,8 @@ describe("AliasRenameService.propagateRename", () => {
       documentHooksUpdated: 0,
       lifecycleHooksUpdated: 0,
       finalBlockStepsUpdated: 0,
+      stepVisibleIfUpdated: 0,
+      sectionVisibleIfUpdated: 0,
     });
     expect(mockStepRepo.update).not.toHaveBeenCalled();
   });

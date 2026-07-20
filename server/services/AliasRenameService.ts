@@ -2,19 +2,34 @@
  * Alias Rename Propagation
  *
  * When a step's variable name (alias) changes, every workflow-scoped
- * reference that stores the alias as a string must follow, or documents and
- * transforms silently break. This service rewrites:
+ * reference that stores the alias as a string must follow, or documents,
+ * transforms, and visibility logic silently break. This service rewrites:
  *
  * - transform block inputKeys
  * - document hook inputKeys
  * - lifecycle hook inputKeys
  * - Final Block document mapping sources (step config.documents[].mapping)
+ * - step visibleIf expressions (any step in the workflow, not just the
+ *   renamed one)
+ * - section visibleIf expressions
  *
  * Not rewritten (by design):
  * - templates.mapping (project-scoped, shared across workflows)
  * - placeholder text inside uploaded DOCX files (unreachable; the template
  *   validation panel surfaces these as missing with a rename suggestion)
+ * - `logic_rules` rows: `conditionStepId`/`targetStepId`/`targetSectionId`
+ *   are step/section UUID foreign keys, not alias strings — the alias is
+ *   only ever resolved to an id once, at ingest time
+ *   (WorkflowContentIngestService.syncLogicRules), and is re-derived live
+ *   from the current alias for display/lint purposes
+ *   (VersionService.serializeWorkflow). A rename cannot leave a logic rule
+ *   referencing a stale alias because none is stored.
  */
+
+import type { Logger } from 'pino';
+
+import { renameAliasInExpression } from '@shared/conditionEvaluator';
+import type { ConditionExpression } from '@shared/types/conditions';
 
 import { logger } from '../logger';
 import {
@@ -24,6 +39,7 @@ import {
   stepRepository,
   transformBlockRepository,
 } from '../repositories';
+import type { Section, Step } from '../../shared/schema';
 
 import type { DocumentMapping } from './document/MappingInterpreter';
 
@@ -32,6 +48,8 @@ export interface AliasRenameResult {
   documentHooksUpdated: number;
   lifecycleHooksUpdated: number;
   finalBlockStepsUpdated: number;
+  stepVisibleIfUpdated: number;
+  sectionVisibleIfUpdated: number;
 }
 
 interface FinalBlockDocumentConfig {
@@ -106,6 +124,8 @@ export class AliasRenameService {
       documentHooksUpdated: 0,
       lifecycleHooksUpdated: 0,
       finalBlockStepsUpdated: 0,
+      stepVisibleIfUpdated: 0,
+      sectionVisibleIfUpdated: 0,
     };
     const log = logger.child({ workflowId, oldAlias, newAlias, service: 'AliasRenameService' });
 
@@ -151,10 +171,19 @@ export class AliasRenameService {
       log.error({ error }, 'Failed to propagate alias rename to lifecycle hooks');
     }
 
+    // Sections + steps are shared by the Final Block, step-visibleIf, and
+    // section-visibleIf reference types below.
+    let sections: Section[] = [];
+    let steps: Step[] = [];
+    try {
+      sections = await sectionRepository.findByWorkflowId(workflowId);
+      steps = await stepRepository.findBySectionIds(sections.map((s) => s.id));
+    } catch (error) {
+      log.error({ error }, 'Failed to load sections/steps for alias rename propagation');
+    }
+
     // Final Block document mapping sources
     try {
-      const sections = await sectionRepository.findByWorkflowId(workflowId);
-      const steps = await stepRepository.findBySectionIds(sections.map((s) => s.id));
       for (const step of steps) {
         if (step.type !== 'final' && step.type !== 'final_documents') {
           continue;
@@ -169,16 +198,65 @@ export class AliasRenameService {
       log.error({ error }, 'Failed to propagate alias rename to Final Block mappings');
     }
 
+    result.stepVisibleIfUpdated = await this.renameStepVisibleIf(steps, oldAlias, newAlias, log);
+    result.sectionVisibleIfUpdated = await this.renameSectionVisibleIf(sections, oldAlias, newAlias, log);
+
     const total =
       result.transformBlocksUpdated +
       result.documentHooksUpdated +
       result.lifecycleHooksUpdated +
-      result.finalBlockStepsUpdated;
+      result.finalBlockStepsUpdated +
+      result.stepVisibleIfUpdated +
+      result.sectionVisibleIfUpdated;
     if (total > 0) {
       log.info(result, 'Alias rename propagated to workflow references');
     }
 
     return result;
+  }
+
+  /** Rewrite step.visibleIf expressions referencing oldAlias. */
+  private async renameStepVisibleIf(
+    steps: Step[],
+    oldAlias: string,
+    newAlias: string,
+    log: Logger
+  ): Promise<number> {
+    let count = 0;
+    try {
+      for (const step of steps) {
+        const rewritten = renameAliasInExpression(step.visibleIf as ConditionExpression, oldAlias, newAlias);
+        if (rewritten !== step.visibleIf) {
+          await stepRepository.update(step.id, { visibleIf: rewritten });
+          count++;
+        }
+      }
+    } catch (error) {
+      log.error({ error }, 'Failed to propagate alias rename to step visibleIf expressions');
+    }
+    return count;
+  }
+
+  /** Rewrite section.visibleIf expressions referencing oldAlias. */
+  private async renameSectionVisibleIf(
+    sections: Section[],
+    oldAlias: string,
+    newAlias: string,
+    log: Logger
+  ): Promise<number> {
+    let count = 0;
+    try {
+      for (const section of sections) {
+        const rewritten = renameAliasInExpression(section.visibleIf as ConditionExpression, oldAlias, newAlias);
+        if (rewritten !== section.visibleIf) {
+          await sectionRepository.update(section.id, { visibleIf: rewritten });
+          count++;
+        }
+      }
+    } catch (error) {
+      log.error({ error }, 'Failed to propagate alias rename to section visibleIf expressions');
+    }
+    return count;
   }
 }
 

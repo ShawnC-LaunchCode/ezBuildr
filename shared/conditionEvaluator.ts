@@ -116,6 +116,83 @@ export function evaluateConditionExpressionWithDetails(
 }
 
 // =====================================================================
+// ALIAS RENAME PROPAGATION
+// =====================================================================
+
+/**
+ * Rewrite every reference to `oldAlias` inside a condition expression tree to
+ * `newAlias` — both the `variable` a condition compares, and `value`/`value2`
+ * when `valueType` is `"variable"` (a reference to another step). Constants
+ * and references to other aliases are left untouched.
+ *
+ * Returns the same object reference when nothing changed — including when
+ * `expression` is `null`/empty or isn't a recognizable `ConditionGroup` shape
+ * (e.g. a legacy string-form expression, or malformed jsonb) — so callers can
+ * cheaply detect "no update needed" with `!==` before writing back to the DB.
+ */
+export function renameAliasInExpression(
+  expression: ConditionExpression,
+  oldAlias: string,
+  newAlias: string
+): ConditionExpression {
+  if (!expression || expression.type !== "group" || !Array.isArray(expression.conditions)) {
+    return expression;
+  }
+  return renameInGroup(expression, oldAlias, newAlias);
+}
+
+function renameInGroup(
+  group: ConditionGroup,
+  oldAlias: string,
+  newAlias: string
+): ConditionGroup {
+  let changed = false;
+  const conditions = group.conditions.map((item) => {
+    if (item.type === "condition") {
+      const renamed = renameInCondition(item, oldAlias, newAlias);
+      if (renamed !== item) { changed = true; }
+      return renamed;
+    }
+    if (item.type === "group") {
+      const renamed = renameInGroup(item, oldAlias, newAlias);
+      if (renamed !== item) { changed = true; }
+      return renamed;
+    }
+    // Script conditions don't reference aliases through `variable`/`value`.
+    return item;
+  });
+
+  return changed ? { ...group, conditions } : group;
+}
+
+function renameInCondition(
+  condition: Condition,
+  oldAlias: string,
+  newAlias: string
+): Condition {
+  const variableMatches = condition.variable === oldAlias;
+  const valueMatches =
+    condition.valueType === "variable" &&
+    typeof condition.value === "string" &&
+    condition.value === oldAlias;
+  const value2Matches =
+    condition.valueType === "variable" &&
+    typeof condition.value2 === "string" &&
+    condition.value2 === oldAlias;
+
+  if (!variableMatches && !valueMatches && !value2Matches) {
+    return condition;
+  }
+
+  return {
+    ...condition,
+    variable: variableMatches ? newAlias : condition.variable,
+    value: valueMatches ? newAlias : condition.value,
+    value2: value2Matches ? newAlias : condition.value2,
+  };
+}
+
+// =====================================================================
 // INTERNAL EVALUATION FUNCTIONS
 // =====================================================================
 
