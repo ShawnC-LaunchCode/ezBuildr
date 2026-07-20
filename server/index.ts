@@ -51,24 +51,8 @@ app.use('/oauth', globalLimiter);
 // eslint-disable-next-line sonarjs/cognitive-complexity -- server bootstrap is inherently complex
 void (async () => {
     try {
-        // =====================================================================
-        // 📖 API DOCUMENTATION (Swagger UI)
-        // SECURITY: do not expose the full API surface publicly in production unless
-        // explicitly opted in via ENABLE_API_DOCS. (registerDocsRoutes applies the same gate.)
-        // =====================================================================
-        if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_API_DOCS === 'true') {
-            try {
-                const swaggerUi = (await import("swagger-ui-express")).default;
-                const YAML = (await import("yamljs")).default;
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- yamljs returns untyped value
-                const swaggerDocument = YAML.load("./openapi.yaml");
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- swagger document from yamljs
-                app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-            } catch (error) {
-                // Log but don't crash if docs fail
-                logger.warn({ error }, "Failed to load OpenAPI spec for Swagger UI");
-            }
-        }
+        // Swagger UI (/api-docs) is mounted by registerDocsRoutes() via registerRoutes(),
+        // which applies the production/ENABLE_API_DOCS gate and the configured UI options.
         // CONFIGURATION FIX: Validate master key at startup (fail fast if misconfigured)
         const { validateMasterKey } = await import("./utils/encryption.js");
         try {
