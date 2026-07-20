@@ -247,6 +247,9 @@ export class VersionService {
         migrationInfo: metadata !== null && metadata !== undefined ? { aiMetadata: metadata } : null,
       })
       .returning();
+    if (newVersion === undefined) {
+      throw new Error("Failed to create draft version");
+    }
     // Log audit event
     await db.insert(schema.auditLogs).values({
       userId: userId,
@@ -318,6 +321,9 @@ export class VersionService {
         changelog,
       })
       .returning();
+    if (newVersion === undefined) {
+      throw new Error("Failed to create published version");
+    }
     // Update workflow's currentVersionId and status to active
     await db
       .update(schema.workflows)

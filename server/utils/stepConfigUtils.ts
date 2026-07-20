@@ -545,14 +545,14 @@ function validateEmail(value: unknown, config: EmailConfig | EmailAdvancedConfig
 
     // Type guard for advanced config
     if ('restrictDomains' in config && config.restrictDomains && config.restrictDomains.length > 0) {
-      const domain = (email as string).split('@')[1];
+      const domain = (email as string).split('@')[1] ?? '';
       if (!config.restrictDomains.includes(domain)) {
         errors.push(`Email domain not allowed: ${domain}`);
       }
     }
 
     if ('blockDomains' in config && config.blockDomains && config.blockDomains.length > 0) {
-      const domain = (email as string).split('@')[1];
+      const domain = (email as string).split('@')[1] ?? '';
       if (config.blockDomains.includes(domain)) {
         errors.push(`Email domain blocked: ${domain}`);
       }
