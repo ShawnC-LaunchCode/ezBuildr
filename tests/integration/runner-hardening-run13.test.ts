@@ -11,6 +11,7 @@ import * as schema from '@shared/schema';
 
 import { db } from '../../server/db';
 import { RunLifecycleService } from '../../server/services/workflow-runs/RunLifecycleService';
+import { runCompletionJobWorker } from '../../server/services/workflow-runs/RunCompletionJobWorker';
 import { runService } from '../../server/services/RunService';
 import { TestFactory } from '../helpers/testFactory';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
@@ -195,6 +196,10 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
     const { runId } = await createLegacyWorkflowWithTemplate(templateId);
 
     await runService.completeRun(runId, ctx.userId);
+    // Completion only enqueues the durable outbox job; nothing polls it in the
+    // integration harness (only server/index.ts starts the worker), so the
+    // job must be claimed and run inline for generationStatus to advance.
+    await runCompletionJobWorker.processBatch();
 
     const status = await waitForGenerationStatus(runId, 'failed:');
     expect(status).toContain('Template with id');
@@ -211,6 +216,8 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
 
     expect(response.status, JSON.stringify(response.body)).toBe(200);
     expect(response.body.success).toBe(true);
+    // Same as above: the outbox job needs an explicit claim in-process.
+    await runCompletionJobWorker.processBatch();
     const status = await waitForGenerationStatus(runId, 'failed:');
     expect(status).toContain('Template with id');
     await expect(getGeneratedDocuments(runId)).resolves.toHaveLength(0);
