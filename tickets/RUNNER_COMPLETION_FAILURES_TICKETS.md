@@ -37,7 +37,7 @@ real side effects, and `docs.routes.ts` had a self-redirect on `/api-docs/`
 | RCF-2 | stale-lease reclaim returns a row before the lease expires | run-completion-outbox | ✅ **FIXED** 2026-07-19 |
 | RCF-3 | completed-run immutability tests time out | api.runs.completed-immutability | ✅ **FIXED** 2026-07-19 — self-deadlock fixed + racing cases rewritten at the service layer (Option 1, approved by Shawn); green in 2 consecutive full-suite runs |
 | RCF-4 | generationStatus never reaches 'failed' (legacy templates) | runner-hardening-run13 | ✅ **FIXED** 2026-07-19 |
-| RCF-5 | DataVault legacy auto_number row assertion fails | workflows/runtime-pipelines | 🔲 open — product decision needed |
+| RCF-5 | DataVault legacy auto_number row assertion fails | workflows/runtime-pipelines | ➡️ **SUPERSEDED** by DVA-1 in `tickets/DATAVAULT_AUTONUMBER_TICKETS.md` (product decision made 2026-07-20: single integer autonumber, no yearly reset) |
 | — | `api-docs.test.ts` bootstraps the real production server as a side effect | api-docs (passing, but corrupting shared state) | ✅ **FIXED** 2026-07-19 (found during RCF-3 investigation) |
 
 ---
