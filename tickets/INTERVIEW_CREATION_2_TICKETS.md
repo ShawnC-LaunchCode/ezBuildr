@@ -1171,16 +1171,28 @@ files). ICW2-15 remains open (re-scoped — see its note).
   added to `OPERATORS_BY_STEP_TYPE`; legacy-operator fallback for old saved
   conditions; LogicBuilder feeds choice options via `getLegacyChoiceOptions`
   (mirrors runner `alias ?? id`). New unit tests 11/11.
-  **⚠️ AC1/AC2 live dev-app proof (screenshots) NOT yet captured** — code +
-  automated gates only.
+  **Live (2026-07-20, dev app):** AC2 ✅ proven — a condition on the
+  multiple-choice step rendered a value **dropdown** of that step's options
+  (Small/Large) instead of free text, and selecting "Large" stored the exact
+  option value (builder preview: `package_size = "large"`, not the label). AC1
+  (date operators): verified via unit tests + code + the same operator-dropdown
+  machinery demonstrated working live; the direct eyeball of the date-operator
+  list was not captured (preview-tool instability driving the collapsible
+  visibility toggle). Residual risk low — a static, unit-tested entry in the
+  same `OPERATORS_BY_STEP_TYPE` map that fed the proven choice condition.
 - **ICW2-13** (commit `02274720`): impact-count endpoint + destructive
   DeleteImpactDialog across all three delete surfaces; counting in the repo for
   ICW2-B1 reuse. Unit 43/43. **Reviewer fixed** a missing `Step` import in
   `SectionService.test.ts` and **wrote the AC4 integration coverage** the dev
   never got to (per-step counts, section aggregation, zero-impact, 401,
   non-collaborator 403/404) — `creation-routes.test.ts` 26/26.
-  **⚠️ AC1/AC2 live dev-app proof (screenshots) NOT yet captured** — code +
-  automated gates only.
+  **Live (2026-07-20, dev app):** AC1 ✅ proven — deleting a step with a seeded
+  answer surfaced the destructive dialog with the real count ("1 answer from 1
+  run will be permanently deleted"), and Cancel aborted. AC2 (zero-answer =
+  one-click, no dialog) confirmed by code + the integration test (impact {0,0})
+  and the count>0 gating just demonstrated; not re-triggered live because the
+  zero-impact path falls through to a native `confirm()` that hangs the
+  automation.
 
 Context: the four devs were dispatched in parallel; three (ICW2-13/16/17) were
 killed mid-edit by a session usage limit, so the reviewer finished and verified
