@@ -1585,7 +1585,17 @@ each other; soft locks are racy (`CollaborationContext.tsx:58-70`). Needs a
 field-level merge or a real lock protocol. Defer unless co-editing becomes a
 near-term priority.
 
-## ICW2-B4 — Real builder E2E (UI-driven) 🔄
+## ICW2-B4 — Real builder E2E (UI-driven) ✅
+
+> **Landed 2026-07-23 (scoped).** UI-driven spec `tests/e2e/builder-ui-flow.e2e.ts`
+> drives create → add page → 2 questions (form edits) → keyboard reorder →
+> Easy-mode visibility condition → activate → real run created & runner renders,
+> with 3 persisted-state checkpoints. Passes reliably against a fresh dev server
+> (chromium). The answer→submit tail is deferred to ICW2-B10 (+ the related
+> answer-persistence gap) — two runner defects this spec surfaced. **In building
+> it, the spec found and got fixed FIVE real bugs:** blueprint JWT-auth (ICW2-15),
+> dev:test DB-init, runner null-500 (P0), section order-collision — all
+> committed — plus ICW2-B9 and ICW2-B10 filed.
 
 **Priority: P2 (test coverage)** · Size: M · Files: new
 `tests/e2e/builder-ui-flow.e2e.ts` (name at dev's discretion, must match
@@ -1647,7 +1657,7 @@ note). Load the `verify` skill for the local-app run pattern.
    created, condition saved, run submitted).
 4. No `test.only`; `npm run lint` clean on the new file.
 
-## ICW2-B5 — Duplicate step / duplicate section 🔄
+## ICW2-B5 — Duplicate step / duplicate section ✅
 
 **Priority: P2 (enhancement)** · Size: M · Files:
 `server/services/StepService.ts`, `server/services/SectionService.ts`,
@@ -1729,7 +1739,7 @@ Size: M. `{message}` vs `{success,data}` split within
 `workflows.routes.ts` (create/update vs copy/mode/access/transfer). Decide the
 house envelope and converge; client sweep required.
 
-## ICW2-B7 — Per-tenant AI cost/token budgeting 🔄
+## ICW2-B7 — Per-tenant AI cost/token budgeting ✅
 
 **Priority: P2 (cost control)** · Size: L (escalated from M — API-contract +
 schema change) · Files: `server/services/ai/AIProviderClient.ts`,
@@ -1894,6 +1904,116 @@ explicitly target. The filed-workflow path (`:82-83`) is unchanged.
    target.
 4. `npm run type-check`, `npm run lint`, `npm run test:fast` green; a test
    (component or e2e) covering the unfiled and filed cases.
+
+---
+
+## ICW2-B9 — First "Next" on a fresh run no-ops (run.currentSectionId starts null) 🔲
+
+**Priority: P2 (runner UX bug)** · Size: S–M · Files:
+`server/services/RunService.ts`, the run-creation path
+(`createRun`/`createAnonymousRun`), possibly
+`server/services/runs/RunExecutionCoordinator.ts` /
+`shared/workflowLogic.ts`, tests
+
+> **Discovered during ICW2-B4 e2e, 2026-07-22.** Worked around in that spec with
+> a documented double-click on the first section; this ticket is the real fix.
+
+### Finding
+
+The **first** `POST /api/runs/:id/next` on a fresh run returns
+`nextSectionId === currentSectionId` (no advance); the **second** call advances
+correctly. `RunService.next`/`nextNoAuth` (`RunService.ts:406-429`) ignores the
+client-supplied `currentSectionId` and reads `run.currentSectionId` from the DB
+row, which starts **NULL** at run creation. `calculateNextSection`
+(`shared/workflowLogic.ts:396-399`) special-cases a null current section as
+"return the first visible section" — so the first Next ever pressed resolves to
+the first section, i.e. where the user already is.
+`RunExecutionCoordinator.next` (`RunExecutionCoordinator.ts:72-77`) then
+persists that to `run.currentSectionId`, which is why the second press works.
+The pure nav logic (`LogicService.evaluateNavigation`) is correct once fed a
+real `currentSectionId`. Verified via direct API calls (B4).
+
+### Preferred fix
+
+Initialize `run.currentSectionId` to the first visible section (lowest `order`)
+at run creation, so the first Next advances **from** it. **Do NOT** start
+trusting the client-supplied `currentSectionId` in `next()` — reading server
+state is the safer design (a client shouldn't be able to assert its own
+position); keep that. First **confirm nothing depends on `currentSectionId`
+being null to mean "not started"** (resume, completion, first-render); if
+something does, instead handle the null case inside `next()` by treating null
+as "at the first section" and advancing past it.
+
+### Ties
+
+- `add-api-endpoint`, `run-tests`. Sibling to ICW2-B5's order-collision fix
+  (both are runner-navigation correctness). Not yet dispatched.
+
+### Acceptance criteria
+
+1. On a fresh run, the first `POST /next` advances from the first section to the
+   next visible section (integration test: `nextSectionId !== currentSectionId`
+   when a next section exists).
+2. `currentSectionId` semantics elsewhere (resume, completion, first render)
+   unchanged — existing run tests green.
+3. The ICW2-B4 e2e's first-section double-click accommodation can be removed and
+   the spec still passes.
+4. `npm run type-check`, `npm run lint`, tests green.
+
+---
+
+## ICW2-B10 — Runner does not reveal a step whose visibleIf references a just-answered step 🔲
+
+**Priority: P1 (runner correctness)** · Size: M · Files (start here):
+`server/services/IntakeQuestionVisibilityService.ts` and/or the client runner's
+visibility evaluation + its answer/alias resolution, `shared/conditionEvaluator.ts`
+(reference only — the operator itself is correct)
+
+> **Discovered during ICW2-B4 e2e, 2026-07-22.** Needs root-cause; strong
+> evidence points at answer-key (alias vs step id) resolution at runtime.
+>
+> **Related symptom (same investigation):** after answering the controlling
+> Yes/No question and reaching the runner's Review page, the review rendered
+> "No questions answered in this section" for the answered question — i.e. the
+> submitted section recorded no answers. Likely downstream of the same
+> visibility-context/answer-keying issue (the runner filters/submits by a
+> visibility pass that can't resolve the answer). Confirm whether it is one bug
+> or two while fixing.
+
+### Finding
+
+In the runner, a step whose `visibleIf` is "show when <yes/no step> **is_true**"
+stays hidden even after the controlling Yes/No question is answered **Yes**. Live
+e2e evidence: on the section, the Yes/No control shows active/answered and the
+primary action is already the terminal "Review", but the conditional Date step is
+**absent from the DOM entirely** (Playwright accessibility snapshot).
+
+The condition is not the problem:
+- It is correctly persisted — ICW2-B4 checkpoint 2 asserts `visibleIf.conditions[0].operator === "is_true"` and that the stored condition references the controlling step's **alias**.
+- `is_true` = `toBoolean(actualValue) === true` (`shared/conditionEvaluator.ts:362`), and `toBoolean` (`:572-581`) already accepts `true`, `"yes"`, `"true"`, `"1"` — so any reasonable Yes encoding should evaluate true.
+
+So the defect is in how the **runner resolves the controlling answer at evaluation
+time** — most likely the `visibleIf` references the controlling step by **alias**
+while the runtime answer map is keyed by **step id** (or the client re-evaluates
+visibility from a source that doesn't yet hold the just-clicked answer). Net: the
+lookup yields `undefined`, `toBoolean(undefined) === false`, step stays hidden.
+
+### Preferred fix
+
+Trace the runner's visibility path (server `IntakeQuestionVisibilityService`
+around `:68/:167/:241`, and the client runner block that hides/shows steps) and
+make the evaluation context resolve the controlling answer whether the condition
+references an **alias or a step id** (build the context keyed by both, mirroring
+how the builder/`VariableService` maps aliases). Confirm the just-answered value
+is in the context the client evaluates against (re-evaluate on answer change).
+
+### Ties
+
+- `run-tests`. Sibling to ICW2-B9 (both runner-navigation/evaluation). Related to
+  the two-tier visibility system (ICW2-3 authored the step-level `visibleIf`).
+- Acceptance: an integration/e2e test where answering the controlling step Yes
+  reveals the dependent step (and No hides it); once fixed, restore the reveal +
+  date-fill assertions removed from `tests/e2e/builder-ui-flow.e2e.ts`.
 
 ---
 
