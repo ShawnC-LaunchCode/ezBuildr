@@ -126,4 +126,59 @@ describe('RunRuntimeService', () => {
     await expect(service.getRuntime(runId, { tokenRunId: runId }))
       .rejects.toThrow('Invalid runtime definition for workflow version');
   });
+
+  it('accepts a serialized version whose nullable fields are explicit null (runner-500 regression)', async () => {
+    // Real serialized versions carry explicit `null` (not `undefined`) for every
+    // nullable column. `.optional()` used to reject that, so `GET /runtime`
+    // 500'd for every newly-activated workflow. This asserts the schema tolerates
+    // the real shape and the mapping coalesces the nulls.
+    const { service } = makeService({
+      version: {
+        id: versionId,
+        workflowId,
+        createdAt: new Date('2026-07-18T00:00:00.000Z'),
+        graphJson: {
+          title: 'Pinned interview',
+          description: null,
+          projectId: null,
+          sections: [{
+            id: sectionId,
+            title: 'Questions',
+            description: null,
+            order: 1,
+            visibleIf: null,
+            skipIf: null,
+            config: null,
+            steps: [{
+              id: controllerId,
+              type: 'short_text',
+              title: 'Controller',
+              description: null,
+              required: null,
+              config: null,
+              order: 1,
+              alias: null,
+              visibleIf: null,
+              repeaterConfig: null,
+              defaultValue: null,
+              isVirtual: null,
+            }],
+          }],
+          logicRules: null,
+        },
+      },
+    });
+
+    const runtime = await service.getRuntime(runId, { tokenRunId: runId });
+
+    expect(runtime.steps).toHaveLength(1);
+    expect(runtime.steps[0]).toMatchObject({
+      repeaterConfig: null,
+      config: null,
+      alias: null,
+      description: null,
+      required: false,
+    });
+    expect(runtime.logicRules).toEqual([]);
+  });
 });

@@ -5,54 +5,61 @@ import type { LogicRule, Step, WorkflowRun } from "@shared/schema";
 import { stepValueRepository, workflowRunRepository, workflowVersionRepository } from "../../repositories";
 import { RunAuthResolver, runAuthResolver } from "../runs/RunAuthResolver";
 
+// This validates a version's serialized graphJson, whose fields come straight
+// from nullable DB columns. `.optional()` accepts `undefined` but REJECTS
+// `null` — and normal steps serialize repeaterConfig/alias/config/description as
+// `null`, which 500'd `GET /api/runs/:id/runtime` (and thus the whole runner)
+// for every newly-activated workflow. Use `.nullish()` (null | undefined) for
+// every field backed by a nullable column; the mapping below already
+// `??`-coalesces each one, so accepting null is safe.
 const VersionStepSchema = z.object({
   id: z.string().uuid(),
   type: z.string(),
   title: z.string(),
-  description: z.string().optional(),
-  required: z.boolean().optional(),
-  config: z.record(z.unknown()).optional(),
-  order: z.number().optional(),
-  alias: z.string().optional(),
+  description: z.string().nullish(),
+  required: z.boolean().nullish(),
+  config: z.record(z.unknown()).nullish(),
+  order: z.number().nullish(),
+  alias: z.string().nullish(),
   visibleIf: z.unknown().optional(),
-  repeaterConfig: z.record(z.unknown()).optional(),
+  repeaterConfig: z.record(z.unknown()).nullish(),
   defaultValue: z.unknown().optional(),
-  isVirtual: z.boolean().optional(),
+  isVirtual: z.boolean().nullish(),
 }).passthrough();
 
 const VersionSectionSchema = z.object({
   id: z.string().uuid(),
   title: z.string(),
-  description: z.string().optional(),
-  order: z.number().optional(),
+  description: z.string().nullish(),
+  order: z.number().nullish(),
   visibleIf: z.unknown().optional(),
   skipIf: z.unknown().optional(),
   config: z.unknown().optional(),
-  steps: z.array(VersionStepSchema).optional(),
+  steps: z.array(VersionStepSchema).nullish(),
 }).passthrough();
 
 const VersionLogicRuleSchema = z.object({
-  id: z.string().optional(),
-  conditionStepId: z.string().optional(),
-  conditionStepAlias: z.string().optional(),
+  id: z.string().nullish(),
+  conditionStepId: z.string().nullish(),
+  conditionStepAlias: z.string().nullish(),
   operator: z.string(),
   conditionValue: z.unknown().optional(),
   targetType: z.enum(["section", "step"]),
-  targetId: z.string().optional(),
-  targetAlias: z.string().optional(),
+  targetId: z.string().nullish(),
+  targetAlias: z.string().nullish(),
   action: z.string(),
-  logicalOperator: z.string().optional(),
-  order: z.number().optional(),
+  logicalOperator: z.string().nullish(),
+  order: z.number().nullish(),
 }).passthrough();
 
 const VersionRuntimeSchema = z.object({
   title: z.string(),
-  description: z.string().optional(),
+  description: z.string().nullish(),
   projectId: z.string().nullable().optional(),
   intakeConfig: z.unknown().optional(),
   settings: z.unknown().optional(),
   sections: z.array(VersionSectionSchema),
-  logicRules: z.array(VersionLogicRuleSchema).optional(),
+  logicRules: z.array(VersionLogicRuleSchema).nullish(),
 }).passthrough();
 
 interface RuntimeAuthContext {
