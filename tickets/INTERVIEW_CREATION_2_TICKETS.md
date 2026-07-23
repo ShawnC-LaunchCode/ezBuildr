@@ -1473,7 +1473,16 @@ Two small correctness/coherence items in the same file pair (bundled):
 
 # Backlog — separate projects (not phase-gated)
 
-## ICW2-B1 — Soft-delete for steps/sections (`deletedAt`) 🔲
+## ICW2-B1 — Soft-delete for steps/sections (`deletedAt`) ✅
+
+> **Landed 2026-07-23.** `deletedAt` on steps/sections (migration 0005, schema
+> `_v8`); manual delete + ingest reconciliation now soft-delete (section
+> cascades to its steps in a transaction), so `step_values` answers survive;
+> chokepoint reads filter `isNull(deletedAt)`; the alias unique index is scoped
+> to `deleted_at IS NULL`; restore endpoints added (UI deferred). Verified: 11
+> integration tests (independently re-run against the test DB), full integration
+> suite 865/0, type-check + lint clean. **Follow-up filed as ICW2-B11** — the
+> AI-ops delete path still hard-deletes.
 
 **Priority: P1 (data safety)** · Size: L · Files:
 `shared/schema/workflow.ts`, a new `migrations/000N_*.sql` (via `db:generate`),
@@ -2014,6 +2023,53 @@ is in the context the client evaluates against (re-evaluate on answer change).
 - Acceptance: an integration/e2e test where answering the controlling step Yes
   reveals the dependent step (and No hides it); once fixed, restore the reveal +
   date-fill assertions removed from `tests/e2e/builder-ui-flow.e2e.ts`.
+
+---
+
+## ICW2-B11 — Extend soft-delete to the remaining hard-delete paths (AI ops, transform blocks) 🔲
+
+**Priority: P1 (data safety)** · Size: M · Files:
+`server/services/WorkflowPatchService.ts`,
+`server/services/TransformBlockService.ts`,
+`server/services/WorkflowService.ts` (~:625), tests
+
+> **Filed from ICW2-B1, 2026-07-23.** B1 protected the manual + ingest delete
+> paths; these remaining ones still destroy answers.
+
+### Finding
+
+ICW2-B1 converted the manual step/section delete and the ingest reconciliation
+to soft-delete, but three paths still issue a hard `DELETE` and therefore still
+permanently destroy respondent `step_values`:
+
+1. **`WorkflowPatchService` `step.delete` / `section.delete`** — the AI-editing
+   ops pipeline (Decision 1's "ops for everything" surface). So an **AI-driven
+   delete still destroys answers** despite B1 — the most important gap.
+2. `TransformBlockService.deleteBlock`.
+3. `WorkflowService.ts:~625`.
+
+### Preferred fix
+
+Route these deletes through the soft-delete methods B1 added
+(`stepRepo.softDelete` / `sectionRepo.softDelete`, or the service delete
+methods) instead of `repo.delete()`; the AI-ops apply path must cascade
+sections→steps like the manual path. Keep any deliberate hard-purge (if one
+exists) explicit and separate.
+
+### Ties
+
+- Builds directly on ICW2-B1; related to Decision 1. `add-api-endpoint`,
+  `run-tests`.
+
+### Acceptance criteria
+
+1. An AI `step.delete` / `section.delete` op soft-deletes: integration test
+   proves `step_values` survive after an AI-driven delete.
+2. `TransformBlockService.deleteBlock` and `WorkflowService.ts:~625` soft-delete
+   (or the hard delete is justified in the turn-in).
+3. A grep shows no remaining hard `DELETE` of steps/sections outside a
+   deliberate, documented purge.
+4. `npm run type-check`, `npm run lint`, and the relevant suites green.
 
 ---
 
