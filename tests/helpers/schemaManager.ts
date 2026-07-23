@@ -23,8 +23,13 @@ export class SchemaManager {
     // Bumped to _v7 for ICW2-B7: 0003_rich_wild_child (ai_usage table) +
     // 0004_ai_usage_rls (its tenant_isolation policy) — stale _v6 schemas
     // don't have ai_usage and would fail every AI-budget test.
+    //
+    // Bumped to _v8 for ICW2-B1: 0005_lying_amphibian adds `deleted_at` to
+    // `sections`/`steps` (soft-delete) and rebuilds `steps_workflow_alias_unique`
+    // with a `deleted_at IS NULL` scope — stale _v7 schemas lack the column
+    // and the new unique-index shape.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v7`;
+        return `test_schema_w${this.workerId}_v8`;
     }
 
     /**

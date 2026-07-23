@@ -51,6 +51,36 @@ async function lookupWorkflowIdFromStepMiddleware(
 }
 
 /**
+ * Middleware helper: Look up workflowId from stepId before auto-revert, for
+ * the restore route only. Must find the step even when soft-deleted
+ * (ICW2-B1) — unlike `lookupWorkflowIdFromStepMiddleware`, which uses the
+ * filtered `findById` and would 404 before the restore ever runs.
+ */
+async function lookupWorkflowIdFromStepIncludingDeletedMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { stepId } = req.params;
+    if (!stepId) {
+      return next();
+    }
+    const step = await stepRepository.findByIdIncludingDeleted(stepId);
+    if (!step) {
+      res.status(404).json({ message: "Step not found" });
+      return;
+    }
+    // eslint-disable-next-line no-param-reassign -- Express middleware convention: augment req.params for downstream handlers
+    req.params.workflowId = step.workflowId;
+    next();
+  } catch (error) {
+    logger.error({ error }, "Error in lookupWorkflowIdFromStepIncludingDeletedMiddleware");
+    next(error);
+  }
+}
+
+/**
  * Middleware helper: Look up workflowId from sectionId before auto-revert
  * This allows auto-revert to work on simplified endpoints (without workflowId in path)
  */
@@ -355,6 +385,29 @@ function registerSimplifiedStepRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error duplicating step");
       const { status, message } = classifyRouteError(error, "Failed to duplicate step");
+      res.status(status).json({ message });
+    }
+  }));
+
+  /**
+   * POST /api/steps/:stepId/restore
+   * Restore a previously soft-deleted step (workflow looked up
+   * automatically). Requires edit access. Restore UI is deferred — this is
+   * server-side only (ICW2-B1).
+   */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async lookup
+  app.post('/api/steps/:stepId/restore', hybridAuth, createLimiter, lookupWorkflowIdFromStepIncludingDeletedMiddleware, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
+      }
+      const { stepId } = req.params;
+      const step = await stepService.restoreStep(stepId, userId);
+      res.json(step);
+    } catch (error) {
+      logger.error({ error }, "Error restoring step");
+      const { status, message } = classifyRouteError(error, "Failed to restore step");
       res.status(status).json({ message });
     }
   }));

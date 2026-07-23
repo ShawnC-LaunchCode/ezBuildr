@@ -21,11 +21,14 @@ vi.mock("../../../server/db", () => ({
 vi.mock("../../../server/repositories", () => ({
   sectionRepository: {
     findById: vi.fn(),
+    findByIdIncludingDeleted: vi.fn(),
     findByIdAndWorkflow: vi.fn(),
     findByWorkflowId: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    softDelete: vi.fn(),
+    restore: vi.fn(),
     updateOrder: vi.fn(),
   },
   workflowRepository: {
@@ -36,6 +39,8 @@ vi.mock("../../../server/repositories", () => ({
     findByWorkflowIdWithAliases: vi.fn(),
     countByWorkflowId: vi.fn(),
     create: vi.fn(),
+    softDeleteBySectionId: vi.fn(),
+    restoreBySectionId: vi.fn(),
   },
   stepValueRepository: {
     countImpactForSteps: vi.fn(),
@@ -155,6 +160,54 @@ describe("SectionService", () => {
       ).rejects.toThrow(/not found/);
       expect(mockSectionRepo.findByWorkflowId).not.toHaveBeenCalled();
       expect(mockSectionRepo.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("deleteSection (ICW2-B1)", () => {
+    it("soft-deletes the section and cascades to its steps instead of a hard DELETE", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+
+      mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(section);
+
+      await service.deleteSection(section.id, workflow.id, "user-123");
+
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
+      expect(mockStepRepo.softDeleteBySectionId).toHaveBeenCalledWith(section.id, expect.anything());
+      expect(mockSectionRepo.softDelete).toHaveBeenCalledWith(section.id, expect.anything());
+      expect(mockSectionRepo.delete).not.toHaveBeenCalled();
+    });
+
+    it("throws if the section is not found", async () => {
+      mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(undefined);
+
+      await expect(
+        service.deleteSection("missing-section", "workflow-1", "user-123")
+      ).rejects.toThrow("Section not found");
+      expect(mockSectionRepo.softDelete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("restoreSection (ICW2-B1)", () => {
+    it("restores the section and cascades restore to its steps under edit access", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id, { deletedAt: new Date() });
+
+      mockSectionRepo.findByIdIncludingDeleted.mockResolvedValue(section as unknown as Section);
+      mockSectionRepo.restore.mockResolvedValue({ ...section, deletedAt: null } as unknown as Section);
+
+      const restored = await service.restoreSection(section.id, "user-123");
+
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
+      expect(mockStepRepo.restoreBySectionId).toHaveBeenCalledWith(section.id, expect.anything());
+      expect(mockSectionRepo.restore).toHaveBeenCalledWith(section.id, expect.anything());
+      expect(restored.deletedAt).toBeNull();
+    });
+
+    it("throws if the section does not exist at all", async () => {
+      mockSectionRepo.findByIdIncludingDeleted.mockResolvedValue(undefined);
+
+      await expect(service.restoreSection("nonexistent", "user-123")).rejects.toThrow("Section not found");
     });
   });
 

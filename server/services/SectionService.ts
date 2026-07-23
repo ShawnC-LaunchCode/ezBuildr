@@ -105,6 +105,9 @@ export class SectionService {
       ...data,
       workflowId,
       order: data.order ?? nextOrder,
+      // Server-controlled: never let a client-supplied value mark a
+      // freshly created section as already soft-deleted (ICW2-B1).
+      deletedAt: null,
     });
   }
 
@@ -251,6 +254,16 @@ export class SectionService {
   }
 
   /**
+   * `deletedAt` is only ever set/cleared by the dedicated delete/restore
+   * flows (ICW2-B1) — never accepted from a general update payload.
+   */
+  private static stripDeletedAt(data: Partial<InsertSection>): Partial<InsertSection> {
+    const updates = { ...data };
+    delete updates.deletedAt;
+    return updates;
+  }
+
+  /**
    * Update section
    */
   async updateSection(
@@ -266,11 +279,14 @@ export class SectionService {
       throw new Error(SECTION_NOT_FOUND);
     }
 
-    return this.sectionRepo.update(sectionId, data);
+    return this.sectionRepo.update(sectionId, SectionService.stripDeletedAt(data));
   }
 
   /**
-   * Delete section
+   * Delete section (soft-delete — ICW2-B1). Cascades to the section's own
+   * steps so they are excluded everywhere too, mirroring the FK cascade a
+   * hard delete would have triggered — but without destroying `step_values`.
+   * See `restoreSection` to undo.
    */
   async deleteSection(sectionId: string, workflowId: string, userId: string): Promise<void> {
     await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
@@ -280,7 +296,34 @@ export class SectionService {
       throw new Error(SECTION_NOT_FOUND);
     }
 
-    await this.sectionRepo.delete(sectionId);
+    await db.transaction(async (tx) => {
+      await this.stepRepo.softDeleteBySectionId(sectionId, tx);
+      await this.sectionRepo.softDelete(sectionId, tx);
+    });
+  }
+
+  /**
+   * Restore a soft-deleted section and its steps (ICW2-B1). Uses an
+   * unscoped lookup since the section's `deletedAt` is set, so the filtered
+   * `findById` cannot see it. Restore UI is deferred — this is server-side
+   * only.
+   */
+  async restoreSection(sectionId: string, userId: string): Promise<Section> {
+    const section = await this.sectionRepo.findByIdIncludingDeleted(sectionId);
+    if (!section) {
+      throw new Error(SECTION_NOT_FOUND);
+    }
+
+    await this.workflowSvc.verifyAccess(section.workflowId, userId, 'edit');
+
+    return db.transaction(async (tx) => {
+      await this.stepRepo.restoreBySectionId(sectionId, tx);
+      const restored = await this.sectionRepo.restore(sectionId, tx);
+      if (!restored) {
+        throw new Error(SECTION_NOT_FOUND);
+      }
+      return restored;
+    });
   }
 
   /**
@@ -381,11 +424,12 @@ export class SectionService {
     }
 
     await this.workflowSvc.verifyAccess(section.workflowId, userId, 'edit');
-    return this.sectionRepo.update(sectionId, data);
+    return this.sectionRepo.update(sectionId, SectionService.stripDeletedAt(data));
   }
 
   /**
-   * Delete section by ID only (looks up workflow automatically)
+   * Delete section by ID only (looks up workflow automatically).
+   * Soft-delete — ICW2-B1 — see `deleteSection` for the cascade rationale.
    */
   async deleteSectionById(sectionId: string, userId: string): Promise<void> {
     const section = await this.sectionRepo.findById(sectionId);
@@ -394,7 +438,10 @@ export class SectionService {
     }
 
     await this.workflowSvc.verifyAccess(section.workflowId, userId, 'edit');
-    await this.sectionRepo.delete(sectionId);
+    await db.transaction(async (tx) => {
+      await this.stepRepo.softDeleteBySectionId(sectionId, tx);
+      await this.sectionRepo.softDelete(sectionId, tx);
+    });
   }
 }
 

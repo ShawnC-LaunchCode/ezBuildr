@@ -21,6 +21,7 @@ vi.mock("../../../server/db", () => ({
 vi.mock("../../../server/repositories", () => ({
   stepRepository: {
     findById: vi.fn(),
+    findByIdIncludingDeleted: vi.fn(),
     findBySectionId: vi.fn(),
     findBySectionIds: vi.fn(),
     countByWorkflowId: vi.fn(),
@@ -28,6 +29,8 @@ vi.mock("../../../server/repositories", () => ({
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    softDelete: vi.fn(),
+    restore: vi.fn(),
   },
   sectionRepository: {
     findById: vi.fn(),
@@ -407,7 +410,7 @@ describe("StepService", () => {
   });
 
   describe("deleteStep", () => {
-    it("should delete step successfully", async () => {
+    it("should soft-delete step successfully (ICW2-B1)", async () => {
       const workflow = createTestWorkflow();
       const section = createTestSection(workflow.id);
       const step = createTestStep(section.id);
@@ -415,12 +418,12 @@ describe("StepService", () => {
       mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
       mockStepRepo.findById.mockResolvedValue(step as unknown as Step);
       mockSectionRepo.findById.mockResolvedValue(section);
-      mockStepRepo.delete.mockResolvedValue(undefined);
-      mockStepRepo.delete.mockResolvedValue(undefined);
+      mockStepRepo.softDelete.mockResolvedValue({ ...step, deletedAt: new Date() } as unknown as Step);
 
       await service.deleteStep(step.id, workflow.id, "user-123");
 
-      expect(mockStepRepo.delete).toHaveBeenCalledWith(step.id);
+      expect(mockStepRepo.softDelete).toHaveBeenCalledWith(step.id);
+      expect(mockStepRepo.delete).not.toHaveBeenCalled();
     });
 
     it("should throw error if step not found", async () => {
@@ -445,6 +448,30 @@ describe("StepService", () => {
       await expect(
         service.deleteStep(step.id, workflow.id, "user-123")
       ).rejects.toThrow("Step not found in this workflow");
+    });
+  });
+
+  describe("restoreStep (ICW2-B1)", () => {
+    it("restores a soft-deleted step under edit access", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+      const step = createTestStep(section.id, { workflowId: workflow.id, deletedAt: new Date() });
+
+      mockStepRepo.findByIdIncludingDeleted.mockResolvedValue(step as unknown as Step);
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
+      mockStepRepo.restore.mockResolvedValue({ ...step, deletedAt: null } as unknown as Step);
+
+      const restored = await service.restoreStep(step.id, "user-123");
+
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
+      expect(mockStepRepo.restore).toHaveBeenCalledWith(step.id);
+      expect(restored.deletedAt).toBeNull();
+    });
+
+    it("throws if the step does not exist at all", async () => {
+      mockStepRepo.findByIdIncludingDeleted.mockResolvedValue(undefined);
+
+      await expect(service.restoreStep("nonexistent", "user-123")).rejects.toThrow("Step not found");
     });
   });
 

@@ -408,6 +408,7 @@ describe("validation", () => {
           isVirtual: false,
           visibleIf: null,
           defaultValue: null,
+          deletedAt: null,
         },
         {
           id: "step-2",
@@ -426,6 +427,7 @@ describe("validation", () => {
           isVirtual: false,
           visibleIf: null,
           defaultValue: null,
+          deletedAt: null,
         },
       ];
       const values = {
@@ -458,6 +460,7 @@ describe("validation", () => {
           isVirtual: false,
           visibleIf: null,
           defaultValue: null,
+          deletedAt: null,
         },
         {
           id: "step-2",
@@ -476,6 +479,7 @@ describe("validation", () => {
           isVirtual: false,
           visibleIf: null,
           defaultValue: null,
+          deletedAt: null,
         },
       ];
       const values = {
@@ -506,6 +510,7 @@ describe("validation", () => {
           isVirtual: true,
           visibleIf: null,
           defaultValue: null,
+          deletedAt: null,
         },
       ];
       const values = {
@@ -535,6 +540,7 @@ describe("validation", () => {
           isVirtual: false,
           visibleIf: null,
           defaultValue: null,
+          deletedAt: null,
         },
         {
           id: "step-2",
@@ -553,6 +559,7 @@ describe("validation", () => {
           isVirtual: false,
           visibleIf: null,
           defaultValue: null,
+          deletedAt: null,
         },
       ];
       const values = {
@@ -584,6 +591,7 @@ describe("validation", () => {
           isVirtual: false,
           visibleIf: null,
           defaultValue: null,
+          deletedAt: null,
         },
         {
           id: "step-2",
@@ -602,6 +610,7 @@ describe("validation", () => {
           isVirtual: false,
           visibleIf: null,
           defaultValue: null,
+          deletedAt: null,
         },
       ];
       const values = {
@@ -642,6 +651,7 @@ describe("validation", () => {
           isVirtual: false,
           visibleIf: null,
           defaultValue: null,
+          deletedAt: null,
         },
       ];
       const values = {}; // No value provided

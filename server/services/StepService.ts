@@ -187,6 +187,9 @@ export class StepService {
       workflowId,
       sectionId,
       order: data.order ?? nextOrder,
+      // Server-controlled: never let a client-supplied value mark a
+      // freshly created step as already soft-deleted (ICW2-B1).
+      deletedAt: null,
     });
   }
 
@@ -332,6 +335,9 @@ export class StepService {
 
     const updates = { ...data };
     delete updates.workflowId;
+    // Server-controlled: deletedAt is only ever set/cleared by the
+    // dedicated delete/restore endpoints (ICW2-B1), never a general update.
+    delete updates.deletedAt;
 
     const finalConfig = data.config;
     if (finalConfig) {
@@ -355,7 +361,9 @@ export class StepService {
   }
 
   /**
-   * Delete step
+   * Delete step (soft-delete — ICW2-B1). `deletedAt` is set instead of a
+   * hard `DELETE`, so the `step_values.step_id` cascade never fires and
+   * respondent answers survive. See `restoreStep` to undo.
    */
   async deleteStep(stepId: string, workflowId: string, userId: string): Promise<void> {
     await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
@@ -371,7 +379,27 @@ export class StepService {
       throw new Error("Step not found in this workflow");
     }
 
-    await this.stepRepo.delete(stepId);
+    await this.stepRepo.softDelete(stepId);
+  }
+
+  /**
+   * Restore a soft-deleted step (ICW2-B1). Uses an unscoped lookup since the
+   * step's `deletedAt` is set, so the filtered `findById` cannot see it.
+   * Restore UI is deferred — this is server-side only.
+   */
+  async restoreStep(stepId: string, userId: string): Promise<Step> {
+    const step = await this.stepRepo.findByIdIncludingDeleted(stepId);
+    if (!step) {
+      throw new Error(STEP_NOT_FOUND);
+    }
+
+    await this.workflowSvc.verifyAccess(step.workflowId, userId, 'edit');
+
+    const restored = await this.stepRepo.restore(stepId);
+    if (!restored) {
+      throw new Error(STEP_NOT_FOUND);
+    }
+    return restored;
   }
 
   /**
