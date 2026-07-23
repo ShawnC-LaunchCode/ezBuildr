@@ -182,9 +182,14 @@ function getDefaultModel(provider: AIProvider): string {
   }
 }
 /**
- * Create AIService instance from environment variables
+ * Create AIService instance from environment variables.
+ *
+ * @param tenantId Optional tenant to bill/budget the resulting calls to
+ * (ICW2-B7). Passed through to `AIProviderClient` via the config; omitted by
+ * any caller not yet updated to supply it, which keeps that caller's flows
+ * running with no budget enforcement — the same as before this ticket.
  */
-export function createAIServiceFromEnv(): AIService {
+export function createAIServiceFromEnv(tenantId?: string): AIService {
   // Check for GEMINI_API_KEY first
   const geminiKey = process.env.GEMINI_API_KEY;
   if (geminiKey) {
@@ -196,6 +201,7 @@ export function createAIServiceFromEnv(): AIService {
       model,
       temperature: 0.7,
       maxTokens: 4000,
+      tenantId,
     };
     return new AIService(config);
   }
@@ -222,6 +228,7 @@ export function createAIServiceFromEnv(): AIService {
     model: modelWorkflow,
     temperature: 0.7,
     maxTokens: 4000,
+    tenantId,
   };
   return new AIService(config);
 }

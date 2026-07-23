@@ -6,7 +6,7 @@ import { createLogger } from '../../../logger';
 import { BaseAIProvider } from './BaseAIProvider';
 
 import type { TaskType } from '../types';
-import type { AIProviderConfig } from './types';
+import type { AIProviderConfig, AIProviderResponse } from './types';
 
 const logger = createLogger({ module: 'anthropic-provider' });
 
@@ -23,7 +23,7 @@ export class AnthropicProvider extends BaseAIProvider {
         prompt: string,
         taskType: TaskType,
         systemMessage?: string
-    ): Promise<string> {
+    ): Promise<AIProviderResponse> {
         const { model, temperature = 0.7, maxTokens } = this.config;
         const startTime = Date.now();
         const promptTokens = this.estimateTokenCount(prompt);
@@ -56,9 +56,15 @@ export class AnthropicProvider extends BaseAIProvider {
                 text = text.replace(/^```\n/, '').replace(/\n```$/, '');
             }
 
-            const responseTokens = this.estimateTokenCount(text);
+            // Anthropic's SDK type guarantees `usage` on every response (unlike
+            // Gemini/OpenAI, where it's optional), so this is always real
+            // usage, never the char/4 estimate (ICW2-B7). AIProviderClient's
+            // own `usage ?? estimate` remains the universal safety net if a
+            // provider ever violates its usage contract.
+            const usage = { inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens };
+            const responseTokens = usage.outputTokens;
             const duration = Date.now() - startTime;
-            const actualCost = this.estimateCost(promptTokens, responseTokens);
+            const actualCost = this.estimateCost(usage.inputTokens, responseTokens);
 
             logger.info({
                 event: 'ai_request_success',
@@ -69,9 +75,10 @@ export class AnthropicProvider extends BaseAIProvider {
                 responseTokens,
                 durationMs: duration,
                 estimatedCostUSD: actualCost,
+                usageSource: 'provider',
             }, 'Anthropic request succeeded');
 
-            return text;
+            return { text, usage };
         } catch (error) {
             logger.error({ error }, 'Anthropic request failed');
             throw error;

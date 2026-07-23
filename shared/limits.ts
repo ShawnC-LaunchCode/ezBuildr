@@ -26,6 +26,16 @@ export const LIMITS = {
   // deploy; defaults preserve the historical hardcoded caps.
   AI_RATE_LIMIT_PER_MINUTE: envInt('AI_TENANT_RPM_LIMIT', 20),
   AI_RATE_LIMIT_PER_DAY: envInt('AI_TENANT_DAILY_LIMIT', 500),
+  // Rolling per-tenant token budget (ICW2-B7). Deliberately generous — this is
+  // a cost-control backstop, not a business quota, so an unset env must never
+  // break existing flows. 20M tokens/30 days is well above what the existing
+  // RPM/daily request caps could plausibly generate even at sustained max
+  // usage, while still bounding a runaway/compromised tenant's spend.
+  AI_TENANT_MONTHLY_TOKEN_BUDGET: envInt('AI_TENANT_MONTHLY_TOKEN_BUDGET', 20_000_000),
+  // Rolling window length for the token budget above. Not currently expected
+  // to be overridden, but env-configurable for consistency with the rest of
+  // this file and to ease testing.
+  AI_TENANT_BUDGET_WINDOW_DAYS: envInt('AI_TENANT_BUDGET_WINDOW_DAYS', 30),
 };
 
 /**

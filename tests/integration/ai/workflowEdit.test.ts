@@ -7,7 +7,7 @@ import { db } from '../../../server/db';
 import { aiWorkflowRateLimit, aiDailyRateLimit } from '../../../server/middleware/ai.middleware';
 import { registerAiWorkflowEditRoutes } from '../../../server/routes/ai/workflowEdit.routes';
 import { snapshotService } from '../../../server/services/SnapshotService';
-import { workflows, workflowVersions, workflowSnapshots, projects, users, sections, steps, tenants, auditLogs, logicRules } from '../../../shared/schema';
+import { workflows, workflowVersions, workflowSnapshots, projects, users, sections, steps, tenants, auditLogs, logicRules, aiUsage } from '../../../shared/schema';
 const { mockUserId, mockTenantId, authConfig, mockGenerateContent } = vi.hoisted(() => ({
   mockUserId: crypto.randomUUID(),
   mockTenantId: crypto.randomUUID(),
@@ -1183,6 +1183,63 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       .expect(400);
 
     expect(response.body.error).toBe('Invalid request data');
+  });
+
+  // ==========================================================================
+  // ICW2-B7 — per-tenant AI cost/token budgeting. The route now threads
+  // authReq.tenantId into AIProviderClient, so a tenant whose ai_usage rows
+  // already exceed LIMITS.AI_TENANT_MONTHLY_TOKEN_BUDGET must be blocked at
+  // this endpoint (402), and one under budget (the default, unconfigured
+  // path) must keep working exactly as before.
+  // ==========================================================================
+
+  it('blocks an AI edit with 402 once the tenant is over its AI budget (ICW2-B7 AC2)', async () => {
+    // One row alone exceeds the default 20M-token budget.
+    const [usageRow] = await db.insert(aiUsage).values({
+      tenantId: mockTenantId,
+      provider: 'gemini',
+      model: 'gemini-2.0-flash',
+      taskType: 'workflow_revision',
+      inputTokens: 30_000_000,
+      outputTokens: 0,
+    }).returning();
+
+    try {
+      const response = await request(app)
+        .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+        .send({ userMessage: 'Add a field' })
+        .expect(402);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toMatch(/budget/i);
+      // Fail-closed: the model must never be reached once over budget.
+      expect(mockGenerateContent).not.toHaveBeenCalled();
+
+      // Nothing was written — the request was rejected before any AI call.
+      const sectionsAfter = await db.select().from(sections).where(eq(sections.workflowId, testWorkflowId));
+      expect(sectionsAfter).toHaveLength(0);
+    } finally {
+      await db.delete(aiUsage).where(eq(aiUsage.id, usageRow.id));
+    }
+  });
+
+  it('succeeds for a tenant under the default (unconfigured) AI budget (ICW2-B7 AC3)', async () => {
+    // No ai_usage rows for this tenant — the default, generous budget applies
+    // and the existing AI-edit flow is unaffected, exactly as before this
+    // ticket landed.
+    const response = await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({ userMessage: 'Add a contact information section with an email field' })
+      .expect(200);
+
+    expect(response.body.success).toBe(true);
+    expect(mockGenerateContent).toHaveBeenCalled();
+
+    // The call is now recorded against the tenant's usage ledger.
+    const usageRows = await db.select().from(aiUsage).where(eq(aiUsage.tenantId, mockTenantId));
+    expect(usageRows.length).toBeGreaterThan(0);
+
+    await db.delete(aiUsage).where(eq(aiUsage.tenantId, mockTenantId));
   });
 });
 

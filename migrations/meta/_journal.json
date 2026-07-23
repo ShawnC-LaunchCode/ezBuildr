@@ -22,6 +22,20 @@
       "when": 1784493270992,
       "tag": "0002_db_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784730016687,
+      "tag": "0003_rich_wild_child",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784730024761,
+      "tag": "0004_ai_usage_rls",
+      "breakpoints": true
     }
   ]
 }

@@ -3,7 +3,7 @@ import { AIError } from '../AIError';
 import { ModelRegistry } from '../ModelRegistry';
 
 import type { TaskType } from '../types';
-import type { IAIProvider, AIProviderConfig } from './types';
+import type { IAIProvider, AIProviderConfig, AIProviderResponse } from './types';
 
 const logger = createLogger({ module: 'ai-provider' });
 
@@ -26,7 +26,7 @@ export abstract class BaseAIProvider implements IAIProvider {
         prompt: string,
         taskType: TaskType,
         systemMessage?: string
-    ): Promise<string>;
+    ): Promise<AIProviderResponse>;
 
     /**
      * Estimate token count from text (rough approximation: 1 token ≈ 4 characters)
