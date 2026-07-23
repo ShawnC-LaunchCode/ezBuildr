@@ -82,14 +82,22 @@ export class IntakeQuestionVisibilityService {
         stepIdToAlias.set(step.id, step.alias);
       }
     }
-    // Build evaluation context
+    // Build evaluation context. Keyed by BOTH the step id and its alias (when
+    // it has one) — a visibleIf condition may reference the controlling step
+    // either way (the builder persists the alias, but nothing prevents a
+    // condition from being authored/migrated to reference the raw id), and
+    // evaluateVisibility() below is given no alias resolver of its own, so
+    // whichever key it looks up must already be present here (ICW2-B10).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variables is dynamic workflow context with unknown structure
     const variables: Record<string, any> = {};
     for (const sv of stepValues) {
       const alias = stepIdToAlias.get(sv.stepId);
-      const key = alias ?? sv.stepId;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- step values have dynamic types from workflow data
-      variables[key] = sv.value;
+      variables[sv.stepId] = sv.value;
+      if (alias) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- step values have dynamic types from workflow data
+        variables[alias] = sv.value;
+      }
     }
     // Include record data in variables if present
     if (recordData) {

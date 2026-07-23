@@ -21,15 +21,13 @@ import { test, expect, type Page } from "@playwright/test";
  * Restricting to chromium avoids cross-browser flakiness in that one step
  * without weakening any assertion (see the `builder-ui-flow` project below).
  *
- * Scope note: the run/submit tail asserts only that a real run is created and
- * the runner renders the activated workflow (the live proof of the P0 runner
- * fix). The answer -> conditional-reveal -> submit assertions are deferred
- * pending two runner defects this spec surfaced — ICW2-B10 (a step whose
- * visibleIf references another step by alias is never revealed at runtime
- * because the runner keys answers by step id) and a related answer-persistence
- * gap. This spec passes reliably against a fresh dev server; running it many
- * times back-to-back locally can degrade the shared dev:test server (CI starts
- * a fresh server per run and applies retries).
+ * Scope note: the run/submit tail proves a real run is created, the runner
+ * renders the activated workflow (the live proof of the P0 runner fix), the
+ * conditional Date step is hidden until the controlling Yes/No question is
+ * answered Yes (and hides again on No — ICW2-B10), and the final submit
+ * completes. This spec passes reliably against a fresh dev server; running it
+ * many times back-to-back locally can degrade the shared dev:test server (CI
+ * starts a fresh server per run and applies retries).
  */
 
 async function loginAsDevUser(page: Page): Promise<void> {
@@ -305,24 +303,11 @@ test.describe("ICW2-B4: Real builder E2E (UI-driven)", () => {
     // The runner visits the auto-created default "Section 1" first (it has
     // no questions), then our "Applicant Details" page — so it isn't the
     // last section yet and the primary action reads "Next", not "Review".
-    // ICW2-B9: first Next on a fresh run no-ops because run.currentSectionId
-    // starts null (the server resolves "next" from the run's own null
-    // current-section column, not the client-sent one, so the very first
-    // call just re-resolves to "first visible section" = where we already
-    // are). The second click is a real advance — but it must wait for the
-    // first click's own /next round trip to finish updating that column
-    // first, or both calls race and see null (verified live: firing them
-    // back to back leaves the run stuck on Section 1 indefinitely). Remove
-    // this extra click once B9 lands.
-    // ICW2-B9: the first Next on a fresh run no-ops (run.currentSectionId starts
-    // null, so the server re-resolves "next" to the first visible section — where
-    // we already are), and the follow-up click races that column's persistence.
-    // Retry Next until we actually leave the empty default "Section 1". Once B9
-    // lands this collapses to a single click.
-    await expect(async () => {
-      await page.getByRole("button", { name: "Next", exact: true }).click();
-      await expect(page.getByText("No questions in this section.")).toHaveCount(0, { timeout: 3_000 });
-    }).toPass({ timeout: 25_000 });
+    // ICW2-B9 (fixed): run.currentSectionId is now initialized to the first
+    // visible section at run creation, so this first Next click is a real
+    // advance — no double-click/retry accommodation needed.
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await expect(page.getByText("No questions in this section.")).toHaveCount(0, { timeout: 10_000 });
 
     // ---- Checkpoint 3/3: a real run was created and the runner rendered it ----
     // A run-scoped /next fired (so a real anonymous run exists), we advanced onto
@@ -332,13 +317,45 @@ test.describe("ICW2-B4: Real builder E2E (UI-driven)", () => {
     // rather than a creator-session run API read, which isn't authorized for it.
     await expect(page.getByText("Do you agree to the terms?")).toBeVisible();
 
-    // Answering + submitting through the runner is intentionally NOT asserted
-    // here: it is blocked by two open runner defects this spec surfaced —
-    // ICW2-B10 (a step whose visibleIf references another step by alias is never
-    // revealed at runtime, because the runner keys answers by step id, not
-    // alias) and the related answer-persistence gap where a submitted section
-    // records no answers. The conditional-visibility *authoring* is already
-    // proven in checkpoint 2 above; restore the answer -> reveal -> submit ->
-    // completion assertions here once those defects land.
+    // ------------------------------------------------------------------
+    // 9. ICW2-B10 live proof: the conditional Date step is hidden until the
+    //    controlling Yes/No question is answered, and the answer sticks
+    //    (rather than being silently clobbered back to "unanswered" by the
+    //    runner's saved-run hydration — the bug this ticket fixed).
+    // ------------------------------------------------------------------
+    await expect(page.getByLabel("Preferred start date")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Yes", exact: true }).click();
+    const dateInput = page.getByLabel("Preferred start date");
+    await expect(dateInput).toBeVisible();
+
+    // Answering No hides the Date step again (the reverse direction).
+    await page.getByRole("button", { name: "No", exact: true }).click();
+    await expect(page.getByLabel("Preferred start date")).toHaveCount(0);
+
+    // Answer Yes again and fill the now-visible Date step before submitting.
+    await page.getByRole("button", { name: "Yes", exact: true }).click();
+    await expect(dateInput).toBeVisible();
+    await dateInput.fill("2026-08-01");
+
+    // ------------------------------------------------------------------
+    // 10. Reach Review and submit. The related answer-persistence gap this
+    //     ticket also fixed: the Review page must show both answers instead
+    //     of "No questions answered in this section" for the section we just
+    //     answered.
+    // ------------------------------------------------------------------
+    await page.getByRole("button", { name: "Review", exact: true }).click();
+    await expect(page.getByText("Review your answers")).toBeVisible();
+    // Only the empty default "Section 1" should render the empty-state copy —
+    // if Applicant Details' answers were lost (the answer-persistence gap this
+    // ticket also fixed), it would render a second one.
+    await expect(page.getByText("No questions answered in this section.")).toHaveCount(1);
+    const yesNoReviewRow = page.locator("div.grid", { hasText: "Do you agree to the terms?" });
+    await expect(yesNoReviewRow.getByText("Yes", { exact: true })).toBeVisible();
+    const dateReviewRow = page.locator("div.grid", { hasText: "Preferred start date" });
+    await expect(dateReviewRow.getByText("2026-08-01", { exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: "Submit", exact: true }).click();
+    await expect(page.getByText("Workflow submitted successfully", { exact: true })).toBeVisible({ timeout: 15_000 });
   });
 });
