@@ -1916,7 +1916,7 @@ explicitly target. The filed-workflow path (`:82-83`) is unchanged.
 
 ---
 
-## ICW2-B9 — First "Next" on a fresh run no-ops (run.currentSectionId starts null) 🔲
+## ICW2-B9 — First "Next" on a fresh run no-ops (run.currentSectionId starts null) ✅ (committed 692c4c6c)
 
 **Priority: P2 (runner UX bug)** · Size: S–M · Files:
 `server/services/RunService.ts`, the run-creation path
@@ -1971,7 +1971,13 @@ as "at the first section" and advancing past it.
 
 ---
 
-## ICW2-B10 — Runner does not reveal a step whose visibleIf references a just-answered step 🔲
+## ICW2-B10 — Runner does not reveal a step whose visibleIf references a just-answered step ✅ (committed 556f9b90)
+
+> **Real root cause (deviation from hypothesis):** not alias-vs-id keying (that
+> was already correct) but an unmemoized `run` object in `useRunSession` →
+> `useRunValues` hydration reset answers on every render (update-depth loop),
+> so answers never stuck. One bug, both symptoms (no reveal + review shows no
+> answers). Fixed + full builder e2e submit-flow restored & passing.
 
 **Priority: P1 (runner correctness)** · Size: M · Files (start here):
 `server/services/IntakeQuestionVisibilityService.ts` and/or the client runner's
@@ -2026,7 +2032,7 @@ is in the context the client evaluates against (re-evaluate on answer change).
 
 ---
 
-## ICW2-B11 — Extend soft-delete to the remaining hard-delete paths (AI ops, transform blocks) 🔲
+## ICW2-B11 — Extend soft-delete to the remaining hard-delete paths (AI ops, transform blocks) ✅ (committed f99cb7b3)
 
 **Priority: P1 (data safety)** · Size: M · Files:
 `server/services/WorkflowPatchService.ts`,
