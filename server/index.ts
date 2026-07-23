@@ -76,8 +76,13 @@ void (async () => {
         }
         // Ensure database is initialized before starting server
         logger.info('Initializing database...');
-        const { dbInitPromise } = await import("./db.js");
+        const { dbInitPromise, initializeDatabase } = await import("./db.js");
         await dbInitPromise;
+        // The real server process must connect the DB even under NODE_ENV=test
+        // (the `dev:test` mode Playwright's webServer launches), where db.ts skips
+        // auto-init to protect Vitest's per-worker schema setup. initializeDatabase
+        // is idempotent, so this is a no-op in dev/prod. Vitest never runs this file.
+        await initializeDatabase();
         logger.info('Database initialized.');
         // Start Email Queue Worker
         const { emailQueueService } = await import('./services/EmailQueueService.js');
