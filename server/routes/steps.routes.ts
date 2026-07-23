@@ -336,6 +336,28 @@ function registerSimplifiedStepRoutes(app: Express): void {
       res.status(status).json({ message });
     }
   }));
+
+  /**
+   * POST /api/steps/:stepId/duplicate
+   * Duplicate a step into the same section, immediately after the source
+   * (workflow looked up automatically). ICW2-B5.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async lookup
+  app.post('/api/steps/:stepId/duplicate', hybridAuth, createLimiter, lookupWorkflowIdFromStepMiddleware, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
+      }
+      const { stepId } = req.params;
+      const step = await stepService.duplicateStep(stepId, userId);
+      res.status(201).json(step);
+    } catch (error) {
+      logger.error({ error }, "Error duplicating step");
+      const { status, message } = classifyRouteError(error, "Failed to duplicate step");
+      res.status(status).json({ message });
+    }
+  }));
 }
 
 /**

@@ -62,6 +62,7 @@ export function PageCard({
     handleDescriptionChange,
     flushDescription,
     handleDelete,
+    handleDuplicate,
     isDeleteImpactOpen,
     setIsDeleteImpactOpen,
     pendingDeleteImpact,
@@ -108,6 +109,9 @@ export function PageCard({
           }}
           onOpenLogicSheet={() => {
             void setIsLogicSheetOpen(true);
+          }}
+          onDuplicate={() => {
+            void handleDuplicate();
           }}
           onDelete={() => {
             void handleDelete();

@@ -141,3 +141,23 @@ export function useDeleteSection(): UseMutationResult<void, unknown, { id: strin
         },
     });
 }
+
+/**
+ * Duplicate a section, its steps, and its section-scoped logic rules
+ * (ICW2-B5). Invalidates the section list, the workflow-wide step list, and
+ * the logic-rule list so the copy (and its rules) appear without a full
+ * reload.
+ */
+export function useDuplicateSection(): UseMutationResult<ApiSection, unknown, { id: string; workflowId: string }> {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (variables: { id: string; workflowId: string }) =>
+            sectionAPI.duplicate(variables.id),
+        onSuccess: async (_, variables) => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.sections(variables.workflowId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.workflowSteps(variables.workflowId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.logicRules(variables.workflowId) });
+            DevPanelBus.emitWorkflowUpdate();
+        },
+    });
+}

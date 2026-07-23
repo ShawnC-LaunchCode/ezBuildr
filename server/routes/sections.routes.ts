@@ -262,4 +262,26 @@ export function registerSectionRoutes(app: Express): void {
       res.status(status).json({ message });
     }
   }));
+
+  /**
+   * POST /api/sections/:sectionId/duplicate
+   * Duplicate a section, its steps (fresh aliases), and its section-scoped
+   * logic rules (workflow looked up automatically). ICW2-B5.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async lookupWorkflowIdMiddleware
+  app.post('/api/sections/:sectionId/duplicate', hybridAuth, createLimiter, lookupWorkflowIdMiddleware, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
+      }
+      const { sectionId } = req.params;
+      const section = await sectionService.duplicateSection(sectionId, userId);
+      res.status(201).json(section);
+    } catch (error) {
+      logger.error({ error }, "Error duplicating section");
+      const { status, message } = classifyRouteError(error, "Failed to duplicate section");
+      res.status(status).json({ message });
+    }
+  }));
 }

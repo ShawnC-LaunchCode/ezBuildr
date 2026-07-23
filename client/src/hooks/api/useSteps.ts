@@ -167,3 +167,21 @@ export function useDeleteStep(): UseMutationResult<void, unknown, { id: string; 
         },
     });
 }
+
+/**
+ * Duplicate a single step into the same section (ICW2-B5). Invalidates the
+ * section's step list (and the workflow-wide step list) so the copy appears
+ * without a full reload.
+ */
+export function useDuplicateStep(): UseMutationResult<ApiStep, unknown, { id: string; sectionId: string }> {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (variables: { id: string; sectionId: string }) =>
+            stepAPI.duplicate(variables.id),
+        onSuccess: async (step, variables) => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.sectionId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.workflowSteps(step.workflowId) });
+            DevPanelBus.emitWorkflowUpdate();
+        },
+    });
+}
