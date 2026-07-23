@@ -1,6 +1,7 @@
 import crypto from "crypto";
 
 import { createLogger } from "../logger";
+import { db } from "../db";
 import {
   sectionRepository,
   stepRepository as defaultStepRepository,
@@ -220,7 +221,13 @@ export class WorkflowPatchService {
         const sectionId = this.resolve(op.id ?? op.tempId);
         if (!sectionId) { throw new Error("Section ID or tempId required"); }
         await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section');
-        await sectionRepository.delete(sectionId);
+        // Soft-delete (ICW2-B1/ICW2-B11): preserves respondent step_values.
+        // Cascade to the section's own steps, mirroring the manual delete
+        // path in SectionService.deleteSection.
+        await db.transaction(async (tx) => {
+          await this.stepRepository.softDeleteBySectionId(sectionId, tx);
+          await sectionRepository.softDelete(sectionId, tx);
+        });
         return `Deleted section`;
       }
       case "section.reorder": {
@@ -294,7 +301,8 @@ export class WorkflowPatchService {
         const stepId = this.resolve(op.id || op.tempId);
         if (!stepId) { throw new Error("Step ID or tempId required"); }
         await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step');
-        await this.stepRepository.delete(stepId);
+        // Soft-delete (ICW2-B1/ICW2-B11): preserves respondent step_values.
+        await this.stepRepository.softDelete(stepId);
         return `Deleted step`;
       }
       case "step.move": {

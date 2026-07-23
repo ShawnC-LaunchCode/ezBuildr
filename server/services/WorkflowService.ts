@@ -618,12 +618,15 @@ export class WorkflowService {
           config: sectionConfig
         });
       }
-    } else {
-      // If final node removed, remove final section? 
-      // For safety, we might keep it or mark it invisible, but deleting is cleaner if we assume graph is truth.
-      if (finalSection) {
-        await this.sectionRepo.delete(finalSection.id);
-      }
+    } else if (finalSection) {
+      // If the final node was removed from the graph, soft-delete the final
+      // section (ICW2-B1/ICW2-B11) so respondent step_values on its steps
+      // survive; cascade to its own steps first, mirroring the manual
+      // delete path in SectionService.deleteSection.
+      await db.transaction(async (tx) => {
+        await this.stepRepo.softDeleteBySectionId(finalSection.id, tx);
+        await this.sectionRepo.softDelete(finalSection.id, tx);
+      });
     }
   }
   /**
