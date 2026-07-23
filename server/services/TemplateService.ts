@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { workflowBlueprints, workflows, workflowVersions } from '../../shared/schema';
 import { db } from '../db';
+import { createError } from '../utils/errors';
 import { workflowService } from './WorkflowService';
 import { workflowContentIngestService } from './WorkflowContentIngestService';
 import type { WorkflowContentData } from './WorkflowContentIngestService';
@@ -97,6 +98,13 @@ class TemplateService {
     if (template.tenantId !== tenantId && !template.isPublic) {
       throw new Error("Access denied to this template");
     }
+    // Reject empty/`{}` templates up front (before any workflow is created) so
+    // an empty blueprint fails with a clear 400 instead of silently producing
+    // a zero-section interview (ICW2-15).
+    const content = template.graphJson as WorkflowContentData | null;
+    if (!content || !Array.isArray(content.sections) || content.sections.length === 0) {
+      throw createError.badRequest("Template has no content");
+    }
     // 2. Create Workflow
     const workflowId = uuidv4();
     const versionId = uuidv4();
@@ -131,15 +139,14 @@ class TemplateService {
       });
     });
     
-    // 3. Populate sections, steps, logic rules, and blocks from the template's graphJson
-    // template.graphJson in blueprints is historically the full structural payload
-    if (template.graphJson) {
-      await workflowContentIngestService.apply(
-        workflowId, 
-        template.graphJson as WorkflowContentData,
-        { source: 'template' }
-      );
-    }
+    // 3. Populate sections, steps, logic rules, and blocks from the template's
+    // graphJson (post-ICW2-6, blueprint snapshots are ingest-shaped
+    // `WorkflowContentData`; emptiness was already rejected above).
+    await workflowContentIngestService.apply(
+      workflowId,
+      content,
+      { source: 'template' }
+    );
 
     return { workflowId, versionId };
   }
