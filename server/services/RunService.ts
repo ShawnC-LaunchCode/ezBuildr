@@ -208,9 +208,19 @@ export class RunService {
       initialValues: mergedInitialValues
     });
     // Determine start section with auto-advance logic
+    let startSectionId: string | null = run.currentSectionId;
     if ((options?.snapshotId !== null && options?.snapshotId !== undefined) || options?.randomize === true) {
-      const startSectionId = await this.lifecycleService.determineStartSection(run.id, workflowId, snapshotValueMap);
+      startSectionId = await this.lifecycleService.determineStartSection(run.id, workflowId, snapshotValueMap);
       await this.stateService.updateProgress(run.id, startSectionId);
+    } else {
+      // ICW2-B9: initialize currentSectionId to the first visible section so the
+      // first POST /next advances from it instead of re-resolving to where the
+      // user already is (calculateNextSection treats a null current section as
+      // "return the first visible section").
+      startSectionId = await this.resolveInitialSectionId(run.id, workflowId);
+      if (startSectionId) {
+        await this.stateService.updateProgress(run.id, startSectionId);
+      }
     }
     // Capture metrics
     await this.metricsService.captureRunStarted(
@@ -223,7 +233,9 @@ export class RunService {
     // Execute onRunStart blocks
     await this.lifecycleService.executeOnRunStart(run.id, workflowId, targetVersionId ?? undefined);
     // Return the plaintext token to the caller; the DB only holds its hash.
-    return { ...run, runToken };
+    // currentSectionId reflects the resolved starting section (see above), not
+    // the pre-update in-memory value from the initial insert.
+    return { ...run, runToken, currentSectionId: startSectionId };
   }
   /**
    * Get run by ID
@@ -396,6 +408,18 @@ export class RunService {
     );
   }
   /**
+   * Resolve the section a fresh run should start at: the first visible
+   * section by order (same rule `calculateNextSection` applies for a null
+   * current section). Used to initialize `run.currentSectionId` at creation
+   * time so the first `next()` call advances from a real position instead of
+   * re-resolving to where the user already is (ICW2-B9). Returns null only
+   * when the workflow has no visible sections at all.
+   */
+  private async resolveInitialSectionId(runId: string, workflowId: string): Promise<string | null> {
+    const navigation = await this.logicSvc.evaluateNavigation(workflowId, runId, null);
+    return navigation.nextSectionId;
+  }
+  /**
    * Calculate next section and update run state
    * Executes onNext blocks (transform + branch)
    *
@@ -483,6 +507,12 @@ export class RunService {
     await this.lifecycleService.populateInitialValues(run.id, workflow.id, {
       initialValues
     });
+    // ICW2-B9: initialize currentSectionId to the first visible section (see
+    // createRun for the full rationale).
+    const initialSectionId = await this.resolveInitialSectionId(run.id, workflow.id);
+    if (initialSectionId) {
+      await this.stateService.updateProgress(run.id, initialSectionId);
+    }
     // Capture metrics
     await this.metricsService.captureRunStarted(
       workflow.id,
@@ -494,7 +524,9 @@ export class RunService {
     // Execute onRunStart blocks
     await this.lifecycleService.executeOnRunStart(run.id, workflow.id, targetVersionId);
     // Return the plaintext token to the caller; the DB only holds its hash.
-    return { ...run, runToken };
+    // currentSectionId reflects the resolved starting section (see above), not
+    // the pre-update in-memory value from the initial insert.
+    return { ...run, runToken, currentSectionId: initialSectionId };
   }
   /**
    * List runs for a workflow
