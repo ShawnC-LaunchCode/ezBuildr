@@ -19,6 +19,9 @@ export { AdminOrgStatsRepository, adminOrgStatsRepository } from "./AdminOrgStat
 // export { FileRepository, fileRepository } from "./FileRepository";
 export { SystemStatsRepository, systemStatsRepository } from "./SystemStatsRepository";
 
+// AI usage/budget ledger (ICW2-B7)
+export { AiUsageRepository, aiUsageRepository } from "./AiUsageRepository";
+
 // Vault-Logic Workflow repositories
 export { ProjectRepository, projectRepository, type ProjectListOptions, type ProjectWithOwnerName } from "./ProjectRepository";
 export { WorkflowRepository, workflowRepository } from "./WorkflowRepository";

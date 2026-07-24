@@ -2,23 +2,33 @@
 import { describe, it, expect, beforeEach, vi, type Mocked } from "vitest";
 
 import { SectionService } from "../../../server/services/SectionService";
-import { sectionRepository, workflowRepository, stepRepository, stepValueRepository } from "../../../server/repositories";
-import { createTestSection, createTestStep, createTestWorkflow } from "../../factories/workflowFactory";
+import { sectionRepository, workflowRepository, stepRepository, stepValueRepository, logicRuleRepository } from "../../../server/repositories";
+import { createTestSection, createTestStep, createTestLogicRule, createTestWorkflow } from "../../factories/workflowFactory";
 import { workflowService } from "../../../server/services/WorkflowService";
 
 import { LIMITS } from "@shared/limits";
 
 import type { Section, Step } from "@shared/schema";
 
+// duplicateSection wraps its writes in db.transaction; the fake just invokes
+// the callback with a stub tx (the mocked repos below ignore it).
+vi.mock("../../../server/db", () => ({
+  db: {
+    transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({})),
+  },
+}));
 // Mock the repositories and services
 vi.mock("../../../server/repositories", () => ({
   sectionRepository: {
     findById: vi.fn(),
+    findByIdIncludingDeleted: vi.fn(),
     findByIdAndWorkflow: vi.fn(),
     findByWorkflowId: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    softDelete: vi.fn(),
+    restore: vi.fn(),
     updateOrder: vi.fn(),
   },
   workflowRepository: {
@@ -26,9 +36,18 @@ vi.mock("../../../server/repositories", () => ({
   },
   stepRepository: {
     findBySectionId: vi.fn(),
+    findByWorkflowIdWithAliases: vi.fn(),
+    countByWorkflowId: vi.fn(),
+    create: vi.fn(),
+    softDeleteBySectionId: vi.fn(),
+    restoreBySectionId: vi.fn(),
   },
   stepValueRepository: {
     countImpactForSteps: vi.fn(),
+  },
+  logicRuleRepository: {
+    findByWorkflowId: vi.fn(),
+    create: vi.fn(),
   },
 }));
 vi.mock("../../../server/services/WorkflowService", () => ({
@@ -43,6 +62,7 @@ describe("SectionService", () => {
   let mockWorkflowSvc: Mocked<typeof workflowService>;
   let mockStepRepo: Mocked<typeof stepRepository>;
   let mockStepValueRepo: Mocked<typeof stepValueRepository>;
+  let mockLogicRuleRepo: Mocked<typeof logicRuleRepository>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -51,18 +71,23 @@ describe("SectionService", () => {
     mockWorkflowSvc = workflowService as Mocked<typeof workflowService>;
     mockStepRepo = stepRepository as Mocked<typeof stepRepository>;
     mockStepValueRepo = stepValueRepository as Mocked<typeof stepValueRepository>;
+    mockLogicRuleRepo = logicRuleRepository as Mocked<typeof logicRuleRepository>;
 
     mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
     mockSectionRepo.findByWorkflowId.mockResolvedValue([]);
     mockStepValueRepo.countImpactForSteps.mockResolvedValue({ answerCount: 0, runCount: 0 });
+    mockStepRepo.findByWorkflowIdWithAliases.mockResolvedValue([]);
+    mockStepRepo.countByWorkflowId.mockResolvedValue(0);
+    mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
 
-    service = new SectionService(
-      mockSectionRepo,
-      workflowRepository as Mocked<typeof workflowRepository>,
-      mockStepRepo,
-      mockWorkflowSvc,
-      mockStepValueRepo
-    );
+    service = new SectionService({
+      sectionRepo: mockSectionRepo,
+      workflowRepo: workflowRepository as Mocked<typeof workflowRepository>,
+      stepRepo: mockStepRepo,
+      workflowSvc: mockWorkflowSvc,
+      stepValueRepo: mockStepValueRepo,
+      logicRuleRepo: mockLogicRuleRepo,
+    });
   });
 
   describe("createSection", () => {
@@ -135,6 +160,54 @@ describe("SectionService", () => {
       ).rejects.toThrow(/not found/);
       expect(mockSectionRepo.findByWorkflowId).not.toHaveBeenCalled();
       expect(mockSectionRepo.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("deleteSection (ICW2-B1)", () => {
+    it("soft-deletes the section and cascades to its steps instead of a hard DELETE", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+
+      mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(section);
+
+      await service.deleteSection(section.id, workflow.id, "user-123");
+
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
+      expect(mockStepRepo.softDeleteBySectionId).toHaveBeenCalledWith(section.id, expect.anything());
+      expect(mockSectionRepo.softDelete).toHaveBeenCalledWith(section.id, expect.anything());
+      expect(mockSectionRepo.delete).not.toHaveBeenCalled();
+    });
+
+    it("throws if the section is not found", async () => {
+      mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(undefined);
+
+      await expect(
+        service.deleteSection("missing-section", "workflow-1", "user-123")
+      ).rejects.toThrow("Section not found");
+      expect(mockSectionRepo.softDelete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("restoreSection (ICW2-B1)", () => {
+    it("restores the section and cascades restore to its steps under edit access", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id, { deletedAt: new Date() });
+
+      mockSectionRepo.findByIdIncludingDeleted.mockResolvedValue(section as unknown as Section);
+      mockSectionRepo.restore.mockResolvedValue({ ...section, deletedAt: null } as unknown as Section);
+
+      const restored = await service.restoreSection(section.id, "user-123");
+
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
+      expect(mockStepRepo.restoreBySectionId).toHaveBeenCalledWith(section.id, expect.anything());
+      expect(mockSectionRepo.restore).toHaveBeenCalledWith(section.id, expect.anything());
+      expect(restored.deletedAt).toBeNull();
+    });
+
+    it("throws if the section does not exist at all", async () => {
+      mockSectionRepo.findByIdIncludingDeleted.mockResolvedValue(undefined);
+
+      await expect(service.restoreSection("nonexistent", "user-123")).rejects.toThrow("Section not found");
     });
   });
 
@@ -215,6 +288,145 @@ describe("SectionService", () => {
       await expect(
         service.getSectionDeleteImpactById("nonexistent", "user-123")
       ).rejects.toThrow("Section not found");
+    });
+  });
+
+  describe("duplicateSection (ICW2-B5)", () => {
+    it("duplicates the section, its steps (fresh aliases), and its section-scoped logic rules", async () => {
+      const workflow = createTestWorkflow();
+      const source = createTestSection(workflow.id, { order: 1, title: "Original" });
+      const sibling = createTestSection(workflow.id, { order: 2, title: "Later page" });
+      const step1 = createTestStep(source.id, { order: 1, alias: "name", workflowId: workflow.id });
+      const step2 = createTestStep(source.id, { order: 2, alias: null, workflowId: workflow.id });
+      const rule = createTestLogicRule(workflow.id, {
+        conditionStepId: step1.id,
+        targetType: "step",
+        targetStepId: step2.id,
+        targetSectionId: null,
+      });
+
+      mockSectionRepo.findById.mockResolvedValue(source);
+      mockSectionRepo.findByWorkflowId.mockResolvedValue([source, sibling] as unknown as Section[]);
+      mockStepRepo.findBySectionId.mockResolvedValue([step1, step2] as unknown as Step[]);
+      mockStepRepo.countByWorkflowId.mockResolvedValue(2);
+      mockStepRepo.findByWorkflowIdWithAliases.mockResolvedValue([step1, step2] as unknown as Step[]);
+
+      const newSection = createTestSection(workflow.id, { order: 2, title: "Original" });
+      mockSectionRepo.create.mockResolvedValue(newSection);
+      const newStep1 = createTestStep(newSection.id, { order: 1, alias: "name_copy", workflowId: workflow.id });
+      const newStep2 = createTestStep(newSection.id, { order: 2, alias: null, workflowId: workflow.id });
+      mockStepRepo.create
+        .mockResolvedValueOnce(newStep1)
+        .mockResolvedValueOnce(newStep2);
+      mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([rule]);
+
+      const result = await service.duplicateSection(source.id, "user-123");
+
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
+
+      // Later sibling shifts down by one to make room.
+      expect(mockSectionRepo.updateOrder).toHaveBeenCalledWith(
+        sibling.id, workflow.id, sibling.order + 1, expect.anything()
+      );
+
+      // New section inserted immediately after the source.
+      expect(mockSectionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ workflowId: workflow.id, order: source.order + 1 }),
+        expect.anything()
+      );
+
+      // Each step copied with a fresh, non-colliding alias — never verbatim.
+      expect(mockStepRepo.create).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ sectionId: newSection.id, alias: "name_copy", order: step1.order }),
+        expect.anything()
+      );
+      expect(mockStepRepo.create).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ sectionId: newSection.id, alias: null, order: step2.order }),
+        expect.anything()
+      );
+
+      // The section-scoped rule is copied with both step ids remapped onto the copies.
+      expect(mockLogicRuleRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workflowId: workflow.id,
+          conditionStepId: newStep1.id,
+          targetStepId: newStep2.id,
+        }),
+        expect.anything()
+      );
+
+      expect(result).toBe(newSection);
+    });
+
+    it("skips a workflow rule whose condition step is outside the duplicated section", async () => {
+      const workflow = createTestWorkflow();
+      const source = createTestSection(workflow.id, { order: 1 });
+      const step1 = createTestStep(source.id, { order: 1, alias: "q1", workflowId: workflow.id });
+      const outsideRule = createTestLogicRule(workflow.id, {
+        conditionStepId: "step-outside-the-section",
+        targetType: "section",
+        targetStepId: null,
+        targetSectionId: source.id,
+      });
+
+      mockSectionRepo.findById.mockResolvedValue(source);
+      mockSectionRepo.findByWorkflowId.mockResolvedValue([source] as unknown as Section[]);
+      mockStepRepo.findBySectionId.mockResolvedValue([step1] as unknown as Step[]);
+      mockStepRepo.countByWorkflowId.mockResolvedValue(1);
+      mockStepRepo.findByWorkflowIdWithAliases.mockResolvedValue([step1] as unknown as Step[]);
+
+      const newSection = createTestSection(workflow.id, { order: 2 });
+      mockSectionRepo.create.mockResolvedValue(newSection);
+      mockStepRepo.create.mockResolvedValue(
+        createTestStep(newSection.id, { order: 1, alias: "q1_copy", workflowId: workflow.id })
+      );
+      mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([outsideRule]);
+
+      await service.duplicateSection(source.id, "user-123");
+
+      // conditionStepId has no entry in the id map (it wasn't duplicated) — skip, don't guess.
+      expect(mockLogicRuleRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("throws Section not found for a missing section", async () => {
+      mockSectionRepo.findById.mockResolvedValue(undefined);
+
+      await expect(service.duplicateSection("missing", "user-123")).rejects.toThrow("Section not found");
+      expect(mockWorkflowSvc.verifyAccess).not.toHaveBeenCalled();
+    });
+
+    it("rejects once the workflow section limit is reached", async () => {
+      const workflow = createTestWorkflow();
+      const source = createTestSection(workflow.id, { order: 1 });
+      const existing = Array.from({ length: LIMITS.MAX_SECTIONS_PER_WORKFLOW }, (_, i) =>
+        createTestSection(workflow.id, { order: i })
+      );
+
+      mockSectionRepo.findById.mockResolvedValue(source);
+      mockSectionRepo.findByWorkflowId.mockResolvedValue(existing as unknown as Section[]);
+
+      await expect(service.duplicateSection(source.id, "user-123")).rejects.toThrow(/Section limit reached/);
+      expect(mockSectionRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("rejects when copying the section's steps would exceed the workflow step cap", async () => {
+      const workflow = createTestWorkflow();
+      const source = createTestSection(workflow.id, { order: 1 });
+      const steps = [
+        createTestStep(source.id, { order: 1, workflowId: workflow.id }),
+        createTestStep(source.id, { order: 2, workflowId: workflow.id }),
+      ];
+
+      mockSectionRepo.findById.mockResolvedValue(source);
+      mockSectionRepo.findByWorkflowId.mockResolvedValue([source] as unknown as Section[]);
+      mockStepRepo.findBySectionId.mockResolvedValue(steps as unknown as Step[]);
+      // Already at the cap; duplicating 2 more steps must be rejected.
+      mockStepRepo.countByWorkflowId.mockResolvedValue(LIMITS.MAX_STEPS_PER_WORKFLOW - 1);
+
+      await expect(service.duplicateSection(source.id, "user-123")).rejects.toThrow(/Question limit reached/);
+      expect(mockSectionRepo.create).not.toHaveBeenCalled();
     });
   });
 });

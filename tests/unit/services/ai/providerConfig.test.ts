@@ -38,6 +38,13 @@ describe('resolveAiProviderConfig', () => {
     expect(resolveAiProviderConfig({ maxTokens: 8192 }).maxTokens).toBe(8192);
   });
 
+  it('threads an optional tenantId through overrides (ICW2-B7)', () => {
+    process.env.GEMINI_API_KEY = 'g-key';
+    expect(resolveAiProviderConfig({ tenantId: 'tenant-123' }).tenantId).toBe('tenant-123');
+    // Callers that don't pass one (not yet wired) keep working with none set.
+    expect(resolveAiProviderConfig().tenantId).toBeUndefined();
+  });
+
   it('falls back to AI_API_KEY + AI_PROVIDER when no Gemini key', () => {
     process.env.AI_API_KEY = 'o-key';
     process.env.AI_PROVIDER = 'openai';

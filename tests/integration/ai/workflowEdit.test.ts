@@ -7,7 +7,7 @@ import { db } from '../../../server/db';
 import { aiWorkflowRateLimit, aiDailyRateLimit } from '../../../server/middleware/ai.middleware';
 import { registerAiWorkflowEditRoutes } from '../../../server/routes/ai/workflowEdit.routes';
 import { snapshotService } from '../../../server/services/SnapshotService';
-import { workflows, workflowVersions, workflowSnapshots, projects, users, sections, steps, tenants, auditLogs, logicRules } from '../../../shared/schema';
+import { workflows, workflowVersions, workflowSnapshots, projects, users, sections, steps, tenants, auditLogs, logicRules, aiUsage, workflowRuns, stepValues } from '../../../shared/schema';
 const { mockUserId, mockTenantId, authConfig, mockGenerateContent } = vi.hoisted(() => ({
   mockUserId: crypto.randomUUID(),
   mockTenantId: crypto.randomUUID(),
@@ -1183,6 +1183,132 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       .expect(400);
 
     expect(response.body.error).toBe('Invalid request data');
+  });
+
+  // ==========================================================================
+  // ICW2-B11 — the AI ops apply path (WorkflowPatchService) used to hard
+  // DELETE steps/sections, destroying respondent step_values. It must
+  // soft-delete instead, mirroring the manual delete path from ICW2-B1, and
+  // section.delete must cascade to the section's own steps.
+  // ==========================================================================
+
+  it('an AI step.delete op soft-deletes: step_values survive (ICW2-B11 AC1)', async () => {
+    const { stepId } = await seedSectionWithStep('AI Delete Step');
+    const [run] = await db.insert(workflowRuns).values({
+      workflowId: testWorkflowId,
+      runToken: crypto.randomUUID(),
+      createdBy: testUserId,
+    }).returning();
+    await db.insert(stepValues).values({ runId: run.id, stepId, value: 'the answer' });
+
+    await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({
+        userMessage: 'Remove that question',
+        ops: [{ op: 'step.delete', id: stepId }],
+      })
+      .expect(200);
+
+    const [stepRow] = await db.select().from(steps).where(eq(steps.id, stepId));
+    expect(stepRow).toBeDefined(); // still present in the DB — not a hard DELETE
+    expect(stepRow.deletedAt).not.toBeNull();
+
+    const survivingValues = await db.select().from(stepValues).where(eq(stepValues.stepId, stepId));
+    expect(survivingValues).toHaveLength(1);
+    expect(survivingValues[0].value).toBe('the answer');
+
+    // Cleanup for this test's extra rows (sections/steps are cleaned in afterAll).
+    await db.delete(stepValues).where(eq(stepValues.runId, run.id));
+    await db.delete(workflowRuns).where(eq(workflowRuns.id, run.id));
+  });
+
+  it('an AI section.delete op soft-deletes and cascades to its steps: step_values survive (ICW2-B11 AC1)', async () => {
+    const { sectionId, stepId } = await seedSectionWithStep('AI Delete Section');
+    const [run] = await db.insert(workflowRuns).values({
+      workflowId: testWorkflowId,
+      runToken: crypto.randomUUID(),
+      createdBy: testUserId,
+    }).returning();
+    await db.insert(stepValues).values({ runId: run.id, stepId, value: 'kept' });
+
+    await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({
+        userMessage: 'Remove that section',
+        ops: [{ op: 'section.delete', id: sectionId }],
+      })
+      .expect(200);
+
+    const [sectionRow] = await db.select().from(sections).where(eq(sections.id, sectionId));
+    expect(sectionRow).toBeDefined();
+    expect(sectionRow.deletedAt).not.toBeNull();
+
+    const [stepRow] = await db.select().from(steps).where(eq(steps.id, stepId));
+    expect(stepRow).toBeDefined(); // cascaded soft-delete, not a hard DELETE
+    expect(stepRow.deletedAt).not.toBeNull();
+
+    const survivingValues = await db.select().from(stepValues).where(eq(stepValues.stepId, stepId));
+    expect(survivingValues).toHaveLength(1);
+
+    await db.delete(stepValues).where(eq(stepValues.runId, run.id));
+    await db.delete(workflowRuns).where(eq(workflowRuns.id, run.id));
+  });
+
+  // ==========================================================================
+  // ICW2-B7 — per-tenant AI cost/token budgeting. The route now threads
+  // authReq.tenantId into AIProviderClient, so a tenant whose ai_usage rows
+  // already exceed LIMITS.AI_TENANT_MONTHLY_TOKEN_BUDGET must be blocked at
+  // this endpoint (402), and one under budget (the default, unconfigured
+  // path) must keep working exactly as before.
+  // ==========================================================================
+
+  it('blocks an AI edit with 402 once the tenant is over its AI budget (ICW2-B7 AC2)', async () => {
+    // One row alone exceeds the default 20M-token budget.
+    const [usageRow] = await db.insert(aiUsage).values({
+      tenantId: mockTenantId,
+      provider: 'gemini',
+      model: 'gemini-2.0-flash',
+      taskType: 'workflow_revision',
+      inputTokens: 30_000_000,
+      outputTokens: 0,
+    }).returning();
+
+    try {
+      const response = await request(app)
+        .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+        .send({ userMessage: 'Add a field' })
+        .expect(402);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toMatch(/budget/i);
+      // Fail-closed: the model must never be reached once over budget.
+      expect(mockGenerateContent).not.toHaveBeenCalled();
+
+      // Nothing was written — the request was rejected before any AI call.
+      const sectionsAfter = await db.select().from(sections).where(eq(sections.workflowId, testWorkflowId));
+      expect(sectionsAfter).toHaveLength(0);
+    } finally {
+      await db.delete(aiUsage).where(eq(aiUsage.id, usageRow.id));
+    }
+  });
+
+  it('succeeds for a tenant under the default (unconfigured) AI budget (ICW2-B7 AC3)', async () => {
+    // No ai_usage rows for this tenant — the default, generous budget applies
+    // and the existing AI-edit flow is unaffected, exactly as before this
+    // ticket landed.
+    const response = await request(app)
+      .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+      .send({ userMessage: 'Add a contact information section with an email field' })
+      .expect(200);
+
+    expect(response.body.success).toBe(true);
+    expect(mockGenerateContent).toHaveBeenCalled();
+
+    // The call is now recorded against the tenant's usage ledger.
+    const usageRows = await db.select().from(aiUsage).where(eq(aiUsage.tenantId, mockTenantId));
+    expect(usageRows.length).toBeGreaterThan(0);
+
+    await db.delete(aiUsage).where(eq(aiUsage.tenantId, mockTenantId));
   });
 });
 

@@ -69,3 +69,28 @@ export function generateUniqueAliasFromTaken(label: string, taken: Set<string>):
 
   return null;
 }
+
+/**
+ * Mint a fresh, unique alias for a same-workflow duplicate (ICW2-B5).
+ * Suffixes with `_copy`, `_copy2`, ... rather than a numeric suffix so the
+ * duplicate is recognizable as a copy. Uses an underscore (not the hyphen
+ * ICW2-B5's "preferred fix" illustrates) because `ALIAS_FORMAT` forbids
+ * hyphens in variable names.
+ */
+export function generateAliasCopy(sourceAlias: string, taken: Set<string>): string | null {
+  const base = `${sourceAlias}_copy`;
+  if (!taken.has(base.toLowerCase())) {
+    return base.slice(0, ALIAS_MAX_LENGTH);
+  }
+
+  for (let i = 2; i < 100; i++) {
+    const suffix = String(i);
+    const trimmedBase = base.slice(0, ALIAS_MAX_LENGTH - suffix.length);
+    const candidate = `${trimmedBase}${suffix}`;
+    if (!taken.has(candidate.toLowerCase())) {
+      return candidate;
+    }
+  }
+
+  return null;
+}

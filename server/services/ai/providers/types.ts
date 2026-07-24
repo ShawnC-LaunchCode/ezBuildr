@@ -12,6 +12,27 @@ export interface AIProviderConfig {
 }
 
 /**
+ * Real (or, when a provider omits it, estimated) token usage for a single
+ * `generateResponse` call. ICW2-B7: this is what makes per-tenant budgeting
+ * possible — previously usage was estimated (char/4) and discarded.
+ */
+export interface AIProviderUsage {
+    inputTokens: number;
+    outputTokens: number;
+}
+
+/**
+ * Result of a `generateResponse` call: the model's text plus, when the
+ * provider's SDK surfaces it, real token usage. `usage` is omitted only when
+ * the provider genuinely returns no usage data — callers fall back to a
+ * char/4 estimate in that case (ICW2-B7).
+ */
+export interface AIProviderResponse {
+    text: string;
+    usage?: AIProviderUsage;
+}
+
+/**
  * Interface that all AI providers must implement
  */
 // eslint-disable-next-line @typescript-eslint/naming-convention -- I-prefix is industry standard for provider interfaces
@@ -28,7 +49,7 @@ export interface IAIProvider {
         prompt: string,
         taskType: TaskType,
         systemMessage?: string
-    ): Promise<string>;
+    ): Promise<AIProviderResponse>;
 
     /**
      * Estimate token count for a text string

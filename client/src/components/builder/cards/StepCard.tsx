@@ -24,6 +24,7 @@ import { stepAPI, type ApiStep, type ApiDeleteImpact } from "@/lib/vault-api";
 import {
     useUpdateStep,
     useDeleteStep,
+    useDuplicateStep,
     useWorkflow,
     useWorkflowMode
 } from "@/lib/vault-hooks";
@@ -69,6 +70,7 @@ export function StepCard({
 }: StepCardProps): JSX.Element {
     const updateStepMutation = useUpdateStep();
     const deleteStepMutation = useDeleteStep();
+    const duplicateStepMutation = useDuplicateStep();
     const { toast } = useToast();
     const { data: modeData } = useWorkflowMode(workflowId);
     const mode = modeData?.mode ?? 'easy';
@@ -169,6 +171,22 @@ export function StepCard({
         void performDelete();
     };
 
+    const handleDuplicate = async () => {
+        try {
+            await duplicateStepMutation.mutateAsync({ id: step.id, sectionId });
+            toast({
+                title: "Question duplicated",
+                description: "A copy was added to this page",
+            });
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to duplicate question",
+                variant: "destructive",
+            });
+        }
+    };
+
     return (
         <div ref={setNodeRef} style={style} data-step-id={step.id} onFocus={() => { void handleFocus(); }} onBlur={(e) => { void handleBlur(e); }}>
             <Card className={cn("shadow-sm transition-all duration-300", isDragging && "opacity-50", isLockedByOther && "ring-2 ring-indigo-400/50 border-indigo-200")}>
@@ -234,6 +252,7 @@ export function StepCard({
                                 isGuidanceDismissed={isGuidanceDismissed}
                                 onDismissGuidance={() => setIsGuidanceDismissed(true)}
                                 onTitleChange={(val) => { void handleTitleChange(val); }}
+                                onDuplicate={() => { void handleDuplicate(); }}
                                 onDelete={() => { void handleDelete(); }}
                                 onEnterNext={onEnterNext}
                                 autoFocus={autoFocus}

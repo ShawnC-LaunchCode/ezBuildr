@@ -9,6 +9,7 @@ import { combinePageItems, getNextOrder, PageItem } from "@/lib/dnd";
 import { ApiBlock, ApiSection, ApiStep, sectionAPI, type ApiDeleteImpact } from "@/lib/vault-api";
 import {
     useDeleteSection,
+    useDuplicateSection,
     useTransformBlocks,
     useUpdateSection,
     useWorkflowMode,
@@ -46,6 +47,7 @@ interface UsePageCardLogicReturn {
     handleDescriptionChange: (description: string) => void;
     flushDescription: () => void;
     handleDelete: () => Promise<void>;
+    handleDuplicate: () => Promise<void>;
     isDeleteImpactOpen: boolean;
     setIsDeleteImpactOpen: React.Dispatch<React.SetStateAction<boolean>>;
     pendingDeleteImpact: ApiDeleteImpact | null;
@@ -70,6 +72,7 @@ export function usePageCardLogic(
     const mode = modeData?.mode ?? "easy";
     const updateSectionMutation = useUpdateSection();
     const deleteSectionMutation = useDeleteSection();
+    const duplicateSectionMutation = useDuplicateSection();
     const { selectSection, selectBlock, selectStep } = useWorkflowBuilder();
     const { toast } = useToast();
 
@@ -173,6 +176,22 @@ export function usePageCardLogic(
         void performDelete();
     };
 
+    const handleDuplicate = async (): Promise<void> => {
+        try {
+            await duplicateSectionMutation.mutateAsync({ id: page.id, workflowId });
+            toast({
+                title: "Page duplicated",
+                description: `A copy of "${page.title}" was added`,
+            });
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to duplicate page",
+                variant: "destructive",
+            });
+        }
+    };
+
     const handleToggleExpand = (stepId: string): void => {
         setExpandedStepIds((prev) => {
             const next = new Set(prev);
@@ -226,6 +245,7 @@ export function usePageCardLogic(
         handleDescriptionChange,
         flushDescription,
         handleDelete,
+        handleDuplicate,
         isDeleteImpactOpen,
         setIsDeleteImpactOpen,
         pendingDeleteImpact,

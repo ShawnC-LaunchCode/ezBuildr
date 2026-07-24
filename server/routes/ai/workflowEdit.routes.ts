@@ -112,10 +112,10 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
         // Nothing is written — no snapshot, no version, no rows — so Discard on
         // the client is genuinely a no-op (ICW2-10).
         if (requestData.dryRun === true) {
-          return await proposeEdit(res, requestData, currentWorkflow, workflowId);
+          return await proposeEdit(res, requestData, currentWorkflow, workflowId, authReq.tenantId);
         }
 
-        return await applyEdit(res, requestData, currentWorkflow, workflowId, userId);
+        return await applyEdit(res, requestData, currentWorkflow, { workflowId, userId, tenantId: authReq.tenantId });
       } catch (error) {
         logger.error({ error, workflowId: req.params.workflowId }, "Error in AI workflow edit");
         const actual = error instanceof Error ? error.message : "";
@@ -147,6 +147,15 @@ function respondToModelFailure(res: Response, error: unknown, workflowId: string
     });
   }
 
+  // Per-tenant AI budget exhausted (ICW2-B7) — fail closed with a clear,
+  // non-retriable error distinct from a transient provider rate limit.
+  if (error instanceof AIError && error.code === 'BUDGET_EXCEEDED') {
+    return res.status(402).json({
+      success: false,
+      error: error.message,
+    });
+  }
+
   // Provider rate-limit / transient exhaustion surfaces as a retriable 429.
   if (error instanceof AIError && error.code === 'RATE_LIMIT') {
     return res.status(429).json({
@@ -163,6 +172,7 @@ function respondToModelFailure(res: Response, error: unknown, workflowId: string
 async function generateOps(
   requestData: AiWorkflowEditRequest,
   currentWorkflow: WorkflowWithDetails,
+  tenantId?: string,
 ): Promise<AiModelResponse> {
   const systemPromptTemplate = await aiSettingsService.getEffectivePrompt();
   return callAiForWorkflowEdit(
@@ -170,6 +180,7 @@ async function generateOps(
     currentWorkflow,
     requestData.preferences,
     systemPromptTemplate,
+    tenantId,
   );
 }
 
@@ -181,10 +192,11 @@ async function proposeEdit(
   requestData: AiWorkflowEditRequest,
   currentWorkflow: WorkflowWithDetails,
   workflowId: string,
+  tenantId?: string,
 ): Promise<Response> {
   let aiResponse: AiModelResponse;
   try {
-    aiResponse = await generateOps(requestData, currentWorkflow);
+    aiResponse = await generateOps(requestData, currentWorkflow, tenantId);
   } catch (error) {
     return respondToModelFailure(res, error, workflowId);
   }
@@ -213,9 +225,9 @@ async function applyEdit(
   res: Response,
   requestData: AiWorkflowEditRequest,
   currentWorkflow: WorkflowWithDetails,
-  workflowId: string,
-  userId: string,
+  ctx: { workflowId: string; userId: string; tenantId?: string },
 ): Promise<Response> {
+  const { workflowId, userId, tenantId } = ctx;
   // Create BEFORE snapshot.
   // Fail closed: the AI-edit rollback story presumes a pre-edit snapshot
   // exists, so if we cannot create one we abort before mutating anything
@@ -251,7 +263,7 @@ async function applyEdit(
   } else {
     let aiResponse: AiModelResponse;
     try {
-      aiResponse = await generateOps(requestData, currentWorkflow);
+      aiResponse = await generateOps(requestData, currentWorkflow, tenantId);
     } catch (error) {
       return respondToModelFailure(res, error, workflowId);
     }
@@ -348,9 +360,12 @@ async function callAiForWorkflowEdit(
   currentWorkflow: WorkflowWithDetails,
   preferences?: z.infer<typeof aiPreferencesSchema>,
   systemPromptTemplate?: string,
+  tenantId?: string,
 ): Promise<AiModelResponse> {
   // maxTokens raised above the provider's 4k default to fit larger edit outputs.
-  const client = new AIProviderClient(resolveAiProviderConfig({ maxTokens: 8192 }));
+  // tenantId (ICW2-B7): when present, AIProviderClient enforces/records the
+  // per-tenant AI budget for this call; omitted callers get no enforcement.
+  const client = new AIProviderClient(resolveAiProviderConfig({ maxTokens: 8192, tenantId }));
 
   const systemPrompt = buildSystemPrompt(preferences, systemPromptTemplate);
   const workflowContext = buildWorkflowContext(currentWorkflow);

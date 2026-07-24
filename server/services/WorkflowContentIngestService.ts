@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, and, isNull } from "drizzle-orm";
 
 import { db } from "../db";
 import { createLogger } from "../logger";
@@ -227,10 +227,14 @@ export class WorkflowContentIngestService {
     const normalizedData = normalizeContent(data);
 
     const runner = async (tx: Transaction): Promise<void> => {
+      // Excludes soft-deleted rows (ICW2-B1) so reconciliation never
+      // re-considers an already-deleted section for deletion, and so a
+      // section removed from the incoming payload is soft-deleted exactly
+      // once.
       const existingSections = await tx
         .select()
         .from(sections)
-        .where(eq(sections.workflowId, workflowId));
+        .where(and(eq(sections.workflowId, workflowId), isNull(sections.deletedAt)));
 
       const aliasState = await this.buildAliasState(tx, workflowId);
       const incomingSectionIds = await this.syncSections(
@@ -255,6 +259,9 @@ export class WorkflowContentIngestService {
   }
 
   private async buildAliasState(tx: Transaction, workflowId: string): Promise<AliasSyncState> {
+    // Excludes soft-deleted steps (ICW2-B1) — a soft-deleted step's alias is
+    // free to be reused by an incoming step, matching the unique index's
+    // `deleted_at IS NULL` scope.
     const existingWorkflowSteps = await tx
       .select({
         id: steps.id,
@@ -262,7 +269,7 @@ export class WorkflowContentIngestService {
       })
       .from(steps)
       .innerJoin(sections, eq(steps.sectionId, sections.id))
-      .where(eq(sections.workflowId, workflowId));
+      .where(and(eq(sections.workflowId, workflowId), isNull(steps.deletedAt)));
 
     const existingAliasByStepId = new Map(existingWorkflowSteps.map((step) => [step.id, step.alias]));
     const takenAliases = new Set(
@@ -386,7 +393,12 @@ export class WorkflowContentIngestService {
   }
 
   private async getExistingStepIds(tx: Transaction, sectionId: string): Promise<Set<string>> {
-    const dbSteps = await tx.select({ id: steps.id }).from(steps).where(eq(steps.sectionId, sectionId));
+    // Excludes soft-deleted steps (ICW2-B1) so reconciliation never
+    // re-considers an already-deleted step for deletion.
+    const dbSteps = await tx
+      .select({ id: steps.id })
+      .from(steps)
+      .where(and(eq(steps.sectionId, sectionId), isNull(steps.deletedAt)));
     return new Set(dbSteps.map((step) => step.id));
   }
 
@@ -469,6 +481,11 @@ export class WorkflowContentIngestService {
     return alias ?? null;
   }
 
+  /**
+   * Soft-deletes (ICW2-B1) sections dropped from the incoming payload, and
+   * cascades to their steps — a hard `DELETE` would destroy `step_values`
+   * (respondent answers) via the FK cascade; soft-delete never triggers it.
+   */
   private async deleteMissingSections(
     tx: Transaction,
     existingSections: ExistingSection[],
@@ -479,10 +496,13 @@ export class WorkflowContentIngestService {
       .filter((id) => !incomingSectionIds.has(id));
 
     if (sectionsToDelete.length > 0) {
-      await tx.delete(sections).where(inArray(sections.id, sectionsToDelete));
+      const deletedAt = new Date();
+      await tx.update(steps).set({ deletedAt }).where(inArray(steps.sectionId, sectionsToDelete));
+      await tx.update(sections).set({ deletedAt }).where(inArray(sections.id, sectionsToDelete));
     }
   }
 
+  /** Soft-deletes (ICW2-B1) steps dropped from the incoming payload. */
   private async deleteMissingSteps(
     tx: Transaction,
     existingStepIds: Set<string>,
@@ -490,7 +510,7 @@ export class WorkflowContentIngestService {
   ): Promise<void> {
     const stepsToDelete = [...existingStepIds].filter((id) => !incomingStepIds.has(id));
     if (stepsToDelete.length > 0) {
-      await tx.delete(steps).where(inArray(steps.id, stepsToDelete));
+      await tx.update(steps).set({ deletedAt: new Date() }).where(inArray(steps.id, stepsToDelete));
     }
   }
 

@@ -673,6 +673,10 @@ export const sectionAPI = {
     }),
   getDeleteImpact: (id: string) =>
     fetchAPI<ApiDeleteImpact>(`/api/sections/${id}/delete-impact`),
+  duplicate: (id: string) =>
+    fetchAPI<ApiSection>(`/api/sections/${id}/duplicate`, {
+      method: "POST",
+    }),
 };
 // ============================================================================
 // Logic Rules
@@ -787,6 +791,10 @@ export const stepAPI = {
     }),
   getDeleteImpact: (id: string) =>
     fetchAPI<ApiDeleteImpact>(`/api/steps/${id}/delete-impact`),
+  duplicate: (id: string) =>
+    fetchAPI<ApiStep>(`/api/steps/${id}/duplicate`, {
+      method: "POST",
+    }),
 };
 // ============================================================================
 // Blocks

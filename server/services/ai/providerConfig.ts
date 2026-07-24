@@ -8,6 +8,11 @@
  *
  * Model ids default to registry-known values so telemetry cost/context checks
  * resolve to real pricing rather than the ModelRegistry "unknown" fallback.
+ *
+ * `overrides` already accepts `tenantId` (ICW2-B7) since it's typed as
+ * `Partial<AIProviderConfig>` and `AIProviderConfig.tenantId` is optional —
+ * callers pass `resolveAiProviderConfig({ tenantId, ... })` to have
+ * `AIProviderClient` budget/record usage for that tenant.
  */
 
 import type { AIProvider, AIProviderConfig } from '../../../shared/types/ai';

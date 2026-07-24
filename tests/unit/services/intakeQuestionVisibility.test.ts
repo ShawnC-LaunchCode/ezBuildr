@@ -461,6 +461,70 @@ describe('IntakeQuestionVisibilityService', () => {
     });
   });
   // ========================================================================
+  // ICW2-B10: id/alias dual-keying
+  // ========================================================================
+  describe('ICW2-B10: controlling step resolvable by id OR alias', () => {
+    it('resolves a visibleIf condition that references the controlling step by its raw step id, even though that step also has an alias', async () => {
+      const mockQuestions = [
+        { id: 'q1', sectionId: 'section1', title: 'Do you agree?', order: 0, isVirtual: false, alias: 'agree', visibleIf: null },
+        {
+          id: 'q2',
+          sectionId: 'section1',
+          title: 'Preferred start date',
+          order: 1,
+          isVirtual: false,
+          alias: 'preferredStartDate',
+          visibleIf: {
+            // References the controlling step by its raw id, not its alias.
+            op: 'equals',
+            left: { type: 'variable', path: 'q1' },
+            right: { type: 'value', value: true },
+          },
+        },
+      ] as unknown as Step[];
+      const mockValues = [
+        { runId: 'run1', stepId: 'q1', value: true },
+      ] as unknown as StepValue[];
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
+      mockStepValueRepo.findByRunId.mockResolvedValue(mockValues);
+
+      const result = await service.evaluatePageQuestions('section1', 'run1');
+
+      expect(result.visibleQuestions).toEqual(['q1', 'q2']);
+      expect(result.hiddenQuestions).toEqual([]);
+    });
+
+    it('still resolves a visibleIf condition that references the controlling step by alias', async () => {
+      const mockQuestions = [
+        { id: 'q1', sectionId: 'section1', title: 'Do you agree?', order: 0, isVirtual: false, alias: 'agree', visibleIf: null },
+        {
+          id: 'q2',
+          sectionId: 'section1',
+          title: 'Preferred start date',
+          order: 1,
+          isVirtual: false,
+          alias: 'preferredStartDate',
+          visibleIf: {
+            op: 'equals',
+            left: { type: 'variable', path: 'agree' },
+            right: { type: 'value', value: true },
+          },
+        },
+      ] as unknown as Step[];
+      const mockValues = [
+        { runId: 'run1', stepId: 'q1', value: true },
+      ] as unknown as StepValue[];
+      mockStepRepo.findBySectionIds.mockResolvedValue(mockQuestions);
+      mockStepValueRepo.findByRunId.mockResolvedValue(mockValues);
+
+      const result = await service.evaluatePageQuestions('section1', 'run1');
+
+      expect(result.visibleQuestions).toEqual(['q1', 'q2']);
+      expect(result.hiddenQuestions).toEqual([]);
+    });
+  });
+
+  // ========================================================================
   // CASCADING VISIBILITY
   // ========================================================================
   describe('Cascading visibility', () => {

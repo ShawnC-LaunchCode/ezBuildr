@@ -1,8 +1,15 @@
 
-import { Trash2 } from "lucide-react";
+import { Copy, MoreVertical, Trash2 } from "lucide-react";
 import { useRef } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +23,7 @@ interface StepTitleRowProps {
     isGuidanceDismissed: boolean;
     onDismissGuidance: () => void;
     onTitleChange: (val: string) => void;
+    onDuplicate: () => void;
     onDelete: () => void;
     onEnterNext?: () => void;
     autoFocus?: boolean;
@@ -28,6 +36,7 @@ export function StepTitleRow({
     isGuidanceDismissed,
     onDismissGuidance,
     onTitleChange,
+    onDuplicate,
     onDelete,
     onEnterNext,
     autoFocus,
@@ -79,16 +88,33 @@ export function StepTitleRow({
                 </div>
             </div>
 
-            <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
-                onClick={onDelete}
-                tabIndex={0}
-                aria-label={`Delete question ${step.title}`}
-            >
-                <Trash2 className="h-4 w-4" />
-            </Button>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground shrink-0"
+                        tabIndex={0}
+                        aria-label={`Question actions for ${step.title || "untitled question"}`}
+                    >
+                        <MoreVertical className="h-4 w-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={onDuplicate}>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Duplicate
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                        onClick={onDelete}
+                        className="text-destructive focus:text-destructive"
+                    >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
         </div>
     );
 }

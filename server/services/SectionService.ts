@@ -2,14 +2,63 @@ import { LIMITS, LimitExceededError } from "@shared/limits";
 import type { Section, InsertSection, Step } from "@shared/schema";
 import { db } from "../db";
 
-import { sectionRepository, workflowRepository, stepRepository, stepValueRepository, type DeleteImpact } from "../repositories";
+import {
+  sectionRepository,
+  workflowRepository,
+  stepRepository,
+  stepValueRepository,
+  logicRuleRepository,
+  type DeleteImpact,
+  type DbTransaction,
+} from "../repositories";
 
+import { generateAliasCopy } from "./stepAlias";
 import { workflowService } from "./WorkflowService";
 
 const SECTION_NOT_FOUND = "Section not found";
 
 /** `order` is optional at the API boundary — the service auto-increments it. */
 type CreateSectionData = Omit<InsertSection, 'workflowId' | 'order'> & Partial<Pick<InsertSection, 'order'>>;
+
+/**
+ * Remap any string in a JSON value that matches a source id to its
+ * duplicated-copy id, recursively. Same approach as
+ * `WorkflowClonerService.remapJsonIds` (donor for ICW2-B5), reimplemented
+ * here rather than imported so this file's duplicate path stays independent
+ * of the whole-asset cloner.
+ */
+function remapJsonIds<T>(value: T, idMap: Map<string, string>): T {
+  if (typeof value === "string") {
+    return (idMap.get(value) ?? value) as T;
+  }
+  if (Array.isArray(value)) {
+    const items: unknown[] = value;
+    return items.map((item) => remapJsonIds(item, idMap)) as T;
+  }
+  if (value && typeof value === "object" && !(value instanceof Date)) {
+    const remapped: Record<string, unknown> = {};
+    for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+      remapped[key] = remapJsonIds(nestedValue, idMap);
+    }
+    return remapped as T;
+  }
+  return value;
+}
+
+/**
+ * Constructor dependencies for {@link SectionService}, grouped into a single
+ * object so adding a repo (e.g. `logicRuleRepo` for ICW2-B5) never trips the
+ * `max-params` lint rule. All fields are optional and default to the
+ * production singletons; tests override just what they need to mock.
+ */
+export interface SectionServiceDeps {
+  sectionRepo?: typeof sectionRepository;
+  workflowRepo?: typeof workflowRepository;
+  stepRepo?: typeof stepRepository;
+  workflowSvc?: typeof workflowService;
+  stepValueRepo?: typeof stepValueRepository;
+  logicRuleRepo?: typeof logicRuleRepository;
+}
 
 /**
  * Service layer for section-related business logic
@@ -20,19 +69,15 @@ export class SectionService {
   private stepRepo: typeof stepRepository;
   private workflowSvc: typeof workflowService;
   private stepValueRepo: typeof stepValueRepository;
+  private logicRuleRepo: typeof logicRuleRepository;
 
-  constructor(
-    sectionRepo?: typeof sectionRepository,
-    workflowRepo?: typeof workflowRepository,
-    stepRepo?: typeof stepRepository,
-    workflowSvc?: typeof workflowService,
-    stepValueRepo?: typeof stepValueRepository
-  ) {
-    this.sectionRepo = sectionRepo ?? sectionRepository;
-    this.workflowRepo = workflowRepo ?? workflowRepository;
-    this.stepRepo = stepRepo ?? stepRepository;
-    this.workflowSvc = workflowSvc ?? workflowService;
-    this.stepValueRepo = stepValueRepo ?? stepValueRepository;
+  constructor(deps: SectionServiceDeps = {}) {
+    this.sectionRepo = deps.sectionRepo ?? sectionRepository;
+    this.workflowRepo = deps.workflowRepo ?? workflowRepository;
+    this.stepRepo = deps.stepRepo ?? stepRepository;
+    this.workflowSvc = deps.workflowSvc ?? workflowService;
+    this.stepValueRepo = deps.stepValueRepo ?? stepValueRepository;
+    this.logicRuleRepo = deps.logicRuleRepo ?? logicRuleRepository;
   }
 
   /**
@@ -60,7 +105,162 @@ export class SectionService {
       ...data,
       workflowId,
       order: data.order ?? nextOrder,
+      // Server-controlled: never let a client-supplied value mark a
+      // freshly created section as already soft-deleted (ICW2-B1).
+      deletedAt: null,
     });
+  }
+
+  /** All aliases in a workflow, lowercased for case-insensitive comparison */
+  private async getWorkflowAliases(workflowId: string): Promise<Set<string>> {
+    const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId, undefined, true);
+    return new Set(
+      allSteps
+        .map((s) => s.alias?.toLowerCase())
+        .filter((a): a is string => a !== undefined && a !== null && a !== '')
+    );
+  }
+
+  /**
+   * Copy the logic rules scoped to a duplicated section: rules whose
+   * condition step, target step, or target section belongs to the source
+   * section, remapped onto the freshly duplicated ids. Rules referencing a
+   * condition step outside the section are skipped (that step was not
+   * duplicated, so there is no valid id to remap the condition onto).
+   */
+  private async copySectionLogicRules(
+    tx: DbTransaction,
+    workflowId: string,
+    sourceSectionId: string,
+    sourceSteps: Step[],
+    idMap: Map<string, string>
+  ): Promise<void> {
+    const sourceStepIds = new Set(sourceSteps.map((s) => s.id));
+    const allRules = await this.logicRuleRepo.findByWorkflowId(workflowId, tx);
+    const relevantRules = allRules.filter(
+      (rule) =>
+        sourceStepIds.has(rule.conditionStepId) ||
+        rule.targetSectionId === sourceSectionId ||
+        (rule.targetStepId !== null && sourceStepIds.has(rule.targetStepId))
+    );
+
+    for (const rule of relevantRules) {
+      const conditionStepId = idMap.get(rule.conditionStepId);
+      if (!conditionStepId) {
+        continue;
+      }
+      await this.logicRuleRepo.create(
+        {
+          workflowId,
+          conditionStepId,
+          operator: rule.operator,
+          conditionValue: remapJsonIds(rule.conditionValue, idMap),
+          targetType: rule.targetType,
+          targetStepId: rule.targetStepId ? idMap.get(rule.targetStepId) ?? null : null,
+          targetSectionId: rule.targetSectionId ? idMap.get(rule.targetSectionId) ?? null : null,
+          action: rule.action,
+          logicalOperator: rule.logicalOperator,
+          order: rule.order,
+        },
+        tx
+      );
+    }
+  }
+
+  /**
+   * Duplicate a section: the section itself, all of its steps (each with a
+   * fresh unique alias), and its section-scoped logic rules with ids
+   * remapped onto the copies (ICW2-B5). Inserted immediately after the
+   * source (later siblings shift by one).
+   */
+  async duplicateSection(sectionId: string, userId: string): Promise<Section> {
+    const section = await this.sectionRepo.findById(sectionId);
+    if (!section) {
+      throw new Error(SECTION_NOT_FOUND);
+    }
+
+    await this.workflowSvc.verifyAccess(section.workflowId, userId, 'edit');
+
+    const existingSections = await this.sectionRepo.findByWorkflowId(section.workflowId);
+    if (existingSections.length >= LIMITS.MAX_SECTIONS_PER_WORKFLOW) {
+      throw new LimitExceededError(
+        `Section limit reached (${LIMITS.MAX_SECTIONS_PER_WORKFLOW} per workflow)`
+      );
+    }
+
+    // Include virtual (computed) steps too — duplicating the section duplicates all of them.
+    const sourceSteps = await this.stepRepo.findBySectionId(sectionId, undefined, true);
+
+    const currentStepCount = await this.stepRepo.countByWorkflowId(section.workflowId);
+    if (currentStepCount + sourceSteps.length > LIMITS.MAX_STEPS_PER_WORKFLOW) {
+      throw new LimitExceededError(
+        `Question limit reached (${LIMITS.MAX_STEPS_PER_WORKFLOW} per workflow)`
+      );
+    }
+
+    const taken = await this.getWorkflowAliases(section.workflowId);
+
+    return db.transaction(async (tx) => {
+      const toShift = existingSections.filter((s) => s.order > section.order);
+      for (const sibling of toShift) {
+        await this.sectionRepo.updateOrder(sibling.id, section.workflowId, sibling.order + 1, tx);
+      }
+
+      const newSection = await this.sectionRepo.create(
+        {
+          workflowId: section.workflowId,
+          title: section.title,
+          description: section.description,
+          order: section.order + 1,
+          config: section.config,
+          visibleIf: section.visibleIf,
+          skipIf: section.skipIf,
+        },
+        tx
+      );
+
+      const idMap = new Map<string, string>([[sectionId, newSection.id]]);
+
+      for (const step of sourceSteps) {
+        const alias = step.alias ? generateAliasCopy(step.alias, taken) : null;
+        if (alias) {
+          taken.add(alias.toLowerCase());
+        }
+        const newStep = await this.stepRepo.create(
+          {
+            workflowId: section.workflowId,
+            sectionId: newSection.id,
+            type: step.type,
+            title: step.title,
+            description: step.description,
+            required: step.required,
+            config: step.config,
+            alias,
+            defaultValue: step.defaultValue,
+            order: step.order,
+            isVirtual: step.isVirtual,
+            visibleIf: step.visibleIf,
+            repeaterConfig: step.repeaterConfig,
+          },
+          tx
+        );
+        idMap.set(step.id, newStep.id);
+      }
+
+      await this.copySectionLogicRules(tx, section.workflowId, sectionId, sourceSteps, idMap);
+
+      return newSection;
+    });
+  }
+
+  /**
+   * `deletedAt` is only ever set/cleared by the dedicated delete/restore
+   * flows (ICW2-B1) — never accepted from a general update payload.
+   */
+  private static stripDeletedAt(data: Partial<InsertSection>): Partial<InsertSection> {
+    const updates = { ...data };
+    delete updates.deletedAt;
+    return updates;
   }
 
   /**
@@ -79,11 +279,14 @@ export class SectionService {
       throw new Error(SECTION_NOT_FOUND);
     }
 
-    return this.sectionRepo.update(sectionId, data);
+    return this.sectionRepo.update(sectionId, SectionService.stripDeletedAt(data));
   }
 
   /**
-   * Delete section
+   * Delete section (soft-delete — ICW2-B1). Cascades to the section's own
+   * steps so they are excluded everywhere too, mirroring the FK cascade a
+   * hard delete would have triggered — but without destroying `step_values`.
+   * See `restoreSection` to undo.
    */
   async deleteSection(sectionId: string, workflowId: string, userId: string): Promise<void> {
     await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
@@ -93,7 +296,34 @@ export class SectionService {
       throw new Error(SECTION_NOT_FOUND);
     }
 
-    await this.sectionRepo.delete(sectionId);
+    await db.transaction(async (tx) => {
+      await this.stepRepo.softDeleteBySectionId(sectionId, tx);
+      await this.sectionRepo.softDelete(sectionId, tx);
+    });
+  }
+
+  /**
+   * Restore a soft-deleted section and its steps (ICW2-B1). Uses an
+   * unscoped lookup since the section's `deletedAt` is set, so the filtered
+   * `findById` cannot see it. Restore UI is deferred — this is server-side
+   * only.
+   */
+  async restoreSection(sectionId: string, userId: string): Promise<Section> {
+    const section = await this.sectionRepo.findByIdIncludingDeleted(sectionId);
+    if (!section) {
+      throw new Error(SECTION_NOT_FOUND);
+    }
+
+    await this.workflowSvc.verifyAccess(section.workflowId, userId, 'edit');
+
+    return db.transaction(async (tx) => {
+      await this.stepRepo.restoreBySectionId(sectionId, tx);
+      const restored = await this.sectionRepo.restore(sectionId, tx);
+      if (!restored) {
+        throw new Error(SECTION_NOT_FOUND);
+      }
+      return restored;
+    });
   }
 
   /**
@@ -194,11 +424,12 @@ export class SectionService {
     }
 
     await this.workflowSvc.verifyAccess(section.workflowId, userId, 'edit');
-    return this.sectionRepo.update(sectionId, data);
+    return this.sectionRepo.update(sectionId, SectionService.stripDeletedAt(data));
   }
 
   /**
-   * Delete section by ID only (looks up workflow automatically)
+   * Delete section by ID only (looks up workflow automatically).
+   * Soft-delete — ICW2-B1 — see `deleteSection` for the cascade rationale.
    */
   async deleteSectionById(sectionId: string, userId: string): Promise<void> {
     const section = await this.sectionRepo.findById(sectionId);
@@ -207,7 +438,10 @@ export class SectionService {
     }
 
     await this.workflowSvc.verifyAccess(section.workflowId, userId, 'edit');
-    await this.sectionRepo.delete(sectionId);
+    await db.transaction(async (tx) => {
+      await this.stepRepo.softDeleteBySectionId(sectionId, tx);
+      await this.sectionRepo.softDelete(sectionId, tx);
+    });
   }
 }
 

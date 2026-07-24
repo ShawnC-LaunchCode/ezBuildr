@@ -156,8 +156,9 @@ export class AiController {
                 descriptionLength: requestData.description.length,
             }, 'AI workflow generation requested');
 
-            // Create AI service
-            const aiService = createAIServiceFromEnv();
+            // Create AI service (tenantId threads to AIProviderClient for
+            // per-tenant AI budgeting — ICW2-B7)
+            const aiService = createAIServiceFromEnv(authReq.tenantId);
 
             // Generate workflow
             const generatedWorkflow = await aiService.generateWorkflow(requestData);
@@ -240,8 +241,9 @@ export class AiController {
                 });
             }
 
-            // Create AI service
-            const aiService = createAIServiceFromEnv();
+            // Create AI service (tenantId threads to AIProviderClient for
+            // per-tenant AI budgeting — ICW2-B7)
+            const aiService = createAIServiceFromEnv(authReq.tenantId);
 
             // Generate suggestions
             const suggestions = await aiService.suggestWorkflowImprovements(
@@ -344,8 +346,9 @@ export class AiController {
                 });
             }
 
-            // Create AI service
-            const aiService = createAIServiceFromEnv();
+            // Create AI service (tenantId threads to AIProviderClient for
+            // per-tenant AI budgeting — ICW2-B7)
+            const aiService = createAIServiceFromEnv(authReq.tenantId);
 
             // Generate binding suggestions with workflow for alias validation
             const bindingSuggestions = await aiService.suggestTemplateBindings(
@@ -395,6 +398,7 @@ export class AiController {
      * Generate random plausible values for workflow steps
      */
     static async suggestValues(req: Request, res: Response): Promise<Response | void> {
+        const authReq = req as AuthRequest;
         try {
             const AiSuggestValuesRequestSchema = z.object({
                 workflowId: z.string().uuid(),
@@ -427,8 +431,9 @@ export class AiController {
                 mode,
             }, 'AI value suggestion requested');
 
-            // Create AI service and generate values
-            const aiService = createAIServiceFromEnv();
+            // Create AI service and generate values (tenantId threads to
+            // AIProviderClient for per-tenant AI budgeting — ICW2-B7)
+            const aiService = createAIServiceFromEnv(authReq.tenantId);
             const values = await aiService.suggestValues(steps, mode);
 
             res.json({
@@ -460,7 +465,8 @@ export class AiController {
 
             await workflowService.verifyAccess(requestData.workflowId, userId, 'edit');
 
-            const aiService = createAIServiceFromEnv();
+            // tenantId threads to AIProviderClient for per-tenant AI budgeting (ICW2-B7)
+            const aiService = createAIServiceFromEnv(authReq.tenantId);
             const result = await aiService.generateLogic(requestData);
 
             const duration = Date.now() - startTime;
@@ -490,9 +496,11 @@ export class AiController {
      * Analyze logic for issues
      */
     static async debugLogic(req: Request, res: Response): Promise<void> {
+        const authReq = req as AuthRequest;
         try {
             const requestData = AIDebugLogicRequestSchema.parse(req.body);
-            const aiService = createAIServiceFromEnv();
+            // tenantId threads to AIProviderClient for per-tenant AI budgeting (ICW2-B7)
+            const aiService = createAIServiceFromEnv(authReq.tenantId);
             const result = await aiService.debugLogic(requestData);
             res.status(200).json({ success: true, ...result });
         } catch (error) {
@@ -505,9 +513,11 @@ export class AiController {
      * Generate graph representation of logic
      */
     static async visualizeLogic(req: Request, res: Response): Promise<void> {
+        const authReq = req as AuthRequest;
         try {
             const requestData = AIVisualizeLogicRequestSchema.parse(req.body);
-            const aiService = createAIServiceFromEnv();
+            // tenantId threads to AIProviderClient for per-tenant AI budgeting (ICW2-B7)
+            const aiService = createAIServiceFromEnv(authReq.tenantId);
             const result = await aiService.visualizeLogic(requestData);
             res.status(200).json({ success: true, ...result });
         } catch (error) {
@@ -530,6 +540,17 @@ export class AiController {
         }
 
         const err = error as AIError;
+
+        // Per-tenant AI budget exhausted (ICW2-B7) — fail closed with 402,
+        // distinct from a transient provider rate limit (429).
+        if (err.code === 'BUDGET_EXCEEDED') {
+            res.status(402).json({
+                success: false,
+                message: (err.message as string) ?? 'AI budget exceeded for this period.',
+                error: 'ai_budget_exceeded',
+            });
+            return;
+        }
 
         if (err.code === 'RATE_LIMIT') {
             res.status(429).json({

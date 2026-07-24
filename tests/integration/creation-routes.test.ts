@@ -566,3 +566,211 @@ describe("GET /api/steps/:stepId/delete-impact + /api/sections/:sectionId/delete
     expect([403, 404]).toContain(sectionRes.status);
   });
 });
+
+describe("POST /api/steps/:id/duplicate (ICW2-B5)", () => {
+  it("creates a copy in the same section with a fresh alias and identical config, positioned after the source", async () => {
+    const { sectionId } = await makeWorkflowWithSection();
+
+    const original = await agent
+      .post(`/api/sections/${sectionId}/steps`)
+      .send({ type: "short_text", title: "Original", alias: "clientName", config: { variant: "short" } });
+    expect(original.status).toBe(201);
+
+    const dup = await agent.post(`/api/steps/${original.body.id}/duplicate`);
+
+    expect(dup.status).toBe(201);
+    expect(dup.body.id).not.toBe(original.body.id);
+    expect(dup.body.sectionId).toBe(sectionId);
+    expect(dup.body.title).toBe("Original");
+    expect(dup.body.config).toEqual(original.body.config);
+    // Fresh, unique alias — never a verbatim copy (would collide with the
+    // workflow's per-alias unique index).
+    expect(dup.body.alias).not.toBe("clientName");
+    expect(dup.body.alias).toMatch(/^clientName_copy/);
+    expect(dup.body.order).toBe(original.body.order + 1);
+  });
+
+  it("shifts a later sibling down by one to make room for the copy", async () => {
+    const { sectionId } = await makeWorkflowWithSection();
+
+    const step1 = await agent.post(`/api/sections/${sectionId}/steps`).send({ type: "short_text", title: "Q1" });
+    const step2 = await agent.post(`/api/sections/${sectionId}/steps`).send({ type: "short_text", title: "Q2" });
+    expect(step1.body.order).toBe(1);
+    expect(step2.body.order).toBe(2);
+
+    const dup = await agent.post(`/api/steps/${step1.body.id}/duplicate`);
+    expect(dup.status).toBe(201);
+    expect(dup.body.order).toBe(2);
+
+    const stepsRes = await agent.get(`/api/sections/${sectionId}/steps`);
+    const shiftedStep2 = (stepsRes.body as Array<{ id: string; order: number }>).find((s) => s.id === step2.body.id);
+    expect(shiftedStep2?.order).toBe(3);
+  });
+
+  it("returns 404 for a nonexistent step", async () => {
+    const res = await agent.post(`/api/steps/${randomUUID()}/duplicate`);
+    expect(res.status).toBe(404);
+  });
+
+  it("view role gets 403, edit role succeeds", async () => {
+    const wfRes = await agent.post("/api/workflows").send({ title: `Dup ACL WF ${nanoid()}` });
+    const workflowId = wfRes.body.id as string;
+    const secRes = await agent.post(`/api/workflows/${workflowId}/sections`).send({ title: "Section" });
+    const sectionId = secRes.body.id as string;
+    const stepRes = await agent
+      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
+      .send({ type: "short_text", title: "Q1" });
+    const stepId = stepRes.body.id as string;
+
+    const sharedUser = await createTestUser(ctx, "builder");
+    const sharedAgent = createAuthenticatedAgent(ctx.baseURL, sharedUser.token);
+    const [aclEntry] = await db
+      .insert(schema.workflowAccess)
+      .values({ workflowId, principalType: "user", principalId: sharedUser.userId, role: "view" })
+      .returning();
+
+    const denied = await sharedAgent.post(`/api/steps/${stepId}/duplicate`);
+    expect(denied.status).toBe(403);
+    expect(denied.body.message).toMatch(/access denied/i);
+
+    await db.update(schema.workflowAccess).set({ role: "edit" }).where(eq(schema.workflowAccess.id, aclEntry.id));
+
+    const allowed = await sharedAgent.post(`/api/steps/${stepId}/duplicate`);
+    expect(allowed.status).toBe(201);
+  });
+
+  it("returns 400 once the workflow step cap is reached (ICW-11)", async () => {
+    const originalLimit = LIMITS.MAX_STEPS_PER_WORKFLOW;
+    LIMITS.MAX_STEPS_PER_WORKFLOW = 1;
+    try {
+      const { sectionId } = await makeWorkflowWithSection();
+      const step = await agent.post(`/api/sections/${sectionId}/steps`).send({ type: "short_text", title: "Only one" });
+      expect(step.status).toBe(201);
+
+      const dup = await agent.post(`/api/steps/${step.body.id}/duplicate`);
+      expect(dup.status).toBe(400);
+      expect(dup.body.message).toMatch(/question limit reached/i);
+    } finally {
+      LIMITS.MAX_STEPS_PER_WORKFLOW = originalLimit;
+    }
+  });
+});
+
+describe("POST /api/sections/:id/duplicate (ICW2-B5)", () => {
+  it("copies the section, its steps with fresh aliases, and section-scoped logic rules with remapped ids", async () => {
+    const { workflowId, sectionId } = await makeWorkflowWithSection();
+
+    const step1 = await agent
+      .post(`/api/sections/${sectionId}/steps`)
+      .send({ type: "short_text", title: "Q1", alias: "q_one" });
+    const step2 = await agent
+      .post(`/api/sections/${sectionId}/steps`)
+      .send({ type: "short_text", title: "Q2", alias: "q_two" });
+    expect(step1.status).toBe(201);
+    expect(step2.status).toBe(201);
+
+    const [rule] = await db
+      .insert(schema.logicRules)
+      .values({
+        workflowId,
+        conditionStepId: step1.body.id,
+        operator: "equals",
+        conditionValue: "yes",
+        targetType: "step",
+        targetStepId: step2.body.id,
+        action: "show",
+        order: 1,
+      })
+      .returning();
+
+    const dup = await agent.post(`/api/sections/${sectionId}/duplicate`);
+    expect(dup.status).toBe(201);
+    expect(dup.body.id).not.toBe(sectionId);
+    // The workflow's auto-created "Section 1" (order 1) plus this one (order 2)
+    // means the source section is order 2, so the copy lands at order 3.
+    expect(dup.body.order).toBe(3);
+
+    const newStepsRes = await agent.get(`/api/sections/${dup.body.id}/steps`);
+    expect(newStepsRes.status).toBe(200);
+    const newSteps = newStepsRes.body as Array<{ id: string; title: string; alias: string | null }>;
+    expect(newSteps).toHaveLength(2);
+
+    const newStep1 = newSteps.find((s) => s.title === "Q1");
+    const newStep2 = newSteps.find((s) => s.title === "Q2");
+    expect(newStep1?.id).not.toBe(step1.body.id);
+    expect(newStep1?.alias).not.toBe("q_one");
+    expect(newStep1?.alias).toMatch(/^q_one_copy/);
+    expect(newStep2?.alias).not.toBe("q_two");
+    expect(newStep2?.alias).toMatch(/^q_two_copy/);
+
+    // The section-scoped logic rule was copied with both ids remapped onto
+    // the new steps — never left pointing at the source's step ids.
+    const allRules = await db.select().from(schema.logicRules).where(eq(schema.logicRules.workflowId, workflowId));
+    const copiedRule = allRules.find((r) => r.id !== rule.id);
+    expect(copiedRule).toBeDefined();
+    expect(copiedRule?.conditionStepId).toBe(newStep1?.id);
+    expect(copiedRule?.targetStepId).toBe(newStep2?.id);
+  });
+
+  it("returns 404 for a nonexistent section", async () => {
+    const res = await agent.post(`/api/sections/${randomUUID()}/duplicate`);
+    expect(res.status).toBe(404);
+  });
+
+  it("view role gets 403, edit role succeeds", async () => {
+    const wfRes = await agent.post("/api/workflows").send({ title: `Dup Section ACL WF ${nanoid()}` });
+    const workflowId = wfRes.body.id as string;
+    const secRes = await agent.post(`/api/workflows/${workflowId}/sections`).send({ title: "Section" });
+    const sectionId = secRes.body.id as string;
+
+    const sharedUser = await createTestUser(ctx, "builder");
+    const sharedAgent = createAuthenticatedAgent(ctx.baseURL, sharedUser.token);
+    const [aclEntry] = await db
+      .insert(schema.workflowAccess)
+      .values({ workflowId, principalType: "user", principalId: sharedUser.userId, role: "view" })
+      .returning();
+
+    const denied = await sharedAgent.post(`/api/sections/${sectionId}/duplicate`);
+    expect(denied.status).toBe(403);
+    expect(denied.body.message).toMatch(/access denied/i);
+
+    await db.update(schema.workflowAccess).set({ role: "edit" }).where(eq(schema.workflowAccess.id, aclEntry.id));
+
+    const allowed = await sharedAgent.post(`/api/sections/${sectionId}/duplicate`);
+    expect(allowed.status).toBe(201);
+  });
+
+  it("returns 400 once the workflow section cap is reached (ICW-11)", async () => {
+    const originalLimit = LIMITS.MAX_SECTIONS_PER_WORKFLOW;
+    // Create the workflow/section under the real limit, then tighten the cap —
+    // creating the section itself must not be blocked by the test's own cap.
+    const { sectionId } = await makeWorkflowWithSection();
+    LIMITS.MAX_SECTIONS_PER_WORKFLOW = 2;
+    try {
+      const dup = await agent.post(`/api/sections/${sectionId}/duplicate`);
+      expect(dup.status).toBe(400);
+      expect(dup.body.message).toMatch(/section limit reached/i);
+    } finally {
+      LIMITS.MAX_SECTIONS_PER_WORKFLOW = originalLimit;
+    }
+  });
+
+  it("returns 400 when copying the section's steps would exceed the workflow step cap (ICW-11)", async () => {
+    const originalLimit = LIMITS.MAX_STEPS_PER_WORKFLOW;
+    LIMITS.MAX_STEPS_PER_WORKFLOW = 2;
+    try {
+      const { sectionId } = await makeWorkflowWithSection();
+      const step1 = await agent.post(`/api/sections/${sectionId}/steps`).send({ type: "short_text", title: "Q1" });
+      const step2 = await agent.post(`/api/sections/${sectionId}/steps`).send({ type: "short_text", title: "Q2" });
+      expect(step1.status).toBe(201);
+      expect(step2.status).toBe(201);
+
+      // At the cap already; duplicating the section would add 2 more steps.
+      const dup = await agent.post(`/api/sections/${sectionId}/duplicate`);
+      expect(dup.status).toBe(400);
+      expect(dup.body.message).toMatch(/question limit reached/i);
+    } finally {
+      LIMITS.MAX_STEPS_PER_WORKFLOW = originalLimit;
+    }
+  });
+});

@@ -8,7 +8,7 @@ import { stepRepository, sectionRepository, stepValueRepository, type DeleteImpa
 import { db } from "../db";
 
 import { aliasRenameService } from "./AliasRenameService";
-import { generateAliasFromLabel, generateUniqueAliasFromTaken, validateAliasFormat } from "./stepAlias";
+import { generateAliasCopy, generateAliasFromLabel, generateUniqueAliasFromTaken, validateAliasFormat } from "./stepAlias";
 import { workflowService } from "./WorkflowService";
 
 const SECTION_NOT_FOUND = "Section not found";
@@ -187,6 +187,70 @@ export class StepService {
       workflowId,
       sectionId,
       order: data.order ?? nextOrder,
+      // Server-controlled: never let a client-supplied value mark a
+      // freshly created step as already soft-deleted (ICW2-B1).
+      deletedAt: null,
+    });
+  }
+
+  /**
+   * Duplicate a single step into the same section, immediately after the
+   * source (later siblings in the section shift by one to make room;
+   * ICW2-B5). Mints a fresh unique alias (`<alias>_copy`, `_copy2`, ...)
+   * rather than copying verbatim — unlike the whole-workflow cloner, this
+   * targets the *same* workflow, so a verbatim alias would collide with the
+   * `(workflowId, lower(alias))` unique index.
+   */
+  async duplicateStep(stepId: string, userId: string): Promise<Step> {
+    const step = await this.stepRepo.findById(stepId);
+    if (!step) {
+      throw new Error(STEP_NOT_FOUND);
+    }
+
+    const section = await this.sectionRepo.findById(step.sectionId);
+    if (!section) {
+      throw new Error(SECTION_NOT_FOUND);
+    }
+
+    await this.workflowSvc.verifyAccess(section.workflowId, userId, 'edit');
+
+    const currentCount = await this.stepRepo.countByWorkflowId(section.workflowId);
+    if (currentCount >= LIMITS.MAX_STEPS_PER_WORKFLOW) {
+      throw new LimitExceededError(
+        `Question limit reached (${LIMITS.MAX_STEPS_PER_WORKFLOW} per workflow)`
+      );
+    }
+
+    const taken = await this.getWorkflowAliases(section.workflowId);
+    const alias = step.alias ? generateAliasCopy(step.alias, taken) : null;
+
+    return db.transaction(async (tx) => {
+      // Shift every later sibling (including virtual/computed steps, so their
+      // order never collides with the inserted copy) down by one.
+      const siblings = await this.stepRepo.findBySectionId(step.sectionId, tx, true);
+      const toShift = siblings.filter((s) => s.order > step.order);
+      for (const sibling of toShift) {
+        await this.stepRepo.updateOrder(sibling.id, step.sectionId, sibling.order + 1, tx);
+      }
+
+      return this.stepRepo.create(
+        {
+          workflowId: section.workflowId,
+          sectionId: step.sectionId,
+          type: step.type,
+          title: step.title,
+          description: step.description,
+          required: step.required,
+          config: step.config,
+          alias,
+          defaultValue: step.defaultValue,
+          order: step.order + 1,
+          isVirtual: step.isVirtual,
+          visibleIf: step.visibleIf,
+          repeaterConfig: step.repeaterConfig,
+        },
+        tx
+      );
     });
   }
 
@@ -271,6 +335,9 @@ export class StepService {
 
     const updates = { ...data };
     delete updates.workflowId;
+    // Server-controlled: deletedAt is only ever set/cleared by the
+    // dedicated delete/restore endpoints (ICW2-B1), never a general update.
+    delete updates.deletedAt;
 
     const finalConfig = data.config;
     if (finalConfig) {
@@ -294,7 +361,9 @@ export class StepService {
   }
 
   /**
-   * Delete step
+   * Delete step (soft-delete — ICW2-B1). `deletedAt` is set instead of a
+   * hard `DELETE`, so the `step_values.step_id` cascade never fires and
+   * respondent answers survive. See `restoreStep` to undo.
    */
   async deleteStep(stepId: string, workflowId: string, userId: string): Promise<void> {
     await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
@@ -310,7 +379,27 @@ export class StepService {
       throw new Error("Step not found in this workflow");
     }
 
-    await this.stepRepo.delete(stepId);
+    await this.stepRepo.softDelete(stepId);
+  }
+
+  /**
+   * Restore a soft-deleted step (ICW2-B1). Uses an unscoped lookup since the
+   * step's `deletedAt` is set, so the filtered `findById` cannot see it.
+   * Restore UI is deferred — this is server-side only.
+   */
+  async restoreStep(stepId: string, userId: string): Promise<Step> {
+    const step = await this.stepRepo.findByIdIncludingDeleted(stepId);
+    if (!step) {
+      throw new Error(STEP_NOT_FOUND);
+    }
+
+    await this.workflowSvc.verifyAccess(step.workflowId, userId, 'edit');
+
+    const restored = await this.stepRepo.restore(stepId);
+    if (!restored) {
+      throw new Error(STEP_NOT_FOUND);
+    }
+    return restored;
   }
 
   /**

@@ -1286,7 +1286,7 @@ service's existing per-table update pattern and its logging.
 
 ---
 
-## ICW2-15 — Template instantiation feeds `pages`-shaped graphs into `sections`-shaped ingest 🔲
+## ICW2-15 — Template instantiation feeds `pages`-shaped graphs into `sections`-shaped ingest ✅
 
 > **Re-scoped & still open (Shawn + reviewer, 2026-07-20).** Re-audit found
 > ICW2-6 already landed: `VersionService.serializeWorkflow` now writes
@@ -1473,11 +1473,110 @@ Two small correctness/coherence items in the same file pair (bundled):
 
 # Backlog — separate projects (not phase-gated)
 
-## ICW2-B1 — Soft-delete for steps/sections (`deletedAt`)
-Size: L. Decision 3's long-term destination: additive `deletedAt` columns,
-every reader filters, restore UI, answers survive question deletion. Composes
-with ICW2-B2 (old versions can reference soft-deleted steps). Needs
-`db-schema-change` + RLS-policy review for any new table/columns.
+## ICW2-B1 — Soft-delete for steps/sections (`deletedAt`) ✅
+
+> **Landed 2026-07-23.** `deletedAt` on steps/sections (migration 0005, schema
+> `_v8`); manual delete + ingest reconciliation now soft-delete (section
+> cascades to its steps in a transaction), so `step_values` answers survive;
+> chokepoint reads filter `isNull(deletedAt)`; the alias unique index is scoped
+> to `deleted_at IS NULL`; restore endpoints added (UI deferred). Verified: 11
+> integration tests (independently re-run against the test DB), full integration
+> suite 865/0, type-check + lint clean. **Follow-up filed as ICW2-B11** — the
+> AI-ops delete path still hard-deletes.
+
+**Priority: P1 (data safety)** · Size: L · Files:
+`shared/schema/workflow.ts`, a new `migrations/000N_*.sql` (via `db:generate`),
+`tests/helpers/schemaManager.ts`, `server/repositories/StepRepository.ts`,
+`server/repositories/SectionRepository.ts`, `server/services/StepService.ts`,
+`server/services/SectionService.ts`,
+`server/services/WorkflowContentIngestService.ts`,
+`server/routes/steps.routes.ts`, `server/routes/sections.routes.ts`
+
+> **Promoted from backlog & re-audited 2026-07-22.** Evidence below is current.
+> Scoped to a **shippable server-side core**; the restore *UI* (a client
+> surface to view/undelete removed steps) is deliberately deferred to a
+> follow-up so this ticket stays landable by one dev.
+
+### Finding
+
+Deleting a step/section is a **hard SQL `DELETE`** that destroys respondent
+answers. `StepService.deleteStep` (`StepService.ts:299-314`),
+`deleteStepById` (`:505-520`), `SectionService.deleteSection`
+(`SectionService.ts:88-97`), and `deleteSectionById` (`:203-211`) all call the
+repo `delete()`, which is `BaseRepository.delete` (`BaseRepository.ts:113-121`)
+— a real `DELETE`. `step_values` are the respondent answers (`run.ts:117-129`,
+comment "Step values (Answers)") and FK-cascade on step delete
+(`run.ts:120` `onDelete: 'cascade'`). So deleting a step permanently destroys
+its answers; deleting a section cascades steps→answers. ICW2-13 shipped only a
+**warning dialog** — the destruction still happens. The impact-count logic was
+deliberately placed in `StepValueRepository` "so ICW2-B1 (soft-delete) can
+reuse it" (`StepService.ts:318-321`).
+
+No `deletedAt` exists on `steps`/`sections` (`workflow.ts:239-252` sections,
+`:255-278` steps); only `datavault_rows` (`datavault.ts:111`) and `files`
+(`files.ts:52`) carry one. RLS policies for steps/sections
+(`migrations/0001_enable_rls.sql:123-178`) are tenancy-only and reference no
+`deletedAt`, so **exclusion must be application-layer, not RLS** — no RLS
+migration needed. A second hard-delete path exists in ingest reconciliation:
+`WorkflowContentIngestService.ts:482` (sections) and `:493` (steps).
+
+### Preferred fix
+
+- Add nullable `deletedAt: timestamp("deleted_at")` to `sections` and `steps`
+  in `shared/schema/workflow.ts`, then `npm run db:generate` → next migration
+  (`0003`+; **never** hand-edit the journal — `db-schema-change` skill). Add a
+  partial index `WHERE deleted_at IS NULL` (mirror `datavault_rows`,
+  `datavault.ts:119`). Bump the `_vN` token in
+  `tests/helpers/schemaManager.ts`.
+- **Critical:** change the partial unique index `steps_workflow_alias_unique`
+  to also require `deleted_at IS NULL`, so a soft-deleted step's alias frees up
+  and re-creation/undelete doesn't hit a unique violation.
+- Convert the delete paths to set `deletedAt = now()` instead of issuing a
+  `DELETE` (in the two services' delete methods and/or a repo `softDelete`).
+  Because no row is deleted, the `step_values` cascade never fires — answers
+  survive automatically. Section soft-delete should also soft-delete its child
+  steps.
+- Filter readers at the **chokepoints** (covers the large majority in a few
+  edits): add `isNull(deletedAt)` to `SectionRepository.findByWorkflowId`
+  (`:23-30`), `findByIdAndWorkflow` (`:35-50`), `countByWorkflowId` (`:69-76`);
+  `StepRepository.findBySectionId` (`:22-39`), `findBySectionIds` (`:46-64`),
+  `findByWorkflowId` (`:71-106` — add the column to the explicit list
+  `:84-100`), `findByWorkflowIdWithAliases` (`:147-169`), `getAliasMap`
+  (`:177-192`), `countByWorkflowId` (`:197-204`). Handle the generic
+  `BaseRepository.findById` used as `stepRepo/sectionRepo.findById` (override
+  in these two repos or add a scoped finder). Make the ingest inline reads
+  (`WorkflowContentIngestService.ts:231-233,259-265,389`) exclude soft-deleted
+  rows, and make its reconciliation "delete" a soft-delete.
+- Add restore endpoints: `POST /api/steps/:stepId/restore`,
+  `POST /api/sections/:sectionId/restore` (edit access, standard error
+  contract) that clear `deletedAt`. **Restore UI is out of scope — note it as
+  a deferred follow-up.**
+
+### Ties
+
+- `db-schema-change` (migration + `_vN` bump), `add-api-endpoint` (restore
+  endpoints, error contract), `run-tests`. Reuses `StepValueRepository`
+  impact-count.
+- **Sequenced LAST.** Shares `StepService`/`SectionService` with ICW2-B5 and a
+  migration number with ICW2-B7 — dispatch only after both have landed so the
+  migration number and service edits don't collide.
+
+### Acceptance criteria
+
+1. Deleting a step that has `step_values` sets `deletedAt` and leaves those
+   `step_values` rows intact (integration test: create step → add step_values
+   → delete → assert step row has `deletedAt` and the answers still exist).
+2. Soft-deleted steps/sections do not appear in `getWorkflowWithDetails`, the
+   builder list, version serialization, or the runner (integration test over
+   the aggregate reader and at least one run path).
+3. A new step can be created reusing a soft-deleted step's alias with no unique
+   violation (test the alias-freeing behavior).
+4. Restore endpoints clear `deletedAt` under `edit` access; `view` role → 403.
+5. Ingest reconciliation soft-deletes removed rows and ignores already
+   soft-deleted rows.
+6. Migration generated via `db:generate`; `schemaManager` `_vN` bumped;
+   `npm run type-check`, `npm run lint`, `npm run test:fast` + affected
+   integration tests green.
 
 ## ICW2-B2 — Full snapshot isolation: runs execute against published versions
 Size: L (architecture). Deferred by Decision 2. After ICW2-6, version bodies
@@ -1495,31 +1594,488 @@ each other; soft locks are racy (`CollaborationContext.tsx:58-70`). Needs a
 field-level merge or a real lock protocol. Defer unless co-editing becomes a
 near-term priority.
 
-## ICW2-B4 — Real builder E2E
-Size: M. No Playwright test drives the builder UI (existing "creator-flow"
-e2e uses `page.request.post` for everything). One spec: create → add section →
-add/edit steps via the forms → reorder via drag → add condition → activate →
-run. Blocked until Phases 1–2 stabilize the flows it would assert.
+## ICW2-B4 — Real builder E2E (UI-driven) ✅
 
-## ICW2-B5 — Duplicate section / duplicate step / bulk operations
-Size: M. Expected builder capabilities with no endpoints
-(only whole-workflow clone exists — `WorkflowClonerService` is a good donor
-for the remap logic).
+> **Landed 2026-07-23 (scoped).** UI-driven spec `tests/e2e/builder-ui-flow.e2e.ts`
+> drives create → add page → 2 questions (form edits) → keyboard reorder →
+> Easy-mode visibility condition → activate → real run created & runner renders,
+> with 3 persisted-state checkpoints. Passes reliably against a fresh dev server
+> (chromium). The answer→submit tail is deferred to ICW2-B10 (+ the related
+> answer-persistence gap) — two runner defects this spec surfaced. **In building
+> it, the spec found and got fixed FIVE real bugs:** blueprint JWT-auth (ICW2-15),
+> dev:test DB-init, runner null-500 (P0), section order-collision — all
+> committed — plus ICW2-B9 and ICW2-B10 filed.
+
+**Priority: P2 (test coverage)** · Size: M · Files: new
+`tests/e2e/builder-ui-flow.e2e.ts` (name at dev's discretion, must match
+`*.e2e.ts`)
+
+> **Promoted from backlog 2026-07-22.** Unblocked now that Phases 1–3 landed
+> (Easy-mode visibility ICW2-3, Review-tab activate ICW2-8 both exist).
+>
+> **Discovered-bug + reviewer fix 2026-07-22.** Round-1 dev correctly escalated
+> that `npm run dev:test` (the command Playwright's `webServer` launches) never
+> connected the DB, so UI e2e was never runnable this way. Root cause:
+> `server/db.ts` skips auto-init under `NODE_ENV=test` (to protect Vitest's
+> per-worker schema setup), and `server/index.ts` only `await`ed the resulting
+> no-op `dbInitPromise`. **Reviewer-applied fix** (own commit, outside the
+> ticket's e2e-spec scope): `server/index.ts` now also calls the idempotent
+> `initializeDatabase()` after awaiting `dbInitPromise` — no-op in dev/prod,
+> real connect under `dev:test`; Vitest never runs `index.ts`. Verified live:
+> `/health` on `:5174` now reports `database.connected: true`. Dev resumed to
+> run the spec against the working server.
+
+### Finding
+
+No Playwright spec drives the builder **UI**.
+`tests/e2e/creator-flow-complete.e2e.ts` does every structural step through
+`page.request.post` API calls (`:25` dev-login, `:38` create workflow, and so
+on) — so the builder forms, drag-reorder, and logic UI are entirely
+unasserted. A form regression (e.g. the ICW2-4 debounce, the ICW2-3 visibility
+editor) would pass CI. Playwright is configured
+(`playwright.config.ts`: `testMatch: *.e2e.ts`, baseURL `localhost:5174`,
+`webServer: npm run dev:test`); auth is `POST /api/auth/dev-login` then reload
+(`creator-flow-complete.e2e.ts:23-29`).
+
+### Preferred fix
+
+One new spec that drives the **actual builder UI** with real clicks/typing
+(not `page.request` for the structural work): dev-login → create a workflow →
+add a section through the builder → add ≥2 steps and edit title/description via
+the form fields → reorder (drag or the reorder control) → add a `visibleIf`
+condition via the Easy-mode visibility editor (ICW2-3) → activate via the
+Review tab (ICW2-8) → run the workflow and submit one answer. `page.request`
+is allowed only for auth/seed; the builder interactions must be UI. Use
+resilient selectors (`getByRole`/`getByText`), not brittle `nth`. Keep it
+chromium-only if cross-browser proves flaky (document via a project/`testMatch`
+note). Load the `verify` skill for the local-app run pattern.
+
+### Ties
+
+- `verify` skill (dev-login workaround, `dev:test` on 5174). Builds on ICW2-3
+  and ICW2-8. Isolated new file — **no overlap; safe to run in parallel.**
+
+### Acceptance criteria
+
+1. A new `*.e2e.ts` spec performs create → section → steps (form edit) →
+   reorder → condition → activate → run entirely through UI interactions
+   (`getByRole`/`click`/`fill`); API calls only for auth/seed.
+2. The spec passes locally against `npm run dev:test` (paste output). If a step
+   is genuinely not UI-drivable yet, document why and cover the rest.
+3. Assertions verify persisted state (reload or API read) at ≥3 points (step
+   created, condition saved, run submitted).
+4. No `test.only`; `npm run lint` clean on the new file.
+
+## ICW2-B5 — Duplicate step / duplicate section ✅
+
+**Priority: P2 (enhancement)** · Size: M · Files:
+`server/services/StepService.ts`, `server/services/SectionService.ts`,
+`server/routes/steps.routes.ts`, `server/routes/sections.routes.ts`,
+`client/src/components/builder/cards/common/StepTitleRow.tsx`,
+`client/src/components/builder/pages/PageCard.Header.tsx`,
+`client/src/hooks/api/useSteps.ts`, `client/src/hooks/api/useSections.ts`,
+`client/src/lib/vault-api.ts`
+
+> **Promoted from backlog & re-audited 2026-07-22.** Scoped to **duplicate a
+> single step and duplicate a single section**. General "bulk operations" is
+> **descoped** (no clear product spec, would balloon) — a dev should not build
+> multi-select/bulk here.
+
+### Finding
+
+Only whole-asset clone exists: `POST /api/workflows/:id/copy`
+(`workflows.routes.ts:143`) and `POST /api/projects/:id/copy`
+(`projects.routes.ts:246`), both delegating to `workflowClonerService`. There
+is **no** single-step or single-section duplicate endpoint, and no client
+action/hook (the 6 client "duplicate" matches are all alias/option-uniqueness
+validators, not features). Donor pattern:
+`WorkflowClonerService.copySectionsAndSteps` (`:493-558`) with the two-phase id
+remap `remapJsonIds` (`:135-153`) and `copyLogicRules` FK remap (`:560-599`) —
+note the cloner copies `alias` **verbatim** (`:542`) because it targets a *new*
+workflow. `createStep` (`StepService.ts:130-191`) derives append order as
+`max(order)+1` (`:178-181`), gates `verifyAccess(..., 'edit')` (`:136`), and
+enforces alias uniqueness via `validateAliasUniqueness` (`:93-125`) /
+`generateUniqueAlias`. `createSection` (`SectionService.ts:41-64`) mirrors this.
+
+### Preferred fix
+
+- **Server:** add `duplicateStep(stepId, userId)` to `StepService` and
+  `duplicateSection(sectionId, userId)` to `SectionService`, gated on
+  `verifyAccess('edit')` and respecting `MAX_STEPS_PER_WORKFLOW` /
+  `MAX_SECTIONS_PER_WORKFLOW`. Reuse the cloner's `remapJsonIds` approach but
+  for a **same-workflow** copy — so unlike the cloner you **must mint a fresh
+  unique alias** (`generateUniqueAlias`, e.g. `<alias>-copy`) rather than copy
+  it verbatim, or you hit the `(workflowId, lower(alias))` unique index. Copy
+  `config`/`defaultValue`/`visibleIf`/`repeaterConfig`. Prefer inserting the
+  copy immediately after the source (`order = source.order + 1`, shifting
+  later siblings) for good UX; append-at-end is acceptable if simpler — state
+  the choice. `duplicateSection` deep-copies its steps (each a fresh alias) and
+  any section-scoped logic rules, remapping ids via the two-phase pattern.
+- **Routes** (`add-api-endpoint` skill): `POST /api/steps/:stepId/duplicate`
+  and `POST /api/sections/:sectionId/duplicate`, `hybridAuth` +
+  `autoRevertToDraft`, standard `classifyRouteError` mapping.
+- **Client** (`design` skill): `PageCard.Header.tsx` already has a
+  `DropdownMenu` (`:158-195`) — add a "Duplicate Page" item before the Delete
+  separator. `StepTitleRow.tsx` is delete-only (`:82-91`) — add a small
+  overflow menu with Duplicate + Delete. New hooks `useDuplicateStep` /
+  `useDuplicateSection` in `useSteps.ts` / `useSections.ts` that invalidate the
+  workflow query so the copy appears without a full reload.
+
+### Ties
+
+- `add-api-endpoint`, `design`, `run-tests`. Donor: `WorkflowClonerService`.
+- **Shares `StepService`/`SectionService` with ICW2-B1** — dispatch this
+  **before** B1; B1 rebases on the committed result.
+
+### Acceptance criteria
+
+1. `POST /api/steps/:id/duplicate` creates a copy in the same section with a
+   **fresh unique alias** and identical config, positioned after the source;
+   returns the new step (integration test asserts alias differs, config equal,
+   order correct).
+2. `POST /api/sections/:id/duplicate` copies the section, all its steps (fresh
+   aliases), and section-scoped logic rules with remapped ids (integration
+   test).
+3. `view` role → 403; over the step/section limit → the standard limit error.
+4. Client: a Duplicate action exists in both the page dropdown and a step menu;
+   invoking it duplicates and the new item appears without a full reload
+   (dev-app proof per `verify` skill, screenshot).
+5. `npm run type-check`, `npm run lint`, `npm run test:fast` + new integration
+   tests green.
 
 ## ICW2-B6 — Response-envelope standardization on the workflow routes
 Size: M. `{message}` vs `{success,data}` split within
 `workflows.routes.ts` (create/update vs copy/mode/access/transfer). Decide the
 house envelope and converge; client sweep required.
 
-## ICW2-B7 — Per-tenant AI cost/token budgeting
-Size: M. Rate limits are request-count only, in-memory, per-instance
-(`ai.middleware.ts:94-131`). With the ops path emitting telemetry (ICW-13),
-add token/cost accounting per tenant with a configurable budget.
+## ICW2-B7 — Per-tenant AI cost/token budgeting ✅
 
-## ICW2-B8 — Project-scoped template pool fallback
-Size: S–M. `TemplatesTab.tsx:84-87` silently attaches unfiled workflows'
-templates to `projects[0]`. Decide the scoping story (workflow-scoped?
-explicit picker?) and remove the silent fallback.
+**Priority: P2 (cost control)** · Size: L (escalated from M — API-contract +
+schema change) · Files: `server/services/ai/AIProviderClient.ts`,
+`server/services/ai/providers/AnthropicProvider.ts`,
+`server/services/ai/providers/GeminiProvider.ts`,
+`server/services/ai/providers/OpenAIProvider.ts`,
+`server/services/ai/providers/types.ts`, `server/middleware/ai.middleware.ts`,
+`shared/schema/ai.ts` (+ new migration), `shared/limits.ts`, a new repository,
+tests. **Scope-expanded 2026-07-22 (reviewer-authorized, see note):**
+`server/routes/ai/workflowEdit.routes.ts`,
+`server/controllers/AiController.ts`, and
+`server/services/AIService.ts` + `server/services/ai/providerConfig.ts`.
+
+> **Promoted from backlog & re-audited 2026-07-22.** The dev is NOT expected to
+> invent your business budget numbers — the budget is **env-configurable with a
+> generous default** (below), so an unset env never breaks existing flows.
+>
+> **Reviewer scope authorization 2026-07-22.** Round-1 dev correctly escalated:
+> the `callLLM` choke point receives **no tenant identity** today, so enforcing
+> "at the AI endpoints (402/429)" (AC2) requires threading `tenantId` through
+> the config builders and adding a `BUDGET_EXCEEDED` → 402 branch to the AI
+> error mappers. Authorized additions (surgical, `tenantId`-only where
+> possible): thread `authReq.tenantId`/`req.tenantId` from
+> `workflowEdit.routes.ts` (into `resolveAiProviderConfig` +
+> `respondToModelFailure` status mapping) and `AiController.ts` (into
+> `createAIServiceFromEnv` + a `BUDGET_EXCEEDED` → 402 branch in
+> `handleAiError`), and let `AIService.createAIServiceFromEnv` /
+> `providerConfig.resolveAiProviderConfig` accept an optional `tenantId`. **Do
+> NOT** mount the `server/middleware/rlsContext.ts` AsyncLocalStorage
+> middleware — that is deliberately staged under SEC-051; pass `tenantId`
+> explicitly instead. `AIProviderConfig.tenantId` is an optional field.
+
+### Finding
+
+Rate limiting is **request-count only, in-memory, per-instance**:
+`aiWorkflowRateLimit` (`ai.middleware.ts:94-110`) and `aiDailyRateLimit`
+(`:116-131`), both `express-rate-limit` with the default MemoryStore (no
+`store` configured), keyed on `tenantId` (`:105-108,126-129`). Limits live in
+`shared/limits.ts:27-28`. There is **no token or cost accounting**. Real
+provider usage is **discarded in all three providers** — Anthropic ignores
+`response.usage` (`AnthropicProvider.ts:37-59`), Gemini ignores
+`usageMetadata` (`GeminiProvider.ts:52-67`), OpenAI ignores `response.usage`
+(`OpenAIProvider.ts:53-68`) — each re-derives a `Math.ceil(len/4)` estimate
+(`AIServiceUtils.ts:22-24`), logged (not persisted) in `AIProviderClient`
+(`:53,77,80`). `IAIProvider.generateResponse`/`callLLM` return
+`Promise<string>` (`providers/types.ts:27-31`) — **no usage channel**. No
+per-tenant budget/usage storage exists (`tenants` `auth.ts:36-47`,
+`ai_settings` `ai.ts:18-27` have none; `ai_settings` has no tenant FK).
+**`callLLM` is the single choke point** every AI path funnels through
+(`workflowEdit.routes.ts` and the `ai.routes.ts` generation family all reach
+it).
+
+### Preferred fix
+
+- **Surface real usage:** change `IAIProvider.generateResponse` to return
+  `{ text: string; usage?: { inputTokens: number; outputTokens: number } }`
+  (or add an out-channel), and read real usage in each provider (Anthropic
+  `response.usage.input_tokens/output_tokens`, Gemini
+  `response.usageMetadata`, OpenAI `response.usage`). Thread it up through
+  `callLLM`; keep the char/4 estimate only as a fallback when a provider omits
+  usage.
+- **Persist usage + budget:** add an `ai_usage` table (tenantId FK, inputTokens,
+  outputTokens, costUSD, timestamp) in `shared/schema/ai.ts` via
+  `npm run db:generate` (new migration — `db-schema-change` skill; **coordinate
+  the migration number with ICW2-B1**, which also adds one). Record one row per
+  `callLLM` in `AIProviderClient` after each call, keyed on the tenant.
+- **Enforce a configurable budget** keyed on `tenantId` at the `callLLM` choke
+  point (or a middleware sharing the accounting): a rolling 30-day token/cost
+  budget with an **env default** in `shared/limits.ts` (e.g.
+  `AI_TENANT_MONTHLY_TOKEN_BUDGET`, default generous enough not to break
+  existing flows). Over budget → fail-closed with a clear error mapped to
+  402/429 ("AI budget exceeded for this period").
+- **Note (do not implement):** cross-instance durability (shared store / Redis)
+  is deferred — the DB-backed `ai_usage` table is the source of truth; the
+  in-memory `express-rate-limit` stays as a coarse RPM guard.
+
+### Ties
+
+- `add-api-endpoint` (error contract), `db-schema-change` (new table +
+  migration — **coordinate number with ICW2-B1**), `run-tests`. `callLLM` is
+  the single seam. Independent of B5/B8; **shares only a migration number with
+  B1** — dispatched in Batch 1 (before B1).
+
+### Acceptance criteria
+
+1. After an AI call, **real provider token usage** (not the char/4 estimate) is
+   persisted per tenant (test with a mocked provider returning a usage object;
+   assert the stored row matches).
+2. A tenant over its configured budget is blocked at the AI endpoints with a
+   clear budget-exceeded error; under budget it succeeds (integration test that
+   sets the budget low via config/env).
+3. The default budget is env-configurable and generous; with the env unset,
+   existing AI flows still work (test the default path).
+4. All three providers pass real usage through; the estimate is only a fallback
+   (test the fallback when `usage` is absent).
+5. `npm run type-check`, `npm run lint`, `npm run test:fast` + new tests green;
+   migration generated via `db:generate`; `schemaManager` `_vN` bumped.
+
+## ICW2-B8 — Template pool: replace silent `projects[0]` fallback with explicit scoping ✅
+
+**Priority: P2 (correctness/UX)** · Size: S–M · Files:
+`client/src/components/builder/tabs/TemplatesTab.tsx` (+ a small picker/
+empty-state), tests
+
+> **Promoted from backlog & re-audited 2026-07-22.** Note: this tab manages
+> **document templates** (DOCX/PDF, scoped by a `NOT NULL` `projectId`), a
+> different subsystem from workflow blueprints — do not touch
+> `TemplateService`/`blueprint.routes.ts` (that's ICW2-15).
+
+### Finding
+
+`TemplatesTab.tsx:81-88` resolves which project's template pool to show. When
+the workflow is unfiled (`workflow.projectId == null`) it **silently** falls
+back to `projects[0].id`:
+
+```tsx
+} else if (projects != null && projects.length > 0) {
+  // Fallback: Use the first project (Default Project) if workflow is unfiled
+  setWorkflowProjectId(projects[0].id);
+}
+```
+
+That comment is wrong: `projects[0]` is the user's **newest** project
+(`ProjectRepository` orders `desc(createdAt)`, `:150`), not a stable default,
+and `useProjects()` is called with no arg so **archived** projects are included
+(`useProjects.ts:15-20`). The chosen id drives **both** the template list fetch
+(`:57-60`) and uploads (`:99-116`) — so an unfiled workflow silently reads from
+and writes document templates into an unrelated project, with no UI signal.
+(The zero-projects case is already handled correctly with a blocking toast,
+`:99-106`.) The `templates` table requires a non-null `projectId`
+(`workflow.ts:176-192`) and has no workflow-local pool, so the silent guess is
+the only current fallback.
+
+### Preferred fix (`design` skill)
+
+Remove the silent `projects[0]` fallback. For an unfiled workflow, do **not**
+auto-pick a project — instead surface an explicit affordance:
+
+- **Reviewer preference:** an empty-state that prompts the user to file the
+  workflow into a project first (document templates are project assets),
+  reusing the existing "No project context found. Please save the workflow to
+  a project first." copy pattern; **or**, if you judge inline selection better,
+  a small project picker in the tab header that starts unselected with clear
+  copy. State which you chose and why.
+
+When no project is chosen: the grid shows the guidance empty-state and upload
+is disabled — no fetch or upload fires against a project the user didn't
+explicitly target. The filed-workflow path (`:82-83`) is unchanged.
+
+### Ties
+
+- `design` skill (UI change), `verify` skill (dev-app proof). Independent of
+  ICW2-15 (server blueprint) — different files, **safe to run in parallel**.
+
+### Acceptance criteria
+
+1. An unfiled workflow no longer silently lists/uploads templates against
+   `projects[0]`; the user sees an explicit picker or a "file this workflow
+   first" empty-state (dev-app proof/screenshot per `verify` skill).
+2. A filed workflow (`workflow.projectId` set) behaves exactly as before.
+3. No upload or fetch fires against a project the user didn't explicitly
+   target.
+4. `npm run type-check`, `npm run lint`, `npm run test:fast` green; a test
+   (component or e2e) covering the unfiled and filed cases.
+
+---
+
+## ICW2-B9 — First "Next" on a fresh run no-ops (run.currentSectionId starts null) ✅ (committed 692c4c6c)
+
+**Priority: P2 (runner UX bug)** · Size: S–M · Files:
+`server/services/RunService.ts`, the run-creation path
+(`createRun`/`createAnonymousRun`), possibly
+`server/services/runs/RunExecutionCoordinator.ts` /
+`shared/workflowLogic.ts`, tests
+
+> **Discovered during ICW2-B4 e2e, 2026-07-22.** Worked around in that spec with
+> a documented double-click on the first section; this ticket is the real fix.
+
+### Finding
+
+The **first** `POST /api/runs/:id/next` on a fresh run returns
+`nextSectionId === currentSectionId` (no advance); the **second** call advances
+correctly. `RunService.next`/`nextNoAuth` (`RunService.ts:406-429`) ignores the
+client-supplied `currentSectionId` and reads `run.currentSectionId` from the DB
+row, which starts **NULL** at run creation. `calculateNextSection`
+(`shared/workflowLogic.ts:396-399`) special-cases a null current section as
+"return the first visible section" — so the first Next ever pressed resolves to
+the first section, i.e. where the user already is.
+`RunExecutionCoordinator.next` (`RunExecutionCoordinator.ts:72-77`) then
+persists that to `run.currentSectionId`, which is why the second press works.
+The pure nav logic (`LogicService.evaluateNavigation`) is correct once fed a
+real `currentSectionId`. Verified via direct API calls (B4).
+
+### Preferred fix
+
+Initialize `run.currentSectionId` to the first visible section (lowest `order`)
+at run creation, so the first Next advances **from** it. **Do NOT** start
+trusting the client-supplied `currentSectionId` in `next()` — reading server
+state is the safer design (a client shouldn't be able to assert its own
+position); keep that. First **confirm nothing depends on `currentSectionId`
+being null to mean "not started"** (resume, completion, first-render); if
+something does, instead handle the null case inside `next()` by treating null
+as "at the first section" and advancing past it.
+
+### Ties
+
+- `add-api-endpoint`, `run-tests`. Sibling to ICW2-B5's order-collision fix
+  (both are runner-navigation correctness). Not yet dispatched.
+
+### Acceptance criteria
+
+1. On a fresh run, the first `POST /next` advances from the first section to the
+   next visible section (integration test: `nextSectionId !== currentSectionId`
+   when a next section exists).
+2. `currentSectionId` semantics elsewhere (resume, completion, first render)
+   unchanged — existing run tests green.
+3. The ICW2-B4 e2e's first-section double-click accommodation can be removed and
+   the spec still passes.
+4. `npm run type-check`, `npm run lint`, tests green.
+
+---
+
+## ICW2-B10 — Runner does not reveal a step whose visibleIf references a just-answered step ✅ (committed 556f9b90)
+
+> **Real root cause (deviation from hypothesis):** not alias-vs-id keying (that
+> was already correct) but an unmemoized `run` object in `useRunSession` →
+> `useRunValues` hydration reset answers on every render (update-depth loop),
+> so answers never stuck. One bug, both symptoms (no reveal + review shows no
+> answers). Fixed + full builder e2e submit-flow restored & passing.
+
+**Priority: P1 (runner correctness)** · Size: M · Files (start here):
+`server/services/IntakeQuestionVisibilityService.ts` and/or the client runner's
+visibility evaluation + its answer/alias resolution, `shared/conditionEvaluator.ts`
+(reference only — the operator itself is correct)
+
+> **Discovered during ICW2-B4 e2e, 2026-07-22.** Needs root-cause; strong
+> evidence points at answer-key (alias vs step id) resolution at runtime.
+>
+> **Related symptom (same investigation):** after answering the controlling
+> Yes/No question and reaching the runner's Review page, the review rendered
+> "No questions answered in this section" for the answered question — i.e. the
+> submitted section recorded no answers. Likely downstream of the same
+> visibility-context/answer-keying issue (the runner filters/submits by a
+> visibility pass that can't resolve the answer). Confirm whether it is one bug
+> or two while fixing.
+
+### Finding
+
+In the runner, a step whose `visibleIf` is "show when <yes/no step> **is_true**"
+stays hidden even after the controlling Yes/No question is answered **Yes**. Live
+e2e evidence: on the section, the Yes/No control shows active/answered and the
+primary action is already the terminal "Review", but the conditional Date step is
+**absent from the DOM entirely** (Playwright accessibility snapshot).
+
+The condition is not the problem:
+- It is correctly persisted — ICW2-B4 checkpoint 2 asserts `visibleIf.conditions[0].operator === "is_true"` and that the stored condition references the controlling step's **alias**.
+- `is_true` = `toBoolean(actualValue) === true` (`shared/conditionEvaluator.ts:362`), and `toBoolean` (`:572-581`) already accepts `true`, `"yes"`, `"true"`, `"1"` — so any reasonable Yes encoding should evaluate true.
+
+So the defect is in how the **runner resolves the controlling answer at evaluation
+time** — most likely the `visibleIf` references the controlling step by **alias**
+while the runtime answer map is keyed by **step id** (or the client re-evaluates
+visibility from a source that doesn't yet hold the just-clicked answer). Net: the
+lookup yields `undefined`, `toBoolean(undefined) === false`, step stays hidden.
+
+### Preferred fix
+
+Trace the runner's visibility path (server `IntakeQuestionVisibilityService`
+around `:68/:167/:241`, and the client runner block that hides/shows steps) and
+make the evaluation context resolve the controlling answer whether the condition
+references an **alias or a step id** (build the context keyed by both, mirroring
+how the builder/`VariableService` maps aliases). Confirm the just-answered value
+is in the context the client evaluates against (re-evaluate on answer change).
+
+### Ties
+
+- `run-tests`. Sibling to ICW2-B9 (both runner-navigation/evaluation). Related to
+  the two-tier visibility system (ICW2-3 authored the step-level `visibleIf`).
+- Acceptance: an integration/e2e test where answering the controlling step Yes
+  reveals the dependent step (and No hides it); once fixed, restore the reveal +
+  date-fill assertions removed from `tests/e2e/builder-ui-flow.e2e.ts`.
+
+---
+
+## ICW2-B11 — Extend soft-delete to the remaining hard-delete paths (AI ops, transform blocks) ✅ (committed f99cb7b3)
+
+**Priority: P1 (data safety)** · Size: M · Files:
+`server/services/WorkflowPatchService.ts`,
+`server/services/TransformBlockService.ts`,
+`server/services/WorkflowService.ts` (~:625), tests
+
+> **Filed from ICW2-B1, 2026-07-23.** B1 protected the manual + ingest delete
+> paths; these remaining ones still destroy answers.
+
+### Finding
+
+ICW2-B1 converted the manual step/section delete and the ingest reconciliation
+to soft-delete, but three paths still issue a hard `DELETE` and therefore still
+permanently destroy respondent `step_values`:
+
+1. **`WorkflowPatchService` `step.delete` / `section.delete`** — the AI-editing
+   ops pipeline (Decision 1's "ops for everything" surface). So an **AI-driven
+   delete still destroys answers** despite B1 — the most important gap.
+2. `TransformBlockService.deleteBlock`.
+3. `WorkflowService.ts:~625`.
+
+### Preferred fix
+
+Route these deletes through the soft-delete methods B1 added
+(`stepRepo.softDelete` / `sectionRepo.softDelete`, or the service delete
+methods) instead of `repo.delete()`; the AI-ops apply path must cascade
+sections→steps like the manual path. Keep any deliberate hard-purge (if one
+exists) explicit and separate.
+
+### Ties
+
+- Builds directly on ICW2-B1; related to Decision 1. `add-api-endpoint`,
+  `run-tests`.
+
+### Acceptance criteria
+
+1. An AI `step.delete` / `section.delete` op soft-deletes: integration test
+   proves `step_values` survive after an AI-driven delete.
+2. `TransformBlockService.deleteBlock` and `WorkflowService.ts:~625` soft-delete
+   (or the hard delete is justified in the turn-in).
+3. A grep shows no remaining hard `DELETE` of steps/sections outside a
+   deliberate, documented purge.
+4. `npm run type-check`, `npm run lint`, and the relevant suites green.
 
 ---
 

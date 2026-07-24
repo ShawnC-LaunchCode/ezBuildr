@@ -3,6 +3,7 @@ import { SyntheticListenerMap } from "@dnd-kit/core/dist/hooks/utilities";
 import {
     ChevronDown,
     ChevronRight,
+    Copy,
     EyeOff,
     FileText,
     GripVertical,
@@ -46,6 +47,7 @@ interface PageCardHeaderProps {
     localDescription?: string;
     onSelectSection: () => void;
     onOpenLogicSheet: () => void;
+    onDuplicate: () => void;
     onDelete: () => void;
 }
 
@@ -67,6 +69,7 @@ export function PageCardHeader({
     localDescription,
     onSelectSection,
     onOpenLogicSheet,
+    onDuplicate,
     onDelete,
 }: PageCardHeaderProps) {
     return (
@@ -180,6 +183,14 @@ export function PageCardHeader({
                                 {!!page.visibleIf && (
                                     <span className="ml-auto text-xs text-amber-600">Active</span>
                                 )}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => {
+                                    onDuplicate();
+                                }}
+                            >
+                                <Copy className="h-4 w-4 mr-2" />
+                                Duplicate Page
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem

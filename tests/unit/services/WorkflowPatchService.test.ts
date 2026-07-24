@@ -14,12 +14,20 @@ import type {
   DatavaultWritebackMappingsRepository,
   DatavaultDatabasesRepository
 } from '../../../server/repositories';
+// section.delete/step.delete soft-delete (ICW2-B11) via db.transaction; the
+// fake just invokes the callback with a stub tx (mocked repos ignore it).
+vi.mock('../../../server/db', () => ({
+  db: {
+    transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({})),
+  },
+}));
 // Mock repositories
 vi.mock('../../../server/repositories', () => ({
   sectionRepository: {
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    softDelete: vi.fn(),
     findByWorkflowId: vi.fn(),
     findById: vi.fn(),
   },
@@ -27,6 +35,8 @@ vi.mock('../../../server/repositories', () => ({
     create: mockStepRepoCreate,
     update: mockStepRepoUpdate,
     delete: mockStepRepoDelete,
+    softDelete: mockStepRepoSoftDelete,
+    softDeleteBySectionId: mockStepRepoSoftDeleteBySectionId,
     findByWorkflowId: mockStepRepoFind,
     findBySectionId: mockStepRepoFindBySection,
     findById: mockStepRepoFindById,
@@ -62,7 +72,7 @@ vi.mock('../../../server/services/WorkflowService', () => ({
   },
 }));
 // Shared mock functions
-const { mockCreateTable, mockRequirePermission, mockCreateColumn, mockListColumns, mockStepRepoCreate, mockStepRepoUpdate, mockStepRepoDelete, mockStepRepoFind, mockStepRepoFindBySection, mockStepRepoFindById } = vi.hoisted(() => ({
+const { mockCreateTable, mockRequirePermission, mockCreateColumn, mockListColumns, mockStepRepoCreate, mockStepRepoUpdate, mockStepRepoDelete, mockStepRepoSoftDelete, mockStepRepoSoftDeleteBySectionId, mockStepRepoFind, mockStepRepoFindBySection, mockStepRepoFindById } = vi.hoisted(() => ({
   mockCreateTable: vi.fn(),
   mockRequirePermission: vi.fn(),
   mockCreateColumn: vi.fn(),
@@ -70,6 +80,8 @@ const { mockCreateTable, mockRequirePermission, mockCreateColumn, mockListColumn
   mockStepRepoCreate: vi.fn(),
   mockStepRepoUpdate: vi.fn(),
   mockStepRepoDelete: vi.fn(),
+  mockStepRepoSoftDelete: vi.fn(),
+  mockStepRepoSoftDeleteBySectionId: vi.fn(),
   mockStepRepoFind: vi.fn(),
   mockStepRepoFindBySection: vi.fn(),
   mockStepRepoFindById: vi.fn(),
@@ -105,6 +117,8 @@ describe('WorkflowPatchService', () => {
     mockStepRepoFind.mockReset();
     mockStepRepoCreate.mockReset();
     mockStepRepoFindById.mockReset();
+    mockStepRepoSoftDelete.mockReset();
+    mockStepRepoSoftDeleteBySectionId.mockReset();
 
     const repos = await import('../../../server/repositories');
     mockSectionRepo = repos.sectionRepository as Mocked<SectionRepository>;
@@ -602,6 +616,38 @@ describe('WorkflowPatchService', () => {
       // Logic changed: now error comes from repository failure due to unresolved ID, or Service if I updated it
       // Since Service passes "temp-section-1", and Repo Mock now throws "Invalid section ID"
       expect(result2.errors[0]).toContain('section');
+    });
+  });
+  describe('Delete Operations (ICW2-B11 — AI ops soft-delete)', () => {
+    it('soft-deletes a step instead of hard-deleting it (step.delete)', async () => {
+      const ops: WorkflowPatchOp[] = [
+        {
+          op: 'step.delete',
+          id: 'step-123',
+        },
+      ];
+      const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
+      expect(result.errors).toHaveLength(0);
+      expect(result.summary[0]).toContain('Deleted step');
+      expect(mockStepRepo.softDelete).toHaveBeenCalledWith('step-123');
+      expect(mockStepRepo.delete).not.toHaveBeenCalled();
+    });
+    it('soft-deletes a section AND cascades to its steps instead of hard-deleting either (section.delete)', async () => {
+      const ops: WorkflowPatchOp[] = [
+        {
+          op: 'section.delete',
+          id: 'section-123',
+        },
+      ];
+      const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
+      expect(result.errors).toHaveLength(0);
+      expect(result.summary[0]).toContain('Deleted section');
+      // Cascade: the section's own steps are soft-deleted first, mirroring
+      // the manual delete path's transactional cascade.
+      expect(mockStepRepo.softDeleteBySectionId).toHaveBeenCalledWith('section-123', expect.anything());
+      expect(mockSectionRepo.softDelete).toHaveBeenCalledWith('section-123', expect.anything());
+      expect(mockSectionRepo.delete).not.toHaveBeenCalled();
+      expect(mockStepRepo.delete).not.toHaveBeenCalled();
     });
   });
   describe('Logic Rule Operations', () => {

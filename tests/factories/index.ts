@@ -215,6 +215,7 @@ export function createTestSection(overrides?: DeepPartial<Section>): Omit<Sectio
     skipIf: overrides?.skipIf || null,
     visibleIf: overrides?.visibleIf || null,
     config: overrides?.config || {},
+    deletedAt: overrides?.deletedAt ?? null,
     ...overrides,
   };
 }
@@ -241,6 +242,7 @@ export function createTestStep(overrides?: DeepPartial<Step>): Omit<Step, 'id' |
     isVirtual: overrides?.isVirtual ?? false,
     visibleIf: overrides?.visibleIf || null,
     repeaterConfig: overrides?.repeaterConfig || null,
+    deletedAt: overrides?.deletedAt ?? null,
     ...overrides,
   };
 }

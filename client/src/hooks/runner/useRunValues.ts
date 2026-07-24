@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { fetchAPI, type ApiStep } from "@/lib/vault-api";
 import { useAutoSave } from "@/hooks/useAutoSave";
 
@@ -83,16 +83,40 @@ export function useRunValues({
     autosaveEnabled,
   } = valueAdapter;
 
-  // Initialize form values from run.values (production mode only)
+  // Initialize form values from run.values (production mode only).
+  //
+  // Guarded to fire once per run (ICW2-B10): `run` used to be rebuilt as a
+  // brand-new object on every render (see useRunSession), so this effect
+  // re-ran on every render and unconditionally clobbered `formValues` back to
+  // the last-persisted server snapshot — silently discarding whatever the
+  // user had just answered client-side (and, since `setFormValues` always
+  // triggered another render, running away into "Maximum update depth
+  // exceeded"). `run` is now memoized, but a real refetch (autosave
+  // completing, a background revalidation) still produces a new `run`
+  // reference — hydrating again at that point would just as silently wipe an
+  // in-progress answer, so hydration is limited to the first time a given
+  // `actualRunId`'s saved values become available, and merges under (rather
+  // than over) anything already in local state — unless `actualRunId` itself
+  // changed (the rare case where a session resolves to a *different* run
+  // without remounting, e.g. the "existing run replaced" fallback in
+  // useRunSession), in which case `prev` belongs to the old run and must not
+  // leak into the new one.
+  const hydratedRunIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (hydrateFromSavedRun && run?.values) {
-      const initial: Record<string, StepValue> = {};
-      run.values.forEach((v) => {
-        initial[v.stepId] = v.value;
-      });
-      setFormValues(initial);
+    if (!hydrateFromSavedRun || !run?.values || !actualRunId) {
+      return;
     }
-  }, [run, hydrateFromSavedRun]);
+    if (hydratedRunIdRef.current === actualRunId) {
+      return;
+    }
+    const isDifferentRun = hydratedRunIdRef.current !== null && hydratedRunIdRef.current !== actualRunId;
+    hydratedRunIdRef.current = actualRunId;
+    const initial: Record<string, StepValue> = {};
+    run.values.forEach((v) => {
+      initial[v.stepId] = v.value;
+    });
+    setFormValues((prev) => (isDifferentRun ? initial : { ...initial, ...prev }));
+  }, [run, hydrateFromSavedRun, actualRunId]);
 
   // Intake Data Hydration (Production Mode)
   useEffect(() => {
