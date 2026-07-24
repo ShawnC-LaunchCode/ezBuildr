@@ -16,14 +16,6 @@
       "reason": "DoS via an unhandled exception in JaegerPropagator on a malformed inbound header. This app does not use Jaeger propagation anywhere (no JaegerPropagator reference in the codebase), so the vulnerable path is unreachable. Same OpenTelemetry tree as GHSA-q7rr; only patched by a breaking-major OTel upgrade.",
       "followUp": "SEC-056 — upgrade OpenTelemetry to a patched line and drop this exception",
       "expires": "2026-10-11"
-    },
-    {
-      "ghsa": "GHSA-xcpc-8h2w-3j85",
-      "package": "adm-zip (direct dep; used only by WorkflowBundleService import/export)",
-      "severity": "high",
-      "reason": "A crafted ZIP triggers a ~4GB memory allocation (DoS, not RCE/data-exposure). Reachable via workflow-bundle import (new AdmZip(buffer) on an uploaded bundle). The only fix is adm-zip 0.6.0, a semver-major upgrade; deferring that to a focused, validated change rather than bundling a major dependency bump into a CI-infra PR. Impact is bounded to memory exhaustion on a single import request. Shorter expiry than the OTel entries since it is reachable.",
-      "followUp": "Upgrade adm-zip to >=0.6.0 (validate WorkflowBundleService import/export), then remove this exception — file as a SEC follow-up ticket.",
-      "expires": "2026-09-15"
     }
   ]
 }
