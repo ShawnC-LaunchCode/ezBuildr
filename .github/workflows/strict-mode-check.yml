@@ -10,6 +10,14 @@ on:
       - main
       - develop
 
+# The strict-zones jobs post a PR summary/failure comment via github-script.
+# With the repo's default read-only GITHUB_TOKEN that call fails ("Resource not
+# accessible by integration" on the "Comment summary on PR" step), so grant
+# PR-comment write here.
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   strict-zones:
     name: Validate Strict Zones
