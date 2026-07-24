@@ -132,6 +132,13 @@ jobs:
       env:
         NODE_ENV: test
         DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/test_db"
+        # tests/setup.ts deliberately IGNORES the inherited DATABASE_URL and
+        # resolves the test DB from TEST_DATABASE_URL, falling back to a
+        # localhost default whose password/db do NOT match this CI service.
+        # Without this line every integration test failed to connect (28P01),
+        # so the integration suite never actually ran in CI. Point it at the
+        # CI postgres service.
+        TEST_DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/test_db"
         # Must be >=32 chars — env.ts rejects shorter secrets and, in test mode,
         # only injects a fallback when the var is UNSET (not when set too short).
         SESSION_SECRET: "test-session-secret-minimum-32-characters-long-for-ci"

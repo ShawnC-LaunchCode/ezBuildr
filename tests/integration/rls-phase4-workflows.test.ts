@@ -146,13 +146,20 @@ afterAll(async () => {
 
 describe("RLS phase 4: app_owner_tenant resolution (SEC-051 / ICW-B2)", () => {
   test("resolves a workflow's tenant from each ownership path", async () => {
+    // Args are cast to the exact parameter types (owner_type, varchar, varchar,
+    // varchar, uuid). Without casts, the bare NULLs are `unknown`, and when the
+    // function exists in more than one schema on the search_path (which happens
+    // in CI: `db:migrate` creates it in `public` and the per-worker test schema
+    // defines it too) Postgres cannot apply search-path shadowing and errors
+    // "function app_owner_tenant(...) is not unique" (42725). Explicit types
+    // resolve to a single candidate.
     const r = await db.execute(sql`
       SELECT
-        app_owner_tenant('user', ${userA}, NULL, NULL, NULL)      AS by_owner_user,
-        app_owner_tenant('org',  ${orgB}, NULL, NULL, NULL)       AS by_owner_org,
-        app_owner_tenant('user', NULL, ${userB}, NULL, NULL)      AS by_legacy_owner,
-        app_owner_tenant('user', NULL, NULL, ${userA}, NULL)      AS by_creator,
-        app_owner_tenant('user', 'does-not-exist', NULL, NULL, NULL) AS orphan
+        app_owner_tenant('user'::owner_type, ${userA}::varchar, NULL::varchar, NULL::varchar, NULL::uuid)      AS by_owner_user,
+        app_owner_tenant('org'::owner_type,  ${orgB}::varchar, NULL::varchar, NULL::varchar, NULL::uuid)       AS by_owner_org,
+        app_owner_tenant('user'::owner_type, NULL::varchar, ${userB}::varchar, NULL::varchar, NULL::uuid)      AS by_legacy_owner,
+        app_owner_tenant('user'::owner_type, NULL::varchar, NULL::varchar, ${userA}::varchar, NULL::uuid)      AS by_creator,
+        app_owner_tenant('user'::owner_type, 'does-not-exist'::varchar, NULL::varchar, NULL::varchar, NULL::uuid) AS orphan
     `);
     const row = rows(r)[0];
     expect(row.by_owner_user).toBe(tenantA);
