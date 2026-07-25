@@ -228,6 +228,38 @@ npm run db:migrate       # Run SQL migrations (see db-schema-change skill first)
 5. **Sandboxed Execution:** JS (vm2/vm) + Python (subprocess) with timeouts; vm2/isolated-vm are optional deps and may be missing locally
 6. **Secrets:** AES-256-GCM encrypted, accessed via the secrets service only; outbound HTTP to user URLs goes through `safeFetch`
 7. **Tenant Isolation:** service-layer `tenant_id` scoping, plus the `withTenant` helper and staged Postgres RLS (`migrations/0001_enable_rls.sql`, defined not-yet-enforced). New tenant tables need an RLS policy; never set the tenant GUC session-level — see `docs/architecture/TENANT_ISOLATION_RLS.md` (SEC-051)
+8. **Parallel agents use worktrees, never the shared tree** — see below.
+
+## Parallel work: use git worktrees
+
+When dispatching more than one agent at a time (e.g. the `ticket-flow` skill's
+Mode B), give each one its own git worktree: `Agent(isolation: "worktree")`.
+Do **not** run concurrent agents in the main checkout.
+
+This is a hard-won default. Running a 16-ticket initiative with 3-4 concurrent
+devs in one shared tree (2026-07-25) produced, in a single session:
+
+- **Co-mingled commits.** Three ticket pairs landed in the same file before
+  either could be committed and had to share a commit (RUN2-2/5, RUN2-3/13,
+  RUN2-12/16), losing one-commit-per-ticket traceability.
+- **A near-miss data loss.** A dev ran `git stash` to get a clean baseline; a
+  concurrent edit landed between push and pop, the pop conflicted, and both
+  files were reset to HEAD. Recovered by hand, but only because it was noticed.
+- **Blocked commits and false gate reports.** The repo-wide `tsc` in the
+  pre-commit hook fails whenever *any* concurrent dev is mid-edit, so verified
+  work could not be committed until unrelated agents finished — and agents
+  reported their own gates green while the tree was red.
+
+Rules that still apply even with worktrees:
+
+- The reviewer commits, one commit per passed ticket, staging **only that
+  ticket's files by path**. Never `git add -A` — the repo owner works this
+  repo from a second IDE concurrently, and unrelated staged changes are common.
+- Verify gates yourself rather than trusting an agent's report. `tsc --pretty`
+  emits ANSI codes, so `grep "error TS"` finds nothing on a failing tree — read
+  the raw output or grep `Found [0-9]+ error`.
+- Sequence, don't parallelize, tickets that touch the same file. Note each
+  ticket's file footprint in its Ties so dispatch is a lookup.
 
 ---
 

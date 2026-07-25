@@ -41,6 +41,7 @@ testDoc.docx
 
 # Claude Code settings
 .claude/settings.local.json
+.claude/worktrees/
 cookies.txt
 test-output.txt
 
