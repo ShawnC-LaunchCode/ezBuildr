@@ -1468,12 +1468,13 @@ whether that lands in this initiative or its own.
 - **RUN2-B3** — `server/workflows/validation.ts:132` uses
   `visibleStepIds.includes(step.id)` inside a loop over steps (O(n²)). Use a Set.
   Irrelevant at current sizes; note it for when sections get large.
-- **RUN2-B5** —  passes  into the
-  analytics event writer for runs with no pinned version, and
-   is a  column — so every draft run logs
-   and silently drops its
-   event. Visible in integration output; pre-existing, unrelated to
-  this initiative.
+- **RUN2-B5** — runs with no pinned version pass the literal string `'draft'`
+  as the version id into the analytics event writer, but
+  `workflow_run_events.version_id` is a `uuid` column. Every such run logs
+  `invalid input syntax for type uuid: "draft"` and silently drops its
+  `run.start` event, so draft-run analytics are simply missing. Observed in
+  integration output while verifying RUN2-9; pre-existing and unrelated to this
+  initiative, but it means any metric derived from `run.start` under-counts.
 - **RUN2-B4** — `parseInitialValuesFromUrl` (`useRunSession.ts:39-43`)
   `JSON.parse`s every query parameter, so `?name=123` stores the number `123`
   and `?flag=true` stores the boolean. For a text question that silently changes
