@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
+vi.mock('../../../server/logger', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  createLogger: vi.fn(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })),
+}));
+
+import { logger } from '../../../server/logger';
 import { RunRuntimeService } from '../../../server/services/workflow-runs/RunRuntimeService';
 
 const runId = '11111111-1111-4111-8111-111111111111';
@@ -180,5 +186,49 @@ describe('RunRuntimeService', () => {
       required: false,
     });
     expect(runtime.logicRules).toEqual([]);
+  });
+
+  it('drops a rule whose condition step cannot be resolved and logs it once (RUN2-11)', async () => {
+    // A rule referencing an alias with no matching step (e.g. the controller
+    // step was later deleted from this version) must not reach the runtime
+    // logicRules with a `conditionStepId: ""` fallback - evaluateCondition
+    // would otherwise treat `data[""]` as empty and fire `is_empty` rules
+    // unconditionally. The rule must be dropped, not silently degraded.
+    const { service } = makeService({
+      version: {
+        id: versionId,
+        workflowId,
+        createdAt: new Date('2026-07-18T00:00:00.000Z'),
+        graphJson: {
+          title: 'Pinned interview',
+          description: 'Versioned definition',
+          projectId: null,
+          sections: [{
+            id: sectionId,
+            title: 'Questions',
+            order: 1,
+            steps: [
+              { id: targetId, type: 'short_text', title: 'Target', order: 1 },
+            ],
+          }],
+          logicRules: [{
+            conditionStepAlias: 'ghost-controller',
+            operator: 'is_empty',
+            targetType: 'step',
+            targetId,
+            action: 'hide',
+          }],
+        },
+      },
+    });
+
+    const runtime = await service.getRuntime(runId, { tokenRunId: runId });
+
+    expect(runtime.logicRules).toEqual([]);
+    expect(vi.mocked(logger.warn)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(logger.warn)).toHaveBeenCalledWith(
+      expect.objectContaining({ versionId, conditionStepAlias: 'ghost-controller' }),
+      expect.stringContaining('Dropping runtime logic rule')
+    );
   });
 });

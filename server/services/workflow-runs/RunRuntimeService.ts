@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import type { LogicRule, Step, WorkflowRun } from "@shared/schema";
 
+import { logger } from "../../logger";
 import { stepValueRepository, workflowRunRepository, workflowVersionRepository } from "../../repositories";
 import { RunAuthResolver, runAuthResolver } from "../runs/RunAuthResolver";
 
@@ -165,14 +166,33 @@ export class RunRuntimeService {
     );
     const sectionIds = new Set(graph.sections.map((section) => section.id));
 
-    const logicRules = (graph.logicRules ?? []).map((rule, index) => {
+    // RUN2-11: a rule whose condition step cannot be resolved (neither a
+    // direct id nor an alias found in this version's steps) must have no
+    // runtime effect. Drop it rather than emitting `conditionStepId: ""`,
+    // which `evaluateCondition` would otherwise read as `data[""] ===
+    // undefined` and treat as unconditionally empty. Logged once per dropped
+    // rule so a broken publish is visible without silently hiding content.
+    const logicRules = (graph.logicRules ?? []).flatMap((rule, index) => {
+      const conditionStepId = rule.conditionStepId ?? stepIdByAlias.get(rule.conditionStepAlias ?? "");
+      if (!conditionStepId) {
+        logger.warn(
+          {
+            versionId: version.id,
+            ruleId: rule.id ?? `runtime-rule-${index}`,
+            conditionStepAlias: rule.conditionStepAlias ?? null,
+          },
+          "Dropping runtime logic rule with unresolvable condition step"
+        );
+        return [];
+      }
+
       const targetId = rule.targetId ?? (rule.targetType === "step"
         ? stepIdByAlias.get(rule.targetAlias ?? "")
         : sectionIds.has(rule.targetAlias ?? "") ? rule.targetAlias : undefined);
-      return {
+      return [{
         id: rule.id ?? `runtime-rule-${index}`,
         workflowId: run.workflowId,
-        conditionStepId: rule.conditionStepId ?? stepIdByAlias.get(rule.conditionStepAlias ?? "") ?? "",
+        conditionStepId,
         operator: rule.operator as LogicRule["operator"],
         conditionValue: rule.conditionValue ?? null,
         targetType: rule.targetType,
@@ -183,7 +203,7 @@ export class RunRuntimeService {
         order: rule.order ?? index + 1,
         createdAt: timestamp,
         updatedAt: timestamp,
-      } satisfies LogicRule;
+      } satisfies LogicRule];
     });
 
     const values = await this.valueRepo.findByRunId(run.id);

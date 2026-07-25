@@ -260,6 +260,14 @@ export function evaluateWorkflowVisibility(options: {
  * Evaluates a single condition
  */
 function evaluateCondition(rule: EvaluableLogicRule, data: Record<string, unknown>): boolean {
+  // RUN2-11: a rule whose condition step could not be resolved (empty/missing
+  // conditionStepId) must have no effect - fail safe for every operator,
+  // including is_empty/is_not_empty, which would otherwise treat the
+  // resulting `undefined` lookup as "empty" and fire unconditionally.
+  if (!rule.conditionStepId) {
+    return false;
+  }
+
   const actualValue = data[rule.conditionStepId];
   const expectedValue = rule.conditionValue;
 

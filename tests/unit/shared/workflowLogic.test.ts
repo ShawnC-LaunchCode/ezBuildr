@@ -898,6 +898,83 @@ describe("workflowLogic", () => {
           expect(result.visibleSteps.has("step-2")).toBe(false);
         });
       });
+      describe("Unresolvable condition step (RUN2-11)", () => {
+        // [probe-confirmed] A rule reaching the engine with an empty
+        // conditionStepId (e.g. RunRuntimeService's old `?? ""` fallback for
+        // an alias that no longer resolves) must have NO effect, for every
+        // operator - not just degrade to "always fires" for is_empty.
+        it("does not fire is_empty for an empty conditionStepId, even though data[''] is undefined", () => {
+          const rules: LogicRule[] = [
+            {
+              id: "rule-1",
+              workflowId: "wf-1",
+              targetType: "section",
+              targetSectionId: "B", targetStepId: null,
+              conditionStepId: "",
+              operator: "is_empty",
+              conditionValue: null,
+              action: "hide",
+              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            },
+          ];
+          const data = { q1: "anything" };
+          const result = evaluateRules(rules, data);
+          expect(result.hiddenSections.has("B")).toBe(false);
+        });
+        it("does not fire is_not_empty for an empty conditionStepId", () => {
+          const rules: LogicRule[] = [
+            {
+              id: "rule-1",
+              workflowId: "wf-1",
+              targetType: "step",
+              targetStepId: "step-2", targetSectionId: null,
+              conditionStepId: "",
+              operator: "is_not_empty",
+              conditionValue: null,
+              action: "show",
+              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            },
+          ];
+          const result = evaluateRules(rules, { "step-2": "irrelevant" });
+          expect(result.visibleSteps.has("step-2")).toBe(false);
+        });
+        it("does not fire equals/contains/greater_than for an empty conditionStepId", () => {
+          const baseRule = {
+            id: "rule-1",
+            workflowId: "wf-1",
+            targetType: "step" as const,
+            targetStepId: "step-2", targetSectionId: null,
+            conditionStepId: "",
+            conditionValue: "yes",
+            action: "show" as const,
+            order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+          };
+          const data = { "step-1": "yes" };
+
+          expect(evaluateRules([{ ...baseRule, operator: "equals" }], data).visibleSteps.has("step-2")).toBe(false);
+          expect(evaluateRules([{ ...baseRule, operator: "contains" }], data).visibleSteps.has("step-2")).toBe(false);
+          expect(evaluateRules([{ ...baseRule, operator: "greater_than" }], data).visibleSteps.has("step-2")).toBe(false);
+        });
+        it("still fires is_empty normally once conditionStepId resolves to a real step", () => {
+          // Guardrail: the RUN2-11 fix must not change legitimate is_empty
+          // behavior for a step that genuinely has no value yet.
+          const rules: LogicRule[] = [
+            {
+              id: "rule-1",
+              workflowId: "wf-1",
+              targetType: "section",
+              targetSectionId: "B", targetStepId: null,
+              conditionStepId: "q1",
+              operator: "is_empty",
+              conditionValue: null,
+              action: "hide",
+              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            },
+          ];
+          const result = evaluateRules(rules, {});
+          expect(result.hiddenSections.has("B")).toBe(true);
+        });
+      });
       describe("Unknown operator", () => {
         it("should return false and log warning for unknown operator", () => {
           const rules: LogicRule[] = [
