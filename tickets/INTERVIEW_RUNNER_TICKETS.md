@@ -1073,7 +1073,7 @@ but make the failure diagnosable:
 
 ---
 
-## RUN2-11 — An unresolvable logic rule becomes an always-true `is_empty` rule at runtime 🔲
+## RUN2-11 — An unresolvable logic rule becomes an always-true `is_empty` rule at runtime ✅
 
 **Priority: P1 (bug)** · Size: S · Files: `server/services/workflow-runs/RunRuntimeService.ts`, `shared/workflowLogic.ts`
 
@@ -1475,6 +1475,13 @@ whether that lands in this initiative or its own.
   `run.start` event, so draft-run analytics are simply missing. Observed in
   integration output while verifying RUN2-9; pre-existing and unrelated to this
   initiative, but it means any metric derived from `run.start` under-counts.
+- **RUN2-B6** — `BlockResult` (`shared/types/blocks.ts`) carries a
+  `nextSectionId` but no block id or name, and `BlockRunner.runPhase` does not
+  surface which block produced a branch decision. RUN2-12 therefore has to log
+  the *section* whose `onNext` phase emitted a bad target rather than naming the
+  offending block. Threading a block id through `BlockResult` would make that
+  warning directly actionable. Raised by the RUN2-12 dev; accepted as a
+  deviation there.
 - **RUN2-B4** — `parseInitialValuesFromUrl` (`useRunSession.ts:39-43`)
   `JSON.parse`s every query parameter, so `?name=123` stores the number `123`
   and `?flag=true` stores the boolean. For a text question that silently changes
@@ -1497,7 +1504,7 @@ whether that lands in this initiative or its own.
 | RUN2-8 | Lint gate emits false "unknown alias" errors | ✅ Done 2026-07-25 |
 | RUN2-9 | `validateWorkflow` is a stub | ✅ Done 2026-07-25 |
 | RUN2-10 | Runtime schema rejection is an opaque 500 | 🔲 Open |
-| RUN2-11 | Unresolvable rule becomes always-true `is_empty` | 🔲 Open |
+| RUN2-11 | Unresolvable rule becomes always-true `is_empty` | ✅ Done 2026-07-25 |
 | RUN2-12 | Branch-block `nextSectionId` trusted unvalidated | 🔲 Open |
 | RUN2-13 | Display `{{alias}}` never resolves; final block gets `{}` | ✅ Done 2026-07-25 |
 | RUN2-14 | Choice options reload per keystroke; empty alias crashes | 🔲 Open |
