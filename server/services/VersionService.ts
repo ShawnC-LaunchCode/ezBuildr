@@ -9,6 +9,8 @@ import { WorkflowGraphSchema } from "../../shared/zod-schemas.js";
 import { db } from "../db";
 import { createLogger } from "../logger";
 import { computeChecksum } from "../utils/checksum";
+import { createError } from "../utils/errors";
+import { lintWorkflowContent, type LintableWorkflowContent } from "./workflowLintRules";
 
 import { aclService } from "./AclService";
 import { workflowDiffService, type WorkflowDiff } from "./diff/WorkflowDiffService";
@@ -278,10 +280,25 @@ export class VersionService {
       notes?: string,
       force: boolean = false
     ): Promise<WorkflowVersion> {
-      const graphJson = await this.serializeWorkflow(workflowId, userId) as unknown as WorkflowGraph;
+    // Authorization first: never do the serialization work before establishing
+    // the caller may publish (RUN2-7).
     const hasAccess = await aclService.hasWorkflowRole(userId, workflowId, 'edit');
     if (!hasAccess) {
       throw new Error(WORKFLOW_ACCESS_DENIED_MSG);
+    }
+
+    const graphJson = await this.serializeWorkflow(workflowId, userId) as unknown as WorkflowGraph;
+
+    // RUN2-7: publishing sets status to 'active' further down, exactly like
+    // PUT /api/workflows/:id/status does — so it must clear the same lint gate.
+    // Previously only the status route ran the linter, leaving publish (the
+    // door the builder actually uses) completely ungated.
+    const lintResults = lintWorkflowContent(graphJson as unknown as LintableWorkflowContent);
+    const lintErrors = lintResults.filter(result => result.type === 'error');
+    if (lintErrors.length > 0 && !force) {
+      throw createError.validation(
+        `Cannot publish workflow: ${lintErrors.map(error => error.message).join(', ')}`
+      );
     }
 
     // Validate workflow
@@ -345,6 +362,10 @@ export class VersionService {
         versionNumber,
         validationWarnings: validation.warnings,
         forced: force,
+        // RUN2-7: when a publish is forced past failing lint, record exactly
+        // what was overridden — a forced publish must be auditable.
+        lintErrorsOverridden: lintErrors.length > 0 ? lintErrors.map(error => error.message) : undefined,
+        lintWarnings: lintResults.filter(result => result.type === 'warning').map(result => result.message),
         changelog
       },
     });
