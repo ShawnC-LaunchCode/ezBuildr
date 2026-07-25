@@ -286,4 +286,40 @@ describe.sequential("Workflow Move API Integration Tests", () => {
       expect(response.body.message).toContain("target project");
     });
   });
+
+  describe("PUT /api/workflows/:id (generic update)", () => {
+    it("ignores a client-supplied projectId (reparent must go through /move)", async () => {
+      const wfRes = await request(ctx.baseURL)
+        .post(`/api/workflows`)
+        .set("Authorization", `Bearer ${ctx.authToken}`)
+        .send({ title: "Generic PUT WF", projectId: ctx.projectId })
+        .expect(201);
+      const workflowId = wfRes.body.id as string;
+
+      const otherProject = await request(ctx.baseURL)
+        .post("/api/projects")
+        .set("Authorization", `Bearer ${ctx.authToken}`)
+        .send({ name: "Other Project" })
+        .expect(201);
+      const otherProjectId = otherProject.body.id as string;
+
+      // Generic update tries to move the workflow via mass-assignment.
+      const res = await request(ctx.baseURL)
+        .put(`/api/workflows/${workflowId}`)
+        .set("Authorization", `Bearer ${ctx.authToken}`)
+        .send({ title: "Renamed via generic PUT", projectId: otherProjectId })
+        .expect(200);
+
+      // Title updates, but the project is untouched — reparent is blocked.
+      expect(res.body.title).toBe("Renamed via generic PUT");
+      expect(res.body.projectId).toBe(ctx.projectId);
+      expect(res.body.projectId).not.toBe(otherProjectId);
+
+      const verify = await request(ctx.baseURL)
+        .get(`/api/workflows/${workflowId}`)
+        .set("Authorization", `Bearer ${ctx.authToken}`)
+        .expect(200);
+      expect(verify.body.projectId).toBe(ctx.projectId);
+    });
+  });
 });

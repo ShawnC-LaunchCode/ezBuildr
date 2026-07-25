@@ -202,6 +202,12 @@ export function registerWorkflowRoutes(app: Express): void {
       const updateData = { ...parsedData };
       delete updateData.ownerType;
       delete updateData.ownerUuid;
+      // A workflow's project is changed only through moveToProject, which
+      // requires 'owner' on the workflow AND 'edit' on the target project and
+      // keeps ownerType/ownerUuid consistent. Accepting projectId here let an
+      // 'edit' collaborator reparent the workflow into an arbitrary project
+      // (injecting it into that project's listing) with no target-project check.
+      delete updateData.projectId;
 
       let workflow;
       // Deep update if sections are provided (e.g. from AI)
