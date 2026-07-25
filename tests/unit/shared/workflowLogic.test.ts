@@ -78,6 +78,96 @@ describe("evaluateWorkflowVisibility parity contract", () => {
     expect(shown.visibleSections.has("details")).toBe(true);
   });
 });
+describe("evaluateWorkflowVisibility excludes runner-unrequirable step types (RUN2-3)", () => {
+  // requiredSteps is the one place navigation, section-submit validation, and
+  // run completion all derive "what must have a value" from. A required step
+  // of a type the runner cannot render (file_upload, loop_group, repeater, or
+  // an unrecognized type) can never be satisfied by a respondent, so it must
+  // never end up in requiredSteps here - fixing it in this one function fixes
+  // all three call sites at once.
+  const sections = [{ id: "sec-1" }];
+
+  it("excludes a required file_upload step from requiredSteps while keeping it visible", () => {
+    const steps = [
+      { id: "upload-step", sectionId: "sec-1", required: true, type: "file_upload" },
+    ];
+
+    const result = evaluateWorkflowVisibility({
+      sections,
+      steps,
+      rules: [],
+      data: {},
+      resolveAlias: (name) => name,
+    });
+
+    expect(result.visibleSteps.has("upload-step")).toBe(true);
+    expect(result.requiredSteps.has("upload-step")).toBe(false);
+  });
+
+  it("still includes a required short_text step in requiredSteps (unchanged behavior)", () => {
+    const steps = [
+      { id: "text-step", sectionId: "sec-1", required: true, type: "short_text" },
+    ];
+
+    const result = evaluateWorkflowVisibility({
+      sections,
+      steps,
+      rules: [],
+      data: {},
+      resolveAlias: (name) => name,
+    });
+
+    expect(result.requiredSteps.has("text-step")).toBe(true);
+  });
+
+  it("excludes a step made required only via a rule's require action when its type is unsupported", () => {
+    const steps = [
+      { id: "trigger", sectionId: "sec-1", required: false, type: "short_text" },
+      { id: "upload-step", sectionId: "sec-1", required: false, type: "file_upload" },
+    ];
+    const rules: LogicRule[] = [{
+      id: "require-upload",
+      workflowId: "workflow-1",
+      conditionStepId: "trigger",
+      operator: "equals",
+      conditionValue: "yes",
+      targetType: "step",
+      targetStepId: "upload-step",
+      targetSectionId: null,
+      action: "require",
+      logicalOperator: null,
+      order: 1,
+      createdAt: null,
+      updatedAt: null,
+    }];
+
+    const result = evaluateWorkflowVisibility({
+      sections,
+      steps,
+      rules,
+      data: { trigger: "yes" },
+      resolveAlias: (name) => name,
+    });
+
+    expect(result.requiredSteps.has("upload-step")).toBe(false);
+  });
+
+  it("treats a step definition with no type as requirable (fail-open on missing classification, not silently dropped)", () => {
+    const steps = [
+      { id: "legacy-step", sectionId: "sec-1", required: true },
+    ];
+
+    const result = evaluateWorkflowVisibility({
+      sections,
+      steps,
+      rules: [],
+      data: {},
+      resolveAlias: (name) => name,
+    });
+
+    expect(result.requiredSteps.has("legacy-step")).toBe(true);
+  });
+});
 describe("workflowLogic", () => {
   describe("evaluateRules", () => {
     describe("Section-level rules", () => {

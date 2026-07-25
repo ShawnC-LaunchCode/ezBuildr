@@ -11,6 +11,7 @@
 
 import { evaluateConditionExpression } from './conditionEvaluator';
 import type { ConditionExpression } from './types/conditions';
+import { isRunnerRequirableStepType } from './types/runnerStepTypes';
 import type { LogicRule, Section, Step } from './schema';
 
 export type EvaluableLogicRule = Pick<
@@ -29,6 +30,13 @@ interface VisibilityStepDefinition {
   sectionId: string;
   required?: boolean | null;
   visibleIf?: unknown;
+  /**
+   * Step type, used to exclude runner-unsupported/unknown types from
+   * `requiredSteps` (RUN2-3). Optional only because some historical callers
+   * may not supply it; a missing type is treated as requirable rather than
+   * silently dropped (see `evaluateWorkflowVisibility`).
+   */
+  type?: string;
 }
 
 export interface WorkflowVisibilityResult {
@@ -226,8 +234,23 @@ export function evaluateWorkflowVisibility(options: {
     steps.filter((step) => step.required === true).map((step) => step.id)
   );
   const effectiveRequired = getEffectiveRequiredSteps(initiallyRequired, rules, data);
+
+  // A step whose type the runner cannot render (unsupported/unknown — e.g.
+  // file_upload, loop_group, repeater — see RUN2-3) can never be satisfied
+  // by a respondent, whether it is required by its own `required: true` or
+  // by a rule's `require` action. Excluding it here — the one place
+  // navigation, section-submit, and completion all derive `requiredSteps`
+  // from — fixes all three at once. A step with no `type` supplied is
+  // treated as requirable rather than silently dropped.
+  const stepTypeById = new Map(steps.map((step) => [step.id, step.type]));
   const requiredSteps = new Set(
-    Array.from(effectiveRequired).filter((stepId) => visibleSteps.has(stepId))
+    Array.from(effectiveRequired).filter((stepId) => {
+      if (!visibleSteps.has(stepId)) {
+        return false;
+      }
+      const type = stepTypeById.get(stepId);
+      return type === undefined || isRunnerRequirableStepType(type);
+    })
   );
 
   return { visibleSections, visibleSteps, requiredSteps, ruleEvaluation };

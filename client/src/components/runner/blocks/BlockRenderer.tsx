@@ -10,6 +10,7 @@
  * @date December 2025
  */
 
+import { Info } from "lucide-react";
 import React from "react";
 
 import { Label } from "@/components/ui/label";
@@ -65,17 +66,27 @@ export interface BlockRendererProps {
 
   /** Full context for resolving variables (e.g. dynamic lists) */
   context?: Record<string, unknown>;
+
+  /** Maps a step's alias to its step id, for alias-aware `{{variable}}` interpolation in display blocks */
+  aliasMap?: Record<string, string>;
 }
 
 function ExplicitRunnerTypeNotice({ type, status }: { type: string; status: "unsupported" | "unknown" }) {
+  // Honest, not apologetic: the runner has no control for this step type, so
+  // it is not required and will not block the respondent from finishing
+  // (RUN2-3). "not available yet" previously implied a control was coming
+  // and said nothing about what happens to the answer.
   const message = status === "unsupported"
-    ? "This question type is not available in the runner yet."
-    : "This question type is not recognized by the runner.";
+    ? "This question type isn't supported in the runner yet, so it's skipped for this response."
+    : "This question type isn't recognized by the runner, so it's skipped for this response.";
 
   return (
-    <div className="rounded-md border border-muted bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-      {message}
-      <span className="ml-1 font-mono text-xs">{type}</span>
+    <div className="flex items-start gap-2 rounded-md border border-muted bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+      <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+      <span>
+        {message}
+        <span className="ml-1 font-mono text-xs">{type}</span>
+      </span>
     </div>
   );
 }
@@ -88,6 +99,9 @@ export function BlockRenderer(props: BlockRendererProps) {
   const { step, value, onChange, required, error, readOnly, showValidation } = props;
   const normalizedType = normalizeRunnerStepType(step.type);
   const typeStatus = getRunnerStepTypeStatus(step.type);
+  // Unsupported/unknown types are never required (RUN2-3) — don't mark them
+  // required in the label when there's no control to answer with.
+  const showRequiredIndicator = required && typeStatus !== "unsupported" && typeStatus !== "unknown";
 
   // -------------------------------------------------------------------------
   // Handle JS blocks (no UI, invisible execution)
@@ -168,11 +182,11 @@ export function BlockRenderer(props: BlockRendererProps) {
 
       // Display blocks
       case "display":
-        return <DisplayBlockRenderer step={step} context={props.context} />;
+        return <DisplayBlockRenderer step={step} context={props.context} aliasMap={props.aliasMap} />;
 
       // Final block (output/completion)
       case "final_documents":
-        return <FinalBlockRenderer step={step} />;
+        return <FinalBlockRenderer step={step} stepValues={props.context} />;
 
       // Signature block (e-signature integration)
       case "signature_block":
@@ -198,7 +212,7 @@ export function BlockRenderer(props: BlockRendererProps) {
       {/* Label */}
       <Label htmlFor={step.id}>
         {step.title}
-        {required && <span className="text-destructive ml-1" aria-hidden="true">*</span>}
+        {showRequiredIndicator && <span className="text-destructive ml-1" aria-hidden="true">*</span>}
       </Label>
 
       {/* Description/Help Text */}

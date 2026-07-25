@@ -1,6 +1,6 @@
 /* eslint-disable max-nested-callbacks */
 /* eslint-disable @typescript-eslint/naming-convention */
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 
 import type { Step } from "@shared/schema";
 
@@ -12,16 +12,6 @@ import {
   type FieldValidationConfig,
   type PageValidationResult,
 } from "../../../server/workflows/validation";
-// Mock the repeater service
-vi.mock("../../../server/services/RepeaterService", () => ({
-  repeaterService: {
-    validateRepeater: vi.fn(() => ({
-      valid: true,
-      globalErrors: [],
-      instanceErrors: new Map(),
-    })),
-  },
-}));
 describe("validation", () => {
   describe("validateField", () => {
     describe("Required validation", () => {
@@ -659,6 +649,53 @@ describe("validation", () => {
       const result = validatePage(steps, values, visibleStepIds);
       expect(result.valid).toBe(true);
       expect(result.errors).toHaveLength(0);
+    });
+    describe("runner-unsupported/unknown step types (RUN2-3)", () => {
+      // A required question of a type the runner cannot render (or does not
+      // recognize) can never be answered by a respondent. validatePage must
+      // skip these entirely — mirrors the client-side skip in
+      // shared/validation/BlockValidation.ts so client and server agree.
+      const unrequirableStep = (type: string, extra: Partial<Step> = {}): Step => ({
+        id: "step-1",
+        workflowId: "wf-1",
+        sectionId: "sec-1",
+        type,
+        title: "Unsupported Field",
+        description: null,
+        required: true,
+        order: 1,
+        config: [],
+        repeaterConfig: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        alias: null,
+        isVirtual: false,
+        visibleIf: null,
+        defaultValue: null,
+        deletedAt: null,
+        ...extra,
+      } as unknown as Step);
+
+      it.each([
+        ["file_upload", {}],
+        ["loop_group", {}],
+        ["repeater", { repeaterConfig: { minInstances: 2 } }],
+        ["some_future_type", {}],
+      ])("does not report a required %s step as missing when it has no value", (type, extra) => {
+        const steps = [unrequirableStep(type, extra)];
+        const result = validatePage(steps, {}, ["step-1"]);
+
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+
+      it("still blocks a required rendered type (short_text) with no value", () => {
+        const steps = [unrequirableStep("short_text")];
+        const result = validatePage(steps, {}, ["step-1"]);
+
+        expect(result.valid).toBe(false);
+        expect(result.errors).toHaveLength(1);
+      });
     });
   });
   describe("formatValidationErrors", () => {

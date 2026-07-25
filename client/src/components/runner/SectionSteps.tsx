@@ -16,6 +16,14 @@ import type { LogicRule } from "@shared/schema";
 interface SectionStepsProps {
     sectionId: string;
     steps?: ApiStep[];
+    /**
+     * Every step in the workflow (not just this section's), used only to
+     * build the alias->step id map for display-block `{{alias}}`
+     * interpolation. Aliases are workflow-wide, but rendering (visibility,
+     * ordering) stays scoped to `steps`. Falls back to `steps` when the
+     * caller doesn't have the full-workflow list on hand.
+     */
+    allSteps?: ApiStep[];
     values: Record<string, unknown>;
     logicRules: LogicRule[];
     onChange: (stepId: string, value: unknown) => void;
@@ -29,6 +37,7 @@ interface SectionStepsProps {
 export function SectionSteps({
     sectionId,
     steps: providedSteps,
+    allSteps: providedAllSteps,
     values,
     logicRules,
     onChange,
@@ -62,6 +71,22 @@ export function SectionSteps({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
     const { getVisibleSectionSteps } = useSectionVisibility(undefined, steps as any, values, logicRules);
 
+    // Alias -> step id map for display-block {{alias}} interpolation. Aliases
+    // are workflow-wide (a display block on page 3 routinely references an
+    // answer from page 1), so this is built from the whole-workflow step list
+    // when the caller supplies one, falling back to this section's own steps
+    // otherwise (still correct, just unable to resolve cross-section aliases).
+    const aliasSourceSteps = providedAllSteps ?? steps;
+    const aliasMap = useMemo(() => {
+        const map: Record<string, string> = {};
+        for (const step of aliasSourceSteps) {
+            if (step.alias) {
+                map[step.alias] = step.id;
+            }
+        }
+        return map;
+    }, [aliasSourceSteps]);
+
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!steps || steps.length === 0) {
         return <p className="text-muted-foreground text-sm">No steps in this section</p>;
@@ -86,6 +111,7 @@ export function SectionSteps({
                         onChange={(v) => { onChange(step.id, v); }}
                         error={errors?.[step.id]?.[0]} // Pass first error message
                         context={values}
+                        aliasMap={aliasMap}
                         intakeSource={getIntakeSource(step, intakeData)}
                     />
                 </BlockErrorBoundary>
@@ -125,6 +151,7 @@ interface StepFieldProps {
     onChange: (value: unknown) => void;
     error?: string;
     context: Record<string, unknown>;
+    aliasMap?: Record<string, string>;
     intakeSource?: {
         title: string;
         variable: string;
@@ -132,7 +159,7 @@ interface StepFieldProps {
     };
 }
 
-function StepField({ step, value, onChange, error, context, intakeSource }: StepFieldProps) {
+function StepField({ step, value, onChange, error, context, aliasMap, intakeSource }: StepFieldProps) {
     // Check if current value matches intake value to decide if we show the badge
     const isUsingIntakeValue = intakeSource && value === intakeSource.value;
 
@@ -160,6 +187,7 @@ function StepField({ step, value, onChange, error, context, intakeSource }: Step
                 error={error}
                 showValidation={!!error}
                 context={context}
+                aliasMap={aliasMap}
             />
 
             {intakeSource && (

@@ -275,4 +275,54 @@ describe('RunExecutionCoordinator - JS Execution', () => {
             expect(blockRunner.runPhase).not.toHaveBeenCalled();
         });
     });
+
+    describe('submitSection skips runner-unsupported/unknown required steps (RUN2-3)', () => {
+        const section: Section = { id: 'section-1', order: 0 } as unknown as Section;
+        const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
+
+        beforeEach(() => {
+            mockSectionRepo.findByWorkflowId.mockResolvedValue([section]);
+            mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
+            mockRunPersistence.getRunValues.mockResolvedValue({});
+            vi.mocked(blockRunner.runPhase).mockResolvedValue({ success: true });
+        });
+
+        it.each(['file_upload', 'loop_group', 'repeater'])(
+            'submits successfully when the only step in the section is a required, visible %s with no value (AC3, AC4)',
+            async (type) => {
+                const unsupportedStep = {
+                    id: 'req-step',
+                    type,
+                    title: 'Unsupported Step',
+                    required: true,
+                    sectionId: 'section-1',
+                    visibleIf: null,
+                    repeaterConfig: type === 'repeater' ? { minInstances: 2 } : null,
+                } as unknown as Step;
+                mockStepRepo.findBySectionId.mockResolvedValue([unsupportedStep]);
+                mockStepRepo.findBySectionIds.mockResolvedValue([unsupportedStep]);
+
+                const result = await coordinator.submitSection(context, 'section-1', []);
+
+                expect(result).toEqual({ success: true, errors: undefined });
+            }
+        );
+
+        it('submits successfully for a required step of an unrecognized type', async () => {
+            const unknownStep = {
+                id: 'req-step',
+                type: 'some_future_type',
+                title: 'Unknown Step',
+                required: true,
+                sectionId: 'section-1',
+                visibleIf: null,
+            } as unknown as Step;
+            mockStepRepo.findBySectionId.mockResolvedValue([unknownStep]);
+            mockStepRepo.findBySectionIds.mockResolvedValue([unknownStep]);
+
+            const result = await coordinator.submitSection(context, 'section-1', []);
+
+            expect(result).toEqual({ success: true, errors: undefined });
+        });
+    });
 });

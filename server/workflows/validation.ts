@@ -6,9 +6,7 @@
  */
 
 import type { Step } from "@shared/schema";
-import type { RepeaterConfig, RepeaterValue } from "@shared/types/repeater";
-
-import { repeaterService } from "../services/RepeaterService";
+import { isRunnerRequirableStepType } from "@shared/types/runnerStepTypes";
 
 export interface ValidationRule {
   type: 'required' | 'minLength' | 'maxLength' | 'min' | 'max' | 'email' | 'regex' | 'date';
@@ -138,35 +136,28 @@ export function validatePage(
       continue;
     }
 
+    // Skip step types the runner cannot render a fillable control for
+    // (e.g. file_upload, loop_group, repeater, or an unrecognized type).
+    // The runner shows only a skip notice for these, so neither a required
+    // check nor a repeater instance-count check can ever be satisfied by
+    // the respondent (RUN2-3) — mirrors the client-side skip in
+    // shared/validation/BlockValidation.ts.
+    if (!isRunnerRequirableStepType(step.type)) {
+      continue;
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const value = values[step.id];
-    const fieldErrors: string[] = [];
 
-    // Handle repeater fields specially
-    if (step.type === 'repeater' && step.repeaterConfig) {
-      const repeaterConfig = step.repeaterConfig as unknown as RepeaterConfig;
-      const repeaterValue = value as RepeaterValue | null;
-      const validationResult = repeaterService.validateRepeater(repeaterValue, repeaterConfig);
-
-      if (!validationResult.valid) {
-        // Add global errors
-        fieldErrors.push(...validationResult.globalErrors);
-
-        // Add instance errors
-        validationResult.instanceErrors.forEach((instanceErrors, _instanceId) => {
-          fieldErrors.push(...instanceErrors.map(e => `Instance: ${e}`));
-        });
-      }
-    } else {
-      // Standard field validation
-      const config: FieldValidationConfig = {
-        required: step.required ?? undefined,
-        // TODO: Extract from step.config if stored there
-      };
-
-      const stepErrors = validateField(value, config, step.title);
-      fieldErrors.push(...stepErrors);
-    }
+    // Standard field validation. Note: `repeater` is one of the runner's
+    // intentionally-unsupported types (skipped above), so instance-count
+    // validation never runs here — the runner gives respondents no way to
+    // add repeater instances, so there is nothing to validate (RUN2-3).
+    const config: FieldValidationConfig = {
+      required: step.required ?? undefined,
+      // TODO: Extract from step.config if stored there
+    };
+    const fieldErrors = validateField(value, config, step.title);
 
     if (fieldErrors.length > 0) {
       errors.push({

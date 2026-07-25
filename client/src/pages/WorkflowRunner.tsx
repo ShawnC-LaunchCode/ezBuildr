@@ -410,6 +410,7 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
     saveStatus,
     errors,
     visibleSectionSteps,
+    effectiveAllSteps,
     effectiveValues,
     handleUpdateValue,
     fieldErrors,
@@ -434,6 +435,7 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
           <QuestionSectionBody
             currentSection={currentSection}
             visibleSectionSteps={visibleSectionSteps}
+            allSteps={effectiveAllSteps}
             effectiveValues={effectiveValues}
             handleUpdateValue={handleUpdateValue}
             fieldErrors={fieldErrors}
@@ -493,6 +495,7 @@ function ErrorSummary({ errors }: { errors: string[] }): ReactElement | null {
 interface QuestionSectionBodyProps {
   currentSection: ApiSection | undefined;
   visibleSectionSteps: ApiStep[];
+  allSteps: ApiStep[] | undefined;
   effectiveValues: Record<string, unknown>;
   handleUpdateValue: (stepId: string, value: unknown) => void;
   fieldErrors: Record<string, string[]>;
@@ -502,6 +505,7 @@ interface QuestionSectionBodyProps {
 function QuestionSectionBody({
   currentSection,
   visibleSectionSteps,
+  allSteps,
   effectiveValues,
   handleUpdateValue,
   fieldErrors,
@@ -512,6 +516,7 @@ function QuestionSectionBody({
       <SectionSteps
         sectionId={currentSection.id}
         steps={visibleSectionSteps}
+        allSteps={allSteps}
         values={effectiveValues}
         onChange={handleUpdateValue}
         errors={fieldErrors}
