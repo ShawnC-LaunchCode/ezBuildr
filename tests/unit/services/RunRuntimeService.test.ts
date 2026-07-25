@@ -124,13 +124,49 @@ describe('RunRuntimeService', () => {
       .rejects.toThrow('Access denied - insufficient permissions for this run');
   });
 
-  it('fails explicitly for an incompatible version snapshot', async () => {
-    const { service } = makeService({
-      version: { id: versionId, workflowId, createdAt: new Date(), graphJson: {} },
+  describe('an incompatible version snapshot (RUN2-10)', () => {
+    function makeIncompatible() {
+      return makeService({
+        version: { id: versionId, workflowId, createdAt: new Date(), graphJson: {} },
+      });
+    }
+
+    it('still fails closed rather than rendering an untrusted definition', async () => {
+      const { service } = makeIncompatible();
+
+      await expect(service.getRuntime(runId, { tokenRunId: runId })).rejects.toThrow();
     });
 
-    await expect(service.getRuntime(runId, { tokenRunId: runId }))
-      .rejects.toThrow('Invalid runtime definition for workflow version');
+    it('surfaces as a 4xx, not a 500 (AC2)', async () => {
+      const { service } = makeIncompatible();
+
+      await expect(service.getRuntime(runId, { tokenRunId: runId }))
+        .rejects.toMatchObject({ statusCode: 400 });
+    });
+
+    it('keeps internal field paths out of the respondent-facing message (AC3)', async () => {
+      const { service } = makeIncompatible();
+
+      await expect(service.getRuntime(runId, { tokenRunId: runId }))
+        .rejects.toThrow(/cannot be started/i);
+      await expect(service.getRuntime(runId, { tokenRunId: runId }))
+        .rejects.not.toThrow(/sections|steps|invalid_type|zod/i);
+    });
+
+    it('logs the Zod issues with run, workflow and version ids (AC1)', async () => {
+      vi.mocked(logger.error).mockClear();
+      const { service } = makeIncompatible();
+
+      await expect(service.getRuntime(runId, { tokenRunId: runId })).rejects.toThrow();
+
+      expect(vi.mocked(logger.error)).toHaveBeenCalledTimes(1);
+      const logged = vi.mocked(logger.error).mock.calls[0][0] as {
+        runId: string; workflowId: string; versionId: string; issues: unknown[];
+      };
+      expect(logged).toMatchObject({ runId, workflowId, versionId });
+      expect(Array.isArray(logged.issues)).toBe(true);
+      expect(logged.issues.length).toBeGreaterThan(0);
+    });
   });
 
   it('accepts a serialized version whose nullable fields are explicit null (runner-500 regression)', async () => {

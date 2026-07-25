@@ -108,18 +108,16 @@ export class RunExecutionCoordinator {
         const { runId, workflowId } = context;
         const steps = await this.stepRepo.findBySectionId(sectionId);
         const sectionStepIds = new Set(steps.map(step => step.id));
-        const outOfSectionStepIds = values
-            .map(value => value.stepId)
-            .filter(stepId => !sectionStepIds.has(stepId));
-        if (outOfSectionStepIds.length > 0) {
-            throw createError.validation(
-                `Section submit contains out-of-section stepIds: ${outOfSectionStepIds.join(', ')}`,
-                { stepIds: outOfSectionStepIds }
-            );
-        }
+        const acceptedValues = await this.partitionSubmittedValues(
+            values,
+            sectionStepIds,
+            workflowId,
+            runId,
+            sectionId
+        );
 
         // 1. Persist Values
-        await this.persistence.bulkSaveValues(runId, values, workflowId);
+        await this.persistence.bulkSaveValues(runId, acceptedValues, workflowId);
         // 2. Get updated data map
         const dataMap = await this.persistence.getRunValues(runId);
         const aliasMap = await this.getAliasMap(workflowId);
@@ -240,6 +238,67 @@ export class RunExecutionCoordinator {
     /**
      * Build alias map for workflow
      */
+    /**
+     * Split submitted values into what this section will persist (RUN2-15).
+     *
+     * The client renders from the run's pinned version snapshot while this
+     * check reads the LIVE tables, so the two disagree the moment an author
+     * edits a published workflow. Three cases:
+     *
+     *  - id is in this section  -> persist, as before.
+     *  - id belongs to a DIFFERENT section of this workflow -> still an error.
+     *    That is the mass-assignment case this guard exists for: a caller must
+     *    not write values into a section they are not on.
+     *  - id exists nowhere on this workflow -> the author deleted the question
+     *    mid-run. Drop it with a warning and let the respondent continue;
+     *    throwing here bricked them on that page with no way to recover.
+     *
+     * The proper fix is to resolve steps from the run's pinned version instead
+     * of the live tables (escalation RUN2-E1, deferred to its own initiative);
+     * this keeps an author's edit from trapping in-flight respondents until
+     * then.
+     */
+    private async partitionSubmittedValues(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step values have dynamic types from workflow data
+        values: Array<{ stepId: string, value: any }>,
+        sectionStepIds: Set<string>,
+        workflowId: string,
+        runId: string,
+        sectionId: string
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mirrors the values parameter
+    ): Promise<Array<{ stepId: string, value: any }>> {
+        const unknownToSection = values.filter(value => !sectionStepIds.has(value.stepId));
+        if (unknownToSection.length === 0) {
+            return values;
+        }
+
+        const workflowStepIds = await this.getWorkflowStepIds(workflowId);
+        const crossSectionIds = unknownToSection
+            .map(value => value.stepId)
+            .filter(stepId => workflowStepIds.has(stepId));
+
+        if (crossSectionIds.length > 0) {
+            throw createError.validation(
+                `Section submit contains out-of-section stepIds: ${crossSectionIds.join(', ')}`,
+                { stepIds: crossSectionIds }
+            );
+        }
+
+        const droppedIds = unknownToSection.map(value => value.stepId);
+        logger.warn(
+            { runId, sectionId, workflowId, droppedStepIds: droppedIds },
+            'Dropping submitted values for steps that no longer exist on this workflow (edited mid-run)'
+        );
+        return values.filter(value => sectionStepIds.has(value.stepId));
+    }
+
+    /** Every step id on the workflow, across all its sections. */
+    private async getWorkflowStepIds(workflowId: string): Promise<Set<string>> {
+        const sections = await this.sectionRepo.findByWorkflowId(workflowId);
+        const steps = await this.stepRepo.findBySectionIds(sections.map(section => section.id));
+        return new Set(steps.map(step => step.id));
+    }
+
     private async getAliasMap(workflowId: string): Promise<Record<string, string>> {
         const sections = await this.sectionRepo.findByWorkflowId(workflowId);
         const sectionIds = sections.map(s => s.id);

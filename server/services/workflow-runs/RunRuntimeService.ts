@@ -4,6 +4,7 @@ import type { LogicRule, Step, WorkflowRun } from "@shared/schema";
 
 import { logger } from "../../logger";
 import { stepValueRepository, workflowRunRepository, workflowVersionRepository } from "../../repositories";
+import { createError } from "../../utils/errors";
 import { RunAuthResolver, runAuthResolver } from "../runs/RunAuthResolver";
 
 // This validates a version's serialized graphJson, whose fields come straight
@@ -136,7 +137,27 @@ export class RunRuntimeService {
 
     const parsed = VersionRuntimeSchema.safeParse(version.graphJson);
     if (!parsed.success) {
-      throw new Error("Invalid runtime definition for workflow version");
+      // RUN2-10: fail closed — a definition the runtime cannot trust must not
+      // render — but make the failure diagnosable. The Zod issues were
+      // previously discarded and the bare Error string matched none of
+      // classifyRouteError's 4xx patterns, so this surfaced as a generic 500
+      // with nothing in the logs saying which field of which step was wrong.
+      // That is exactly how the earlier `.optional()` vs `.nullish()` incident
+      // (see this file's header) managed to break the runner for every newly
+      // activated workflow. RUN2-9 now blocks such versions at publish time;
+      // this path covers versions already in the database.
+      logger.error(
+        {
+          runId,
+          workflowId: run.workflowId,
+          versionId: run.workflowVersionId,
+          issues: parsed.error.issues,
+        },
+        'Workflow version graphJson failed runtime schema validation'
+      );
+      // Respondent-facing message stays generic: no field paths or ids leak to
+      // an anonymous caller. The detail is in the log above.
+      throw createError.validation('This workflow cannot be started. Please contact the workflow owner.');
     }
 
     const graph = parsed.data;

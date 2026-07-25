@@ -184,6 +184,17 @@ describe('RunExecutionCoordinator - JS Execution', () => {
         mockStepRepo.findBySectionId.mockResolvedValue([
             { id: 'current-step', type: 'short_text', title: 'Current Step' } as unknown as Step,
         ]);
+        // The other-section step must exist SOMEWHERE on this workflow for this
+        // to be the mass-assignment case rather than the edited-mid-run case
+        // that RUN2-15 drops.
+        mockSectionRepo.findByWorkflowId.mockResolvedValue([
+            { id: 'section-1', order: 0 } as unknown as Section,
+            { id: 'section-2', order: 1 } as unknown as Section,
+        ]);
+        mockStepRepo.findBySectionIds.mockResolvedValue([
+            { id: 'current-step', type: 'short_text', title: 'Current Step' } as unknown as Step,
+            { id: 'other-section-step', type: 'short_text', title: 'Other Step' } as unknown as Step,
+        ]);
 
         const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
 
@@ -196,6 +207,79 @@ describe('RunExecutionCoordinator - JS Execution', () => {
         });
 
         expect(mockRunPersistence.bulkSaveValues).not.toHaveBeenCalled();
+    });
+
+    describe('submitSection with a workflow edited mid-run (RUN2-15)', () => {
+        const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
+
+        beforeEach(() => {
+            mockStepRepo.findBySectionId.mockResolvedValue([
+                { id: 'current-step', type: 'short_text', title: 'Current Step' } as unknown as Step,
+            ]);
+            mockSectionRepo.findByWorkflowId.mockResolvedValue([
+                { id: 'section-1', order: 0 } as unknown as Section,
+            ]);
+            // The workflow no longer has 'deleted-step' anywhere: the author
+            // removed that question after the respondent's runtime was pinned.
+            mockStepRepo.findBySectionIds.mockResolvedValue([
+                { id: 'current-step', type: 'short_text', title: 'Current Step' } as unknown as Step,
+            ]);
+            mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
+            vi.mocked(blockRunner.runPhase).mockResolvedValue({ success: true });
+        });
+
+        it('drops values for steps that no longer exist and lets the respondent continue (AC1)', async () => {
+            const result = await coordinator.submitSection(context, 'section-1', [
+                { stepId: 'current-step', value: 'ok' },
+                { stepId: 'deleted-step', value: 'orphaned' },
+            ]);
+
+            expect(result.success).toBe(true);
+        });
+
+        it('persists only the surviving values (AC3)', async () => {
+            await coordinator.submitSection(context, 'section-1', [
+                { stepId: 'current-step', value: 'ok' },
+                { stepId: 'deleted-step', value: 'orphaned' },
+            ]);
+
+            expect(mockRunPersistence.bulkSaveValues).toHaveBeenCalledWith(
+                'run-1',
+                [{ stepId: 'current-step', value: 'ok' }],
+                'wf-1'
+            );
+        });
+
+        it('logs the dropped ids once (AC1)', async () => {
+            const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined as never);
+            try {
+                await coordinator.submitSection(context, 'section-1', [
+                    { stepId: 'current-step', value: 'ok' },
+                    { stepId: 'deleted-step', value: 'orphaned' },
+                ]);
+
+                expect(warnSpy).toHaveBeenCalledTimes(1);
+                expect(warnSpy.mock.calls[0][0]).toMatchObject({
+                    runId: 'run-1',
+                    sectionId: 'section-1',
+                    droppedStepIds: ['deleted-step'],
+                });
+            } finally {
+                warnSpy.mockRestore();
+            }
+        });
+
+        it('does not touch the normal path when every id is in the section (AC3)', async () => {
+            await coordinator.submitSection(context, 'section-1', [
+                { stepId: 'current-step', value: 'ok' },
+            ]);
+
+            expect(mockRunPersistence.bulkSaveValues).toHaveBeenCalledWith(
+                'run-1',
+                [{ stepId: 'current-step', value: 'ok' }],
+                'wf-1'
+            );
+        });
     });
 
     describe('submitSection visibility (RUN2-1: shared evaluateWorkflowVisibility engine)', () => {
