@@ -11,10 +11,12 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { workflows, users, tenants, projects, sections, steps, workflowVersions, auditLogs } from "@shared/schema";
+import { workflows, users, tenants, projects, sections, steps, workflowVersions, workflowRuns, auditLogs } from "@shared/schema";
 
 import { db } from "../../server/db";
+import { runService } from "../../server/services/RunService";
 import { VersionService, versionService } from "../../server/services/VersionService";
+import { runRuntimeService } from "../../server/services/workflow-runs/RunRuntimeService";
 
 describe("RUN2-7 publish is gated on lint", () => {
   let tenantId: string;
@@ -93,6 +95,7 @@ describe("RUN2-7 publish is gated on lint", () => {
   afterAll(async () => {
     for (const id of [invalidWorkflowId, validWorkflowId]) {
       if (!id) { continue; }
+      await db.delete(workflowRuns).where(eq(workflowRuns.workflowId, id));
       await db.delete(workflowVersions).where(eq(workflowVersions.workflowId, id));
       await db.delete(steps).where(eq(steps.workflowId, id));
       await db.delete(sections).where(eq(sections.workflowId, id));
@@ -149,6 +152,21 @@ describe("RUN2-7 publish is gated on lint", () => {
     const [wf] = await db.select().from(workflows).where(eq(workflows.id, validWorkflowId));
     expect(wf.status).toBe("active");
     expect(wf.currentVersionId).toBe(version.id);
+  });
+
+  it("guarantees a workflow that passes the gate also loads at run time (RUN2-9 AC3)", async () => {
+    // The structural gate requires UUID ids specifically so that anything it
+    // admits parses against RunRuntimeService's VersionRuntimeSchema. Prove the
+    // loop closes: publish -> start a run -> load the pinned runtime.
+    const version = await versionService.publishVersion(validWorkflowId, userId, "runtime check");
+    const run = await runService.createRun(validWorkflowId, userId, {});
+    const runtime = await runRuntimeService.getRuntime(run.id, { userId });
+
+    expect(runtime.run.workflowVersionId).toBe(version.id);
+    expect(runtime.sections.length).toBeGreaterThan(0);
+    expect(runtime.steps.length).toBeGreaterThan(0);
+
+    await db.delete(workflowRuns).where(eq(workflowRuns.id, run.id));
   });
 
   it("checks authorization before doing any serialization work", async () => {

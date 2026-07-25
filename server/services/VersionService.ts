@@ -11,6 +11,7 @@ import { createLogger } from "../logger";
 import { computeChecksum } from "../utils/checksum";
 import { createError } from "../utils/errors";
 import { lintWorkflowContent, type LintableWorkflowContent } from "./workflowLintRules";
+import { validateWorkflowStructure } from "./workflowStructureRules";
 
 import { aclService } from "./AclService";
 import { workflowDiffService, type WorkflowDiff } from "./diff/WorkflowDiffService";
@@ -199,8 +200,35 @@ export class VersionService {
     };
   }
 
-  validateWorkflow(_workflowId: string, _graphJson: WorkflowGraph): ValidationResult {
-    return { valid: true, errors: [], warnings: [] };
+  /**
+   * Structural + reference validation run before a workflow can go live.
+   *
+   * Both doors into 'active' funnel through `publishVersion` (WorkflowService
+   * .changeStatus calls it too), so this is the single gate. It combines the
+   * reference linter (`lintWorkflowContent` — unknown aliases, orphaned input
+   * keys) with the structural rules (`validateWorkflowStructure` — empty
+   * workflows, non-UUID ids, unknown or unanswerable step types, unresolvable
+   * and backwards-skipping logic rules, optionless choice questions).
+   *
+   * Errors block the publish; warnings are recorded on the audit entry. Both
+   * rule sets can independently report the same condition (e.g. "no
+   * questions"), so messages are de-duplicated.
+   */
+  validateWorkflow(_workflowId: string, graphJson: WorkflowGraph): ValidationResult {
+    const content = graphJson as unknown as LintableWorkflowContent;
+    const combined = [...lintWorkflowContent(content), ...validateWorkflowStructure(content)];
+
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    const seen = new Set<string>();
+    for (const result of combined) {
+      const key = `${result.type}|${result.message}`;
+      if (seen.has(key)) { continue; }
+      seen.add(key);
+      (result.type === 'error' ? errors : warnings).push(result.message);
+    }
+
+    return { valid: errors.length === 0, errors, warnings };
   }
   /**
    * Detect cycles in graph using DFS
@@ -289,22 +317,16 @@ export class VersionService {
 
     const graphJson = await this.serializeWorkflow(workflowId, userId) as unknown as WorkflowGraph;
 
-    // RUN2-7: publishing sets status to 'active' further down, exactly like
-    // PUT /api/workflows/:id/status does — so it must clear the same lint gate.
-    // Previously only the status route ran the linter, leaving publish (the
-    // door the builder actually uses) completely ungated.
-    const lintResults = lintWorkflowContent(graphJson as unknown as LintableWorkflowContent);
-    const lintErrors = lintResults.filter(result => result.type === 'error');
-    if (lintErrors.length > 0 && !force) {
-      throw createError.validation(
-        `Cannot publish workflow: ${lintErrors.map(error => error.message).join(', ')}`
-      );
-    }
-
-    // Validate workflow
+    // RUN2-7 / RUN2-9: publishing sets status to 'active' further down, exactly
+    // like PUT /api/workflows/:id/status does — so it must clear the validation
+    // gate. Previously only the status route ran the linter (and the structural
+    // validator was a stub returning `{ valid: true }`), leaving publish — the
+    // door the builder actually uses — completely ungated.
     const validation = this.validateWorkflow(workflowId, graphJson);
     if (!validation.valid && !force) {
-      throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
+      throw createError.validation(
+        `Cannot publish workflow: ${validation.errors.join(', ')}`
+      );
     }
     // Compute checksum
     const checksum = computeChecksum({ graphJson: graphJson as unknown as Record<string, unknown> });
@@ -362,10 +384,9 @@ export class VersionService {
         versionNumber,
         validationWarnings: validation.warnings,
         forced: force,
-        // RUN2-7: when a publish is forced past failing lint, record exactly
+        // RUN2-7: when a publish is forced past a failing gate, record exactly
         // what was overridden — a forced publish must be auditable.
-        lintErrorsOverridden: lintErrors.length > 0 ? lintErrors.map(error => error.message) : undefined,
-        lintWarnings: lintResults.filter(result => result.type === 'warning').map(result => result.message),
+        lintErrorsOverridden: validation.errors.length > 0 ? validation.errors : undefined,
         changelog
       },
     });
