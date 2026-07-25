@@ -1,0 +1,100 @@
+// @vitest-environment jsdom
+/**
+ * RUN2-4 — zero visible sections must render a dedicated terminal screen
+ * instead of QuestionRunnerScreen with a dead "Next" button.
+ */
+import { cleanup, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { LoadedRunnerScreen, type LoadedRunnerScreenProps } from '../../../client/src/pages/WorkflowRunner';
+import type { ApiSection } from '../../../client/src/lib/vault-api';
+
+function buildProps(overrides: Partial<LoadedRunnerScreenProps> = {}): LoadedRunnerScreenProps {
+  return {
+    actualRunId: 'run-1',
+    workflow: undefined,
+    currentSection: undefined,
+    currentSectionIndex: 0,
+    visibleSections: [],
+    effectiveAllSteps: [],
+    effectiveValues: {},
+    effectiveLogicRules: [],
+    visibleSectionSteps: [],
+    runToken: null,
+    saveStatus: 'idle',
+    showReview: false,
+    isLastSection: false,
+    errors: [],
+    fieldErrors: {},
+    completeMutationIsPending: false,
+    handleNext: vi.fn().mockResolvedValue(undefined),
+    handlePrev: vi.fn().mockResolvedValue(undefined),
+    handleFinalSubmit: vi.fn().mockResolvedValue(undefined),
+    handleUpdateValue: vi.fn(),
+    setCurrentSectionIndex: vi.fn(),
+    setShowReview: vi.fn(),
+    ...overrides,
+  };
+}
+
+afterEach(() => {
+  cleanup();
+});
+
+describe('LoadedRunnerScreen — zero visible sections (RUN2-4)', () => {
+  it('renders a dedicated terminal screen, not the dead-end "No visible sections." question screen', () => {
+    render(<LoadedRunnerScreen {...buildProps()} />);
+
+    expect(screen.getByText('Nothing to complete')).toBeInTheDocument();
+    expect(screen.queryByText('No visible sections.')).not.toBeInTheDocument();
+    // The old dead-end screen rendered a "Next" button that did nothing.
+    expect(screen.queryByRole('button', { name: /next/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /review/i })).not.toBeInTheDocument();
+  });
+
+  it('offers a working submit path when the run is completable', async () => {
+    const user = userEvent.setup();
+    const handleFinalSubmit = vi.fn().mockResolvedValue(undefined);
+
+    render(<LoadedRunnerScreen {...buildProps({ actualRunId: 'run-1', handleFinalSubmit })} />);
+
+    const submitButton = screen.getByRole('button', { name: /submit/i });
+    expect(submitButton).toBeEnabled();
+
+    await user.click(submitButton);
+    expect(handleFinalSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it('states plainly that there is nothing to complete when the run is not completable', () => {
+    render(<LoadedRunnerScreen {...buildProps({ actualRunId: null })} />);
+
+    expect(screen.getByText('There is nothing to complete for this response.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /submit/i })).not.toBeInTheDocument();
+  });
+
+  it('still routes to the normal question screen when sections are visible', () => {
+    const section: ApiSection = {
+      id: 'section-1',
+      workflowId: 'workflow-1',
+      title: 'Section One',
+      description: null,
+      order: 0,
+      createdAt: '2026-07-25T00:00:00.000Z',
+    };
+
+    render(
+      <LoadedRunnerScreen
+        {...buildProps({
+          currentSection: section,
+          visibleSections: [section],
+          visibleSectionSteps: [],
+        })}
+      />
+    );
+
+    expect(screen.getByText('Section One')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /next/i })).toBeInTheDocument();
+    expect(screen.queryByText('Nothing to complete')).not.toBeInTheDocument();
+  });
+});

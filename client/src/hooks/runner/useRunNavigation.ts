@@ -275,7 +275,7 @@ export function useRunNavigationTransport({
 export interface UseRunNavigationReturn {
   currentSectionIndex: number;
   setCurrentSectionIndex: Dispatch<SetStateAction<number>>;
-  currentSection: ApiSection;
+  currentSection: ApiSection | undefined;
   isLastSection: boolean;
   showReview: boolean;
   setShowReview: Dispatch<SetStateAction<boolean>>;

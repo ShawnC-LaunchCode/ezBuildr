@@ -67,7 +67,7 @@ interface WorkflowRunnerScreenProps {
   setShowReview: (showReview: boolean) => void;
 }
 
-type LoadedRunnerScreenProps = Omit<
+export type LoadedRunnerScreenProps = Omit<
   WorkflowRunnerScreenProps,
   'isInitializing' | 'initError' | 'sections' | 'workflowId' | 'isProductionMode'
 >;
@@ -222,26 +222,79 @@ function WorkflowRunnerScreen(props: WorkflowRunnerScreenProps): ReactElement {
   return <LoadedRunnerScreen {...props} />;
 }
 
-function SessionError({ message }: { message: string }): ReactElement {
+interface CenteredScreenCardProps {
+  title: string;
+  description: string;
+  titleClassName?: string;
+  cardClassName?: string;
+  children: ReactElement;
+}
+
+function CenteredScreenCard({ title, description, titleClassName, cardClassName, children }: CenteredScreenCardProps): ReactElement {
   return (
     <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-zinc-950 p-4">
-      <Card className="w-full max-w-md shadow-lg border-destructive/20">
+      <Card className={`w-full max-w-md shadow-lg ${cardClassName ?? ""}`}>
         <CardHeader>
-          <CardTitle className="text-destructive">Session Error</CardTitle>
-          <CardDescription>We couldn&apos;t start this workflow.</CardDescription>
+          <CardTitle className={titleClassName}>{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-gray-700 dark:text-gray-300">{message}</p>
-          <Button className="mt-4 w-full" onClick={() => { window.location.href = '/'; }}>
-            Return Home
-          </Button>
-        </CardContent>
+        <CardContent>{children}</CardContent>
       </Card>
     </div>
   );
 }
 
-function LoadedRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
+function SessionError({ message }: { message: string }): ReactElement {
+  return (
+    <CenteredScreenCard
+      title="Session Error"
+      description="We couldn't start this workflow."
+      titleClassName="text-destructive"
+      cardClassName="border-destructive/20"
+    >
+      <>
+        <p className="text-sm text-gray-700 dark:text-gray-300">{message}</p>
+        <Button className="mt-4 w-full" onClick={() => { window.location.href = '/'; }}>
+          Return Home
+        </Button>
+      </>
+    </CenteredScreenCard>
+  );
+}
+
+function NoVisibleSectionsScreen({ actualRunId, completeMutationIsPending, handleFinalSubmit }: LoadedRunnerScreenProps): ReactElement {
+  const canSubmit = actualRunId != null;
+
+  return (
+    <CenteredScreenCard
+      title="Nothing to complete"
+      description="No questions apply to this response."
+      cardClassName="border-t-4 border-t-primary dark:bg-zinc-900"
+    >
+      {canSubmit ? (
+        <>
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            Every question was skipped based on your answers. Submit to finish this response.
+          </p>
+          <Button
+            type="button"
+            className="mt-4 w-full"
+            onClick={() => { void handleFinalSubmit(); }}
+            disabled={completeMutationIsPending}
+          >
+            {completeMutationIsPending ? "Submitting..." : "Submit"}
+          </Button>
+        </>
+      ) : (
+        <p className="text-sm text-gray-700 dark:text-gray-300">
+          There is nothing to complete for this response.
+        </p>
+      )}
+    </CenteredScreenCard>
+  );
+}
+
+export function LoadedRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
   if (props.workflow != null && hasIntakeAssignment(props.currentSection)) {
     return <IntakeSectionScreen {...props} workflow={props.workflow} />;
   }
@@ -252,6 +305,10 @@ function LoadedRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
 
   if (props.showReview) {
     return <ReviewRunnerScreen {...props} />;
+  }
+
+  if (props.visibleSections.length === 0) {
+    return <NoVisibleSectionsScreen {...props} />;
   }
 
   return <QuestionRunnerScreen {...props} />;
