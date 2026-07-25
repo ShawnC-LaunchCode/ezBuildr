@@ -84,18 +84,18 @@ describe("validateWorkflowStructure (RUN2-9)", () => {
     });
   });
 
-  describe("check 4 — nothing unanswerable is required", () => {
+  describe("check 4 — every respondent-facing question is answerable", () => {
     it("rejects a required question the runner cannot render", () => {
       const data = validWorkflow();
       data.sections[0].steps[0].type = "file_upload";
-      expect(errorsOf(data).join(" ")).toMatch(/is required but its type \("file_upload"\) cannot be answered/);
+      expect(errorsOf(data).join(" ")).toMatch(/type \("file_upload"\) the runner cannot display/);
     });
 
-    it("allows the same type when it is not required", () => {
+    it("also rejects an optional unsupported type instead of silently dropping it", () => {
       const data = validWorkflow();
       data.sections[0].steps[0].type = "file_upload";
       data.sections[0].steps[0].required = false;
-      expect(errorsOf(data)).toEqual([]);
+      expect(errorsOf(data).join(" ")).toMatch(/type \("file_upload"\) the runner cannot display/);
     });
   });
 

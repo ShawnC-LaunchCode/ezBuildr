@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Check } from "lucide-react";
-import { useMemo, type ComponentProps, type ReactElement } from "react";
+import { ChevronLeft, ChevronRight, Check, CheckCircle2 } from "lucide-react";
+import { useEffect, useMemo, type ComponentProps, type ReactElement } from "react";
 import { FullScreenLoader } from "@/components/ui/loader";
 
 import { ClientRunnerLayout } from "@/components/runner/ClientRunnerLayout";
@@ -55,6 +55,7 @@ interface WorkflowRunnerScreenProps {
   runToken: string | null;
   saveStatus: SaveStatus;
   showReview: boolean;
+  isCompleted: boolean;
   isLastSection: boolean;
   errors: string[];
   fieldErrors: Record<string, string[]>;
@@ -152,6 +153,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
     currentSection,
     isLastSection,
     showReview,
+    isCompleted,
     setShowReview,
     errors,
     fieldErrors,
@@ -163,6 +165,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
     actualRunId,
     workflowId,
     runVersionId: run?.workflowVersionId ?? undefined,
+    initialCompleted: run?.completed ?? false,
     initialSectionId: run?.currentSectionId,
     visibleSections,
     effectiveValues,
@@ -190,6 +193,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
       runToken={runToken}
       saveStatus={saveStatus}
       showReview={showReview}
+      isCompleted={isCompleted}
       isLastSection={isLastSection}
       errors={errors}
       fieldErrors={fieldErrors}
@@ -295,6 +299,10 @@ function NoVisibleSectionsScreen({ actualRunId, completeMutationIsPending, handl
 }
 
 export function LoadedRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
+  if (props.isCompleted) {
+    return <CompletedRunnerScreen workflow={props.workflow} />;
+  }
+
   if (props.workflow != null && hasIntakeAssignment(props.currentSection)) {
     return <IntakeSectionScreen {...props} workflow={props.workflow} />;
   }
@@ -312,6 +320,65 @@ export function LoadedRunnerScreen(props: LoadedRunnerScreenProps): ReactElement
   }
 
   return <QuestionRunnerScreen {...props} />;
+}
+
+interface RunnerSettings {
+  completionMessage?: string;
+  redirectUrl?: string;
+}
+
+function getSafeRedirectUrl(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const url = new URL(value, window.location.origin);
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+function CompletedRunnerScreen({ workflow }: { workflow: RunnerWorkflow | undefined }): ReactElement {
+  const settings = (workflow?.settings ?? {}) as RunnerSettings;
+  const redirectUrl = getSafeRedirectUrl(settings.redirectUrl);
+
+  useEffect(() => {
+    if (!redirectUrl) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      window.location.assign(redirectUrl);
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [redirectUrl]);
+
+  return (
+    <ClientRunnerLayout
+      title={getWorkflowTitle(workflow)}
+      progress={100}
+      currentStep={1}
+      totalSteps={1}
+      saveStatus="saved"
+    >
+      <Card className="mt-6 border-t-4 border-t-green-600 shadow-lg dark:bg-zinc-900">
+        <CardContent className="flex flex-col items-center px-6 py-12 text-center">
+          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300">
+            <CheckCircle2 className="h-9 w-9" aria-hidden="true" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight">Interview complete</h1>
+          <p className="mt-3 max-w-xl whitespace-pre-wrap text-muted-foreground">
+            {settings.completionMessage ?? "Thank you for completing this workflow!"}
+          </p>
+          <p className="mt-6 text-sm text-muted-foreground">
+            {redirectUrl ? "You’ll be redirected shortly." : "You can safely close this window."}
+          </p>
+        </CardContent>
+      </Card>
+    </ClientRunnerLayout>
+  );
 }
 
 function IntakeSectionScreen(props: LoadedRunnerScreenProps & { workflow: RunnerWorkflow }): ReactElement {

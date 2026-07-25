@@ -15,7 +15,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ProjectAssignmentSection } from "@/components/workflows/settings/ProjectAssignmentSection";
 import { useToast } from "@/hooks/use-toast";
-import type { ApiWorkflow } from "@/lib/vault-api";
+import { workflowAPI } from "@/lib/vault-api";
 import { useWorkflow, useProjects, useMoveWorkflow, useUpdateWorkflow, useWorkflows } from "@/lib/vault-hooks";
 
 import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
@@ -98,14 +98,14 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
         setRedirectUrl(settings.redirectUrl ?? "");
         setAllowSaveAndResume(settings.allowSaveAndResume ?? true);
         
-        setRequireLogin(settings.requireLogin ?? false);
+        setRequireLogin(workflow.requireLogin ?? settings.requireLogin ?? false);
       } else {
         // Defaults
         setAllowSaveAndResume(true);
       }
 
       // Publishing
-      setIsPublic(workflow.status === 'active' || !!workflow.publicLink);
+      setIsPublic(workflow.isPublic ?? false);
 
       // Access Settings
       if (workflow.accessSettings) {
@@ -124,16 +124,13 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
 
   // Update shareable link when dependent values change
   useEffect(() => {
-    if (workflow && isPublic) {
+    if (workflow?.publicLink && isPublic) {
       const baseUrl = window.location.origin;
-      // Prioritize explicit public link, then current slug (state), then workflow ID
-      // using 'slug' state allows the link to update in real-time as user edits the slug field
-      const identifier = workflow.publicLink ?? (slug || workflow.id);
-      setShareableLink(`${baseUrl}/w/${identifier}`);
+      setShareableLink(`${baseUrl}/w/${workflow.publicLink}`);
     } else {
       setShareableLink("");
     }
-  }, [workflow, isPublic, slug]);
+  }, [workflow, isPublic]);
 
   // PR3: Real projects data
   const projects = projectsData?.map(p => ({ id: p.id, name: p.title })) ?? [];
@@ -142,53 +139,67 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
 
   const updateWorkflowMutation = useUpdateWorkflow();
 
-  const handleSaveSettings = () => {
-    updateWorkflowMutation.mutate({
-      id: workflowId,
-      title: name,
-      description,
-      slug: slug || undefined,
+  const handleSaveSettings = async (): Promise<void> => {
+    try {
+      const updated = await updateWorkflowMutation.mutateAsync({
+        id: workflowId,
+        title: name,
+        description,
+        slug: slug || undefined,
+        isPublic,
+        requireLogin,
+        settings: {
+          brandingEnabled,
+          logoUrl,
+          primaryColor,
+          secondaryColor,
+          completionMessage,
+          redirectUrl,
+          allowSaveAndResume,
+          allowPortal,
+          allowResume,
+          allowRedownload,
+        },
+        intakeConfig: {
+          isIntake,
+          upstreamWorkflowId: isIntake ? null : upstreamWorkflowId,
+        },
+      });
 
-      // status: isPublic ? 'active' : 'draft', // Careful changing status here?
-      // Other fields handled by mutation...
-settings: {
-        brandingEnabled,
-        logoUrl,
-        primaryColor,
-        secondaryColor,
-        completionMessage,
-        redirectUrl,
-        allowSaveAndResume,
-        allowPortal,
-        allowResume,
-        allowRedownload
-      },
-      intakeConfig: {
-        isIntake,
-        upstreamWorkflowId: isIntake ? null : upstreamWorkflowId // Cannot be intake AND have upstream intake (for now to avoid cycles)
+      if (updated.slug) { setSlug(updated.slug); }
+      if (isPublic) {
+        const { publicUrl } = await workflowAPI.getPublicLink(workflowId);
+        setShareableLink(publicUrl);
+      } else {
+        setShareableLink("");
       }
-    }, {
-      onSuccess: (updated: ApiWorkflow) => {
-        toast({
-          title: "Settings Saved",
-          description: "Workflow settings have been updated successfully",
-        });
-        // Update slug in UI if it changed (sanitization/uniqueness)
-        if (updated.slug) { setSlug(updated.slug); }
-      },
-      onError: (error: unknown) => {
-        const message = error instanceof Error ? error.message : "Failed to save workflow settings";
-        toast({
-          title: "Error Saving Settings",
-          description: message,
-          variant: "destructive"
-        });
-      }
-    });
+
+      toast({
+        title: "Settings Saved",
+        description: isPublic
+          ? "Workflow settings and public access are ready."
+          : "Workflow settings have been updated successfully.",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save workflow settings";
+      toast({
+        title: "Error Saving Settings",
+        description: message,
+        variant: "destructive",
+      });
+    }
   };
 
   // Copy shareable link
   const handleCopyLink = () => {
+    if (!shareableLink) {
+      toast({
+        title: "Save to create a link",
+        description: "Save these publishing settings before copying the participant link.",
+      });
+      return;
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-floating-promises
     navigator.clipboard.writeText(shareableLink);
     setLinkCopied(true);
@@ -236,7 +247,7 @@ settings: {
             </p>
           </div>
 
-          <Button onClick={() => { void handleSaveSettings(); }}>
+          <Button onClick={() => { void handleSaveSettings(); }} disabled={updateWorkflowMutation.isPending}>
             <Save className="w-4 h-4 mr-2" />
             Save Settings
           </Button>

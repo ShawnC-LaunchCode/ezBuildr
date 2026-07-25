@@ -80,7 +80,7 @@ function checkIdsAreUuids(sections: Record<string, any>[], results: LintResult[]
   }
 }
 
-/** Checks 3 and 4 — every type is a real step type, and nothing unrenderable is required. */
+/** Checks 3 and 4 — every type is real and every respondent-facing step is renderable. */
 function checkStepTypes(sections: Record<string, any>[], results: LintResult[]): void {
   for (const section of sections) {
     for (const step of stepsOf(section)) {
@@ -90,6 +90,15 @@ function checkStepTypes(sections: Record<string, any>[], results: LintResult[]):
         results.push({
           type: "error",
           message: `Question "${stepLabel(step)}" has an unrecognized type: "${type}"`,
+        });
+        continue;
+      }
+
+      const runnerStatus = getRunnerStepTypeStatus(type);
+      if (runnerStatus === "unsupported") {
+        results.push({
+          type: "error",
+          message: `Question "${stepLabel(step)}" has a type ("${type}") the runner cannot display. Remove it or use a supported question type before publishing.`,
         });
         continue;
       }
@@ -256,13 +265,6 @@ function collectStructureWarnings(sections: Record<string, any>[], results: Lint
         });
       }
 
-      const status = getRunnerStepTypeStatus(String(step.type ?? ""));
-      if (status === "unsupported" && step.required !== true) {
-        results.push({
-          type: "warning",
-          message: `Question "${stepLabel(step)}" has a type ("${String(step.type)}") the runner cannot display; it will be skipped for every respondent.`,
-        });
-      }
     }
   }
 }

@@ -1,3 +1,5 @@
+import { fetchAPI } from "@/lib/vault-api";
+
 export interface DefaultValueConfig {
     source?: string;
     variable?: string;
@@ -48,20 +50,10 @@ export async function startRunFromWorkflowId(
     workflowId: string,
     initialValues?: Record<string, unknown>
 ): Promise<{ runId: string; runToken: string; workflowId: string }> {
-    const response = await fetch(`/api/workflows/${workflowId}/runs`, {
+    const result = await fetchAPI<WorkflowRunResponse>(`/api/workflows/${workflowId}/runs`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Include session cookies for authenticated users
         body: JSON.stringify({ initialValues }),
     });
 
-    if (!response.ok) {
-        const error = (await response.json()) as WorkflowRunResponse;
-        throw new Error(error.error ?? 'Failed to start workflow');
-    }
-
-    const result = (await response.json()) as WorkflowRunResponse;
     return result.data;
 }

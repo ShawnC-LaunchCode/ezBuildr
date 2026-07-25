@@ -369,6 +369,7 @@ export interface ApiWorkflow {
   slug?: string; // Stage 12
   isPublic?: boolean; // Stage 17
   publicLink?: string | null; // Stage 17
+  requireLogin?: boolean;
   creatorId: string;
   projectId: string | null;
   status: "draft" | "active" | "archived";

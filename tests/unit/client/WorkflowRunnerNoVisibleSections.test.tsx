@@ -24,6 +24,7 @@ function buildProps(overrides: Partial<LoadedRunnerScreenProps> = {}): LoadedRun
     runToken: null,
     saveStatus: 'idle',
     showReview: false,
+    isCompleted: false,
     isLastSection: false,
     errors: [],
     fieldErrors: {},
@@ -96,5 +97,27 @@ describe('LoadedRunnerScreen — zero visible sections (RUN2-4)', () => {
     expect(screen.getByText('Section One')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /next/i })).toBeInTheDocument();
     expect(screen.queryByText('Nothing to complete')).not.toBeInTheDocument();
+  });
+
+  it('renders a terminal success state after submission and removes submit controls', () => {
+    render(
+      <LoadedRunnerScreen
+        {...buildProps({
+          isCompleted: true,
+          workflow: {
+            id: 'workflow-1',
+            title: 'Client intake',
+            description: null,
+            projectId: null,
+            intakeConfig: null,
+            settings: { completionMessage: 'Your response was received.' },
+          },
+        })}
+      />
+    );
+
+    expect(screen.getByRole('heading', { name: 'Interview complete' })).toBeInTheDocument();
+    expect(screen.getByText('Your response was received.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /submit/i })).not.toBeInTheDocument();
   });
 });
