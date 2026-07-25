@@ -1416,7 +1416,7 @@ with a `Set`.)
 Dispatch these in **git worktrees**, one per ticket — see the "Parallel work"
 section of `CLAUDE.md`.
 
-## RUN2-17 — A `final` step renders inline as a question 🔲
+## RUN2-17 — A `final` step renders inline as a question ✅
 
 **Priority: P2** · Size: S · File: `client/src/hooks/runner/useSectionVisibility.ts`
 
@@ -1464,7 +1464,7 @@ duplication RUN2-3 removed.
 
 ---
 
-## RUN2-18 — Shared runs read a graph shape that no longer exists, so their final-block config is always null 🔲
+## RUN2-18 — Shared runs read a graph shape that no longer exists, so their final-block config is always null ✅
 
 **Priority: P1 (bug)** · Size: S · File: `server/services/workflow-runs/RunStateService.ts`
 
@@ -1518,7 +1518,7 @@ code for every version the system can now produce.
 
 ---
 
-## RUN2-19 — Every versionless run drops its analytics events 🔲
+## RUN2-19 — Every versionless run drops its analytics events ✅
 
 **Priority: P1 (bug)** · Size: S · File: `server/services/workflow-runs/RunMetricsService.ts`
 
@@ -1576,6 +1576,18 @@ themselves a transitional state that RUN2-9's publish gate makes rarer.
 5. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast` green.
 
 ---
+
+### Verification pass — 2026-07-25 (reviewer)
+
+RUN2-17, RUN2-18 and RUN2-19 all verified in the main checkout after applying
+each worktree's diff: 3/3, 5/5 and 6/6 new tests green, lint clean on every
+touched file, full `test:fast` **1855 passed / 0 failed** (was 1839).
+
+**Commits are held**, not because of these tickets: the repo-wide `tsc` in the
+pre-commit hook is failing on `tests/unit/client/useRunNavigation.test.tsx`, an
+untracked in-flight file from the repo owner's second IDE (missing `workflowId`
+on an `ApiStep` fixture). The three diffs are applied and verified in the
+working tree, waiting on that.
 
 ## Phase 5 Gate
 
@@ -1731,9 +1743,9 @@ whether that lands in this initiative or its own.
 | RUN2-14 | Choice options reload per keystroke; empty alias crashes | ✅ Done 2026-07-25 |
 | RUN2-15 | Submit throws when author edits a published workflow mid-run | ✅ Done 2026-07-25 |
 | RUN2-16 | Unify validation engines; server authoritative, pattern guarded | ✅ Done 2026-07-25 |
-| RUN2-17 | `final` step renders inline as a question | 🔲 Open |
-| RUN2-18 | Shared runs read a dead graph shape; final config always null | 🔲 Open |
-| RUN2-19 | Versionless runs drop every analytics event | 🔲 Open |
+| RUN2-17 | `final` step renders inline as a question | ✅ Verified 2026-07-25 (commit pending) |
+| RUN2-18 | Shared runs read a dead graph shape; final config always null | ✅ Verified 2026-07-25 (commit pending) |
+| RUN2-19 | Versionless runs drop every analytics event | ✅ Verified 2026-07-25 (commit pending) |
 | RUN2-E1 | Version pinning is client-only | ⚠️ Deferred to own initiative — mitigated by RUN2-15 (Shawn, 2026-07-25) |
 | RUN2-E2 | No server-side field validation | ✅ Resolved into RUN2-16 (Shawn, 2026-07-25) |
 
