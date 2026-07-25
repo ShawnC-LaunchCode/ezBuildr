@@ -58,12 +58,12 @@ export function registerRunRoutes(app: Express): void {
    * No authentication required - creates anonymous run
    * Body: { initialValues?: Record<string, any> } - Optional key/value pairs to pre-populate steps
    */
-  app.post('/api/workflows/public/:publicLinkSlug/start', asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/workflows/public/:publicLinkSlug/start', optionalHybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { publicLinkSlug } = req.params;
       const { initialValues } = req.body as { initialValues?: Record<string, unknown> };
-      // Create anonymous run with optional initial values
-      const run = await runService.createRun(publicLinkSlug, undefined, {}, initialValues);
+      const userId = (req as AuthRequest).userId;
+      const run = await runService.createRun(publicLinkSlug, userId, {}, initialValues);
       return res.status(201).json({
         success: true,
         data: {

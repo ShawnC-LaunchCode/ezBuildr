@@ -56,6 +56,7 @@ interface WorkflowRunnerScreenProps {
   saveStatus: SaveStatus;
   showReview: boolean;
   isCompleted: boolean;
+  finalSectionConfig?: RunnerSectionConfig;
   isLastSection: boolean;
   errors: string[];
   fieldErrors: Record<string, string[]>;
@@ -83,6 +84,16 @@ function hasIntakeAssignment(section: ApiSection | undefined): boolean {
 
 function hasFinalBlock(section: ApiSection | undefined): boolean {
   return section != null && Boolean(getRunnerSectionConfig(section).finalBlock);
+}
+
+export function partitionRunnerSections(visibleSections: ApiSection[]): {
+  respondentSections: ApiSection[];
+  finalSection: ApiSection | undefined;
+} {
+  return {
+    respondentSections: visibleSections.filter((section) => !hasFinalBlock(section)),
+    finalSection: visibleSections.find((section) => hasFinalBlock(section)),
+  };
 }
 
 function getProgress(currentSectionIndex: number, totalSections: number): number {
@@ -137,6 +148,11 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
     effectiveValues,
     effectiveLogicRules
   );
+  const { respondentSections, finalSection } = useMemo(
+    () => partitionRunnerSections(visibleSections),
+    [visibleSections]
+  );
+  const finalSectionConfig = finalSection ? getRunnerSectionConfig(finalSection) : undefined;
 
   const navigationTransport = useRunNavigationTransport({
     mode,
@@ -167,7 +183,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
     runVersionId: run?.workflowVersionId ?? undefined,
     initialCompleted: run?.completed ?? false,
     initialSectionId: run?.currentSectionId,
-    visibleSections,
+    visibleSections: respondentSections,
     effectiveValues,
     transport: navigationTransport
   });
@@ -185,7 +201,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
       workflow={workflow}
       currentSection={currentSection}
       currentSectionIndex={currentSectionIndex}
-      visibleSections={visibleSections}
+      visibleSections={respondentSections}
       effectiveAllSteps={effectiveAllSteps}
       effectiveValues={effectiveValues}
       effectiveLogicRules={effectiveLogicRules}
@@ -194,6 +210,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
       saveStatus={saveStatus}
       showReview={showReview}
       isCompleted={isCompleted}
+      finalSectionConfig={finalSectionConfig}
       isLastSection={isLastSection}
       errors={errors}
       fieldErrors={fieldErrors}
@@ -300,15 +317,18 @@ function NoVisibleSectionsScreen({ actualRunId, completeMutationIsPending, handl
 
 export function LoadedRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
   if (props.isCompleted) {
-    return <CompletedRunnerScreen workflow={props.workflow} />;
+    return (
+      <CompletedRunnerScreen
+        workflow={props.workflow}
+        actualRunId={props.actualRunId}
+        runToken={props.runToken}
+        finalSectionConfig={props.finalSectionConfig}
+      />
+    );
   }
 
   if (props.workflow != null && hasIntakeAssignment(props.currentSection)) {
     return <IntakeSectionScreen {...props} workflow={props.workflow} />;
-  }
-
-  if (hasFinalBlock(props.currentSection)) {
-    return <FinalSectionScreen {...props} />;
   }
 
   if (props.showReview) {
@@ -340,9 +360,21 @@ function getSafeRedirectUrl(value: string | undefined): string | null {
   }
 }
 
-function CompletedRunnerScreen({ workflow }: { workflow: RunnerWorkflow | undefined }): ReactElement {
+interface CompletedRunnerScreenProps {
+  workflow: RunnerWorkflow | undefined;
+  actualRunId: string | null;
+  runToken: string | null;
+  finalSectionConfig?: RunnerSectionConfig;
+}
+
+function CompletedRunnerScreen({
+  workflow,
+  actualRunId,
+  runToken,
+  finalSectionConfig,
+}: CompletedRunnerScreenProps): ReactElement {
   const settings = (workflow?.settings ?? {}) as RunnerSettings;
-  const redirectUrl = getSafeRedirectUrl(settings.redirectUrl);
+  const redirectUrl = finalSectionConfig ? null : getSafeRedirectUrl(settings.redirectUrl);
 
   useEffect(() => {
     if (!redirectUrl) {
@@ -354,6 +386,24 @@ function CompletedRunnerScreen({ workflow }: { workflow: RunnerWorkflow | undefi
     }, 5000);
     return () => window.clearTimeout(timer);
   }, [redirectUrl]);
+
+  if (actualRunId && finalSectionConfig) {
+    return (
+      <ClientRunnerLayout
+        title={getWorkflowTitle(workflow)}
+        progress={100}
+        currentStep={1}
+        totalSteps={1}
+        saveStatus="saved"
+      >
+        <FinalDocumentsSection
+          runId={actualRunId}
+          runToken={runToken ?? undefined}
+          sectionConfig={finalSectionConfig}
+        />
+      </ClientRunnerLayout>
+    );
+  }
 
   return (
     <ClientRunnerLayout
@@ -393,35 +443,6 @@ function IntakeSectionScreen(props: LoadedRunnerScreenProps & { workflow: Runner
       saveStatus={saveStatus}
     >
       <IntakeAssignmentSection workflow={workflow} runValues={effectiveValues} onComplete={() => { void handleNext(); }} />
-    </ClientRunnerLayout>
-  );
-}
-
-function FinalSectionScreen({
-  actualRunId,
-  currentSection,
-  currentSectionIndex,
-  visibleSections,
-  saveStatus,
-  workflow,
-  runToken,
-}: LoadedRunnerScreenProps): ReactElement {
-  if (actualRunId == null || currentSection == null) {
-    return <FullScreenLoader message="Preparing documents..." />;
-  }
-
-  return (
-    <ClientRunnerLayout
-      title={getWorkflowTitle(workflow)}
-      currentStep={currentSectionIndex}
-      totalSteps={visibleSections.length}
-      saveStatus={saveStatus}
-    >
-      <FinalDocumentsSection
-        runId={actualRunId}
-        runToken={runToken ?? undefined}
-        sectionConfig={getRunnerSectionConfig(currentSection)}
-      />
     </ClientRunnerLayout>
   );
 }

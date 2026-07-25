@@ -1,6 +1,7 @@
 import { WorkflowRun } from "@shared/schema";
 
 import { workflowRepository, workflowRunRepository, projectRepository } from "../../repositories";
+import { createError } from "../../utils/errors";
 import { workflowService } from "../WorkflowService";
 export interface RunAuthContext {
     run?: WorkflowRun;
@@ -82,26 +83,26 @@ export class RunAuthResolver {
      */
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     async verifyCreateAccess(idOrSlug: string, userId: string | undefined) {
-        if (userId) {
-            // Authenticated: verify ownership/access
-            return this.workflowSvc.verifyAccess(idOrSlug, userId);
-        } else {
-            // Anonymous: verify public access
-            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
-            let workflow;
-            if (isUuid) {
-                workflow = await this.workflowRepo.findById(idOrSlug);
-            } else {
-                // Share links can carry either the explicit publicLink or the
-                // workflow slug (SettingsTab uses publicLink ?? slug) — accept both
-                workflow = await this.workflowRepo.findByPublicLink(idOrSlug)
-                    ?? await this.workflowRepo.findBySlug(idOrSlug);
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+        const workflow = isUuid
+            ? await this.workflowRepo.findById(idOrSlug)
+            : await this.workflowRepo.findByPublicLink(idOrSlug)
+                ?? await this.workflowRepo.findBySlug(idOrSlug);
+
+        if (workflow?.status === 'active' && workflow.isPublic) {
+            if (workflow.requireLogin && !userId) {
+                throw createError.unauthorized('Authentication required for this workflow');
             }
-            if (!workflow) {throw new Error('Workflow not found');}
-            if (workflow.status !== 'active') {throw new Error('Workflow is not active');}
-            if (!workflow.isPublic) {throw new Error('Workflow is not public');}
             return workflow;
         }
+
+        if (userId && workflow) {
+            // Private and draft launches remain creator-only and tenant-scoped.
+            return this.workflowSvc.verifyAccess(workflow.id, userId);
+        }
+
+        // Do not reveal whether a public URL points at a private or inactive workflow.
+        throw createError.notFound('Workflow');
     }
 }
 export const runAuthResolver = new RunAuthResolver();

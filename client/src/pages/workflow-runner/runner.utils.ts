@@ -28,20 +28,11 @@ export async function startRunFromSlug(
     slug: string,
     initialValues?: Record<string, unknown>
 ): Promise<{ runId: string; runToken: string; workflowId: string }> {
-    const response = await fetch(`/api/workflows/public/${slug}/start`, {
+    const result = await fetchAPI<WorkflowRunResponse>(`/api/workflows/public/${slug}/start`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ initialValues }),
     });
 
-    if (!response.ok) {
-        const error = (await response.json()) as WorkflowRunResponse;
-        throw new Error(error.error ?? 'Failed to start workflow');
-    }
-
-    const result = (await response.json()) as WorkflowRunResponse;
     return result.data;
 }
 

@@ -7,7 +7,17 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { LoadedRunnerScreen, type LoadedRunnerScreenProps } from '../../../client/src/pages/WorkflowRunner';
+vi.mock('../../../client/src/components/runner/sections/FinalDocumentsSection', () => ({
+  FinalDocumentsSection: ({ sectionConfig }: { sectionConfig: { screenTitle?: string } }) => (
+    <div>{sectionConfig.screenTitle ?? 'Final documents'}</div>
+  ),
+}));
+
+import {
+  LoadedRunnerScreen,
+  partitionRunnerSections,
+  type LoadedRunnerScreenProps,
+} from '../../../client/src/pages/WorkflowRunner';
 import type { ApiSection } from '../../../client/src/lib/vault-api';
 
 function buildProps(overrides: Partial<LoadedRunnerScreenProps> = {}): LoadedRunnerScreenProps {
@@ -25,6 +35,7 @@ function buildProps(overrides: Partial<LoadedRunnerScreenProps> = {}): LoadedRun
     saveStatus: 'idle',
     showReview: false,
     isCompleted: false,
+    finalSectionConfig: undefined,
     isLastSection: false,
     errors: [],
     fieldErrors: {},
@@ -44,6 +55,29 @@ afterEach(() => {
 });
 
 describe('LoadedRunnerScreen — zero visible sections (RUN2-4)', () => {
+  it('removes final-document sections from pre-submit navigation', () => {
+    const questionSection: ApiSection = {
+      id: 'section-1',
+      workflowId: 'workflow-1',
+      title: 'Questions',
+      description: null,
+      order: 0,
+      createdAt: '2026-07-25T00:00:00.000Z',
+    };
+    const finalSection: ApiSection = {
+      ...questionSection,
+      id: 'section-final',
+      title: 'Final Documents',
+      order: 1,
+      config: { finalBlock: true, templates: ['template-1'] },
+    };
+
+    const result = partitionRunnerSections([questionSection, finalSection]);
+
+    expect(result.respondentSections).toEqual([questionSection]);
+    expect(result.finalSection).toEqual(finalSection);
+  });
+
   it('renders a dedicated terminal screen, not the dead-end "No visible sections." question screen', () => {
     render(<LoadedRunnerScreen {...buildProps()} />);
 
@@ -118,6 +152,24 @@ describe('LoadedRunnerScreen — zero visible sections (RUN2-4)', () => {
 
     expect(screen.getByRole('heading', { name: 'Interview complete' })).toBeInTheDocument();
     expect(screen.getByText('Your response was received.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /submit/i })).not.toBeInTheDocument();
+  });
+
+  it('uses final-document configuration only after the run is completed', () => {
+    render(
+      <LoadedRunnerScreen
+        {...buildProps({
+          isCompleted: true,
+          finalSectionConfig: {
+            finalBlock: true,
+            screenTitle: 'Download your documents',
+            templates: ['template-1'],
+          },
+        })}
+      />
+    );
+
+    expect(screen.getByText('Download your documents')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /submit/i })).not.toBeInTheDocument();
   });
 });

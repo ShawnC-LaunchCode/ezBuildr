@@ -8,8 +8,11 @@ import {
   ChevronDown,
   ArrowLeft,
   Database,
+  Link2,
   Sparkles,
   Share2,
+  UserPlus,
+  Users,
 } from "lucide-react";
 
 // Removed AdvancedModeBanner
@@ -294,13 +297,37 @@ export default function WorkflowBuilder() {
                     >
                       <Eye className="w-4 h-4 mr-2" /> Preview
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShareOpen(true)}
-                    >
-                      <Share2 className="w-4 h-4 mr-2" /> Share
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Share2 className="w-4 h-4 mr-2" /> Share
+                          <ChevronDown className="w-4 h-4 ml-2" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-64">
+                        <DropdownMenuItem onClick={() => setActiveTab("settings")}>
+                          <Link2 className="w-4 h-4 mr-2" />
+                          <div>
+                            <div>Participant link</div>
+                            <div className="text-xs text-muted-foreground">Publish and copy the interview URL</div>
+                          </div>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setActiveTab("assignment")}>
+                          <UserPlus className="w-4 h-4 mr-2" />
+                          <div>
+                            <div>Assign interview</div>
+                            <div className="text-xs text-muted-foreground">Send work to a client or team member</div>
+                          </div>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setShareOpen(true)}>
+                          <Users className="w-4 h-4 mr-2" />
+                          <div>
+                            <div>Team access</div>
+                            <div className="text-xs text-muted-foreground">Control who can view or edit</div>
+                          </div>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                     <Button
                       variant={aiPanelOpen ? "secondary" : "outline"}
                       size="sm"
