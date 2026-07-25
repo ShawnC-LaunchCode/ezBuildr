@@ -132,6 +132,8 @@ export async function cleanupTempFiles(maxAgeMs = 3600000): Promise<number> {
   const dirsToClean = [
     UPLOAD_DIR,
     path.join(process.cwd(), 'server', 'files', 'outputs', 'previews'),
+    path.join(process.cwd(), 'server', 'files', 'outputs'),
+    path.join(process.cwd(), 'server', 'files', 'archives'),
     os.tmpdir()
   ];
 

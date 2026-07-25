@@ -379,43 +379,39 @@ export class FinalBlockRenderer {
   ): Promise<NonNullable<FinalBlockRenderResponse['archive']>> {
     const zipDocuments: ZipDocument[] = [];
 
-    // Read all generated files into memory for zipping
     for (const result of results) {
       const filePath = toPdf && result.pdfPath ? result.pdfPath : result.docxPath;
       const filename = path.basename(filePath);
-      const buffer = await fs.readFile(filePath);
       const mimeType = filePath.endsWith('.pdf')
         ? 'application/pdf'
         : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
       zipDocuments.push({
         filename,
-        buffer,
+        filePath,
         mimeType,
-        size: buffer.length,
       });
     }
 
-    // Create ZIP archive
+    await fs.mkdir(outputDir, { recursive: true });
+
     const zipResult: ZipResult = await createFinalBlockZip(
       zipDocuments,
       workflowId,
       runId,
+      outputDir,
       {
         'Document Count': String(zipDocuments.length),
         'Format': toPdf ? 'PDF' : 'DOCX',
       }
     );
 
-    // Save ZIP to disk
-    await fs.mkdir(outputDir, { recursive: true });
-    const zipPath = path.join(outputDir, zipResult.filename);
-    await fs.writeFile(zipPath, zipResult.buffer);
+    const stats = await fs.stat(zipResult.filePath);
 
     return {
       filename: zipResult.filename,
-      filePath: zipPath,
-      size: zipResult.size,
+      filePath: zipResult.filePath,
+      size: stats.size,
     };
   }
 }
@@ -466,34 +462,13 @@ export function createTemplateResolver(
     }
 
     // Construct full path to template file
-    const templatesDir = path.join(process.cwd(), 'server', 'files');
-    return path.join(templatesDir, template.fileRef);
-  };
-}
-
-/**
- * Cleanup generated files after a specified delay
- *
- * Useful for temporary file cleanup after download.
- *
- * @param filePaths - Paths to files to delete
- * @param delayMs - Delay before deletion (default: 1 hour)
- */
-export async function scheduleCleanup(
-  filePaths: string[],
-  delayMs: number = 60 * 60 * 1000 // 1 hour
-): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  setTimeout(async () => {
-    for (const filePath of filePaths) {
-      try {
-        await fs.unlink(filePath);
-        logger.debug({ filePath }, 'Cleaned up temporary file');
-      } catch (error) {
-        logger.warn({ filePath, error }, 'Failed to cleanup file');
-      }
+    const templatesDir = path.resolve(process.cwd(), 'server', 'files');
+    const resolvedPath = path.resolve(templatesDir, template.fileRef);
+    if (!resolvedPath.startsWith(templatesDir)) {
+      throw createError.validation('Invalid template path');
     }
-  }, delayMs);
+    return resolvedPath;
+  };
 }
 
 // ============================================================================
@@ -505,5 +480,4 @@ export default {
   finalBlockRenderer,
   renderFinalBlock,
   createTemplateResolver,
-  scheduleCleanup,
 };

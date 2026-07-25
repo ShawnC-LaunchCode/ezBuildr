@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -45,8 +46,8 @@ export class DocumentEngine {
         // 1. Render DOCX
         const buffer = await this.parser.render({ templatePath, templateBuffer, data, unresolvedVariables });
         // Generate output filename
-        const timestamp = Date.now();
-        const docxFileName = `${outputName}-${timestamp}.docx`;
+        const uniqueId = crypto.randomUUID();
+        const docxFileName = `${outputName}-${uniqueId}.docx`;
         const docxPath = path.join(outputDir, docxFileName);
         // Write DOCX
         await fs.writeFile(docxPath, buffer);
@@ -59,7 +60,7 @@ export class DocumentEngine {
         // 2. Convert to PDF if requested
         if (toPdf) {
             try {
-                const pdfFileName = `${outputName}-${timestamp}.pdf`;
+                const pdfFileName = `${outputName}-${uniqueId}.pdf`;
                 const pdfPath = path.join(outputDir, pdfFileName);
                 // Instantiate converter (defaults to Puppeteer)
                 const converter = new PdfConverter();

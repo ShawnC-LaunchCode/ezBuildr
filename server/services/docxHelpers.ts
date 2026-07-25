@@ -10,7 +10,7 @@
  * - Conditional helpers
  */
 
-import { format as formatDateFns, addDays as fnsAddDays, differenceInDays } from 'date-fns';
+import { format as formatDateFns, addDays as fnsAddDays, differenceInDays, parseISO, isValid } from 'date-fns';
 
 import { formatters } from '../utils/formatters';
 
@@ -148,7 +148,10 @@ export function formatDate(
   if (!iso) {return '';}
 
   try {
-    const d = typeof iso === 'string' ? new Date(iso) : iso;
+    let d = typeof iso === 'string' ? parseISO(iso) : iso;
+    if (typeof iso === 'string' && !isValid(d)) {
+      d = new Date(iso);
+    }
     if (isNaN(d.getTime())) {return '';}
 
     return formatDateFns(d, translateDateFormat(format));
@@ -168,7 +171,10 @@ export function addDays(
   if (iso == null || iso === '') { return ''; }
 
   try {
-    const d = typeof iso === 'string' ? new Date(iso) : iso;
+    let d = typeof iso === 'string' ? parseISO(iso) : iso;
+    if (typeof iso === 'string' && !isValid(d)) {
+      d = new Date(iso);
+    }
     if (isNaN(d.getTime())) { return ''; }
 
     const updated = fnsAddDays(d, days);
@@ -188,8 +194,14 @@ export function daysBetween(
   if (date1 == null || date1 === '' || date2 == null || date2 === '') { return 0; }
 
   try {
-    const d1 = typeof date1 === 'string' ? new Date(date1) : date1;
-    const d2 = typeof date2 === 'string' ? new Date(date2) : date2;
+    let d1 = typeof date1 === 'string' ? parseISO(date1) : date1;
+    if (typeof date1 === 'string' && !isValid(d1)) {
+      d1 = new Date(date1);
+    }
+    let d2 = typeof date2 === 'string' ? parseISO(date2) : date2;
+    if (typeof date2 === 'string' && !isValid(d2)) {
+      d2 = new Date(date2);
+    }
     
     if (isNaN(d1.getTime()) || isNaN(d2.getTime())) { return 0; }
 
