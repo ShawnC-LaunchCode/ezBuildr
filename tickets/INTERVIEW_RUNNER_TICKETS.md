@@ -284,7 +284,7 @@ not the last. Do not change the show/hide precedence semantics.
 
 ---
 
-## RUN2-3 — A required question the runner cannot render makes the interview unfinishable 🔲
+## RUN2-3 — A required question the runner cannot render makes the interview unfinishable ✅
 
 **Priority: P0 (bug)** · Size: M · Files: `shared/validation/BlockValidation.ts`, `server/workflows/validation.ts`, `client/src/components/runner/blocks/BlockRenderer.tsx`
 
@@ -604,7 +604,7 @@ query pattern.
 
 # Phase 2 — Run-data integrity & prefill security
 
-## RUN2-6 — URL/query prefill bypasses the intake prefill allowlist 🔲
+## RUN2-6 — URL/query prefill bypasses the intake prefill allowlist ✅
 
 **Priority: P0 (security)** · Size: M · Files: `server/services/RunService.ts`, `server/services/workflow-runs/RunLifecycleService.ts`
 
@@ -781,7 +781,7 @@ validator that runs before a workflow goes live is a stub. Phase 3 builds the
 real gate, fixes the linter that the gate depends on, and makes the runtime's
 own rejection legible instead of a generic 500.
 
-## RUN2-7 — `POST /api/workflows/:id/publish` activates a workflow without running the lint gate 🔲
+## RUN2-7 — `POST /api/workflows/:id/publish` activates a workflow without running the lint gate ✅
 
 **Priority: P1** · Size: S · Files: `server/routes/versions.routes.ts`, `server/services/VersionService.ts`
 
@@ -845,7 +845,7 @@ method already does.
 
 ---
 
-## RUN2-8 — The lint gate reports false "unknown alias" errors that block valid workflows 🔲
+## RUN2-8 — The lint gate reports false "unknown alias" errors that block valid workflows ✅
 
 **Priority: P1 (bug)** · Size: S · File: `server/services/WorkflowLintService.ts`
 
@@ -1214,7 +1214,7 @@ shape is consistent.
 
 # Phase 4 — Render-layer correctness & performance
 
-## RUN2-13 — Display-block variables never resolve, and final-block conditions evaluate against `{}` 🔲
+## RUN2-13 — Display-block variables never resolve, and final-block conditions evaluate against `{}` ✅
 
 **Priority: P1 (bug)** · Size: S · Files: `client/src/components/runner/blocks/DisplayBlock.tsx`, `client/src/components/runner/blocks/BlockRenderer.tsx`
 
@@ -1482,17 +1482,17 @@ whether that lands in this initiative or its own.
 |---|---|---|
 | RUN2-1 | Section submit uses a different visibility engine | ✅ Done 2026-07-25 |
 | RUN2-2 | Backwards `skip_to` = infinite navigation loop | ✅ Done 2026-07-25 |
-| RUN2-3 | Required unrenderable question = unfinishable interview | 🔲 Open |
+| RUN2-3 | Required unrenderable question = unfinishable interview | ✅ Done 2026-07-25 |
 | RUN2-4 | Zero visible sections = dead screen | ✅ Done 2026-07-25 |
 | RUN2-5 | Logic evaluation mutates the respondent's answer array | ✅ Done 2026-07-25 |
-| RUN2-6 | URL prefill bypasses the intake allowlist | 🔲 Open |
-| RUN2-7 | Publish bypasses the lint gate | 🔲 Open |
-| RUN2-8 | Lint gate emits false "unknown alias" errors | 🔲 Open |
+| RUN2-6 | URL prefill bypasses the intake allowlist | ✅ Done 2026-07-25 |
+| RUN2-7 | Publish bypasses the lint gate | ✅ Done 2026-07-25 |
+| RUN2-8 | Lint gate emits false "unknown alias" errors | ✅ Done 2026-07-25 |
 | RUN2-9 | `validateWorkflow` is a stub | 🔲 Open |
 | RUN2-10 | Runtime schema rejection is an opaque 500 | 🔲 Open |
 | RUN2-11 | Unresolvable rule becomes always-true `is_empty` | 🔲 Open |
 | RUN2-12 | Branch-block `nextSectionId` trusted unvalidated | 🔲 Open |
-| RUN2-13 | Display `{{alias}}` never resolves; final block gets `{}` | 🔲 Open |
+| RUN2-13 | Display `{{alias}}` never resolves; final block gets `{}` | ✅ Done 2026-07-25 |
 | RUN2-14 | Choice options reload per keystroke; empty alias crashes | 🔲 Open |
 | RUN2-15 | Submit throws when author edits a published workflow mid-run | 🔲 Open |
 | RUN2-16 | Unify validation engines; server authoritative, pattern guarded | 🔲 Open |
