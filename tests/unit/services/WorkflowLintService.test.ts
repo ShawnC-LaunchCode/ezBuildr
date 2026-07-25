@@ -115,4 +115,83 @@ describe("WorkflowLintService", () => {
     }));
     expect(results.filter(r => r.type === "error")).toHaveLength(0);
   });
+
+  // RUN2-8: VersionService.serializeWorkflow emits a section rule's targetAlias
+  // as the section TITLE (there is no section.alias field) and falls back to the
+  // raw step id for conditionStepAlias when the condition step has no alias.
+  // The linter must accept both instead of comparing them against a step-alias-only set.
+
+  it("does not flag a section-targeted hide rule referencing the section by id and title (RUN2-8 AC1)", async () => {
+    const results = await lint(content({
+      logicRules: [{
+        conditionStepId: "st1",
+        conditionStepAlias: "name",
+        operator: "equals",
+        conditionValue: "x",
+        targetType: "section",
+        targetId: "s1",
+        targetAlias: "Page 1", // section title fallback, not a step alias
+        action: "hide",
+      }],
+    }));
+    expect(results.filter(r => r.type === "error")).toHaveLength(0);
+  });
+
+  it("does not flag a rule whose condition step has no alias (RUN2-8 AC2)", async () => {
+    const results = await lint(content({
+      sections: [{
+        id: "s1",
+        title: "Page 1",
+        steps: [
+          { id: "st1", title: "Name", alias: "name" },
+          { id: "st2", title: "Unaliased" }, // no alias
+        ],
+      }],
+      logicRules: [{
+        conditionStepId: "st2",
+        conditionStepAlias: "st2", // serializer fallback: raw step id, not an alias
+        operator: "equals",
+        conditionValue: "x",
+        targetType: "step",
+        targetId: "st1",
+        targetAlias: "name",
+        action: "show",
+      }],
+    }));
+    expect(results.filter(r => r.type === "error")).toHaveLength(0);
+  });
+
+  it("still errors on a rule whose condition step id/alias exists nowhere in the workflow (RUN2-8 AC3)", async () => {
+    const results = await lint(content({
+      logicRules: [{
+        conditionStepId: "ghost-id",
+        conditionStepAlias: "ghost-id",
+        operator: "equals",
+        conditionValue: "x",
+        targetType: "step",
+        targetId: "st1",
+        targetAlias: "name",
+        action: "show",
+      }],
+    }));
+    const err = results.find(r => r.type === "error" && r.message.includes("ghost-id"));
+    expect(err).toBeDefined();
+  });
+
+  it("still errors on a rule whose section target id/title exists nowhere in the workflow (RUN2-8 AC4)", async () => {
+    const results = await lint(content({
+      logicRules: [{
+        conditionStepId: "st1",
+        conditionStepAlias: "name",
+        operator: "equals",
+        conditionValue: "x",
+        targetType: "section",
+        targetId: "ghost-section",
+        targetAlias: "Ghost Section",
+        action: "hide",
+      }],
+    }));
+    const err = results.find(r => r.type === "error" && r.message.includes("ghost-section"));
+    expect(err).toBeDefined();
+  });
 });

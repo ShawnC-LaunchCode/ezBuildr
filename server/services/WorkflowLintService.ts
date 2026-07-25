@@ -20,30 +20,56 @@ export class WorkflowLintService {
       results.push({ type: "error", message: "Workflow must have at least one section." });
     }
 
-    const validAliases = this.collectAliases(sections);
-    const hasSteps = this.lintSections(sections, validAliases, results);
+    const { stepAliases, stepRefs, sectionRefs } = this.collectReferenceSets(sections);
+    const hasSteps = this.lintSections(sections, stepAliases, results);
 
     if (sections.length > 0 && !hasSteps) {
       results.push({ type: "error", message: "Workflow must have at least one question." });
     }
 
-    this.lintLogicRules(data.logicRules || [], validAliases, results);
-    this.lintBlocksWithInputs(data.transformBlocks || [], "Transform block", validAliases, results);
-    this.lintBlocksWithInputs(data.lifecycleHooks || [], "Lifecycle hook", validAliases, results);
-    this.lintBlocksWithInputs(data.documentHooks || [], "Document hook", validAliases, results);
+    this.lintLogicRules(data.logicRules || [], stepRefs, sectionRefs, results);
+    this.lintBlocksWithInputs(data.transformBlocks || [], "Transform block", stepAliases, results);
+    this.lintBlocksWithInputs(data.lifecycleHooks || [], "Lifecycle hook", stepAliases, results);
+    this.lintBlocksWithInputs(data.documentHooks || [], "Document hook", stepAliases, results);
 
     return results;
   }
 
-  private collectAliases(sections: Record<string, any>[]): Set<string> {
-    const validAliases = new Set<string>();
+  /**
+   * Build the reference sets used to validate logic-rule targets/conditions and
+   * visibleIf/input-key expressions.
+   *
+   * `VersionService.serializeWorkflow` never emits a `section.alias` field — a
+   * section rule's `targetAlias` is the section **title**, and a step-condition's
+   * `conditionStepAlias` falls back to the raw step **id** when the step has no
+   * alias. So logic-rule references must be checked against ids-and-titles
+   * (sections) or ids-and-aliases (steps), not against a step-alias-only set.
+   * `stepAliases` is kept separate (alias-only) for visibleIf/input-key checks,
+   * which only ever reference human-typed step aliases.
+   */
+  private collectReferenceSets(sections: Record<string, any>[]): {
+    stepAliases: Set<string>;
+    stepRefs: Set<string>;
+    sectionRefs: Set<string>;
+  } {
+    const stepAliases = new Set<string>();
+    const stepRefs = new Set<string>();
+    const sectionRefs = new Set<string>();
+
     for (const section of sections) {
-      if (section.alias) {validAliases.add(section.alias);}
+      sectionRefs.add(section.id);
+      if (section.title) { sectionRefs.add(section.title); }
+
       for (const step of section.steps || []) {
-        if (step.alias) {validAliases.add(step.alias);}
+        stepRefs.add(step.id);
+        if (step.alias) {
+          stepAliases.add(step.alias);
+          stepRefs.add(step.alias);
+        }
       }
     }
-    return validAliases;
+
+    return { stepAliases, stepRefs, sectionRefs };
   }
 
   private lintSections(sections: Record<string, any>[], validAliases: Set<string>, results: LintResult[]): boolean {
@@ -64,13 +90,19 @@ export class WorkflowLintService {
     return hasSteps;
   }
 
-  private lintLogicRules(rules: Record<string, any>[], validAliases: Set<string>, results: LintResult[]): void {
+  private lintLogicRules(rules: Record<string, any>[], stepRefs: Set<string>, sectionRefs: Set<string>, results: LintResult[]): void {
     for (const rule of rules) {
-      if (rule.conditionStepAlias && !validAliases.has(rule.conditionStepAlias)) {
-        results.push({ type: "error", message: `Logic rule condition references unknown alias: "${rule.conditionStepAlias}"` });
+      // Prefer the id field the serializer always emits alongside the alias;
+      // the alias field is only a fallback for rules where the id is absent.
+      const conditionRef = rule.conditionStepId ?? rule.conditionStepAlias;
+      if (conditionRef && !stepRefs.has(conditionRef)) {
+        results.push({ type: "error", message: `Logic rule condition references unknown alias: "${conditionRef}"` });
       }
-      if (rule.targetAlias && !validAliases.has(rule.targetAlias)) {
-        results.push({ type: "error", message: `Logic rule target references unknown alias: "${rule.targetAlias}"` });
+
+      const targetRefs = rule.targetType === "section" ? sectionRefs : stepRefs;
+      const targetRef = rule.targetId ?? rule.targetAlias;
+      if (targetRef && !targetRefs.has(targetRef)) {
+        results.push({ type: "error", message: `Logic rule target references unknown alias: "${targetRef}"` });
       }
     }
   }
