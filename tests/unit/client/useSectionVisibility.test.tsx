@@ -3,7 +3,7 @@ import { renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { useSectionVisibility } from '../../../client/src/hooks/runner/useSectionVisibility';
-import type { ApiSection, ApiStep } from '../../../client/src/lib/vault-api';
+import type { ApiSection, ApiStep, StepType } from '../../../client/src/lib/vault-api';
 import type { LogicRule } from '@shared/schema';
 
 const createdAt = '2026-07-13T00:00:00.000Z';
@@ -20,12 +20,12 @@ function createSection(id: string, order: number): ApiSection {
   };
 }
 
-function createStep(id: string, sectionId: string, order: number): ApiStep {
+function createStep(id: string, sectionId: string, order: number, type: StepType = 'short_text'): ApiStep {
   return {
     id,
     workflowId: 'workflow-1',
     sectionId,
-    type: 'short_text',
+    type,
     title: id,
     description: null,
     required: false,
@@ -100,5 +100,18 @@ describe('useSectionVisibility', () => {
     rerender({ values: { controller: 'yes' } });
 
     expect(result.current.getVisibleSectionSteps('intro').map((step) => step.id)).toEqual(['controller']);
+  });
+
+  it('excludes a final-block step from getVisibleSectionSteps regardless of authoring spelling', () => {
+    const sections = [createSection('intro', 1)];
+    const steps = [
+      createStep('question', 'intro', 1),
+      createStep('final-easy-mode', 'intro', 2, 'final'),
+      createStep('final-advanced', 'intro', 3, 'final_documents'),
+    ];
+
+    const { result } = renderHook(() => useSectionVisibility(sections, steps, {}, []));
+
+    expect(result.current.getVisibleSectionSteps('intro').map((step) => step.id)).toEqual(['question']);
   });
 });
