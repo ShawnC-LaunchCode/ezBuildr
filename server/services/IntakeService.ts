@@ -8,6 +8,7 @@ import { RUN_TOKEN_CONFIG } from "../config/auth";
 import { createLogger } from "../logger";
 import { hashToken } from "../utils/encryption";
 import { createError } from "../utils/errors";
+import { filterPrefillValues } from "../utils/prefillFilter";
 import { assertStepValueSizesWithinLimit } from "../utils/valueSizeLimit";
 import { workflowRepository, workflowRunRepository, stepValueRepository, sectionRepository, projectRepository, stepRepository } from "../repositories";
 
@@ -130,8 +131,11 @@ export class IntakeService {
       },
     });
 
-    // Handle prefill from URL parameters (Stage 12.5)
-    if (prefillParams && intakeConfig.allowPrefill && intakeConfig.allowedPrefillKeys) {
+    // Handle prefill from URL parameters (Stage 12.5). Allowlist enforcement
+    // (RUN2-6) lives in the shared filterPrefillValues helper so this same
+    // check applies everywhere a run can be seeded from caller-supplied data.
+    const filteredPrefillParams = filterPrefillValues(intakeConfig, prefillParams);
+    if (Object.keys(filteredPrefillParams).length > 0) {
       // Get all steps to map aliases to stepIds
       const allSteps = await stepRepository.findByWorkflowIdWithAliases(workflow.id);
       const aliasToStepId = new Map<string, string>();
@@ -143,14 +147,11 @@ export class IntakeService {
 
       // Process prefill parameters
       const prefillData = [];
-      for (const [key, value] of Object.entries(prefillParams)) {
-        // Only prefill if key is in allowedPrefillKeys
-        if (intakeConfig.allowedPrefillKeys.includes(key)) {
-          const stepId = aliasToStepId.get(key);
-          if (stepId) {
-            prefillData.push({ runId: run.id, stepId, value });
-            logger.info({ runId: run.id, key, stepId }, "Prefilled value from URL");
-          }
+      for (const [key, value] of Object.entries(filteredPrefillParams)) {
+        const stepId = aliasToStepId.get(key);
+        if (stepId) {
+          prefillData.push({ runId: run.id, stepId, value });
+          logger.info({ runId: run.id, key, stepId }, "Prefilled value from URL");
         }
       }
       if (prefillData.length > 0) {

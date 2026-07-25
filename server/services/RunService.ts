@@ -6,6 +6,7 @@ import { RUN_TOKEN_CONFIG } from "../config/auth";
 import { logger } from "../logger";
 import { hashToken } from "../utils/encryption";
 import { createError } from "../utils/errors";
+import { filterPrefillValues } from "../utils/prefillFilter";
 
 function validateJsonbSize(value: unknown, fieldName: string): void {
   if (value === undefined || value === null) {return;}
@@ -25,6 +26,8 @@ import {
   runGeneratedDocumentsRepository,
 } from "../repositories";
 
+import { IntakeConfigSchema } from "../../shared/zod-schemas.js";
+
 import { logicService, type NavigationResult } from "./LogicService";
 import { RunAuthResolver } from "./runs/RunAuthResolver";
 import { RunExecutionCoordinator } from "./runs/RunExecutionCoordinator";
@@ -36,6 +39,7 @@ import { RunShareService } from "./workflow-runs/RunShareService";
 import { RunStateService } from "./workflow-runs/RunStateService";
 import { workflowService } from "./WorkflowService";
 
+import type { IntakeConfig } from "../../shared/types/intake.js";
 import type { CreateRunOptions, DocumentGenerationResult } from "./workflow-runs/types";
 import type { GenerateDocumentsOptions } from "./workflow-runs/RunLifecycleService";
 
@@ -176,7 +180,13 @@ export class RunService {
     const tokenExpiresAt = new Date(Date.now() + RUN_TOKEN_CONFIG.EXPIRY_MS);
     // Load snapshot values if snapshotId provided
     let snapshotValueMap: Record<string, { value: unknown; stepId: string; stepUpdatedAt: string }> | undefined;
-    let mergedInitialValues = { ...initialValues };
+    // RUN2-6: caller-supplied initialValues (from the request body, which the
+    // client populates from URL query params) are only ever applied if the
+    // workflow's intake allowlist admits them. Snapshot- and
+    // randomize-derived values below are server-derived, not
+    // caller-supplied, and are merged in unfiltered afterwards.
+    const intakeConfig = this.resolveIntakeConfig(workflow.intakeConfig);
+    let mergedInitialValues = { ...filterPrefillValues(intakeConfig, initialValues) };
     if (data.metadata) {
       validateJsonbSize(data.metadata, 'metadata');
     }
@@ -420,6 +430,16 @@ export class RunService {
     return navigation.nextSectionId;
   }
   /**
+   * Parse a workflow's raw `intakeConfig` jsonb column into a typed
+   * IntakeConfig, defaulting to `{}` (no prefill allowed) when absent or
+   * malformed. Shared by createRun/createAnonymousRun so RUN2-6's prefill
+   * allowlist filter (`filterPrefillValues`) has a config to check.
+   */
+  private resolveIntakeConfig(rawIntakeConfig: unknown): IntakeConfig {
+    const parsed = IntakeConfigSchema.safeParse(rawIntakeConfig);
+    return parsed.success ? parsed.data : {};
+  }
+  /**
    * Calculate next section and update run state
    * Executes onNext blocks (transform + branch)
    *
@@ -503,9 +523,11 @@ export class RunService {
       createdBy: 'anon',
       completed: false,
     });
-    // Populate initial values
+    // Populate initial values. RUN2-6: filter caller-supplied initialValues
+    // against the workflow's intake allowlist before they are applied.
+    const anonIntakeConfig = this.resolveIntakeConfig(workflow.intakeConfig);
     await this.lifecycleService.populateInitialValues(run.id, workflow.id, {
-      initialValues
+      initialValues: filterPrefillValues(anonIntakeConfig, initialValues)
     });
     // ICW2-B9: initialize currentSectionId to the first visible section (see
     // createRun for the full rationale).
