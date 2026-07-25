@@ -165,12 +165,22 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
 
   const handleAddOption = () => {
     if (!localConfig) { return; }
+    // Derive the next suffix from the free slots, not the array length: after a
+    // middle option is deleted, `length + 1` can re-mint an id/alias that a
+    // surviving option still holds, which trips the duplicate-alias check on
+    // save. Bump until both the id and the alias are unused.
+    const usedIds = new Set(localConfig.staticOptions.map((o) => o.id));
+    const usedAliases = new Set(
+      localConfig.staticOptions.map((o) => o.alias).filter((a): a is string => Boolean(a))
+    );
+    let n = localConfig.staticOptions.length + 1;
+    while (usedIds.has(`opt${n}`) || usedAliases.has(`option${n}`)) { n++; }
     const newOptions = [
       ...localConfig.staticOptions,
       {
-        id: `opt${localConfig.staticOptions.length + 1}`,
-        label: `Option ${localConfig.staticOptions.length + 1}`,
-        alias: `option${localConfig.staticOptions.length + 1}`,
+        id: `opt${n}`,
+        label: `Option ${n}`,
+        alias: `option${n}`,
       },
     ];
     handleUpdate({ staticOptions: newOptions });

@@ -140,24 +140,30 @@ export function useJSBlockEditor({ block, onChange, workflowId }: UseJSBlockEdit
             iframe.sandbox.add('allow-scripts');
             document.body.appendChild(iframe);
 
+            let objectUrl: string | null = null;
+            const cleanup = () => {
+                window.removeEventListener('message', messageHandler);
+                if (document.body.contains(iframe)) { document.body.removeChild(iframe); }
+                if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+            };
+
             const messageHandler = (event: MessageEvent) => {
                 if (event.source !== iframe.contentWindow) {return;}
-                window.removeEventListener('message', messageHandler);
-                document.body.removeChild(iframe);
-                
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                if (event.data.error) {
+                cleanup();
+
+                const data = (typeof event.data === 'object' && event.data !== null
+                    ? event.data
+                    : {}) as { error?: string; result?: unknown };
+                if (data.error) {
                     toast({
                         title: "Execution Error",
-                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-                        description: event.data.error,
+                        description: data.error,
                         variant: "destructive"
                     });
                 } else {
                     toast({
                         title: "Test Run Complete ✓",
-                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-                        description: `${JSON.stringify({ input: mockInput, output: event.data.result }, null, 2).slice(0, 100)}...`
+                        description: `${JSON.stringify({ input: mockInput, output: data.result }, null, 2).slice(0, 100)}...`
                     });
                 }
             };
@@ -183,8 +189,9 @@ export function useJSBlockEditor({ block, onChange, workflowId }: UseJSBlockEdit
                 </html>
             `;
             const blob = new Blob([html], { type: 'text/html' });
-            iframe.src = URL.createObjectURL(blob);
-            
+            objectUrl = URL.createObjectURL(blob);
+            iframe.src = objectUrl;
+
             iframe.onload = () => {
                 iframe.contentWindow?.postMessage({ code, input: mockInput }, '*');
             };
@@ -192,8 +199,7 @@ export function useJSBlockEditor({ block, onChange, workflowId }: UseJSBlockEdit
             // Timeout fallback
             setTimeout(() => {
                 if (document.body.contains(iframe)) {
-                    window.removeEventListener('message', messageHandler);
-                    document.body.removeChild(iframe);
+                    cleanup();
                     toast({
                         title: "Execution Error",
                         description: "Execution timed out",

@@ -16,6 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSections, useAllSteps, ApiStep, useWorkflow } from "@/lib/vault-hooks";
 import { apiRequest } from "@/lib/queryClient";
+import { fetchAPI } from "@/lib/vault-api";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
@@ -67,11 +68,13 @@ export function ReviewTab({ workflowId }: ReviewTabProps) {
     const handleActivate = async (): Promise<void> => {
         setIsActivating(true);
         try {
-            const res = await apiRequest('PUT', `/api/workflows/${workflowId}/status`, { status: 'active' });
-            if (!res.ok) {
-                const data = await res.json().catch(() => ({})) as { message?: string; error?: string };
-                throw new Error(data.message ?? data.error ?? "Failed to activate workflow");
-            }
+            // fetchAPI injects the bearer token, refreshes it on a mid-session
+            // 401, and throws with the server's message (e.g. the activation
+            // validation errors) on failure.
+            await fetchAPI(`/api/workflows/${workflowId}/status`, {
+                method: 'PUT',
+                body: JSON.stringify({ status: 'active' }),
+            });
             toast({
                 title: "Success",
                 description: "Workflow activated and published successfully.",

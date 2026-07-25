@@ -104,6 +104,7 @@ export function useUpdateSection(): UseMutationResult<ApiSection, unknown, Parti
 export function useReorderSections(): UseMutationResult<unknown, unknown, { workflowId: string; sections: Array<{ id: string; order: number }> }> {
     const queryClient = useQueryClient();
     return useMutation({
+        meta: { errorMessage: "Failed to reorder pages. The order has been reverted." },
         mutationFn: ({ workflowId, sections }: { workflowId: string; sections: Array<{ id: string; order: number }> }) =>
             sectionAPI.reorder(workflowId, sections),
         onMutate: async (variables) => {

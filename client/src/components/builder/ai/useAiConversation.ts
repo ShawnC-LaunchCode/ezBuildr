@@ -80,7 +80,10 @@ export function useAiConversation(
     // Handle initial prompt from "Create with AI" flow
     const hasSentInitialPrompt = useRef(false);
     useEffect(() => {
-        if (initialPrompt && !hasSentInitialPrompt.current && messages.length === 1) { // 1 because of greeting
+        // Fire once the greeting (or any message) exists — the ref guarantees
+        // this only ever sends once, so `>= 1` avoids silently dropping the
+        // prompt if the message array isn't exactly length 1 at this moment.
+        if (initialPrompt && !hasSentInitialPrompt.current && messages.length >= 1) {
             hasSentInitialPrompt.current = true;
             setInput(initialPrompt);
             // We need to wait a tick for the state to update, then send

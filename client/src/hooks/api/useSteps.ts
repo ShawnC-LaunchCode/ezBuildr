@@ -122,6 +122,7 @@ export function useUpdateStep(): UseMutationResult<ApiStep, unknown, Partial<Api
 export function useReorderSteps(): UseMutationResult<unknown, unknown, { sectionId: string; steps: Array<{ id: string; order: number }> }> {
     const queryClient = useQueryClient();
     return useMutation({
+        meta: { errorMessage: "Failed to reorder questions. The order has been reverted." },
         mutationFn: ({ sectionId, steps }: { sectionId: string; steps: Array<{ id: string; order: number }> }) =>
             stepAPI.reorder(sectionId, steps),
         onMutate: async (variables) => {
