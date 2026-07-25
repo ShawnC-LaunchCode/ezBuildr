@@ -1405,6 +1405,187 @@ to return `""`.
 
 ---
 
+# Phase 5 — Promoted backlog (2026-07-25)
+
+Promoted from the backlog after the main initiative closed. Evidence below was
+**re-verified against the current tree**, not carried over from the audit —
+these three were confirmed still live after all 16 tickets landed. (RUN2-B3 was
+closed without a ticket: RUN2-16 replaced the `visibleStepIds.includes()` loop
+with a `Set`.)
+
+Dispatch these in **git worktrees**, one per ticket — see the "Parallel work"
+section of `CLAUDE.md`.
+
+## RUN2-17 — A `final` step renders inline as a question 🔲
+
+**Priority: P2** · Size: S · File: `client/src/hooks/runner/useSectionVisibility.ts`
+
+### Finding
+
+`getVisibleSectionSteps` excludes final blocks from the question list by exact
+type match (`useSectionVisibility.ts:71-73`):
+
+```ts
+const sectionSteps = allSteps.filter(
+  (step) => step.sectionId === sectionId && !step.isVirtual && step.type !== 'final_documents'
+);
+```
+
+`final` is the easy-mode alias for the same thing —
+`normalizeRunnerStepType` maps `final` → `final_documents`
+(`shared/types/runnerStepTypes.ts`), and `BlockRenderer` routes both to
+`FinalBlockRenderer`. So a step authored as `final` is *not* filtered here and
+renders inline in the middle of a question page, while an identical step
+authored as `final_documents` is excluded. Two authoring shapes for the same
+concept behave differently.
+
+### Preferred fix
+
+Filter on the normalized type rather than the raw one: import
+`normalizeRunnerStepType` from `@shared/types/runnerStepTypes` (already the
+single source of truth after RUN2-3) and compare its result to
+`'final_documents'`. Do not add a second literal — that is exactly the
+duplication RUN2-3 removed.
+
+### Ties
+
+- Depends on the shared module introduced by **RUN2-3** (landed).
+- Load `run-tests`. Existing tests: `tests/unit/client/useSectionVisibility.test.tsx`.
+
+### Acceptance criteria
+
+1. A step of type `final` is excluded from `getVisibleSectionSteps`, exactly as
+   `final_documents` is.
+2. Ordinary question types are still returned.
+3. No duplicated string literal for the final-block type — the check goes
+   through `normalizeRunnerStepType`.
+4. New test in `tests/unit/client/useSectionVisibility.test.tsx` asserts 1 and 2.
+5. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast` green.
+
+---
+
+## RUN2-18 — Shared runs read a graph shape that no longer exists, so their final-block config is always null 🔲
+
+**Priority: P1 (bug)** · Size: S · File: `server/services/workflow-runs/RunStateService.ts`
+
+### Finding
+
+`getSharedRunDetails` looks for the final block inside a `nodes[]` array on the
+version graph (`RunStateService.ts:167-178`):
+
+```ts
+const graph = version.graphJson as any;
+if (graph.nodes && Array.isArray(graph.nodes)) {
+  const finalNode = graph.nodes.find((n: any) => n.type === 'final');
+  if (finalNode?.data?.config) { finalBlockConfig = finalNode.data.config; }
+}
+```
+
+Graph nodes went away with the graph builder. `VersionService.serializeWorkflow`
+emits `sections[]` — grepping it for `nodes` returns **0 matches** — so this
+branch never executes for any version written by the current code. Every shared
+run with a `workflowVersionId` therefore returns `finalBlockConfig: null`, and
+the shared-run view silently loses its document configuration. The `else` branch
+(draft runs, read from the live steps table) is the only path that ever
+produces a config today.
+
+### Preferred fix
+
+Read the final block from the serialized `sections[].steps[]` shape the current
+serializer actually emits: find the first step whose type is `final` or
+`final_documents` and take its `config`. Mirror how
+`RunLifecycleService.generateDocuments` collects final-block configs
+(`RunLifecycleService.ts:362-369`), which already handles both type spellings.
+Delete the `nodes[]` branch rather than leaving it as a fallback — it is dead
+code for every version the system can now produce.
+
+### Ties
+
+- Related to **RUN2-17** (both concern the `final`/`final_documents` split) but
+  a different file — they may run in parallel, in separate worktrees.
+- Load `add-api-endpoint` and `run-tests`.
+
+### Acceptance criteria
+
+1. A shared run whose pinned version contains a final-block step returns that
+   step's config as `finalBlockConfig`, for both the `final` and
+   `final_documents` spellings.
+2. A shared run whose version has no final block returns `null` (unchanged).
+3. The draft-run path (no `workflowVersionId`) is unchanged.
+4. The dead `graph.nodes` branch is deleted, not left as a fallback.
+5. New test asserts 1, 2 and 3.
+6. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast` green.
+
+---
+
+## RUN2-19 — Every versionless run drops its analytics events 🔲
+
+**Priority: P1 (bug)** · Size: S · File: `server/services/workflow-runs/RunMetricsService.ts`
+
+### Finding
+
+`RunMetricsService` substitutes the literal string `'draft'` when a run has no
+pinned version — three times (`RunMetricsService.ts:82`, `:126`, `:179`):
+
+```ts
+versionId: versionId ?? 'draft',
+```
+
+But the destination column is a UUID with a foreign key
+(`shared/schema/run.ts:248`):
+
+```ts
+versionId: uuid("version_id").references(() => workflowVersions.id, { onDelete: 'cascade' }).notNull(),
+```
+
+So every such insert fails with `invalid input syntax for type uuid: "draft"`,
+is swallowed by the surrounding try/catch, and logs
+`"Failed to record analytics event"`. Observed repeatedly in integration output.
+Consequence: any metric derived from `run.start` / `run.succeeded` /
+`run.failed` silently under-counts, and the gap is exactly the versionless runs
+— which is a meaningful slice, since `RunService.createRun` explicitly permits
+them for authenticated creators.
+
+Note the column is `NOT NULL` *and* a foreign key, so there is no null to write
+either: a run with no version genuinely cannot have an event row.
+
+### Preferred fix
+
+Skip the event instead of attempting an insert that cannot succeed. Where
+`versionId` is absent, log once at `debug`/`info` ("skipping analytics event for
+versionless run") and return, rather than calling
+`analyticsService.recordEvent` with a sentinel. Apply at all three sites — a
+shared private guard is cleaner than repeating the check.
+
+Do not change the column to nullable and do not invent a placeholder version
+row; both are schema changes well beyond this ticket, and versionless runs are
+themselves a transitional state that RUN2-9's publish gate makes rarer.
+
+### Ties
+
+- Independent file; safe to run in parallel with RUN2-17 and RUN2-18.
+- Load `add-api-endpoint` and `run-tests`.
+
+### Acceptance criteria
+
+1. A run with no `workflowVersionId` records no analytics event and logs no
+   error — the "Failed to record analytics event" line no longer appears for it.
+2. A run with a real `workflowVersionId` still records its events unchanged.
+3. All three call sites are covered by one shared guard, not three copies.
+4. New test asserts 1 and 2.
+5. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast` green.
+
+---
+
+## Phase 5 Gate
+
+- [ ] RUN2-17..19 ✅ with dated verification notes
+- [ ] `npm run type-check` 0 errors; `npm run lint` 0 errors; `npm run test:fast` green
+- [ ] Integration output no longer shows `invalid input syntax for type uuid: "draft"`
+- [ ] Reviewer has committed each passed ticket + this gate
+
+---
+
 # Escalations — need Shawn's decision before ticketing
 
 ## RUN2-E1 — Version pinning is client-only: the server navigates and validates against the *live* workflow
@@ -1505,9 +1686,9 @@ whether that lands in this initiative or its own.
   (`RunStateService.ts:167-178`). Graph nodes were removed with the graph
   builder; `serializeWorkflow` emits `sections[]`, never `nodes[]`, so this
   branch is dead and shared runs silently get `finalBlockConfig: null`.
-- **RUN2-B3** — `server/workflows/validation.ts:132` uses
-  `visibleStepIds.includes(step.id)` inside a loop over steps (O(n²)). Use a Set.
-  Irrelevant at current sizes; note it for when sections get large.
+- **RUN2-B3** — ✅ closed without a ticket: RUN2-16 replaced the
+  `visibleStepIds.includes(step.id)` loop in `server/workflows/validation.ts`
+  with a `Set` while rewriting `validatePage`.
 - **RUN2-B5** — runs with no pinned version pass the literal string `'draft'`
   as the version id into the analytics event writer, but
   `workflow_run_events.version_id` is a `uuid` column. Every such run logs
@@ -1550,6 +1731,9 @@ whether that lands in this initiative or its own.
 | RUN2-14 | Choice options reload per keystroke; empty alias crashes | ✅ Done 2026-07-25 |
 | RUN2-15 | Submit throws when author edits a published workflow mid-run | ✅ Done 2026-07-25 |
 | RUN2-16 | Unify validation engines; server authoritative, pattern guarded | ✅ Done 2026-07-25 |
+| RUN2-17 | `final` step renders inline as a question | 🔲 Open |
+| RUN2-18 | Shared runs read a dead graph shape; final config always null | 🔲 Open |
+| RUN2-19 | Versionless runs drop every analytics event | 🔲 Open |
 | RUN2-E1 | Version pinning is client-only | ⚠️ Deferred to own initiative — mitigated by RUN2-15 (Shawn, 2026-07-25) |
 | RUN2-E2 | No server-side field validation | ✅ Resolved into RUN2-16 (Shawn, 2026-07-25) |
 
