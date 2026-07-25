@@ -69,13 +69,56 @@ reference is stale.
 
 # Phase 1 — Runner dead-ends
 
+### Verification pass — 2026-07-25 (reviewer)
+
+**RUN2-1 ✅, RUN2-2 ✅, RUN2-4 ✅, RUN2-5 ✅.** Remaining: RUN2-3, RUN2-15.
+
+Gates run by the reviewer on the working tree, not taken from dev reports:
+- `npm run type-check` → 0 errors
+- `npm run lint` (per touched file) → 0 problems
+- `npm run test:fast` → 116 files, **1787 passed**, 0 failed (baseline at audit
+  time was 1765 — +22 tests from these four tickets)
+- Pre-commit hook (repo-wide ESLint + tsc + strict-zone validation) → 4/4 passed
+  on each commit
+
+**Behavioral re-verification.** The four defects were originally caught by
+executing the real shared modules; the same probe was re-run against the fixed
+tree:
+
+```
+BEFORE                                   AFTER
+PROBE1 MUTATED=true                      PROBE1 MUTATED=false
+PROBE1 conditionValue mutated = true     PROBE1 conditionValue mutated = false
+PROBE2 A -> A -> A -> A -> A -> A        PROBE2 C -> null -> A -> B -> C -> null
+```
+
+PROBE2 now reaches `null` (run completes) instead of pinning to one section.
+PROBE3/4/5 are unchanged by design — PROBE3 is RUN2-11 (still open) and
+PROBE4/5 assert engine output that RUN2-4 now *handles* in the UI rather than
+changing.
+
+Commits: `1ec61271` (RUN2-1), `94c08bf7` (RUN2-4), `85b187ad` (RUN2-2 + RUN2-5).
+
+**Deviations accepted at review:**
+- RUN2-1 made `logicRuleRepo` a class field rather than a 6th constructor
+  param, because the constructor was already at the repo's `max-params: 5`
+  ceiling. Correct call — the alternative was a lint suppression.
+- RUN2-4 determined "completable" from `actualRunId != null` rather than
+  re-running required-step validation. Sound: with zero visible sections the
+  required set is empty by construction, so the check would be vacuous.
+- RUN2-2 and RUN2-5 share one commit. Both landed in `shared/workflowLogic.ts`
+  before the first could be committed, so they were not separable by path. A
+  reviewer sequencing error, not a dev error.
+
+---
+
 Five independent ways an author can build a workflow that saves, publishes, and
 then traps the respondent with no path to submission. Each is a distinct code
 path; all five are in scope for this phase. Out of scope here: *preventing*
 these at publish time (that is Phase 3) — Phase 1 makes the runner itself
 survivable, Phase 3 stops the bad definition from shipping.
 
-## RUN2-1 — Section submit uses a different visibility engine than the rest of the runner 🔲
+## RUN2-1 — Section submit uses a different visibility engine than the rest of the runner ✅
 
 **Priority: P0 (bug)** · Size: M · File: `server/services/runs/RunExecutionCoordinator.ts`
 
@@ -164,7 +207,7 @@ the rest of the system already relies on it.
 
 ---
 
-## RUN2-2 — A backwards `skip_to` rule traps the run in an infinite navigation loop 🔲
+## RUN2-2 — A backwards `skip_to` rule traps the run in an infinite navigation loop ✅
 
 **Priority: P0 (bug)** · Size: S · File: `shared/workflowLogic.ts`
 
@@ -337,7 +380,7 @@ the respondent and the author both need to see that something was skipped.
 
 ---
 
-## RUN2-4 — Zero visible sections leaves the respondent on a dead screen 🔲
+## RUN2-4 — Zero visible sections leaves the respondent on a dead screen ✅
 
 **Priority: P0 (bug)** · Size: S · Files: `client/src/pages/WorkflowRunner.tsx`, `client/src/hooks/runner/useRunNavigation.ts`
 
@@ -410,7 +453,7 @@ rather than casting.
 
 ---
 
-## RUN2-5 — Logic evaluation sorts the respondent's answer array in place, corrupting saved data 🔲
+## RUN2-5 — Logic evaluation sorts the respondent's answer array in place, corrupting saved data ✅
 
 **Priority: P0 (bug)** · Size: S · File: `shared/workflowLogic.ts`
 
@@ -1437,11 +1480,11 @@ whether that lands in this initiative or its own.
 
 | Ticket | Title | Status |
 |---|---|---|
-| RUN2-1 | Section submit uses a different visibility engine | 🔲 Open |
-| RUN2-2 | Backwards `skip_to` = infinite navigation loop | 🔲 Open |
+| RUN2-1 | Section submit uses a different visibility engine | ✅ Done 2026-07-25 |
+| RUN2-2 | Backwards `skip_to` = infinite navigation loop | ✅ Done 2026-07-25 |
 | RUN2-3 | Required unrenderable question = unfinishable interview | 🔲 Open |
-| RUN2-4 | Zero visible sections = dead screen | 🔲 Open |
-| RUN2-5 | Logic evaluation mutates the respondent's answer array | 🔲 Open |
+| RUN2-4 | Zero visible sections = dead screen | ✅ Done 2026-07-25 |
+| RUN2-5 | Logic evaluation mutates the respondent's answer array | ✅ Done 2026-07-25 |
 | RUN2-6 | URL prefill bypasses the intake allowlist | 🔲 Open |
 | RUN2-7 | Publish bypasses the lint gate | 🔲 Open |
 | RUN2-8 | Lint gate emits false "unknown alias" errors | 🔲 Open |
