@@ -919,7 +919,7 @@ alias fields as a fallback, which removes the title-collision ambiguity entirely
 
 ---
 
-## RUN2-9 — `validateWorkflow` is a stub: nothing structurally validates a workflow before it goes live 🔲
+## RUN2-9 — `validateWorkflow` is a stub: nothing structurally validates a workflow before it goes live ✅
 
 **Priority: P0** · Size: M · Files: `server/services/VersionService.ts`, `server/services/WorkflowLintService.ts`
 
@@ -1468,6 +1468,12 @@ whether that lands in this initiative or its own.
 - **RUN2-B3** — `server/workflows/validation.ts:132` uses
   `visibleStepIds.includes(step.id)` inside a loop over steps (O(n²)). Use a Set.
   Irrelevant at current sizes; note it for when sections get large.
+- **RUN2-B5** —  passes  into the
+  analytics event writer for runs with no pinned version, and
+   is a  column — so every draft run logs
+   and silently drops its
+   event. Visible in integration output; pre-existing, unrelated to
+  this initiative.
 - **RUN2-B4** — `parseInitialValuesFromUrl` (`useRunSession.ts:39-43`)
   `JSON.parse`s every query parameter, so `?name=123` stores the number `123`
   and `?flag=true` stores the boolean. For a text question that silently changes
@@ -1488,7 +1494,7 @@ whether that lands in this initiative or its own.
 | RUN2-6 | URL prefill bypasses the intake allowlist | ✅ Done 2026-07-25 |
 | RUN2-7 | Publish bypasses the lint gate | ✅ Done 2026-07-25 |
 | RUN2-8 | Lint gate emits false "unknown alias" errors | ✅ Done 2026-07-25 |
-| RUN2-9 | `validateWorkflow` is a stub | 🔲 Open |
+| RUN2-9 | `validateWorkflow` is a stub | ✅ Done 2026-07-25 |
 | RUN2-10 | Runtime schema rejection is an opaque 500 | 🔲 Open |
 | RUN2-11 | Unresolvable rule becomes always-true `is_empty` | 🔲 Open |
 | RUN2-12 | Branch-block `nextSectionId` trusted unvalidated | 🔲 Open |
