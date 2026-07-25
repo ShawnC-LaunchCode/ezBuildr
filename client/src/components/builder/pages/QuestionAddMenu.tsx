@@ -99,7 +99,7 @@ export function QuestionAddMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
-        className="w-64 max-h-[600px] overflow-y-auto"
+        className="w-64"
       >
         {orderedCategories.map((category, categoryIndex) => (
           <div key={category}>

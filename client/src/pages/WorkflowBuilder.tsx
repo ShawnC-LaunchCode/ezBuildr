@@ -208,17 +208,19 @@ export default function WorkflowBuilder() {
             <div className="h-screen flex flex-col bg-background">
               {/* Header */}
               <div className="sticky top-0 z-10 bg-background">
-                <div className="border-b px-6 py-3 flex items-center justify-between bg-card">
-                  <div className="flex items-center gap-4">
+                <div className="border-b px-3 py-3 lg:px-6 bg-card">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2 lg:gap-3">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => navigate("/workflows")}
-                      className="mr-2"
+                      className="shrink-0"
                     >
                       <ArrowLeft className="w-4 h-4 mr-2" /> Back
                     </Button>
-                    <h1 className="text-xl font-semibold">{workflow.title}</h1>
+                    <h1 className="min-w-0 max-w-[20rem] truncate text-xl font-semibold" title={workflow.title}>
+                      {workflow.title}
+                    </h1>
                     {!!(
                       workflow.intakeConfig as
                         { isIntake?: boolean } | undefined
@@ -235,11 +237,11 @@ export default function WorkflowBuilder() {
                       </div>
                     )}
                     {/* Presence */}
-                    <div className="ml-4 border-l pl-4 hidden md:block">
+                    <div className="ml-1 hidden border-l pl-3 xl:block">
                       <CollabHeader />
                     </div>
                     {/* Version Badge */}
-                    <div className="ml-4 border-l pl-4">
+                    <div className="ml-1 border-l pl-3">
                       <VersionBadge
                         versionLabel={versionLabel}
                         isDraft={true}
@@ -249,7 +251,7 @@ export default function WorkflowBuilder() {
                     {/* Mode Selector */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="mr-2">
+                        <Button variant="outline" size="sm">
                           {mode === "easy" ? "Easy Mode" : "Advanced Mode"}
                           <ChevronDown className="w-4 h-4 ml-2" />
                         </Button>
@@ -277,7 +279,7 @@ export default function WorkflowBuilder() {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                    <div className="border-l pl-2 ml-2">
+                    <div className="ml-1 border-l pl-3">
                       <ActivateToggle
                         workflowId={workflowId}
                         currentStatus={workflow.status}

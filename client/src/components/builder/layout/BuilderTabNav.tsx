@@ -44,7 +44,7 @@ export function BuilderTabNav({ workflowId: _workflowId, activeTab, onTabChange,
     return true;
   });
   return (
-    <div className="flex items-center justify-center gap-1 border-b bg-card/50">
+    <div className="flex items-center justify-start gap-1 overflow-x-auto border-b bg-card/50 lg:justify-center">
       {visibleTabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.id;
@@ -54,7 +54,7 @@ export function BuilderTabNav({ workflowId: _workflowId, activeTab, onTabChange,
             onClick={() => onTabChange(tab.id)}
             className={cn(
               "flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 py-3 text-sm font-medium transition-colors relative",
-              "w-[100px] md:w-auto md:px-4",
+              "w-[100px] shrink-0 md:w-auto md:px-4",
               "hover:text-foreground hover:bg-accent/50",
               isActive
                 ? "text-foreground bg-background border-b-2 border-primary"
