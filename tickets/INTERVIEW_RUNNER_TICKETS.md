@@ -28,6 +28,46 @@ reference is stale.
 
 ---
 
+## Initiative closed — 2026-07-25
+
+**All 16 tickets ✅.** Escalation RUN2-E2 was resolved into RUN2-16; RUN2-E1 is
+deferred to its own initiative and mitigated by RUN2-15.
+
+Final gates, run by the reviewer on the working tree:
+
+| Gate | Result |
+|---|---|
+| `npm run type-check` | 0 errors |
+| `npm run lint` (per touched file) | 0 problems |
+| `npm run test:fast` | 123 files, **1839 passed**, 0 failed (audit baseline: 1765) |
+| Pre-commit hook (repo-wide ESLint + tsc + strict zones) | 4/4 on every commit |
+| Integration (publish gate, runtime, prefill, first-next, activation, versioning) | green |
+
+**Behavioural re-verification.** The defects originally caught by executing the
+real modules were re-probed against the finished tree:
+
+```
+                                 BEFORE                    AFTER
+answer-array mutation            MUTATED=true              MUTATED=false
+backwards skip_to                A -> A -> A -> A ...      C -> null -> A -> B -> C -> null
+orphan is_empty hides section    true                      false  (control: genuine rule still fires)
+zero visible sections            silent dead-end screen    explicit terminal screen w/ submit
+required file_upload             completion refused        requiredSteps [] -> completion valid
+```
+
+**What now rejects an invalid interview.** `VersionService.validateWorkflow` was
+a stub returning `{ valid: true }`; it now runs seven structural checks plus the
+reference linter, and both doors into `active` funnel through `publishVersion`,
+so publish and activate share one gate. Its UUID check is tied to
+`RunRuntimeService`'s `VersionRuntimeSchema` by an integration test that
+publishes, starts a run, and loads the pinned runtime — anything the gate admits
+is guaranteed to load at run time.
+
+**Deferred / follow-ups:** RUN2-E1 (version pinning is client-only) and backlog
+RUN2-B1..B6. B5 and B6 were filed during this initiative.
+
+---
+
 ## How to work this document
 
 - **Tickets are grouped into 4 phases**, ordered by risk and dependency. Do not
@@ -520,7 +560,7 @@ semantics (sorted, order-insensitive equality stays).
 
 ---
 
-## RUN2-15 — Section submit throws when the author edits a published workflow mid-run 🔲
+## RUN2-15 — Section submit throws when the author edits a published workflow mid-run ✅
 
 **Priority: P0 (bug)** · Size: S · File: `server/services/runs/RunExecutionCoordinator.ts`
 
@@ -1008,7 +1048,7 @@ alias-resolution logic RUN2-8 just fixed.
 
 ---
 
-## RUN2-10 — A version the runtime schema rejects surfaces as a generic 500 with no diagnostic 🔲
+## RUN2-10 — A version the runtime schema rejects surfaces as a generic 500 with no diagnostic ✅
 
 **Priority: P1** · Size: S · Files: `server/services/workflow-runs/RunRuntimeService.ts`, `server/routes/runs.routes.ts`
 
@@ -1289,7 +1329,7 @@ rendered.
 
 ---
 
-## RUN2-14 — Choice options reload on every keystroke, and an empty option alias crashes the question 🔲
+## RUN2-14 — Choice options reload on every keystroke, and an empty option alias crashes the question ✅
 
 **Priority: P1** · Size: S · Files: `client/src/components/runner/blocks/choice/useChoiceOptions.ts`, `client/src/components/runner/blocks/ChoiceBlock.tsx`
 
@@ -1503,12 +1543,12 @@ whether that lands in this initiative or its own.
 | RUN2-7 | Publish bypasses the lint gate | ✅ Done 2026-07-25 |
 | RUN2-8 | Lint gate emits false "unknown alias" errors | ✅ Done 2026-07-25 |
 | RUN2-9 | `validateWorkflow` is a stub | ✅ Done 2026-07-25 |
-| RUN2-10 | Runtime schema rejection is an opaque 500 | 🔲 Open |
+| RUN2-10 | Runtime schema rejection is an opaque 500 | ✅ Done 2026-07-25 |
 | RUN2-11 | Unresolvable rule becomes always-true `is_empty` | ✅ Done 2026-07-25 |
 | RUN2-12 | Branch-block `nextSectionId` trusted unvalidated | ✅ Done 2026-07-25 |
 | RUN2-13 | Display `{{alias}}` never resolves; final block gets `{}` | ✅ Done 2026-07-25 |
-| RUN2-14 | Choice options reload per keystroke; empty alias crashes | 🔲 Open |
-| RUN2-15 | Submit throws when author edits a published workflow mid-run | 🔲 Open |
+| RUN2-14 | Choice options reload per keystroke; empty alias crashes | ✅ Done 2026-07-25 |
+| RUN2-15 | Submit throws when author edits a published workflow mid-run | ✅ Done 2026-07-25 |
 | RUN2-16 | Unify validation engines; server authoritative, pattern guarded | ✅ Done 2026-07-25 |
 | RUN2-E1 | Version pinning is client-only | ⚠️ Deferred to own initiative — mitigated by RUN2-15 (Shawn, 2026-07-25) |
 | RUN2-E2 | No server-side field validation | ✅ Resolved into RUN2-16 (Shawn, 2026-07-25) |
