@@ -250,6 +250,23 @@ devs in one shared tree (2026-07-25) produced, in a single session:
   work could not be committed until unrelated agents finished — and agents
   reported their own gates green while the tree was red.
 
+**Check the worktree's base commit before trusting it.** A new worktree is not
+guaranteed to start from current `HEAD` — in practice they have been created
+from an older commit. On the first run of this policy, all three agents got a
+base ~14 commits stale, so the tickets they were dispatched to work did not
+exist in their copy of the ticket file and one correctly stopped with a blocker.
+After dispatching, verify and fast-forward:
+
+```bash
+git worktree list                                  # confirm each base commit
+git -C .claude/worktrees/<agent-dir> merge main --ff-only
+```
+
+Check `git diff --name-only <base>..main` for overlap with the agent's files
+first; with no overlap the fast-forward preserves in-flight edits cleanly. Then
+tell the agent to re-read its ticket and re-run its gates, since a stale base
+also makes its test counts wrong.
+
 Rules that still apply even with worktrees:
 
 - The reviewer commits, one commit per passed ticket, staging **only that
