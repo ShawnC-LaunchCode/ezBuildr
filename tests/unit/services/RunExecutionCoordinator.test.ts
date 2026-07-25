@@ -2,9 +2,10 @@
 import { describe, it, expect, vi, beforeEach, type Mocked } from 'vitest';
 
 import { JsQuestionConfig } from '@shared/types/steps';
-import type { Step } from '@shared/schema';
+import type { Step, Section, LogicRule } from '@shared/schema';
 
-import { stepRepository, sectionRepository, workflowRepository } from '../../../server/repositories';
+import { stepRepository, sectionRepository, workflowRepository, logicRuleRepository } from '../../../server/repositories';
+import { blockRunner } from '../../../server/services/BlockRunner';
 import { logicService } from '../../../server/services/LogicService';
 import { RunExecutionCoordinator, type ExecutionContext } from '../../../server/services/runs/RunExecutionCoordinator';
 import { type RunPersistenceWriter } from '../../../server/services/runs/RunPersistenceWriter';
@@ -32,11 +33,14 @@ vi.mock('../../../server/services/LogicService', () => ({
     logicService: {}
 }));
 vi.mock('../../../server/services/BlockRunner', () => ({
-    blockRunner: {}
+    blockRunner: {
+        runPhase: vi.fn()
+    }
 }));
 vi.mock('../../../server/repositories', () => ({
     stepRepository: {
         findBySectionId: vi.fn(),
+        findBySectionIds: vi.fn(),
         findById: vi.fn()
     },
     stepValueRepository: {
@@ -47,10 +51,13 @@ vi.mock('../../../server/repositories', () => ({
         findById: vi.fn()
     },
     sectionRepository: {
-        findById: vi.fn()
+        findById: vi.fn(),
+        findByWorkflowId: vi.fn()
     },
     workflowRepository: {},
-    logicRuleRepository: {}
+    logicRuleRepository: {
+        findByWorkflowId: vi.fn()
+    }
 }));
 
 interface TestCoordinator {
@@ -68,6 +75,7 @@ describe('RunExecutionCoordinator - JS Execution', () => {
     let mockStepRepo: Mocked<typeof stepRepository>;
     let mockSectionRepo: Mocked<typeof sectionRepository>;
     let mockWorkflowRepo: Mocked<typeof workflowRepository>;
+    let mockLogicRuleRepo: Mocked<typeof logicRuleRepository>;
     let mockRunPersistence: Mocked<RunPersistenceWriter>;
 
     beforeEach(async () => {
@@ -79,6 +87,7 @@ describe('RunExecutionCoordinator - JS Execution', () => {
         mockStepRepo = stepRepository as unknown as Mocked<typeof stepRepository>;
         mockSectionRepo = sectionRepository as unknown as Mocked<typeof sectionRepository>;
         mockWorkflowRepo = workflowRepository as unknown as Mocked<typeof workflowRepository>;
+        mockLogicRuleRepo = logicRuleRepository as unknown as Mocked<typeof logicRuleRepository>;
 
         coordinator = new RunExecutionCoordinator(
             mockRunPersistence,
@@ -185,5 +194,85 @@ describe('RunExecutionCoordinator - JS Execution', () => {
         });
 
         expect(mockRunPersistence.bulkSaveValues).not.toHaveBeenCalled();
+    });
+
+    describe('submitSection visibility (RUN2-1: shared evaluateWorkflowVisibility engine)', () => {
+        const section: Section = { id: 'section-1', order: 0 } as unknown as Section;
+        const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
+
+        beforeEach(() => {
+            mockSectionRepo.findByWorkflowId.mockResolvedValue([section]);
+            vi.mocked(blockRunner.runPhase).mockResolvedValue({ success: true });
+        });
+
+        it('excludes a required step hidden by a "hide" logic rule from validation (AC2)', async () => {
+            const requiredStep = {
+                id: 'req-step',
+                type: 'short_text',
+                title: 'Required Step',
+                required: true,
+                sectionId: 'section-1',
+                visibleIf: null,
+            } as unknown as Step;
+            mockStepRepo.findBySectionId.mockResolvedValue([requiredStep]);
+            mockStepRepo.findBySectionIds.mockResolvedValue([requiredStep]);
+            mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([{
+                targetType: 'step',
+                targetStepId: 'req-step',
+                action: 'hide',
+                conditionStepId: 'trigger-step',
+                operator: 'equals',
+                conditionValue: 'yes',
+            } as unknown as LogicRule]);
+            mockRunPersistence.getRunValues.mockResolvedValue({ 'trigger-step': 'yes' });
+
+            const result = await coordinator.submitSection(context, 'section-1', []);
+
+            expect(result).toEqual({ success: true, errors: undefined });
+        });
+
+        it('treats a step with a malformed visibleIf as hidden (fail-closed) and does not block submit (AC3)', async () => {
+            const requiredStep = {
+                id: 'req-step',
+                type: 'short_text',
+                title: 'Required Step',
+                required: true,
+                sectionId: 'section-1',
+                // Malformed visibleIf: not a valid ConditionExpression shape.
+                // evaluateWorkflowVisibility must fail closed (treat as hidden).
+                visibleIf: 'not-a-valid-condition-expression',
+            } as unknown as Step;
+            mockStepRepo.findBySectionId.mockResolvedValue([requiredStep]);
+            mockStepRepo.findBySectionIds.mockResolvedValue([requiredStep]);
+            mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
+            mockRunPersistence.getRunValues.mockResolvedValue({});
+
+            const result = await coordinator.submitSection(context, 'section-1', []);
+
+            expect(result).toEqual({ success: true, errors: undefined });
+        });
+
+        it('still blocks submit for a required, visible step with no value (AC4, unchanged behavior)', async () => {
+            const requiredStep = {
+                id: 'req-step',
+                type: 'short_text',
+                title: 'Required Step',
+                required: true,
+                sectionId: 'section-1',
+                visibleIf: null,
+            } as unknown as Step;
+            mockStepRepo.findBySectionId.mockResolvedValue([requiredStep]);
+            mockStepRepo.findBySectionIds.mockResolvedValue([requiredStep]);
+            mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
+            mockRunPersistence.getRunValues.mockResolvedValue({});
+
+            const result = await coordinator.submitSection(context, 'section-1', []);
+
+            expect(result).toEqual({
+                success: false,
+                errors: ['Required Step: Required Step is required'],
+            });
+            expect(blockRunner.runPhase).not.toHaveBeenCalled();
+        });
     });
 });

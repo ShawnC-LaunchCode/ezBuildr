@@ -1,11 +1,11 @@
 import { isJsQuestionConfig } from "@shared/types/steps";
+import { evaluateWorkflowVisibility } from "@shared/workflowLogic";
 
 import { logger } from "../../logger";
-import { workflowRepository, stepRepository, sectionRepository } from "../../repositories";
+import { workflowRepository, stepRepository, sectionRepository, logicRuleRepository } from "../../repositories";
 import { createError } from "../../utils/errors";
 import { validatePage } from "../../workflows/validation";
 import { blockRunner } from "../BlockRunner";
-import { intakeQuestionVisibilityService } from "../IntakeQuestionVisibilityService";
 import { logicService, type NavigationResult } from "../LogicService";
 import { scriptEngine } from "../scripting/ScriptEngine";
 
@@ -17,6 +17,10 @@ export interface ExecutionContext {
     mode: 'live' | 'preview';
 }
 export class RunExecutionCoordinator {
+    // Not constructor-injected: the constructor is already at the project's
+    // max-params limit (5). Tests mock this via the shared repositories
+    // module singleton instead (see RunExecutionCoordinator.test.ts).
+    private logicRuleRepo = logicRuleRepository;
     constructor(
         private persistence = runPersistenceWriter,
         private logicSvc = logicService,
@@ -105,15 +109,11 @@ export class RunExecutionCoordinator {
         const dataMap = await this.persistence.getRunValues(runId);
         const aliasMap = await this.getAliasMap(workflowId);
         // 3. Validate required fields (respecting visibility)
-        const visibility = await intakeQuestionVisibilityService.evaluatePageQuestions(
-            sectionId,
-            runId,
-            dataMap
-        );
+        const visibleStepIds = await this.getVisibleStepIds(workflowId, dataMap);
         const validationResult = validatePage(
             steps,
             dataMap,
-            visibility.visibleQuestions
+            visibleStepIds
         );
         if (!validationResult.valid) {
             // Format errors for user-friendly display
@@ -196,6 +196,31 @@ export class RunExecutionCoordinator {
             success: errors.length === 0,
             errors: errors.length > 0 ? errors : undefined
         };
+    }
+    /**
+     * Determine which steps are currently visible for the workflow, using the
+     * same logic-rule + visibleIf engine (`evaluateWorkflowVisibility`) that
+     * navigation (`LogicService.evaluateNavigation`) and completion
+     * (`LogicService.validateCompletion`) already use. Section submit must
+     * not compute visibility any other way — a second engine here is what
+     * let hidden-required steps block submission (RUN2-1).
+     */
+    private async getVisibleStepIds(
+        workflowId: string,
+        data: Record<string, unknown>
+    ): Promise<string[]> {
+        const sections = await this.sectionRepo.findByWorkflowId(workflowId);
+        const sectionIds = sections.map(section => section.id);
+        const steps = await this.stepRepo.findBySectionIds(sectionIds);
+        const rules = await this.logicRuleRepo.findByWorkflowId(workflowId);
+        const visibility = evaluateWorkflowVisibility({
+            sections,
+            steps,
+            rules,
+            data,
+            resolveAlias: (name) => steps.find(step => step.alias === name)?.id,
+        });
+        return Array.from(visibility.visibleSteps);
     }
     /**
      * Build alias map for workflow
