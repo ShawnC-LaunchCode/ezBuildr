@@ -53,21 +53,36 @@ export class RunExecutionCoordinator {
             aliasMap,
         });
         // 3. Determine Navigation
+        // Compute the logic engine's navigation first. It is the source of
+        // truth for visibleSections/visibleSteps/requiredSteps/currentProgress
+        // in BOTH branches below, and it also validates a branch block's
+        // target: block config is author-controlled JSONB, so a stale or
+        // typo'd id must never be written to the run's cursor unchecked
+        // (RUN2-12).
+        const computedNavigation = await this.logicSvc.evaluateNavigation(
+            workflowId,
+            runId,
+            currentSectionId
+        );
         let navigation: NavigationResult;
-        if (blockResult.nextSectionId) {
+        if (blockResult.nextSectionId && computedNavigation.visibleSections.includes(blockResult.nextSectionId)) {
             navigation = {
+                ...computedNavigation,
                 nextSectionId: blockResult.nextSectionId,
-                currentProgress: 0,
-                visibleSections: [],
-                visibleSteps: [],
-                requiredSteps: [],
             };
         } else {
-            navigation = await this.logicSvc.evaluateNavigation(
-                workflowId,
-                runId,
-                currentSectionId
-            );
+            if (blockResult.nextSectionId) {
+                logger.warn(
+                    {
+                        workflowId,
+                        runId,
+                        sectionId: currentSectionId,
+                        invalidNextSectionId: blockResult.nextSectionId,
+                    },
+                    "Branch block targeted a section that is not visible in this workflow; falling back to computed navigation"
+                );
+            }
+            navigation = computedNavigation;
         }
         // 4. Update Run State (RunService usually does this, but Coordinator can orchestrate)
         // Coordinator returns the result, caller (RunService façade) might save state?
@@ -110,7 +125,7 @@ export class RunExecutionCoordinator {
         const aliasMap = await this.getAliasMap(workflowId);
         // 3. Validate required fields (respecting visibility)
         const visibleStepIds = await this.getVisibleStepIds(workflowId, dataMap);
-        const validationResult = validatePage(
+        const validationResult = await validatePage(
             steps,
             dataMap,
             visibleStepIds

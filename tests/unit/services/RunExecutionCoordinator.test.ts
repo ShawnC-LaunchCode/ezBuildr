@@ -4,9 +4,10 @@ import { describe, it, expect, vi, beforeEach, type Mocked } from 'vitest';
 import { JsQuestionConfig } from '@shared/types/steps';
 import type { Step, Section, LogicRule } from '@shared/schema';
 
+import { logger } from '../../../server/logger';
 import { stepRepository, sectionRepository, workflowRepository, logicRuleRepository } from '../../../server/repositories';
 import { blockRunner } from '../../../server/services/BlockRunner';
-import { logicService } from '../../../server/services/LogicService';
+import { logicService, type NavigationResult } from '../../../server/services/LogicService';
 import { RunExecutionCoordinator, type ExecutionContext } from '../../../server/services/runs/RunExecutionCoordinator';
 import { type RunPersistenceWriter } from '../../../server/services/runs/RunPersistenceWriter';
 import { scriptEngine } from '../../../server/services/scripting/ScriptEngine';
@@ -21,7 +22,8 @@ vi.mock('../../../server/services/runs/RunPersistenceWriter', () => {
     const mockPersistence = {
         saveStepValue: vi.fn().mockResolvedValue(undefined),
         bulkSaveValues: vi.fn().mockResolvedValue(undefined),
-        getRunValues: vi.fn()
+        getRunValues: vi.fn(),
+        updateRun: vi.fn().mockResolvedValue(undefined)
     };
     return {
         RunPersistenceWriter: vi.fn().mockImplementation(() => mockPersistence),
@@ -323,6 +325,100 @@ describe('RunExecutionCoordinator - JS Execution', () => {
             const result = await coordinator.submitSection(context, 'section-1', []);
 
             expect(result).toEqual({ success: true, errors: undefined });
+        });
+    });
+
+    describe('next - branch block nextSectionId validation (RUN2-12)', () => {
+        const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
+        let mockEvaluateNavigation: ReturnType<typeof vi.fn>;
+
+        beforeEach(() => {
+            mockRunPersistence.getRunValues.mockResolvedValue({});
+            mockStepRepo.findBySectionId.mockResolvedValue([]); // no JS questions in current section
+            mockStepRepo.findBySectionIds.mockResolvedValue([]); // alias map source
+            mockSectionRepo.findByWorkflowId.mockResolvedValue([]); // alias map source
+
+            mockEvaluateNavigation = vi.fn();
+            (logicService as unknown as { evaluateNavigation: typeof mockEvaluateNavigation })
+                .evaluateNavigation = mockEvaluateNavigation;
+        });
+
+        it('ignores a branch block nextSectionId that is not a visible section, falls back to computed navigation, and logs a warning (AC1)', async () => {
+            const computed: NavigationResult = {
+                visibleSections: ['section-a', 'section-b'],
+                visibleSteps: ['step-a'],
+                requiredSteps: ['step-a'],
+                nextSectionId: 'section-b',
+                currentProgress: 50,
+            };
+            mockEvaluateNavigation.mockResolvedValue(computed);
+            vi.mocked(blockRunner.runPhase).mockResolvedValue({ success: true, nextSectionId: 'stale-section-id' });
+            const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined as never);
+
+            const result = await coordinator.next(context, 'section-a');
+
+            expect(result).toEqual(computed);
+            expect(warnSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ invalidNextSectionId: 'stale-section-id', sectionId: 'section-a' }),
+                expect.stringContaining('not visible in this workflow')
+            );
+            expect(mockRunPersistence.updateRun).toHaveBeenCalledWith('run-1', {
+                currentSectionId: 'section-b',
+                progress: 50,
+            });
+
+            warnSpy.mockRestore();
+        });
+
+        it('honors a branch block nextSectionId that is a visible section of this workflow (AC2)', async () => {
+            const computed: NavigationResult = {
+                visibleSections: ['section-a', 'section-b', 'section-c'],
+                visibleSteps: ['step-a'],
+                requiredSteps: ['step-a'],
+                nextSectionId: 'section-b',
+                currentProgress: 33,
+            };
+            mockEvaluateNavigation.mockResolvedValue(computed);
+            vi.mocked(blockRunner.runPhase).mockResolvedValue({ success: true, nextSectionId: 'section-c' });
+
+            const result = await coordinator.next(context, 'section-a');
+
+            expect(result).toEqual({ ...computed, nextSectionId: 'section-c' });
+        });
+
+        it('populates visibleSections/visibleSteps/requiredSteps/currentProgress from computed navigation when a branch overrides (AC3)', async () => {
+            const computed: NavigationResult = {
+                visibleSections: ['section-a', 'section-c'],
+                visibleSteps: ['step-a', 'step-c'],
+                requiredSteps: ['step-c'],
+                nextSectionId: 'section-c',
+                currentProgress: 75,
+            };
+            mockEvaluateNavigation.mockResolvedValue(computed);
+            vi.mocked(blockRunner.runPhase).mockResolvedValue({ success: true, nextSectionId: 'section-c' });
+
+            const result = await coordinator.next(context, 'section-a');
+
+            expect(result.visibleSections).toEqual(computed.visibleSections);
+            expect(result.visibleSteps).toEqual(computed.visibleSteps);
+            expect(result.requiredSteps).toEqual(computed.requiredSteps);
+            expect(result.currentProgress).toBe(computed.currentProgress);
+        });
+
+        it('populates visibleSections/visibleSteps/requiredSteps/currentProgress from computed navigation in the normal (no branch) path (AC3)', async () => {
+            const computed: NavigationResult = {
+                visibleSections: ['section-a', 'section-b'],
+                visibleSteps: ['step-a', 'step-b'],
+                requiredSteps: ['step-b'],
+                nextSectionId: 'section-b',
+                currentProgress: 50,
+            };
+            mockEvaluateNavigation.mockResolvedValue(computed);
+            vi.mocked(blockRunner.runPhase).mockResolvedValue({ success: true }); // no branch decision
+
+            const result = await coordinator.next(context, 'section-a');
+
+            expect(result).toEqual(computed);
         });
     });
 });
