@@ -22,6 +22,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 
 import { ActivateToggle } from "@/components/builder/ActivateToggle";
+import { AssignInterviewDialog } from "@/components/builder/AssignInterviewDialog";
 import { ResourceAccessDialog } from "@/components/access/ResourceAccessDialog";
 import { AiConversationPanel } from "@/components/builder/ai/AiConversationPanel";
 import { CollectionsDrawer } from "@/components/builder/data-sources/CollectionsDrawer";
@@ -88,6 +89,7 @@ export default function WorkflowBuilder() {
   const [collectionsDrawerOpen, setCollectionsDrawerOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
   const [diffOpen, setDiffOpen] = useState(false);
   const [diffBaseVersion, setDiffBaseVersion] =
     useState<ApiWorkflowVersion | null>(null);
@@ -314,7 +316,7 @@ export default function WorkflowBuilder() {
                             <div className="text-xs text-muted-foreground">Publish and copy the interview URL</div>
                           </div>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setActiveTab("assignment")}>
+                        <DropdownMenuItem onClick={() => setAssignOpen(true)}>
                           <UserPlus className="w-4 h-4 mr-2" />
                           <div>
                             <div>Assign interview</div>
@@ -391,6 +393,11 @@ export default function WorkflowBuilder() {
                 resourceName={workflow.title}
                 ownerType={workflow.ownerType}
                 ownerUuid={workflow.ownerUuid}
+              />
+              <AssignInterviewDialog
+                open={assignOpen}
+                onOpenChange={setAssignOpen}
+                workflowId={workflowId}
               />
               {/* Versioning Components */}
               <VersionHistoryPanel

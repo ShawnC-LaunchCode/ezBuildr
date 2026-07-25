@@ -46,6 +46,9 @@ const ipLimiter = rateLimit({
 const sendMagicLinkSchema = z.object({
     email: z.string().email(),
 });
+const portalRunParamsSchema = z.object({
+    runId: z.string().uuid(),
+});
 
 // Middleware to check portal token (Bearer Auth)
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -165,6 +168,19 @@ router.get("/runs", requirePortalAuth, asyncHandler(async (req: Request, res: Re
     } catch (error) {
         logger.error({ error }, "Error listing portal runs");
         res.status(500).json({ error: "Failed to list runs" });
+    }
+}));
+
+router.post("/runs/:runId/access-token", requirePortalAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+        const { runId } = portalRunParamsSchema.parse(req.params);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express augmentation for portal auth
+        const email = String((req as any).portalEmail);
+        const access = await portalService.issueRunAccessToken(runId, email);
+        res.json({ success: true, data: access });
+    } catch (error) {
+        logger.error({ error, runId: req.params.runId }, "Error issuing portal run access");
+        res.status(404).json({ success: false, error: "Run not found" });
     }
 }));
 

@@ -1,11 +1,18 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { eq, and, desc } from "drizzle-orm";
+import { randomUUID } from "crypto";
 
 import { workflowRuns } from "@shared/schema";
 
+import { RUN_TOKEN_CONFIG } from "../config/auth";
 import { db } from "../db";
 import { logger } from "../logger";
+import { workflowRunRepository } from "../repositories";
+import { hashToken } from "../utils/encryption";
+import { createError } from "../utils/errors";
 export class PortalService {
+    constructor(private runRepo = workflowRunRepository) {}
+
     /**
      * List runs accessible to a given email
      * Returns: Run ID, Date, Status, Workflow Title
@@ -59,6 +66,26 @@ export class PortalService {
             )
         });
         return !!run;
+    }
+
+    async issueRunAccessToken(runId: string, email: string): Promise<{
+        runToken: string;
+        expiresAt: Date;
+        completed: boolean;
+    }> {
+        const normalizedEmail = email.trim().toLowerCase();
+        const runToken = randomUUID();
+        const expiresAt = new Date(Date.now() + RUN_TOKEN_CONFIG.EXPIRY_MS);
+        const run = await this.runRepo.rotatePortalToken(
+            runId,
+            normalizedEmail,
+            hashToken(runToken),
+            expiresAt
+        );
+        if (!run) {
+            throw createError.notFound("Run", runId);
+        }
+        return { runToken, expiresAt, completed: run.completed === true };
     }
 }
 export const portalService = new PortalService();

@@ -99,7 +99,7 @@ export function registerRunRoutes(app: Express): void {
       const { publicLink } = req.query;
       
       const parsedBody = CreateRunBodySchema.parse(req.body);
-      const { initialValues, snapshotId, randomize, ...runData } = parsedBody;
+      const { initialValues, snapshotId, randomize, clientEmail, metadata } = parsedBody;
       // Check if this is an anonymous run request
       const isAnonymous = publicLink != null && publicLink !== '';
       // For authenticated runs, require user ID from AuthRequest (populated by middleware)
@@ -115,9 +115,14 @@ export function registerRunRoutes(app: Express): void {
         const authenticatedRun = await runService.createRun(
           workflowId,
           userId,
-          runData as Record<string, unknown>,
+          metadata ? { metadata } : {},
           initialValues,
-          { snapshotId, randomize }
+          {
+            snapshotId,
+            randomize,
+            clientEmail: clientEmail?.toLowerCase(),
+            accessMode: clientEmail ? 'portal' : undefined,
+          }
         );
         return res.status(201).json({
           success: true,
@@ -132,7 +137,7 @@ export function registerRunRoutes(app: Express): void {
       const anonymousRun = await runService.createRun(
         workflowId,
         undefined,
-        runData as Record<string, unknown>,
+        metadata ? { metadata } : {},
         initialValues,
         { snapshotId, randomize }
       );

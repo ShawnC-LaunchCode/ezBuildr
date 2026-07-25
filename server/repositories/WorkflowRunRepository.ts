@@ -164,6 +164,30 @@ export class WorkflowRunRepository extends BaseRepository<
   }
 
   /**
+   * Rotate a portal-assigned run token only when the authenticated portal
+   * email exactly matches the run assignment.
+   */
+  async rotatePortalToken(
+    runId: string,
+    clientEmail: string,
+    runTokenHash: string,
+    tokenExpiresAt: Date,
+    tx?: DbTransaction
+  ): Promise<WorkflowRun | null> {
+    const database = this.getDb(tx);
+    const [updated] = await database
+      .update(workflowRuns)
+      .set({ runToken: runTokenHash, tokenExpiresAt, updatedAt: new Date() })
+      .where(and(
+        eq(workflowRuns.id, runId),
+        eq(workflowRuns.clientEmail, clientEmail),
+        eq(workflowRuns.accessMode, 'portal')
+      ))
+      .returning();
+    return updated ?? null;
+  }
+
+  /**
    * Apply respondent-facing state transitions only while the run is mutable.
    * The conditional update serializes with markComplete at the row boundary.
    */
