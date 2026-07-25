@@ -51,4 +51,34 @@ describe('AssignInterviewDialog', () => {
       'http://localhost:3000/run/11111111-1111-4111-8111-111111111111#token=22222222-2222-4222-8222-222222222222'
     );
   });
+
+  it('lets the builder revoke the newly created private link', async () => {
+    vi.mocked(fetchAPI)
+      .mockResolvedValueOnce({
+        data: {
+          runId: '11111111-1111-4111-8111-111111111111',
+          runToken: '22222222-2222-4222-8222-222222222222',
+        },
+      })
+      .mockResolvedValueOnce({ success: true });
+    const user = userEvent.setup();
+
+    render(
+      <AssignInterviewDialog
+        open
+        onOpenChange={vi.fn()}
+        workflowId="33333333-3333-4333-8333-333333333333"
+      />
+    );
+
+    await user.type(screen.getByLabelText('Participant email'), 'client@example.com');
+    await user.click(screen.getByRole('button', { name: 'Create assignment' }));
+    await user.click(await screen.findByRole('button', { name: 'Revoke assignment link' }));
+
+    expect(fetchAPI).toHaveBeenLastCalledWith(
+      '/api/runs/11111111-1111-4111-8111-111111111111/revoke-token',
+      { method: 'POST' }
+    );
+    expect(await screen.findByRole('status')).toHaveTextContent('has been revoked');
+  });
 });

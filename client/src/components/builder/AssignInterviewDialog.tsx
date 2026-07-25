@@ -31,6 +31,8 @@ interface CreateAssignedRunResponse {
 export function AssignInterviewDialog({ open, onOpenChange, workflowId }: AssignInterviewDialogProps) {
   const [email, setEmail] = useState("");
   const [resumeUrl, setResumeUrl] = useState("");
+  const [assignedRunId, setAssignedRunId] = useState("");
+  const [isRevoked, setIsRevoked] = useState(false);
   const [isAssigning, setIsAssigning] = useState(false);
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
@@ -47,6 +49,7 @@ export function AssignInterviewDialog({ open, onOpenChange, workflowId }: Assign
       if (!runId || !runToken) {
         throw new Error("Assignment response was incomplete");
       }
+      setAssignedRunId(runId);
       setResumeUrl(`${window.location.origin}/run/${runId}#token=${encodeURIComponent(runToken)}`);
       toast({ title: "Interview assigned", description: "The interview is now available in the participant portal." });
     } catch {
@@ -62,9 +65,22 @@ export function AssignInterviewDialog({ open, onOpenChange, workflowId }: Assign
     toast({ title: "Assignment link copied" });
   };
 
+  const handleRevoke = async (): Promise<void> => {
+    try {
+      await fetchAPI(`/api/runs/${assignedRunId}/revoke-token`, { method: "POST" });
+      setIsRevoked(true);
+      setCopied(false);
+      toast({ title: "Assignment link revoked", description: "The participant can no longer use this link." });
+    } catch {
+      toast({ title: "Revocation failed", description: "Try again before closing this dialog.", variant: "destructive" });
+    }
+  };
+
   const handleOpenChange = (nextOpen: boolean): void => {
     if (!nextOpen) {
       setResumeUrl("");
+      setAssignedRunId("");
+      setIsRevoked(false);
       setCopied(false);
     }
     onOpenChange(nextOpen);
@@ -90,6 +106,10 @@ export function AssignInterviewDialog({ open, onOpenChange, workflowId }: Assign
               placeholder="client@example.com"
             />
           </div>
+        ) : isRevoked ? (
+          <div role="status" className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
+            This assignment link has been revoked. Create a new assignment if the participant still needs access.
+          </div>
         ) : (
           <div className="space-y-2">
             <Label htmlFor="assignment-link">Private assignment link</Label>
@@ -109,7 +129,14 @@ export function AssignInterviewDialog({ open, onOpenChange, workflowId }: Assign
               {isAssigning ? "Assigning..." : "Create assignment"}
             </Button>
           ) : (
-            <Button type="button" onClick={() => handleOpenChange(false)}>Done</Button>
+            <>
+              {!isRevoked && (
+                <Button type="button" variant="destructive" onClick={() => { void handleRevoke(); }}>
+                  Revoke assignment link
+                </Button>
+              )}
+              <Button type="button" onClick={() => handleOpenChange(false)}>Done</Button>
+            </>
           )}
         </DialogFooter>
       </DialogContent>
