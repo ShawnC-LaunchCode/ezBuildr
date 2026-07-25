@@ -679,7 +679,7 @@ caller-supplied, and must keep working unfiltered.
 
 ---
 
-## RUN2-16 — Unify the two validation engines and make the server authoritative 🔲
+## RUN2-16 — Unify the two validation engines and make the server authoritative ✅
 
 **Priority: P1 (security)** · Size: M · Files: `server/workflows/validation.ts`, `shared/validation/*`
 
@@ -1137,7 +1137,7 @@ Do not change `is_empty`'s behavior for legitimately-empty values.
 
 ---
 
-## RUN2-12 — A branch block's `nextSectionId` is trusted without validation 🔲
+## RUN2-12 — A branch block's `nextSectionId` is trusted without validation ✅
 
 **Priority: P1** · Size: S · File: `server/services/runs/RunExecutionCoordinator.ts`
 
@@ -1505,11 +1505,11 @@ whether that lands in this initiative or its own.
 | RUN2-9 | `validateWorkflow` is a stub | ✅ Done 2026-07-25 |
 | RUN2-10 | Runtime schema rejection is an opaque 500 | 🔲 Open |
 | RUN2-11 | Unresolvable rule becomes always-true `is_empty` | ✅ Done 2026-07-25 |
-| RUN2-12 | Branch-block `nextSectionId` trusted unvalidated | 🔲 Open |
+| RUN2-12 | Branch-block `nextSectionId` trusted unvalidated | ✅ Done 2026-07-25 |
 | RUN2-13 | Display `{{alias}}` never resolves; final block gets `{}` | ✅ Done 2026-07-25 |
 | RUN2-14 | Choice options reload per keystroke; empty alias crashes | 🔲 Open |
 | RUN2-15 | Submit throws when author edits a published workflow mid-run | 🔲 Open |
-| RUN2-16 | Unify validation engines; server authoritative, pattern guarded | 🔲 Open |
+| RUN2-16 | Unify validation engines; server authoritative, pattern guarded | ✅ Done 2026-07-25 |
 | RUN2-E1 | Version pinning is client-only | ⚠️ Deferred to own initiative — mitigated by RUN2-15 (Shawn, 2026-07-25) |
 | RUN2-E2 | No server-side field validation | ✅ Resolved into RUN2-16 (Shawn, 2026-07-25) |
 
