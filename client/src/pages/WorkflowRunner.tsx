@@ -4,6 +4,7 @@ import { useEffect, useMemo, type ComponentProps, type ReactElement } from "reac
 import { FullScreenLoader } from "@/components/ui/loader";
 
 import { ClientRunnerLayout } from "@/components/runner/ClientRunnerLayout";
+import { SaveAndResumeButton } from "@/components/runner/SaveAndResumeButton";
 import { FinalDocumentsSection } from "@/components/runner/sections/FinalDocumentsSection";
 import { IntakeAssignmentSection } from "@/components/runner/sections/IntakeAssignmentSection";
 import { ReviewSection } from "@/components/runner/sections/ReviewSection";
@@ -54,6 +55,7 @@ interface WorkflowRunnerScreenProps {
   visibleSectionSteps: ApiStep[];
   runToken: string | null;
   saveStatus: SaveStatus;
+  saveNow: () => Promise<void>;
   showReview: boolean;
   isCompleted: boolean;
   finalSectionConfig?: RunnerSectionConfig;
@@ -102,6 +104,14 @@ function getProgress(currentSectionIndex: number, totalSections: number): number
 
 function getWorkflowTitle(workflow: RunnerWorkflow | undefined): string {
   return workflow?.title ?? "Workflow";
+}
+
+function allowsSaveAndResume(workflow: RunnerWorkflow | undefined): boolean {
+  const settings: unknown = workflow?.settings;
+  return typeof settings !== "object" ||
+    settings === null ||
+    !("allowSaveAndResume" in settings) ||
+    settings.allowSaveAndResume !== false;
 }
 
 export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPreview = false, onPreviewComplete }: WorkflowRunnerProps) {
@@ -208,6 +218,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
       visibleSectionSteps={visibleSectionSteps}
       runToken={runToken}
       saveStatus={saveStatus}
+      saveNow={saveNow}
       showReview={showReview}
       isCompleted={isCompleted}
       finalSectionConfig={finalSectionConfig}
@@ -496,6 +507,7 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
     currentSectionIndex,
     visibleSections,
     saveStatus,
+    saveNow,
     errors,
     visibleSectionSteps,
     effectiveAllSteps,
@@ -506,7 +518,13 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
     handlePrev,
     handleNext,
     isLastSection,
+    actualRunId,
+    runToken,
   } = props;
+
+  const saveAndResumeAction = actualRunId && runToken && allowsSaveAndResume(workflow) ? (
+    <SaveAndResumeButton runId={actualRunId} runToken={runToken} saveNow={saveNow} />
+  ) : undefined;
 
   return (
     <ClientRunnerLayout
@@ -515,6 +533,7 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
       currentStep={currentSectionIndex}
       totalSteps={visibleSections.length}
       saveStatus={saveStatus}
+      saveAndResumeAction={saveAndResumeAction}
     >
       <Card className="shadow-lg border-t-4 border-t-primary dark:bg-zinc-900 overflow-visible mt-6 md:mt-0">
         <QuestionSectionHeader currentSection={currentSection} />

@@ -33,6 +33,7 @@ function buildProps(overrides: Partial<LoadedRunnerScreenProps> = {}): LoadedRun
     visibleSectionSteps: [],
     runToken: null,
     saveStatus: 'idle',
+    saveNow: vi.fn().mockResolvedValue(undefined),
     showReview: false,
     isCompleted: false,
     finalSectionConfig: undefined,

@@ -135,6 +135,49 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
         ]);
     });
 
+    it('preserves an unfinished draft while final persistence still validates its format', async () => {
+        stepRepo.findByWorkflowIdWithAliases.mockResolvedValue([
+            {
+                id: 'email-step',
+                type: 'email',
+                title: 'Email',
+                config: {},
+                required: true,
+            },
+        ]);
+
+        await writer.bulkSaveDraftValues('run-1', [
+            { stepId: 'email-step', value: 'person@' },
+        ], 'wf-1');
+
+        expect(valueRepo.upsertMany).toHaveBeenCalledWith([
+            { runId: 'run-1', stepId: 'email-step', value: 'person@' },
+        ]);
+
+        valueRepo.upsertMany.mockClear();
+        await expect(writer.bulkSaveValues('run-1', [
+            { stepId: 'email-step', value: 'person@' },
+        ], 'wf-1')).rejects.toMatchObject({ statusCode: 400 });
+        expect(valueRepo.upsertMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects malformed draft storage shapes', async () => {
+        stepRepo.findByWorkflowIdWithAliases.mockResolvedValue([
+            {
+                id: 'email-step',
+                type: 'email',
+                title: 'Email',
+                config: {},
+                required: false,
+            },
+        ]);
+
+        await expect(writer.bulkSaveDraftValues('run-1', [
+            { stepId: 'email-step', value: { unexpected: true } },
+        ], 'wf-1')).rejects.toMatchObject({ statusCode: 400 });
+        expect(valueRepo.upsertMany).not.toHaveBeenCalled();
+    });
+
     it('no-ops on an empty value list', async () => {
         await writer.bulkSaveValues('run-1', [], 'wf-1');
         expect(stepRepo.findByWorkflowIdWithAliases).not.toHaveBeenCalled();

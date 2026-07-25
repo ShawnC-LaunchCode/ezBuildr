@@ -123,6 +123,24 @@ export class RunPersistenceWriter {
      * (step lookup + section lookup + upsert) sequentially per value.
      */
     async bulkSaveValues(runId: string, values: Array<{ stepId: string, value: unknown }>, workflowId: string): Promise<void> {
+        await this.bulkSave(runId, values, workflowId, true);
+    }
+
+    /**
+     * Save in-progress answers without applying final-format validation.
+     * Drafts still enforce workflow membership and storage shape, while values
+     * such as a partially typed email or phone number remain resumable.
+     */
+    async bulkSaveDraftValues(runId: string, values: Array<{ stepId: string, value: unknown }>, workflowId: string): Promise<void> {
+        await this.bulkSave(runId, values, workflowId, false);
+    }
+
+    private async bulkSave(
+        runId: string,
+        values: Array<{ stepId: string, value: unknown }>,
+        workflowId: string,
+        validateFormat: boolean
+    ): Promise<void> {
         if (values.length === 0) {return;}
         const workflowSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId);
         const stepsById = new Map(workflowSteps.map(s => [s.id, s]));
@@ -135,7 +153,7 @@ export class RunPersistenceWriter {
             }
             byStepId.set(v.stepId, v.value);
         }
-        await this.validateBulkValues(byStepId, stepsById);
+        await this.validateBulkValues(byStepId, stepsById, validateFormat);
         await this.valueRepo.upsertMany(
             Array.from(byStepId.entries(), ([stepId, value]) => ({ runId, stepId, value }))
         );
@@ -153,14 +171,15 @@ export class RunPersistenceWriter {
 
     private async validateBulkValues(
         valuesByStepId: Map<string, unknown>,
-        stepsById: Map<string, Step>
+        stepsById: Map<string, Step>,
+        validateFormat: boolean
     ): Promise<void> {
         const issues: RunValueValidationIssue[] = [];
 
         for (const [stepId, value] of valuesByStepId.entries()) {
             const step = stepsById.get(stepId);
             if (!step) {continue;}
-            const messages = await this.validateValueForStep(step, value);
+            const messages = await this.validateValueForStep(step, value, validateFormat);
             if (messages.length > 0) {
                 issues.push({ stepId, messages });
             }
@@ -175,12 +194,15 @@ export class RunPersistenceWriter {
         }
     }
 
-    private async validateValueForStep(step: Step, value: unknown): Promise<string[]> {
+    private async validateValueForStep(step: Step, value: unknown, validateFormat: boolean): Promise<string[]> {
         if (isEmptyAutosaveValue(value)) {
             return [];
         }
 
         const messages = this.validateStoredValueShape(step, value);
+        if (!validateFormat || messages.length > 0) {
+            return messages;
+        }
         const schema = getValidationSchema({
             id: step.id,
             type: step.type,

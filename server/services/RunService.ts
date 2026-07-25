@@ -353,7 +353,7 @@ export class RunService {
     const { run, access } = await this.authResolver.resolveRun(runId, userId);
     if (!run || access === 'none') { throw new Error(ERR_RUN_NOT_FOUND); }
     values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
-    await this.persistenceWriter.bulkSaveValues(runId, values, run.workflowId);
+    await this.persistenceWriter.bulkSaveDraftValues(runId, values, run.workflowId);
   }
   /**
    * Bulk upsert step values without userId check (for run token auth)
@@ -365,7 +365,7 @@ export class RunService {
     const run = await this.runRepo.findById(runId);
     if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
     values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
-    await this.persistenceWriter.bulkSaveValues(runId, values, run.workflowId);
+    await this.persistenceWriter.bulkSaveDraftValues(runId, values, run.workflowId);
   }
   /**
    * Execute JS questions for a section
