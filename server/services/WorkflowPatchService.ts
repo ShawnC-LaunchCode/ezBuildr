@@ -258,6 +258,13 @@ export class WorkflowPatchService {
       case "step.create": {
         const sectionId = this.resolve(op.sectionId ?? op.sectionRef);
         if (!sectionId) { throw new Error("Section ID or sectionRef required"); }
+        // IDOR guard (parity with step.move/update/delete): the target section
+        // must belong to this workflow. Without this a caller with edit access
+        // to their own workflow could inject a step into another workflow's —
+        // even another tenant's — section by passing its UUID. A tempId from a
+        // same-batch section.create resolves to a section created in *this*
+        // workflow, so the assertion still passes for the legitimate path.
+        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section');
         // Get max order for this section if not specified
         const order = op.order ?? await this.getNextStepOrder(sectionId);
         const step = await this.stepRepository.create({

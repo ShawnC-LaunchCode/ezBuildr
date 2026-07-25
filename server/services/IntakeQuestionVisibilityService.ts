@@ -72,12 +72,20 @@ export class IntakeQuestionVisibilityService {
       .sort((a, b) => a.order - b.order);
     // Load all step values for this run to build context
     const stepValues = await this.stepValueRepo.findByRunId(runId);
-    // Load all steps to map stepId -> alias (for variable resolution)
-    const _workflowId = allQuestions[0]?.sectionId; // Get workflow via section
-    // TODO: Better way to get workflowId from sectionId
-    const allSteps = sortedQuestions; // For now, just use page steps
+    // Build the stepId -> alias map across the ENTIRE workflow, not just this
+    // page. A visibleIf on this page routinely references an answer from a
+    // PRIOR page by alias (the encouraged default). Keying aliases from the
+    // current page only left those cross-page references unresolved, so the
+    // server evaluated a field the client had hidden as visible+required — a
+    // dead-end where the run cannot be submitted (and the mirror case silently
+    // dropped enforcement of a genuinely required field). Steps carry their
+    // workflowId directly, so no extra section lookup is needed.
+    const workflowId = allQuestions[0]?.workflowId;
+    const aliasSourceSteps = workflowId
+      ? (await this.stepRepo.findByWorkflowId(workflowId)) ?? sortedQuestions
+      : sortedQuestions;
     const stepIdToAlias = new Map<string, string>();
-    for (const step of allSteps) {
+    for (const step of aliasSourceSteps) {
       if (step.alias) {
         stepIdToAlias.set(step.id, step.alias);
       }

@@ -17,6 +17,7 @@ vi.mock('../../../server/repositories', () => ({
   stepRepository: {
     findBySectionIds: vi.fn(),
     findById: vi.fn(),
+    findByWorkflowId: vi.fn(),
   },
   stepValueRepository: {
     findByRunId: vi.fn(),
@@ -81,6 +82,65 @@ describe('IntakeQuestionVisibilityService', () => {
       mockStepValueRepo.findByRunId.mockResolvedValue([]);
       const result = await service.evaluatePageQuestions('section1', 'run1');
       expect(result.visibleQuestions).toEqual(['q1', 'q2', 'q3']); // Sorted by order
+    });
+  });
+
+  // ========================================================================
+  // CROSS-PAGE ALIAS VISIBILITY — hidden-but-required dead-end regression.
+  // A page-2 visibleIf referencing a page-1 answer by alias must resolve, so
+  // the server hides (and skips validating) the field just like the client.
+  // ========================================================================
+  describe('Cross-page alias visibility', () => {
+    // Page 2's required "spouse name" is only shown when marital status
+    // (answered on page 1, referenced by its alias) is not "single".
+    const spouseStep = {
+      id: 'q_spouse', sectionId: 'page2', workflowId: 'wf1', title: 'Spouse name',
+      order: 0, isVirtual: false, required: true,
+      visibleIf: {
+        type: 'group', id: 'g1', operator: 'AND',
+        conditions: [
+          { type: 'condition', id: 'c1', variable: 'maritalStatus', operator: 'not_equals', value: 'single', valueType: 'constant' },
+        ],
+      },
+    } as unknown as Step;
+    const maritalStep = {
+      id: 'q_marital', sectionId: 'page1', workflowId: 'wf1', title: 'Marital status',
+      order: 0, isVirtual: false, required: true, alias: 'maritalStatus', visibleIf: null,
+    } as unknown as Step;
+
+    beforeEach(() => {
+      // The current page (page2) only contains the spouse question...
+      mockStepRepo.findBySectionIds.mockResolvedValue([spouseStep]);
+      // ...but the alias map is built from the whole workflow (both pages).
+      mockStepRepo.findByWorkflowId.mockResolvedValue([maritalStep, spouseStep]);
+    });
+
+    it('hides the page-2 field when the page-1 alias answer makes the condition false', async () => {
+      mockStepValueRepo.findByRunId.mockResolvedValue([
+        { stepId: 'q_marital', value: 'single' } as unknown as StepValue,
+      ]);
+      const result = await service.evaluatePageQuestions('page2', 'run1');
+      expect(result.hiddenQuestions).toContain('q_spouse');
+      expect(result.visibleQuestions).not.toContain('q_spouse');
+    });
+
+    it('does NOT require a field it has hidden (no dead-end on submit validation)', async () => {
+      mockStepValueRepo.findByRunId.mockResolvedValue([
+        { stepId: 'q_marital', value: 'single' } as unknown as StepValue,
+      ]);
+      const filter = await service.getValidationFilter('page2', 'run1');
+      expect(filter.skippedQuestions).toContain('q_spouse');
+      expect(filter.requiredQuestions).not.toContain('q_spouse');
+    });
+
+    it('shows and requires the page-2 field when the page-1 alias answer makes the condition true', async () => {
+      mockStepValueRepo.findByRunId.mockResolvedValue([
+        { stepId: 'q_marital', value: 'married' } as unknown as StepValue,
+      ]);
+      const result = await service.evaluatePageQuestions('page2', 'run1');
+      expect(result.visibleQuestions).toContain('q_spouse');
+      const filter = await service.getValidationFilter('page2', 'run1');
+      expect(filter.requiredQuestions).toContain('q_spouse');
     });
   });
   // ========================================================================

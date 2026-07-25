@@ -313,24 +313,41 @@ function evaluateOperator(
     case "ends_with":
       return toString(actualValue).toLowerCase().endsWith(toString(compareValue).toLowerCase());
 
-    // Numeric comparisons
-    case "greater_than":
-      return toNumber(actualValue) > toNumber(compareValue);
+    // Numeric comparisons. Fail closed when the answer (or threshold) is empty
+    // or non-numeric: an unanswered field must NOT satisfy `age < 18` etc.
+    // `toComparableNumber` returns null for null/undefined/""/unparseable (but
+    // still handles numeric and date strings), so the condition only fires once
+    // a real value has been entered — matching the logic_rules engine (which
+    // early-returns false on null/undefined).
+    case "greater_than": {
+      const a = toComparableNumber(actualValue);
+      const b = toComparableNumber(compareValue);
+      return a !== null && b !== null && a > b;
+    }
 
-    case "less_than":
-      return toNumber(actualValue) < toNumber(compareValue);
+    case "less_than": {
+      const a = toComparableNumber(actualValue);
+      const b = toComparableNumber(compareValue);
+      return a !== null && b !== null && a < b;
+    }
 
-    case "greater_or_equal":
-      return toNumber(actualValue) >= toNumber(compareValue);
+    case "greater_or_equal": {
+      const a = toComparableNumber(actualValue);
+      const b = toComparableNumber(compareValue);
+      return a !== null && b !== null && a >= b;
+    }
 
-    case "less_or_equal":
-      return toNumber(actualValue) <= toNumber(compareValue);
+    case "less_or_equal": {
+      const a = toComparableNumber(actualValue);
+      const b = toComparableNumber(compareValue);
+      return a !== null && b !== null && a <= b;
+    }
 
     case "between": {
-      const num = toNumber(actualValue);
-      const min = toNumber(compareValue);
-      const max = toNumber(compareValue2);
-      return num >= min && num <= max;
+      const num = toComparableNumber(actualValue);
+      const min = toComparableNumber(compareValue);
+      const max = toComparableNumber(compareValue2);
+      return num !== null && min !== null && max !== null && num >= min && num <= max;
     }
 
     // Date comparisons
@@ -476,6 +493,28 @@ function toNumber(value: unknown): number {
   if (typeof value === "boolean") {return value ? 1 : 0;}
   if (value instanceof Date) {return value.getTime();}
   return 0;
+}
+
+/**
+ * Like {@link toNumber} (handles numeric strings, ISO date strings → epoch ms,
+ * booleans, Date), but returns `null` — instead of `0` — for unanswered/empty
+ * or unparseable input. Numeric comparison operators use this so an empty field
+ * fails the comparison rather than silently reading as 0.
+ */
+function toComparableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") { return null; }
+  if (typeof value === "number") { return Number.isFinite(value) ? value : null; }
+  if (typeof value === "string") {
+    if (value.includes("-") || value.includes("/")) {
+      const date = new Date(value);
+      if (!Number.isNaN(date.getTime())) { return date.getTime(); }
+    }
+    const num = parseFloat(value);
+    return Number.isNaN(num) ? null : num;
+  }
+  if (typeof value === "boolean") { return value ? 1 : 0; }
+  if (value instanceof Date) { const t = value.getTime(); return Number.isNaN(t) ? null : t; }
+  return null;
 }
 
 function toFiniteNumber(value: unknown): number | null {

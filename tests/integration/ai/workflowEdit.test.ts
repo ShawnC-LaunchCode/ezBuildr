@@ -624,6 +624,51 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     }
   });
 
+  it('rejects step.create targeting a section in another workflow (IDOR)', async () => {
+    const [otherWorkflow] = await db.insert(workflows).values({
+      title: 'Other Workflow (step.create)',
+      status: 'active',
+      creatorId: testUserId,
+      ownerId: testUserId,
+      projectId: testProjectId,
+    }).returning();
+    const [foreignSection] = await db.insert(sections).values({
+      workflowId: otherWorkflow.id,
+      title: 'Victim Section',
+      order: 1,
+      config: {},
+    }).returning();
+
+    mockGenerateContent.mockResolvedValueOnce({
+      response: {
+        text: () => JSON.stringify({
+          ops: [{ op: 'step.create', sectionId: foreignSection.id, type: 'short_text', title: 'INJECTED' }],
+          summary: [],
+          warnings: [],
+          questions: [],
+          confidence: 0.9,
+        }),
+      },
+    });
+
+    try {
+      const response = await request(app)
+        .post(`/api/workflows/${testWorkflowId}/ai/edit`)
+        .send({ userMessage: 'Add a question' })
+        .expect(400);
+      expect(response.body.error).toBe('Failed to apply operations');
+      expect(response.body.details[0]).toContain('does not belong to workflow');
+
+      // No step was injected into the victim's section.
+      const injected = await db.select().from(steps).where(eq(steps.sectionId, foreignSection.id));
+      expect(injected).toHaveLength(0);
+    } finally {
+      await db.delete(steps).where(eq(steps.sectionId, foreignSection.id));
+      await db.delete(sections).where(eq(sections.workflowId, otherWorkflow.id));
+      await db.delete(workflows).where(eq(workflows.id, otherWorkflow.id));
+    }
+  });
+
   it('rejects deleting a logic rule that belongs to another workflow', async () => {
     const [otherWorkflow] = await db.insert(workflows).values({
       title: 'Other Workflow (rules)',
