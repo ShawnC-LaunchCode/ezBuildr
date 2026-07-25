@@ -531,19 +531,25 @@ export class WorkflowPatchService {
       // ====================================================================
       case "datavault.createTable": {
         const { tenantId } = await this.getTenantContext(workflowId);
-        // Verify database exists if provided
-        if (op.databaseId) {
+        // Normalize to null so an empty-string databaseId can't (a) slip past
+        // the ownership check below via a falsy guard, nor (b) be persisted as a
+        // bogus "" reference (`"" ?? null` keeps the empty string).
+        const databaseId = typeof op.databaseId === 'string' && op.databaseId.trim() !== ''
+          ? op.databaseId
+          : null;
+        // Verify database exists and belongs to this tenant if provided
+        if (databaseId) {
           const { datavaultDatabasesRepository } = await import('../repositories');
-          const dbObj = await datavaultDatabasesRepository.findById(op.databaseId);
+          const dbObj = await datavaultDatabasesRepository.findById(databaseId);
           if (!dbObj || dbObj.tenantId !== tenantId) {
-              throw new Error(`Database ${op.databaseId} not found or does not belong to your tenant`);
+              throw new Error(`Database ${databaseId} not found or does not belong to your tenant`);
           }
         }
         // Create table with auto-generated slug
         const table = await this.datavaultTablesService.createTable({
           tenantId,
           ownerUserId: userId,
-          databaseId: op.databaseId ?? null,
+          databaseId,
           name: op.name,
           slug: this.generateSlug(op.name),
           description: null,

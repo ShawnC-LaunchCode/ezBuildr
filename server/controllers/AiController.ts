@@ -499,6 +499,9 @@ export class AiController {
         const authReq = req as AuthRequest;
         try {
             const requestData = AIDebugLogicRequestSchema.parse(req.body);
+            // Require access to the referenced workflow before spending AI budget
+            // on caller-supplied JSON (parity with generateLogic; SEC).
+            await workflowService.verifyAccess(requestData.workflowId, authReq.userId!, 'view');
             // tenantId threads to AIProviderClient for per-tenant AI budgeting (ICW2-B7)
             const aiService = createAIServiceFromEnv(authReq.tenantId);
             const result = await aiService.debugLogic(requestData);
@@ -516,6 +519,9 @@ export class AiController {
         const authReq = req as AuthRequest;
         try {
             const requestData = AIVisualizeLogicRequestSchema.parse(req.body);
+            // Require access to the referenced workflow before spending AI budget
+            // on caller-supplied JSON (parity with generateLogic; SEC).
+            await workflowService.verifyAccess(requestData.workflowId, authReq.userId!, 'view');
             // tenantId threads to AIProviderClient for per-tenant AI budgeting (ICW2-B7)
             const aiService = createAIServiceFromEnv(authReq.tenantId);
             const result = await aiService.visualizeLogic(requestData);
