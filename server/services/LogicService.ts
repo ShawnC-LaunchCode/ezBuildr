@@ -145,6 +145,7 @@ export class LogicService {
 
     // Resolve final next section (considering skip logic)
     const resolvedNextSectionId = resolveNextSection(
+      currentSectionId,
       nextSectionId,
       visibility.ruleEvaluation.skipToSectionId,
       sections.map((s) => ({ id: s.id, order: s.order })),

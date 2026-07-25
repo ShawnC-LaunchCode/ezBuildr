@@ -138,6 +138,42 @@ describe("workflowLogic", () => {
         const result = evaluateRules(rules, data);
         expect(result.skipToSectionId).toBe("sec-3");
       });
+      it("should deterministically keep the lower-order rule when two skip_to rules both fire", () => {
+        // RUN2-2: multiple firing skip_to rules must not "last one wins" by
+        // incoming array order - the lowest rule.order wins, deterministically,
+        // regardless of the order the rules are passed in.
+        const higherOrderRule: LogicRule = {
+          id: "rule-high-order",
+          workflowId: "wf-1",
+          targetType: "section",
+          targetSectionId: "sec-4", targetStepId: null,
+          conditionStepId: "step-1",
+          operator: "equals",
+          conditionValue: "skip",
+          action: "skip_to",
+          order: 5, createdAt: null, updatedAt: null, logicalOperator: null,
+        };
+        const lowerOrderRule: LogicRule = {
+          id: "rule-low-order",
+          workflowId: "wf-1",
+          targetType: "section",
+          targetSectionId: "sec-2", targetStepId: null,
+          conditionStepId: "step-1",
+          operator: "equals",
+          conditionValue: "skip",
+          action: "skip_to",
+          order: 2, createdAt: null, updatedAt: null, logicalOperator: null,
+        };
+        const data = { "step-1": "skip" };
+
+        // Passed in ascending order already.
+        const ascending = evaluateRules([lowerOrderRule, higherOrderRule], data);
+        expect(ascending.skipToSectionId).toBe("sec-2");
+
+        // Passed in reverse (descending) array order - result must be identical.
+        const descending = evaluateRules([higherOrderRule, lowerOrderRule], data);
+        expect(descending.skipToSectionId).toBe("sec-2");
+      });
       it("should ignore rule with missing targetSectionId", () => {
         const rules: LogicRule[] = [
           {
@@ -326,6 +362,35 @@ describe("workflowLogic", () => {
           const data = { "step-1": 42 };
           const result = evaluateRules(rules, data);
           expect(result.visibleSteps.has("step-2")).toBe(true);
+        });
+        it("does not mutate the data map's array value or rule.conditionValue when comparing arrays (RUN2-5)", () => {
+          const conditionValue = ["c", "a", "b"];
+          const actualAnswer = ["z", "x", "y"];
+          const conditionValueClone = [...conditionValue];
+          const actualAnswerClone = [...actualAnswer];
+          const rules: LogicRule[] = [
+            {
+              id: "rule-1",
+              workflowId: "wf-1",
+              targetType: "step",
+              targetStepId: "step-2", targetSectionId: null,
+              conditionStepId: "step-1",
+              operator: "equals",
+              conditionValue,
+              action: "show",
+              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            },
+          ];
+          const data = { "step-1": actualAnswer };
+
+          evaluateRules(rules, data);
+
+          // Byte-identical to the pre-evaluation clones (acceptance criterion 1/4).
+          expect(data["step-1"]).toEqual(actualAnswerClone);
+          expect(rules[0].conditionValue).toEqual(conditionValueClone);
+          // Same object references, not merely equal-but-replaced arrays.
+          expect(data["step-1"]).toBe(actualAnswer);
+          expect(rules[0].conditionValue).toBe(conditionValue);
         });
       });
       describe("not_equals", () => {
@@ -895,26 +960,81 @@ describe("workflowLogic", () => {
       { id: "sec-3", order: 3 },
       { id: "sec-4", order: 4 },
     ];
-    it("should use skipToSectionId when provided and visible", () => {
+    it("should use skipToSectionId when provided, visible, and forward of current", () => {
       const visibleSections = new Set(["sec-1", "sec-2", "sec-3", "sec-4"]);
-      const result = resolveNextSection("sec-2", "sec-4", sections, visibleSections);
+      const result = resolveNextSection("sec-1", "sec-2", "sec-4", sections, visibleSections);
       expect(result).toBe("sec-4");
     });
-    it("should find next visible section when skip target is not visible", () => {
+    it("should find next visible section when forward skip target is not visible", () => {
       const visibleSections = new Set(["sec-1", "sec-2", "sec-4"]);
-      const result = resolveNextSection("sec-2", "sec-3", sections, visibleSections);
+      const result = resolveNextSection("sec-1", "sec-2", "sec-3", sections, visibleSections);
       // sec-3 is not visible, so should get next visible after sec-3, which is sec-4
       expect(result).toBe("sec-4");
     });
     it("should use normal next section when no skip target", () => {
       const visibleSections = new Set(["sec-1", "sec-2", "sec-3"]);
-      const result = resolveNextSection("sec-2", undefined, sections, visibleSections);
+      const result = resolveNextSection("sec-1", "sec-2", undefined, sections, visibleSections);
       expect(result).toBe("sec-2");
     });
-    it("should return null when skip target has no visible sections after", () => {
+    it("should return null when forward skip target has no visible sections after", () => {
       const visibleSections = new Set(["sec-1", "sec-2"]);
-      const result = resolveNextSection("sec-2", "sec-4", sections, visibleSections);
+      const result = resolveNextSection("sec-2", "sec-2", "sec-4", sections, visibleSections);
       expect(result).toBe(null);
+    });
+    it("should treat a skip target at or before the current section as a no-op (backwards skip)", () => {
+      // RUN2-2: a backwards skip_to (target order < current order) must not
+      // override normal flow, or the run loops forever on the same section.
+      const visibleSections = new Set(["sec-1", "sec-2", "sec-3", "sec-4"]);
+      const result = resolveNextSection("sec-2", "sec-3", "sec-1", sections, visibleSections);
+      // Falls through to the normal next section, ignoring the backwards skip.
+      expect(result).toBe("sec-3");
+    });
+    it("should treat a skip target equal to the current section as a no-op (same-order skip)", () => {
+      const visibleSections = new Set(["sec-1", "sec-2", "sec-3", "sec-4"]);
+      const result = resolveNextSection("sec-2", "sec-3", "sec-2", sections, visibleSections);
+      expect(result).toBe("sec-3");
+    });
+    it("should allow a skip target at the start of the run (no current section) regardless of order", () => {
+      const visibleSections = new Set(["sec-1", "sec-2", "sec-3", "sec-4"]);
+      const result = resolveNextSection(null, "sec-1", "sec-3", sections, visibleSections);
+      expect(result).toBe("sec-3");
+    });
+    it("regression: six consecutive calls from a backwards-skip workflow terminate rather than repeating one id", () => {
+      // Mirrors the audit probe: sections A(1), B(2), C(3), all visible, one
+      // rule "skip_to A" that keeps firing (its trigger condition never
+      // changes). Before the fix this produced A -> A -> A -> A -> A -> A
+      // forever. After the fix the run must progress and terminate.
+      const loopSections = [
+        { id: "A", order: 1 },
+        { id: "B", order: 2 },
+        { id: "C", order: 3 },
+      ];
+      const visibleSections = new Set(["A", "B", "C"]);
+      const skipToSectionId = "A";
+
+      const visited: (string | null)[] = [];
+      let current: string | null = "B";
+      for (let i = 0; i < 6; i++) {
+        const nextSectionId = calculateNextSection(current, loopSections, visibleSections);
+        const resolved: string | null = resolveNextSection(
+          current,
+          nextSectionId,
+          skipToSectionId,
+          loopSections,
+          visibleSections
+        );
+        visited.push(resolved);
+        if (resolved !== null) {
+          // Workflow still in progress - the respondent advances to it.
+          current = resolved;
+        }
+        // Once resolved is null the run is complete; further "Next" presses
+        // (simulated here) must keep terminating, not snap back to "A".
+      }
+
+      expect(visited).toHaveLength(6);
+      expect(visited).not.toEqual(["A", "A", "A", "A", "A", "A"]);
+      expect(visited).toContain(null);
     });
   });
   describe("validateRequiredSteps", () => {

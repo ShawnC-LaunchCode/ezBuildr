@@ -16,7 +16,7 @@ import type { LogicRule, Section, Step } from './schema';
 export type EvaluableLogicRule = Pick<
   LogicRule,
   'conditionStepId' | 'operator' | 'conditionValue' | 'targetType' |
-  'targetStepId' | 'targetSectionId' | 'action'
+  'targetStepId' | 'targetSectionId' | 'action' | 'order'
 >;
 
 interface VisibilitySectionDefinition {
@@ -107,8 +107,11 @@ export function evaluateRules(
   const sectionRules = rules.filter(r => r.targetType === 'section');
   const stepRules = rules.filter(r => r.targetType === 'step');
 
-  // Evaluate section-level rules
-  sectionRules.forEach(rule => {
+  // Evaluate section-level rules in ascending rule.order so that, when
+  // multiple skip_to rules fire, the outcome is deterministic (first firing
+  // rule wins) rather than depending on incoming array order.
+  const orderedSectionRules = [...sectionRules].sort((a, b) => a.order - b.order);
+  orderedSectionRules.forEach(rule => {
     const conditionMet = evaluateCondition(rule, data);
 
     if (conditionMet) {
@@ -125,8 +128,10 @@ export function evaluateRules(
           result.hiddenSections.add(targetId);
           break;
         case 'skip_to':
-          // Set the skip target - this takes precedence over normal flow
-          result.skipToSectionId = targetId;
+          // First firing skip_to rule (lowest order) wins; later ones are ignored.
+          if (result.skipToSectionId === undefined) {
+            result.skipToSectionId = targetId;
+          }
           break;
       }
     }
@@ -280,9 +285,15 @@ function evaluateCondition(rule: EvaluableLogicRule, data: Record<string, unknow
  * Checks if two values are equal
  */
 function isEqual(actual: unknown, expected: unknown): boolean {
-  // Handle arrays
+  // Handle arrays. Sort copies, never the caller-owned arrays: `actual` is the
+  // live value from the run's data map (the same array `formValues` state
+  // holds on the client) and `expected` is `rule.conditionValue` (shared
+  // across the whole evaluation pass), so sorting in place would silently
+  // reorder saved respondent data (RUN2-5).
   if (Array.isArray(actual) && Array.isArray(expected)) {
-    return JSON.stringify(actual.sort()) === JSON.stringify(expected.sort());
+    const actualArr = actual as unknown[];
+    const expectedArr = expected as unknown[];
+    return JSON.stringify([...actualArr].sort()) === JSON.stringify([...expectedArr].sort());
   }
 
   // Handle strings (case-insensitive)
@@ -420,20 +431,28 @@ export function calculateNextSection(
 /**
  * Resolves the actual next section considering skip logic
  *
+ * A skip target that is not strictly after the current section (i.e. its
+ * `order` is <= the current section's `order`) is treated as a no-op and
+ * navigation falls through to normal flow. Without this guard, a `skip_to`
+ * rule whose condition remains true would trap the run in an infinite
+ * navigation loop (see RUN2-2).
+ *
+ * @param currentSectionId - Current section ID (null if at start)
  * @param nextSectionId - Normal next section
- * @param skipToSectionId - Skip target section (takes precedence)
+ * @param skipToSectionId - Skip target section (takes precedence when forward)
  * @param sections - Array of sections ordered by their 'order' field
  * @param visibleSections - Set of visible section IDs
  * @returns Resolved next section ID or null if completed
  */
 export function resolveNextSection(
+  currentSectionId: string | null,
   nextSectionId: string | null,
   skipToSectionId: string | undefined,
   sections: Array<{ id: string; order: number }>,
   visibleSections: Set<string>
 ): string | null {
-  // Skip logic takes precedence
-  if (skipToSectionId) {
+  // Skip logic takes precedence, but only when it moves the run forward.
+  if (skipToSectionId && isForwardSkipTarget(currentSectionId, skipToSectionId, sections)) {
     // If skip target is visible, use it
     if (visibleSections.has(skipToSectionId)) {
       return skipToSectionId;
@@ -443,8 +462,34 @@ export function resolveNextSection(
     return calculateNextSection(skipToSectionId, sections, visibleSections);
   }
 
-  // Use normal next section if no skip
+  // Use normal next section if no skip, or if the skip target is backwards/same (no-op)
   return nextSectionId;
+}
+
+/**
+ * Determines whether a skip target's `order` is strictly after the current
+ * section's `order`. A skip target whose section can't be resolved against
+ * the known sections is left to the existing "not found" handling in
+ * `calculateNextSection` rather than being pre-filtered here.
+ */
+function isForwardSkipTarget(
+  currentSectionId: string | null,
+  skipToSectionId: string,
+  sections: Array<{ id: string; order: number }>
+): boolean {
+  if (currentSectionId === null) {
+    // No current section yet (start of run) - any skip target is forward.
+    return true;
+  }
+
+  const currentOrder = sections.find(s => s.id === currentSectionId)?.order;
+  const skipTargetOrder = sections.find(s => s.id === skipToSectionId)?.order;
+
+  if (currentOrder === undefined || skipTargetOrder === undefined) {
+    return true;
+  }
+
+  return skipTargetOrder > currentOrder;
 }
 
 /**
