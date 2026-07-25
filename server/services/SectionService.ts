@@ -101,8 +101,10 @@ export class SectionService {
       ? Math.max(...existingSections.map((s) => s.order)) + 1
       : 1;
 
+    // Strip a client-supplied `id` so the server owns the primary key.
+    const { id: _ignoredId, ...safeData } = data;
     return this.sectionRepo.create({
-      ...data,
+      ...safeData,
       workflowId,
       order: data.order ?? nextOrder,
       // Server-controlled: never let a client-supplied value mark a
@@ -254,11 +256,20 @@ export class SectionService {
   }
 
   /**
-   * `deletedAt` is only ever set/cleared by the dedicated delete/restore
-   * flows (ICW2-B1) — never accepted from a general update payload.
+   * Strip server-controlled / immutable fields from a general update payload
+   * to prevent mass-assignment. A section never moves between workflows, so a
+   * client-supplied `workflowId` would reparent the section (and its steps)
+   * into an arbitrary workflow — including one in another tenant — past the
+   * access check, which only authorizes the section's *current* workflow.
+   * `id` would rewrite the primary key. `deletedAt` is only ever set/cleared
+   * by the dedicated delete/restore flows (ICW2-B1).
    */
-  private static stripDeletedAt(data: Partial<InsertSection>): Partial<InsertSection> {
+  private static stripImmutableFields(data: Partial<InsertSection>): Partial<InsertSection> {
     const updates = { ...data };
+    delete updates.id;
+    delete updates.workflowId;
+    delete updates.createdAt;
+    delete updates.updatedAt;
     delete updates.deletedAt;
     return updates;
   }
@@ -279,7 +290,7 @@ export class SectionService {
       throw new Error(SECTION_NOT_FOUND);
     }
 
-    return this.sectionRepo.update(sectionId, SectionService.stripDeletedAt(data));
+    return this.sectionRepo.update(sectionId, SectionService.stripImmutableFields(data));
   }
 
   /**
@@ -424,7 +435,7 @@ export class SectionService {
     }
 
     await this.workflowSvc.verifyAccess(section.workflowId, userId, 'edit');
-    return this.sectionRepo.update(sectionId, SectionService.stripDeletedAt(data));
+    return this.sectionRepo.update(sectionId, SectionService.stripImmutableFields(data));
   }
 
   /**

@@ -180,8 +180,13 @@ export class StepService {
       ? Math.max(...existingSteps.map((s) => s.order)) + 1
       : 1;
 
+    // Strip client-controlled identity fields before the spread: `id` would
+    // let a client pick the primary key, and `isVirtual` is owned by the
+    // transform-block machinery (which creates virtual steps via the repo
+    // directly, never through this public create path).
+    const { id: _ignoredId, isVirtual: _ignoredVirtual, ...safeData } = data;
     return this.stepRepo.create({
-      ...data,
+      ...safeData,
       config: finalConfig,
       alias,
       workflowId,
@@ -335,8 +340,17 @@ export class StepService {
 
     const updates = { ...data };
     delete updates.workflowId;
-    // Server-controlled: deletedAt is only ever set/cleared by the
-    // dedicated delete/restore endpoints (ICW2-B1), never a general update.
+    // Server-controlled / immutable fields are never accepted from a general
+    // update payload — stripping them prevents mass-assignment. `id` in
+    // particular would rewrite the primary key, orphaning the step and every
+    // step_value / logic rule / alias that references it. `isVirtual` is owned
+    // by the transform-block virtual-step machinery, not the client.
+    delete updates.id;
+    delete updates.isVirtual;
+    delete updates.createdAt;
+    delete updates.updatedAt;
+    // deletedAt is only ever set/cleared by the dedicated delete/restore
+    // endpoints (ICW2-B1), never a general update.
     delete updates.deletedAt;
 
     const finalConfig = data.config;

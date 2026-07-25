@@ -443,6 +443,66 @@ describe("reorder ids are scoped to their workflow/section (ICW2-1)", () => {
   });
 });
 
+describe("update payloads cannot mass-assign immutable/server-controlled fields (QA-SEC)", () => {
+  it("PUT /api/steps/:id ignores a client-supplied id (no primary-key rewrite)", async () => {
+    const { workflowId, sectionId } = await makeWorkflowWithSection();
+    const created = await agent
+      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
+      .send({ type: "short_text", title: "Original" });
+    expect(created.status).toBe(201);
+    const stepId = created.body.id as string;
+    const hijackId = randomUUID();
+
+    const res = await agent
+      .put(`/api/steps/${stepId}`)
+      .send({ title: "Renamed", id: hijackId });
+
+    // The legitimate field updates, but the primary key is untouched.
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(stepId);
+    expect(res.body.title).toBe("Renamed");
+
+    // The row still lives at its original id; the attacker-chosen id never existed.
+    const [row] = await db
+      .select({ id: schema.steps.id })
+      .from(schema.steps)
+      .where(eq(schema.steps.id, stepId));
+    expect(row?.id).toBe(stepId);
+    const hijackRows = await db
+      .select({ id: schema.steps.id })
+      .from(schema.steps)
+      .where(eq(schema.steps.id, hijackId));
+    expect(hijackRows).toHaveLength(0);
+  });
+
+  it("PUT /api/sections/:id ignores a client-supplied workflowId (no cross-workflow reparent)", async () => {
+    const { sectionId, workflowId } = await makeWorkflowWithSection();
+
+    // A second user's workflow the caller has no access to — the reparent target.
+    const other = await createTestUser(ctx, "owner");
+    const otherAgent = createAuthenticatedAgent(ctx.baseURL, other.token);
+    const otherWf = await otherAgent.post("/api/workflows").send({ title: `Foreign ${nanoid()}` });
+    expect(otherWf.status).toBe(201);
+    const foreignWorkflowId = otherWf.body.id as string;
+
+    const res = await agent
+      .put(`/api/sections/${sectionId}`)
+      .send({ title: "Renamed", workflowId: foreignWorkflowId });
+
+    expect(res.status).toBe(200);
+    expect(res.body.title).toBe("Renamed");
+    // Crucially, the section stays in the caller's workflow.
+    expect(res.body.workflowId).toBe(workflowId);
+
+    const [row] = await db
+      .select({ workflowId: schema.sections.workflowId })
+      .from(schema.sections)
+      .where(eq(schema.sections.id, sectionId));
+    expect(row?.workflowId).toBe(workflowId);
+    expect(row?.workflowId).not.toBe(foreignWorkflowId);
+  });
+});
+
 describe("cross-section step moves assign proper order (ICW2-5)", () => {
   it("moving a step to another section appends it to the end by default", async () => {
     const { workflowId, sectionId: srcSectionId } = await makeWorkflowWithSection();

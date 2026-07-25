@@ -273,7 +273,22 @@ function registerSimplifiedStepRoutes(app: Express): void {
       if (!Array.isArray(steps)) {
         return res.status(400).json({ message: "Invalid steps array" });
       }
-      await stepService.reorderStepsBySectionId(sectionId, userId, steps as { id: string; order: number }[]);
+      // Validate each entry's id is a UUID and order is a finite number before
+      // touching the DB (mirrors the sections/reorder guard).
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      for (const entry of steps) {
+        const step = entry as { id?: unknown; order?: unknown };
+        if (typeof step.id !== 'string' || !uuidRegex.test(step.id)) {
+          return res.status(400).json({
+            message: "Invalid step ID format",
+            details: "Step ID must be a valid UUID",
+          });
+        }
+        if (typeof step.order !== 'number' || !Number.isFinite(step.order)) {
+          return res.status(400).json({ message: "Step order must be a finite number" });
+        }
+      }
+      await stepService.reorderStepsBySectionId(sectionId, userId, steps as Array<{ id: string; order: number }>);
       res.status(200).json({ message: "Steps reordered successfully" });
     } catch (error) {
       logger.error({ error }, "Error reordering steps");
