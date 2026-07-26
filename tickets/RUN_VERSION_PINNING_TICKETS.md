@@ -93,6 +93,24 @@ the dual-definition problem rather than managing it. But B changes creator
 preview behaviour, so it is Shawn's call, and **RVP-2 must not start until it is
 made.**
 
+### ✅ DECIDED 2026-07-26 — Option B
+
+Shawn chose **B**: every new run is pinned at creation, auto-creating a draft
+version when the workflow has none. **A remains the fallback for pre-existing
+runs** whose `workflowVersionId` is already null — there is no migration, so
+those keep resolving from the live tables via the provider's `source: 'live'`
+branch, which RVP-1 already built.
+
+Two implementation constraints that follow from the existing code, both of which
+belong to **RVP-6**:
+
+- `createDraftVersion` returns `null` when the serialized checksum matches the
+  latest version, meaning "no new version needed". RVP-6 must then **reuse the
+  latest existing version** rather than treating `null` as a failure.
+- Run creation becomes a write to `workflow_versions`. That is acceptable for
+  the creator-preview path this affects, but it must not fire for runs that
+  already resolve a published or pinned version — only when there is none.
+
 ---
 
 ## How to work this document
@@ -111,7 +129,7 @@ made.**
 | Phase | Theme | Tickets |
 |---|---|---|
 | 1 | Make the pinned definition loadable server-side | RVP-1 |
-| 2 | Thread it through every decision path | RVP-2, RVP-3, RVP-4 |
+| 2 | Pin every run, then thread it through every decision path | RVP-6 → RVP-2 → RVP-3 → RVP-4 (sequential) |
 | 3 | Prove it end to end | RVP-5 |
 
 ---
@@ -187,16 +205,92 @@ surface as a 4xx.
       `tests/integration/api.runs.runtime.test.ts` green (proves getRuntime's
       response shape is byte-identical), 9 existing RunRuntimeService unit tests
       pass unmodified. Commit `186d5c7b`.
-- [ ] **Shawn has decided Option A / B / C above** — record the decision in this
+- [x] **Option B decided by Shawn, 2026-07-26** — recorded above; RVP-6 added to
+      implement it, and Phase 2 corrected to sequential dispatch — record the decision in this
       file before Phase 2 is dispatched
 
 ---
 
 # Phase 2 — Thread it through the decision paths
 
-Each ticket below replaces live-table reads with the provider. They touch
-different files and may run in parallel, in separate worktrees — except that all
-three depend on RVP-1.
+Each ticket below replaces live-table reads with the provider.
+
+**Correction (2026-07-26): these must run SEQUENTIALLY, not in parallel.** The
+original text here claimed they touch different files; that was wrong. RVP-2
+changes `LogicService`'s signatures, and its callers are
+`RunExecutionCoordinator`, `RunCompletionService`, `RunLifecycleService` and
+`RunService` — precisely RVP-3, RVP-4 and RVP-6's files. RVP-2 therefore has to
+touch them at least enough to keep the tree compiling, and a parallel dispatch
+would collide.
+
+**Dispatch order: RVP-6 → RVP-2 → RVP-3 → RVP-4 → RVP-5.** RVP-6 goes first
+because it establishes the "every new run is pinned" invariant while the
+decision paths still read live tables, so it is behaviour-neutral on its own.
+
+---
+
+## RVP-6 — Pin every new run at creation 🔲
+
+**Priority: P0** · Size: M · File: `server/services/RunService.ts`
+
+*Implements the Option B decision recorded above. Added 2026-07-26.*
+
+### Finding
+
+`RunService.createRun` permits a run with no version
+(`server/services/RunService.ts:169-174`):
+
+```ts
+const targetVersionId = workflow.pinnedVersionId ?? workflow.currentVersionId;
+if (!targetVersionId && !userId) {
+  throw new Error('Workflow has no published version for anonymous runs');
+}
+if (!targetVersionId) {
+  logger.warn({ workflowId }, "No current or pinned version found for workflow, run might be unstable");
+}
+```
+
+Anonymous runs already refuse, so this only affects a signed-in creator
+test-running an unpublished draft. Those runs then have nothing for the pinned
+definition to resolve from, which is what forces the dual code path the rest of
+this initiative is trying to remove.
+
+### Preferred fix
+
+When `targetVersionId` is absent and the caller is authenticated, create a draft
+version and pin the run to it, before the run row is inserted. Use the existing
+`versionService.createDraftVersion(workflowId, userId, notes?)` — do not write a
+second serializer.
+
+Handle its `null` return correctly: `createDraftVersion` returns `null` when the
+checksum matches the latest version, meaning nothing changed and no new row was
+written. In that case fetch and use the **latest existing version** for the
+workflow. Treating `null` as a failure would break exactly the common case of a
+creator re-running an unchanged draft.
+
+Leave the anonymous guard exactly as it is — it must keep throwing. Do not
+back-fill existing runs; pre-existing null runs keep resolving via the
+provider's `source: 'live'` branch (Option A fallback), which RVP-1 built.
+
+### Ties
+
+- Implements the Option B decision; **must land before RVP-2**.
+- Touches `RunService.ts`, which RVP-2 also edits for a call-site update —
+  sequential, not parallel.
+- Load `add-api-endpoint`, `run-tests`.
+
+### Acceptance criteria
+
+1. A creator run on a workflow with no published or pinned version results in a
+   run whose `workflowVersionId` is set, and a draft version exists for it.
+2. When `createDraftVersion` returns `null` (unchanged checksum), the run pins to
+   the latest existing version rather than erroring or staying null.
+3. A run on a workflow that already has a published or pinned version is
+   unchanged — no new version is created.
+4. An anonymous run on a workflow with no published version still throws
+   `'Workflow has no published version for anonymous runs'`.
+5. New tests assert 1–4. Gates green, including
+   `tests/integration/api.runs.*` and `tests/integration/activation-publish.test.ts`.
 
 ## RVP-2 — LogicService decides from the pinned definition 🔲
 
@@ -333,7 +427,8 @@ refactor silently reintroduces the split.
 | Ticket | Title | Status |
 |---|---|---|
 | RVP-1 | Extract a run-definition provider | ✅ Done 2026-07-26 (186d5c7b) |
-| RVP-2 | LogicService uses the pinned definition | 🔲 Blocked on Option A/B/C |
+| RVP-6 | Pin every new run at creation (Option B) | 🔲 Open |
+| RVP-2 | LogicService uses the pinned definition | 🔲 Blocked on RVP-6 |
 | RVP-3 | RunExecutionCoordinator uses the pinned definition | 🔲 Blocked on RVP-1 |
 | RVP-4 | RunLifecycleService uses the pinned definition | 🔲 Blocked on RVP-1 |
 | RVP-5 | End-to-end mid-run-edit regression suite | 🔲 Blocked on Phase 2 |
