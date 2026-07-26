@@ -69,6 +69,22 @@ export class VersionService {
     return version ?? null;
   }
   /**
+   * Fetch the most recently created version (draft or published) for a
+   * workflow, or null if none exists yet. RVP-6 uses this when
+   * `createDraftVersion` returns null (checksum matches the latest version,
+   * i.e. nothing changed) to pin a run to the version that already exists
+   * instead of treating "no changes" as a failure.
+   */
+  async getLatestVersion(workflowId: string): Promise<WorkflowVersion | null> {
+    const [latestVersion] = await db
+      .select()
+      .from(schema.workflowVersions)
+      .where(eq(schema.workflowVersions.workflowId, workflowId))
+      .orderBy(desc(schema.workflowVersions.createdAt))
+      .limit(1);
+    return latestVersion ?? null;
+  }
+  /**
    * Validate workflow before publishing
    * Checks for:
    * - Acyclic graph

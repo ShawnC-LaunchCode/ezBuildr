@@ -37,6 +37,7 @@ import { RunLifecycleService } from "./workflow-runs/RunLifecycleService";
 import { RunMetricsService } from "./workflow-runs/RunMetricsService";
 import { RunShareService } from "./workflow-runs/RunShareService";
 import { RunStateService } from "./workflow-runs/RunStateService";
+import { versionService } from "./VersionService";
 import { workflowService } from "./WorkflowService";
 
 import type { IntakeConfig } from "../../shared/types/intake.js";
@@ -60,6 +61,7 @@ export class RunService {
   private docsRepo: typeof runGeneratedDocumentsRepository;
   private workflowSvc: typeof workflowService;
   private logicSvc: typeof logicService;
+  private versionSvc: typeof versionService;
   private authResolver: RunAuthResolver;
   private executionCoordinator: RunExecutionCoordinator;
   private persistenceWriter: RunPersistenceWriter;
@@ -89,6 +91,7 @@ export class RunService {
     metricsService?: RunMetricsService,
     shareService?: RunShareService,
     completionService?: RunCompletionService,
+    versionSvc?: typeof versionService,
   ) {
     this.runRepo = runRepo ?? workflowRunRepository;
     this.valueRepo = valueRepo ?? stepValueRepository;
@@ -100,6 +103,7 @@ export class RunService {
     this.docsRepo = docsRepo ?? runGeneratedDocumentsRepository;
     this.workflowSvc = workflowSvc ?? workflowService;
     this.logicSvc = logicSvc ?? logicService;
+    this.versionSvc = versionSvc ?? versionService;
     this.authResolver = authResolver ?? new RunAuthResolver(
       this.runRepo,
       this.workflowRepo,
@@ -166,12 +170,17 @@ export class RunService {
     const workflow = await this.authResolver.verifyCreateAccess(idOrSlug, userId);
     const workflowId = workflow.id;
     // Resolve the version to use for this run
-    const targetVersionId = workflow.pinnedVersionId ?? workflow.currentVersionId;
-    if (!targetVersionId && !userId) {
-      throw new Error('Workflow has no published version for anonymous runs');
-    }
+    let targetVersionId = workflow.pinnedVersionId ?? workflow.currentVersionId;
     if (!targetVersionId) {
-      logger.warn({ workflowId }, "No current or pinned version found for workflow, run might be unstable");
+      if (!userId) {
+        throw new Error('Workflow has no published version for anonymous runs');
+      }
+      // RVP-6 (Option B): an authenticated creator's run must not stay
+      // versionless, so pin it to a draft version created on the spot.
+      // createDraftVersion returns null when the serialized checksum already
+      // matches the latest version -- that means "nothing changed, no new row
+      // written", not a failure, so fall back to the latest existing version.
+      targetVersionId = await this.pinDraftVersionForRun(workflowId, userId);
     }
     // Generate a unique token for this run. The plaintext is returned to the
     // caller; only its hash is persisted.
@@ -428,6 +437,24 @@ export class RunService {
   private async resolveInitialSectionId(runId: string, workflowId: string): Promise<string | null> {
     const navigation = await this.logicSvc.evaluateNavigation(workflowId, runId, null);
     return navigation.nextSectionId;
+  }
+  /**
+   * RVP-6 (Option B): resolve the version an authenticated creator's run
+   * should pin to when the workflow has neither a published nor a pinned
+   * version. Creates a draft version from the live workflow; if
+   * `createDraftVersion` returns null (the serialized checksum already
+   * matches the latest version -- nothing changed, no new row written), reuse
+   * that latest existing version instead of treating the null as a failure.
+   * Only called for authenticated creators -- the anonymous guard in
+   * `createRun` throws before this is ever reached for anonymous callers.
+   */
+  private async pinDraftVersionForRun(workflowId: string, userId: string): Promise<string | null> {
+    const draftVersion = await this.versionSvc.createDraftVersion(workflowId, userId);
+    if (draftVersion) {
+      return draftVersion.id;
+    }
+    const latestVersion = await this.versionSvc.getLatestVersion(workflowId);
+    return latestVersion?.id ?? null;
   }
   /**
    * Parse a workflow's raw `intakeConfig` jsonb column into a typed
