@@ -5,6 +5,9 @@ import { nanoid } from "nanoid";
 import request from "supertest";
 import { vi , describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
+import { sections, steps } from "@shared/schema";
+
+import { db } from "../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
 // Mock template scanner to avoid parsing invalid zip files
 vi.mock("../../server/services/document/TemplateScanner", () => ({
@@ -64,10 +67,30 @@ describe("Templates API Integration Tests", () => {
       })
       .expect(201);
     workflowId = workflowResponse.body.id;
+
+    // RUN2-9: publishing runs a structural gate, so the workflow needs at least
+    // one section and one real question. This used to publish an empty workflow
+    // with a vestigial `graphJson: { pages: [] }` body (publishVersion
+    // serializes from the database and ignores that field entirely), which the
+    // gate now correctly refuses — an interview with no questions cannot be
+    // completed by any respondent.
+    const [section] = await db
+      .insert(sections)
+      .values({ workflowId, title: "Page 1", order: 0 })
+      .returning();
+    await db.insert(steps).values({
+      workflowId,
+      sectionId: section.id,
+      title: "Your name",
+      type: "short_text",
+      alias: "name",
+      order: 0,
+    });
+
     await request(ctx.baseURL)
       .post(`/api/workflows/${workflowId}/publish`)
       .set("Authorization", `Bearer ${ctx.authToken}`)
-      .send({ graphJson: { pages: [] } })
+      .send({})
       .expect(200);
   });
   afterAll(async () => {
