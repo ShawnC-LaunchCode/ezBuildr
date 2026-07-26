@@ -10,10 +10,18 @@ import { db } from "../db";
 import { createLogger } from "../logger";
 import { computeChecksum } from "../utils/checksum";
 import { createError } from "../utils/errors";
+import { documentTemplateRepository } from "../repositories";
 import { lintWorkflowContent, type LintableWorkflowContent } from "./workflowLintRules";
-import { validateWorkflowStructure } from "./workflowStructureRules";
+import {
+  validateWorkflowStructure,
+  type WorkflowReadinessContext,
+} from "./workflowStructureRules";
 
 import { aclService } from "./AclService";
+// Imported from the provider module directly, not the `./esign` barrel: the
+// barrel pulls in DocusignProvider and runs registration side effects, which a
+// read-only availability check must not depend on.
+import { EsignProviderFactory } from "./esign/EsignProvider";
 import { workflowDiffService, type WorkflowDiff } from "./diff/WorkflowDiffService";
 // eslint-disable-next-line import/no-cycle
 import { workflowService } from "./WorkflowService";
@@ -229,10 +237,22 @@ export class VersionService {
    * Errors block the publish; warnings are recorded on the audit entry. Both
    * rule sets can independently report the same condition (e.g. "no
    * questions"), so messages are de-duplicated.
+   *
+   * `readiness` supplies the facts the pure rules cannot look up (existing
+   * template ids, registered e-sign providers) — see `buildReadinessContext`.
+   * It defaults to empty so the structural rules that need no I/O still run for
+   * any caller that omits it.
    */
-  validateWorkflow(_workflowId: string, graphJson: WorkflowGraph): ValidationResult {
+  validateWorkflow(
+    _workflowId: string,
+    graphJson: WorkflowGraph,
+    readiness: WorkflowReadinessContext = {}
+  ): ValidationResult {
     const content = graphJson as unknown as LintableWorkflowContent;
-    const combined = [...lintWorkflowContent(content), ...validateWorkflowStructure(content)];
+    const combined = [
+      ...lintWorkflowContent(content),
+      ...validateWorkflowStructure(content, readiness),
+    ];
 
     const errors: string[] = [];
     const warnings: string[] = [];
@@ -245,6 +265,36 @@ export class VersionService {
     }
 
     return { valid: errors.length === 0, errors, warnings };
+  }
+
+  /**
+   * Resolve the publish-time facts the pure rule modules cannot look up
+   * themselves (GH-152).
+   *
+   * Kept here rather than inside the rules so those stay pure and synchronous:
+   * this is one indexed query plus an in-memory registry read, and the graph
+   * already carries `projectId`, so no extra workflow fetch is needed.
+   *
+   * Template ids are scoped by project on purpose — it mirrors exactly what
+   * `RunLifecycleService` does at generation time
+   * (`documentTemplateRepository.findByIdAndProjectId(documentId, projectId)`),
+   * so a workflow that clears this gate resolves the same templates at run time.
+   */
+  private async buildReadinessContext(graphJson: WorkflowGraph): Promise<WorkflowReadinessContext> {
+    const projectId = (graphJson as unknown as { projectId?: string | null }).projectId;
+
+    let knownTemplateIds: Set<string> | undefined;
+    if (typeof projectId === "string" && projectId.length > 0) {
+      const templates = await documentTemplateRepository.findByProjectId(projectId);
+      knownTemplateIds = new Set(templates.map(template => template.id));
+    }
+
+    return {
+      knownTemplateIds,
+      availableEsignProviders: new Set(
+        EsignProviderFactory.getAllProviders().map(name => name.toLowerCase())
+      ),
+    };
   }
   /**
    * Detect cycles in graph using DFS
@@ -338,7 +388,11 @@ export class VersionService {
     // gate. Previously only the status route ran the linter (and the structural
     // validator was a stub returning `{ valid: true }`), leaving publish — the
     // door the builder actually uses — completely ungated.
-    const validation = this.validateWorkflow(workflowId, graphJson);
+    //
+    // GH-152: the gate also refuses documents whose templates do not resolve,
+    // which needs the project's template ids — resolved here so the rules stay pure.
+    const readiness = await this.buildReadinessContext(graphJson);
+    const validation = this.validateWorkflow(workflowId, graphJson, readiness);
     if (!validation.valid && !force) {
       throw createError.validation(
         `Cannot publish workflow: ${validation.errors.join(', ')}`
