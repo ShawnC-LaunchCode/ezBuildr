@@ -78,6 +78,7 @@ export class RunExecutionCoordinator {
                         runId,
                         sectionId: currentSectionId,
                         invalidNextSectionId: blockResult.nextSectionId,
+                        ...(blockResult.nextSectionBlockId ? { blockId: blockResult.nextSectionBlockId } : {}),
                     },
                     "Branch block targeted a section that is not visible in this workflow; falling back to computed navigation"
                 );

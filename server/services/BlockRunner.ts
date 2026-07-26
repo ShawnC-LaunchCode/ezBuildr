@@ -114,6 +114,7 @@ export class BlockRunner {
     let currentData = { ...context.data };
     const allErrors: string[] = [];
     let nextSectionId: string | undefined;
+    let nextSectionBlockId: string | undefined;
 
     // 0. Execute lifecycle hooks BEFORE other blocks (if runId is provided)
     if (context.runId) {
@@ -224,6 +225,7 @@ export class BlockRunner {
       // Capture branch decision (only first match wins)
       if (result.nextSectionId && !nextSectionId) {
         nextSectionId = result.nextSectionId;
+        nextSectionBlockId = block.id;
       }
     }
 
@@ -232,6 +234,7 @@ export class BlockRunner {
       data: currentData,
       errors: allErrors.length > 0 ? allErrors : undefined,
       nextSectionId,
+      nextSectionBlockId,
     };
   }
 

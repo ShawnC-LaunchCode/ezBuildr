@@ -454,6 +454,37 @@ describe('RunExecutionCoordinator - JS Execution', () => {
             warnSpy.mockRestore();
         });
 
+        it('includes the offending block id in the warning when BlockRunner supplies nextSectionBlockId (RUN2-21)', async () => {
+            const computed: NavigationResult = {
+                visibleSections: ['section-a', 'section-b'],
+                visibleSteps: ['step-a'],
+                requiredSteps: ['step-a'],
+                nextSectionId: 'section-b',
+                currentProgress: 50,
+            };
+            mockEvaluateNavigation.mockResolvedValue(computed);
+            vi.mocked(blockRunner.runPhase).mockResolvedValue({
+                success: true,
+                nextSectionId: 'stale-section-id',
+                nextSectionBlockId: 'branch-block-42',
+            });
+            const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => undefined as never);
+
+            const result = await coordinator.next(context, 'section-a');
+
+            expect(result).toEqual(computed);
+            expect(warnSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    invalidNextSectionId: 'stale-section-id',
+                    sectionId: 'section-a',
+                    blockId: 'branch-block-42',
+                }),
+                expect.stringContaining('not visible in this workflow')
+            );
+
+            warnSpy.mockRestore();
+        });
+
         it('honors a branch block nextSectionId that is a visible section of this workflow (AC2)', async () => {
             const computed: NavigationResult = {
                 visibleSections: ['section-a', 'section-b', 'section-c'],
