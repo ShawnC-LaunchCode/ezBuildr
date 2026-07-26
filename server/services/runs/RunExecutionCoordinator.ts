@@ -2,12 +2,13 @@ import { isJsQuestionConfig } from "@shared/types/steps";
 import { evaluateWorkflowVisibility } from "@shared/workflowLogic";
 
 import { logger } from "../../logger";
-import { workflowRepository, stepRepository, sectionRepository, logicRuleRepository } from "../../repositories";
+import { workflowRepository, workflowRunRepository } from "../../repositories";
 import { createError } from "../../utils/errors";
 import { validatePage } from "../../workflows/validation";
 import { blockRunner } from "../BlockRunner";
 import { logicService, type NavigationResult } from "../LogicService";
 import { scriptEngine } from "../scripting/ScriptEngine";
+import { runDefinitionProvider, RunDefinitionProvider, type RunDefinition } from "../workflow-runs/RunDefinitionProvider";
 
 import { runPersistenceWriter } from "./RunPersistenceWriter";
 export interface ExecutionContext {
@@ -17,32 +18,52 @@ export interface ExecutionContext {
     mode: 'live' | 'preview';
 }
 export class RunExecutionCoordinator {
-    // Not constructor-injected: the constructor is already at the project's
-    // max-params limit (5). Tests mock this via the shared repositories
-    // module singleton instead (see RunExecutionCoordinator.test.ts).
-    private logicRuleRepo = logicRuleRepository;
     constructor(
         private persistence = runPersistenceWriter,
         private logicSvc = logicService,
-        private stepRepo = stepRepository,
-        private sectionRepo = sectionRepository,
-        private workflowRepo = workflowRepository
+        private workflowRepo = workflowRepository,
+        // RVP-3: resolves the run so its sections/steps/logic-rules can be
+        // sourced from `definitionProvider` below (the pinned version's
+        // graph when the run has one, the live tables otherwise), instead of
+        // each helper independently re-reading `stepRepo`/`sectionRepo` --
+        // see tickets/RUN_VERSION_PINNING_TICKETS.md, RVP-3.
+        private runRepo = workflowRunRepository,
+        private definitionProvider: RunDefinitionProvider = runDefinitionProvider
     ) { }
+
+    /**
+     * Resolve the run and its sections/steps/logic-rules from
+     * `RunDefinitionProvider` (RVP-1): the pinned version's graph when the
+     * run has one, the live tables otherwise (`source: 'live'`). Every
+     * helper below that used to read `stepRepo`/`sectionRepo` directly now
+     * goes through this, so a live workflow edit cannot desync an in-flight
+     * run's server-side decisions from what the respondent was actually
+     * shown (RVP-3).
+     */
+    private async getDefinition(context: ExecutionContext): Promise<RunDefinition> {
+        const run = await this.runRepo.findById(context.runId);
+        if (!run || run.workflowId !== context.workflowId) {
+            throw new Error("Run not found");
+        }
+        return this.definitionProvider.getDefinition(run);
+    }
+
     /**
      * Calculate next step/section
      */
     async next(context: ExecutionContext, currentSectionId: string | null): Promise<NavigationResult> {
         const { runId, workflowId, mode } = context;
+        const definition = await this.getDefinition(context);
         // Get current data
         const dataMap = await this.persistence.getRunValues(runId);
         // 1. Execute JS Questions for current section (if any)
         if (currentSectionId) {
-            await this.executeJsQuestions(runId, currentSectionId, dataMap, context);
+            await this.executeJsQuestions(currentSectionId, dataMap, context, definition);
         }
         // 2. Execute onNext blocks
         // Note: BlockRunner still needs refactoring to accept Mode, but for now we pass context
         // Ideally BlockRunner should be stateless or accept context
-        const aliasMap = await this.getAliasMap(workflowId);
+        const aliasMap = this.getAliasMap(definition);
         const blockResult = await blockRunner.runPhase({
             workflowId,
             runId,
@@ -58,7 +79,8 @@ export class RunExecutionCoordinator {
         // in BOTH branches below, and it also validates a branch block's
         // target: block config is author-controlled JSONB, so a stale or
         // typo'd id must never be written to the run's cursor unchecked
-        // (RUN2-12).
+        // (RUN2-12). LogicService resolves its own copy of the run's
+        // definition internally (RVP-2) -- this call needs no change here.
         const computedNavigation = await this.logicSvc.evaluateNavigation(
             workflowId,
             runId,
@@ -107,13 +129,14 @@ export class RunExecutionCoordinator {
         values: Array<{ stepId: string, value: any }>
     ): Promise<{ success: boolean; errors?: string[] }> {
         const { runId, workflowId } = context;
-        const steps = await this.stepRepo.findBySectionId(sectionId);
+        const definition = await this.getDefinition(context);
+        const steps = definition.steps.filter(step => step.sectionId === sectionId);
         const sectionStepIds = new Set(steps.map(step => step.id));
-        const acceptedValues = await this.partitionSubmittedValues(
+        const acceptedValues = this.partitionSubmittedValues(
             values,
             sectionStepIds,
-            workflowId,
-            runId,
+            definition,
+            context,
             sectionId
         );
 
@@ -121,9 +144,9 @@ export class RunExecutionCoordinator {
         await this.persistence.bulkSaveValues(runId, acceptedValues, workflowId);
         // 2. Get updated data map
         const dataMap = await this.persistence.getRunValues(runId);
-        const aliasMap = await this.getAliasMap(workflowId);
+        const aliasMap = this.getAliasMap(definition);
         // 3. Validate required fields (respecting visibility)
-        const visibleStepIds = await this.getVisibleStepIds(workflowId, dataMap);
+        const visibleStepIds = this.getVisibleStepIds(definition, dataMap);
         const validationResult = await validatePage(
             steps,
             dataMap,
@@ -141,7 +164,7 @@ export class RunExecutionCoordinator {
             return { success: false, errors: errorMessages };
         }
         // 4. Execute JS Questions
-        const jsResult = await this.executeJsQuestions(runId, sectionId, dataMap, context, aliasMap);
+        const jsResult = await this.executeJsQuestions(sectionId, dataMap, context, definition, aliasMap);
         if (!jsResult.success) {
             return { success: false, errors: jsResult.errors };
         }
@@ -164,17 +187,19 @@ export class RunExecutionCoordinator {
      * Execute JS questions using ScriptEngine
      */
     private async executeJsQuestions(
-        runId: string,
         sectionId: string,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dataMap holds dynamic workflow step values
         dataMap: Record<string, any>,
         context: ExecutionContext,
+        definition: RunDefinition,
         aliasMap?: Record<string, string>
     ): Promise<{ success: boolean; errors?: string[] }> {
         const errors: string[] = [];
-        // Find JS questions
-        const allSteps = await this.stepRepo.findBySectionId(sectionId);
-        const jsQuestions = allSteps.filter(step => step.type === 'js_question');
+        // Find JS questions in this section, sourced from the run's
+        // definition (RVP-3) rather than a fresh `stepRepo.findBySectionId`.
+        const jsQuestions = definition.steps.filter(
+            step => step.sectionId === sectionId && step.type === 'js_question'
+        );
         for (const step of jsQuestions) {
             if (step.config === null || step.config === undefined || !isJsQuestionConfig(step.config)) { continue; }
             const config = step.config;
@@ -185,7 +210,7 @@ export class RunExecutionCoordinator {
                 data: dataMap,
                 context: {
                     workflowId: context.workflowId,
-                    runId,
+                    runId: context.runId,
                     phase: 'question_execution',
                     metadata: { stepId: step.id }
                 },
@@ -198,7 +223,7 @@ export class RunExecutionCoordinator {
             }
             // Save output
             await this.persistence.saveStepValue(
-                runId,
+                context.runId,
                 step.id,
                 result.output,
                 context.workflowId
@@ -218,62 +243,67 @@ export class RunExecutionCoordinator {
      * (`LogicService.validateCompletion`) already use. Section submit must
      * not compute visibility any other way — a second engine here is what
      * let hidden-required steps block submission (RUN2-1).
+     *
+     * RVP-3: sourced from the run's already-resolved definition (pinned
+     * version or live tables via `RunDefinitionProvider`) instead of
+     * re-reading `sectionRepo`/`stepRepo`/`logicRuleRepo` directly, so this
+     * agrees with what navigation/completion decided for the same run.
      */
-    private async getVisibleStepIds(
-        workflowId: string,
+    private getVisibleStepIds(
+        definition: RunDefinition,
         data: Record<string, unknown>
-    ): Promise<string[]> {
-        const sections = await this.sectionRepo.findByWorkflowId(workflowId);
-        const sectionIds = sections.map(section => section.id);
-        const steps = await this.stepRepo.findBySectionIds(sectionIds);
-        const rules = await this.logicRuleRepo.findByWorkflowId(workflowId);
+    ): string[] {
         const visibility = evaluateWorkflowVisibility({
-            sections,
-            steps,
-            rules,
+            sections: definition.sections,
+            steps: definition.steps,
+            rules: definition.logicRules,
             data,
-            resolveAlias: (name) => steps.find(step => step.alias === name)?.id,
+            resolveAlias: (name) => definition.steps.find(step => step.alias === name)?.id,
         });
         return Array.from(visibility.visibleSteps);
     }
     /**
-     * Build alias map for workflow
-     */
-    /**
      * Split submitted values into what this section will persist (RUN2-15).
      *
-     * The client renders from the run's pinned version snapshot while this
-     * check reads the LIVE tables, so the two disagree the moment an author
-     * edits a published workflow. Three cases:
+     * The client renders from the run's pinned version snapshot. Before
+     * RVP-3, this check read the LIVE tables, so the two could disagree the
+     * moment an author edited a published workflow. Three cases:
      *
      *  - id is in this section  -> persist, as before.
      *  - id belongs to a DIFFERENT section of this workflow -> still an error.
      *    That is the mass-assignment case this guard exists for: a caller must
      *    not write values into a section they are not on.
-     *  - id exists nowhere on this workflow -> the author deleted the question
-     *    mid-run. Drop it with a warning and let the respondent continue;
-     *    throwing here bricked them on that page with no way to recover.
+     *  - id exists nowhere on this workflow's definition -> the author deleted
+     *    the question mid-run. Drop it with a warning and let the respondent
+     *    continue; throwing here bricked them on that page with no way to
+     *    recover.
      *
-     * The proper fix is to resolve steps from the run's pinned version instead
-     * of the live tables (escalation RUN2-E1, deferred to its own initiative);
-     * this keeps an author's edit from trapping in-flight respondents until
-     * then.
+     * RVP-3: `definition` (and therefore `sectionStepIds`/`workflowStepIds`)
+     * now comes from `RunDefinitionProvider`. For a PINNED run this is the
+     * exact snapshot the respondent's client rendered from, so a submitted id
+     * absent from it entirely is unreachable in practice -- the client cannot
+     * submit an id it was never given. The "dropped ids" branch below
+     * therefore survives only as a fallback for versionless runs
+     * (`definition.source === 'live'`), whose definition is re-read fresh
+     * from the live tables on every call and can still legitimately drift
+     * mid-request. See RunExecutionCoordinator.pinnedDefinition.test.ts for
+     * the regression proving a pinned run never takes this branch.
      */
-    private async partitionSubmittedValues(
+    private partitionSubmittedValues(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step values have dynamic types from workflow data
         values: Array<{ stepId: string, value: any }>,
         sectionStepIds: Set<string>,
-        workflowId: string,
-        runId: string,
+        definition: RunDefinition,
+        context: ExecutionContext,
         sectionId: string
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mirrors the values parameter
-    ): Promise<Array<{ stepId: string, value: any }>> {
+    ): Array<{ stepId: string, value: any }> {
         const unknownToSection = values.filter(value => !sectionStepIds.has(value.stepId));
         if (unknownToSection.length === 0) {
             return values;
         }
 
-        const workflowStepIds = await this.getWorkflowStepIds(workflowId);
+        const workflowStepIds = this.getWorkflowStepIds(definition);
         const crossSectionIds = unknownToSection
             .map(value => value.stepId)
             .filter(stepId => workflowStepIds.has(stepId));
@@ -287,25 +317,20 @@ export class RunExecutionCoordinator {
 
         const droppedIds = unknownToSection.map(value => value.stepId);
         logger.warn(
-            { runId, sectionId, workflowId, droppedStepIds: droppedIds },
+            { runId: context.runId, sectionId, workflowId: context.workflowId, droppedStepIds: droppedIds },
             'Dropping submitted values for steps that no longer exist on this workflow (edited mid-run)'
         );
         return values.filter(value => sectionStepIds.has(value.stepId));
     }
 
-    /** Every step id on the workflow, across all its sections. */
-    private async getWorkflowStepIds(workflowId: string): Promise<Set<string>> {
-        const sections = await this.sectionRepo.findByWorkflowId(workflowId);
-        const steps = await this.stepRepo.findBySectionIds(sections.map(section => section.id));
-        return new Set(steps.map(step => step.id));
+    /** Every step id on the run's definition, across all its sections. */
+    private getWorkflowStepIds(definition: RunDefinition): Set<string> {
+        return new Set(definition.steps.map(step => step.id));
     }
 
-    private async getAliasMap(workflowId: string): Promise<Record<string, string>> {
-        const sections = await this.sectionRepo.findByWorkflowId(workflowId);
-        const sectionIds = sections.map(s => s.id);
-        const steps = await this.stepRepo.findBySectionIds(sectionIds);
+    private getAliasMap(definition: RunDefinition): Record<string, string> {
         const map: Record<string, string> = {};
-        for (const step of steps) {
+        for (const step of definition.steps) {
             if (step.alias) {
                 map[step.alias] = step.id;
             }

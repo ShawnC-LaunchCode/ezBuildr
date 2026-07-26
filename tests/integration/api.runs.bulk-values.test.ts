@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 
 import * as schema from '@shared/schema';
 import { db } from '../../server/db';
+import { versionService } from '../../server/services/VersionService';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
 import { TestFactory } from '../helpers/testFactory';
 
@@ -108,9 +109,18 @@ describe.sequential('POST /api/runs/:runId/values/bulk', () => {
     });
     otherSectionStepId = otherSectionStep.id;
 
+    // RVP-3: section submit now resolves this run's steps from its pinned
+    // version rather than the live tables, so the pinned graph has to contain
+    // the sections and steps created above. `factory.createWorkflow` produced
+    // its version before any of them existed, and a run pinned to that empty
+    // snapshot would have every submitted value treated as "not part of this
+    // interview" and dropped — including the cross-section one this suite
+    // asserts is rejected. Regenerate the version now that the content exists.
+    const pinnedVersion = (await versionService.createDraftVersion(workflowId, ctx.userId)) ?? version;
+
     const [run] = await db.insert(schema.workflowRuns).values({
       workflowId,
-      workflowVersionId: version.id,
+      workflowVersionId: pinnedVersion.id,
       runToken: 'bulk-values-run-token',
       completed: false,
     }).returning();

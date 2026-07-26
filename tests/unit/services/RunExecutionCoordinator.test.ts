@@ -5,12 +5,13 @@ import { JsQuestionConfig } from '@shared/types/steps';
 import type { Step, Section, LogicRule } from '@shared/schema';
 
 import { logger } from '../../../server/logger';
-import { stepRepository, sectionRepository, workflowRepository, logicRuleRepository } from '../../../server/repositories';
+import { stepRepository, sectionRepository, workflowRepository, logicRuleRepository, workflowRunRepository } from '../../../server/repositories';
 import { blockRunner } from '../../../server/services/BlockRunner';
 import { logicService, type NavigationResult } from '../../../server/services/LogicService';
 import { RunExecutionCoordinator, type ExecutionContext } from '../../../server/services/runs/RunExecutionCoordinator';
 import { type RunPersistenceWriter } from '../../../server/services/runs/RunPersistenceWriter';
 import { scriptEngine } from '../../../server/services/scripting/ScriptEngine';
+import type { RunDefinition, RunStep } from '../../../server/services/workflow-runs/RunDefinitionProvider';
 // Mock dependencies
 vi.mock('../../../server/services/scripting/ScriptEngine', () => ({
     scriptEngine: {
@@ -49,8 +50,17 @@ vi.mock('../../../server/repositories', () => ({
         upsert: vi.fn(), // still mock for compilation if needed
         findByRunId: vi.fn()
     },
+    // RVP-3: `RunExecutionCoordinator` now resolves the run first (via
+    // `workflowRunRepository`) and sources sections/steps/logic-rules from
+    // `RunDefinitionProvider` rather than reading `stepRepository`/
+    // `sectionRepository` directly. The provider's default singleton reads
+    // from this same mocked module, so a versionless run here takes its
+    // `source: 'live'` branch and lands on exactly the `findByWorkflowId`/
+    // `findBySectionIds` mocks below -- keeping most of this file's existing
+    // per-test setups valid. Pinned-run (`source: 'version'`) behaviour is
+    // covered separately in RunExecutionCoordinator.pinnedDefinition.test.ts.
     workflowRunRepository: {
-        findById: vi.fn()
+        findById: vi.fn().mockResolvedValue({ id: 'run-1', workflowId: 'wf-1', workflowVersionId: null })
     },
     sectionRepository: {
         findById: vi.fn(),
@@ -59,17 +69,50 @@ vi.mock('../../../server/repositories', () => ({
     workflowRepository: {},
     logicRuleRepository: {
         findByWorkflowId: vi.fn()
+    },
+    workflowVersionRepository: {
+        findById: vi.fn()
     }
 }));
 
 interface TestCoordinator {
     executeJsQuestions(
-        runId: string,
         sectionId: string,
         dataMap: Record<string, unknown>,
         context: ExecutionContext,
+        definition: RunDefinition,
         aliasMap?: Record<string, string>
     ): Promise<{ success: boolean; errors?: string[] }>;
+}
+
+/** Builds a minimal `RunDefinition` for tests that only care about a handful
+ * of steps -- fills in the fields `RunStep`/`RunDefinition` require but that
+ * a given test doesn't exercise. Inputs are loosely typed (test fixtures use
+ * plain string literals for `type` etc.) and cast at the boundary. */
+function makeDefinition(
+    steps: ReadonlyArray<Record<string, unknown> & { id: string; sectionId: string }>,
+    sections: Section[] = [],
+    logicRules: LogicRule[] = []
+): RunDefinition {
+    return {
+        sections: sections as unknown as RunDefinition['sections'],
+        steps: steps.map((step) => ({
+            workflowId: 'wf-1',
+            type: 'short_text',
+            title: 'Step',
+            description: null,
+            required: false,
+            alias: null,
+            order: 0,
+            isVirtual: false,
+            config: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            ...step,
+        })) as unknown as RunStep[],
+        logicRules,
+        source: 'live',
+    };
 }
 
 describe('RunExecutionCoordinator - JS Execution', () => {
@@ -78,6 +121,7 @@ describe('RunExecutionCoordinator - JS Execution', () => {
     let mockSectionRepo: Mocked<typeof sectionRepository>;
     let mockWorkflowRepo: Mocked<typeof workflowRepository>;
     let mockLogicRuleRepo: Mocked<typeof logicRuleRepository>;
+    let mockRunRepo: Mocked<typeof workflowRunRepository>;
     let mockRunPersistence: Mocked<RunPersistenceWriter>;
 
     beforeEach(async () => {
@@ -90,17 +134,24 @@ describe('RunExecutionCoordinator - JS Execution', () => {
         mockSectionRepo = sectionRepository as unknown as Mocked<typeof sectionRepository>;
         mockWorkflowRepo = workflowRepository as unknown as Mocked<typeof workflowRepository>;
         mockLogicRuleRepo = logicRuleRepository as unknown as Mocked<typeof logicRuleRepository>;
+        mockRunRepo = workflowRunRepository as unknown as Mocked<typeof workflowRunRepository>;
+        // vi.clearAllMocks() clears call history but not the resolved value
+        // baked into the module factory above -- restate it explicitly so
+        // this default survives even if a test overrides and doesn't reset.
+        mockRunRepo.findById.mockResolvedValue({ id: 'run-1', workflowId: 'wf-1', workflowVersionId: null } as never);
 
         coordinator = new RunExecutionCoordinator(
             mockRunPersistence,
             logicService as unknown as typeof logicService,
-            mockStepRepo,
-            mockSectionRepo,
-            mockWorkflowRepo
+            mockWorkflowRepo,
+            mockRunRepo
+            // definitionProvider defaults to the real `runDefinitionProvider`
+            // singleton, which reads from the mocked repositories module above.
         );
     });
     const mockJsStep = {
         id: 'step-js-1',
+        sectionId: 'section-1',
         type: 'js_question',
         title: 'Calculate Total',
         config: {
@@ -113,10 +164,6 @@ describe('RunExecutionCoordinator - JS Execution', () => {
         alias: 'total'
     };
     it('should execute JS questions using ScriptEngine', async () => {
-        // Setup mocks
-        mockStepRepo.findBySectionId.mockResolvedValue([mockJsStep as unknown as Step]);
-        mockSectionRepo.findById.mockResolvedValue({ workflowId: 'wf-1' } as unknown as import('@shared/schema').Section);
-
         // Mock ScriptEngine success
         vi.mocked(scriptEngine.execute).mockResolvedValue({
             ok: true,
@@ -126,13 +173,14 @@ describe('RunExecutionCoordinator - JS Execution', () => {
 
         // Test via private method execution
         const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
+        const definition = makeDefinition([mockJsStep]);
 
         const testCoordinator = coordinator as unknown as TestCoordinator;
         const result = await testCoordinator.executeJsQuestions(
-            'run-1',
             'section-1',
             { 'step-a': 10, 'step-b': 20 },
-            context
+            context,
+            definition
         );
 
         expect(result.success).toBe(true);
@@ -158,22 +206,20 @@ describe('RunExecutionCoordinator - JS Execution', () => {
         );
     });
     it('should handle ScriptEngine errors gracefully', async () => {
-        mockStepRepo.findBySectionId.mockResolvedValue([mockJsStep as unknown as Step]);
-        mockSectionRepo.findById.mockResolvedValue({ workflowId: 'wf-1' } as unknown as import('@shared/schema').Section);
-
         vi.mocked(scriptEngine.execute).mockResolvedValue({
             ok: false,
             error: 'SyntaxError: Unexpected token'
         });
 
         const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
+        const definition = makeDefinition([mockJsStep]);
 
         const testCoordinator = coordinator as unknown as TestCoordinator;
         const result = await testCoordinator.executeJsQuestions(
-            'run-1',
             'section-1',
             { 'step-a': 10, 'step-b': 20 },
-            context
+            context,
+            definition
         );
 
         expect(result.success).toBe(false);
@@ -181,20 +227,18 @@ describe('RunExecutionCoordinator - JS Execution', () => {
     });
 
     it('rejects section submits containing values from another section before writing', async () => {
-        mockStepRepo.findBySectionId.mockResolvedValue([
-            { id: 'current-step', type: 'short_text', title: 'Current Step' } as unknown as Step,
-        ]);
         // The other-section step must exist SOMEWHERE on this workflow for this
         // to be the mass-assignment case rather than the edited-mid-run case
         // that RUN2-15 drops.
         mockSectionRepo.findByWorkflowId.mockResolvedValue([
-            { id: 'section-1', order: 0 } as unknown as Section,
-            { id: 'section-2', order: 1 } as unknown as Section,
+            { id: 'section-1', workflowId: 'wf-1', order: 0 } as unknown as Section,
+            { id: 'section-2', workflowId: 'wf-1', order: 1 } as unknown as Section,
         ]);
         mockStepRepo.findBySectionIds.mockResolvedValue([
-            { id: 'current-step', type: 'short_text', title: 'Current Step' } as unknown as Step,
-            { id: 'other-section-step', type: 'short_text', title: 'Other Step' } as unknown as Step,
+            { id: 'current-step', sectionId: 'section-1', type: 'short_text', title: 'Current Step' } as unknown as Step,
+            { id: 'other-section-step', sectionId: 'section-2', type: 'short_text', title: 'Other Step' } as unknown as Step,
         ]);
+        mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
 
         const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
 
@@ -213,18 +257,21 @@ describe('RunExecutionCoordinator - JS Execution', () => {
         const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
 
         beforeEach(() => {
-            mockStepRepo.findBySectionId.mockResolvedValue([
-                { id: 'current-step', type: 'short_text', title: 'Current Step' } as unknown as Step,
-            ]);
             mockSectionRepo.findByWorkflowId.mockResolvedValue([
-                { id: 'section-1', order: 0 } as unknown as Section,
+                { id: 'section-1', workflowId: 'wf-1', order: 0 } as unknown as Section,
             ]);
             // The workflow no longer has 'deleted-step' anywhere: the author
             // removed that question after the respondent's runtime was pinned.
             mockStepRepo.findBySectionIds.mockResolvedValue([
-                { id: 'current-step', type: 'short_text', title: 'Current Step' } as unknown as Step,
+                { id: 'current-step', sectionId: 'section-1', type: 'short_text', title: 'Current Step' } as unknown as Step,
             ]);
             mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
+            // Needed now that RVP-3 gives the fixture a real `sectionId`: the
+            // step is genuinely visible, so `validatePage` actually reads the
+            // run's data map instead of skipping every step. Before RVP-3 these
+            // fixtures omitted `sectionId`, which made the step invisible and
+            // meant validation was never exercised at all.
+            mockRunPersistence.getRunValues.mockResolvedValue({ 'current-step': 'ok' });
             vi.mocked(blockRunner.runPhase).mockResolvedValue({ success: true });
         });
 
@@ -283,7 +330,7 @@ describe('RunExecutionCoordinator - JS Execution', () => {
     });
 
     describe('submitSection visibility (RUN2-1: shared evaluateWorkflowVisibility engine)', () => {
-        const section: Section = { id: 'section-1', order: 0 } as unknown as Section;
+        const section: Section = { id: 'section-1', workflowId: 'wf-1', order: 0 } as unknown as Section;
         const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
 
         beforeEach(() => {
@@ -300,7 +347,6 @@ describe('RunExecutionCoordinator - JS Execution', () => {
                 sectionId: 'section-1',
                 visibleIf: null,
             } as unknown as Step;
-            mockStepRepo.findBySectionId.mockResolvedValue([requiredStep]);
             mockStepRepo.findBySectionIds.mockResolvedValue([requiredStep]);
             mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([{
                 targetType: 'step',
@@ -328,7 +374,6 @@ describe('RunExecutionCoordinator - JS Execution', () => {
                 // evaluateWorkflowVisibility must fail closed (treat as hidden).
                 visibleIf: 'not-a-valid-condition-expression',
             } as unknown as Step;
-            mockStepRepo.findBySectionId.mockResolvedValue([requiredStep]);
             mockStepRepo.findBySectionIds.mockResolvedValue([requiredStep]);
             mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
             mockRunPersistence.getRunValues.mockResolvedValue({});
@@ -347,7 +392,6 @@ describe('RunExecutionCoordinator - JS Execution', () => {
                 sectionId: 'section-1',
                 visibleIf: null,
             } as unknown as Step;
-            mockStepRepo.findBySectionId.mockResolvedValue([requiredStep]);
             mockStepRepo.findBySectionIds.mockResolvedValue([requiredStep]);
             mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
             mockRunPersistence.getRunValues.mockResolvedValue({});
@@ -363,7 +407,7 @@ describe('RunExecutionCoordinator - JS Execution', () => {
     });
 
     describe('submitSection skips runner-unsupported/unknown required steps (RUN2-3)', () => {
-        const section: Section = { id: 'section-1', order: 0 } as unknown as Section;
+        const section: Section = { id: 'section-1', workflowId: 'wf-1', order: 0 } as unknown as Section;
         const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
 
         beforeEach(() => {
@@ -385,7 +429,6 @@ describe('RunExecutionCoordinator - JS Execution', () => {
                     visibleIf: null,
                     repeaterConfig: type === 'repeater' ? { minInstances: 2 } : null,
                 } as unknown as Step;
-                mockStepRepo.findBySectionId.mockResolvedValue([unsupportedStep]);
                 mockStepRepo.findBySectionIds.mockResolvedValue([unsupportedStep]);
 
                 const result = await coordinator.submitSection(context, 'section-1', []);
@@ -403,7 +446,6 @@ describe('RunExecutionCoordinator - JS Execution', () => {
                 sectionId: 'section-1',
                 visibleIf: null,
             } as unknown as Step;
-            mockStepRepo.findBySectionId.mockResolvedValue([unknownStep]);
             mockStepRepo.findBySectionIds.mockResolvedValue([unknownStep]);
 
             const result = await coordinator.submitSection(context, 'section-1', []);
@@ -418,9 +460,9 @@ describe('RunExecutionCoordinator - JS Execution', () => {
 
         beforeEach(() => {
             mockRunPersistence.getRunValues.mockResolvedValue({});
-            mockStepRepo.findBySectionId.mockResolvedValue([]); // no JS questions in current section
-            mockStepRepo.findBySectionIds.mockResolvedValue([]); // alias map source
-            mockSectionRepo.findByWorkflowId.mockResolvedValue([]); // alias map source
+            mockStepRepo.findBySectionIds.mockResolvedValue([]); // no JS questions; alias map source
+            mockSectionRepo.findByWorkflowId.mockResolvedValue([]); // definition source
+            mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
 
             mockEvaluateNavigation = vi.fn();
             (logicService as unknown as { evaluateNavigation: typeof mockEvaluateNavigation })

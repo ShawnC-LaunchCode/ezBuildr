@@ -5,7 +5,6 @@
  * and integration with conditional visibility.
  */
 
-import type { Step } from "@shared/schema";
 import { isRunnerRequirableStepType } from "@shared/types/runnerStepTypes";
 import { getValidationSchema } from "@shared/validation/BlockValidation";
 import { validateValue } from "@shared/validation/Validator";
@@ -35,6 +34,25 @@ export interface ValidationError {
   errors: string[];
 }
 
+/**
+ * Minimal step shape `validatePage` needs. A live DB row (`Step` from
+ * `@shared/schema`) and a run's pinned-definition snapshot (`RunStep` in
+ * `server/services/workflow-runs/RunDefinitionProvider.ts`, RVP-1) both
+ * satisfy this -- RVP-3 made `RunExecutionCoordinator.submitSection` source
+ * steps from the run's definition provider (pinned graph or live tables)
+ * instead of always reading the live `steps` table directly, so this can no
+ * longer be pinned to the exact DB-inferred `Step` type. Mirrors the
+ * `StepLike` precedent in `shared/validation/BlockValidation.ts`.
+ */
+export interface ValidatablePageStep {
+  id: string;
+  type: string;
+  title: string;
+  config: unknown;
+  required?: boolean | null;
+  isVirtual?: boolean | null;
+}
+
 export interface PageValidationResult {
   valid: boolean;
   errors: ValidationError[];
@@ -52,7 +70,7 @@ export interface PageValidationResult {
  */
 function partitionFieldErrors(
   errors: string[],
-  step: Step,
+  step: ValidatablePageStep,
   value: unknown,
   enforce: boolean
 ): string[] {
@@ -76,7 +94,7 @@ function partitionFieldErrors(
  * Validates all fields on a page
  */
 export async function validatePage(
-  steps: Step[],
+  steps: ValidatablePageStep[],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step values are dynamic per question type
   values: Record<string, any>,
   visibleStepIds: string[] // From IntakeQuestionVisibilityService

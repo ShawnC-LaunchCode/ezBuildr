@@ -119,9 +119,8 @@ export class RunService {
     this.executionCoordinator = executionCoordinator ?? new RunExecutionCoordinator(
       this.persistenceWriter,
       this.logicSvc,
-      this.stepRepo,
-      this.sectionRepo,
-      this.workflowRepo
+      this.workflowRepo,
+      this.runRepo
     );
     this.lifecycleService = lifecycleService ?? new RunLifecycleService(
       this.valueRepo,
