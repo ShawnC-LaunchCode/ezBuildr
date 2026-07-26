@@ -12,7 +12,7 @@
 import { evaluateConditionExpression } from './conditionEvaluator';
 import type { ConditionExpression } from './types/conditions';
 import { isRunnerRequirableStepType } from './types/runnerStepTypes';
-import type { LogicRule, Section, Step } from './schema';
+import type { LogicRule } from './schema';
 
 export type EvaluableLogicRule = Pick<
   LogicRule,
@@ -47,20 +47,57 @@ export interface WorkflowVisibilityResult {
 }
 
 /**
+ * Minimal section/step shape `LogicContext` needs. Both a live DB row
+ * (`Section`/`Step` from `./schema`) and a run's pinned-definition snapshot
+ * (`RunSection`/`RunStep` in
+ * `server/services/workflow-runs/RunDefinitionProvider.ts`, RVP-1) satisfy
+ * this -- `LogicContext` must accept either source. RVP-2 made
+ * `LogicService` resolve through the run-definition provider (pinned graph
+ * when a run has a version, live tables otherwise) instead of always
+ * reading the live tables directly, so this can no longer be pinned to the
+ * exact DB-inferred `Section`/`Step` types.
+ */
+export interface LogicContextSection {
+  id: string;
+  workflowId: string;
+  title: string;
+  description: string | null;
+  order: number;
+  visibleIf?: unknown;
+  skipIf?: unknown;
+  config?: unknown;
+}
+
+export interface LogicContextStep {
+  id: string;
+  workflowId: string;
+  sectionId: string;
+  type: string;
+  title: string;
+  description: string | null;
+  required: boolean | null;
+  alias: string | null;
+  visibleIf?: unknown;
+  order: number;
+  isVirtual: boolean;
+  updatedAt: Date | null;
+}
+
+/**
  * Context containing pre-loaded workflow definition and current data state
  * Used to avoid N+1 queries during navigation evaluation
  */
 export interface LogicContext {
   workflowId: string;
-  sections: Section[];
-  steps: Step[];
+  sections: LogicContextSection[];
+  steps: LogicContextStep[];
   rules: LogicRule[];
   data: Record<string, unknown>;
-  
+
   // Pre-computed indexes for O(1) lookups
   sectionHideRulesMap: Map<string, LogicRule[]>;
   stepHideRulesMap: Map<string, LogicRule[]>;
-  
+
   // Helper for visibleIf expressions
   aliasResolver: (name: string) => string | undefined;
 }

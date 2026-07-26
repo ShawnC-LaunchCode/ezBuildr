@@ -45,6 +45,15 @@ describe("Analytics Service Integration", () => {
 
         const [vRes] = await db.insert(workflowVersions).values({
             ...v,
+            // RVP-2: the run created below now actually resolves navigation
+            // from this pinned graph (via RunDefinitionProvider) instead of
+            // only the live tables, so it must satisfy VersionRuntimeSchema.
+            // The legacy node/edge graph `createGraphWorkflow` produces here
+            // predates the sections-based runtime schema (the visual graph
+            // engine was removed -- see graphFactory.ts's header) and this
+            // test never exercises sections/steps, so an empty valid graph
+            // is sufficient.
+            graphJson: { title: w.title, sections: [] },
             workflowId: wfRes.id,
             published: true,
             publishedAt: new Date(),

@@ -271,8 +271,11 @@ export class RunLifecycleService {
       dataMap[value.stepId] = value.value;
     }
 
-    // Build LogicContext once
-    const logicCtx = await this.logicSvc.buildContext(workflowId, dataMap);
+    // Build LogicContext once. RVP-2: buildContext now sources from the
+    // run's pinned definition (via runId) rather than always reading the
+    // live tables -- pass runId through so a pinned run's start section is
+    // resolved from what the respondent was actually shown.
+    const logicCtx = await this.logicSvc.buildContext(workflowId, dataMap, runId);
     const sections = logicCtx.sections;
     if (sections.length === 0) {
       throw new Error("Workflow has no sections");

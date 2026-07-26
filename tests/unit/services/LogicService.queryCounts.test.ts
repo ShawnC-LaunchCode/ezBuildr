@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any -- repository mocks are intentionally partial */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { LogicRule, Section, Step, StepValue } from '@shared/schema';
+import type { LogicRule, Section, Step, StepValue, WorkflowRun } from '@shared/schema';
 
 import { LogicService } from '../../../server/services/LogicService';
+import { RunDefinitionProvider } from '../../../server/services/workflow-runs/RunDefinitionProvider';
 import { RunLifecycleService } from '../../../server/services/workflow-runs/RunLifecycleService';
 
 function makeSections(): Section[] {
@@ -49,6 +50,7 @@ describe('Logic query counts', () => {
     let stepRepo: any;
     let logicRuleRepo: any;
     let valueRepo: any;
+    let runRepo: any;
     let logicSvc: LogicService;
 
     beforeEach(() => {
@@ -71,8 +73,26 @@ describe('Logic query counts', () => {
             findByRunId: vi.fn().mockResolvedValue(runValues),
             getRunDataAsJson: vi.fn().mockResolvedValue(runData),
         };
+        // RVP-2: LogicService now resolves sections/steps/rules through
+        // RunDefinitionProvider (RVP-1) rather than reading the live repos
+        // directly. This run has no workflowVersionId, so the provider takes
+        // its 'live' branch -- the same sectionRepo/stepRepo/logicRuleRepo
+        // reads these tests already assert on, just one hop further away.
+        runRepo = {
+            findById: vi.fn().mockResolvedValue({
+                id: 'run-1',
+                workflowId: 'wf-1',
+                workflowVersionId: null,
+            } as WorkflowRun),
+        };
+        const definitionProvider = new RunDefinitionProvider(
+            undefined,
+            sectionRepo,
+            stepRepo,
+            logicRuleRepo
+        );
 
-        logicSvc = new LogicService(sectionRepo, stepRepo, logicRuleRepo, valueRepo);
+        logicSvc = new LogicService(runRepo, definitionProvider, valueRepo);
     });
 
     it('determineStartSection builds one logic context for a multi-section workflow', async () => {

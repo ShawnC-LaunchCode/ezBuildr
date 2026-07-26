@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-import type { Section, LogicRule } from "@shared/schema";
+import type { WorkflowRun, LogicRule } from "@shared/schema";
 import {
   evaluateWorkflowVisibility,
   calculateNextSection,
@@ -10,11 +9,16 @@ import {
 } from "@shared/workflowLogic";
 
 import {
-  sectionRepository,
-  stepRepository,
-  logicRuleRepository,
+  workflowRunRepository,
   stepValueRepository,
 } from "../repositories";
+
+import {
+  runDefinitionProvider,
+  RunDefinitionProvider,
+} from "./workflow-runs/RunDefinitionProvider";
+
+const ERR_RUN_NOT_FOUND = "Run not found";
 
 /**
  * Navigation result from logic evaluation
@@ -41,21 +45,40 @@ export interface ValidationResult {
  * Service layer for workflow logic evaluation and navigation
  */
 export class LogicService {
-  private sectionRepo: typeof sectionRepository;
-  private stepRepo: typeof stepRepository;
-  private logicRuleRepo: typeof logicRuleRepository;
+  private runRepo: typeof workflowRunRepository;
+  private definitionProvider: RunDefinitionProvider;
   private valueRepo: typeof stepValueRepository;
 
   constructor(
-    sectionRepo?: typeof sectionRepository,
-    stepRepo?: typeof stepRepository,
-    logicRuleRepo?: typeof logicRuleRepository,
+    runRepo?: typeof workflowRunRepository,
+    definitionProvider?: RunDefinitionProvider,
     valueRepo?: typeof stepValueRepository
   ) {
-    this.sectionRepo = sectionRepo ?? sectionRepository;
-    this.stepRepo = stepRepo ?? stepRepository;
-    this.logicRuleRepo = logicRuleRepo ?? logicRuleRepository;
+    this.runRepo = runRepo ?? workflowRunRepository;
+    this.definitionProvider = definitionProvider ?? runDefinitionProvider;
     this.valueRepo = valueRepo ?? stepValueRepository;
+  }
+
+  /**
+   * Load the run this decision is being made for and confirm it belongs to
+   * the claimed workflow (mirrors the check `RunDefinitionProvider` itself
+   * makes for a pinned version, RUN2-10 in spirit).
+   *
+   * RVP-2: every entry point below used to re-read the LIVE `sections`/
+   * `steps`/`logic_rules` tables directly, so a respondent's in-flight run
+   * was validated against whatever the author changed the workflow to be
+   * *after* the run started -- not what the respondent was actually shown.
+   * Resolving the run here and handing it to `RunDefinitionProvider` (RVP-1)
+   * sources every decision from the run's pinned version instead (falling
+   * back to the live tables for a run with no `workflowVersionId`, which is
+   * the provider's `source: 'live'` branch).
+   */
+  private async resolveRun(workflowId: string, runId: string): Promise<WorkflowRun> {
+    const run = await this.runRepo.findById(runId);
+    if (!run || run.workflowId !== workflowId) {
+      throw new Error(ERR_RUN_NOT_FOUND);
+    }
+    return run;
   }
 
   /**
@@ -63,16 +86,15 @@ export class LogicService {
    */
   async buildContext(
     workflowId: string,
-    data: Record<string, unknown>
+    data: Record<string, unknown>,
+    runId: string
   ): Promise<LogicContext> {
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
-    const sectionIds = sections.map((s) => s.id);
-    const steps = await this.stepRepo.findBySectionIds(sectionIds);
-    const logicRules = await this.logicRuleRepo.findByWorkflowId(workflowId);
+    const run = await this.resolveRun(workflowId, runId);
+    const { sections, steps, logicRules } = await this.definitionProvider.getDefinition(run);
 
     const sectionHideRulesMap = new Map<string, LogicRule[]>();
     const stepHideRulesMap = new Map<string, LogicRule[]>();
-    
+
     for (const rule of logicRules) {
       if (rule.action === "hide") {
         if (rule.targetType === "section" && rule.targetSectionId) {
@@ -92,7 +114,7 @@ export class LogicService {
     const aliasResolver = (name: string): string | undefined => steps.find((s) => s.alias === name)?.id;
 
     return {
-      workflowId,
+      workflowId: run.workflowId,
       sections,
       steps,
       rules: logicRules,
@@ -106,10 +128,14 @@ export class LogicService {
   /**
    * Evaluate logic and determine next section for a workflow run
    *
-   * PERFORMANCE OPTIMIZED (Dec 2025):
-   * Pre-builds rule index Maps for O(1) lookup instead of O(n) filtering
+   * RVP-2: sourced from the run's pinned definition (`RunDefinitionProvider`)
+   * rather than the live `sections`/`steps`/`logic_rules` tables, so editing
+   * the live workflow mid-run no longer desyncs navigation from what the
+   * respondent is actually looking at. A run with no `workflowVersionId`
+   * still resolves from the live tables (the provider's `source: 'live'`
+   * fallback) -- unchanged from today's behavior.
    *
-   * @param workflowId - Workflow ID
+   * @param workflowId - Workflow ID (validated against the run's own workflowId)
    * @param runId - Current run ID
    * @param currentSectionId - Current section ID (null if starting)
    * @returns Navigation result with next section and visibility info
@@ -119,11 +145,8 @@ export class LogicService {
     runId: string,
     currentSectionId: string | null
   ): Promise<NavigationResult> {
-    // Load all workflow components
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
-    const sectionIds = sections.map((s) => s.id);
-    const steps = await this.stepRepo.findBySectionIds(sectionIds);
-    const logicRules = await this.logicRuleRepo.findByWorkflowId(workflowId);
+    const run = await this.resolveRun(workflowId, runId);
+    const { sections, steps, logicRules } = await this.definitionProvider.getDefinition(run);
     // Build data object for evaluation
     const data = await this.valueRepo.getRunDataAsJson(runId);
 
@@ -172,10 +195,15 @@ export class LogicService {
   /**
    * Validate workflow completion
    *
-   * PERFORMANCE OPTIMIZED (Dec 2025):
-   * Uses same Map-based optimization as evaluateNavigation
+   * RVP-2: the required-step set is now built from the run's pinned
+   * definition, not the live workflow. Before this, a required question
+   * added to the workflow after a respondent started would block their
+   * submission with "Missing required steps: <title>" for a question they
+   * were never shown and had no way to answer (RVP ticket, "consequence 2").
+   * A run with no `workflowVersionId` still validates against the live
+   * tables (the provider's `source: 'live'` fallback) -- unchanged.
    *
-   * @param workflowId - Workflow ID
+   * @param workflowId - Workflow ID (validated against the run's own workflowId)
    * @param runId - Run ID to validate
    * @returns Validation result
    */
@@ -184,11 +212,8 @@ export class LogicService {
     runId: string,
     runDataByStepId?: Record<string, unknown>
   ): Promise<ValidationResult> {
-    // Load all workflow components
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
-    const sectionIds = sections.map((s) => s.id);
-    const steps = await this.stepRepo.findBySectionIds(sectionIds);
-    const logicRules = await this.logicRuleRepo.findByWorkflowId(workflowId);
+    const run = await this.resolveRun(workflowId, runId);
+    const { sections, steps, logicRules } = await this.definitionProvider.getDefinition(run);
 
     // Build data object for evaluation
     const data = runDataByStepId ?? await this.valueRepo.getRunDataAsJson(runId);
@@ -226,7 +251,7 @@ export class LogicService {
    */
   private calculateProgress(
     currentSectionId: string | null,
-    sections: Section[],
+    sections: Array<{ id: string; order: number }>,
     visibleSections: Set<string>
   ): number {
     if (!currentSectionId) {

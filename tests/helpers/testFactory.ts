@@ -163,7 +163,15 @@ export class TestFactory {
           id: generateId(),
           workflowId: workflow.id,
           versionNumber: 1,
-          graphJson: {},
+          // RVP-2: a run pinned to this version now has its navigation and
+          // completion validated against this graph (via
+          // RunDefinitionProvider), not just the live tables. `{}` used to be
+          // a harmless placeholder because nothing ever parsed it; now it
+          // fails VersionRuntimeSchema (missing `title`/`sections`) for any
+          // test that points currentVersionId/pinnedVersionId at this
+          // version. Default to a schema-valid empty graph; tests that need
+          // specific pinned content still override via `overrides.version`.
+          graphJson: { title: workflow.title, sections: [] },
           createdBy: userId,
           ...overrides?.version,
         })

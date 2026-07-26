@@ -16,6 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import * as schema from '@shared/schema';
 
 import { db } from '../../server/db';
+import { versionService } from '../../server/services/VersionService';
 import {
   setupIntegrationTest,
   type IntegrationTestContext,
@@ -127,10 +128,14 @@ describe.sequential('ICW2-B9: first /next on a fresh run', () => {
     await factory.createStep(secondSection.id, {
       title: 'Q2', alias: 'q2', required: false, order: 0,
     });
-    // Anonymous run creation requires a published version to pin to.
+    // Anonymous run creation requires a published version to pin to, and
+    // RVP-2 now actually resolves the run's start section from that pinned
+    // graph -- so it must reflect the sections just created above, not the
+    // empty snapshot `factory.createWorkflow` produced before they existed.
+    const publishedVersion = (await versionService.createDraftVersion(workflow.id, ctx.userId)) ?? version;
     await db
       .update(schema.workflows)
-      .set({ currentVersionId: version.id })
+      .set({ currentVersionId: publishedVersion.id })
       .where(eq(schema.workflows.id, workflow.id));
 
     const createResponse = await request(ctx.baseURL)

@@ -22,6 +22,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import * as schema from '@shared/schema';
 
 import { db } from '../../server/db';
+import { versionService } from '../../server/services/VersionService';
 import { RunLifecycleService } from '../../server/services/workflow-runs/RunLifecycleService';
 import {
   setupIntegrationTest,
@@ -56,7 +57,7 @@ describe.sequential('RUN2-6: run-creation prefill allowlist', () => {
    *  and public so both the authenticated and anonymous public-link routes
    *  can create runs against it. */
   async function makeWorkflowWithSteps(intakeConfig?: Record<string, unknown>) {
-    const { workflow, version } = await factory.createWorkflow(ctx.projectId!, ctx.userId, {
+    const { workflow, version: emptyVersion } = await factory.createWorkflow(ctx.projectId!, ctx.userId, {
       workflow: {
         status: 'active',
         isPublic: true,
@@ -70,7 +71,13 @@ describe.sequential('RUN2-6: run-creation prefill allowlist', () => {
     const secretStep = await factory.createStep(section.id, {
       title: 'Internal Notes', alias: 'internal_notes', required: false, order: 1,
     });
-    // Anonymous run creation needs a published version to pin to.
+    // Anonymous run creation needs a published version to pin to, and RVP-2
+    // now actually resolves navigation/completion from that pinned graph --
+    // so it must reflect the section/steps just created above, not the empty
+    // snapshot `factory.createWorkflow` produced before they existed.
+    // `createDraftVersion` returns null only when the checksum is unchanged,
+    // which can't happen here (the live workflow just gained content).
+    const version = (await versionService.createDraftVersion(workflow.id, ctx.userId)) ?? emptyVersion;
     await db
       .update(schema.workflows)
       .set({ currentVersionId: version.id })
