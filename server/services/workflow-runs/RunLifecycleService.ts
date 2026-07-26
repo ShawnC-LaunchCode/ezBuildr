@@ -22,6 +22,7 @@ import { createError } from "../../utils/errors";
 
 import type { PopulateValuesOptions, SnapshotValueMap, DocumentGenerationResult, WritebackExecutionResult } from "./types";
 import { runDataService, type RunData, type RunDataService } from "./RunDataService";
+import { normalizeRunnerStepType } from "../../../shared/types/runnerStepTypes";
 
 export interface GenerateDocumentsOptions {
   runData?: RunData;
@@ -30,6 +31,43 @@ export interface GenerateDocumentsOptions {
   pdfStrategy?: 'puppeteer';
 }
 
+// RUN2-20: `initialValues` may come straight from a URL query string
+// (client/src/hooks/runner/useRunSession.ts), where every value has already
+// been run through `JSON.parse` best-effort. That makes the stored *type*
+// depend on the digits' shape (`"12345"` -> number, `"01234"` -> string) with
+// no reference to what the question actually expects. Coerce against the
+// step's normalized runner type instead, so a short_text alias always stores
+// a string, a number/currency/scale alias always stores a number (or is left
+// alone rather than becoming NaN), and a boolean alias always stores a real
+// boolean. Everything else (choice, address, multi_field, date/time, ...)
+// legitimately carries arrays/objects and is left as parsed.
+const TEXT_LIKE_RUNNER_STEP_TYPES = new Set<string>(["short_text", "long_text", "text", "email", "website", "phone"]);
+const NUMERIC_RUNNER_STEP_TYPES = new Set<string>(["number", "currency", "scale"]);
+
+function coerceInitialValueForStepType(value: unknown, stepType: string): unknown {
+  const normalizedType = normalizeRunnerStepType(stepType);
+
+  if (TEXT_LIKE_RUNNER_STEP_TYPES.has(normalizedType)) {
+    return typeof value === "string" ? value : String(value);
+  }
+
+  if (NUMERIC_RUNNER_STEP_TYPES.has(normalizedType)) {
+    if (typeof value === "number") {return value;}
+    if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) {
+      return Number(value);
+    }
+    return value; // non-numeric string: leave as-is rather than coercing to NaN
+  }
+
+  if (normalizedType === "boolean") {
+    if (typeof value === "boolean") {return value;}
+    if (value === "true") {return true;}
+    if (value === "false") {return false;}
+    return value;
+  }
+
+  return value;
+}
 
 export class RunLifecycleService {
   // eslint-disable-next-line max-params
@@ -104,9 +142,9 @@ export class RunLifecycleService {
       // Priority 1: initialValues (by alias or stepId)
       if (initialValues) {
         if (step.alias && initialValues[step.alias] !== undefined) {
-          valueToSet = initialValues[step.alias];
+          valueToSet = coerceInitialValueForStepType(initialValues[step.alias], step.type);
         } else if (initialValues[step.id] !== undefined) {
-          valueToSet = initialValues[step.id];
+          valueToSet = coerceInitialValueForStepType(initialValues[step.id], step.type);
         }
       }
 
