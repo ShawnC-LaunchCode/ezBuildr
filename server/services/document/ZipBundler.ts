@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { promises as fs, createWriteStream } from 'fs';
 import path from 'path';
-// @ts-expect-error - archiver type definition is missing default export but it is provided by Node ESM
-import archiver from 'archiver';
+import { ZipArchive } from 'archiver';
 
 import { createLogger } from '../../logger';
 
@@ -63,7 +62,7 @@ export async function createZipArchive(
 
   return new Promise((resolve, reject) => {
     const output = createWriteStream(fullOutputPath);
-    const archive = archiver('zip', {
+    const archive = new ZipArchive({
       zlib: { level: opts.compressionLevel }
     });
 
