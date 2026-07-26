@@ -1590,6 +1590,137 @@ in the main checkout — the hook was never bypassed. `main` and
 `codex/interview-runner-remediation` were then merged back into a single
 history (`13a7174a`), and the temporary worktrees and branches removed.
 
+## RUN2-20 — URL prefill silently changes a value's type 🔲
+
+**Priority: P2** · Size: S · Files: `server/services/workflow-runs/RunLifecycleService.ts`, `client/src/hooks/runner/useRunSession.ts`
+
+*Promoted from backlog RUN2-B4, evidence re-verified 2026-07-26.*
+
+### Finding
+
+`parseInitialValuesFromUrl` runs every query parameter through `JSON.parse`
+(`client/src/hooks/runner/useRunSession.ts:39-43`):
+
+```ts
+try { initialValues[key] = JSON.parse(value); }
+catch { initialValues[key] = value; }
+```
+
+So the stored type depends on what the string happens to look like. Executed
+against the real behaviour:
+
+```
+123        -> number 123
+12345      -> number 12345
+01234      -> string "01234"     <- leading zero fails JSON, stays a string
+true       -> boolean true
+null       -> object null
+1e3        -> number 1000        <- "1e3" becomes 1000
+```
+
+A `short_text` question prefilled with `?ref=12345` stores the **number**
+`12345`, and `?zip=01234` vs `?zip=12345` store different *types* for the same
+question. Knock-on effects: `minLength`/`maxLength` in the shared validator are
+guarded by `typeof value === "string"`, so they silently stop applying; and
+`null` from `?x=null` is indistinguishable from "not answered".
+
+The `JSON.parse` is not simply wrong — structured prefill (an array for a
+multi-select, an object for an address) needs it. The defect is that it is
+applied without reference to what the question expects.
+
+### Preferred fix
+
+Coerce **server-side**, in `RunLifecycleService.populateInitialValues`, where
+`step.type` is known — the client cannot know types at prefill time, because
+initial values are sent with the run-creation request before any runtime is
+loaded. For each prefilled value, coerce against the step's type:
+
+- text-ish types (`short_text`, `long_text`, `text`, `email`, `website`,
+  `phone`, and the `*_advanced` variants) → `String(value)`;
+- `number` / `currency` / `scale` → keep numbers, and accept a numeric string;
+- `boolean` → keep booleans, and accept `"true"` / `"false"`;
+- everything else (choice, address, multi_field, date/time) → leave as parsed,
+  since those legitimately carry arrays and objects.
+
+Normalise the step type through `normalizeRunnerStepType`
+(`@shared/types/runnerStepTypes`) rather than listing raw spellings — RUN2-3
+made that the single source of truth. Leave `parseInitialValuesFromUrl` alone;
+the server is the right place to enforce this, and it also covers callers that
+post `initialValues` directly.
+
+### Ties
+
+- Sits on the path RUN2-6 hardened (`populateInitialValues`); the allowlist
+  filter runs first, so only allowlisted keys reach this coercion.
+- Load `add-api-endpoint`, `add-step-type` (type-spelling checklist), `run-tests`.
+
+### Acceptance criteria
+
+1. `?ref=12345` on a `short_text` step stores the string `"12345"`, not a number.
+2. `?n=42` on a `number` step stores the number `42`; `?n=abc` stores no value
+   (or the raw string) rather than `NaN`.
+3. `?flag=true` on a `boolean` step stores boolean `true`.
+4. A choice step prefilled with `?picks=["a","b"]` still stores the array.
+5. Step types are matched via `normalizeRunnerStepType`, with no duplicated list
+   of raw spellings.
+6. New tests assert 1–4. Gates green.
+
+---
+
+## RUN2-21 — A branch block cannot be identified in logs 🔲
+
+**Priority: P2** · Size: S · Files: `shared/types/blocks.ts`, `server/services/BlockRunner.ts`, `server/services/runs/RunExecutionCoordinator.ts`
+
+*Promoted from backlog RUN2-B6, raised by the RUN2-12 dev and accepted there as a
+deviation. Evidence re-verified 2026-07-26.*
+
+### Finding
+
+`BlockResult` carries a navigation decision but nothing identifying who made it
+(`shared/types/blocks.ts:520-527`):
+
+```ts
+export interface BlockResult {
+  success: boolean;
+  data?: Record<string, any>;
+  errors?: string[];
+  fieldErrors?: Record<string, string[]>;
+  nextSectionId?: string;             // Next section decision (for branch blocks)
+}
+```
+
+RUN2-12 added a warning when a branch block targets a section that is not
+visible, but with no block id available it can only name the *section* whose
+`onNext` phase produced the bad decision. On a page with several branch blocks
+the author still has to guess which one is wrong.
+
+### Preferred fix
+
+Add an optional `nextSectionBlockId?: string` (or equivalent) to `BlockResult`,
+populate it in `BlockRunner.runPhase` where the branch decision is taken, and
+include it in RUN2-12's warning in `RunExecutionCoordinator.next`. Optional so
+no existing producer of `BlockResult` breaks.
+
+Do not restructure `BlockResult` or thread ids through unrelated block phases —
+this is a diagnostics improvement, not a refactor.
+
+### Ties
+
+- Makes RUN2-12's warning actionable; do not change its fallback behaviour.
+- Load `add-api-endpoint`, `run-tests`. Existing test:
+  `tests/unit/services/RunExecutionCoordinator.test.ts`.
+
+### Acceptance criteria
+
+1. `BlockResult` gains an optional field identifying the block that set
+   `nextSectionId`; existing producers still type-check unchanged.
+2. `BlockRunner` populates it when a branch block decides navigation.
+3. RUN2-12's warning includes it when present, and still fires (and still falls
+   back) when it is absent.
+4. New test asserts 2 and 3. Gates green.
+
+---
+
 ## Phase 5 Gate
 
 - [ ] RUN2-17..19 ✅ with dated verification notes
@@ -1709,18 +1840,8 @@ whether that lands in this initiative or its own.
   `run.start` event, so draft-run analytics are simply missing. Observed in
   integration output while verifying RUN2-9; pre-existing and unrelated to this
   initiative, but it means any metric derived from `run.start` under-counts.
-- **RUN2-B6** — `BlockResult` (`shared/types/blocks.ts`) carries a
-  `nextSectionId` but no block id or name, and `BlockRunner.runPhase` does not
-  surface which block produced a branch decision. RUN2-12 therefore has to log
-  the *section* whose `onNext` phase emitted a bad target rather than naming the
-  offending block. Threading a block id through `BlockResult` would make that
-  warning directly actionable. Raised by the RUN2-12 dev; accepted as a
-  deviation there.
-- **RUN2-B4** — `parseInitialValuesFromUrl` (`useRunSession.ts:39-43`)
-  `JSON.parse`s every query parameter, so `?name=123` stores the number `123`
-  and `?flag=true` stores the boolean. For a text question that silently changes
-  the value's type before any validation sees it. Worth deciding whether prefill
-  should be type-coerced against the step type. Related to **RUN2-6**.
+- **RUN2-B6** — ✅ promoted to **RUN2-21**.
+- **RUN2-B4** — ✅ promoted to **RUN2-20**.
 
 ---
 
@@ -1747,6 +1868,8 @@ whether that lands in this initiative or its own.
 | RUN2-17 | `final` step renders inline as a question | ✅ Done 2026-07-25 |
 | RUN2-18 | Shared runs read a dead graph shape; final config always null | ✅ Done 2026-07-25 |
 | RUN2-19 | Versionless runs drop every analytics event | ✅ Done 2026-07-25 |
+| RUN2-20 | URL prefill silently changes a value's type | 🔲 Open |
+| RUN2-21 | A branch block cannot be identified in logs | 🔲 Open |
 | RUN2-E1 | Version pinning is client-only | ⚠️ Deferred to own initiative — mitigated by RUN2-15 (Shawn, 2026-07-25) |
 | RUN2-E2 | No server-side field validation | ✅ Resolved into RUN2-16 (Shawn, 2026-07-25) |
 
