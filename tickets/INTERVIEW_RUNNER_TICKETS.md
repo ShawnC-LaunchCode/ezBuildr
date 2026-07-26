@@ -1590,7 +1590,7 @@ in the main checkout — the hook was never bypassed. `main` and
 `codex/interview-runner-remediation` were then merged back into a single
 history (`13a7174a`), and the temporary worktrees and branches removed.
 
-## RUN2-20 — URL prefill silently changes a value's type 🔲
+## RUN2-20 — URL prefill silently changes a value's type ✅
 
 **Priority: P2** · Size: S · Files: `server/services/workflow-runs/RunLifecycleService.ts`, `client/src/hooks/runner/useRunSession.ts`
 
@@ -1667,7 +1667,7 @@ post `initialValues` directly.
 
 ---
 
-## RUN2-21 — A branch block cannot be identified in logs 🔲
+## RUN2-21 — A branch block cannot be identified in logs ✅
 
 **Priority: P2** · Size: S · Files: `shared/types/blocks.ts`, `server/services/BlockRunner.ts`, `server/services/runs/RunExecutionCoordinator.ts`
 
@@ -1868,8 +1868,8 @@ whether that lands in this initiative or its own.
 | RUN2-17 | `final` step renders inline as a question | ✅ Done 2026-07-25 |
 | RUN2-18 | Shared runs read a dead graph shape; final config always null | ✅ Done 2026-07-25 |
 | RUN2-19 | Versionless runs drop every analytics event | ✅ Done 2026-07-25 |
-| RUN2-20 | URL prefill silently changes a value's type | 🔲 Open |
-| RUN2-21 | A branch block cannot be identified in logs | 🔲 Open |
+| RUN2-20 | URL prefill silently changes a value's type | ✅ Done 2026-07-26 |
+| RUN2-21 | A branch block cannot be identified in logs | ✅ Done 2026-07-26 |
 | RUN2-E1 | Version pinning is client-only | ⚠️ Deferred to own initiative — mitigated by RUN2-15 (Shawn, 2026-07-25) |
 | RUN2-E2 | No server-side field validation | ✅ Resolved into RUN2-16 (Shawn, 2026-07-25) |
 

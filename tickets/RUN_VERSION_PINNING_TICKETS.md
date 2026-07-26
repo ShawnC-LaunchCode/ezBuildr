@@ -118,7 +118,7 @@ made.**
 
 # Phase 1 — A single source for a run's definition
 
-## RVP-1 — Extract a run-definition provider 🔲
+## RVP-1 — Extract a run-definition provider ✅
 
 **Priority: P1** · Size: M · Files: `server/services/workflow-runs/` (new), `RunRuntimeService.ts`
 
@@ -183,7 +183,10 @@ surface as a 4xx.
 
 ## Phase 1 Gate
 
-- [ ] RVP-1 ✅ · type-check 0 · lint 0 · `test:fast` green · runtime integration green
+- [x] RVP-1 ✅ — verified 2026-07-26: type-check 0, lint 0, `test:fast` 1886 passed,
+      `tests/integration/api.runs.runtime.test.ts` green (proves getRuntime's
+      response shape is byte-identical), 9 existing RunRuntimeService unit tests
+      pass unmodified. Commit `186d5c7b`.
 - [ ] **Shawn has decided Option A / B / C above** — record the decision in this
       file before Phase 2 is dispatched
 
@@ -329,7 +332,7 @@ refactor silently reintroduces the split.
 
 | Ticket | Title | Status |
 |---|---|---|
-| RVP-1 | Extract a run-definition provider | 🔲 Open |
+| RVP-1 | Extract a run-definition provider | ✅ Done 2026-07-26 (186d5c7b) |
 | RVP-2 | LogicService uses the pinned definition | 🔲 Blocked on Option A/B/C |
 | RVP-3 | RunExecutionCoordinator uses the pinned definition | 🔲 Blocked on RVP-1 |
 | RVP-4 | RunLifecycleService uses the pinned definition | 🔲 Blocked on RVP-1 |
