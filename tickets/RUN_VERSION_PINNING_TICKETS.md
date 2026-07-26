@@ -292,7 +292,7 @@ provider's `source: 'live'` branch (Option A fallback), which RVP-1 built.
 5. New tests assert 1–4. Gates green, including
    `tests/integration/api.runs.*` and `tests/integration/activation-publish.test.ts`.
 
-## RVP-2 — LogicService decides from the pinned definition 🔲
+## RVP-2 — LogicService decides from the pinned definition ✅
 
 **Priority: P0** · Size: M · File: `server/services/LogicService.ts`
 
@@ -428,7 +428,7 @@ refactor silently reintroduces the split.
 |---|---|---|
 | RVP-1 | Extract a run-definition provider | ✅ Done 2026-07-26 (186d5c7b) |
 | RVP-6 | Pin every new run at creation (Option B) | ✅ Done 2026-07-26 |
-| RVP-2 | LogicService uses the pinned definition | 🔄 In progress |
-| RVP-3 | RunExecutionCoordinator uses the pinned definition | 🔲 Blocked on RVP-1 |
+| RVP-2 | LogicService uses the pinned definition | ✅ Done 2026-07-26 |
+| RVP-3 | RunExecutionCoordinator uses the pinned definition | 🔄 In progress |
 | RVP-4 | RunLifecycleService uses the pinned definition | 🔲 Blocked on RVP-1 |
 | RVP-5 | End-to-end mid-run-edit regression suite | 🔲 Blocked on Phase 2 |
