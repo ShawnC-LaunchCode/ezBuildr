@@ -3,6 +3,7 @@ import type { ApiStep, ApiSection } from "@/lib/vault-api";
 import type { StepValue } from "@/pages/workflow-runner/runner.utils";
 import type { LogicRule } from "@shared/schema";
 import { evaluateWorkflowVisibility } from "@shared/workflowLogic";
+import { normalizeRunnerStepType } from "@shared/types/runnerStepTypes";
 
 interface VisibilityTraceRecorder {
   addTraceEntry: (entry: {
@@ -69,7 +70,7 @@ export function useSectionVisibility(
     }
     
     const sectionSteps = allSteps.filter(
-      (step) => step.sectionId === sectionId && !step.isVirtual && step.type !== 'final_documents'
+      (step) => step.sectionId === sectionId && !step.isVirtual && normalizeRunnerStepType(step.type) !== 'final_documents'
     );
 
     return sectionSteps.filter((step) => {
