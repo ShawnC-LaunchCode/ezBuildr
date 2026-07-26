@@ -229,7 +229,7 @@ decision paths still read live tables, so it is behaviour-neutral on its own.
 
 ---
 
-## RVP-6 — Pin every new run at creation 🔲
+## RVP-6 — Pin every new run at creation ✅
 
 **Priority: P0** · Size: M · File: `server/services/RunService.ts`
 
@@ -427,8 +427,8 @@ refactor silently reintroduces the split.
 | Ticket | Title | Status |
 |---|---|---|
 | RVP-1 | Extract a run-definition provider | ✅ Done 2026-07-26 (186d5c7b) |
-| RVP-6 | Pin every new run at creation (Option B) | 🔲 Open |
-| RVP-2 | LogicService uses the pinned definition | 🔲 Blocked on RVP-6 |
+| RVP-6 | Pin every new run at creation (Option B) | ✅ Done 2026-07-26 |
+| RVP-2 | LogicService uses the pinned definition | 🔄 In progress |
 | RVP-3 | RunExecutionCoordinator uses the pinned definition | 🔲 Blocked on RVP-1 |
 | RVP-4 | RunLifecycleService uses the pinned definition | 🔲 Blocked on RVP-1 |
 | RVP-5 | End-to-end mid-run-edit regression suite | 🔲 Blocked on Phase 2 |

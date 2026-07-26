@@ -250,6 +250,20 @@ devs in one shared tree (2026-07-25) produced, in a single session:
   work could not be committed until unrelated agents finished — and agents
   reported their own gates green while the tree was red.
 
+**A worktree has no `node_modules` or `.env`** — `tsc`, ESLint and Vitest all
+need them. Create the junction with **PowerShell**, not `cmd //c mklink` from
+Git Bash: Git Bash mangles the Windows path and silently produces a doubled
+drive letter (`C:\C:\Users\...`), which resolves to an *empty* directory. The
+gates then run against nothing and report green — an agent hit exactly this.
+
+```powershell
+New-Item -ItemType Junction -Path node_modules -Target C:\Users\<you>\path\to\repo\node_modules
+```
+
+Then **verify it resolved** before trusting any gate — `ls node_modules | head`
+should list packages, and `node_modules/@types` must exist. Copy `.env` from the
+main checkout too, or ~27 suites fail on `DATABASE_URL: Required`.
+
 **Check the worktree's base commit before trusting it.** A new worktree is not
 guaranteed to start from current `HEAD` — in practice they have been created
 from an older commit. On the first run of this policy, all three agents got a
