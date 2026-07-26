@@ -1583,11 +1583,12 @@ RUN2-17, RUN2-18 and RUN2-19 all verified in the main checkout after applying
 each worktree's diff: 3/3, 5/5 and 6/6 new tests green, lint clean on every
 touched file, full `test:fast` **1855 passed / 0 failed** (was 1839).
 
-**Commits are held**, not because of these tickets: the repo-wide `tsc` in the
-pre-commit hook is failing on `tests/unit/client/useRunNavigation.test.tsx`, an
-untracked in-flight file from the repo owner's second IDE (missing `workflowId`
-on an `ApiStep` fixture). The three diffs are applied and verified in the
-working tree, waiting on that.
+All three are committed (`de49e2ce`, `fd8e267f`, `0e11350b`). They were built
+in a clean worktree off `main` rather than the shared checkout, because the
+repo-wide `tsc` in the pre-commit hook was red from concurrent in-flight work
+in the main checkout — the hook was never bypassed. `main` and
+`codex/interview-runner-remediation` were then merged back into a single
+history (`13a7174a`), and the temporary worktrees and branches removed.
 
 ## Phase 5 Gate
 
@@ -1743,9 +1744,9 @@ whether that lands in this initiative or its own.
 | RUN2-14 | Choice options reload per keystroke; empty alias crashes | ✅ Done 2026-07-25 |
 | RUN2-15 | Submit throws when author edits a published workflow mid-run | ✅ Done 2026-07-25 |
 | RUN2-16 | Unify validation engines; server authoritative, pattern guarded | ✅ Done 2026-07-25 |
-| RUN2-17 | `final` step renders inline as a question | ✅ Verified 2026-07-25 (commit pending) |
-| RUN2-18 | Shared runs read a dead graph shape; final config always null | ✅ Verified 2026-07-25 (commit pending) |
-| RUN2-19 | Versionless runs drop every analytics event | ✅ Verified 2026-07-25 (commit pending) |
+| RUN2-17 | `final` step renders inline as a question | ✅ Done 2026-07-25 |
+| RUN2-18 | Shared runs read a dead graph shape; final config always null | ✅ Done 2026-07-25 |
+| RUN2-19 | Versionless runs drop every analytics event | ✅ Done 2026-07-25 |
 | RUN2-E1 | Version pinning is client-only | ⚠️ Deferred to own initiative — mitigated by RUN2-15 (Shawn, 2026-07-25) |
 | RUN2-E2 | No server-side field validation | ✅ Resolved into RUN2-16 (Shawn, 2026-07-25) |
 
