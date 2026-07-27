@@ -1,10 +1,11 @@
-import type { InsertWorkflowRun, WorkflowRun, Step } from "@shared/schema";
+import type { InsertWorkflowRun, WorkflowRun } from "@shared/schema";
 import { getValidationSchema } from "@shared/validation/BlockValidation";
 import { validateValue } from "@shared/validation/Validator";
 
-import { workflowRunRepository, stepValueRepository, stepRepository, sectionRepository } from "../../repositories";
+import { workflowRunRepository, stepValueRepository } from "../../repositories";
 import { DbTransaction } from "../../repositories/BaseRepository";
 import { createError } from "../../utils/errors";
+import { runDefinitionProvider, RunDefinitionProvider, type RunDefinition } from "../workflow-runs/RunDefinitionProvider";
 
 interface RunValueValidationIssue {
     stepId: string;
@@ -76,7 +77,25 @@ function getStaticChoiceValues(config: unknown): Set<string> | null {
     return values;
 }
 
-function makeValidationMessage(step: Step, valueDescription: string): string {
+/**
+ * Minimal step shape RunPersistenceWriter's format/shape validation needs.
+ * Both a live DB row (`Step` from `@shared/schema`) and a run's
+ * pinned-definition snapshot (`RunStep` in
+ * `server/services/workflow-runs/RunDefinitionProvider.ts`, RVP-1) satisfy
+ * this -- RVP-7 made membership + validation source from the run's
+ * definition provider instead of always reading the live `steps` table
+ * directly, so this can no longer be pinned to the exact DB-inferred `Step`
+ * type. Mirrors `ValidatablePageStep` (server/workflows/validation.ts) and
+ * `StepLike` (shared/validation/BlockValidation.ts).
+ */
+interface PersistableStep {
+    id: string;
+    type: string;
+    title: string;
+    config: unknown;
+}
+
+function makeValidationMessage(step: PersistableStep, valueDescription: string): string {
     return `${step.title}: expected ${valueDescription}`;
 }
 
@@ -84,9 +103,34 @@ export class RunPersistenceWriter {
     constructor(
         private runRepo = workflowRunRepository,
         private valueRepo = stepValueRepository,
-        private stepRepo = stepRepository,
-        private sectionRepo = sectionRepository
+        // RVP-7: membership (which steps belong to this run) is sourced from
+        // the run's own definition -- the pinned version's graph when it has
+        // one, the live tables otherwise -- via `RunDefinitionProvider`,
+        // instead of re-deriving it from the live `steps`/`sections` tables.
+        // Re-deriving from live tables filtered out steps the author had
+        // soft-deleted mid-run even though the run's pinned definition (and
+        // therefore the respondent's client) still legitimately included
+        // them, throwing out the whole batch before persisting anything --
+        // see tickets/RUN_VERSION_PINNING_TICKETS.md, RVP-7.
+        private definitionProvider: RunDefinitionProvider = runDefinitionProvider
     ) { }
+
+    /**
+     * Resolve the run and its sections/steps/logic-rules from
+     * `RunDefinitionProvider` (RVP-1): the pinned version's graph when the
+     * run has one, the live tables otherwise (`source: 'live'`). Mirrors
+     * `RunExecutionCoordinator.getDefinition` -- the membership guard below
+     * must agree with what navigation/submission already decided for this
+     * run.
+     */
+    private async getDefinition(runId: string, workflowId: string): Promise<RunDefinition> {
+        const run = await this.runRepo.findById(runId);
+        if (!run || run.workflowId !== workflowId) {
+            throw new Error(`Run not found: ${runId}`);
+        }
+        return this.definitionProvider.getDefinition(run);
+    }
+
     /**
      * Create a new run record
      */
@@ -104,12 +148,22 @@ export class RunPersistenceWriter {
      * Save a single step value
      */
     async saveStepValue(runId: string, stepId: string, value: unknown, workflowId: string): Promise<void> {
-        // Validate step belongs to workflow
-        const step = await this.stepRepo.findById(stepId);
-        if (!step) {throw new Error(`Step not found: ${stepId}`);}
-        const section = await this.sectionRepo.findById(step.sectionId);
-        if (!section || section.workflowId !== workflowId) {
-            throw new Error(`Step ${stepId} does not belong to workflow ${workflowId}`);
+        // Validate step belongs to this run's definition (RVP-7) -- the
+        // anti-mass-assignment guard, sourced from the pinned version rather
+        // than the live tables.
+        const definition = await this.getDefinition(runId, workflowId);
+        const stepExists = definition.steps.some(s => s.id === stepId);
+        if (!stepExists) {
+            // RVP-7: a 4xx, not a bare Error. This is the anti-mass-assignment
+            // guard rejecting caller-supplied input, so it must classify as a
+            // client error — a plain Error falls through classifyRouteError to
+            // a 500, which told callers the server had broken rather than that
+            // their request was invalid. Mirrors the equivalent guard in
+            // RunExecutionCoordinator.partitionSubmittedValues (RUN2-15).
+            throw createError.validation(
+                `Step ${stepId} does not belong to workflow ${workflowId}`,
+                { stepIds: [stepId] }
+            );
         }
         await this.valueRepo.upsert({
             runId,
@@ -142,14 +196,18 @@ export class RunPersistenceWriter {
         validateFormat: boolean
     ): Promise<void> {
         if (values.length === 0) {return;}
-        const workflowSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId);
-        const stepsById = new Map(workflowSteps.map(s => [s.id, s]));
+        const definition = await this.getDefinition(runId, workflowId);
+        const stepsById = new Map<string, PersistableStep>(definition.steps.map(s => [s.id, s]));
         // Dedupe by stepId (last write wins) — a single INSERT ... ON CONFLICT
         // cannot touch the same row twice
         const byStepId = new Map<string, unknown>();
         for (const v of values) {
             if (!stepsById.has(v.stepId)) {
-                throw new Error(`Step ${v.stepId} does not belong to workflow ${workflowId}`);
+                // RVP-7: 4xx rather than a bare Error — see saveStepValue above.
+                throw createError.validation(
+                    `Step ${v.stepId} does not belong to workflow ${workflowId}`,
+                    { stepIds: [v.stepId] }
+                );
             }
             byStepId.set(v.stepId, v.value);
         }
@@ -171,7 +229,7 @@ export class RunPersistenceWriter {
 
     private async validateBulkValues(
         valuesByStepId: Map<string, unknown>,
-        stepsById: Map<string, Step>,
+        stepsById: Map<string, PersistableStep>,
         validateFormat: boolean
     ): Promise<void> {
         const issues: RunValueValidationIssue[] = [];
@@ -194,7 +252,7 @@ export class RunPersistenceWriter {
         }
     }
 
-    private async validateValueForStep(step: Step, value: unknown, validateFormat: boolean): Promise<string[]> {
+    private async validateValueForStep(step: PersistableStep, value: unknown, validateFormat: boolean): Promise<string[]> {
         if (isEmptyAutosaveValue(value)) {
             return [];
         }
@@ -222,7 +280,7 @@ export class RunPersistenceWriter {
     }
 
     // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
-    private validateStoredValueShape(step: Step, value: unknown): string[] {
+    private validateStoredValueShape(step: PersistableStep, value: unknown): string[] {
         switch (step.type) {
             case 'short_text':
             case 'long_text':
@@ -303,7 +361,7 @@ export class RunPersistenceWriter {
         }
     }
 
-    private validateChoiceValue(step: Step, value: unknown, forceMultiple: boolean): string[] {
+    private validateChoiceValue(step: PersistableStep, value: unknown, forceMultiple: boolean): string[] {
         const allowMultiple = forceMultiple || getConfigBoolean(step.config, 'allowMultiple');
         if (allowMultiple) {
             if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) {

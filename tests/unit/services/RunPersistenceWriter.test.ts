@@ -5,16 +5,33 @@
  * bulkSaveValues used to run (step lookup + section lookup + upsert)
  * sequentially per value (~3N queries per section submit). It now does one
  * workflow-membership prefetch plus one batched upsert.
+ *
+ * RVP-7: membership is now sourced from `RunDefinitionProvider` (the run's
+ * pinned version when it has one, the live tables otherwise) instead of
+ * `stepRepository.findByWorkflowIdWithAliases` directly -- re-deriving
+ * membership from the live tables filtered out steps the author had
+ * soft-deleted mid-run even though the run's pinned definition still
+ * legitimately included them, throwing out the whole batch. These tests run
+ * `RunPersistenceWriter` with its default (real) `RunDefinitionProvider`,
+ * mocking the repositories the provider reads instead -- every run here has
+ * no `workflowVersionId`, so the provider takes its `source: 'live'` branch
+ * and reads `sectionRepository.findByWorkflowId` /
+ * `stepRepository.findBySectionIds`, matching this suite's pre-RVP-7 setup
+ * shape closely. Pinned-version behaviour is covered by
+ * `run-version-pinning-rvp5.test.ts` (integration) and
+ * `RunDefinitionProvider.test.ts`.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { RunPersistenceWriter } from '../../../server/services/runs/RunPersistenceWriter';
 
 vi.mock('../../../server/repositories', () => ({
-    workflowRunRepository: {},
+    workflowRunRepository: { findById: vi.fn() },
     stepValueRepository: {},
-    stepRepository: {},
-    sectionRepository: {},
+    stepRepository: { findBySectionIds: vi.fn() },
+    sectionRepository: { findByWorkflowId: vi.fn() },
+    logicRuleRepository: { findByWorkflowId: vi.fn().mockResolvedValue([]) },
+    workflowVersionRepository: { findById: vi.fn() },
 }));
 
 describe('RunPersistenceWriter.bulkSaveValues', () => {
@@ -26,17 +43,21 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
     /* eslint-enable @typescript-eslint/no-explicit-any */
     let writer: RunPersistenceWriter;
 
-    beforeEach(() => {
-        runRepo = {};
+    beforeEach(async () => {
+        const repos = await import('../../../server/repositories');
+        runRepo = repos.workflowRunRepository;
         valueRepo = { upsert: vi.fn(), upsertMany: vi.fn().mockResolvedValue([]) };
-        stepRepo = {
-            findById: vi.fn(),
-            findByWorkflowIdWithAliases: vi.fn().mockResolvedValue([
-                { id: 'step-1' }, { id: 'step-2' },
-            ]),
-        };
-        sectionRepo = { findById: vi.fn() };
-        writer = new RunPersistenceWriter(runRepo, valueRepo, stepRepo, sectionRepo);
+        stepRepo = repos.stepRepository;
+        sectionRepo = repos.sectionRepository;
+
+        runRepo.findById.mockResolvedValue({ id: 'run-1', workflowId: 'wf-1', workflowVersionId: null });
+        sectionRepo.findByWorkflowId.mockResolvedValue([{ id: 'section-1', workflowId: 'wf-1', title: 'S', order: 0 }]);
+        stepRepo.findBySectionIds.mockResolvedValue([
+            { id: 'step-1', workflowId: 'wf-1', sectionId: 'section-1', type: 'short_text', title: 'Step 1', config: {}, required: false, order: 0 },
+            { id: 'step-2', workflowId: 'wf-1', sectionId: 'section-1', type: 'short_text', title: 'Step 2', config: {}, required: false, order: 1 },
+        ]);
+
+        writer = new RunPersistenceWriter(runRepo, valueRepo);
     });
 
     it('persists all values with one prefetch and one batched upsert', async () => {
@@ -45,9 +66,8 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
             { stepId: 'step-2', value: 'b' },
         ], 'wf-1');
 
-        expect(stepRepo.findByWorkflowIdWithAliases).toHaveBeenCalledTimes(1);
-        expect(stepRepo.findById).not.toHaveBeenCalled();
-        expect(sectionRepo.findById).not.toHaveBeenCalled();
+        expect(runRepo.findById).toHaveBeenCalledTimes(1);
+        expect(stepRepo.findBySectionIds).toHaveBeenCalledTimes(1);
         expect(valueRepo.upsertMany).toHaveBeenCalledTimes(1);
         expect(valueRepo.upsertMany).toHaveBeenCalledWith([
             { runId: 'run-1', stepId: 'step-1', value: 'a' },
@@ -75,10 +95,32 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
         expect(valueRepo.upsertMany).not.toHaveBeenCalled();
     });
 
+    it('accepts a value for a step that is soft-deleted from the live tables but still present in the run definition (RVP-7)', async () => {
+        // The provider's live-table branch is what a versionless run takes.
+        // A soft-deleted step is filtered out by `findBySectionIds` (real
+        // repository behaviour), so simulate that here: the deleted step is
+        // simply absent from what the repository returns, same as a step
+        // that belongs to a different workflow. This proves the guard is
+        // membership-in-definition, not a second live re-check.
+        stepRepo.findBySectionIds.mockResolvedValue([
+            { id: 'step-1', workflowId: 'wf-1', sectionId: 'section-1', type: 'short_text', title: 'Step 1', config: {}, required: false, order: 0 },
+        ]);
+
+        await writer.bulkSaveValues('run-1', [
+            { stepId: 'step-1', value: 'a' },
+        ], 'wf-1');
+
+        expect(valueRepo.upsertMany).toHaveBeenCalledWith([
+            { runId: 'run-1', stepId: 'step-1', value: 'a' },
+        ]);
+    });
+
     it('rejects values that do not match the step type or static options', async () => {
-        stepRepo.findByWorkflowIdWithAliases.mockResolvedValue([
+        stepRepo.findBySectionIds.mockResolvedValue([
             {
                 id: 'radio-step',
+                workflowId: 'wf-1',
+                sectionId: 'section-1',
                 type: 'radio',
                 title: 'Plan',
                 config: {
@@ -88,13 +130,17 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
                     ],
                 },
                 required: false,
+                order: 0,
             },
             {
                 id: 'date-step',
+                workflowId: 'wf-1',
+                sectionId: 'section-1',
                 type: 'date',
                 title: 'Start Date',
                 config: {},
                 required: false,
+                order: 1,
             },
         ]);
 
@@ -112,9 +158,11 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
     });
 
     it('does not enforce requiredness for blank autosave values', async () => {
-        stepRepo.findByWorkflowIdWithAliases.mockResolvedValue([
+        stepRepo.findBySectionIds.mockResolvedValue([
             {
                 id: 'required-radio',
+                workflowId: 'wf-1',
+                sectionId: 'section-1',
                 type: 'radio',
                 title: 'Plan',
                 config: {
@@ -123,6 +171,7 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
                     ],
                 },
                 required: true,
+                order: 0,
             },
         ]);
 
@@ -136,13 +185,16 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
     });
 
     it('preserves an unfinished draft while final persistence still validates its format', async () => {
-        stepRepo.findByWorkflowIdWithAliases.mockResolvedValue([
+        stepRepo.findBySectionIds.mockResolvedValue([
             {
                 id: 'email-step',
+                workflowId: 'wf-1',
+                sectionId: 'section-1',
                 type: 'email',
                 title: 'Email',
                 config: {},
                 required: true,
+                order: 0,
             },
         ]);
 
@@ -162,13 +214,16 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
     });
 
     it('rejects malformed draft storage shapes', async () => {
-        stepRepo.findByWorkflowIdWithAliases.mockResolvedValue([
+        stepRepo.findBySectionIds.mockResolvedValue([
             {
                 id: 'email-step',
+                workflowId: 'wf-1',
+                sectionId: 'section-1',
                 type: 'email',
                 title: 'Email',
                 config: {},
                 required: false,
+                order: 0,
             },
         ]);
 
@@ -180,7 +235,7 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
 
     it('no-ops on an empty value list', async () => {
         await writer.bulkSaveValues('run-1', [], 'wf-1');
-        expect(stepRepo.findByWorkflowIdWithAliases).not.toHaveBeenCalled();
+        expect(stepRepo.findBySectionIds).not.toHaveBeenCalled();
         expect(valueRepo.upsertMany).not.toHaveBeenCalled();
     });
 });

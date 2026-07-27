@@ -112,9 +112,7 @@ export class RunService {
     );
     this.persistenceWriter = persistenceWriter ?? new RunPersistenceWriter(
       this.runRepo,
-      this.valueRepo,
-      this.stepRepo,
-      this.sectionRepo
+      this.valueRepo
     );
     this.executionCoordinator = executionCoordinator ?? new RunExecutionCoordinator(
       this.persistenceWriter,

@@ -10,6 +10,7 @@ import { db } from '../../server/db';
 import { workflowRunRepository } from '../../server/repositories';
 import { runService } from '../../server/services/RunService';
 import { hashToken } from '../../server/utils/encryption';
+import { versionService } from '../../server/services/VersionService';
 import { ApiError } from '../../server/utils/errors';
 import {
   setupIntegrationTest,
@@ -73,6 +74,14 @@ describe.sequential('completed run answer immutability', () => {
       required: false,
     });
     stepId = step.id;
+
+    // RVP-7: value writes now validate step membership against the run's
+    // pinned definition, so the pinned version has to contain the step created
+    // above. factory.createWorkflow snapshots the workflow before it exists,
+    // and a run pinned to that empty graph would be rejected for the wrong
+    // reason — obscuring the completion guard this suite actually tests.
+    const pinnedVersion = await versionService.createDraftVersion(workflowId, ctx.userId);
+    if (pinnedVersion) { versionId = pinnedVersion.id; }
   });
 
   afterAll(async () => {
