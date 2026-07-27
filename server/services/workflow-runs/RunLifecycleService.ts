@@ -22,6 +22,7 @@ import { createError } from "../../utils/errors";
 
 import type { PopulateValuesOptions, SnapshotValueMap, DocumentGenerationResult, WritebackExecutionResult } from "./types";
 import { runDataService, type RunData, type RunDataService } from "./RunDataService";
+import { runDefinitionProvider, RunDefinitionProvider, type RunSection } from "./RunDefinitionProvider";
 import { normalizeRunnerStepType } from "../../../shared/types/runnerStepTypes";
 
 export interface GenerateDocumentsOptions {
@@ -77,7 +78,8 @@ export class RunLifecycleService {
     private sectionRepo = sectionRepository,
     private persistence = new RunPersistenceWriter(),
     private logicSvc = logicService,
-    private runDataSvc: RunDataService = runDataService
+    private runDataSvc: RunDataService = runDataService,
+    private definitionProvider: RunDefinitionProvider = runDefinitionProvider
   ) { }
 
   /**
@@ -394,13 +396,20 @@ export class RunLifecycleService {
       //    - Final Block steps (step.config as FinalBlockConfig), for both
       //      'final' and 'final_documents'
       //    - Legacy Final Documents sections (section.config.finalBlock)
-      const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId);
+      // RVP-4: sourced from the run's pinned definition (RunDefinitionProvider,
+      // RVP-1), not the live tables. A document generated after the fact must
+      // reflect the template mapping the respondent actually answered against,
+      // not whatever the author has since edited the final block to say --
+      // this is a correctness/auditability guarantee, not just UX. A
+      // versionless run still falls back to the live tables via the
+      // provider's 'live' branch (unchanged today-behavior, AC3).
+      const { steps: definitionSteps, sections: definitionSections } = await this.definitionProvider.getDefinition(run);
       const workflow = await workflowRepository.findById(workflowId);
       if (!workflow) {throw createError.notFound('Workflow', workflowId);}
       if (!workflow.projectId) {throw createError.validation('Workflow has no projectId');}
 
       const finalBlockConfigs: FinalBlockConfig[] = [];
-      for (const step of allSteps) {
+      for (const step of definitionSteps) {
         if (step.type !== 'final' && step.type !== 'final_documents') {continue;}
         if (options.finalStepId !== undefined && step.id !== options.finalStepId) {continue;}
         const config = step.config as FinalBlockConfig | null;
@@ -410,7 +419,7 @@ export class RunLifecycleService {
       }
 
       if (options.finalStepId === undefined) {
-        const legacyConfig = await this.buildLegacyFinalBlockConfig(workflowId, workflow.projectId);
+        const legacyConfig = await this.buildLegacyFinalBlockConfig(workflowId, workflow.projectId, definitionSections);
         if (legacyConfig) {
           finalBlockConfigs.push(legacyConfig);
         }
@@ -512,9 +521,13 @@ export class RunLifecycleService {
    * (section.config.finalBlock === true with config.templates: string[]).
    * Template-level mapping and metadata.visibleIf conditions carry over so
    * the unified renderer path preserves the old behavior.
+   *
+   * RVP-4: `sections` is the run's pinned (or, for a versionless run, live)
+   * definition from `RunDefinitionProvider` -- not a fresh live-table read --
+   * so a legacy Final Documents section edited after the respondent started
+   * does not retroactively change what gets generated.
    */
-  private async buildLegacyFinalBlockConfig(workflowId: string, projectId: string): Promise<FinalBlockConfig | null> {
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
+  private async buildLegacyFinalBlockConfig(workflowId: string, projectId: string, sections: RunSection[]): Promise<FinalBlockConfig | null> {
     const templateIds: string[] = [];
     for (const section of sections) {
       const config = section.config as { finalBlock?: boolean; templates?: string[] } | null;

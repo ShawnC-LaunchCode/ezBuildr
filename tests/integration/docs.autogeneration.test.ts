@@ -23,6 +23,7 @@ import * as schema from '@shared/schema';
 
 import { db } from '../../server/db';
 import { runLifecycleService } from '../../server/services/workflow-runs/RunLifecycleService';
+import { versionService } from '../../server/services/VersionService';
 import { TestFactory } from '../helpers/testFactory';
 
 function createDocxBuffer(content: string): Buffer {
@@ -199,6 +200,78 @@ describe('Automatic document generation on run completion', () => {
     const outputPath = await resolveGeneratedFile(records[0].fileName);
     const text = await readDocxText(outputPath);
     expect(text).toContain('Contract for Acme Corporation');
+  });
+
+  it('RVP-4 AC2: generates documents from the run\'s pinned version, not a live final-block edit made after the run started', async () => {
+    const { workflow } = await factory.createWorkflow(projectId, userId);
+    const section = await factory.createSection(workflow.id);
+    const textStep = await factory.createStep(section.id, {
+      type: 'short_text',
+      title: 'Client name',
+      alias: 'clientName',
+      order: 0,
+    });
+    const templateA = await createTemplateOnDisk('Pinned Contract', 'Contract A for {{clientName}}');
+    const templateB = await createTemplateOnDisk('Edited Contract', 'Contract B for {{clientName}}');
+    const finalStep = await factory.createStep(section.id, {
+      type: 'final',
+      title: 'Final documents',
+      order: 1,
+      config: {
+        markdownHeader: '',
+        documents: [
+          { id: 'doc-1', documentId: templateA.id, alias: 'contract' },
+        ],
+      },
+    });
+
+    // Publish a version -- this is what the respondent's run gets pinned to,
+    // and what generateDocuments must resolve final-block configs from.
+    const version = await versionService.publishVersion(workflow.id, userId, 'initial publish');
+
+    // Author edits the LIVE final block AFTER publish, repointing doc-1 at a
+    // different template. If generateDocuments read the live tables, the
+    // respondent's document would silently switch to template B's content --
+    // a correctness/auditability bug, not just a UX one.
+    await db.update(schema.steps).set({
+      config: {
+        markdownHeader: '',
+        documents: [
+          { id: 'doc-1', documentId: templateB.id, alias: 'contract' },
+        ],
+      },
+    }).where(eq(schema.steps.id, finalStep.id));
+
+    // Run is pinned to the version published BEFORE the live edit.
+    const [run] = await db
+      .insert(schema.workflowRuns)
+      .values({
+        workflowId: workflow.id,
+        workflowVersionId: version.id,
+        runToken: `test-token-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        createdBy: `creator:${userId}`,
+      })
+      .returning();
+    await db.insert(schema.stepValues).values({
+      runId: run.id,
+      stepId: textStep.id,
+      value: 'Acme Corporation',
+    });
+
+    const result = await runLifecycleService.generateDocuments(run.id);
+
+    expect(result.success).toBe(true);
+    expect(result.documentsGenerated).toBe(1);
+
+    const records = await db
+      .select()
+      .from(schema.runGeneratedDocuments)
+      .where(eq(schema.runGeneratedDocuments.runId, run.id));
+    expect(records).toHaveLength(1);
+
+    const text = await readDocxText(await resolveGeneratedFile(records[0].fileName));
+    expect(text).toContain('Contract A for Acme Corporation');
+    expect(text).not.toContain('Contract B');
   });
 
   it('generates and persists documents for a legacy Final Documents section', async () => {
