@@ -7,7 +7,7 @@ Feature status, security details, and recent architecture changes (verified July
 | Feature | Description |
 |---------|-------------|
 | **Workflow Builder** | Section/step builder with 7-tab navigation and inspector panel |
-| **38 Step Types** | Text, choice, date/time, currency, address, scale, signature block, file upload, computed, repeater, multi-field, plus easy/advanced-mode variants (see `stepTypeEnum` in SCHEMA.md) |
+| **38 Step Types** | Text, choice, date/time, currency, address, scale, signature block, computed, multi-field, plus easy/advanced-mode variants. Three schema/builder types (`file_upload`, `loop_group`, `repeater`) are not respondent-fillable and render a skip notice; `RUNNER_INTENTIONALLY_UNSUPPORTED_STEP_TYPES` is the source of truth (`shared/types/runnerStepTypes.ts:69-73,119-126`). |
 | **DataVault** | Data platform: databases, tables, rows, 14 column types, infinite scroll, role-based permissions, ACLs, API tokens, row notes |
 | **Custom Scripting System** | Lifecycle hooks (4 phases) + document hooks (2 phases), 40+ helper functions, JS/Python, script console |
 | **Two-Tier Visibility Logic** | Workflow rules + step-level `visibleIf` expressions with real-time evaluation |
@@ -18,8 +18,7 @@ Feature status, security details, and recent architecture changes (verified July
 | **Default Values** | Pre-fill with defaults, URL parameter override |
 | **HTTP/API Integration** | REST client via `safeFetch`, OAuth2 (Client Credentials + 3-legged), webhooks |
 | **Secrets Management** | AES-256-GCM encrypted storage, LRU cache |
-| **E-Signature** | DocuSign + native signatures via `/api/esign`, signing callbacks |
-| **Document Generation** | PDF/DOCX generation, template variables, repeating sections, AI binding |
+| **Document Generation** | PDF/DOCX generation, template variables, repeating sections |
 | **AI-Powered Features** | Workflow generation and AI editing (OpenAI/Anthropic/Gemini), logic generation/debugging, optimization wizard, template binding, feedback loop |
 | **Templates & Marketplace** | Reusable templates, marketplace page (`/marketplace` UI, `/api/templates` backend), test runner |
 | **Advanced Analytics** | Funnel analysis, dropoff tracking, heatmaps, branching analysis, export (JSON/CSV/PDF) |
@@ -37,6 +36,8 @@ Feature status, security details, and recent architecture changes (verified July
 - **Review Gates** — `ReviewTaskService` and the `review_tasks` table exist, but the `/api/reviews` route layer was removed in the 2026 dead-code sweep. No UI or API exposes it; treat as dormant, not production.
 - **Collections** (`/data`) — legacy datastore, superseded by DataVault but still present.
 - **Self-hosted OAuth provider** — `oauth.routes.ts` exists but is intentionally disabled in `server/routes/index.ts` (security).
+- **E-Signature** — the native signature-block UI and DocuSign webhook verification/parsing exist (`client/src/components/runner/blocks/SignatureBlockRenderer.tsx:51-58`; `server/services/esign/DocusignProvider.ts:416,475`), but DocuSign authentication and envelope create/status/void/download throw `not yet implemented` (`DocusignProvider.ts:124-125,178-179,322-323,378,398`). Treat DocuSign execution as partial, not production-ready.
+- **AI document mapping** — mapping suggestions render, but `DocumentTemplateEditor.handleApplyMapping` only logs them and does not persist them (`client/src/components/builder/templates/DocumentTemplateEditor.tsx:65-69`). Track persistence in GitHub #156.
 
 ## Backlog (no committed dates)
 
