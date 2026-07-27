@@ -64,9 +64,20 @@ jobs:
       run: node scripts/ci/audit-check.mjs
 
     - name: SSRF Guard (Block raw fetch in server)
+      # Two files may call fetch directly, and only these two:
+      #   safeFetch.ts        - implements the SSRF-safe wrapper itself.
+      #   internalService.ts  - the single sanctioned door to operator-configured
+      #                         internal infrastructure (e.g. Gotenberg on a
+      #                         *.railway.internal address), which safeFetch
+      #                         rejects by design because it resolves to a
+      #                         private IP. Its signature takes a path, not a
+      #                         URL, so a caller cannot redirect the request to
+      #                         another host — see that file's header.
+      # Callers use internalServiceRequest(); the capital F means this grep
+      # still covers them.
       run: |
-        if grep -rnw 'server' --exclude='safeFetch.ts' --exclude-dir='tests' -e '\bfetch(' -e '\bawait fetch('; then
-          echo "ERROR: Raw fetch found in server/. Use safeFetch instead to prevent SSRF."
+        if grep -rnw 'server' --exclude='safeFetch.ts' --exclude='internalService.ts' --exclude-dir='tests' -e '\bfetch(' -e '\bawait fetch('; then
+          echo "ERROR: Raw fetch found in server/. Use safeFetch (external URLs) or internalServiceRequest (configured internal services) to prevent SSRF."
           exit 1
         fi
         echo "No raw fetch found."

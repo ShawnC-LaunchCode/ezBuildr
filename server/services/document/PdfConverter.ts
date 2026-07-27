@@ -6,6 +6,7 @@ import puppeteer, { type Browser } from 'puppeteer';
 
 import { logger } from '../../logger';
 import { createError } from '../../utils/errors';
+import { internalServiceRequest } from '../../utils/internalService';
 
 /**
  * DOCX -> PDF conversion.
@@ -193,10 +194,8 @@ export class PuppeteerStrategy implements PdfConversionStrategy {
     }
 }
 
-/** Trim a trailing slash so `${base}/path` never doubles up. */
-function normalizeBaseUrl(url: string): string {
-    return url.replace(/\/$/, '');
-}
+/** Gotenberg's LibreOffice conversion route. */
+const CONVERT_PATH = '/forms/libreoffice/convert';
 
 /**
  * Strategy using a Gotenberg (LibreOffice) conversion service.
@@ -210,11 +209,10 @@ export class ApiStrategy implements PdfConversionStrategy {
     constructor(private readonly apiUrl: string) {}
 
     async convert(options: PdfConversionOptions): Promise<void> {
-        const endpoint = `${normalizeBaseUrl(this.apiUrl)}/forms/libreoffice/convert`;
         const filename = path.basename(options.docxPath);
         const startedAt = Date.now();
 
-        logger.info({ docxPath: options.docxPath, endpoint }, 'Converting PDF via Gotenberg');
+        logger.info({ docxPath: options.docxPath, path: CONVERT_PATH }, 'Converting PDF via Gotenberg');
 
         const fileBuffer = await fs.readFile(options.docxPath);
 
@@ -223,22 +221,10 @@ export class ApiStrategy implements PdfConversionStrategy {
 
         let response: Response;
         try {
-            /*
-             * Raw `fetch`, not `safeFetch`, deliberately.
-             *
-             * `safeFetch` exists to stop SSRF via *user-supplied* URLs: it
-             * resolves DNS and rejects internal/reserved addresses
-             * (server/utils/safeFetch.ts:27-38). This endpoint is the opposite
-             * case — operator-configured infrastructure from
-             * PDF_CONVERTER_API_URL, pointing *deliberately* at a private
-             * service such as gotenberg.railway.internal. Routing it through
-             * safeFetch would reject every request by design and disable
-             * high-fidelity conversion entirely.
-             *
-             * No user input reaches this URL, so there is no SSRF vector here.
-             */
-            // eslint-disable-next-line no-restricted-globals
-            response = await fetch(endpoint, {
+            // Goes through internalServiceRequest, not safeFetch: this is
+            // operator-configured infrastructure that is deliberately private,
+            // which safeFetch rejects by design. See that module's header.
+            response = await internalServiceRequest(this.apiUrl, CONVERT_PATH, {
                 method: 'POST',
                 body: formData,
                 // Without a budget a hung converter holds the request open
@@ -273,10 +259,7 @@ export class ApiStrategy implements PdfConversionStrategy {
 
     /** Non-destructive reachability probe — never converts a document. */
     async ping(): Promise<void> {
-        // Same operator-configured internal endpoint as convert(); see the
-        // justification for using raw fetch there.
-        // eslint-disable-next-line no-restricted-globals
-        const response = await fetch(`${normalizeBaseUrl(this.apiUrl)}/health`, {
+        const response = await internalServiceRequest(this.apiUrl, '/health', {
             method: 'GET',
             signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
         });
