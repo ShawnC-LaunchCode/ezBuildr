@@ -10,7 +10,13 @@ Scope: every server-side decision made about an in-flight run —
 `RunExecutionCoordinator` (section submit, next, JS questions, alias map),
 `RunLifecycleService` (start section, document generation).
 
-Overall grade for this area: **D** — the run stores which version it is pinned
+**INITIATIVE CLOSED 2026-07-26** — RVP-1..7 all done. Final gates: type-check 0
+errors, `test:fast` **1951 passing**, integration **84/85 files, 906 passing**
+(the one failure, `hardening/quota.test.ts`, is unrelated in-flight work by the
+repo owner and fails without these changes). RVP-5's regression net passes
+unmodified and caught RVP-7 en route.
+
+Overall grade for this area at audit time: **D** — the run stores which version it is pinned
 to and then never consults it again, so the client and the server are reading
 two different definitions of the same interview.
 
@@ -392,7 +398,7 @@ correctness and auditability problem, not just a UX one.
 
 ---
 
-## RVP-7 — Persistence re-validates against live tables, defeating RVP-3 🔲
+## RVP-7 — Persistence re-validates against live tables, defeating RVP-3 ✅
 
 **Priority: P0 (bug)** · Size: M · File: `server/services/runs/RunPersistenceWriter.ts`
 
@@ -477,7 +483,7 @@ anti-mass-assignment guard; only its **source** changes.
 
 # Phase 3 — Prove it
 
-## RVP-5 — End-to-end proof that editing a live workflow cannot break an in-flight run 🔲
+## RVP-5 — End-to-end proof that editing a live workflow cannot break an in-flight run ✅
 
 **Priority: P1** · Size: M · File: `tests/integration/` (new)
 
@@ -514,5 +520,5 @@ refactor silently reintroduces the split.
 | RVP-2 | LogicService uses the pinned definition | ✅ Done 2026-07-26 |
 | RVP-3 | RunExecutionCoordinator uses the pinned definition | ✅ Done 2026-07-26 |
 | RVP-4 | RunLifecycleService uses the pinned definition | ✅ Done 2026-07-26 |
-| RVP-7 | Persistence re-validates against live tables | 🔲 Open (blocks RVP-5) |
-| RVP-5 | End-to-end mid-run-edit regression suite | 🔲 Blocked on RVP-7 |
+| RVP-7 | Persistence re-validates against live tables | ✅ Done 2026-07-26 |
+| RVP-5 | End-to-end mid-run-edit regression suite | ✅ Done 2026-07-26 |
