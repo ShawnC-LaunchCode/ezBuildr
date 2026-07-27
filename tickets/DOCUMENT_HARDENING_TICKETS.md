@@ -62,14 +62,15 @@ for the quoted code if a reference is stale.
 
 | Phase | Theme | Tickets | Est. effort | Status |
 |---|---|---|---|---|
-| 1 | Delete dead code & stop advertising what doesn't work | DOCH-1, DOCH-2 | ~3 h | 🔲 not started |
-| 2 | ZIP & resource-exhaustion controls | DOCH-3, DOCH-4 | ~1 day | 🔄 DOCH-3 ✅, DOCH-4 open |
+| 1 | Delete dead code & stop advertising what doesn't work | DOCH-1, DOCH-2 | ~3 h | ✅ closed 2026-07-27 |
+| 2 | ZIP & resource-exhaustion controls | DOCH-3, DOCH-4 | ~1 day | ✅ closed 2026-07-27 |
 | 3 | Converter truthfulness & observability | DOCH-5, DOCH-6 | ~1 day | ✅ closed 2026-07-27 |
 
 **Worked out of order.** Phase 3 was pulled forward and completed first: DOCH-5/6
 turned out to describe a live production incident (every customer PDF degraded
 since `PDF_CONVERTER_API_URL` was set — see the Phase 3 Gate), which outranked
-both the remaining Phase 2 work and Phase 1's cleanup. **Next ticket is DOCH-4.**
+both the remaining Phase 2 work and Phase 1's cleanup. **All six tickets are done, reviewed and
+committed; all three phase gates are closed.**
 
 ### Baseline at audit time
 
@@ -108,7 +109,12 @@ user path; both remove the ability for the codebase to lie about itself. Explici
 out of scope: building any *new* final-document editing surface (that is #155's
 consolidation work, senior-owned) and restructuring FEATURES.md (see escalations).
 
-## DOCH-1 — Delete the three unreachable final-document surfaces 🔲
+## DOCH-1 — Delete the three unreachable final-document surfaces ✅
+
+> **Verified 2026-07-27.** The three unreachable component files and the obsolete
+> renderer-wiring test were deleted; barrel exports/imports and the unreachable
+> switch arm were removed. `tests/unit/client/useSectionVisibility.test.tsx`
+> continues to prove both `final` spellings are filtered before rendering.
 
 **Priority: P2** · Size: S · Files: `client/src/components/runner/blocks/FinalBlock.tsx`, `client/src/components/runner/blocks/BlockRenderer.tsx`, `client/src/components/runner/blocks/index.ts`, `client/src/components/builder/cards/FinalBlockEditor.tsx`, `client/src/components/builder/cards/index.tsx`, `client/src/components/blocks/FinalBlockEditor.tsx`
 
@@ -221,7 +227,12 @@ those are the live, working surfaces and are out of scope.
 
 ---
 
-## DOCH-2 — Correct the three provably false capability claims in FEATURES.md 🔲
+## DOCH-2 — Correct the three provably false capability claims in FEATURES.md ✅
+
+> **Verified 2026-07-27.** The production-ready table now reflects the runner and
+> e-signature implementation, AI mapping persistence is listed as partial, and
+> `tests/unit/client/SignatureBlockEditor.providers.test.tsx` proves DocuSign is
+> retained as a config value but cannot be selected as an available provider.
 
 **Priority: P2** · Size: S · Files: `docs/claude/FEATURES.md`, `client/src/components/builder/cards/SignatureBlockEditor.components.tsx`
 
@@ -337,14 +348,14 @@ can be ticketed.
 
 ---
 
-## Phase 1 Gate
+## Phase 1 Gate — **CLOSED 2026-07-27**
 
-- [ ] DOCH-1, DOCH-2 both ✅ with dated verification notes
-- [ ] `npm run type-check` → 0 errors
-- [ ] `npm run lint` → 0 errors (zero-error policy)
-- [ ] `npm run test:fast` → green, passing count ≥ recorded baseline
-- [ ] `grep -rn "Prompt 10\|FinalBlockRenderer" client/src` → zero matches
-- [ ] Reviewer has committed each passed ticket + this gate
+- [x] DOCH-1, DOCH-2 both ✅ with dated verification notes *(2026-07-27)*
+- [x] `npm run type-check` → 0 errors *(2026-07-27)*
+- [x] `npm run lint` → 0 errors (zero-error policy) *(2026-07-27)*
+- [x] `npm run test:fast` → 1963 passed / 15 skipped, above the 1896 baseline *(2026-07-27)*
+- [x] `grep -rn "Prompt 10\|FinalBlockRenderer" client/src` → zero matches *(2026-07-27)*
+- [x] Reviewer has committed each passed ticket + this gate *(2026-07-27)*
 
 ---
 
@@ -486,7 +497,32 @@ Do not expand this ticket into streaming inflation.
 
 ---
 
-## DOCH-4 — Add a wall-clock timeout to DOCX/PDF processing 🔲
+## DOCH-4 — Add a wall-clock timeout to DOCX/PDF processing ✅
+
+> **Verified 2026-07-27.** A 30s environment-overridable timeout covers all four
+> upload/update DOCX/PDF processing paths. Unit tests prove timer cleanup and
+> semaphore recovery after N+1 timeouts; real-route integration tests prove 400
+> responses, temp-file cleanup, and no insert/update for POST and PATCH.
+>
+> **Reviewer sign-off, 2026-07-27.** All 9 acceptance criteria re-verified against
+> the tree, not taken on report. AC5 — the one flagged as most likely to be
+> skipped — is genuinely tested: a 2-slot limiter takes 3 hung operations, then
+> `active`/`pending` are asserted drained and a subsequent operation resolves.
+> Composition order is right (`limiter.run(() => withTimeout(...))`), so the slot
+> is freed by the timeout rather than held by it, and cleanup precedes the
+> rethrow at all four sites.
+>
+> **One scope correction made by the reviewer.** `withTimeout` is a
+> `Promise.race`, so it bounds asynchronous stalls but **cannot interrupt
+> synchronous CPU work** — measured: a 1500ms sync spin under a 100ms budget ran
+> to completion untouched. `TemplateScanner.scanAndFix` is synchronous inside, so
+> the "document that makes PizZip spin" threat in this ticket's own Finding is
+> actually covered by DOCH-3's limits (which reject before parsing), not by this
+> timeout. The implementation is correct and matches the Preferred fix exactly;
+> what needed fixing was the *claim*: the gate doc had been checked off with
+> "fail safe if processing hangs", which overstates it. The gate doc and
+> `withTimeout`'s doc comment now state the real scope, and [[DOCH-B7]] tracks
+> worker-thread offload. No code change was required of the dev.
 
 **Priority: P1** · Size: M · Files: `server/utils/concurrency.ts` or new sibling util, `server/services/processingLimiter.ts`, `server/routes/templates.routes.ts`
 
@@ -514,8 +550,8 @@ Two such uploads deadlock all document processing for every tenant on the instan
 including PDF generation, with no error surfaced and no recovery short of a restart.
 
 Affected call sites, all wrapping genuinely unbounded work:
-`templates.routes.ts:282` (POST DOCX scan), `:307-311` (POST PDF unlock + field
-extract), `:441` (PATCH DOCX scan), `:462-466` (PATCH PDF unlock + extract).
+`templates.routes.ts:290` (POST DOCX scan), `:315` (POST PDF unlock + field
+extract), `:457` (PATCH DOCX scan), `:478` (PATCH PDF unlock + extract).
 
 ### Preferred fix
 
@@ -540,7 +576,7 @@ Add a real timeout and make it observable.
 4. On timeout, the routes must return **400** (client-supplied document could not be
    processed in budget) via `createError.validation`, clean up the temp file, and
    log at `error` with the label and elapsed ms. **Mirror the existing catch blocks**
-   at `templates.routes.ts:300-304` (POST) and `:454-459` (PATCH), including their
+   at `templates.routes.ts:308-311` (POST) and `:470-474` (PATCH), including their
    `isErrorWithCode(error) && error.code === 'VALIDATION_ERROR'` re-throw guard.
 5. Apply it to all four call sites listed in the Finding. Do not apply it to PDF
    *generation* paths — `PdfConverter` is DOCH-5/DOCH-6's territory and Puppeteer
@@ -582,14 +618,14 @@ Add a real timeout and make it observable.
 
 ---
 
-## Phase 2 Gate — **OPEN** (DOCH-3 done, DOCH-4 not started)
+## Phase 2 Gate — **CLOSED 2026-07-27**
 
-- [ ] DOCH-3, DOCH-4 both ✅ with dated verification notes
-      — DOCH-3 ✅ 2026-07-27 (`9efaae8e`); **DOCH-4 not started**
+- [x] DOCH-3, DOCH-4 both ✅ with dated verification notes
+      — DOCH-3 ✅ 2026-07-27 (`9efaae8e`); DOCH-4 ✅ 2026-07-27
 - [x] `npm run type-check` → 0 errors; `npm run lint` → 0 errors *(2026-07-27)*
-- [x] `npm run test:fast` green ≥ baseline; `npm run test:integration` for template
-      routes green *(1960 passed vs 1896 baseline; **full** integration project run
-      locally — see the caution below)*
+- [x] `npm run test:fast` green ≥ baseline *(1963 passed / 15 skipped)*;
+      full `npm run test:integration` green *(912 passed / 3 skipped across 87 files,
+      2026-07-27 — see the caution below)*
 
 > **Caution for DOCH-4, learned the hard way 2026-07-27.** This gate was first
 > reported green after running only the four integration suites identified as
@@ -604,19 +640,16 @@ Add a real timeout and make it observable.
 > project, not the files you think are affected.** Grep for `attach('file'` first:
 > `magicBytes.test.ts` and `api.ai.doc.test.ts` survive only because the former
 > tolerates a 400 and the latter posts to `/api/ai/doc/analyze`, which has no gate.
-- [ ] `docs/hardening/docx-editor-gate.md` §2 zip-bomb and timeout boxes checked,
-      with the implementing file cited next to each
-      — zip-bomb box is satisfied by `server/utils/zipLimits.ts`; the timeout box
-      stays open until DOCH-4. Check both together when DOCH-4 lands, so the doc
-      is never half-updated.
-- [ ] Reviewer has committed each passed ticket + this gate
-      — DOCH-3 committed; gate cannot close until DOCH-4 does.
+- [x] `docs/hardening/docx-editor-gate.md` §2 zip-bomb and timeout boxes checked,
+      with `server/utils/zipLimits.ts` and `server/utils/concurrency.ts` cited
+      *(2026-07-27)*
+- [x] Reviewer has committed each passed ticket + this gate *(2026-07-27)*
 
 > **Phase order note (2026-07-27):** this initiative was worked out of order —
 > Phase 3 completed before Phase 2's second ticket and before Phase 1 started,
 > because DOCH-5/6 turned out to describe a *live production incident* (see the
-> Phase 3 gate) rather than a latent risk. DOCH-4 remains the next ticket and
-> still rebases onto DOCH-3's two `templates.routes.ts` blocks as its Ties say.
+> Phase 3 gate) rather than a latent risk. DOCH-4 is now verified on top of
+> DOCH-3's two `templates.routes.ts` blocks; the reviewer commit remains.
 
 ---
 
@@ -951,6 +984,21 @@ Not phase-gated. Verified but too small or too speculative to dispatch yet.
   instance with `PDF_CONVERTER_API_URL` set) plus the error log. A one-column
   migration would make it queryable — worth doing when a schema change is next
   acceptable.
+- **DOCH-B7 — CPU-spin is still unbounded; `withTimeout` only bounds async stalls.**
+  Found at DOCH-4 review, 2026-07-27, and **measured**: a 1500ms synchronous spin
+  under a 100ms budget did not time out and ran to completion, because
+  `withTimeout` is a `Promise.race` and a blocked event loop also blocks its
+  timer. `TemplateScanner.scanAndFix` is synchronous inside (`new PizZip(...)`,
+  `zip.generate(...)`), so the "document that makes PizZip spin" threat named in
+  DOCH-4's own Finding is **not** covered by DOCH-4 — it is covered by DOCH-3's
+  declared-size/ratio limits rejecting the archive before it is parsed. That is
+  adequate for the known vector but is defence at the boundary only; an archive
+  that passes the limits and still spins the parser would block a worker.
+  Closing it properly means offloading DOCX parsing to a worker thread that can
+  actually be killed. Sized M-L, needs a design call — not a junior ticket.
+  DOCH-4 is **not** deficient: it implemented its Preferred fix exactly, and the
+  gate doc + `withTimeout`'s doc comment now state the real scope rather than
+  implying protection that isn't there.
 - **DOCH-B6 — some upload path leaks multer temp files.** Observed 2026-07-27
   while verifying DOCH-3: 17 orphaned `file-<ts>-<hex>.docx` files in `%TEMP%`,
   all 878 bytes, spanning three days of test runs. DOCH-3's rejection paths are
