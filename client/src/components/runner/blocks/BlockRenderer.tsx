@@ -25,7 +25,6 @@ import { DateBlockRenderer } from "./DateBlock";
 import { DateTimeBlockRenderer } from "./DateTimeBlock";
 import { DisplayBlockRenderer } from "./DisplayBlock";
 import { EmailBlockRenderer } from "./EmailBlock";
-import { FinalBlockRenderer } from "./FinalBlock";
 import { MultiFieldBlockRenderer } from "./MultiFieldBlock";
 import { NumberBlockRenderer } from "./NumberBlock";
 import { PhoneBlockRenderer } from "./PhoneBlock";
@@ -183,10 +182,6 @@ export function BlockRenderer(props: BlockRendererProps) {
       // Display blocks
       case "display":
         return <DisplayBlockRenderer step={step} context={props.context} aliasMap={props.aliasMap} />;
-
-      // Final block (output/completion)
-      case "final_documents":
-        return <FinalBlockRenderer step={step} stepValues={props.context} />;
 
       // Signature block (e-signature integration)
       case "signature_block":
