@@ -366,10 +366,11 @@ ticket), malware scanning, and S3 migration (both escalated).
 >
 > Two notes for whoever picks up DOCH-4:
 >
-> - The three template integration suites were uploading fixtures that this gate
->   correctly rejects (a bare `PK\x03\x04` signature, and a stale base64 blob).
->   They now build real minimal DOCX archives with `pizzip`. That ripple is in
->   the same commit.
+> - **Four** integration suites were uploading fixtures that this gate correctly
+>   rejects (a bare `PK\x03\x04` signature, a stale base64 blob, and magic bytes
+>   plus zero-padding). They now build real minimal DOCX archives with `pizzip`.
+>   The fourth — `hardening/quota.test.ts` — was missed on the first pass and
+>   caught by CI; see the caution in the Phase 2 Gate.
 > - The integration suite's temp-file assertion attributes leaks **by content**,
 >   not by filename or by diffing the `os.tmpdir()` listing. Four integration
 >   workers share that directory and multer's `file-<ts>-<hex>.docx` names
@@ -587,8 +588,22 @@ Add a real timeout and make it observable.
       — DOCH-3 ✅ 2026-07-27 (`9efaae8e`); **DOCH-4 not started**
 - [x] `npm run type-check` → 0 errors; `npm run lint` → 0 errors *(2026-07-27)*
 - [x] `npm run test:fast` green ≥ baseline; `npm run test:integration` for template
-      routes green *(1958 passed vs 1896 baseline; the four affected integration
-      suites green together across three consecutive runs)*
+      routes green *(1960 passed vs 1896 baseline; **full** integration project run
+      locally — see the caution below)*
+
+> **Caution for DOCH-4, learned the hard way 2026-07-27.** This gate was first
+> reported green after running only the four integration suites identified as
+> "affected". CI then failed on a fifth —
+> `tests/integration/hardening/quota.test.ts`, which uploaded magic bytes plus 200
+> zero bytes and expected **403** (quota) but got **400**, because the new ZIP gate
+> runs earlier in the handler and correctly rejects an unparseable archive.
+>
+> Any change that adds a rejection *before* an existing one in
+> `templates.routes.ts` — which is exactly what DOCH-4's timeout does — can mask
+> the status code some other suite is asserting. **Run the whole integration
+> project, not the files you think are affected.** Grep for `attach('file'` first:
+> `magicBytes.test.ts` and `api.ai.doc.test.ts` survive only because the former
+> tolerates a 400 and the latter posts to `/api/ai/doc/analyze`, which has no gate.
 - [ ] `docs/hardening/docx-editor-gate.md` §2 zip-bomb and timeout boxes checked,
       with the implementing file cited next to each
       — zip-bomb box is satisfied by `server/utils/zipLimits.ts`; the timeout box
