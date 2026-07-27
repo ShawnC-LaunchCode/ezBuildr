@@ -127,6 +127,14 @@ void (async () => {
             host: "0.0.0.0", // Bind to all network interfaces for Railway/Docker
         }, () => {
             logger.warn(`serving on port ${port}`);
+            // Record which DOCX->PDF converter this instance will use. Without
+            // this, a misconfigured converter degraded every generated PDF with
+            // nothing in the boot log to show it.
+            void import('./services/document/PdfConverter.js')
+                .then(({ logPdfConverterSelection }) => { logPdfConverterSelection(); })
+                .catch((error: unknown) => {
+                    logger.warn({ error }, 'Could not log PDF converter selection');
+                });
         });
         // RESOURCE LEAK FIX: Graceful shutdown handlers
         const shutdown = async (signal: string): Promise<void> => {

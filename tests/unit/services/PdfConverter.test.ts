@@ -180,6 +180,48 @@ describe("PdfConverter fallback reporting", () => {
   });
 });
 
+describe("PdfConverter.healthCheck", () => {
+  it("reports the local strategy as reachable with no probe", async () => {
+    stubFetch(async () => { throw new Error("should not be called"); });
+
+    const health = await new PdfConverter(undefined).healthCheck();
+
+    expect(health).toEqual({ strategy: "puppeteer", reachable: true });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("probes the API health endpoint without converting a document", async () => {
+    const calls: string[] = [];
+    stubFetch(async (url) => { calls.push(url); return new Response("ok", { status: 200 }); });
+
+    const health = await new PdfConverter(API_URL).healthCheck();
+
+    expect(health.strategy).toBe("gotenberg");
+    expect(health.reachable).toBe(true);
+    expect(health.responseTimeMs).toBeGreaterThanOrEqual(0);
+    expect(calls).toEqual([`${API_URL}/health`]);
+  });
+
+  it("reports unreachable when the health endpoint fails", async () => {
+    stubFetch(async () => new Response("nope", { status: 500 }));
+
+    const health = await new PdfConverter(API_URL).healthCheck();
+
+    expect(health.strategy).toBe("gotenberg");
+    expect(health.reachable).toBe(false);
+    expect(health.error).toMatch(/500/);
+  });
+
+  it("reports unreachable when the probe throws", async () => {
+    stubFetch(async () => { throw new Error("ENOTFOUND gotenberg.test"); });
+
+    const health = await new PdfConverter(API_URL).healthCheck();
+
+    expect(health.reachable).toBe(false);
+    expect(health.error).toMatch(/ENOTFOUND/);
+  });
+});
+
 describe("ApiStrategy", () => {
   it("is named for the converter it uses, so records are meaningful", () => {
     expect(new ApiStrategy(API_URL).name).toBe("gotenberg");

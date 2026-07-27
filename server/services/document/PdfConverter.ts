@@ -51,6 +51,8 @@ export interface PdfConversionStrategy {
 
 /** Conversion budget. Gotenberg LibreOffice runs can be slow on large documents. */
 const CONVERSION_TIMEOUT_MS = parseInt(process.env.PDF_CONVERTER_TIMEOUT_MS ?? '60000', 10);
+/** Health probes must never hold up a request or a boot. */
+const HEALTH_TIMEOUT_MS = 3000;
 
 /**
  * Strategy using Puppeteer (Headless Chrome)
@@ -269,6 +271,32 @@ export class ApiStrategy implements PdfConversionStrategy {
         );
     }
 
+    /** Non-destructive reachability probe — never converts a document. */
+    async ping(): Promise<void> {
+        // Same operator-configured internal endpoint as convert(); see the
+        // justification for using raw fetch there.
+        // eslint-disable-next-line no-restricted-globals
+        const response = await fetch(`${normalizeBaseUrl(this.apiUrl)}/health`, {
+            method: 'GET',
+            signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
+        });
+        if (!response.ok) {
+            throw new Error(`health endpoint returned ${response.status}`);
+        }
+    }
+}
+
+export interface PdfConverterHealth {
+    /** The strategy this instance will try first. */
+    strategy: PdfStrategyName;
+    /** Whether that strategy is usable right now. Always true for local Puppeteer. */
+    reachable: boolean;
+    responseTimeMs?: number;
+    /**
+     * Internal diagnostic only. Callers exposing health publicly MUST NOT echo
+     * this — it can contain the converter URL or hostname.
+     */
+    error?: string;
 }
 
 /**
@@ -316,6 +344,56 @@ export class PdfConverter {
             return { strategy: this.fallback.name, fellBack: true };
         }
     }
+
+    /**
+     * Report whether the configured converter is usable. Local Puppeteer needs
+     * no probe and is always considered reachable; a configured API strategy is
+     * pinged with a short timeout.
+     */
+    async healthCheck(): Promise<PdfConverterHealth> {
+        if (!(this.strategy instanceof ApiStrategy)) {
+            return { strategy: this.strategy.name, reachable: true };
+        }
+
+        const startedAt = Date.now();
+        try {
+            await this.strategy.ping();
+            return {
+                strategy: this.strategy.name,
+                reachable: true,
+                responseTimeMs: Date.now() - startedAt,
+            };
+        } catch (error: unknown) {
+            return {
+                strategy: this.strategy.name,
+                reachable: false,
+                responseTimeMs: Date.now() - startedAt,
+                error: error instanceof Error ? error.message : String(error),
+            };
+        }
+    }
 }
 
 export const pdfConverter = new PdfConverter();
+
+/**
+ * Log which converter this process will use, once, at boot.
+ *
+ * Setting `PDF_CONVERTER_API_URL` against an unimplemented API strategy silently
+ * degraded every production PDF for weeks with nothing in the boot log to show
+ * it. This line, plus the `/health` field, is what makes that state visible.
+ */
+export function logPdfConverterSelection(): void {
+    const configured = process.env.PDF_CONVERTER_API_URL;
+    if (configured !== undefined && configured.length > 0) {
+        logger.info(
+            { strategy: 'gotenberg', fallback: 'puppeteer', timeoutMs: CONVERSION_TIMEOUT_MS },
+            'PDF converter: high-fidelity API configured, local Puppeteer as fallback'
+        );
+    } else {
+        logger.warn(
+            { strategy: 'puppeteer' },
+            'PDF converter: no PDF_CONVERTER_API_URL set — using local Puppeteer, which loses headers, footers, numbering and section layout'
+        );
+    }
+}
