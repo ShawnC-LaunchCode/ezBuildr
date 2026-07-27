@@ -357,7 +357,7 @@ fallback, and confirm with a test that a pinned run no longer drops anything.
 
 ---
 
-## RVP-4 — RunLifecycleService resolves start section and documents from the pinned definition 🔲
+## RVP-4 — RunLifecycleService resolves start section and documents from the pinned definition ✅
 
 **Priority: P1** · Size: S · File: `server/services/workflow-runs/RunLifecycleService.ts`
 
@@ -389,6 +389,89 @@ correctness and auditability problem, not just a UX one.
 
 - [ ] RVP-2, RVP-3, RVP-4 ✅ · gates green · affected integration files green
 - [ ] `grep -rn "findByWorkflowId\|findBySectionId" server/services/LogicService.ts server/services/runs/RunExecutionCoordinator.ts` returns only provider-internal or versionless-fallback uses
+
+---
+
+## RVP-7 — Persistence re-validates against live tables, defeating RVP-3 🔲
+
+**Priority: P0 (bug)** · Size: M · File: `server/services/runs/RunPersistenceWriter.ts`
+
+*Found by RVP-5 while writing the end-to-end regression suite, 2026-07-26. This
+is precisely what that suite exists to catch: every unit test mocks
+`RunPersistenceWriter`, so the interaction between the fixed coordinator and the
+unfixed writer was invisible until a real database was involved.*
+
+### Finding
+
+RVP-3 made `RunExecutionCoordinator.submitSection` resolve a section's steps
+from the run's pinned definition, so an answer to a question the author deleted
+after the run started is correctly accepted. It then hands those values to
+`RunPersistenceWriter`, which throws them out again by re-deriving membership
+from the **live** tables (`RunPersistenceWriter.ts:145-152`):
+
+```ts
+const workflowSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId);
+const stepsById = new Map(workflowSteps.map(s => [s.id, s]));
+...
+if (!stepsById.has(v.stepId)) {
+    throw new Error(`Step ${v.stepId} does not belong to workflow ${workflowId}`);
+}
+```
+
+`findByWorkflowIdWithAliases` filters soft-deleted steps (`isNull(steps.deletedAt)`),
+so a step still legitimately present in the run's pinned definition is rejected.
+`saveStepValue` (`:106-113`) has the same defect via `stepRepo.findById` +
+`sectionRepo.findById`.
+
+Observed against a real database:
+
+```
+Error: Step <id> does not belong to workflow <id>
+  at RunPersistenceWriter.bulkSave (RunPersistenceWriter.ts:152)
+  at RunExecutionCoordinator.submitSection (:144)
+```
+
+**This is worse than the pre-RVP-3 baseline.** RUN2-15 dropped the single
+unknown value with a warning and let the respondent continue; now `bulkSave`
+throws before persisting **any** value in the batch, so the whole section submit
+fails. It directly contradicts RVP-3's own AC2.
+
+### Preferred fix
+
+Resolve the step set the same way every other run decision now does: through
+`RunDefinitionProvider` (RVP-1), keyed on the run rather than the workflow.
+Every entry point already receives `runId`.
+
+- `bulkSave` builds `stepsById` from `definition.steps` instead of
+  `stepRepo.findByWorkflowIdWithAliases`.
+- `saveStepValue` checks membership against the same definition rather than
+  `stepRepo.findById` + `sectionRepo.findById`.
+- `validateBulkValues` keeps its current behaviour; widen its `stepsById`
+  parameter structurally so it accepts either a live `Step` row or the
+  provider's `RunStep`, exactly as RVP-2 did for `LogicContext` and RVP-3 did
+  for `validatePage`.
+
+A versionless run resolves through the provider's `source: 'live'` branch, so
+its behaviour is unchanged. Keep the membership check itself — it is the
+anti-mass-assignment guard; only its **source** changes.
+
+### Ties
+
+- Unblocks **RVP-5**, whose test should then pass unmodified — use it as the
+  acceptance check.
+- Depends on RVP-1; builds on RVP-3.
+- Load `add-api-endpoint`, `run-tests`.
+
+### Acceptance criteria
+
+1. A value for a step present in the run's pinned definition but soft-deleted
+   from the live workflow is persisted, not rejected.
+2. A value for a step that exists in neither is still refused — the
+   mass-assignment guard survives.
+3. A versionless run behaves exactly as today.
+4. Format validation (`validateBulkValues`) is unchanged in behaviour.
+5. `tests/integration/run-version-pinning-rvp5.test.ts` passes unmodified.
+6. Gates green: type-check, lint, `test:fast`, and the affected integration files.
 
 ---
 
@@ -429,6 +512,7 @@ refactor silently reintroduces the split.
 | RVP-1 | Extract a run-definition provider | ✅ Done 2026-07-26 (186d5c7b) |
 | RVP-6 | Pin every new run at creation (Option B) | ✅ Done 2026-07-26 |
 | RVP-2 | LogicService uses the pinned definition | ✅ Done 2026-07-26 |
-| RVP-3 | RunExecutionCoordinator uses the pinned definition | 🔄 In progress |
-| RVP-4 | RunLifecycleService uses the pinned definition | 🔲 Blocked on RVP-1 |
-| RVP-5 | End-to-end mid-run-edit regression suite | 🔲 Blocked on Phase 2 |
+| RVP-3 | RunExecutionCoordinator uses the pinned definition | ✅ Done 2026-07-26 |
+| RVP-4 | RunLifecycleService uses the pinned definition | ✅ Done 2026-07-26 |
+| RVP-7 | Persistence re-validates against live tables | 🔲 Open (blocks RVP-5) |
+| RVP-5 | End-to-end mid-run-edit regression suite | 🔲 Blocked on RVP-7 |
