@@ -60,11 +60,16 @@ for the quoted code if a reference is stale.
 
 ### Phase overview
 
-| Phase | Theme | Tickets | Est. effort |
-|---|---|---|---|
-| 1 | Delete dead code & stop advertising what doesn't work | DOCH-1, DOCH-2 | ~3 h |
-| 2 | ZIP & resource-exhaustion controls | DOCH-3, DOCH-4 | ~1 day |
-| 3 | Converter truthfulness & observability | DOCH-5, DOCH-6 | ~1 day |
+| Phase | Theme | Tickets | Est. effort | Status |
+|---|---|---|---|---|
+| 1 | Delete dead code & stop advertising what doesn't work | DOCH-1, DOCH-2 | ~3 h | 🔲 not started |
+| 2 | ZIP & resource-exhaustion controls | DOCH-3, DOCH-4 | ~1 day | 🔄 DOCH-3 ✅, DOCH-4 open |
+| 3 | Converter truthfulness & observability | DOCH-5, DOCH-6 | ~1 day | ✅ closed 2026-07-27 |
+
+**Worked out of order.** Phase 3 was pulled forward and completed first: DOCH-5/6
+turned out to describe a live production incident (every customer PDF degraded
+since `PDF_CONVERTER_API_URL` was set — see the Phase 3 Gate), which outranked
+both the remaining Phase 2 work and Phase 1's cleanup. **Next ticket is DOCH-4.**
 
 ### Baseline at audit time
 
@@ -350,7 +355,29 @@ genuinely missing from code. Explicitly out of scope: XXE hardening (§2's third
 item — needs an audit of which XML parsers are actually reachable, which is its own
 ticket), malware scanning, and S3 migration (both escalated).
 
-## DOCH-3 — Enforce ZIP-bomb limits on every DOCX ingestion path 🔲
+## DOCH-3 — Enforce ZIP-bomb limits on every DOCX ingestion path ✅
+
+> **Verified 2026-07-27** — commit `9efaae8e`. All 10 acceptance criteria met.
+> `server/utils/zipLimits.ts` reads declared sizes from the ZIP central directory
+> and inflates nothing; wired into POST and PATCH after the magic-byte check.
+> Unit tests cover oversized / high-ratio / traversal / absolute-path / normal;
+> the integration suite asserts 400 + message + temp-file cleanup + no DB
+> mutation across both routes for all four hostile archives.
+>
+> Two notes for whoever picks up DOCH-4:
+>
+> - The three template integration suites were uploading fixtures that this gate
+>   correctly rejects (a bare `PK\x03\x04` signature, and a stale base64 blob).
+>   They now build real minimal DOCX archives with `pizzip`. That ripple is in
+>   the same commit.
+> - The integration suite's temp-file assertion attributes leaks **by content**,
+>   not by filename or by diffing the `os.tmpdir()` listing. Four integration
+>   workers share that directory and multer's `file-<ts>-<hex>.docx` names
+>   identify nothing, so listing-based assertions pass alone and fail in a full
+>   run. Do not "simplify" it back.
+>
+> Residual risk, as the ticket anticipated: a ZIP can lie in its central
+> directory. This is the declared-size check only — see DOCH-B4 below.
 
 **Priority: P1** · Size: M · Files: new `server/utils/zipLimits.ts`, `server/routes/templates.routes.ts`
 
@@ -554,15 +581,27 @@ Add a real timeout and make it observable.
 
 ---
 
-## Phase 2 Gate
+## Phase 2 Gate — **OPEN** (DOCH-3 done, DOCH-4 not started)
 
 - [ ] DOCH-3, DOCH-4 both ✅ with dated verification notes
-- [ ] `npm run type-check` → 0 errors; `npm run lint` → 0 errors
-- [ ] `npm run test:fast` green ≥ baseline; `npm run test:integration` for template
-      routes green
+      — DOCH-3 ✅ 2026-07-27 (`9efaae8e`); **DOCH-4 not started**
+- [x] `npm run type-check` → 0 errors; `npm run lint` → 0 errors *(2026-07-27)*
+- [x] `npm run test:fast` green ≥ baseline; `npm run test:integration` for template
+      routes green *(1958 passed vs 1896 baseline; the four affected integration
+      suites green together across three consecutive runs)*
 - [ ] `docs/hardening/docx-editor-gate.md` §2 zip-bomb and timeout boxes checked,
       with the implementing file cited next to each
+      — zip-bomb box is satisfied by `server/utils/zipLimits.ts`; the timeout box
+      stays open until DOCH-4. Check both together when DOCH-4 lands, so the doc
+      is never half-updated.
 - [ ] Reviewer has committed each passed ticket + this gate
+      — DOCH-3 committed; gate cannot close until DOCH-4 does.
+
+> **Phase order note (2026-07-27):** this initiative was worked out of order —
+> Phase 3 completed before Phase 2's second ticket and before Phase 1 started,
+> because DOCH-5/6 turned out to describe a *live production incident* (see the
+> Phase 3 gate) rather than a latent risk. DOCH-4 remains the next ticket and
+> still rebases onto DOCH-3's two `templates.routes.ts` blocks as its Ties say.
 
 ---
 
@@ -572,7 +611,36 @@ Both tickets concern `PdfConverter` and the record it leaves behind. Out of scop
 actually deploying Gotenberg or flipping the production default (escalated), and
 golden-fixture PDF comparison in CI (#168's larger ask — a separate initiative).
 
-## DOCH-5 — Record which converter actually produced each PDF 🔲
+## DOCH-5 — Record which converter actually produced each PDF ✅
+
+> **Verified 2026-07-27** — commit `9d7b9b86`. The prerequisite uncommitted
+> `ApiStrategy` work described in the caveat above was present; it has been
+> hardened (60s `AbortSignal.timeout` budget, empty-body rejection, upstream
+> status/body in the error, trailing-slash normalisation) and committed here
+> rather than separately, because a real Gotenberg client and truthful recording
+> of which converter ran are one atomic change — splitting them would create an
+> intermediate commit that reintroduces the exact silent-fallback bug.
+>
+> **Deviation from AC 1 and AC 7, decided by Shawn 2026-07-27:** the route
+> schemas do **not** widen to accept `'gotenberg'`. Caller-supplied `pdfStrategy`
+> is removed outright from `finalBlock.routes`, `EnhancedDocumentEngine`,
+> `FinalBlockRenderer`, `RunLifecycleService` and `TemplatePreviewService`. The
+> strategy is derived from `PDF_CONVERTER_API_URL`, so a caller-facing knob could
+> only be ignored or believed, and either reintroduces the lie this ticket
+> exists to remove — AC 2 ("no caller infers the strategy") is only actually true
+> with the field gone. Backward compatible: `z.object` strips the unknown key, so
+> a client still sending `pdfStrategy` gets 200, not 400.
+>
+> AC 4's mechanism, as required: fallback is **not** given its own column (AC 8
+> forbids a migration). A `puppeteer` row on an instance with
+> `PDF_CONVERTER_API_URL` set means the high-fidelity converter failed, and
+> `PdfConverter.convert` logs that at `error` naming both strategies. The
+> in-memory `pdfFellBack` flag is returned through the API response but not
+> persisted — see DOCH-B5.
+>
+> Live-verified against real Gotenberg 8 (not stubs): configured+reachable →
+> valid PDF recorded `gotenberg`; configured+down → falls back, records
+> `puppeteer`, `fellBack: true`; unconfigured → `puppeteer`, no fallback.
 
 **Priority: P1** · Size: M · Files: `server/services/document/PdfConverter.ts`, `server/routes/finalBlock.routes.ts`, `server/services/document/{DocumentEngine,EnhancedDocumentEngine,FinalBlockRenderer}.ts`, `server/services/workflow-runs/{RunLifecycleService,types}.ts`, `server/services/TemplatePreviewService.ts`
 
@@ -689,7 +757,25 @@ Make the converter report, and widen the type to admit the truth.
 
 ---
 
-## DOCH-6 — Health-check the PDF converter and surface it 🔲
+## DOCH-6 — Health-check the PDF converter and surface it ✅
+
+> **Verified 2026-07-27** — commit `9fd5a0fa`. All 10 acceptance criteria met.
+> `healthCheck()` probes Gotenberg's own `GET /health` with a 3s budget and never
+> converts a document; `/health` gains a `pdfConverter` field shaped like the
+> `database` block; unreachable is `degraded` at HTTP 200, never 503; `/ready`
+> and `/live` are untouched and asserted to never probe the converter.
+>
+> AC 6 (no URL/hostname/raw error in an unauthenticated body) is asserted
+> directly in `tests/unit/routes/health.routes.test.ts`, together with the
+> positive assertion that the operator still gets the raw error via
+> `logger.error`. A sixth test pins that the converter check can only downgrade
+> `healthy` and cannot mask a failing database.
+>
+> Live-verified against real Gotenberg 8: reachable → `responseTimeMs: 28`;
+> pointed at a dead port → `reachable: false` and the app degrades rather than
+> failing. `.env.example` documented the converter, storage, malware-scanning and
+> processing-limit variables — including DOCH-3's ZIP guards — none of which
+> existed there before.
 
 **Priority: P2** · Size: M · Files: `server/services/document/PdfConverter.ts`, `server/routes/health.ts`
 
@@ -768,15 +854,43 @@ with nothing to alert on.
 
 ---
 
-## Phase 3 Gate
+## Phase 3 Gate — **CLOSED 2026-07-27**
 
-- [ ] DOCH-5, DOCH-6 both ✅ with dated verification notes
-- [ ] `npm run type-check` → 0 errors; `npm run lint` → 0 errors
-- [ ] `npm run test:fast` green ≥ baseline
-- [ ] `GET /health` verified live against the running dev server in both
-      converter-configured and unconfigured states (load the `verify` skill)
-- [ ] `shared/schema/` untouched across the whole phase; `git diff --stat` proves it
-- [ ] Reviewer has committed each passed ticket + this gate
+- [x] DOCH-5, DOCH-6 both ✅ with dated verification notes
+- [x] `npm run type-check` → 0 errors; `npm run lint` → 0 errors
+- [x] `npm run test:fast` green ≥ baseline — **1958 passed** vs 1896 baseline
+- [x] `GET /health` verified live against the running dev server in both
+      converter-configured and unconfigured states
+- [x] `shared/schema/` untouched across the whole phase — `git diff --stat
+      db74580b..HEAD` lists 22 files, none under `shared/`
+- [x] Reviewer has committed each passed ticket + this gate
+      — `9d7b9b86` (DOCH-5), `9fd5a0fa` (DOCH-6)
+
+> **This phase was a live production incident, not a latent risk.**
+>
+> Railway had `PDF_CONVERTER_API_URL=http://gotenberg.railway.internal:3000` set
+> against a deployed `ApiStrategy.convert` that threw
+> `'API PDF conversion not fully implemented'` before contacting anything. Setting
+> that variable made the API strategy *primary*, so every conversion threw, was
+> caught, and silently ran the Puppeteer fallback. **100% of PDFs generated since
+> that variable was set were low-fidelity** — no headers, footers, page or list
+> numbering, table structure, fonts or section layout — while
+> `run_generated_documents.pdf_strategy` recorded a hardcoded `'puppeteer'` that
+> made a degraded document indistinguishable from a correct one. Gotenberg ran
+> and billed without receiving a single request.
+>
+> The core product promise — generated PDFs matching approved Word templates —
+> was silently broken, and setting the variable is what broke it.
+>
+> DOCH-6 is the ticket that would have caught this: a converter health check at
+> startup would have failed loudly on the first boot after the variable was set.
+> DOCH-5 would have made it visible in the database. Both were specified before
+> anyone knew this was happening.
+>
+> **Still required after merge** — the fix is not delivered until deployed:
+> confirm the boot log names `gotenberg`, `GET /health` reports
+> `pdfConverter.reachable: true`, and one generated document writes
+> `pdf_strategy='gotenberg'`. Until then production keeps serving degraded PDFs.
 
 ---
 
@@ -809,3 +923,23 @@ Not phase-gated. Verified but too small or too speculative to dispatch yet.
   browser instance. Worth its own ticket after DOCH-4 establishes the helper.
 - **`docs/hardening/docx-editor-gate.md` is still marked `Status: Draft`** while
   being cited as a blocking gate. Someone should own promoting or retiring it.
+- **DOCH-B4 — streaming-inflate cap.** DOCH-3 landed the declared-size check the
+  gate doc asks for, but a ZIP can lie in its central directory: an archive can
+  declare 1 MB and inflate to gigabytes. Closing that needs a cap enforced *during*
+  inflation, which means either a streaming unzip in `TemplateScanner` or a
+  hard memory ceiling around it. Filed as anticipated by DOCH-3's ticket text.
+- **DOCH-B5 — `pdfFellBack` is computed but never persisted.** `PdfConverter`
+  reports it, `FinalBlockRenderer` and the workflow-runs DTO carry it out through
+  the API, and then `RunLifecycleService` drops it because
+  `run_generated_documents` has no column and DOCH-5 AC 8 forbade a migration.
+  Fallback is currently only recoverable by inference (a `puppeteer` row on an
+  instance with `PDF_CONVERTER_API_URL` set) plus the error log. A one-column
+  migration would make it queryable — worth doing when a schema change is next
+  acceptable.
+- **DOCH-B6 — some upload path leaks multer temp files.** Observed 2026-07-27
+  while verifying DOCH-3: 17 orphaned `file-<ts>-<hex>.docx` files in `%TEMP%`,
+  all 878 bytes, spanning three days of test runs. DOCH-3's rejection paths are
+  *not* the source — its integration suite proves cleanup on all four hostile
+  archives across both routes. Something else (a success path, or an earlier
+  failure branch) skips `cleanupFile`. Needs an audit of every `req.file.path`
+  branch in `templates.routes.ts`, not a guess.

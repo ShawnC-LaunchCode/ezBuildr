@@ -4,8 +4,10 @@ import path from "path";
 
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 
+import { logger } from "../../../server/logger";
 import {
   ApiStrategy,
+  logPdfConverterSelection,
   PdfConverter,
   PuppeteerStrategy,
 } from "../../../server/services/document/PdfConverter";
@@ -219,6 +221,52 @@ describe("PdfConverter.healthCheck", () => {
 
     expect(health.reachable).toBe(false);
     expect(health.error).toMatch(/ENOTFOUND/);
+  });
+});
+
+describe("logPdfConverterSelection", () => {
+  /**
+   * Both branches must log at `warn`, not `info`.
+   *
+   * This line is how an operator confirms which converter a deployed instance
+   * picked. Deployments run with LOG_LEVEL=warn, so an info-level line is
+   * filtered out and the boot log stays silent — which is exactly what happened
+   * when this was first written, and exactly the blind spot it exists to close.
+   */
+  const originalUrl = process.env.PDF_CONVERTER_API_URL;
+
+  afterEach(() => {
+    if (originalUrl === undefined) {
+      delete process.env.PDF_CONVERTER_API_URL;
+    } else {
+      process.env.PDF_CONVERTER_API_URL = originalUrl;
+    }
+  });
+
+  it("announces the API converter at a level that survives LOG_LEVEL=warn", () => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => logger);
+    const info = vi.spyOn(logger, "info").mockImplementation(() => logger);
+    process.env.PDF_CONVERTER_API_URL = API_URL;
+
+    logPdfConverterSelection();
+
+    expect(info).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ strategy: "gotenberg", fallback: "puppeteer" }),
+      expect.stringContaining("high-fidelity")
+    );
+  });
+
+  it("warns loudly when no converter is configured", () => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => logger);
+    delete process.env.PDF_CONVERTER_API_URL;
+
+    logPdfConverterSelection();
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ strategy: "puppeteer" }),
+      expect.stringContaining("PDF_CONVERTER_API_URL")
+    );
   });
 });
 

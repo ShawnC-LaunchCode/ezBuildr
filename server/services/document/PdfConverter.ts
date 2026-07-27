@@ -386,7 +386,14 @@ export const pdfConverter = new PdfConverter();
 export function logPdfConverterSelection(): void {
     const configured = process.env.PDF_CONVERTER_API_URL;
     if (configured !== undefined && configured.length > 0) {
-        logger.info(
+        // `warn`, not `info`, even though this is the healthy case. This line
+        // exists to be *read* — it is how an operator confirms which converter a
+        // deployed instance actually picked. Deployments here run with
+        // `LOG_LEVEL=warn` (see .env), which would filter an info line out and
+        // leave exactly the blind spot this function was added to close. Same
+        // reasoning as `serving on port` in server/index.ts: a once-per-process
+        // operational fact must survive log-level filtering.
+        logger.warn(
             { strategy: 'gotenberg', fallback: 'puppeteer', timeoutMs: CONVERSION_TIMEOUT_MS },
             'PDF converter: high-fidelity API configured, local Puppeteer as fallback'
         );
