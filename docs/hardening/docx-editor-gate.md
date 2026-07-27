@@ -25,9 +25,10 @@ Before enabling any "DOCX Editor" features in production, the following hardenin
     -   *Validation:* Re-run `templateScanner.scanAndFix()` on editor output to ensure it remains a valid, clean DOCX.
 
 ### 2. Parsing Safety (Server-Side)
--   [ ] **Zip Bomb Protection:** Ensure the DOCX parser enforces a compression ratio limit (e.g., max 100x expansion) and max uncompressed size (e.g., 256MB).
+-   [x] **Zip Bomb Protection:** DOCX uploads enforce a 100x compression-ratio limit, a 256MB uncompressed-size limit, and archive-path safety in `server/utils/zipLimits.ts`.
 -   [ ] **XXE Prevention:** Configure any XML parsers (used for `document.xml` or `styles.xml`) to **disable external entity resolution** (`resolveExternalEntities: false`).
--   [ ] **Timeout Enforcement:** Wrap all DOCX processing (parsing, regeneration) in `documentProcessingLimiter` or a strict timeout (e.g., 5s). Fail safe if processing hangs.
+-   [x] **Timeout Enforcement:** Template DOCX/PDF parsing runs inside `documentProcessingLimiter` with `withTimeout` from `server/utils/concurrency.ts`. The default is 30s (environment-overridable via `DOCUMENT_PROCESSING_TIMEOUT_MS`); the illustrative 5s budget is too tight for normal 10MB uploads on small Railway instances.
+    -   *Scope, verified 2026-07-27:* `withTimeout` is a `Promise.race`, so it bounds **asynchronous** stalls and frees the concurrency slot, but it **cannot interrupt synchronous CPU-bound work** — a blocked event loop also blocks the timer. Measured: a 1500ms synchronous spin under a 100ms budget did not time out and ran to completion. `PizZip` parsing and `zip.generate()` are synchronous, so a pathological archive that spins the parser is bounded by the **ZIP limits above** (rejected before parsing), not by this timeout. Fully bounding CPU spin needs worker-thread offload — see DOCH-B7.
 
 ### 3. Editor UI Security
 -   [ ] **CSP Updates:** Update Content Security Policy to allow *only* necessary sources for the editor (e.g., fonts, scripts).

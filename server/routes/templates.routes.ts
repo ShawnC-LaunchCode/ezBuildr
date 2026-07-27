@@ -28,7 +28,10 @@ import { requirePermission } from '../middleware/rbac';
 import { requireTenant } from '../middleware/tenant';
 import { pdfService } from '../services/document/PdfService';
 import { templateScanner } from '../services/document/TemplateScanner';
-import { documentProcessingLimiter } from '../services/processingLimiter';
+import {
+  DOCUMENT_PROCESSING_TIMEOUT_MS,
+  documentProcessingLimiter,
+} from '../services/processingLimiter';
 import { virusScanner } from '../services/security/VirusScanner';
 import { storageQuotaService } from '../services/StorageQuotaService';
 import {
@@ -37,6 +40,7 @@ import {
   extractPlaceholders,
 } from '../services/templates';
 import { asyncHandler } from '../utils/asyncHandler';
+import { isProcessingTimeoutError, withTimeout } from '../utils/concurrency';
 import { createError, formatErrorResponse } from '../utils/errors';
 import { createPaginatedResponse, decodeCursor } from '../utils/pagination';
 
@@ -97,6 +101,25 @@ const cleanupFile = async (filePath?: string): Promise<void> => {
 
 function isErrorWithCode(err: unknown): err is Error & { code: string } {
   return err instanceof Error && 'code' in err;
+}
+
+function rethrowProcessingTimeout(error: unknown): void {
+  if (!isProcessingTimeoutError(error)) {
+    return;
+  }
+
+  logger.error(
+    {
+      error,
+      label: error.label,
+      elapsedMs: error.elapsedMs,
+      timeoutMs: error.timeoutMs,
+    },
+    'Document processing timed out'
+  );
+  throw createError.validation(
+    `Document processing timeout: ${error.label} exceeded ${error.timeoutMs}ms`
+  );
 }
 
 async function collectDocxPlaceholderWarnings(fileBuffer: Buffer): Promise<string[]> {
@@ -287,7 +310,13 @@ router.post(
       let pdfMetadata: PdfMetadata = { pageCount: 0, fields: [], isEncrypted: false };
       if (!isPdf) {
         try {
-          const docxScanResult = await documentProcessingLimiter.run(() => templateScanner.scanAndFix(fileBuffer));
+          const docxScanResult = await documentProcessingLimiter.run(() =>
+            withTimeout(
+              () => templateScanner.scanAndFix(fileBuffer),
+              DOCUMENT_PROCESSING_TIMEOUT_MS,
+              'template-create-docx-scan'
+            )
+          );
           if (!docxScanResult.isValid) {
             throw createError.validation(
               `Invalid template: ${docxScanResult.errors?.join(', ') ?? 'unknown error'}`
@@ -307,18 +336,22 @@ router.post(
             
           } catch (error: unknown) {
           await cleanupFile(req.file.path);
+          rethrowProcessingTimeout(error);
           if (isErrorWithCode(error) && error.code === 'VALIDATION_ERROR') { throw error; }
           throw createError.validation(`Template validation failed: ${isErrorWithCode(error) ? error.message : String(error)}`);
         }
       } else {
         try {
-          fileBuffer = await documentProcessingLimiter.run(async () => {
-            const unlocked = await pdfService.unlockPdf(fileBuffer);
-            pdfMetadata = await pdfService.extractFields(unlocked);
-            return unlocked;
-          });
+          fileBuffer = await documentProcessingLimiter.run(() =>
+            withTimeout(async () => {
+              const unlocked = await pdfService.unlockPdf(fileBuffer);
+              pdfMetadata = await pdfService.extractFields(unlocked);
+              return unlocked;
+            }, DOCUMENT_PROCESSING_TIMEOUT_MS, 'template-create-pdf-processing')
+          );
         } catch (error: unknown) {
           await cleanupFile(req.file.path);
+          rethrowProcessingTimeout(error);
           logger.error({ error }, 'PDF processing failed');
           throw createError.validation(`PDF processing failed: ${isErrorWithCode(error) ? error.message : String(error)}`);
         }
@@ -454,7 +487,13 @@ router.patch(
         let pdfMetadata: PdfMetadata = { pageCount: 0, fields: [], isEncrypted: false };
         if (!isPdf) {
           try {
-            const docxScanResult = await documentProcessingLimiter.run(() => templateScanner.scanAndFix(fileBuffer));
+            const docxScanResult = await documentProcessingLimiter.run(() =>
+              withTimeout(
+                () => templateScanner.scanAndFix(fileBuffer),
+                DOCUMENT_PROCESSING_TIMEOUT_MS,
+                'template-update-docx-scan'
+              )
+            );
             // eslint-disable-next-line max-depth -- nested validation inside try/if
             if (!docxScanResult.isValid) {
               logger.error({ errors: docxScanResult.errors }, 'Template validation failed in API (PATCH)');
@@ -469,19 +508,23 @@ router.patch(
             }
           } catch (error: unknown) {
             await cleanupFile(req.file.path);
+            rethrowProcessingTimeout(error);
             // eslint-disable-next-line max-depth -- nested re-throw inside try/if
             if (isErrorWithCode(error) && error.code === 'VALIDATION_ERROR') { throw error; }
             throw createError.validation(`Template validation failed: ${isErrorWithCode(error) ? error.message : String(error)}`);
           }
         } else {
           try {
-            fileBuffer = await documentProcessingLimiter.run(async () => {
-              const unlocked = await pdfService.unlockPdf(fileBuffer);
-              pdfMetadata = await pdfService.extractFields(unlocked);
-              return unlocked;
-            });
+            fileBuffer = await documentProcessingLimiter.run(() =>
+              withTimeout(async () => {
+                const unlocked = await pdfService.unlockPdf(fileBuffer);
+                pdfMetadata = await pdfService.extractFields(unlocked);
+                return unlocked;
+              }, DOCUMENT_PROCESSING_TIMEOUT_MS, 'template-update-pdf-processing')
+            );
           } catch (error: unknown) {
             await cleanupFile(req.file.path);
+            rethrowProcessingTimeout(error);
             logger.error({ error }, 'PDF processing failed (PATCH)');
             throw createError.validation(`PDF processing failed: ${isErrorWithCode(error) ? error.message : String(error)}`);
           }
