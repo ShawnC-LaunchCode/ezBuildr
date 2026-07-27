@@ -50,9 +50,6 @@ export interface EnhancedGenerationOptions extends Omit<DocumentGenerationOption
   /** Whether to apply normalization (default: true) */
   normalize?: boolean;
 
-  /** PDF conversion strategy */
-  pdfStrategy?: 'puppeteer';
-
   /** Template row id (uuid) — enables generation metrics tracking */
   templateId?: string;
 
@@ -114,9 +111,6 @@ export interface FinalBlockRenderOptions {
 
   /** Whether to convert to PDF */
   toPdf?: boolean;
-
-  /** PDF conversion strategy */
-  pdfStrategy?: 'puppeteer';
 
   /** Normalization options */
   normalizationOptions?: NormalizationOptions;
@@ -377,14 +371,12 @@ export class EnhancedDocumentEngine {
       stepValues,
       outputDir,
       toPdf = false,
-      pdfStrategy = 'puppeteer',
       normalizationOptions = {},
     } = options;
 
     logger.info({
       documentCount: documents.length,
       toPdf,
-      pdfStrategy,
     }, 'Rendering Final Block documents');
 
     // Pre-normalize step values once (reused for all documents)
@@ -424,7 +416,6 @@ export class EnhancedDocumentEngine {
           outputName: options.runId ? `${options.runId}_${doc.alias}` : doc.alias,
           outputDir,
           toPdf,
-          pdfStrategy,
           normalizationOptions,
           normalize: true,
           // No runId here: metrics run_id references the graph runs table,

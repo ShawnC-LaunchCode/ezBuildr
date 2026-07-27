@@ -29,7 +29,6 @@ export interface GenerateDocumentsOptions {
   runData?: RunData;
   finalStepId?: string;
   toPdf?: boolean;
-  pdfStrategy?: 'puppeteer';
 }
 
 // RUN2-20: `initialValues` may come straight from a URL query string
@@ -463,7 +462,6 @@ export class RunLifecycleService {
           runId: run.id,
           resolveTemplate,
           toPdf: options.toPdf ?? false,
-          pdfStrategy: options.pdfStrategy ?? 'puppeteer',
         });
         totalGenerated += generationResult.totalGenerated;
         documents.push(...generationResult.documents);
@@ -483,7 +481,15 @@ export class RunLifecycleService {
               fileSize: doc.size,
               templateId: null,
               unresolvedVariables: doc.unresolvedVariables ?? [],
-              pdfStrategy: doc.pdfStrategy ?? (options.toPdf ? options.pdfStrategy ?? 'puppeteer' : undefined),
+              // Whichever converter actually ran. Never defaulted: recording a
+              // guess here is what made silently degraded PDFs invisible.
+              //
+              // Fallback is not stored separately (no column, and this change
+              // deliberately avoids a migration) but it is recoverable: a
+              // 'puppeteer' row on a server with PDF_CONVERTER_API_URL set means
+              // the high-fidelity converter failed. The fallback itself is
+              // logged at error level in PdfConverter.convert.
+              pdfStrategy: doc.pdfStrategy,
             });
           } catch (persistError) {
             logger.warn({ persistError, runId, filename: doc.filename }, 'Failed to persist generated document record');

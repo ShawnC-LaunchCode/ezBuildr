@@ -42,7 +42,6 @@ const logger = createLogger({ module: 'finalBlock-routes' });
 const generateFinalDocumentsSchema = z.object({
   stepId: z.string().uuid(),
   toPdf: z.boolean().optional().default(false),
-  pdfStrategy: z.enum(['puppeteer']).optional().default('puppeteer'),
 });
 
 const previewGenerateSchema = z.object({
@@ -61,7 +60,6 @@ const previewGenerateSchema = z.object({
   }),
   stepValues: z.record(z.any()),
   toPdf: z.boolean().optional().default(false),
-  pdfStrategy: z.enum(['puppeteer']).optional().default('puppeteer'),
 });
 
 // ============================================================================
@@ -105,7 +103,7 @@ export function registerFinalBlockRoutes(app: Express): void {
 
         // Validate request body
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        const { stepId, toPdf, pdfStrategy } = generateFinalDocumentsSchema.parse(req.body);
+        const { stepId, toPdf } = generateFinalDocumentsSchema.parse(req.body);
 
         logger.info({
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -134,7 +132,6 @@ export function registerFinalBlockRoutes(app: Express): void {
         const result = await runService.generateDocuments(run.id, {
           finalStepId: stepId,
           toPdf,
-          pdfStrategy,
         });
 
         logger.info({
@@ -199,7 +196,6 @@ export function registerFinalBlockRoutes(app: Express): void {
           finalBlockConfig,
           stepValues,
           toPdf,
-          pdfStrategy,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         } = previewGenerateSchema.parse(req.body);
 
@@ -237,7 +233,6 @@ export function registerFinalBlockRoutes(app: Express): void {
           runId: `preview-${Date.now()}`, // Temporary run ID for preview
           resolveTemplate,
           toPdf,
-          pdfStrategy,
         });
 
         logger.info({

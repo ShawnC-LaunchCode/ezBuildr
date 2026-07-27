@@ -172,7 +172,6 @@ export class TemplatePreviewService {
         outputName: `preview-${nanoid(8)}`,
         outputDir: tempOutputDir,
         toPdf: outputFormat === 'pdf',
-        pdfStrategy: 'puppeteer',
         normalize: true,
       });
 

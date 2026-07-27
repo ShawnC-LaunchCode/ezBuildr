@@ -26,6 +26,7 @@ import { enhancedDocumentEngine } from './EnhancedDocumentEngine.js';
 import { createFinalBlockZip, type ZipDocument, type ZipResult } from './ZipBundler.js';
 
 import type { EnhancedGenerationResult } from './EnhancedDocumentEngine.js';
+import type { PdfStrategyName } from './PdfConverter.js';
 import type { FinalBlockConfig } from '../../../shared/types/stepConfigs.js';
 
 
@@ -57,9 +58,6 @@ export interface FinalBlockRenderRequest {
   /** Whether to convert documents to PDF */
   toPdf?: boolean;
 
-  /** PDF conversion strategy */
-  pdfStrategy?: 'puppeteer';
-
   /** Output directory (optional, defaults to server/files/archives) */
   outputDir?: string;
 }
@@ -76,7 +74,10 @@ export interface FinalBlockRenderResponse {
     mimeType: string;
     size: number;
     unresolvedVariables?: string[];
-    pdfStrategy?: string;
+    /** The converter that actually produced the PDF, observed at generation time. */
+    pdfStrategy?: PdfStrategyName;
+    /** True when the high-fidelity converter failed and a degraded one produced the PDF. */
+    pdfFellBack?: boolean;
     pdfFailed?: boolean;
   }>;
 
@@ -136,7 +137,6 @@ export class FinalBlockRenderer {
       runId,
       resolveTemplate,
       toPdf = false,
-      pdfStrategy = 'puppeteer',
       outputDir = path.join(process.cwd(), 'server', 'files', 'archives'),
     } = request;
 
@@ -210,7 +210,6 @@ export class FinalBlockRenderer {
       stepValues: enhancedStepValues,
       outputDir,
       toPdf,
-      pdfStrategy,
       runId,
     });
 
@@ -242,8 +241,7 @@ export class FinalBlockRenderer {
     // Step 3: Prepare response documents
     const documents = await this.prepareResponseDocuments(
       generationResult.documents,
-      toPdf,
-      pdfStrategy
+      toPdf
     );
 
     // Step 4: Create ZIP archive if multiple documents
@@ -337,8 +335,7 @@ export class FinalBlockRenderer {
    */
   private async prepareResponseDocuments(
     results: EnhancedGenerationResult[],
-    toPdf: boolean,
-    pdfStrategy: 'puppeteer'
+    toPdf: boolean
   ): Promise<FinalBlockRenderResponse['documents']> {
     const documents: FinalBlockRenderResponse['documents'] = [];
 
@@ -359,7 +356,12 @@ export class FinalBlockRenderer {
         mimeType,
         size: stats.size,
         unresolvedVariables: result.unresolvedVariables,
-        pdfStrategy: toPdf ? pdfStrategy : undefined,
+        // Observed, not requested: whichever converter actually ran for THIS
+        // document. Previously this recorded a hardcoded 'puppeteer' regardless,
+        // so Gotenberg output and a silent fallback to the low-fidelity path
+        // were indistinguishable in the audit trail.
+        pdfStrategy: toPdf ? result.pdfStrategy : undefined,
+        pdfFellBack: toPdf ? result.pdfFellBack : undefined,
         pdfFailed: result.pdfFailed,
       });
     }
