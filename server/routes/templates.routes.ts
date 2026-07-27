@@ -261,6 +261,14 @@ router.post(
         await cleanupFile(req.file.path);
         throw createError.validation('File type mismatch (Magic Bytes validation failed)');
       }
+      if (!isPdf) {
+        const { validateZipLimits } = await import('../utils/zipLimits');
+        const zipValidation = validateZipLimits(fileBuffer, req.file.originalname);
+        if (!zipValidation.ok) {
+          await cleanupFile(req.file.path);
+          throw createError.validation(`Invalid DOCX archive: ${zipValidation.reason ?? 'ZIP safety validation failed'}`);
+        }
+      }
       const scanResult = await virusScanner().scan(fileBuffer, req.file.originalname);
       if (!scanResult.safe) {
         await cleanupFile(req.file.path);
@@ -420,6 +428,15 @@ router.patch(
           await cleanupFile(req.file.path);
           throw createError.validation('File type mismatch (Magic Bytes validation failed)');
         }
+        const isPdf = req.file.mimetype === 'application/pdf' || req.file.originalname.endsWith('.pdf');
+        if (!isPdf) {
+          const { validateZipLimits } = await import('../utils/zipLimits');
+          const zipValidation = validateZipLimits(fileBuffer, req.file.originalname);
+          if (!zipValidation.ok) {
+            await cleanupFile(req.file.path);
+            throw createError.validation(`Invalid DOCX archive: ${zipValidation.reason ?? 'ZIP safety validation failed'}`);
+          }
+        }
         const virusScanResult = await virusScanner().scan(fileBuffer, req.file.originalname);
         if (!virusScanResult.safe) {
           await cleanupFile(req.file.path);
@@ -434,7 +451,6 @@ router.patch(
           { filename: req.file.originalname, scanner: virusScanResult.scannerName },
           'Virus scan passed (PATCH)'
         );
-        const isPdf = req.file.mimetype === 'application/pdf' || req.file.originalname.endsWith('.pdf');
         let pdfMetadata: PdfMetadata = { pageCount: 0, fields: [], isEncrypted: false };
         if (!isPdf) {
           try {
