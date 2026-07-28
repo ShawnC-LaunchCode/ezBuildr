@@ -16,6 +16,7 @@ const dbUnitTests = [
   "tests/unit/portability/exportBlobs.test.ts",
   "tests/unit/portability/exportSecrets.test.ts",
   "tests/unit/portability/exportRedaction.test.ts",
+  "tests/unit/portability/importPreview.test.ts",
 ];
 
 // Integration tests excluded from the default run (require special setup)

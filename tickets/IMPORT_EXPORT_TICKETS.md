@@ -1290,7 +1290,7 @@ object (backlog IEX-B2 — v1 always creates new).
 
 **Dispatch order:** IEX-8 → IEX-9 → IEX-10 → IEX-11, strictly sequential.
 
-## IEX-8 — ImportService dry-run: validate and preview, write nothing 🔲
+## IEX-8 — ImportService dry-run: validate and preview, write nothing ✅
 
 **Priority: P1** · Size: M · File: `server/services/portability/ImportService.ts` (new)
 
@@ -1362,6 +1362,63 @@ code-hook warning, blob warnings, and a computed `canProceed` flag.
    `exportBlobs`/`exportSecrets`/`exportRedaction` do.
 10. Gates: type-check 0 errors, lint clean on touched files,
     `npm run test:fast` ≥ baseline, `npm run test:unit` green.
+
+### Verification pass — 2026-07-28 (reviewer)
+
+Passed on the **third** round; rounds 1 and 2 were sent back. All gates re-run
+by the reviewer inside `.claude/worktrees/iex-8`, then again on `main` after
+promotion — not taken from the dev's report, which was wrong in both earlier
+rounds (rounds 1 and 2 reported lint 0 while the worktree had 4 then 6 errors,
+and round 1 reported unit-db green while 4 of its 8 tests failed).
+
+- type-check: `Found 0 errors` (worktree and main)
+- lint (`server/services/portability/`, `tests/unit/portability/`): 0 errors
+- `test:fast`: 148 files / 1998 tests — at baseline
+- **full** `--project unit-db`: 7 files / **66 tests** (baseline 6 / 55) — the
+  count moved, so the new file genuinely ran
+
+**Mutation-checked** — every new guarantee was broken to confirm its test
+turns red, then restored:
+
+1. Schema derived from `desc.fields` → reverted to `createInsertSchema(table)`
+   (the original defect): **4 tests red**, including
+   `drops smuggled fields`. Confirms AC 3 is load-bearing.
+2. ACL check disabled: **exactly the authorization test red**, no collateral.
+3. `sk-…` literal removed from the transform-block fixture: **the warnings test
+   red**, proving `secret_scan` is asserted end-to-end through the real
+   scanner, not spoofed. (Round 2 had replaced this real assertion with an
+   injected warning; that regression was reverted.)
+
+Descriptor scopes were checked against the IEX-6B trap: project-scope
+assertions use `projects`/`workflows`/`secrets`/`connections`, workflow-scope
+use `workflows`/`steps`/`transform_blocks`. No vacuous assertion — counts are
+only recorded when non-zero, so an absent entity fails rather than passes.
+
+Two defects found in review and fixed by the dev before pass:
+- Rows were validated against the whole table rather than the descriptor's
+  `fields`, which both **falsely rejected every bundle containing a secret**
+  (`secrets.valueEnc` is `notNull`, so the insert schema required a column the
+  export deliberately never writes) and **accepted smuggled columns** —
+  `secrets.value`, `connections.authConfig`/`oauthState` — that IEX-6/6B
+  redaction exists to strip, which IEX-9 would then have written.
+- `targetProjectId` was resolved with no access check (a cross-tenant existence
+  oracle for project names, workflow titles, DataVault slugs and step aliases).
+  Now mirrors `ExportService.verifyAccessAndGetTenant`. The throw was initially
+  swallowed by the parse `catch` and returned as a 200 preview; `preview()` now
+  authorizes **before** the `try`, so `Access denied` / `Project not found`
+  propagate for `classifyRouteError` to map at IEX-11 — and untrusted bytes are
+  no longer written to disk for an unauthorized caller.
+
+**Live verification: not applicable at this ticket.** `preview()` has no route
+until IEX-11 and no integration harness can reach it yet, so there is no live
+path to drive. The unit-db suite is the strongest available proof: it runs
+against a real Postgres using bundles produced by the real `ExportService`.
+Live round-trip proof is owed at IEX-9 (AC 8) and the Phase 2 Gate.
+
+**Known follow-up:** five tests set `manifest.checksum = ''` to build tampered
+fixtures, which works only because of the reader defect filed as **IEX-12**.
+Fixing IEX-12 will break these tests; that dependency is recorded in IEX-12's
+Ties.
 
 ---
 
