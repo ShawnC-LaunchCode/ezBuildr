@@ -759,7 +759,11 @@ Carried forward, not blocking:
 ## IEX-6 — Secrets and connections: shape-only export + re-entry report 🔲
 
 **Priority: P0** · Size: S · Files: `server/services/portability/entityGraph.ts`,
-`server/services/portability/ExportService.ts`
+`server/services/portability/ExportService.ts`,
+`server/services/portability/bundleFormat.ts`
+
+> **Evidence refreshed 2026-07-28** after IEX-5 landed. Line numbers below are
+> current as of `081595b9`; the originals had drifted.
 
 ### Finding
 
@@ -767,13 +771,15 @@ Workflows depend on `secrets` and `connections`, so a bundle that omits them
 entirely imports into a non-functioning workflow with no explanation. But
 neither can be exported as-is:
 
-- `secrets.valueEnc` (`shared/schema/integrations.ts:45`) is AES-256-GCM
-  ciphertext under `VL_MASTER_KEY` (`server/utils/encryption.ts:55`). It is
-  meaningless on any other system and, in a client's hands, is a
-  key-compromise amplifier for us.
-- `connections.authConfig` and `connections.oauthState`
-  (`shared/schema/integrations.ts:61`) are jsonb blobs that hold live auth
-  material.
+- `secrets.valueEnc` (`shared/schema/integrations.ts:50`) is AES-256-GCM
+  ciphertext under `VL_MASTER_KEY` (`encrypt()` at
+  `server/utils/encryption.ts:89`). It is meaningless on any other system and,
+  in a client's hands, is a key-compromise amplifier for us. **The same table
+  also has a nullable plaintext `value` column at `:49`** — both must stay out.
+- `connections.authConfig` (`shared/schema/integrations.ts:68`) and
+  `connections.oauthState` (`:70`) are jsonb blobs that hold live auth
+  material. `secretRefs` sits between them at `:69`. Note the Drizzle export is
+  named `externalConnections`, though the table is `connections`.
 
 After IEX-1 both are in `EXCLUDED_TABLES`, which is safe but leaves the import
 side unable to tell the user *what* is missing.
@@ -796,6 +802,22 @@ Emit a `manifest.requiresReentry[]` array listing each secret
 (`projectId`, `key`, `environment`, `type`) and each connection whose auth
 material was withheld, so the import side (IEX-8) can render a "you must
 re-enter these" report without re-deriving it.
+
+**Extend `manifestSchema` in `bundleFormat.ts` for `requiresReentry` before
+anything else.** Zod strips unknown keys, so a manifest field that is written
+but not declared silently vanishes when `BundleReader` parses it — and the
+export tests still pass, because they assert on what was written. IEX-5 hit
+exactly this trap with `manifest.warnings`; copy how that field is declared
+(`bundleFormat.ts:23-30`) and prove `requiresReentry` survives a full
+write → read round-trip through `BundleReader`, not just an in-memory check.
+
+**Both descriptors take `parent: { name: 'projects', fk: 'projectId' }` and
+`scopes: ["project"]` only.** `projects` itself is `scopes: ["project"]`
+(`entityGraph.ts:19`), so declaring `"workflow"` here would make the
+descriptor unreachable in that scope and fail the existing reachability test.
+Place both after `projects` — `ENTITY_GRAPH` must stay topologically sorted,
+and there is a test asserting it. `connections` has a `tenantId` column and
+will pick up ExportService's automatic tenant filter; `secrets` does not.
 
 Verify `secretRefs` genuinely contains only references and no inline material
 before including it; if it turns out to carry values in practice, exclude it
@@ -825,10 +847,14 @@ that proves this ticket did not leak anything.
 3. Exported connection rows contain no `authConfig` and no `oauthState` —
    asserted the same way, including a planted token string.
 4. `manifest.requiresReentry[]` lists every secret and every connection whose
-   material was withheld.
+   material was withheld, and **survives a `BundleWriter` → `BundleReader`
+   round-trip** — asserted by reading it back off a parsed bundle, not from
+   the object handed to `writeManifest`.
 5. The IEX-1 field-name guard test still passes unmodified.
 6. New tests in `tests/unit/portability/exportSecrets.test.ts` assert 2–4
-   using planted sentinel values, not structural assertions alone.
+   using planted sentinel values, not structural assertions alone. This test
+   needs a database — add it to the `dbUnitTests` list in `vitest.config.ts`
+   and run it under the `unit-db` project, as `exportBlobs.test.ts` does.
 7. Gates: type-check 0 errors, lint clean on touched files, `npm run test:fast`
    green at ≥ baseline, `npm run test:unit` green.
 
