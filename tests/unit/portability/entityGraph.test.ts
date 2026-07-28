@@ -10,9 +10,9 @@ describe('Entity Graph Portability', () => {
     expect(templateVersions?.blobRefs).toContain('fileRef');
   });
 
-  it('all 18 sensitive tables are excluded', () => {
+  it('all sensitive tables are excluded', () => {
     const sensitiveTables = [
-      'secrets', 'connections', 'datavault_api_tokens', 'refresh_tokens', 'user_credentials',
+      'datavault_api_tokens', 'refresh_tokens', 'user_credentials',
       'mfa_secrets', 'mfa_backup_codes', 'trusted_devices', 'portal_tokens', 'api_keys',
       'oauth_access_tokens', 'oauth_auth_codes', 'invalidated_tokens', 'sessions',
       'password_reset_tokens', 'email_verification_tokens', 'login_attempts', 'account_locks'

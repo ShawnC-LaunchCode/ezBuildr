@@ -30,10 +30,21 @@ export const manifestSchema = z.object({
     column: z.string(),
     fileRef: z.string(),
     message: z.string()
+  })).optional(),
+  requiresReentry: z.array(z.object({
+    type: z.literal('secret').or(z.literal('connection')),
+    entity: z.string(),
+    projectId: z.string().optional(),
+    key: z.string().optional(),
+    environment: z.string().optional(),
+    secretType: z.string().optional(),
+    connectionId: z.string().optional(),
+    connectionName: z.string().optional()
   })).optional()
 });
 
 export type ExportWarning = NonNullable<z.infer<typeof manifestSchema>['warnings']>[number];
+export type RequiresReentry = NonNullable<z.infer<typeof manifestSchema>['requiresReentry']>[number];
 
 export type BundleManifest = z.infer<typeof manifestSchema>;
 

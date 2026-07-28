@@ -14,6 +14,7 @@ const dbUnitTests = [
   "tests/unit/services/WorkflowTemplateService.test.ts",
   "tests/unit/portability/exportService.test.ts",
   "tests/unit/portability/exportBlobs.test.ts",
+  "tests/unit/portability/exportSecrets.test.ts",
 ];
 
 // Integration tests excluded from the default run (require special setup)

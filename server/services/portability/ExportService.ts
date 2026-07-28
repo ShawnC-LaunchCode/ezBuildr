@@ -4,7 +4,7 @@ import { eq, inArray, and, SQL } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import { ENTITY_GRAPH, EntityDescriptor } from './entityGraph';
 import { BundleWriter } from './bundleWriter';
-import { BundleManifest } from './bundleFormat';
+import { BundleManifest, RequiresReentry } from './bundleFormat';
 import { aclService } from '../AclService';
 import { datavaultAclService } from '../DatavaultAclService';
 import * as fs from 'fs';
@@ -20,6 +20,7 @@ type ExportState = {
   extractedIds: Map<string, Set<string>>;
   entityCounts: Record<string, number>;
   blobCollector: BlobCollector;
+  requiresReentry: RequiresReentry[];
 };
 
 /**
@@ -45,7 +46,8 @@ export class ExportService {
       writer,
       extractedIds: new Map<string, Set<string>>(),
       entityCounts: {},
-      blobCollector: new BlobCollector(writer)
+      blobCollector: new BlobCollector(writer),
+      requiresReentry: []
     };
 
     try {
@@ -71,6 +73,10 @@ export class ExportService {
       
       if (state.blobCollector.warnings.length > 0) {
         manifest.warnings = state.blobCollector.warnings;
+      }
+      
+      if (state.requiresReentry.length > 0) {
+        manifest.requiresReentry = state.requiresReentry;
       }
       
       await state.blobCollector.finalize();
@@ -179,6 +185,7 @@ export class ExportService {
       }
       
       await this.processBlobRefs(descriptor, rowData, state);
+      this.processRequiresReentry(descriptor, rowData, state);
       
       await state.writer.writeEntityRow(descriptor.name, row);
     }
@@ -249,6 +256,27 @@ export class ExportService {
           await state.blobCollector.collect(fileRef, descriptor.name, blobCol);
         }
       }
+    }
+  }
+
+  private processRequiresReentry(descriptor: EntityDescriptor, rowData: Record<string, unknown>, state: ExportState): void {
+    if (descriptor.name === 'secrets') {
+      state.requiresReentry.push({
+        type: 'secret',
+        entity: 'secrets',
+        projectId: typeof rowData['projectId'] === 'string' ? rowData['projectId'] : undefined,
+        key: typeof rowData['key'] === 'string' ? rowData['key'] : undefined,
+        environment: typeof rowData['environment'] === 'string' ? rowData['environment'] : undefined,
+        secretType: typeof rowData['type'] === 'string' ? rowData['type'] : undefined
+      });
+    } else if (descriptor.name === 'connections') {
+      state.requiresReentry.push({
+        type: 'connection',
+        entity: 'connections',
+        projectId: typeof rowData['projectId'] === 'string' ? rowData['projectId'] : undefined,
+        connectionId: typeof rowData['id'] === 'string' ? rowData['id'] : undefined,
+        connectionName: typeof rowData['name'] === 'string' ? rowData['name'] : undefined
+      });
     }
   }
 }
