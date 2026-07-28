@@ -1317,10 +1317,18 @@ It must:
 4. Detect collisions against the target tenant: workflow/project names,
    DataVault table slugs, step aliases.
 5. Surface `manifest.requiresReentry[]` (IEX-6) as the secrets re-entry list.
+   **Since 2026-07-28 it is a `z.discriminatedUnion('type', …)`** over
+   `secret` and `connection`, each branch fully required — narrow on `type`
+   rather than reaching for optional fields (`bundleFormat.ts`).
 6. Flag that the bundle contains **executable code** if it carries lifecycle
    hooks, document hooks, or transform blocks — importing a bundle imports
    someone else's JS/Python, and the user should be told before, not after.
-7. Report missing blobs recorded in `manifest.warnings[]`.
+7. Report both kinds of `manifest.warnings[]`. **That array is also a
+   discriminated union now** (IEX-6B): `missing_blob` *and* `secret_scan`.
+   Filter by `type` — and surface `secret_scan` in the preview, because a
+   bundle whose hook code contains a secret-shaped literal is something the
+   importing user must see *before* they accept it. The original ticket
+   predates that warning kind.
 
 Return a typed `ImportPreview` — counts per entity, collisions, re-entry list,
 code-hook warning, blob warnings, and a computed `canProceed` flag.
@@ -1344,10 +1352,14 @@ code-hook warning, blob warnings, and a computed `canProceed` flag.
 5. Name/slug/alias collisions against the target tenant are listed.
 6. A bundle containing lifecycle hooks, document hooks, or transform blocks
    sets the executable-code flag.
-7. `requiresReentry` and blob warnings are surfaced from the manifest.
+7. `requiresReentry`, `missing_blob` warnings, **and `secret_scan` warnings**
+   are each surfaced from the manifest and distinguishable in the preview.
 8. A truncated/corrupt zip is rejected cleanly, not as an unhandled exception.
 9. New test `tests/unit/portability/importPreview.test.ts` asserts 1–8 using
-   fixtures produced by `ExportService`.
+   fixtures produced by `ExportService`. Because those fixtures come from a
+   real export, **this test needs a database** — add it to the `dbUnitTests`
+   array in `vitest.config.ts` and run it under the `unit-db` project, as
+   `exportBlobs`/`exportSecrets`/`exportRedaction` do.
 10. Gates: type-check 0 errors, lint clean on touched files,
     `npm run test:fast` ≥ baseline, `npm run test:unit` green.
 
