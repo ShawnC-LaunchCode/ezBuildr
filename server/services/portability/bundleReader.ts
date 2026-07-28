@@ -97,7 +97,7 @@ export class BundleReader {
     }
 
     const computed = hash.digest('hex');
-    if (this.manifest.checksum && this.manifest.checksum !== computed) {
+    if (this.manifest.checksum !== computed) {
       throw new Error(`Checksum mismatch: expected ${this.manifest.checksum}, got ${computed}`);
     }
   }

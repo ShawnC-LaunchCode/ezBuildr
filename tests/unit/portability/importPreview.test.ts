@@ -4,10 +4,32 @@ import { importService } from '../../../server/services/portability/ImportServic
 import { exportService } from '../../../server/services/portability/ExportService';
 import { TestFactory } from '../../helpers/testFactory';
 import AdmZip from 'adm-zip';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import { FORMAT_VERSION } from '../../../server/services/portability/bundleFormat';
 import { db } from '../../../server/db';
 import { projects, workflows, datavaultTables, steps, secrets, externalConnections, transformBlocks } from '@shared/schema';
+
+function recomputeChecksum(zip: AdmZip, manifest: any): void {
+  const hash = createHash('sha256');
+  const entries = zip.getEntries();
+  const entityEntries = entries
+    .filter(e => e.entryName.startsWith('entities/') && e.entryName.endsWith('.jsonl'))
+    .sort((a, b) => a.entryName.localeCompare(b.entryName));
+  for (const entry of entityEntries) {
+    hash.update(entry.getData());
+  }
+  const blobEntries = entries
+    .filter(e => e.entryName.startsWith('blobs/') && e.entryName !== 'blobs/index.json' && !e.entryName.endsWith('/'))
+    .sort((a, b) => a.entryName.localeCompare(b.entryName));
+  for (const entry of blobEntries) {
+    hash.update(entry.getData());
+  }
+  const indexEntry = entries.find(e => e.entryName === 'blobs/index.json');
+  if (indexEntry) {
+    hash.update(indexEntry.getData());
+  }
+  manifest.checksum = hash.digest('hex');
+}
 
 describeWithDb('ImportService - preview', () => {
   let tf: TestFactory;
@@ -121,7 +143,7 @@ describeWithDb('ImportService - preview', () => {
     
     const manifestEntry = zip.getEntry('manifest.json');
     const manifest = JSON.parse(manifestEntry!.getData().toString('utf8'));
-    manifest.checksum = ''; 
+    recomputeChecksum(zip, manifest);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
 
     const newBuffer = zip.toBuffer();
@@ -145,7 +167,7 @@ describeWithDb('ImportService - preview', () => {
     
     const manifestEntry = zip.getEntry('manifest.json');
     const manifest = JSON.parse(manifestEntry!.getData().toString('utf8'));
-    manifest.checksum = '';
+    recomputeChecksum(zip, manifest);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
 
     const newBuffer = zip.toBuffer();
@@ -182,7 +204,7 @@ describeWithDb('ImportService - preview', () => {
     
     const manifestEntry = zip.getEntry('manifest.json');
     const manifest = JSON.parse(manifestEntry!.getData().toString('utf8'));
-    manifest.checksum = '';
+    recomputeChecksum(zip, manifest);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
 
     const newBuffer = zip.toBuffer();
@@ -222,7 +244,7 @@ describeWithDb('ImportService - preview', () => {
     const manifestEntry = zip.getEntry('manifest.json');
     const manifest = JSON.parse(manifestEntry!.getData().toString('utf8'));
     manifest.warnings.push({ type: 'missing_blob', entity: 'templates', column: 'fileRef', fileRef: 'some-path', message: 'Missing' });
-    manifest.checksum = '';
+    recomputeChecksum(zip, manifest);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
     const newBuffer = zip.toBuffer();
 
@@ -259,5 +281,87 @@ describeWithDb('ImportService - preview', () => {
     
     await expect(importService.preview(projectBundle, attacker.user.id, project.id))
       .rejects.toThrow('Access denied - insufficient permissions for this project');
+  });
+
+  it('rejects bundle with empty checksum', async () => {
+    const zip = new AdmZip(projectBundle);
+    const manifestEntry = zip.getEntry('manifest.json');
+    const manifest = JSON.parse(manifestEntry!.getData().toString('utf8'));
+    manifest.checksum = ''; 
+    zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
+    
+    const newBuffer = zip.toBuffer();
+    
+    const preview = await importService.preview(newBuffer, user.id);
+    expect(preview.canProceed).toBe(false);
+    expect(preview.errors[0]).toMatch(/Invalid checksum format/);
+  });
+
+  it('rejects bundle with tampered entity stream and blanked checksum', async () => {
+    const zip = new AdmZip(projectBundle);
+    const workflowsEntry = zip.getEntry('entities/workflows.jsonl');
+    
+    const lines = workflowsEntry!.getData().toString('utf8').split('\n').filter(Boolean);
+    const row = JSON.parse(lines[0]);
+    row.title = 'Tampered Title';
+    lines[0] = JSON.stringify(row);
+    zip.updateFile('entities/workflows.jsonl', Buffer.from(`${lines.join('\n')}\n`));
+    
+    const manifestEntry = zip.getEntry('manifest.json');
+    const manifest = JSON.parse(manifestEntry!.getData().toString('utf8'));
+    manifest.checksum = ''; 
+    zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
+
+    const newBuffer = zip.toBuffer();
+    const preview = await importService.preview(newBuffer, user.id);
+    expect(preview.canProceed).toBe(false);
+    expect(preview.errors[0]).toMatch(/Invalid checksum format/);
+  });
+
+  it('rejects bundle with tampered entity stream and wrong length checksum', async () => {
+    const zip = new AdmZip(projectBundle);
+    const workflowsEntry = zip.getEntry('entities/workflows.jsonl');
+    
+    const lines = workflowsEntry!.getData().toString('utf8').split('\n').filter(Boolean);
+    const row = JSON.parse(lines[0]);
+    row.title = 'Tampered Title';
+    lines[0] = JSON.stringify(row);
+    zip.updateFile('entities/workflows.jsonl', Buffer.from(`${lines.join('\n')}\n`));
+    
+    const manifestEntry = zip.getEntry('manifest.json');
+    const manifest = JSON.parse(manifestEntry!.getData().toString('utf8'));
+    manifest.checksum = '12345'; // wrong length and format
+    zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
+
+    const newBuffer = zip.toBuffer();
+    const preview = await importService.preview(newBuffer, user.id);
+    expect(preview.canProceed).toBe(false);
+    expect(preview.errors[0]).toMatch(/Invalid checksum format/);
+  });
+
+  // The attack the ticket exists for: tamper the payload but leave a
+  // well-formed checksum in place, so the manifest regex passes and only
+  // verification can catch it. This is the one case that exercises the
+  // reader's comparison rather than the schema guard — the other checksum
+  // tests all trip the regex first and would still pass if the reader's
+  // integrity check were removed entirely.
+  it('rejects a tampered entity stream whose checksum is still well-formed', async () => {
+    const zip = new AdmZip(projectBundle);
+    const workflowsEntry = zip.getEntry('entities/workflows.jsonl');
+
+    const lines = workflowsEntry!.getData().toString('utf8').split('\n').filter(Boolean);
+    const row = JSON.parse(lines[0]);
+    row.title = 'Tampered Title';
+    lines[0] = JSON.stringify(row);
+    zip.updateFile('entities/workflows.jsonl', Buffer.from(`${lines.join('\n')}\n`));
+
+    // Deliberately leave the ORIGINAL checksum: 64 hex chars, so it satisfies
+    // manifestSchema, but no longer matches the tampered payload.
+    const manifestEntry = zip.getEntry('manifest.json');
+    const manifest = JSON.parse(manifestEntry!.getData().toString('utf8'));
+    expect(manifest.checksum).toMatch(/^[a-f0-9]{64}$/);
+
+    const newBuffer = zip.toBuffer();
+    await expect(importService.preview(newBuffer, user.id)).rejects.toThrow(/Checksum mismatch/);
   });
 });

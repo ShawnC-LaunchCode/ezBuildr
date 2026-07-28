@@ -1664,7 +1664,7 @@ Rate-limit both, reusing the IEX-7 middleware.
 
 ---
 
-## IEX-12 — BundleReader accepts an empty checksum, skipping integrity entirely 🔲
+## IEX-12 — BundleReader accepts an empty checksum, skipping integrity entirely ✅
 
 **Priority: P0** · Size: S · File: `server/services/portability/bundleReader.ts`
 
@@ -1735,6 +1735,56 @@ verification.
    real checksum rather than blanking it, and all still pass.
 6. Gates: type-check 0 errors, lint clean on touched files, `npm run test:fast`
    ≥ baseline, full `npm run test:unit` green (unit-db count must move).
+
+### Verification pass — 2026-07-28 (reviewer)
+
+All gates re-run by the reviewer in `.claude/worktrees/iex-12`, then again on
+`main` after promotion.
+
+- type-check: `Found 0 errors`
+- lint: 0 errors — **after a reviewer fix**; as submitted it had 3 `curly`
+  errors in the new test helper, against a reported "0 problems"
+- `test:fast`: 148 files / 1998 tests — at baseline
+- full `--project unit-db`: 7 files / **70 tests** (was 66 at IEX-8)
+
+The two production changes are correct and minimal: `manifestSchema.checksum`
+is now `z.string().regex(/^[a-f0-9]{64}$/)`, and `verifyChecksum()` compares
+unconditionally instead of short-circuiting on a falsy checksum.
+
+The `bundleFormat.test.ts` edits were checked for weakening and are legitimate:
+`'fake-checksum'` → `'a'.repeat(64)` keeps the *Checksum mismatch* assertion
+reachable now that malformed checksums are rejected at parse time, and the
+`formatVersion` test's blank checksum was incidental to what it asserts.
+Nothing was loosened to make a test pass.
+
+**What the mutation checks actually proved — and what they did not.** The dev
+reported reverting *both* files and seeing three tests fail. That is true, but
+it only proves the **regex** is load-bearing. Reverting **only**
+`bundleReader.ts` leaves all 69 tests passing. All three submitted tests assert
+`/Invalid checksum format/`, so they trip the schema guard and never reach
+verification.
+
+This is not a defect in the fix — it is a property of it. Once the regex
+rejects any non-64-hex checksum, `''` can never reach the reader, so the two
+implementations differ on no reachable input and **no test can distinguish
+them**. The reader change is correct defense-in-depth (it is the only guard if
+the schema is ever loosened) and is kept deliberately. Recorded here so a
+future reader doesn't mistake the uncovered branch for an oversight.
+
+**Reviewer fixes applied** (both small, context already held):
+1. `eslint --fix` on the 3 `curly` errors, then reformatted the cramped
+   one-line bodies `--fix` produced — `recomputeChecksum` is a helper IEX-9
+   and IEX-10 will reuse.
+2. Added `rejects a tampered entity stream whose checksum is still
+   well-formed` — the attack this ticket exists for, and the only real-bundle
+   test of tamper detection. The three submitted tests are near-duplicates of
+   each other; the previous coverage of verification was a single heavily
+   mocked test in `bundleFormat.test.ts`.
+
+**Live verification: not applicable.** No route reaches the reader until
+IEX-11. The unit-db suite is the strongest available proof — it exercises real
+`ExportService` bundles against a real Postgres, and the untouched IEX-8 tests
+confirm legitimate bundles still verify (AC 3, no regression).
 
 ---
 

@@ -173,7 +173,7 @@ describe('Bundle Format', () => {
         createdAt: new Date().toISOString(),
         entityCounts: {},
         blobCount: 0,
-        checksum: 'fake-checksum'
+        checksum: 'a'.repeat(64)
       }));
 
       getEntriesSpy.mockReturnValue([
@@ -199,7 +199,7 @@ describe('Bundle Format', () => {
         createdAt: new Date().toISOString(),
         entityCounts: {},
         blobCount: 0,
-        checksum: ''
+        checksum: 'a'.repeat(64)
       }));
 
       getEntriesSpy.mockReturnValue([

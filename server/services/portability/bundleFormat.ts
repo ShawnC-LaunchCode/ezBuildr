@@ -58,7 +58,7 @@ export const manifestSchema = z.object({
   createdAt: z.string(),
   entityCounts: z.record(z.number()),
   blobCount: z.number(),
-  checksum: z.string(),
+  checksum: z.string().regex(/^[a-f0-9]{64}$/, 'Invalid checksum format'),
   warnings: z.array(z.discriminatedUnion('type', [
     z.object({
       type: z.literal('missing_blob'),
