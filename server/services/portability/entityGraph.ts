@@ -4,7 +4,7 @@ import * as schema from '@shared/schema';
 export interface EntityDescriptor {
   table: PgTable;
   name: string;
-  scopes: Array<'workflow' | 'project' | 'tenant'>;
+  scopes: Array<'workflow' | 'project' | 'tenant' | 'database'>;
   parent: { name: string; fk: string } | null;
   fields: string[];
   refs?: string[];
@@ -131,7 +131,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
   {
     table: schema.datavaultDatabases,
     name: 'datavault_databases',
-    scopes: ["project","workflow"],
+    scopes: ["project","workflow","database"],
     parent: null,
     fields: ["id","tenantId","name","description","type","config","scopeType","scopeId","ownerType","ownerUuid"],
     jsonRefs: ["config"],
@@ -139,14 +139,14 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
   {
     table: schema.datavaultTables,
     name: 'datavault_tables',
-    scopes: ["project","workflow"],
+    scopes: ["project","workflow","database"],
     parent: {"name":"datavault_databases","fk":"databaseId"},
     fields: ["id","tenantId","ownerUserId","databaseId","name","slug","description","ownerType","ownerUuid"],
   },
   {
     table: schema.datavaultColumns,
     name: 'datavault_columns',
-    scopes: ["project","workflow"],
+    scopes: ["project","workflow","database"],
     parent: {"name":"datavault_tables","fk":"tableId"},
     fields: ["id","tableId","name","slug","type","description","widthPx","required","isPrimaryKey","isUnique","orderIndex","autoNumberStart","autonumberPrefix","autonumberPadding","autonumberResetPolicy","referenceTableId","referenceDisplayColumnSlug","options"],
     jsonRefs: ["options"],
@@ -154,21 +154,21 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
   {
     table: schema.datavaultNumberSequences,
     name: 'datavault_number_sequences',
-    scopes: ["project","workflow"],
+    scopes: ["project","workflow","database"],
     parent: {"name":"datavault_tables","fk":"tableId"},
     fields: ["id","tenantId","tableId","columnId","prefix","padding","nextValue","resetPolicy","lastReset"],
   },
   {
     table: schema.datavaultRows,
     name: 'datavault_rows',
-    scopes: ["project","workflow"],
+    scopes: ["project","workflow","database"],
     parent: {"name":"datavault_tables","fk":"tableId"},
     fields: ["id","tableId","deletedAt","createdBy","updatedBy"],
   },
   {
     table: schema.datavaultValues,
     name: 'datavault_values',
-    scopes: ["project","workflow"],
+    scopes: ["project","workflow","database"],
     parent: {"name":"datavault_rows","fk":"rowId"},
     fields: ["id","rowId","columnId","value"],
     jsonRefs: ["value"],
@@ -176,14 +176,14 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
   {
     table: schema.datavaultDatabaseAccess,
     name: 'datavault_database_access',
-    scopes: ["project","workflow"],
+    scopes: ["project","workflow","database"],
     parent: {"name":"datavault_databases","fk":"databaseId"},
     fields: ["id","databaseId","principalType","principalId","role"],
   },
   {
     table: schema.datavaultTableAccess,
     name: 'datavault_table_access',
-    scopes: ["project","workflow"],
+    scopes: ["project","workflow","database"],
     parent: {"name":"datavault_tables","fk":"tableId"},
     fields: ["id","tableId","principalType","principalId","role"],
   },
@@ -192,7 +192,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     name: 'workflow_data_sources',
     scopes: ["workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
-    fields: ["id","workflowId","dataSourceId"],
+    fields: ["workflowId","dataSourceId"],
   },
   {
     table: schema.workflowQueries,
