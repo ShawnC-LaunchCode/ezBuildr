@@ -30,7 +30,7 @@ export function SectionLogicMenu({ mode, onAddBlock }: SectionLogicMenuProps) {
                     variant="ghost"
                     size="icon"
                     className="h-6 w-6"
-                    title="Add Logic"
+                    title="Add Action"
                     onClick={(e) => { e.stopPropagation(); }}
                 >
                     <Zap className="h-3 w-3" />
