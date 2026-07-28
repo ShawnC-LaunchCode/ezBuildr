@@ -49,6 +49,12 @@ search for the quoted code if a reference is stale.
   grep `-E "Found [0-9]+ error"`.
 - **Baseline at authoring time (2026-07-27, `npm run test:fast`):**
   `Test Files 143 passed | 1 skipped (144)`, `Tests 1963 passed | 15 skipped (1978)`.
+- **A test that needs a database goes in `tests/unit/portability/` and is added
+  to the `dbUnitTests` array in `vitest.config.ts`.** There is no
+  `tests/unit-db/` directory — that array *is* the mechanism that routes a file
+  into the `unit-db` project. Earlier drafts of IEX-4/5/6/8/9/10 said otherwise
+  and were wrong; corrected 2026-07-28. Run those tests with
+  `npm run test:unit:db`, not `npm run test:fast`.
 - **Devs do not commit.** The reviewer commits one commit per passed ticket.
 - **Do not `git add -A`.** Shawn works this repo from a second IDE concurrently
   and unrelated changes are routinely present in the tree.
@@ -615,7 +621,7 @@ Do not embed blobs in this ticket (IEX-5) and do not handle secrets (IEX-6) —
    FK — test with a deliberately cross-tenant fixture.
 7. Manifest `entityCounts` matches the actual emitted row counts.
 8. `WorkflowExportService.ts` and `WorkflowClonerService.ts` are unmodified.
-9. New test `tests/unit-db/portability/exportService.test.ts` asserts 1–7.
+9. New test `tests/unit/portability/exportService.test.ts` asserts 1–7.
    This one **does** need a database — use the `unit-db` project (`run-tests`
    skill explains the split).
 10. Gates: type-check 0 errors, lint clean on touched files, `npm run test:fast`
@@ -703,7 +709,7 @@ project cannot produce a 40 GB bundle.
    catchable error — not a truncated bundle.
 6. Blob access goes through `storageProvider`; the diff contains no reference
    to `FileStorageService` or the `files` table.
-7. New tests in `tests/unit-db/portability/exportBlobs.test.ts` assert 1–5,
+7. New tests in `tests/unit/portability/exportBlobs.test.ts` assert 1–5,
    including the dedupe case (3) and the missing-file case (4).
 8. Gates: type-check 0 errors, lint clean on touched files, `npm run test:fast`
    green at ≥ baseline, `npm run test:unit` green.
@@ -781,7 +787,7 @@ that proves this ticket did not leak anything.
 4. `manifest.requiresReentry[]` lists every secret and every connection whose
    material was withheld.
 5. The IEX-1 field-name guard test still passes unmodified.
-6. New tests in `tests/unit-db/portability/exportSecrets.test.ts` assert 2–4
+6. New tests in `tests/unit/portability/exportSecrets.test.ts` assert 2–4
    using planted sentinel values, not structural assertions alone.
 7. Gates: type-check 0 errors, lint clean on touched files, `npm run test:fast`
    green at ≥ baseline, `npm run test:unit` green.
@@ -945,7 +951,7 @@ code-hook warning, blob warnings, and a computed `canProceed` flag.
    sets the executable-code flag.
 7. `requiresReentry` and blob warnings are surfaced from the manifest.
 8. A truncated/corrupt zip is rejected cleanly, not as an unhandled exception.
-9. New test `tests/unit-db/portability/importPreview.test.ts` asserts 1–8 using
+9. New test `tests/unit/portability/importPreview.test.ts` asserts 1–8 using
    fixtures produced by `ExportService`.
 10. Gates: type-check 0 errors, lint clean on touched files,
     `npm run test:fast` ≥ baseline, `npm run test:unit` green.
@@ -1026,7 +1032,7 @@ uniqueness the way the cloner does — see `ensureUniqueTableSlug`
    duplicated.
 8. `remapJsonIds` has exactly one implementation in the codebase
    (`grep -c "function remapJsonIds"` → 1).
-9. New test `tests/unit-db/portability/importApply.test.ts` asserts 1–8, with
+9. New test `tests/unit/portability/importApply.test.ts` asserts 1–8, with
    4 and 5 written as explicit hostile-bundle security tests.
 10. Gates: type-check 0 errors, lint clean on touched files,
     `npm run test:fast` ≥ baseline, `npm run test:unit` green.
@@ -1131,7 +1137,7 @@ so tests can plant a stub that reports infection without needing ClamAV.
    infection path.
 8. One `blobs/` entry referenced by three rows results in one stored object and
    exactly one scan call.
-9. New tests in `tests/unit-db/portability/importBlobs.test.ts` assert 1–8,
+9. New tests in `tests/unit/portability/importBlobs.test.ts` assert 1–8,
    using `setVirusScannerInstance` to plant clean and infected stubs.
 10. Gates: type-check 0 errors, lint clean on touched files,
     `npm run test:fast` ≥ baseline, `npm run test:unit` green.
