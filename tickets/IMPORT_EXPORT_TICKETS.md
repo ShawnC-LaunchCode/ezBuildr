@@ -65,7 +65,7 @@ search for the quoted code if a reference is stale.
 | Phase | Theme | Tickets | Est. effort | Status |
 |---|---|---|---|---|
 | 0 | Foundation: entity graph, allowlist, bundle format | IEX-1, IEX-2, IEX-3 | ~1.5 days | ✅ **Done 2026-07-27** — gate verified |
-| 1 | Single-object **export** (ask #3, read path) | IEX-4..IEX-7 | ~2 days | 🔄 IEX-4 ✅; IEX-5/6/7 open |
+| 1 | Single-object **export** (ask #3, read path) | IEX-4..IEX-7 | ~2 days | 🔄 IEX-4 ✅, IEX-5 ✅; IEX-6/7 open |
 | 2 | Single-object **import** (ask #3, write path) | IEX-8..IEX-11 | ~2.5 days | 🔲 |
 | 3 | Client-wide export/import (ask #2) | IEX-12..14 (outline) | ~2 days | 🔲 unblocked 2026-07-27 |
 | 4 | Admin multi-tenant archive (ask #1) | IEX-15..18 (outline) | ~2 days | 🔲 unblocked 2026-07-27 |
@@ -629,7 +629,7 @@ Do not embed blobs in this ticket (IEX-5) and do not handle secrets (IEX-6) —
 
 ---
 
-## IEX-5 — Embed template binaries in the bundle (the "empty shell" fix) 🔲
+## IEX-5 — Embed template binaries in the bundle (the "empty shell" fix) ✅
 
 **Priority: P0** · Size: M · Files: `server/services/portability/ExportService.ts`,
 `server/services/portability/blobs.ts` (new)
@@ -713,6 +713,46 @@ project cannot produce a 40 GB bundle.
    including the dedupe case (3) and the missing-file case (4).
 8. Gates: type-check 0 errors, lint clean on touched files, `npm run test:fast`
    green at ≥ baseline, `npm run test:unit` green.
+
+### Verification pass — 2026-07-28 (2nd review, PASSED)
+
+All 8 criteria verified against the working tree. Gates run by the reviewer,
+not taken on report: `tsc --noEmit` 0 errors; ESLint clean across
+`server/services/portability/` and `tests/unit/portability/`; `test:fast`
+146 files / 1978 passed; `unit-db` 4 files / 50 passed.
+
+Method: unit-db tests against real Postgres with `storageProvider` mocked.
+Not driven through the live app — there is no export endpoint yet (IEX-7), so
+the service is not reachable over HTTP.
+
+First submission was sent back for: a `blobs/index.json` keyed by sha256 with
+the `fileRef` recorded nowhere (would have made IEX-10 unimplementable);
+`buildConditions` extracted but the replaced inline block left in place, so
+every WHERE clause was built twice; a catch-all that filed storage and
+zip-write failures as `missing_blob` warnings while leaving an index entry for
+bytes never written; a string-matched size error; and a lint error. All fixed
+on resubmission.
+
+Gaps closed by the reviewer at this pass:
+- **The MAX_TOTAL_SIZE guard had no coverage.** The test named for it fed a
+  2GB+ file, which trips MAX_SINGLE_ENTRY_SIZE first — both size tests
+  exercised the same branch. Replaced with an accumulation of individually
+  legal files, and confirmed by mutation (disabling the guard fails the test).
+- **`buildConditions` returned an impossible `id` predicate for "no parent
+  rows".** `workflow_data_sources` has a composite PK and no `id` column, so
+  that path would throw if ever reached. Returns `null` now and the query is
+  skipped, restoring IEX-4 behavior.
+- Restored two explanatory comments dropped in the refactor, including the one
+  recording why an unbounded descriptor must throw (silent over-export).
+
+Carried forward, not blocking:
+- `manifest.blobCount` counts distinct **fileRefs**, not distinct `blobs/`
+  entries; the two differ when separate refs hold identical bytes. IEX-8's
+  preview and IEX-10's quota check should read `blobs/index.json` rather than
+  trusting this field.
+- `BundleWriter.cleanup()` is called twice on the success path (once from
+  `finalize`, once from `ExportService`'s `finally`). Idempotent today via
+  `rmSync(force)`, but the contract is implicit.
 
 ---
 
