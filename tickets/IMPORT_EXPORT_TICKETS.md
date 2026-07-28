@@ -1,4 +1,4 @@
-# Portability — Import/Export Bundles (IEX-1..11 + Phase 3/4 outline + backlog)
+# Portability — Import/Export Bundles (IEX-1..12 + Phase 3/4 outline + backlog)
 
 Source: senior audit of the existing copy/clone/export surfaces, 2026-07-27,
 in response to Shawn's request for (1) admin-wide export/restore, (2) per-client
@@ -1607,9 +1607,83 @@ Rate-limit both, reusing the IEX-7 middleware.
 
 ---
 
+## IEX-12 — BundleReader accepts an empty checksum, skipping integrity entirely 🔲
+
+**Priority: P0** · Size: S · File: `server/services/portability/bundleReader.ts`
+
+### Finding
+
+`verifyChecksum()` short-circuits on a falsy checksum, so a manifest carrying
+`"checksum": ""` is never verified at all:
+
+```ts
+// server/services/portability/bundleReader.ts:100
+const computed = hash.digest('hex');
+if (this.manifest.checksum && this.manifest.checksum !== computed) {
+  throw new Error(`Checksum mismatch: expected ${this.manifest.checksum}, got ${computed}`);
+}
+```
+
+`manifestSchema` declares `checksum: z.string()` (`bundleFormat.ts:61`) — required,
+but the empty string satisfies it. `BundleWriter` always writes a real digest
+(`bundleWriter.ts:130`), so **no legitimate bundle has an empty checksum**; only a
+hand-edited one does. An attacker who tampers with `entities/*.jsonl` need only
+blank the checksum field to defeat the integrity check completely.
+
+This predates Phase 2 — it came in with IEX-3 — but it is load-bearing for the
+whole import path: IEX-8 validates bundle contents, IEX-9 writes them, and
+IEX-10 restores blobs from them. All three trust this check.
+
+Found during the IEX-8 review pass (2026-07-28).
+
+### Preferred fix
+
+Treat a missing/empty checksum as a verification failure, not as "skip":
+
+```ts
+if (this.manifest.checksum !== computed) {
+  throw new Error(`Checksum mismatch: expected ${this.manifest.checksum}, got ${computed}`);
+}
+```
+
+Tighten `manifestSchema.checksum` to a non-empty hex digest of the expected
+length (`z.string().regex(/^[a-f0-9]{64}$/)` for sha256) so a blank checksum is
+rejected at manifest-parse time with a clear message rather than deep in
+verification.
+
+### Ties
+
+- **Do this before IEX-9.** IEX-8's tests currently set `manifest.checksum = ''`
+  in five places to tamper with entity streams; they depend on this bug and
+  **will break when it is fixed**. Whoever works this ticket must update
+  `tests/unit/portability/importPreview.test.ts` to recompute a valid checksum
+  after modifying a bundle (mirror `BundleWriter`'s digest order:
+  sorted `entities/*`, then sorted `blobs/*`, then `blobs/index.json`) instead
+  of blanking it. Consider extracting that as a test helper —
+  IEX-9/10 will need to build tampered fixtures too.
+- File footprint: `bundleReader.ts`, `bundleFormat.ts`,
+  `tests/unit/portability/importPreview.test.ts`. Overlaps IEX-8's test file,
+  so **sequence after IEX-8 lands**, not in parallel.
+- Load `run-tests`. Read `docs/architecture/SECURITY_THREAT_MODEL.md`.
+
+### Acceptance criteria
+
+1. A bundle whose manifest has `"checksum": ""` is **rejected**, not accepted.
+2. A bundle with a tampered entity stream and a blanked checksum is rejected.
+3. A bundle with a correct checksum still opens and reads normally (no
+   regression to IEX-4..IEX-7 export round-trips).
+4. `manifestSchema` rejects a non-hex or wrong-length checksum at parse time
+   with a distinct message.
+5. New tests cover 1, 2 and 4; existing portability tests updated to compute a
+   real checksum rather than blanking it, and all still pass.
+6. Gates: type-check 0 errors, lint clean on touched files, `npm run test:fast`
+   ≥ baseline, full `npm run test:unit` green (unit-db count must move).
+
+---
+
 ## Phase 2 Gate
 
-- [ ] IEX-8..IEX-11 all ✅ with dated verification notes
+- [ ] IEX-8..IEX-12 all ✅ with dated verification notes
 - [ ] `npm run type-check` → `Found 0 errors`; `npm run lint` → 0 problems
 - [ ] Full `npm run test:unit` and `npm run test:integration` green
 - [ ] Reviewer has completed a **round trip on the live app**: export a project
