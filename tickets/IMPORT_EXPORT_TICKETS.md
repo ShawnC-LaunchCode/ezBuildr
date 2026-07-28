@@ -1066,8 +1066,12 @@ Not driven live — no export endpoint until IEX-7.
 
 ## IEX-7 — Export routes: authz, audit, rate limit, streaming download 🔲
 
-**Priority: P1** · Size: S · File: `server/routes/portability.routes.ts` (new),
-`server/routes/index.ts`
+**Priority: P1** · Size: M · File: `server/routes/portability.routes.ts` (new),
+`server/routes/index.ts`, `server/services/AuditLogService.ts`
+
+> **Evidence refreshed 2026-07-28** at `4e21c539`, after IEX-5/6/6B. Size
+> raised S → M: the audit and streaming pieces both need more than wiring, see
+> "Traps" below.
 
 ### Finding
 
@@ -1108,13 +1112,51 @@ Beyond the standard shape, add:
 Authorization stays in the service (IEX-4) per the 3-tier convention — the
 route must not re-implement it.
 
+### Traps — verified against the tree at `4e21c539`
+
+**1. Two rate-limiter modules exist and both export `apiLimiter`.** Use
+`strictLimiter` from **`server/middleware/rateLimiter.ts`** (`:54`, 10 per 15
+min) — its own doc comment names "data exports" as the intended case, and 10
+route files import that module versus 4 for `rateLimiting.ts`.
+
+**2. Every limiter is disabled under test.** `skip: () => process.env.NODE_ENV
+=== 'test' && !process.env.TEST_RATE_LIMIT` (`rateLimiter.ts:61`). AC 6 cannot
+pass unless the 429 test sets `TEST_RATE_LIMIT`. **Do not remove the skip** —
+it exists so every other integration test can run.
+
+**3. `AuditLogService` has no usable generic entry point.**
+`logSecurityEvent` (`AuditLogService.ts:77`) is typed
+`eventType: SecurityEventType`, a 15-member auth-only enum (`:13`) with no
+data-export value, and it hardcodes `entityType: "security"` and
+`entityId: userId` (`:91-92`) — which would record *the actor* as the entity
+and lose which project was taken. Add a `DATA_EXPORTED = "data_exported"`
+member and a dedicated `logDataExport(...)` that sets `entityType` to the
+scope and `entityId` to the root id. The columns are plain `varchar` NOT NULL
+(`shared/schema/auth.ts:332-334`), so the DB does not constrain this — the
+service's typing does.
+
+**4. Streaming conflicts with the current service signature.**
+`ExportService.export()` returns a `Buffer` — it spools to a temp file, reads
+the whole thing into memory, deletes the temp file, and returns
+(`ExportService.ts:86-94`). With `MAX_TOTAL_SIZE` at 2 GB that is a real
+memory ceiling, and AC 1 asks for a streamed response. Preferred: add an
+`exportToFile()` that returns the temp path, have the route set the headers,
+`pipe` a read stream, and unlink on `finish`/`error`; keep `export()` as a
+thin wrapper so existing tests are untouched. If that turns out to ripple
+further than this ticket, **stop and report** rather than half-converting it.
+
 ### Ties
 
 - **Depends on IEX-4, IEX-5, IEX-6.**
 - **IEX-11** adds the import routes to this same file — sequence, do not
   parallelize.
 - Donor pattern: `server/routes/workflowExports.routes.ts` (route shape only —
-  it lacks the audit and rate-limit pieces this ticket adds).
+  it lacks the audit and rate-limit pieces this ticket adds). Register in
+  `server/routes/index.ts` beside `registerWorkflowExportRoutes` (`:63`
+  import, `:155` call).
+- Integration-test donor: `tests/integration/api.projects.test.ts` — boots the
+  app via `registerRoutes(app)` and drives it with `supertest` and a real JWT.
+  Copy that harness rather than inventing one.
 - Load `add-api-endpoint` — the error-string contract and `classifyRouteError`
   mapping are mandatory here.
 
@@ -1126,9 +1168,12 @@ route must not re-implement it.
 3. Authenticated user without access to the root → 403 via `classifyRouteError`
    (not a 500, not a 404).
 4. Non-existent root id → 404.
-5. Each successful export writes exactly one `audit_logs` row containing actor,
-   scope, root id, and entity counts.
-6. Exceeding the rate limit → 429.
+5. Each successful export writes exactly one `audit_logs` row whose
+   `entityId` is **the exported root id** (not the actor's user id) and whose
+   `changes`/metadata carries the scope and entity counts. Asserted by reading
+   the row back from the database, not from a log line.
+6. Exceeding the rate limit → 429, asserted with `TEST_RATE_LIMIT` set (see
+   Traps 2) and without modifying the limiter's `skip`.
 7. Routes are registered in `server/routes/index.ts` and reachable on a booted
    server.
 8. New test `tests/integration/portability.export.test.ts` asserts 1–6.
