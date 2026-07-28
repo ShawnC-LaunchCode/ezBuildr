@@ -229,7 +229,7 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
   // -------------------------------------------------------------------------
   {
     type: "radio",
-    label: "Radio",
+    label: "Single Select",
     icon: Circle,
     description: "Single choice (radio buttons)",
     category: "choice",

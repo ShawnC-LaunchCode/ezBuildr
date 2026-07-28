@@ -25,7 +25,6 @@ import { useListToolsValidation } from "@/hooks/useListToolsValidation";
 import { blockAPI, type ApiTransformBlock } from "@/lib/vault-api";
 import { useUpdateStep, useWorkflowVariables, useWorkflow } from "@/lib/vault-hooks";
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import type { ChoiceAdvancedConfig, ChoiceOption } from "@shared/types/stepConfigs";
 
 import { BlockEditorDialog, type UniversalBlock } from "../BlockEditorDialog";
@@ -205,8 +204,18 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
   const handleDisplayChange = (display: "radio" | "dropdown" | "multiple") => {
     const allowMultiple = display === "multiple";
     if (!isAdvancedMode && sourceMode === 'static') {
-      const newType = allowMultiple ? "multiple_choice" : "radio";
-      updateStepMutation.mutate({ id: stepId, sectionId, type: newType });
+      if (display === "dropdown") {
+        const payload: ChoiceAdvancedConfig = {
+          display,
+          allowMultiple,
+          searchable: localConfig?.searchable ?? false,
+          options: { type: 'static', options: localConfig?.staticOptions ?? [] }
+        };
+        updateStepMutation.mutate({ id: stepId, sectionId, type: 'choice', config: payload });
+      } else {
+        const newType = allowMultiple ? "multiple_choice" : "radio";
+        updateStepMutation.mutate({ id: stepId, sectionId, type: newType });
+      }
     } else {
       handleUpdate({ display, allowMultiple });
     }
@@ -433,7 +442,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
   };
 
   const linkedBlock = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/prefer-nullish-coalescing
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!localConfig?.dynamicOptions?.linkedListToolsBlockId || !blocks) { return null; }
     return (blocks ?? []).find((b) => b.id === localConfig.dynamicOptions?.linkedListToolsBlockId);
   }, [localConfig?.dynamicOptions?.linkedListToolsBlockId, blocks]);
@@ -543,7 +552,6 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
             columns={columns}
             loadingColumns={loadingColumns}
             timingWarning={timingWarning}
-            // eslint-disable-next-line @typescript-eslint/no-misused-promises
             labelColumnWarning={labelColumnWarning}
             valueColumnWarning={valueColumnWarning}
             onUpdate={(updates) => handleUpdate({ dynamicOptions: { ...localConfig.dynamicOptions, ...updates } })}
