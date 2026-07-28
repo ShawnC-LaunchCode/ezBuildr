@@ -40,7 +40,7 @@ import { SectionsTab } from "@/components/builder/tabs/SectionsTab";
 import { SettingsTab } from "@/components/builder/tabs/SettingsTab";
 import { SnapshotsTab } from "@/components/builder/tabs/SnapshotsTab";
 import { TemplatesTab } from "@/components/builder/tabs/TemplatesTab";
-import { DiffViewer } from "@/components/builder/versioning/DiffViewer";
+import { DiffViewer, type DiffTarget } from "@/components/builder/versioning/DiffViewer";
 import { VersionBadge } from "@/components/builder/versioning/VersionBadge";
 import { VersionHistoryPanel } from "@/components/builder/versioning/VersionHistoryPanel";
 import {
@@ -59,7 +59,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { type ApiWorkflowVersion, authAPI } from "@/lib/vault-api";
 import {
@@ -68,6 +67,7 @@ import {
   useWorkflow,
   useSetWorkflowMode,
 } from "@/lib/vault-hooks";
+import { CURRENT_VERSION_ID } from "@shared/config";
 // eslint-disable-next-line max-lines-per-function, complexity
 export default function WorkflowBuilder() {
   const { id: workflowId } = useParams<{ id: string }>();
@@ -83,7 +83,6 @@ export default function WorkflowBuilder() {
 
   const restoreMutation = useRestoreVersion();
   const setWorkflowModeMutation = useSetWorkflowMode();
-  const { toast } = useToast();
   // State
   const searchParams = new URLSearchParams(window.location.search);
   const [collectionsDrawerOpen, setCollectionsDrawerOpen] = useState(false);
@@ -91,10 +90,12 @@ export default function WorkflowBuilder() {
   const [shareOpen, setShareOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [diffOpen, setDiffOpen] = useState(false);
-  const [diffBaseVersion, setDiffBaseVersion] =
-    useState<ApiWorkflowVersion | null>(null);
-  const [diffTargetVersion, setDiffTargetVersion] =
-    useState<ApiWorkflowVersion | null>(null);
+  const [diffBaseVersion, setDiffBaseVersion] = useState<DiffTarget | null>(
+    null,
+  );
+  const [diffTargetVersion, setDiffTargetVersion] = useState<DiffTarget | null>(
+    null,
+  );
   const [aiPanelOpen, setAiPanelOpen] = useState(
     searchParams.get("aiPanel") === "true",
   );
@@ -133,22 +134,20 @@ export default function WorkflowBuilder() {
       ? `Draft (v${latestPublished.versionNumber} +)`
       : "Draft (v1)";
   const handleDiff = (version: ApiWorkflowVersion) => {
-    // Diff selected version against CURRENT Draft (which implicitly is the 'latest' state in DB tables)
+    // Diff the selected version against the current draft. When no draft row
+    // has been saved yet, compare against the workflow's live state, which the
+    // server serializes on demand for CURRENT_VERSION_ID.
     const draftVersion = versionsArray.find((v) => v.isDraft);
-    if (!draftVersion) {
-      toast({
-        title: "Error",
-        description: "Could not find current draft version.",
-      });
-      return;
-    }
-    setDiffBaseVersion(version);
-    setDiffTargetVersion(draftVersion);
+    setDiffBaseVersion({ id: version.id, label: `v${version.versionNumber}` });
+    setDiffTargetVersion(
+      draftVersion !== undefined
+        ? { id: draftVersion.id, label: `v${draftVersion.versionNumber} (draft)` }
+        : { id: CURRENT_VERSION_ID, label: "current draft" },
+    );
     setDiffOpen(true);
   };
   // Memoize collaborative user to prevent WebSocket reconnects
   // This MUST be before any early returns to comply with Rules of Hooks
-  /* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- existing logic */
   const collabUser = useMemo(
     () => ({
       id: user?.id

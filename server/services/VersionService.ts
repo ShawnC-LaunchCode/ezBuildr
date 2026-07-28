@@ -1,6 +1,7 @@
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
 
+import { CURRENT_VERSION_ID } from "@shared/config";
 import * as schema from "@shared/schema";
 import type { WorkflowVersion } from "@shared/schema";
 import type { WorkflowJSON } from "@shared/types/workflow";
@@ -100,8 +101,6 @@ export class VersionService {
    * - Template placeholders resolved
    * - Required collections exist
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
-
   async serializeWorkflow(workflowId: string, userId: string): Promise<WorkflowContentData> {
     const fullData = await workflowService.getWorkflowWithDetails(workflowId, userId);
     const [blocks, documentHooks, lifecycleHooks] = await Promise.all([
@@ -613,9 +612,8 @@ export class VersionService {
    */
   async diffVersions(versionId1: string, versionId2: string, userId: string): Promise<WorkflowDiff> {
     const version1 = await this.getVersion(versionId1);
-    const version2 = await this.getVersion(versionId2);
-    if (!version1 || !version2) {
-      throw new Error("One or both versions not found");
+    if (!version1) {
+      throw new Error("Version 1 not found");
     }
 
     const hasAccess1 = await aclService.hasWorkflowRole(userId, version1.workflowId, 'view');
@@ -623,12 +621,27 @@ export class VersionService {
       throw new Error("Access denied - insufficient permissions for version 1's workflow");
     }
 
-    const hasAccess2 = await aclService.hasWorkflowRole(userId, version2.workflowId, 'view');
-    if (!hasAccess2) {
-      throw new Error("Access denied - insufficient permissions for version 2's workflow");
+    let graphJson2: WorkflowJSON;
+
+    if (versionId2 === CURRENT_VERSION_ID) {
+      // The live state of version 1's own workflow — already authorized above.
+      // Serialized the same way stored graphJson is written, so the two sides
+      // of the diff have identical shape.
+      const liveGraph = await this.serializeWorkflow(version1.workflowId, userId);
+      graphJson2 = liveGraph as unknown as WorkflowJSON;
+    } else {
+      const version2 = await this.getVersion(versionId2);
+      if (!version2) {
+        throw new Error("Version 2 not found");
+      }
+      const hasAccess2 = await aclService.hasWorkflowRole(userId, version2.workflowId, 'view');
+      if (!hasAccess2) {
+        throw new Error("Access denied - insufficient permissions for version 2's workflow");
+      }
+      graphJson2 = version2.graphJson as WorkflowJSON;
     }
 
-    return workflowDiffService.diff(version1.graphJson as WorkflowJSON, version2.graphJson as WorkflowJSON);
+    return workflowDiffService.diff(version1.graphJson as WorkflowJSON, graphJson2);
   }
   /**
    * Export workflow versions as JSON
