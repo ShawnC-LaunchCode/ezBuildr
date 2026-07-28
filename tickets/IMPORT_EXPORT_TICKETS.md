@@ -1273,11 +1273,15 @@ to a ticket — lines will have drifted.
   adm-zip exposes no per-entry read stream. Harmless at single-object scope,
   but a tenant-scope `datavault_values` export will not fit. Needs a different
   zip library (`yauzl`/`unzipper`) on the read side — revisit at Phase 3.
-- **IEX-B9 — `audit_logs` is declared twice.** `auditLogs` is defined as a
-  `pgTable("audit_logs", …)` in **both** `shared/schema/auth.ts` and
-  `shared/schema/relations.ts`, and both are re-exported by the barrel, so
-  which one wins is a resolution accident. Pre-existing, unrelated to
-  portability, found while auditing table coverage. Should be one definition.
+- ~~**IEX-B9 — `audit_logs` is declared twice.**~~ **WITHDRAWN 2026-07-28 — the
+  finding was wrong.** There is exactly one `pgTable("audit_logs", …)`, in
+  `shared/schema/auth.ts:327`. The reviewer's duplicate scan matched a
+  *comment* in `shared/schema/relations.ts:668` that quotes the declaration in
+  backticks. The same unanchored regex was in `schemaCoverage.test.ts`, where a
+  commented-out table name would have created a phantom table the
+  classification was then required to explain; it is now anchored to
+  `^export const`. General tech debt has moved to
+  `tickets/TECH_DEBT_TICKETS.md`.
 - **IEX-B7 — Actual disaster recovery: Neon PITR + scheduled `pg_dump`.**
   Per decision D-4 this, not Phase 4, is the backup/restore story. Largely a
   config and ops task (retention, destination bucket, restore rehearsal) rather

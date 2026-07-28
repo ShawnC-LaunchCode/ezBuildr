@@ -14,6 +14,10 @@ const SCHEMA_DIR = path.resolve(process.cwd(), 'shared/schema');
  * file that nobody re-exports is invisible to `import * as schema`, so a
  * namespace-only sweep silently skips its tables. `files.ts` was exactly that
  * case, which is why this test reads the directory instead.
+ *
+ * Anchored to the start of a line so a table name quoted inside a comment does
+ * not create a phantom table the classification is then required to explain —
+ * `relations.ts` has exactly such a comment.
  */
 function declaredTableNames(): Set<string> {
   const names = new Set<string>();
@@ -22,7 +26,7 @@ function declaredTableNames(): Set<string> {
       continue;
     }
     const source = fs.readFileSync(path.join(SCHEMA_DIR, file), 'utf8');
-    for (const match of source.matchAll(/=\s*pgTable\(\s*["']([a-z_]+)["']/g)) {
+    for (const match of source.matchAll(/^export const \w+\s*=\s*pgTable\(\s*["']([a-z_]+)["']/gm)) {
       names.add(match[1]);
     }
   }
