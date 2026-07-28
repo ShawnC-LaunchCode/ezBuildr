@@ -1,6 +1,6 @@
 import { db } from '../../db';
 import { projects, workflows, datavaultDatabases } from '@shared/schema';
-import { eq, inArray, and } from 'drizzle-orm';
+import { eq, inArray, and, SQL } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import { ENTITY_GRAPH, EntityDescriptor } from './entityGraph';
 import { BundleWriter } from './bundleWriter';
@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { randomUUID } from 'crypto';
+import { BlobCollector } from './blobs';
 
 type RootParams = { scope: 'workflow' | 'project' | 'database'; id: string };
 
@@ -18,6 +19,7 @@ type ExportState = {
   writer: BundleWriter;
   extractedIds: Map<string, Set<string>>;
   entityCounts: Record<string, number>;
+  blobCollector: BlobCollector;
 };
 
 /**
@@ -38,10 +40,12 @@ export class ExportService {
     const tenantId = await this.verifyAccessAndGetTenant(root, userId);
 
     const tmpPath = path.join(os.tmpdir(), `export_${root.scope}_${root.id}_${randomUUID()}.ezb`);
+    const writer = new BundleWriter(tmpPath);
     const state: ExportState = {
-      writer: new BundleWriter(tmpPath),
+      writer,
       extractedIds: new Map<string, Set<string>>(),
-      entityCounts: {}
+      entityCounts: {},
+      blobCollector: new BlobCollector(writer)
     };
 
     try {
@@ -61,14 +65,21 @@ export class ExportService {
         sourceSystem: 'ezBuildr',
         createdAt: new Date().toISOString(),
         entityCounts: state.entityCounts,
-        blobCount: 0,
+        blobCount: state.blobCollector.blobCount,
         checksum: ''
       };
+      
+      if (state.blobCollector.warnings.length > 0) {
+        manifest.warnings = state.blobCollector.warnings;
+      }
+      
+      await state.blobCollector.finalize();
       await state.writer.writeManifest(manifest);
       await state.writer.finalize();
 
       return await fs.promises.readFile(tmpPath);
     } finally {
+      state.writer.cleanup();
       try {
         await fs.promises.rm(tmpPath, { force: true });
       } catch (err) {
@@ -139,8 +150,52 @@ export class ExportService {
     state: ExportState
   ): Promise<void> {
     const tableCols = descriptor.table as unknown as Record<string, PgColumn>;
-    const conditions = [];
+    const conditions = this.buildConditions(descriptor, root, tableCols, state);
+    if (conditions === null) {
+      // No parent rows, so no child rows can exist. Skip the query entirely
+      // rather than issuing one that cannot match — not every table in the
+      // graph has an `id` column to build an impossible predicate from
+      // (`workflow_data_sources` has a composite PK).
+      state.extractedIds.set(descriptor.name, new Set<string>());
+      return;
+    }
 
+    if (tableCols['tenantId'] != null) {
+      conditions.push(eq(tableCols['tenantId'], tenantId));
+    }
+
+    const selection = this.buildSelection(descriptor, tableCols);
+
+    const query = conditions.length > 0 
+      ? db.select(selection).from(descriptor.table).where(and(...conditions))
+      : db.select(selection).from(descriptor.table);
+      
+    const rows = await query;
+    const ids = new Set<string>();
+    for (const row of rows) {
+      const rowData = row as Record<string, unknown>;
+      if (typeof rowData['id'] === 'string') {
+        ids.add(rowData['id']);
+      }
+      
+      await this.processBlobRefs(descriptor, rowData, state);
+      
+      await state.writer.writeEntityRow(descriptor.name, row);
+    }
+    
+    state.extractedIds.set(descriptor.name, ids);
+    if (rows.length > 0) {
+      state.entityCounts[descriptor.name] = rows.length;
+    }
+  }
+
+  private buildConditions(
+    descriptor: EntityDescriptor,
+    root: RootParams,
+    tableCols: Record<string, PgColumn>,
+    state: ExportState
+  ): SQL<unknown>[] | null {
+    const conditions: SQL<unknown>[] = [];
     const rootTableMap: Record<string, string> = {
       'project': 'projects',
       'workflow': 'workflows',
@@ -158,11 +213,9 @@ export class ExportService {
       if (!state.extractedIds.has(descriptor.parent.name)) {
         throw new Error(`Topological sort violation: parent '${descriptor.parent.name}' not processed before child '${descriptor.name}'`);
       }
-      
       const parentIds = state.extractedIds.get(descriptor.parent.name) ?? new Set<string>();
       if (parentIds.size === 0) {
-        state.extractedIds.set(descriptor.name, new Set<string>()); // Empty set for children
-        return;
+        return null;
       }
       conditions.push(inArray(tableCols[descriptor.parent.fk], Array.from(parentIds)));
     } else {
@@ -173,11 +226,10 @@ export class ExportService {
         `Descriptor '${descriptor.name}' is in scope '${root.scope}' but is neither that scope's root nor has a parent; it has no bounded selection.`
       );
     }
+    return conditions;
+  }
 
-    if (tableCols['tenantId'] != null) {
-      conditions.push(eq(tableCols['tenantId'], tenantId));
-    }
-
+  private buildSelection(descriptor: EntityDescriptor, tableCols: Record<string, PgColumn>): Record<string, PgColumn> {
     const selection: Record<string, PgColumn> = {};
     for (const field of descriptor.fields) {
       const col = tableCols[field];
@@ -186,24 +238,17 @@ export class ExportService {
       }
       selection[field] = col;
     }
+    return selection;
+  }
 
-    const query = conditions.length > 0 
-      ? db.select(selection).from(descriptor.table).where(and(...conditions))
-      : db.select(selection).from(descriptor.table);
-      
-    const rows = await query;
-    const ids = new Set<string>();
-    for (const row of rows) {
-      const rowData = row as Record<string, unknown>;
-      if (typeof rowData['id'] === 'string') {
-        ids.add(rowData['id']);
+  private async processBlobRefs(descriptor: EntityDescriptor, rowData: Record<string, unknown>, state: ExportState): Promise<void> {
+    if (descriptor.blobRefs) {
+      for (const blobCol of descriptor.blobRefs) {
+        const fileRef = rowData[blobCol];
+        if (typeof fileRef === 'string' && fileRef) {
+          await state.blobCollector.collect(fileRef, descriptor.name, blobCol);
+        }
       }
-      await state.writer.writeEntityRow(descriptor.name, row);
-    }
-    
-    state.extractedIds.set(descriptor.name, ids);
-    if (rows.length > 0) {
-      state.entityCounts[descriptor.name] = rows.length;
     }
   }
 }

@@ -64,10 +64,23 @@ export class BundleWriter {
     try {
       return await this.pack();
     } finally {
-      // Always reclaim the spool directory, including on a failed pack —
-      // a tenant-scale export leaves gigabytes behind otherwise.
-      fs.rmSync(this.tmpDir, { recursive: true, force: true });
+      this.cleanup();
     }
+  }
+
+  cleanup(): void {
+    for (const stream of this.entityStreams.values()) {
+      // Swallow delayed open errors after cleanup
+      stream.on('error', () => {});
+      try {
+        stream.destroy();
+      } catch (e) {
+        // Ignore stream destruction errors
+      }
+    }
+    // Always reclaim the spool directory, including on a failed pack —
+    // a tenant-scale export leaves gigabytes behind otherwise.
+    fs.rmSync(this.tmpDir, { recursive: true, force: true });
   }
 
   private async pack(): Promise<string> {
