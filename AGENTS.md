@@ -48,6 +48,14 @@ reviewer and other agents run gates on the same tree.
 
 **Three ways these gates lie. Rule all three out before you believe a green:**
 
+0. **The test suite may not be running at all.** If you are working in a git
+   worktree, confirm `npm run test:fast` reports *passing tests* and not
+   `0 test` / "failed to find the runner" before you trust any test result. A
+   worktree whose `node_modules` was linked with `ln -s` instead of a Windows
+   junction type-checks and lints perfectly while every Vitest project refuses
+   to run. Two submissions have been turned in from a tree in that state,
+   having never executed a test. Worktrees created by
+   `pwsh scripts/new-worktree.ps1 -Name <id>` are verified against this.
 1. **A stale tsc cache.** `tsBuildInfoFile` is tree-local now, but if you are
    in a worktree whose `node_modules` is a junction to another checkout, run
    `rm -f .tsbuildinfo` before trusting `type-check`. A cached green is

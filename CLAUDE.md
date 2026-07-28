@@ -250,6 +250,31 @@ devs in one shared tree (2026-07-25) produced, in a single session:
   work could not be committed until unrelated agents finished — and agents
   reported their own gates green while the tree was red.
 
+**Use the script. Do not hand-roll this.**
+
+```powershell
+pwsh scripts/new-worktree.ps1 -Name <ticket-id>
+```
+
+It creates the worktree from current `main`, junctions `node_modules`, copies
+`.env`, and then *proves* the result: junction (not symlink), `@types`
+resolves, base commit matches `main`, and `test:fast` actually reports passing
+tests. It fails loudly rather than handing you a tree that looks fine.
+
+**Tear worktrees down with `-Remove`, never with a bare `git worktree remove`:**
+
+```powershell
+pwsh scripts/new-worktree.ps1 -Name <ticket-id> -Remove
+```
+
+`git worktree remove --force` recurses **into** the `node_modules` junction and
+deletes the main checkout's packages along with the worktree. This is not
+hypothetical — it wiped all 1018 packages here and needed a full `npm ci` to
+recover. `-Remove` drops the junction as a reparse point first, then removes
+the worktree, then verifies the main `node_modules` survived.
+
+The rest of this section is why it exists — read it if the script fails.
+
 **A worktree has no `node_modules` or `.env`** — `tsc`, ESLint and Vitest all
 need them. Create the junction with **PowerShell**. Two different Git Bash
 mistakes have now cost real time, and they fail in opposite ways:
