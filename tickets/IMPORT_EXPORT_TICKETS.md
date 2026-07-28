@@ -65,7 +65,7 @@ search for the quoted code if a reference is stale.
 | Phase | Theme | Tickets | Est. effort | Status |
 |---|---|---|---|---|
 | 0 | Foundation: entity graph, allowlist, bundle format | IEX-1, IEX-2, IEX-3 | ~1.5 days | ✅ **Done 2026-07-27** — gate verified |
-| 1 | Single-object **export** (ask #3, read path) | IEX-4..IEX-7 | ~2 days | 🔄 IEX-4 ✅, IEX-5 ✅; IEX-6/7 open |
+| 1 | Single-object **export** (ask #3, read path) | IEX-4..IEX-7 | ~2 days | 🔄 IEX-4 ✅, IEX-5 ✅, IEX-6 ✅; IEX-7 open (gated on IEX-B0) |
 | 2 | Single-object **import** (ask #3, write path) | IEX-8..IEX-11 | ~2.5 days | 🔲 |
 | 3 | Client-wide export/import (ask #2) | IEX-12..14 (outline) | ~2 days | 🔲 unblocked 2026-07-27 |
 | 4 | Admin multi-tenant archive (ask #1) | IEX-15..18 (outline) | ~2 days | 🔲 unblocked 2026-07-27 |
@@ -756,7 +756,7 @@ Carried forward, not blocking:
 
 ---
 
-## IEX-6 — Secrets and connections: shape-only export + re-entry report 🔲
+## IEX-6 — Secrets and connections: shape-only export + re-entry report ✅
 
 **Priority: P0** · Size: S · Files: `server/services/portability/entityGraph.ts`,
 `server/services/portability/ExportService.ts`,
@@ -857,6 +857,43 @@ that proves this ticket did not leak anything.
    and run it under the `unit-db` project, as `exportBlobs.test.ts` does.
 7. Gates: type-check 0 errors, lint clean on touched files, `npm run test:fast`
    green at ≥ baseline, `npm run test:unit` green.
+
+### Verification pass — 2026-07-28 (PASSED, first submission)
+
+All 7 criteria met. Gates run by the reviewer: `tsc` 0 errors, ESLint clean
+across `server/services/portability/` and `tests/unit/portability/`,
+`test:fast` 147 files / 1983 passed, `unit-db` 5 files / 51 passed.
+
+Both guarantees mutation-tested rather than trusted from a green run:
+- Deleting `requiresReentry` from `manifestSchema` → the round-trip assertion
+  fails (`expected undefined to be defined`). The Zod-strip trap is genuinely
+  covered, not merely avoided.
+- Adding `valueEnc` back to the `secrets` field list → fails *both* the
+  planted-sentinel scan in `exportSecrets.test.ts` and the IEX-1 field-name
+  guard. Two independent layers catch a leak.
+
+AC 5 verified precisely: the modified test in `entityGraph.test.ts` is the
+*excluded-tables* test, which this ticket necessarily changes. The
+**field-name guard** (`no sensitive column names are exported in any fields
+array`) is byte-identical and green.
+
+`secretRefs` inclusion independently verified as required by the ticket: it is
+`Record<string, string>` mapping a ref name to a secret *key*, resolved through
+`getSecretValue(projectId, secretKey)` (`connections.ts:374`) and written as
+`{ main: secretId }` (`externalConnections.ts:208`). It carries no material.
+
+Not driven live — `ExportService` has no HTTP route until IEX-7.
+
+**Open security question raised at review — see the `defaultHeaders` note in
+Backlog / observations. Not a defect in this ticket's execution; the field
+list it was graded against is what permits it.**
+
+Carried forward for IEX-8: every `requiresReentry` field except `type` and
+`entity` is `.optional()`, so the schema cannot promise `key` is present on a
+secret entry. A discriminated union would let the import preview rely on it.
+Also, every connection is listed unconditionally rather than only those whose
+material was withheld — the excluded columns aren't selected, so the exporter
+cannot tell the difference. Harmless, and arguably more useful.
 
 ---
 
@@ -1336,6 +1373,40 @@ Intended shape:
 
 Not phase-gated. Re-verify `file:line` evidence before promoting any of these
 to a ticket — lines will have drifted.
+
+- **IEX-B0 — `connections.defaultHeaders` is exported verbatim and can hold
+  credentials. Decide before IEX-7 ships an endpoint.** Raised at IEX-6 review
+  2026-07-28; not a defect in IEX-6, whose field list I approved.
+
+  By design credentials do not live here: an `api_key` connection stores its
+  key in `secrets` and injects it at request time under
+  `authConfig.apiKeyName` (default `X-API-Key`), merged *on top of*
+  `defaultHeaders` (`server/services/connections.ts:425-440`). So the bag
+  should be clean.
+
+  Nothing enforces that. The only guard is a Zod `refine` on the single live
+  write path rejecting a header literally named `authorization`
+  (`server/routes/connections-v2.routes.ts:47-49`, and again at `:60-62`);
+  `sanitizeHeaders` (`connections.ts:52`) validates only the header-name
+  charset and control characters. A user who types `X-API-Key: sk-live-…`,
+  `Api-Key`, `X-Auth-Token`, or `Cookie` into the headers editor is accepted,
+  and IEX-6 copies that value verbatim into a bundle handed to a client. The
+  `exportSecrets` test plants sentinels in `authConfig`/`oauthState` but not
+  in `defaultHeaders`, so nothing would catch it.
+
+  Options, cheapest first:
+  1. Drop `defaultHeaders` from the `connections` field list. Every connection
+     is already in `requiresReentry[]`, so the user re-enters headers along
+     with auth and nothing is silently lost. One-line change plus a sentinel
+     assertion.
+  2. Export header *names* with values blanked — keeps the shape, loses no
+     structure, still needs re-entry.
+  3. Denylist auth-ish header names at export. Guessy; a denylist will miss
+     something.
+
+  Recommend option 1: consistent with D-2's "shape-only, re-enter on the far
+  side" posture and carries no guessing. Unreachable in production today —
+  there is no export endpoint until IEX-7 — so this gates IEX-7, not main.
 
 - **IEX-B1 — Re-point `WorkflowClonerService` at the portability engine.**
   Once export/import are proven, `copyProject`/`copyWorkflow` become
