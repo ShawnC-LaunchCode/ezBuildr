@@ -65,7 +65,7 @@ search for the quoted code if a reference is stale.
 | Phase | Theme | Tickets | Est. effort | Status |
 |---|---|---|---|---|
 | 0 | Foundation: entity graph, allowlist, bundle format | IEX-1, IEX-2, IEX-3 | ~1.5 days | ✅ **Done 2026-07-27** — gate verified |
-| 1 | Single-object **export** (ask #3, read path) | IEX-4..IEX-7 | ~2 days | 🔄 IEX-4 ✅, IEX-5 ✅, IEX-6 ✅; IEX-7 open (gated on IEX-B0) |
+| 1 | Single-object **export** (ask #3, read path) | IEX-4..IEX-7, IEX-6B | ~2.5 days | 🔄 IEX-4 ✅, IEX-5 ✅, IEX-6 ✅; IEX-6B next, then IEX-7 |
 | 2 | Single-object **import** (ask #3, write path) | IEX-8..IEX-11 | ~2.5 days | 🔲 |
 | 3 | Client-wide export/import (ask #2) | IEX-12..14 (outline) | ~2 days | 🔲 unblocked 2026-07-27 |
 | 4 | Admin multi-tenant archive (ask #1) | IEX-15..18 (outline) | ~2 days | 🔲 unblocked 2026-07-27 |
@@ -895,6 +895,133 @@ Also, every connection is listed unconditionally rather than only those whose
 material was withheld — the excluded columns aren't selected, so the exporter
 cannot tell the difference. Harmless, and arguably more useful.
 
+**Update 2026-07-28:** the discriminated union was done at review — see
+`bf2b9e69`. `requiresReentry` is now a `z.discriminatedUnion('type', …)` with
+every branch fully required, and the exporter reads its NOT NULL source columns
+through a helper that throws rather than emitting a blank field.
+
+---
+
+## IEX-6B — Redact credential-bearing free-form columns 🔲
+
+**Priority: P0** · Size: M · Files:
+`server/services/portability/entityGraph.ts`,
+`server/services/portability/redaction.ts` (new),
+`server/services/portability/ExportService.ts`,
+`server/services/portability/bundleFormat.ts`
+
+> Written 2026-07-28 at IEX-6 review. **This gates IEX-7** — IEX-7 is what
+> makes the exporter reachable over HTTP, and every issue below is
+> unexploitable until then. Fixing before the door opens costs nothing;
+> fixing after means a disclosure window and a "was anything exported in
+> between" question.
+
+### Finding
+
+IEX-6 kept structured credential columns (`secrets.valueEnc`,
+`connections.authConfig`, `connections.oauthState`) out of the bundle. It did
+not address **free-form columns whose contents may contain credentials**, and
+the exporter currently ships four of them verbatim. This is one risk class,
+not four bugs, and it will keep recurring as the graph grows — so it needs a
+mechanism, not four patches.
+
+**1. `connections.defaultHeaders`** — exported by IEX-6 (`entityGraph.ts`,
+`connections` field list). By design credentials do not live here: an
+`api_key` connection stores its key in `secrets` and injects it at request
+time under `authConfig.apiKeyName` (default `X-API-Key`), merged *on top of*
+`defaultHeaders` (`server/services/connections.ts:425-440`). Nothing enforces
+that. The only guard is a Zod `refine` on the single live write path rejecting
+a header literally named `authorization`
+(`server/routes/connections-v2.routes.ts:47-49` and `:60-62`);
+`sanitizeHeaders` (`server/services/connections.ts:52`) validates only the
+header-name charset and control characters. `X-API-Key`, `Api-Key`,
+`X-Auth-Token`, and `Cookie` are all accepted and exported as typed.
+
+**2. `blocks.config` → `ExternalSendBlockConfig.headers[]`** — exported since
+IEX-4 (`entityGraph.ts:88`, `jsonRefs: ["config"]`). The type is
+`headers?: HeaderMapping[]` where `HeaderMapping = { key: string; value:
+string }` (`shared/types/blocks.ts:280-292`) — a free-form header bag on the
+`external_send` block with **no `authorization` guard at all**. This is a
+wider hole than (1) and it is already on `main`.
+
+**3. `transform_blocks.code`, `lifecycle_hooks.code`, `document_hooks.code`**
+— exported since IEX-4 (`entityGraph.ts:96`, `:103`, `:110`). User-authored
+JS/Python. A hardcoded `const KEY = "sk-live-…"` travels with the bundle.
+
+Note the existing tests would not catch any of these: `exportSecrets.test.ts`
+plants sentinels in `authConfig`/`oauthState` only.
+
+### Preferred fix
+
+Two mechanisms, because the columns are not alike. Put the policy **in the
+entity graph**, next to `blobRefs`/`jsonRefs`, so the next person adding a
+table sees it.
+
+**Redact — structured header bags (1 and 2).** Add an optional
+`redactPaths?: string[]` to `EntityDescriptor`, entries being a column name
+optionally followed by a JSON path (e.g. `"defaultHeaders"`,
+`"config.headers[].value"`). A new `redaction.ts` walks the row before it is
+written and replaces matched *values* with `null`, leaving keys intact.
+
+Keep the names, blank the values — do not drop the column. The import preview
+can then tell the user "this connection had `X-Api-Version` and `Accept` set,
+supply the values" instead of leaving them to reconstruct a header bag from
+memory. Dropping the column is a worse trade at twenty connections, and a
+denylist of dangerous header names is the worst of the three: it rots the
+moment a new convention appears.
+
+**Warn, do not redact — code columns (3).** You cannot blank a transform
+block; the code *is* the workflow. Add `scanPaths?: string[]` and have the
+exporter run a secret-shaped-literal scan (long base64/hex runs, `sk-`/`ghp_`
+style prefixes, assignments to identifiers matching
+`/(secret|token|api[_-]?key|password|passwd|credential)/i`) and emit a
+`manifest.warnings[]` entry naming the entity, column, and line — never the
+matched text itself. The warnings channel already exists from IEX-5.
+
+**`manifest.warnings[].type` is currently `z.literal('missing_blob')`** and
+must become a discriminated union to carry the new kind. Do it the way
+`requiresReentry` was done in `bf2b9e69` — union on `type`, each branch fully
+required — and remember Zod strips undeclared keys on read, so prove the new
+warning survives a `BundleWriter` → `BundleReader` round-trip.
+
+### Ties
+
+- **Blocks IEX-7.** Land this first.
+- Extends **IEX-6**; same posture as decision **D-2** (shape travels, material
+  is re-entered on the far side).
+- **IEX-8** renders both `requiresReentry[]` and `warnings[]` in the preview;
+  keep the shapes stable and fully required.
+- Load `add-api-endpoint`, `run-tests`. Read
+  `docs/architecture/SECURITY_THREAT_MODEL.md`.
+- Do not change the connection write paths in this ticket — hardening
+  `sanitizeHeaders` is a separate concern and would not help rows already in
+  the database.
+
+### Acceptance criteria
+
+1. `EntityDescriptor` declares `redactPaths` and `scanPaths`; `connections`
+   declares `defaultHeaders`, and `blocks` declares its `config` headers path.
+2. A connection whose `defaultHeaders` contains a planted sentinel value
+   exports with the header **name** present and the value `null`; the raw
+   JSONL does not contain the sentinel.
+3. An `external_send` block whose `config.headers[]` contains a planted
+   sentinel exports the same way.
+4. A transform block, lifecycle hook, and document hook each containing a
+   planted secret-shaped literal produce a `manifest.warnings[]` entry naming
+   the entity and column, and the export still succeeds.
+5. **No warning message contains the matched secret text** — asserted by
+   scanning the whole serialized manifest for the sentinel.
+6. `manifest.warnings[]` is a discriminated union on `type`; the new warning
+   kind survives a `BundleWriter` → `BundleReader` round-trip, asserted off a
+   parsed bundle rather than the object handed to `writeManifest`.
+7. Existing `exportBlobs` `missing_blob` warnings still parse and pass
+   unmodified.
+8. New tests in `tests/unit/portability/exportRedaction.test.ts` assert 2–6
+   with planted sentinels. Needs a database — add it to `dbUnitTests` in
+   `vitest.config.ts` and run it under `unit-db`.
+9. Gates: type-check 0 errors, lint clean on touched files, `npm run test:fast`
+   green at ≥ baseline, `npm run test:unit` green.
+
 ---
 
 ## IEX-7 — Export routes: authz, audit, rate limit, streaming download 🔲
@@ -1374,39 +1501,12 @@ Intended shape:
 Not phase-gated. Re-verify `file:line` evidence before promoting any of these
 to a ticket — lines will have drifted.
 
-- **IEX-B0 — `connections.defaultHeaders` is exported verbatim and can hold
-  credentials. Decide before IEX-7 ships an endpoint.** Raised at IEX-6 review
-  2026-07-28; not a defect in IEX-6, whose field list I approved.
-
-  By design credentials do not live here: an `api_key` connection stores its
-  key in `secrets` and injects it at request time under
-  `authConfig.apiKeyName` (default `X-API-Key`), merged *on top of*
-  `defaultHeaders` (`server/services/connections.ts:425-440`). So the bag
-  should be clean.
-
-  Nothing enforces that. The only guard is a Zod `refine` on the single live
-  write path rejecting a header literally named `authorization`
-  (`server/routes/connections-v2.routes.ts:47-49`, and again at `:60-62`);
-  `sanitizeHeaders` (`connections.ts:52`) validates only the header-name
-  charset and control characters. A user who types `X-API-Key: sk-live-…`,
-  `Api-Key`, `X-Auth-Token`, or `Cookie` into the headers editor is accepted,
-  and IEX-6 copies that value verbatim into a bundle handed to a client. The
-  `exportSecrets` test plants sentinels in `authConfig`/`oauthState` but not
-  in `defaultHeaders`, so nothing would catch it.
-
-  Options, cheapest first:
-  1. Drop `defaultHeaders` from the `connections` field list. Every connection
-     is already in `requiresReentry[]`, so the user re-enters headers along
-     with auth and nothing is silently lost. One-line change plus a sentinel
-     assertion.
-  2. Export header *names* with values blanked — keeps the shape, loses no
-     structure, still needs re-entry.
-  3. Denylist auth-ish header names at export. Guessy; a denylist will miss
-     something.
-
-  Recommend option 1: consistent with D-2's "shape-only, re-enter on the far
-  side" posture and carries no guessing. Unreachable in production today —
-  there is no export endpoint until IEX-7 — so this gates IEX-7, not main.
+- **IEX-B0 — promoted to ticket IEX-6B on 2026-07-28.** Raised at IEX-6 review:
+  `connections.defaultHeaders` is exported verbatim and can hold credentials.
+  Investigating it showed the same risk class already applied to
+  `blocks.config` header bags and the three `*.code` columns, so it became a
+  mechanism ticket rather than a one-column fix. See **IEX-6B** above; it gates
+  IEX-7.
 
 - **IEX-B1 — Re-point `WorkflowClonerService` at the portability engine.**
   Once export/import are proven, `copyProject`/`copyWorkflow` become
