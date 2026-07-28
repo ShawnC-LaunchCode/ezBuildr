@@ -39,7 +39,7 @@ function requireTenant(tenantId: string | null, kind: string, id: string): strin
 }
 
 export class ExportService {
-  async export(root: RootParams, userId: string): Promise<Buffer> {
+  async exportToFile(root: RootParams, userId: string): Promise<{ tmpPath: string; manifest: BundleManifest; tenantId: string }> {
     const tenantId = await this.verifyAccessAndGetTenant(root, userId);
 
     const tmpPath = path.join(os.tmpdir(), `export_${root.scope}_${root.id}_${randomUUID()}.ezb`);
@@ -53,6 +53,7 @@ export class ExportService {
       warnings: []
     };
 
+    let success = false;
     try {
       for (const descriptor of ENTITY_GRAPH) {
         if (!descriptor.scopes.includes(root.scope)) {
@@ -87,9 +88,25 @@ export class ExportService {
       await state.writer.writeManifest(manifest);
       await state.writer.finalize();
 
-      return await fs.promises.readFile(tmpPath);
+      success = true;
+      return { tmpPath, manifest, tenantId };
     } finally {
       state.writer.cleanup();
+      if (!success) {
+        try {
+          await fs.promises.rm(tmpPath, { force: true });
+        } catch (err) {
+          // Ignore removal error
+        }
+      }
+    }
+  }
+
+  async export(root: RootParams, userId: string): Promise<Buffer> {
+    const { tmpPath } = await this.exportToFile(root, userId);
+    try {
+      return await fs.promises.readFile(tmpPath);
+    } finally {
       try {
         await fs.promises.rm(tmpPath, { force: true });
       } catch (err) {

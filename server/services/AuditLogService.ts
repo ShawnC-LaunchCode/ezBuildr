@@ -26,6 +26,7 @@ export enum SecurityEventType {
   TRUSTED_DEVICE_REVOKED = "trusted_device_revoked",
   ACCOUNT_LOCKED = "account_locked",
   ACCOUNT_UNLOCKED = "account_unlocked",
+  DATA_EXPORTED = "data_exported",
 }
 
 /**
@@ -117,6 +118,54 @@ export class AuditLogService {
           eventType,
         },
         "Failed to log security event"
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Log a data export event
+   */
+  async logDataExport(params: {
+    userId: string;
+    scope: 'workflow' | 'project' | 'database';
+    rootId: string;
+    tenantId: string;
+    entityCounts: Record<string, number>;
+    blobCount: number;
+    sizeBytes: number;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+  }): Promise<AuditLog> {
+    const { userId, scope, rootId, tenantId, entityCounts, blobCount, sizeBytes, ipAddress, userAgent } = params;
+    try {
+      const auditEntry = {
+        tenantId,
+        workspaceId: null,
+        userId,
+        action: SecurityEventType.DATA_EXPORTED,
+        entityType: scope,
+        entityId: rootId,
+        resourceType: scope,
+        resourceId: rootId,
+        changes: { scope, entityCounts, blobCount, sizeBytes },
+        ipAddress: ipAddress ?? null,
+        userAgent: userAgent ?? null,
+        timestamp: new Date(),
+      };
+
+      const [result] = await db.insert(auditLogs).values(auditEntry).returning();
+
+      logger.info(
+        { userId, scope, rootId, tenantId },
+        "Data export event logged"
+      );
+
+      return result;
+    } catch (error) {
+      logger.error(
+        { error, userId, scope, rootId },
+        "Failed to log data export event"
       );
       throw error;
     }

@@ -61,6 +61,7 @@ import { registerVersionRoutes } from "./versions.routes";
 import webhookRouter from "./webhooks.routes";
 import { registerWorkflowAnalyticsRoutes } from "./workflowAnalytics.routes";
 import { registerWorkflowExportRoutes } from "./workflowExports.routes";
+import { registerPortabilityRoutes } from "./portability.routes";
 import { registerWorkflowRoutes } from "./workflows.routes";
 import { registerWorkflowTemplateRoutes } from "./workflowTemplates.routes";
 
@@ -153,6 +154,7 @@ export function registerAllRoutes(app: Express): void {
   registerConnectionsV2Routes(app);
   registerRunRoutes(app);
   registerWorkflowExportRoutes(app);
+  registerPortabilityRoutes(app);
   registerTemplateAnalysisRoutes(app);
   registerDocumentRoutes(app);
   registerFinalBlockRoutes(app);
