@@ -13,6 +13,41 @@ export class BundleSizeLimitError extends Error {
   }
 }
 
+/**
+ * An item the importing system must supply by hand because its material was
+ * deliberately withheld from the bundle (decision D-2).
+ *
+ * Discriminated on `type` and every branch's fields are required: the import
+ * preview (IEX-8) must be able to name what it is asking for. A secret with no
+ * `key` is not a state this exporter can produce, so the format should not
+ * describe one — `formatVersion` is a compatibility obligation the moment a
+ * bundle leaves this system, and loose fields here are expensive to tighten
+ * later.
+ */
+const reentrySecretSchema = z.object({
+  type: z.literal('secret'),
+  entity: z.literal('secrets'),
+  projectId: z.string(),
+  key: z.string(),
+  /** `secrets.environment` is nullable in the schema. */
+  environment: z.string().nullable(),
+  /** The secret's own `type` column, renamed to free `type` for the discriminant. */
+  secretType: z.string()
+});
+
+const reentryConnectionSchema = z.object({
+  type: z.literal('connection'),
+  entity: z.literal('connections'),
+  projectId: z.string(),
+  connectionId: z.string(),
+  connectionName: z.string()
+});
+
+const reentryEntrySchema = z.discriminatedUnion('type', [
+  reentrySecretSchema,
+  reentryConnectionSchema
+]);
+
 export const manifestSchema = z.object({
   formatVersion: z.number(),
   appVersion: z.string(),
@@ -31,20 +66,13 @@ export const manifestSchema = z.object({
     fileRef: z.string(),
     message: z.string()
   })).optional(),
-  requiresReentry: z.array(z.object({
-    type: z.literal('secret').or(z.literal('connection')),
-    entity: z.string(),
-    projectId: z.string().optional(),
-    key: z.string().optional(),
-    environment: z.string().optional(),
-    secretType: z.string().optional(),
-    connectionId: z.string().optional(),
-    connectionName: z.string().optional()
-  })).optional()
+  requiresReentry: z.array(reentryEntrySchema).optional()
 });
 
 export type ExportWarning = NonNullable<z.infer<typeof manifestSchema>['warnings']>[number];
-export type RequiresReentry = NonNullable<z.infer<typeof manifestSchema>['requiresReentry']>[number];
+export type RequiresReentry = z.infer<typeof reentryEntrySchema>;
+export type ReentrySecret = z.infer<typeof reentrySecretSchema>;
+export type ReentryConnection = z.infer<typeof reentryConnectionSchema>;
 
 export type BundleManifest = z.infer<typeof manifestSchema>;
 

@@ -70,17 +70,27 @@ describeWithDb('ExportService - Secrets and Connections', () => {
     expect(requiresReentry).toBeDefined();
     expect(requiresReentry?.length).toBe(2);
 
+    // Pin the whole entry, not a few fields: `requiresReentry` is a versioned
+    // part of the bundle format that IEX-8 reads, so an added or dropped field
+    // should fail here rather than surface as a surprise on the import side.
     const secretReentry = requiresReentry?.find(r => r.type === 'secret');
-    expect(secretReentry).toBeDefined();
-    expect(secretReentry?.entity).toBe('secrets');
-    expect(secretReentry?.key).toBe('TEST_SECRET');
-    expect(secretReentry?.environment).toBe('production');
-    expect(secretReentry?.secretType).toBe('api_key');
+    expect(secretReentry).toEqual({
+      type: 'secret',
+      entity: 'secrets',
+      projectId: testProjectId,
+      key: 'TEST_SECRET',
+      environment: 'production',
+      secretType: 'api_key',
+    });
 
     const connReentry = requiresReentry?.find(r => r.type === 'connection');
-    expect(connReentry).toBeDefined();
-    expect(connReentry?.entity).toBe('connections');
-    expect(connReentry?.connectionName).toBe('TEST_CONNECTION');
+    expect(connReentry).toEqual({
+      type: 'connection',
+      entity: 'connections',
+      projectId: testProjectId,
+      connectionId: expect.any(String),
+      connectionName: 'TEST_CONNECTION',
+    });
 
     // Read the raw jsonl streams to assert omitted fields
     const readStreamToString = async (stream: AsyncIterable<unknown>) => {

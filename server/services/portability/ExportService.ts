@@ -259,23 +259,43 @@ export class ExportService {
     }
   }
 
+  /**
+   * Read a NOT NULL text column off an exported row.
+   *
+   * These feed `manifest.requiresReentry[]`, which is the only record the
+   * importing side gets of what was withheld. An entry that cannot name its
+   * secret is worse than a failed export — the user would import a silently
+   * unusable workflow — so a missing value is a hard error, not a blank field.
+   * Every column read here is NOT NULL, so this fires only on schema drift.
+   */
+  private requiredString(rowData: Record<string, unknown>, entity: string, column: string): string {
+    const value = rowData[column];
+    if (typeof value !== 'string') {
+      throw new Error(
+        `Cannot build re-entry report: '${entity}.${column}' was expected to be a string but was ${typeof value}.`
+      );
+    }
+    return value;
+  }
+
   private processRequiresReentry(descriptor: EntityDescriptor, rowData: Record<string, unknown>, state: ExportState): void {
     if (descriptor.name === 'secrets') {
+      const environment = rowData['environment'];
       state.requiresReentry.push({
         type: 'secret',
         entity: 'secrets',
-        projectId: typeof rowData['projectId'] === 'string' ? rowData['projectId'] : undefined,
-        key: typeof rowData['key'] === 'string' ? rowData['key'] : undefined,
-        environment: typeof rowData['environment'] === 'string' ? rowData['environment'] : undefined,
-        secretType: typeof rowData['type'] === 'string' ? rowData['type'] : undefined
+        projectId: this.requiredString(rowData, 'secrets', 'projectId'),
+        key: this.requiredString(rowData, 'secrets', 'key'),
+        environment: typeof environment === 'string' ? environment : null,
+        secretType: this.requiredString(rowData, 'secrets', 'type')
       });
     } else if (descriptor.name === 'connections') {
       state.requiresReentry.push({
         type: 'connection',
         entity: 'connections',
-        projectId: typeof rowData['projectId'] === 'string' ? rowData['projectId'] : undefined,
-        connectionId: typeof rowData['id'] === 'string' ? rowData['id'] : undefined,
-        connectionName: typeof rowData['name'] === 'string' ? rowData['name'] : undefined
+        projectId: this.requiredString(rowData, 'connections', 'projectId'),
+        connectionId: this.requiredString(rowData, 'connections', 'id'),
+        connectionName: this.requiredString(rowData, 'connections', 'name')
       });
     }
   }
