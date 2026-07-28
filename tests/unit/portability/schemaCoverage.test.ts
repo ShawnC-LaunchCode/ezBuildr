@@ -1,4 +1,4 @@
-import { describe, it } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import * as schema from '@shared/schema';
 import { getTableName } from 'drizzle-orm';
 import * as fs from 'fs';
@@ -47,13 +47,12 @@ describe('Schema Portability Coverage', () => {
     const reachable = new Set(exportedTables.map(t => t.tableName));
     const unreachable = [...declaredTableNames()].filter(t => !reachable.has(t));
 
-    if (unreachable.length > 0) {
-      throw new Error(
-        `Tables declared in shared/schema/ but not exported from shared/schema/index.ts: ` +
-        `${unreachable.join(', ')}.\nAdd the missing \`export * from "./<file>"\` to the barrel — ` +
-        `until you do, portability classification cannot see these tables.`
-      );
-    }
+    expect(
+      unreachable,
+      `Tables declared in shared/schema/ but not exported from shared/schema/index.ts.\n` +
+      `Add the missing \`export * from "./<file>"\` to the barrel — until you do, ` +
+      `portability classification cannot see these tables.`
+    ).toEqual([]);
   });
 
   it('every table must be classified', () => {
@@ -78,17 +77,17 @@ describe('Schema Portability Coverage', () => {
       }
     }
 
-    if (unclassified.length > 0) {
-      throw new Error(
-        unclassified.map(t =>
-          `Table "${t}" is not classified for portability.\nAdd it to ENTITY_GRAPH (with a default-deny \`fields\` list) or to\nEXCLUDED_TABLES (with a reason) in server/services/portability/entityGraph.ts.`
-        ).join('\n\n')
-      );
-    }
+    expect(
+      unclassified,
+      `Table(s) not classified for portability.\n` +
+      `Add each to ENTITY_GRAPH (with a default-deny \`fields\` list) or to\n` +
+      `EXCLUDED_TABLES (with a reason) in server/services/portability/entityGraph.ts.`
+    ).toEqual([]);
 
-    if (both.length > 0) {
-      throw new Error(`Tables present in BOTH ENTITY_GRAPH and EXCLUDED_TABLES: ${both.join(', ')}`);
-    }
+    expect(
+      both,
+      'Tables present in BOTH ENTITY_GRAPH and EXCLUDED_TABLES — pick one.'
+    ).toEqual([]);
   });
 
   it('every classified table must actually exist in the schema', () => {
@@ -99,11 +98,14 @@ describe('Schema Portability Coverage', () => {
     const invalidGraph = ENTITY_GRAPH.filter(e => !validTableNames.has(e.name)).map(e => e.name);
     const invalidExcluded = Object.keys(EXCLUDED_TABLES).filter(t => !validTableNames.has(t));
 
-    if (invalidGraph.length > 0) {
-      throw new Error(`ENTITY_GRAPH contains non-existent tables: ${invalidGraph.join(', ')}`);
-    }
-    if (invalidExcluded.length > 0) {
-      throw new Error(`EXCLUDED_TABLES contains non-existent tables: ${invalidExcluded.join(', ')}`);
-    }
+    expect(
+      invalidGraph,
+      'ENTITY_GRAPH names tables that no longer exist — delete the descriptors.'
+    ).toEqual([]);
+
+    expect(
+      invalidExcluded,
+      'EXCLUDED_TABLES names tables that no longer exist — delete the entries.'
+    ).toEqual([]);
   });
 });

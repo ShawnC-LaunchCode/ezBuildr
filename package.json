@@ -250,6 +250,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-security": "^1.7.1",
     "eslint-plugin-sonarjs": "^0.25.1",
+    "eslint-plugin-vitest": "^0.5.4",
     "husky": "^9.1.0",
     "jsdom": "^27.3.0",
     "kill-port": "^2.0.1",

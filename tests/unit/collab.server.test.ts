@@ -91,7 +91,10 @@ describeWithCollabServer('Collaboration Server [requires collab server]', () => 
     });
   });
   describe('Multi-user Collaboration', () => {
-    it('should sync document updates between two clients', async () => {
+    // SKIPPED: this test asserted nothing — it connected two clients, waited,
+    // and closed them, so it reported green while verifying no sync at all.
+    // Completing it needs the full Yjs protocol handshake (see the note below).
+    it.skip('should sync document updates between two clients', async () => {
       const roomKey = 'tenant:tenant-test:workflow:workflow-sync-test';
       // Connect client A (owner)
       const wsA = new WebSocket(`${WS_URL}?room=${roomKey}&token=${ownerToken}`);

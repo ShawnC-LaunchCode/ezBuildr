@@ -326,7 +326,10 @@ describe('Runtime Pipelines Integration Tests', () => {
       await db.delete(runGeneratedDocuments).where(sql`1=1`);
       await db.delete(templates).where(sql`id = ${testTemplateId}`);
     });
-    it('should skip document generation when visibleIf condition is false', async () => {
+    // SKIPPED: asserted nothing — it inserted rows, deleted them, and reported
+    // green. Its own comment admits it ("we can't easily test document
+    // generation without the actual template file"). Needs a template fixture.
+    it.skip('should skip document generation when visibleIf condition is false', async () => {
       // Create run with email that does NOT contain 'show'
       const [hiddenRun] = await db
         .insert(workflowRuns)
@@ -349,7 +352,8 @@ describe('Runtime Pipelines Integration Tests', () => {
       // Cleanup
       await db.delete(workflowRuns).where(sql`id = ${hiddenRun.id}`);
     });
-    it('should generate document when visibleIf condition is true', async () => {
+    // SKIPPED: same as above — no assertion, needs a real template fixture.
+    it.skip('should generate document when visibleIf condition is true', async () => {
       // Create run with email that DOES contain 'show'
       const [visibleRun] = await db
         .insert(workflowRuns)
