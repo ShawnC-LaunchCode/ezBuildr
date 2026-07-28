@@ -65,7 +65,7 @@ search for the quoted code if a reference is stale.
 | Phase | Theme | Tickets | Est. effort | Status |
 |---|---|---|---|---|
 | 0 | Foundation: entity graph, allowlist, bundle format | IEX-1, IEX-2, IEX-3 | ~1.5 days | ✅ **Done 2026-07-27** — gate verified |
-| 1 | Single-object **export** (ask #3, read path) | IEX-4..IEX-7, IEX-6B | ~2.5 days | 🔄 IEX-4 ✅, IEX-5 ✅, IEX-6 ✅; IEX-6B next, then IEX-7 |
+| 1 | Single-object **export** (ask #3, read path) | IEX-4..IEX-7, IEX-6B | ~2.5 days | 🔄 IEX-4 ✅, IEX-5 ✅, IEX-6 ✅, IEX-6B ✅; IEX-7 open (unblocked) |
 | 2 | Single-object **import** (ask #3, write path) | IEX-8..IEX-11 | ~2.5 days | 🔲 |
 | 3 | Client-wide export/import (ask #2) | IEX-12..14 (outline) | ~2 days | 🔲 unblocked 2026-07-27 |
 | 4 | Admin multi-tenant archive (ask #1) | IEX-15..18 (outline) | ~2 days | 🔲 unblocked 2026-07-27 |
@@ -902,7 +902,7 @@ through a helper that throws rather than emitting a blank field.
 
 ---
 
-## IEX-6B — Redact credential-bearing free-form columns 🔲
+## IEX-6B — Redact credential-bearing free-form columns ✅
 
 **Priority: P0** · Size: M · Files:
 `server/services/portability/entityGraph.ts`,
@@ -1021,6 +1021,46 @@ warning survives a `BundleWriter` → `BundleReader` round-trip.
    `vitest.config.ts` and run it under `unit-db`.
 9. Gates: type-check 0 errors, lint clean on touched files, `npm run test:fast`
    green at ≥ baseline, `npm run test:unit` green.
+
+### Verification pass — 2026-07-28 (PASSED after reviewer repair)
+
+All 9 criteria met. Gates run by the reviewer: `tsc` 0 errors, ESLint clean,
+`test:fast` 1998 passed, `unit-db` 55 passed. Mutation-checked: removing
+`redactPaths`/`scanPaths` fails three tests, and making the warning quote the
+matched line fails the AC-5 leak guard.
+
+**The submitted tests never executed.** Both died in `beforeEach` on
+`invalid input value for enum workflow_status: "published"`, behind which sat
+four more invented enum values (`post`, `pre`, `post_workflow`,
+`post_generation` — none are members of `blockPhaseEnum`,
+`lifecycleHookPhaseEnum`, or `documentHookPhaseEnum`) and a missing NOT NULL
+`transform_blocks.outputKey`. They also asserted blocks and hook warnings
+against a **project-scope** export, which contains none of those descriptors —
+they are `scopes: ["workflow"]`, so `entityCounts` for a project export is
+`{projects, connections, workflows}` and those assertions could only ever have
+passed vacuously.
+
+The **implementation was sound** — verified by repairing the fixture and
+probing both scopes before touching any production code. Reviewer rewrote the
+test file: one export per scope that actually reaches the rows under test,
+jsonb compared as objects rather than pinning Postgres key order, and distinct
+per-column sentinels so a failure names the leak path.
+
+Reviewer also retuned the scanner. As submitted it matched
+`secret|token|api_key|password|credential` as a bare substring plus any 32+
+character run, which fired on 6 of 9 realistic hook lines with zero true
+positives — including `ctx.secrets.get("STRIPE")` (the documented correct way
+to reach a secret here) and any bare UUID. That is warning fatigue, and a user
+who learns to skip these skips the one that matters. Retuned to what the ticket
+specified — vendor token formats, credential-ish identifiers assigned a *string
+literal*, long opaque literals excluding UUIDs — now 12/12 on a labelled set
+and additionally catching Stripe, AWS and base64 shapes the original missed.
+`tests/unit/portability/secretScanner.test.ts` (unit-fast) pins that precision
+so it cannot silently regress.
+
+Not driven live — no export endpoint until IEX-7.
+
+**IEX-7 is now unblocked.**
 
 ---
 
