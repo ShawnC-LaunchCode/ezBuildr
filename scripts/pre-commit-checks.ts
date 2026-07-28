@@ -113,8 +113,14 @@ function main(): void {
   console.log('1. Running ESLint on staged files...');
   const eslintFiles = stagedFiles.join(' ');
   if (stagedFiles.length > 0) {
+    // --report-unused-disable-directives is deliberately applied here, on
+    // staged files only, and not in `npm run lint`: the repo carries ~796
+    // pre-existing unused directives, so a repo-wide flip would fail the
+    // zero-error policy on day one. Scoping it to the diff ratchets the debt
+    // down instead — you cannot add a new pointless suppression, but you are
+    // not asked to clean up the existing ones to land an unrelated change.
     const passed = runCommand(
-      `npx eslint ${eslintFiles} --max-warnings 0`,
+      `npx eslint ${eslintFiles} --max-warnings 0 --report-unused-disable-directives`,
       'ESLint'
     );
     allPassed = allPassed && passed;
