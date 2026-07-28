@@ -65,7 +65,7 @@ search for the quoted code if a reference is stale.
 | Phase | Theme | Tickets | Est. effort | Status |
 |---|---|---|---|---|
 | 0 | Foundation: entity graph, allowlist, bundle format | IEX-1, IEX-2, IEX-3 | ~1.5 days | ✅ **Done 2026-07-27** — gate verified |
-| 1 | Single-object **export** (ask #3, read path) | IEX-4..IEX-7, IEX-6B | ~2.5 days | 🔄 IEX-4 ✅, IEX-5 ✅, IEX-6 ✅, IEX-6B ✅; IEX-7 open (unblocked) |
+| 1 | Single-object **export** (ask #3, read path) | IEX-4..IEX-7, IEX-6B | ~2.5 days | ✅ **Done 2026-07-28** — gate verified by hand |
 | 2 | Single-object **import** (ask #3, write path) | IEX-8..IEX-11 | ~2.5 days | 🔲 |
 | 3 | Client-wide export/import (ask #2) | IEX-12..14 (outline) | ~2 days | 🔲 unblocked 2026-07-27 |
 | 4 | Admin multi-tenant archive (ask #1) | IEX-15..18 (outline) | ~2 days | 🔲 unblocked 2026-07-27 |
@@ -1064,7 +1064,7 @@ Not driven live — no export endpoint until IEX-7.
 
 ---
 
-## IEX-7 — Export routes: authz, audit, rate limit, streaming download 🔲
+## IEX-7 — Export routes: authz, audit, rate limit, streaming download ✅
 
 **Priority: P1** · Size: M · File: `server/routes/portability.routes.ts` (new),
 `server/routes/index.ts`, `server/services/AuditLogService.ts`
@@ -1186,16 +1186,96 @@ further than this ticket, **stop and report** rather than half-converting it.
 
 ---
 
-## Phase 1 Gate
+### Verification pass — 2026-07-28 (PASSED after reviewer repair)
 
-- [ ] IEX-4..IEX-7 all ✅ with dated verification notes
-- [ ] `npm run type-check` → `Found 0 errors`; `npm run lint` → 0 problems
-- [ ] `npm run test:fast` ≥ baseline; `npm run test:unit` green;
-      `npm run test:integration` green for `portability.*`
-- [ ] Reviewer has exported a real project bundle from the running app, unzipped
-      it, and confirmed by hand: template `.docx` bytes present and openable,
-      no secret values anywhere in the archive (`grep` the raw bundle)
-- [ ] Reviewer has committed each passed ticket + this gate
+All 10 criteria met. Gates run by the reviewer: `tsc` 0 errors, ESLint clean,
+`test:fast` 1998 passed, `unit-db` 55 passed, `integration`
+`portability.export.test.ts` 8 passed.
+
+**Security defect found and fixed at review: anonymous denial of service.**
+The routes mounted `strictLimiter` *ahead of* `hybridAuth`, so the limiter
+counted requests it could not attribute. Measured with a throwaway probe:
+
+```
+PROBE_ANON_STATUSES: [401,401,401,401,401,401,401,401,401,401,429,429]
+PROBE_AUTHED_STATUS: 429
+```
+
+Twelve unauthenticated requests exhausted the per-IP window, after which a
+fully legitimate authenticated export received 429 — every user behind a
+shared office NAT or VPN address locked out of exports for fifteen minutes,
+by an attacker who never authenticated. Reordered to
+`hybridAuth, strictLimiter`, matching this repo's convention for authenticated
+resource routes (`sections.routes.ts:87`, `steps.routes.ts:120`); limiter-first
+is for token/public routes that cannot identify a caller. A regression test now
+fails if the order is restored — mutation-verified.
+
+The submitted tests exercised only the project route and asserted response
+*headers* without ever opening the body, so a typo in either other path, or a
+route streaming the wrong bytes, would have shipped green. Reviewer added
+coverage that parses the returned bundle with `BundleReader` and checks its
+manifest scope and rootIds, and that exercises all three scope routes.
+
+Reviewer also swapped a `statSync` on a potentially hundreds-of-MB bundle for
+its async form, and captured the caller's IP and user agent on the audit row —
+an export record that cannot say where the request came from answers half the
+question it exists for.
+
+AC 9 satisfied by the Phase 1 Gate run below, which drives the real service
+end to end and inspects the resulting archive by hand.
+
+---
+
+## Phase 1 Gate ✅ — 2026-07-28
+
+- [x] IEX-4..IEX-7 and IEX-6B all ✅ with dated verification notes
+- [x] `npm run type-check` → 0 errors; ESLint → 0 problems
+- [x] `test:fast` 1998 passed (≥ baseline); `unit-db` 55 passed;
+      `integration` green for `portability.*` (8 passed)
+- [x] Reviewer exported a real project bundle, unzipped it, and inspected it
+      by hand — see the run below
+- [x] Reviewer committed each passed ticket + this gate
+
+**Hand inspection.** A throwaway script built a project carrying one of every
+thing this phase claims to handle — a template with real `.docx` bytes stored
+through `storageProvider`, a secret with both plaintext and ciphertext, a
+connection with `authConfig`, `oauthState` and a credential-bearing
+`defaultHeaders`, and an `external_send` block with a header bag — exported it
+through the real service, and opened the archive:
+
+```
+Archive contents:
+    blobs/65b0c4d21bf2555b51c599e4021c7f1404c83b3f62f38158358180bdc8edcfe9
+    blobs/index.json
+    entities/{connections,projects,secrets,templates,workflows}.jsonl
+    manifest.json
+
+  [ok]  exactly one blob entry present (1)
+  [ok]  blobs/index.json maps the fileRef pzpXBVKTnQc58u2b.docx
+  [ok]  template bytes are byte-identical (628 vs 628)
+  [ok]  extracted .docx opens as a zip with its required parts (2 parts)
+
+  [ok]  secrets.value absent from the project bundle
+  [ok]  secrets.valueEnc absent from the project bundle
+  [ok]  connections.authConfig absent from the project bundle
+  [ok]  connections.oauthState absent from the project bundle
+  [ok]  connections.defaultHeaders absent from the project bundle
+  [ok]  blocks.config.headers[].value absent from the workflow bundle
+  [ok]  the header NAME survives so it can be re-entered
+
+entityCounts: {"projects":1,"secrets":1,"connections":1,"workflows":1,"templates":1}
+blobCount: 1
+requiresReentry: [
+  {"type":"secret","entity":"secrets","key":"GATE_SECRET","environment":"production","secretType":"api_key",…},
+  {"type":"connection","entity":"connections","connectionName":"Gate Connection",…}
+]
+blocks.jsonl: …"config":{"headers":[{"key":"Authorization","value":null}]}…
+```
+
+The template round-trips byte-identical and still opens as a Word document;
+none of the six planted credentials appears anywhere in either raw archive;
+and the withheld material is named in `requiresReentry` so the import side can
+ask for it. **Phase 1 is complete — the export path does what it promises.**
 
 ---
 
