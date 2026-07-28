@@ -59,13 +59,22 @@ export const manifestSchema = z.object({
   entityCounts: z.record(z.number()),
   blobCount: z.number(),
   checksum: z.string(),
-  warnings: z.array(z.object({
-    type: z.literal('missing_blob'),
-    entity: z.string(),
-    column: z.string(),
-    fileRef: z.string(),
-    message: z.string()
-  })).optional(),
+  warnings: z.array(z.discriminatedUnion('type', [
+    z.object({
+      type: z.literal('missing_blob'),
+      entity: z.string(),
+      column: z.string(),
+      fileRef: z.string(),
+      message: z.string()
+    }),
+    z.object({
+      type: z.literal('secret_scan'),
+      entity: z.string(),
+      column: z.string(),
+      line: z.number(),
+      message: z.string()
+    })
+  ])).optional(),
   requiresReentry: z.array(reentryEntrySchema).optional()
 });
 

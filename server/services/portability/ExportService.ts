@@ -4,7 +4,8 @@ import { eq, inArray, and, SQL } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import { ENTITY_GRAPH, EntityDescriptor } from './entityGraph';
 import { BundleWriter } from './bundleWriter';
-import { BundleManifest, RequiresReentry } from './bundleFormat';
+import { BundleManifest, RequiresReentry, ExportWarning } from './bundleFormat';
+import { applyRedaction, scanForSecrets } from './redaction';
 import { aclService } from '../AclService';
 import { datavaultAclService } from '../DatavaultAclService';
 import * as fs from 'fs';
@@ -21,6 +22,7 @@ type ExportState = {
   entityCounts: Record<string, number>;
   blobCollector: BlobCollector;
   requiresReentry: RequiresReentry[];
+  warnings: ExportWarning[];
 };
 
 /**
@@ -47,7 +49,8 @@ export class ExportService {
       extractedIds: new Map<string, Set<string>>(),
       entityCounts: {},
       blobCollector: new BlobCollector(writer),
-      requiresReentry: []
+      requiresReentry: [],
+      warnings: []
     };
 
     try {
@@ -71,8 +74,9 @@ export class ExportService {
         checksum: ''
       };
       
-      if (state.blobCollector.warnings.length > 0) {
-        manifest.warnings = state.blobCollector.warnings;
+      const allWarnings = [...state.blobCollector.warnings, ...state.warnings];
+      if (allWarnings.length > 0) {
+        manifest.warnings = allWarnings;
       }
       
       if (state.requiresReentry.length > 0) {
@@ -187,7 +191,13 @@ export class ExportService {
       await this.processBlobRefs(descriptor, rowData, state);
       this.processRequiresReentry(descriptor, rowData, state);
       
-      await state.writer.writeEntityRow(descriptor.name, row);
+      applyRedaction(rowData, descriptor.redactPaths);
+      const scanWarnings = scanForSecrets(descriptor.name, rowData, descriptor.scanPaths);
+      for (const warn of scanWarnings) {
+        state.warnings.push(warn);
+      }
+      
+      await state.writer.writeEntityRow(descriptor.name, rowData);
     }
     
     state.extractedIds.set(descriptor.name, ids);

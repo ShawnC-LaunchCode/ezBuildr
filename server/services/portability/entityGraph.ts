@@ -10,6 +10,8 @@ export interface EntityDescriptor {
   refs?: string[];
   jsonRefs?: string[];
   blobRefs?: string[];
+  redactPaths?: string[];
+  scanPaths?: string[];
 }
 
 export const ENTITY_GRAPH: EntityDescriptor[] = [
@@ -33,6 +35,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["project"],
     parent: {"name":"projects","fk":"projectId"},
     fields: ["id","tenantId","projectId","name","type","baseUrl","defaultHeaders","timeoutMs","retries","backoffMs","enabled","secretRefs"],
+    redactPaths: ["defaultHeaders"]
   },
   {
     table: schema.projectAccess,
@@ -87,6 +90,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","sectionId","type","phase","config","virtualStepId","enabled","order"],
     jsonRefs: ["config"],
+    redactPaths: ["config.headers[].value"]
   },
   {
     table: schema.transformBlocks,
@@ -94,6 +98,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","sectionId","name","language","code","inputKeys","outputKey","virtualStepId","phase","enabled","order","timeoutMs"],
+    scanPaths: ["code"]
   },
   {
     table: schema.lifecycleHooks,
@@ -101,6 +106,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","sectionId","name","phase","language","code","inputKeys","outputKeys","virtualStepIds","enabled","order","timeoutMs","mutationMode"],
+    scanPaths: ["code"]
   },
   {
     table: schema.documentHooks,
@@ -108,6 +114,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","finalBlockDocumentId","name","phase","language","code","inputKeys","outputKeys","enabled","order","timeoutMs"],
+    scanPaths: ["code"]
   },
   {
     table: schema.workflowVersions,

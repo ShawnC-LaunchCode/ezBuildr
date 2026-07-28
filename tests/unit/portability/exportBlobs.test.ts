@@ -126,7 +126,7 @@ describeWithDb('exportBlobs', () => {
     const warnings = reader.manifest.warnings;
     expect(warnings).toBeDefined();
     expect(warnings?.length).toBeGreaterThan(0);
-    const missingWarning = warnings?.find(w => w.fileRef === 'test-bucket/missing-file.docx');
+    const missingWarning = warnings?.find(w => w.type === 'missing_blob' && w.fileRef === 'test-bucket/missing-file.docx');
     expect(missingWarning).toBeDefined();
     expect(missingWarning?.type).toBe('missing_blob');
     expect(missingWarning?.entity).toBe('templates');
