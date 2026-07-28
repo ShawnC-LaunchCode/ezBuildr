@@ -59,7 +59,7 @@ search for the quoted code if a reference is stale.
 | Phase | Theme | Tickets | Est. effort | Status |
 |---|---|---|---|---|
 | 0 | Foundation: entity graph, allowlist, bundle format | IEX-1, IEX-2, IEX-3 | ~1.5 days | ✅ **Done 2026-07-27** — gate verified |
-| 1 | Single-object **export** (ask #3, read path) | IEX-4..IEX-7 | ~2 days | 🔲 |
+| 1 | Single-object **export** (ask #3, read path) | IEX-4..IEX-7 | ~2 days | 🔄 IEX-4 ✅; IEX-5/6/7 open |
 | 2 | Single-object **import** (ask #3, write path) | IEX-8..IEX-11 | ~2.5 days | 🔲 |
 | 3 | Client-wide export/import (ask #2) | IEX-12..14 (outline) | ~2 days | 🔲 unblocked 2026-07-27 |
 | 4 | Admin multi-tenant archive (ask #1) | IEX-15..18 (outline) | ~2 days | 🔲 unblocked 2026-07-27 |
@@ -530,7 +530,27 @@ Out of scope: tenant-wide export (Phase 3), async jobs (Phase 3), run history
 **Dispatch order:** IEX-4 → IEX-5 → IEX-6 → IEX-7, strictly sequential.
 IEX-5 and IEX-6 both extend the exporter IEX-4 creates; IEX-7 wraps it.
 
-## IEX-4 — ExportService: walk the entity graph from a root and emit entities 🔲
+## IEX-4 — ExportService: walk the entity graph from a root and emit entities ✅
+
+> **Verified 2026-07-28** (commit `030d007a`). Workflow and project scope both
+> export the expected entities; emitted columns are asserted mechanically
+> against `ENTITY_GRAPH` in every bundle test; unauthorized user → `Access
+> denied`; missing root → `not found` (404, not 403); a planted cross-tenant
+> `datavault_databases` row is excluded while the legitimate same-tenant row
+> survives. unit-db 47 passed, test:fast 1978, type-check and lint clean.
+>
+> Two AC deviations, both accepted: the test lives at
+> `tests/unit/portability/exportService.test.ts` and is registered in
+> `dbUnitTests` in `vitest.config.ts` rather than under `tests/unit-db/` —
+> **AC 9 was wrong**, that array is the repo's actual routing mechanism into
+> the unit-db project. And the `scopes` union gained `'database'`, which AC 1
+> implied but did not state.
+>
+> Reviewer fixed before commit: two `!` assertions on nullable columns
+> (`projects.tenant_id`, `workflows.project_id`) that would have silently
+> emptied every DataVault entity and mis-reported an orphan workflow as a
+> missing project; a removed guard against unbounded selection; and a
+> throw-based graph test carrying no assertion.
 
 **Priority: P1** · Size: M · File: `server/services/portability/ExportService.ts` (new)
 

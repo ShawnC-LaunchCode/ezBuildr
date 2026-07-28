@@ -251,18 +251,33 @@ devs in one shared tree (2026-07-25) produced, in a single session:
   reported their own gates green while the tree was red.
 
 **A worktree has no `node_modules` or `.env`** — `tsc`, ESLint and Vitest all
-need them. Create the junction with **PowerShell**, not `cmd //c mklink` from
-Git Bash: Git Bash mangles the Windows path and silently produces a doubled
-drive letter (`C:\C:\Users\...`), which resolves to an *empty* directory. The
-gates then run against nothing and report green — an agent hit exactly this.
+need them. Create the junction with **PowerShell**. Two different Git Bash
+mistakes have now cost real time, and they fail in opposite ways:
+
+- `cmd //c mklink` from Git Bash mangles the Windows path into a doubled drive
+  letter (`C:\C:\Users\...`) that resolves to an *empty* directory. The gates
+  then run against nothing and **report green**.
+- `ln -s` from Git Bash creates a POSIX symlink rather than a Windows junction.
+  `tsc` and ESLint work fine, so it looks healthy — but **every Vitest project
+  fails to run at all** with `Vitest failed to find the runner`, because the
+  setup file and the runner resolve two different `vitest` instances through
+  the link. A dev agent turned in two submissions this way, having never
+  executed a single test; both times the reviewer had to copy the work into the
+  main checkout to find out whether it passed.
 
 ```powershell
 New-Item -ItemType Junction -Path node_modules -Target C:\Users\<you>\path\to\repo\node_modules
 ```
 
 Then **verify it resolved** before trusting any gate — `ls node_modules | head`
-should list packages, and `node_modules/@types` must exist. Copy `.env` from the
-main checkout too, or ~27 suites fail on `DATABASE_URL: Required`.
+should list packages, and `node_modules/@types` must exist. Confirm it is a real
+junction, not a symlink: `Get-Item node_modules | Select LinkType` must print
+`Junction`. Copy `.env` from the main checkout too, or ~27 suites fail on
+`DATABASE_URL: Required`.
+
+**Prove the suite actually runs before dispatching anyone into the worktree:**
+`npm run test:fast` must report passing files, not `0 test`. A worktree where
+tests cannot run produces confident, unverifiable turn-ins.
 
 **Check the worktree's base commit before trusting it.** A new worktree is not
 guaranteed to start from current `HEAD` — in practice they have been created
