@@ -48,3 +48,6 @@ test-output.txt
 # Skill trigger-eval harness output (see tools/skill-trigger-eval/README.md)
 tools/skill-trigger-eval/results/
 .codex-tmp/
+
+# TypeScript incremental build cache (tree-local, per worktree)
+.tsbuildinfo
