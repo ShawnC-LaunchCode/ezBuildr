@@ -333,7 +333,13 @@ present so it can be explicitly cleared.
 
 ---
 
-## IEX2-2 — Unmapped foreign keys are written into the database verbatim 🔲
+## IEX2-2 — Unmapped foreign keys are written into the database verbatim 🔄
+
+> **Dispatched 2026-07-29** — Gemini, worktree `.claude/worktrees/iex2-2`, base
+> `9b3ab034` (verified by `scripts/new-worktree.ps1`: junction ok, `@types`
+> resolves, base matches `main`, `test:fast` executes 2006 tests). Nobody else
+> may touch `ImportService.ts` until this is reviewed and committed — IEX2-3..7
+> are behind it in the same chain.
 
 **Priority: P0 (security + integrity)** · Size: M · Files: `server/services/portability/ImportService.ts`
 
