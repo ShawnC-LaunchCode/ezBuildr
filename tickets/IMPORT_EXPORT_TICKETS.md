@@ -2103,10 +2103,25 @@ Do **not** write code. Run the existing harness, then look at the result.
   workflow via the API seeds a default `Section 1` alongside
   `Applicant Details`. Two sections is correct, not a bug.
 
+> **Amended 2026-07-28 after round 1.** The first attempt got `RESULT: PASS` from
+> the harness but could not log into the UI: `POST /api/auth/register` leaves
+> `users.emailVerified` false, and the UI login path rejects that with
+> `EmailNotVerifiedError` (403) at `server/routes/auth.routes.ts:84`. A bearer
+> token from `/register` works fine against the API, which is why the reviewer
+> never hit this — the whole IEX-11 verification went through the API path.
+> Correctly diagnosed and reported rather than worked around.
+>
+> **The harness now sets `emailVerified: true` during its bootstrap and then
+> proves the credentials on the real login endpoint**, printing
+> `UI login path OK (HTTP 200)` before it prints them. It can no longer hand out
+> credentials that work only for scripts. Re-run it and the screenshots are
+> obtainable.
+
 ### Acceptance criteria
 
 1. `scripts/verifyPortabilityRoundTrip.ts` runs against the dev server and
-   prints `RESULT: PASS`. Paste its full output.
+   prints `RESULT: PASS` **and** `UI login path OK (HTTP 200)`. Paste its full
+   output.
 2. A screenshot of the **imported** workflow open in the builder, showing the
    `Applicant Details` section containing `Full name` and `Email address`.
 3. A screenshot of the **source** workflow in the builder for comparison.

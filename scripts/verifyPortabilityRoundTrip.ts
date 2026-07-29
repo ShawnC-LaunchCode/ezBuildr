@@ -53,12 +53,27 @@ async function main(): Promise<void> {
   const JH = { ...H, 'Content-Type': 'application/json' };
 
   // Registration leaves the user tenant-less; everything downstream needs one.
+  // emailVerified matters too: a bearer token from /register works fine against
+  // the API, but the UI login form rejects an unverified user with
+  // EmailNotVerifiedError (auth.routes.ts:84). Without this, the credentials
+  // printed below are usable by scripts but NOT by a human or a headless
+  // browser trying to log in and look at the result.
   const [tenant] = await db.insert(schema.tenants)
     .values({ name: `Portability Verify ${stamp}`, plan: 'free' }).returning();
   await db.update(schema.users)
-    .set({ tenantId: tenant.id, tenantRole: 'owner' })
+    .set({ tenantId: tenant.id, tenantRole: 'owner', emailVerified: true })
     .where(eq(schema.users.id, user.id));
-  log(`1. user ${user.id} in tenant ${tenant.id}`);
+  log(`1. user ${user.id} in tenant ${tenant.id} (email marked verified for UI login)`);
+
+  // Prove the printed credentials actually work on the UI login path, so this
+  // script can never hand out credentials that only work for API callers.
+  const loginRes = await fetch(`${BASE}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: EMAIL, password: PASSWORD })
+  });
+  await ok(loginRes, 'login via the UI auth path');
+  log(`   UI login path OK (HTTP ${loginRes.status}) — these credentials work in the browser`);
 
   const projRes = await fetch(`${BASE}/api/projects`, {
     method: 'POST', headers: JH, body: JSON.stringify({ name: `Portability Verify ${stamp}` })
