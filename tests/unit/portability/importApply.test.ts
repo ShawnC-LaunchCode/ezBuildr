@@ -129,7 +129,7 @@ describeWithDb('ImportService - apply', () => {
     const beforeProjects = await db.select().from(projects);
     const beforeWorkflows = await db.select().from(workflows);
 
-    const newRootId = await importService.apply(projectBundle, user.id);
+    const newRootId = (await importService.apply(projectBundle, user.id)).rootId;
 
     const afterProjects = await db.select().from(projects);
     const afterWorkflows = await db.select().from(workflows);
@@ -142,7 +142,7 @@ describeWithDb('ImportService - apply', () => {
   it('reproduces the full workflow structure and rewires every child FK (AC 1)', async () => {
     // Workflow scope, not project scope: sections/steps/logic rules/blocks/hooks
     // are all ["workflow"]-scoped, so a project bundle would assert nothing here.
-    const newRootId = await importService.apply(workflowBundle, user.id);
+    const newRootId = (await importService.apply(workflowBundle, user.id)).rootId;
     expect(newRootId).not.toBe(workflow.id);
 
     const [newSection] = await db.select().from(sections).where(eq(sections.workflowId, newRootId));
@@ -184,7 +184,7 @@ describeWithDb('ImportService - apply', () => {
     // Before IEX-13 a project bundle held workflow ROWS but none of their
     // contents, so this import produced a hollow workflow and the assertions
     // below all read zero.
-    const newProjectId = await importService.apply(projectBundle, user.id);
+    const newProjectId = (await importService.apply(projectBundle, user.id)).rootId;
 
     const [newWorkflow] = await db.select().from(workflows).where(eq(workflows.projectId, newProjectId));
     expect(newWorkflow).toBeDefined();
@@ -228,7 +228,7 @@ describeWithDb('ImportService - apply', () => {
     recomputeChecksum(zip, manifest);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
     
-    const newRootId = await importService.apply(zip.toBuffer(), user.id);
+    const newRootId = (await importService.apply(zip.toBuffer(), user.id)).rootId;
     
     const [importedProject] = await db.select().from(projects).where(eq(projects.id, newRootId));
     expect(importedProject).toBeDefined();
@@ -273,7 +273,7 @@ describeWithDb('ImportService - apply', () => {
     recomputeChecksum(zip, manifest2);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest2)));
 
-    const newRootId = await importService.apply(zip.toBuffer(), user.id);
+    const newRootId = (await importService.apply(zip.toBuffer(), user.id)).rootId;
     
     const [importedWf] = await db.select().from(workflows).where(eq(workflows.id, newRootId));
     expect(importedWf.currentVersionId).not.toBeNull();
@@ -315,7 +315,7 @@ describeWithDb('ImportService - apply', () => {
     recomputeChecksum(zip, manifest);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
 
-    const newRootId = await importService.apply(zip.toBuffer(), user.id);
+    const newRootId = (await importService.apply(zip.toBuffer(), user.id)).rootId;
     const [importedWf] = await db.select().from(workflows).where(eq(workflows.id, newRootId));
     
     const importedSteps = await db.select().from(steps).where(eq(steps.workflowId, importedWf.id));
@@ -344,7 +344,7 @@ describeWithDb('ImportService - apply', () => {
     recomputeChecksum(zip, manifest);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
     
-    const newRootId = await importService.apply(zip.toBuffer(), user.id);
+    const newRootId = (await importService.apply(zip.toBuffer(), user.id)).rootId;
     
     const accesses = await db.select().from(projectAccess).where(eq(projectAccess.projectId, newRootId));
     expect(accesses.length).toBe(0);
@@ -402,7 +402,7 @@ describeWithDb('ImportService - apply', () => {
     recomputeChecksum(zip, manifest);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
 
-    const newRootIdWf = await importService.apply(zip.toBuffer(), user.id);
+    const newRootIdWf = (await importService.apply(zip.toBuffer(), user.id)).rootId;
     
     const allSteps = await db.select().from(steps).where(eq(steps.workflowId, newRootIdWf));
     const importedStep = allSteps.find(s => s.alias === 'test_step_alias_2');

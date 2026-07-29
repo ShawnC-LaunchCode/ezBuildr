@@ -1623,7 +1623,38 @@ project/tenant scope, so every archive it produced would have been hollow.
 
 ---
 
-## IEX-10 — Blob restore: virus scanning, integrity, quota enforcement 🔲
+## IEX-10 — Blob restore: virus scanning, integrity, quota enforcement ✅
+
+> **Verified 2026-07-28.** type-check 0, eslint 0 (with
+> `--report-unused-disable-directives`), `test:fast` 148 files / 2006 tests,
+> `unit-db` 9 files / 85 tests (from 8/79 — six new blob tests).
+>
+> Gate order is quota → integrity → scan → write, with every blob clearing every
+> gate before a single byte is written, so a rejected import leaves storage
+> untouched. Blob restore runs *before* the transaction opens, so an infected or
+> corrupt blob also means no rows.
+>
+> Mutation-checked, each against its own guard: disabling the infection abort
+> reds only AC 4; moving the quota gate to after the scan loop reds only AC 6
+> (with `expected [ 'shared.docx' ] to have a length of +0` — the test enforces
+> the *ordering*, not merely that quota throws).
+>
+> **AC 7 amended during implementation.** The ticket said a row whose blob is
+> absent should import "with the `fileRef` unset". Both blobRefs columns in the
+> graph — `templates.fileRef` and `template_versions.fileRef` — are `.notNull()`
+> (`shared/schema/workflow.ts:181,199`), so null is not available; the original
+> wording is not implementable. The row now imports with the **empty sentinel**.
+> Carrying the bundle's own ref through was rejected outright: on a same-system
+> import it resolves to the *source* tenant's object in shared storage, which
+> would hand the importing tenant a file that is not theirs. Empty fails closed
+> on download instead. AC 2 ("no bundle-origin fileRef in the database") is
+> unaffected and still asserted.
+>
+> `apply()` now returns `ImportApplyResult { rootId, warnings, blobsRestored }`
+> rather than a bare id string, because AC 7 requires the missing-blob warning to
+> reach the caller. IEX-11 should surface `warnings` in the route response.
+>
+> Live verification: **N/A** — still unreachable until IEX-11 wires routes.
 
 **Priority: P0** · Size: M · Files: `server/services/portability/ImportService.ts`,
 `server/services/portability/blobs.ts`

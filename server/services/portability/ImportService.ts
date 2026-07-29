@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import { z } from 'zod';
 import { BundleReader } from './bundleReader';
 import { ENTITY_GRAPH, EntityDescriptor } from './entityGraph';
@@ -14,6 +14,9 @@ import { aclService } from '../AclService';
 import { projectRepository, type DbTransaction } from '../../repositories';
 import { canManageOrg } from '../../utils/ownershipAccess';
 import { remapJsonIds } from '../../utils/remapJsonIds';
+import { storageProvider } from '../storage';
+import { storageQuotaService } from '../StorageQuotaService';
+import { virusScanner } from '../security/VirusScanner';
 
 export type TargetOwner = {
   ownerType: 'user' | 'org';
@@ -50,6 +53,22 @@ interface ProcessEntityContext {
   userId: string;
   idMap: Map<string, string>;
   rootIds: string[];
+  /** bundle-origin fileRef -> freshly written storage fileRef (IEX-10) */
+  blobMap: Map<string, string>;
+}
+
+export interface ImportApplyResult {
+  rootId: string;
+  /** Blobs referenced by a row but absent from the bundle. Absent is not fatal. */
+  warnings: ExportWarning[];
+  /** Number of distinct objects written to storage. */
+  blobsRestored: number;
+}
+
+/** Where a bundle fileRef was referenced from, for actionable rejection errors. */
+interface BlobReference {
+  entity: string;
+  column: string;
 }
 
 export class ImportService {
@@ -450,6 +469,117 @@ export class ImportService {
     }
   }
 
+  /**
+   * Map every bundle fileRef back to the entity/column that referenced it, so a
+   * rejected blob can name where it came from rather than just its hash.
+   */
+  private async collectBlobReferences(reader: BundleReader): Promise<Map<string, BlobReference>> {
+    const references = new Map<string, BlobReference>();
+    for (const desc of ENTITY_GRAPH) {
+      if (desc.blobRefs === undefined || desc.blobRefs.length === 0) {continue;}
+      if (this.shouldSkipEntity(desc)) {continue;}
+
+      const schema = this.getZodSchema(desc);
+      for await (const rawRow of reader.readEntityStream(desc.name)) {
+        const parsed = schema.safeParse(rawRow);
+        if (!parsed.success) {continue;}
+        const data = parsed.data as Record<string, unknown>;
+        for (const col of desc.blobRefs) {
+          const value = data[col];
+          if (typeof value === 'string' && value !== '' && !references.has(value)) {
+            references.set(value, { entity: desc.name, column: col });
+          }
+        }
+      }
+    }
+    return references;
+  }
+
+  private describeRef(references: Map<string, BlobReference>, fileRef: string): string {
+    const ref = references.get(fileRef);
+    return ref === undefined ? `fileRef ${fileRef}` : `${ref.entity}.${ref.column} (fileRef ${fileRef})`;
+  }
+
+  /**
+   * Restore bundle blobs into storage. Gate order is deliberate and asserted by
+   * IEX-10's tests: quota, then integrity, then scan, then write — every blob
+   * clears every gate before a single byte is written, so a rejected import
+   * leaves storage untouched rather than half-populated.
+   */
+  private async restoreBlobs(
+    reader: BundleReader,
+    tenantId: string,
+    warnings: ExportWarning[]
+  ): Promise<Map<string, string>> {
+    const mapping = new Map<string, string>();
+    const index = await reader.readBlobIndex();
+    const references = await this.collectBlobReferences(reader);
+
+    // Referenced but not carried: import the row with the ref unset. Absent is
+    // not malicious and must not abort (IEX-5 wrote the matching export warning).
+    for (const [fileRef, ref] of references) {
+      if (index[fileRef] === undefined) {
+        warnings.push({
+          type: 'missing_blob',
+          entity: ref.entity,
+          column: ref.column,
+          fileRef,
+          message: `Blob not present in bundle: ${fileRef}. Imported row will have no file attached.`
+        });
+      }
+    }
+
+    const entries = Object.entries(index);
+    if (entries.length === 0) {
+      return mapping;
+    }
+
+    // Gate 1 — quota, before anything is read, scanned or written.
+    const totalBytes = entries.reduce((sum, [, meta]) => sum + meta.size, 0);
+    await storageQuotaService.checkQuota(tenantId, totalBytes);
+
+    // Gates 2 and 3 — integrity then scan, deduplicated by content hash so a
+    // blob shared by many rows is verified and scanned exactly once.
+    const verified = new Map<string, Buffer>();
+    for (const [fileRef, meta] of entries) {
+      if (verified.has(meta.sha256)) {continue;}
+
+      const buffer = await reader.readBlob(meta.sha256);
+      const actual = createHash('sha256').update(buffer).digest('hex');
+      if (actual !== meta.sha256) {
+        throw new Error(
+          `Bundle integrity check failed: blob content does not match its sha256 ` +
+          `(expected ${meta.sha256}, got ${actual}), referenced by ${this.describeRef(references, fileRef)}`
+        );
+      }
+
+      const scan = await virusScanner().scan(buffer, meta.filename);
+      if (!scan.safe) {
+        throw new Error(
+          `Import rejected: potential malware detected (${String(scan.threatName)}) ` +
+          `in blob referenced by ${this.describeRef(references, fileRef)}`
+        );
+      }
+
+      verified.set(meta.sha256, buffer);
+    }
+
+    // Gate 4 — every blob passed; now write. One stored object per unique hash.
+    const written = new Map<string, string>();
+    for (const [fileRef, meta] of entries) {
+      let newRef = written.get(meta.sha256);
+      if (newRef === undefined) {
+        const buffer = verified.get(meta.sha256);
+        if (buffer === undefined) {continue;}
+        newRef = await storageProvider.saveFile(buffer, meta.filename, meta.mimeType);
+        written.set(meta.sha256, newRef);
+      }
+      mapping.set(fileRef, newRef);
+    }
+
+    return mapping;
+  }
+
   private async processSingleEntity(
     ctx: ProcessEntityContext,
     data: Record<string, unknown>,
@@ -475,6 +605,20 @@ export class ImportService {
       }
     }
     
+    // Repoint blob columns at the freshly written objects. A ref we could not
+    // restore is cleared to the empty sentinel rather than carried over: both
+    // blobRefs columns in the graph (templates.fileRef, template_versions.fileRef)
+    // are NOT NULL, so "unset" cannot be null. Carrying the bundle's own ref
+    // through would be worse than either — on a same-system import it resolves
+    // to the SOURCE tenant's object in shared storage, handing the importing
+    // tenant a file that is not theirs. Empty fails closed on download instead.
+    for (const col of ctx.desc.blobRefs ?? []) {
+      const value = data[col];
+      if (typeof value === 'string' && value !== '') {
+        data[col] = ctx.blobMap.get(value) ?? '';
+      }
+    }
+
     this.enforceOwnership(ctx.desc, data, ctx.targetOwner, ctx.userId);
     
     // Assign new ID from Pass 1 mapping
@@ -519,21 +663,26 @@ export class ImportService {
     return newRootId;
   }
 
-  async apply(buffer: Buffer, userId: string, options: ImportApplyOptions = {}): Promise<string> {
+  async apply(buffer: Buffer, userId: string, options: ImportApplyOptions = {}): Promise<ImportApplyResult> {
     const targetOwner = await this.resolveTargetOwner(userId, options);
-    
+
     const tmpPath = path.join(os.tmpdir(), `import_apply_${randomUUID()}.ezb`);
     await fs.promises.writeFile(tmpPath, buffer);
     let reader: BundleReader | null = null;
     let newRootId = '';
-    
+    const warnings: ExportWarning[] = [];
+
     try {
       reader = new BundleReader(tmpPath);
       await reader.open();
       const manifest = reader.manifest;
-      
+
       const idMap = new Map<string, string>();
       const rootIds = manifest.rootIds;
+
+      // Blob restore runs before the transaction: every quota/integrity/scan
+      // gate must reject the import before any row is created.
+      const blobMap = await this.restoreBlobs(reader, targetOwner.tenantId, warnings);
 
       // Pass 1: Allocate new UUIDs for every row across all entities
       // This allows forward references (like currentVersionId) to be remapped
@@ -565,15 +714,20 @@ export class ImportService {
             targetOwner,
             userId,
             idMap,
-            rootIds
+            rootIds,
+            blobMap
           });
           if (rootId) {
             newRootId = rootId;
           }
         }
       });
-      
-      return newRootId;
+
+      return {
+        rootId: newRootId,
+        warnings,
+        blobsRestored: new Set(blobMap.values()).size
+      };
     } finally {
       reader?.close();
       try {
