@@ -1,4 +1,6 @@
+import { randomUUID } from "crypto";
 import { type Server } from "http";
+import AdmZip from "adm-zip";
 import { eq, and } from "drizzle-orm";
 import express, { type Express } from "express";
 import { nanoid } from "nanoid";
@@ -8,6 +10,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import * as schema from "@shared/schema";
 import { db } from "../../server/db";
 import { registerRoutes } from "../../server/routes";
+import { recomputeChecksum } from "../helpers/bundleTestHelper";
 
 describe.sequential("Portability Import API Integration Tests", () => {
   let app: Express;
@@ -269,5 +272,51 @@ describe.sequential("Portability Import API Integration Tests", () => {
 
     expect(response.status).toBe(400);
     expect(response.body.message).toMatch(/required/i);
+  });
+
+  it("IEX2-2 AC 3: an unresolvable NOT NULL reference is a 400, not a 500", async () => {
+    // `steps.sectionId` is NOT NULL, so an unresolvable value cannot be dropped
+    // and the import must be rejected. The classification is substring matching
+    // on the thrown message (BUNDLE_REJECTION_SIGNALS), so it is only one
+    // rename away from silently reverting to a 500 — hence a route-level test
+    // rather than trusting the signal list by inspection.
+    const zip = new AdmZip(bundle);
+    const stepsLines = zip.getEntry("entities/steps.jsonl")!.getData()
+      .toString("utf8").split(/\r?\n/).filter(Boolean);
+    const firstStep = JSON.parse(stepsLines[0]);
+    stepsLines.push(JSON.stringify({
+      ...firstStep,
+      id: randomUUID(),
+      title: "Orphan Step",
+      alias: `orphan_${nanoid(6)}`,
+      sectionId: randomUUID(), // a section that is not in the bundle
+      order: 99,
+    }));
+    zip.updateFile("entities/steps.jsonl", Buffer.from(`${stepsLines.join("\n")}\n`));
+
+    const manifest = JSON.parse(zip.getEntry("manifest.json")!.getData().toString("utf8"));
+    manifest.entityCounts.steps = (manifest.entityCounts.steps ?? 0) + 1;
+    recomputeChecksum(zip, manifest);
+    zip.updateFile("manifest.json", Buffer.from(JSON.stringify(manifest)));
+    const tampered = zip.toBuffer();
+
+    const apply = await request(baseURL)
+      .post("/api/portability/import/apply")
+      .set("Authorization", `Bearer ${authToken}`)
+      .attach("file", tampered, "bundle.ezb");
+
+    expect(apply.status).toBe(400);
+    expect(apply.status).not.toBe(500);
+    expect(apply.body.message).toMatch(/Unresolvable reference/);
+    expect(apply.body.message).toMatch(/steps\.sectionId/);
+
+    // Preview refuses the same bundle up front rather than only at apply.
+    const preview = await request(baseURL)
+      .post("/api/portability/import/preview")
+      .set("Authorization", `Bearer ${authToken}`)
+      .attach("file", tampered, "bundle.ezb")
+      .expect(200);
+    expect(preview.body.canProceed).toBe(false);
+    expect(preview.body.errors.some((e: string) => e.includes("Unresolvable reference"))).toBe(true);
   });
 });

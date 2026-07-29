@@ -73,6 +73,14 @@ export const manifestSchema = z.object({
       column: z.string(),
       line: z.number(),
       message: z.string()
+    }),
+    z.object({
+      // Used by ImportPreview/ImportApplyResult, never emitted by export
+      type: z.literal('dangling_reference'),
+      entity: z.string(),
+      column: z.string(),
+      missingId: z.string(),
+      message: z.string()
     })
   ])).optional(),
   requiresReentry: z.array(reentryEntrySchema).optional()

@@ -62,6 +62,7 @@ interface ProcessEntityContext {
    * original is legitimately the caller's.
    */
   projectIdOverride: string | null | undefined;
+  warnings: ExportWarning[];
 }
 
 export interface ImportApplyResult {
@@ -231,11 +232,81 @@ export class ImportService {
     return z.object(pickedShape).strip();
   }
 
+  private handleDanglingReference(options: {
+    mode: 'preview' | 'apply';
+    desc: EntityDescriptor;
+    colName: string;
+    val: string;
+    previewResult?: ImportPreview;
+    applyCtx?: ProcessEntityContext;
+    data?: Record<string, unknown>;
+  }): void {
+    const { mode, desc, colName, val, previewResult, applyCtx, data } = options;
+    const tableColumns = desc.table as unknown as Record<string, { notNull?: boolean }>;
+    const isNotNull = tableColumns[colName]?.notNull === true;
+
+    if (isNotNull) {
+      if (mode === 'preview' && previewResult) {
+        previewResult.errors.push(`Validation failed in ${desc.name}: Unresolvable reference: ${desc.name}.${colName} -> ${val}`);
+        previewResult.canProceed = false;
+      } else {
+        throw new Error(`Unresolvable reference: ${desc.name}.${colName} -> ${val}`);
+      }
+    } else {
+      const warning: ExportWarning = {
+        type: 'dangling_reference',
+        entity: desc.name,
+        column: colName,
+        missingId: val,
+        message: `Dangling reference dropped: ${desc.name}.${colName} -> ${val}`
+      };
+      if (mode === 'preview' && previewResult) {
+        previewResult.warnings.push(warning);
+      } else if (mode === 'apply' && applyCtx && data) {
+        data[colName] = null;
+        applyCtx.warnings.push(warning);
+      }
+    }
+  }
+
+  private checkDanglingReferences(desc: EntityDescriptor, data: Record<string, unknown>, bundleIds: Set<string>, result: ImportPreview): void {
+    for (const colName of desc.refs ?? []) {
+      const val = data[colName];
+      if (typeof val === 'string' && val !== '' && !bundleIds.has(val)) {
+        if (desc.name === 'workflows' && colName === 'projectId') {
+          // workflows.projectId is allowed to pass through if it's the caller's own project
+          // (same-system re-import). resolveProjectIdOverride will unparent it if unauthorized.
+          continue; // Handled by resolveProjectIdOverride during apply
+        }
+        this.handleDanglingReference({ mode: 'preview', desc, colName, val, previewResult: result });
+      }
+    }
+  }
+
+  private remapForeignKeys(ctx: ProcessEntityContext, data: Record<string, unknown>): void {
+    for (const colName of ctx.desc.refs ?? []) {
+      const val = data[colName];
+      if (typeof val === 'string' && val !== '') {
+        if (ctx.idMap.has(val)) {
+          data[colName] = ctx.idMap.get(val)!;
+        } else {
+          if (ctx.desc.name === 'workflows' && colName === 'projectId') {
+            // workflows.projectId is allowed to pass through if it's the caller's own project
+            // (same-system re-import). resolveProjectIdOverride will unparent it if unauthorized.
+            continue; // Handled by resolveProjectIdOverride below
+          }
+          this.handleDanglingReference({ mode: 'apply', desc: ctx.desc, colName, val, applyCtx: ctx, data });
+        }
+      }
+    }
+  }
+
   private async processEntityStream(
     reader: BundleReader,
     desc: EntityDescriptor,
     extracted: { projects: Set<string>; workflows: Set<string>; tableSlugs: Set<string>; stepAliases: Set<string> },
-    result: ImportPreview
+    result: ImportPreview,
+    bundleIds: Set<string>
   ): Promise<void> {
     let count = 0;
     const schema = this.getZodSchema(desc);
@@ -266,6 +337,9 @@ export class ImportService {
       if (desc.name === 'steps' && typeof data['alias'] === 'string' && data['alias'] !== '') {
         extracted.stepAliases.add(data['alias']);
       }
+
+      this.checkDanglingReferences(desc, data, bundleIds, result);
+
       count++;
     }
     
@@ -300,9 +374,20 @@ export class ImportService {
         stepAliases: new Set<string>()
       };
 
+      const bundleIds = new Set<string>();
       for (const desc of ENTITY_GRAPH) {
         if (this.shouldSkipEntity(desc)) {continue;}
-        await this.processEntityStream(reader, desc, extracted, result);
+        const stream = reader.readEntityStream(desc.name);
+        for await (const row of stream) {
+          if (row && typeof row === 'object' && typeof (row as Record<string, unknown>)['id'] === 'string') {
+            bundleIds.add((row as Record<string, unknown>)['id'] as string);
+          }
+        }
+      }
+
+      for (const desc of ENTITY_GRAPH) {
+        if (this.shouldSkipEntity(desc)) {continue;}
+        await this.processEntityStream(reader, desc, extracted, result, bundleIds);
       }
       this.extractManifestMetadata(reader.manifest, result);
 
@@ -690,12 +775,7 @@ export class ImportService {
     
     // Remap explicit foreign keys from the descriptor's declared ref columns.
     // UUIDs are globally unique, so a single idMap covers every entity.
-    for (const colName of ctx.desc.refs ?? []) {
-      const val = data[colName];
-      if (typeof val === 'string' && ctx.idMap.has(val)) {
-        data[colName] = ctx.idMap.get(val)!;
-      }
-    }
+    this.remapForeignKeys(ctx, data);
     
     // Repoint blob columns at the freshly written objects. A ref we could not
     // restore is cleared to the empty sentinel rather than carried over: both
@@ -823,7 +903,8 @@ export class ImportService {
             idMap,
             rootIds,
             blobMap,
-            projectIdOverride
+            projectIdOverride,
+            warnings
           });
           if (rootId) {
             newRootId = rootId;

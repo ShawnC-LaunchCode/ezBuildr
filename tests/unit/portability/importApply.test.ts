@@ -552,5 +552,113 @@ describeWithDb('ImportService - apply', () => {
 
     await expect(importService.apply(zip.toBuffer(), user.id)).rejects.toThrow(/Validation failed/);
   });
-});
+  it('rejects unresolvable NOT NULL references and warns for nullable references (IEX2-2)', async () => {
+    // We will use workflowBundle. We will inject a dangling NOT NULL reference (steps.sectionId)
+    // and a dangling nullable reference (logic_rules.targetStepId).
+    
+    const zip = new AdmZip(workflowBundle);
+    const stepsEntry = zip.getEntry('entities/steps.jsonl');
+    const stepsLines = stepsEntry!.getData().toString('utf8').split('\n').filter(Boolean);
+    const firstStep = JSON.parse(stepsLines[0]);
+    
+    // NOT NULL ref
+    const fakeSectionId = randomUUID();
+    const badStep = { ...firstStep, id: randomUUID(), title: 'Bad Step', sectionId: fakeSectionId, order: 2 };
+    stepsLines.push(JSON.stringify(badStep));
+    zip.updateFile('entities/steps.jsonl', Buffer.from(`${stepsLines.join('\n')}\n`));
+    
+    // Nullable ref
+    const rulesEntry = zip.getEntry('entities/logic_rules.jsonl');
+    const rulesLines = rulesEntry!.getData().toString('utf8').split('\n').filter(Boolean);
+    const firstRule = JSON.parse(rulesLines[0]);
+    
+    const fakeTargetStepId = randomUUID();
+    const badRule = { ...firstRule, id: randomUUID(), conditionStepId: firstStep.id, targetStepId: fakeTargetStepId };
+    rulesLines.push(JSON.stringify(badRule));
+    zip.updateFile('entities/logic_rules.jsonl', Buffer.from(`${rulesLines.join('\n')}\n`));
+    
+    const manifestEntry = zip.getEntry('manifest.json');
+    const manifest = JSON.parse(manifestEntry!.getData().toString('utf8'));
+    manifest.entityCounts['steps'] = (manifest.entityCounts['steps'] || 0) + 1;
+    manifest.entityCounts['logic_rules'] = (manifest.entityCounts['logic_rules'] || 0) + 1;
+    recomputeChecksum(zip, manifest);
+    zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
+    
+    // AC 5: preview reports dangling references
+    const preview = await importService.preview(zip.toBuffer(), user.id);
+    expect(preview.canProceed).toBe(false);
+    expect(preview.errors.some(e => e.includes('Unresolvable reference') && e.includes('sectionId') && e.includes('steps'))).toBe(true);
+    expect(preview.warnings.some(w => w.type === 'dangling_reference' && w.column === 'targetStepId' && w.entity === 'logic_rules')).toBe(true);
+    
+    // AC 2 & 3: apply rejects NOT NULL ref with 400-classified error
+    // (Our classifyImportError in portability.routes.ts matches 'Unresolvable reference' to 400)
+    await expect(importService.apply(zip.toBuffer(), user.id)).rejects.toThrow(/Unresolvable reference: steps\.sectionId/);
+    
+    // Now fix the NOT NULL ref to test AC 4 (nullable ref imports as null + warning)
+    badStep.sectionId = firstStep.sectionId;
+    stepsLines[1] = JSON.stringify(badStep);
+    zip.updateFile('entities/steps.jsonl', Buffer.from(`${stepsLines.join('\n')}\n`));
+    recomputeChecksum(zip, manifest);
+    zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
+    
+    const result = await importService.apply(zip.toBuffer(), user.id);
+    expect(result.warnings.some(w => w.type === 'dangling_reference' && w.column === 'targetStepId' && w.entity === 'logic_rules')).toBe(true);
+    
+    // Verify it actually imported as null
+    const [importedWf] = await db.select().from(workflows).where(eq(workflows.id, result.rootId));
+    const rules = await db.select().from(logicRules).where(eq(logicRules.workflowId, importedWf.id));
+    
+    const nullTargetRule = rules.find(r => r.targetStepId === null);
+    expect(nullTargetRule).toBeDefined();
+    expect(rules.length).toBe(2);
+  });
 
+  it('does not write a REAL foreign step id verbatim (IEX2-2 AC 1)', async () => {
+    // This is the audit's actual reproduction, and it is not interchangeable
+    // with a random UUID. `logic_rules.targetStepId` carries a real FK to
+    // `steps.id`, so a random UUID is rejected by Postgres whether or not the
+    // fix is present — the interesting case is an id that EXISTS in the
+    // database (satisfying the constraint) but is NOT in the bundle, because
+    // that is what silently landed verbatim and let a crafted bundle attach
+    // imported rows to a workflow the uploader does not own.
+    const otherW = await tf.createWorkflow(project.id, user.id);
+    const otherSec = await tf.createSection(otherW.workflow.id);
+    const foreignStepId = randomUUID();
+    await db.insert(steps).values({
+      id: foreignStepId,
+      workflowId: otherW.workflow.id,
+      sectionId: otherSec.id,
+      type: 'text',
+      title: 'Foreign Step',
+      alias: 'foreign_step_alias',
+      order: 0
+    });
+
+    const zip = new AdmZip(workflowBundle);
+    const rulesLines = zip.getEntry('entities/logic_rules.jsonl')!.getData()
+      .toString('utf8').split(/\r?\n/).filter(Boolean);
+    const rule = JSON.parse(rulesLines[0]);
+    rule.targetStepId = foreignStepId;
+    rulesLines[0] = JSON.stringify(rule);
+    zip.updateFile('entities/logic_rules.jsonl', Buffer.from(`${rulesLines.join('\n')}\n`));
+
+    const manifest = JSON.parse(zip.getEntry('manifest.json')!.getData().toString('utf8'));
+    recomputeChecksum(zip, manifest);
+    zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
+
+    const result = await importService.apply(zip.toBuffer(), user.id);
+    const rules = await db.select().from(logicRules)
+      .where(eq(logicRules.workflowId, result.rootId));
+
+    expect(rules.some(r => r.targetStepId === foreignStepId)).toBe(false);
+    expect(rules.some(r => r.targetStepId === null)).toBe(true);
+    expect(result.warnings.some(w =>
+      w.type === 'dangling_reference' && w.entity === 'logic_rules' && w.column === 'targetStepId'
+    )).toBe(true);
+
+    // The foreign workflow is untouched — nothing was re-pointed into it.
+    const foreignRules = await db.select().from(logicRules)
+      .where(eq(logicRules.workflowId, otherW.workflow.id));
+    expect(foreignRules).toHaveLength(0);
+  });
+});

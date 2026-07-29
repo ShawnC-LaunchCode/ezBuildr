@@ -91,7 +91,8 @@ const BUNDLE_REJECTION_SIGNALS = [
   'END header',
   'Validation failed in',
   'integrity check failed',
-  'malware detected'
+  'malware detected',
+  'Unresolvable reference'
 ];
 
 function classifyImportError(error: unknown, fallback: string): { status: number; message: string } {
