@@ -88,7 +88,6 @@ export function getAuthHeaders(): Record<string, string> {
 
   return headers;
 }
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- core fetch wrapper handles auth refresh, token injection, and error handling in a single flow
 export async function fetchAPI<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -106,12 +105,10 @@ export async function fetchAPI<T>(
   // Builder endpoints (workflows, sections, steps, etc.) should use session auth (cookies)
   // Preview/run endpoints use bearer tokens for anonymous access
   const isRunEndpoint = endpoint.startsWith('/api/runs/');
-  /* eslint-disable @typescript-eslint/naming-convention -- HTTP headers use PascalCase/hyphenated names */
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
-  /* eslint-enable @typescript-eslint/naming-convention */
   // Only add bearer token for run endpoints
   if (runToken && isRunEndpoint) {
     headers["Authorization"] = `Bearer ${runToken}`;
@@ -172,12 +169,10 @@ export function apiWithToken(runToken: string) {
     get: <T>(endpoint: string) =>
       fetch(`${API_BASE}${endpoint}`, {
         method: "GET",
-        /* eslint-disable @typescript-eslint/naming-convention -- HTTP headers */
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${runToken}`,
         },
-        /* eslint-enable @typescript-eslint/naming-convention */
       }).then(async (res) => {
         if (!res.ok) {
           const error = await res.json().catch(() => ({ message: res.statusText })) as ApiErrorResponse;
@@ -189,12 +184,10 @@ export function apiWithToken(runToken: string) {
     post: <T, B = unknown>(endpoint: string, body?: B) =>
       fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
-        /* eslint-disable @typescript-eslint/naming-convention -- HTTP headers */
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${runToken}`,
         },
-        /* eslint-enable @typescript-eslint/naming-convention */
         body: body !== undefined ? JSON.stringify(body) : undefined,
       }).then(async (res) => {
         if (!res.ok) {
@@ -207,12 +200,10 @@ export function apiWithToken(runToken: string) {
     put: <T, B = unknown>(endpoint: string, body?: B) =>
       fetch(`${API_BASE}${endpoint}`, {
         method: "PUT",
-        /* eslint-disable @typescript-eslint/naming-convention -- HTTP headers */
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${runToken}`,
         },
-        /* eslint-enable @typescript-eslint/naming-convention */
         body: body !== undefined ? JSON.stringify(body) : undefined,
       }).then(async (res) => {
         if (!res.ok) {
@@ -512,9 +503,6 @@ export const versionAPI = {
       method: "POST",
       body: JSON.stringify({ toVersionId: versionId }),
     }),
-  export: (workflowId: string) =>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- export format is an opaque JSON structure
-    fetchAPI<any>(`/api/workflows/${workflowId}/export`),
 };
 // ============================================================================
 // Workflow Snapshots
@@ -1500,7 +1488,6 @@ export const workflowExportAPI = {
     // Auth uses the in-memory access token (with cookie fallback), consistent with fetchAPI/apiRequest.
     const url = `/api/workflows/${workflowId}/export?format=${format}`;
     const token = getAccessToken();
-    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const response = await fetch(url, {
       headers,

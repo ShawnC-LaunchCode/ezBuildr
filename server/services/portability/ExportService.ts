@@ -4,7 +4,7 @@ import { eq, inArray, and, or, SQL } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import { ENTITY_GRAPH, EntityDescriptor } from './entityGraph';
 import { BundleWriter } from './bundleWriter';
-import { BundleManifest, RequiresReentry, ExportWarning } from './bundleFormat';
+import { BundleManifest, RequiresReentry, ExportWarning, FORMAT_VERSION } from './bundleFormat';
 import { applyRedaction, scanForSecrets } from './redaction';
 import { aclService } from '../AclService';
 import { datavaultAclService } from '../DatavaultAclService';
@@ -63,7 +63,7 @@ export class ExportService {
       }
 
       const manifest: BundleManifest = {
-        formatVersion: 1,
+        formatVersion: FORMAT_VERSION,
         appVersion: '1.0.0',
         migrationHead: null,
         scope: root.scope,
