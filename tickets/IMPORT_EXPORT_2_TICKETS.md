@@ -184,7 +184,38 @@ Only these may run in parallel with the ImportService chain:
 
 # Phase A — P0: the feature does not work on real data
 
-## IEX2-1 — Timestamp columns make every import throw 🔄
+## IEX2-1 — Timestamp columns make every import throw ✅
+
+> **VERIFIED at review 2026-07-29** — commit `7972fd05`, worked in worktree
+> `.claude/worktrees/iex2-1`, fast-forwarded into `main`.
+>
+> `wrapDateField` (`ImportService.ts:193-216`) unwraps the ZodOptional/ZodNullable
+> layers, substitutes `z.coerce.date()` when the innermost type is a `ZodDate`,
+> and re-applies the same wrappers. **Date-ness is derived from the Zod schema
+> shape, not a column-name list** (AC 6) — confirmed by reading the diff, and
+> confirmed that the only allowlisted timestamps in `entityGraph.ts` are
+> `workflow_versions.publishedAt` (:136), `datavault_number_sequences.lastReset`
+> (:199) and `datavault_rows.deletedAt` (:207); no `createdAt`/`updatedAt` is
+> allowlisted, so no `ZodDefault` wrapper is in scope.
+>
+> All ACs checked against the working tree by the reviewer, not taken on trust.
+> **Mutation-tested:** reverting the single call site at `ImportService.ts:228`
+> to `pickedShape[f] = shape[f]` makes the new test fail — so it exercises the
+> fix rather than riding along. Reviewer-run gates: `tsc` exit 0; `eslint` exit 0
+> on both files; portability `unit-db` **49 passed** (48 baseline + 1);
+> `test:fast` **147 files / 2006 tests**, matching baseline.
+>
+> **Provenance note.** The implementation was already present, uncommitted, in
+> the worktree when the dev was dispatched — written by a concurrent Gemini
+> session. The dev reviewed and gated it rather than writing it, and said so.
+> The reviewer independently verified the diff, scope (only the two in-scope
+> files changed) and every gate. Dispatch checklists should add
+> `git status` **inside the worktree** to the pre-flight checks.
+>
+> Follow-up for **IEX2-3**: `z.coerce.date()` will also coerce a boolean or a
+> number rather than rejecting it (`new Date(true)` → epoch+1ms). Not a
+> regression and within this ticket's Preferred fix, but noted — see backlog
+> B-11.
 
 > **In progress** (dispatched 2026-07-29, Gemini, worktree
 > `.claude/worktrees/iex2-1`, base `67c1b0ee`). Nobody else may touch
@@ -1825,6 +1856,14 @@ lines will drift as Phases A–C land.
   probability, real corruption if it hits.
 - ~~**B-9 — `tests/unit/debug_import.test.ts` is committed scratch.**~~
   **DONE 2026-07-29** — deleted by the reviewer.
+- **B-11 — `z.coerce.date()` accepts more than it should.** Raised at IEX2-1
+  review. The coercion added in `ImportService.wrapDateField` correctly rejects
+  `"not-a-date"`, but `new Date(true)` and `new Date(0)` are valid Dates, so a
+  boolean or number in a timestamp field coerces instead of being rejected. This
+  is a mild loosening, is what the ticket's Preferred fix asked for, and no
+  exporter produces such a value — but a hostile bundle could. Tighten to
+  "string-or-Date only, then coerce" if IEX2-2's stricter validation work makes
+  it cheap.
 - **B-10 — `WorkflowExportService.ts` / `workflowExports.routes.ts` are a second,
   unrelated export surface** (run history as CSV/JSON) that shares the word
   "export" and is the only export the UI actually exposes
