@@ -8,7 +8,8 @@ import { randomUUID } from 'crypto';
 import { db } from '../../../server/db';
 import {
   projects, workflows, datavaultTables, datavaultDatabases, steps, projectAccess,
-  sections, logicRules, blocks, transformBlocks, lifecycleHooks, documentHooks
+  sections, logicRules, blocks, transformBlocks, lifecycleHooks, documentHooks,
+  workflowVersions, datavaultRows
 } from '@shared/schema';
 import { recomputeChecksum } from '../../helpers/bundleTestHelper';
 import { eq } from 'drizzle-orm';
@@ -464,4 +465,92 @@ describeWithDb('ImportService - apply', () => {
     const importedStep = allSteps.find(s => s.alias === 'test_step_alias_2');
     expect(importedStep).toBeDefined();
   });
+
+  it('imports timestamp columns correctly (IEX2-1 AC1, AC2, AC3, AC4, AC5)', async () => {
+    const publishedAt = new Date('2026-07-29T10:00:00.000Z');
+    const deletedAt = new Date('2026-07-29T11:00:00.000Z');
+    
+    await db.insert(workflowVersions).values({
+      id: randomUUID(),
+      workflowId: workflow.id,
+      versionNumber: 1,
+      isDraft: false,
+      published: true,
+      publishedAt: publishedAt,
+      createdBy: user.id,
+      graphJson: {},
+      migrationInfo: {},
+      changelog: {},
+      checksum: 'fake'
+    });
+    await db.insert(workflowVersions).values({
+      id: randomUUID(),
+      workflowId: workflow.id,
+      versionNumber: 2,
+      isDraft: true,
+      published: false,
+      publishedAt: null,
+      createdBy: user.id,
+      graphJson: {},
+      migrationInfo: {},
+      changelog: {},
+      checksum: 'fake2'
+    });
+
+    const [dbRow] = await db.select().from(datavaultDatabases).where(eq(datavaultDatabases.name, 'Test DB'));
+    const [tableRow] = await db.select().from(datavaultTables).where(eq(datavaultTables.databaseId, dbRow.id));
+
+    await db.insert(datavaultRows).values({
+      id: randomUUID(),
+      tableId: tableRow.id,
+      deletedAt: deletedAt,
+      createdBy: user.id
+    });
+
+    const bundleBuffer = await exportService.export({ scope: 'project', id: project.id }, user.id);
+
+    // AC 4: preview returns canProceed: true with no Validation failed errors
+    const previewResult = await importService.preview(bundleBuffer, user.id);
+    expect(previewResult.canProceed).toBe(true);
+    expect(previewResult.errors.some(e => e.includes('Validation failed'))).toBe(false);
+
+    // AC 1 & 2: import succeeds
+    const newRootId = (await importService.apply(bundleBuffer, user.id)).rootId;
+
+    const [importedWf] = await db.select().from(workflows).where(eq(workflows.projectId, newRootId));
+    
+    const importedVersions = await db.select().from(workflowVersions).where(eq(workflowVersions.workflowId, importedWf.id));
+
+    const pubV = importedVersions.find(v => v.versionNumber === 1);
+    const unpubV = importedVersions.find(v => v.versionNumber === 2);
+    expect(pubV).toBeDefined();
+
+    const importedDatabases = await db.select().from(datavaultDatabases).where(eq(datavaultDatabases.scopeId, newRootId));
+    const importedTables = await db.select().from(datavaultTables).where(eq(datavaultTables.databaseId, importedDatabases[0].id));
+    const importedRows = await db.select().from(datavaultRows).where(eq(datavaultRows.tableId, importedTables[0].id));
+    
+    expect(importedRows).toHaveLength(1);
+    expect(importedRows[0].deletedAt).toBeDefined();
+    expect(importedRows[0].deletedAt!.getTime()).toBe(deletedAt.getTime());
+
+    // AC 3: null timestamp round-trips as null
+    expect(unpubV!.publishedAt).toBeNull();
+
+    // AC 5: malformed timestamp rejected
+    const zip = new AdmZip(bundleBuffer);
+    const versionsEntry = zip.getEntry('entities/workflow_versions.jsonl');
+    const lines = versionsEntry!.getData().toString('utf8').split('\n').filter(Boolean);
+    const vRow = JSON.parse(lines[0]);
+    vRow.publishedAt = 'not-a-date';
+    lines[0] = JSON.stringify(vRow);
+    zip.updateFile('entities/workflow_versions.jsonl', Buffer.from(`${lines.join('\n')}\n`));
+    
+    const manifestEntry = zip.getEntry('manifest.json');
+    const manifest = JSON.parse(manifestEntry!.getData().toString('utf8'));
+    recomputeChecksum(zip, manifest);
+    zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
+
+    await expect(importService.apply(zip.toBuffer(), user.id)).rejects.toThrow(/Validation failed/);
+  });
 });
+

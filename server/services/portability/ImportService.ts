@@ -190,6 +190,31 @@ export class ImportService {
     return desc.fields.includes('role') || desc.fields.includes('tenantRole');
   }
 
+  private wrapDateField(schema: z.ZodTypeAny): z.ZodTypeAny {
+    let isOptional = false;
+    let isNullable = false;
+    let current = schema;
+    
+    while (current instanceof z.ZodOptional || current instanceof z.ZodNullable) {
+      if (current instanceof z.ZodOptional) {
+        isOptional = true;
+        current = current.unwrap() as z.ZodTypeAny;
+      } else if (current instanceof z.ZodNullable) {
+        isNullable = true;
+        current = current.unwrap() as z.ZodTypeAny;
+      }
+    }
+    
+    if (current instanceof z.ZodDate) {
+      let newSchema: z.ZodTypeAny = z.coerce.date();
+      if (isNullable) { newSchema = newSchema.nullable(); }
+      if (isOptional) { newSchema = newSchema.optional(); }
+      return newSchema;
+    }
+    
+    return schema;
+  }
+
   private getZodSchema(desc: EntityDescriptor): z.ZodTypeAny {
     const rawSchema = createInsertSchema(desc.table);
     let shape: Record<string, z.ZodTypeAny> = {};
@@ -200,7 +225,7 @@ export class ImportService {
     const pickedShape: Record<string, z.ZodTypeAny> = {};
     for (const f of desc.fields) {
       if (f in shape) {
-        pickedShape[f] = shape[f];
+        pickedShape[f] = this.wrapDateField(shape[f]);
       }
     }
     return z.object(pickedShape).strip();
