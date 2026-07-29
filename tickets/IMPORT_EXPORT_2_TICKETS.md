@@ -487,7 +487,48 @@ tenant's object"). Apply that reasoning to FK refs.
 
 ---
 
-## IEX2-3 — Import auto-publishes workflows, clones live public links, and cannot import a slugged workflow at all 🔲
+## IEX2-3 — Import auto-publishes workflows, clones live public links, and cannot import a slugged workflow at all 🔄
+
+> **Dispatched 2026-07-29** — worktree `.claude/worktrees/iex2-3`, base
+> `9c0a3cec` (proven by `scripts/new-worktree.ps1`). IEX2-4..7 are behind it in
+> the `ImportService.ts` chain.
+>
+> ### ⚠️ Evidence refreshed at dispatch — the audit's line numbers are stale
+>
+> `ImportService.ts` grew ~117 lines across IEX2-1 (`7972fd05`) and IEX2-2
+> (`c120c32d`). Current locations, re-verified against `9c0a3cec`:
+>
+> | Cited in the Finding below | Actually at |
+> |---|---|
+> | `enforceOwnership` 441-457 | **564-580** |
+> | `enforceNameUniqueness` 459-474 | **582-596** |
+> | blob-ref reset comment 612-618 | **780-786** |
+> | hostile-bundle test `importApply.test.ts:215` | **:272** |
+>
+> Schema facts re-confirmed (`shared/schema/workflow.ts`): `workflows.slug` :113
+> is `.unique()` and **nullable**; `publicLink` :106 **nullable**;
+> `isPublic` :112 **NOT NULL** default false; `status` :120 **NOT NULL** default
+> `'draft'`; `workflow_versions.published` :151 **NOT NULL** default false;
+> `publishedAt` :152 **nullable**. So `isPublic`/`status`/`published` must be
+> forced to a *value*, never to null.
+>
+> ### 🪤 The trap that will bite you
+>
+> `enforceOwnership` keys every field off `'x' in shape` and runs for **every
+> entity in the graph**. Do **not** follow that pattern for the publication
+> fields. `projects` also has a `status` column, and
+> `projectStatusEnum` is `['active','archived']` — **there is no `'draft'`**
+> (`shared/schema/workflow.ts:32`). A shape-keyed `if ('status' in shape)
+> data['status'] = 'draft'` therefore writes an invalid enum value into every
+> imported project and fails at insert.
+>
+> **Gate the publication reset on `desc.name`** (`'workflows'` /
+> `'workflow_versions'`), not on shape membership. `workflow_blueprints` also has
+> an `isPublic`, but it is explicitly not exported
+> (`entityGraph.ts:292`), so it is not a concern.
+>
+> **AC 6 says "the existing 45 portability tests" — the baseline is now 51**
+> across 7 files, plus 7 in `tests/integration/portability.import.test.ts`.
 
 **Priority: P0** · Size: M · Files: `server/services/portability/ImportService.ts`, `server/services/portability/entityGraph.ts`
 
