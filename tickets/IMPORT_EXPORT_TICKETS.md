@@ -1542,6 +1542,87 @@ uniqueness the way the cloner does — see `ensureUniqueTableSlug`
 
 ---
 
+## IEX-13 — Project-scope exports must carry the whole workflow subtree ✅
+
+> **Filed and completed 2026-07-28 by the reviewer**, after IEX-9's review found
+> that a project-scope round-trip produced structurally hollow workflows.
+> Phase 1 ticket (export side), so it does not block IEX-10/11 — but the Phase 2
+> Gate's round-trip proof does depend on it.
+
+**Priority: P0** · Size: S · Files: `server/services/portability/entityGraph.ts`,
+`server/services/portability/ExportService.ts`
+
+### Finding
+
+Two independent mechanisms decided what went into a bundle, and they disagreed:
+
+1. The **parent walk** (`ExportService.buildConditions`) descends
+   project → workflows → sections → steps, bounding each entity by
+   `parent.fk IN (ids extracted from its parent)`. Correct and already general.
+2. The **`scopes` filter** (`ExportService.ts:59`) vetoes any descriptor whose
+   `scopes` array does not name the root scope — *before* the walk runs.
+
+13 entities (`sections`, `steps`, `logic_rules`, `blocks`, `transform_blocks`,
+`lifecycle_hooks`, `document_hooks`, `workflow_versions`, `workflow_access`,
+`workflow_templates`, `workflow_data_sources`, `workflow_queries`,
+`datavault_writeback_mappings`) declared only `["workflow"]`. All are rooted at
+`workflows`, which **is** in project scope — so the walk would have selected them
+correctly, and only the filter stopped it.
+
+Consequence: "export project → import project" produced workflows that exist and
+are empty. No pages, no questions, no logic, no code. Manifest counts and
+checksum were all valid, so nothing looked wrong. This is the same root cause as
+IEX-6B, which surfaced as a vacuously-passing test rather than as missing data.
+
+This also blocks Phase 4: the approved tenant-archive tool (D-4) is built on
+project/tenant scope, so every archive it produced would have been hollow.
+
+### Fix applied
+
+- Added `"project"` to the 13 workflow-subtree descriptors. **No selection logic
+  changed** — the parent walk already handled the descent.
+- `datavault_databases` attaches by `(scopeType, scopeId)` rather than an FK
+  parent, so a project export previously missed databases scoped to that
+  project's *own workflows*, leaving `workflow_queries` /
+  `datavault_writeback_mappings` importing as dangling. `buildConditions` now
+  unions `(scopeType='project' AND scopeId=projectId)` with
+  `(scopeType='workflow' AND scopeId IN project's workflows)`.
+- `scopes` is now understood as **"which roots can this entity be reached
+  from"**, not a hand-maintained membership list.
+
+### Acceptance criteria
+
+1. A project-scope export contains sections, steps, logic rules, blocks,
+   transform blocks, lifecycle hooks, document hooks and workflow versions for
+   every workflow in the project. ✅
+2. A project-scope round-trip reproduces workflow structure with all child FKs
+   rewired to the imported copies. ✅ (`importApply.test.ts`)
+3. A project export includes DataVault databases scoped to that project's
+   workflows, not only those scoped to the project itself. ✅
+4. A workflow-scope export is unchanged — it must **not** gain the project row,
+   project-level secrets/connections, or templates. ✅ (enforced by the
+   reverse-direction invariant test)
+5. Mechanical test: for each root scope, every entity reachable via the parent
+   chain declares that scope, **and** no entity declares a scope it is not
+   reachable in. ✅ (`entityGraph.test.ts`, 6 cases)
+6. Gates: type-check 0, lint clean, `test:fast` ≥ baseline, `unit-db` green. ✅
+
+> **Verified 2026-07-28.** type-check 0, eslint 0 (with
+> `--report-unused-disable-directives`), `test:fast` 148 files / 2006 tests
+> (from 2000 — the 6 new invariant cases), `unit-db` 8 files / 79 tests (from
+> 78 — the project-scope round-trip). Mutation-checked twice: reverting
+> `sections` to `["workflow"]` fails the invariant test with an actionable
+> message; reverting `logic_rules` fails the round-trip test with
+> `expected [] to have a length of 1`.
+>
+> Known follow-on, **not** fixed here: a *workflow*-scope bundle includes
+> `workflow_templates` (the link rows) but not `templates` themselves, since
+> templates hang off `projects` and are not reachable downward from a workflow.
+> Those links import dangling. Filed as an observation below rather than
+> silently widened into this ticket.
+
+---
+
 ## IEX-10 — Blob restore: virus scanning, integrity, quota enforcement 🔲
 
 **Priority: P0** · Size: M · Files: `server/services/portability/ImportService.ts`,

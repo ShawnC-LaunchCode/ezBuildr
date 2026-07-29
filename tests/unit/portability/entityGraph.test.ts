@@ -53,6 +53,65 @@ describe('Entity Graph Portability', () => {
     }
   });
 
+  // IEX-13: `scopes` and the parent walk are two independent mechanisms deciding
+  // what lands in a bundle, and when they disagree the export silently omits
+  // whole subtrees (a project bundle used to carry workflow rows but none of
+  // their sections/steps/logic/hooks). Reachability from a scope's root is the
+  // source of truth; `scopes` must agree with it in both directions.
+  describe('scopes agree with parent-chain reachability', () => {
+    const ROOT_OF_SCOPE: Record<string, string> = {
+      project: 'projects',
+      workflow: 'workflows',
+      database: 'datavault_databases',
+    };
+
+    // datavault_databases has no FK parent — it attaches by (scopeType, scopeId),
+    // so ExportService special-cases it and it is legitimately reachable from
+    // every root scope.
+    const PARENTLESS_ATTACHED = 'datavault_databases';
+
+    function reachableFrom(scope: string): Set<string> {
+      const reached = new Set<string>([ROOT_OF_SCOPE[scope], PARENTLESS_ATTACHED]);
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const entity of ENTITY_GRAPH) {
+          if (entity.parent != null && reached.has(entity.parent.name) && !reached.has(entity.name)) {
+            reached.add(entity.name);
+            grew = true;
+          }
+        }
+      }
+      return reached;
+    }
+
+    for (const scope of Object.keys(ROOT_OF_SCOPE)) {
+      it(`every entity reachable from the '${scope}' root declares that scope`, () => {
+        const reachable = reachableFrom(scope);
+        for (const name of reachable) {
+          const entity = ENTITY_GRAPH.find(e => e.name === name);
+          expect(entity, `${name} is reachable in '${scope}' but missing from ENTITY_GRAPH`).toBeDefined();
+          expect(
+            entity!.scopes,
+            `${name} is reachable from the '${scope}' root but does not declare that scope, so a ${scope} export silently omits it`
+          ).toContain(scope);
+        }
+      });
+
+      it(`no entity declares '${scope}' without being reachable from its root`, () => {
+        const reachable = reachableFrom(scope);
+        for (const entity of ENTITY_GRAPH) {
+          if ((entity.scopes as string[]).includes(scope)) {
+            expect(
+              reachable,
+              `${entity.name} declares scope '${scope}' but is not reachable from '${ROOT_OF_SCOPE[scope]}', so ExportService cannot bound its selection`
+            ).toContain(entity.name);
+          }
+        }
+      });
+    }
+  });
+
   // IEX-9: jsonRefs are passed through remapJsonIds on import for the same reason.
   it('every jsonRefs column is also declared in that entity fields list', () => {
     for (const entity of ENTITY_GRAPH) {

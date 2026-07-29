@@ -180,6 +180,38 @@ describeWithDb('ImportService - apply', () => {
     expect((newRules[0].conditionValue as { stepId: string }).stepId).toBe(newSteps[0].id);
   });
 
+  it('project-scope bundle carries workflow internals and round-trips them (IEX-13)', async () => {
+    // Before IEX-13 a project bundle held workflow ROWS but none of their
+    // contents, so this import produced a hollow workflow and the assertions
+    // below all read zero.
+    const newProjectId = await importService.apply(projectBundle, user.id);
+
+    const [newWorkflow] = await db.select().from(workflows).where(eq(workflows.projectId, newProjectId));
+    expect(newWorkflow).toBeDefined();
+    expect(newWorkflow.id).not.toBe(workflow.id);
+
+    const newSections = await db.select().from(sections).where(eq(sections.workflowId, newWorkflow.id));
+    const newSteps = await db.select().from(steps).where(eq(steps.workflowId, newWorkflow.id));
+    const newRules = await db.select().from(logicRules).where(eq(logicRules.workflowId, newWorkflow.id));
+    const newBlocks = await db.select().from(blocks).where(eq(blocks.workflowId, newWorkflow.id));
+    const newTransforms = await db.select().from(transformBlocks).where(eq(transformBlocks.workflowId, newWorkflow.id));
+    const newLifecycle = await db.select().from(lifecycleHooks).where(eq(lifecycleHooks.workflowId, newWorkflow.id));
+    const newDocHooks = await db.select().from(documentHooks).where(eq(documentHooks.workflowId, newWorkflow.id));
+
+    expect(newSections).toHaveLength(1);
+    expect(newSteps).toHaveLength(1);
+    expect(newRules).toHaveLength(1);
+    expect(newBlocks).toHaveLength(1);
+    expect(newTransforms).toHaveLength(1);
+    expect(newLifecycle).toHaveLength(1);
+    expect(newDocHooks).toHaveLength(1);
+
+    // Child FKs are rewired to the imported copies, not left pointing at the source.
+    expect(newSteps[0].sectionId).toBe(newSections[0].id);
+    expect(newRules[0].conditionStepId).toBe(newSteps[0].id);
+    expect(newSteps[0].id).not.toBe(stepId);
+  });
+
   it('rejects hostile bundle smuggling foreign tenantId and ownerUuid (AC 4 unconditional stamp)', async () => {
     const zip = new AdmZip(projectBundle);
     const projectsEntry = zip.getEntry('entities/projects.jsonl');

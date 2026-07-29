@@ -59,7 +59,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
   {
     table: schema.workflowAccess,
     name: 'workflow_access',
-    scopes: ["workflow"],
+    scopes: ["project","workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","principalType","principalId","role"],
     refs: ["workflowId"],
@@ -67,7 +67,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
   {
     table: schema.sections,
     name: 'sections',
-    scopes: ["workflow"],
+    scopes: ["project","workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","title","description","order","config","visibleIf","skipIf"],
     refs: ["workflowId"],
@@ -76,7 +76,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
   {
     table: schema.steps,
     name: 'steps',
-    scopes: ["workflow"],
+    scopes: ["project","workflow"],
     parent: {"name":"sections","fk":"sectionId"},
     fields: ["id","workflowId","sectionId","type","title","description","required","config","alias","defaultValue","order","isVirtual","visibleIf","repeaterConfig"],
     refs: ["workflowId", "sectionId"],
@@ -85,7 +85,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
   {
     table: schema.logicRules,
     name: 'logic_rules',
-    scopes: ["workflow"],
+    scopes: ["project","workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","conditionStepId","operator","conditionValue","targetType","targetStepId","targetSectionId","action","logicalOperator","order"],
     refs: ["workflowId", "conditionStepId", "targetStepId", "targetSectionId"],
@@ -94,7 +94,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
   {
     table: schema.blocks,
     name: 'blocks',
-    scopes: ["workflow"],
+    scopes: ["project","workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","sectionId","type","phase","config","virtualStepId","enabled","order"],
     refs: ["workflowId", "sectionId", "virtualStepId"],
@@ -104,7 +104,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
   {
     table: schema.transformBlocks,
     name: 'transform_blocks',
-    scopes: ["workflow"],
+    scopes: ["project","workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","sectionId","name","language","code","inputKeys","outputKey","virtualStepId","phase","enabled","order","timeoutMs"],
     refs: ["workflowId", "sectionId", "virtualStepId"],
@@ -113,7 +113,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
   {
     table: schema.lifecycleHooks,
     name: 'lifecycle_hooks',
-    scopes: ["workflow"],
+    scopes: ["project","workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","sectionId","name","phase","language","code","inputKeys","outputKeys","virtualStepIds","enabled","order","timeoutMs","mutationMode"],
     refs: ["workflowId", "sectionId"],
@@ -122,7 +122,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
   {
     table: schema.documentHooks,
     name: 'document_hooks',
-    scopes: ["workflow"],
+    scopes: ["project","workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","finalBlockDocumentId","name","phase","language","code","inputKeys","outputKeys","enabled","order","timeoutMs"],
     refs: ["workflowId", "finalBlockDocumentId"],
@@ -131,7 +131,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
   {
     table: schema.workflowVersions,
     name: 'workflow_versions',
-    scopes: ["workflow"],
+    scopes: ["project","workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","baseId","versionNumber","isDraft","graphJson","migrationInfo","changelog","notes","checksum","createdBy","published","publishedAt"],
     refs: ["workflowId", "baseId"],
@@ -160,7 +160,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
   {
     table: schema.workflowTemplates,
     name: 'workflow_templates',
-    scopes: ["workflow"],
+    scopes: ["project","workflow"],
     parent: {"name":"workflow_versions","fk":"workflowVersionId"},
     fields: ["id","workflowVersionId","templateId","key","isPrimary"],
     refs: ["workflowVersionId", "templateId"],
@@ -235,7 +235,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
   {
     table: schema.workflowDataSources,
     name: 'workflow_data_sources',
-    scopes: ["workflow"],
+    scopes: ["project","workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["workflowId","dataSourceId"],
     refs: ["workflowId", "dataSourceId"],
@@ -243,7 +243,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
   {
     table: schema.workflowQueries,
     name: 'workflow_queries',
-    scopes: ["workflow"],
+    scopes: ["project","workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","dataSourceId","tableId","name","filters","sort","limit"],
     refs: ["workflowId", "dataSourceId", "tableId"],
@@ -252,7 +252,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
   {
     table: schema.datavaultWritebackMappings,
     name: 'datavault_writeback_mappings',
-    scopes: ["workflow"],
+    scopes: ["project","workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","tableId","columnMappings","triggerPhase","createdBy"],
     refs: ["workflowId", "tableId"],

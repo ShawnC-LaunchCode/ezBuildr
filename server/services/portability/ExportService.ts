@@ -1,6 +1,6 @@
 import { db } from '../../db';
 import { projects, workflows, datavaultDatabases } from '@shared/schema';
-import { eq, inArray, and, SQL } from 'drizzle-orm';
+import { eq, inArray, and, or, SQL } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import { ENTITY_GRAPH, EntityDescriptor } from './entityGraph';
 import { BundleWriter } from './bundleWriter';
@@ -240,8 +240,31 @@ export class ExportService {
     if (rootTableName === descriptor.name) {
       conditions.push(eq(tableCols['id'], root.id));
     } else if (descriptor.name === 'datavault_databases') {
-      conditions.push(eq(tableCols['scopeType'], root.scope));
-      conditions.push(eq(tableCols['scopeId'], root.id));
+      // datavault_databases has no FK parent; it attaches via (scopeType, scopeId).
+      // A project export must also pick up databases scoped to that project's own
+      // workflows, or the workflow_queries/writeback_mappings that reference them
+      // import as dangling. `workflows` is processed earlier in ENTITY_GRAPH, so
+      // its ids are already extracted here.
+      const ownScope = and(
+        eq(tableCols['scopeType'], root.scope),
+        eq(tableCols['scopeId'], root.id)
+      );
+      const workflowIds = root.scope === 'project'
+        ? Array.from(state.extractedIds.get('workflows') ?? new Set<string>())
+        : [];
+
+      if (workflowIds.length > 0) {
+        const workflowScoped = and(
+          eq(tableCols['scopeType'], 'workflow'),
+          inArray(tableCols['scopeId'], workflowIds)
+        );
+        const combined = or(ownScope, workflowScoped);
+        if (combined !== undefined) {
+          conditions.push(combined);
+        }
+      } else if (ownScope !== undefined) {
+        conditions.push(ownScope);
+      }
     } else if (descriptor.parent != null) {
       // Pin invariant: parent must have been processed
       if (!state.extractedIds.has(descriptor.parent.name)) {
