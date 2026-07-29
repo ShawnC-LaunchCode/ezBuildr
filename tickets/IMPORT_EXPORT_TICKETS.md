@@ -1422,7 +1422,40 @@ Ties.
 
 ---
 
-## IEX-9 — Import apply: clone-mode ID remapping and ownership rebinding 🔲
+## IEX-9 — Import apply: clone-mode ID remapping and ownership rebinding ✅
+
+> **Verified 2026-07-28 (round 3).** Gates run by the reviewer in the worktree and
+> again in `main` after promotion: type-check 0, scoped eslint 0, `test:fast`
+> 148 files / 2000 tests, `unit-db` 8 files / 78 tests (baseline 7/70).
+>
+> Round 1 was sent back with six findings; round 2 fixed all six. The two P0s were
+> re-proved by the reviewer rather than read:
+> - **Ownership rebinding** now keys off the *table's* columns, not off what the
+>   bundle supplied. A hostile bundle that **omits** `tenantId`/`ownerUuid` (rather
+>   than forging them) previously imported a project with `tenant_id = NULL`, which
+>   escapes every service-layer tenant filter. Probed and confirmed fixed.
+> - **Forward references** (`workflows.currentVersionId`, which is a plain `uuid`
+>   with no FK constraint and is inserted *before* `workflow_versions`) previously
+>   retained the source UUID, cross-linking an imported workflow to the original's
+>   version row on a same-system import. Fixed by two-pass id pre-allocation.
+>
+> Mutation-checked, each against its own guard: disabling Pass 1 reds AC 2 + AC 3;
+> forcing `shouldSkipEntity` false reds only AC 5; emptying the `refs` remap reds
+> AC 1, 2, 3, 7. The round-1 AC 5 test was a tautology (`projects` has no `role`
+> column, so the assertion could never fail) and is now a real test.
+>
+> Reviewer closed three gaps in round 3: added the AC 1 structural round-trip test
+> (workflow scope — a *project*-scope bundle carries no sections/steps/hooks, so it
+> would have asserted nothing); deleted the now-unreachable `delete data['role']`
+> scrubbing; and corrected `refs`, which had been typed `Record<string, string>`
+> whose target value was never read and held two wrong entries
+> (`workflow_versions.baseId` → `workflows`, and `templates.currentVersion`, which
+> is `integer("current_version")` — a version number, not a reference). `refs` is
+> now `string[]`, matching how the remap actually uses it, and two mechanical tests
+> assert every `refs`/`jsonRefs` column is also in that entity's `fields` allowlist.
+>
+> Live verification: **N/A and deliberately so** — nothing in Phase 2 is reachable
+> until IEX-11 wires routes. Round-trip proof is owed at the Phase 2 Gate.
 
 **Priority: P0** · Size: M · File: `server/services/portability/ImportService.ts`
 
@@ -1494,8 +1527,14 @@ uniqueness the way the cloner does — see `ensureUniqueTableSlug`
    insert leaves zero new rows.
 7. Slug/alias collisions are resolved (suffixed), not thrown, and not
    duplicated.
-8. `remapJsonIds` has exactly one implementation in the codebase
-   (`grep -c "function remapJsonIds"` → 1).
+8. The import/clone path has exactly one `remapJsonIds` implementation, lifted to
+   a shared module and imported by both `WorkflowClonerService` and
+   `ImportService` — not a second copy.
+   (Amended 2026-07-28: originally worded as `grep -c "function remapJsonIds"` → 1.
+   That was wrong — `SectionService.ts:30` carries a third, deliberate copy from
+   ICW2-B5, documented in-file as intentionally independent of the whole-asset
+   cloner, so the global grep can never be 1. The dev satisfied the real intent.
+   Consolidating `SectionService` is a separate call, not this ticket's.)
 9. New test `tests/unit/portability/importApply.test.ts` asserts 1–8, with
    4 and 5 written as explicit hostile-bundle security tests.
 10. Gates: type-check 0 errors, lint clean on touched files,

@@ -4,32 +4,12 @@ import { importService } from '../../../server/services/portability/ImportServic
 import { exportService } from '../../../server/services/portability/ExportService';
 import { TestFactory } from '../../helpers/testFactory';
 import AdmZip from 'adm-zip';
-import { randomUUID, createHash } from 'crypto';
+import { randomUUID } from 'crypto';
 import { FORMAT_VERSION } from '../../../server/services/portability/bundleFormat';
 import { db } from '../../../server/db';
 import { projects, workflows, datavaultTables, steps, secrets, externalConnections, transformBlocks } from '@shared/schema';
 
-function recomputeChecksum(zip: AdmZip, manifest: any): void {
-  const hash = createHash('sha256');
-  const entries = zip.getEntries();
-  const entityEntries = entries
-    .filter(e => e.entryName.startsWith('entities/') && e.entryName.endsWith('.jsonl'))
-    .sort((a, b) => a.entryName.localeCompare(b.entryName));
-  for (const entry of entityEntries) {
-    hash.update(entry.getData());
-  }
-  const blobEntries = entries
-    .filter(e => e.entryName.startsWith('blobs/') && e.entryName !== 'blobs/index.json' && !e.entryName.endsWith('/'))
-    .sort((a, b) => a.entryName.localeCompare(b.entryName));
-  for (const entry of blobEntries) {
-    hash.update(entry.getData());
-  }
-  const indexEntry = entries.find(e => e.entryName === 'blobs/index.json');
-  if (indexEntry) {
-    hash.update(indexEntry.getData());
-  }
-  manifest.checksum = hash.digest('hex');
-}
+import { recomputeChecksum } from '../../helpers/bundleTestHelper';
 
 describeWithDb('ImportService - preview', () => {
   let tf: TestFactory;
@@ -101,7 +81,10 @@ describeWithDb('ImportService - preview', () => {
     workflowBundle = await exportService.export({ scope: 'workflow', id: workflow.id }, user.id);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    if (tf && user) {
+      await tf.cleanup({ tenantIds: [user.tenantId] });
+    }
     vi.restoreAllMocks();
   });
 

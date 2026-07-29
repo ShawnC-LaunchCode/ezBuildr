@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, max-lines */
+/* eslint-disable max-lines */
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 
 import {
@@ -36,6 +36,7 @@ import { db } from "../db";
 import { createLogger } from "../logger";
 import { projectRepository, workflowRepository, type DbTransaction } from "../repositories";
 import { canManageOrg } from "../utils/ownershipAccess";
+import { remapJsonIds } from "../utils/remapJsonIds";
 
 import { aclService } from "./AclService";
 import { datavaultAclService } from "./DatavaultAclService";
@@ -130,26 +131,6 @@ function slugify(value: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return slug || "copy";
-}
-
-function remapJsonIds<T>(value: T, idMap: Map<string, string>): T {
-  if (typeof value === "string") {
-    return (idMap.get(value) ?? value) as T;
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((item) => remapJsonIds(item, idMap)) as T;
-  }
-
-  if (value && typeof value === "object" && !(value instanceof Date)) {
-    const remapped: Record<string, unknown> = {};
-    for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
-      remapped[key] = remapJsonIds(nestedValue, idMap);
-    }
-    return remapped as T;
-  }
-
-  return value;
 }
 
 function mergeMaps(...maps: Array<Map<string, string>>): Map<string, string> {

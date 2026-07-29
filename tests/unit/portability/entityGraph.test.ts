@@ -39,6 +39,31 @@ describe('Entity Graph Portability', () => {
       }
     }
   });
+
+  // IEX-9: refs drives foreign-key remapping on import. A ref column that is not
+  // also exported is silently unremappable, so the two lists must stay in step.
+  it('every refs column is also declared in that entity fields list', () => {
+    for (const entity of ENTITY_GRAPH) {
+      for (const col of entity.refs ?? []) {
+        expect(
+          entity.fields,
+          `${entity.name}.refs declares "${col}", which is missing from its fields allowlist`
+        ).toContain(col);
+      }
+    }
+  });
+
+  // IEX-9: jsonRefs are passed through remapJsonIds on import for the same reason.
+  it('every jsonRefs column is also declared in that entity fields list', () => {
+    for (const entity of ENTITY_GRAPH) {
+      for (const col of entity.jsonRefs ?? []) {
+        expect(
+          entity.fields,
+          `${entity.name}.jsonRefs declares "${col}", which is missing from its fields allowlist`
+        ).toContain(col);
+      }
+    }
+  });
 });
 
 

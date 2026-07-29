@@ -28,6 +28,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["project"],
     parent: {"name":"projects","fk":"projectId"},
     fields: ["id","projectId","key","type","environment","metadata"],
+    refs: ["projectId"],
   },
   {
     table: schema.externalConnections,
@@ -35,6 +36,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["project"],
     parent: {"name":"projects","fk":"projectId"},
     fields: ["id","tenantId","projectId","name","type","baseUrl","defaultHeaders","timeoutMs","retries","backoffMs","enabled","secretRefs"],
+    refs: ["projectId"],
     redactPaths: ["defaultHeaders"]
   },
   {
@@ -43,6 +45,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["project"],
     parent: {"name":"projects","fk":"projectId"},
     fields: ["id","projectId","principalType","principalId","role"],
+    refs: ["projectId"],
   },
   {
     table: schema.workflows,
@@ -50,6 +53,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["project","workflow"],
     parent: {"name":"projects","fk":"projectId"},
     fields: ["id","title","name","description","creatorId","ownerId","modeOverride","publicLink","projectId","currentVersionId","isPublic","slug","requireLogin","intakeConfig","pinnedVersionId","status","ownerType","ownerUuid","sourceBlueprintId"],
+    refs: ["projectId", "currentVersionId", "pinnedVersionId", "sourceBlueprintId"],
     jsonRefs: ["intakeConfig"],
   },
   {
@@ -58,6 +62,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","principalType","principalId","role"],
+    refs: ["workflowId"],
   },
   {
     table: schema.sections,
@@ -65,6 +70,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","title","description","order","config","visibleIf","skipIf"],
+    refs: ["workflowId"],
     jsonRefs: ["config","visibleIf","skipIf"],
   },
   {
@@ -73,6 +79,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["workflow"],
     parent: {"name":"sections","fk":"sectionId"},
     fields: ["id","workflowId","sectionId","type","title","description","required","config","alias","defaultValue","order","isVirtual","visibleIf","repeaterConfig"],
+    refs: ["workflowId", "sectionId"],
     jsonRefs: ["config","defaultValue","visibleIf","repeaterConfig"],
   },
   {
@@ -81,6 +88,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","conditionStepId","operator","conditionValue","targetType","targetStepId","targetSectionId","action","logicalOperator","order"],
+    refs: ["workflowId", "conditionStepId", "targetStepId", "targetSectionId"],
     jsonRefs: ["conditionValue"],
   },
   {
@@ -89,6 +97,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","sectionId","type","phase","config","virtualStepId","enabled","order"],
+    refs: ["workflowId", "sectionId", "virtualStepId"],
     jsonRefs: ["config"],
     redactPaths: ["config.headers[].value"]
   },
@@ -98,6 +107,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","sectionId","name","language","code","inputKeys","outputKey","virtualStepId","phase","enabled","order","timeoutMs"],
+    refs: ["workflowId", "sectionId", "virtualStepId"],
     scanPaths: ["code"]
   },
   {
@@ -106,6 +116,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","sectionId","name","phase","language","code","inputKeys","outputKeys","virtualStepIds","enabled","order","timeoutMs","mutationMode"],
+    refs: ["workflowId", "sectionId"],
     scanPaths: ["code"]
   },
   {
@@ -114,6 +125,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","finalBlockDocumentId","name","phase","language","code","inputKeys","outputKeys","enabled","order","timeoutMs"],
+    refs: ["workflowId", "finalBlockDocumentId"],
     scanPaths: ["code"]
   },
   {
@@ -122,6 +134,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","baseId","versionNumber","isDraft","graphJson","migrationInfo","changelog","notes","checksum","createdBy","published","publishedAt"],
+    refs: ["workflowId", "baseId"],
     jsonRefs: ["graphJson","migrationInfo","changelog"],
   },
   {
@@ -130,6 +143,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["project"],
     parent: {"name":"projects","fk":"projectId"},
     fields: ["id","projectId","name","description","fileRef","type","helpersVersion","metadata","mapping","currentVersion","lastModifiedBy"],
+    refs: ["projectId"],
     jsonRefs: ["metadata","mapping"],
     blobRefs: ["fileRef"],
   },
@@ -139,6 +153,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["project"],
     parent: {"name":"templates","fk":"templateId"},
     fields: ["id","templateId","versionNumber","fileRef","metadata","mapping","createdBy","notes","isActive"],
+    refs: ["templateId"],
     jsonRefs: ["metadata","mapping"],
     blobRefs: ["fileRef"],
   },
@@ -148,6 +163,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["workflow"],
     parent: {"name":"workflow_versions","fk":"workflowVersionId"},
     fields: ["id","workflowVersionId","templateId","key","isPrimary"],
+    refs: ["workflowVersionId", "templateId"],
   },
   {
     table: schema.datavaultDatabases,
@@ -155,6 +171,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["project","workflow","database"],
     parent: null,
     fields: ["id","tenantId","name","description","type","config","scopeType","scopeId","ownerType","ownerUuid"],
+    refs: ["scopeId"],
     jsonRefs: ["config"],
   },
   {
@@ -163,6 +180,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["project","workflow","database"],
     parent: {"name":"datavault_databases","fk":"databaseId"},
     fields: ["id","tenantId","ownerUserId","databaseId","name","slug","description","ownerType","ownerUuid"],
+    refs: ["databaseId"],
   },
   {
     table: schema.datavaultColumns,
@@ -170,6 +188,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["project","workflow","database"],
     parent: {"name":"datavault_tables","fk":"tableId"},
     fields: ["id","tableId","name","slug","type","description","widthPx","required","isPrimaryKey","isUnique","orderIndex","autoNumberStart","autonumberPrefix","autonumberPadding","autonumberResetPolicy","referenceTableId","referenceDisplayColumnSlug","options"],
+    refs: ["tableId", "referenceTableId"],
     jsonRefs: ["options"],
   },
   {
@@ -178,6 +197,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["project","workflow","database"],
     parent: {"name":"datavault_tables","fk":"tableId"},
     fields: ["id","tenantId","tableId","columnId","prefix","padding","nextValue","resetPolicy","lastReset"],
+    refs: ["tableId", "columnId"],
   },
   {
     table: schema.datavaultRows,
@@ -185,6 +205,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["project","workflow","database"],
     parent: {"name":"datavault_tables","fk":"tableId"},
     fields: ["id","tableId","deletedAt","createdBy","updatedBy"],
+    refs: ["tableId"],
   },
   {
     table: schema.datavaultValues,
@@ -192,6 +213,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["project","workflow","database"],
     parent: {"name":"datavault_rows","fk":"rowId"},
     fields: ["id","rowId","columnId","value"],
+    refs: ["rowId", "columnId"],
     jsonRefs: ["value"],
   },
   {
@@ -200,6 +222,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["project","workflow","database"],
     parent: {"name":"datavault_databases","fk":"databaseId"},
     fields: ["id","databaseId","principalType","principalId","role"],
+    refs: ["databaseId"],
   },
   {
     table: schema.datavaultTableAccess,
@@ -207,6 +230,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["project","workflow","database"],
     parent: {"name":"datavault_tables","fk":"tableId"},
     fields: ["id","tableId","principalType","principalId","role"],
+    refs: ["tableId"],
   },
   {
     table: schema.workflowDataSources,
@@ -214,6 +238,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["workflowId","dataSourceId"],
+    refs: ["workflowId", "dataSourceId"],
   },
   {
     table: schema.workflowQueries,
@@ -221,6 +246,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","dataSourceId","tableId","name","filters","sort","limit"],
+    refs: ["workflowId", "dataSourceId", "tableId"],
     jsonRefs: ["filters","sort"],
   },
   {
@@ -229,6 +255,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     scopes: ["workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["id","workflowId","tableId","columnMappings","triggerPhase","createdBy"],
+    refs: ["workflowId", "tableId"],
     jsonRefs: ["columnMappings"],
   },
 ];
