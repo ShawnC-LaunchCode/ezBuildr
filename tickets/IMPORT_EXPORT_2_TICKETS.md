@@ -124,7 +124,7 @@ Proven live are marked **[PROVEN]** with the reproduction.
 
 | Phase | Theme | Tickets | Status |
 |---|---|---|---|
-| A | **P0 — the feature does not work on real data** | IEX2-1..4 | 🔄 IEX2-1 ✅ · 2/3/4 open |
+| A | **P0 — the feature does not work on real data** | IEX2-1..4 | 🔄 IEX2-1 ✅ · IEX2-2 ✅ · 3/4 open |
 | B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔲 |
 | C | P2 — hardening, redaction depth, real proof | IEX2-12..15 | 🔲 |
 | D | Make the feature reachable | IEX2-16 | ⏸️ **deferred out of round 2** |
@@ -333,13 +333,53 @@ present so it can be explicitly cleared.
 
 ---
 
-## IEX2-2 — Unmapped foreign keys are written into the database verbatim 🔄
+## IEX2-2 — Unmapped foreign keys are written into the database verbatim ✅
 
-> **Dispatched 2026-07-29** — Gemini, worktree `.claude/worktrees/iex2-2`, base
-> `9b3ab034` (verified by `scripts/new-worktree.ps1`: junction ok, `@types`
-> resolves, base matches `main`, `test:fast` executes 2006 tests). Nobody else
-> may touch `ImportService.ts` until this is reviewed and committed — IEX2-3..7
-> are behind it in the same chain.
+> **VERIFIED at review 2026-07-29** — commit `c120c32d`, worked by Gemini in
+> `.claude/worktrees/iex2-2`, fast-forwarded into `main`.
+>
+> Nullability is read from Drizzle column metadata (AC 7), not a name list:
+> nullable refs are nulled with a `dangling_reference` warning, NOT NULL refs
+> throw a 400-classified error naming entity, column and id. `preview` runs the
+> same analysis against the set of ids the bundle actually carries.
+>
+> **`workflows.projectId` is deliberately exempt** — an undocumented deviation in
+> the turn-in that the reviewer traced and accepts. `resolveProjectIdOverride`
+> (IEX-15) already owns that column and returns `undefined` in only two cases:
+> the project travelled with the bundle (so `idMap` remaps it), or the unmapped
+> project is same-tenant *and* the caller holds `edit` on it. The second is a
+> resolvable reference; nulling it would detach every legitimate workflow-scope
+> import. Now documented in the code.
+>
+> **Two ACs failed review and were completed by the reviewer:**
+> - **AC 1** demanded a tampered id that *exists in the DB but is not in the
+>   bundle*. The turn-in used `randomUUID()`. `logic_rules.targetStepId` carries
+>   a real FK to `steps.id`, so a random UUID is rejected by Postgres with or
+>   without the fix — the security case passed for the wrong reason. Replaced
+>   with a real step from another workflow, the case that actually landed
+>   verbatim, asserting the id is not written, the column is null, a warning is
+>   raised, and the foreign workflow is untouched.
+> - **AC 3** demanded a route-level 400 assertion. The turn-in asserted it in a
+>   *code comment*. Added `tests/integration/portability.import.test.ts`;
+>   removing the rejection signal makes it fail `expected 500 to be 400`, which
+>   is the whole point given the classification is substring matching on message
+>   text (backlog **B-2**).
+>
+> **Mutation-tested, both new tests independently:** removing the apply-path
+> handling fails the AC 1 test; removing `'Unresolvable reference'` from
+> `BUNDLE_REJECTION_SIGNALS` fails the AC 3 test.
+>
+> Reviewer-run gates: `tsc` 0 errors · `eslint` 0 problems on all 5 files ·
+> portability `unit-db` **51 passed / 7 files** (49 baseline) · portability
+> import integration **7 passed** (6 baseline) · `test:fast` **147 files / 2006
+> tests**.
+>
+> **Note for IEX2-10/11:** `preview` now reads every entity stream **twice** —
+> once to build the bundle-id set, once to process — and holds every id in
+> memory. Correct today, but it is exactly the kind of whole-bundle buffering
+> those tickets exist to remove. Fold it into their scope.
+>
+> **IEX2-3 is now unblocked** — `ImportService.ts` is free.
 
 **Priority: P0 (security + integrity)** · Size: M · Files: `server/services/portability/ImportService.ts`
 
