@@ -124,7 +124,7 @@ Proven live are marked **[PROVEN]** with the reproduction.
 
 | Phase | Theme | Tickets | Status |
 |---|---|---|---|
-| A | **P0 — the feature does not work on real data** | IEX2-1..4 | 🔲 |
+| A | **P0 — the feature does not work on real data** | IEX2-1..4 | 🔄 IEX2-1 ✅ · 2/3/4 open |
 | B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔲 |
 | C | P2 — hardening, redaction depth, real proof | IEX2-12..15 | 🔲 |
 | D | Make the feature reachable | IEX2-16 | ⏸️ **deferred out of round 2** |
@@ -217,10 +217,24 @@ Only these may run in parallel with the ImportService chain:
 > regression and within this ticket's Preferred fix, but noted — see backlog
 > B-11.
 
-> **In progress** (dispatched 2026-07-29, Gemini, worktree
-> `.claude/worktrees/iex2-1`, base `67c1b0ee`). Nobody else may touch
-> `ImportService.ts` until this is reviewed and committed — IEX2-2..7 are behind
-> it in the same chain.
+> **Second reviewer pass, 2026-07-29 (independent re-verification).** Gates
+> re-run from scratch against `main` rather than trusting the report:
+> `tsc` 0 errors · `eslint` 0 problems on both files · portability `unit-db`
+> **49 passed / 7 files** · `test:fast` **147 files, 2006 passed** (baseline).
+> Mutation re-done independently: reverting `ImportService.ts:228` fails
+> **exactly** the new test — 1 failed, 12 passed — which also demonstrates the 12
+> pre-existing tests in that file never touched this path, the audit's central
+> claim.
+>
+> One claim in the commit message was checked rather than assumed: *"a timestamp
+> allowlisted in entityGraph later is covered without another edit here."* It
+> **holds**. drizzle-zod emits `ZodOptional → ZodNullable → ZodDate` for every
+> timestamp column including defaulted ones (`createdAt`/`updatedAt`) — there is
+> no `ZodDefault` wrapper anywhere in this schema, so `wrapDateField`'s unwrap
+> loop reaches the `ZodDate` in every case. Probed directly against
+> `workflows`, `workflow_versions` and `datavault_rows`.
+>
+> **IEX2-2 is now unblocked** — `ImportService.ts` is free.
 
 **Priority: P0** · Size: S · Files: `server/services/portability/ImportService.ts`
 
