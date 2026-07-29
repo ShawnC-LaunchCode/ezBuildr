@@ -2135,6 +2135,83 @@ Do **not** write code. Run the existing harness, then look at the result.
 
 ---
 
+## IEX-15 — Workflow-scope import must re-parent, not inherit a foreign project ✅
+
+**Priority: P1** · Size: S · File: `server/services/portability/ImportService.ts`
+
+> **Found by looking at IEX-14's screenshot.** The imported workflow came back
+> titled `Round Trip 1785329073394 **(2)**`. That `(2)` is
+> `ensureUniqueWorkflowTitle` firing — which meant the import had collided with
+> its own source title, which meant it had landed in the **source project**.
+> A green test suite had said nothing about this; the visual check is what
+> surfaced it.
+
+### Finding
+
+A workflow-scope bundle carries `workflows` but not `projects` — projects sit
+*above* the root, so they are unreachable downward and legitimately excluded.
+That leaves `workflows.projectId` as a foreign id, and nothing assigned it:
+`enforceOwnership` stamps tenant/owner/creator columns and never touches
+`projectId`, and the `refs` remap finds no `idMap` entry because the project was
+never in the bundle.
+
+Three consequences:
+
+1. **Same-system import silently re-attaches to the source project.** Benign
+   looking — it is why the title needed a `(2)` suffix at all.
+2. **Cross-system import writes a dangling project id**, referencing a project
+   that does not exist in the target system.
+3. **`options.targetProjectId` did not re-parent anything.** It fed owner
+   resolution only, so the API accepted "import into project X" and put the
+   workflow somewhere else entirely — a documented option that did not do what
+   its name said.
+
+### Fix applied
+
+`projectId` is now assigned server-side for workflow rows whose project did not
+travel with the bundle, decided once by `resolveProjectIdOverride`:
+
+- `targetProjectId` given → use it. `resolveTargetOwnerForProject` already
+  proves `'edit'` on that project, so this widens no permission.
+- otherwise, keep the bundle's own project **only if it is genuinely the
+  caller's** — same tenant *and* `'edit'` rights. That preserves the sensible
+  same-system "duplicate into the same project" behaviour.
+- otherwise → `null` (the column is nullable), with a human-readable entry in
+  the new `ImportApplyResult.adjustments`.
+
+Project-scope bundles are untouched: `projects` travels with them, so the id is
+in `idMap`, the override is `undefined`, and the existing refs remap owns it.
+
+The resolution runs **before** the transaction opens, deliberately: it issues
+pool queries, and those deadlock the size-1 test pool when run inside a caller's
+transaction (see the SystemStats deadlock note).
+
+`adjustments` is a separate field rather than a new `warnings` branch, because
+`manifest.warnings` is a locked discriminated union and must not grow branches.
+
+### Acceptance criteria
+
+1. A workflow-scope import with `targetProjectId` lands in that project. ✅
+2. A workflow-scope import with no target keeps the original project when it is
+   the caller's own, and reports no adjustment. ✅
+3. A bundle naming a project that is not the caller's imports with
+   `projectId = null` and an adjustment explaining why — never the foreign id. ✅
+4. Project-scope imports are unaffected. ✅ (existing round-trip tests)
+5. Gates: type-check 0, lint clean, `test:fast` ≥ baseline, `unit-db` green,
+   portability integration green. ✅
+
+> **Verified 2026-07-28.** type-check 0, eslint 0, `test:fast` 148 files / 2007
+> tests, `unit-db` 9 files / 88 tests (from 85), portability integration 3 files
+> / 16 tests. Mutation-checked: disabling the override reds AC 1 and AC 3 and
+> nothing else — AC 2 correctly stays green, since "keep the caller's own
+> project" is a no-op either way.
+>
+> Also fixed here: the IEX-14 harness printed `/builder/<id>`, but the real route
+> is `/workflows/<id>/builder` (`Router.tsx:113`). The screenshotter navigated to
+> the correct URL and did not mention the discrepancy.
+
+---
+
 # Phase 3 — Client-wide export/import (ask #2) 🔲
 
 **Unblocked by decisions D-1 and D-3 (2026-07-27).** Scope is settled:

@@ -55,6 +55,13 @@ interface ProcessEntityContext {
   rootIds: string[];
   /** bundle-origin fileRef -> freshly written storage fileRef (IEX-10) */
   blobMap: Map<string, string>;
+  /**
+   * What to write into `workflows.projectId` when the bundle's own project is
+   * not part of the bundle (IEX-15). `undefined` means leave it alone — either
+   * the project came along and the refs remap already handled it, or the
+   * original is legitimately the caller's.
+   */
+  projectIdOverride: string | null | undefined;
 }
 
 export interface ImportApplyResult {
@@ -67,6 +74,12 @@ export interface ImportApplyResult {
   warnings: ExportWarning[];
   /** Number of distinct objects written to storage. */
   blobsRestored: number;
+  /**
+   * Structural decisions taken server-side that the caller should surface —
+   * currently only re-parenting of an imported workflow. Distinct from
+   * `warnings`, which is the bundle-format union and must not grow new branches.
+   */
+  adjustments: string[];
 }
 
 /** Where a bundle fileRef was referenced from, for actionable rejection errors. */
@@ -584,6 +597,56 @@ export class ImportService {
     return mapping;
   }
 
+  /**
+   * Decide what `workflows.projectId` should be for rows whose project is not
+   * carried by the bundle (IEX-15).
+   *
+   * A workflow-scope bundle contains `workflows` but not `projects` — projects
+   * sit above the root — so the bundle's `projectId` is a foreign id. Left
+   * alone it either dangles (different system) or silently re-attaches the
+   * import to the SOURCE project (same system), which is what made an imported
+   * workflow collide with its own source title.
+   *
+   * Runs before the transaction opens: it issues pool queries, and those
+   * deadlock the size-1 test pool if run inside a caller's transaction.
+   */
+  private async resolveProjectIdOverride(params: {
+    bundleProjectIds: Set<string>;
+    idMap: Map<string, string>;
+    userId: string;
+    targetOwner: TargetOwner;
+    options: ImportApplyOptions;
+    adjustments: string[];
+  }): Promise<string | null | undefined> {
+    const { bundleProjectIds, idMap, userId, targetOwner, options, adjustments } = params;
+    const unmapped = [...bundleProjectIds].filter(id => !idMap.has(id));
+    if (unmapped.length === 0) {
+      return undefined; // project travelled with the bundle; the refs remap owns it
+    }
+
+    if (options.targetProjectId !== undefined) {
+      // resolveTargetOwnerForProject already proved 'edit' on this project.
+      return options.targetProjectId;
+    }
+
+    // No explicit target. Keeping the bundle's own project is only acceptable
+    // when it really is the caller's to write to — same tenant, edit rights.
+    for (const projectId of unmapped) {
+      const project = await projectRepository.findById(projectId);
+      const sameTenant = project !== undefined && project.tenantId === targetOwner.tenantId;
+      const canEdit = sameTenant && await aclService.hasProjectRole(userId, projectId, 'edit');
+      if (!canEdit) {
+        adjustments.push(
+          `Imported workflow was left without a project: the bundle referenced project ${projectId}, ` +
+          `which is not yours in this tenant. Re-import with targetProjectId to place it.`
+        );
+        return null;
+      }
+    }
+
+    return undefined;
+  }
+
   private async processSingleEntity(
     ctx: ProcessEntityContext,
     data: Record<string, unknown>,
@@ -621,6 +684,12 @@ export class ImportService {
       if (typeof value === 'string' && value !== '') {
         data[col] = ctx.blobMap.get(value) ?? '';
       }
+    }
+
+    // Re-parent an imported workflow whose project did not travel with it.
+    // Decided once, before the transaction, by resolveProjectIdOverride.
+    if (ctx.desc.name === 'workflows' && ctx.projectIdOverride !== undefined) {
+      data['projectId'] = ctx.projectIdOverride;
     }
 
     this.enforceOwnership(ctx.desc, data, ctx.targetOwner, ctx.userId);
@@ -675,6 +744,7 @@ export class ImportService {
     let reader: BundleReader | null = null;
     let newRootId = '';
     const warnings: ExportWarning[] = [];
+    const adjustments: string[] = [];
 
     try {
       reader = new BundleReader(tmpPath);
@@ -691,6 +761,7 @@ export class ImportService {
       // Pass 1: Allocate new UUIDs for every row across all entities
       // This allows forward references (like currentVersionId) to be remapped
       // correctly during insertion in Pass 2.
+      const bundleProjectIds = new Set<string>();
       for (const desc of ENTITY_GRAPH) {
         if (this.shouldSkipEntity(desc)) {continue;}
         const schemaObj = this.getZodSchema(desc);
@@ -702,9 +773,16 @@ export class ImportService {
              if (typeof data['id'] === 'string') {
                idMap.set(data['id'], randomUUID());
              }
+             if (desc.name === 'workflows' && typeof data['projectId'] === 'string') {
+               bundleProjectIds.add(data['projectId']);
+             }
            }
         }
       }
+
+      const projectIdOverride = await this.resolveProjectIdOverride({
+        bundleProjectIds, idMap, userId, targetOwner, options, adjustments
+      });
 
       // Pass 2: Remap foreign keys and insert rows
       await db.transaction(async (tx: DbTransaction) => {
@@ -719,7 +797,8 @@ export class ImportService {
             userId,
             idMap,
             rootIds,
-            blobMap
+            blobMap,
+            projectIdOverride
           });
           if (rootId) {
             newRootId = rootId;
@@ -733,7 +812,8 @@ export class ImportService {
         tenantId: targetOwner.tenantId,
         entityCounts: manifest.entityCounts,
         warnings,
-        blobsRestored: new Set(blobMap.values()).size
+        blobsRestored: new Set(blobMap.values()).size,
+        adjustments
       };
     } finally {
       reader?.close();

@@ -173,8 +173,8 @@ async function main(): Promise<void> {
   log('─────────────────────────────────────────────────────────────');
   log(`  Log in with:      ${EMAIL}`);
   log(`  Password:         ${PASSWORD}`);
-  log(`  SOURCE builder:   ${BASE}/builder/${workflow.id}`);
-  log(`  IMPORTED builder: ${BASE}/builder/${applied.rootId}`);
+  log(`  SOURCE builder:   ${BASE}/workflows/${workflow.id}/builder`);
+  log(`  IMPORTED builder: ${BASE}/workflows/${applied.rootId}/builder`);
   log('─────────────────────────────────────────────────────────────');
   log('  Screenshot the IMPORTED builder URL: it must show the same');
   log('  sections and steps as the source, with different ids.');

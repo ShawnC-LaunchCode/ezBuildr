@@ -212,6 +212,62 @@ describeWithDb('ImportService - apply', () => {
     expect(newSteps[0].id).not.toBe(stepId);
   });
 
+  // IEX-15. A workflow-scope bundle carries `workflows` but not `projects`, so
+  // workflows.projectId is a foreign id. This surfaced visually: an imported
+  // workflow came back titled "... (2)", because it had silently re-attached to
+  // the SOURCE project and collided with its own source title.
+  it('re-parents a workflow-scope import into targetProjectId (IEX-15)', async () => {
+    const [other] = await db.insert(projects).values({
+      id: randomUUID(),
+      title: 'Destination Project',
+      name: 'Destination Project',
+      tenantId: user.tenantId,
+      creatorId: user.id,
+      createdBy: user.id,
+      ownerId: user.id,
+      ownerType: 'user',
+      ownerUuid: user.id,
+    }).returning();
+
+    const result = await importService.apply(workflowBundle, user.id, { targetProjectId: other.id });
+
+    const [imported] = await db.select().from(workflows).where(eq(workflows.id, result.rootId));
+    expect(imported.projectId).toBe(other.id);
+    expect(imported.projectId).not.toBe(project.id);
+  });
+
+  it('keeps the original project when it is the caller\'s own (IEX-15)', async () => {
+    // Same-system re-import with no target: the bundle's project really is the
+    // caller's, so attaching there is correct rather than a foreign reference.
+    const result = await importService.apply(workflowBundle, user.id);
+
+    const [imported] = await db.select().from(workflows).where(eq(workflows.id, result.rootId));
+    expect(imported.projectId).toBe(project.id);
+    expect(result.adjustments).toHaveLength(0);
+  });
+
+  it('leaves a workflow unparented when the bundle names a project that is not the caller\'s (IEX-15)', async () => {
+    // Simulates a cross-system bundle: rewrite projectId to an id that does not
+    // exist here. Previously this was written straight into the database.
+    const foreignProjectId = randomUUID();
+    const zip = new AdmZip(workflowBundle);
+    const lines = zip.getEntry('entities/workflows.jsonl')!.getData().toString('utf8').split('\n').filter(Boolean);
+    const row = JSON.parse(lines[0]);
+    row.projectId = foreignProjectId;
+    lines[0] = JSON.stringify(row);
+    zip.updateFile('entities/workflows.jsonl', Buffer.from(`${lines.join('\n')}\n`));
+    const manifest = JSON.parse(zip.getEntry('manifest.json')!.getData().toString('utf8'));
+    recomputeChecksum(zip, manifest);
+    zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
+
+    const result = await importService.apply(zip.toBuffer(), user.id);
+
+    const [imported] = await db.select().from(workflows).where(eq(workflows.id, result.rootId));
+    expect(imported.projectId).toBeNull();
+    expect(imported.projectId).not.toBe(foreignProjectId);
+    expect(result.adjustments.join(' ')).toMatch(/without a project/i);
+  });
+
   it('rejects hostile bundle smuggling foreign tenantId and ownerUuid (AC 4 unconditional stamp)', async () => {
     const zip = new AdmZip(projectBundle);
     const projectsEntry = zip.getEntry('entities/projects.jsonl');
