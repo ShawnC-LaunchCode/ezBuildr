@@ -59,6 +59,10 @@ interface ProcessEntityContext {
 
 export interface ImportApplyResult {
   rootId: string;
+  scope: string;
+  /** Tenant the bundle was written into — resolved server-side, never from the bundle. */
+  tenantId: string;
+  entityCounts: Record<string, number>;
   /** Blobs referenced by a row but absent from the bundle. Absent is not fatal. */
   warnings: ExportWarning[];
   /** Number of distinct objects written to storage. */
@@ -725,6 +729,9 @@ export class ImportService {
 
       return {
         rootId: newRootId,
+        scope: manifest.scope,
+        tenantId: targetOwner.tenantId,
+        entityCounts: manifest.entityCounts,
         warnings,
         blobsRestored: new Set(blobMap.values()).size
       };

@@ -1759,7 +1759,66 @@ so tests can plant a stub that reports infection without needing ClamAV.
 
 ---
 
-## IEX-11 — Import routes: upload, preview, apply 🔲
+## IEX-11 — Import routes: upload, preview, apply ✅
+
+> **Verified 2026-07-28.** type-check 0, eslint 0 (with
+> `--report-unused-disable-directives`), `test:fast` 148 files / 2006 tests,
+> `unit-db` 9 files / 85 tests, portability integration 3 files / 16 tests
+> (export 8 + import 6 + limits 2). The IEX-7 export tests still pass unchanged.
+>
+> Middleware order is `hybridAuth` → `strictLimiter` → upload, matching the
+> export routes: limiter-first would let anonymous 401s burn the per-IP budget
+> and lock out everyone behind one NAT.
+>
+> **AC 4 needed a decision.** `ImportService.preview` deliberately reports an
+> unopenable bundle as `errors[] + canProceed:false` rather than throwing — its
+> contract is "report, never write", and that is right for the service. But AC 4
+> requires a corrupt upload to answer 400. The status decision was therefore put
+> in the route: a bundle that cannot be *opened* is malformed input → 400, while
+> a bundle that opens and merely fails row validation still returns 200 with
+> `canProceed:false`, because that is a useful preview the caller is meant to
+> read. `ImportService` was not changed.
+>
+> **AC 5 is proven end-to-end, not mocked.** `PORTABILITY_MAX_UPLOAD_BYTES` makes
+> the cap injectable, and `portability.import.limits.test.ts` shrinks it to 512
+> bytes via `vi.hoisted` (the routes module reads it at import time) in a file of
+> its own, so a real oversized upload returns a real 413 through multer. Building
+> a genuine 250MB upload in a test was not a reasonable alternative.
+>
+> Bundle-parse failures are mapped to 400 via an explicit signal list rather than
+> a catch-all, so genuine server faults still surface as 500 instead of being
+> disguised as client errors.
+
+### Verification pass — Phase 2 Gate live round-trip (2026-07-28)
+
+**AC 8, on the running dev server (`npm run dev`, port 5000, real `.env`,
+`/health` reporting `database.connected: true`).** Everything below is real HTTP
+with a real JWT; only the tenant bootstrap touched the DB directly, because
+`POST /api/auth/register` does not assign one.
+
+```
+6. exported 1643 bytes (application/zip)
+7. preview HTTP 200 canProceed=true counts={"workflows":1,"sections":2,"steps":2}
+   workflows in project after preview: 1 (expect 1 — preview writes nothing)
+8. apply HTTP 201 rootId=2c94ebd9-… blobsRestored=0
+9. imported workflow: 2 section(s) -> "Applicant Details", "Section 1"
+   "Applicant Details" -> 2 step(s): "Full name", "Email address"
+   source workflow for comparison: 2 section(s) -> "Applicant Details", "Section 1"
+10. audit: 1 data_exported, 1 data_imported
+RESULT: PASS
+```
+
+Section titles match the source exactly, steps stayed nested under the right
+section, every id was freshly minted, preview created nothing, and the audit
+trail shows exactly one import row and none for the preview.
+
+> **One part of AC 8 is NOT satisfied: the builder screenshot.** This session has
+> no browser/computer tooling, so the visual confirmation could not be captured.
+> The structural equivalent was done instead — the imported workflow was read
+> back through the same `/api/workflows/:id/sections` and `/api/sections/:id/steps`
+> endpoints the builder itself calls, and matched the source. The imported
+> workflow persists in the dev DB for eyeballing:
+> `http://localhost:5000/builder/2c94ebd9-6c6a-4d3f-8282-f44825d73bf4`.
 
 **Priority: P1** · Size: S · File: `server/routes/portability.routes.ts`
 
