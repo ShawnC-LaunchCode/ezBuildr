@@ -582,3 +582,62 @@ strategy, and a test pass proving nothing breaks. See
 **Next step:** a decision on whether enforcement is planned this quarter. If
 yes, it becomes its own initiative with its own ticket file. If no, say so in
 the docs so nobody mistakes the policies for active protection.
+
+---
+
+## DEBT-12 — `remapJsonIds` had three copies; consolidated to one ✅
+
+> **Done 2026-07-28.** Filed and fixed in the same pass, because the fix was a
+> delete-and-import and the justification for the duplication had already
+> expired.
+
+**Priority: P2** · Size: S · Files: `server/services/SectionService.ts`,
+`server/utils/remapJsonIds.ts`, `tests/unit/services/SectionService.test.ts`
+
+### Finding
+
+Three code paths copy jsonb containing embedded ids, and each had its own copy
+of the same recursive walker. IEX-9 merged two of them into
+`server/utils/remapJsonIds.ts`; `SectionService.ts:30` kept a third, carrying a
+comment explaining it was *"reimplemented here rather than imported so this
+file's duplicate path stays independent of the whole-asset cloner."*
+
+That reasoning was sound when written (ICW2-B5) — importing from
+`WorkflowClonerService` would have pulled a heavy service in for one 15-line
+function — but IEX-9 dissolved it. The walker now lives in a leaf module with
+**zero imports**, so importing it couples `SectionService` to a pure utility,
+not to the cloner. The dependency the comment was avoiding no longer exists.
+
+These were not three similar uses either. All three remap the *same column*,
+`logic_rules.conditionValue` — the column `ENTITY_GRAPH` declares in `jsonRefs`.
+
+### Fix applied
+
+`SectionService` now imports the shared walker; its local copy is deleted. The
+shared module documents that it is the single implementation for all three
+callers, and records a known limitation found while reviewing it: **only string
+*values* are remapped, never object *keys***, so an id-keyed config
+(`{ "<stepId>": {...} }`) passes through untouched. Nothing in the current schema
+relies on that shape, but if it ever does, the fix now lands once for all three
+callers instead of needing to be remembered in three places.
+
+### Coverage gap this exposed
+
+Mutation-checking the consolidation turned up something worth more than the
+consolidation itself: **neutering the walker entirely left all 19 SectionService
+tests green.** The existing tests assert `conditionStepId` and `targetStepId`,
+which are remapped by direct `idMap.get()` lookups and never touch the walker;
+ids embedded *inside* `conditionValue` had no coverage at all. Only the
+portability suites caught the mutation.
+
+A test was added for exactly that case, and re-running the same mutation now
+reds it and nothing else. Without it, a future change to the shared walker
+driven by portability requirements could have broken section duplication
+silently — which is precisely the risk consolidation is supposed to remove.
+
+### Verification
+
+type-check 0, eslint 0 (with `--report-unused-disable-directives`, which also
+flagged a now-orphaned file-level suppression in the test file — removed),
+`test:fast` 148 files / 2007 tests (from 2006), `unit-db` 9 files / 85 tests.
+`grep -rn "function remapJsonIds"` now returns exactly one hit.

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { describe, it, expect, beforeEach, vi, type Mocked } from "vitest";
 
 import { SectionService } from "../../../server/services/SectionService";
@@ -358,6 +357,56 @@ describe("SectionService", () => {
       );
 
       expect(result).toBe(newSection);
+    });
+
+    // DEBT-12: conditionStepId/targetStepId are remapped by direct idMap lookups,
+    // but ids embedded *inside* conditionValue go through the shared
+    // remapJsonIds walker. Nothing here covered that until now — the walker
+    // could be neutered entirely and every test in this file still passed.
+    it("remaps step ids embedded inside the rule's conditionValue jsonb", async () => {
+      const workflow = createTestWorkflow();
+      const source = createTestSection(workflow.id, { order: 1, title: "Original" });
+      const step1 = createTestStep(source.id, { order: 1, alias: "name", workflowId: workflow.id });
+      const step2 = createTestStep(source.id, { order: 2, alias: "email", workflowId: workflow.id });
+      const rule = createTestLogicRule(workflow.id, {
+        conditionStepId: step1.id,
+        targetType: "step",
+        targetStepId: step2.id,
+        targetSectionId: null,
+        conditionValue: {
+          stepId: step1.id,
+          nested: { alsoAStep: step2.id, untouched: "not-an-id" },
+          list: [step1.id, "literal"],
+        },
+      });
+
+      mockSectionRepo.findById.mockResolvedValue(source);
+      mockSectionRepo.findByWorkflowId.mockResolvedValue([source] as unknown as Section[]);
+      mockStepRepo.findBySectionId.mockResolvedValue([step1, step2] as unknown as Step[]);
+      mockStepRepo.countByWorkflowId.mockResolvedValue(2);
+      mockStepRepo.findByWorkflowIdWithAliases.mockResolvedValue([step1, step2] as unknown as Step[]);
+
+      const newSection = createTestSection(workflow.id, { order: 2, title: "Original" });
+      mockSectionRepo.create.mockResolvedValue(newSection);
+      const newStep1 = createTestStep(newSection.id, { order: 1, alias: "name_copy", workflowId: workflow.id });
+      const newStep2 = createTestStep(newSection.id, { order: 2, alias: "email_copy", workflowId: workflow.id });
+      mockStepRepo.create
+        .mockResolvedValueOnce(newStep1)
+        .mockResolvedValueOnce(newStep2);
+      mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([rule]);
+
+      await service.duplicateSection(source.id, "user-123");
+
+      expect(mockLogicRuleRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          conditionValue: {
+            stepId: newStep1.id,
+            nested: { alsoAStep: newStep2.id, untouched: "not-an-id" },
+            list: [newStep1.id, "literal"],
+          },
+        }),
+        expect.anything()
+      );
     });
 
     it("skips a workflow rule whose condition step is outside the duplicated section", async () => {

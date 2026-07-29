@@ -12,6 +12,8 @@ import {
   type DbTransaction,
 } from "../repositories";
 
+import { remapJsonIds } from "../utils/remapJsonIds";
+
 import { generateAliasCopy } from "./stepAlias";
 import { workflowService } from "./WorkflowService";
 
@@ -19,31 +21,6 @@ const SECTION_NOT_FOUND = "Section not found";
 
 /** `order` is optional at the API boundary — the service auto-increments it. */
 type CreateSectionData = Omit<InsertSection, 'workflowId' | 'order'> & Partial<Pick<InsertSection, 'order'>>;
-
-/**
- * Remap any string in a JSON value that matches a source id to its
- * duplicated-copy id, recursively. Same approach as
- * `WorkflowClonerService.remapJsonIds` (donor for ICW2-B5), reimplemented
- * here rather than imported so this file's duplicate path stays independent
- * of the whole-asset cloner.
- */
-function remapJsonIds<T>(value: T, idMap: Map<string, string>): T {
-  if (typeof value === "string") {
-    return (idMap.get(value) ?? value) as T;
-  }
-  if (Array.isArray(value)) {
-    const items: unknown[] = value;
-    return items.map((item) => remapJsonIds(item, idMap)) as T;
-  }
-  if (value && typeof value === "object" && !(value instanceof Date)) {
-    const remapped: Record<string, unknown> = {};
-    for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
-      remapped[key] = remapJsonIds(nestedValue, idMap);
-    }
-    return remapped as T;
-  }
-  return value;
-}
 
 /**
  * Constructor dependencies for {@link SectionService}, grouped into a single
