@@ -184,7 +184,12 @@ Only these may run in parallel with the ImportService chain:
 
 # Phase A — P0: the feature does not work on real data
 
-## IEX2-1 — Timestamp columns make every import throw 🔲
+## IEX2-1 — Timestamp columns make every import throw 🔄
+
+> **In progress** (dispatched 2026-07-29, Gemini, worktree
+> `.claude/worktrees/iex2-1`, base `67c1b0ee`). Nobody else may touch
+> `ImportService.ts` until this is reviewed and committed — IEX2-2..7 are behind
+> it in the same chain.
 
 **Priority: P0** · Size: S · Files: `server/services/portability/ImportService.ts`
 
