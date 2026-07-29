@@ -2012,6 +2012,114 @@ confirm legitimate bundles still verify (AC 3, no regression).
 
 ---
 
+## IEX-14 — Visual confirmation of an imported workflow in the builder 🔲
+
+**Priority: P2** · Size: S · Files: **none — this ticket changes no code**
+
+> Closes the one outstanding acceptance criterion in Phase 2. IEX-11 AC 8 asked
+> for a screenshot of an imported workflow open in the builder. Everything else
+> in that AC was verified live and is recorded in IEX-11's verification block;
+> the screenshot could not be captured because the reviewing session had no
+> browser tooling. This ticket exists solely to capture it.
+
+### Finding
+
+`IEX-11` shipped and the round-trip is proven at the API level: a workflow was
+exported, previewed, applied, and read back through the *same* endpoints the
+builder calls (`GET /api/workflows/:id/sections`,
+`GET /api/sections/:id/steps`). Section titles matched the source exactly, steps
+stayed nested under the right section, every id was freshly minted, preview
+wrote nothing, and the audit trail showed exactly one import row.
+
+What has **not** been confirmed is that the builder UI actually renders an
+imported workflow correctly. API-level structural equivalence is strong evidence
+but it is not the same claim: the builder could still fail to load, render an
+empty canvas, or error in the console on data it did not create itself.
+
+### Preferred fix
+
+Do **not** write code. Run the existing harness, then look at the result.
+
+1. Start the dev server from the repo root:
+
+   ```bash
+   npm run dev
+   ```
+
+   Wait for `http://localhost:5000/health` to return `"status":"healthy"`.
+   If port 5000 is busy, `npm run kill-server` first.
+
+2. In a second terminal, run the round-trip harness:
+
+   ```bash
+   npx tsx scripts/verifyPortabilityRoundTrip.ts
+   ```
+
+   It seeds a workflow, exports it, imports it back via preview → apply, and
+   prints a block like this:
+
+   ```
+   RESULT: PASS
+   ─────────────────────────────────────────────────────────────
+     Log in with:      portability-verify-<stamp>@example.com
+     Password:         TestPassword123!@#Strong
+     SOURCE builder:   http://localhost:5000/builder/<source-id>
+     IMPORTED builder: http://localhost:5000/builder/<imported-id>
+   ─────────────────────────────────────────────────────────────
+   ```
+
+   If it prints anything other than `RESULT: PASS`, **stop and report that** —
+   it means the round-trip itself regressed, which is a bigger finding than the
+   screenshot.
+
+3. Log in through the UI at `http://localhost:5000` with the printed email and
+   password. (Google OAuth cannot be driven headlessly; the login form also
+   accepts email/password for locally-registered users — see the `verify`
+   skill.)
+
+4. Open the **IMPORTED** builder URL. Confirm and screenshot:
+   - the section `Applicant Details` is present,
+   - it contains the steps `Full name` and `Email address`,
+   - the workflow loads without an error state or empty canvas.
+
+5. Open the **SOURCE** builder URL and screenshot it too, so the two can be
+   compared side by side.
+
+6. Check the browser console on the imported workflow and report any errors or
+   warnings verbatim.
+
+### Ties
+
+- Closes **IEX-11** AC 8. IEX-11 is otherwise ✅ and already pushed.
+- Load the `verify` skill (`.claude/skills/verify`) — it documents booting the
+  app and the local-auth workaround.
+- The harness is `scripts/verifyPortabilityRoundTrip.ts`, committed with this
+  ticket. Read its header comment before running.
+- Gotcha already paid for: `POST /api/auth/register` does **not** assign a
+  tenant, and every subsequent API call 400s with
+  `"User does not have a tenant assigned"`. The harness does that bootstrap for
+  you — do not re-derive it.
+- Note the source workflow legitimately has **two** sections: creating a
+  workflow via the API seeds a default `Section 1` alongside
+  `Applicant Details`. Two sections is correct, not a bug.
+
+### Acceptance criteria
+
+1. `scripts/verifyPortabilityRoundTrip.ts` runs against the dev server and
+   prints `RESULT: PASS`. Paste its full output.
+2. A screenshot of the **imported** workflow open in the builder, showing the
+   `Applicant Details` section containing `Full name` and `Email address`.
+3. A screenshot of the **source** workflow in the builder for comparison.
+4. The two workflows are confirmed to have **different** ids (visible in the
+   URLs of the two screenshots).
+5. Browser-console output for the imported workflow is reported — either "no
+   errors" or the errors verbatim.
+6. No files are modified. `git status` at the end shows a clean tree. If you
+   believe a code change is needed, **stop and report it** rather than making
+   it — that is a new finding, not this ticket.
+
+---
+
 # Phase 3 — Client-wide export/import (ask #2) 🔲
 
 **Unblocked by decisions D-1 and D-3 (2026-07-27).** Scope is settled:
