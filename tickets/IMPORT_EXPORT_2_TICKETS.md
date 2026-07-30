@@ -124,7 +124,7 @@ Proven live are marked **[PROVEN]** with the reproduction.
 
 | Phase | Theme | Tickets | Status |
 |---|---|---|---|
-| A | **P0 — the feature does not work on real data** | IEX2-1..4 | 🔄 IEX2-1 ✅ · IEX2-2 ✅ · 3/4 open |
+| A | **P0 — the feature does not work on real data** | IEX2-1..4 | 🔄 IEX2-1/2/3 ✅ · IEX2-4 🔄 dispatched |
 | B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔲 |
 | C | P2 — hardening, redaction depth, real proof | IEX2-12..15 | 🔲 |
 | D | Make the feature reachable | IEX2-16 | ⏸️ **deferred out of round 2** |
@@ -487,7 +487,34 @@ tenant's object"). Apply that reasoning to FK refs.
 
 ---
 
-## IEX2-3 — Import auto-publishes workflows, clones live public links, and cannot import a slugged workflow at all 🔄
+## IEX2-3 — Import auto-publishes workflows, clones live public links, and cannot import a slugged workflow at all ✅
+
+> **VERIFIED at review 2026-07-29** — commit `d1e49393`, worked in
+> `.claude/worktrees/iex2-3`, fast-forwarded into `main`.
+>
+> All six fields are forced in `enforceOwnership`. **The reset is gated on
+> `desc.name`, not on `'x' in shape`** like the ownership stamps around it —
+> the dispatch-block trap was avoided, so no invalid `'draft'` reaches
+> `projects.status`.
+>
+> **AC 2's test was rewritten at review.** As turned in it imported the shared
+> fixture bundle twice, but that workflow has no slug, so it never touched the
+> unique index the criterion exists to guard — mutation testing showed it
+> passing with the fix removed. It now sets a slug before exporting and asserts
+> both copies import with a null slug while the source keeps its own. This is
+> the third ticket in a row where a test passed for the wrong reason; mutation
+> testing caught all three.
+>
+> **Mutation-verified:** disabling the `workflows` branch fails AC 1, 2, 3 and
+> 5; AC 4 correctly survives, since it covers `workflow_versions`.
+>
+> Reviewer-run gates: `tsc` 0 errors · `eslint` 0 problems · portability
+> `unit-db` **56 passed / 7 files** (51 baseline) · `test:fast` **149 files,
+> 2016 tests**.
+>
+> **IEX2-4 is unblocked** — it is dispatched in `.claude/worktrees/iex2-4` and
+> must `git merge main --ff-only` before turning in, since both tickets append
+> to `importApply.test.ts`.
 
 > **Dispatched 2026-07-29** — worktree `.claude/worktrees/iex2-3`, base
 > `9c0a3cec` (proven by `scripts/new-worktree.ps1`). IEX2-4..7 are behind it in
@@ -648,7 +675,23 @@ commented — say *why*, not *what*.
 
 ---
 
-## IEX2-4 — A failed import leaves orphaned blobs in storage and burns the tenant's quota 🔲
+## IEX2-4 — A failed import leaves orphaned blobs in storage and burns the tenant's quota 🔄
+
+> **Dispatched 2026-07-29** — worktree `.claude/worktrees/iex2-4`, base
+> `c4a82792` (proven by `scripts/new-worktree.ps1`).
+>
+> ⚠️ **Fast-forward before turning in.** IEX2-3 landed after this worktree was
+> cut and appends to the same test file: `git merge main --ff-only`, then re-run
+> gates. The source changes do not overlap — IEX2-3 edits `enforceOwnership`
+> (~577), this ticket edits `restoreBlobs` / the `apply` transaction (~572-745).
+>
+> **Do not rely on a real bug to fail the transaction.** The Ties below say
+> IEX2-1 and IEX2-3 make failure trivially reproducible — both are now fixed.
+> Use the deliberate mechanism in `importApply.test.ts`'s existing
+> "rolls back on forced failure mid-import (AC 6)" test.
+>
+> **Baselines have moved:** portability `unit-db` is **56 passing / 7 files**,
+> `test:fast` is **149 files / 2016 tests**.
 
 **Priority: P0** · Size: M · Files: `server/services/portability/ImportService.ts`
 
