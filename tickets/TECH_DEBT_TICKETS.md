@@ -39,12 +39,12 @@ feature work.
 | DEBT-1 | Drain the 796 unused eslint-disable directives | P2 | L | 🔲 |
 | DEBT-2 | Retire the 143 blanket file-level eslint-disable headers | P2 | L | 🔲 |
 | DEBT-3 | Restore the three tests skipped for asserting nothing | P1 | M | 🔲 |
-| DEBT-4 | E-signature provider registry is never initialized | P1 | S | 🔲 |
-| DEBT-5 | `getTemplateFilePath` hardcodes disk storage | P1 | S | 🔲 |
+| DEBT-4 | E-signature provider registry is never initialized | P1 | S | ✅ `9fcf05b4` — ruled dormant; entry removed |
+| DEBT-5 | `getTemplateFilePath` hardcodes disk storage | P1 | S | 🔶 **partly done** `f308fde2` — see below |
 | DEBT-6 | Two parallel file subsystems | P2 | L | 🔲 |
-| DEBT-7 | `WorkflowClonerService` silently drops `workflows.settings` | P1 | S | 🔲 |
+| DEBT-7 | `WorkflowClonerService` silently drops `workflows.settings` | P1 | S | ✅ `23a5863e` — entry removed |
 | DEBT-8 | DI container is built but ~unused | P2 | M | 🔲 |
-| DEBT-9 | `type-check` is advisory in CI | P2 | S | 🔲 |
+| DEBT-9 | `type-check` is advisory in CI | P2 | S | ✅ `a0e43c9b` — entry removed |
 | DEBT-10 | 10 dependabot PRs open since 2026-07-11 | P2 | S | 🔲 |
 | DEBT-11 | RLS policies defined but not enforced (decision, not a fix) | — | — | 🔲 tracked |
 
@@ -234,59 +234,71 @@ report, not a reason to restore an assertion-free test.
 
 ---
 
-## DEBT-4 — E-signature provider registry is never initialized 🔲
+## DEBT-5 — `getTemplateFilePath` hardcodes disk storage 🔶 partly done
 
-**Priority: P1** · Size: S · File: `server/services/esign/index.ts`
-
-### Finding
-
-`initializeEsignProviders()` is defined at `server/services/esign/index.ts:47`
-and **called from nowhere**. Repo-wide grep returns exactly one hit — the
-definition itself. The provider registry is therefore unconditionally empty at
-runtime, so every e-signature code path resolves no provider.
-
-This means the e-signature feature is not "partially working", it is inert,
-and no test covers the gap.
-
-### Preferred fix
-
-First **establish whether e-signature is meant to be live.** If it is not,
-the honest fix is to say so in `docs/claude/FEATURES.md` and leave the code
-dormant — this is a documentation-accuracy problem, and this repo has already
-had to correct false capability claims once (`DOCH-2`, commit `999d9005`).
-
-If it is meant to be live: call `initializeEsignProviders()` during server
-startup alongside the other registry initializations, and add a test asserting
-the registry is non-empty after boot so it cannot silently regress again.
-
-Do not wire it up without checking — see the Ties.
-
-### Ties
-
-- Related known breakage: per the project's own notes, e-signature has
-  **three independent breaks**, not just this one. Re-verify the others before
-  declaring the feature working.
-- Docs to correct either way: `docs/guides/ESIGNATURE_INTEGRATION.md`,
-  `docs/claude/FEATURES.md`.
-- Load `add-api-endpoint` if any service or route changes.
-
-### Acceptance criteria
-
-1. A decision is recorded in the ticket: feature is live, or feature is
-   dormant.
-2. If live: `initializeEsignProviders()` is called at startup, and a test
-   asserts the registry is non-empty after initialization.
-3. If dormant: `docs/claude/FEATURES.md` states the true status, and no code
-   claims otherwise.
-4. Gates: type-check 0 errors, lint 0 problems, `npm run test:fast` ≥ baseline.
-
----
-
-## DEBT-5 — `getTemplateFilePath` hardcodes disk storage 🔲
+> ### ✅ Landed 2026-07-29 — `f308fde2`
+>
+> `getTemplateFilePath` is now async and delegates to the configured provider's
+> `getLocalPath`; every caller awaits provider-backed resolution
+> (`templates.routes.ts`, `TemplateAnalysisService`, `TemplateValidationService`,
+> `templates.ts`). A stub-provider unit test
+> (`tests/unit/services/templateFiles.test.ts`) proves the delegation without
+> needing S3 credentials. **ACs 1, 2, 3 met.**
+>
+> ### 🔶 Still open — one live caller, and a security decision
+>
+> **`createTemplateResolver` (`server/services/document/FinalBlockRenderer.ts:457-474`)
+> still bypasses the provider**, resolving a template as
+> `path.resolve(process.cwd(), 'server', 'files')` joined with
+> `template.fileRef`. It is live in two paths —
+> `finalBlock.routes.ts:217` and
+> `server/services/workflow-runs/RunLifecycleService.ts:441` — so this is the
+> same defect in production document rendering, not a leftover.
+>
+> The turn-in rewrote AC 4 to exclude the remaining `process.cwd()` matches as
+> "output/archive paths". **That reframing is correct for five of the six**
+> (`files.routes.ts:33`, `finalBlock.routes.ts:334,342`,
+> `DocumentEngine.ts:46`, `FinalBlockRenderer.ts:140`, `fileService.ts:134-136`,
+> and `DiskStorageProvider.ts:20`'s own configured `baseDir`, which is
+> legitimately local and belongs to DEBT-6). It is **wrong for
+> `FinalBlockRenderer.ts:467`**, which builds a *template* path from a
+> *fileRef* — so that one fails even the rewritten criterion.
+>
+> **This is not a drop-in change, which is why it was not done at review.**
+> `createTemplateResolver` guards path traversal:
+>
+> ```ts
+> const resolvedPath = path.resolve(templatesDir, template.fileRef);
+> if (!resolvedPath.startsWith(templatesDir)) {
+>   throw createError.validation('Invalid template path');
+> }
+> ```
+>
+> `DiskStorageProvider.getLocalPath` (`:91`) does `path.join(this.baseDir,
+> fileRef)` with **no equivalent guard**. Swapping one for the other as-is
+> deletes a security control. Whoever takes this must decide where the guard
+> lives — almost certainly *inside* the provider, so every caller inherits it
+> rather than each re-implementing it.
+>
+> **Remaining acceptance criteria:**
+>
+> 1. `createTemplateResolver` resolves through `storageProvider`, not
+>    `process.cwd()`.
+> 2. Path-traversal protection is preserved — a `fileRef` of `../../etc/passwd`
+>    (or a Windows equivalent) is rejected. A test asserts this, and it should
+>    live wherever the guard ends up.
+> 3. Both live call sites still work: `finalBlock.routes.ts:217` and
+>    `RunLifecycleService.ts:441`.
+> 4. Consider whether `DiskStorageProvider.getLocalPath` should reject
+>    traversing `fileRef`s for *all* callers. Import writes fileRefs from
+>    bundles (IEX-10), so this is not purely a trusted-input path.
 
 **Priority: P1** · Size: S · File: `server/services/templateFiles.ts:17`
 
 ### Finding
+
+> **Historical — the code below was fixed in `f308fde2`.** Kept for context on
+> the remaining work above.
 
 ```ts
 export function getTemplateFilePath(fileRef: string): string {
@@ -378,58 +390,6 @@ a migration, and picking the wrong direction is expensive.
 
 ---
 
-## DEBT-7 — `WorkflowClonerService` silently drops `workflows.settings` 🔲
-
-**Priority: P1** · Size: S · File: `server/services/WorkflowClonerService.ts`
-
-### Finding
-
-`workflows.settings` is `jsonb("settings").default('{}').notNull()`
-(`shared/schema/workflow.ts`), and the cloner's workflow insert never mentions
-it — `grep -c "settings" server/services/WorkflowClonerService.ts` returns
-**0**.
-
-Every enumerated column is copied by hand at the insert site, so an omission is
-invisible: the clone succeeds, the column takes its `'{}'` default, and the
-copied workflow quietly loses whatever configuration `settings` held. Because
-the column is `notNull` with a default, nothing errors.
-
-Found while deriving the portability entity graph from the cloner's insert
-sites. It is a latent bug in the cloner, not in the portability work — the
-portability graph reproduces the omission faithfully and will need updating
-alongside this fix.
-
-### Preferred fix
-
-Determine what `settings` actually holds and whether it is safe to carry across
-a clone (some fields may be intentionally reset, the way `publicLink`, `slug`
-and `status` deliberately are). Then either copy it, or leave it out **with a
-comment stating the reason** so the next reader does not have to re-derive it.
-
-Whichever way it goes, add `settings` to the `workflows` descriptor's `fields`
-in `server/services/portability/entityGraph.ts` if it is portable, so the two
-do not drift.
-
-### Ties
-
-- Touches `entityGraph.ts`, which the IEX initiative also edits — check for
-  in-flight IEX work before dispatching, and sequence behind it if any.
-- Donor context for deliberate omissions: the cloner already resets
-  `publicLink: null`, `slug: null`, `status: "draft"` on purpose.
-- Load `run-tests`.
-
-### Acceptance criteria
-
-1. A test asserts the intended behaviour of `settings` across
-   `copyWorkflow` — either preserved, or reset with the reason documented.
-2. If preserved, `settings` appears in the `workflows` descriptor's `fields` in
-   `entityGraph.ts`.
-3. If deliberately omitted, a comment at the insert site states why.
-4. Gates: type-check 0 errors, lint 0 problems, `npm run test:fast` ≥ baseline,
-   `npm run test:unit` green.
-
----
-
 ## DEBT-8 — DI container is built but ~unused 🔲
 
 **Priority: P2** · Size: M · Files: `server/di/*`
@@ -471,51 +431,6 @@ Recommend removal unless there is a concrete plan to finish adoption.
    `grep -rn "server/di" server/ client/ shared/` returns no matches.
 3. `CLAUDE.md` no longer describes a half-adopted container.
 4. Gates: type-check 0 errors, lint 0 problems, `npm run test:fast` ≥ baseline.
-
----
-
-## DEBT-9 — `type-check` is advisory in CI 🔲
-
-**Priority: P2** · Size: S · File: `.github/workflows/ci.yml`
-
-### Finding
-
-CI does not gate on TypeScript. From `.github/workflows/ci.yml:10`:
-
-```yaml
-# Quality gates. Full-project `tsc` still carries known migration/debt backlog
-# (see docs/TYPESCRIPT_STRICT_MODE_MIGRATION.md), so type-check remains
-# advisory. Repo-wide eslint is blocking again now that the backlog is clean.
-```
-
-The comment was accurate when written. **It may no longer be:** `npm run
-type-check` was clean on `main` at 0 errors on 2026-07-28. If the backlog is
-in fact drained, the only thing standing between a type error and production is
-the pre-commit hook on one developer's machine — and `main` auto-deploys to
-production with no staging gate.
-
-### Preferred fix
-
-Verify `type-check` is genuinely 0 errors on a clean checkout of `main` (not a
-worktree, and not against a stale `.tsbuildinfo`). If it is, promote the step
-to blocking and update the comment. If it is not, record the real remaining
-count in the comment so the next reader is not misled.
-
-### Ties
-
-- Related: `docs/TYPESCRIPT_STRICT_MODE_MIGRATION.md`.
-- Interacts with **DEBT-1/DEBT-2** — draining suppressions can surface type
-  errors, so re-measure after those land if they are in flight.
-- Branch protection is currently off, which is a separate but compounding gap.
-
-### Acceptance criteria
-
-1. `npm run type-check` verified on a clean clone of `main` and the result
-   recorded in the ticket.
-2. If 0 errors: the CI step is blocking and the stale comment is corrected.
-3. If non-zero: the exact count and the plan are written into the comment.
-4. A deliberately introduced type error fails CI (verified on a scratch
-   branch, then reverted).
 
 ---
 
@@ -582,62 +497,3 @@ strategy, and a test pass proving nothing breaks. See
 **Next step:** a decision on whether enforcement is planned this quarter. If
 yes, it becomes its own initiative with its own ticket file. If no, say so in
 the docs so nobody mistakes the policies for active protection.
-
----
-
-## DEBT-12 — `remapJsonIds` had three copies; consolidated to one ✅
-
-> **Done 2026-07-28.** Filed and fixed in the same pass, because the fix was a
-> delete-and-import and the justification for the duplication had already
-> expired.
-
-**Priority: P2** · Size: S · Files: `server/services/SectionService.ts`,
-`server/utils/remapJsonIds.ts`, `tests/unit/services/SectionService.test.ts`
-
-### Finding
-
-Three code paths copy jsonb containing embedded ids, and each had its own copy
-of the same recursive walker. IEX-9 merged two of them into
-`server/utils/remapJsonIds.ts`; `SectionService.ts:30` kept a third, carrying a
-comment explaining it was *"reimplemented here rather than imported so this
-file's duplicate path stays independent of the whole-asset cloner."*
-
-That reasoning was sound when written (ICW2-B5) — importing from
-`WorkflowClonerService` would have pulled a heavy service in for one 15-line
-function — but IEX-9 dissolved it. The walker now lives in a leaf module with
-**zero imports**, so importing it couples `SectionService` to a pure utility,
-not to the cloner. The dependency the comment was avoiding no longer exists.
-
-These were not three similar uses either. All three remap the *same column*,
-`logic_rules.conditionValue` — the column `ENTITY_GRAPH` declares in `jsonRefs`.
-
-### Fix applied
-
-`SectionService` now imports the shared walker; its local copy is deleted. The
-shared module documents that it is the single implementation for all three
-callers, and records a known limitation found while reviewing it: **only string
-*values* are remapped, never object *keys***, so an id-keyed config
-(`{ "<stepId>": {...} }`) passes through untouched. Nothing in the current schema
-relies on that shape, but if it ever does, the fix now lands once for all three
-callers instead of needing to be remembered in three places.
-
-### Coverage gap this exposed
-
-Mutation-checking the consolidation turned up something worth more than the
-consolidation itself: **neutering the walker entirely left all 19 SectionService
-tests green.** The existing tests assert `conditionStepId` and `targetStepId`,
-which are remapped by direct `idMap.get()` lookups and never touch the walker;
-ids embedded *inside* `conditionValue` had no coverage at all. Only the
-portability suites caught the mutation.
-
-A test was added for exactly that case, and re-running the same mutation now
-reds it and nothing else. Without it, a future change to the shared walker
-driven by portability requirements could have broken section duplication
-silently — which is precisely the risk consolidation is supposed to remove.
-
-### Verification
-
-type-check 0, eslint 0 (with `--report-unused-disable-directives`, which also
-flagged a now-orphaned file-level suppression in the test file — removed),
-`test:fast` 148 files / 2007 tests (from 2006), `unit-db` 9 files / 85 tests.
-`grep -rn "function remapJsonIds"` now returns exactly one hit.
