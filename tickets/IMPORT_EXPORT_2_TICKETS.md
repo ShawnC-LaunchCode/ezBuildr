@@ -125,8 +125,8 @@ Proven live are marked **[PROVEN]** with the reproduction.
 | Phase | Theme | Tickets | Status |
 |---|---|---|---|
 | A | **P0 — the feature does not work on real data** | IEX2-1..4 | ✅ **COMPLETE** — all four P0s fixed |
-| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔄 IEX2-5, IEX2-9 dispatched |
-| C | P2 — hardening, redaction depth, real proof | IEX2-12..15 | 🔄 IEX2-12+13 dispatched |
+| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔄 IEX2-5 ✅ done; IEX2-9 in flight |
+| C | P2 — hardening, redaction depth, real proof | IEX2-12..15 | 🔄 IEX2-12 ✅ + IEX2-13 ✅ done |
 | D | Make the feature reachable | IEX2-16 | ⏸️ **deferred out of round 2** |
 
 **All decisions are now ruled — nothing is waiting on Shawn (2026-07-29).**
@@ -806,7 +806,7 @@ fix to a reference-counted sweep and is a bigger ticket.
 
 # Phase B — P1: trust, failure handling, scale
 
-## IEX2-5 — The import audit record reports numbers supplied by the bundle 🔄
+## IEX2-5 — The import audit record reports numbers supplied by the bundle ✅
 
 > **Dispatched 2026-07-30** — worktree `.claude/worktrees/iex2-5`, base
 > `91ceec55`. Head of the ImportService chain now that Phase A is complete;
@@ -820,6 +820,20 @@ fix to a reference-counted sweep and is a bigger ticket.
 >
 > **Baselines:** portability `unit-db` **58 passed / 7 files**; `test:fast`
 > **149 files / 2016 tests**.
+
+> **✅ Verified at review 2026-07-30 — committed `330ba5da`.** Gates re-run by
+> the reviewer, not taken on report: type-check 0, lint 0, `test:fast`
+> 149/2016 (baseline), portability `unit-db` 58/7 (baseline), portability
+> integration 9 (7 baseline + 2 new).
+>
+> **Reviewer fix — the delivered rootId check leaked committed rows.** The
+> `newRootId === ''` throw was placed *after* `db.transaction()` returned, so a
+> rejected bundle committed Pass 2 and then answered 400: orphaned rows in the
+> tenant with no rootId able to reach them, strictly worse than the empty-rootId
+> 201 the ticket set out to fix. The dev's AC 3 test asserted only the status
+> code and message, so it passed over the defect. Reviewer moved the throw
+> inside the transaction and added a row-count assertion, which reproduces it
+> (`expected 12 to be 11`) before the fix.
 
 **Priority: P1 (audit integrity)** · Size: S · Files: `server/services/portability/ImportService.ts`, `server/routes/portability.routes.ts`
 
@@ -1496,7 +1510,7 @@ future read-only-template-sharing feature arrives, which is not now.
 
 # Phase C — P2: hardening, redaction depth, real proof
 
-## IEX2-12 — Duplicate zip entry names: the checksum covers all copies, the reader uses the first 🔄
+## IEX2-12 — Duplicate zip entry names: the checksum covers all copies, the reader uses the first ✅
 
 > **Dispatched 2026-07-30 together with IEX2-13** — worktree
 > `.claude/worktrees/iex2-12`, base `91ceec55`. Bundled deliberately: this
@@ -1511,6 +1525,12 @@ future read-only-template-sharing feature arrives, which is not now.
 >
 > **Baselines:** portability `unit-db` **58 passed / 7 files**; `test:fast`
 > **149 files / 2016 tests**.
+
+> **✅ Verified at review 2026-07-30 — committed `600404c6`.** Mutation-tested:
+> reverting the duplicate guard fails both the unit and the route test. The
+> integration test builds a genuinely malformed zip by rewriting entry names in
+> the raw buffer rather than mocking, which is stronger than the AC required.
+> `getEntryCount` and its assertion are both gone (AC 4).
 
 **Priority: P2** · Size: S · Files: `server/services/portability/bundleReader.ts`
 
@@ -1564,7 +1584,24 @@ rejects only malformed or hostile input.
 
 ---
 
-## IEX2-13 — Zip-bomb guards trust the attacker's own header values 🔲
+## IEX2-13 — Zip-bomb guards trust the attacker's own header values ✅
+
+> **✅ Verified at review 2026-07-30 — committed `b943cd9f`.** All four new
+> guards mutation-tested: each reverted guard fails its test. Note the adm-zip
+> limitation the ticket anticipated — no streaming API, so the size check is
+> necessarily post-decompression (still strictly better than trusting the
+> header; library swap is D-7).
+>
+> **AC 3 was unsatisfiable as written and is superseded.** It asked for actual
+> cumulative bytes over `MAX_TOTAL_SIZE` "even when the declared totals are
+> within limits". Because `getEntryData` now requires `actualSize ===
+> header.size`, the measured total can never exceed the declared total that the
+> pre-check already caps — the chosen design is *stronger* than the AC assumed
+> and makes that state unreachable. The dev reached the guard by stubbing the
+> pre-check instead of flagging the contradiction. Reviewer kept the guard as
+> defence in depth (so relaxing the size equality later cannot silently remove
+> the only cumulative bound), stripped a block of stream-of-consciousness
+> comments from the test, and documented why it is unreachable.
 
 **Priority: P2** · Size: M · Files: `server/services/portability/bundleReader.ts`
 
