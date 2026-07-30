@@ -155,6 +155,19 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
   // Derived state for Dynamic Columns
   const _selectedListVarName = localConfig?.dynamicOptions?.listVariable;
 
+  // Compute duplicate aliases for inline row highlighting
+  const duplicateAliases = useMemo(() => {
+    const dupes = new Set<string>();
+    const seen = new Set<string>();
+    const options = localConfig?.staticOptions ?? [];
+    for (const opt of options) {
+      const alias = opt.alias ?? opt.id;
+      if (seen.has(alias)) { dupes.add(alias); }
+      else { seen.add(alias); }
+    }
+    return dupes;
+  }, [localConfig?.staticOptions]);
+
   // ---------------------------------------------------------------------------
   // HANDLERS
   // ---------------------------------------------------------------------------
@@ -190,16 +203,16 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       {
         id: `opt${n}`,
         label: `Option ${n}`,
-        alias: `option${n}`,
+        alias: `Option ${n}`,
       },
     ];
     handleUpdate({ staticOptions: newOptions });
   };
 
-  const handleUpdateOption = (index: number, field: keyof ChoiceOption, value: string) => {
+  const handleUpdateOption = (index: number, updates: Partial<ChoiceOption>) => {
     if (!localConfig) { return; }
     const newOptions = [...localConfig.staticOptions];
-    newOptions[index] = { ...newOptions[index], [field]: value };
+    newOptions[index] = { ...newOptions[index], ...updates };
     handleUpdate({ staticOptions: newOptions });
   };
 
@@ -562,6 +575,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
             onUpdate={handleUpdateOption}
             onDelete={handleDeleteOption}
             onAdd={handleAddOption}
+            duplicateAliases={duplicateAliases}
           />
         </TabsContent>
 
