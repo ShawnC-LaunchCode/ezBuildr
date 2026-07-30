@@ -52,3 +52,6 @@ export async function outputFileExists(fileRef: string): Promise<boolean> {
     return false;
   }
 }
+
+// DEBT-9 AC 4 proof: deliberate type error, to be reverted.
+export const debt9ProofTypeError: number = "this is not a number";
