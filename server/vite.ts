@@ -86,7 +86,7 @@ export async function setupVite(app: Express, server: Server): Promise<void> {
         `src="/src/main.tsx?v=${nanoid()}"`,
       );
       const page = await vite.transformIndexHtml(url, template);
-      // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header name
+
       res.status(200).set({ 'Content-Type': 'text/html' }).end(page);
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);

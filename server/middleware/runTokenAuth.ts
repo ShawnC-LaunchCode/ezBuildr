@@ -53,7 +53,7 @@ export async function runTokenAuth(
     // Look up the run by token (hashed lookup handled in the repository)
     const run = await workflowRunRepository.findByToken(token);
 
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
     if (!run) {
       res.status(401).json({
         success: false,
@@ -143,7 +143,7 @@ async function creatorOrRunTokenAuthLogic(
     // Look up the run by token (hashed lookup handled in the repository)
     const run = await workflowRunRepository.findByToken(token);
 
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
     if (!run) {
       res.status(401).json({
         success: false,

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 /**
  * JSON Path Selector Utility
  * Minimal JSONPath-like selector for extracting values from JSON responses
@@ -223,7 +223,7 @@ export function testSelector(obj: any, selector: string): {
  * Select multiple values using multiple selectors
  * Returns an object with selector results
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- selects from arbitrary JSON structures
+
 export function selectMultiple(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   obj: any,

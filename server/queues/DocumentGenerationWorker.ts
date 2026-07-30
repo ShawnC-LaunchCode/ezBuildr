@@ -374,7 +374,6 @@ if (require.main === module) {
 
   startDocumentGenerationWorker();
 
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   // Graceful shutdown
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   process.on('SIGTERM', async () => {
@@ -382,7 +381,6 @@ if (require.main === module) {
     await stopDocumentGenerationWorker();
     process.exit(0);
   });
-// eslint-disable-next-line @typescript-eslint/no-misused-promises
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   process.on('SIGINT', async () => {

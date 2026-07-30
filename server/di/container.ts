@@ -128,7 +128,7 @@ export class Container {
       if (registration.instance === undefined) {
         this.resolutionStack.push(token);
         try {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
           registration.instance = registration.factory(this);
           logger.debug(
             { token: token.toString() },
@@ -144,7 +144,7 @@ export class Container {
     // Transient: create new instance every time
     this.resolutionStack.push(token);
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
       const instance = registration.factory(this);
       logger.debug(
         { token: token.toString() },

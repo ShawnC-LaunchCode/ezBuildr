@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument */
 /**
  * Enhanced Sandbox Executor for Custom Scripting System
  * Extends sandboxExecutor.ts with helper library and context injection
@@ -402,7 +402,7 @@ async function runPythonWithHelpers(
   code: string,
   input: Record<string, unknown>,
   context: ScriptContextAPI,
-  // eslint-disable-next-line max-lines-per-function
+
   timeoutMs: number,
   _consoleEnabled: boolean
 ): Promise<ScriptExecutionResult> {
@@ -862,7 +862,7 @@ async function runJsWithVmFallback(
       timeout: timeoutMs
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- sandbox emit capture uses dynamic property
+
     return {
       ok: true,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -117,7 +117,7 @@ export async function optionalUser(req: Request, res: Response, next: NextFuncti
  * Returns undefined if user is not attached
  */
 export function getUser(req: Request): User | undefined {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+
   return hasUser(req) ? req.user : undefined;
 }
 /**

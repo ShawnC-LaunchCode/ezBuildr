@@ -113,7 +113,7 @@ export function initCollabServer(server: HTTPServer): void {
         return;
       }
 
-      conn.alive = false; // eslint-disable-line no-param-reassign
+      conn.alive = false;
       ws.ping();
     });
   }, 30000); // Every 30 seconds
@@ -203,7 +203,7 @@ function setupWebSocketHandlers(
 
   // Handle pong (heartbeat response)
   ws.on('pong', () => {
-    connection.alive = true; // eslint-disable-line no-param-reassign
+    connection.alive = true;
   });
 
   // Handle connection close
@@ -251,7 +251,7 @@ async function handleMessage(
 /**
  * Handle sync protocol message
  */
-// eslint-disable-next-line @typescript-eslint/require-await
+
 async function handleSyncMessage(
   connection: CollabConnection,
   room: Room,
