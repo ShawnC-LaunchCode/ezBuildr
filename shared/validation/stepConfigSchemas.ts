@@ -161,7 +161,8 @@ export const DateTimeUnifiedConfigSchema = z.object({
 });
 
 export const ChoiceAdvancedConfigSchema = z.object({
-  display: z.enum(['radio', 'dropdown', 'multiple']),
+  // 'combobox' = searchable dropdown that also accepts an unlisted answer.
+  display: z.enum(['radio', 'dropdown', 'combobox', 'multiple']),
   allowMultiple: z.boolean(),
   options: z.union([
     z.array(z.union([
@@ -174,6 +175,7 @@ export const ChoiceAdvancedConfigSchema = z.object({
   max: z.number().int().min(1).optional(),
   allowOther: z.boolean().optional(),
   otherLabel: z.string().optional(),
+  /** @deprecated superseded by display: 'combobox'; still accepted for old configs. */
   searchable: z.boolean().optional(),
   randomizeOrder: z.boolean().optional(),
 });
@@ -398,7 +400,6 @@ export const FinalBlockConfigSchema = z.object({
  * @returns Zod schema for validating the config, or undefined if no validation needed
  */
 export function getConfigSchema(stepType: string): z.ZodTypeAny | undefined {
-  /* eslint-disable @typescript-eslint/naming-convention -- keys match step type enum values */
   const schemaMap: Record<string, z.ZodTypeAny> = {
     // Easy Mode
     phone: PhoneConfigSchema,
@@ -440,7 +441,6 @@ export function getConfigSchema(stepType: string): z.ZodTypeAny | undefined {
     file_upload: FileUploadConfigSchema,
     final_documents: FinalBlockConfigSchema,
   };
-  /* eslint-enable @typescript-eslint/naming-convention */
 
   return schemaMap[stepType];
 }

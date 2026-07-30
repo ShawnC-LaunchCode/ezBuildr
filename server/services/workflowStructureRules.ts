@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment */
 /**
  * Structural publish-time validation (RUN2-9).
  *
@@ -31,7 +31,7 @@ import type { LintResult, LintableWorkflowContent } from "./workflowLintRules";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const VALID_STEP_TYPES = new Set<string>(stepTypeEnum.enumValues);
-const VALID_CHOICE_DISPLAYS = new Set(["radio", "dropdown", "multiple"]);
+const VALID_CHOICE_DISPLAYS = new Set(["radio", "dropdown", "combobox", "multiple"]);
 
 /** Step types whose `config` is a `FinalBlockConfig` (see `RunLifecycleService`). */
 const FINAL_BLOCK_STEP_TYPES = new Set(["final", "final_documents"]);

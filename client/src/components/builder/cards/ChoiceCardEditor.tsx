@@ -11,13 +11,12 @@
  */
 
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, CheckSquare } from "lucide-react";
 import { useState, useMemo } from "react";
 
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useChoiceConfig, type ChoiceCardState } from "@/hooks/useChoiceConfig";
@@ -25,7 +24,7 @@ import { useListToolsValidation } from "@/hooks/useListToolsValidation";
 import { blockAPI, type ApiTransformBlock } from "@/lib/vault-api";
 import { useUpdateStep, useWorkflowVariables, useWorkflow } from "@/lib/vault-hooks";
 
-import type { ChoiceAdvancedConfig, ChoiceOption } from "@shared/types/stepConfigs";
+import type { ChoiceAdvancedConfig, ChoiceDisplay, ChoiceOption } from "@shared/types/stepConfigs";
 
 import { BlockEditorDialog, type UniversalBlock } from "../BlockEditorDialog";
 import type { StepEditorCommonProps } from "./common/stepEditorProps";
@@ -37,6 +36,16 @@ import { SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { DynamicOptionsEditor } from "./DynamicOptionsEditor";
 import { StaticOptionsEditor } from "./StaticOptionsEditor";
+
+const SINGLE_SELECT_DISPLAYS: Array<{ value: ChoiceDisplay; label: string; hint: string }> = [
+  { value: "radio", label: "Radio", hint: "Every option is visible at once. Best for short lists." },
+  { value: "dropdown", label: "Dropdown", hint: "A closed list. Best when there are many options." },
+  {
+    value: "combobox",
+    label: "Combo Box",
+    hint: "Searchable, and the respondent can enter an answer that isn't listed.",
+  },
+];
 
 // eslint-disable-next-line max-lines-per-function
 export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
@@ -87,10 +96,12 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
     const isNowAdvanced = saveSourceMode === "dynamic" || isAdvancedMode;
 
     if (isNowAdvanced) {
+      // `searchable` is deliberately not written: display: 'combobox' now
+      // carries that meaning. Old configs still setting it are normalised on
+      // read by resolveChoiceDisplay.
       const payload: ChoiceAdvancedConfig = {
         display: newConfig.display,
         allowMultiple: newConfig.allowMultiple,
-        searchable: newConfig.searchable,
         options: saveSourceMode === 'static'
           // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
           ? { type: 'static', options: newConfig.staticOptions || [] }
@@ -201,14 +212,18 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
 
   const handleAliasChange = (alias: string | null) => updateStepMutation.mutate({ id: stepId, sectionId, alias });
   const handleRequiredChange = (required: boolean) => updateStepMutation.mutate({ id: stepId, sectionId, required });
-  const handleDisplayChange = (display: "radio" | "dropdown" | "multiple") => {
+  const handleDisplayChange = (display: ChoiceDisplay) => {
     const allowMultiple = display === "multiple";
+    // Easy-mode `radio` / `multiple_choice` steps have nowhere to store a
+    // display mode, so dropdown and combobox both require promoting the step
+    // to the advanced `choice` type first.
+    const needsAdvancedType = display === "dropdown" || display === "combobox";
+
     if (!isAdvancedMode && sourceMode === 'static') {
-      if (display === "dropdown") {
+      if (needsAdvancedType) {
         const payload: ChoiceAdvancedConfig = {
           display,
           allowMultiple,
-          searchable: localConfig?.searchable ?? false,
           options: { type: 'static', options: localConfig?.staticOptions ?? [] }
         };
         updateStepMutation.mutate({ id: stepId, sectionId, type: 'choice', config: payload });
@@ -485,6 +500,8 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
 
   if (localConfig === null || localConfig === undefined) { return null; }
 
+  const isMultiSelect = localConfig.display === "multiple";
+
   return (
     <div className="space-y-4 p-4 border-t bg-muted/30">
       <AliasField value={step.alias} onChange={(val) => { void handleAliasChange(val); }} workflowId={workflowId} currentStepId={stepId} />
@@ -492,33 +509,38 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
 
       <Separator />
 
-      {/* Display Mode */}
+      {/* Display Mode
+          Multi-select has no display choice at all — it is always checkboxes.
+          Single-select picks between radio, dropdown and combobox. */}
       <div className="space-y-3">
-        <SectionHeader title="Display Mode" description="How choices are displayed" />
-        <RadioGroup value={localConfig.display} onValueChange={(v) => handleDisplayChange(v as "radio" | "dropdown" | "multiple")} disabled={false} className="flex gap-4">
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="radio" id="d-radio" />
-            <Label htmlFor="d-radio">Radio</Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="dropdown" id="d-dropdown" />
-            <Label htmlFor="d-dropdown">Dropdown</Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="multiple" id="d-multiple" />
-            <Label htmlFor="d-multiple">Multiple</Label>
-          </div>
-        </RadioGroup>
+        <SectionHeader
+          title="Display Mode"
+          description={isMultiSelect ? "Multi-select answers are always checkboxes" : "How choices are displayed"}
+        />
 
-        {(localConfig.display === 'dropdown' || localConfig.display === 'multiple') && (
-          <div className="flex items-center space-x-2 pt-2">
-            <Switch
-              id="searchable-mode"
-              checked={localConfig.searchable ?? false}
-              onCheckedChange={(c) => handleUpdate({ searchable: c })}
-            />
-            <Label htmlFor="searchable-mode" className="text-xs font-normal text-muted-foreground">Allow Search</Label>
+        {isMultiSelect ? (
+          <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
+            <CheckSquare className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm">Checkboxes</span>
           </div>
+        ) : (
+          <>
+            <RadioGroup
+              value={localConfig.display}
+              onValueChange={(v) => handleDisplayChange(v as ChoiceDisplay)}
+              className="flex gap-4"
+            >
+              {SINGLE_SELECT_DISPLAYS.map((opt) => (
+                <div key={opt.value} className="flex items-center space-x-2">
+                  <RadioGroupItem value={opt.value} id={`d-${opt.value}`} />
+                  <Label htmlFor={`d-${opt.value}`}>{opt.label}</Label>
+                </div>
+              ))}
+            </RadioGroup>
+            <p className="text-xs text-muted-foreground">
+              {SINGLE_SELECT_DISPLAYS.find((o) => o.value === localConfig.display)?.hint}
+            </p>
+          </>
         )}
       </div>
 
