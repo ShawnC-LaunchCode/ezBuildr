@@ -398,7 +398,7 @@ export const FinalBlockConfigSchema = z.object({
  * @returns Zod schema for validating the config, or undefined if no validation needed
  */
 export function getConfigSchema(stepType: string): z.ZodTypeAny | undefined {
-  /* eslint-disable @typescript-eslint/naming-convention -- keys match step type enum values */
+
   const schemaMap: Record<string, z.ZodTypeAny> = {
     // Easy Mode
     phone: PhoneConfigSchema,
@@ -440,7 +440,7 @@ export function getConfigSchema(stepType: string): z.ZodTypeAny | undefined {
     file_upload: FileUploadConfigSchema,
     final_documents: FinalBlockConfigSchema,
   };
-  /* eslint-enable @typescript-eslint/naming-convention */
+
 
   return schemaMap[stepType];
 }

@@ -121,7 +121,7 @@ export function analyzeRegexSafety(pattern: string): RegexSafetyResult {
   }
 
   try {
-    // eslint-disable-next-line security/detect-non-literal-regexp -- the point of this module is to vet the pattern before compiling it
+
     new RegExp(pattern);
   } catch {
     return { safe: false, reason: "pattern is not a valid regular expression" };
@@ -153,7 +153,7 @@ export function safeRegexTest(pattern: string, value: string): SafeMatchResult {
     return { matched: false, skipped: true, reason: `input exceeds ${MAX_PATTERN_INPUT_LENGTH} characters` };
   }
 
-  // eslint-disable-next-line security/detect-non-literal-regexp -- vetted by analyzeRegexSafety above
+
   const regex = new RegExp(pattern);
   return { matched: regex.test(value), skipped: false };
 }

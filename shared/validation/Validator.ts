@@ -24,7 +24,7 @@ export interface ValidatorOptions {
 /**
  * Validates a single value against a schema.
  */
-// eslint-disable-next-line @typescript-eslint/require-await -- kept async for future script validation support
+
 export async function validateValue(options: ValidatorOptions): Promise<ValidationResult> {
     const { schema, value, values = {} } = options;
     const errors: string[] = [];

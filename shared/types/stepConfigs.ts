@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
 /**
  * Step Configuration Type Definitions
  *
@@ -769,7 +769,7 @@ export interface AddressValue {
  * Stored in stepValues for multi-field blocks
  */
 export interface MultiFieldValue {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- field values can be various types
+
   [key: string]: string | number | boolean | null | string[];
 }
 

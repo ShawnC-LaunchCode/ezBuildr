@@ -99,7 +99,7 @@ export interface OperatorConfig {
 /**
  * Operators available for each step type
  */
-/* eslint-disable @typescript-eslint/naming-convention, sonarjs/no-duplicate-string -- keys match StepType enum values; labels are intentionally repeated for readability */
+/* eslint-disable sonarjs/no-duplicate-string -- keys match StepType enum values; labels are intentionally repeated for readability */
 export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, OperatorConfig[]> = {
   // Boolean type - simplified operators
   yes_no: [
@@ -251,7 +251,7 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
     { value: "is_not_empty", label: "is not empty", needsValue: false },
   ],
 };
-/* eslint-enable @typescript-eslint/naming-convention, sonarjs/no-duplicate-string */
+/* eslint-enable sonarjs/no-duplicate-string */
 
 /**
  * Get operators for a given step type
