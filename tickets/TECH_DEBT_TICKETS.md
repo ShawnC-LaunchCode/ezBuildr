@@ -36,7 +36,7 @@ feature work.
 
 | Ticket | Theme | Priority | Size | Status |
 |---|---|---|---|---|
-| DEBT-1 | Drain the 796 unused eslint-disable directives | P2 | L | 🔲 |
+| DEBT-1 | Drain unused eslint-disable directives | P2 | L | ✅ `4912f21f`..`0500ba6b` (8 tranches) — entry removed |
 | DEBT-2 | Retire the 143 blanket file-level eslint-disable headers | P2 | L | 🔲 |
 | DEBT-3 | Restore the three tests skipped for asserting nothing | P1 | M | 🔲 |
 | DEBT-4 | E-signature provider registry is never initialized | P1 | S | ✅ `9fcf05b4` — ruled dormant; entry removed |
@@ -47,66 +47,6 @@ feature work.
 | DEBT-9 | `type-check` is advisory in CI | P2 | S | ✅ `a0e43c9b` — entry removed |
 | DEBT-10 | 10 dependabot PRs open since 2026-07-11 | P2 | S | 🔲 |
 | DEBT-11 | RLS policies defined but not enforced (decision, not a fix) | — | — | 🔲 tracked |
-
----
-
-## DEBT-1 — Drain the 796 unused eslint-disable directives 🔲
-
-**Priority: P2** · Size: L · Files: repo-wide
-
-### Finding
-
-`npx eslint . --ext .ts,.tsx --report-unused-disable-directives` reports **796**
-unused directives (measured 2026-07-28). Each one is a suppression whose
-underlying error no longer exists — so it suppresses nothing, and it teaches
-the next reader that the rule is a problem here when it isn't.
-
-This is not theoretical. During the IEX Phase 0 review a six-rule
-`eslint-disable` header sat on a pure data file with **zero** violations
-without it, and the same submission's `bundleWriter.ts` carried a
-`no-unsafe-call` disable that was equally unnecessary. Both were copied from
-surrounding style.
-
-`f3eeab4a` stopped the bleeding: the pre-commit hook now runs eslint on staged
-files with `--report-unused-disable-directives`, so no *new* dead suppression
-can land. It does not clean the existing 796.
-
-### Preferred fix
-
-Drain in tranches by directory, not in one commit — a 796-line diff is
-unreviewable and will collide with everything in flight. Suggested order,
-smallest blast radius first: `shared/` → `server/repositories/` →
-`server/services/` → `server/routes/` → `client/`.
-
-For each tranche: run eslint with the flag, delete the reported directives,
-re-run the full gates. A directive that turns out to be load-bearing means
-the rule genuinely fires — fix the code rather than restoring the comment.
-
-Do **not** add `--report-unused-disable-directives` to `npm run lint` until
-the count is zero; the moment it is, that flip belongs in this ticket's final
-commit so the debt cannot come back.
-
-### Ties
-
-- **DEBT-2** is the sibling problem and touches many of the same files.
-  Sequence them: do DEBT-1 first, since deleting dead directives shrinks the
-  surface DEBT-2 has to reason about.
-- Enforcement mechanism: `scripts/pre-commit-checks.ts`.
-- Load `run-tests`.
-
-### Acceptance criteria
-
-1. `npx eslint . --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives`
-   reports **0** unused directives.
-2. `npm run lint` (i.e. `eslint . --max-warnings 0`) is still 0 problems.
-3. No directive was removed by adding a different suppression in its place —
-   the diff contains no net-new `eslint-disable`.
-4. Work landed in reviewable tranches, one commit per directory tranche.
-5. Final commit adds `--report-unused-disable-directives` to the `lint` script
-   in `package.json`.
-6. Gates: type-check 0 errors, lint 0 problems, `npm run test:fast` ≥ baseline.
-
----
 
 ## DEBT-2 — Retire the 143 blanket file-level eslint-disable headers 🔲
 
@@ -140,7 +80,12 @@ order of preference:
    shim), an `overrides` entry in `.eslintrc.json` scoped by path — visible in
    config review rather than buried at the top of a file.
 
-Tranche this the same way as DEBT-1 and for the same reason.
+Tranche this the same way as DEBT-1 and for the same reason. **Tranche means
+organise the work by directory and keep the tree gate-clean between them — it
+does not mean commit.** DEBT-1's acceptance criteria asked the dev for "one
+commit per directory tranche", which no dev can satisfy under this file's
+"devs do not commit" rule; the reviewer split the delivered tree into the eight
+tranche commits at review instead. Do not repeat that criterion here.
 
 **Beware the measurement trap:** `tsc --pretty` emits ANSI codes, so
 `grep "error TS"` finds nothing on a failing tree. Read raw output or grep
