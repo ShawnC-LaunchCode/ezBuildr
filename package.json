@@ -51,7 +51,7 @@
     "check:strict-zones": "tsx scripts/check-strict-zones.ts",
     "check:strict-zones:verbose": "tsx scripts/check-strict-zones.ts --verbose",
     "check:strict-zones:list": "tsx scripts/check-strict-zones.ts --list",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx --max-warnings 0",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx --max-warnings 0 --report-unused-disable-directives",
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
     "lint:report": "eslint . --ext .ts,.tsx,.js,.jsx --format json --output-file eslint-report.json",
     "type-check": "node ./node_modules/typescript/bin/tsc --noEmit --pretty",
