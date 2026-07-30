@@ -259,7 +259,7 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
         // read; list-backed options still refresh when it changes. We also
         // exclude `options` itself to avoid an infinite loop when a resolver
         // returns [].
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+
     }, [step, listVariableValue]);
 
     return {

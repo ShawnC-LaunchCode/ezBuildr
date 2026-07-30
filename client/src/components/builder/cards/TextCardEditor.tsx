@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import { AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -69,7 +69,7 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: StepEdit
     if (!pattern.trim()) { return null; }
 
     try {
-      // eslint-disable-next-line security/detect-non-literal-regexp
+
       new RegExp(pattern);
       return null;
     } catch (error) {

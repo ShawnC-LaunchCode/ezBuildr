@@ -412,7 +412,7 @@ function InviteUserDialog({ onInvite }: { onInvite: () => void }) {
   );
 }
 
-// eslint-disable-next-line max-lines-per-function
+
 export default function AdminUsers() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading } = useAuth();

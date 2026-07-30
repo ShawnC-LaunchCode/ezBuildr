@@ -115,7 +115,7 @@ interface AddressComponent {
   types: string[];
 }
 /* eslint-enable @typescript-eslint/naming-convention */
-// eslint-disable-next-line max-lines-per-function
+
 
 // eslint-disable-next-line max-lines-per-function
 export function AddressBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: AddressBlockProps) {
@@ -141,7 +141,7 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly , ariaDes
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           });
-        // eslint-disable-next-line no-console
+
         },
         (error) => {
           // eslint-disable-next-line no-console

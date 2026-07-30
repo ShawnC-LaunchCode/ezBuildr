@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 /**
  * ExecutionTimeline Component
  * 
@@ -116,7 +116,7 @@ export function ExecutionTimeline({ trace, isLoading }: ExecutionTimelineProps) 
             </ScrollArea>
         </div>
     );
-// eslint-disable-next-line complexity
+
 }
 // eslint-disable-next-line complexity
 function TimelineItem({ entry, index, forceDetails }: { entry: TraceEntry; index: number, forceDetails: boolean }) {

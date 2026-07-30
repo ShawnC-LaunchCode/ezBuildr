@@ -27,7 +27,7 @@ interface PreviewSection extends ApiSection {
     steps?: ApiStep[];
 }
 
-// eslint-disable-next-line max-lines-per-function
+
 export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
     const { toast } = useToast();
     const _queryClient = useQueryClient();
@@ -40,7 +40,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
     const [snapshotId, setSnapshotId] = useState<string | null>(null);
 
     // Fetch workflow data
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const { data: workflow, isLoading: loadingWorkflow } = useQuery({
         queryKey: ["preview-workflow", workflowId],
         queryFn: async () => {
@@ -51,7 +51,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
             if (!response.ok) {
                 throw new Error('Failed to load workflow');
             }
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+
             return response.json();
         },
         enabled: !!workflowId,
@@ -77,7 +77,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
                 credentials: "include",
             });
             if (!response.ok) { throw new Error('Failed to load snapshot values'); }
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+
             return response.json();
         },
         enabled: !!snapshotId && snapshotId !== 'none',
@@ -112,20 +112,20 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
 
     // Init Environment
     useEffect(() => {
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-member-access
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         if (workflow && allSteps && workflow.sections) {
             // Always recreate env when workflow/steps change to pick up schema updates (e.g., required status)
             // This fixes the bug where toggling required doesn't update in preview until reload
 
             let initialValues = {};
-            // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
             if (snapshotId && snapshotValues) {
                 const stepIdValues: Record<string, unknown> = {};
                 // Map alias/id to stepId
                 for (const [key, value] of Object.entries(snapshotValues as Record<string, unknown>)) {
                     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
                     const step = allSteps.find((s: ApiStep) => s.alias === key || s.id === key);
-                    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-member-access
+
                     if (step) {
                         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                         stepIdValues[step.id] = value;
@@ -151,11 +151,11 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
             hotReloadManager.attach(newEnv);
         }
         return () => hotReloadManager.detach();
-        // eslint-disable-next-line react-hooks/exhaustive-deps, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
     }, [workflow?.id, JSON.stringify(workflow?.sections?.map((s: PreviewSection) => s.id)), JSON.stringify(allSteps?.map((s: ApiStep) => s.id)), snapshotId, snapshotValues]);
 
     const handleRandomFill = async () => {
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
         if (!env || !allSteps) {
             return;
         }
@@ -169,7 +169,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
             });
 
             // Calculate visible sections to jump to the end
-            // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-member-access
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             if (workflow.sections) {
                 const aliasResolver = (variableName: string): string | undefined => {
                     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
@@ -180,7 +180,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
 
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
                 const visibleSections = workflow.sections.filter((section: PreviewSection) => {
-                    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
                     if (!section.visibleIf) {
                         return true;
                     }
@@ -210,14 +210,14 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
     };
 
     const handleRandomFillPage = async () => {
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
         if (!env || !allSteps) {
             return;
         }
         const currentState = env.getState();
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         const currentSectionId = workflow.sections[currentState.currentSectionIndex]?.id;
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
         if (!currentSectionId) {
             return;
         }
@@ -245,7 +245,7 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
         }
     };
 
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
     if (loadingWorkflow || !env) {
         return (
             <div className="h-full flex items-center justify-center">

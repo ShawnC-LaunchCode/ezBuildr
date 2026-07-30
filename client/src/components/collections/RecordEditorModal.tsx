@@ -245,7 +245,7 @@ export function RecordEditorModal({
             )}
           </div>
         );
-      // eslint-disable-next-line no-case-declarations
+
       case "json":
         // eslint-disable-next-line no-case-declarations
         const jsonValue = typeof value === "object" ? JSON.stringify(value, null, 2) : (value as string | undefined);

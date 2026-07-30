@@ -91,7 +91,7 @@ export function useAiConversation(
                 void handleSend(initialPrompt);
             }, 100);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+
     }, [initialPrompt, messages.length]);
 
     const buildFullMessage = (text: string, files: UploadedFile[]): string => {

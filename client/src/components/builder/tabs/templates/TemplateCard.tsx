@@ -36,7 +36,7 @@ interface VariableAnalysis {
     loading: boolean;
 }
 
-// eslint-disable-next-line max-lines-per-function
+
 export function TemplateCard({
     template,
     workflowId,

@@ -38,7 +38,7 @@ export interface PreviewConfig {
 
 /**
  * PreviewEnvironment
- * 
+ *
  * The comprehensive state manager for a Preview Run.
  * Replaces the simpler 'PreviewSession' with support for:
  * - Hot Reloading (schema injection)
@@ -155,7 +155,6 @@ export class PreviewEnvironment {
     }
 
     // --- Hot Reload Support ---
-// eslint-disable-next-line no-console
 
     /**
      * Update schema without losing state (unless necessary)
@@ -167,7 +166,7 @@ export class PreviewEnvironment {
         this.sections = sections;
         this.steps = steps;
 
-        // Prune values for steps that no longer exist? 
+        // Prune values for steps that no longer exist?
         // For now, keep them (loose mode) to avoid data loss during rapid edits
 
         this.notify();

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+
 import { ArrowLeft, Users, Mail, Crown, UserMinus, Shield, AlertCircle, Folder, FolderPlus } from 'lucide-react';
 import React, { useState } from 'react';
 import { useParams, useLocation } from 'wouter';

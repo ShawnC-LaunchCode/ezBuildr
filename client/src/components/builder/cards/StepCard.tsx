@@ -58,7 +58,7 @@ interface StepDefaultValue {
 // Get icon for each question type
 
 
-// eslint-disable-next-line max-lines-per-function, complexity
+
 export function StepCard({
     step,
     sectionId,

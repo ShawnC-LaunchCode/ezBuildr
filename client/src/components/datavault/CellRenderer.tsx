@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /**
  * Cell Renderer Component (PR 7)
  * Renders editable cells based on column type
@@ -55,7 +55,7 @@ function renderValue(value: unknown, type: string): string {
       return typeof value === "number" ? value.toString() : String(value);
     default:
       return String(value);
-  // eslint-disable-next-line complexity
+
   }
 }
 

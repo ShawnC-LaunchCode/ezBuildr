@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 import { toast } from "@/hooks/use-toast";
 
 /**
@@ -43,7 +43,7 @@ export async function applyAiSuggestions(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         createStep: any
     }
-    // eslint-disable-next-line no-console
+
 ) {
     // eslint-disable-next-line no-console
     console.log("Applying AI Suggestions:", suggestions);

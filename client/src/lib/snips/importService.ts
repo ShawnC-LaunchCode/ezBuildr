@@ -124,7 +124,7 @@ function storeSnipMetadata(
  * - Stores version metadata for future auditability
  * - Never overwrites existing workflow data
  */
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
+
 export async function importSnip(
     workflowId: string,
     request: SnipImportRequest
@@ -221,7 +221,7 @@ export async function importSnip(
             const step = (await stepResponse.json()) as Record<string, unknown>;
             importedQuestionIds.push(step.id as string);
         }
-    // eslint-disable-next-line @typescript-eslint/await-thenable
+
     }
     // Store version metadata (MVP: log for now, implement storage later)
     // eslint-disable-next-line @typescript-eslint/await-thenable

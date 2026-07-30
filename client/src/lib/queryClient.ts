@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { QueryClient, QueryFunction, MutationCache } from "@tanstack/react-query";
 import { toast } from "../hooks/use-toast";
 
@@ -117,7 +117,7 @@ export async function apiRequest(
         const status = (error instanceof ApiError) ? error.status : undefined;
         if (isRetryableError(error, status) || (error instanceof TypeError)) {
           lastError = error as Error;
-          // eslint-disable-next-line no-console
+
           const delay = getRetryDelay(attempt);
           // eslint-disable-next-line no-console
           console.log(`Request failed, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})...`, error);
