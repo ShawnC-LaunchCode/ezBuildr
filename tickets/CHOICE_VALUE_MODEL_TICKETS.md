@@ -51,10 +51,10 @@ removes work rather than adding a resolution layer.
 
 | Ticket | Theme | Priority | Size | Status |
 |---|---|---|---|---|
-| CVM-1 | Saved Value follows Display Value in the builder | P1 | M | 🔲 |
-| CVM-2 | Rewrite logic rules when a saved value changes | P1 | M | 🔲 |
-| CVM-3 | Migrate existing option aliases to their labels | P1 | S | 🔲 |
-| CVM-4 | Combobox write-ins fail the static-option validator | P1 | S | 🔲 |
+| CVM-1 | Saved Value follows Display Value in the builder | P1 | M | ❌ failed review — SEND BACK |
+| CVM-2 | Rewrite logic rules when a saved value changes | P1 | M | ❌ failed review — SEND BACK |
+| CVM-3 | Migrate existing option aliases to their labels | P1 | S | ❌ failed review — SEND BACK |
+| CVM-4 | Combobox write-ins fail the static-option validator | P1 | S | ✅ `89857e63` — reviewer rewrote a non-working turn-in |
 
 **Execution order.** CVM-1 → CVM-2 → CVM-3 (each depends on the previous).
 **CVM-4 is independent and can run in parallel** — it is the only ticket that
@@ -273,7 +273,7 @@ Requirements:
 
 ---
 
-## CVM-4 — Combobox write-ins fail the static-option validator 🔲
+## CVM-4 — Combobox write-ins fail the static-option validator ✅
 
 **Priority: P1** · Size: S · Files:
 `server/services/runs/RunPersistenceWriter.ts`
@@ -339,3 +339,87 @@ still indicates tampering or corruption and should keep reporting.
    proves the real failure is gone rather than that warn mode is lenient. Assert
    the behaviour, not the log.
 5. Gates: type-check 0, lint 0, `test:fast` ≥ baseline.
+
+---
+
+## Review pass — 2026-07-30
+
+**Turn-in self-graded A, claiming "every ticket's criteria was met precisely".
+Three of four tickets failed.** The gates really were green and CVM-2's
+implementation looks sound; the failure is evidence, not effort.
+
+### The measurement that hid it
+
+The report cited `test:fast` **2034 → 2035** as proof nothing regressed. That is
+the wrong instrument: CVM-2's and CVM-3's tests were correctly routed into
+`dbUnitTests` in `vitest.config.ts`, and **`test:fast` does not run that
+project**. The headline number therefore omitted the suite containing most of
+the work. `unit-db` is 11 files / 102 tests.
+
+**After adding to `dbUnitTests`, `test:fast` alone cannot evidence the work.**
+Report `unit-db` too.
+
+### Coverage against the criteria
+
+These four tickets carry **19 acceptance criteria that each name a test. Five
+tests were delivered.**
+
+| Ticket | Test ACs | Delivered | Missing |
+|---|---|---|---|
+| CVM-1 | 5 (+1 screenshot) | **0** | all of them; no test references `StaticOptionsEditor` or `ChoiceCardEditor`, no screenshots |
+| CVM-2 | 6 | 2 | AC 2 array `conditionValue`, AC 3 cross-step scoping, AC 5 transaction rollback, AC 6 no-op |
+| CVM-3 | 4 | 2 | AC 2 idempotence, AC 3 dry-run |
+| CVM-4 | 4 | 1, vacuous | — (reviewer rewrote) |
+
+The `+15` on `tests/unit/services/StepService.test.ts` is not coverage — it is
+existing assertions updated to absorb a new `tx` argument.
+
+CVM-2 AC 4 is half-met: the test asserts warnings are produced but never
+asserts the `visibleIf` was **left unmodified**, which is the half that matters.
+
+### CVM-4 — did not work, and its test could not fail
+
+Reviewer-fixed in `89857e63` rather than sent back, because it was a live
+production break. Three defects in a two-line change:
+
+1. Keyed off `allowWriteIn`, **a config field that exists nowhere else in the
+   codebase**. Nothing sets it, so it was permanently `undefined`.
+2. Additionally gated on `allowMultiple`, which is **false for every combobox**
+   — a combobox is single-select.
+3. Never called `resolveChoiceDisplay`, which AC 2 explicitly required.
+
+Its test passed `options` as the `{ type: 'static', options: [...] }` wrapper.
+`getStaticChoiceValues` requires `Array.isArray(config.options)`, so it returned
+`null`, validation was skipped wholesale, and the `allowWriteIn` line was never
+reached. **Deleting the fix from the source left the test green.**
+
+**Any test touching this validator must pass `options` as a plain array.**
+Otherwise it asserts nothing.
+
+### Correction to this file's own CVM-4 finding
+
+The original ticket said the bug was latent, harmless until
+`SERVER_FIELD_VALIDATION=enforce`. **That was wrong.** That flag gates
+`server/workflows/validation.ts`, a different validator. The option check runs
+in `validateStoredValueShape`, which executes *before* the `validateFormat`
+guard in `validateValueForStep`, so it throws unconditionally — on autosave as
+well as submit. Combobox write-ins were broken from the moment `ui-tweaks`
+landed. CVM-4 AC 4 ("at least one test runs in enforce mode") was written on
+that false premise and is void; the replacement tests assert the real
+unconditional behaviour instead.
+
+### What must come back
+
+CVM-1, CVM-2 and CVM-3 keep their implementations — **do not rewrite working
+code.** Deliver the missing tests, and for CVM-1 the screenshots. One further
+defect to fix, in CVM-1:
+
+> `StaticOptionsEditor` seeds `overridden` with `useState(() => …)`, whose
+> initializer runs **only on first mount**. If the component receives a
+> different `options` prop without unmounting, the linked/overridden state is
+> stale and label edits silently write the wrong saved value. Fix it and cover
+> it — this is exactly what AC 3 and AC 4 exist to catch.
+
+Re-read each ticket's acceptance criteria one at a time and point at the test
+that satisfies it. Where a criterion names a behaviour, assert the behaviour —
+not that a function was called.
