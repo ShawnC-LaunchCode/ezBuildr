@@ -125,8 +125,8 @@ Proven live are marked **[PROVEN]** with the reproduction.
 | Phase | Theme | Tickets | Status |
 |---|---|---|---|
 | A | **P0 — the feature does not work on real data** | IEX2-1..4 | ✅ **COMPLETE** — all four P0s fixed |
-| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔄 IEX2-9 dispatched |
-| C | P2 — hardening, redaction depth, real proof | IEX2-12..15 | 🔲 |
+| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔄 IEX2-5, IEX2-9 dispatched |
+| C | P2 — hardening, redaction depth, real proof | IEX2-12..15 | 🔄 IEX2-12+13 dispatched |
 | D | Make the feature reachable | IEX2-16 | ⏸️ **deferred out of round 2** |
 
 **All decisions are now ruled — nothing is waiting on Shawn (2026-07-29).**
@@ -806,7 +806,20 @@ fix to a reference-counted sweep and is a bigger ticket.
 
 # Phase B — P1: trust, failure handling, scale
 
-## IEX2-5 — The import audit record reports numbers supplied by the bundle 🔲
+## IEX2-5 — The import audit record reports numbers supplied by the bundle 🔄
+
+> **Dispatched 2026-07-30** — worktree `.claude/worktrees/iex2-5`, base
+> `91ceec55`. Head of the ImportService chain now that Phase A is complete;
+> IEX2-6 and IEX2-7 queue behind it.
+>
+> ⚠️ **`BUNDLE_REJECTION_SIGNALS` collision.** This ticket appends a signal to
+> `portability.routes.ts:81-95`, and so does **IEX2-12**, dispatched in parallel.
+> Same array, adjacent lines — whichever lands second must
+> `git merge main --ff-only` and re-run gates. Nothing else in the two tickets
+> overlaps.
+>
+> **Baselines:** portability `unit-db` **58 passed / 7 files**; `test:fast`
+> **149 files / 2016 tests**.
 
 **Priority: P1 (audit integrity)** · Size: S · Files: `server/services/portability/ImportService.ts`, `server/routes/portability.routes.ts`
 
@@ -1483,7 +1496,21 @@ future read-only-template-sharing feature arrives, which is not now.
 
 # Phase C — P2: hardening, redaction depth, real proof
 
-## IEX2-12 — Duplicate zip entry names: the checksum covers all copies, the reader uses the first 🔲
+## IEX2-12 — Duplicate zip entry names: the checksum covers all copies, the reader uses the first 🔄
+
+> **Dispatched 2026-07-30 together with IEX2-13** — worktree
+> `.claude/worktrees/iex2-12`, base `91ceec55`. Bundled deliberately: this
+> ticket's own Ties note that both harden
+> `validateZipBombsAndPaths` in `bundleReader.ts`, so splitting them would force
+> the second dev to rewrite the first's method. One dev, one worktree, **two
+> commits at review**.
+>
+> ⚠️ **`BUNDLE_REJECTION_SIGNALS` collision.** Both this ticket and **IEX2-5**
+> (dispatched in parallel) append a signal to `portability.routes.ts:81-95`.
+> Whichever lands second must `git merge main --ff-only` and re-run gates.
+>
+> **Baselines:** portability `unit-db` **58 passed / 7 files**; `test:fast`
+> **149 files / 2016 tests**.
 
 **Priority: P2** · Size: S · Files: `server/services/portability/bundleReader.ts`
 
