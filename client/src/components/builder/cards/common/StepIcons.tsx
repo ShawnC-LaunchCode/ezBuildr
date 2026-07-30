@@ -1,38 +1,15 @@
-
-import {
-    Type,
-    AlignLeft,
-    Circle,
-    CheckSquare,
-    ToggleLeft,
-    Calendar,
-    Upload,
-    Zap,
-    FileText
-} from "lucide-react";
+import { QuestionTypeIcon } from "@/components/shared/QuestionTypeIcon";
 
 import type { StepType } from "@/lib/vault-api";
 
-// Get icon for each question type
+/**
+ * Get the icon for a question type.
+ *
+ * This used to be a local switch that only knew nine types, so phone, email,
+ * currency, address and every other newer type all silently rendered the same
+ * generic page icon. It now delegates to QuestionTypeIcon, which reads
+ * BLOCK_REGISTRY — the one place a type's mark and colour are defined.
+ */
 export function getQuestionTypeIcon(type: StepType) {
-    switch (type) {
-        case "short_text":
-            return <Type className="h-4 w-4 text-muted-foreground" />;
-        case "long_text":
-            return <AlignLeft className="h-4 w-4 text-muted-foreground" />;
-        case "radio":
-            return <Circle className="h-4 w-4 text-muted-foreground" />;
-        case "multiple_choice":
-            return <CheckSquare className="h-4 w-4 text-muted-foreground" />;
-        case "yes_no":
-            return <ToggleLeft className="h-4 w-4 text-muted-foreground" />;
-        case "date_time":
-            return <Calendar className="h-4 w-4 text-muted-foreground" />;
-        case "file_upload":
-            return <Upload className="h-4 w-4 text-muted-foreground" />;
-        case "js_question":
-            return <Zap className="h-4 w-4 text-yellow-500" />;
-        default:
-            return <FileText className="h-4 w-4 text-muted-foreground" />;
-    }
+    return <QuestionTypeIcon type={type} size="md" />;
 }

@@ -9,6 +9,7 @@
 
 import { Plus } from "lucide-react";
 
+import { QuestionTypeIcon } from "@/components/shared/QuestionTypeIcon";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -107,28 +108,25 @@ export function QuestionAddMenu({
             <DropdownMenuLabel className="text-xs text-muted-foreground">
               {CATEGORY_LABELS[category]}
             </DropdownMenuLabel>
-            {blocksByCategory[category]?.map((block) => {
-              const Icon = block.icon;
-              return (
-                <DropdownMenuItem
-                  key={block.type}
-                  onClick={() => {
-                    void handleAddQuestion(block);
-                  }}
-                  className="cursor-pointer"
-                >
-                  <Icon className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <div className="flex flex-col">
-                    <span>{block.label}</span>
-                    {block.description !== undefined && (
-                      <span className="text-xs text-muted-foreground">
-                        {block.description}
-                      </span>
-                    )}
-                  </div>
-                </DropdownMenuItem>
-              );
-            })}
+            {blocksByCategory[category]?.map((block) => (
+              <DropdownMenuItem
+                key={block.type}
+                onClick={() => {
+                  void handleAddQuestion(block);
+                }}
+                className="cursor-pointer gap-2.5 py-1.5"
+              >
+                <QuestionTypeIcon type={block.type} size="md" />
+                <div className="flex flex-col">
+                  <span>{block.label}</span>
+                  {block.description !== undefined && (
+                    <span className="text-xs text-muted-foreground">
+                      {block.description}
+                    </span>
+                  )}
+                </div>
+              </DropdownMenuItem>
+            ))}
           </div>
         ))}
       </DropdownMenuContent>
