@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Base class for all block runners
  * Provides common utilities and helper methods
@@ -71,7 +71,7 @@ export abstract class BaseBlockRunner implements IBlockRunner {
   /**
    * Compare two values using the specified operator
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- value types vary by comparison context
+
   protected compareValues(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     actualValue: any,

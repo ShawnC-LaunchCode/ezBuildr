@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+
 import type { DatavaultRow, DatavaultColumn } from "@shared/schema";
 
 /** Typed union of all possible coerced cell values stored in DataVault */
@@ -197,7 +197,7 @@ export class DatavaultRowsService {
   /**
    * Validate row data against column definitions
    */
-  // eslint-disable-next-line complexity
+
   private async validateRowData(
     tableId: string,
     values: Record<string, unknown>,
@@ -267,7 +267,7 @@ export class DatavaultRowsService {
    * Create a new row with values
    * Wrapped in transaction to ensure atomicity
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- row values are dynamically typed
+
   async createRow(
     tableId: string,
     tenantId: string,
@@ -289,7 +289,7 @@ export class DatavaultRowsService {
    * Internal implementation of createRow
    * Must be called within a transaction
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- row values are dynamically typed
+
   private async _createRowImpl(
     tableId: string,
     tenantId: string,
@@ -378,7 +378,7 @@ export class DatavaultRowsService {
    * Update row values
    * Wrapped in transaction to ensure atomicity
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- row values are dynamically typed
+
   async updateRow(
     rowId: string,
     tenantId: string,
@@ -400,7 +400,7 @@ export class DatavaultRowsService {
    * Internal implementation of updateRow
    * Must be called within a transaction
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- row values are dynamically typed
+
   private async _updateRowImpl(
     rowId: string,
     tenantId: string,
@@ -622,7 +622,7 @@ export class DatavaultRowsService {
       sortOrder?: 'asc' | 'desc';
     } = {},
     tx?: DbTransaction
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- row values are dynamically typed
+
   ): Promise<{
     rows: Array<{ row: DatavaultRow; values: Record<string, unknown> }>;
     total: number;

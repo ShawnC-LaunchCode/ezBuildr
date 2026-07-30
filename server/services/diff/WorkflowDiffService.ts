@@ -105,7 +105,7 @@ export class WorkflowDiffService {
     private getDiffItemType(block: WorkflowBlock): DiffItemType {
         // Heuristic: If it has an alias, it's likely a variable.
         // Logic blocks: branch, validate.
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/prefer-nullish-coalescing
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         if (block.variableName || block.alias || ['short_text', 'long_text', 'number', 'email'].includes(block.type as string)) {return 'variable';}
         if (['branch', 'validate', 'jump'].includes(block.type as string)) {return 'logic';}
         return 'block';
@@ -115,7 +115,7 @@ export class WorkflowDiffService {
         return block.title ? `'${block.title}'` : `${block.type} block`;
     }
 
-    // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
+
     private calculateSeverity(diff: WorkflowDiff, oldBlocks: Map<string, WorkflowBlock>, newBlocks: Map<string, WorkflowBlock>): Severity {
         // Reuse logic from ChangeAnalyzer essentially.
         let severity: Severity = "safe";

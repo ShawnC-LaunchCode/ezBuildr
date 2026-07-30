@@ -11,9 +11,9 @@
 
 import fs from 'fs/promises';
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
+
 import Docxtemplater from 'docxtemplater';
-// eslint-disable-next-line @typescript-eslint/naming-convention
+
 import PizZip from 'pizzip';
 
 import { createError } from '../utils/errors';
@@ -156,7 +156,7 @@ export async function extractPlaceholdersDetailed(
     throw createError.notFound('Template file', templatePath);
   }
 
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
+
   const fileContent = await fs.readFile(templatePath, 'binary');
   const zip = new PizZip(fileContent);
 

@@ -48,7 +48,7 @@ export class IntakeQuestionVisibilityService {
    * @param recordData - Optional collection record data for prefill
    * @returns Visibility result with visible/hidden question lists
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity -- multi-step visibility evaluation with caching, condition parsing, and variable resolution
+  // eslint-disable-next-line sonarjs/cognitive-complexity -- multi-step visibility evaluation with caching, condition parsing, and variable resolution
   async evaluatePageQuestions(
     sectionId: string,
     runId: string,
@@ -100,10 +100,10 @@ export class IntakeQuestionVisibilityService {
     const variables: Record<string, any> = {};
     for (const sv of stepValues) {
       const alias = stepIdToAlias.get(sv.stepId);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- step values have dynamic types from workflow data
+
       variables[sv.stepId] = sv.value;
       if (alias) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- step values have dynamic types from workflow data
+
         variables[alias] = sv.value;
       }
     }

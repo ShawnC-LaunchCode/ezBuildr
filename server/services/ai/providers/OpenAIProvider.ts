@@ -1,4 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/naming-convention -- third-party package name
+
 import OpenAI from 'openai';
 
 import { createLogger } from '../../../logger';
@@ -54,10 +54,10 @@ export class OpenAIProvider extends BaseAIProvider {
                 model,
                 messages,
                 temperature,
-                /* eslint-disable @typescript-eslint/naming-convention -- OpenAI API uses snake_case */
+
                 max_tokens: safeMaxTokens,
                 response_format: { type: 'json_object' },
-                /* eslint-enable @typescript-eslint/naming-convention */
+
             });
 
             const content = response.choices[0]?.message?.content;

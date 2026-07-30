@@ -43,7 +43,7 @@ export class TemplateTestService {
   /**
    * Run a template test with sample data
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity -- template test orchestration with multiple validation/render/error steps
+
   async runTest(request: TemplateTestRequest): Promise<TemplateTestResult> {
     const startTime = Date.now();
     try {

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
 /**
  * Helper Library for Custom Scripting System
  * Provides safe utility functions available in script sandbox
@@ -360,7 +360,7 @@ const objectHelpers = {
     return Object.values(obj);
   },
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   pick: (obj: Record<string, unknown>, keys: string[]): Record<string, unknown> => {
     const result: Record<string, unknown> = {};
     for (const key of keys) {
@@ -371,7 +371,7 @@ const objectHelpers = {
     return result;
   },
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   omit: (obj: Record<string, unknown>, keys: string[]): Record<string, unknown> => {
     const result = { ...obj };
     for (const key of keys) {
@@ -380,7 +380,7 @@ const objectHelpers = {
     return result;
   },
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   merge: (...objects: Record<string, unknown>[]): Record<string, unknown> => {
     return Object.assign({}, ...objects);
   },

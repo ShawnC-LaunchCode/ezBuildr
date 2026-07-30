@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 
 import { v4 as uuidv4 } from "uuid";
 import { logger } from "../../logger";
@@ -366,7 +366,7 @@ export class WorkflowOptimizationService {
         return Math.max(0, Math.min(100, Math.round(score)));
     }
 
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
     private getAllBlocks(workflow: WorkflowJSON): WorkflowBlock[] {
         let blocks: WorkflowBlock[] = [];
         const pages = workflow.pages ?? [];

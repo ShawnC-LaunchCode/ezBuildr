@@ -103,7 +103,7 @@ export class EmailTemplateMetadataService {
 
       const [updatedTemplate] = await db
         .update(emailTemplateMetadata)
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- dynamic update data built from validated metadata fields
+
         .set(updateData as typeof emailTemplateMetadata.$inferInsert)
         .where(eq(emailTemplateMetadata.id, templateId))
         .returning();
@@ -147,7 +147,7 @@ export class EmailTemplateMetadataService {
       return newTemplate as unknown as EmailTemplateMetadata;
     } catch (error: unknown) {
       // Check for unique constraint violation
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- pg errors are plain objects with code property
+
       if (error != null && typeof error === 'object' && (error as { code?: string }).code === '23505') {
         logger.warn({ templateKey: data.templateKey }, 'Template key already exists');
         throw new Error('Template key already exists');

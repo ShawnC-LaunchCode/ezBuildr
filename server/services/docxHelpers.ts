@@ -457,7 +457,7 @@ export const docxHelpers = {
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function createAngularParser() {
   return {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- scope is dynamic template data structure
+
     get(scope: Record<string, unknown>, context: string): unknown {
       // Handle dot notation (e.g., "user.name")
       const keys = context.split('.');

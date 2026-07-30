@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 import {  or , sql } from "drizzle-orm";
 
 import { blocks, transformBlocks } from "@shared/schema";
@@ -67,7 +67,7 @@ export class DatavaultColumnsService {
   ): Promise<void> {
     const table = await this.tablesRepo.findById(tableId, tx);
     if (!table) {
-      // eslint-disable-next-line no-console
+
       logger.debug({ tableId }, "Table not found");
       throw new Error("Table not found");
     }

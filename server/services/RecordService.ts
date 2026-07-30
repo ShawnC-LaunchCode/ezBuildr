@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import type { CollectionRecord, InsertRecord, CollectionField } from "@shared/schema";
 
 import {
@@ -190,7 +190,7 @@ export class RecordService {
   /**
    * Apply default values to record data
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSONB record data can contain any valid JSON value
+
   private async applyDefaults(
     collectionId: string,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSONB record data can contain any valid JSON value

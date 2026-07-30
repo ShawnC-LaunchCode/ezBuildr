@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /**
  * Lifecycle Hook Service
  * Manages lifecycle hooks and their execution during workflow runs
@@ -520,7 +520,7 @@ export class LifecycleHookService {
     try {
       const json = JSON.stringify(data);
       if (json.length > 1024) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+
         return JSON.parse(`${json.slice(0, 1024)}...`);
       }
       return data;

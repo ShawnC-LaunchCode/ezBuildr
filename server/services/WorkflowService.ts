@@ -633,7 +633,7 @@ export class WorkflowService {
    * Replace full workflow content (Deep Update)
    * Used by AI Assistant to apply full structural changes
    */
-  /* eslint-disable-next-line complexity, sonarjs/cognitive-complexity, max-lines-per-function */
+
   async replaceWorkflowContent(
     workflowId: string,
     userId: string,

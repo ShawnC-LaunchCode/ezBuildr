@@ -167,7 +167,7 @@ export class CaptchaService {
       const response = await safeFetch("https://www.google.com/recaptcha/api/siteverify", {
         method: "POST",
         headers: {
-          // eslint-disable-next-line @typescript-eslint/naming-convention -- standard HTTP header name
+
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({

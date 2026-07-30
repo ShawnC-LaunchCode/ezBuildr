@@ -101,7 +101,7 @@ export class CollectionFieldService {
   /**
    * Validate default value based on field type
    */
-  // eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- validation switch covers all field types
+  // eslint-disable-next-line complexity -- validation switch covers all field types
   private validateDefaultValue(type: string, defaultValue: unknown): void {
     if (defaultValue === null || defaultValue === undefined) {
       return; // null/undefined is valid for any type
