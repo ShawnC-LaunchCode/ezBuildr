@@ -7,9 +7,6 @@
  */
 
 import fsSync from 'fs';
-import fs from 'fs/promises';
-import path from 'path';
-
 
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
@@ -20,6 +17,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import * as schema from '@shared/schema';
 
 import { db } from '../../server/db';
+import { storageProvider } from '../../server/services/storage';
 import { getTemplateFilePath } from '../../server/services/templates';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
 
@@ -103,7 +101,7 @@ describe.sequential('Templates Behavioral Tests - DB Failure Simulation', () => 
 
     testTemplateId = createResponse.body.id;
     originalFileRef = createResponse.body.fileRef;
-    originalFilePath = getTemplateFilePath(originalFileRef);
+    originalFilePath = await getTemplateFilePath(originalFileRef);
 
     // Verify original file exists
     expect(fsSync.existsSync(originalFilePath)).toBe(true);
@@ -221,9 +219,7 @@ describe.sequential('Templates Behavioral Tests - DB Failure Simulation', () => 
         const { nanoid } = await import('nanoid');
         const ext = originalname.endsWith('.pdf') ? '.pdf' : '.docx';
         newFileRef = `${nanoid(16)}${ext}`;
-        const filePath = getTemplateFilePath(newFileRef);
-        await fs.mkdir(path.dirname(filePath), { recursive: true });
-        await fs.writeFile(filePath, buffer);
+        await storageProvider.uploadFile(newFileRef, buffer, _mimetype);
         return newFileRef;
       }
     );
@@ -249,7 +245,7 @@ describe.sequential('Templates Behavioral Tests - DB Failure Simulation', () => 
 
       // The file should exist
       if (newFileRef) {
-        const newFilePath = getTemplateFilePath(response.body.fileRef);
+        const newFilePath = await getTemplateFilePath(response.body.fileRef);
         expect(fsSync.existsSync(newFilePath)).toBe(true);
       }
     } finally {
@@ -287,7 +283,7 @@ describe.sequential('Templates Behavioral Tests - Atomicity Verification', () =>
 
     const templateId = createResponse.body.id;
     const initialFileRef = createResponse.body.fileRef;
-    const initialFilePath = getTemplateFilePath(initialFileRef);
+    const initialFilePath = await getTemplateFilePath(initialFileRef);
 
     // Verify initial file exists
     expect(fsSync.existsSync(initialFilePath)).toBe(true);
@@ -302,7 +298,7 @@ describe.sequential('Templates Behavioral Tests - Atomicity Verification', () =>
       .expect(200);
 
     const newFileRef = updateResponse.body.fileRef;
-    const newFilePath = getTemplateFilePath(newFileRef);
+    const newFilePath = await getTemplateFilePath(newFileRef);
 
     // DB should point to new file
     expect(newFileRef).not.toBe(initialFileRef);
@@ -345,7 +341,7 @@ describe.sequential('Templates Behavioral Tests - Atomicity Verification', () =>
     expect(template!.fileRef).toBeDefined();
 
     // Verify file exists at the referenced path
-    const filePath = getTemplateFilePath(template!.fileRef);
+    const filePath = await getTemplateFilePath(template!.fileRef);
     expect(fsSync.existsSync(filePath)).toBe(true);
 
     // Perform multiple rapid updates
@@ -364,7 +360,7 @@ describe.sequential('Templates Behavioral Tests - Atomicity Verification', () =>
       where: eq(schema.templates.id, templateId),
     });
 
-    const finalFilePath = getTemplateFilePath(finalTemplate!.fileRef);
+    const finalFilePath = await getTemplateFilePath(finalTemplate!.fileRef);
     expect(fsSync.existsSync(finalFilePath)).toBe(true);
   });
 });

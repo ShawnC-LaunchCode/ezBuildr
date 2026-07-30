@@ -143,7 +143,7 @@ export class TemplateValidationService {
 
     let placeholders: PlaceholderInfo[];
     try {
-      placeholders = await extractPlaceholdersDetailed(getTemplateFilePath(fileRef));
+      placeholders = await extractPlaceholdersDetailed(await getTemplateFilePath(fileRef));
     } catch (error) {
       if (error instanceof TemplateSyntaxError) {
         const report = this.buildReport(templateId, workflowId, [], variables);

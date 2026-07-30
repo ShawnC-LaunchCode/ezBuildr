@@ -88,7 +88,7 @@ describe.sequential('Templates E2E Scenarios', () => {
         expect(response.body.type).toBe('docx');
 
         // 3. Verify File Storage
-        const filePath = getTemplateFilePath(response.body.fileRef);
+        const filePath = await getTemplateFilePath(response.body.fileRef);
         expect(fs.existsSync(filePath)).toBe(true);
 
         // 4. Verify DB (implicitly done by API return, but could query DB if needed)
@@ -112,7 +112,7 @@ describe.sequential('Templates E2E Scenarios', () => {
         expect(response.body.type).toBe('pdf');
 
         // 3. Verify File Storage
-        const filePath = getTemplateFilePath(response.body.fileRef);
+        const filePath = await getTemplateFilePath(response.body.fileRef);
         expect(fs.existsSync(filePath)).toBe(true);
     });
 

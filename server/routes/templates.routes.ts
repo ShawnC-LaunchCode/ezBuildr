@@ -1,4 +1,3 @@
-/* eslint-disable max-lines -- route file with many endpoints */
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import os from 'os';
@@ -165,7 +164,7 @@ router.get(
         throw createError.forbidden(ACCESS_DENIED_MSG);
       }
       const { getTemplateFilePath } = await import('../services/templates');
-      const filePath = getTemplateFilePath(template.fileRef);
+      const filePath = await getTemplateFilePath(template.fileRef);
       const fsSync = await import('fs');
       if (!fsSync.existsSync(filePath)) {
         logger.error({ filePath }, 'Template file missing at path');
@@ -326,14 +325,12 @@ router.post(
               fileBuffer = docxScanResult.buffer;
               warnings = docxScanResult.repairs;
             }
-            
             // DOC-109: Validate helpers during upload
             try {
               warnings.push(...await collectDocxPlaceholderWarnings(fileBuffer));
             } catch (e) {
               logger.warn({ error: e }, "Failed to extract placeholders during template upload");
             }
-            
           } catch (error: unknown) {
           await cleanupFile(req.file.path);
           rethrowProcessingTimeout(error);
@@ -494,14 +491,12 @@ router.patch(
                 'template-update-docx-scan'
               )
             );
-            // eslint-disable-next-line max-depth -- nested validation inside try/if
             if (!docxScanResult.isValid) {
               logger.error({ errors: docxScanResult.errors }, 'Template validation failed in API (PATCH)');
               throw createError.validation(
                 `Invalid template: ${docxScanResult.errors?.join(', ') ?? 'unknown error'}`
               );
             }
-            // eslint-disable-next-line max-depth -- nested validation inside try/if
             if (docxScanResult.fixed) {
               fileBuffer = docxScanResult.buffer;
               warnings = docxScanResult.repairs;
@@ -509,7 +504,6 @@ router.patch(
           } catch (error: unknown) {
             await cleanupFile(req.file.path);
             rethrowProcessingTimeout(error);
-            // eslint-disable-next-line max-depth -- nested re-throw inside try/if
             if (isErrorWithCode(error) && error.code === 'VALIDATION_ERROR') { throw error; }
             throw createError.validation(`Template validation failed: ${isErrorWithCode(error) ? error.message : String(error)}`);
           }
