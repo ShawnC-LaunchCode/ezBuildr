@@ -278,7 +278,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
     // `steps.sectionId` is NOT NULL, so an unresolvable value cannot be dropped
     // and the import must be rejected. The classification is substring matching
     // on the thrown message (BUNDLE_REJECTION_SIGNALS), so it is only one
-    // rename away from silently reverting to a 500 â€” hence a route-level test
+    // rename away from silently reverting to a 500 — hence a route-level test
     // rather than trusting the signal list by inspection.
     const zip = new AdmZip(bundle);
     const stepsLines = zip.getEntry("entities/steps.jsonl")!.getData()
@@ -388,7 +388,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
     expect(apply.body.rootId).toBeUndefined();
 
     // The rejection must roll back Pass 2, not merely report a 400 after it
-    // committed â€” otherwise the import leaves orphaned rows no rootId can reach.
+    // committed — otherwise the import leaves orphaned rows no rootId can reach.
     const workflowsAfter = await db.select().from(schema.workflows);
     expect(workflowsAfter.length).toBe(workflowsBefore.length);
   });
