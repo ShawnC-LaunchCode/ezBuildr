@@ -319,4 +319,77 @@ describe.sequential("Portability Import API Integration Tests", () => {
     expect(preview.body.canProceed).toBe(false);
     expect(preview.body.errors.some((e: string) => e.includes("Unresolvable reference"))).toBe(true);
   });
+
+  it("IEX2-5 AC 1 & 2: returned and audited entity counts are observed counts, not manifest claims", async () => {
+    const zip = new AdmZip(bundle);
+    const manifest = JSON.parse(zip.getEntry("manifest.json")!.getData().toString("utf8"));
+    
+    // Store original counts to verify actual inserted matches these, not the forged ones
+    const originalWorkflowCount = manifest.entityCounts.workflows || 0;
+    const originalStepCount = manifest.entityCounts.steps || 0;
+    
+    // Tamper with the counts in the manifest
+    manifest.entityCounts.workflows = 9999;
+    manifest.entityCounts.steps = 9999;
+    manifest.entityCounts.fake_entity = 50;
+    
+    recomputeChecksum(zip, manifest);
+    zip.updateFile("manifest.json", Buffer.from(JSON.stringify(manifest)));
+    const tampered = zip.toBuffer();
+
+    const apply = await request(baseURL)
+      .post("/api/portability/import/apply")
+      .set("Authorization", `Bearer ${authToken}`)
+      .attach("file", tampered, "bundle.ezb")
+      .expect(201);
+
+    // AC 1: Returned counts reflect actual inserted rows
+    expect(apply.body.entityCounts.workflows).toBe(originalWorkflowCount);
+    expect(apply.body.entityCounts.workflows).not.toBe(9999);
+    expect(apply.body.entityCounts.steps).toBe(originalStepCount);
+    expect(apply.body.entityCounts.fake_entity).toBeUndefined();
+
+    // AC 2: Audit row carries observed counts
+    const logs = await db.select().from(schema.auditLogs)
+      .where(and(eq(schema.auditLogs.userId, userId), eq(schema.auditLogs.action, "data_imported")));
+    expect(logs.length).toBeGreaterThan(0);
+    
+    // Get the most recent log
+    const lastLog = logs[logs.length - 1];
+    const changes = lastLog.changes as Record<string, unknown>;
+    const auditedCounts = changes.entityCounts as Record<string, number>;
+    
+    expect(auditedCounts.workflows).toBe(originalWorkflowCount);
+    expect(auditedCounts.workflows).not.toBe(9999);
+  });
+
+  it("IEX2-5 AC 3: a bundle whose rootIds match nothing is rejected with 400", async () => {
+    const zip = new AdmZip(bundle);
+    const manifest = JSON.parse(zip.getEntry("manifest.json")!.getData().toString("utf8"));
+    
+    // Tamper with the rootIds so they match nothing
+    manifest.rootIds = [randomUUID(), randomUUID()];
+    
+    recomputeChecksum(zip, manifest);
+    zip.updateFile("manifest.json", Buffer.from(JSON.stringify(manifest)));
+    const tampered = zip.toBuffer();
+
+    const workflowsBefore = await db.select().from(schema.workflows);
+
+    const apply = await request(baseURL)
+      .post("/api/portability/import/apply")
+      .set("Authorization", `Bearer ${authToken}`)
+      .attach("file", tampered, "bundle.ezb");
+
+    expect(apply.status).toBe(400);
+    expect(apply.body.message).toMatch(/Bundle roots not found/);
+
+    // Does not return 201 with an empty rootId
+    expect(apply.body.rootId).toBeUndefined();
+
+    // The rejection must roll back Pass 2, not merely report a 400 after it
+    // committed — otherwise the import leaves orphaned rows no rootId can reach.
+    const workflowsAfter = await db.select().from(schema.workflows);
+    expect(workflowsAfter.length).toBe(workflowsBefore.length);
+  });
 });

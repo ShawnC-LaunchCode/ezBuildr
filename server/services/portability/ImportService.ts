@@ -836,8 +836,9 @@ export class ImportService {
     return null;
   }
 
-  private async processEntityInsertion(ctx: ProcessEntityContext): Promise<string> {
+  private async processEntityInsertion(ctx: ProcessEntityContext): Promise<{ rootId: string; count: number }> {
     let newRootId = '';
+    let count = 0;
     const schemaObj = this.getZodSchema(ctx.desc);
     const stream = ctx.reader.readEntityStream(ctx.desc.name);
     
@@ -854,8 +855,9 @@ export class ImportService {
       if (rootId) {
         newRootId = rootId;
       }
+      count++;
     }
-    return newRootId;
+    return { rootId: newRootId, count };
   }
 
   private async allocateIds(reader: BundleReader, idMap: Map<string, string>): Promise<Set<string>> {
@@ -912,12 +914,14 @@ export class ImportService {
           bundleProjectIds, idMap, userId, targetOwner, options, adjustments
         });
 
+        const observedEntityCounts: Record<string, number> = {};
+
         // Pass 2: Remap foreign keys and insert rows
         await db.transaction(async (tx: DbTransaction) => {
           for (const desc of ENTITY_GRAPH) {
             if (this.shouldSkipEntity(desc)) {continue;}
             
-            const rootId = await this.processEntityInsertion({
+            const result = await this.processEntityInsertion({
               tx,
               desc,
               reader: reader as BundleReader,
@@ -929,9 +933,19 @@ export class ImportService {
               projectIdOverride,
               warnings
             });
-            if (rootId) {
-              newRootId = rootId;
+            if (result.rootId) {
+              newRootId = result.rootId;
             }
+            if (result.count > 0) {
+              observedEntityCounts[desc.name] = result.count;
+            }
+          }
+
+          // Must stay inside the transaction: throwing after it commits would
+          // reject the import with a 400 while leaving every inserted row
+          // behind, unreachable because no rootId was ever resolved.
+          if (newRootId === '') {
+            throw new Error('Bundle roots not found in bundle data');
           }
         });
 
@@ -939,7 +953,7 @@ export class ImportService {
           rootId: newRootId,
           scope: manifest.scope,
           tenantId: targetOwner.tenantId,
-          entityCounts: manifest.entityCounts,
+          entityCounts: observedEntityCounts,
           warnings,
           blobsRestored: new Set(blobMap.values()).size,
           adjustments

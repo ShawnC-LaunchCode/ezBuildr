@@ -92,7 +92,8 @@ const BUNDLE_REJECTION_SIGNALS = [
   'Validation failed in',
   'integrity check failed',
   'malware detected',
-  'Unresolvable reference'
+  'Unresolvable reference',
+  'Bundle roots not found'
 ];
 
 function classifyImportError(error: unknown, fallback: string): { status: number; message: string } {
