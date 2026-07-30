@@ -40,7 +40,7 @@ feature work.
 | DEBT-2 | Retire the 143 blanket file-level eslint-disable headers | P2 | L | 🔲 |
 | DEBT-3 | Restore the three tests skipped for asserting nothing | P1 | M | 🔲 |
 | DEBT-4 | E-signature provider registry is never initialized | P1 | S | ✅ `9fcf05b4` — ruled dormant; entry removed |
-| DEBT-5 | `getTemplateFilePath` hardcodes disk storage | P1 | S | 🔶 **partly done** `f308fde2` — see below |
+| DEBT-5 | `getTemplateFilePath` hardcodes disk storage | P1 | S | ✅ `f308fde2` + `50408c33` — entry removed |
 | DEBT-6 | Two parallel file subsystems | P2 | L | 🔲 |
 | DEBT-7 | `WorkflowClonerService` silently drops `workflows.settings` | P1 | S | ✅ `23a5863e` — entry removed |
 | DEBT-8 | DI container is built but ~unused | P2 | M | 🔲 |
@@ -231,116 +231,6 @@ report, not a reason to restore an assertion-free test.
 5. `vitest/expect-expect` passes on all three without a suppression.
 6. Gates: type-check 0 errors, lint 0 problems, `npm run test:fast` ≥ baseline,
    relevant `test:unit` / `test:integration` green.
-
----
-
-## DEBT-5 — `getTemplateFilePath` hardcodes disk storage 🔶 partly done
-
-> ### ✅ Landed 2026-07-29 — `f308fde2`
->
-> `getTemplateFilePath` is now async and delegates to the configured provider's
-> `getLocalPath`; every caller awaits provider-backed resolution
-> (`templates.routes.ts`, `TemplateAnalysisService`, `TemplateValidationService`,
-> `templates.ts`). A stub-provider unit test
-> (`tests/unit/services/templateFiles.test.ts`) proves the delegation without
-> needing S3 credentials. **ACs 1, 2, 3 met.**
->
-> ### 🔶 Still open — one live caller, and a security decision
->
-> **`createTemplateResolver` (`server/services/document/FinalBlockRenderer.ts:457-474`)
-> still bypasses the provider**, resolving a template as
-> `path.resolve(process.cwd(), 'server', 'files')` joined with
-> `template.fileRef`. It is live in two paths —
-> `finalBlock.routes.ts:217` and
-> `server/services/workflow-runs/RunLifecycleService.ts:441` — so this is the
-> same defect in production document rendering, not a leftover.
->
-> The turn-in rewrote AC 4 to exclude the remaining `process.cwd()` matches as
-> "output/archive paths". **That reframing is correct for five of the six**
-> (`files.routes.ts:33`, `finalBlock.routes.ts:334,342`,
-> `DocumentEngine.ts:46`, `FinalBlockRenderer.ts:140`, `fileService.ts:134-136`,
-> and `DiskStorageProvider.ts:20`'s own configured `baseDir`, which is
-> legitimately local and belongs to DEBT-6). It is **wrong for
-> `FinalBlockRenderer.ts:467`**, which builds a *template* path from a
-> *fileRef* — so that one fails even the rewritten criterion.
->
-> **This is not a drop-in change, which is why it was not done at review.**
-> `createTemplateResolver` guards path traversal:
->
-> ```ts
-> const resolvedPath = path.resolve(templatesDir, template.fileRef);
-> if (!resolvedPath.startsWith(templatesDir)) {
->   throw createError.validation('Invalid template path');
-> }
-> ```
->
-> `DiskStorageProvider.getLocalPath` (`:91`) does `path.join(this.baseDir,
-> fileRef)` with **no equivalent guard**. Swapping one for the other as-is
-> deletes a security control. Whoever takes this must decide where the guard
-> lives — almost certainly *inside* the provider, so every caller inherits it
-> rather than each re-implementing it.
->
-> **Remaining acceptance criteria:**
->
-> 1. `createTemplateResolver` resolves through `storageProvider`, not
->    `process.cwd()`.
-> 2. Path-traversal protection is preserved — a `fileRef` of `../../etc/passwd`
->    (or a Windows equivalent) is rejected. A test asserts this, and it should
->    live wherever the guard ends up.
-> 3. Both live call sites still work: `finalBlock.routes.ts:217` and
->    `RunLifecycleService.ts:441`.
-> 4. Consider whether `DiskStorageProvider.getLocalPath` should reject
->    traversing `fileRef`s for *all* callers. Import writes fileRefs from
->    bundles (IEX-10), so this is not purely a trusted-input path.
-
-**Priority: P1** · Size: S · File: `server/services/templateFiles.ts:17`
-
-### Finding
-
-> **Historical — the code below was fixed in `f308fde2`.** Kept for context on
-> the remaining work above.
-
-```ts
-export function getTemplateFilePath(fileRef: string): string {
-  // Legacy support: We assume disk storage provider structure for now.
-  return path.join(process.cwd(), 'server', 'files', fileRef);
-}
-```
-
-The function builds a local filesystem path unconditionally and says so. It is
-correct only while `STORAGE_DRIVER` selects the disk provider; the moment
-production moves to S3 it returns a path to a file that does not exist, and the
-failure will surface as a missing template at document-generation time — the
-least convenient possible place.
-
-### Preferred fix
-
-Route through the storage abstraction instead: `server/services/storage/`
-exposes `getFile(fileRef): Promise<Buffer>` (`types.ts:50`) and
-`exists(fileRef)` (`types.ts:44`).
-
-Callers that genuinely need a *path* rather than bytes (e.g. handing a file to
-a subprocess) should spool the buffer to a temp file and clean it up, rather
-than assuming the bytes are already local. Audit every caller before changing
-the signature — some may want bytes and be using the path only to read them.
-
-### Ties
-
-- **DEBT-6** is the wider version of this problem; this ticket is the
-  narrow, high-value slice and should land first.
-- Storage interface: `server/services/storage/types.ts`.
-- Load `add-api-endpoint`, `run-tests`.
-
-### Acceptance criteria
-
-1. `getTemplateFilePath` either goes through `storageProvider`, or is deleted
-   in favour of callers using `getFile`/`exists` directly.
-2. Every existing caller is updated and none assumes a local path.
-3. A test proves template resolution works against a non-disk provider (a stub
-   provider is fine — no S3 credentials in tests).
-4. `grep -rn "process.cwd(), 'server', 'files'" server/` returns no matches.
-5. Gates: type-check 0 errors, lint 0 problems, `npm run test:fast` ≥ baseline,
-   `npm run test:unit` green.
 
 ---
 
