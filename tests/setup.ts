@@ -16,11 +16,11 @@ dotenv.config();
  * Runs before all tests
  */
 // Define db and helpers at file scope but initialize them dynamically
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 let db: any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 let initializeDatabase: any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 let dbInitPromise: any;
 process.env.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "test-google-client-id";
 process.env.VITE_GOOGLE_CLIENT_ID = process.env.VITE_GOOGLE_CLIENT_ID || "test-google-client-id";
@@ -114,7 +114,7 @@ const shouldConnectToDb = () => {
     const testPath = state.testPath || state.currentTestName;
     // Only skip DB for pure unit tests (components, hooks, utils)
     // Service tests in tests/unit often use the DB (integration tests in disguise)
-    // eslint-disable-next-line @typescript-eslint/prefer-includes
+
     if (testPath && (
       testPath.includes('/unit/components/') ||
       testPath.includes('\\unit\\components\\') ||
@@ -141,7 +141,7 @@ beforeAll(async () => {
   // Conditionally load jest-dom for UI tests (JSDOM environment)
   if (typeof window !== 'undefined') {
     try {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+
       // @ts-expect-error - types for jest-dom might be missing in this context
       await import("@testing-library/jest-dom");
     } catch (e) {
@@ -442,7 +442,7 @@ vi.mock("@anthropic-ai/sdk", () => {
     },
   }; });
   return {
-    // eslint-disable-next-line @typescript-eslint/naming-convention
+
     'Anthropic': MockAnthropic,
     default: MockAnthropic,
   };

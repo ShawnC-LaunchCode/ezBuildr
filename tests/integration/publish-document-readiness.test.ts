@@ -121,7 +121,7 @@ describe("GH-152 publish is gated on document readiness", () => {
     if (realTemplateId) { await db.delete(templates).where(eq(templates.id, realTemplateId)); }
     if (projectId) { await db.delete(projects).where(eq(projects.id, projectId)); }
     if (userId) {
-      // eslint-disable-next-line no-empty
+
       try { await db.delete(auditLogs).where(eq(auditLogs.userId, userId)); } catch (e) { /* may be empty */ }
       await db.delete(users).where(eq(users.id, userId));
     }

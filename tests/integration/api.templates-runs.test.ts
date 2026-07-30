@@ -118,7 +118,7 @@ describe("Templates API Integration Tests", () => {
           .expect(201)
           .catch((err: unknown) => {
             if (err && typeof err === 'object' && 'response' in err) {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
               const response = (err as any).response;
               if (response?.body) {
                 console.error("DEBUG: Template upload failed:", JSON.stringify(response.body, null, 2));

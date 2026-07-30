@@ -104,7 +104,7 @@ describe("RUN2-7 publish is gated on lint", () => {
     if (projectId) { await db.delete(projects).where(eq(projects.id, projectId)); }
     for (const id of [userId, outsiderId]) {
       if (!id) { continue; }
-      // eslint-disable-next-line no-empty
+
       try { await db.delete(auditLogs).where(eq(auditLogs.userId, id)); } catch (e) { /* may be empty */ }
       await db.delete(users).where(eq(users.id, id));
     }

@@ -15,9 +15,9 @@ const { mockUserId, mockTenantId, authConfig, mockGenerateContent } = vi.hoisted
   mockGenerateContent: vi.fn(),
 }));
 // Mock authentication middleware
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 vi.mock('../../../server/middleware/auth', () => ({
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   requireAuth: (req: any, res: any, next: any) => {
     if (authConfig.shouldFail) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -33,7 +33,7 @@ vi.mock('../../../server/middleware/auth', () => ({
     req.user = user;
     next();
   },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   hybridAuth: (req: any, res: any, next: any) => {
     if (authConfig.shouldFail) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -193,7 +193,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     expect(version.isDraft).toBe(true);
     expect(version.published).toBe(false);
     expect(version.migrationInfo).toBeDefined();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const aiMetadata = (version.migrationInfo as any)?.aiMetadata;
     expect(aiMetadata).toBeDefined();
     expect(aiMetadata.aiGenerated).toBe(true);
@@ -367,7 +367,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
     expect(createdSteps.some(s => s.alias === 'emergency_contact_name')).toBe(true);
     expect(createdSteps.some(s => s.alias === 'emergency_contact_phone')).toBe(true);
     // Verify structure of the visibility rule
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const conditionGroup = createdSections[0].visibleIf as any;
     expect(conditionGroup).toBeDefined();
     // New format is a ConditionGroup
@@ -389,7 +389,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       .from(workflowVersions)
       .where(eq(workflowVersions.id, versionId))
       .limit(1);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const aiMetadata = (version.migrationInfo as any)?.aiMetadata;
     expect(aiMetadata.beforeSnapshotId).toBeDefined();
     expect(aiMetadata.afterSnapshotId).toBeDefined();
@@ -858,7 +858,7 @@ describe('POST /api/workflows/:workflowId/ai/edit - Integration Test', () => {
       .from(workflowVersions)
       .where(eq(workflowVersions.id, applied.body.data.versionId))
       .limit(1);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const aiMetadata = (version.migrationInfo as any)?.aiMetadata;
     expect(aiMetadata.beforeSnapshotId).toBeDefined();
     expect(aiMetadata.afterSnapshotId).toBeDefined();

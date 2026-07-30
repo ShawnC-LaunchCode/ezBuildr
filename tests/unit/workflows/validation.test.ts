@@ -1,5 +1,5 @@
-/* eslint-disable max-nested-callbacks */
-/* eslint-disable @typescript-eslint/naming-convention */
+
+
 import { describe, it, expect } from "vitest";
 
 import type { Step } from "@shared/schema";
