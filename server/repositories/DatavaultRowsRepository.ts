@@ -32,7 +32,7 @@ export class DatavaultRowsRepository extends BaseRepository<
    * Find rows by table ID with pagination, filtering, sorting, and archive support
    * Supports sorting by row fields (createdAt, updatedAt) or column values (by slug)
    */
-  // eslint-disable-next-line @typescript-eslint/class-methods-use-this -- accesses DB via this.getDb indirectly
+
   async findByTableId(
     tableId: string,
     options?: {

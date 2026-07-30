@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 import { eq, sql, count, inArray } from "drizzle-orm";
 
 import { users, workflows, type User, type UpsertUser } from "@shared/schema";
@@ -254,7 +254,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
       .where(eq(users.id, userId))
       .returning();
 
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
     if (updatedUser == null) {
       throw new Error('User not found');
     }
