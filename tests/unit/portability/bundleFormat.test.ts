@@ -80,7 +80,6 @@ describe('Bundle Format', () => {
     const index = await reader.readBlobIndex();
     expect(index.file1.sha256).toBe('deadbeef');
 
-    expect(reader.getEntryCount('blobs/deadbeef')).toBe(1);
     reader.close();
   });
 
@@ -210,5 +209,20 @@ describe('Bundle Format', () => {
         `Format version ${FORMAT_VERSION + 1} is newer than supported ${FORMAT_VERSION}`
       );
     });
+
+    it('rejects duplicate entry names (IEX2-12)', async () => {
+      const dummyZip = path.join(os.tmpdir(), `dummy-${Date.now()}.zip`);
+      new AdmZipConstructor().writeZip(dummyZip);
+      const reader = new BundleReader(dummyZip);
+      const getEntriesSpy = vi.spyOn((reader as any).zip, 'getEntries');
+      getEntriesSpy.mockReturnValue([
+        createMockEntry('entities/steps.jsonl'),
+        createMockEntry('entities/steps.jsonl')
+      ] as any);
+      
+      await expect(reader.open()).rejects.toThrow('Duplicate entry detected: entities/steps.jsonl');
+    });
+
+
   });
 });

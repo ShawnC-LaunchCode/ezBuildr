@@ -37,9 +37,15 @@ export class BundleReader {
       throw new Error(`Entry count overflow: ${this.entries.length}`);
     }
 
-    let totalSize = 0;
+    let totalDeclaredSize = 0;
+    const entryNames = new Set<string>();
 
     for (const entry of this.entries) {
+      if (entryNames.has(entry.entryName)) {
+        throw new Error(`Duplicate entry detected: ${entry.entryName}`);
+      }
+      entryNames.add(entry.entryName);
+
       if (
         entry.entryName.includes('../') || 
         entry.entryName.includes('..\\') ||
@@ -61,11 +67,11 @@ export class BundleReader {
         throw new Error(`Compression ratio overflow in ${entry.entryName}`);
       }
 
-      totalSize += uncompressedSize;
+      totalDeclaredSize += uncompressedSize;
     }
 
-    if (totalSize > MAX_TOTAL_SIZE) {
-      throw new Error(`Total size overflow: ${totalSize}`);
+    if (totalDeclaredSize > MAX_TOTAL_SIZE) {
+      throw new Error(`Total size overflow: ${totalDeclaredSize}`);
     }
   }
 
@@ -136,10 +142,6 @@ export class BundleReader {
       return {};
     }
     return blobIndexSchema.parse(JSON.parse(entry.getData().toString('utf8')));
-  }
-
-  getEntryCount(path: string): number {
-    return this.entries.filter((e: ZipEntry) => e.entryName === path).length;
   }
 
   close(): void {

@@ -74,7 +74,7 @@ function uploadBundle(req: Request, res: Response, next: NextFunction): void {
 /**
  * A malformed bundle is bad client input, not a server fault, but bundleReader
  * throws plain Errors that `classifyRouteError` would collapse into 500s. These
- * are the signals that mean "the uploaded artifact is at fault" — matched here
+ * are the signals that mean "the uploaded artifact is at fault" â€” matched here
  * so a corrupt upload answers 400 (AC 4). Anything unrecognised still falls
  * through to the generic 500, so real server bugs are not disguised as 400s.
  */
@@ -93,7 +93,8 @@ const BUNDLE_REJECTION_SIGNALS = [
   'integrity check failed',
   'malware detected',
   'Unresolvable reference',
-  'Bundle roots not found'
+  'Bundle roots not found',
+  'Duplicate entry detected'
 ];
 
 function classifyImportError(error: unknown, fallback: string): { status: number; message: string } {
@@ -114,7 +115,7 @@ const previewOptionsSchema = z.object({
   targetProjectId: z.string().uuid().optional()
 });
 
-/** Explicit allowlist — never spread the multipart body into service options. */
+/** Explicit allowlist â€” never spread the multipart body into service options. */
 const applyOptionsSchema = z.object({
   targetProjectId: z.string().uuid().optional(),
   targetOwnerType: z.enum(['user', 'org']).optional(),
@@ -155,7 +156,7 @@ export function registerPortabilityRoutes(app: Express): void {
       const { size: sizeBytes } = await fs.promises.stat(result.tmpPath);
 
       // The record that answers "who took a copy of this client's data, and
-      // from where" — so it carries the caller's address, not just the actor.
+      // from where" â€” so it carries the caller's address, not just the actor.
       await auditLogService.logDataExport({
         userId,
         scope,
@@ -199,8 +200,8 @@ export function registerPortabilityRoutes(app: Express): void {
   // authenticated resource routes (sections.routes.ts:87, steps.routes.ts:120).
   // Limiter-first is for token/public routes that cannot identify a caller.
   // Here it would let anonymous traffic burn the per-IP budget: ten unauthorized
-  // requests exhaust the window and every legitimate user behind that IP — an
-  // office NAT or VPN — is locked out of exports for 15 minutes.
+  // requests exhaust the window and every legitimate user behind that IP â€” an
+  // office NAT or VPN â€” is locked out of exports for 15 minutes.
   app.get('/api/portability/export/workflow/:id', hybridAuth, strictLimiter, asyncHandler(async (req, res) => {
     await handleExport(req, res, 'workflow');
   }));
@@ -214,7 +215,7 @@ export function registerPortabilityRoutes(app: Express): void {
   }));
 
   // Import is a two-step interaction: preview tells the user what a bundle will
-  // do, apply performs it. Middleware order matches the export routes above —
+  // do, apply performs it. Middleware order matches the export routes above â€”
   // `hybridAuth` first so anonymous 401s cannot burn the per-IP rate budget.
   app.post('/api/portability/import/preview', hybridAuth, strictLimiter, uploadBundle,
     asyncHandler(async (req: Request, res: Response) => {
@@ -241,7 +242,7 @@ export function registerPortabilityRoutes(app: Express): void {
         // previewable artifact. ImportService reports that as an error entry
         // rather than throwing (its contract is "report, never write"), so the
         // status decision belongs here in the HTTP layer. Row-level validation
-        // problems still return 200 with canProceed=false — that is a useful
+        // problems still return 200 with canProceed=false â€” that is a useful
         // preview, and the caller is meant to see it.
         const unparseable = preview.errors.some(e => e.startsWith('Failed to parse bundle'));
         if (unparseable) {
@@ -283,7 +284,7 @@ export function registerPortabilityRoutes(app: Express): void {
         const result = await importService.apply(buffer, userId, parsed.data);
 
         // The record answering "who pushed data into this tenant, and what did
-        // it create". Applies only — previews create nothing to account for.
+        // it create". Applies only â€” previews create nothing to account for.
         await auditLogService.logDataImport({
           userId,
           scope: result.scope,

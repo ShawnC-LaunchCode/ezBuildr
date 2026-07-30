@@ -278,7 +278,7 @@ describe.sequential("Portability Import API Integration Tests", () => {
     // `steps.sectionId` is NOT NULL, so an unresolvable value cannot be dropped
     // and the import must be rejected. The classification is substring matching
     // on the thrown message (BUNDLE_REJECTION_SIGNALS), so it is only one
-    // rename away from silently reverting to a 500 — hence a route-level test
+    // rename away from silently reverting to a 500 â€” hence a route-level test
     // rather than trusting the signal list by inspection.
     const zip = new AdmZip(bundle);
     const stepsLines = zip.getEntry("entities/steps.jsonl")!.getData()
@@ -388,8 +388,36 @@ describe.sequential("Portability Import API Integration Tests", () => {
     expect(apply.body.rootId).toBeUndefined();
 
     // The rejection must roll back Pass 2, not merely report a 400 after it
-    // committed — otherwise the import leaves orphaned rows no rootId can reach.
+    // committed â€” otherwise the import leaves orphaned rows no rootId can reach.
     const workflowsAfter = await db.select().from(schema.workflows);
     expect(workflowsAfter.length).toBe(workflowsBefore.length);
+  });
+
+  it("IEX2-12 AC 2: duplicate entries in the zip are a 400, not a 500", async () => {
+    const zip = new AdmZip();
+    zip.addFile("manifest.json", Buffer.from(JSON.stringify({
+      formatVersion: 1, appVersion: '1.0', migrationHead: '0001',
+      scope: 'project', rootIds: ['a'], sourceSystem: 'x', createdAt: '2024-01-01T00:00:00.000Z',
+      entityCounts: {}, blobCount: 0, checksum: 'a'.repeat(64)
+    })));
+    // We want a duplicate entry. adm-zip replaces files with the same name.
+    // So we add 'fileA' and 'fileB', then rename 'fileB' to 'fileA' in the raw buffer.
+    zip.addFile("entities/fileA.jsonl", Buffer.from("A"));
+    zip.addFile("entities/fileB.jsonl", Buffer.from("B"));
+    
+    let buffer = zip.toBuffer();
+    
+    // Replace all occurrences of "fileB.jsonl" with "fileA.jsonl" in the buffer
+    let str = buffer.toString('binary');
+    str = str.replace(/fileB\.jsonl/g, "fileA.jsonl");
+    buffer = Buffer.from(str, 'binary');
+
+    const apply = await request(baseURL)
+      .post("/api/portability/import/apply")
+      .set("Authorization", `Bearer ${authToken}`)
+      .attach("file", buffer, "bundle.ezb");
+
+    expect(apply.status).toBe(400);
+    expect(apply.body.message).toMatch(/Duplicate entry detected/);
   });
 });
