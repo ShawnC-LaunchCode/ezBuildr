@@ -577,6 +577,22 @@ export class ImportService {
     if ('updatedBy' in shape) { data['updatedBy'] = userId; }
     if ('lastModifiedBy' in shape) { data['lastModifiedBy'] = userId; }
     if ('ownerUserId' in shape) { data['ownerUserId'] = userId; }
+
+    // Publication state is stamped locally and never inherited.
+    // A live publicLink shared across tenants exposes data to the wrong client,
+    // an imported slug guarantees a unique-index violation preventing import,
+    // and versions must not bypass this system's publish gate by arriving pre-published.
+    // We force workflows back to draft and versions to unpublished.
+    if (desc.name === 'workflows') {
+      data['isPublic'] = false;
+      data['publicLink'] = null;
+      data['slug'] = null;
+      data['status'] = 'draft';
+    }
+    if (desc.name === 'workflow_versions') {
+      data['published'] = false;
+      data['publishedAt'] = null;
+    }
   }
 
   private async enforceNameUniqueness(ctx: ProcessEntityContext, data: Record<string, unknown>): Promise<void> {

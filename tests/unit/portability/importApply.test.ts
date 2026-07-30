@@ -213,6 +213,107 @@ describeWithDb('ImportService - apply', () => {
     expect(newSteps[0].id).not.toBe(stepId);
   });
 
+  it('nulls a workflow slug on same-system import (AC 1)', async () => {
+    await db.update(workflows).set({ slug: 'test-slug-123' }).where(eq(workflows.id, workflow.id));
+    const bundle = await exportService.export({ scope: 'workflow', id: workflow.id }, user.id);
+    
+    const result = await importService.apply(bundle, user.id);
+    const [imported] = await db.select().from(workflows).where(eq(workflows.id, result.rootId));
+    
+    expect(imported.slug).toBeNull();
+    const [source] = await db.select().from(workflows).where(eq(workflows.id, workflow.id));
+    expect(source.slug).toBe('test-slug-123');
+  });
+
+  it('imports the same bundle twice successfully (AC 2)', async () => {
+    // The bundle must carry a slug, or this asserts nothing: workflows.slug is
+    // the globally-unique column that made re-import impossible, and the shared
+    // fixture workflow has none. Verified by mutation — with the publication
+    // reset removed, a slug-less bundle imports twice quite happily.
+    await db.update(workflows).set({ slug: 'repeat-import-slug' }).where(eq(workflows.id, workflow.id));
+    const bundle = await exportService.export({ scope: 'workflow', id: workflow.id }, user.id);
+
+    const first = await importService.apply(bundle, user.id);
+    const second = await importService.apply(bundle, user.id);
+
+    // Two distinct copies, neither of which took the source's slug.
+    expect(second.rootId).not.toBe(first.rootId);
+    const [firstWf] = await db.select().from(workflows).where(eq(workflows.id, first.rootId));
+    const [secondWf] = await db.select().from(workflows).where(eq(workflows.id, second.rootId));
+    expect(firstWf.slug).toBeNull();
+    expect(secondWf.slug).toBeNull();
+
+    // ...and the source still owns it.
+    const [source] = await db.select().from(workflows).where(eq(workflows.id, workflow.id));
+    expect(source.slug).toBe('repeat-import-slug');
+  });
+
+  it('forces isPublic, publicLink, and status on import, leaving source untouched (AC 3)', async () => {
+    await db.update(workflows).set({ 
+      isPublic: true, 
+      publicLink: 'public-link-abc',
+      status: 'active'
+    }).where(eq(workflows.id, workflow.id));
+    
+    const bundle = await exportService.export({ scope: 'workflow', id: workflow.id }, user.id);
+    const result = await importService.apply(bundle, user.id);
+    
+    const [imported] = await db.select().from(workflows).where(eq(workflows.id, result.rootId));
+    expect(imported.isPublic).toBe(false);
+    expect(imported.publicLink).toBeNull();
+    expect(imported.status).toBe('draft');
+    
+    const [source] = await db.select().from(workflows).where(eq(workflows.id, workflow.id));
+    expect(source.isPublic).toBe(true);
+    expect(source.publicLink).toBe('public-link-abc');
+    expect(source.status).toBe('active');
+  });
+
+  it('forces workflow_versions to unpublished (AC 4)', async () => {
+    await db.update(workflowVersions)
+      .set({ published: true, publishedAt: new Date() })
+      .where(eq(workflowVersions.workflowId, workflow.id));
+    
+    const bundle = await exportService.export({ scope: 'workflow', id: workflow.id }, user.id);
+    const result = await importService.apply(bundle, user.id);
+    
+    const [importedWf] = await db.select().from(workflows).where(eq(workflows.id, result.rootId));
+    const importedVersions = await db.select().from(workflowVersions).where(eq(workflowVersions.workflowId, importedWf.id));
+    
+    expect(importedVersions.length).toBeGreaterThan(0);
+    for (const v of importedVersions) {
+      expect(v.published).toBe(false);
+      expect(v.publishedAt).toBeNull();
+    }
+  });
+
+  it('rejects hostile bundle smuggling isPublic (AC 5 unconditional stamp)', async () => {
+    const zip = new AdmZip(workflowBundle);
+    const wfEntry = zip.getEntry('entities/workflows.jsonl');
+    
+    const lines = wfEntry!.getData().toString('utf8').split('\n').filter(Boolean);
+    const row = JSON.parse(lines[0]);
+    row.isPublic = true;
+    row.publicLink = 'hostile-link';
+    row.slug = 'hostile-slug';
+    row.status = 'active';
+    lines[0] = JSON.stringify(row);
+    zip.updateFile('entities/workflows.jsonl', Buffer.from(`${lines.join('\n')}\n`));
+    
+    const manifestEntry = zip.getEntry('manifest.json');
+    const manifest = JSON.parse(manifestEntry!.getData().toString('utf8'));
+    recomputeChecksum(zip, manifest);
+    zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
+    
+    const newRootId = (await importService.apply(zip.toBuffer(), user.id)).rootId;
+    
+    const [importedWf] = await db.select().from(workflows).where(eq(workflows.id, newRootId));
+    expect(importedWf.isPublic).toBe(false);
+    expect(importedWf.publicLink).toBeNull();
+    expect(importedWf.slug).toBeNull();
+    expect(importedWf.status).toBe('draft');
+  });
+
   // IEX-15. A workflow-scope bundle carries `workflows` but not `projects`, so
   // workflows.projectId is a foreign id. This surfaced visually: an imported
   // workflow came back titled "... (2)", because it had silently re-attached to
