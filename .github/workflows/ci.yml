@@ -7,11 +7,9 @@ on:
     branches: [ "main" ]
 
 jobs:
-  # Quality gates. Full-project `tsc` still carries known migration/debt backlog
-  # (see docs/TYPESCRIPT_STRICT_MODE_MIGRATION.md), so type-check remains
-  # advisory. Repo-wide eslint is blocking again now that the backlog is clean.
+  # Blocking quality gates. Keep type-check and lint green before deployment.
   quality:
-    name: Quality (advisory)
+    name: Quality Gates
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -25,9 +23,8 @@ jobs:
     - name: Install Dependencies
       run: npm ci
 
-    - name: Type Check (advisory)
-      run: npm run check
-      continue-on-error: true
+    - name: Type Check
+      run: npm run type-check
 
     - name: Lint
       run: npm run lint --if-present
