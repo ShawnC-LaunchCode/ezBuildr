@@ -21,6 +21,7 @@ import { createLogger } from '../../logger.js';
 import { createError } from '../../utils/errors.js';
 import { documentHookService } from '../scripting/DocumentHookService.js';
 
+import { getTemplateFilePath } from '../templateFiles.js';
 import { validateTemplateWithData } from '../TemplateAnalysisService.js';
 import { enhancedDocumentEngine } from './EnhancedDocumentEngine.js';
 import { createFinalBlockZip, type ZipDocument, type ZipResult } from './ZipBundler.js';
@@ -463,13 +464,13 @@ export function createTemplateResolver(
       throw createError.notFound('Template', documentId);
     }
 
-    // Construct full path to template file
-    const templatesDir = path.resolve(process.cwd(), 'server', 'files');
-    const resolvedPath = path.resolve(templatesDir, template.fileRef);
-    if (!resolvedPath.startsWith(templatesDir)) {
-      throw createError.validation('Invalid template path');
-    }
-    return resolvedPath;
+    // Resolve through the configured storage provider rather than assuming the
+    // disk layout, so this keeps working under S3 (DEBT-5). The provider owns
+    // containment now — DiskStorageProvider.resolveWithinBase refuses a ref
+    // that escapes the storage root, and S3StorageProvider sanitises the ref
+    // before it becomes a temp filename — so the traversal check that used to
+    // live here is inherited rather than re-implemented per caller.
+    return getTemplateFilePath(template.fileRef);
   };
 }
 
