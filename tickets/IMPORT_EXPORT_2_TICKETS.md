@@ -124,7 +124,7 @@ Proven live are marked **[PROVEN]** with the reproduction.
 
 | Phase | Theme | Tickets | Status |
 |---|---|---|---|
-| A | **P0 — the feature does not work on real data** | IEX2-1..4 | 🔄 IEX2-1/2/3 ✅ · IEX2-4 🔄 dispatched |
+| A | **P0 — the feature does not work on real data** | IEX2-1..4 | ✅ **COMPLETE** — all four P0s fixed |
 | B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔄 IEX2-9 dispatched |
 | C | P2 — hardening, redaction depth, real proof | IEX2-12..15 | 🔲 |
 | D | Make the feature reachable | IEX2-16 | ⏸️ **deferred out of round 2** |
@@ -675,23 +675,49 @@ commented — say *why*, not *what*.
 
 ---
 
-## IEX2-4 — A failed import leaves orphaned blobs in storage and burns the tenant's quota 🔄
+## IEX2-4 — A failed import leaves orphaned blobs in storage and burns the tenant's quota ✅
 
-> **Dispatched 2026-07-29** — worktree `.claude/worktrees/iex2-4`, base
-> `c4a82792` (proven by `scripts/new-worktree.ps1`).
+> **VERIFIED at review 2026-07-29** — commit `d8554d47`, worked in
+> `.claude/worktrees/iex2-4`, rebased onto `main` and fast-forwarded in.
 >
-> ⚠️ **Fast-forward before turning in.** IEX2-3 landed after this worktree was
-> cut and appends to the same test file: `git merge main --ff-only`, then re-run
-> gates. The source changes do not overlap — IEX2-3 edits `enforceOwnership`
-> (~577), this ticket edits `restoreBlobs` / the `apply` transaction (~572-745).
+> The wrap covers the two pre-transaction passes as well as the transaction,
+> which is more than the ticket asked for and correct: blobs are written before
+> `allocateIds` and `resolveProjectIdOverride`, so a failure there leaks just as
+> readily. The original error is rethrown unchanged, so the 400/500
+> classification still keys off the real message. Pass 1 was extracted into
+> `allocateIds()` to stay under the complexity and block-depth limits rather
+> than suppressing either rule.
 >
-> **Do not rely on a real bug to fail the transaction.** The Ties below say
-> IEX2-1 and IEX2-3 make failure trivially reproducible — both are now fixed.
-> Use the deliberate mechanism in `importApply.test.ts`'s existing
-> "rolls back on forced failure mid-import (AC 6)" test.
+> **AC 5 answered and independently re-verified: `saveFile` does NOT
+> deduplicate**, so this cleanup cannot delete an object another import relies
+> on. Both providers mint a fresh `nanoid(16)` ref per call and neither is
+> content-addressed; `restoreBlobs` dedupes by sha256 only through a `written`
+> map local to a single call, so every value in `blobMap` was written by that
+> call alone. The turn-in reached the right conclusion through wrong reasoning
+> — it described `S3StorageProvider` as building keys from the content hash,
+> which it does not. Worth re-checking if either provider ever becomes
+> content-addressed, because that would make this cleanup unsafe.
 >
-> **Baselines have moved:** portability `unit-db` is **56 passing / 7 files**,
-> `test:fast` is **149 files / 2016 tests**.
+> **Two review corrections:**
+> - AC 4 requires a cleanup failure to be *logged*, and nothing asserted it. A
+>   silent cleanup failure is the precise hazard — the blob stays and no record
+>   of it exists — so the test now asserts `logger.warn` fires with the leaked
+>   `fileRef`.
+> - **The turn-in never fast-forwarded**, despite the instruction in its
+>   dispatch block. Its reported "53 passed" was the pre-IEX2-3 baseline of 51,
+>   not the 56 it should have measured against. Rebased onto `main` — which
+>   merged with no conflicts, since the two tickets touch different regions of
+>   `ImportService.ts` — and re-run.
+>
+> **Mutation-verified:** removing the `deleteFile` call fails the AC 1/2 and
+> AC 4 tests; AC 3 (blobs survive a successful import) correctly still passes.
+>
+> Reviewer-run gates: `tsc` 0 errors · `eslint` 0 problems · portability
+> `unit-db` **58 passed / 7 files** (56 baseline) · `test:fast` **149 files,
+> 2016 tests**.
+>
+> **🎉 Phase A is COMPLETE.** All four P0s are fixed: a realistic bundle now
+> exports and imports.
 
 **Priority: P0** · Size: M · Files: `server/services/portability/ImportService.ts`
 
