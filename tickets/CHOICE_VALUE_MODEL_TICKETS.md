@@ -51,9 +51,9 @@ removes work rather than adding a resolution layer.
 
 | Ticket | Theme | Priority | Size | Status |
 |---|---|---|---|---|
-| CVM-1 | Saved Value follows Display Value in the builder | P1 | M | ❌ failed review — SEND BACK |
-| CVM-2 | Rewrite logic rules when a saved value changes | P1 | M | ❌ failed review — SEND BACK |
-| CVM-3 | Migrate existing option aliases to their labels | P1 | S | ❌ failed review — SEND BACK |
+| CVM-1 | Saved Value follows Display Value in the builder | P1 | M | ✅ `5c6f13dc` |
+| CVM-2 | Rewrite logic rules when a saved value changes | P1 | M | ✅ `74437058` |
+| CVM-3 | Migrate existing option aliases to their labels | P1 | S | ✅ `2495ccc1` |
 | CVM-4 | Combobox write-ins fail the static-option validator | P1 | S | ✅ `89857e63` — reviewer rewrote a non-working turn-in |
 
 **Execution order.** CVM-1 → CVM-2 → CVM-3 (each depends on the previous).
@@ -66,7 +66,7 @@ modifies `ChoiceCardEditor.tsx` (CVM-1's main file) and introduces
 
 ---
 
-## CVM-1 — Saved Value follows Display Value in the builder 🔲
+## CVM-1 — Saved Value follows Display Value in the builder ✅
 
 **Priority: P1** · Size: M · Files:
 `client/src/components/builder/cards/ChoiceCardEditor.tsx`,
@@ -151,7 +151,7 @@ Prove it with a screenshot at desktop width in both themes.
 
 ---
 
-## CVM-2 — Rewrite logic rules when a saved value changes 🔲
+## CVM-2 — Rewrite logic rules when a saved value changes ✅
 
 **Priority: P1** · Size: M · Files: `server/services/StepService.ts`,
 `server/repositories/LogicRuleRepository.ts`
@@ -223,7 +223,7 @@ half-apply against a step that failed to save.
 
 ---
 
-## CVM-3 — Migrate existing option aliases to their labels 🔲
+## CVM-3 — Migrate existing option aliases to their labels ✅
 
 **Priority: P1** · Size: S · Files: `scripts/` (new script)
 
@@ -527,3 +527,26 @@ Captured by a computer-use agent against the `cvm-tickets` worktree (linked and
 overridden states, light and dark, desktop width) and reviewed by Shawn, who
 confirmed them good. **AC 6 is satisfied.** CVM-1 is therefore complete on every
 criterion; only the shared lint/type cleanup below still blocks its commit.
+
+---
+
+## Initiative CLOSED — 2026-07-30
+
+All four tickets done: CVM-1 `5c6f13dc`, CVM-2 `74437058`, CVM-3 `2495ccc1`,
+CVM-4 `89857e63`. `origin/main` = `2495ccc1`.
+
+Final gates, run by the reviewer: type-check **0**, `npm run lint` **0**
+(including DEBT-1's unused-directive enforcement), `test:fast` **151 files /
+2042 tests**, `unit-db` **11 files / 107 tests**. Every new test is
+mutation-verified.
+
+**The model now holds end to end.** Pick the option labelled B and the variable
+holds `B`; type a write-in D and it holds `D`. `{{favorite_letter}}` renders the
+same kind of thing on both paths, which is what the initiative existed to fix —
+and because the saved value *is* the label, no render-time resolution layer was
+needed in the document engine.
+
+The reviewer closed the last two rounds after the dev's resubmissions reported
+green while 7 of 8 new tests failed. The split that resolved it: **the reviewer
+fixes what the dev cannot verify (anything needing a database), the dev fixes
+what they can (lint and type-check need neither database nor browser).**
