@@ -125,7 +125,7 @@ Proven live are marked **[PROVEN]** with the reproduction.
 | Phase | Theme | Tickets | Status |
 |---|---|---|---|
 | A | **P0 — the feature does not work on real data** | IEX2-1..4 | 🔄 IEX2-1/2/3 ✅ · IEX2-4 🔄 dispatched |
-| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔲 |
+| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔄 IEX2-9 dispatched |
 | C | P2 — hardening, redaction depth, real proof | IEX2-12..15 | 🔲 |
 | D | Make the feature reachable | IEX2-16 | ⏸️ **deferred out of round 2** |
 
@@ -1103,7 +1103,29 @@ instead of a raw driver error.
 
 ---
 
-## IEX2-9 — A disk error during export crashes the server process 🔲
+## IEX2-9 — A disk error during export crashes the server process 🔄
+
+> **Dispatched 2026-07-29** — worktree `.claude/worktrees/iex2-9`, base
+> `db528433` (proven by `scripts/new-worktree.ps1`). Touches `bundleWriter.ts`
+> only, so it runs **in parallel with IEX2-4** (`ImportService.ts`) with no
+> overlap. It is first in the ExportService chain: IEX2-9 → 11 → 8 → 17.
+>
+> ⚠️ **Test routing here is the opposite of IEX2-1..4.** Those tickets said to
+> add new portability tests to the `dbUnitTests` array in `vitest.config.ts:10`.
+> **Do not do that for a `bundleWriter` test.** `BundleWriter` needs no database
+> — it writes JSONL to a temp dir — so a new
+> `tests/unit/portability/bundleWriter.test.ts` belongs in **unit-fast**, left
+> out of `dbUnitTests`, exactly like the existing `bundleFormat.test.ts`,
+> `entityGraph.test.ts`, `schemaCoverage.test.ts` and `secretScanner.test.ts`.
+> Adding it to that array would force a DB the test does not need.
+>
+> AC 4 is the exception: it asserts `ExportService` cleanup, and `ExportService`
+> does query, so that one belongs in the existing
+> `tests/unit/portability/exportService.test.ts`, which **is** already routed to
+> `unit-db`.
+>
+> **Baselines:** `test:fast` **149 files / 2016 tests**; portability `unit-db`
+> **56 passed / 7 files**.
 
 **Priority: P1** · Size: S · Files: `server/services/portability/bundleWriter.ts`
 
