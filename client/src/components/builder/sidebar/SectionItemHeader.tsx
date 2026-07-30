@@ -1,5 +1,5 @@
 
-import { ChevronDown, ChevronRight, GripVertical, FileCheck, Settings, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, GripVertical, FileCheck, Settings } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,6 @@ interface SectionItemHeaderProps {
     onToggle: () => void;
     mode: Mode;
     onEditSection: () => void;
-    onCreateStep: () => void;
     onAddBlock: (type: "write" | "read_table" | "list_tools" | "external_send") => void;
     isFinalSection: boolean;
     isPageConditional: boolean;
@@ -28,7 +27,6 @@ export function SectionItemHeader({
     onToggle,
     mode,
     onEditSection,
-    onCreateStep,
     onAddBlock,
     isFinalSection,
     isPageConditional
@@ -95,23 +93,14 @@ export function SectionItemHeader({
                     <Settings className="h-3 w-3 text-muted-foreground" />
                 </Button>
             </div>
+            {/* Adding questions deliberately lives on the page card only, so
+                there is one obvious place to author a page. The outline is for
+                navigating and reordering. */}
             {!isFinalSection && (
                 <div className={cn(
                     "flex gap-1",
                     mode === 'easy' ? "opacity-100" : "opacity-0 group-hover:opacity-100 transition-opacity"
                 )}>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onCreateStep();
-                        }}
-                        title="Add Question"
-                    >
-                        <Plus className="h-3 w-3" />
-                    </Button>
                     <SectionLogicMenu mode={mode} onAddBlock={onAddBlock} />
                 </div>
             )}
