@@ -8,6 +8,8 @@ export class BundleReader {
   private zip: ZipArchive;
   public manifest!: BundleManifest;
   private entries: ZipEntry[] = [];
+  private totalDecompressedBytes = 0;
+  private decompressedEntries = new Set<string>();
   
   constructor(bundlePath: string) {
     this.zip = openZip(bundlePath);
@@ -22,7 +24,7 @@ export class BundleReader {
       throw new Error('Missing manifest.json');
     }
     
-    const manifestStr = manifestEntry.getData().toString('utf8');
+    const manifestStr = this.getEntryData(manifestEntry).toString('utf8');
     this.manifest = manifestSchema.parse(JSON.parse(manifestStr));
     
     if (this.manifest.formatVersion > FORMAT_VERSION) {
@@ -63,7 +65,8 @@ export class BundleReader {
         throw new Error(`Single entry size overflow in ${entry.entryName}`);
       }
 
-      if (compressedSize > 0 && (uncompressedSize / compressedSize) > MAX_COMPRESSION_RATIO) {
+      const ratio = compressedSize > 0 ? uncompressedSize / compressedSize : (uncompressedSize > 0 ? Infinity : 1);
+      if (ratio > MAX_COMPRESSION_RATIO) {
         throw new Error(`Compression ratio overflow in ${entry.entryName}`);
       }
 
@@ -75,6 +78,37 @@ export class BundleReader {
     }
   }
 
+  private getEntryData(entry: ZipEntry): Buffer {
+    const data = entry.getData();
+    
+    if (!this.decompressedEntries.has(entry.entryName)) {
+      const actualSize = data.length;
+      
+      if (actualSize !== entry.header.size) {
+        throw new Error(`Size mismatch in ${entry.entryName}: expected ${entry.header.size}, got ${actualSize}`);
+      }
+      
+      if (actualSize > MAX_SINGLE_ENTRY_SIZE) {
+        throw new Error(`Single entry size overflow in ${entry.entryName}`);
+      }
+
+      const compressedSize = entry.header.compressedSize;
+      const ratio = compressedSize > 0 ? actualSize / compressedSize : (actualSize > 0 ? Infinity : 1);
+      if (ratio > MAX_COMPRESSION_RATIO) {
+        throw new Error(`Compression ratio overflow in ${entry.entryName}`);
+      }
+
+      this.totalDecompressedBytes += actualSize;
+      if (this.totalDecompressedBytes > MAX_TOTAL_SIZE) {
+        throw new Error(`Total size overflow: ${this.totalDecompressedBytes}`);
+      }
+      
+      this.decompressedEntries.add(entry.entryName);
+    }
+    
+    return data;
+  }
+
   private validateChecksum(): void {
     const hash = createHash('sha256');
     
@@ -84,7 +118,7 @@ export class BundleReader {
       .sort((a: ZipEntry, b: ZipEntry) => a.entryName.localeCompare(b.entryName));
       
     for (const entry of entityEntries) {
-      hash.update(entry.getData());
+      hash.update(this.getEntryData(entry));
     }
 
     // Sort blobs
@@ -93,13 +127,13 @@ export class BundleReader {
       .sort((a: ZipEntry, b: ZipEntry) => a.entryName.localeCompare(b.entryName));
       
     for (const entry of blobEntries) {
-      hash.update(entry.getData());
+      hash.update(this.getEntryData(entry));
     }
 
     // index.json
     const indexEntry = this.entries.find((e: ZipEntry) => e.entryName === 'blobs/index.json');
     if (indexEntry) {
-      hash.update(indexEntry.getData());
+      hash.update(this.getEntryData(indexEntry));
     }
 
     const computed = hash.digest('hex');
@@ -114,7 +148,7 @@ export class BundleReader {
       return;
     }
     
-    const buffer = entry.getData();
+    const buffer = this.getEntryData(entry);
     const stream = Readable.from(buffer);
     const rl = readline.createInterface({
       input: stream,
@@ -133,7 +167,7 @@ export class BundleReader {
     if (!entry) {
       throw new Error(`Blob ${sha256} not found`);
     }
-    return entry.getData();
+    return this.getEntryData(entry);
   }
 
   async readBlobIndex(): Promise<BlobIndex> {
@@ -141,7 +175,7 @@ export class BundleReader {
     if (!entry) {
       return {};
     }
-    return blobIndexSchema.parse(JSON.parse(entry.getData().toString('utf8')));
+    return blobIndexSchema.parse(JSON.parse(this.getEntryData(entry).toString('utf8')));
   }
 
   close(): void {

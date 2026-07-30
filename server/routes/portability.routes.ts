@@ -94,7 +94,8 @@ const BUNDLE_REJECTION_SIGNALS = [
   'malware detected',
   'Unresolvable reference',
   'Bundle roots not found',
-  'Duplicate entry detected'
+  'Duplicate entry detected',
+  'Size mismatch'
 ];
 
 function classifyImportError(error: unknown, fallback: string): { status: number; message: string } {

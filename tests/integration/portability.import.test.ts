@@ -420,4 +420,38 @@ describe.sequential("Portability Import API Integration Tests", () => {
     expect(apply.status).toBe(400);
     expect(apply.body.message).toMatch(/Duplicate entry detected/);
   });
+
+  it("IEX2-13 AC 4: size mismatch in the zip is a 400, not a 500", async () => {
+    const zip = new AdmZip();
+    zip.addFile("manifest.json", Buffer.from(JSON.stringify({
+      formatVersion: 1, appVersion: '1.0', migrationHead: '0001',
+      scope: 'project', rootIds: ['a'], sourceSystem: 'x', createdAt: '2024-01-01T00:00:00.000Z',
+      entityCounts: {}, blobCount: 0, checksum: 'a'.repeat(64)
+    })));
+    zip.addFile("entities/test.jsonl", Buffer.from("1234567890"));
+    
+    const buffer = zip.toBuffer();
+    
+    // Modify central directory header uncompressed size.
+    // Central directory signature is 0x02014b50 (PK\x01\x02)
+    let offset = buffer.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+    // Find the one for test.jsonl
+    while (offset !== -1) {
+      const fileNameLen = buffer.readUInt16LE(offset + 28);
+      const fileName = buffer.toString('utf8', offset + 46, offset + 46 + fileNameLen);
+      if (fileName === "entities/test.jsonl") {
+        buffer.writeUInt32LE(99, offset + 24); // uncompressed size
+        break;
+      }
+      offset = buffer.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]), offset + 4);
+    }
+    
+    const apply = await request(baseURL)
+      .post("/api/portability/import/apply")
+      .set("Authorization", `Bearer ${authToken}`)
+      .attach("file", buffer, "bundle.ezb");
+
+    expect(apply.status).toBe(400);
+    expect(apply.body.message).toMatch(/Size mismatch/);
+  });
 });
