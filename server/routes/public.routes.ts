@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import { eq } from "drizzle-orm";
 import { Router, Request, Response } from "express";
 
@@ -104,14 +104,14 @@ router.post("/w/:slug/complete", apiLimiter, strictLimiter, asyncHandler(async (
         await runService.completeRunNoAuth(run.id);
 
         // Construct Server-Side Payload from actual database records
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const values = await db.query.stepValues.findMany({
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
             where: eq(stepValues.runId, run.id)
         });
 
         const serverPayload = values.reduce((acc, curr) => {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
             acc[curr.stepId] = curr.value;
             return acc;
         }, {} as Record<string, unknown>);

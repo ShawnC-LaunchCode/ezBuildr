@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 import { Router, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
@@ -51,7 +51,7 @@ const portalRunParamsSchema = z.object({
 });
 
 // Middleware to check portal token (Bearer Auth)
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+
 const requirePortalAuth = asyncHandler(async (req: Request, res: Response, next: (...args: unknown[]) => unknown) => {
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith("Bearer ")) {

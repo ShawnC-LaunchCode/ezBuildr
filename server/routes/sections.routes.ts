@@ -34,7 +34,7 @@ async function lookupWorkflowIdMiddleware(
       res.status(404).json({ message: "Section not found" });
       return;
     }
-    // eslint-disable-next-line no-param-reassign -- Express middleware convention: augment req.params for downstream handlers
+
     req.params.workflowId = section.workflowId;
     next();
   } catch (error) {
@@ -64,7 +64,7 @@ async function lookupWorkflowIdFromSectionIncludingDeletedMiddleware(
       res.status(404).json({ message: "Section not found" });
       return;
     }
-    // eslint-disable-next-line no-param-reassign -- Express middleware convention: augment req.params for downstream handlers
+
     req.params.workflowId = section.workflowId;
     next();
   } catch (error) {
@@ -77,7 +77,7 @@ async function lookupWorkflowIdFromSectionIncludingDeletedMiddleware(
  * Register section-related routes
  * Handles section CRUD operations and reordering
  */
-// eslint-disable-next-line max-lines-per-function -- route registration function
+
 export function registerSectionRoutes(app: Express): void {
   /**
    * POST /api/workflows/:workflowId/sections

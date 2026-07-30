@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-/* eslint-disable max-lines */
+
 import * as crypto from "crypto";
 
 import { serialize } from "cookie";
@@ -168,7 +168,7 @@ async function issueTokens(user: User, req: Request, res: Response): Promise<{ m
 // SECURITY FIX: Rate limiting for password-based authentication
 // Disable rate limiting in test environment to prevent flaky tests
 const isTest = process.env.NODE_ENV === 'test';
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express next function
+
 const authRateLimit = isTest ?
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (_req: Request, _res: Response, next: any) => next() :
@@ -184,7 +184,7 @@ const authRateLimit = isTest ?
  */
 // eslint-disable-next-line max-lines-per-function
 export function registerAuthRoutes(app: Express): void {
-  /* eslint-disable max-lines-per-function */
+
   /**
    * POST /api/auth/register
    */

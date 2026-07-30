@@ -82,7 +82,7 @@ router.get(
  * Body: { sampleData: {...} }
  */
 const validateSchema = z.object({
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic sample data for template validation
+
   sampleData: z.record(z.any()),
 });
 

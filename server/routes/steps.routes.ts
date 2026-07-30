@@ -41,7 +41,7 @@ async function lookupWorkflowIdFromStepMiddleware(
       res.status(404).json({ message: "Section not found" });
       return;
     }
-    // eslint-disable-next-line no-param-reassign -- Express middleware convention: augment req.params for downstream handlers
+
     req.params.workflowId = section.workflowId;
     next();
   } catch (error) {
@@ -71,7 +71,7 @@ async function lookupWorkflowIdFromStepIncludingDeletedMiddleware(
       res.status(404).json({ message: "Step not found" });
       return;
     }
-    // eslint-disable-next-line no-param-reassign -- Express middleware convention: augment req.params for downstream handlers
+
     req.params.workflowId = step.workflowId;
     next();
   } catch (error) {
@@ -99,7 +99,7 @@ async function lookupWorkflowIdFromSectionMiddleware(
       res.status(404).json({ message: "Section not found" });
       return;
     }
-    // eslint-disable-next-line no-param-reassign -- Express middleware convention: augment req.params for downstream handlers
+
     req.params.workflowId = section.workflowId;
     next();
   } catch (error) {
@@ -213,7 +213,7 @@ function registerWorkflowStepRoutes(app: Express): void {
 /**
  * Register simplified step routes (without workflowId in path)
  */
-// eslint-disable-next-line max-lines-per-function -- route registration functions are inherently long
+
 function registerSimplifiedStepRoutes(app: Express): void {
   /**
    * GET /api/sections/:sectionId/steps

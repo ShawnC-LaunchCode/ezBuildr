@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 import { z } from "zod";
 
 import { insertWorkflowSchema } from "@shared/schema";
@@ -337,7 +337,7 @@ export function registerWorkflowRoutes(app: Express): void {
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
-          // eslint-disable-next-line sonarjs/no-duplicate-string
+
           message: "Invalid input",
           details: error.errors,
         });
@@ -679,7 +679,7 @@ export function registerWorkflowRoutes(app: Express): void {
       // Validate request body
       const schema = z.object({
         outputType: z.enum(['docx', 'pdf', 'both']),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic sample data for template testing
+
         sampleData: z.record(z.any()),
       });
 

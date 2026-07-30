@@ -26,7 +26,7 @@ router.get("/workflows", asyncHandler(async (req, res) => {
             where: eq(workflows.projectId, workspaceId)
         });
         res.json({
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             data: workflowList.map((w: any) => ({
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
                 id: w.id,
@@ -53,11 +53,11 @@ router.post("/workflows/:id/runs", asyncHandler(async (req, res) => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const _body = req.body; // { initialValues, metadata }
         // Verify workflow exists in workspace
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
+
         const workflow = await db.query.workflows.findFirst({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             where: (workflows: any, { and, eq }: any) =>
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
                 and(
                     // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
                     eq(workflows.id, id),

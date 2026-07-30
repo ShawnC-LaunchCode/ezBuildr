@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 import { createLogger } from "../logger";
 import { hybridAuth, optionalHybridAuth, type AuthRequest } from '../middleware/auth';
 import { z } from "zod";
@@ -29,7 +29,7 @@ const logger = createLogger({ module: "runs-routes" });
 // Common error messages
 // eslint-disable-next-line sonarjs/no-duplicate-string
 const ERROR_UNAUTHORIZED_NO_USER = "Unauthorized - no user ID";
-// eslint-disable-next-line sonarjs/no-duplicate-string
+
 const ERROR_ACCESS_DENIED = "Access denied";
 
 function getPublicErrorDetails(error: unknown, status: number): unknown {
@@ -92,7 +92,7 @@ export function registerRunRoutes(app: Express): void {
    *   ...runData
    * }
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity -- Complex auth logic required
+
   app.post('/api/workflows/:workflowId/runs', optionalHybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { workflowId } = req.params;
@@ -173,7 +173,7 @@ export function registerRunRoutes(app: Express): void {
    * Get a workflow run
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.get('/api/runs/:runId', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response): Promise<void> => {
     try {
       const { runId } = req.params;
@@ -230,7 +230,7 @@ export function registerRunRoutes(app: Express): void {
    * Get a workflow run with all step values
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.get('/api/runs/:runId/values', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response): Promise<void> => {
     try {
       const { runId } = req.params;
@@ -277,7 +277,7 @@ export function registerRunRoutes(app: Express): void {
    * Upsert a single step value
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.post('/api/runs/:runId/values', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
@@ -324,7 +324,7 @@ export function registerRunRoutes(app: Express): void {
    * Executes onSectionSubmit blocks (transform + validate)
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.post('/api/runs/:runId/sections/:sectionId/submit', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId, sectionId } = req.params;
@@ -392,7 +392,7 @@ export function registerRunRoutes(app: Express): void {
    * Navigate to next section (executes branch blocks)
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.post('/api/runs/:runId/next', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
@@ -425,7 +425,7 @@ export function registerRunRoutes(app: Express): void {
    * Bulk upsert step values
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.post('/api/runs/:runId/values/bulk', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
@@ -493,7 +493,7 @@ export function registerRunRoutes(app: Express): void {
    * Mark a run as complete (with validation)
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.put('/api/runs/:runId/complete', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
@@ -545,7 +545,7 @@ export function registerRunRoutes(app: Express): void {
    * Get generated documents for a workflow run
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.get('/api/runs/:runId/documents', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
@@ -590,7 +590,7 @@ export function registerRunRoutes(app: Express): void {
    * Idempotent - won't regenerate if documents already exist
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.post('/api/runs/:runId/generate-documents', strictLimiter, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
@@ -630,7 +630,7 @@ export function registerRunRoutes(app: Express): void {
    * Delete all generated documents for a run (for regeneration)
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.delete('/api/runs/:runId/documents', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
@@ -670,7 +670,7 @@ export function registerRunRoutes(app: Express): void {
    * Generate a shareable link for a run
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.post('/api/runs/:runId/share', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
