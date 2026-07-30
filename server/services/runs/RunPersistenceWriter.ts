@@ -1,4 +1,6 @@
 import type { InsertWorkflowRun, WorkflowRun } from "@shared/schema";
+import { resolveChoiceDisplay } from "@shared/types/stepConfigs";
+import type { ChoiceAdvancedConfig } from "@shared/types/stepConfigs";
 import { getValidationSchema } from "@shared/validation/BlockValidation";
 import { validateValue } from "@shared/validation/Validator";
 
@@ -373,7 +375,19 @@ export class RunPersistenceWriter {
 
         const allowedValues = getStaticChoiceValues(step.config);
         const allowOther = getConfigBoolean(step.config, 'allowOther');
-        if (allowedValues === null || allowOther) {
+        // A combobox exists to accept an answer the author never listed, so an
+        // unlisted value is the feature rather than tampering. Resolved through
+        // resolveChoiceDisplay so a legacy `dropdown` + `searchable: true`
+        // config — which is also a combobox — gets the same exemption.
+        // radio/dropdown/multiple keep validating: those cannot produce an
+        // unlisted value from the UI, so one still signals tampering.
+        const acceptsWriteIn = resolveChoiceDisplay(
+            isRecord(step.config)
+                ? (step.config as Pick<ChoiceAdvancedConfig, 'display' | 'allowMultiple' | 'searchable'>)
+                : undefined,
+            step.type
+        ) === 'combobox';
+        if (allowedValues === null || allowOther || acceptsWriteIn) {
             return [];
         }
 

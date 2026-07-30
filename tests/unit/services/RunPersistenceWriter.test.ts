@@ -238,4 +238,97 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
         expect(stepRepo.findBySectionIds).not.toHaveBeenCalled();
         expect(valueRepo.upsertMany).not.toHaveBeenCalled();
     });
+
+    /**
+     * CVM-4. `getStaticChoiceValues` only builds a value set when `config.options`
+     * is a plain ARRAY. Passing the `{ type: 'static', options: [...] }` wrapper
+     * makes it return null, validation is skipped wholesale, and any assertion
+     * here passes whatever the code does. Every case below therefore uses the
+     * array form, so the option check genuinely runs.
+     */
+    const choiceStep = (config: Record<string, unknown>) => ({
+        id: 'choice-step',
+        workflowId: 'wf-1',
+        sectionId: 'section-1',
+        type: 'choice',
+        title: 'Favourite',
+        config: {
+            options: [{ id: 'opt1', label: 'Apple', alias: 'apple' }],
+            ...config,
+        },
+        required: false,
+        order: 0,
+    });
+
+    it('accepts a write-in on a combobox (CVM-4 AC 1)', async () => {
+        stepRepo.findBySectionIds.mockResolvedValue([
+            choiceStep({ display: 'combobox', allowMultiple: false }),
+        ]);
+
+        await writer.bulkSaveValues('run-1', [
+            { stepId: 'choice-step', value: 'a-write-in' },
+        ], 'wf-1');
+
+        expect(valueRepo.upsertMany).toHaveBeenCalledWith([
+            { runId: 'run-1', stepId: 'choice-step', value: 'a-write-in' },
+        ]);
+    });
+
+    it('accepts a write-in on a legacy dropdown + searchable config (CVM-4 AC 2)', async () => {
+        // No `display: 'combobox'` here. This only passes if the exemption is
+        // resolved through resolveChoiceDisplay rather than read off config.display.
+        stepRepo.findBySectionIds.mockResolvedValue([
+            choiceStep({ display: 'dropdown', searchable: true, allowMultiple: false }),
+        ]);
+
+        await writer.bulkSaveValues('run-1', [
+            { stepId: 'choice-step', value: 'a-write-in' },
+        ], 'wf-1');
+
+        expect(valueRepo.upsertMany).toHaveBeenCalledWith([
+            { runId: 'run-1', stepId: 'choice-step', value: 'a-write-in' },
+        ]);
+    });
+
+    it('still rejects an unlisted value on a radio step (CVM-4 AC 3)', async () => {
+        stepRepo.findBySectionIds.mockResolvedValue([
+            choiceStep({ display: 'radio', allowMultiple: false }),
+        ]);
+
+        await expect(
+            writer.bulkSaveValues('run-1', [
+                { stepId: 'choice-step', value: 'a-write-in' },
+            ], 'wf-1')
+        ).rejects.toThrow(/Invalid step values/);
+
+        expect(valueRepo.upsertMany).not.toHaveBeenCalled();
+    });
+
+    it('still rejects an unlisted value on a plain dropdown (CVM-4 AC 3)', async () => {
+        // searchable is absent, so this is NOT a combobox and the exemption
+        // must not leak to it.
+        stepRepo.findBySectionIds.mockResolvedValue([
+            choiceStep({ display: 'dropdown', allowMultiple: false }),
+        ]);
+
+        await expect(
+            writer.bulkSaveValues('run-1', [
+                { stepId: 'choice-step', value: 'a-write-in' },
+            ], 'wf-1')
+        ).rejects.toThrow(/Invalid step values/);
+    });
+
+    it('still accepts a listed value on a combobox (CVM-4)', async () => {
+        stepRepo.findBySectionIds.mockResolvedValue([
+            choiceStep({ display: 'combobox', allowMultiple: false }),
+        ]);
+
+        await writer.bulkSaveValues('run-1', [
+            { stepId: 'choice-step', value: 'apple' },
+        ], 'wf-1');
+
+        expect(valueRepo.upsertMany).toHaveBeenCalledWith([
+            { runId: 'run-1', stepId: 'choice-step', value: 'apple' },
+        ]);
+    });
 });
