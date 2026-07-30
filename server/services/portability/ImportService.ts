@@ -17,6 +17,7 @@ import { remapJsonIds } from '../../utils/remapJsonIds';
 import { storageProvider } from '../storage';
 import { storageQuotaService } from '../StorageQuotaService';
 import { virusScanner } from '../security/VirusScanner';
+import { logger } from '../../logger';
 
 export type TargetOwner = {
   ownerType: 'user' | 'org';
@@ -857,6 +858,28 @@ export class ImportService {
     return newRootId;
   }
 
+  private async allocateIds(reader: BundleReader, idMap: Map<string, string>): Promise<Set<string>> {
+    const bundleProjectIds = new Set<string>();
+    for (const desc of ENTITY_GRAPH) {
+      if (this.shouldSkipEntity(desc)) {continue;}
+      const schemaObj = this.getZodSchema(desc);
+      const stream = reader.readEntityStream(desc.name);
+      for await (const rawRow of stream) {
+         const parsed = schemaObj.safeParse(rawRow);
+         if (parsed.success) {
+           const data = parsed.data as Record<string, unknown>;
+           if (typeof data['id'] === 'string') {
+             idMap.set(data['id'], randomUUID());
+           }
+           if (desc.name === 'workflows' && typeof data['projectId'] === 'string') {
+             bundleProjectIds.add(data['projectId']);
+           }
+         }
+      }
+    }
+    return bundleProjectIds;
+  }
+
   async apply(buffer: Buffer, userId: string, options: ImportApplyOptions = {}): Promise<ImportApplyResult> {
     const targetOwner = await this.resolveTargetOwner(userId, options);
 
@@ -879,64 +902,61 @@ export class ImportService {
       // gate must reject the import before any row is created.
       const blobMap = await this.restoreBlobs(reader, targetOwner.tenantId, warnings);
 
-      // Pass 1: Allocate new UUIDs for every row across all entities
-      // This allows forward references (like currentVersionId) to be remapped
-      // correctly during insertion in Pass 2.
-      const bundleProjectIds = new Set<string>();
-      for (const desc of ENTITY_GRAPH) {
-        if (this.shouldSkipEntity(desc)) {continue;}
-        const schemaObj = this.getZodSchema(desc);
-        const stream = reader.readEntityStream(desc.name);
-        for await (const rawRow of stream) {
-           const parsed = schemaObj.safeParse(rawRow);
-           if (parsed.success) {
-             const data = parsed.data as Record<string, unknown>;
-             if (typeof data['id'] === 'string') {
-               idMap.set(data['id'], randomUUID());
-             }
-             if (desc.name === 'workflows' && typeof data['projectId'] === 'string') {
-               bundleProjectIds.add(data['projectId']);
-             }
-           }
-        }
-      }
+      try {
+        // Pass 1: Allocate new UUIDs for every row across all entities
+        // This allows forward references (like currentVersionId) to be remapped
+        // correctly during insertion in Pass 2.
+        const bundleProjectIds = await this.allocateIds(reader, idMap);
 
-      const projectIdOverride = await this.resolveProjectIdOverride({
-        bundleProjectIds, idMap, userId, targetOwner, options, adjustments
-      });
+        const projectIdOverride = await this.resolveProjectIdOverride({
+          bundleProjectIds, idMap, userId, targetOwner, options, adjustments
+        });
 
-      // Pass 2: Remap foreign keys and insert rows
-      await db.transaction(async (tx: DbTransaction) => {
-        for (const desc of ENTITY_GRAPH) {
-          if (this.shouldSkipEntity(desc)) {continue;}
-          
-          const rootId = await this.processEntityInsertion({
-            tx,
-            desc,
-            reader: reader as BundleReader,
-            targetOwner,
-            userId,
-            idMap,
-            rootIds,
-            blobMap,
-            projectIdOverride,
-            warnings
-          });
-          if (rootId) {
-            newRootId = rootId;
+        // Pass 2: Remap foreign keys and insert rows
+        await db.transaction(async (tx: DbTransaction) => {
+          for (const desc of ENTITY_GRAPH) {
+            if (this.shouldSkipEntity(desc)) {continue;}
+            
+            const rootId = await this.processEntityInsertion({
+              tx,
+              desc,
+              reader: reader as BundleReader,
+              targetOwner,
+              userId,
+              idMap,
+              rootIds,
+              blobMap,
+              projectIdOverride,
+              warnings
+            });
+            if (rootId) {
+              newRootId = rootId;
+            }
+          }
+        });
+
+        return {
+          rootId: newRootId,
+          scope: manifest.scope,
+          tenantId: targetOwner.tenantId,
+          entityCounts: manifest.entityCounts,
+          warnings,
+          blobsRestored: new Set(blobMap.values()).size,
+          adjustments
+        };
+      } catch (error) {
+        if (blobMap.size > 0) {
+          const writtenRefs = new Set(blobMap.values());
+          for (const ref of writtenRefs) {
+            try {
+              await storageProvider.deleteFile(ref);
+            } catch (deleteError) {
+              logger.warn({ error: deleteError, fileRef: ref }, 'Failed to clean up blob after import failure');
+            }
           }
         }
-      });
-
-      return {
-        rootId: newRootId,
-        scope: manifest.scope,
-        tenantId: targetOwner.tenantId,
-        entityCounts: manifest.entityCounts,
-        warnings,
-        blobsRestored: new Set(blobMap.values()).size,
-        adjustments
-      };
+        throw error;
+      }
     } finally {
       reader?.close();
       try {

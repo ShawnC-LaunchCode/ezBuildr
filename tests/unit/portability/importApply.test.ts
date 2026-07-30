@@ -2,6 +2,8 @@ import { it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { describeWithDb } from '../../helpers/dbTestHelper';
 import { importService } from '../../../server/services/portability/ImportService';
 import { exportService } from '../../../server/services/portability/ExportService';
+import { storageProvider } from '../../../server/services/storage';
+import { logger } from '../../../server/logger';
 import { TestFactory } from '../../helpers/testFactory';
 import AdmZip from 'adm-zip';
 import { randomUUID } from 'crypto';
@@ -508,11 +510,26 @@ describeWithDb('ImportService - apply', () => {
     expect(accesses.length).toBe(0);
   });
 
-  it('rolls back on forced failure mid-import (AC 6)', async () => {
+  it('rolls back on forced failure mid-import and cleans up written blobs (AC 1, AC 2)', async () => {
+    // Inject a template into the project and re-export so we have a blob
+    await tf.createTemplate(project.id, user.id, { name: 'Rollback Blob Temp', fileRef: 'src/blob.bin' });
+    vi.spyOn(storageProvider, 'exists').mockResolvedValue(true);
+    vi.spyOn(storageProvider, 'getFile').mockResolvedValue(Buffer.from('test data'));
+    vi.spyOn(storageProvider, 'getMetadata').mockResolvedValue({ contentType: 'application/octet-stream' } as any);
+    
+    let savedRef = '';
+    vi.spyOn(storageProvider, 'saveFile').mockImplementation(async () => {
+      savedRef = `imported/${randomUUID()}`;
+      return savedRef;
+    });
+    const deleteSpy = vi.spyOn(storageProvider, 'deleteFile').mockResolvedValue();
+
+    const bundleBuffer = await exportService.export({ scope: 'project', id: project.id }, user.id);
+
     const beforeProjects = await db.select().from(projects);
     const beforeWorkflows = await db.select().from(workflows);
 
-    const zip = new AdmZip(projectBundle);
+    const zip = new AdmZip(bundleBuffer);
     const workflowsEntry = zip.getEntry('entities/workflows.jsonl');
     const lines = workflowsEntry!.getData().toString('utf8').split('\n').filter(Boolean);
     const wfRow = JSON.parse(lines[0]);
@@ -526,13 +543,73 @@ describeWithDb('ImportService - apply', () => {
     recomputeChecksum(zip, manifest);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
 
-    await expect(importService.apply(zip.toBuffer(), user.id)).rejects.toThrow();
+    // AC 2: original error is propagated unchanged
+    await expect(importService.apply(zip.toBuffer(), user.id)).rejects.toThrow(/Validation failed in workflows:[\s\S]*isPublic/);
+
+    // AC 1: every blob written by this call is gone
+    expect(savedRef).not.toBe('');
+    expect(deleteSpy).toHaveBeenCalledWith(savedRef);
 
     const afterProjects = await db.select().from(projects);
     const afterWorkflows = await db.select().from(workflows);
 
     expect(afterProjects.length).toBe(beforeProjects.length);
     expect(afterWorkflows.length).toBe(beforeWorkflows.length);
+  });
+
+  it('leaves blobs in place on successful import (AC 3)', async () => {
+    await tf.createTemplate(project.id, user.id, { name: 'Success Blob Temp', fileRef: 'src/blob2.bin' });
+    vi.spyOn(storageProvider, 'exists').mockResolvedValue(true);
+    vi.spyOn(storageProvider, 'getFile').mockResolvedValue(Buffer.from('test data 2'));
+    vi.spyOn(storageProvider, 'getMetadata').mockResolvedValue({ contentType: 'application/octet-stream' } as any);
+    vi.spyOn(storageProvider, 'saveFile').mockResolvedValue(`imported/success-blob.bin`);
+    const deleteSpy = vi.spyOn(storageProvider, 'deleteFile').mockResolvedValue();
+
+    const bundleBuffer = await exportService.export({ scope: 'project', id: project.id }, user.id);
+    await importService.apply(bundleBuffer, user.id);
+
+    expect(deleteSpy).not.toHaveBeenCalled();
+  });
+
+  it('surfaces original error and logs warning when cleanup fails (AC 4)', async () => {
+    await tf.createTemplate(project.id, user.id, { name: 'Fail Cleanup Temp', fileRef: 'src/blob3.bin' });
+    vi.spyOn(storageProvider, 'exists').mockResolvedValue(true);
+    vi.spyOn(storageProvider, 'getFile').mockResolvedValue(Buffer.from('test data 3'));
+    vi.spyOn(storageProvider, 'getMetadata').mockResolvedValue({ contentType: 'application/octet-stream' } as any);
+    vi.spyOn(storageProvider, 'saveFile').mockResolvedValue(`imported/fail-blob.bin`);
+    
+    const deleteSpy = vi.spyOn(storageProvider, 'deleteFile').mockRejectedValue(new Error('Cleanup exploded'));
+    // A silent cleanup failure is the whole hazard this ticket is about: the
+    // blob stays in storage and nothing anywhere records that it leaked.
+    const warnSpy = vi.spyOn(logger, 'warn');
+
+    const bundleBuffer = await exportService.export({ scope: 'project', id: project.id }, user.id);
+
+    const zip = new AdmZip(bundleBuffer);
+    const workflowsEntry = zip.getEntry('entities/workflows.jsonl');
+    const lines = workflowsEntry!.getData().toString('utf8').split('\n').filter(Boolean);
+    const wfRow = JSON.parse(lines[0]);
+    wfRow.isPublic = "not_a_boolean"; 
+    lines[0] = JSON.stringify(wfRow);
+    zip.updateFile('entities/workflows.jsonl', Buffer.from(`${lines.join('\n')}\n`));
+    
+    const manifestEntry = zip.getEntry('manifest.json');
+    const manifest = JSON.parse(manifestEntry!.getData().toString('utf8'));
+    recomputeChecksum(zip, manifest);
+    zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
+
+    // Must still throw the original validation error, not the cleanup error
+    await expect(importService.apply(zip.toBuffer(), user.id)).rejects.toThrow(/Validation failed in workflows:[\s\S]*isPublic/);
+    
+    // The cleanup attempt MUST have happened
+    expect(deleteSpy).toHaveBeenCalledWith('imported/fail-blob.bin');
+
+    // ...and its failure must be recorded rather than swallowed, naming the ref
+    // so the leaked object can actually be found and reclaimed.
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ fileRef: 'imported/fail-blob.bin' }),
+      expect.stringContaining('clean up')
+    );
   });
 
   it('suffixes collisions in alias and slugs (AC 7)', async () => {
