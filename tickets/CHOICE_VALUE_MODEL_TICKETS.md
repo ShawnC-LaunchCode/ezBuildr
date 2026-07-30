@@ -423,3 +423,107 @@ defect to fix, in CVM-1:
 Re-read each ticket's acceptance criteria one at a time and point at the test
 that satisfies it. Where a criterion names a behaviour, assert the behaviour —
 not that a function was called.
+
+---
+
+## Review pass 2 — 2026-07-30 (resubmission)
+
+**Reported as: lint clean, type-check 0 errors, `test:fast` passing with the
+new UI test, `unit-db` unverifiable due to a local Postgres auth failure.**
+
+**Actual, run by the reviewer against a working database:** 7 of 8 new tests
+failed, type-check had 3 errors, and lint had 47.
+
+The unit-db excuse does not hold. One failure was
+`Cannot find module '../../../server/db/schema'` — a module that does not
+exist, in a `require()` inside an ESM test. That fails with or without a
+database. So does the type-check. So does lint. **Three of the four gates
+needed no Postgres at all.**
+
+### What the never-run tests actually found
+
+The tests were right and the implementation was wrong — which is the whole
+point of running them.
+
+**A real deadlock in CVM-2's implementation.** `maybeRegenerateAlias` takes no
+`tx` but calls `generateUniqueAlias`, which queries **the pool from inside the
+open transaction**. It short-circuits when `data.title === undefined`, which is
+why the three config-only tests passed. The forced-failure test passes a
+`title`, so it queried the pool while the transaction held the only connection
+in the size-1 test pool: deadlock, 30 s test timeout, connection never
+released, and the *next* test's hook then hung for 300 s. Same class as the
+`SystemStatsRepository` deadlock. `validateAliasUniqueness` and
+`resolveCrossSectionOrder` had the same defect, both waved through with a
+comment ("Using non-tx read for max order is ok" — it is not).
+
+### Reviewer fixes applied, in the worktree, uncommitted
+
+These are the parts the dev could not have verified without a database. They
+are already in `.claude/worktrees/cvm-tickets` — build on them, do not redo:
+
+1. `tests/unit/client/StaticOptionsEditor.test.tsx` — added
+   `// @vitest-environment jsdom` (line 1). All three tests failed with
+   `document is not defined`; the sibling `useChoiceOptions.test.tsx` carries
+   the same header. **`unit-fast` runs `environment: "node"`; a component test
+   must declare jsdom.**
+2. `server/services/StepService.ts` — threaded `tx` through
+   `getWorkflowAliases`, `generateUniqueAlias`, `maybeRegenerateAlias`,
+   `validateAliasUniqueness` and `resolveCrossSectionOrder`, plus their three
+   call sites inside `updateStep`'s transaction. This is the deadlock fix.
+3. `tests/unit/scripts/migrateOptionAliases.db.test.ts` — replaced two
+   `require()` calls with real imports, removed a hardcoded non-UUID
+   `id: 'rule_1'` (Postgres `22P02`; the column defaults to
+   `gen_random_uuid()`), and corrected `result2.migratedOptions` to
+   `skippedOptions` — `run()` returns
+   `{ migratedSteps, skippedOptions, totalWarnings }` and never had a
+   `migratedOptions`.
+
+`unit-db` is now **11 files / 107 tests, all passing** (102 baseline + 5 new),
+and every new test is mutation-verified: disabling the propagation fails two
+CVM-2 tests, disabling `opt.alias = label` fails two CVM-3 tests, and disabling
+the label→alias link fails two CVM-1 tests.
+
+### What comes back to the dev — hygiene only, no database required
+
+**47 lint errors and 3 type errors**, all in the changed files:
+
+| Errors | File |
+|---|---|
+| 33 | `server/services/StepService.ts` |
+| 9 | `tests/unit/services/StepService.db.test.ts` |
+| 5 | `scripts/migrateOptionAliases.ts` |
+| 3 (tsc) | `tests/unit/client/StaticOptionsEditor.test.tsx` — `value` is not a property of `ChoiceOption` |
+
+Rule spread: `no-unused-vars` ×10, `curly` ×9, `no-unsafe-member-access` ×8,
+`no-explicit-any` ×8, `no-unsafe-assignment` ×7, `import/no-duplicates` ×4,
+`no-unsafe-argument` ×4, `prefer-const` ×2. About 13 are `--fix`-able.
+
+**Do not add suppressions** — `npm run lint` fails on unused directives since
+DEBT-1, and the turn-in rule is to refactor until clean.
+
+### The rule this establishes
+
+**The reviewer fixes what the dev cannot verify. The dev fixes what they can.**
+Lint and type-check need no database, no browser and no credentials. A turn-in
+reporting them clean when they are not is the one failure mode that no
+environment excuse covers.
+
+Before reporting done, paste the actual output of:
+
+```
+npm run type-check
+npm run lint
+npm run test:fast
+npx vitest run --project unit-db      # requires TEST_DATABASE_URL
+```
+
+`tsc --pretty` emits ANSI, so `grep "error TS"` finds nothing on a failing
+tree — read it raw or grep `-E "Found [0-9]+ error"`. And a `$?` after a pipe
+reads the last command in the pipe, not the gate.
+
+### CVM-1 AC 6 — screenshots, explicitly deferred not skipped
+
+Neither the dev nor the reviewer has browser access this session, so the
+light/dark screenshots cannot be produced. **This is a documented deferral
+requiring Shawn's eyes**, not a met criterion. The implementation and its
+behaviour are verified by test; the visual result is not.
