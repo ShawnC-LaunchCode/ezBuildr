@@ -12,7 +12,8 @@
  * Display modes:
  * - radio: Radio buttons (single choice)
  * - dropdown: Select menu (single choice)
- * - multiple: Checkboxes (multi-select)
+ * - combobox: Searchable menu that also accepts an unlisted answer (single)
+ * - multiple: Checkboxes (multi-select) — the only multi-select presentation
  *
  * Option Sources:
  * - Static: Predefined options
@@ -39,7 +40,7 @@ import {
 } from "@/components/ui/select";
 import type { Step } from "@/types";
 
-import { SearchableDropdown } from "./choice/SearchableDropdown";
+import { CreatableCombobox } from "./choice/CreatableCombobox";
 import { useChoiceOptions } from "./choice/useChoiceOptions";
 
 import type { ChoiceOption } from "@shared/types/stepConfigs";
@@ -110,29 +111,25 @@ function renderRadioChoices({ step, options, value, onChange, readOnly, a11y }: 
   );
 }
 
-function renderDropdownChoice(
-  props: ChoiceRenderProps & { isSearchable: boolean }
-) {
-  const { step, options, value, onChange, readOnly, a11y, isSearchable } = props;
+function renderComboboxChoice({ options, value, onChange, readOnly, a11y }: ChoiceRenderProps) {
+  return (
+    <CreatableCombobox
+      options={options}
+      value={toSingleValue(value)}
+      onChange={(val) => {
+        if (!readOnly) {
+          onChange(val);
+        }
+      }}
+      disabled={readOnly}
+      ariaDescribedBy={a11y.describedBy}
+      ariaRequired={a11y.required}
+      ariaInvalid={a11y.invalid}
+    />
+  );
+}
 
-  if (isSearchable) {
-    return (
-      <SearchableDropdown
-        options={options}
-        value={toSingleValue(value)}
-        onChange={(val) => {
-          if (!readOnly) {
-            onChange(val);
-          }
-        }}
-        disabled={readOnly}
-        ariaDescribedBy={a11y.describedBy}
-        ariaRequired={a11y.required}
-        ariaInvalid={a11y.invalid}
-      />
-    );
-  }
-
+function renderDropdownChoice({ step, options, value, onChange, readOnly, a11y }: ChoiceRenderProps) {
   return (
     <Select
       value={toSingleValue(value)}
@@ -212,8 +209,7 @@ export function ChoiceBlockRenderer({
     loading,
     error,
     displayMode,
-    allowMultiple,
-    isSearchable
+    allowMultiple
   } = useChoiceOptions(step, context);
 
   const currentValue = value ?? (allowMultiple ? [] : "");
@@ -253,7 +249,14 @@ export function ChoiceBlockRenderer({
   // Render: Dropdown (Select)
   // -------------------------------------------------------------------------
   if (displayMode === "dropdown" && !allowMultiple) {
-    return renderDropdownChoice({ step, options, value: currentValue, onChange, readOnly, a11y, isSearchable });
+    return renderDropdownChoice({ step, options, value: currentValue, onChange, readOnly, a11y });
+  }
+
+  // -------------------------------------------------------------------------
+  // Render: Combo Box (search + enter an unlisted answer)
+  // -------------------------------------------------------------------------
+  if (displayMode === "combobox" && !allowMultiple) {
+    return renderComboboxChoice({ step, options, value: currentValue, onChange, readOnly, a11y });
   }
 
   // -------------------------------------------------------------------------

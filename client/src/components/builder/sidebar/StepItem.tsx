@@ -1,9 +1,10 @@
 
-import { GripVertical, FileText, Trash2 } from "lucide-react";
+import { GripVertical, Trash2 } from "lucide-react";
 import { useState, type MouseEvent } from "react";
 
 import { ConfirmationDialog } from "@/components/shared/ConfirmationDialog";
 import { DeleteImpactDialog } from "@/components/shared/DeleteImpactDialog";
+import { QuestionTypeIcon } from "@/components/shared/QuestionTypeIcon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -76,7 +77,7 @@ export function StepItem({ step, sectionId }: StepItemProps) {
                     Req
                 </Badge>
             )}
-            <FileText className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
+            <QuestionTypeIcon type={step.type} size="sm" className="mt-px" />
             {/* Question title and alias stacked */}
             <div className="flex-1 min-w-0">
                 <div className="truncate text-xs leading-tight">{step.title || "(Untitled)"}</div>

@@ -297,10 +297,20 @@ export type DynamicOptionsConfig =
 
 /**
  * Choice Config (Advanced Mode)
- * Unified choice block (radio/dropdown/multiple)
+ * Unified choice block (radio/dropdown/combobox/multiple)
  */
 export interface ChoiceAdvancedConfig {
-  display: 'radio' | 'dropdown' | 'multiple';
+  /**
+   * How the choices are presented.
+   *
+   * Single-select: 'radio' | 'dropdown' | 'combobox'.
+   * Multi-select:  'multiple', which always renders as checkboxes.
+   *
+   * 'combobox' is a searchable dropdown that also accepts an answer the
+   * author never listed. It replaces the old `display: 'dropdown'` +
+   * `searchable: true` pairing — see `searchable` below.
+   */
+  display: 'radio' | 'dropdown' | 'combobox' | 'multiple';
   allowMultiple: boolean;  // Enable multi-select
   options: ChoiceOption[] | DynamicOptionsConfig;  // Static options or DynamicConfig (Legacy)
   dynamicOptions?: DynamicOptionsConfig; // Explicit dynamic options configuration
@@ -308,7 +318,15 @@ export interface ChoiceAdvancedConfig {
   max?: number;            // Maximum selections (for multiple)
   allowOther?: boolean;    // Allow "Other" option with text input
   otherLabel?: string;     // Label for "Other" option
-  searchable?: boolean;    // Enable search for dropdown (many options)
+  /**
+   * @deprecated Use `display: 'combobox'`.
+   *
+   * Still read when loading older configs so a saved dropdown+searchable
+   * question keeps its search box: both the builder and the runner normalise
+   * that pair to 'combobox' via `resolveChoiceDisplay`. Never written by new
+   * saves. Do not delete without a data migration.
+   */
+  searchable?: boolean;
   randomizeOrder?: boolean;  // Randomize option order
 
   /**
@@ -321,6 +339,35 @@ export interface ChoiceAdvancedConfig {
     labelColumnId: string; // Column ID to use for label (display text)
     valueColumnId: string; // Column ID to use for value (stored data)
   };
+}
+
+/** Presentation a choice question resolves to. */
+export type ChoiceDisplay = 'radio' | 'dropdown' | 'combobox' | 'multiple';
+
+/**
+ * Normalise a stored choice config to the display it should actually render.
+ *
+ * The builder and the runner both call this so they can never disagree about
+ * what a saved question looks like. It absorbs two pieces of history:
+ *
+ *  - `searchable: true` on a dropdown used to mean "searchable dropdown";
+ *    that is now simply 'combobox'.
+ *  - Multi-select was expressed three different ways (`display: 'multiple'`,
+ *    `allowMultiple: true`, or the legacy `multiple_choice` step type). Any
+ *    of them wins over `display`, because a multi-select always renders as
+ *    checkboxes.
+ */
+export function resolveChoiceDisplay(
+  config: Pick<ChoiceAdvancedConfig, 'display' | 'allowMultiple' | 'searchable'> | undefined | null,
+  stepType?: string,
+): ChoiceDisplay {
+  if (stepType === 'multiple_choice') { return 'multiple'; }
+  if (config?.allowMultiple === true || config?.display === 'multiple') { return 'multiple'; }
+  if (config?.display === 'combobox') { return 'combobox'; }
+  if (config?.display === 'dropdown') {
+    return config.searchable === true ? 'combobox' : 'dropdown';
+  }
+  return 'radio';
 }
 
 /**
@@ -769,7 +816,6 @@ export interface AddressValue {
  * Stored in stepValues for multi-field blocks
  */
 export interface MultiFieldValue {
-
   [key: string]: string | number | boolean | null | string[];
 }
 

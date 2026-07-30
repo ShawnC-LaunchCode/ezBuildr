@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import { generateOptionsFromList } from "@/lib/choice-utils";
 import { Step } from "@/types";
 
-import { ChoiceOption, ChoiceAdvancedConfig, DynamicOptionsConfig } from "@shared/types/stepConfigs";
+import { resolveChoiceDisplay } from "@shared/types/stepConfigs";
+
+import type { ChoiceOption, ChoiceAdvancedConfig, ChoiceDisplay, DynamicOptionsConfig } from "@shared/types/stepConfigs";
 
 // Interfaces for Legacy Options
 interface LegacyOption {
@@ -29,9 +31,8 @@ interface UseChoiceOptionsResult {
     options: ChoiceOption[];
     loading: boolean;
     error: string | null;
-    displayMode: "radio" | "dropdown" | "multiple";
+    displayMode: ChoiceDisplay;
     allowMultiple: boolean;
-    isSearchable: boolean;
 }
 
 /** True for strings with at least one non-whitespace character. */
@@ -87,20 +88,14 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    let displayMode: "radio" | "dropdown" | "multiple" = "radio";
-    let allowMultiple = false;
-    let isSearchable = false;
-
-    // Get display mode from config
-    if (step.type === "choice") {
-        const config = step.config as ChoiceAdvancedConfig;
-        displayMode = config?.display ?? "radio";
-        allowMultiple = config?.allowMultiple ?? false;
-        isSearchable = config?.searchable ?? false;
-    } else if (step.type === "multiple_choice") {
-        displayMode = "multiple";
-        allowMultiple = true;
-    }
+    // Shared with the builder so a saved question can't render one way in the
+    // editor and another in the run: it also folds the legacy
+    // dropdown + searchable pair into 'combobox'.
+    const displayMode = resolveChoiceDisplay(
+        step.type === "choice" ? (step.config as ChoiceAdvancedConfig | undefined) : undefined,
+        step.type
+    );
+    const allowMultiple = displayMode === "multiple";
 
     // Option resolution only ever reads one thing off `context`: the source
     // list for a `type: 'list'` dynamic config (table_column/static/legacy
@@ -259,7 +254,6 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
         // read; list-backed options still refresh when it changes. We also
         // exclude `options` itself to avoid an infinite loop when a resolver
         // returns [].
-
     }, [step, listVariableValue]);
 
     return {
@@ -267,7 +261,6 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
         loading,
         error,
         displayMode,
-        allowMultiple,
-        isSearchable
+        allowMultiple
     };
 }
