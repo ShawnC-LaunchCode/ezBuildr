@@ -342,7 +342,8 @@ describe("StepService", () => {
       // The step had no custom alias, so the label change also fills the alias
       expect(mockStepRepo.update).toHaveBeenCalledWith(
         step.id,
-        expect.objectContaining({ title: "Updated Title", alias: "updatedTitle" })
+        expect.objectContaining({ title: "Updated Title", alias: "updatedTitle" }),
+        expect.anything()
       );
     });
 
@@ -612,7 +613,8 @@ describe("StepService", () => {
 
       expect(mockStepRepo.update).toHaveBeenCalledWith(
         step.id,
-        expect.objectContaining({ alias: "whatIsYourEmail" })
+        expect.objectContaining({ alias: "whatIsYourEmail" }),
+        expect.anything()
       );
     });
 
@@ -628,7 +630,8 @@ describe("StepService", () => {
 
       expect(mockStepRepo.update).toHaveBeenCalledWith(
         step.id,
-        expect.objectContaining({ alias: "companyName" })
+        expect.objectContaining({ alias: "companyName" }),
+        expect.anything()
       );
     });
 
@@ -676,7 +679,8 @@ describe("StepService", () => {
 
       expect(mockStepRepo.update).toHaveBeenCalledWith(
         step.id,
-        expect.objectContaining({ sectionId: destSection.id, order: 3 })
+        expect.objectContaining({ sectionId: destSection.id, order: 3 }),
+        expect.anything()
       );
     });
 
@@ -692,7 +696,8 @@ describe("StepService", () => {
 
       expect(mockStepRepo.update).toHaveBeenCalledWith(
         step.id,
-        expect.objectContaining({ sectionId: destSection.id, order: 5 })
+        expect.objectContaining({ sectionId: destSection.id, order: 5 }),
+        expect.anything()
       );
     });
   });

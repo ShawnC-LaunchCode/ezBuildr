@@ -19,6 +19,8 @@ const dbUnitTests = [
   "tests/unit/portability/importPreview.test.ts",
   "tests/unit/portability/importApply.test.ts",
   "tests/unit/portability/importBlobs.test.ts",
+  "tests/unit/services/StepService.db.test.ts",
+  "tests/unit/scripts/migrateOptionAliases.db.test.ts",
 ];
 
 // Integration tests excluded from the default run (require special setup)
