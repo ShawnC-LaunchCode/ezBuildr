@@ -521,9 +521,9 @@ npx vitest run --project unit-db      # requires TEST_DATABASE_URL
 tree — read it raw or grep `-E "Found [0-9]+ error"`. And a `$?` after a pipe
 reads the last command in the pipe, not the gate.
 
-### CVM-1 AC 6 — screenshots, explicitly deferred not skipped
+### CVM-1 AC 6 — screenshots: MET 2026-07-30
 
-Neither the dev nor the reviewer has browser access this session, so the
-light/dark screenshots cannot be produced. **This is a documented deferral
-requiring Shawn's eyes**, not a met criterion. The implementation and its
-behaviour are verified by test; the visual result is not.
+Captured by a computer-use agent against the `cvm-tickets` worktree (linked and
+overridden states, light and dark, desktop width) and reviewed by Shawn, who
+confirmed them good. **AC 6 is satisfied.** CVM-1 is therefore complete on every
+criterion; only the shared lint/type cleanup below still blocks its commit.
