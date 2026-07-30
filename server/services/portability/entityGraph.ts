@@ -52,7 +52,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     name: 'workflows',
     scopes: ["project","workflow"],
     parent: {"name":"projects","fk":"projectId"},
-    fields: ["id","title","name","description","creatorId","ownerId","modeOverride","publicLink","projectId","currentVersionId","isPublic","slug","requireLogin","intakeConfig","pinnedVersionId","status","ownerType","ownerUuid","sourceBlueprintId"],
+    fields: ["id","title","name","description","creatorId","ownerId","modeOverride","publicLink","projectId","currentVersionId","isPublic","slug","requireLogin","intakeConfig","settings","pinnedVersionId","status","ownerType","ownerUuid","sourceBlueprintId"],
     refs: ["projectId", "currentVersionId", "pinnedVersionId", "sourceBlueprintId"],
     jsonRefs: ["intakeConfig"],
   },

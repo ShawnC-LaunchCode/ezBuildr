@@ -441,6 +441,7 @@ export class WorkflowClonerService {
         slug: null,
         requireLogin: sourceWorkflow.requireLogin,
         intakeConfig: sourceWorkflow.intakeConfig,
+        settings: sourceWorkflow.settings,
         pinnedVersionId: null,
         status: "draft",
         ownerType: options.targetOwner.ownerType,
