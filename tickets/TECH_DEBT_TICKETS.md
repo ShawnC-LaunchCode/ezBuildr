@@ -329,7 +329,46 @@ fixed `setTimeout`.
 
 ---
 
-## DEBT-6 — Two parallel file subsystems 🔲
+## DEBT-6 — Two parallel file subsystems ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-31 — `058530b0`.** Gates re-run by the
+> reviewer on a dedicated database: type-check 0 · lint 0 ·
+> `check:strict-zones` passed · `test:fast` **155 files / 2053 tests** ·
+> portability `unit-db` **7 files / 71 tests** · portability integration
+> **3 / 24**.
+>
+> **The dev's headline claim was true and I verified it independently: no
+> migration accompanies this, and that is correct rather than an omission.**
+> `files` and `file_context` appear in **no migration at all**, so Drizzle never
+> tracked the table and `db:generate` genuinely has nothing to emit. The table
+> only ever existed in dev databases built with `db:push`; anything built from
+> migrations — including production — never had it. AC 2's "with a migration"
+> was unsatisfiable as written.
+>
+> ### Two reviewer interventions
+>
+> 1. **Their base was stale and `entityGraph.ts` overlapped with IEX2-14** —
+>    exactly the hazard the ticket warned about. Their `git merge main --ff-only`
+>    reported "Already up to date", which was true when they ran it and false by
+>    hand-in; main had since gained IEX2-14. **Staging their file as-is would
+>    have silently deleted IEX2-14's `scanPaths` with no conflict.** Rebased
+>    instead, then verified both changes survived: `scanPaths` intact at
+>    `:66`/`:76`/`:96`, `files` gone from `EXCLUDED_TABLES`.
+> 2. **They left an untracked `migrations/meta/0006_snapshot.json`** from the
+>    `db:generate` run. The journal has 6 entries (0000–0005), so that snapshot
+>    is an orphan — and a stray snapshot is what corrupts the *next*
+>    `db:generate`. Removed. Note `intake-removal` is concurrently authoring a
+>    real `0006`, which is why this mattered.
+>
+> **AC 3 verified rather than assumed:** `schemaCoverage.test.ts:103-112`
+> actively asserts `EXCLUDED_TABLES` never names a table that no longer exists,
+> so leaving that entry in would have failed the suite. Real coverage, which the
+> turn-in never mentioned. Also confirmed `shared/schema/files.ts` held only
+> files-related exports, so deleting it wholesale was right.
+>
+> **Filed separately, deliberately not bundled:** `files.routes.ts:33` serves
+> generated documents from the raw container filesystem, which is ephemeral on
+> Railway. That is a live durability question, not dead-code cleanup.
 
 **Priority: P2** · Size: **M** (was L) · Files:
 `server/services/FileStorageService.ts`, `shared/schema/files.ts`,
