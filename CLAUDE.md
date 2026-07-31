@@ -54,8 +54,7 @@ ezBuildr/
 │   ├── routes/              # API handlers (63 *.routes.ts incl. ai/, datavault/)
 │   ├── services/            # Business logic (~185 files incl. subdirs)
 │   ├── repositories/        # Data access (BaseRepository pattern, ~41 files)
-│   ├── middleware/          # hybridAuth, tenant, requireUser, error handling
-│   └── di/                  # DI container (only partially adopted — prefer singletons)
+│   └── middleware/          # hybridAuth, tenant, requireUser, error handling
 ├── shared/
 │   ├── schema/              # Drizzle schema, one file per domain (103 tables)
 │   ├── types/               # StepType, conditions, stepConfigs, ai, ...

@@ -43,7 +43,7 @@ feature work.
 | DEBT-5 | `getTemplateFilePath` hardcodes disk storage | P1 | S | ✅ `f308fde2` + `50408c33` — entry removed |
 | DEBT-6 | Two parallel file subsystems | P2 | L | 🔲 |
 | DEBT-7 | `WorkflowClonerService` silently drops `workflows.settings` | P1 | S | ✅ `23a5863e` — entry removed |
-| DEBT-8 | DI container is built but ~unused | P2 | M | 🔲 |
+| DEBT-8 | DI container is built but ~unused | P2 | M | ✅ **Decision: removed, not adopted** (2026-07-30) — `server/di/` deleted; it had zero consumers. Entry removed |
 | DEBT-9 | `type-check` is advisory in CI | P2 | S | ✅ `a0e43c9b` — entry removed |
 | DEBT-10 | 10 dependabot PRs open since 2026-07-11 | P2 | S | 🔲 |
 | DEBT-11 | RLS policies defined but not enforced (decision, not a fix) | — | — | 🔲 tracked |
@@ -222,50 +222,6 @@ a migration, and picking the wrong direction is expensive.
    implementation commit.
 2. (Post-approval criteria to be written into this ticket once the direction
    is chosen — do not implement against a guess.)
-
----
-
-## DEBT-8 — DI container is built but ~unused 🔲
-
-**Priority: P2** · Size: M · Files: `server/di/*`
-
-### Finding
-
-`server/di/` contains a full container implementation — `container.ts`,
-`registrations.ts`, `tokens.ts`, `index.ts` — and the entire server resolves
-from it in **5 places** (`grep -rn "container.resolve\|container.get" server/`).
-Everything else uses singletons. `CLAUDE.md` already concedes the state:
-*"only partially adopted — prefer singletons."*
-
-So the codebase carries a second, competing wiring mechanism that a new
-contributor must learn, understand is not the real one, and then not use.
-`tokens.ts` in particular has to be kept in sync with service types for no
-runtime benefit.
-
-### Preferred fix
-
-Pick a direction and commit to it. The cheap, honest option is **removal**:
-delete `server/di/`, convert the 5 call sites to the singletons everything else
-uses, and drop the "partially adopted" line from `CLAUDE.md`.
-
-Full adoption is the alternative but is a much larger change and should be
-argued for explicitly, not drifted into.
-
-Recommend removal unless there is a concrete plan to finish adoption.
-
-### Ties
-
-- `CLAUDE.md` "Directory Structure" and "Key Conventions" both mention it and
-  must be updated either way.
-- Load `add-api-endpoint` (service wiring conventions).
-
-### Acceptance criteria
-
-1. A decision is recorded: remove, or adopt.
-2. If removed: `server/di/` is deleted, all 5 call sites use singletons, and
-   `grep -rn "server/di" server/ client/ shared/` returns no matches.
-3. `CLAUDE.md` no longer describes a half-adopted container.
-4. Gates: type-check 0 errors, lint 0 problems, `npm run test:fast` ≥ baseline.
 
 ---
 
