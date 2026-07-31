@@ -50,7 +50,55 @@ feature work.
 | DEBT-11 | RLS policies defined but not enforced (decision, not a fix) | — | — | 🔲 tracked |
 | DEBT-13 | Legacy Final Documents casts `metadata.visibleIf` onto a mismatched type | P1? | S | 🔲 needs a prod-data check first |
 
-## DEBT-2 — Retire the 143 blanket file-level eslint-disable headers 🔲
+## DEBT-2 — Retire the 143 blanket file-level eslint-disable headers ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-31 — `ac518f1d`, 123 files.** Gates re-run
+> by the reviewer: type-check 0 · lint 0 · **`check:strict-zones` all passed** ·
+> `test:fast` **154 files / 2052 tests** (baseline 153/2047 plus 5 new).
+>
+> **AC 1** — `grep -rl "^/\* eslint-disable" server/ client/ shared/ tests/`
+> returns **0**, re-checked after fast-forwarding so main's newly added files
+> were included. No allowlist was needed.
+>
+> **AC 2** — `.eslintrc.json` is **untouched**, so nothing was relocated into
+> config. The 345 replacements are all next-line scoped, **all** carry a `--`
+> reason, and **none** lists a rule after the separator (which would silently
+> fail to disable it). Lint runs `--report-unused-disable-directives` and
+> passes, so every one of the 345 is load-bearing rather than dead.
+>
+> **AC 3 (the payoff record)** — measured by the reviewer, since the turn-in did
+> not report it: **94 of 122 files needed real code changes** beyond comment
+> moves (whitespace-ignored); only 28 were comment/whitespace only.
+>
+> ### Two regressions the turn-in's own gates could not see
+>
+> 1. **`sanitizeObject` lost array handling — live, and global.** Replacing
+>    `Array.isArray(obj) ? [] : {}` with a plain `{}` rewrote any JSON array
+>    body, and any nested array-of-arrays, into an object with numeric string
+>    keys. `sanitizeInputs` is `app.use`d in **both** `server/index.ts` and
+>    `server/production.ts`, so it sees every request. `tsc` could not catch it
+>    because the function returns through an `as T` cast, and `sanitize.ts` had
+>    **no tests at all**. Reproduced against main before and after
+>    (`isArray: true` → `false`), fixed, and covered by a new
+>    `tests/unit/utils/sanitize.test.ts` whose two shape tests are
+>    mutation-proved.
+> 2. **`getRetryAfter` failed `check:strict-zones`** — a gate `npm run
+>    type-check` does not run, which is why both the dev and the reviewer's
+>    first pass saw green. Typing `error` as `unknown` instead of `any` is
+>    precisely what exposed it: while it was `any`, `match[1]` was `any` too and
+>    the unchecked index was invisible. **This is the ticket's thesis in
+>    miniature** — the suppression was hiding real latent unsafety.
+>
+> ⚠️ **The turn-in reported `test:fast` 151/2042 "meeting baseline".** It was
+> measured on a base ~4 commits stale; baseline was already 153/2047. Per
+> [[tech-debt-register]] and the initiative notes, **a reported count that
+> undershoots the current baseline means a stale worktree, not a regression** —
+> ff first, then re-measure. After ff it was 153/2047 exactly.
+>
+> **Lesson worth keeping: `npm run type-check` is not the commit gate.**
+> `scripts/pre-commit-checks.ts` also runs `check:strict-zones`, and a strict
+> zone pulls in files transitively through imports — so a file nowhere near
+> `server/services/scripting/` can break it.
 
 **Priority: P2** · Size: L · Files: repo-wide
 
