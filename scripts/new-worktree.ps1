@@ -15,6 +15,9 @@
       submissions from a worktree in that state, having never run a test.
     - A worktree is not guaranteed to branch from current main; agents have
       been dispatched onto bases two weeks stale.
+    - Nothing defines TEST_DATABASE_URL, and tests/setup.ts falls back to port
+      5432 while the Docker test container publishes 5434 — so integration and
+      unit-db suites in a fresh worktree target a port with nothing on it.
 
   This script does all of it correctly and then PROVES it, so a dispatched dev
   never inherits a silently broken tree.
@@ -99,12 +102,52 @@ if (-not (Test-Path $target)) {
 New-Item -ItemType Junction -Path (Join-Path $worktreeDir 'node_modules') -Target $target | Out-Null
 
 # --- .env ------------------------------------------------------------------
+$envDest = Join-Path $worktreeDir '.env'
 $envSrc = Join-Path $repoRoot '.env'
 if (Test-Path $envSrc) {
-  Copy-Item $envSrc (Join-Path $worktreeDir '.env')
+  Copy-Item $envSrc $envDest
   Write-Host "==> Copied .env" -ForegroundColor Cyan
 } else {
   Write-Warning ".env not found in the main checkout — ~27 suites will fail on 'DATABASE_URL: Required'."
+}
+
+<#
+  TEST_DATABASE_URL.
+
+  tests/setup.ts deliberately ignores the inherited DATABASE_URL (which may
+  point at a shared cloud DB) and resolves the test database from
+  TEST_DATABASE_URL — falling back to port 5432 when it is unset. But the
+  Docker test container publishes 5434, and nothing in .env or .env.example
+  defines the variable, so every integration / unit-db run in a fresh worktree
+  hits the wrong port until someone exports it by hand. A dev hit exactly this
+  on DEBT-3a and had to prefix every test command for the whole ticket.
+
+  So: derive the published port from docker-compose.test.yml (rather than
+  hardcoding, so a port change here follows automatically) and write the
+  variable into the worktree's .env if it is not already set. .env is
+  gitignored, so this never reaches a commit.
+#>
+$testDbPort = '5434'
+$composeFile = Join-Path $repoRoot 'docker-compose.test.yml'
+if (Test-Path $composeFile) {
+  $portMatch = [regex]::Match((Get-Content $composeFile -Raw), '"(\d+):5432"')
+  if ($portMatch.Success) { $testDbPort = $portMatch.Groups[1].Value }
+}
+$testDbUrl = "postgresql://postgres:postgres@localhost:$testDbPort/ezbuildr_test"
+
+$existingEnv = if (Test-Path $envDest) { Get-Content $envDest -Raw } else { '' }
+if ($existingEnv -match '(?m)^\s*TEST_DATABASE_URL\s*=') {
+  Write-Host "==> TEST_DATABASE_URL already set in .env — left as-is" -ForegroundColor Cyan
+} else {
+  $block = @"
+
+# Added by scripts/new-worktree.ps1: tests/setup.ts falls back to port 5432,
+# but the docker-compose.test.yml container publishes $testDbPort. Without this,
+# integration and unit-db runs silently target the wrong port.
+TEST_DATABASE_URL=$testDbUrl
+"@
+  Add-Content -Path $envDest -Value $block
+  Write-Host "==> Set TEST_DATABASE_URL (port $testDbPort)" -ForegroundColor Cyan
 }
 
 # --- Prove it, rather than assuming ----------------------------------------
@@ -127,6 +170,16 @@ if ($base -ne $tip) {
   throw "Worktree base $base does not match $BaseBranch tip $tip."
 }
 Write-Host "  [ok] base commit matches $BaseBranch ($($base.Substring(0,8)))"
+
+# The test DB is only needed by unit-db / integration, so a worktree for a
+# unit-only ticket is still usable without it. Warn, never throw.
+$dbUp = Test-NetConnection -ComputerName 'localhost' -Port $testDbPort -InformationLevel Quiet -WarningAction SilentlyContinue
+if ($dbUp) {
+  Write-Host "  [ok] test database reachable on port $testDbPort"
+} else {
+  Write-Host "  [warn] nothing listening on port $testDbPort — unit-db and integration" -ForegroundColor Yellow
+  Write-Host "         suites will fail. Start it with: npm run test:docker:up" -ForegroundColor Yellow
+}
 
 if ($SkipVerify) {
   Write-Host "`n  [skipped] test-suite proof (-SkipVerify)" -ForegroundColor Yellow
