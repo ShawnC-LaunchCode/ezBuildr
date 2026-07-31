@@ -11,7 +11,7 @@
  */
 
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, CheckSquare } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { useState, useMemo } from "react";
 
 import { Label } from "@/components/ui/label";
@@ -522,22 +522,10 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
 
       <Separator />
 
-      {/* Display Mode
-          Multi-select has no display choice at all — it is always checkboxes.
-          Single-select picks between radio, dropdown and combobox. */}
-      <div className="space-y-3">
-        <SectionHeader
-          title="Display Mode"
-          description={isMultiSelect ? "Multi-select answers are always checkboxes" : "How choices are displayed"}
-        />
-
-        {isMultiSelect ? (
-          <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
-            <CheckSquare className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">Checkboxes</span>
-          </div>
-        ) : (
-          <>
+      {!isMultiSelect && (
+        <>
+          <div className="space-y-3">
+            <SectionHeader title="Display Mode" description="How choices are displayed" />
             <RadioGroup
               value={localConfig.display}
               onValueChange={(v) => handleDisplayChange(v as ChoiceDisplay)}
@@ -553,11 +541,11 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
             <p className="text-xs text-muted-foreground">
               {SINGLE_SELECT_DISPLAYS.find((o) => o.value === localConfig.display)?.hint}
             </p>
-          </>
-        )}
-      </div>
+          </div>
 
-      <Separator />
+          <Separator />
+        </>
+      )}
 
       {/* Options Source Toggle */}
       <Tabs value={sourceMode} onValueChange={handleSourceModeChange} className="w-full">

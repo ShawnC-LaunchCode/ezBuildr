@@ -1,4 +1,4 @@
-# Tech Debt — standing backlog (DEBT-1..10)
+# Tech Debt — standing backlog (DEBT-1..15)
 
 Standing register of known, evidenced debt in ezBuildr. Unlike an audit-driven
 initiative, this file has **no phases and no phase gates**: the items are
@@ -27,6 +27,9 @@ feature work.
   → 0 problems, `npm run test:fast` → green at ≥ baseline.
 - **Baseline at authoring time (2026-07-28, `npm run test:fast`):**
   `Test Files 146 passed | 1 skipped (147)`, `Tests 1978 passed | 15 skipped (1993)`.
+- **Current baseline (2026-07-31, `npm run test:fast` on `main`):**
+  `Test Files 156 passed | 1 skipped (157)`, `Tests 2059 passed | 14 skipped (2073)`.
+  Measure against this one — the authoring-time figure is kept only for history.
 - **Watch the tsc cache.** Fixed in `647d1465` for new trees, but if you are in
   a worktree created before that commit, `rm -f .tsbuildinfo` (and
   `node_modules/typescript/tsbuildinfo`) before believing `type-check`.
@@ -37,18 +40,20 @@ feature work.
 | Ticket | Theme | Priority | Size | Status |
 |---|---|---|---|---|
 | DEBT-1 | Drain unused eslint-disable directives | P2 | L | ✅ `4912f21f`..`0500ba6b` (8 tranches) — entry removed |
-| DEBT-2 | Retire the 143 blanket file-level eslint-disable headers | P2 | L | 🔲 |
+| DEBT-2 | Retire the 143 blanket file-level eslint-disable headers | P2 | L | ✅ `ac518f1d` |
 | DEBT-3a | Restore the two skipped `visibleIf` document-generation tests | P1 | M | ✅ verified at review 2026-07-30 — entry removed |
-| DEBT-3b | Restore the skipped collab sync test | P1 | S | 🔲 blocked-ish — see Ties |
+| DEBT-3b | Restore the skipped collab sync test | P1 | S | ✅ `8dfdee82` |
 | DEBT-4 | E-signature provider registry is never initialized | P1 | S | ✅ `9fcf05b4` — ruled dormant; entry removed |
 | DEBT-5 | `getTemplateFilePath` hardcodes disk storage | P1 | S | ✅ `f308fde2` + `50408c33` — entry removed |
-| DEBT-6 | Two parallel file subsystems | P2 | L | 🔲 |
+| DEBT-6 | Two parallel file subsystems | P2 | L | ✅ `058530b0` |
 | DEBT-7 | `WorkflowClonerService` silently drops `workflows.settings` | P1 | S | ✅ `23a5863e` — entry removed |
 | DEBT-8 | DI container is built but ~unused | P2 | M | ✅ **Decision: removed, not adopted** (2026-07-30) — `server/di/` deleted; it had zero consumers. Entry removed |
 | DEBT-9 | `type-check` is advisory in CI | P2 | S | ✅ `a0e43c9b` — entry removed |
 | DEBT-10 | 10 dependabot PRs open since 2026-07-11 | P2 | S | 🔲 |
 | DEBT-11 | RLS policies defined but not enforced (decision, not a fix) | — | — | 🔲 tracked |
-| DEBT-13 | Legacy Final Documents casts `metadata.visibleIf` onto a mismatched type | P1? | S | 🔲 needs a prod-data check first |
+| DEBT-13 | Legacy Final Documents casts `metadata.visibleIf` onto a mismatched type | P1? | S | ✅ verified at review 2026-07-31 |
+| DEBT-14 | `creation-routes.test.ts` fails 18 tests only when the whole file runs | P2 | M | 🔄 in review |
+| DEBT-15 | Generated documents are written to the ephemeral container filesystem | P1 | L | 🔲 ready to dispatch |
 
 ## DEBT-2 — Retire the 143 blanket file-level eslint-disable headers ✅
 
@@ -210,78 +215,149 @@ tranche commits at review instead. Do not repeat that criterion here.
 
 ## DEBT-15 — Generated documents are written to the ephemeral container filesystem 🔲
 
-**Priority: P1?** · Size: M · Files: `server/services/document/DocumentEngine.ts`,
-`server/services/fileService.ts`, `server/routes/finalBlock.routes.ts`,
-`server/services/TemplatePreviewService.ts`, `server/routes/files.routes.ts`
+**Priority: P1** · Size: L · Files: `server/services/document/FinalBlockRenderer.ts`,
+`server/services/document/DocumentEngine.ts`, `server/routes/finalBlock.routes.ts`,
+`server/routes/files.routes.ts`, `server/services/fileService.ts`,
+`server/services/TemplatePreviewService.ts`, `server/services/storage/*`
 
-*Spotted 2026-07-31 while scoping DEBT-6. Deliberately not bundled into it —
-that was dead-code removal, this is a live durability question.*
+*Spotted 2026-07-31 while scoping DEBT-6. Re-scoped 2026-07-31 after the
+durability question was answered — see below. Size raised S→L and the "?" on
+P1 dropped.*
 
 ### Finding
 
-**Five** call sites write generated output under
-`path.join(process.cwd(), 'server', 'files', 'outputs')`:
+Generated customer documents are written to the container's own filesystem,
+which Railway wipes on every deploy — and this project auto-deploys from
+`main`, so restarts are routine, not rare.
+
+The **durable customer path** is:
+
+1. `FinalBlockRenderer.ts:141` writes the generated document to
+   `path.join(process.cwd(), 'server', 'files', 'archives')`.
+2. `RunLifecycleService.ts:479` and `DocumentGenerationWorker.ts:114` insert a
+   `run_generated_documents` row with
+   `fileUrl = /api/runs/:runId/final-documents/:filename/download`.
+3. `finalBlock.routes.ts:334` serves that back out of `archives`, falling back
+   to `outputs` at `:342`.
+
+Other `process.cwd()` write sites, all under `server/files/`:
 
 - `DocumentEngine.ts:46` (default `outputDir`)
-- `finalBlock.routes.ts:342`
 - `TemplatePreviewService.ts:163` (`outputs/previews`)
-- `fileService.ts:134-135` (both)
+- `fileService.ts:134-136` (previews, outputs, archives)
+- `files.routes.ts:33` serves downloads out of `outputs`
 
-and `files.routes.ts:33` serves downloads back out of the same directory.
+The production image never contains these paths: the Dockerfile's runtime stage
+copies only `dist`, `package.json` and `node_modules` (see
+[[runtime-cwd-files-vs-docker-stage]], the same class of bug as IEX2-8). The
+directories exist only because something creates them at runtime.
 
-That is the **container's own filesystem**, and on Railway it is ephemeral. Every
-generated document, preview and final-block output written there is lost on the
-next deploy or container restart — and this project auto-deploys from `main`, so
-restarts are routine, not rare.
+### The durability question — ANSWERED 2026-07-31
 
-Worse, the production image never contains that path: the Dockerfile's runtime
-stage copies only `dist`, `package.json` and `node_modules` (see
-[[runtime-cwd-files-vs-docker-stage]], which is the same class of bug found in
-IEX2-8). The directory only exists because something creates it at runtime.
+**Yes, these outputs are expected to survive, and the schema proves it.**
 
-Note this is a **third** storage mechanism, alongside `storageProvider` (the real
-one, seven consumers) and the now-deleted `files` table. Anything durable should
-be going through `storageProvider`.
+`run_generated_documents` (`shared/schema/run.ts:192`) durably persists
+`fileName` and `fileUrl` per run, indexed by `runId`, and
+`GET /api/runs/:runId/final-documents` lists them. A durable DB row pointing at
+a file, plus a list endpoint and a per-run download endpoint, only makes sense
+if later retrieval is expected.
 
-### Why the "?" on P1
+So the failure mode is the worst available one: **the listing keeps working
+while the download 404s.** Customers see their documents and cannot fetch them.
+This is not a regression — it has behaved this way for as long as it has
+shipped — but it is live.
 
-The severity depends on whether these outputs are meant to survive. If a
-generated document is handed straight to the user in the same request and never
-re-fetched, ephemeral is fine and this is a documentation fix. If
-`/api/files/download/:filename` is expected to work minutes or days later — and
-its existence implies it is — then customers are hitting 404s after every deploy
-and have been for as long as this has shipped.
+Severity is *not* uniform across the two download routes, and the earlier
+version of this ticket conflated them:
 
-**Answer that first.** Check whether any stored row references a filename served
-by `files.routes.ts`, and whether the download route is reachable from the UI
-after a run completes.
+- `/api/files/download/:filename` is referenced only by
+  `TemplateTestService.ts:101,104` (builder template test-renders) and by **no
+  client code at all**. Same-session preview — genuinely low severity.
+- The final-block per-run download is the customer path and the P1.
+
+### The trap: `storageProvider` alone does not fix this
+
+`DiskStorageProvider.ts:20` defaults its `baseDir` to
+`path.join(process.cwd(), 'server', 'files')` — *the same ephemeral location* —
+and `storage/index.ts:7` defaults `STORAGE_DRIVER` to `disk`.
+
+Routing writes through `storageProvider` therefore fixes the **architecture**
+(one storage mechanism instead of three) but changes **nothing** about
+durability under the default driver. A dev who does only the refactor will see
+every test pass and leave production exactly as broken.
+
+**Decision (Shawn, 2026-07-31): target S3.** `S3StorageProvider` already exists
+and the env surface is documented in `.env.example:108-110`. Both halves are in
+scope for this ticket: the code unification *and* proving durability against a
+non-disk driver.
 
 ### Preferred fix
 
-Route durable outputs through `storageProvider`, which already abstracts
-disk/S3 and is what the rest of the system uses. Keep the local path only for
-genuinely temporary artifacts (previews consumed within one request), and say in
-a comment which is which.
+1. Route durable run/final-block artifacts through `storageProvider` rather
+   than `process.cwd()` paths — `FinalBlockRenderer.ts:141` first, since that is
+   the customer path.
+2. Keep local disk only for genuinely single-request temporaries (template test
+   renders, previews), and comment each remaining local write with *why* it is
+   allowed to be ephemeral.
+3. Persist a storage **key** on `run_generated_documents` rather than relying on
+   a filesystem path, and have the download route resolve it through
+   `storageProvider`.
+4. Fold in the authorization bug below.
 
-Do **not** simply add a Docker volume — that fixes one deployment and leaves the
-architecture with three storage mechanisms.
+Do **not** simply add a Railway volume — that fixes one deployment, keeps three
+storage mechanisms, and does not survive multi-instance.
+
+### Folded in: the download authorization lookup can never match
+
+`files.routes.ts:62` looks up
+`where: eq(runGeneratedDocuments.fileUrl, filename)` — matching a **bare
+filename** against a column that stores a **full path**
+(`/api/runs/:runId/final-documents/:filename/download`, written at
+`RunLifecycleService.ts:479`). These can never be equal, so the authorization
+lookup always fails and the route always 404s.
+
+Confirm that before changing it — if it is genuinely dead surface, deleting the
+route is a better outcome than repairing it, and TemplateTestService's two URL
+builders (`:101,104`) must then be repointed or removed with it. Either way, do
+not leave a route whose authorization check is structurally incapable of
+succeeding.
 
 ### Ties
 
 - Related: DEBT-6 removed the *second* file subsystem; this is the third.
-- Load `add-api-endpoint` (the download route is public-ish surface) and
-  `run-tests`.
+- **File overlap:** none with DEBT-10/11/14. Safe to dispatch in parallel with
+  any of them.
+- Load `add-api-endpoint` (the download routes are authenticated surface),
+  `db-schema-change` (adding a storage-key column to
+  `run_generated_documents` needs a generated migration — never hand-author
+  one), and `run-tests`.
+- `.env.example:108-110` documents the S3 env surface. Do not commit
+  credentials; the bucket is provisioned outside this ticket.
 
 ### Acceptance criteria
 
-1. The durability question above is answered with evidence and recorded here
-   before any code change.
-2. Durable outputs go through `storageProvider`; any remaining local-disk writes
-   are documented as intentionally temporary.
-3. A test asserts a generated document is retrievable through the normal
-   download path after the writing process's local temp dir is gone.
-4. Gates: type-check 0, lint 0, `check:strict-zones` passed, `test:fast` ≥
+1. Durable run/final-block artifacts are written and read through
+   `storageProvider`. No durable artifact is written to a `process.cwd()` path.
+2. Every remaining local-disk write is single-request-temporary and carries a
+   comment saying so.
+3. `run_generated_documents` resolves its artifact through a storage key, via a
+   migration generated by `npm run db:generate` (journal + snapshot in
+   lockstep — do not hand-edit `_journal.json`). Bump the `_vN` token in
+   `tests/helpers/schemaManager.ts` so cached test schemas pick it up.
+4. The `files.routes.ts:62` authorization lookup either matches correctly and
+   is covered by a test, or the route is deleted along with its
+   `TemplateTestService` callers. Record which path you took and why.
+5. An integration test proves a generated document is still retrievable through
+   the normal per-run download path **after the local working directory is
+   gone** — e.g. against a non-disk driver or with the local dir removed
+   between write and read. A test that only round-trips through the disk driver
+   in one process does not satisfy this.
+6. Gates: `type-check` 0, `lint` 0, `check:strict-zones` passed, `test:fast` ≥
    baseline, document-generation integration suites green.
+7. Because the default driver stays `disk`, state explicitly in your turn-in
+   what must be set in Railway (`STORAGE_DRIVER`, bucket, credentials) for this
+   fix to take effect in production. The code change alone does not close the
+   customer-facing bug.
 
 ---
 
