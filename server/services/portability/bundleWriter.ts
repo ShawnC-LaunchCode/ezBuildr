@@ -15,6 +15,7 @@ export class BundleWriter {
   private manifestData: BundleManifest | null = null;
   private blobIndexData: BlobIndex | null = null;
   private zip: ZipArchive;
+  private firstError: Error | null = null;
 
   constructor(outPath: string) {
     this.outPath = outPath;
@@ -27,10 +28,19 @@ export class BundleWriter {
   }
 
   async writeEntityRow(entityName: string, row: unknown): Promise<void> {
+    if (this.firstError) {
+      throw this.firstError;
+    }
+
     let stream = this.entityStreams.get(entityName);
     if (!stream) {
       const p = path.join(this.tmpDir, `entities_${entityName}.jsonl`);
       stream = fs.createWriteStream(p);
+      stream.on('error', (err) => {
+        if (!this.firstError) {
+          this.firstError = err;
+        }
+      });
       this.entityStreams.set(entityName, stream);
     }
     const currentStream = stream;
@@ -38,10 +48,25 @@ export class BundleWriter {
     
     return new Promise<void>((resolve, reject) => {
       if (!currentStream.write(line)) {
-        currentStream.once('drain', resolve);
-        currentStream.once('error', reject);
+        const onDrain = (): void => {
+          currentStream.removeListener('error', onError);
+          resolve();
+        };
+        const onError = (err: Error): void => {
+          currentStream.removeListener('drain', onDrain);
+          if (!this.firstError) {
+            this.firstError = err;
+          }
+          reject(err);
+        };
+        currentStream.once('drain', onDrain);
+        currentStream.once('error', onError);
       } else {
-        resolve();
+        if (this.firstError) {
+          reject(this.firstError);
+        } else {
+          resolve();
+        }
       }
     });
   }
@@ -84,6 +109,10 @@ export class BundleWriter {
   }
 
   private async pack(): Promise<string> {
+    if (this.firstError) {
+      throw this.firstError;
+    }
+
     const hash = createHash('sha256');
 
     // Sort entities alphabetically
@@ -91,9 +120,22 @@ export class BundleWriter {
     for (const name of entityNames) {
       const stream = this.entityStreams.get(name)!;
       await new Promise<void>((resolve, reject) => {
-        stream.end(resolve);
-        stream.on('error', reject);
+        const onError = (err: Error): void => {
+          if (!this.firstError) {
+            this.firstError = err;
+          }
+          reject(err);
+        };
+        stream.once('error', onError);
+        stream.end(() => {
+          stream.removeListener('error', onError);
+          resolve();
+        });
       });
+      const err = this.firstError as Error | null;
+      if (err instanceof Error) {
+        throw err;
+      }
       const filePath = path.join(this.tmpDir, `entities_${name}.jsonl`);
       this.zip.addLocalFile(filePath, 'entities', `${name}.jsonl`);
       

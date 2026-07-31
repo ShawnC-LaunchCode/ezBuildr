@@ -1,4 +1,4 @@
-import { it, expect, beforeEach, afterEach, describe } from 'vitest';
+import { it, expect, beforeEach, afterEach, describe, vi } from 'vitest';
 import { db } from '../../../server/db';
 import { createTestFactory, TestFactory } from '../../helpers/testFactory';
 import { describeWithDb } from '../../helpers/dbTestHelper';
@@ -247,5 +247,22 @@ describeWithDb('ExportService', () => {
     expect(dbs[0].name).toBe('Valid Tenant DB');
 
     await fs.promises.rm(tmpPath);
+  });
+  it('cleans up temp directory even if export fails (AC 4)', async () => {
+    const { BundleWriter } = await import('../../../server/services/portability/bundleWriter');
+    
+    let capturedTmpDir = '';
+    
+    vi.spyOn(BundleWriter.prototype, 'writeEntityRow').mockImplementation(function(this: any) {
+      capturedTmpDir = this.tmpDir;
+      throw new Error('Simulated export failure');
+    });
+
+    await expect(
+      exportService.export({ scope: 'project', id: testProjectId }, testUserId)
+    ).rejects.toThrow('Simulated export failure');
+
+    expect(capturedTmpDir).not.toBe('');
+    expect(fs.existsSync(capturedTmpDir)).toBe(false);
   });
 });
