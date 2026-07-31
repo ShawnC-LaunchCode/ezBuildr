@@ -125,7 +125,7 @@ Proven live are marked **[PROVEN]** with the reproduction.
 | Phase | Theme | Tickets | Status |
 |---|---|---|---|
 | A | **P0 — the feature does not work on real data** | IEX2-1..4 | ✅ **COMPLETE** — all four P0s fixed |
-| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔄 IEX2-5 ✅ done; IEX2-9 + IEX2-6/7 in flight |
+| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔄 IEX2-5 ✅ + IEX2-9 ✅ done; IEX2-6/7 in flight |
 | C | P2 — hardening, redaction depth, real proof | IEX2-12..15 | 🔄 IEX2-12 ✅ + IEX2-13 ✅ done |
 | D | Make the feature reachable | IEX2-16 | ⏸️ **deferred out of round 2** |
 
@@ -1169,7 +1169,34 @@ instead of a raw driver error.
 
 ---
 
-## IEX2-9 — A disk error during export crashes the server process 🔄
+## IEX2-9 — A disk error during export crashes the server process ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-30 — `984e1374`.** Gates re-run by the
+> reviewer, not taken on report: `tsc` 0 errors, ESLint clean on all three
+> files, `test:fast` **152 files / 2045 tests**, portability `unit-db`
+> **59 passed / 7 files**. Test routing correct — `bundleWriter.test.ts` was
+> properly kept OUT of `dbUnitTests`.
+>
+> **All four criteria mutation-verified** (the first turn-in in this round to
+> survive mutation cleanly):
+>
+> | Mutation | Result |
+> |---|---|
+> | whole of `bundleWriter.ts` reverted to HEAD | all 3 tests fail |
+> | `writeEntityRow` entry guard deleted | AC 1 fails (5s timeout) |
+> | `writeEntityRow` entry guard deleted | AC 2 **still passes** — so its rejection comes from the non-backpressure `else` branch, which is the path the criterion names |
+> | `onDrain`'s `removeListener` deleted | AC 3 fails, `expected 51 to be 1` |
+> | `state.writer.cleanup()` deleted | AC 4 fails, `expected true to be false` |
+>
+> **New baselines for the rest of the round: `test:fast` 152 files / 2045
+> tests; portability `unit-db` 59 passed / 7 files.** IEX2-11 is next in the
+> ExportService chain and should measure against these.
+>
+> Reviewer note on the delivered fix: the `else`-branch `firstError` check is
+> reachable only when an error is recorded between two writes (the entry guard
+> covers the rest), and the `as Error | null` cast at the end of the `pack()`
+> loop is redundant — `firstError` is already that type. Neither is worth a
+> send-back; both are noted in case IEX2-11 refactors this method.
 
 > **RE-DISPATCHED 2026-07-30** — the first dispatch produced nothing; its
 > worktree sat at a stale base with a clean tree and was torn down. Fresh
