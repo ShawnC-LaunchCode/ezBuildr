@@ -777,8 +777,20 @@ Close, with a reason, anything not wanted rather than leaving it open.
 
 ### Ties
 
-- **DEBT-3** — collab sync is currently untested, so a `yjs` bump has no
-  safety net. Prefer landing DEBT-3 first, or test the bump by hand.
+- **DEBT-3b is now closed** (`8dfdee82`, 2026-07-31), so the collab sync test is
+  restored and `tests/integration/collab.sync.test.ts` exists. The `yjs` bump
+  finally has a safety net — run that file specifically against the bump. The
+  earlier advice to land DEBT-3 first is satisfied; do not wait on anything.
+- **Re-verified 2026-07-31:** all ten PRs (#129–#138) are still open, unchanged
+  since 2026-07-11. Five are GitHub Actions bumps (`checkout` 3→7,
+  `setup-node` 3→6, `upload-artifact` 4→7, `github-script` 7→9,
+  `gitleaks-action` 2→3) and five are npm (`yjs`, `autoprefixer`,
+  `@radix-ui/react-toast`, `@radix-ui/react-context-menu`,
+  `@tailwindcss/typography`).
+- **File overlap:** none with DEBT-15 or DEBT-16 — this ticket lives in
+  `package.json` / `package-lock.json` / `.github/workflows/`. Safe in parallel.
+- Branch protection is currently **off**, so a red CI run will not block a
+  merge. Read each run's result yourself rather than trusting the merge button.
 - Load `run-tests`.
 
 ### Acceptance criteria
