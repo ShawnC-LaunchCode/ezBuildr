@@ -241,12 +241,30 @@ Close, with a reason, anything not wanted rather than leaving it open.
 
 ## DEBT-13 — Legacy Final Documents casts `metadata.visibleIf` onto a mismatched type 🔲
 
-**Priority: P1?** · Size: S · Files:
+**Priority: P3** · Size: S · Files:
 `server/services/workflow-runs/RunLifecycleService.ts`
 
 *Found during the DEBT-3a review, 2026-07-30. Not fixed there — DEBT-3a was
-scoped to one test file, and this is a server behaviour question that needs a
-production-data answer before anyone writes code.*
+scoped to one test file.*
+
+> **BLOCKING QUESTION ANSWERED 2026-07-31 — this is now dead-code removal, not
+> a bug fix.** Shawn confirmed the database holds **only test data, with zero
+> dependencies on any existing rows**. There are therefore no legacy
+> `templates` rows carrying `metadata.visibleIf`, and the conditional-document
+> defect described below **cannot be reached in practice**. The ticket dropped
+> from P1? to P3 and the fix is now "delete the read", not "normalize the
+> shape". Do **not** implement the normalization branch.
+>
+> Refs re-verified 2026-07-31 against `6745e6e1`: the `as` cast is at
+> `RunLifecycleService.ts:566` exactly, `buildLegacyFinalBlockConfig` at `:536`.
+> Worktree `.claude/worktrees/debt-13`. Baseline `test:fast` **153 files / 2047
+> tests**.
+>
+> ⚠️ **Delete the `visibleIf` read only — do NOT delete the legacy path.**
+> `buildLegacyFinalBlockConfig` stays. It handles legacy Final Documents
+> sections (`config.finalBlock` + `config.templates`), **a shape
+> `WorkflowService` still actively writes** (see `b508a60b`). Removing the
+> function would break live document generation.
 
 ### Finding
 
@@ -280,32 +298,44 @@ The now-deleted test fixture in `runtime-pipelines.test.ts` stored exactly the
 `ConditionGroup` shape in `metadata.visibleIf`, which is weak evidence that
 this is the shape that was really written at some point.
 
-### Why this is P1-with-a-question-mark
+### Why this is dead code
 
-**Nothing in the current codebase writes `metadata.visibleIf`** — a repo-wide
-grep finds only this reader. So the blast radius depends entirely on whether
-production has legacy `templates` rows carrying it:
+**Nothing in the codebase writes `metadata.visibleIf`.** Verified 2026-07-31
+two ways, beyond the original repo-wide grep:
 
-- If **yes**, this is a live customer-visible defect in conditional document
-  generation and is a straight P1.
-- If **no**, the legacy branch is dead code and the fix is to delete it (and
-  the cast) rather than to make it work.
+- Across the **entire git history**, no commit touching any template service or
+  repository file has ever written that key
+  (`git log --all -S "visibleIf" -- "*emplate*.ts"` → no writer).
+- In the **current tree** `metadata.visibleIf` appears in exactly two places:
+  this reader, and a descriptive comment in
+  `tests/integration/workflows/runtime-pipelines.test.ts:392`.
+
+The only ever-evidence it was written was a since-deleted test fixture, which
+this ticket already called weak. Combined with Shawn's confirmation that the DB
+holds only test data, the read is unreachable.
+
+(Note for anyone re-reading the original SQL: `DocumentTemplateRepository`
+wraps the **`templates`** table — `super(templates, …)` at
+`DocumentTemplateRepository.ts:21` — despite the repository's name. The old
+query named the right table.)
 
 ### Preferred fix
 
-**Answer the data question first**, then act — do not implement against a
-guess:
+Delete the read and the cast in `buildLegacyFinalBlockConfig`:
 
-```sql
-SELECT count(*) FROM templates WHERE metadata ? 'visibleIf';
-```
+- Remove `const metadata = template.metadata as { visibleIf?: unknown } | null;`
+  (`:561`).
+- Replace the `conditions:` line (`:566`) with a plain `conditions: null` — no
+  `as` cast. **This is behaviour-preserving by construction:** the existing
+  expression is `metadata?.visibleIf ?? null`, which already evaluates to `null`
+  for every row that lacks the key, and no row has it.
+- Update the doc comment at `:528`, which currently claims `metadata.visibleIf`
+  conditions "carry over".
 
-- Rows exist → normalize the `ConditionGroup` into a `LogicExpression` at the
-  boundary in `buildLegacyFinalBlockConfig`, delete the `as` cast so the
-  compiler enforces the contract, and cover both shapes with a test.
-- No rows → delete the legacy `visibleIf` read entirely.
-
-Either way the `as` cast at line 566 goes; it is the thing that hid this.
+If `conditions: null` does not satisfy the `FinalBlockConfig` type, fix it by
+correcting the type or omitting the property — **not** by reintroducing a cast.
+The cast is the entire point of this ticket; it is what hid a two-shape
+mismatch from the compiler.
 
 ### Ties
 
@@ -317,15 +347,28 @@ Either way the `as` cast at line 566 goes; it is the thing that hid this.
 
 ### Acceptance criteria
 
-1. The production-data question above is answered and the answer recorded in
-   this ticket before any code change.
-2. The `as` cast at `RunLifecycleService.ts:566` is gone — either because the
-   value is properly normalized, or because the branch is deleted.
-3. If normalized: a test covers a legacy template whose `metadata.visibleIf`
-   is a `ConditionGroup`, asserting the document is correctly generated in the
-   true case and skipped in the false case. Mutation-prove it, as in DEBT-3a.
-4. Gates: type-check 0 errors, lint 0 problems, `npm run test:fast` ≥ baseline,
-   relevant integration suites green.
+1. ✅ **Already satisfied** — the data question is answered and recorded in the
+   banner above. Do not re-ask it.
+2. Both the `as` cast (`:566`) and the `template.metadata` read (`:561`) are
+   gone, and **no `as` cast is reintroduced anywhere in
+   `buildLegacyFinalBlockConfig`**.
+3. `git grep -n "metadata.visibleIf"` returns **no live reader** — only the
+   comment in `runtime-pipelines.test.ts` (or nothing, if you tidy that too).
+4. `buildLegacyFinalBlockConfig` **still exists and still resolves legacy
+   sections.** The covering test already exists and has been located for you:
+   **`tests/integration/docs.autogeneration.test.ts`**, which builds the exact
+   legacy shape at `:286` (`config: { finalBlock: true, templates: [...] }`) and
+   whose header comment scopes it to legacy sections. Run it and paste the
+   actual output. `tests/integration/runner-hardening-run13.test.ts:117` builds
+   the same shape and must also stay green.
+   - This is the criterion that proves the deletion did not break live document
+     generation, so it is the one to run first and the one a reviewer will
+     re-run independently.
+5. The doc comment at `:528` no longer claims `visibleIf` conditions carry over.
+6. Gates: type-check 0 errors, lint 0 problems (`npm run lint`, not
+   `npx eslint .`), `npm run test:fast` ≥ **153 files / 2047 tests**, and the
+   document-generation integration suites green. Report each command's actual
+   output, not a summary.
 
 ---
 
