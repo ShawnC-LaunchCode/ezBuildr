@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { fetchAPI, type ApiStep } from "@/lib/vault-api";
+import { fetchAPI } from "@/lib/vault-api";
 import { useAutoSave } from "@/hooks/useAutoSave";
 
-import type { StepValue, DefaultValueConfig } from "@/pages/workflow-runner/runner.utils";
+import type { StepValue } from "@/pages/workflow-runner/runner.utils";
 import type { PreviewEnvironment, PreviewRunState } from "@/lib/previewRunner/PreviewEnvironment";
 
 interface UseRunValuesProps {
@@ -11,8 +11,6 @@ interface UseRunValuesProps {
   run: { values?: { stepId: string; value: StepValue }[] } | null | undefined;
   previewState: PreviewRunState | null;
   previewEnvironment: Pick<PreviewEnvironment, 'setValue'> | null | undefined;
-  allSteps: ApiStep[] | undefined;
-  intakeData: { values?: Record<string, StepValue> | null; isLoading?: boolean } | null;
 }
 
 import { type SaveStatus } from "@/hooks/useAutoSave";
@@ -31,7 +29,6 @@ interface RunValueAdapter {
   values: Record<string, StepValue>;
   updateValue: (stepId: string, value: StepValue) => void;
   hydrateFromSavedRun: boolean;
-  hydrateFromIntake: boolean;
   autosaveEnabled: boolean;
 }
 
@@ -40,9 +37,7 @@ export function useRunValues({
   actualRunId,
   run,
   previewState,
-  previewEnvironment,
-  allSteps,
-  intakeData
+  previewEnvironment
 }: UseRunValuesProps): UseRunValuesReturn {
   const [formValues, setFormValues] = useState<Record<string, StepValue>>({});
   const isProductionMode = mode === 'production';
@@ -61,7 +56,6 @@ export function useRunValues({
         values: formValues,
         updateValue: updateProductionValue,
         hydrateFromSavedRun: true,
-        hydrateFromIntake: true,
         autosaveEnabled: Boolean(actualRunId),
       };
     }
@@ -70,7 +64,6 @@ export function useRunValues({
       values: previewState?.values ?? {},
       updateValue: updatePreviewValue,
       hydrateFromSavedRun: false,
-      hydrateFromIntake: false,
       autosaveEnabled: false,
     };
   }, [isProductionMode, formValues, updateProductionValue, actualRunId, previewState?.values, updatePreviewValue]);
@@ -79,7 +72,6 @@ export function useRunValues({
     values: effectiveValues,
     updateValue,
     hydrateFromSavedRun,
-    hydrateFromIntake,
     autosaveEnabled,
   } = valueAdapter;
 
@@ -117,30 +109,6 @@ export function useRunValues({
     });
     setFormValues((prev) => (isDifferentRun ? initial : { ...initial, ...prev }));
   }, [run, hydrateFromSavedRun, actualRunId]);
-
-  // Intake Data Hydration (Production Mode)
-  useEffect(() => {
-    const intakeValues = intakeData?.values;
-    if (hydrateFromIntake && allSteps && intakeValues !== null && intakeValues !== undefined && !intakeData?.isLoading) {
-      setFormValues((prev) => {
-        const next = { ...prev };
-        let changed = false;
-        allSteps.forEach((step: ApiStep) => {
-          if (next[step.id] === undefined || next[step.id] === null || next[step.id] === "") {
-            const defVal = step.defaultValue as DefaultValueConfig | undefined;
-            if (defVal?.source === 'intake' && defVal.variable) {
-              const val = intakeValues[defVal.variable];
-              if (val !== undefined) {
-                next[step.id] = val;
-                changed = true;
-              }
-            }
-          }
-        });
-        return changed ? next : prev;
-      });
-    }
-  }, [hydrateFromIntake, allSteps, intakeData?.values, intakeData?.isLoading]);
 
   const handleUpdateValue = useCallback((stepId: string, value: StepValue) => {
     updateValue(stepId, value);

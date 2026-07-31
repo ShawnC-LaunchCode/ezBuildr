@@ -213,7 +213,6 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: StepEd
           <DefaultValueField
             stepId={stepId}
             sectionId={sectionId}
-            workflowId={workflowId}
             defaultValue={step.defaultValue as DefaultValueType}
             type={step.type}
             mode={isEasyMode ? 'easy' : 'advanced'}

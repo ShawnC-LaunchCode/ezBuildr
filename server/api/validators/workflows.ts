@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { paginationQuerySchema } from '../../utils/pagination';
+import { IntakeConfigSchema } from '../../../shared/zod-schemas';
 
 /**
  * Workflow Validators
@@ -83,7 +84,7 @@ export const createWorkflowSchema = z.object({
 export const updateWorkflowSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   graphJson: graphJsonSchema.optional(),
-  intakeConfig: z.record(z.unknown()).optional(),
+  intakeConfig: IntakeConfigSchema.optional(),
 });
 
 export const publishWorkflowSchema = z.object({

@@ -211,7 +211,6 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: StepEdit
           <DefaultValueField
             stepId={stepId}
             sectionId={sectionId}
-            workflowId={workflowId}
             defaultValue={step.defaultValue as DefaultValueType}
             type={step.type}
             mode={isEasyMode ? 'easy' : 'advanced'}

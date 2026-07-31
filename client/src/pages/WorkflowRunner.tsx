@@ -6,12 +6,10 @@ import { FullScreenLoader } from "@/components/ui/loader";
 import { ClientRunnerLayout } from "@/components/runner/ClientRunnerLayout";
 import { SaveAndResumeButton } from "@/components/runner/SaveAndResumeButton";
 import { FinalDocumentsSection } from "@/components/runner/sections/FinalDocumentsSection";
-import { IntakeAssignmentSection } from "@/components/runner/sections/IntakeAssignmentSection";
 import { ReviewSection } from "@/components/runner/sections/ReviewSection";
 import { SectionSteps } from "@/components/runner/SectionSteps";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useIntakeRuntime } from "@/hooks/useIntakeRuntime";
 import { useRunSession } from "@/hooks/runner/useRunSession";
 import { useRunValues } from "@/hooks/runner/useRunValues";
 import { useSectionVisibility } from "@/hooks/runner/useSectionVisibility";
@@ -29,12 +27,11 @@ interface WorkflowRunnerProps {
   onPreviewComplete?: () => void;
 }
 
-type RunnerWorkflow = Pick<ApiWorkflow, 'id' | 'title' | 'description' | 'projectId' | 'intakeConfig' | 'settings'>;
+type RunnerWorkflow = Pick<ApiWorkflow, 'id' | 'title' | 'description' | 'projectId' | 'settings'>;
 
 type FinalSectionConfig = ComponentProps<typeof FinalDocumentsSection>['sectionConfig'];
 type SaveStatus = ComponentProps<typeof ClientRunnerLayout>['saveStatus'];
 type RunnerSectionConfig = FinalSectionConfig & {
-  intakeAssignment?: unknown;
   finalBlock?: unknown;
 };
 
@@ -80,10 +77,6 @@ function getRunnerSectionConfig(section: ApiSection): RunnerSectionConfig {
   return (section.config ?? {}) as RunnerSectionConfig;
 }
 
-function hasIntakeAssignment(section: ApiSection | undefined): boolean {
-  return section != null && Boolean(getRunnerSectionConfig(section).intakeAssignment);
-}
-
 function hasFinalBlock(section: ApiSection | undefined): boolean {
   return section != null && Boolean(getRunnerSectionConfig(section).finalBlock);
 }
@@ -122,7 +115,6 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
   // 2. Fetch Core Data
   const { data: previewWorkflow } = useWorkflow(workflowId ?? "", { enabled: !isProductionMode && workflowId != null });
   const workflow = isProductionMode ? runtime?.workflow : previewWorkflow;
-  const intakeData = useIntakeRuntime(workflowId ?? "", workflow);
 
   // 3. Resolve Sections & Steps
   const sections = useMemo(() => {
@@ -146,9 +138,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
     actualRunId,
     run,
     previewState,
-    previewEnvironment,
-    allSteps: effectiveAllSteps,
-    intakeData
+    previewEnvironment
   });
 
   // 5. Visibility Engine
@@ -338,10 +328,6 @@ export function LoadedRunnerScreen(props: LoadedRunnerScreenProps): ReactElement
     );
   }
 
-  if (props.workflow != null && hasIntakeAssignment(props.currentSection)) {
-    return <IntakeSectionScreen {...props} workflow={props.workflow} />;
-  }
-
   if (props.showReview) {
     return <ReviewRunnerScreen {...props} />;
   }
@@ -438,22 +424,6 @@ function CompletedRunnerScreen({
           </p>
         </CardContent>
       </Card>
-    </ClientRunnerLayout>
-  );
-}
-
-function IntakeSectionScreen(props: LoadedRunnerScreenProps & { workflow: RunnerWorkflow }): ReactElement {
-  const { workflow, currentSectionIndex, visibleSections, saveStatus, effectiveValues, handleNext } = props;
-
-  return (
-    <ClientRunnerLayout
-      title={getWorkflowTitle(workflow)}
-      progress={getProgress(currentSectionIndex, visibleSections.length)}
-      currentStep={currentSectionIndex}
-      totalSteps={visibleSections.length}
-      saveStatus={saveStatus}
-    >
-      <IntakeAssignmentSection workflow={workflow} runValues={effectiveValues} onComplete={() => { void handleNext(); }} />
     </ClientRunnerLayout>
   );
 }

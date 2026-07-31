@@ -369,8 +369,7 @@ export interface ApiWorkflow {
   createdAt: string;
   updatedAt: string;
   modeOverride?: 'easy' | 'advanced' | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intake config is an opaque JSON object from the server
-  intakeConfig?: any;
+  intakeConfig?: import('@shared/types/intake').IntakeConfig;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- settings is an opaque JSON object from the server
   settings?: any;
   /* eslint-disable @typescript-eslint/naming-convention -- keys match database column naming convention */

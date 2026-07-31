@@ -144,7 +144,6 @@ describe('LoadedRunnerScreen — zero visible sections (RUN2-4)', () => {
             title: 'Client intake',
             description: null,
             projectId: null,
-            intakeConfig: null,
             settings: { completionMessage: 'Your response was received.' },
           },
         })}

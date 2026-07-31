@@ -83,7 +83,6 @@ export function JsQuestionCardEditor({ stepId, sectionId, workflowId, step }: St
             <DefaultValueField
                 stepId={stepId}
                 sectionId={sectionId}
-                workflowId={workflowId}
                 defaultValue={step.defaultValue as DefaultValueType}
                 type={step.type}
                 mode={mode}
