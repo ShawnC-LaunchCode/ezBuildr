@@ -1,4 +1,4 @@
-# Tech Debt — standing backlog (DEBT-1..15)
+# Tech Debt — standing backlog (DEBT-1..16)
 
 Standing register of known, evidenced debt in ezBuildr. Unlike an audit-driven
 initiative, this file has **no phases and no phase gates**: the items are
@@ -52,8 +52,9 @@ feature work.
 | DEBT-10 | 10 dependabot PRs open since 2026-07-11 | P2 | S | 🔲 |
 | DEBT-11 | RLS policies defined but not enforced (decision, not a fix) | — | — | 🔲 tracked |
 | DEBT-13 | Legacy Final Documents casts `metadata.visibleIf` onto a mismatched type | P1? | S | ✅ verified at review 2026-07-31 |
-| DEBT-14 | `creation-routes.test.ts` fails 18 tests only when the whole file runs | P2 | M | 🔄 in review |
+| DEBT-14 | `creation-routes.test.ts` fails 18 tests only when the whole file runs | P2 | M | ✅ `5ae7fde3` — fixed in services, not the test |
 | DEBT-15 | Generated documents are written to the ephemeral container filesystem | P1 | L | 🔲 ready to dispatch |
+| DEBT-16 | `propagateRename` swallows errors inside a caller's transaction | P2 | S | 🔲 filed from DEBT-14 review |
 
 ## DEBT-2 — Retire the 143 blanket file-level eslint-disable headers ✅
 
@@ -361,7 +362,98 @@ succeeding.
 
 ---
 
-## DEBT-14 — `creation-routes.test.ts` fails 18 tests only when the whole file runs 🔲
+## DEBT-16 — `propagateRename` swallows errors inside a caller's transaction 🔲
+
+**Priority: P2** · Size: S · Files: `server/services/AliasRenameService.ts`
+
+*Filed by the reviewer 2026-07-31 while passing DEBT-14. Pre-existing error
+handling that DEBT-14's fix made unsafe — not a defect the dev introduced.*
+
+### Finding
+
+`AliasRenameService.propagateRename` wraps each propagation phase in its own
+`try/catch` that logs and continues — transform blocks at `:135`, document
+hooks at `:149`, lifecycle hooks at `:163`, section/step loading at `:180`,
+Final Block mappings at `:194`, plus `renameStepVisibleIf` and
+`renameSectionVisibleIf`.
+
+That was safe while these queries ran on the pool: a failed propagation was
+non-fatal and the step update still committed. After DEBT-14 they run inside
+the caller's transaction, where the semantics are different — Postgres aborts
+the whole transaction on any statement error, so every subsequent statement
+fails with `current transaction is aborted`, each catch swallows it, and the
+method returns a success-shaped `AliasRenameResult` for a transaction that can
+never commit.
+
+The user-visible effect: the logs say "Failed to propagate alias rename" while
+the step edit that triggered it silently disappears. Rare — it needs a query to
+actually error — but the failure is silent and the result object lies.
+
+### Preferred fix
+
+Decide explicitly whether propagation is best-effort or part of the atomic
+unit, and make the code say so:
+
+- If atomic (preferred, and what the transaction implies): let errors
+  propagate so the whole update rolls back honestly, and drop the per-phase
+  catches.
+- If best-effort: run propagation *outside* the caller's transaction, after it
+  commits — which reintroduces the pool query DEBT-14 removed, so this only
+  works if it is genuinely deferred.
+
+Do not keep catch-and-continue inside the transaction; that combination cannot
+be correct either way.
+
+### Ties
+
+- Caused by: DEBT-14 (`5ae7fde3`), which threaded `tx` through this method.
+- Same defect class as [[systemstats-tx-deadlock]].
+- **File overlap:** `AliasRenameService.ts` — sequence after DEBT-14 (already
+  landed). No overlap with DEBT-10/11/15.
+- Load `run-tests`; `creation-routes.test.ts` is the integration file that
+  exercises this path.
+
+### Acceptance criteria
+
+1. `propagateRename` no longer both runs inside the caller's transaction and
+   swallows query errors. State which of the two models above you chose and
+   why, in a comment at the method.
+2. A test proves the chosen semantics: if atomic, that a failing propagation
+   query rolls back the originating step update; if deferred, that a failing
+   propagation leaves the committed step update intact.
+3. `creation-routes.test.ts` still passes 38/38 as a whole file.
+4. Gates: `type-check` 0, `lint` 0, `test:fast` ≥ baseline.
+
+---
+
+## DEBT-14 — `creation-routes.test.ts` fails 18 tests only when the whole file runs ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-31.** Fixed in `server/services/`, not in
+> the test file — the ticket's guess that this was test-isolation debt was
+> wrong, and the dev correctly ignored it.
+>
+> **Root cause.** Renaming an implicitly aliased step in `QA-SEC` made
+> `StepService.updateStepById` call `AliasRenameService.propagateRename` from
+> inside an open transaction, but propagation queried the global `db` pool.
+> The test pool is pinned to one connection for schema isolation, so
+> propagation waited for a connection the transaction itself was holding. The
+> run timed out and leaked the connection, failing the 18 tests that came
+> after. Same defect class as the SystemStats deadlock.
+>
+> **Fix.** The caller's `DbTransaction` is threaded from `updateStepById`
+> through `handleAliasRenamePropagation` into `propagateRename` and on to every
+> repository call it makes. Reviewer verified each receiving signature really
+> takes `tx` in that position — notably
+> `findBySectionIds(sectionIds, tx?, includeVirtual)`, where a positional slip
+> would have silently bound `includeVirtual`. One caller exists; it threads
+> `tx`.
+>
+> **Gates (reviewer-run, not taken on report).** `creation-routes.test.ts`
+> 38/38 in 14.4s; `test:fast` 156 files / 2059 tests; `tsc` 0; lint 0.
+>
+> **Follow-up filed as DEBT-16** — `propagateRename`'s per-phase `try/catch`
+> predates this change and now swallows errors inside the caller's
+> transaction, which is no longer safe. See that ticket.
 
 **Priority: P2** · Size: M · Files: `tests/integration/creation-routes.test.ts`
 
