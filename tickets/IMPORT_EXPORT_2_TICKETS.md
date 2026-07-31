@@ -1120,9 +1120,45 @@ caller's default.
 
 ---
 
-## IEX2-8 — No version or schema-drift guard: the compatibility fields are placeholders 🔲
+## IEX2-8 — No version or schema-drift guard: the compatibility fields are placeholders 🔄
 
 **Priority: P1** · Size: M · Files: `server/services/portability/ExportService.ts`, `server/services/portability/ImportService.ts`
+
+> **Refs re-verified 2026-07-31 against `b124f9c3`. Worktree
+> `.claude/worktrees/iex2-8`.** Baselines: `test:fast` **153 files / 2047
+> tests**; portability `unit-db` **67 / 7**; integration `portability.export` 8.
+>
+> **Part of AC 1 is already done — do not redo it.** The Finding below quotes
+> `formatVersion: 1`, which is stale: the reviewer changed it to
+> `formatVersion: FORMAT_VERSION` on 2026-07-29. It is now
+> `ExportService.ts:76`. What remains of AC 1 is `appVersion`.
+>
+> ⚠️ **The `appVersion` trap — read before writing that test.** `appVersion` is
+> hardcoded `'1.0.0'` (`ExportService.ts:77`) **and `package.json` version is
+> also `1.0.0`.** So a test asserting `manifest.appVersion === <package.json
+> version>` **passes with the hardcoded literal still in place** — it is
+> vacuous, and AC 1 explicitly demands a test that "would fail if the literal
+> were reintroduced". Prove it a way that can actually fail: mock/stub the
+> version source and assert the manifest follows it, or assert the export reads
+> from `package.json` rather than comparing two identical strings. **Mutation-
+> test it: put the literal back and confirm your test goes red.**
+>
+> **`migrationHead` is cheaply available — you should not need to report it
+> infeasible.** `migrations/meta/_journal.json` holds the Drizzle journal;
+> `entries[entries.length - 1].tag` is currently `"0005_lying_amphibian"` (6
+> entries). Note that is the *authored* head shipped with the code, not the
+> *applied* head (which lives in the `__drizzle_migrations` table). The authored
+> head is the right choice here — it is what this build knows how to read — but
+> say which you chose and why.
+>
+> **Refreshed refs:** manifest block `ExportService.ts:76-78`;
+> `FORMAT_VERSION` `bundleFormat.ts:3`; `manifestSchema` `bundleFormat.ts:59`;
+> reader's version check `bundleReader.ts:30-31`; `BUNDLE_REJECTION_SIGNALS`
+> `portability.routes.ts:81`.
+>
+> **The ImportService chain (IEX2-1..7) is fully committed**, so the "sequence
+> after IEX2-7" tie in this ticket is satisfied. IEX2-17 follows this ticket in
+> the same worktree; both edit `ExportService.ts`.
 
 ### Finding
 
