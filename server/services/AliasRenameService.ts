@@ -40,6 +40,7 @@ import {
   transformBlockRepository,
 } from '../repositories';
 import type { Section, Step } from '../../shared/schema';
+import type { DbTransaction } from '../repositories/BaseRepository';
 
 import type { DocumentMapping } from './document/MappingInterpreter';
 
@@ -117,7 +118,8 @@ export class AliasRenameService {
   async propagateRename(
     workflowId: string,
     oldAlias: string,
-    newAlias: string
+    newAlias: string,
+    tx?: DbTransaction
   ): Promise<AliasRenameResult> {
     const result: AliasRenameResult = {
       transformBlocksUpdated: 0,
@@ -131,11 +133,11 @@ export class AliasRenameService {
 
     // Transform block inputKeys
     try {
-      const blocks = await transformBlockRepository.findByWorkflowId(workflowId);
+      const blocks = await transformBlockRepository.findByWorkflowId(workflowId, tx);
       for (const block of blocks) {
         const replaced = replaceKey(block.inputKeys, oldAlias, newAlias);
         if (replaced !== null) {
-          await transformBlockRepository.update(block.id, { inputKeys: replaced });
+          await transformBlockRepository.update(block.id, { inputKeys: replaced }, tx);
           result.transformBlocksUpdated++;
         }
       }
@@ -145,11 +147,11 @@ export class AliasRenameService {
 
     // Document hook inputKeys
     try {
-      const hooks = await documentHookRepository.findByWorkflowId(workflowId);
+      const hooks = await documentHookRepository.findByWorkflowId(workflowId, tx);
       for (const hook of hooks) {
         const replaced = replaceKey(hook.inputKeys, oldAlias, newAlias);
         if (replaced !== null) {
-          await documentHookRepository.update(hook.id, { inputKeys: replaced });
+          await documentHookRepository.update(hook.id, { inputKeys: replaced }, tx);
           result.documentHooksUpdated++;
         }
       }
@@ -159,11 +161,11 @@ export class AliasRenameService {
 
     // Lifecycle hook inputKeys
     try {
-      const hooks = await lifecycleHookRepository.findByWorkflowId(workflowId);
+      const hooks = await lifecycleHookRepository.findByWorkflowId(workflowId, tx);
       for (const hook of hooks) {
         const replaced = replaceKey(hook.inputKeys, oldAlias, newAlias);
         if (replaced !== null) {
-          await lifecycleHookRepository.update(hook.id, { inputKeys: replaced });
+          await lifecycleHookRepository.update(hook.id, { inputKeys: replaced }, tx);
           result.lifecycleHooksUpdated++;
         }
       }
@@ -176,8 +178,8 @@ export class AliasRenameService {
     let sections: Section[] = [];
     let steps: Step[] = [];
     try {
-      sections = await sectionRepository.findByWorkflowId(workflowId);
-      steps = await stepRepository.findBySectionIds(sections.map((s) => s.id));
+      sections = await sectionRepository.findByWorkflowId(workflowId, tx);
+      steps = await stepRepository.findBySectionIds(sections.map((s) => s.id), tx);
     } catch (error) {
       log.error({ error }, 'Failed to load sections/steps for alias rename propagation');
     }
@@ -190,7 +192,7 @@ export class AliasRenameService {
         }
         const rewritten = rewriteFinalBlockMapping(step.config, oldAlias, newAlias);
         if (rewritten !== null) {
-          await stepRepository.update(step.id, { config: rewritten });
+          await stepRepository.update(step.id, { config: rewritten }, tx);
           result.finalBlockStepsUpdated++;
         }
       }
@@ -198,8 +200,8 @@ export class AliasRenameService {
       log.error({ error }, 'Failed to propagate alias rename to Final Block mappings');
     }
 
-    result.stepVisibleIfUpdated = await this.renameStepVisibleIf(steps, oldAlias, newAlias, log);
-    result.sectionVisibleIfUpdated = await this.renameSectionVisibleIf(sections, oldAlias, newAlias, log);
+    result.stepVisibleIfUpdated = await this.renameStepVisibleIf(steps, oldAlias, newAlias, log, tx);
+    result.sectionVisibleIfUpdated = await this.renameSectionVisibleIf(sections, oldAlias, newAlias, log, tx);
 
     const total =
       result.transformBlocksUpdated +
@@ -220,14 +222,15 @@ export class AliasRenameService {
     steps: Step[],
     oldAlias: string,
     newAlias: string,
-    log: Logger
+    log: Logger,
+    tx?: DbTransaction
   ): Promise<number> {
     let count = 0;
     try {
       for (const step of steps) {
         const rewritten = renameAliasInExpression(step.visibleIf as ConditionExpression, oldAlias, newAlias);
         if (rewritten !== step.visibleIf) {
-          await stepRepository.update(step.id, { visibleIf: rewritten });
+          await stepRepository.update(step.id, { visibleIf: rewritten }, tx);
           count++;
         }
       }
@@ -242,14 +245,15 @@ export class AliasRenameService {
     sections: Section[],
     oldAlias: string,
     newAlias: string,
-    log: Logger
+    log: Logger,
+    tx?: DbTransaction
   ): Promise<number> {
     let count = 0;
     try {
       for (const section of sections) {
         const rewritten = renameAliasInExpression(section.visibleIf as ConditionExpression, oldAlias, newAlias);
         if (rewritten !== section.visibleIf) {
-          await sectionRepository.update(section.id, { visibleIf: rewritten });
+          await sectionRepository.update(section.id, { visibleIf: rewritten }, tx);
           count++;
         }
       }

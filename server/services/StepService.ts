@@ -328,10 +328,10 @@ export class StepService {
     }
   }
 
-  private async handleAliasRenamePropagation(workflowId: string, stepId: string, oldAlias: string | null, newAlias: string | null): Promise<void> {
+  private async handleAliasRenamePropagation(workflowId: string, stepId: string, oldAlias: string | null, newAlias: string | null, tx?: DbTransaction): Promise<void> {
     if (oldAlias && newAlias && oldAlias !== newAlias) {
       try {
-        await aliasRenameService.propagateRename(workflowId, oldAlias, newAlias);
+        await aliasRenameService.propagateRename(workflowId, oldAlias, newAlias, tx);
       } catch (error) {
         logger.error(
           { error, workflowId, stepId, oldAlias, newAlias },
@@ -422,7 +422,7 @@ export class StepService {
       }
 
       // Propagate the rename to workflow-scoped references
-      await this.handleAliasRenamePropagation(workflowId, stepId, step.alias, updated.alias);
+      await this.handleAliasRenamePropagation(workflowId, stepId, step.alias, updated.alias, tx);
 
       return warnings.length > 0 ? { ...updated, warnings } : updated;
     });
