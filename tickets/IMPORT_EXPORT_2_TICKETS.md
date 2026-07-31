@@ -1151,6 +1151,16 @@ caller's default.
 > head is the right choice here — it is what this build knows how to read — but
 > say which you chose and why.
 >
+> The applied head is readable too, and there is prior art:
+> `scripts/checkDatabaseState.ts:112-118` already queries
+> `__drizzle_migrations` (`SELECT id, hash, created_at ... ORDER BY created_at
+> DESC LIMIT 1`). **But that table stores `hash` and `created_at`, not the tag**
+> — it cannot give you a human-readable `"0005_lying_amphibian"`, and stamping a
+> hash into `migrationHead` makes the "newer than this system" comparison in
+> AC 3 much harder. This is the concrete reason to prefer the journal tag.
+> Reading the DB per export also puts a query on the export path for a value
+> that is fixed at build time.
+>
 > **Refreshed refs:** manifest block `ExportService.ts:76-78`;
 > `FORMAT_VERSION` `bundleFormat.ts:3`; `manifestSchema` `bundleFormat.ts:59`;
 > reader's version check `bundleReader.ts:30-31`; `BUNDLE_REJECTION_SIGNALS`
