@@ -3,6 +3,7 @@ import crypto from "crypto";
 
 import type { Workflow, InsertWorkflow, Step, WorkflowAccess, PrincipalType, AccessRole } from "@shared/schema";
 import { workflowVersions, workflows, auditLogs, projects, workflowRuns } from "@shared/schema";
+import type { IntakeConfig } from "@shared/types/intake";
 
 interface GraphConfig {
   title?: string;
@@ -523,15 +524,11 @@ export class WorkflowService {
   async updateIntakeConfig(
     workflowId: string,
     userId: string,
-    intakeConfig: Record<string, unknown>,
+    intakeConfig: IntakeConfig,
     tx?: DbTransaction
   ): Promise<Workflow> {
     // Verify user has edit access
     await this.verifyAccess(workflowId, userId, 'edit');
-
-    if (Array.isArray(intakeConfig)) {
-      throw new Error("Invalid intakeConfig: must be a JSON object");
-    }
 
     return this.workflowRepo.update(
       workflowId,

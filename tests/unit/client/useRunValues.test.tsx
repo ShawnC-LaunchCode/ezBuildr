@@ -22,8 +22,6 @@ function renderRunValues(initial: HookProps) {
         run,
         previewState: null,
         previewEnvironment: null,
-        allSteps: [],
-        intakeData: null,
       }),
     { initialProps: initial }
   );

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { insertWorkflowSchema } from "@shared/schema";
+import { IntakeConfigSchema } from "@shared/zod-schemas";
 
 import { logger } from "../logger";
 import { hybridAuth, optionalHybridAuth, type AuthRequest } from '../middleware/auth';
@@ -179,7 +180,7 @@ export function registerWorkflowRoutes(app: Express): void {
       isPublic: z.boolean().optional(),
       slug: z.string().optional(),
       requireLogin: z.boolean().optional(),
-      intakeConfig: z.record(z.any()).optional(),
+      intakeConfig: IntakeConfigSchema.optional(),
       settings: z.record(z.any()).optional(),
       sections: z.array(z.any()).optional(),
       modeOverride: z.string().optional(),
@@ -220,6 +221,9 @@ export function registerWorkflowRoutes(app: Express): void {
       res.json(workflow);
     } catch (error) {
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error updating workflow");
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: ERR_INVALID_INPUT, errors: error.errors });
+      }
       const { status, message } = classifyRouteError(error, "Failed to update workflow");
       res.status(status).json({ message });
     }
@@ -296,22 +300,15 @@ export function registerWorkflowRoutes(app: Express): void {
       }
 
       const { workflowId } = req.params;
-      const intakeConfigSchema = z.object({
-        allowPrefill: z.boolean().optional(),
-        allowedPrefillKeys: z.array(z.string()).optional(),
-        requireCaptcha: z.boolean().optional(),
-        captchaType: z.enum(["simple", "recaptcha"]).optional(),
-        sendEmailReceipt: z.boolean().optional(),
-        receiptEmailVar: z.string().optional(),
-        receiptTemplateId: z.string().optional(),
-      });
-
-      const intakeConfig = intakeConfigSchema.parse(req.body);
+      const intakeConfig = IntakeConfigSchema.parse(req.body);
 
       const workflow = await workflowService.updateIntakeConfig(workflowId, userId, intakeConfig);
       res.json(workflow);
     } catch (error) {
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error updating intake config");
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: ERR_INVALID_INPUT, errors: error.errors });
+      }
       const { status, message } = classifyRouteError(error, "Failed to update intake config");
       res.status(status).json({ message });
     }

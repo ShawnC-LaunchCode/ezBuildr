@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { ProjectAssignmentSection } from "@/components/workflows/settings/ProjectAssignmentSection";
 import { useToast } from "@/hooks/use-toast";
 import { workflowAPI } from "@/lib/vault-api";
-import { useWorkflow, useProjects, useMoveWorkflow, useUpdateWorkflow, useWorkflows } from "@/lib/vault-hooks";
+import { useWorkflow, useProjects, useMoveWorkflow, useUpdateWorkflow } from "@/lib/vault-hooks";
 
 import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
 
@@ -21,7 +21,6 @@ import { BehaviorSettingsCard } from "./settings/BehaviorSettingsCard";
 import { BrandingSettingsCard } from "./settings/BrandingSettingsCard";
 import { ClientAccessSettingsCard } from "./settings/ClientAccessSettingsCard";
 import { GeneralSettingsCard } from "./settings/GeneralSettingsCard";
-import { IntakeSettingsCard } from "./settings/IntakeSettingsCard";
 import { PublishingSettingsCard } from "./settings/PublishingSettingsCard";
 
 interface SettingsTabProps {
@@ -37,11 +36,6 @@ interface WorkflowSettings {
   redirectUrl?: string;
   allowSaveAndResume?: boolean;
   requireLogin?: boolean;
-}
-
-interface IntakeConfig {
-  isIntake?: boolean;
-  upstreamWorkflowId?: string | null;
 }
 
 export function SettingsTab({ workflowId }: SettingsTabProps) {
@@ -79,22 +73,7 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
   const [allowResume, setAllowResume] = useState(true);
   const [allowRedownload, setAllowRedownload] = useState(true);
 
-  // Prompt 24: Intake Settings
-  const [isIntake, setIsIntake] = useState(false);
-  const [upstreamWorkflowId, setUpstreamWorkflowId] = useState<string | null>(null);
-
-  // Fetch all workflows to select upstream (simple approach for now)
-  const { data: allWorkflows } = useWorkflows();
-  // Filter eligible upstream workflows: Active, Is Intake, Not current workflow
-  const eligibleUpstream = allWorkflows?.filter(w => {
-    const intakeConfig = w.intakeConfig as IntakeConfig | undefined;
-    return w.id !== workflowId
-      && intakeConfig?.isIntake === true
-      && w.status !== 'archived';
-  }) ?? [];
-
   // Sync state with loaded workflow data
-  // eslint-disable-next-line complexity -- Hydration maps persisted settings into individual form controls.
   useEffect(() => {
     if (workflow) {
       setName(workflow.title ?? "");
@@ -129,12 +108,6 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
         setAllowRedownload(workflow.accessSettings.allow_redownload ?? true);
       }
 
-      // Intake Config
-      const intakeConfig = workflow.intakeConfig as IntakeConfig | undefined;
-      if (intakeConfig) {
-        setIsIntake(intakeConfig.isIntake ?? false);
-        setUpstreamWorkflowId(intakeConfig.upstreamWorkflowId ?? null);
-      }
     }
   }, [workflow]);
 
@@ -175,10 +148,6 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
           allowPortal,
           allowResume,
           allowRedownload,
-        },
-        intakeConfig: {
-          isIntake,
-          upstreamWorkflowId: isIntake ? null : upstreamWorkflowId,
         },
       });
 
@@ -280,15 +249,6 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
             setDescription={setDescription}
             slug={slug}
             setSlug={setSlug}
-          />
-
-          {/* Prompt 24: Intake & Data Reuse */}
-          <IntakeSettingsCard
-            isIntake={isIntake}
-            setIsIntake={setIsIntake}
-            upstreamWorkflowId={upstreamWorkflowId}
-            setUpstreamWorkflowId={setUpstreamWorkflowId}
-            eligibleUpstream={eligibleUpstream}
           />
 
           {/* Project Assignment */}

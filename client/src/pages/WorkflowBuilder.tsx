@@ -7,7 +7,6 @@ import {
   Eye,
   ChevronDown,
   ArrowLeft,
-  Database,
   Link2,
   Sparkles,
   Share2,
@@ -26,14 +25,13 @@ import { AssignInterviewDialog } from "@/components/builder/AssignInterviewDialo
 import { ResourceAccessDialog } from "@/components/access/ResourceAccessDialog";
 import { AiConversationPanel } from "@/components/builder/ai/AiConversationPanel";
 import { CollectionsDrawer } from "@/components/builder/data-sources/CollectionsDrawer";
-import { IntakeProvider } from "@/components/builder/IntakeContext";
 import {
   BuilderTabNav,
+  isBuilderTab,
   type BuilderTab,
 } from "@/components/builder/layout/BuilderTabNav";
 import { ResizableBuilderLayout } from "@/components/builder/layout/ResizableBuilderLayout";
 import { LogicInspectorPanel } from "@/components/builder/LogicInspectorPanel";
-import { AssignmentTab } from "@/components/builder/tabs/AssignmentTab";
 import { DataSourcesTab } from "@/components/builder/tabs/DataSourcesTab";
 import { ReviewTab } from "@/components/builder/tabs/ReviewTab";
 import { SectionsTab } from "@/components/builder/tabs/SectionsTab";
@@ -118,8 +116,9 @@ export default function WorkflowBuilder() {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [launchingPreview] = useState(false);
   // searchParams hoisted above
+  const requestedTab = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState<BuilderTab>(
-    (searchParams.get("tab") as BuilderTab) ?? "sections",
+    isBuilderTab(requestedTab) ? requestedTab : "sections",
   );
   const mode = workflowMode?.mode ?? "easy";
 
@@ -198,7 +197,7 @@ export default function WorkflowBuilder() {
         user: collabUser,
       }}
     >
-      <IntakeProvider workflowId={workflowId}>
+      <>
         <CollabSync mode={mode} />
         <ResizableBuilderLayout
           workflowId={workflowId}
@@ -222,15 +221,6 @@ export default function WorkflowBuilder() {
                     <h1 className="min-w-0 max-w-[20rem] truncate text-xl font-semibold" title={workflow.title}>
                       {workflow.title}
                     </h1>
-                    {!!(
-                      workflow.intakeConfig as
-                        { isIntake?: boolean } | undefined
-                    )?.isIntake && (
-                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium border border-emerald-200">
-                        <Database className="w-3 h-3" />
-                        <span>Intake</span>
-                      </div>
-                    )}
                     {mode === "advanced" && (
                       <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium border border-indigo-200">
                         <Sparkles className="w-3 h-3" />
@@ -341,15 +331,8 @@ export default function WorkflowBuilder() {
                   </div>
                 </div>
                 <BuilderTabNav
-                  workflowId={workflowId}
                   activeTab={activeTab}
                   onTabChange={setActiveTab}
-                  isIntake={
-                    !!(
-                      workflow.intakeConfig as
-                        { isIntake?: boolean } | undefined
-                    )?.isIntake
-                  }
                 />
               </div>
               {/* Content */}
@@ -374,9 +357,6 @@ export default function WorkflowBuilder() {
                 )}
                 {activeTab === "settings" && (
                   <SettingsTab workflowId={workflowId} />
-                )}
-                {activeTab === "assignment" && (
-                  <AssignmentTab workflowId={workflowId} />
                 )}
               </div>
               <CollectionsDrawer
@@ -436,7 +416,7 @@ export default function WorkflowBuilder() {
             />
           }
         />
-      </IntakeProvider>
+      </>
     </CollaborationProvider>
   );
 }

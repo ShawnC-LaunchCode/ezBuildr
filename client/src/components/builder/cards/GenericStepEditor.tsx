@@ -69,7 +69,6 @@ export function GenericStepEditor({ stepId, sectionId, workflowId, step }: StepE
                 <DefaultValueField
                     stepId={stepId}
                     sectionId={sectionId}
-                    workflowId={workflowId}
                     defaultValue={step.defaultValue as DefaultValueType}
                     type={step.type}
                     mode={mode}

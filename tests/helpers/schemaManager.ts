@@ -28,8 +28,11 @@ export class SchemaManager {
     // `sections`/`steps` (soft-delete) and rebuilds `steps_workflow_alias_unique`
     // with a `deleted_at IS NULL` scope — stale _v7 schemas lack the column
     // and the new unique-index shape.
+    //
+    // Bumped to _v9 for 0006_remove_legacy_intake_reuse, which removes retired
+    // intake-reuse keys and linked defaults from cached test data.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v8`;
+        return `test_schema_w${this.workerId}_v9`;
     }
 
     /**

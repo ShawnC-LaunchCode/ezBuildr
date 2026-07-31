@@ -2,7 +2,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 
-import { IntakeProvider } from "@/components/builder/IntakeContext";
 import { DevToolsPanel } from "@/components/devtools/DevToolsPanel";
 import { useToast } from "@/hooks/use-toast";
 import { hotReloadManager } from "@/lib/previewRunner/HotReloadManager";
@@ -270,14 +269,11 @@ export function PreviewRunner({ workflowId, onExit }: PreviewRunnerProps) {
 
             <div className="flex-1 flex overflow-hidden relative">
                 <div className="flex-1 overflow-auto">
-                    {/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */}
-                    <IntakeProvider workflowId={workflow.id}>
-                        <WorkflowRunner
-                            key={`preview-${env.getState().id}`}
-                            runId={previewRunId ?? undefined}
-                            previewEnvironment={env}
-                        />
-                    </IntakeProvider>
+                    <WorkflowRunner
+                        key={`preview-${env.getState().id}`}
+                        runId={previewRunId ?? undefined}
+                        previewEnvironment={env}
+                    />
                 </div>
 
                 <DevToolsPanel
