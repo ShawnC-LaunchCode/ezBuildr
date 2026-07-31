@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Repository Index
  * Central export point for all repository classes
  *
@@ -9,14 +9,13 @@
 // Export base repository and transaction type
 export { BaseRepository, type DbTransaction } from "./BaseRepository";
 
-// Export domain repositories (user, analytics, files, system)
+// Export domain repositories (user, analytics, system)
 // NOTE: Survey repositories removed (Nov 2025) - workflow-only platform
 export { UserRepository, userRepository } from "./UserRepository";
 export { UserCredentialsRepository, userCredentialsRepository } from "./UserCredentialsRepository";
 export { UserPreferencesRepository, userPreferencesRepository } from "./UserPreferencesRepository";
 export { AdminOrgStatsRepository, adminOrgStatsRepository } from "./AdminOrgStatsRepository";
 // export { AnalyticsRepository, analyticsRepository } from "./AnalyticsRepository";
-// export { FileRepository, fileRepository } from "./FileRepository";
 export { SystemStatsRepository, systemStatsRepository } from "./SystemStatsRepository";
 
 // AI usage/budget ledger (ICW2-B7)

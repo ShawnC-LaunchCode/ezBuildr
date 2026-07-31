@@ -318,12 +318,7 @@ export const EXCLUDED_TABLES: Record<string, string> = {
   'workflow_personalization_settings': 'Workflow personalization is local state.',
   'ai_usage': 'AI usage metrics are billing/telemetry data.',
   'system_stats': 'System wide statistics are host telemetry.',
-  'template_shares': 'Template sharing links are instance-specific.',
-  // `files` is the second file subsystem (FileStorageService), distinct from the
-  // bare `fileRef` storage keys that `blobRefs` follows. Bundle payloads travel
-  // as content-addressed entries under blobs/ and are re-created on import, so
-  // the host's storage bookkeeping rows are never portable.
-  'files': 'Host-managed storage records; bundle bytes travel in blobs/ instead.'
+  'template_shares': 'Template sharing links are instance-specific.'
 };
 
 
