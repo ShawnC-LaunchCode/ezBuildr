@@ -2131,7 +2131,49 @@ scanning it would produce warnings on every export. Leave it out and say why.
 
 ---
 
-## IEX2-15 — The round-trip harness passes because it tests nothing hard 🔲
+## IEX2-15 — The round-trip harness passes because it tests nothing hard ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-31 — `c45435e4`. This closes the round.**
+> Took three submissions. Gates re-run by the reviewer: type-check 0 · lint 0 ·
+> `check:strict-zones` passed · portability `unit-db` **7 files / 74 tests** ·
+> portability integration **3 / 25**.
+>
+> **The reviewer re-ran the harness against a server built from the rebased
+> tree** and it passed with `blobsRestored=1` and cleanup succeeding. That
+> matters beyond this ticket: the dev's own run predated IEX2-10, so this is the
+> first and only end-to-end validation of IEX2-10's path-based `preview`/`apply`
+> and spool-based blob restore. No unit test covers that path end to end.
+>
+> ### Review history — each round found something real
+>
+> - **Round 1:** AC 1 seeded no `logic_rules` and no `transform_blocks` (visible
+>   in its own preview counts), and AC 6's cleanup **failed** on a successful
+>   run — the failure fallback was shipped as if it were the happy path.
+> - **Round 2:** seeding and cleanup fixed, but the soft-delete criterion was
+>   proven only by a row count. `deletedAt` appeared exactly **once** in the
+>   whole harness, on the seeding line. If import had cleared it — silently
+>   resurrecting deleted rows — the count would still have been 3 and the
+>   harness would still have printed PASS.
+> - **Round 3:** the assertion is now real (`softDeletedCount !== 1` throws) and
+>   the dev mutation-proved it by clearing `deletedAt` on the seed, getting a
+>   clean `got 0` failure rather than a crash.
+>
+> ### Reviewer interventions
+>
+> 1. **`ImportService.ts` collided with IEX2-10**, which had rewritten
+>    `preview`/`apply` in the meantime. The worktree was 8 commits stale.
+>    Rebased rather than staged, then verified **both** survived — IEX2-10's
+>    `filePath` signature and spool logic, and this ticket's `migrationHead`
+>    field. Staging as-is would have silently reverted IEX2-10.
+> 2. **Lint failed with 20 `curly` errors**, all in the new assertion block.
+>    Gates were not reported at all in round 3. Auto-fixed.
+> 3. Removed a leftover `test_del.ts` scratch script from the worktree root.
+>
+> **Accepted scope change, disclosed by the dev:** export is now
+> **project-scoped** rather than workflow-scoped, because DataVault and
+> templates hang off the project. Correct for coverage, but it means
+> **workflow-scope export is no longer exercised by this harness** — worth a
+> follow-up if that route is to stay proven.
 
 **Priority: P2** · Size: M · Files: `scripts/verifyPortabilityRoundTrip.ts`
 
