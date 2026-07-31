@@ -2,7 +2,7 @@
 import { type Mode } from "@/lib/mode";
 
 import { ApiBlock, ApiSection } from "@/lib/vault-api";
-import { useCreateBlock, useSteps } from "@/lib/vault-hooks";
+import { useSteps } from "@/lib/vault-hooks";
 
 import { BlockTreeItem } from "./BlockTreeItem";
 import { SectionItemHeader } from "./SectionItemHeader";
@@ -30,37 +30,10 @@ export function SectionItem({
     onEditSection,
 }: SectionItemProps) {
     const { data: steps } = useSteps(section.id);
-    const createBlockMutation = useCreateBlock();
     // Check if this is a Final Documents section
     const isFinalSection = (section.config as Record<string, unknown> | undefined)?.finalBlock === true;
     // Don't show page-level required pill based on questions - only show if page is conditional
     const isPageConditional = !!section.visibleIf;
-
-    const handleCreateLogicBlock = async (type: "write" | "read_table" | "list_tools" | "external_send") => {
-        const order = blocks?.length ?? 0;
-        // Default configs for quick-add
-        const config = type === "write" ? {
-            dataSourceId: "",
-            tableId: "",
-            mode: "upsert",
-            columnMappings: []
-        } : type === "read_table" ? {
-            tableId: "",
-            outputKey: "list_data",
-            filters: []
-        } : {};
-
-        await createBlockMutation.mutateAsync({
-            workflowId,
-            type,
-            phase: "onSectionSubmit",
-            sectionId: section.id,
-            config,
-            enabled: true,
-            order
-        });
-        if (!isExpanded) { onToggle(); }
-    };
 
     // Blocks have phases. 
     // onSectionEnter -> Top
@@ -74,9 +47,7 @@ export function SectionItem({
                 section={section}
                 isExpanded={isExpanded}
                 onToggle={onToggle}
-                mode={mode}
                 onEditSection={onEditSection}
-                onAddBlock={(type) => { void handleCreateLogicBlock(type); }}
                 isFinalSection={isFinalSection}
                 isPageConditional={isPageConditional}
             />

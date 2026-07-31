@@ -12,6 +12,7 @@ import { BlockEditorDialog, type UniversalBlock } from "./BlockEditorDialog";
 import { SectionSettingsDialog } from "./SectionSettingsDialog";
 import { DocumentStatusPanel } from "./sidebar/DocumentStatusPanel";
 import { SectionItem } from "./sidebar/SectionItem";
+import { SidebarHeader } from "./sidebar/SidebarHeader";
 
 
 export function SidebarTree({ workflowId }: { workflowId: string }) {
@@ -82,23 +83,17 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between border-b p-2">
+      <div className="flex items-center border-b p-2">
         <h2 className="text-lg font-semibold">Document Outline</h2>
-        <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={() => { void handleCreateSection(); }}>
-            Add Page
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => { void handleCreateFinalDocumentsSection(); }}>
-            Add Final Docs
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => { void setShowAiDialog(true); }}>
-            AI Assist
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => { void setShowSnipDialog(true); }}>
-            Add Snip
-          </Button>
-        </div>
       </div>
+      {/* Authoring actions live in one grouped panel rather than a row of
+          ghost buttons in the title bar; the outline below stays navigation. */}
+      <SidebarHeader
+        onAddPage={() => { void handleCreateSection(); }}
+        onAddFinalDocs={() => { void handleCreateFinalDocumentsSection(); }}
+        onAiAssist={() => { setShowAiDialog(true); }}
+        onAddSnip={() => { setShowSnipDialog(true); }}
+      />
       {mode === 'easy' && workflow?.projectId && (
         <DocumentStatusPanel workflowId={workflowId} projectId={workflow.projectId} />
       )}

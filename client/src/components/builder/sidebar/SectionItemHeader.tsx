@@ -3,20 +3,18 @@ import { ChevronDown, ChevronRight, GripVertical, FileCheck, Settings } from "lu
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { type Mode } from "@/lib/mode";
+
 import { cn } from "@/lib/utils";
 import { type ApiSection } from "@/lib/vault-api";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 
-import { SectionLogicMenu } from "./SectionLogicMenu";
+
 
 interface SectionItemHeaderProps {
     section: ApiSection;
     isExpanded: boolean;
     onToggle: () => void;
-    mode: Mode;
     onEditSection: () => void;
-    onAddBlock: (type: "write" | "read_table" | "list_tools" | "external_send") => void;
     isFinalSection: boolean;
     isPageConditional: boolean;
 }
@@ -25,9 +23,7 @@ export function SectionItemHeader({
     section,
     isExpanded,
     onToggle,
-    mode,
     onEditSection,
-    onAddBlock,
     isFinalSection,
     isPageConditional
 }: SectionItemHeaderProps) {
@@ -93,17 +89,7 @@ export function SectionItemHeader({
                     <Settings className="h-3 w-3 text-muted-foreground" />
                 </Button>
             </div>
-            {/* Adding questions deliberately lives on the page card only, so
-                there is one obvious place to author a page. The outline is for
-                navigating and reordering. */}
-            {!isFinalSection && (
-                <div className={cn(
-                    "flex gap-1",
-                    mode === 'easy' ? "opacity-100" : "opacity-0 group-hover:opacity-100 transition-opacity"
-                )}>
-                    <SectionLogicMenu mode={mode} onAddBlock={onAddBlock} />
-                </div>
-            )}
+
         </div>
     );
 }
