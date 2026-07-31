@@ -1927,10 +1927,15 @@ tracked as D-7.
 
 **Priority: P2** · Size: M · Files: `server/services/portability/redaction.ts`, `server/services/portability/entityGraph.ts`
 
-> **Refs re-verified 2026-07-31 against `a7e6d672`.** Baselines: `test:fast`
-> **153 files / 2047 tests**; portability `unit-db` **67 / 7**; integration
-> `portability.export` 8. (Unchanged since `b124f9c3` — the three commits since
-> are docs-only, touching `tickets/` alone.)
+> **Refs re-verified twice — most recently 2026-07-31 against `4ea5f6fd`, the
+> dispatch base.** `redaction.ts` and `entityGraph.ts` were **not** touched by
+> IEX2-8, IEX2-17 or DEBT-2, so every ref below is current: `blankPath` `:54`,
+> `VENDOR_TOKEN` `:77`, `UUID` `:91`, `scanForSecrets` `:101`; `entityGraph`
+> redactPaths `:41`/`:87`, scanPaths `:96`/`:105`/`:114`.
+>
+> **Baselines at `4ea5f6fd` — these moved, use these:** `test:fast` **154 files
+> / 2052 tests** (DEBT-2 added 5); portability `unit-db` **70 / 7**; portability
+> integration **24 / 3 files**.
 >
 > ⚠️ **Every `entityGraph.ts` line number in the Finding below was stale and has
 > been corrected in place.** IEX2-6 rewrote that file and shifted it ~15 lines.
@@ -1939,11 +1944,12 @@ tracked as D-7.
 > on `code` columns — only the citations moved. `redaction.ts` did **not** drift;
 > its refs were already correct.
 >
-> ⚠️ **`ExportService.ts` refs are volatile.** The call site is now
-> `ExportService.ts:308-309` (was `:212-215`, ~96 lines of drift). IEX2-8 is in
-> flight against this same file, so expect it to move again before you land.
-> **Anchor on the `scanForSecrets(` call symbol, not on the line number.** You do
-> not otherwise need to edit `ExportService.ts` for this ticket.
+> ⚠️ **`ExportService.ts` refs are volatile — this one has now moved twice.**
+> The `scanForSecrets(` call was `:212-215`, then `:308-309`, and is
+> **`ExportService.ts:340` as of `4ea5f6fd`** (IEX2-8 and IEX2-17 both landed in
+> that file since this ticket was written). **Anchor on the `scanForSecrets(`
+> call symbol, not on the line number.** You do not otherwise need to edit
+> `ExportService.ts` for this ticket.
 >
 > **Sequencing is now clear.** The Ties below say to wait for IEX2-3 and IEX2-6;
 > both are committed and pushed, so this ticket is unblocked. It is parallel-safe
@@ -1997,7 +2003,7 @@ the coverage is the problem.
    values recursively rather than enumerating every possible key — an allowlist of
    key names will not survive contact with free-form config.
 3. Keep scanning **non-destructive**. It emits `secret_scan` warnings into the
-   manifest (the `scanForSecrets(` call, currently `ExportService.ts:308-309`),
+   manifest (the `scanForSecrets(` call, currently `ExportService.ts:340`),
    which is the right behaviour: the user
    is told, the export still happens. Do **not** turn scan hits into redaction —
    silently blanking a user's own config would break the imported workflow.
