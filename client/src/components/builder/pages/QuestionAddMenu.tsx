@@ -16,7 +16,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
@@ -100,35 +99,39 @@ export function QuestionAddMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
-        className="w-64"
+        className="w-[36rem] max-w-[calc(100vw-2rem)] p-2"
       >
-        {orderedCategories.map((category, categoryIndex) => (
-          <div key={category}>
-            {categoryIndex > 0 && <DropdownMenuSeparator />}
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              {CATEGORY_LABELS[category]}
-            </DropdownMenuLabel>
-            {blocksByCategory[category]?.map((block) => (
-              <DropdownMenuItem
-                key={block.type}
-                onClick={() => {
-                  void handleAddQuestion(block);
-                }}
-                className="cursor-pointer gap-2.5 py-1.5"
-              >
-                <QuestionTypeIcon type={block.type} size="md" />
-                <div className="flex flex-col">
-                  <span>{block.label}</span>
-                  {block.description !== undefined && (
-                    <span className="text-xs text-muted-foreground">
-                      {block.description}
-                    </span>
-                  )}
-                </div>
-              </DropdownMenuItem>
-            ))}
-          </div>
-        ))}
+        <div className="grid grid-cols-2 items-start gap-2">
+          {orderedCategories.map((category) => (
+            <div
+              key={category}
+              className="min-w-0 rounded-md border border-border/60 p-1"
+            >
+              <DropdownMenuLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                {CATEGORY_LABELS[category]}
+              </DropdownMenuLabel>
+              {blocksByCategory[category]?.map((block) => (
+                <DropdownMenuItem
+                  key={block.type}
+                  onClick={() => {
+                    void handleAddQuestion(block);
+                  }}
+                  className="cursor-pointer gap-2.5 py-1.5"
+                >
+                  <QuestionTypeIcon type={block.type} size="md" />
+                  <div className="min-w-0 flex flex-col">
+                    <span>{block.label}</span>
+                    {block.description !== undefined && (
+                      <span className="text-xs text-muted-foreground">
+                        {block.description}
+                      </span>
+                    )}
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </div>
+          ))}
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
