@@ -479,4 +479,40 @@ describeWithDb('ImportService - preview', () => {
     const newBuffer = zip.toBuffer();
     await expect(importService.preview(newBuffer, user.id)).rejects.toThrow(/Checksum mismatch/);
   });
+  it('AC 4: a bundle with an older migrationHead still imports successfully and produces a warning in the preview', async () => {
+    const zip = new AdmZip(projectBundle);
+    const manifestEntry = zip.getEntry('manifest.json');
+    const manifest = JSON.parse(manifestEntry!.getData().toString('utf8'));
+    
+    // Claim an older migrationHead
+    manifest.migrationHead = '0003_rich_wild_child';
+    
+    recomputeChecksum(zip, manifest);
+    zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
+    const newBuffer = zip.toBuffer();
+    
+    const preview = await importService.preview(newBuffer, user.id);
+    
+    expect(preview.canProceed).toBe(true);
+    const hasSchemaDrift = preview.warnings.some(w => w.type === 'schema_drift');
+    expect(hasSchemaDrift).toBe(true);
+  });
+
+  it('AC 5: a bundle with migrationHead: null imports successfully (backward compatibility)', async () => {
+    const zip = new AdmZip(projectBundle);
+    const manifestEntry = zip.getEntry('manifest.json');
+    const manifest = JSON.parse(manifestEntry!.getData().toString('utf8'));
+    
+    manifest.migrationHead = null;
+    
+    recomputeChecksum(zip, manifest);
+    zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
+    const newBuffer = zip.toBuffer();
+    
+    const preview = await importService.preview(newBuffer, user.id);
+    
+    expect(preview.canProceed).toBe(true);
+    const hasSchemaDrift = preview.warnings.some(w => w.type === 'schema_drift');
+    expect(hasSchemaDrift).toBe(false);
+  });
 });

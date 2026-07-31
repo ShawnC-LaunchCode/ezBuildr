@@ -62,6 +62,14 @@ ENV PORT=8080
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/node_modules ./node_modules
+# migrations/meta/_journal.json is read AT RUNTIME by the portability feature
+# (IEX2-8): ExportService stamps the journal head into every bundle manifest and
+# ImportService compares it to reject bundles from a newer deployment. Both
+# resolve it from process.cwd(), which is this WORKDIR. Without this copy the
+# export path throws on every call and the import-side version guard silently
+# never fires -- neither of which any test can catch, since the repo tree always
+# has migrations/.
+COPY --from=builder /app/migrations ./migrations
 # Copy any public or necessary script files if they aren't bundled
 # COPY --from=builder /app/public ./public 
 

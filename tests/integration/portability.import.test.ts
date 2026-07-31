@@ -454,4 +454,24 @@ describe.sequential("Portability Import API Integration Tests", () => {
     expect(apply.status).toBe(400);
     expect(apply.body.message).toMatch(/Size mismatch/);
   });
+
+  it("AC 7: a bundle claiming a newer migrationHead is rejected with a 400", async () => {
+    const zip = new AdmZip(bundle);
+    const manifest = JSON.parse(zip.getEntry("manifest.json")!.getData().toString("utf8"));
+    
+    // Claim a migrationHead that doesn't exist (e.g. from the future)
+    manifest.migrationHead = "9999_future_migration";
+    
+    recomputeChecksum(zip, manifest);
+    zip.updateFile("manifest.json", Buffer.from(JSON.stringify(manifest)));
+    const tampered = zip.toBuffer();
+
+    const apply = await request(baseURL)
+      .post("/api/portability/import/apply")
+      .set("Authorization", `Bearer ${authToken}`)
+      .attach("file", tampered, "bundle.ezb");
+
+    expect(apply.status).toBe(400);
+    expect(apply.body.message).toMatch(/newer version of ezBuildr/);
+  });
 });

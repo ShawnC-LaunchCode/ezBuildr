@@ -212,6 +212,35 @@ describeWithDb('ExportService', () => {
     await fs.promises.rm(tmpPath);
   });
 
+  it('stamps real appVersion and migrationHead into the manifest', async () => {
+    // We cannot easily spy on fs.readFileSync due to ESM module constraints.
+    // However, ExportService uses process.cwd() to locate package.json and _journal.json.
+    // By mocking process.cwd(), we can redirect it to a temporary directory with our fake files.
+    const tempDir = path.join(os.tmpdir(), `ezbuildr-test-${Date.now()}`);
+    await fs.promises.mkdir(path.join(tempDir, 'migrations', 'meta'), { recursive: true });
+    
+    await fs.promises.writeFile(
+      path.join(tempDir, 'package.json'),
+      JSON.stringify({ version: '9.9.9' })
+    );
+    await fs.promises.writeFile(
+      path.join(tempDir, 'migrations', 'meta', '_journal.json'),
+      JSON.stringify({ entries: [{ tag: '0099_test_migration' }] })
+    );
+
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(tempDir);
+
+    const buffer = await exportService.export({ scope: 'workflow', id: testWorkflowId }, testUserId);
+    const { reader, tmpPath } = await loadBundle(buffer);
+    
+    expect(reader.manifest.appVersion).toBe('9.9.9');
+    expect(reader.manifest.migrationHead).toBe('0099_test_migration');
+
+    cwdSpy.mockRestore();
+    await fs.promises.rm(tmpPath);
+    await fs.promises.rm(tempDir, { recursive: true, force: true });
+  });
+
   it('exports a project and its descendants', async () => {
     const buffer = await exportService.export({ scope: 'project', id: testProjectId }, testUserId);
     const { reader, tmpPath } = await loadBundle(buffer);

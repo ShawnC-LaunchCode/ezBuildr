@@ -108,6 +108,51 @@ export class ImportService {
     }
   }
 
+  private checkMigrationHead(bundleHead: string | null, warnings: ExportWarning[]): void {
+    if (bundleHead === null) {
+      return;
+    }
+    
+    let entries: Array<{ tag: string }> = [];
+    try {
+      const journalPath = path.resolve(process.cwd(), 'migrations/meta/_journal.json');
+      const content = fs.readFileSync(journalPath, 'utf8');
+      const journal = JSON.parse(content) as Record<string, unknown>;
+      if (Array.isArray(journal.entries)) {
+        entries = journal.entries as Array<{ tag: string }>;
+      }
+    } catch (err) {
+      // The journal is the only source for this comparison, so an unreadable
+      // one means the drift guard silently does nothing -- precisely the
+      // failure mode this check exists to prevent, and invisible from tests
+      // because the repo tree always has migrations/. Say so out loud.
+      logger.warn(
+        { err, bundleHead },
+        'Migration journal unreadable; skipping schema-drift check for this import'
+      );
+      return;
+    }
+    
+    if (entries.length === 0) {
+      return;
+    }
+    
+    const systemHead = entries[entries.length - 1].tag;
+    if (bundleHead === systemHead) {
+      return;
+    }
+    
+    const bundleIdx = entries.findIndex(e => e.tag === bundleHead);
+    if (bundleIdx === -1) {
+      throw new Error(`this bundle was created on a newer version of ezBuildr (migrationHead: ${bundleHead})`);
+    } else {
+      warnings.push({
+        type: 'schema_drift',
+        message: `This bundle was created on an older version of ezBuildr (migrationHead: ${bundleHead}). Import will proceed, but some fields may be mapped to defaults.`
+      });
+    }
+  }
+
   private async getTargetOwnerForPreview(userId: string, targetProjectId?: string): Promise<TargetOwner | null> {
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
     if (user?.tenantId == null) {
@@ -398,6 +443,7 @@ export class ImportService {
         await this.processEntityStream(reader, desc, extracted, result, bundleIds);
       }
       this.extractManifestMetadata(reader.manifest, result);
+      this.checkMigrationHead(reader.manifest.migrationHead, result.warnings);
 
       if (targetOwner !== null) {
         await this.checkCollisions(targetOwner, targetProjectId, extracted, result);
@@ -903,6 +949,8 @@ export class ImportService {
       reader = new BundleReader(tmpPath);
       await reader.open();
       const manifest = reader.manifest;
+
+      this.checkMigrationHead(manifest.migrationHead, warnings);
 
       const idMap = new Map<string, string>();
       const rootIds = manifest.rootIds;

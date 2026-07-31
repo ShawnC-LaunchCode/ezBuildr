@@ -95,7 +95,8 @@ const BUNDLE_REJECTION_SIGNALS = [
   'Unresolvable reference',
   'Bundle roots not found',
   'Duplicate entry detected',
-  'Size mismatch'
+  'Size mismatch',
+  'newer version of ezBuildr'
 ];
 
 function classifyImportError(error: unknown, fallback: string): { status: number; message: string } {

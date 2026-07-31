@@ -89,6 +89,11 @@ export const manifestSchema = z.object({
       column: z.string(),
       missingId: z.string(),
       message: z.string()
+    }),
+    z.object({
+      // Used by ImportPreview/ImportApplyResult for older bundles
+      type: z.literal('schema_drift'),
+      message: z.string()
     })
   ])).optional(),
   requiresReentry: z.array(reentryEntrySchema).optional()

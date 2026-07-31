@@ -192,8 +192,10 @@ describeWithDb('ImportService - blob restore', () => {
 
     const warning = result.warnings.find(w => w.type === 'missing_blob' && w.fileRef === MISSING_REF);
     expect(warning).toBeDefined();
-    expect(warning!.entity).toBe('templates');
-    expect(warning!.column).toBe('fileRef');
+    if (warning?.type === 'missing_blob') {
+      expect(warning.entity).toBe('templates');
+      expect(warning.column).toBe('fileRef');
+    }
 
     // Absent is not malicious: the import still succeeded.
     expect(result.rootId).toBeTruthy();
