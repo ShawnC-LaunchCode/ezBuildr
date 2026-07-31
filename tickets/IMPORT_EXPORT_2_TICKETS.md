@@ -125,7 +125,7 @@ Proven live are marked **[PROVEN]** with the reproduction.
 | Phase | Theme | Tickets | Status |
 |---|---|---|---|
 | A | **P0 — the feature does not work on real data** | IEX2-1..4 | ✅ **COMPLETE** — all four P0s fixed |
-| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔄 IEX2-5 ✅ 6 ✅ 7 ✅ 8 ✅ 9 ✅ 11 ✅; **only IEX2-17 left** |
+| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | ✅ **COMPLETE** — IEX2-5 ✅ 6 ✅ 7 ✅ 8 ✅ 9 ✅ 11 ✅ 17 ✅ |
 | C | P2 — hardening, redaction depth, real proof | IEX2-12..15 | 🔄 IEX2-12 ✅ + IEX2-13 ✅ done |
 | D | Make the feature reachable | IEX2-16 | ⏸️ **deferred out of round 2** |
 
@@ -1654,7 +1654,40 @@ message rather than running until the process dies, in the style of
 
 ---
 
-## IEX2-17 — Exporting requires `edit`, not `view` 🔲
+## IEX2-17 — Exporting requires `edit`, not `view` ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-31 — `e90cc2de`.** Gates re-run by the
+> reviewer, including the three the turn-in did not report: type-check 0 · lint
+> 0 · `check:strict-zones` passed · portability integration **3 files / 24
+> tests** (22 + 2 new) · portability `unit-db` **7 / 70** · `test:fast` **154
+> files / 2052 tests**.
+>
+> **Mutation-proved, both criteria non-vacuous:**
+> - Reverting **only the workflow scope** to `'view'` fails the refusal
+>   assertion (`expected 200 to be 403`). The test discriminates per scope
+>   rather than passing in bulk — which a whole-file revert could not have
+>   shown.
+> - Removing the project-level grant from the AC 4 test turns it **403**, so
+>   that test proves *inheritance* rather than tenant role or ownership
+>   accidentally granting access.
+>
+> **AC 2/3 shape note:** delivered as one test covering all three scopes rather
+> than one test per scope. Coverage per scope is present and mutation-proved
+> individually, so this was accepted as written.
+>
+> **AC 5 satisfied trivially:** no existing test seeded a view-only user, and no
+> existing test body was modified — only an `afterAll` FK cleanup was added for
+> the secondary user's `audit_logs`. Nothing was weakened to make a test pass.
+>
+> **On the `TEST_RATE_LIMIT` toggle, which reads alarming and is not.**
+> `rateLimiter.ts` skips when `NODE_ENV === 'test' && !TEST_RATE_LIMIT`, so the
+> limiter is **off by default** in tests and this file switches it *on* for
+> AC 6. The new tests delete the var and restore it in a `finally`, which
+> restores the default and hands it back. No production middleware is disabled.
+>
+> ⚠️ The turn-in reported `test:fast` 153/2047; that was the pre-DEBT-2 baseline
+> from a stale base. Post-ff it is 154/2052. Same stale-base signature as DEBT-2
+> — ff first, then re-measure.
 
 **Priority: P1** · Size: S · Files: `server/services/portability/ExportService.ts`
 
