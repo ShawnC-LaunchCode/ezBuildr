@@ -163,8 +163,8 @@ export class ExportService {
         throw new Error('Project not found');
       }
       
-      const canView = await aclService.hasProjectRole(userId, root.id, 'view');
-      if (!canView) {
+      const canEdit = await aclService.hasProjectRole(userId, root.id, 'edit');
+      if (!canEdit) {
         throw new Error('Access denied - insufficient permissions for this project');
       }
 
@@ -189,8 +189,8 @@ export class ExportService {
         throw new Error('Project not found');
       }
 
-      const canView = await aclService.hasWorkflowRole(userId, root.id, 'view');
-      if (!canView) {
+      const canEdit = await aclService.hasWorkflowRole(userId, root.id, 'edit');
+      if (!canEdit) {
         throw new Error('Access denied - insufficient permissions for this workflow');
       }
 
@@ -201,8 +201,8 @@ export class ExportService {
         throw new Error('Database not found');
       }
 
-      const canView = await datavaultAclService.hasDatabaseRole(userId, root.id, 'view');
-      if (!canView) {
+      const canEdit = await datavaultAclService.hasDatabaseRole(userId, root.id, 'edit');
+      if (!canEdit) {
         throw new Error('Access denied - insufficient permissions for this database');
       }
       
