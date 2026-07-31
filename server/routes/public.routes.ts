@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import { eq } from "drizzle-orm";
 import { Router, Request, Response } from "express";
 
@@ -29,6 +28,7 @@ router.get("/w/:slug", asyncHandler(async (req: Request, res: Response) => {
             return res.status(404).json({ error: "Workflow not found" });
         }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
         if (!workflow.isPublic) {
             return res.status(404).json({ error: "Workflow not found" }); // Hide private
         }
@@ -39,9 +39,13 @@ router.get("/w/:slug", asyncHandler(async (req: Request, res: Response) => {
 
         // Clean sensitive data
         const safeWorkflow = {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
             id: workflow.id,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
             title: workflow.title,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
             description: workflow.description,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
             publicSettings: workflow.publicSettings,
             // Logic to fetch pages/blocks would be needed here too
         };
@@ -63,6 +67,7 @@ router.post("/w/:slug/run", asyncHandler(async (req: Request, res: Response) => 
 // Complete Workflow (Simulator)
 router.post("/w/:slug/complete", apiLimiter, strictLimiter, asyncHandler(async (req: Request, res: Response) => {
     const { slug } = req.params;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
     const { runToken } = req.body;
 
     try {

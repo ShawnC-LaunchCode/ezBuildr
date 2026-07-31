@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/unbound-method -- all AiController methods are static, no `this` binding issues */
 import { AiController } from "../controllers/AiController";
 import { createLogger } from "../logger";
 import { validateWorkflowSize, aiWorkflowRateLimit, aiDailyRateLimit } from "../middleware/ai.middleware";
@@ -22,12 +21,14 @@ export function registerAiRoutes(app: Express): void {
    * GET /api/ai/status
    * Check if AI services are available
    */
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- Static controller handler has no `this` binding.
   app.get('/api/ai/status', hybridAuth, asyncHandler(AiController.getStatus));
 
   /**
    * POST /api/ai/sentiment
    * Quick sentiment analysis for text
    */
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- Static controller handler has no `this` binding.
   app.post('/api/ai/sentiment', hybridAuth, aiWorkflowRateLimit, aiDailyRateLimit, asyncHandler(AiController.analyzeSentiment));
 
   // ============================================================================
@@ -44,6 +45,7 @@ export function registerAiRoutes(app: Express): void {
     requireBuilder,
     aiWorkflowRateLimit,
     aiDailyRateLimit,
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- Static controller handler has no `this` binding.
     asyncHandler(AiController.generateWorkflow)
   );
 
@@ -57,6 +59,7 @@ export function registerAiRoutes(app: Express): void {
     requireBuilder,
     aiWorkflowRateLimit,
     aiDailyRateLimit,
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- Static controller handler has no `this` binding.
     asyncHandler(AiController.suggestWorkflowImprovements)
   );
 
@@ -70,6 +73,7 @@ export function registerAiRoutes(app: Express): void {
     requireBuilder,
     aiWorkflowRateLimit,
     aiDailyRateLimit,
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- Static controller handler has no `this` binding.
     asyncHandler(AiController.suggestTemplateBindings)
   );
 
@@ -86,6 +90,7 @@ export function registerAiRoutes(app: Express): void {
     requireBuilder,
     aiWorkflowRateLimit,
     aiDailyRateLimit,
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- Static controller handler has no `this` binding.
     asyncHandler(AiController.suggestValues)
   );
 
@@ -100,6 +105,7 @@ export function registerAiRoutes(app: Express): void {
     validateWorkflowSize(),
     aiWorkflowRateLimit,
     aiDailyRateLimit,
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- Static controller handler has no `this` binding.
     asyncHandler(AiController.generateLogic)
   );
 
@@ -114,6 +120,7 @@ export function registerAiRoutes(app: Express): void {
     validateWorkflowSize(),
     aiWorkflowRateLimit,
     aiDailyRateLimit,
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- Static controller handler has no `this` binding.
     asyncHandler(AiController.debugLogic)
   );
 
@@ -128,9 +135,9 @@ export function registerAiRoutes(app: Express): void {
     validateWorkflowSize(),
     aiWorkflowRateLimit,
     aiDailyRateLimit,
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- Static controller handler has no `this` binding.
     asyncHandler(AiController.visualizeLogic)
   );
 
   aiLogger.info('AI workflow generation routes registered');
 }
-/* eslint-enable @typescript-eslint/unbound-method */

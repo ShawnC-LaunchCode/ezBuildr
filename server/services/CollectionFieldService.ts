@@ -269,7 +269,7 @@ export class CollectionFieldService {
    */
   async bulkCreateFields(
     collectionId: string,
-    fieldsData: InsertCollectionField[],
+    fieldsData: Array<Omit<InsertCollectionField, 'collectionId'>>,
     tx?: DbTransaction
   ): Promise<CollectionField[]> {
     await this.verifyCollectionExists(collectionId, tx);

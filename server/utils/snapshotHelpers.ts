@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Snapshot Helper Utilities
  *
@@ -35,8 +34,7 @@ export interface SnapshotValidation {
  * @returns Array of missing values with reasons
  */
 export function findMissingValues(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- snapshot values are dynamic per step type
-  snapshotValues: Record<string, any>,
+  snapshotValues: Record<string, unknown>,
   currentSteps: Step[]
 ): MissingValue[] {
   const missingValues: MissingValue[] = [];
@@ -148,10 +146,12 @@ export function findFirstMissingStep(
  * @param snapshotValues - Raw snapshot values from DB
  * @returns Normalized key-value map
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- normalizes legacy and new snapshot formats with dynamic shapes
-export function normalizeSnapshotValues(snapshotValues: any): Record<string, any> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic step values
-  const normalized: Record<string, any> = {};
+export function normalizeSnapshotValues(snapshotValues: unknown): Record<string, unknown> {
+  const normalized: Record<string, unknown> = {};
+
+  if (typeof snapshotValues !== 'object' || snapshotValues === null) {
+    return normalized;
+  }
 
   for (const [key, val] of Object.entries(snapshotValues)) {
     // Check if it's versioned format
@@ -173,24 +173,23 @@ export function normalizeSnapshotValues(snapshotValues: any): Record<string, any
  * @param value - The value to validate
  * @returns true if value is complete and valid
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- validates dynamic step values of various types
-export function isValueComplete(stepType: string, value: any): boolean {
+export function isValueComplete(stepType: string, value: unknown): boolean {
   if (value === null || value === undefined || value === '') {
     return false;
   }
 
   switch (stepType) {
     case 'address':
-      return (
-        typeof value === 'object' &&
-        value.street &&
-        value.city &&
-        value.state &&
-        value.zip
-      );
+      if (typeof value !== 'object' || value === null) {
+        return false;
+      }
+      {
+        const address = value as Record<string, unknown>;
+        return Boolean(address.street && address.city && address.state && address.zip);
+      }
 
     case 'multi_field':
-      return typeof value === 'object' && Object.keys(value).length > 0;
+      return typeof value === 'object' && value !== null && Object.keys(value).length > 0;
 
     case 'multiple_choice':
       return Array.isArray(value) && value.length > 0;

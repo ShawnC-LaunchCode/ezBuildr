@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /**
  * AggregationService.ts
  * Computes aggregated metrics for runs and workflows.
@@ -26,15 +25,20 @@ class AggregationService {
             if (!startEvent || !endEvent) {return;}
             const totalTimeMs = endEvent.timestamp.getTime() - startEvent.timestamp.getTime();
             // Count unique pages and blocks visited
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
             const pagesVisited = new Set(events.filter((e: any) => e.pageId).map((e: any) => e.pageId as string)).size;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
             const blocksVisited = new Set(events.filter((e: any) => e.blockId).map((e: any) => e.blockId as string)).size;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
             const validationErrors = events.filter((e: any) => e.type === 'validation.error').length;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
             const scriptErrors = events.filter((e: any) => e.type === 'script.error').length;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
             const isCompleted = events.some((e: any) => e.type === 'workflow.complete');
             // Upsert metrics
             await db.insert(workflowRunMetrics).values({
@@ -81,9 +85,11 @@ class AggregationService {
             return acc;
         }, {});
         for (const [blockId, bEvents] of Object.entries(blockEvents)) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
             const visitCount = bEvents.filter((e: any) => e.type === 'block.enter' || e.type === 'block.start').length;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
             const errors = bEvents.filter((e: any) => e.type === 'validation.error').length;
             // Naive time spent: sum of (exit - enter) ... requires strict pairing logic, skipping for now
             // Just increment visit counts

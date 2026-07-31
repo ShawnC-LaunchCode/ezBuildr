@@ -50,8 +50,7 @@ const envSchema = z.object({
 // or be careful about what is accessed where.
 // For now, we'll try to use a unified approach, prioritizing process.env for Node and import.meta.env for Vite if available.
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const getRawEnv = () => {
+const getRawEnv = (): Record<string, unknown> => {
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (typeof process !== 'undefined' && process.env) {
         return process.env;
@@ -79,13 +78,15 @@ if (!parsed.success) {
     console.warn("⚠️  Environment validation failed:", parsed.error.format());
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
-export const env = parsed.success ? parsed.data : (rawEnv as any);
+type Environment = z.infer<typeof envSchema>;
+const partialParsed = envSchema.partial().safeParse(rawEnv);
+export const env: Partial<Environment> = parsed.success
+    ? parsed.data
+    : partialParsed.success
+        ? partialParsed.data
+        : {};
 
 // Helper to check if we are in production
-// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 export const isProduction = env.NODE_ENV === "production";
-// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 export const isDevelopment = env.NODE_ENV === "development";
-// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 export const isTest = env.NODE_ENV === "test";

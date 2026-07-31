@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 /**
  * JSON Viewer Component
  * Enhanced with expand/collapse, change highlighting, and copy path functionality
@@ -12,8 +11,7 @@ import { Card } from '@/components/ui/card';
 import { cn } from "@/lib/utils";
 
 interface JsonViewerProps {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-redundant-type-constituents
-  data: Record<string, unknown> | any;
+  data: unknown;
   className?: string;
   maxHeight?: string;
   readOnly?: boolean;
@@ -45,8 +43,7 @@ function useDarkModeObserver() {
 }
 
 // Helper to check if two values are effectively different
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function isDifferent(val1: any, val2: any): boolean { // JSON comparison requires any type
+function isDifferent(val1: unknown, val2: unknown): boolean {
   if (val1 === val2) {
     return false;
   }
@@ -64,8 +61,7 @@ function isDifferent(val1: any, val2: any): boolean { // JSON comparison require
 
 export function JsonViewer({ data, className, maxHeight = '400px', readOnly = true, highlightChanges = true }: JsonViewerProps) {
   const _isDark = useDarkModeObserver();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const prevDataRef = useRef<Record<string, any>>({}); // JSON data can be any structure
+  const prevDataRef = useRef<unknown>({});
   const [changedPaths, setChangedPaths] = useState<Map<string, number>>(new Map());
   const [copiedAll, setCopiedAll] = useState(false);
 
@@ -77,12 +73,11 @@ export function JsonViewer({ data, className, maxHeight = '400px', readOnly = tr
     const now = Date.now();
     const newChanges = new Map<string, number>();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    function findChanges(current: any, prev: any, path: string) { // JSON traversal requires any type
+    function findChanges(current: unknown, prev: unknown, path: string): void {
       if (isDifferent(current, prev)) {
         newChanges.set(path, now);
       }
-      if (typeof current === 'object' && current !== null && typeof prev === 'object' && prev !== null) {
+      if (isRecord(current) && isRecord(prev)) {
         Object.keys(current).forEach(key => {
           const nextPath = path ? `${path}.${key}` : key;
           findChanges(current[key], prev[key], nextPath);
@@ -178,14 +173,24 @@ export function JsonViewer({ data, className, maxHeight = '400px', readOnly = tr
 
 interface JsonNodeProps {
   name: string | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  value: any;
+  value: unknown;
   isLast: boolean;
   depth: number;
   path: string;
   changedPaths: Map<string, number>;
   initiallyExpanded?: boolean;
   readOnly?: boolean;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function getEntries(value: object): Array<[string, unknown]> {
+  if (Array.isArray(value)) {
+    return value.map((item, index) => [String(index), item]);
+  }
+  return Object.entries(value);
 }
 
 // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
@@ -216,8 +221,7 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
     setTimeout(() => setCopiedPath(false), 1500);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const getTypeColor = (val: any) => { // JSON value type detection requires any
+  const getTypeColor = (val: unknown): string => {
     if (val === null) { return "text-rose-500"; }
     switch (typeof val) {
       case 'string': return "text-emerald-600 dark:text-emerald-400";
@@ -227,8 +231,7 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const renderValue = (val: any) => { // JSON value rendering requires any
+  const renderValue = (val: unknown): string => {
     if (val === null) { return "null"; }
     if (typeof val === 'string') { return `"${val}"`; }
     return String(val);
@@ -241,7 +244,7 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
   );
 
   if (isObject) {
-    const keys = Object.keys(value);
+    const entries = getEntries(value);
 
     return (
       <div className="ml-0">
@@ -272,7 +275,7 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
             {isArray ? "[" : "{"}
             {!expanded && !isEmpty && (
               <span className="mx-1 text-gray-400 italic">
-                {keys.length} {keys.length === 1 ? 'item' : 'items'}
+                {entries.length} {entries.length === 1 ? 'item' : 'items'}
               </span>
             )}
             {isEmpty && (isArray ? "]" : "}")}
@@ -299,12 +302,12 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
         {/* Children */}
         {expanded && !isEmpty && (
           <div className="ml-4 border-l border-gray-200 dark:border-gray-800 pl-2">
-            {keys.map((key, i) => (
+            {entries.map(([key, childValue], i) => (
               <JsonNode
                 key={key}
                 name={isArray ? `[${key}]` : key}
-                value={value[key]}
-                isLast={i === keys.length - 1}
+                value={childValue}
+                isLast={i === entries.length - 1}
                 depth={depth + 1}
                 path={path ? `${path}.${key}` : key}
                 changedPaths={changedPaths}
@@ -358,8 +361,7 @@ function JsonNode({ name, value, isLast, depth, path, changedPaths, initiallyExp
 }
 
 interface CollapsibleJsonViewerProps {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data: any;
+  data: unknown;
   title: string;
   className?: string;
 }

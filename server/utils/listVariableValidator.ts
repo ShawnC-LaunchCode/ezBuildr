@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 /**
  * List Variable Validator
  * Validates that an object conforms to the ListVariable interface
@@ -8,6 +7,12 @@ import type { ListVariable } from "@shared/types/blocks";
 
 import { logger } from "../logger";
 
+function toRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null
+    ? value as Record<string, unknown>
+    : null;
+}
+
 /**
  * Check if a value is a valid ListVariable
  */
@@ -16,15 +21,15 @@ export function isListVariable(value: unknown): value is ListVariable {
     return false;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- narrowing unknown to ListVariable requires property access
-  const v = value as any;
+  const v = value as Record<string, unknown>;
+  const metadata = toRecord(v.metadata);
 
   // Check required properties
-  if (!v.metadata || typeof v.metadata !== "object") {
+  if (!metadata) {
     return false;
   }
 
-  if (!v.rows || !Array.isArray(v.rows)) {
+  if (!Array.isArray(v.rows)) {
     return false;
   }
 
@@ -32,18 +37,24 @@ export function isListVariable(value: unknown): value is ListVariable {
     return false;
   }
 
-  if (!v.columns || !Array.isArray(v.columns)) {
+  if (!Array.isArray(v.columns)) {
     return false;
   }
 
   // Check metadata has required fields
-  if (!v.metadata.source) {
+  if (typeof metadata.source !== "string") {
     return false;
   }
 
   // Check columns have required structure
   for (const col of v.columns) {
-    if (!col.id || !col.name || !col.type) {
+    const column = toRecord(col);
+    if (
+      !column
+      || typeof column.id !== "string"
+      || typeof column.name !== "string"
+      || typeof column.type !== "string"
+    ) {
       return false;
     }
   }
@@ -60,18 +71,15 @@ export function validateListVariable(
   context?: { stepId?: string; stepAlias?: string }
 ): ListVariable | null {
   if (!isListVariable(value)) {
+    const candidate = toRecord(value);
     logger.warn(
       {
         stepId: context?.stepId,
         stepAlias: context?.stepAlias,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- diagnostic logging of unknown structure
-        hasMetadata: !!(value as any)?.metadata,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- diagnostic logging of unknown structure
-        hasRows: Array.isArray((value as any)?.rows),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- diagnostic logging of unknown structure
-        hasCount: typeof (value as any)?.count === "number",
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- diagnostic logging of unknown structure
-        hasColumns: Array.isArray((value as any)?.columns),
+        hasMetadata: toRecord(candidate?.metadata) !== null,
+        hasRows: Array.isArray(candidate?.rows),
+        hasCount: typeof candidate?.count === "number",
+        hasColumns: Array.isArray(candidate?.columns),
       },
       "Invalid ListVariable format in JS block output"
     );

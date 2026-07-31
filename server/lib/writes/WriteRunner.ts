@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import type { WriteBlockConfig, WriteResult, BlockContext } from "@shared/types/blocks";
 
 import { db } from "../../db";
@@ -35,8 +34,7 @@ export class WriteRunner {
             const mappedValues = resolveColumnMappings(config.columnMappings, context.data, context.aliasMap);
             // 2. Resolve match strategy (for update and upsert modes)
             let matchColumnId: string | undefined;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- EAV cell value can be any JSON type
-            let matchValue: any;
+            let matchValue: unknown;
             if (config.mode === "update" || config.mode === "upsert") {
                 // Support new matchStrategy or legacy primaryKey fields
                 if (config.matchStrategy) {
@@ -134,8 +132,7 @@ export class WriteRunner {
      */
     private async executeCreate(
         tableId: string,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- EAV column values are dynamic
-        values: Record<string, any>,
+        values: Record<string, unknown>,
         tenantId: string,
         userId: string | undefined,
         tx: DbTransaction
@@ -157,10 +154,8 @@ export class WriteRunner {
     private async executeUpdate(
         tableId: string,
         pkColumnId: string,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- EAV cell value can be any JSON type
-        pkValue: any,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- EAV column values are dynamic
-        values: Record<string, any>,
+        pkValue: unknown,
+        values: Record<string, unknown>,
         tenantId: string,
         userId: string | undefined,
         tx: DbTransaction
@@ -169,7 +164,7 @@ export class WriteRunner {
         // Datavault doesn't strictly enforce one PK, but we treat `pkColumnId` as the lookup key.
         const rowId = await this.findRowIdByColumnValue(tableId, pkColumnId, pkValue, tenantId, tx);
         if (!rowId) {
-            throw new Error(`Row not found for Table ${tableId} where Column ${pkColumnId} = ${pkValue}`);
+            throw new Error(`Row not found for Table ${tableId} where Column ${pkColumnId} = ${String(pkValue)}`);
         }
         // Update row via service
         await datavaultRowsService.updateRow(
@@ -185,8 +180,7 @@ export class WriteRunner {
     private async findRowIdByColumnValue(
         tableId: string,
         columnId: string,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- EAV cell value can be any JSON type
-        value: any,
+        value: unknown,
         tenantId: string,
         tx: DbTransaction,
         forUpdate: boolean = false
@@ -203,10 +197,8 @@ export class WriteRunner {
     private async executeUpsert(
         tableId: string,
         matchColumnId: string,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- EAV cell value can be any JSON type
-        matchValue: any,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- EAV column values are dynamic
-        values: Record<string, any>,
+        matchValue: unknown,
+        values: Record<string, unknown>,
         tenantId: string,
         userId: string | undefined,
         tx: DbTransaction

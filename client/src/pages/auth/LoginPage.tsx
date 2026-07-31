@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any */
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Shield, Smartphone } from "lucide-react";
 import React, { useState } from "react";
@@ -19,6 +18,21 @@ const loginSchema = z.object({
     password: z.string().min(1, "Password is required"),
 });
 type LoginFormValues = z.infer<typeof loginSchema>;
+type LoginSuccess = Awaited<ReturnType<typeof authAPI.login>>;
+
+interface MfaRequiredResponse {
+    requiresMfa: true;
+    mfaPendingToken: string;
+}
+
+function isMfaRequiredResponse(value: unknown): value is MfaRequiredResponse {
+    return typeof value === "object"
+        && value !== null
+        && "requiresMfa" in value
+        && value.requiresMfa === true
+        && "mfaPendingToken" in value
+        && typeof value.mfaPendingToken === "string";
+}
 
 export default function LoginPage() {
     const [, setLocation] = useLocation();
@@ -35,7 +49,7 @@ export default function LoginPage() {
             password: "",
         },
     });
-    const handleSuccess = async (response: any) => {
+    const handleSuccess = async (response: LoginSuccess) => {
         if (response.token) {
             const { setAccessToken } = await import("@/lib/vault-api");
             const { queryClient } = await import("@/lib/queryClient");
@@ -52,9 +66,9 @@ export default function LoginPage() {
         try {
             const response = await authAPI.login(data);
             // Check for MFA requirement
-            if ((response as any).requiresMfa) {
+            if (isMfaRequiredResponse(response)) {
                 setMfaRequired(true);
-                setMfaPendingToken((response as any).mfaPendingToken);
+                setMfaPendingToken(response.mfaPendingToken);
                 toast({
                     title: "Two-Factor Authentication Required",
                     description: "Please enter the code from your authenticator app.",

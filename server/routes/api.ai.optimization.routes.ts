@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
 import { Router } from "express";
 
 import { AnalyzeWorkflowSchema, ApplyFixesSchema } from "@shared/types/optimization";

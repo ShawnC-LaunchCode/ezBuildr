@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
 /**
  * Step Type Definitions
  *
@@ -29,14 +28,16 @@ export type JsQuestionConfig = {
   helpText?: string;
 };
 
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 /**
  * Type guard to check if options contain JS question config
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function isJsQuestionConfig(options: any): options is JsQuestionConfig {
+export function isJsQuestionConfig(options: unknown): options is JsQuestionConfig {
   return (
-    options &&
-    typeof options === 'object' &&
+    isObjectRecord(options) &&
     typeof options.code === 'string' &&
     Array.isArray(options.inputKeys) &&
     typeof options.outputKey === 'string' &&

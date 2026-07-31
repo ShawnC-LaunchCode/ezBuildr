@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 
 import type { TenantBranding } from '@shared/types/branding';
@@ -25,6 +24,10 @@ interface BrandingProviderProps {
   children: React.ReactNode;
   tenantId?: string;
   domain?: string;
+}
+
+interface BrandingResponse {
+  branding: TenantBranding | null;
 }
 
 export function BrandingProvider({ children, tenantId, domain }: BrandingProviderProps) {
@@ -65,7 +68,7 @@ export function BrandingProvider({ children, tenantId, domain }: BrandingProvide
         throw new Error(`Failed to load branding: ${response.statusText}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as BrandingResponse;
       setBranding(data.branding);
 
       // Apply theme tokens to document root

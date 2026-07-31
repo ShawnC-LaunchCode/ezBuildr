@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import * as decoding from 'lib0/decoding';
 import * as encoding from 'lib0/encoding';
 import { Awareness } from 'y-protocols/awareness';
@@ -98,7 +97,7 @@ export class WebSocketProvider {
         const encoder = encoding.createEncoder();
         encoding.writeVarUint(encoder, MESSAGE_SYNC);
         syncProtocol.writeSyncStep1(encoder, this.doc);
-        this.send(encoding.toUint8Array(encoder));
+        this.send(encoding.toUint8Array(encoder) as Uint8Array);
 
         // Send awareness state
         if (this.awareness.getLocalState() !== null) {
@@ -108,12 +107,15 @@ export class WebSocketProvider {
             awarenessEncoder,
             awarenessProtocol.encodeAwarenessUpdate(this.awareness, [this.doc.clientID])
           );
-          this.send(encoding.toUint8Array(awarenessEncoder));
+          this.send(encoding.toUint8Array(awarenessEncoder) as Uint8Array);
         }
       };
 
       this.ws.onmessage = (event) => {
-        this.handleMessage(new Uint8Array(event.data));
+        const data = event.data as unknown;
+        if (data instanceof ArrayBuffer) {
+          this.handleMessage(new Uint8Array(data));
+        }
       };
 
       this.ws.onerror = () => {
@@ -180,7 +182,7 @@ export class WebSocketProvider {
         const syncMessageType = syncProtocol.readSyncMessage(decoder, encoder, this.doc, this);
 
         if (encoding.length(encoder) > 1) {
-          this.send(encoding.toUint8Array(encoder));
+          this.send(encoding.toUint8Array(encoder) as Uint8Array);
         }
 
         if (!this.synced && syncMessageType === syncProtocol.messageYjsSyncStep2) {
@@ -193,7 +195,7 @@ export class WebSocketProvider {
       case MESSAGE_AWARENESS:
         awarenessProtocol.applyAwarenessUpdate(
           this.awareness,
-          decoding.readVarUint8Array(decoder),
+          decoding.readVarUint8Array(decoder) as Uint8Array,
           this
         );
         break;
@@ -208,7 +210,7 @@ export class WebSocketProvider {
       const encoder = encoding.createEncoder();
       encoding.writeVarUint(encoder, MESSAGE_SYNC);
       syncProtocol.writeUpdate(encoder, update);
-      this.send(encoding.toUint8Array(encoder));
+      this.send(encoding.toUint8Array(encoder) as Uint8Array);
     }
   };
 
@@ -226,7 +228,7 @@ export class WebSocketProvider {
       encoder,
       awarenessProtocol.encodeAwarenessUpdate(this.awareness, changedClients)
     );
-    this.send(encoding.toUint8Array(encoder));
+    this.send(encoding.toUint8Array(encoder) as Uint8Array);
   };
 
   /**

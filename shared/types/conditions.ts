@@ -99,14 +99,15 @@ export interface OperatorConfig {
 /**
  * Operators available for each step type
  */
-/* eslint-disable sonarjs/no-duplicate-string -- keys match StepType enum values; labels are intentionally repeated for readability */
+const IS_NOT_EMPTY_LABEL = "is not empty";
+
 export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, OperatorConfig[]> = {
   // Boolean type - simplified operators
   yes_no: [
     { value: "is_true", label: "is Yes", needsValue: false, impliedValue: true },
     { value: "is_false", label: "is No", needsValue: false, impliedValue: false },
     { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: "is not empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
   // Short text
@@ -118,7 +119,7 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
     { value: "starts_with", label: "starts with", needsValue: true, valueType: "text" },
     { value: "ends_with", label: "ends with", needsValue: true, valueType: "text" },
     { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: "is not empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
   // Long text - same as short text
@@ -130,7 +131,7 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
     { value: "starts_with", label: "starts with", needsValue: true, valueType: "text" },
     { value: "ends_with", label: "ends with", needsValue: true, valueType: "text" },
     { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: "is not empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
   // Single-select choice (radio, dropdown)
@@ -138,7 +139,7 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
     { value: "equals", label: "is", needsValue: true, valueType: "choices" },
     { value: "not_equals", label: "is not", needsValue: true, valueType: "choices" },
     { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: "is not empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
   // Multiple choice (single select mode)
@@ -150,7 +151,7 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
     { value: "includes_all", label: "includes all of", needsValue: true, valueType: "multi_choices" },
     { value: "includes_any", label: "includes any of", needsValue: true, valueType: "multi_choices" },
     { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: "is not empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
   // Date/time
@@ -195,7 +196,7 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
       needsTwoValues: true,
     },
     { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: "is not empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
   // File upload - limited operators
@@ -217,7 +218,7 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
     { value: "is_true", label: "is true", needsValue: false, impliedValue: true },
     { value: "is_false", label: "is false", needsValue: false, impliedValue: false },
     { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: "is not empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
   // Loop group - check count
@@ -226,7 +227,7 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
     { value: "greater_than", label: "has more than", needsValue: true, valueType: "number" },
     { value: "less_than", label: "has less than", needsValue: true, valueType: "number" },
     { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: "is not empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
   // JS Question - same as computed
@@ -239,7 +240,7 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
     { value: "is_true", label: "is true", needsValue: false, impliedValue: true },
     { value: "is_false", label: "is false", needsValue: false, impliedValue: false },
     { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: "is not empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
   // Repeater - check count
@@ -248,11 +249,9 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
     { value: "greater_than", label: "has more than", needsValue: true, valueType: "number" },
     { value: "less_than", label: "has less than", needsValue: true, valueType: "number" },
     { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: "is not empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 };
-/* eslint-enable sonarjs/no-duplicate-string */
-
 /**
  * Get operators for a given step type
  */

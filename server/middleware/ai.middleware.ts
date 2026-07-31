@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import rateLimit from "express-rate-limit";
 
 import { LIMITS } from "@shared/limits";
@@ -10,6 +9,10 @@ import type { Request, Response, NextFunction } from "express";
 
 const logger = createLogger({ module: 'ai-middleware' });
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
+
 /**
  * Middleware to validate workflow size in request body
  * Prevents memory issues and API overload from huge workflow objects
@@ -20,7 +23,10 @@ export const validateWorkflowSize = (
 ) => {
     return (req: Request, res: Response, next: NextFunction) => {
         try {
-            const workflow = req.body.currentWorkflow;
+            const requestBody: unknown = req.body;
+            const workflow = isRecord(requestBody) && isRecord(requestBody.currentWorkflow)
+                ? requestBody.currentWorkflow
+                : undefined;
 
             if (!workflow) {
                 // No workflow in body, skip validation
@@ -28,13 +34,16 @@ export const validateWorkflowSize = (
             }
 
             // Check sections count
-            if (workflow.sections && workflow.sections.length > maxSections) {
+            const sections = Array.isArray(workflow.sections)
+                ? workflow.sections as unknown[]
+                : undefined;
+            if (sections && sections.length > maxSections) {
                 return res.status(413).json({
                     success: false,
-                    message: `Workflow too large: ${workflow.sections.length} sections (max: ${maxSections})`,
+                    message: `Workflow too large: ${sections.length} sections (max: ${maxSections})`,
                     error: 'workflow_too_large',
                     details: {
-                        sectionsCount: workflow.sections.length,
+                        sectionsCount: sections.length,
                         maxSections,
                         suggestion: 'Consider breaking this workflow into smaller workflows or using fewer sections.',
                     },
@@ -42,18 +51,23 @@ export const validateWorkflowSize = (
             }
 
             // Check steps per section
-            if (workflow.sections) {
-                for (let i = 0; i < workflow.sections.length; i++) {
-                    const section = workflow.sections[i];
-                    if (section.steps && section.steps.length > maxStepsPerSection) {
+            if (sections) {
+                for (let i = 0; i < sections.length; i++) {
+                    const section = sections[i];
+                    if (!isRecord(section)) {
+                        continue;
+                    }
+                    const steps = Array.isArray(section.steps) ? section.steps : undefined;
+                    if (steps && steps.length > maxStepsPerSection) {
+                        const sectionTitle = typeof section.title === 'string' ? section.title : String(i);
                         return res.status(413).json({
                             success: false,
-                            message: `Section "${section.title || i}" has too many steps: ${section.steps.length} (max: ${maxStepsPerSection})`,
+                            message: `Section "${sectionTitle}" has too many steps: ${steps.length} (max: ${maxStepsPerSection})`,
                             error: 'section_too_large',
                             details: {
                                 sectionIndex: i,
-                                sectionTitle: section.title,
-                                stepsCount: section.steps.length,
+                                sectionTitle,
+                                stepsCount: steps.length,
                                 maxStepsPerSection,
                                 suggestion: 'Split this section into multiple smaller sections.',
                             },

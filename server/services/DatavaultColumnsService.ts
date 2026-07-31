@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 import {  or , sql } from "drizzle-orm";
 
 import { blocks, transformBlocks } from "@shared/schema";
@@ -146,15 +145,20 @@ export class DatavaultColumnsService {
       // Validate option structure
       const valueSet = new Set<string>();
       for (const option of options) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- This legacy service consumes dynamically typed persisted data.
         if (!option.label || !option.value) {
           throw new Error('Each option must have both label and value');
         }
         // Check for duplicate values
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access -- This legacy service consumes dynamically typed persisted data.
         if (valueSet.has(option.value)) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- This legacy service consumes dynamically typed persisted data.
           throw new Error(`Duplicate option value: ${option.value}`);
         }
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access -- This legacy service consumes dynamically typed persisted data.
         valueSet.add(option.value);
         // Validate color if provided (simple Tailwind color names)
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- This legacy service consumes dynamically typed persisted data.
         if (option.color && typeof option.color !== 'string') {
           throw new Error('Option color must be a string');
         }

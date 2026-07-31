@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 /**
  * ExecutionTimeline Component
  * 
@@ -125,7 +124,7 @@ function TimelineItem({ entry, index, forceDetails }: { entry: TraceEntry; index
     const isLogic = entry.type === 'logic';
     const isAction = entry.type === 'action'; // e.g. Write, Send
     // Determine Mutation context
-    const isMutation = isAction || (entry.type === 'step' && entry.details?.outputs);
+    const isMutation = isAction || Boolean(entry.type === 'step' && entry.details?.outputs);
     const getIcon = () => {
         if (isFailed) {
             return <XCircle className="w-4 h-4 text-destructive" />;
@@ -191,7 +190,7 @@ function TimelineItem({ entry, index, forceDetails }: { entry: TraceEntry; index
                     )}
                 </div>
                 {/* Details Section */}
-                {(forceDetails || entry.details) && (
+                {(forceDetails || Boolean(entry.details)) && (
                     <div className={cn(
                         "mt-2 text-xs bg-muted/50 p-1.5 rounded font-mono overflow-x-auto",
                         !forceDetails && "hidden group-hover:block" // Auto-show on hover unless forced
@@ -201,9 +200,9 @@ function TimelineItem({ entry, index, forceDetails }: { entry: TraceEntry; index
                                 Reason: {entry.details?.reason ? JSON.stringify(entry.details.reason) : "Conditional logic evaluated to false"}
                             </div>
                         )}
-                        {entry.status === 'executed' && entry.details?.outputs && (
+                        {entry.status === 'executed' && Boolean(entry.details?.outputs) && (
                             <div className="text-blue-700 dark:text-blue-300">
-                                Output: {JSON.stringify(entry.details.outputs)}
+                                Output: {JSON.stringify(entry.details?.outputs)}
                             </div>
                         )}
                         {entry.status === 'executed' && entry.details?.result !== undefined && (

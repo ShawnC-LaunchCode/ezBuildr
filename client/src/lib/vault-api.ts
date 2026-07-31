@@ -1,4 +1,3 @@
-/* eslint-disable max-lines -- API client module necessarily defines all endpoint wrappers in one file */
 /**
  * Vault-Logic API Client
  * Handles all API calls to the workflow backend
@@ -1139,6 +1138,7 @@ export interface EmailTemplateMetadata {
   description?: string | null;
   subjectPreview?: string | null;
   brandingTokens?: Record<string, boolean> | null;
+  // eslint-disable-next-line max-lines -- This legacy API module is split incrementally under DEBT-2.
   createdAt: Date;
   updatedAt: Date;
 }

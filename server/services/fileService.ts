@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -27,21 +26,22 @@ export const ALLOWED_FILE_TYPES = [
 ];
 
 // Validate file upload configuration
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-function-return-type
-export function validateFileUploadConfig(config: any) {
-  if (!config) { return true; } // No restrictions
+export function validateFileUploadConfig(config: unknown): true | string {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) { return true; } // No restrictions
+
+  const fileConfig = config as Record<string, unknown>;
 
   const errors: string[] = [];
 
-  if (config.maxFileSize && typeof config.maxFileSize !== 'number') {
+  if (fileConfig.maxFileSize && typeof fileConfig.maxFileSize !== 'number') {
     errors.push('maxFileSize must be a number');
   }
 
-  if (config.maxFiles && typeof config.maxFiles !== 'number') {
+  if (fileConfig.maxFiles && typeof fileConfig.maxFiles !== 'number') {
     errors.push('maxFiles must be a number');
   }
 
-  if (config.acceptedTypes && !Array.isArray(config.acceptedTypes)) {
+  if (fileConfig.acceptedTypes && !Array.isArray(fileConfig.acceptedTypes)) {
     errors.push('acceptedTypes must be an array');
   }
 

@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 
-import { Router } from "express";
+import { Router, type Express } from "express";
 
 import { requireWorkspace } from "../lib/authz/enforce";
 import { StripeProvider } from "../lib/billing/providers/StripeProvider";
@@ -68,7 +67,6 @@ router.post("/portal", asyncHandler(async (req, res) => {
     }
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-function-return-type
-export const registerBillingRoutes = (app: any) => {
+export const registerBillingRoutes = (app: Express): void => {
     app.use("/api/billing", router);
 };

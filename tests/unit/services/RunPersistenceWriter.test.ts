@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument -- vitest mocks of injected repositories */
 /**
  * RunPersistenceWriter — batched bulk value writes.
  *
@@ -21,9 +20,14 @@
  * `run-version-pinning-rvp5.test.ts` (integration) and
  * `RunDefinitionProvider.test.ts`.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mocked } from 'vitest';
 
 import { RunPersistenceWriter } from '../../../server/services/runs/RunPersistenceWriter';
+import {
+    sectionRepository,
+    stepRepository,
+    workflowRunRepository,
+} from '../../../server/repositories';
 
 vi.mock('../../../server/repositories', () => ({
     workflowRunRepository: { findById: vi.fn() },
@@ -35,29 +39,33 @@ vi.mock('../../../server/repositories', () => ({
 }));
 
 describe('RunPersistenceWriter.bulkSaveValues', () => {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
-    let runRepo: any;
-    let valueRepo: any;
-    let stepRepo: any;
-    let sectionRepo: any;
-    /* eslint-enable @typescript-eslint/no-explicit-any */
+    let runRepo: Mocked<typeof workflowRunRepository>;
+    let valueRepo: {
+        upsert: ReturnType<typeof vi.fn>;
+        upsertMany: ReturnType<typeof vi.fn>;
+    };
+    let stepRepo: Mocked<typeof stepRepository>;
+    let sectionRepo: Mocked<typeof sectionRepository>;
     let writer: RunPersistenceWriter;
 
     beforeEach(async () => {
         const repos = await import('../../../server/repositories');
-        runRepo = repos.workflowRunRepository;
+        runRepo = vi.mocked(repos.workflowRunRepository);
         valueRepo = { upsert: vi.fn(), upsertMany: vi.fn().mockResolvedValue([]) };
-        stepRepo = repos.stepRepository;
-        sectionRepo = repos.sectionRepository;
+        stepRepo = vi.mocked(repos.stepRepository);
+        sectionRepo = vi.mocked(repos.sectionRepository);
 
-        runRepo.findById.mockResolvedValue({ id: 'run-1', workflowId: 'wf-1', workflowVersionId: null });
-        sectionRepo.findByWorkflowId.mockResolvedValue([{ id: 'section-1', workflowId: 'wf-1', title: 'S', order: 0 }]);
+        runRepo.findById.mockResolvedValue({ id: 'run-1', workflowId: 'wf-1', workflowVersionId: null } as never);
+        sectionRepo.findByWorkflowId.mockResolvedValue([{ id: 'section-1', workflowId: 'wf-1', title: 'S', order: 0 }] as never);
         stepRepo.findBySectionIds.mockResolvedValue([
             { id: 'step-1', workflowId: 'wf-1', sectionId: 'section-1', type: 'short_text', title: 'Step 1', config: {}, required: false, order: 0 },
             { id: 'step-2', workflowId: 'wf-1', sectionId: 'section-1', type: 'short_text', title: 'Step 2', config: {}, required: false, order: 1 },
-        ]);
+        ] as never);
 
-        writer = new RunPersistenceWriter(runRepo, valueRepo);
+        writer = new RunPersistenceWriter(
+            runRepo,
+            valueRepo as unknown as ConstructorParameters<typeof RunPersistenceWriter>[1]
+        );
     });
 
     it('persists all values with one prefetch and one batched upsert', async () => {
@@ -72,7 +80,7 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
         expect(valueRepo.upsertMany).toHaveBeenCalledWith([
             { runId: 'run-1', stepId: 'step-1', value: 'a' },
             { runId: 'run-1', stepId: 'step-2', value: 'b' },
-        ]);
+        ] as never);
     });
 
     it('dedupes repeated stepIds (last write wins) so ON CONFLICT cannot hit a row twice', async () => {
@@ -83,7 +91,7 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
 
         expect(valueRepo.upsertMany).toHaveBeenCalledWith([
             { runId: 'run-1', stepId: 'step-1', value: 'fresh' },
-        ]);
+        ] as never);
     });
 
     it('rejects values for steps outside the workflow without writing anything', async () => {
@@ -104,7 +112,7 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
         // membership-in-definition, not a second live re-check.
         stepRepo.findBySectionIds.mockResolvedValue([
             { id: 'step-1', workflowId: 'wf-1', sectionId: 'section-1', type: 'short_text', title: 'Step 1', config: {}, required: false, order: 0 },
-        ]);
+        ] as never);
 
         await writer.bulkSaveValues('run-1', [
             { stepId: 'step-1', value: 'a' },
@@ -112,7 +120,7 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
 
         expect(valueRepo.upsertMany).toHaveBeenCalledWith([
             { runId: 'run-1', stepId: 'step-1', value: 'a' },
-        ]);
+        ] as never);
     });
 
     it('rejects values that do not match the step type or static options', async () => {
@@ -142,7 +150,7 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
                 required: false,
                 order: 1,
             },
-        ]);
+        ] as never);
 
         await expect(writer.bulkSaveValues('run-1', [
             { stepId: 'radio-step', value: 'enterprise' },
@@ -173,7 +181,7 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
                 required: true,
                 order: 0,
             },
-        ]);
+        ] as never);
 
         await writer.bulkSaveValues('run-1', [
             { stepId: 'required-radio', value: '' },
@@ -181,7 +189,7 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
 
         expect(valueRepo.upsertMany).toHaveBeenCalledWith([
             { runId: 'run-1', stepId: 'required-radio', value: '' },
-        ]);
+        ] as never);
     });
 
     it('preserves an unfinished draft while final persistence still validates its format', async () => {
@@ -196,7 +204,7 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
                 required: true,
                 order: 0,
             },
-        ]);
+        ] as never);
 
         await writer.bulkSaveDraftValues('run-1', [
             { stepId: 'email-step', value: 'person@' },
@@ -204,7 +212,7 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
 
         expect(valueRepo.upsertMany).toHaveBeenCalledWith([
             { runId: 'run-1', stepId: 'email-step', value: 'person@' },
-        ]);
+        ] as never);
 
         valueRepo.upsertMany.mockClear();
         await expect(writer.bulkSaveValues('run-1', [
@@ -225,7 +233,7 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
                 required: false,
                 order: 0,
             },
-        ]);
+        ] as never);
 
         await expect(writer.bulkSaveDraftValues('run-1', [
             { stepId: 'email-step', value: { unexpected: true } },
@@ -263,7 +271,7 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
     it('accepts a write-in on a combobox (CVM-4 AC 1)', async () => {
         stepRepo.findBySectionIds.mockResolvedValue([
             choiceStep({ display: 'combobox', allowMultiple: false }),
-        ]);
+        ] as never);
 
         await writer.bulkSaveValues('run-1', [
             { stepId: 'choice-step', value: 'a-write-in' },
@@ -271,7 +279,7 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
 
         expect(valueRepo.upsertMany).toHaveBeenCalledWith([
             { runId: 'run-1', stepId: 'choice-step', value: 'a-write-in' },
-        ]);
+        ] as never);
     });
 
     it('accepts a write-in on a legacy dropdown + searchable config (CVM-4 AC 2)', async () => {
@@ -279,7 +287,7 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
         // resolved through resolveChoiceDisplay rather than read off config.display.
         stepRepo.findBySectionIds.mockResolvedValue([
             choiceStep({ display: 'dropdown', searchable: true, allowMultiple: false }),
-        ]);
+        ] as never);
 
         await writer.bulkSaveValues('run-1', [
             { stepId: 'choice-step', value: 'a-write-in' },
@@ -287,13 +295,13 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
 
         expect(valueRepo.upsertMany).toHaveBeenCalledWith([
             { runId: 'run-1', stepId: 'choice-step', value: 'a-write-in' },
-        ]);
+        ] as never);
     });
 
     it('still rejects an unlisted value on a radio step (CVM-4 AC 3)', async () => {
         stepRepo.findBySectionIds.mockResolvedValue([
             choiceStep({ display: 'radio', allowMultiple: false }),
-        ]);
+        ] as never);
 
         await expect(
             writer.bulkSaveValues('run-1', [
@@ -309,7 +317,7 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
         // must not leak to it.
         stepRepo.findBySectionIds.mockResolvedValue([
             choiceStep({ display: 'dropdown', allowMultiple: false }),
-        ]);
+        ] as never);
 
         await expect(
             writer.bulkSaveValues('run-1', [
@@ -321,7 +329,7 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
     it('still accepts a listed value on a combobox (CVM-4)', async () => {
         stepRepo.findBySectionIds.mockResolvedValue([
             choiceStep({ display: 'combobox', allowMultiple: false }),
-        ]);
+        ] as never);
 
         await writer.bulkSaveValues('run-1', [
             { stepId: 'choice-step', value: 'apple' },
@@ -329,6 +337,6 @@ describe('RunPersistenceWriter.bulkSaveValues', () => {
 
         expect(valueRepo.upsertMany).toHaveBeenCalledWith([
             { runId: 'run-1', stepId: 'choice-step', value: 'apple' },
-        ]);
+        ] as never);
     });
 });

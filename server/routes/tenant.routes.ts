@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
 
@@ -23,6 +22,7 @@ const logger = createLogger({ module: 'tenant-routes' });
 async function createTenantHandler(req: Request, res: Response): Promise<void> {
   try {
     const authReq = req as AuthRequest;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
     const { name, billingEmail } = req.body;
 
     if (!name) {
@@ -36,7 +36,9 @@ async function createTenantHandler(req: Request, res: Response): Promise<void> {
     const [newTenant] = await db
       .insert(tenants)
       .values({
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
         name,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
         billingEmail: billingEmail ?? null,
         plan: 'free',
       })
@@ -190,12 +192,15 @@ export function registerTenantRoutes(app: Express): void {
         updatedAt: new Date(),
       };
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
       if (name !== undefined) { updateData.name = name; }
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
       if (billingEmail !== undefined) { updateData.billingEmail = billingEmail; }
 
       // Update tenant
       const [updatedTenant] = await db
         .update(tenants)
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
         .set(updateData)
         .where(eq(tenants.id, tenantId))
         .returning();
@@ -306,10 +311,12 @@ export function registerTenantRoutes(app: Express): void {
   app.put('/api/tenants/:tenantId/users/:userId/role', hybridAuth, validateTenantParam, requireOwner, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { tenantId, userId } = req.params;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
       const { role } = req.body;
 
       // Validate role
       const validRoles = ['owner', 'builder', 'runner', 'viewer'];
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
       if (!role || !validRoles.includes(role)) {
         return res.status(400).json({
           message: 'Invalid role. Must be one of: owner, builder, runner, viewer',
@@ -324,6 +331,7 @@ export function registerTenantRoutes(app: Express): void {
       const [updatedUser] = await db
         .update(users)
         .set({
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
           tenantRole: role,
           updatedAt: new Date(),
         })
@@ -346,6 +354,7 @@ export function registerTenantRoutes(app: Express): void {
       invalidateUserCache(userId);
       await authService.revokeAllUserTokens(userId);
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
       logger.info({ tenantId, userId, newRole: role }, 'User role updated');
 
       res.json({

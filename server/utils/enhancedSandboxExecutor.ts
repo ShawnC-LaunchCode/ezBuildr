@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument */
 /**
  * Enhanced Sandbox Executor for Custom Scripting System
  * Extends sandboxExecutor.ts with helper library and context injection
@@ -53,6 +52,13 @@ interface IvmModule {
   isolate: new (options: { memoryLimit: number }) => IvmIsolate;
   externalCopy: new (value: unknown) => IvmExternalCopy;
   reference: new (value: unknown) => IvmReference;
+}
+
+function hasAsyncCopy(value: unknown): value is { copy(): Promise<unknown> } {
+  return typeof value === "object"
+    && value !== null
+    && "copy" in value
+    && typeof value.copy === "function";
 }
 
 const optionalRequire = createRequire(import.meta.url);
@@ -132,8 +138,7 @@ async function runJsWithHelpers(
       { error },
       "isolated-vm not found — using INSECURE node 'vm' fallback (non-production only, not a security boundary)"
     );
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- helper library has dynamic method signatures
-    const result = await runJsWithVmFallback(code, input, context, actualHelpers as Record<string, any>, timeoutMs, consoleEnabled);
+    const result = await runJsWithVmFallback(code, input, context, actualHelpers, timeoutMs, consoleEnabled);
     // Merge logs from helper library (which captures helpers.console.* calls)
     if (helperLib.getConsoleLogs) {
       const libLogs = helperLib.getConsoleLogs();
@@ -247,23 +252,23 @@ async function runJsWithHelpers(
     await jail.set("callHost", new ivm.reference((path: string[], ...args: unknown[]) => {
       // With { arguments: { copy: true } }, path and args are copied by value (not References)
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- traversing dynamic helper object tree
-      let target: any = actualHelpers;
+      let target: unknown = actualHelpers;
       // Debug log
       // logger.debug({ path: path.join('.') }, 'Bridge Path');
 
       for (const key of path) {
-        if (!target) {
+        if (typeof target !== "object" || target === null) {
           throw new Error(`Helper not found: ${path.join('.')}`);
         }
-        target = target[key];
+        target = (target as Record<string, unknown>)[key];
       }
 
-      // eslint-disable-next-line @typescript-eslint/ban-types
-      const fn = target as Function;
+      if (typeof target !== "function") {
+        throw new Error(`Helper is not callable: ${path.join('.')}`);
+      }
 
       // Args are already copies
-      const res = fn(...args);
+      const res: unknown = target(...args);
 
       // Handle void return (undefined)
       if (res === undefined) { return undefined; }
@@ -362,10 +367,8 @@ async function runJsWithHelpers(
     // Prioritize emitted value if exists
     if (emittedValue !== undefined) {
       output = emittedValue;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- isolated-vm Reference has dynamic copy method
-    } else if (typeof resultRef === 'object' && resultRef !== null && typeof (resultRef as any).copy === 'function') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- isolated-vm Reference API
-      output = await (resultRef as any).copy();
+    } else if (hasAsyncCopy(resultRef)) {
+      output = await resultRef.copy();
     }
 
     // Explicitly dispose context (script is cached or disposed by isolate)
@@ -743,8 +746,28 @@ except Exception as e:
 
         try {
           // Parse JSON output
-          const result = JSON.parse(stdout.trim());
-          result.durationMs = durationMs;
+          const parsed: unknown = JSON.parse(stdout.trim());
+          if (typeof parsed !== "object" || parsed === null || !("ok" in parsed) || typeof parsed.ok !== "boolean") {
+            throw new Error("Python output did not contain a boolean ok field");
+          }
+
+          const result: ScriptExecutionResult = {
+            ok: parsed.ok,
+            durationMs,
+          };
+          if ("output" in parsed) {
+            result.output = parsed.output;
+          }
+          if ("error" in parsed && typeof parsed.error === "string") {
+            result.error = parsed.error;
+          }
+          if (
+            "consoleLogs" in parsed
+            && Array.isArray(parsed.consoleLogs)
+            && parsed.consoleLogs.every(Array.isArray)
+          ) {
+            result.consoleLogs = parsed.consoleLogs as unknown[][];
+          }
           resolve(result);
         } catch (parseError) {
           resolve({
@@ -830,6 +853,7 @@ async function runJsWithVmFallback(
   _consoleEnabled: boolean
 ): Promise<ScriptExecutionResult> {
   const consoleLogs: unknown[][] = [];
+  let emittedResult: unknown;
 
   const sandbox = {
     input,
@@ -843,8 +867,7 @@ async function runJsWithVmFallback(
     },
     emit: (val: unknown) => {
       // Mimic emit behavior: captures the value as the result
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- sandbox needs dynamic property for emit capture
-      (sandbox as any).__emitResult__ = val;
+      emittedResult = val;
     }
   };
 
@@ -860,13 +883,12 @@ async function runJsWithVmFallback(
     const script = new vm.Script(wrappedCode);
     const result = script.runInNewContext(sandbox, {
       timeout: timeoutMs
-    });
+    }) as unknown;
 
 
     return {
       ok: true,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      output: (sandbox as any).__emitResult__ !== undefined ? (sandbox as any).__emitResult__ : result,
+      output: emittedResult !== undefined ? emittedResult : result,
       consoleLogs: consoleLogs.length > 0 ? consoleLogs : undefined,
       durationMs: Date.now() - startTime
     };

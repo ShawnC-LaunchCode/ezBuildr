@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 /**
  * RunStateService
  *
@@ -53,7 +52,8 @@ export class RunStateService {
       updates.progress = progress;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- Legacy dynamic boundary requires these narrow checks.
     await this.runRepo.updateIfIncomplete(runId, updates as any);
   }
 
@@ -143,7 +143,8 @@ export class RunStateService {
     // Get workflow to get access settings
     const { workflowRepository } = await import('../../repositories');
     const workflow = await workflowRepository.findById(run.workflowId);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Legacy dynamic boundary requires these narrow checks.
     const accessSettings = (workflow as any)?.accessSettings || {
       allow_portal: false,
       allow_resume: true,
@@ -189,8 +190,10 @@ export class RunStateService {
     }
 
     return {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Run state values are dynamically typed at the persistence boundary.
       run: { ...run, accessSettings },
       documents,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Run state values are dynamically typed at the persistence boundary.
       finalBlockConfig
     };
   }

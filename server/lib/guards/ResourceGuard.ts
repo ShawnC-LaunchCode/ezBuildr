@@ -1,16 +1,14 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 export class ResourceGuard {
     // Scripting Limits
-    static readonly MAX_SCRIPT_EXECUTION_MS = 500;
-    static readonly MAX_SCRIPT_MEMORY_MB = 128; // Not easily enforceable in Node main thread, but used for sub-processes
+    static readonly maxScriptExecutionMs = 500;
+    static readonly maxScriptMemoryMb = 128; // Not easily enforceable in Node main thread, but used for sub-processes
 
     // Workflow Limits
-    static readonly MAX_BLOCKS_PER_PAGE = 100;
-    static readonly MAX_PAGES_PER_WORKFLOW = 200;
+    static readonly maxBlocksPerPage = 100;
+    static readonly maxPagesPerWorkflow = 200;
 
     // Document Limits
-    static readonly MAX_DOC_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
-    /* eslint-enable @typescript-eslint/naming-convention */
+    static readonly maxDocSizeBytes = 10 * 1024 * 1024; // 10MB
 
     /**
      * Check if a generic count exceeds a limit.
@@ -27,7 +25,7 @@ export class ResourceGuard {
      */
     // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     static checkScriptTime(startTime: number) {
-        if (Date.now() - startTime > this.MAX_SCRIPT_EXECUTION_MS) {
+        if (Date.now() - startTime > this.maxScriptExecutionMs) {
             throw new Error("Script Execution Timeout");
         }
     }

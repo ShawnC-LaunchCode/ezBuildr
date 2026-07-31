@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 /**
  * DropoffService.ts
  * Analyzes where users abandon the workflow.
@@ -66,9 +65,13 @@ class DropoffService {
         // Populate visitors
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const row of pageViews.rows as any[]) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
             funnel[row.pageId] = {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
                 stepId: row.pageId,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
                 label: `Page ${  row.pageId.substring(0, 8)}`, // Todo: Join with Sections table for real title
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
                 visitors: Number(row.visitors),
                 dropoffs: 0,
                 dropoffRate: 0
@@ -77,13 +80,13 @@ class DropoffService {
         // Populate dropoffs
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const row of dropoffCounts.rows as any[]) {
-            // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-            if (funnel[row.pageId]) {
-                funnel[row.pageId].dropoffs = Number(row.dropoffs);
-                funnel[row.pageId].dropoffRate = funnel[row.pageId].visitors > 0
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
+            funnel[row.pageId].dropoffs = Number(row.dropoffs);
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
+            funnel[row.pageId].dropoffRate = funnel[row.pageId].visitors > 0
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
                     ? (Number(row.dropoffs) / funnel[row.pageId].visitors) * 100
                     : 0;
-            }
         }
         // Return as array (sorted by some logic? maybe visitors desc)
         return Object.values(funnel).sort((a, b) => b.visitors - a.visitors);

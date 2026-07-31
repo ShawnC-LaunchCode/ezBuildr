@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 /**
  * Google Sheets Write Connector
  * Implements upsert semantics with parity to native tables
@@ -9,16 +8,17 @@ import { ColumnUUIDManager } from './columnMapping';
 import type { SheetColumn, SheetWriteOptions, SheetWriteResult } from './columnMapping';
 
 export interface WriteRowData {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    [columnUUID: string]: any;
+    [columnUUID: string]: unknown;
 }
 
 /**
  * Normalize value for Google Sheets
  * Handles type coercion and common quirks
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function normalizeValue(value: any, targetType?: string): { value: any; warning?: string } {
+function normalizeValue(
+    value: unknown,
+    targetType?: string
+): { value: string | number; warning?: string } {
     if (value === null || value === undefined) {
         return { value: '' };
     }
@@ -32,9 +32,12 @@ function normalizeValue(value: any, targetType?: string): { value: any; warning?
     if (targetType === 'number') {
         const num = Number(value);
         if (isNaN(num)) {
+            const displayedValue = typeof value === 'string'
+                ? value
+                : JSON.stringify(value) ?? 'unknown value';
             return {
-                value: value.toString(),
-                warning: `Expected number but got "${value}" - storing as string`
+                value: String(value),
+                warning: `Expected number but got "${displayedValue}" - storing as string`
             };
         }
         return { value: num };
@@ -46,7 +49,7 @@ function normalizeValue(value: any, targetType?: string): { value: any; warning?
     }
 
     // Default to string
-    return { value: value.toString() };
+    return { value: String(value) };
 }
 
 /**
@@ -136,8 +139,7 @@ export class GoogleSheetsWriteConnector {
     private async fetchExistingRows(
         spreadsheetId: string,
         sheetName: string
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ): Promise<any[][]> {
+    ): Promise<unknown[][]> {
         // Backend API call would go here
         const response = await fetch(`/api/google-sheets/${spreadsheetId}/sheets/${encodeURIComponent(sheetName)}/rows`, {
             credentials: 'include',
@@ -147,16 +149,23 @@ export class GoogleSheetsWriteConnector {
             throw new Error(`Failed to fetch existing rows: ${response.statusText}`);
         }
 
-        const data = await response.json();
-        return data.rows ?? [];
+        const data: unknown = await response.json();
+        if (
+            typeof data === 'object'
+            && data !== null
+            && 'rows' in data
+            && Array.isArray(data.rows)
+        ) {
+            return data.rows as unknown[][];
+        }
+        return [];
     }
 
     /**
      * Find matching row based on upsert strategy
      */
     private findMatchingRow(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        existingRows: any[][],
+        existingRows: unknown[][],
         newRowData: WriteRowData,
         columns: SheetColumn[],
         options: SheetWriteOptions
@@ -243,8 +252,10 @@ export class GoogleSheetsWriteConnector {
     /**
      * Convert UUID-keyed row data to array in column order
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private rowDataToArray(rowData: WriteRowData, columns: SheetColumn[]): any[] {
+    private rowDataToArray(
+        rowData: WriteRowData,
+        columns: SheetColumn[]
+    ): Array<string | number> {
         // Sort columns by letter code
         const sortedColumns = [...columns].sort((a, b) =>
             a.letterCode.localeCompare(b.letterCode)

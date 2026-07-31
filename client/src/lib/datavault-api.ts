@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 /**
  * DataVault API client
  * API functions for DataVault Phase 1 & Phase 2 (Databases)
@@ -18,6 +17,11 @@ import type {
 
 import { apiRequest } from "./queryClient";
 
+async function readJson<T>(response: Response): Promise<T> {
+  const data: unknown = await response.json();
+  return data as T;
+}
+
 export interface ApiDatavaultTableWithStats extends DatavaultTable {
   columnCount: number;
   rowCount: number;
@@ -25,8 +29,7 @@ export interface ApiDatavaultTableWithStats extends DatavaultTable {
 
 export interface ApiDatavaultRowWithValues {
   row: DatavaultRow;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  values: Record<string, any>; // columnId -> value (dynamic EAV data from DataVault)
+  values: Record<string, unknown>; // columnId -> value (dynamic EAV data from DataVault)
 }
 
 export interface DatavaultDatabase {
@@ -91,12 +94,12 @@ export const datavaultAPI = {
     // eslint-disable-next-line sonarjs/no-nested-template-literals, @typescript-eslint/restrict-template-expressions
     const url = `/api/datavault/databases${queryParams.toString() ? `?${queryParams}` : ''}`;
     const res = await apiRequest('GET', url);
-    return res.json();
+    return readJson(res);
   },
 
   getDatabase: async (id: string): Promise<DatavaultDatabase> => {
     const res = await apiRequest('GET', `/api/datavault/databases/${id}`);
-    return res.json();
+    return readJson(res);
   },
 
   createDatabase: async (data: {
@@ -108,7 +111,7 @@ export const datavaultAPI = {
     ownerUuid?: string;
   }): Promise<DatavaultDatabase> => {
     const res = await apiRequest('POST', '/api/datavault/databases', data);
-    return res.json();
+    return readJson(res);
   },
 
   updateDatabase: async (
@@ -121,7 +124,7 @@ export const datavaultAPI = {
     }
   ): Promise<DatavaultDatabase> => {
     const res = await apiRequest('PATCH', `/api/datavault/databases/${id}`, data);
-    return res.json();
+    return readJson(res);
   },
 
   deleteDatabase: async (id: string): Promise<void> => {
@@ -146,7 +149,7 @@ export const datavaultAPI = {
 
   getDatabaseAccess: async (databaseId: string): Promise<ApiAccessResponse<DatavaultDatabaseAccess>> => {
     const res = await apiRequest('GET', `/api/datavault/databases/${databaseId}/access`);
-    return res.json();
+    return readJson(res);
   },
 
   grantDatabaseAccess: async (
@@ -170,7 +173,7 @@ export const datavaultAPI = {
 
   getTablesInDatabase: async (databaseId: string): Promise<DatavaultTable[]> => {
     const res = await apiRequest('GET', `/api/datavault/databases/${databaseId}/tables`);
-    return res.json();
+    return readJson(res);
   },
 
   // ============================================================================
@@ -179,12 +182,12 @@ export const datavaultAPI = {
   // Tables
   listTables: async (withStats = false): Promise<ApiDatavaultTableWithStats[]> => {
     const res = await apiRequest('GET', `/api/datavault/tables?stats=${withStats}`);
-    return res.json();
+    return readJson(res);
   },
 
   getTable: async (tableId: string, withColumns = false): Promise<DatavaultTable> => {
     const res = await apiRequest('GET', `/api/datavault/tables/${tableId}?columns=${withColumns}`);
-    return res.json();
+    return readJson(res);
   },
 
   createTable: async (data: {
@@ -196,7 +199,7 @@ export const datavaultAPI = {
     ownerUuid?: string;
   }): Promise<DatavaultTable> => {
     const res = await apiRequest('POST', '/api/datavault/tables', data);
-    return res.json();
+    return readJson(res);
   },
 
   updateTable: async (
@@ -204,7 +207,7 @@ export const datavaultAPI = {
     data: Partial<{ name: string; slug: string; description: string }>
   ): Promise<DatavaultTable> => {
     const res = await apiRequest('PATCH', `/api/datavault/tables/${tableId}`, data);
-    return res.json();
+    return readJson(res);
   },
 
   deleteTable: async (tableId: string): Promise<void> => {
@@ -215,12 +218,12 @@ export const datavaultAPI = {
   },
   moveTable: async (tableId: string, databaseId: string | null): Promise<DatavaultTable> => {
     const res = await apiRequest('PATCH', `/api/datavault/tables/${tableId}/move`, { databaseId });
-    return res.json();
+    return readJson(res);
   },
 
   getTableSchema: async (tableId: string): Promise<Record<string, unknown>> => {
     const res = await apiRequest('GET', `/api/datavault/tables/${tableId}/schema`);
-    return res.json();
+    return readJson(res);
   },
 
   transferTable: async (
@@ -238,7 +241,7 @@ export const datavaultAPI = {
 
   getTableAccess: async (tableId: string): Promise<ApiAccessResponse<DatavaultTableAccess>> => {
     const res = await apiRequest('GET', `/api/datavault/tables/${tableId}/access`);
-    return res.json();
+    return readJson(res);
   },
 
   grantTableAccess: async (
@@ -263,7 +266,7 @@ export const datavaultAPI = {
   // Columns
   listColumns: async (tableId: string): Promise<DatavaultColumn[]> => {
     const res = await apiRequest('GET', `/api/datavault/tables/${tableId}/columns`);
-    return res.json();
+    return readJson(res);
   },
 
   createColumn: async (
@@ -277,7 +280,7 @@ export const datavaultAPI = {
     }
   ): Promise<DatavaultColumn> => {
     const res = await apiRequest('POST', `/api/datavault/tables/${tableId}/columns`, data);
-    return res.json();
+    return readJson(res);
   },
 
   updateColumn: async (
@@ -285,7 +288,7 @@ export const datavaultAPI = {
     data: Partial<{ name: string; slug: string; required: boolean; orderIndex: number; widthPx: number }>
   ): Promise<DatavaultColumn> => {
     const res = await apiRequest('PATCH', `/api/datavault/columns/${columnId}`, data);
-    return res.json();
+    return readJson(res);
   },
 
   deleteColumn: async (columnId: string): Promise<void> => {
@@ -311,8 +314,7 @@ export const datavaultAPI = {
       showArchived?: boolean;
       sortBy?: string;
       sortOrder?: 'asc' | 'desc';
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      filters?: Array<{ columnId: string; operator: string; value: any }>; // Filter values are dynamic
+      filters?: Array<{ columnId: string; operator: string; value: unknown }>; // Filter values are dynamic
     }
   ): Promise<{
     rows: ApiDatavaultRowWithValues[];
@@ -328,25 +330,23 @@ export const datavaultAPI = {
       params.append('filters', JSON.stringify(options.filters));
     }
     const res = await apiRequest('GET', `/api/datavault/tables/${tableId}/rows?${params.toString()}`);
-    return res.json();
+    return readJson(res);
   },
 
   getRow: async (rowId: string): Promise<ApiDatavaultRowWithValues> => {
     const res = await apiRequest('GET', `/api/datavault/rows/${rowId}`);
-    return res.json();
+    return readJson(res);
   },
 
   createRow: async (
     tableId: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    values: Record<string, any> // DataVault row values are dynamic EAV data
+    values: Record<string, unknown> // DataVault row values are dynamic EAV data
   ): Promise<ApiDatavaultRowWithValues> => {
     const res = await apiRequest('POST', `/api/datavault/tables/${tableId}/rows`, { values });
-    return res.json();
+    return readJson(res);
   },
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  updateRow: async (rowId: string, values: Record<string, any>): Promise<void> => { // DataVault row values are dynamic EAV data
+  updateRow: async (rowId: string, values: Record<string, unknown>): Promise<void> => { // DataVault row values are dynamic EAV data
     const res = await apiRequest('PATCH', `/api/datavault/rows/${rowId}`, { values });
     if (res.status !== 204) {
       await res.json();
@@ -406,7 +406,7 @@ export const datavaultAPI = {
    */
   getRowNotes: async (rowId: string): Promise<DatavaultRowNote[]> => {
     const res = await apiRequest('GET', `/api/datavault/rows/${rowId}/notes`);
-    return res.json();
+    return readJson(res);
   },
 
   /**
@@ -414,7 +414,7 @@ export const datavaultAPI = {
    */
   createRowNote: async (rowId: string, text: string): Promise<DatavaultRowNote> => {
     const res = await apiRequest('POST', `/api/datavault/rows/${rowId}/notes`, { text });
-    return res.json();
+    return readJson(res);
   },
 
   /**
@@ -438,7 +438,7 @@ export const datavaultAPI = {
    */
   listApiTokens: async (databaseId: string): Promise<{ tokens: ApiDatavaultApiToken[] }> => {
     const res = await apiRequest('GET', `/api/datavault/databases/${databaseId}/tokens`);
-    return res.json();
+    return readJson(res);
   },
 
   /**
@@ -454,7 +454,7 @@ export const datavaultAPI = {
     }
   ): Promise<ApiCreateTokenResponse> => {
     const res = await apiRequest('POST', `/api/datavault/databases/${databaseId}/tokens`, data);
-    return res.json();
+    return readJson(res);
   },
 
   /**
@@ -476,7 +476,7 @@ export const datavaultAPI = {
    */
   listTablePermissions: async (tableId: string): Promise<DatavaultTablePermission[]> => {
     const res = await apiRequest('GET', `/api/datavault/tables/${tableId}/permissions`);
-    return res.json();
+    return readJson(res);
   },
 
   /**
@@ -491,7 +491,7 @@ export const datavaultAPI = {
     }
   ): Promise<DatavaultTablePermission> => {
     const res = await apiRequest('POST', `/api/datavault/tables/${tableId}/permissions`, data);
-    return res.json();
+    return readJson(res);
   },
 
   /**

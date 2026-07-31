@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
 /**
  * Step Configuration Type Definitions
  *
@@ -709,14 +708,16 @@ export type StepConfig =
 // TYPE GUARDS
 // ============================================================================
 
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 /**
  * Type guard for Choice config
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type guard needs to accept any input
-export function isChoiceConfig(config: any): config is ChoiceAdvancedConfig {
+export function isChoiceConfig(config: unknown): config is ChoiceAdvancedConfig {
   return (
-    config &&
-    typeof config === 'object' &&
+    isObjectRecord(config) &&
     typeof config.display === 'string' &&
     typeof config.allowMultiple === 'boolean' &&
     Array.isArray(config.options)
@@ -726,11 +727,9 @@ export function isChoiceConfig(config: any): config is ChoiceAdvancedConfig {
 /**
  * Type guard for Multi-Field config
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type guard needs to accept any input
-export function isMultiFieldConfig(config: any): config is MultiFieldConfig {
+export function isMultiFieldConfig(config: unknown): config is MultiFieldConfig {
   return (
-    config &&
-    typeof config === 'object' &&
+    isObjectRecord(config) &&
     typeof config.layout === 'string' &&
     Array.isArray(config.fields) &&
     typeof config.storeAs === 'string'
@@ -740,11 +739,9 @@ export function isMultiFieldConfig(config: any): config is MultiFieldConfig {
 /**
  * Type guard for Address config
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type guard needs to accept any input
-export function isAddressConfig(config: any): config is AddressConfig | AddressAdvancedConfig {
+export function isAddressConfig(config: unknown): config is AddressConfig | AddressAdvancedConfig {
   return (
-    config &&
-    typeof config === 'object' &&
+    isObjectRecord(config) &&
     (config.country === 'US' || typeof config.country === 'string') &&
     Array.isArray(config.fields)
   );
@@ -753,11 +750,9 @@ export function isAddressConfig(config: any): config is AddressConfig | AddressA
 /**
  * Type guard for Number/Currency config
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type guard needs to accept any input
-export function isNumberConfig(config: any): config is NumberConfig | NumberAdvancedConfig {
+export function isNumberConfig(config: unknown): config is NumberConfig | NumberAdvancedConfig {
   return (
-    config &&
-    typeof config === 'object' &&
+    isObjectRecord(config) &&
     (typeof config.min === 'number' ||
       typeof config.max === 'number' ||
       typeof config.step === 'number' ||
@@ -768,11 +763,9 @@ export function isNumberConfig(config: any): config is NumberConfig | NumberAdva
 /**
  * Type guard for DateTime config
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type guard needs to accept any input
-export function isDateTimeConfig(config: any): config is DateTimeUnifiedConfig | DateTimeConfig | LegacyDateTimeConfig {
+export function isDateTimeConfig(config: unknown): config is DateTimeUnifiedConfig | DateTimeConfig | LegacyDateTimeConfig {
   return (
-    config &&
-    typeof config === 'object' &&
+    isObjectRecord(config) &&
     (typeof config.kind === 'string' ||
       typeof config.minDate === 'string' ||
       typeof config.maxDate === 'string' ||
@@ -783,11 +776,9 @@ export function isDateTimeConfig(config: any): config is DateTimeUnifiedConfig |
 /**
  * Type guard for Signature Block config
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type guard needs to accept any input
-export function isSignatureBlockConfig(config: any): config is SignatureBlockConfig {
+export function isSignatureBlockConfig(config: unknown): config is SignatureBlockConfig {
   return (
-    config &&
-    typeof config === 'object' &&
+    isObjectRecord(config) &&
     typeof config.signerRole === 'string' &&
     typeof config.routingOrder === 'number' &&
     Array.isArray(config.documents)

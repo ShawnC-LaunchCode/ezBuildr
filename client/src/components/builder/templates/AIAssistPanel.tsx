@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import { Wand2, Check, Loader2 } from 'lucide-react';
@@ -29,6 +28,10 @@ interface Mapping {
     workflowVariableId?: string;
 }
 
+interface AiApiResponse<T> {
+    data: T;
+}
+
 interface AIAssistPanelProps {
     _templateId: string;
     fileBuffer?: ArrayBuffer; // If analyzing a new upload
@@ -51,8 +54,8 @@ export function AIAssistPanel({ _templateId, fileBuffer, fileName, onApplyMappin
                 // In a real app we'd fetch the file from the server here
                 return null;
             }
-            const res = await axios.post('/api/ai/doc/analyze', formData);
-            return res.data.data as Analysis;
+            const res = await axios.post<AiApiResponse<Analysis>>('/api/ai/doc/analyze', formData);
+            return res.data.data;
         },
         onSuccess: (data) => {
             setAnalysis(data);
@@ -64,11 +67,11 @@ export function AIAssistPanel({ _templateId, fileBuffer, fileName, onApplyMappin
     // Suggest Mapping Mutation
     const suggestMappingMutation = useMutation({
         mutationFn: async (variables: TemplateVariable[]) => {
-            const res = await axios.post('/api/ai/doc/suggest-mappings', {
+            const res = await axios.post<AiApiResponse<Mapping[]>>('/api/ai/doc/suggest-mappings', {
                 templateVariables: variables,
                 workflowVariables
             });
-            return res.data.data as Mapping[];
+            return res.data.data;
         },
         onSuccess: (data) => {
             setMappings(data);
@@ -109,8 +112,7 @@ export function AIAssistPanel({ _templateId, fileBuffer, fileName, onApplyMappin
                                 <Badge variant="outline">{analysis.variables.length}</Badge>
                             </h4>
                             <div className="space-y-2">
-                                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                {analysis.variables.map((v: any, i: number) => (
+                                {analysis.variables.map((v, i) => (
                                     <Card key={i} className="bg-slate-50 dark:bg-slate-800/50">
                                         <CardContent className="p-3 text-sm">
                                             <div className="flex items-center justify-between">

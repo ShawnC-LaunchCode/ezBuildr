@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
 
 import { logger } from "../lib/observability/logger";
 import { safeFetch } from "../utils/safeFetch";
@@ -41,6 +40,20 @@ interface PlaceDetails {
     };
 }
 
+interface GooglePlacesAutocompleteResponse {
+    status: string;
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- Google Places API response uses snake_case.
+    error_message?: string;
+    predictions?: PlacePrediction[];
+}
+
+interface GooglePlacesDetailsResponse {
+    status: string;
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- Google Places API response uses snake_case.
+    error_message?: string;
+    result?: PlaceDetails;
+}
+
 export class GooglePlacesService {
     /**
      * Get autocomplete suggestions from Google Places API
@@ -79,7 +92,7 @@ export class GooglePlacesService {
             // logger.info({ url: url.replace(GOOGLE_PLACES_API_KEY, '***') }, "Calling Google Places API");
 
             const response = await safeFetch(url);
-            const data = await response.json();
+            const data = await response.json() as GooglePlacesAutocompleteResponse;
 
             // logger.info({ status: data.status, prediction_count: data.predictions?.length }, "Google Places Response");
 
@@ -113,14 +126,14 @@ export class GooglePlacesService {
             const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=${fields}&key=${GOOGLE_PLACES_API_KEY}`;
 
             const response = await safeFetch(url);
-            const data = await response.json();
+            const data = await response.json() as GooglePlacesDetailsResponse;
 
             if (data.status !== "OK") {
                 logger.error({ status: data.status, error_message: data.error_message }, "Google Places Details API error");
                 throw new Error(`Google Places API error: ${data.status}`);
             }
 
-            return data.result as PlaceDetails;
+            return data.result ?? null;
         } catch (error) {
             logger.error({ err: error }, "Failed to fetch place details");
             throw error;

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import { AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -17,6 +16,7 @@ import { VisibilityField } from "./common/VisibilityField";
 import type { StepEditorCommonProps } from "./common/stepEditorProps";
 import { InputTypeSection, TextValidationSection, TextCardState } from "./TextCardEditor.components";
 
+type TextEditorConfig = Partial<TextAdvancedConfig>;
 
 export function TextCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
@@ -27,7 +27,7 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: StepEdit
   const isEasyMode = step.type === "short_text" || step.type === "long_text";
 
   // Get config with defaults using generic access for flexibility
-  const config = step.config;
+  const config = step.config as TextEditorConfig | null;
   const variant = isAdvancedMode
     ? (config?.variant ?? "short")
     : step.type === "long_text"
@@ -46,7 +46,7 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: StepEdit
 
   useEffect(() => {
     // Re-sync local config when step props change
-    const currentConfig = step.config;
+    const currentConfig = step.config as TextEditorConfig | null;
     const currentAdvanced = step.type === "text";
 
     // Determine variant from current state

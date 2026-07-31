@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument */
 import { Upload, X, File, Image, FileText, Download } from "lucide-react";
 import React, { useState, useRef, useCallback } from "react";
 
@@ -134,7 +133,7 @@ export function FileUpload({
         throw new Error('Upload failed');
       }
 
-      const result = await response.json();
+      const result = await response.json() as FileUploadResponse;
 
       if (result.success && result.files) {
         const newFiles = [...uploadedFiles, ...result.files];
@@ -365,4 +364,10 @@ export function FileUpload({
       )}
     </div>
   );
+}
+
+interface FileUploadResponse {
+  success: boolean;
+  files?: FileMetadata[];
+  errors?: string[];
 }

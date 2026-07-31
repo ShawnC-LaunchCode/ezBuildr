@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 
 import { v4 as uuidv4 } from "uuid";
 import { logger } from "../../logger";
@@ -19,12 +18,15 @@ export class WorkflowOptimizationService {
         const metrics = this.calculateMetrics(workflow);
 
         // 2. Run Analyzers based on options or default to all
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- AI provider output is dynamically typed at this boundary.
         if (options.includePageStructure !== false) {
             issues.push(...this.analyzePageStructure(workflow));
         }
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- AI provider output is dynamically typed at this boundary.
         if (options.includeBlockStructure !== false) {
             issues.push(...this.analyzeBlockStructure(workflow));
         }
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- AI provider output is dynamically typed at this boundary.
         if (options.includeLogicAnalysis !== false) {
             issues.push(...this.analyzeLogic(workflow));
         }
@@ -56,22 +58,26 @@ export class WorkflowOptimizationService {
             try {
                 switch (fix.type) {
                     case "split_page":
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- AI provider output is dynamically typed at this boundary.
                         this.applySplitPage(updatedWorkflow, fix.payload as any);
                         appliedCount++;
                         break;
                     case "merge_pages":
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- AI provider output is dynamically typed at this boundary.
                         this.applyMergePages(updatedWorkflow, fix.payload as any);
                         appliedCount++;
                         break;
                     case "delete_block":
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- AI provider output is dynamically typed at this boundary.
                         this.applyDeleteBlock(updatedWorkflow, fix.payload as any);
                         appliedCount++;
                         break;
                     case "move_block":
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- AI provider output is dynamically typed at this boundary.
                         this.applyMoveBlock(updatedWorkflow, fix.payload as any);
                         appliedCount++;
                         break;

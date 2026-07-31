@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 import { eq, desc, or } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -15,8 +14,7 @@ export interface CreateTemplateParams {
   sourceVersionId?: string; // If not provided, uses current/pinned
   creatorId: string;
   tenantId: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- metadata can contain arbitrary template metadata
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   isPublic?: boolean;
 }
 export interface InstantiateTemplateParams {
@@ -112,6 +110,7 @@ class TemplateService {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- drizzle transaction type is complex and auto-inferred
     await db.transaction(async (tx: any) => {
       // Create Workflow Entry
+// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Legacy metadata is dynamically typed at this persistence boundary.
       await tx.insert(workflows).values({
         id: workflowId,
         projectId,
@@ -125,6 +124,7 @@ class TemplateService {
         currentVersionId: versionId // Pre-link version
       });
       // Create Initial Version from Template snapshot
+// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Legacy metadata is dynamically typed at this persistence boundary.
       await tx.insert(workflowVersions).values({
         id: versionId,
         workflowId: workflowId,

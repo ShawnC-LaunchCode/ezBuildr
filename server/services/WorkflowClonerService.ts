@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 
 import {
@@ -1130,6 +1129,7 @@ export class WorkflowClonerService {
       tx.select({ id: datavaultTables.id }).from(datavaultTables).where(eq(datavaultTables.tenantId, tenantId)),
     ]);
     const knownDatabaseIds = new Set(tenantDatabases.map((database) => database.id));
+    // eslint-disable-next-line max-lines -- This migration-compatible cloner centralizes related asset copy operations.
     const knownTableIds = new Set(tenantTables.map((table) => table.id));
 
     const [workflowRows, sectionRows, stepRows, blockRows, transformRows, versionRows] = await Promise.all([

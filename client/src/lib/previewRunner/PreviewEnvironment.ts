@@ -12,8 +12,7 @@ export interface TraceEntry {
     type: 'step' | 'logic' | 'action' | 'error';
     status: 'executed' | 'skipped' | 'failed';
     message?: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    details?: any;
+    details?: Record<string, unknown>;
     timestamp: number;
 }
 

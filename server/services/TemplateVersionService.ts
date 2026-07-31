@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Template Version Service
  *
@@ -274,10 +273,11 @@ export class TemplateVersionService {
     };
 
     // Detailed field changes (for PDF templates)
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Legacy metadata is dynamically typed at this persistence boundary.
     if (comparison.changes.metadataChanged && v1.metadata?.fields && v2.metadata?.fields) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return -- Legacy metadata is dynamically typed at this persistence boundary.
       const fields1 = new Set(v1.metadata.fields.map((f: any) => f.name));
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return -- Legacy metadata is dynamically typed at this persistence boundary.
       const fields2 = new Set(v2.metadata.fields.map((f: any) => f.name));
 
       comparison.changes.fieldChanges = {

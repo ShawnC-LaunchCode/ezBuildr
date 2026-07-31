@@ -1,7 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 /**
  * Stage 22: PDF Service
- * 
+ *
  * Handles PDF form unlocking, field extraction, and filling.
  * Uses a hybrid approach:
  * - node-qpdf2 (qpdf): For robust unlocking/decryption of government forms
@@ -100,10 +99,13 @@ export class PdfService {
                         try {
                             // Compare refs using tag/gen to avoid type mismatches
                             pageIndex = pages.findIndex(p => {
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment -- Legacy dynamic boundary requires these narrow checks.
                                 const pRef = p.ref as any;
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment -- Legacy dynamic boundary requires these narrow checks.
                                 const wRef = pageRef as any;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- This legacy integration receives dynamically typed external data.
                                 return pRef && wRef && pRef.tag === wRef.tag && pRef.gen === wRef.gen;
                             });
                         } catch (e) {

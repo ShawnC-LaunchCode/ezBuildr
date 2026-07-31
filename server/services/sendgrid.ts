@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 // SendGrid email service - Referenced from javascript_sendgrid integration
 import { MailService } from '@sendgrid/mail';
 
@@ -41,13 +40,16 @@ export async function sendEmail(params: EmailParams): Promise<{ success: boolean
     };
 
     if (params.text) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- This legacy integration receives dynamically typed external data.
       mailData.text = params.text;
     }
 
     if (params.html) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- This legacy integration receives dynamically typed external data.
       mailData.html = params.html;
     }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- This legacy integration receives dynamically typed external data.
     await mailService.send(mailData);
     
     logger.info(`Email sent successfully to ${params.to}`);
@@ -72,5 +74,4 @@ export async function sendEmail(params: EmailParams): Promise<{ success: boolean
     return { success: false, error: errorMessage };
   }
 }
-
 

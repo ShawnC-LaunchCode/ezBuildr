@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 /**
  * Final Documents Section Editor
  * Configure Final Documents blocks for document generation
@@ -59,7 +58,7 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
   const { data: workflow } = useQuery({
     queryKey: ["workflow", workflowId],
     queryFn: async () => {
-      const response = await axios.get(`/api/workflows/${workflowId}`);
+      const response = await axios.get<{ projectId: string | null }>(`/api/workflows/${workflowId}`);
       return response.data;
     },
   });
@@ -68,7 +67,7 @@ export function FinalDocumentsSectionEditor({ section, workflowId }: FinalDocume
     queryKey: ["project-templates", workflow?.projectId],
     queryFn: async () => {
       if (!workflow?.projectId) { return { items: [] }; }
-      const response = await axios.get(`/api/projects/${workflow.projectId}/templates`);
+      const response = await axios.get<{ items: WorkflowTemplate[] }>(`/api/projects/${workflow.projectId}/templates`);
       return response.data;
     },
     enabled: !!workflow?.projectId,

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 import { toast } from "@/hooks/use-toast";
 
 /**
@@ -27,24 +26,41 @@ export interface AiSuggestion {
     }>;
     // We can expand this for modifications later
 }
+interface CreateSectionInput {
+    workflowId: string;
+    title: string;
+    order: number;
+}
+
+interface CreateStepInput {
+    sectionId: string;
+    title: string;
+    type: string;
+    order: number;
+}
+
+interface AsyncMutation<TInput, TResult> {
+    mutateAsync(input: TInput): Promise<TResult>;
+}
+
+interface SectionMutationResult {
+    id: string;
+}
 // NOTE: This function needs to be used within a React component or hook context because 
 // it relies on TanStack Query hooks. 
 // However, hooks can't be called conditionally or in loops easily.
 // A better pattern for this "Batch Operation" is to use the QueryClient directly 
 // or pass the mutate functions in.
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export async function applyAiSuggestions(
     workflowId: string,
     suggestions: AiSuggestion,
     // dependencies passed in to avoid hook rules issues
     mutations: {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        createSection: any,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        createStep: any
+        createSection: AsyncMutation<CreateSectionInput, SectionMutationResult>;
+        createStep: AsyncMutation<CreateStepInput, unknown>;
     }
 
-) {
+): Promise<boolean> {
     // eslint-disable-next-line no-console
     console.log("Applying AI Suggestions:", suggestions);
     const _sectionMap: Record<string, string> = {}; // map temporary IDs/Indices to real IDs

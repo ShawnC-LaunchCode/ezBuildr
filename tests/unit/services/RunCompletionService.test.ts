@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument -- vitest mocks of injected services */
 /**
  * RunCompletionService — completion pipeline unit tests.
  *
@@ -39,15 +38,22 @@ function makeRun(overrides: Partial<WorkflowRun> = {}): WorkflowRun {
 }
 
 describe('RunCompletionService', () => {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
-    let runRepo: any;
-    let valueRepo: any;
-    let logicSvc: any;
-    let stateService: any;
-    let lifecycleService: any;
-    let metricsService: any;
-    let runDataSvc: any;
-    /* eslint-enable @typescript-eslint/no-explicit-any */
+    let runRepo: { findById: ReturnType<typeof vi.fn> };
+    let valueRepo: Record<string, never>;
+    let logicSvc: { validateCompletion: ReturnType<typeof vi.fn> };
+    let stateService: { markCompletedAndEnqueue: ReturnType<typeof vi.fn> };
+    let lifecycleService: {
+        executeWritebacks: ReturnType<typeof vi.fn>;
+        generateDocuments: ReturnType<typeof vi.fn>;
+    };
+    let metricsService: {
+        captureRunSucceeded: ReturnType<typeof vi.fn>;
+        captureRunFailed: ReturnType<typeof vi.fn>;
+    };
+    let runDataSvc: {
+        buildForRun: ReturnType<typeof vi.fn>;
+        fromStepIdData: ReturnType<typeof vi.fn>;
+    };
     let service: RunCompletionService;
 
     beforeEach(() => {
@@ -87,13 +93,13 @@ describe('RunCompletionService', () => {
         vi.mocked(blockRunner.runPhase).mockResolvedValue({ success: true, data: { 'step-1': 'value' } });
 
         service = new RunCompletionService(
-            runRepo,
-            valueRepo,
-            logicSvc,
-            stateService,
-            lifecycleService,
-            metricsService,
-            runDataSvc
+            runRepo as unknown as ConstructorParameters<typeof RunCompletionService>[0],
+            valueRepo as unknown as ConstructorParameters<typeof RunCompletionService>[1],
+            logicSvc as unknown as ConstructorParameters<typeof RunCompletionService>[2],
+            stateService as unknown as ConstructorParameters<typeof RunCompletionService>[3],
+            lifecycleService as unknown as ConstructorParameters<typeof RunCompletionService>[4],
+            metricsService as unknown as ConstructorParameters<typeof RunCompletionService>[5],
+            runDataSvc as unknown as ConstructorParameters<typeof RunCompletionService>[6]
         );
     });
 

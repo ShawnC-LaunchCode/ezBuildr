@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /**
  * Cell Renderer Component (PR 7)
  * Renders editable cells based on column type
@@ -97,7 +96,13 @@ export function CellRenderer({ row, column, editing, onCommit, onCancel, batchRe
   if (!editing) {
     // Special handling for reference types
     if (column.type === "reference") {
-      return <ReferenceCell value={value} column={column} batchData={batchReferencesData} />;
+      return (
+        <ReferenceCell
+          value={typeof value === "string" ? value : null}
+          column={column}
+          batchData={batchReferencesData}
+        />
+      );
     }
 
     // Special handling for boolean types
@@ -129,7 +134,7 @@ export function CellRenderer({ row, column, editing, onCommit, onCancel, batchRe
           </Badge>
         );
       }
-      return <span className="text-muted-foreground">{value}</span>;
+      return <span className="text-muted-foreground">{renderValue(value, column.type)}</span>;
     }
 
     // Special handling for multiselect types
@@ -227,7 +232,12 @@ export function CellRenderer({ row, column, editing, onCommit, onCancel, batchRe
 
     case "reference":
       // Reference columns are read-only for now
-      return <ReferenceCell value={editValue} column={column} />;
+      return (
+        <ReferenceCell
+          value={typeof editValue === "string" ? editValue : null}
+          column={column}
+        />
+      );
 
     case "select":
       return (

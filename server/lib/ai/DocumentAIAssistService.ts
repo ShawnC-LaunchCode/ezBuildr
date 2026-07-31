@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
-
 import { createRequire } from 'module';
 
 import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
@@ -13,7 +11,9 @@ const require = createRequire(import.meta.url);
 import { documentProcessingLimiter } from "../../services/processingLimiter";
 import { fenceUntrusted } from "../../services/ai/AIServiceUtils";
 
-const pdfLib = require('pdf-parse');
+type PdfParser = (buffer: Buffer) => Promise<{ text: string }>;
+
+const pdfLib = require('pdf-parse') as PdfParser;
 
 export interface AIAnalysisResult {
     variables: AnalyzedVariable[];
@@ -225,7 +225,7 @@ Requirements:
                 }
 
                 // Dedupe
-                const unique = new Map();
+                const unique = new Map<string, AnalyzedVariable>();
                 variables.forEach(v => unique.set(v.name, v));
                 return Array.from(unique.values());
 
@@ -246,7 +246,7 @@ Requirements:
                 const fs = await import('fs/promises');
                 const buffer = await fs.readFile(filePath);
                 // PDFParse is a function in v1.1.1
-                const data = await documentProcessingLimiter.run(() => pdfLib(buffer) as Promise<{ text: string }>);
+                const data = await documentProcessingLimiter.run(() => pdfLib(buffer));
                 return data.text;
             } catch (e) {
                 logger.error({ error: e }, "PDF parsing failed");

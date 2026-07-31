@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /**
  * Lifecycle Hook Service
  * Manages lifecycle hooks and their execution during workflow runs
@@ -179,7 +178,9 @@ export class LifecycleHookService {
               phase,
               status: "success",
               consoleOutput: result.consoleLogs,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Lifecycle hook values are intentionally dynamic.
               inputSample: this.truncateSample(data),
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Lifecycle hook values are intentionally dynamic.
               outputSample: this.truncateSample(result.output),
               durationMs,
             });

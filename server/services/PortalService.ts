@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import { eq, and, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
@@ -39,15 +38,22 @@ export class PortalService {
             });
             // eslint-disable-next-line @typescript-eslint/no-explicit-any -- drizzle query result with nested relations requires any
             return runs.map((run: any) => ({
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- This legacy service consumes dynamically typed persisted data.
                 id: run.id,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- This legacy service consumes dynamically typed persisted data.
                 workflowTitle: run.workflow?.name || run.workflow?.title || "Untitled Workflow",
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- This legacy service consumes dynamically typed persisted data.
                 status: run.completed ? 'completed' : 'in_progress',
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- This legacy service consumes dynamically typed persisted data.
                 updatedAt: run.updatedAt,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- This legacy service consumes dynamically typed persisted data.
                 completedAt: run.completedAt,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- This legacy service consumes dynamically typed persisted data.
                 accessSettings: run.workflow?.accessSettings,
                 // Share tokens are stored hashed (share_token_hash); the plaintext
                 // token is only returned once at share-creation time and cannot be
                 // reconstructed here. Expose only whether a share link exists.
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- This legacy service consumes dynamically typed persisted data.
                 hasShareToken: Boolean(run.shareTokenHash)
             }));
         } catch (error) {

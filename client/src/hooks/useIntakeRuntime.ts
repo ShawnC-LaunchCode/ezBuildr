@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { useQuery } from "@tanstack/react-query";
 
 import type { ApiWorkflow, ApiStep } from "@/lib/vault-api";
@@ -11,6 +10,24 @@ interface IntakeData {
 }
 
 type IntakeRuntimeWorkflow = Pick<ApiWorkflow, 'id' | 'title' | 'intakeConfig'>;
+
+interface WorkflowSection {
+    id: string;
+}
+
+interface UpstreamRunValue {
+    stepId: string;
+    value: unknown;
+}
+
+interface UpstreamRun {
+    values: UpstreamRunValue[];
+}
+
+async function readJson<T>(response: Response): Promise<T> {
+    const data: unknown = await response.json();
+    return data as T;
+}
 
 export function useIntakeRuntime(currentWorkflowId?: string, runtimeWorkflow?: IntakeRuntimeWorkflow): IntakeData {
     // Allow passing source run ID via URL
@@ -25,14 +42,20 @@ export function useIntakeRuntime(currentWorkflowId?: string, runtimeWorkflow?: I
             if (!res.ok) {
                 throw new Error('Failed to fetch workflow');
             }
-            return res.json();
+            return readJson<ApiWorkflow>(res);
         },
         enabled: !!currentWorkflowId && runtimeWorkflow == null,
         staleTime: 5 * 60 * 1000,
     });
 
     const currentWorkflow = runtimeWorkflow ?? queriedWorkflow;
-    const upstreamWorkflowId = currentWorkflow?.intakeConfig?.upstreamWorkflowId;
+    const intakeConfig = currentWorkflow?.intakeConfig as unknown;
+    const upstreamWorkflowId = typeof intakeConfig === 'object'
+        && intakeConfig !== null
+        && 'upstreamWorkflowId' in intakeConfig
+        && typeof intakeConfig.upstreamWorkflowId === 'string'
+        ? intakeConfig.upstreamWorkflowId
+        : undefined;
 
     // 2. Fetch Upstream Workflow (for Aliases)
     const { data: upstreamWorkflow } = useQuery<ApiWorkflow & { steps?: ApiStep[] }>({
@@ -42,7 +65,7 @@ export function useIntakeRuntime(currentWorkflowId?: string, runtimeWorkflow?: I
             if (!res.ok) {
                 throw new Error('Failed to fetch upstream workflow');
             }
-            return res.json();
+            return readJson<ApiWorkflow & { steps?: ApiStep[] }>(res);
         },
         enabled: !!upstreamWorkflowId,
         staleTime: 5 * 60 * 1000,
@@ -62,11 +85,10 @@ export function useIntakeRuntime(currentWorkflowId?: string, runtimeWorkflow?: I
             if (!sectionsRes.ok) {
                 return [];
             }
-            const sections = await sectionsRes.json();
+            const sections = await readJson<WorkflowSection[]>(sectionsRes);
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const stepsPromises = sections.map((s: any) =>
-                fetch(`/api/sections/${s.id}/steps`).then(r => r.json())
+            const stepsPromises = sections.map(async (section) =>
+                readJson<ApiStep[]>(await fetch(`/api/sections/${section.id}/steps`))
             );
             const stepsArrays = await Promise.all(stepsPromises);
             return stepsArrays.flat();
@@ -76,15 +98,15 @@ export function useIntakeRuntime(currentWorkflowId?: string, runtimeWorkflow?: I
     });
 
     // 4. Fetch Upstream Run Values
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: upstreamRun } = useQuery<any>({
+    const { data: upstreamRun } = useQuery<UpstreamRun>({
         queryKey: ['run', sourceRunId],
         queryFn: async () => {
             const res = await fetch(`/api/runs/${sourceRunId}`);
             if (!res.ok) {
                 throw new Error('Failed to fetch upstream run');
             }
-            return res.json().then(r => r.data); // result.data
+            const result = await readJson<{ data: UpstreamRun }>(res);
+            return result.data;
         },
         enabled: !!sourceRunId && !!upstreamWorkflowId,
     });
@@ -93,8 +115,7 @@ export function useIntakeRuntime(currentWorkflowId?: string, runtimeWorkflow?: I
     const intakeValues: Record<string, unknown> = {};
 
     if (upstreamRun?.values && upstreamSteps) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        upstreamRun.values.forEach((v: any) => {
+        upstreamRun.values.forEach((v) => {
             const step = upstreamSteps.find(s => s.id === v.stepId);
             if (step?.alias) {
                 intakeValues[step.alias] = v.value;

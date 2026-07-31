@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument */
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, type GenerateContentResult, type GenerativeModel } from "@google/generative-ai";
 import { z } from "zod";
 
 import { logger } from "../logger";
@@ -16,9 +15,8 @@ const sentimentResponseSchema = z.object({
  * Handles AI-powered analytics and insights
  */
 export class GeminiService {
-  private genAI!: GoogleGenerativeAI;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Gemini model type is not publicly exported
-  private model!: any;
+  private genAI: GoogleGenerativeAI | null = null;
+  private model: GenerativeModel | null = null;
 
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -51,7 +49,7 @@ export class GeminiService {
    * Check if the service is properly initialized
    */
   private ensureInitialized(): void {
-    if (!this.model) {
+    if (!this.model || !this.genAI) {
       throw new Error("GEMINI_API_KEY not configured - AI features are unavailable");
     }
   }
@@ -65,6 +63,11 @@ export class GeminiService {
     reasoning: string;
   }> {
     this.ensureInitialized();
+    const genAI = this.genAI;
+    const fallbackModel = this.model;
+    if (!genAI || !fallbackModel) {
+      throw new Error("GEMINI_API_KEY not configured - AI features are unavailable");
+    }
 
     const systemPrompt = `Analyze the sentiment of this text and respond in JSON format.
 Respond with:
@@ -74,9 +77,9 @@ Respond with:
   "reasoning": "brief explanation"
 }`;
 
-    let result;
+    let result: GenerateContentResult;
     try {
-      const model = this.genAI.getGenerativeModel({
+      const model = genAI.getGenerativeModel({
         model: process.env.GEMINI_MODEL ?? "gemini-2.0-flash",
         systemInstruction: { role: "system", parts: [{ text: systemPrompt }] }
       });
@@ -84,7 +87,7 @@ Respond with:
     } catch (e) {
       // Fallback if genAI model creation fails (e.g. in some mock setups)
       const prompt = `${systemPrompt}\n\nText: "${fenceUntrusted(text)}"`;
-      result = await this.model.generateContent(prompt);
+      result = await fallbackModel.generateContent(prompt);
     }
     
     const response = result.response.text();
@@ -93,7 +96,7 @@ Respond with:
     try {
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
+        const parsed: unknown = JSON.parse(jsonMatch[0]);
         const validation = sentimentResponseSchema.safeParse(parsed);
         if (validation.success) {
           return validation.data;

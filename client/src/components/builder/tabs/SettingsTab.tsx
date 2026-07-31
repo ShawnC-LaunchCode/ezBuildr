@@ -1,6 +1,3 @@
-/* eslint-disable complexity */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 /**
  * SettingsTab - Workflow-specific settings
  * PR7: Full UI implementation with stub saves
@@ -29,6 +26,22 @@ import { PublishingSettingsCard } from "./settings/PublishingSettingsCard";
 
 interface SettingsTabProps {
   workflowId: string;
+}
+
+interface WorkflowSettings {
+  brandingEnabled?: boolean;
+  logoUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  completionMessage?: string;
+  redirectUrl?: string;
+  allowSaveAndResume?: boolean;
+  requireLogin?: boolean;
+}
+
+interface IntakeConfig {
+  isIntake?: boolean;
+  upstreamWorkflowId?: string | null;
 }
 
 export function SettingsTab({ workflowId }: SettingsTabProps) {
@@ -73,13 +86,15 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
   // Fetch all workflows to select upstream (simple approach for now)
   const { data: allWorkflows } = useWorkflows();
   // Filter eligible upstream workflows: Active, Is Intake, Not current workflow
-  const eligibleUpstream = allWorkflows?.filter(w =>
-    w.id !== workflowId &&
-    w.intakeConfig?.isIntake === true &&
-    w.status !== 'archived'
-  ) ?? [];
+  const eligibleUpstream = allWorkflows?.filter(w => {
+    const intakeConfig = w.intakeConfig as IntakeConfig | undefined;
+    return w.id !== workflowId
+      && intakeConfig?.isIntake === true
+      && w.status !== 'archived';
+  }) ?? [];
 
   // Sync state with loaded workflow data
+  // eslint-disable-next-line complexity -- Hydration maps persisted settings into individual form controls.
   useEffect(() => {
     if (workflow) {
       setName(workflow.title ?? "");
@@ -87,7 +102,7 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
       setSlug(workflow.slug ?? "");
 
       // Load Settings from JSON
-      const settings = (workflow as any).settings;
+      const settings = workflow.settings as WorkflowSettings | undefined;
       if (settings) {
         setBrandingEnabled(settings.brandingEnabled ?? false);
         setLogoUrl(settings.logoUrl ?? "");
@@ -115,9 +130,10 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
       }
 
       // Intake Config
-      if (workflow.intakeConfig) {
-        setIsIntake(workflow.intakeConfig.isIntake ?? false);
-        setUpstreamWorkflowId(workflow.intakeConfig.upstreamWorkflowId ?? null);
+      const intakeConfig = workflow.intakeConfig as IntakeConfig | undefined;
+      if (intakeConfig) {
+        setIsIntake(intakeConfig.isIntake ?? false);
+        setUpstreamWorkflowId(intakeConfig.upstreamWorkflowId ?? null);
       }
     }
   }, [workflow]);

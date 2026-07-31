@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, Download, FileText, CheckCircle2, AlertCircle, Play } from "lucide-react";
 import { useEffect } from 'react';
@@ -18,8 +17,17 @@ interface GeneratedDocument {
 }
 
 interface RunDetailsResponse {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    run: any;
+    run: {
+        id: string;
+        runToken: string;
+        completed: boolean;
+        accessSettings?: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention -- API response uses snake_case
+            allow_redownload?: boolean;
+            // eslint-disable-next-line @typescript-eslint/naming-convention -- API response uses snake_case
+            allow_resume?: boolean;
+        };
+    };
     documents: GeneratedDocument[];
     finalBlockConfig: {
         title?: string;
@@ -29,6 +37,21 @@ interface RunDetailsResponse {
         brandingColor?: string;
         redirectUrl?: string;
     } | null;
+}
+
+async function readJson<T>(response: Response): Promise<T> {
+    const data: unknown = await response.json();
+    return data as T;
+}
+
+async function readApiError(response: Response): Promise<string> {
+    const error: unknown = await response.json();
+    return typeof error === 'object'
+        && error !== null
+        && 'error' in error
+        && typeof error.error === 'string'
+        ? error.error
+        : 'Failed to load run';
 }
 
 // eslint-disable-next-line complexity
@@ -41,16 +64,17 @@ export default function RunCompletionView() {
         queryFn: async () => {
             const res = await fetch(`/api/shared/runs/${token}`);
             if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.error || 'Failed to load run');
+                throw new Error(await readApiError(res));
             }
-            return res.json();
+            return readJson<{ success: boolean; data: RunDetailsResponse }>(res);
         },
         enabled: !!token,
         retry: false
     });
 
-    const { run, documents, finalBlockConfig } = data?.data ?? {};
+    const run = data?.data.run;
+    const documents = data?.data.documents;
+    const finalBlockConfig = data?.data.finalBlockConfig;
 
     // Default configuration if missing (e.g. legacy runs without final block)
     const config = finalBlockConfig ?? {
@@ -134,7 +158,7 @@ export default function RunCompletionView() {
 
 
                     <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-                        {(!run.completed && config.title === "Workflow Complete")
+                        {(!run?.completed && config.title === "Workflow Complete")
                             ? "Workflow Paused"
                             : (config.title ?? "Workflow Complete")}
                     </h2>
@@ -145,7 +169,7 @@ export default function RunCompletionView() {
                 </div>
 
                 {/* Documents Section */}
-                {config.showDocuments && documents && documents.length > 0 && run.completed && run.accessSettings?.allow_redownload !== false && (
+                {config.showDocuments && documents && documents.length > 0 && run?.completed && run.accessSettings?.allow_redownload !== false && (
                     <Card className="overflow-hidden shadow-sm border-gray-200">
                         <CardHeader className="bg-gray-50/50 border-b border-gray-100">
                             <CardTitle className="text-xl flex items-center gap-2">
@@ -186,7 +210,7 @@ export default function RunCompletionView() {
                 )}
 
                 {/* Resume Action */}
-                {!run.completed && run.accessSettings?.allow_resume !== false && (
+                {run && !run.completed && run.accessSettings?.allow_resume !== false && (
                     <div className="flex justify-center mt-8">
                         <Button size="lg" onClick={() => window.location.href = `/run/${run.id}#token=${run.runToken}`}>
                             <Play className="h-5 w-5 mr-2" />
