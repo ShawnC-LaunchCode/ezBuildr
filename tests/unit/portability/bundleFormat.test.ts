@@ -112,14 +112,15 @@ describe('Bundle Format', () => {
       new AdmZipConstructor().writeZip(dummyZip);
       const reader = new BundleReader(dummyZip);
       const getEntriesSpy = vi.spyOn((reader as any).zip, 'getEntries');
-      getEntriesSpy.mockReturnValue([
-        createMockEntry('file1.txt', MAX_SINGLE_ENTRY_SIZE, MAX_SINGLE_ENTRY_SIZE / 2),
-        createMockEntry('file2.txt', MAX_SINGLE_ENTRY_SIZE, MAX_SINGLE_ENTRY_SIZE / 2),
-        createMockEntry('file3.txt', MAX_SINGLE_ENTRY_SIZE, MAX_SINGLE_ENTRY_SIZE / 2),
-        createMockEntry('file4.txt', MAX_SINGLE_ENTRY_SIZE, MAX_SINGLE_ENTRY_SIZE / 2),
-        createMockEntry('file5.txt', MAX_SINGLE_ENTRY_SIZE, MAX_SINGLE_ENTRY_SIZE / 2)
-      ] as any);
-      
+      // Each entry sits exactly at MAX_SINGLE_ENTRY_SIZE (allowed on its own,
+      // since that check is strictly-greater-than) and enough of them are
+      // declared to push the sum past MAX_TOTAL_SIZE regardless of the ratio
+      // between the two constants (IEX2-10 lowered both).
+      const entryCount = Math.ceil(MAX_TOTAL_SIZE / MAX_SINGLE_ENTRY_SIZE) + 1;
+      const entries = Array.from({ length: entryCount }, (_, i) =>
+        createMockEntry(`file${i}.txt`, MAX_SINGLE_ENTRY_SIZE, MAX_SINGLE_ENTRY_SIZE / 2));
+      getEntriesSpy.mockReturnValue(entries as any);
+
       await expect(reader.open()).rejects.toThrow('Total size overflow');
     });
 

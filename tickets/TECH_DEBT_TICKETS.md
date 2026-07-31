@@ -163,7 +163,229 @@ tranche commits at review instead. Do not repeat that criterion here.
 
 ---
 
-## DEBT-3b — Restore the skipped collab sync test 🔲
+## DEBT-3b — Restore the skipped collab sync test ✅
+
+> **✅ DONE — implemented and verified by the reviewer 2026-07-31, `8dfdee82`.**
+> Not dispatched.
+>
+> ### It found a live production break
+>
+> **Real-time collaboration could not connect at all, for any registered user.**
+> `authenticateConnection` validated `payload.role` against
+> `owner|builder|runner|viewer`, but that claim is the **system** role —
+> `auth.routes.ts:223` sets it to `'creator'` on every registration — so every
+> WebSocket was closed with `1008 Invalid user role` immediately after auth. I
+> saw the close frame directly. `canMutate()` and `AuthenticatedUser.role` are
+> both defined in tenant-role terms, so `tenantRole` is the claim the check
+> always meant. ESLint then flagged the return cast as unnecessary, which is its
+> own confirmation the corrected claim already has the right type.
+>
+> ### The ticket was mis-scoped and could not have been done as written
+>
+> It assumed a test-file-only change in the `unit` project. In fact the whole
+> describe block is gated on `COLLAB_SERVER_URL`, which **nothing in the repo
+> sets**, against a hardcoded `ws://localhost:5174` that nothing starts — so it
+> could never have run. And the collab server calls `loadDocument()`, requiring
+> a database that a `unit-fast` test must not touch. Real coverage now lives in
+> **`tests/integration/collab.sync.test.ts`**; the dead skipped test is deleted
+> and points there.
+>
+> **Gates:** type-check 0 · lint 0 · `check:strict-zones` passed · `test:fast`
+> 2052 passing (skipped 15 → 14) · `collab.sync` 3/3 on an isolated database.
+>
+> **Mutation-proved, and the split is the useful part:** disabling
+> `broadcastUpdate` fails the two live-sync tests while the late-joiner test
+> still passes — because that one exercises the initial-sync path instead.
+> Reverting the auth fix fails all three. A whole-file revert would have shown
+> neither.
+>
+> **Two traps worth keeping:** `server/routes.ts:48` already calls
+> `initCollabServer`, so attaching a second one produces
+> `handleUpgrade() was called more than once` **while the tests still appear to
+> pass**. And the integration harness mints `authToken` at registration, before
+> it assigns the tenant, so that token carries a null `tenantId` and the collab
+> server rejects it as cross-tenant — re-mint from the persisted user row.
+
+---
+
+## DEBT-15 — Generated documents are written to the ephemeral container filesystem 🔲
+
+**Priority: P1?** · Size: M · Files: `server/services/document/DocumentEngine.ts`,
+`server/services/fileService.ts`, `server/routes/finalBlock.routes.ts`,
+`server/services/TemplatePreviewService.ts`, `server/routes/files.routes.ts`
+
+*Spotted 2026-07-31 while scoping DEBT-6. Deliberately not bundled into it —
+that was dead-code removal, this is a live durability question.*
+
+### Finding
+
+**Five** call sites write generated output under
+`path.join(process.cwd(), 'server', 'files', 'outputs')`:
+
+- `DocumentEngine.ts:46` (default `outputDir`)
+- `finalBlock.routes.ts:342`
+- `TemplatePreviewService.ts:163` (`outputs/previews`)
+- `fileService.ts:134-135` (both)
+
+and `files.routes.ts:33` serves downloads back out of the same directory.
+
+That is the **container's own filesystem**, and on Railway it is ephemeral. Every
+generated document, preview and final-block output written there is lost on the
+next deploy or container restart — and this project auto-deploys from `main`, so
+restarts are routine, not rare.
+
+Worse, the production image never contains that path: the Dockerfile's runtime
+stage copies only `dist`, `package.json` and `node_modules` (see
+[[runtime-cwd-files-vs-docker-stage]], which is the same class of bug found in
+IEX2-8). The directory only exists because something creates it at runtime.
+
+Note this is a **third** storage mechanism, alongside `storageProvider` (the real
+one, seven consumers) and the now-deleted `files` table. Anything durable should
+be going through `storageProvider`.
+
+### Why the "?" on P1
+
+The severity depends on whether these outputs are meant to survive. If a
+generated document is handed straight to the user in the same request and never
+re-fetched, ephemeral is fine and this is a documentation fix. If
+`/api/files/download/:filename` is expected to work minutes or days later — and
+its existence implies it is — then customers are hitting 404s after every deploy
+and have been for as long as this has shipped.
+
+**Answer that first.** Check whether any stored row references a filename served
+by `files.routes.ts`, and whether the download route is reachable from the UI
+after a run completes.
+
+### Preferred fix
+
+Route durable outputs through `storageProvider`, which already abstracts
+disk/S3 and is what the rest of the system uses. Keep the local path only for
+genuinely temporary artifacts (previews consumed within one request), and say in
+a comment which is which.
+
+Do **not** simply add a Docker volume — that fixes one deployment and leaves the
+architecture with three storage mechanisms.
+
+### Ties
+
+- Related: DEBT-6 removed the *second* file subsystem; this is the third.
+- Load `add-api-endpoint` (the download route is public-ish surface) and
+  `run-tests`.
+
+### Acceptance criteria
+
+1. The durability question above is answered with evidence and recorded here
+   before any code change.
+2. Durable outputs go through `storageProvider`; any remaining local-disk writes
+   are documented as intentionally temporary.
+3. A test asserts a generated document is retrievable through the normal
+   download path after the writing process's local temp dir is gone.
+4. Gates: type-check 0, lint 0, `check:strict-zones` passed, `test:fast` ≥
+   baseline, document-generation integration suites green.
+
+---
+
+## DEBT-14 — `creation-routes.test.ts` fails 18 tests only when the whole file runs 🔲
+
+**Priority: P2** · Size: M · Files: `tests/integration/creation-routes.test.ts`
+
+*Filed by the reviewer 2026-07-31 while clearing DEBT-3b. Not a product bug —
+the endpoints are fine. This is a test-isolation defect that has been poisoning
+every full integration run.*
+
+> **Refs re-verified 2026-07-31 against the dispatch base — all exact:**
+> `setupIntegrationTest` in the single `beforeAll` at `:40`, `aggregate size
+> caps (ICW-11)` at `:247`, `POST /api/steps/:id/duplicate` at `:630`,
+> `POST /api/sections/:id/duplicate` at `:719`.
+>
+> **Baselines: `test:fast` 155 files / 2053 tests; portability `unit-db` 7 / 74;
+> portability integration 3 / 25.**
+>
+> **Use a dedicated database.** A reviewer Postgres is already running on
+> **5435** (`ezbuildr-review-db`); point `TEST_DATABASE_URL` at it, or start
+> your own. Do **not** use the shared 5434 instance — schema names are per
+> *worker*, not per process, so any concurrent run corrupts yours and produces
+> dozens of unrelated failures. That is what disguised this defect for two full
+> suite runs.
+>
+> ⚠️ **Reproducing costs ~21 minutes per full-file run.** Do not iterate that
+> way. The duplicate blocks pass alone in ~13s, so bisect by adding preceding
+> describes until they break — that keeps each cycle short.
+
+### Finding
+
+Running the full `integration` project, this file fails **18 of 38 tests**, all
+of them in the two `duplicate` describe blocks (`:630` steps, `:719` sections),
+and the file takes **~1270 seconds** — roughly 33s per failing test, the shape
+of request timeouts rather than assertion failures.
+
+**The same tests pass in isolation.** Verified on a dedicated, empty Postgres
+with nothing else running:
+
+- `-t "returns 404 for a nonexistent section"` → **1 passed**, 9.3s.
+- `-t "ICW2-B5"` (both duplicate blocks, 10 tests) → **10 passed**, 12.8s.
+
+**It is deterministic and it is on `main`.** Two runs of the whole file, each on
+its own private empty Postgres, differing only in whether an unrelated change
+was present:
+
+| Tree | Database | Result | Duration |
+|---|---|---|---|
+| clean `main` (`2aa03bd2`) | 5436 | **18 failed / 20 passed** | 1273.59s |
+| `main` + DEBT-3b | 5435 | **18 failed / 20 passed** | 1273.96s |
+
+Same count, same tests, durations within half a second. So this is not
+contention, not database state, and not caused by any in-flight work — it
+reproduces on clean `main` on demand, which also makes it cheap to bisect.
+
+So the endpoints work. Something earlier in the file leaves state that makes the
+last two describes hang. The file has a single `setupIntegrationTest` in one
+`beforeAll` (`:39`), so it is not a per-describe server leak. A prime suspect is
+the `aggregate size caps (ICW-11)` block at `:247`, which mutates the shared
+`LIMITS.MAX_SECTIONS_PER_WORKFLOW` / `MAX_STEPS_PER_WORKFLOW` globals and
+restores them in `afterEach` — a leak there would make later duplicate calls hit
+a cap of 3 — but that is a hypothesis, not a diagnosis.
+
+### Why this matters more than 18 tests
+
+**It has been masking real signal.** Two full integration runs during the DEBT-3b
+review failed with *different* files each time, which read as database
+contention — and some of it was. This file is not contention: it reproduces on a
+private database with nothing else running. As long as it fails, no full
+integration run can be trusted, and the reviewer discipline of "run the whole
+suite before committing" is unusable.
+
+### Preferred fix
+
+Find what leaks, do not paper over it. Bisect by running progressively more of
+the file — the duplicate blocks pass alone, so add preceding describes until
+they start failing, and the last one added is the culprit. Then fix the leak at
+its source rather than reordering tests or adding retries.
+
+Capture the **actual error** from a failing run first: a filtered
+`Select-String` on the output hides it, which is why this went undiagnosed
+through two full-suite runs. Report what the failing requests actually return.
+
+### Ties
+
+- Load `run-tests`. Use a dedicated database (see below) so contention cannot be
+  confused with the defect.
+- Related: `concurrent-test-runs-share-one-db` — schema names are per *worker*,
+  not per process, so any two DB-backed runs collide. There are now reviewer
+  Postgres instances on **5435** and **5436** for exactly this.
+
+### Acceptance criteria
+
+1. The root cause is named with evidence — which earlier describe leaks what.
+2. `npm run test:integration -- tests/integration/creation-routes.test.ts` runs
+   **38 passed** in a time comparable to the ~13s the duplicate blocks take
+   alone, not ~1270s.
+3. The fix is at the source of the leak; no test reordering, retries, or
+   increased timeouts as the remedy.
+4. A full `npm run test:integration` completes green on a dedicated database.
+5. Gates: type-check 0, lint 0, `check:strict-zones` passed.
+
+---
 
 **Priority: P1** · Size: S · Files: `tests/unit/collab.server.test.ts`
 
@@ -203,49 +425,162 @@ fixed `setTimeout`.
 
 ---
 
-## DEBT-6 — Two parallel file subsystems 🔲
+## DEBT-6 — Two parallel file subsystems ✅
 
-**Priority: P2** · Size: L · Files: `server/services/FileStorageService.ts`,
-`server/services/storage/*`, `shared/schema/files.ts`
+> **✅ VERIFIED AND COMMITTED 2026-07-31 — `058530b0`.** Gates re-run by the
+> reviewer on a dedicated database: type-check 0 · lint 0 ·
+> `check:strict-zones` passed · `test:fast` **155 files / 2053 tests** ·
+> portability `unit-db` **7 files / 71 tests** · portability integration
+> **3 / 24**.
+>
+> **The dev's headline claim was true and I verified it independently: no
+> migration accompanies this, and that is correct rather than an omission.**
+> `files` and `file_context` appear in **no migration at all**, so Drizzle never
+> tracked the table and `db:generate` genuinely has nothing to emit. The table
+> only ever existed in dev databases built with `db:push`; anything built from
+> migrations — including production — never had it. AC 2's "with a migration"
+> was unsatisfiable as written.
+>
+> ### Two reviewer interventions
+>
+> 1. **Their base was stale and `entityGraph.ts` overlapped with IEX2-14** —
+>    exactly the hazard the ticket warned about. Their `git merge main --ff-only`
+>    reported "Already up to date", which was true when they ran it and false by
+>    hand-in; main had since gained IEX2-14. **Staging their file as-is would
+>    have silently deleted IEX2-14's `scanPaths` with no conflict.** Rebased
+>    instead, then verified both changes survived: `scanPaths` intact at
+>    `:66`/`:76`/`:96`, `files` gone from `EXCLUDED_TABLES`.
+> 2. **They left an untracked `migrations/meta/0006_snapshot.json`** from the
+>    `db:generate` run. The journal has 6 entries (0000–0005), so that snapshot
+>    is an orphan — and a stray snapshot is what corrupts the *next*
+>    `db:generate`. Removed. Note `intake-removal` is concurrently authoring a
+>    real `0006`, which is why this mattered.
+>
+> **AC 3 verified rather than assumed:** `schemaCoverage.test.ts:103-112`
+> actively asserts `EXCLUDED_TABLES` never names a table that no longer exists,
+> so leaving that entry in would have failed the suite. Real coverage, which the
+> turn-in never mentioned. Also confirmed `shared/schema/files.ts` held only
+> files-related exports, so deleting it wholesale was right.
+>
+> **Filed separately, deliberately not bundled:** `files.routes.ts:33` serves
+> generated documents from the raw container filesystem, which is ephemeral on
+> Railway. That is a live durability question, not dead-code cleanup.
 
-### Finding
+**Priority: P2** · Size: **M** (was L) · Files:
+`server/services/FileStorageService.ts`, `shared/schema/files.ts`,
+`server/repositories/index.ts`, a migration
 
-The app has **two independent file subsystems** that do not know about each
-other:
+> ### ⚠️ Re-scoped 2026-07-31 — the premise was wrong, and this is now much smaller
+>
+> **There are not two competing file subsystems. There is one live subsystem and
+> one that is entirely dead code.** Verified against `4ea5f6fd`:
+>
+> - **Nothing anywhere inserts, updates, reads or selects the `files` table.**
+>   `git grep "insert(files\|from(files\|update(files\|schema.files"` over
+>   `server/`, `tests/` and `scripts/` returns **no matches at all**.
+> - **`fileStorageService` is imported by nobody.** The singleton is exported at
+>   `FileStorageService.ts:224`; the only other file in the repo mentioning it
+>   is `entityGraph.ts`, and only inside a *comment* plus an `EXCLUDED_TABLES`
+>   entry that deliberately keeps `files` out of export bundles.
+> - **`FileRepository` was already deleted.** `server/repositories/FileRepository.ts`
+>   does not exist and its export is commented out at
+>   `server/repositories/index.ts:19`.
+> - `storageProvider` has **seven** consumers and is the real subsystem:
+>   `TemplatePreviewService`, `TemplateVersionService`, `templates`,
+>   `templateFiles`, portability `ImportService` and `blobs`, plus
+>   `storage/index.ts`.
+>
+> So the "unification" this ticket was written to design does not need
+> designing. There is nothing to unify and nothing to migrate — and per the
+> project-wide confirmation that the database holds only test data with zero
+> dependencies on existing rows, there are no `files` rows to preserve either.
+>
+> **The original AC 1 (a written proposal approved before implementation) is
+> hereby satisfied by this block.** Shawn's remaining decision is the one in
+> "Decision required" below; everything after it is ordinary deletion work.
+>
+> **Do not** attempt to make `FileStorageService` the surviving subsystem, and
+> do not port its quota/virus-scanning ideas into `storageProvider` as part of
+> this ticket. Those are real gaps but they are separate work — this ticket is
+> removal only.
 
-1. The `files` table (`shared/schema/files.ts:28`) plus `FileStorageService`,
-   with its own `storageKey` / `provider` columns.
-2. `storageProvider` (`server/services/storage/index.ts`) addressed by bare
-   `fileRef` strings, with no database row at all — this is where template
-   binaries live.
+### Decision — DELETE, approved by Shawn 2026-07-31
 
-The split is a live source of error. The IEX audit had to warn dispatched devs
-explicitly not to reach for `FileStorageService` when handling template bytes,
-because the obvious-looking API is the wrong one. Storage quota accounting,
-virus scanning, and cleanup all have to be implemented twice or silently apply
-to only one half.
+✅ **Shawn approved deletion on 2026-07-31 when dispatching this ticket. The
+blocking question is closed — do not stop to re-ask it, and do not implement the
+"keep it" branch.** The reasoning that was put to him is preserved below.
 
-### Preferred fix
+**Delete the dead subsystem (recommended), or keep it?** Recommended: delete.
+It has never been wired up, `FileRepository` was already removed, and leaving
+it costs a recurring tax — the IEX audit had to warn dispatched devs off it
+precisely because it is the obvious-looking API and the wrong one. That warning
+is the only thing this code has ever done.
 
-Design work before code. Produce a short proposal covering: which subsystem
-survives, how existing `fileRef` values migrate, what happens to quota
-accounting, and whether a database row becomes mandatory for every stored
-object. Bring that to Shawn before implementing — this is a Size L change with
-a migration, and picking the wrong direction is expensive.
+The counter-case is that `files` is a more principled design than bare
+`fileRef` strings — it has `storageKey`, `provider`, `size` and a
+`file_context` enum, which is what you would want if quota accounting or
+retention ever became real. Keeping it means keeping a table nothing writes,
+on the chance it is revived. **Deleting does not foreclose that:** the schema
+is recoverable from git history, and rebuilding it against a real requirement
+would be better than reviving a shape guessed at in advance.
+
+### Preferred fix (once the delete is confirmed)
+
+1. Delete `server/services/FileStorageService.ts` (201 lines) and its
+   `UploadResult` interface.
+2. Drop the `files` table and the `file_context` enum from
+   `shared/schema/files.ts`, plus a generated migration. **Author it with
+   `npm run db:generate` — never hand-edit the journal** (see
+   `db-schema-change`).
+3. Remove the commented-out `FileRepository` export line at
+   `server/repositories/index.ts:19` and the stale comment at `:12`.
+4. Update `entityGraph.ts`'s `EXCLUDED_TABLES` entry for `files` — the table
+   will no longer exist, so an exclusion referencing it is misleading. Check
+   whether `EXCLUDED_TABLES` is asserted against the live schema by
+   `schemaCoverage.test.ts`; if it is, that test is the one that will catch
+   this and it must stay green.
 
 ### Ties
 
-- **Sequence after DEBT-5**, which removes the worst individual symptom.
-- Load `db-schema-change` — any unification needs a migration.
-- Context: the IEX initiative's Phase 1 notes on why template bytes are not in
-  the `files` table.
+- **No longer sequenced after DEBT-5.** That dependency existed because both
+  touched a shared live path; with this reduced to deleting dead code, the only
+  overlap is `entityGraph.ts`.
+- ⚠️ **`entityGraph.ts` is shared with IEX2-14, which is in flight right now.**
+  These were dispatched in parallel deliberately. The regions differ — IEX2-14
+  works the descriptors' `redactPaths`/`scanPaths` near the top of the file,
+  this ticket touches only the `EXCLUDED_TABLES` entry for `files` near the
+  bottom — so a clean merge is expected but not guaranteed. **Do
+  `entityGraph.ts` last**, and `git merge main --ff-only` immediately before you
+  hand the work in so whichever ticket lands second sees the other's edit.
+- Load `db-schema-change` (a table drop is still a migration) and `run-tests`.
+- Related: [[runtime-cwd-files-vs-docker-stage]] is *not* in play here; this
+  code path never ran at all.
 
 ### Acceptance criteria
 
-1. A written proposal exists and has been approved by Shawn **before** any
-   implementation commit.
-2. (Post-approval criteria to be written into this ticket once the direction
-   is chosen — do not implement against a guess.)
+1. `git grep -n "FileStorageService\|fileStorageService"` returns **no matches
+   outside git history** — including the `entityGraph.ts` comment.
+2. The `files` table and `file_context` enum are gone from
+   `shared/schema/files.ts`, with a migration generated by `npm run db:generate`
+   that applies cleanly against a fresh test database.
+3. `schemaCoverage.test.ts` (or whichever test asserts `ENTITY_GRAPH` /
+   `EXCLUDED_TABLES` against the live schema) is green **and** was confirmed to
+   actually cover the removed table — if it does not reference `files` at all,
+   say so rather than claiming coverage.
+4. Portability export and import still round-trip: portability `unit-db` and
+   the portability integration suites green at or above baseline.
+5. Gates: type-check 0, lint 0, `check:strict-zones` passed, `test:fast` ≥
+   baseline. **Note `npm run type-check` is not the commit gate** — run
+   `npx tsx scripts/pre-commit-checks.ts` with the work staged.
+
+### Follow-up spotted while scoping this — not part of DEBT-6
+
+`server/routes/files.routes.ts:33` serves generated documents from
+`path.join(process.cwd(), 'server', 'files', 'outputs')` — the **raw container
+filesystem**, which is a third storage path and is ephemeral on Railway. Any
+generated document written there does not survive a redeploy. That deserves its
+own ticket; it is a live durability question, not a dead-code cleanup, and it
+should not be bundled into this one.
 
 ---
 

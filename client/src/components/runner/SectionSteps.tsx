@@ -94,7 +94,7 @@ export function SectionSteps({
     }
 
     return (
-        <>
+        <div data-testid="runner-section-steps" className="space-y-8">
             {visibleSteps.map((step) => (
                 <BlockErrorBoundary key={step.id} stepId={step.id}>
                     <StepField
@@ -107,7 +107,7 @@ export function SectionSteps({
                     />
                 </BlockErrorBoundary>
             ))}
-        </>
+        </div>
     );
 }
 

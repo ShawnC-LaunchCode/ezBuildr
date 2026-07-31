@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import WebSocket from 'ws';
-import * as Y from 'yjs';
 
 import { authService } from '@server/services/AuthService';
 
@@ -91,36 +90,18 @@ describeWithCollabServer('Collaboration Server [requires collab server]', () => 
     });
   });
   describe('Multi-user Collaboration', () => {
-    // SKIPPED: this test asserted nothing — it connected two clients, waited,
-    // and closed them, so it reported green while verifying no sync at all.
-    // Completing it needs the full Yjs protocol handshake (see the note below).
-    it.skip('should sync document updates between two clients', async () => {
-      const roomKey = 'tenant:tenant-test:workflow:workflow-sync-test';
-      // Connect client A (owner)
-      const wsA = new WebSocket(`${WS_URL}?room=${roomKey}&token=${ownerToken}`);
-      const docA = new Y.Doc();
-      await new Promise((resolve) => wsA.once('open', resolve));
-      // Connect client B (builder)
-      const wsB = new WebSocket(`${WS_URL}?room=${roomKey}&token=${builderToken}`);
-      const _docB = new Y.Doc();
-      await new Promise((resolve) => wsB.once('open', resolve));
-      // Wait for initial sync
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      // Client A makes a change
-      docA.transact(() => {
-        const yGraph = docA.getMap('yGraph');
-        yGraph.set('testKey', 'testValue');
-      });
-      // Send update from A
-      const _updateA = Y.encodeStateAsUpdate(docA);
-      // In real implementation, this would be sent via WebSocket protocol
-      // Wait for sync
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      // Check if B received the update
-      // Note: Full Yjs protocol integration would be needed for complete test
-      wsA.close();
-      wsB.close();
-    });
+    // DEBT-3b: the document-sync test that used to sit here was removed rather
+    // than repaired. It connected two clients, slept, and closed them without
+    // asserting anything, and it could never have run in the first place --
+    // this whole describe block is gated on COLLAB_SERVER_URL, which nothing
+    // in the repo sets, against a hardcoded ws://localhost:5174 that nothing
+    // starts.
+    //
+    // Real convergence coverage now lives in
+    // tests/integration/collab.sync.test.ts, which drives the actual
+    // y-websocket protocol against the integration harness's own HTTP server
+    // and needs no external setup. It belongs in integration because the
+    // collab server calls loadDocument(), which requires a database.
     it('should track presence of multiple users', async () => {
       const roomKey = 'tenant:tenant-test:workflow:workflow-presence-test';
       const ws1 = new WebSocket(`${WS_URL}?room=${roomKey}&token=${ownerToken}`);

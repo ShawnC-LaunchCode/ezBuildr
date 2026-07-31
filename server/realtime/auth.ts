@@ -154,8 +154,16 @@ export async function authenticateConnection(
     // Given the user is the 'owner' in the logs, isCreator should be true.
     throw new Error('Access denied');
   }
-  // Validate RBAC permissions
-  const role = payload.role ?? 'viewer';
+  // Validate RBAC permissions.
+  //
+  // DEBT-3b: this read `payload.role`, which is the *system* role
+  // (admin/creator, set to 'creator' for every registration in
+  // auth.routes.ts) -- not the tenant role. Since 'creator' is not in
+  // allowedRoles, every registered user was rejected with 'Invalid user role'
+  // and real-time collaboration could not connect at all. `canMutate()` below
+  // and `AuthenticatedUser.role` are both defined in tenant-role terms, so
+  // `tenantRole` is the claim this check always meant.
+  const role = payload.tenantRole ?? 'viewer';
   const allowedRoles = ['owner', 'builder', 'runner', 'viewer'];
   if (!allowedRoles.includes(role)) {
     throw new Error('Invalid user role');
@@ -176,7 +184,9 @@ export async function authenticateConnection(
     userId: payload.userId,
     email: payload.email,
     tenantId: payload.tenantId,
-    role: role as 'owner' | 'builder' | 'runner' | 'viewer',
+    // No cast needed: payload.tenantRole is already this exact union, which is
+    // itself a sign this is the claim the check always meant to read.
+    role,
     displayName,
     color,
   };

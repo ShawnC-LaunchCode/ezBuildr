@@ -1,4 +1,7 @@
 import { type Server } from "http";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import { eq } from "drizzle-orm";
 import express, { type Express } from "express";
 import { nanoid } from "nanoid";
@@ -8,14 +11,43 @@ import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import * as schema from "@shared/schema";
 import { db } from "../../server/db";
 import { registerRoutes } from "../../server/routes";
+import { BundleWriter } from "../../server/services/portability/bundleWriter";
+import { FORMAT_VERSION, type BundleManifest } from "../../server/services/portability/bundleFormat";
 
-// The upload cap is read when the routes module is first imported, so it has to
-// be shrunk before that happens — hence `vi.hoisted` and a file of its own. A
-// genuine 250MB upload is not a reasonable thing to build in a test, but the cap
-// itself still deserves an end-to-end proof rather than a mocked one.
+// The upload cap, and the reader's declared-size limits (IEX2-10), are all
+// read when their modules are first imported, so every override has to be in
+// place before that happens — hence `vi.hoisted` and a file of its own. A
+// genuine 250MB upload (or a genuinely oversized entry) is not a reasonable
+// thing to build in a test, but the caps themselves still deserve an
+// end-to-end proof rather than a mocked one — so the caps are shrunk instead
+// of the payloads being grown.
 vi.hoisted(() => {
   process.env.PORTABILITY_MAX_UPLOAD_BYTES = "512";
+  process.env.PORTABILITY_MAX_ENTRY_BYTES = "50";
 });
+
+/** A minimal, real, checksum-valid bundle -- no entities or blobs needed. */
+async function buildMinimalBundle(): Promise<Buffer> {
+  const outPath = path.join(os.tmpdir(), `tiny-limits-${nanoid()}.ezb`);
+  const writer = new BundleWriter(outPath);
+  const manifest: BundleManifest = {
+    formatVersion: FORMAT_VERSION,
+    appVersion: "test",
+    migrationHead: null,
+    scope: "workflow",
+    rootIds: [],
+    sourceSystem: "test",
+    createdAt: new Date().toISOString(),
+    entityCounts: {},
+    blobCount: 0,
+    checksum: ""
+  };
+  await writer.writeManifest(manifest);
+  const finalPath = await writer.finalize();
+  const buf = await fs.promises.readFile(finalPath);
+  await fs.promises.rm(finalPath, { force: true });
+  return buf;
+}
 
 describe.sequential("Portability Import API — upload size cap", () => {
   let app: Express;
@@ -65,6 +97,7 @@ describe.sequential("Portability Import API — upload size cap", () => {
 
   afterAll(async () => {
     delete process.env.PORTABILITY_MAX_UPLOAD_BYTES;
+    delete process.env.PORTABILITY_MAX_ENTRY_BYTES;
     if (tenantId) {
       await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
     }
@@ -94,5 +127,22 @@ describe.sequential("Portability Import API — upload size cap", () => {
       .attach("file", oversized, "big.ezb");
 
     expect(response.status).toBe(413);
+  });
+
+  it("IEX2-10 AC 5: a bundle whose declared entry size exceeds the (env-overridable) reader limit is rejected with 400, not a crash", async () => {
+    const bundle = await buildMinimalBundle();
+    // The bundle itself is a normal small file -- it clears the multer upload
+    // cap. PORTABILITY_MAX_ENTRY_BYTES=50 is what rejects it: manifest.json
+    // alone is well over 50 bytes, so the reader's own declared-size gate
+    // (not the upload gate) is what fires here.
+    expect(bundle.length).toBeLessThan(512);
+
+    const response = await request(baseURL)
+      .post("/api/portability/import/apply")
+      .set("Authorization", `Bearer ${authToken}`)
+      .attach("file", bundle, "tiny.ezb");
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(/single entry size overflow/i);
   });
 });
