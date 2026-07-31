@@ -5,6 +5,7 @@ import { createTestFactory, TestFactory } from '../../helpers/testFactory';
 import { describeWithDb } from '../../helpers/dbTestHelper';
 import { stepService } from '../../../server/services/StepService';
 import { logicRuleRepository } from '../../../server/repositories/LogicRuleRepository';
+import { stepRepository, transformBlockRepository } from '../../../server/repositories';
 
 describeWithDb('StepService DB', () => {
   let _factory: ReturnType<typeof createTestFactory>;
@@ -248,6 +249,31 @@ describeWithDb('StepService DB', () => {
 
     const rules = await logicRuleRepository.findByConditionStepId(choiceStep.id);
     expect(rules[0].conditionValue).toBe('old_val'); // Untouched
+  });
+
+  it('rolls back the step alias update when propagation fails atomically (DEBT-16)', async () => {
+    const step = await stepService.createStep(testWorkflowId, testSectionId, testUserId, {
+      title: 'Contact Email',
+      type: 'short_text',
+      alias: 'contactEmail',
+    });
+
+    // Force a real failure in the first alias-rename propagation phase, which
+    // now runs inside updateStepById's transaction. Atomic semantics mean this
+    // must reject the whole call and leave the step's alias untouched — not
+    // be caught, logged, and leave a step update that silently never committed.
+    const findSpy = vi
+      .spyOn(transformBlockRepository, 'findByWorkflowId')
+      .mockRejectedValueOnce(new Error('boom'));
+
+    await expect(
+      stepService.updateStepById(step.id, testUserId, { alias: 'clientEmail' })
+    ).rejects.toThrow('boom');
+
+    findSpy.mockRestore();
+
+    const reloaded = await stepRepository.findById(step.id);
+    expect(reloaded?.alias).toBe('contactEmail');
   });
 
   it('no-ops when renaming an option that has no logic rules', async () => {

@@ -330,15 +330,18 @@ describe("AliasRenameService.propagateRename", () => {
     expect(mockStepRepo.update).not.toHaveBeenCalled();
   });
 
-  it("should continue with other reference types when one fails", async () => {
+  it("should abort immediately and not touch other reference types when one fails (atomic — DEBT-16)", async () => {
+    // propagateRename runs inside the caller's transaction (StepService.updateStep),
+    // so a failing query must reject and stop, not be swallowed and continued —
+    // catching it here would let the caller believe the rename succeeded while
+    // Postgres silently rolled the whole transaction back underneath it.
     mockTransformRepo.findByWorkflowId.mockRejectedValue(new Error("db down"));
     mockDocHookRepo.findByWorkflowId.mockResolvedValue([
       { id: "dh-1", inputKeys: ["oldName"] },
     ] as never);
 
-    const result = await service.propagateRename("wf-1", "oldName", "newName");
+    await expect(service.propagateRename("wf-1", "oldName", "newName")).rejects.toThrow("db down");
 
-    expect(result.transformBlocksUpdated).toBe(0);
-    expect(result.documentHooksUpdated).toBe(1);
+    expect(mockDocHookRepo.findByWorkflowId).not.toHaveBeenCalled();
   });
 });

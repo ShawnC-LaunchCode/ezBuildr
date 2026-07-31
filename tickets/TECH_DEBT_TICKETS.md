@@ -54,7 +54,7 @@ feature work.
 | DEBT-13 | Legacy Final Documents casts `metadata.visibleIf` onto a mismatched type | P1? | S | ✅ verified at review 2026-07-31 |
 | DEBT-14 | `creation-routes.test.ts` fails 18 tests only when the whole file runs | P2 | M | ✅ `5ae7fde3` — fixed in services, not the test |
 | DEBT-15 | Generated documents are written to the ephemeral container filesystem | P1 | L | ✅ code done — **needs `STORAGE_DRIVER=s3` in Railway to take effect** |
-| DEBT-16 | `propagateRename` swallows errors inside a caller's transaction | P2 | S | 🔲 filed from DEBT-14 review |
+| DEBT-16 | `propagateRename` swallows errors inside a caller's transaction | P2 | S | ✅ atomic model; mutation-proved |
 
 ## DEBT-2 — Retire the 143 blanket file-level eslint-disable headers ✅
 
@@ -411,7 +411,47 @@ succeeding.
 
 ---
 
-## DEBT-16 — `propagateRename` swallows errors inside a caller's transaction 🔲
+## DEBT-16 — `propagateRename` swallows errors inside a caller's transaction ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-31.** Clean turn-in — no reviewer fixes.
+>
+> **AC 1 — atomic, and said so.** All six per-phase `try/catch` blocks are gone
+> from `propagateRename`, `renameStepVisibleIf` and `renameSectionVisibleIf`,
+> and the chosen model is stated in a doc comment on the method with the
+> reasoning: Postgres aborts the transaction on any statement error anyway, so
+> catching only hid that the step update it ran alongside would never commit.
+>
+> **Accepted deviation, and the dev was right.** The ticket scoped only
+> `AliasRenameService.ts`, but `StepService.handleAliasRenamePropagation` had
+> the identical catch-inside-a-transaction shape. Fixing one and not the other
+> would have moved the bug up a frame rather than killing it — the outer catch
+> would have swallowed the newly-thrown error and `updateStepById` would still
+> resolve with a payload for a transaction that cannot commit. Reviewer
+> confirmed against `5ae7fde3` that DEBT-14 did modify that method. Proceeding
+> without asking was correct: the judgment call the ticket reserved (atomic vs
+> best-effort) was unchanged; this was a consequence of it.
+>
+> **AC 2 — mutation-proved by the reviewer, not just run.** The new
+> `StepService.db.test.ts` case forces a rejection in the first propagation
+> phase, asserts `updateStepById` rejects, then re-reads the row and asserts
+> the alias rolled back. Restoring the swallow makes it fail with
+> `promise resolved "{ …(17) }" instead of rejecting` — it discriminates on
+> exactly the defect.
+>
+> **Behaviour-change risk checked.** Propagation failures are now fatal to a
+> rename where they were previously swallowed. `renameAliasInExpression`
+> (`shared/conditionEvaluator.ts:138`) already returns malformed expressions
+> untouched rather than throwing, so the only remaining way to fail is a
+> genuine query error — precisely when the rollback is wanted. No orphans:
+> `log` is still used at `:197`, and the `Logger` import and `stepId` param
+> were removed with the catches that used them.
+>
+> **Gates, all reviewer-run after merging `main`:** type-check 0 · lint 0 ·
+> `test:fast` **157 files / 2061 tests** (baseline) · `creation-routes.test.ts`
+> **38/38** whole-file · `StepService.db.test.ts` **6/6**.
+>
+> *(The turn-in quoted baseline 156/2059; that was a stale base. Re-measured at
+> 157/2061 after merging `main`, which matches.)*
 
 **Priority: P2** · Size: S · Files: `server/services/AliasRenameService.ts`
 

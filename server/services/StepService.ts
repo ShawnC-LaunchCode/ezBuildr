@@ -328,16 +328,18 @@ export class StepService {
     }
   }
 
-  private async handleAliasRenamePropagation(workflowId: string, stepId: string, oldAlias: string | null, newAlias: string | null, tx?: DbTransaction): Promise<void> {
+  /**
+   * Propagate the rename to workflow-scoped references. Atomic (DEBT-16):
+   * propagateRename runs inside this method's caller's transaction, so a
+   * failure here must abort that transaction, not be caught and logged —
+   * the same defect class the per-phase catches inside propagateRename
+   * itself were removed for. Swallowing here would let the step's own alias
+   * update commit while Postgres silently rolled the rest of the transaction
+   * back underneath it.
+   */
+  private async handleAliasRenamePropagation(workflowId: string, oldAlias: string | null, newAlias: string | null, tx?: DbTransaction): Promise<void> {
     if (oldAlias && newAlias && oldAlias !== newAlias) {
-      try {
-        await aliasRenameService.propagateRename(workflowId, oldAlias, newAlias, tx);
-      } catch (error) {
-        logger.error(
-          { error, workflowId, stepId, oldAlias, newAlias },
-          'Alias rename propagation failed; references may still use the old name'
-        );
-      }
+      await aliasRenameService.propagateRename(workflowId, oldAlias, newAlias, tx);
     }
   }
 
@@ -422,7 +424,7 @@ export class StepService {
       }
 
       // Propagate the rename to workflow-scoped references
-      await this.handleAliasRenamePropagation(workflowId, stepId, step.alias, updated.alias, tx);
+      await this.handleAliasRenamePropagation(workflowId, step.alias, updated.alias, tx);
 
       return warnings.length > 0 ? { ...updated, warnings } : updated;
     });
