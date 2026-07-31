@@ -38,7 +38,7 @@ feature work.
 |---|---|---|---|---|
 | DEBT-1 | Drain unused eslint-disable directives | P2 | L | ✅ `4912f21f`..`0500ba6b` (8 tranches) — entry removed |
 | DEBT-2 | Retire the 143 blanket file-level eslint-disable headers | P2 | L | 🔲 |
-| DEBT-3a | Restore the two skipped `visibleIf` document-generation tests | P1 | M | 🔄 dispatched 2026-07-30 (worktree `debt-3a`) |
+| DEBT-3a | Restore the two skipped `visibleIf` document-generation tests | P1 | M | ✅ verified at review 2026-07-30 — entry removed |
 | DEBT-3b | Restore the skipped collab sync test | P1 | S | 🔲 blocked-ish — see Ties |
 | DEBT-4 | E-signature provider registry is never initialized | P1 | S | ✅ `9fcf05b4` — ruled dormant; entry removed |
 | DEBT-5 | `getTemplateFilePath` hardcodes disk storage | P1 | S | ✅ `f308fde2` + `50408c33` — entry removed |
@@ -48,6 +48,7 @@ feature work.
 | DEBT-9 | `type-check` is advisory in CI | P2 | S | ✅ `a0e43c9b` — entry removed |
 | DEBT-10 | 10 dependabot PRs open since 2026-07-11 | P2 | S | 🔲 |
 | DEBT-11 | RLS policies defined but not enforced (decision, not a fix) | — | — | 🔲 tracked |
+| DEBT-13 | Legacy Final Documents casts `metadata.visibleIf` onto a mismatched type | P1? | S | 🔲 needs a prod-data check first |
 
 ## DEBT-2 — Retire the 143 blanket file-level eslint-disable headers 🔲
 
@@ -111,133 +112,6 @@ tranche commits at review instead. Do not repeat that criterion here.
 3. Each tranche reports how many real errors the removal exposed, so the
    payoff is recorded.
 4. Gates: type-check 0 errors, lint 0 problems, `npm run test:fast` ≥ baseline.
-
----
-
-## DEBT-3a — Restore the two skipped `visibleIf` document-generation tests 🔄
-
-**Priority: P1** · Size: M · Files: `tests/integration/workflows/runtime-pipelines.test.ts`
-(this file only)
-
-*Split from the original DEBT-3 on 2026-07-30. Evidence below was re-verified
-against the tree at `7fd88e89` that day; the collab half is now DEBT-3b.*
-
-### Finding
-
-Enabling `vitest/expect-expect` in `42996bcb` found six tests that passed while
-asserting nothing. Three were deleted; three were marked `.skip` rather than
-deleted so the gap stayed honest. Two of those live in this file:
-
-- `runtime-pipelines.test.ts:332` — `should skip document generation when
-  visibleIf condition is false`
-- `runtime-pipelines.test.ts:356` — `should generate document when visibleIf
-  condition is true`
-
-Both insert a `workflowRuns` row and a `stepValues` row, delete the run, and
-assert nothing. Their own comment: *"we can't easily test document generation
-without the actual template file."*
-
-**The re-audit found the deeper reason they assert nothing, and it is not just
-the missing fixture.** The `beforeAll` at line 288 creates a `templates` row
-with `fileRef: '/test/template.docx'` — a fake path with no bytes behind it —
-and puts the `visibleIf` condition in `template.metadata` (lines 298-315,
-`email contains 'show'`). But **that template is never wired into any `'final'`
-step or legacy Final Documents section**, and neither test ever calls a
-generation entry point. So the template is orphaned: even fully unskipped, with
-a real docx on disk, these tests would still generate nothing. Fixing the
-fixture alone will not fix the test.
-
-This matters because `visibleIf`-gated generation is customer-visible and
-document generation has already produced one live production incident this
-quarter.
-
-### Preferred fix
-
-`tests/integration/docs.autogeneration.test.ts` already does this correctly,
-end to end, with nothing stubbed. **Copy its approach; do not invent one.**
-
-1. **Real docx bytes.** Copy the local `createDocxBuffer` helper at
-   `docs.autogeneration.test.ts:29-57` (PizZip — already a dependency —
-   writing `[Content_Types].xml`, `_rels/.rels`, `word/document.xml`) and the
-   `createTemplateOnDisk` pattern at lines 92-106 that writes it under the real
-   `server/files` dir. It is a local, non-exported function in that file, so
-   copying is expected. **Do not commit a binary `.docx`** — none are tracked
-   in this repo and that is deliberate.
-2. **Wire the template into the run.** Point the template's `fileRef` at the
-   real file, then attach it to an actual `'final'` step's
-   `config.documents[]` with the `visibleIf` expression as that document's
-   `conditions` — see `docs.autogeneration.test.ts:157-180`. (The legacy path
-   at `RunLifecycleService.ts:561-566` reads `template.metadata.visibleIf` and
-   maps it onto `documents[].conditions`; either route is acceptable, but the
-   `'final'` step route is the one the sibling test proves.)
-3. **Actually trigger generation:** `await runLifecycleService.generateDocuments(runId)`
-   (`server/services/workflow-runs/RunLifecycleService.ts:364`), exactly as
-   `docs.autogeneration.test.ts:184` does.
-4. **Assert on real rows** in `runGeneratedDocuments` filtered by `runId`:
-   **exactly zero** when the condition is false, **exactly one** when true. For
-   the true branch also read the produced file back and assert its merged text,
-   using the `readDocxText` pattern at `docs.autogeneration.test.ts:60-65`.
-
-The gate you are proving is `EnhancedDocumentEngine.renderFinalBlock()` at
-`server/services/document/EnhancedDocumentEngine.ts:397-409` (`if
-(doc.conditions) { ... skipped.push({ reason: 'Conditions not met' }) }`),
-which evaluates via `evaluateConditions()` at lines 493-517.
-
-### The trap in this ticket — read before turning in
-
-**A false-branch test that asserts "zero rows" passes trivially if generation
-never ran at all** — which is exactly the bug the current test has. Zero rows
-is the same observation whether the condition correctly excluded the document
-or the template was never wired up.
-
-So AC 5 below is not optional bookkeeping: you must **mutation-test** the pair.
-Flip the fixture's condition (or the step value) so the false case should
-become true, re-run, and confirm the false-branch test **fails**. If it still
-passes, your test is measuring nothing and the ticket is not done. Seven
-turn-ins on a sibling initiative shipped tests that passed for the wrong
-reason; this is the specific check that catches it.
-
-### Ties
-
-- Introduced by `42996bcb`; the guard that found them is `vitest/expect-expect`
-  in `.eslintrc.json`.
-- **Pattern to copy: `tests/integration/docs.autogeneration.test.ts`** — real
-  PizZip docx, real disk write, real `generateDocuments` call, real row
-  assertions. Read it first.
-- **Load `run-tests`.** This file is in the **`integration`** project, not
-  `unit` — it needs a database (`npm run test:docker:up`) and
-  `npm run test:integration`. `npm test` naively gives wrong results here.
-- **File footprint: this one test file.** No overlap with DEBT-2 (which is
-  repo-wide but touches only files carrying a blanket `/* eslint-disable`
-  header — this file has none) or with the live IEX2 tickets (portability
-  only). Safe to run concurrently with both.
-- Sibling: **DEBT-3b** (collab), deliberately not in scope here.
-
-### Acceptance criteria
-
-1. Both tests at `runtime-pipelines.test.ts:332` and `:356` are un-skipped and
-   passing with real assertions.
-2. The template used is a real, byte-valid docx written to disk by the test,
-   wired into a `'final'` step (or legacy Final Documents section) that the run
-   actually reaches — not an orphaned `templates` row with a fake `fileRef`.
-3. Each test calls a real generation entry point
-   (`runLifecycleService.generateDocuments(runId)` or
-   `runService.generateDocuments(runId)`) and asserts on `runGeneratedDocuments`
-   rows scoped to that run: exactly 0 for the false branch, exactly 1 for the
-   true branch.
-4. The true branch additionally asserts on the *content* of the generated
-   file, read back off disk, not merely on row count.
-5. **Mutation proof, pasted into the turn-in:** with the condition inverted so
-   the false case should generate, the false-branch test **fails**; restored,
-   it passes. Show both runs' output. A turn-in without this is incomplete.
-6. No fixed-duration `setTimeout` is used as a synchronization primitive; wait
-   on a condition with a timeout instead.
-7. `vitest/expect-expect` passes on both tests without a suppression.
-8. Any fixture written to disk is cleaned up in `afterAll`, and the file's
-   existing `afterAll` cleanup (line 325) still leaves no rows behind.
-9. Gates: type-check 0 errors, lint 0 problems, `npm run test:fast` ≥ baseline
-   (152 files / 2045 tests at `7fd88e89`), and
-   `npm run test:integration -- runtime-pipelines` green.
 
 ---
 
@@ -362,6 +236,96 @@ Close, with a reason, anything not wanted rather than leaving it open.
 2. CI green after each Actions bump individually, not just at the end.
 3. The `yjs` bump is verified against real-time collaboration behaviour, by
    test or by hand, with evidence attached.
+
+---
+
+## DEBT-13 — Legacy Final Documents casts `metadata.visibleIf` onto a mismatched type 🔲
+
+**Priority: P1?** · Size: S · Files:
+`server/services/workflow-runs/RunLifecycleService.ts`
+
+*Found during the DEBT-3a review, 2026-07-30. Not fixed there — DEBT-3a was
+scoped to one test file, and this is a server behaviour question that needs a
+production-data answer before anyone writes code.*
+
+### Finding
+
+`buildLegacyFinalBlockConfig` reads a template's `metadata.visibleIf` and
+assigns it straight to a document's `conditions`
+(`RunLifecycleService.ts:561-566`):
+
+```ts
+const metadata = template.metadata as { visibleIf?: unknown } | null;
+documents.push({
+  ...
+  conditions: (metadata?.visibleIf ?? null) as FinalBlockConfig['documents'][number]['conditions'],
+```
+
+Those are **two different shapes**, and the `as` cast is what stops the
+compiler from saying so:
+
+- `conditions` is typed `LogicExpression` (`shared/types/stepConfigs.ts:567`) —
+  `{ operator?, conditions: [{ key, op, value }] }`.
+- `visibleIf` elsewhere in the app is a `ConditionGroup` —
+  `{ type: 'group', operator, conditions: [{ type: 'condition', variable, operator, value }] }`.
+
+`EnhancedDocumentEngine.evaluateConditions` (`EnhancedDocumentEngine.ts:493-517`)
+reads `cond.key` and `cond.op` off each entry. Given a `ConditionGroup` those
+are both `undefined`, so it builds a condition with no variable and no
+operator and hands it to `evaluateConditionExpression`. A legacy Final
+Documents section with a `visibleIf` would therefore gate on garbage — the
+document silently always generates, or never does.
+
+The now-deleted test fixture in `runtime-pipelines.test.ts` stored exactly the
+`ConditionGroup` shape in `metadata.visibleIf`, which is weak evidence that
+this is the shape that was really written at some point.
+
+### Why this is P1-with-a-question-mark
+
+**Nothing in the current codebase writes `metadata.visibleIf`** — a repo-wide
+grep finds only this reader. So the blast radius depends entirely on whether
+production has legacy `templates` rows carrying it:
+
+- If **yes**, this is a live customer-visible defect in conditional document
+  generation and is a straight P1.
+- If **no**, the legacy branch is dead code and the fix is to delete it (and
+  the cast) rather than to make it work.
+
+### Preferred fix
+
+**Answer the data question first**, then act — do not implement against a
+guess:
+
+```sql
+SELECT count(*) FROM templates WHERE metadata ? 'visibleIf';
+```
+
+- Rows exist → normalize the `ConditionGroup` into a `LogicExpression` at the
+  boundary in `buildLegacyFinalBlockConfig`, delete the `as` cast so the
+  compiler enforces the contract, and cover both shapes with a test.
+- No rows → delete the legacy `visibleIf` read entirely.
+
+Either way the `as` cast at line 566 goes; it is the thing that hid this.
+
+### Ties
+
+- Surfaced by **DEBT-3a**, which proved the *modern* `'final'`-step path works
+  correctly (`runtime-pipelines.test.ts`). This is the legacy sibling path only.
+- Related: the same file's `'final'` step path at `RunLifecycleService.ts:410-418`
+  reads `step.config` as an already-correct `FinalBlockConfig` — no cast, no bug.
+- Load `run-tests`.
+
+### Acceptance criteria
+
+1. The production-data question above is answered and the answer recorded in
+   this ticket before any code change.
+2. The `as` cast at `RunLifecycleService.ts:566` is gone — either because the
+   value is properly normalized, or because the branch is deleted.
+3. If normalized: a test covers a legacy template whose `metadata.visibleIf`
+   is a `ConditionGroup`, asserting the document is correctly generated in the
+   true case and skipped in the false case. Mutation-prove it, as in DEBT-3a.
+4. Gates: type-check 0 errors, lint 0 problems, `npm run test:fast` ≥ baseline,
+   relevant integration suites green.
 
 ---
 
