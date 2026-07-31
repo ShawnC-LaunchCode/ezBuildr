@@ -125,7 +125,7 @@ Proven live are marked **[PROVEN]** with the reproduction.
 | Phase | Theme | Tickets | Status |
 |---|---|---|---|
 | A | **P0 — the feature does not work on real data** | IEX2-1..4 | ✅ **COMPLETE** — all four P0s fixed |
-| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | ✅ **COMPLETE** — IEX2-5 ✅ 6 ✅ 7 ✅ 8 ✅ 9 ✅ 11 ✅ 17 ✅ |
+| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | ✅ **COMPLETE** — IEX2-5 ✅ 6 ✅ 7 ✅ 8 ✅ 9 ✅ **10 ✅** 11 ✅ 17 ✅ |
 | C | P2 — hardening, redaction depth, real proof | IEX2-12..15 | 🔄 IEX2-12 ✅ + IEX2-13 ✅ done |
 | D | Make the feature reachable | IEX2-16 | ⏸️ **deferred out of round 2** |
 
@@ -1413,7 +1413,49 @@ needed there.
 
 ---
 
-## IEX2-10 — The bundle is buffered whole, several times over; declared limits are far above what the process survives 🔲
+## IEX2-10 — The bundle is buffered whole, several times over; declared limits are far above what the process survives ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-31 — `a53fe35f`.** Passed on the first
+> submission; strong work. Gates re-run by the reviewer: type-check 0 · lint 0 ·
+> **`check:strict-zones` passed** (not run by the turn-in) · portability
+> `unit-db` **7 files / 74 tests** (was 71) · portability integration **3 / 25**
+> (was 24) · `test:fast` 155 / 2053 baseline.
+>
+> **Mutation-proved, and both criteria were the vacuity-prone kind:**
+> - AC 1/AC 2 assert the write-back *never happens* — an absence assertion.
+>   Reintroducing the double-buffer write turned it red
+>   (`expected [ [ …(2) ] ] to deeply equal []`), so it has teeth.
+> - AC 3's spool test uses a positive `toHaveLength(1)` plus an ENOENT check on
+>   the spool dir. Renaming the spool prefix turned **two** tests red — the
+>   spool assertion and the rejection-path cleanup assertion.
+>
+> **Scope was respected.** D-7 keeps the adm-zip swap as its own initiative and
+> this ticket does only the buffering the codebase controls; no `bundleReader`
+> or `bundleWriter` changes.
+>
+> ### Reviewer fix: the env overrides silently disabled the limits
+>
+> The new bounds parsed with a bare `Number(process.env.X ?? default)`. A typo
+> such as `PORTABILITY_MAX_ENTRY_BYTES=100mb` yields **NaN**, and every
+> `size > NaN` comparison is **false** — so the limit is not merely wrong, it is
+> entirely absent, at exactly the moment an operator was reaching for it under
+> memory pressure. Verified directly: `999999999 > Number('100mb')` → `false`.
+> Now refuses to boot with a message naming the variable, per the same
+> fail-loudly call Shawn made on IEX2-8.
+>
+> ### Process notes
+>
+> - **This was worked in the main checkout, not a worktree.** It stayed clean
+>   here, but it shared a tree with the reviewer's in-flight DEBT-3b work and
+>   Shawn's uncommitted client edits. Only the ticket's ten paths were staged.
+> - **The reviewer's own handoff was wrong about this ticket**, and that is why
+>   it sat open: it recorded IEX2-10 as "not dispatchable (D-7 → own
+>   initiative)". D-7 actually deferred **only the adm-zip library swap** and
+>   says explicitly that *"IEX2-10 still does the buffering fixes this codebase
+>   controls"*. The dev was right to pick it up.
+> - The turn-in also fixed a pre-existing `bundleFormat.test.ts` case that had
+>   hardcoded a ratio between the two old constants; it now derives the entry
+>   count from whatever the constants are.
 
 **Priority: P1** · Size: L — **see escalation D-7 below before dispatching** · Files: `server/routes/portability.routes.ts`, `server/services/portability/ImportService.ts`, `server/services/portability/bundleReader.ts`, `server/services/portability/bundleWriter.ts`
 
