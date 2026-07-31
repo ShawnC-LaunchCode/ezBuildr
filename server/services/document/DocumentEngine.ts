@@ -43,6 +43,10 @@ export class DocumentEngine {
             templateBuffer, // Extract buffer if provided
             data,
             outputName,
+            // DEBT-15: intentionally ephemeral. The engine writes its rendered
+            // output here for the caller to pick up within the same request;
+            // callers that need the artifact to survive (final-block documents)
+            // upload it to storageProvider and delete this copy.
             outputDir = path.join(process.cwd(), 'server', 'files', 'outputs'),
             toPdf = false,
             unresolvedVariables = [],

@@ -14,7 +14,6 @@
  * @date December 6, 2025
  */
 
-import { promises as fs } from 'fs';
 import { classifyRouteError } from '../utils/routeErrors';
 import path from 'path';
 
@@ -24,9 +23,10 @@ import { createLogger } from '../logger.js';
 import { hybridAuth, type AuthRequest } from '../middleware/auth.js';
 import { creatorOrRunTokenAuth, type RunAuthRequest } from '../middleware/runTokenAuth.js';
 import { strictLimiter } from '../middleware/rateLimiter.js';
-import { documentTemplateRepository } from '../repositories/index.js';
+import { documentTemplateRepository, runGeneratedDocumentsRepository } from '../repositories/index.js';
 import { finalBlockRenderer, createTemplateResolver } from '../services/document/FinalBlockRenderer.js';
 import { runService } from '../services/RunService.js';
+import { storageProvider } from '../services/storage/index.js';
 import { workflowService } from '../services/WorkflowService.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { createError } from '../utils/errors.js';
@@ -322,37 +322,23 @@ export function registerFinalBlockRoutes(app: Express): void {
 
         const sanitizedFilename = path.basename(filename);
 
-        // Security check: ensure the file belongs to this run
-        // ZIP files are prefixed with final-docs-{runId.slice(0, 8)}
-        // Individual files are prefixed with {runId}_
-        if (!sanitizedFilename.includes(runId) && !sanitizedFilename.includes(`final-docs-${runId.slice(0, 8)}`)) {
-          logger.warn({ runId, filename: sanitizedFilename }, 'Attempted to access file not belonging to run');
+        // Look up storageKey from DB
+        const docs = await runGeneratedDocumentsRepository.findByRunId(runId);
+        const docRecord = docs.find(d => d.fileName === sanitizedFilename);
+
+        if (!docRecord?.storageKey) {
+          logger.warn({ runId, filename: sanitizedFilename }, 'File record not found or lacks storageKey');
           throw createError.notFound('File', filename);
         }
 
-        // Check in archives directory
-        const archivesDir = path.join(process.cwd(), 'server', 'files', 'archives');
-        const filePath = path.join(archivesDir, sanitizedFilename);
-
-        // Verify file exists
-        try {
-          await fs.access(filePath);
-        } catch {
-          // Try outputs directory as fallback
-          const outputsDir = path.join(process.cwd(), 'server', 'files', 'outputs');
-          const fallbackPath = path.join(outputsDir, sanitizedFilename);
-
-          try {
-            await fs.access(fallbackPath);
-            return res.download(fallbackPath, sanitizedFilename);
-          } catch {
-
-            throw createError.notFound('File', filename);
-          }
-        }
+        // Retrieve file from storageProvider
+        const fileBuffer = await storageProvider.getFile(docRecord.storageKey);
 
         // Send file
-        res.download(filePath, sanitizedFilename);
+        res.setHeader('Content-Disposition', `attachment; filename="${sanitizedFilename}"`);
+        res.setHeader('Content-Type', docRecord.mimeType ?? 'application/octet-stream');
+        res.setHeader('Content-Length', fileBuffer.length.toString());
+        res.send(fileBuffer);
       } catch (error: unknown) {
         logger.error({
           error,

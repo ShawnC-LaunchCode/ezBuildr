@@ -477,6 +477,7 @@ export class RunLifecycleService {
               runId: run.id,
               fileName: doc.filename,
               fileUrl: `/api/runs/${run.id}/final-documents/${doc.filename}/download`,
+              storageKey: doc.storageKey,
               mimeType: doc.mimeType,
               fileSize: doc.size,
               templateId: null,

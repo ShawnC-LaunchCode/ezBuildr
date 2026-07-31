@@ -36,6 +36,7 @@ import { runService } from '../../../server/services/RunService';
 import { runLifecycleService } from '../../../server/services/workflow-runs/RunLifecycleService';
 import { runCompletionJobWorker } from '../../../server/services/workflow-runs/RunCompletionJobWorker';
 import { writebackExecutionService } from '../../../server/services/WritebackExecutionService';
+import { storageProvider } from '../../../server/services/storage/index';
 
 // ---------------------------------------------------------------------------
 // Real-docx fixture helpers, copied from tests/integration/docs.autogeneration.test.ts
@@ -74,30 +75,22 @@ function createDocxBuffer(content: string): Buffer {
 }
 
 /** Read the rendered body text of a generated DOCX */
-async function readDocxText(filePath: string): Promise<string> {
-  const buffer = await fs.readFile(filePath);
+async function readDocxText(buffer: Buffer): Promise<string> {
   const zip = new PizZip(buffer);
   const xml = zip.file('word/document.xml')?.asText() ?? '';
   return xml.replace(/<[^>]+>/g, '');
 }
 
+/**
+ * Retrieve the generated file buffer from the storage provider.
+ */
+async function getGeneratedFileBuffer(storageKey: string): Promise<Buffer> {
+  return storageProvider.getFile(storageKey);
+}
+
 const FILES_DIR = path.join(process.cwd(), 'server', 'files');
 const OUTPUTS_DIR = path.join(FILES_DIR, 'outputs');
 const ARCHIVES_DIR = path.join(FILES_DIR, 'archives');
-
-/**
- * Resolve a generated document the same way the download route does:
- * archives directory first, outputs directory as fallback.
- */
-async function resolveGeneratedFile(fileName: string): Promise<string> {
-  const archivePath = path.join(ARCHIVES_DIR, fileName);
-  try {
-    await fs.access(archivePath);
-    return archivePath;
-  } catch {
-    return path.join(OUTPUTS_DIR, fileName);
-  }
-}
 describe('Runtime Pipelines Integration Tests', () => {
   const testUserId = nanoid(); // Use random ID to prevent collisions
   let testTenantId: string;
@@ -503,14 +496,11 @@ describe('Runtime Pipelines Integration Tests', () => {
       expect(result.success).toBe(true);
       expect(result.documentsGenerated).toBe(1);
 
-      const records = await db
-        .select()
-        .from(runGeneratedDocuments)
-        .where(eq(runGeneratedDocuments.runId, visibleRun.id));
+      const records = await db.select().from(runGeneratedDocuments).where(eq(runGeneratedDocuments.runId, visibleRun.id));
       expect(records).toHaveLength(1);
 
-      const outputPath = await resolveGeneratedFile(records[0].fileName);
-      const text = await readDocxText(outputPath);
+      const buffer = await getGeneratedFileBuffer(records[0].storageKey);
+      const text = await readDocxText(buffer);
       expect(text).toContain('Document for show@example.com');
 
       // Cleanup

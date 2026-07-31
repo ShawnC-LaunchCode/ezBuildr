@@ -25,6 +25,7 @@ import { getTemplateFilePath } from '../templateFiles.js';
 import { validateTemplateWithData } from '../TemplateAnalysisService.js';
 import { enhancedDocumentEngine } from './EnhancedDocumentEngine.js';
 import { createFinalBlockZip, type ZipDocument, type ZipResult } from './ZipBundler.js';
+import { storageProvider } from '../storage/index.js';
 
 import type { EnhancedGenerationResult } from './EnhancedDocumentEngine.js';
 import type { PdfStrategyName } from './PdfConverter.js';
@@ -72,6 +73,7 @@ export interface FinalBlockRenderResponse {
     alias: string;
     filename: string;
     filePath: string;
+    storageKey: string;
     mimeType: string;
     size: number;
     unresolvedVariables?: string[];
@@ -86,6 +88,7 @@ export interface FinalBlockRenderResponse {
   archive?: {
     filename: string;
     filePath: string;
+    storageKey: string;
     size: number;
   };
 
@@ -138,6 +141,10 @@ export class FinalBlockRenderer {
       runId,
       resolveTemplate,
       toPdf = false,
+      // DEBT-15: intentionally ephemeral. This is only the scratch directory the
+      // renderer writes into while building a document; the bytes are uploaded to
+      // storageProvider in prepareResponseDocuments and unlinked from here before
+      // this method returns. Nothing durable may be read back out of this path.
       outputDir = path.join(process.cwd(), 'server', 'files', 'archives'),
     } = request;
 
@@ -242,7 +249,8 @@ export class FinalBlockRenderer {
     // Step 3: Prepare response documents
     const documents = await this.prepareResponseDocuments(
       generationResult.documents,
-      toPdf
+      toPdf,
+      runId
     );
 
     // Step 4: Create ZIP archive if multiple documents
@@ -267,6 +275,15 @@ export class FinalBlockRenderer {
         logger.error({ error }, 'Failed to create ZIP archive');
         // Continue without archive - individual files still available
       }
+    }
+
+    // Step 4.5: Cleanup local temporary files
+    for (const res of generationResult.documents) {
+      if (res.pdfPath) {await fs.unlink(res.pdfPath).catch(() => {});}
+      if (res.docxPath) {await fs.unlink(res.docxPath).catch(() => {});}
+    }
+    if (archive?.filePath) {
+      await fs.unlink(archive.filePath).catch(() => {});
     }
 
     // Step 5: Build response
@@ -336,7 +353,8 @@ export class FinalBlockRenderer {
    */
   private async prepareResponseDocuments(
     results: EnhancedGenerationResult[],
-    toPdf: boolean
+    toPdf: boolean,
+    runId: string
   ): Promise<FinalBlockRenderResponse['documents']> {
     const documents: FinalBlockRenderResponse['documents'] = [];
 
@@ -349,11 +367,16 @@ export class FinalBlockRenderer {
         : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
       const stats = await fs.stat(filePath);
+      const fileBuffer = await fs.readFile(filePath);
+
+      const storageKey = `runs/${runId}/documents/${filename}`;
+      await storageProvider.uploadFile(storageKey, fileBuffer, mimeType);
 
       documents.push({
         alias: result.alias ?? 'document',
         filename,
         filePath,
+        storageKey,
         mimeType,
         size: stats.size,
         unresolvedVariables: result.unresolvedVariables,
@@ -410,10 +433,15 @@ export class FinalBlockRenderer {
     );
 
     const stats = await fs.stat(zipResult.filePath);
+    const fileBuffer = await fs.readFile(zipResult.filePath);
+
+    const storageKey = `runs/${runId}/documents/${zipResult.filename}`;
+    await storageProvider.uploadFile(storageKey, fileBuffer, 'application/zip');
 
     return {
       filename: zipResult.filename,
       filePath: zipResult.filePath,
+      storageKey,
       size: stats.size,
     };
   }

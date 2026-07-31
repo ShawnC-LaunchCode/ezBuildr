@@ -53,7 +53,7 @@ feature work.
 | DEBT-11 | RLS policies defined but not enforced (decision, not a fix) | — | — | 🔲 tracked |
 | DEBT-13 | Legacy Final Documents casts `metadata.visibleIf` onto a mismatched type | P1? | S | ✅ verified at review 2026-07-31 |
 | DEBT-14 | `creation-routes.test.ts` fails 18 tests only when the whole file runs | P2 | M | ✅ `5ae7fde3` — fixed in services, not the test |
-| DEBT-15 | Generated documents are written to the ephemeral container filesystem | P1 | L | 🔲 ready to dispatch |
+| DEBT-15 | Generated documents are written to the ephemeral container filesystem | P1 | L | ✅ code done — **needs `STORAGE_DRIVER=s3` in Railway to take effect** |
 | DEBT-16 | `propagateRename` swallows errors inside a caller's transaction | P2 | S | 🔲 filed from DEBT-14 review |
 
 ## DEBT-2 — Retire the 143 blanket file-level eslint-disable headers ✅
@@ -214,7 +214,56 @@ tranche commits at review instead. Do not repeat that criterion here.
 
 ---
 
-## DEBT-15 — Generated documents are written to the ephemeral container filesystem 🔲
+## DEBT-15 — Generated documents are written to the ephemeral container filesystem ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-31.** Dev did the architecture; the
+> reviewer fixed a deploy-breaking migration, an unmet AC 5, lint, and AC 2.
+>
+> **What shipped.** `FinalBlockRenderer` uploads each generated document to
+> `storageProvider` under `runs/{runId}/documents/{filename}`, records the key
+> on `run_generated_documents.storage_key`, and unlinks its local scratch copy
+> before returning. The per-run download route resolves that key through
+> `storageProvider` instead of reading `server/files/{archives,outputs}`. As a
+> side effect its ownership check got *stronger*: it now looks the record up
+> scoped by `runId` rather than pattern-matching the filename.
+>
+> **AC 4 — the route was deleted, not repaired.** `/api/files/download/:filename`
+> had exactly one producer (`TemplateTestService`) and **no client callers**,
+> and its authorization lookup compared a bare filename against a column
+> storing a full path, so it could never match. `server/routes/files.routes.ts`
+> is gone with zero dangling references.
+>
+> **Reviewer fixes.** (1) **Deploy-breaking migration.** The generated
+> `ADD COLUMN "storage_key" text NOT NULL` aborts on any populated table —
+> reproduced against a real DB seeded with one row:
+> `ERROR: column "storage_key" ... contains null values`. It passed every local
+> gate only because test tables start empty. Regenerated via `db:generate` and
+> rewritten as add-nullable → backfill → `SET NOT NULL`; re-verified end to end
+> on a seeded database, which now backfills
+> `runs/{run_id}/documents/{file_name}` and enforces NOT NULL.
+> (2) **AC 5 was unmet.** The turn-in read bytes back via
+> `storageProvider.getFile()` in the same process, which proves nothing —
+> `DiskStorageProvider`'s baseDir *is* `process.cwd()/server/files`. Replaced
+> with `tests/integration/finalBlock.download.durability.test.ts`, which deletes
+> both generation directories and then downloads over HTTP through the real
+> endpoint. **Mutation-proved:** restoring the local-disk read makes it fail.
+> (3) lint (orphaned `fs` import, `||`→`??`) and (4) AC 2 comments on
+> `FinalBlockRenderer:144` / `DocumentEngine:46`.
+>
+> **Gates, all reviewer-run:** type-check 0 · lint 0 · `check:strict-zones`
+> 6/6 · `test:fast` **157 files / 2061 tests** (baseline) · doc-generation
+> integration **3 files / 11 tests** green · migration applied to a populated
+> DB.
+>
+> ### ⚠️ AC 7 — this does NOT close the customer bug on its own
+>
+> `STORAGE_DRIVER` still defaults to `disk`, and `DiskStorageProvider` writes
+> under `process.cwd()/server/files`. **Until `STORAGE_DRIVER=s3` and bucket
+> credentials are set in Railway, generated documents remain on the ephemeral
+> container filesystem and will still vanish on deploy.** The code is now
+> correct and driver-agnostic; the remaining step is provisioning, tracked
+> outside this ticket. Required env: `STORAGE_DRIVER=s3` plus the S3 settings
+> in `.env.example:108-110`.
 
 **Priority: P1** · Size: L · Files: `server/services/document/FinalBlockRenderer.ts`,
 `server/services/document/DocumentEngine.ts`, `server/routes/finalBlock.routes.ts`,

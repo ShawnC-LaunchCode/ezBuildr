@@ -30,9 +30,13 @@ export class SchemaManager {
     // and the new unique-index shape.
     //
     // Bumped to _v9 for 0006_remove_legacy_intake_reuse, which removes retired
-    // intake-reuse keys and linked defaults from cached test data.
+    // columns `assigned_to` and `reuse_strategy` from `workflow_runs`.
+    // Bumped to _v10 for 0007_add_storage_key, which adds `storageKey` to
+    // `run_generated_documents` (DEBT-15).
+    // Bumped to _v11 because _v10 got cached with an empty 0007 migration.
+    // Bumped to _v12 because _v11 got cached without not-null constraints on storageKey.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v9`;
+        return `test_schema_w${this.workerId}_v12`;
     }
 
     /**

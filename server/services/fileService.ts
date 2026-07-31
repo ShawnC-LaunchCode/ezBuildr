@@ -131,6 +131,8 @@ export async function getFileStats(filename: string) {
 export async function cleanupTempFiles(maxAgeMs = 3600000): Promise<number> {
   const dirsToClean = [
     UPLOAD_DIR,
+    // DEBT-15: 'outputs', 'previews', and 'archives' are single-request temporaries.
+    // They are intentionally ephemeral on the local disk. Durable artifacts go through storageProvider.
     path.join(process.cwd(), 'server', 'files', 'outputs', 'previews'),
     path.join(process.cwd(), 'server', 'files', 'outputs'),
     path.join(process.cwd(), 'server', 'files', 'archives'),

@@ -29,7 +29,6 @@ import { registerDocumentRoutes } from "./documents.routes";
 import { registerEmailTemplateRoutes } from "./emailTemplates.routes";
 import { registerEsignRoutes } from "./esign.routes";
 import externalRouter from "./external.routes";
-import { registerFileRoutes } from "./files.routes";
 import { registerFinalBlockRoutes } from "./finalBlock.routes";
 import { registerIntakeRoutes } from "./intake.routes";
 import lifecycleHooksRoutes from "./lifecycleHooks.routes";
@@ -137,7 +136,6 @@ export function registerAllRoutes(app: Express): void {
   registerBrandingRoutes(app);
   registerEmailTemplateRoutes(app);
   registerDashboardRoutes(app);
-  registerFileRoutes(app);
   registerAiRoutes(app);
   registerAiFeedbackRoutes(app);
   registerProjectRoutes(app);

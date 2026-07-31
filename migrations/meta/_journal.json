@@ -50,6 +50,13 @@
       "when": 1785514100961,
       "tag": "0006_remove_legacy_intake_reuse",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785541071934,
+      "tag": "0007_add_storage_key",
+      "breakpoints": true
     }
   ]
 }
