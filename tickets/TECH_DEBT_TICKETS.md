@@ -229,6 +229,19 @@ with nothing else running:
 - `-t "returns 404 for a nonexistent section"` → **1 passed**, 9.3s.
 - `-t "ICW2-B5"` (both duplicate blocks, 10 tests) → **10 passed**, 12.8s.
 
+**It is deterministic and it is on `main`.** Two runs of the whole file, each on
+its own private empty Postgres, differing only in whether an unrelated change
+was present:
+
+| Tree | Database | Result | Duration |
+|---|---|---|---|
+| clean `main` (`2aa03bd2`) | 5436 | **18 failed / 20 passed** | 1273.59s |
+| `main` + DEBT-3b | 5435 | **18 failed / 20 passed** | 1273.96s |
+
+Same count, same tests, durations within half a second. So this is not
+contention, not database state, and not caused by any in-flight work — it
+reproduces on clean `main` on demand, which also makes it cheap to bisect.
+
 So the endpoints work. Something earlier in the file leaves state that makes the
 last two describes hang. The file has a single `setupIntegrationTest` in one
 `beforeAll` (`:39`), so it is not a per-describe server leak. A prime suspect is
