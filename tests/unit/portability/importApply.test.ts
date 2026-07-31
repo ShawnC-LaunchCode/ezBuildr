@@ -1,7 +1,10 @@
 import { it, expect, beforeEach, vi, afterEach } from 'vitest';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { describeWithDb } from '../../helpers/dbTestHelper';
-import { importService } from '../../../server/services/portability/ImportService';
 import { exportService } from '../../../server/services/portability/ExportService';
+import { importService } from '../../../server/services/portability/ImportService';
 import { storageProvider } from '../../../server/services/storage';
 import { logger } from '../../../server/logger';
 import { TestFactory } from '../../helpers/testFactory';
@@ -13,7 +16,7 @@ import {
   sections, logicRules, blocks, transformBlocks, lifecycleHooks, documentHooks,
   workflowVersions, datavaultRows
 } from '@shared/schema';
-import { recomputeChecksum } from '../../helpers/bundleTestHelper';
+import { recomputeChecksum, previewBundle, applyBundle } from '../../helpers/bundleTestHelper';
 import { eq } from 'drizzle-orm';
 
 describeWithDb('ImportService - apply', () => {
@@ -148,7 +151,7 @@ describeWithDb('ImportService - apply', () => {
     const beforeProjects = await db.select().from(projects);
     const beforeWorkflows = await db.select().from(workflows);
 
-    const newRootId = (await importService.apply(projectBundle, user.id)).rootId;
+    const newRootId = (await applyBundle(projectBundle, user.id)).rootId;
 
     const afterProjects = await db.select().from(projects);
     const afterWorkflows = await db.select().from(workflows);
@@ -158,10 +161,32 @@ describeWithDb('ImportService - apply', () => {
     expect(afterWorkflows.length).toBe(beforeWorkflows.length + 1);
   });
 
+  it('reads the caller-supplied file path directly with no second whole-bundle copy (IEX2-10 AC 1, AC 2)', async () => {
+    // Stand in for the multer upload: our own file on disk, at a path we own.
+    const filePath = path.join(os.tmpdir(), `ac-test-${randomUUID()}.ezb`);
+    await fs.promises.writeFile(filePath, projectBundle);
+    const writeFileSpy = vi.spyOn(fs.promises, 'writeFile');
+
+    const result = await importService.apply(filePath, user.id);
+    expect(result.rootId).toBeDefined();
+
+    // The old `import_apply_*`/`import_preview_*` write-back of the whole
+    // buffer to a second temp file is gone. Checked by call target rather
+    // than a temp-dir directory diff: os.tmpdir() is shared across this
+    // suite's concurrent workers, so a diff would false-positive on
+    // unrelated tests' own temp files.
+    const wholeBundleCopies = writeFileSpy.mock.calls.filter(([target]) =>
+      typeof target === 'string' &&
+      (target.includes('import_apply_') || target.includes('import_preview_')));
+    expect(wholeBundleCopies).toEqual([]);
+
+    await fs.promises.rm(filePath, { force: true });
+  });
+
   it('reproduces the full workflow structure and rewires every child FK (AC 1)', async () => {
     // Workflow scope, not project scope: sections/steps/logic rules/blocks/hooks
     // are all ["workflow"]-scoped, so a project bundle would assert nothing here.
-    const newRootId = (await importService.apply(workflowBundle, user.id)).rootId;
+    const newRootId = (await applyBundle(workflowBundle, user.id)).rootId;
     expect(newRootId).not.toBe(workflow.id);
 
     const [newSection] = await db.select().from(sections).where(eq(sections.workflowId, newRootId));
@@ -203,7 +228,7 @@ describeWithDb('ImportService - apply', () => {
     // Before IEX-13 a project bundle held workflow ROWS but none of their
     // contents, so this import produced a hollow workflow and the assertions
     // below all read zero.
-    const newProjectId = (await importService.apply(projectBundle, user.id)).rootId;
+    const newProjectId = (await applyBundle(projectBundle, user.id)).rootId;
 
     const [newWorkflow] = await db.select().from(workflows).where(eq(workflows.projectId, newProjectId));
     expect(newWorkflow).toBeDefined();
@@ -235,7 +260,7 @@ describeWithDb('ImportService - apply', () => {
     await db.update(workflows).set({ slug: 'test-slug-123' }).where(eq(workflows.id, workflow.id));
     const bundle = await exportService.export({ scope: 'workflow', id: workflow.id }, user.id);
     
-    const result = await importService.apply(bundle, user.id);
+    const result = await applyBundle(bundle, user.id);
     const [imported] = await db.select().from(workflows).where(eq(workflows.id, result.rootId));
     
     expect(imported.slug).toBeNull();
@@ -251,8 +276,8 @@ describeWithDb('ImportService - apply', () => {
     await db.update(workflows).set({ slug: 'repeat-import-slug' }).where(eq(workflows.id, workflow.id));
     const bundle = await exportService.export({ scope: 'workflow', id: workflow.id }, user.id);
 
-    const first = await importService.apply(bundle, user.id);
-    const second = await importService.apply(bundle, user.id);
+    const first = await applyBundle(bundle, user.id);
+    const second = await applyBundle(bundle, user.id);
 
     // Two distinct copies, neither of which took the source's slug.
     expect(second.rootId).not.toBe(first.rootId);
@@ -274,7 +299,7 @@ describeWithDb('ImportService - apply', () => {
     }).where(eq(workflows.id, workflow.id));
     
     const bundle = await exportService.export({ scope: 'workflow', id: workflow.id }, user.id);
-    const result = await importService.apply(bundle, user.id);
+    const result = await applyBundle(bundle, user.id);
     
     const [imported] = await db.select().from(workflows).where(eq(workflows.id, result.rootId));
     expect(imported.isPublic).toBe(false);
@@ -293,7 +318,7 @@ describeWithDb('ImportService - apply', () => {
       .where(eq(workflowVersions.workflowId, workflow.id));
     
     const bundle = await exportService.export({ scope: 'workflow', id: workflow.id }, user.id);
-    const result = await importService.apply(bundle, user.id);
+    const result = await applyBundle(bundle, user.id);
     
     const [importedWf] = await db.select().from(workflows).where(eq(workflows.id, result.rootId));
     const importedVersions = await db.select().from(workflowVersions).where(eq(workflowVersions.workflowId, importedWf.id));
@@ -323,7 +348,7 @@ describeWithDb('ImportService - apply', () => {
     recomputeChecksum(zip, manifest);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
     
-    const newRootId = (await importService.apply(zip.toBuffer(), user.id)).rootId;
+    const newRootId = (await applyBundle(zip.toBuffer(), user.id)).rootId;
     
     const [importedWf] = await db.select().from(workflows).where(eq(workflows.id, newRootId));
     expect(importedWf.isPublic).toBe(false);
@@ -349,7 +374,7 @@ describeWithDb('ImportService - apply', () => {
       ownerUuid: user.id,
     }).returning();
 
-    const result = await importService.apply(workflowBundle, user.id, { targetProjectId: other.id });
+    const result = await applyBundle(workflowBundle, user.id, { targetProjectId: other.id });
 
     const [imported] = await db.select().from(workflows).where(eq(workflows.id, result.rootId));
     expect(imported.projectId).toBe(other.id);
@@ -359,7 +384,7 @@ describeWithDb('ImportService - apply', () => {
   it('keeps the original project when it is the caller\'s own (IEX-15)', async () => {
     // Same-system re-import with no target: the bundle's project really is the
     // caller's, so attaching there is correct rather than a foreign reference.
-    const result = await importService.apply(workflowBundle, user.id);
+    const result = await applyBundle(workflowBundle, user.id);
 
     const [imported] = await db.select().from(workflows).where(eq(workflows.id, result.rootId));
     expect(imported.projectId).toBe(project.id);
@@ -380,7 +405,7 @@ describeWithDb('ImportService - apply', () => {
     recomputeChecksum(zip, manifest);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
 
-    const result = await importService.apply(zip.toBuffer(), user.id);
+    const result = await applyBundle(zip.toBuffer(), user.id);
 
     const [imported] = await db.select().from(workflows).where(eq(workflows.id, result.rootId));
     expect(imported.projectId).toBeNull();
@@ -404,7 +429,7 @@ describeWithDb('ImportService - apply', () => {
     recomputeChecksum(zip, manifest);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
     
-    const newRootId = (await importService.apply(zip.toBuffer(), user.id)).rootId;
+    const newRootId = (await applyBundle(zip.toBuffer(), user.id)).rootId;
     
     const [importedProject] = await db.select().from(projects).where(eq(projects.id, newRootId));
     expect(importedProject).toBeDefined();
@@ -449,7 +474,7 @@ describeWithDb('ImportService - apply', () => {
     recomputeChecksum(zip, manifest2);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest2)));
 
-    const newRootId = (await importService.apply(zip.toBuffer(), user.id)).rootId;
+    const newRootId = (await applyBundle(zip.toBuffer(), user.id)).rootId;
     
     const [importedWf] = await db.select().from(workflows).where(eq(workflows.id, newRootId));
     expect(importedWf.currentVersionId).not.toBeNull();
@@ -491,7 +516,7 @@ describeWithDb('ImportService - apply', () => {
     recomputeChecksum(zip, manifest);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
 
-    const newRootId = (await importService.apply(zip.toBuffer(), user.id)).rootId;
+    const newRootId = (await applyBundle(zip.toBuffer(), user.id)).rootId;
     const [importedWf] = await db.select().from(workflows).where(eq(workflows.id, newRootId));
     
     const importedSteps = await db.select().from(steps).where(eq(steps.workflowId, importedWf.id));
@@ -520,7 +545,7 @@ describeWithDb('ImportService - apply', () => {
     recomputeChecksum(zip, manifest);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
     
-    const newRootId = (await importService.apply(zip.toBuffer(), user.id)).rootId;
+    const newRootId = (await applyBundle(zip.toBuffer(), user.id)).rootId;
     
     const accesses = await db.select().from(projectAccess).where(eq(projectAccess.projectId, newRootId));
     expect(accesses.length).toBe(0);
@@ -560,7 +585,7 @@ describeWithDb('ImportService - apply', () => {
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
 
     // AC 2: original error is propagated unchanged
-    await expect(importService.apply(zip.toBuffer(), user.id)).rejects.toThrow(/Validation failed in workflows:[\s\S]*isPublic/);
+    await expect(applyBundle(zip.toBuffer(), user.id)).rejects.toThrow(/Validation failed in workflows:[\s\S]*isPublic/);
 
     // AC 1: every blob written by this call is gone
     expect(savedRef).not.toBe('');
@@ -582,7 +607,7 @@ describeWithDb('ImportService - apply', () => {
     const deleteSpy = vi.spyOn(storageProvider, 'deleteFile').mockResolvedValue();
 
     const bundleBuffer = await exportService.export({ scope: 'project', id: project.id }, user.id);
-    await importService.apply(bundleBuffer, user.id);
+    await applyBundle(bundleBuffer, user.id);
 
     expect(deleteSpy).not.toHaveBeenCalled();
   });
@@ -615,7 +640,7 @@ describeWithDb('ImportService - apply', () => {
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
 
     // Must still throw the original validation error, not the cleanup error
-    await expect(importService.apply(zip.toBuffer(), user.id)).rejects.toThrow(/Validation failed in workflows:[\s\S]*isPublic/);
+    await expect(applyBundle(zip.toBuffer(), user.id)).rejects.toThrow(/Validation failed in workflows:[\s\S]*isPublic/);
     
     // The cleanup attempt MUST have happened
     expect(deleteSpy).toHaveBeenCalledWith('imported/fail-blob.bin');
@@ -630,7 +655,7 @@ describeWithDb('ImportService - apply', () => {
 
   it('suffixes collisions in alias and slugs (AC 7)', async () => {
     // 1. Slug collision: projectBundle has datavault_tables
-    await importService.apply(projectBundle, user.id);
+    await applyBundle(projectBundle, user.id);
     
     const tables = await db.select().from(datavaultTables).where(eq(datavaultTables.tenantId, user.tenantId));
     const importedTable = tables.find(t => t.slug === 'test-table-slug-2');
@@ -653,7 +678,7 @@ describeWithDb('ImportService - apply', () => {
     recomputeChecksum(zip, manifest);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
 
-    const newRootIdWf = (await importService.apply(zip.toBuffer(), user.id)).rootId;
+    const newRootIdWf = (await applyBundle(zip.toBuffer(), user.id)).rootId;
     
     const allSteps = await db.select().from(steps).where(eq(steps.workflowId, newRootIdWf));
     const importedStep = allSteps.find(s => s.alias === 'test_step_alias_2');
@@ -704,12 +729,12 @@ describeWithDb('ImportService - apply', () => {
     const bundleBuffer = await exportService.export({ scope: 'project', id: project.id }, user.id);
 
     // AC 4: preview returns canProceed: true with no Validation failed errors
-    const previewResult = await importService.preview(bundleBuffer, user.id);
+    const previewResult = await previewBundle(bundleBuffer, user.id);
     expect(previewResult.canProceed).toBe(true);
     expect(previewResult.errors.some(e => e.includes('Validation failed'))).toBe(false);
 
     // AC 1 & 2: import succeeds
-    const newRootId = (await importService.apply(bundleBuffer, user.id)).rootId;
+    const newRootId = (await applyBundle(bundleBuffer, user.id)).rootId;
 
     const [importedWf] = await db.select().from(workflows).where(eq(workflows.projectId, newRootId));
     
@@ -744,7 +769,7 @@ describeWithDb('ImportService - apply', () => {
     recomputeChecksum(zip, manifest);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
 
-    await expect(importService.apply(zip.toBuffer(), user.id)).rejects.toThrow(/Validation failed/);
+    await expect(applyBundle(zip.toBuffer(), user.id)).rejects.toThrow(/Validation failed/);
   });
   it('rejects unresolvable NOT NULL references and warns for nullable references (IEX2-2)', async () => {
     // We will use workflowBundle. We will inject a dangling NOT NULL reference (steps.sectionId)
@@ -779,14 +804,14 @@ describeWithDb('ImportService - apply', () => {
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
     
     // AC 5: preview reports dangling references
-    const preview = await importService.preview(zip.toBuffer(), user.id);
+    const preview = await previewBundle(zip.toBuffer(), user.id);
     expect(preview.canProceed).toBe(false);
     expect(preview.errors.some(e => e.includes('Unresolvable reference') && e.includes('sectionId') && e.includes('steps'))).toBe(true);
     expect(preview.warnings.some(w => w.type === 'dangling_reference' && w.column === 'targetStepId' && w.entity === 'logic_rules')).toBe(true);
     
     // AC 2 & 3: apply rejects NOT NULL ref with 400-classified error
     // (Our classifyImportError in portability.routes.ts matches 'Unresolvable reference' to 400)
-    await expect(importService.apply(zip.toBuffer(), user.id)).rejects.toThrow(/Unresolvable reference: steps\.sectionId/);
+    await expect(applyBundle(zip.toBuffer(), user.id)).rejects.toThrow(/Unresolvable reference: steps\.sectionId/);
     
     // Now fix the NOT NULL ref to test AC 4 (nullable ref imports as null + warning)
     badStep.sectionId = firstStep.sectionId;
@@ -795,7 +820,7 @@ describeWithDb('ImportService - apply', () => {
     recomputeChecksum(zip, manifest);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
     
-    const result = await importService.apply(zip.toBuffer(), user.id);
+    const result = await applyBundle(zip.toBuffer(), user.id);
     expect(result.warnings.some(w => w.type === 'dangling_reference' && w.column === 'targetStepId' && w.entity === 'logic_rules')).toBe(true);
     
     // Verify it actually imported as null
@@ -881,7 +906,7 @@ describeWithDb('ImportService - apply', () => {
     recomputeChecksum(zip, manifest);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
 
-    const result = await importService.apply(zip.toBuffer(), user.id);
+    const result = await applyBundle(zip.toBuffer(), user.id);
     const rules = await db.select().from(logicRules)
       .where(eq(logicRules.workflowId, result.rootId));
 

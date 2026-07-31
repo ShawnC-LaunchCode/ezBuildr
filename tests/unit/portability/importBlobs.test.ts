@@ -1,9 +1,10 @@
 import { it, expect, beforeEach, afterEach, vi } from 'vitest';
+import * as fs from 'fs';
+import * as path from 'path';
 import { describeWithDb } from '../../helpers/dbTestHelper';
 import { db } from '../../../server/db';
 import { TestFactory } from '../../helpers/testFactory';
 import { exportService } from '../../../server/services/portability/ExportService';
-import { importService } from '../../../server/services/portability/ImportService';
 import { storageProvider } from '../../../server/services/storage';
 import { storageQuotaService } from '../../../server/services/StorageQuotaService';
 import {
@@ -15,7 +16,7 @@ import {
 import { templates, projects } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import AdmZip from 'adm-zip';
-import { recomputeChecksum } from '../../helpers/bundleTestHelper';
+import { recomputeChecksum, applyBundle } from '../../helpers/bundleTestHelper';
 
 const SHARED_REF = 'src-bucket/shared.docx';
 const MISSING_REF = 'src-bucket/missing.docx';
@@ -103,7 +104,7 @@ describeWithDb('ImportService - blob restore', () => {
   }
 
   it('restores blob bytes and repoints fileRef at the new object (AC 1, AC 2)', async () => {
-    const result = await importService.apply(bundle, user.id);
+    const result = await applyBundle(bundle, user.id);
     const rows = await importedTemplates(result.rootId);
 
     const restored = rows.filter(r => r.fileRef !== null && r.fileRef !== '');
@@ -119,7 +120,7 @@ describeWithDb('ImportService - blob restore', () => {
   });
 
   it('scans every blob before writing it, once per unique blob (AC 3, AC 8)', async () => {
-    const result = await importService.apply(bundle, user.id);
+    const result = await applyBundle(bundle, user.id);
 
     // One blobs/ entry shared by three rows: one scan, one stored object.
     expect(scanner.scanned).toHaveLength(1);
@@ -131,19 +132,50 @@ describeWithDb('ImportService - blob restore', () => {
     expect(refs.size).toBe(1);
   });
 
+  it('spools each verified blob to a temp dir instead of holding all of them in memory (IEX2-10)', async () => {
+    const writeFileSpy = vi.spyOn(fs.promises, 'writeFile');
+
+    const result = await applyBundle(bundle, user.id);
+
+    // restoreBlobs no longer accumulates verified buffers in a Map; it writes
+    // each unique blob to a dedicated spool dir as soon as it clears the
+    // integrity+scan gates, then reads it back one at a time for storage.
+    // Peak memory is therefore one blob, not the sum of every unique blob.
+    const spoolWrites = writeFileSpy.mock.calls.filter(([target]) =>
+      typeof target === 'string' && target.includes('ezb-blobs-'));
+    expect(spoolWrites).toHaveLength(1); // one unique blob shared by 3 rows
+    expect(result.blobsRestored).toBe(1);
+
+    // The spool dir is temporary: gone once restoreBlobs (and thus apply)
+    // has returned, whether or not the write to storage succeeded.
+    const spoolDir = path.dirname(spoolWrites[0][0] as string);
+    await expect(fs.promises.stat(spoolDir)).rejects.toThrow(/ENOENT/);
+  });
+
   it('an infected blob aborts the whole import, naming entity and column (AC 4)', async () => {
     setVirusScannerInstance(new StubScanner(false));
     const projectsBefore = await db.select().from(projects);
+    const rmSpy = vi.spyOn(fs.promises, 'rm');
 
-    await expect(importService.apply(bundle, user.id)).rejects.toThrow(/malware/i);
+    await expect(applyBundle(bundle, user.id)).rejects.toThrow(/malware/i);
 
     // Names where the blob came from, not just its hash.
-    await expect(importService.apply(bundle, user.id)).rejects.toThrow(/templates\.fileRef/);
+    await expect(applyBundle(bundle, user.id)).rejects.toThrow(/templates\.fileRef/);
 
     // No rows created and no bytes written.
     const projectsAfter = await db.select().from(projects);
     expect(projectsAfter.length).toBe(projectsBefore.length);
     expect(saveFileSpy).not.toHaveBeenCalled();
+
+    // The spool dir restoreBlobs creates up front is removed on the
+    // rejection path too -- a scan failure must not leak a temp directory
+    // (IEX2-10). Asserted via the actual cleanup call (spies are per-process,
+    // so this can't false-positive on a concurrent worker's own temp files
+    // the way a shared-tmpdir directory diff could).
+    const spoolCleanups = rmSpy.mock.calls.filter(([target, opts]) =>
+      typeof target === 'string' && target.includes('ezb-blobs-') &&
+      typeof opts === 'object' && opts !== null && (opts as { recursive?: boolean }).recursive === true);
+    expect(spoolCleanups.length).toBeGreaterThanOrEqual(2); // one per rejected apply() call above
   });
 
   it('a blob whose content does not match its sha256 aborts with a distinct error (AC 5)', async () => {
@@ -159,10 +191,10 @@ describeWithDb('ImportService - blob restore', () => {
     recomputeChecksum(zip, manifest);
     zip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
 
-    await expect(importService.apply(zip.toBuffer(), user.id))
+    await expect(applyBundle(zip.toBuffer(), user.id))
       .rejects.toThrow(/integrity check failed/i);
     // Distinct from the infection error.
-    await expect(importService.apply(zip.toBuffer(), user.id))
+    await expect(applyBundle(zip.toBuffer(), user.id))
       .rejects.not.toThrow(/malware/i);
     expect(saveFileSpy).not.toHaveBeenCalled();
   });
@@ -171,7 +203,7 @@ describeWithDb('ImportService - blob restore', () => {
     vi.spyOn(storageQuotaService, 'checkQuota').mockRejectedValue(new Error('Storage quota exceeded'));
     const projectsBefore = await db.select().from(projects);
 
-    await expect(importService.apply(bundle, user.id)).rejects.toThrow(/quota/i);
+    await expect(applyBundle(bundle, user.id)).rejects.toThrow(/quota/i);
 
     expect(scanner.scanned).toHaveLength(0);
     expect(saveFileSpy).not.toHaveBeenCalled();
@@ -180,7 +212,7 @@ describeWithDb('ImportService - blob restore', () => {
   });
 
   it('a row referencing a blob absent from the bundle imports with the ref unset (AC 7)', async () => {
-    const result = await importService.apply(bundle, user.id);
+    const result = await applyBundle(bundle, user.id);
 
     const rows = await importedTemplates(result.rootId);
     const orphan = rows.find(r => r.name === 'Template Missing');

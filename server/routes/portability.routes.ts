@@ -237,8 +237,7 @@ export function registerPortabilityRoutes(app: Express): void {
         }
         const targetProjectId = options.data.targetProjectId;
 
-        const buffer = await fs.promises.readFile(filePath);
-        const preview = await importService.preview(buffer, userId, targetProjectId);
+        const preview = await importService.preview(filePath, userId, targetProjectId);
 
         // A bundle that could not be opened at all is malformed input, not a
         // previewable artifact. ImportService reports that as an error entry
@@ -282,8 +281,7 @@ export function registerPortabilityRoutes(app: Express): void {
           return res.status(400).json({ message: 'Invalid input', errors: parsed.error.errors });
         }
 
-        const buffer = await fs.promises.readFile(filePath);
-        const result = await importService.apply(buffer, userId, parsed.data);
+        const result = await importService.apply(filePath, userId, parsed.data);
 
         // The record answering "who pushed data into this tenant, and what did
         // it create". Applies only — previews create nothing to account for.

@@ -401,10 +401,13 @@ export class ImportService {
     }
   }
 
-  async preview(buffer: Buffer, userId: string, targetProjectId?: string): Promise<ImportPreview> {
+  /**
+   * `filePath` is the caller's own file (the multer upload in production, a
+   * spooled temp file in tests) — read directly, never copied (IEX2-10).
+   * Cleanup of `filePath` itself is the caller's responsibility.
+   */
+  async preview(filePath: string, userId: string, targetProjectId?: string): Promise<ImportPreview> {
     const targetOwner = await this.getTargetOwnerForPreview(userId, targetProjectId);
-    const tmpPath = path.join(os.tmpdir(), `import_preview_${randomUUID()}.ezb`);
-    await fs.promises.writeFile(tmpPath, buffer);
     const result: ImportPreview = {
       canProceed: true,
       entityCounts: {},
@@ -417,7 +420,7 @@ export class ImportService {
     
     let reader: BundleReader | null = null;
     try {
-      reader = new BundleReader(tmpPath);
+      reader = new BundleReader(filePath);
       await reader.open();
 
       const extracted = {
@@ -467,11 +470,6 @@ export class ImportService {
       result.canProceed = false;
     } finally {
       reader?.close();
-      try {
-        await fs.promises.rm(tmpPath, { force: true });
-      } catch (err) {
-        // Ignore removal error
-      }
     }
 
     return result;
@@ -735,46 +733,55 @@ export class ImportService {
     const totalBytes = entries.reduce((sum, [, meta]) => sum + meta.size, 0);
     await storageQuotaService.checkQuota(tenantId, totalBytes);
 
-    // Gates 2 and 3 — integrity then scan, deduplicated by content hash so a
-    // blob shared by many rows is verified and scanned exactly once.
-    const verified = new Map<string, Buffer>();
-    for (const [fileRef, meta] of entries) {
-      if (verified.has(meta.sha256)) {continue;}
+    // Gates 2 and 3 verify+scan one blob at a time and spool each survivor to
+    // disk instead of holding it in a Map — peak heap is one blob, not the
+    // bundle's total blob size (IEX2-10). The spool dir is what lets "every
+    // gate before any write" survive without keeping every buffer in memory.
+    const spoolDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'ezb-blobs-'));
+    try {
+      const verifiedShas = new Set<string>();
+      for (const [fileRef, meta] of entries) {
+        if (verifiedShas.has(meta.sha256)) {continue;}
 
-      const buffer = await reader.readBlob(meta.sha256);
-      const actual = createHash('sha256').update(buffer).digest('hex');
-      if (actual !== meta.sha256) {
-        throw new Error(
-          `Bundle integrity check failed: blob content does not match its sha256 ` +
-          `(expected ${meta.sha256}, got ${actual}), referenced by ${this.describeRef(references, fileRef)}`
-        );
+        const buffer = await reader.readBlob(meta.sha256);
+        const actual = createHash('sha256').update(buffer).digest('hex');
+        if (actual !== meta.sha256) {
+          throw new Error(
+            `Bundle integrity check failed: blob content does not match its sha256 ` +
+            `(expected ${meta.sha256}, got ${actual}), referenced by ${this.describeRef(references, fileRef)}`
+          );
+        }
+
+        const scan = await virusScanner().scan(buffer, meta.filename);
+        if (!scan.safe) {
+          throw new Error(
+            `Import rejected: potential malware detected (${String(scan.threatName)}) ` +
+            `in blob referenced by ${this.describeRef(references, fileRef)}`
+          );
+        }
+
+        await fs.promises.writeFile(path.join(spoolDir, meta.sha256), buffer);
+        verifiedShas.add(meta.sha256);
       }
 
-      const scan = await virusScanner().scan(buffer, meta.filename);
-      if (!scan.safe) {
-        throw new Error(
-          `Import rejected: potential malware detected (${String(scan.threatName)}) ` +
-          `in blob referenced by ${this.describeRef(references, fileRef)}`
-        );
+      // Gate 4 — every blob passed; now write. One stored object per unique
+      // hash, read off the spool disk one at a time rather than from memory.
+      const written = new Map<string, string>();
+      for (const [fileRef, meta] of entries) {
+        let newRef = written.get(meta.sha256);
+        if (newRef === undefined) {
+          if (!verifiedShas.has(meta.sha256)) {continue;}
+          const buffer = await fs.promises.readFile(path.join(spoolDir, meta.sha256));
+          newRef = await storageProvider.saveFile(buffer, meta.filename, meta.mimeType);
+          written.set(meta.sha256, newRef);
+        }
+        mapping.set(fileRef, newRef);
       }
 
-      verified.set(meta.sha256, buffer);
+      return mapping;
+    } finally {
+      await fs.promises.rm(spoolDir, { recursive: true, force: true });
     }
-
-    // Gate 4 — every blob passed; now write. One stored object per unique hash.
-    const written = new Map<string, string>();
-    for (const [fileRef, meta] of entries) {
-      let newRef = written.get(meta.sha256);
-      if (newRef === undefined) {
-        const buffer = verified.get(meta.sha256);
-        if (buffer === undefined) {continue;}
-        newRef = await storageProvider.saveFile(buffer, meta.filename, meta.mimeType);
-        written.set(meta.sha256, newRef);
-      }
-      mapping.set(fileRef, newRef);
-    }
-
-    return mapping;
   }
 
   /**
@@ -935,18 +942,21 @@ export class ImportService {
     return bundleProjectIds;
   }
 
-  async apply(buffer: Buffer, userId: string, options: ImportApplyOptions = {}): Promise<ImportApplyResult> {
+  /**
+   * `filePath` is the caller's own file (the multer upload in production, a
+   * spooled temp file in tests) — read directly, never copied (IEX2-10).
+   * Cleanup of `filePath` itself is the caller's responsibility.
+   */
+  async apply(filePath: string, userId: string, options: ImportApplyOptions = {}): Promise<ImportApplyResult> {
     const targetOwner = await this.resolveTargetOwner(userId, options);
 
-    const tmpPath = path.join(os.tmpdir(), `import_apply_${randomUUID()}.ezb`);
-    await fs.promises.writeFile(tmpPath, buffer);
     let reader: BundleReader | null = null;
     let newRootId = '';
     const warnings: ExportWarning[] = [];
     const adjustments: string[] = [];
 
     try {
-      reader = new BundleReader(tmpPath);
+      reader = new BundleReader(filePath);
       await reader.open();
       const manifest = reader.manifest;
 
@@ -1028,11 +1038,6 @@ export class ImportService {
       }
     } finally {
       reader?.close();
-      try {
-        await fs.promises.rm(tmpPath, { force: true });
-      } catch (err) {
-        // Ignore
-      }
     }
   }
 }

@@ -3,7 +3,7 @@ import { db } from '../../../server/db';
 import { createTestFactory, TestFactory } from '../../helpers/testFactory';
 import { describeWithDb } from '../../helpers/dbTestHelper';
 import { exportService } from '../../../server/services/portability/ExportService';
-import { importService } from '../../../server/services/portability/ImportService';
+import { previewBundle } from '../../helpers/bundleTestHelper';
 import { BundleReader } from '../../../server/services/portability/bundleReader';
 import {
   externalConnections,
@@ -229,7 +229,7 @@ describeWithDb('ExportService - redaction and secret scanning', () => {
     // manifest.warnings, and IEX2-8 showed that a warning shape missing from
     // manifestSchema makes the reader reject the whole bundle -- so asserting
     // the export is non-destructive is not enough on its own.
-    const preview = await importService.preview(buffer, testUserId);
+    const preview = await previewBundle(buffer, testUserId);
     expect(preview.canProceed).toBe(true);
 
     await fs.promises.rm(tmpPath);
