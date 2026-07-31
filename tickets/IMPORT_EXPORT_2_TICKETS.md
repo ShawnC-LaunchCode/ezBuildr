@@ -125,7 +125,7 @@ Proven live are marked **[PROVEN]** with the reproduction.
 | Phase | Theme | Tickets | Status |
 |---|---|---|---|
 | A | **P0 — the feature does not work on real data** | IEX2-1..4 | ✅ **COMPLETE** — all four P0s fixed |
-| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔄 IEX2-5 ✅ 6 ✅ 7 ✅ 9 ✅ 11 ✅; **only IEX2-8 → 17 left** |
+| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔄 IEX2-5 ✅ 6 ✅ 7 ✅ 8 ✅ 9 ✅ 11 ✅; **only IEX2-17 left** |
 | C | P2 — hardening, redaction depth, real proof | IEX2-12..15 | 🔄 IEX2-12 ✅ + IEX2-13 ✅ done |
 | D | Make the feature reachable | IEX2-16 | ⏸️ **deferred out of round 2** |
 
@@ -1120,7 +1120,39 @@ caller's default.
 
 ---
 
-## IEX2-8 — No version or schema-drift guard: the compatibility fields are placeholders 🔄
+## IEX2-8 — No version or schema-drift guard: the compatibility fields are placeholders ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-31 — `dc913345`.** Gates re-run by the
+> reviewer, not taken on report: type-check 0 · lint 0 · `test:fast` **153 files
+> / 2047 tests** (baseline) · portability `unit-db` **7 files / 70 tests**
+> (baseline 67 + 3) · portability integration **3 files / 22 tests**.
+>
+> **Mutation-proved across two rounds — eight probes, each confirmed present in
+> the file before running, each producing a real assertion failure:** appVersion
+> literal reintroduced → red; `migrationHead: null` → red; rejection signal
+> removed from the route → red (`expected 500 to be 400`); throw suppressed →
+> red (`expected 201 to be 400`); `schema_drift` push removed → AC 4 red; null
+> guard removed → AC 5 red; a *spurious* warning on a null head → AC 5 red,
+> which is what proves AC 5's absence assertion is not vacuous. An eighth probe
+> confirmed the type-guard rewrite in `exportBlobs`/`importBlobs` did not weaken
+> those existing assertions.
+>
+> **Round 1 was sent back:** AC 4 and AC 5 had no tests at all
+> (`git grep schema_drift -- tests/` returned nothing) despite being reported as
+> satisfied. Both are now covered in `importPreview.test.ts`.
+>
+> ⚠️ **The reviewer added a production fix the ticket did not anticipate.** Both
+> readers resolve the journal from `process.cwd()`, and the Docker runtime stage
+> copied only `dist`, `package.json` and `node_modules` — so once the fallbacks
+> were changed to fail loudly, **the export path would have thrown on every call
+> in production and the import-side guard would have silently never fired.** No
+> test can catch this: the repo tree always has `migrations/`. Fixed by shipping
+> `migrations/` in the production image (`Dockerfile`), and the import-side
+> `catch` now logs instead of degrading in silence.
+>
+> **Lesson for the rest of this initiative:** anything read from `process.cwd()`
+> at runtime must be checked against the Dockerfile's runtime stage, not just
+> against the test tree.
 
 **Priority: P1** · Size: M · Files: `server/services/portability/ExportService.ts`, `server/services/portability/ImportService.ts`
 
