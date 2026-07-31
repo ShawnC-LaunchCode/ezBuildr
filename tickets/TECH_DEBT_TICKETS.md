@@ -208,6 +208,83 @@ tranche commits at review instead. Do not repeat that criterion here.
 
 ---
 
+## DEBT-15 — Generated documents are written to the ephemeral container filesystem 🔲
+
+**Priority: P1?** · Size: M · Files: `server/services/document/DocumentEngine.ts`,
+`server/services/fileService.ts`, `server/routes/finalBlock.routes.ts`,
+`server/services/TemplatePreviewService.ts`, `server/routes/files.routes.ts`
+
+*Spotted 2026-07-31 while scoping DEBT-6. Deliberately not bundled into it —
+that was dead-code removal, this is a live durability question.*
+
+### Finding
+
+**Five** call sites write generated output under
+`path.join(process.cwd(), 'server', 'files', 'outputs')`:
+
+- `DocumentEngine.ts:46` (default `outputDir`)
+- `finalBlock.routes.ts:342`
+- `TemplatePreviewService.ts:163` (`outputs/previews`)
+- `fileService.ts:134-135` (both)
+
+and `files.routes.ts:33` serves downloads back out of the same directory.
+
+That is the **container's own filesystem**, and on Railway it is ephemeral. Every
+generated document, preview and final-block output written there is lost on the
+next deploy or container restart — and this project auto-deploys from `main`, so
+restarts are routine, not rare.
+
+Worse, the production image never contains that path: the Dockerfile's runtime
+stage copies only `dist`, `package.json` and `node_modules` (see
+[[runtime-cwd-files-vs-docker-stage]], which is the same class of bug found in
+IEX2-8). The directory only exists because something creates it at runtime.
+
+Note this is a **third** storage mechanism, alongside `storageProvider` (the real
+one, seven consumers) and the now-deleted `files` table. Anything durable should
+be going through `storageProvider`.
+
+### Why the "?" on P1
+
+The severity depends on whether these outputs are meant to survive. If a
+generated document is handed straight to the user in the same request and never
+re-fetched, ephemeral is fine and this is a documentation fix. If
+`/api/files/download/:filename` is expected to work minutes or days later — and
+its existence implies it is — then customers are hitting 404s after every deploy
+and have been for as long as this has shipped.
+
+**Answer that first.** Check whether any stored row references a filename served
+by `files.routes.ts`, and whether the download route is reachable from the UI
+after a run completes.
+
+### Preferred fix
+
+Route durable outputs through `storageProvider`, which already abstracts
+disk/S3 and is what the rest of the system uses. Keep the local path only for
+genuinely temporary artifacts (previews consumed within one request), and say in
+a comment which is which.
+
+Do **not** simply add a Docker volume — that fixes one deployment and leaves the
+architecture with three storage mechanisms.
+
+### Ties
+
+- Related: DEBT-6 removed the *second* file subsystem; this is the third.
+- Load `add-api-endpoint` (the download route is public-ish surface) and
+  `run-tests`.
+
+### Acceptance criteria
+
+1. The durability question above is answered with evidence and recorded here
+   before any code change.
+2. Durable outputs go through `storageProvider`; any remaining local-disk writes
+   are documented as intentionally temporary.
+3. A test asserts a generated document is retrievable through the normal
+   download path after the writing process's local temp dir is gone.
+4. Gates: type-check 0, lint 0, `check:strict-zones` passed, `test:fast` ≥
+   baseline, document-generation integration suites green.
+
+---
+
 ## DEBT-14 — `creation-routes.test.ts` fails 18 tests only when the whole file runs 🔲
 
 **Priority: P2** · Size: M · Files: `tests/integration/creation-routes.test.ts`
@@ -215,6 +292,25 @@ tranche commits at review instead. Do not repeat that criterion here.
 *Filed by the reviewer 2026-07-31 while clearing DEBT-3b. Not a product bug —
 the endpoints are fine. This is a test-isolation defect that has been poisoning
 every full integration run.*
+
+> **Refs re-verified 2026-07-31 against the dispatch base — all exact:**
+> `setupIntegrationTest` in the single `beforeAll` at `:40`, `aggregate size
+> caps (ICW-11)` at `:247`, `POST /api/steps/:id/duplicate` at `:630`,
+> `POST /api/sections/:id/duplicate` at `:719`.
+>
+> **Baselines: `test:fast` 155 files / 2053 tests; portability `unit-db` 7 / 74;
+> portability integration 3 / 25.**
+>
+> **Use a dedicated database.** A reviewer Postgres is already running on
+> **5435** (`ezbuildr-review-db`); point `TEST_DATABASE_URL` at it, or start
+> your own. Do **not** use the shared 5434 instance — schema names are per
+> *worker*, not per process, so any concurrent run corrupts yours and produces
+> dozens of unrelated failures. That is what disguised this defect for two full
+> suite runs.
+>
+> ⚠️ **Reproducing costs ~21 minutes per full-file run.** Do not iterate that
+> way. The duplicate blocks pass alone in ~13s, so bisect by adding preceding
+> describes until they break — that keeps each cycle short.
 
 ### Finding
 
