@@ -13,6 +13,14 @@ export class BundleSizeLimitError extends Error {
   }
 }
 
+export class ExportRowLimitError extends Error {
+  statusCode = 413;
+  constructor(message: string) {
+    super(message);
+    this.name = 'ExportRowLimitError';
+  }
+}
+
 /**
  * An item the importing system must supply by hand because its material was
  * deliberately withheld from the bundle (decision D-2).

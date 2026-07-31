@@ -5,7 +5,7 @@ import { describeWithDb } from '../../helpers/dbTestHelper';
 import { exportService } from '../../../server/services/portability/ExportService';
 import { BundleReader } from '../../../server/services/portability/bundleReader';
 import { ENTITY_GRAPH } from '../../../server/services/portability/entityGraph';
-import { datavaultDatabases } from '../../../shared/schema';
+import { datavaultDatabases, datavaultTables, datavaultColumns, datavaultRows, datavaultValues, workflowDataSources } from '../../../shared/schema';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -19,6 +19,7 @@ describeWithDb('ExportService', () => {
   
   let otherUserId: string;
   let otherTenantId: string;
+  let testDatabaseId: string;
 
   beforeEach(async () => {
     factory = createTestFactory();
@@ -43,7 +44,7 @@ describeWithDb('ExportService', () => {
       otherTenantId = other.tenant.id;
       
       // Deliberately plant a legitimate same-tenant datavault database linked to our project
-      await (tx as any).insert(datavaultDatabases).values({
+      const [validDb] = await (tx as any).insert(datavaultDatabases).values({
         tenantId: testTenantId,
         name: 'Valid Tenant DB',
         description: 'Should be exported',
@@ -53,7 +54,8 @@ describeWithDb('ExportService', () => {
         scopeId: project.id,
         ownerType: 'user',
         ownerUuid: testUserId
-      });
+      }).returning();
+      testDatabaseId = validDb.id;
 
       // Deliberately plant a cross-tenant datavault database linked to our project
       await (tx as any).insert(datavaultDatabases).values({
@@ -70,8 +72,23 @@ describeWithDb('ExportService', () => {
     });
   });
 
+  const origBatchSize = process.env.PORTABILITY_EXPORT_BATCH_SIZE;
+  const origMaxRows = process.env.PORTABILITY_MAX_EXPORT_ROWS;
+
   afterEach(async () => {
     await factory.cleanup({ tenantIds: [testTenantId, otherTenantId] });
+    
+    if (origBatchSize === undefined) {
+      delete process.env.PORTABILITY_EXPORT_BATCH_SIZE;
+    } else {
+      process.env.PORTABILITY_EXPORT_BATCH_SIZE = origBatchSize;
+    }
+
+    if (origMaxRows === undefined) {
+      delete process.env.PORTABILITY_MAX_EXPORT_ROWS;
+    } else {
+      process.env.PORTABILITY_MAX_EXPORT_ROWS = origMaxRows;
+    }
   });
 
   async function loadBundle(buffer: Buffer) {
@@ -264,5 +281,100 @@ describeWithDb('ExportService', () => {
 
     expect(capturedTmpDir).not.toBe('');
     expect(fs.existsSync(capturedTmpDir)).toBe(false);
+  });
+
+  it('batches reads and tracks extracted ids correctly across batches (AC 2 & 3)', async () => {
+    // AC 2: span at least three batches
+    process.env.PORTABILITY_EXPORT_BATCH_SIZE = '2';
+    process.env.PORTABILITY_MAX_EXPORT_ROWS = '1000';
+
+    const [table] = await db.insert(datavaultTables).values({
+      tenantId: testTenantId,
+      databaseId: testDatabaseId,
+      name: 'Test Table',
+      slug: 'test-table'
+    }).returning();
+
+    const [col] = await db.insert(datavaultColumns).values({
+      tableId: table.id,
+      name: 'Col1',
+      slug: 'col1',
+      type: 'text'
+    }).returning();
+
+    // 5 rows = 3 batches when BATCH_SIZE=2
+    for (let i = 0; i < 5; i++) {
+      const [row] = await db.insert(datavaultRows).values({
+        tableId: table.id,
+        createdBy: testUserId,
+        updatedBy: testUserId
+      }).returning();
+
+      await db.insert(datavaultValues).values({
+        rowId: row.id,
+        columnId: col.id,
+        value: `val${i}`,
+      });
+    }
+
+    const buffer = await exportService.export({ scope: 'project', id: testProjectId }, testUserId);
+    const { reader, tmpPath } = await loadBundle(buffer);
+
+    expect(reader.manifest.entityCounts['datavault_rows']).toBe(5);
+    expect(reader.manifest.entityCounts['datavault_values']).toBe(5);
+
+    let rowCount = 0;
+    for await (const _r of reader.readEntityStream('datavault_rows')) {
+      rowCount++;
+    }
+    expect(rowCount).toBe(5);
+
+    let valCount = 0;
+    for await (const _v of reader.readEntityStream('datavault_values')) {
+      valCount++;
+    }
+    expect(valCount).toBe(5);
+
+    await fs.promises.rm(tmpPath);
+  });
+
+  it('exports workflow_data_sources with composite PK across batches (AC 4)', async () => {
+    process.env.PORTABILITY_EXPORT_BATCH_SIZE = '2';
+
+    for (let i = 0; i < 5; i++) {
+      const [dbSource] = await db.insert(datavaultDatabases).values({
+        tenantId: testTenantId,
+        scopeType: 'project',
+        scopeId: testProjectId,
+        name: `Test DB ${i}`,
+        ownerType: 'user',
+        ownerUuid: testUserId
+      }).returning();
+      
+      await db.insert(workflowDataSources).values({
+        workflowId: testWorkflowId,
+        dataSourceId: dbSource.id
+      });
+    }
+
+    const buffer = await exportService.export({ scope: 'workflow', id: testWorkflowId }, testUserId);
+    const { reader, tmpPath } = await loadBundle(buffer);
+
+    expect(reader.manifest.entityCounts['workflow_data_sources']).toBe(5);
+
+    let sourceCount = 0;
+    for await (const _ds of reader.readEntityStream('workflow_data_sources')) {
+      sourceCount++;
+    }
+    expect(sourceCount).toBe(5);
+
+    await fs.promises.rm(tmpPath);
+  });
+
+  it('enforces row ceiling limit and throws classified error (AC 5)', async () => {
+    process.env.PORTABILITY_MAX_EXPORT_ROWS = '1';
+    await expect(
+      exportService.export({ scope: 'project', id: testProjectId }, testUserId)
+    ).rejects.toThrow('Export exceeds the 1 row limit');
   });
 });
