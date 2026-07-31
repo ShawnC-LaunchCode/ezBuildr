@@ -125,7 +125,7 @@ Proven live are marked **[PROVEN]** with the reproduction.
 | Phase | Theme | Tickets | Status |
 |---|---|---|---|
 | A | **P0 — the feature does not work on real data** | IEX2-1..4 | ✅ **COMPLETE** — all four P0s fixed |
-| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔄 IEX2-5 ✅ + IEX2-9 ✅ done; IEX2-6/7 in flight |
+| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔄 IEX2-5 ✅ IEX2-6 ✅ IEX2-7 ✅ IEX2-9 ✅; IEX2-11 in review, then 8 → 17 |
 | C | P2 — hardening, redaction depth, real proof | IEX2-12..15 | 🔄 IEX2-12 ✅ + IEX2-13 ✅ done |
 | D | Make the feature reachable | IEX2-16 | ⏸️ **deferred out of round 2** |
 
@@ -901,7 +901,24 @@ malformed input, and returning 201 for it is wrong.
 
 ---
 
-## IEX2-6 — Bundles leak the source system's user/team UUIDs and role assignments, and import drops them via a fragile heuristic 🔄
+## IEX2-6 — Bundles leak the source system's user/team UUIDs and role assignments, and import drops them via a fragile heuristic ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-30 — `4269e950`** (one commit with IEX2-7;
+> both rewrite the same ImportService.ts methods and were dispatched together).
+> Gates re-run by the reviewer on the merged tree: tsc 0, lint 0, `test:fast`
+> 152/2045, portability `unit-db` **64 passed / 7 files**.
+>
+> Passed on the **second** submission. The first turned in a **vacuous AC 3** —
+> restoring the `project_access` descriptor left the "no principalId" test green
+> because the fixture never created any access rows. Now seeded in `beforeEach`
+> before export, and the same mutation fails with a real leaked UUID
+> (`expected '88736758-...' to be undefined`). AC 1 also mutation-verified.
+>
+> ⚠️ The dev's mutation proof for the re-submission was **invalid** — they
+> reported a "topological sort violation" crash, which is an artifact of
+> re-inserting the descriptor at the wrong array position, not a test failure.
+> The reviewer redid it at the correct position. **A crash in setup is not a
+> failing assertion; if a mutation crashes, fix the mutation.**
 
 **Priority: P1 (information disclosure)** · Size: M · Files: `server/services/portability/entityGraph.ts`, `server/services/portability/ImportService.ts`
 
@@ -1002,7 +1019,26 @@ disclosure remains. Raise it in your report and it will be triaged (backlog B-1)
 
 ---
 
-## IEX2-7 — Preview reports collisions that are not collisions 🔄
+## IEX2-7 — Preview reports collisions that are not collisions ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-30 — `4269e950`** (with IEX2-6). AC 1, 2
+> and 3 each independently mutation-verified by the reviewer.
+>
+> Passed on the **second** submission. The first shipped a **bundle-wide** alias
+> set, so two different workflows in one project bundle sharing `email` were
+> still reported — the same false-positive class the ticket exists to kill,
+> merely narrowed from tenant-wide. Now keyed `workflowId::alias`, with a test
+> asserting no collision across workflows.
+>
+> **Deliberate, reviewed behaviour changes** (declare these if this code is
+> revisited):
+> - `checkCollisions` skips the workflow check entirely when the bundle contains
+>   a project. Correct — apply creates a *new* project, so no existing workflow
+>   can collide — and covered by a test. **The dev justified it by quoting an
+>   "AC 1" that does not exist in this ticket.** The change stands on its merits,
+>   not on that citation.
+> - `getTargetOwnerForPreview` briefly threw for a tenantless user; reverted to
+>   returning `null` and skipping collisions, as before.
 
 **Priority: P1** · Size: S · Files: `server/services/portability/ImportService.ts`
 
