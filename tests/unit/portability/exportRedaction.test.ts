@@ -3,11 +3,13 @@ import { db } from '../../../server/db';
 import { createTestFactory, TestFactory } from '../../helpers/testFactory';
 import { describeWithDb } from '../../helpers/dbTestHelper';
 import { exportService } from '../../../server/services/portability/ExportService';
+import { importService } from '../../../server/services/portability/ImportService';
 import { BundleReader } from '../../../server/services/portability/bundleReader';
 import {
   externalConnections,
   workflows,
   sections,
+  steps,
   blocks,
   transformBlocks,
   lifecycleHooks,
@@ -23,6 +25,8 @@ import * as os from 'os';
  */
 const HEADER_SENTINEL = 'sentinel_conn_header_value';
 const BLOCK_HEADER_SENTINEL = 'sentinel_block_header_value';
+const BLOCK_AUTH_SENTINEL = 'sk-sentinel12345678901234567890auth';
+const STEP_CONFIG_SENTINEL = 'ghp_sentinel12345678901234567890step';
 const TRANSFORM_SENTINEL = 'sk-sentinel12345678901234567890';
 const LIFECYCLE_SENTINEL = 'ghp_sentinel12345678901234567890';
 const DOCHOOK_SENTINEL = 'sentinel_dochook_1234567890123456789012345678';
@@ -30,6 +34,8 @@ const DOCHOOK_SENTINEL = 'sentinel_dochook_1234567890123456789012345678';
 const ALL_SENTINELS = [
   HEADER_SENTINEL,
   BLOCK_HEADER_SENTINEL,
+  BLOCK_AUTH_SENTINEL,
+  STEP_CONFIG_SENTINEL,
   TRANSFORM_SENTINEL,
   LIFECYCLE_SENTINEL,
   DOCHOOK_SENTINEL,
@@ -86,8 +92,26 @@ describeWithDb('ExportService - redaction and secret scanning', () => {
         sectionId: section.id,
         type: 'external_send',
         phase: 'onSectionSubmit',
-        config: { headers: [{ key: 'Authorization', value: BLOCK_HEADER_SENTINEL }] },
+        config: { 
+          headers: [{ key: 'Authorization', value: BLOCK_HEADER_SENTINEL }],
+          auth: { token: BLOCK_AUTH_SENTINEL }
+        },
         order: 1,
+      });
+
+      await insert(steps).values({
+        workflowId: testWorkflowId,
+        sectionId: section.id,
+        type: 'text',
+        title: 'Step with secret',
+        order: 1,
+        config: {
+          deep: {
+            arrayConfig: [
+              { secretValue: STEP_CONFIG_SENTINEL }
+            ]
+          }
+        }
       });
 
       await insert(transformBlocks).values({
@@ -171,8 +195,42 @@ describeWithDb('ExportService - redaction and secret scanning', () => {
     const { rows, raw } = await collect(reader.readEntityStream('blocks'));
     expect(rows).toHaveLength(1);
     expect(rows[0]['type']).toBe('external_send');
-    expect(rows[0]['config']).toEqual({ headers: [{ key: 'Authorization', value: null }] });
+    expect(rows[0]['config']).toEqual({ 
+      headers: [{ key: 'Authorization', value: null }],
+      auth: { token: BLOCK_AUTH_SENTINEL } 
+    });
     expect(raw).not.toContain(BLOCK_HEADER_SENTINEL);
+
+    await fs.promises.rm(tmpPath);
+  });
+
+  it('warns on secret-shaped literals in JSON config columns, without redacting them', async () => {
+    const buffer = await exportService.export({ scope: 'workflow', id: testWorkflowId }, testUserId);
+    const { reader, tmpPath } = await loadBundle(buffer);
+
+    const warnings = reader.manifest.warnings ?? [];
+    
+    const blockWarning = warnings.find((w) => w.type === 'secret_scan' && w.entity === 'blocks');
+    expect(blockWarning, 'expected a secret_scan warning for blocks').toBeDefined();
+    expect(blockWarning).toMatchObject({ type: 'secret_scan', entity: 'blocks', column: 'config' });
+
+    const stepWarning = warnings.find((w) => w.type === 'secret_scan' && w.entity === 'steps');
+    expect(stepWarning, 'expected a secret_scan warning for steps').toBeDefined();
+    expect(stepWarning).toMatchObject({ type: 'secret_scan', entity: 'steps', column: 'config' });
+
+    // The JSON code itself is deliberately not redacted — it is the workflow config.
+    const { raw: blockRaw } = await collect(reader.readEntityStream('blocks'));
+    expect(blockRaw).toContain(BLOCK_AUTH_SENTINEL);
+
+    const { raw: stepRaw } = await collect(reader.readEntityStream('steps'));
+    expect(stepRaw).toContain(STEP_CONFIG_SENTINEL);
+
+    // AC 4, second half: the bundle must still import. Scanning adds entries to
+    // manifest.warnings, and IEX2-8 showed that a warning shape missing from
+    // manifestSchema makes the reader reject the whole bundle -- so asserting
+    // the export is non-destructive is not enough on its own.
+    const preview = await importService.preview(buffer, testUserId);
+    expect(preview.canProceed).toBe(true);
 
     await fs.promises.rm(tmpPath);
   });

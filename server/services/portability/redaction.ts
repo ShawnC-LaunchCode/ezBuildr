@@ -5,7 +5,7 @@ export function applyRedaction(rowData: Record<string, unknown>, redactPaths: st
     return;
   }
   for (const path of redactPaths) {
-    blankPath(rowData, path.split('.'), 0);
+    walkPath(rowData, path.split('.'), 0, handleLeafNode);
   }
 }
 
@@ -36,22 +36,12 @@ function handleLeafNode(current: Record<string, unknown>, key: string, isArrayEl
   }
 }
 
-function handleNextNode(current: Record<string, unknown>, key: string, isArrayElement: boolean, parts: string[], partIndex: number): void {
-  const next = current[key];
-  if (next == null) {
-    return;
-  }
-  
-  if (isArrayElement && Array.isArray(next)) {
-    for (const item of next) {
-      blankPath(item, parts, partIndex + 1);
-    }
-  } else {
-    blankPath(next, parts, partIndex + 1);
-  }
-}
-
-function blankPath(current: unknown, parts: string[], partIndex: number): void {
+function walkPath(
+  current: unknown,
+  parts: string[],
+  partIndex: number,
+  onLeaf: (parent: Record<string, unknown>, key: string, isArrayElement: boolean) => void
+): void {
   if (!isObject(current)) {
     return;
   }
@@ -64,9 +54,20 @@ function blankPath(current: unknown, parts: string[], partIndex: number): void {
   const key = isArrayElement ? part.slice(0, -2) : part;
   
   if (partIndex === parts.length - 1) {
-    handleLeafNode(current, key, isArrayElement);
+    onLeaf(current, key, isArrayElement);
   } else {
-    handleNextNode(current, key, isArrayElement, parts, partIndex);
+    const next = current[key];
+    if (next == null) {
+      return;
+    }
+    
+    if (isArrayElement && Array.isArray(next)) {
+      for (const item of next) {
+        walkPath(item, parts, partIndex + 1, onLeaf);
+      }
+    } else {
+      walkPath(next, parts, partIndex + 1, onLeaf);
+    }
   }
 }
 
@@ -109,12 +110,32 @@ export function scanForSecrets(
   const warnings: ExportWarning[] = [];
 
   for (const path of scanPaths) {
-    const value = rowData[path];
-    if (typeof value === 'string') {
-      scanStringForSecrets(entityName, path, value, warnings);
-    }
+    walkPath(rowData, path.split('.'), 0, (current, key, isArrayElement) => {
+      const target = current[key];
+      if (isArrayElement && Array.isArray(target)) {
+        for (const item of target) {
+          scanRecursive(item, entityName, path, warnings);
+        }
+      } else {
+        scanRecursive(target, entityName, path, warnings);
+      }
+    });
   }
   return warnings;
+}
+
+function scanRecursive(val: unknown, entityName: string, path: string, warnings: ExportWarning[]): void {
+  if (typeof val === 'string') {
+    scanStringForSecrets(entityName, path, val, warnings);
+  } else if (Array.isArray(val)) {
+    for (const item of val) {
+      scanRecursive(item, entityName, path, warnings);
+    }
+  } else if (isObject(val)) {
+    for (const v of Object.values(val)) {
+      scanRecursive(v, entityName, path, warnings);
+    }
+  }
 }
 
 function scanStringForSecrets(

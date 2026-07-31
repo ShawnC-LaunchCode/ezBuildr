@@ -38,6 +38,12 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     parent: {"name":"projects","fk":"projectId"},
     fields: ["id","tenantId","projectId","name","type","baseUrl","defaultHeaders","timeoutMs","retries","backoffMs","enabled","secretRefs"],
     refs: ["projectId"],
+    // No scanPaths here on purpose. ExportService redacts before it scans
+    // (applyRedaction then scanForSecrets), and redactPaths blanks the whole
+    // defaultHeaders object -- so a scanPath on the same column sees nulls and
+    // can never fire. Verified: redacted then scanned yields 0 warnings, the
+    // same row scanned unredacted yields 1. The IEX2-14 ticket asked for this
+    // entry; the ticket was wrong about the ordering.
     redactPaths: ["defaultHeaders"]
   },
   {
@@ -57,6 +63,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     fields: ["id","workflowId","title","description","order","config","visibleIf","skipIf"],
     refs: ["workflowId"],
     jsonRefs: ["config","visibleIf","skipIf"],
+    scanPaths: ["config"]
   },
   {
     table: schema.steps,
@@ -66,6 +73,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     fields: ["id","workflowId","sectionId","type","title","description","required","config","alias","defaultValue","order","isVirtual","visibleIf","repeaterConfig"],
     refs: ["workflowId", "sectionId"],
     jsonRefs: ["config","defaultValue","visibleIf","repeaterConfig"],
+    scanPaths: ["config"]
   },
   {
     table: schema.logicRules,
@@ -84,7 +92,8 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     fields: ["id","workflowId","sectionId","type","phase","config","virtualStepId","enabled","order"],
     refs: ["workflowId", "sectionId", "virtualStepId"],
     jsonRefs: ["config"],
-    redactPaths: ["config.headers[].value"]
+    redactPaths: ["config.headers[].value"],
+    scanPaths: ["config"]
   },
   {
     table: schema.transformBlocks,
