@@ -1862,16 +1862,39 @@ tracked as D-7.
 
 **Priority: P2** · Size: M · Files: `server/services/portability/redaction.ts`, `server/services/portability/entityGraph.ts`
 
+> **Refs re-verified 2026-07-31 against `a7e6d672`.** Baselines: `test:fast`
+> **153 files / 2047 tests**; portability `unit-db` **67 / 7**; integration
+> `portability.export` 8. (Unchanged since `b124f9c3` — the three commits since
+> are docs-only, touching `tickets/` alone.)
+>
+> ⚠️ **Every `entityGraph.ts` line number in the Finding below was stale and has
+> been corrected in place.** IEX2-6 rewrote that file and shifted it ~15 lines.
+> The *substance* of the finding still holds exactly as written — there are
+> still exactly two `redactPaths` and three `scanPaths`, all three of the latter
+> on `code` columns — only the citations moved. `redaction.ts` did **not** drift;
+> its refs were already correct.
+>
+> ⚠️ **`ExportService.ts` refs are volatile.** The call site is now
+> `ExportService.ts:308-309` (was `:212-215`, ~96 lines of drift). IEX2-8 is in
+> flight against this same file, so expect it to move again before you land.
+> **Anchor on the `scanForSecrets(` call symbol, not on the line number.** You do
+> not otherwise need to edit `ExportService.ts` for this ticket.
+>
+> **Sequencing is now clear.** The Ties below say to wait for IEX2-3 and IEX2-6;
+> both are committed and pushed, so this ticket is unblocked. It is parallel-safe
+> against IEX2-8/IEX2-17, which touch `ExportService.ts` only.
+
 ### Finding
 
 IEX-6B built a real redaction mechanism, then pointed it at almost nothing.
 
 **Redaction covers two columns.** Across the whole graph there are exactly two
-`redactPaths`: `connections.defaultHeaders` (`entityGraph.ts:40`) and
-`blocks.config.headers[].value` (`entityGraph.ts:102`). A `blocks.config` is
+`redactPaths`: `connections.defaultHeaders` (`entityGraph.ts:41`) and
+`blocks.config.headers[].value` (`entityGraph.ts:87`). A `blocks.config` is
 free-form JSON for an HTTP block — a bearer token in `config.auth.token`, a key
 in `config.body`, or credentials embedded in `config.url` all export in
-cleartext. `steps.config` and `sections.config` (`entityGraph.ts:81`, `:72`) are
+cleartext. `steps.config` (descriptor at `entityGraph.ts:62`, `jsonRefs` at
+`:68`) and `sections.config` (descriptor at `:53`, `jsonRefs` at `:59`) are
 equally free-form and have no redaction at all.
 
 **The scanner structurally cannot look inside JSON.** `scanForSecrets`
@@ -1889,9 +1912,9 @@ for (const path of scanPaths) {
 `rowData[path]` is a direct property read — it has no path traversal, unlike
 `applyRedaction`, which does (`redaction.ts:54-71`). So `scanPaths` can only ever
 name a plain text column. That is why the only three in the graph are the `code`
-columns (`entityGraph.ts:111`, `:120`, `:129`). Every JSON config in the system is
-outside the scanner's reach by construction, and there is no test that would
-notice.
+columns — `transform_blocks` (`entityGraph.ts:96`), `lifecycle_hooks` (`:105`),
+and `document_hooks` (`:114`). Every JSON config in the system is outside the
+scanner's reach by construction, and there is no test that would notice.
 
 The regexes themselves (`redaction.ts:77-99`) are well-judged — vendor token
 shapes, assigned literals, long opaque literals, with a UUID exclusion and a
@@ -1909,7 +1932,8 @@ the coverage is the problem.
    values recursively rather than enumerating every possible key — an allowlist of
    key names will not survive contact with free-form config.
 3. Keep scanning **non-destructive**. It emits `secret_scan` warnings into the
-   manifest (`ExportService.ts:212-215`), which is the right behaviour: the user
+   manifest (the `scanForSecrets(` call, currently `ExportService.ts:308-309`),
+   which is the right behaviour: the user
    is told, the export still happens. Do **not** turn scan hits into redaction —
    silently blanking a user's own config would break the imported workflow.
 
@@ -1918,8 +1942,8 @@ scanning it would produce warnings on every export. Leave it out and say why.
 
 ### Ties
 
-- Edits `entityGraph.ts` — **conflicts with IEX2-3 and IEX2-6. Sequence after
-  both are committed.**
+- Edits `entityGraph.ts` — conflicted with IEX2-3 and IEX2-6; **both are now
+  committed and pushed, so this is unblocked.**
 - Round-1 **IEX-6B** built this mechanism; read its ticket in
   `IMPORT_EXPORT_TICKETS.md:905` before changing the regexes — the exclusions are
   deliberate and were argued for.
