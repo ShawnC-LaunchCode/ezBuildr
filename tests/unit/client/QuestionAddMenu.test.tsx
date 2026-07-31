@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 describe('QuestionAddMenu', () => {
-  it('organizes question categories in a two-column grid', async () => {
+  it('organizes question categories in two independent stacks', async () => {
     const user = userEvent.setup();
     render(
       <QuestionAddMenu
@@ -35,23 +35,19 @@ describe('QuestionAddMenu', () => {
 
     await user.click(screen.getByRole('button', { name: 'Add Question' }));
 
-    const categoryGrid = document.querySelector('.grid.grid-cols-2');
-    expect(categoryGrid).not.toBeNull();
+    const categoryColumns = screen.getAllByTestId('question-category-column');
+    expect(categoryColumns).toHaveLength(2);
+    expect(categoryColumns[0]).toHaveClass('flex', 'flex-col');
+    expect(categoryColumns[1]).toHaveClass('flex', 'flex-col');
 
-    const categoryLabels = Array.from(categoryGrid?.children ?? []).map(
-      (category) => category.firstElementChild?.textContent
+    const categoryLabelsByColumn = categoryColumns.map((column) =>
+      Array.from(column.children).map(
+        (category) => category.firstElementChild?.textContent
+      )
     );
-    expect(categoryLabels).toEqual([
-      'Text Inputs',
-      'Boolean Inputs',
-      'Validated Inputs',
-      'Date/Time',
-      'Choice Inputs',
-      'Numeric Inputs',
-      'Display',
+    expect(categoryLabelsByColumn).toEqual([
+      ['Text Inputs', 'Validated Inputs', 'Choice Inputs', 'Display'],
+      ['Boolean Inputs', 'Date/Time', 'Numeric Inputs'],
     ]);
-
-    expect(categoryGrid).toHaveClass('grid', 'grid-cols-2');
-    expect(categoryGrid?.children).toHaveLength(7);
   });
 });

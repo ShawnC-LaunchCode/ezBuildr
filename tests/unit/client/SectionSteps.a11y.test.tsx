@@ -158,6 +158,12 @@ afterEach(() => {
 });
 
 describe('SectionSteps accessibility smoke', () => {
+  it('visually separates each runner question', () => {
+    renderSection();
+
+    expect(screen.getByTestId('runner-section-steps')).toHaveClass('space-y-8');
+  });
+
   it('covers every rendered runner step type in the fixture', () => {
     const fixtureTypes = new Set(steps.map((step) => step.type));
 
