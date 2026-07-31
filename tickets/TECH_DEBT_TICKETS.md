@@ -38,7 +38,8 @@ feature work.
 |---|---|---|---|---|
 | DEBT-1 | Drain unused eslint-disable directives | P2 | L | ✅ `4912f21f`..`0500ba6b` (8 tranches) — entry removed |
 | DEBT-2 | Retire the 143 blanket file-level eslint-disable headers | P2 | L | 🔲 |
-| DEBT-3 | Restore the three tests skipped for asserting nothing | P1 | M | 🔲 |
+| DEBT-3a | Restore the two skipped `visibleIf` document-generation tests | P1 | M | 🔄 dispatched 2026-07-30 (worktree `debt-3a`) |
+| DEBT-3b | Restore the skipped collab sync test | P1 | S | 🔲 blocked-ish — see Ties |
 | DEBT-4 | E-signature provider registry is never initialized | P1 | S | ✅ `9fcf05b4` — ruled dormant; entry removed |
 | DEBT-5 | `getTemplateFilePath` hardcodes disk storage | P1 | S | ✅ `f308fde2` + `50408c33` — entry removed |
 | DEBT-6 | Two parallel file subsystems | P2 | L | 🔲 |
@@ -113,69 +114,170 @@ tranche commits at review instead. Do not repeat that criterion here.
 
 ---
 
-## DEBT-3 — Restore the three tests skipped for asserting nothing 🔲
+## DEBT-3a — Restore the two skipped `visibleIf` document-generation tests 🔄
 
-**Priority: P1** · Size: M · Files: `tests/unit/collab.server.test.ts`,
-`tests/integration/workflows/runtime-pipelines.test.ts`
+**Priority: P1** · Size: M · Files: `tests/integration/workflows/runtime-pipelines.test.ts`
+(this file only)
+
+*Split from the original DEBT-3 on 2026-07-30. Evidence below was re-verified
+against the tree at `7fd88e89` that day; the collab half is now DEBT-3b.*
 
 ### Finding
 
 Enabling `vitest/expect-expect` in `42996bcb` found six tests that passed while
-asserting nothing. Three were deleted as genuinely worthless; **three describe
-coverage worth having and were marked `.skip` rather than deleted**, so the
-gap is honest instead of hidden. They are now real coverage holes:
+asserting nothing. Three were deleted; three were marked `.skip` rather than
+deleted so the gap stayed honest. Two of those live in this file:
 
-1. `tests/unit/collab.server.test.ts` — `should sync document updates between
-   two clients`. Connected two WebSocket clients, waited 1s, closed them. Its
-   own comment: *"Full Yjs protocol integration would be needed for complete
-   test."* **Real-time collaboration sync is currently untested.**
-2. `tests/integration/workflows/runtime-pipelines.test.ts` — `should skip
-   document generation when visibleIf condition is false`.
-3. Same file — `should generate document when visibleIf condition is true`.
-   Both inserted rows, deleted them, asserted nothing. Their comment:
-   *"we can't easily test document generation without the actual template
-   file."*
+- `runtime-pipelines.test.ts:332` — `should skip document generation when
+  visibleIf condition is false`
+- `runtime-pipelines.test.ts:356` — `should generate document when visibleIf
+  condition is true`
 
-(2) and (3) matter most: `visibleIf`-gated document generation is a
-customer-visible path, and document generation has already produced one live
-production incident this quarter.
+Both insert a `workflowRuns` row and a `stepValues` row, delete the run, and
+assert nothing. Their own comment: *"we can't easily test document generation
+without the actual template file."*
+
+**The re-audit found the deeper reason they assert nothing, and it is not just
+the missing fixture.** The `beforeAll` at line 288 creates a `templates` row
+with `fileRef: '/test/template.docx'` — a fake path with no bytes behind it —
+and puts the `visibleIf` condition in `template.metadata` (lines 298-315,
+`email contains 'show'`). But **that template is never wired into any `'final'`
+step or legacy Final Documents section**, and neither test ever calls a
+generation entry point. So the template is orphaned: even fully unskipped, with
+a real docx on disk, these tests would still generate nothing. Fixing the
+fixture alone will not fix the test.
+
+This matters because `visibleIf`-gated generation is customer-visible and
+document generation has already produced one live production incident this
+quarter.
 
 ### Preferred fix
 
-For (2) and (3): build a real template fixture. `tests/` already generates
-DOCX fixtures elsewhere — find that helper and reuse it rather than committing
-a binary. Then assert on `run_generated_documents` rows: exactly zero when the
-`visibleIf` condition is false, exactly one when true.
+`tests/integration/docs.autogeneration.test.ts` already does this correctly,
+end to end, with nothing stubbed. **Copy its approach; do not invent one.**
 
-For (1): drive the Yjs handshake properly — apply an update on client A and
-assert client B's `Y.Doc` converges, with a bounded wait rather than a fixed
-`setTimeout`.
+1. **Real docx bytes.** Copy the local `createDocxBuffer` helper at
+   `docs.autogeneration.test.ts:29-57` (PizZip — already a dependency —
+   writing `[Content_Types].xml`, `_rels/.rels`, `word/document.xml`) and the
+   `createTemplateOnDisk` pattern at lines 92-106 that writes it under the real
+   `server/files` dir. It is a local, non-exported function in that file, so
+   copying is expected. **Do not commit a binary `.docx`** — none are tracked
+   in this repo and that is deliberate.
+2. **Wire the template into the run.** Point the template's `fileRef` at the
+   real file, then attach it to an actual `'final'` step's
+   `config.documents[]` with the `visibleIf` expression as that document's
+   `conditions` — see `docs.autogeneration.test.ts:157-180`. (The legacy path
+   at `RunLifecycleService.ts:561-566` reads `template.metadata.visibleIf` and
+   maps it onto `documents[].conditions`; either route is acceptable, but the
+   `'final'` step route is the one the sibling test proves.)
+3. **Actually trigger generation:** `await runLifecycleService.generateDocuments(runId)`
+   (`server/services/workflow-runs/RunLifecycleService.ts:364`), exactly as
+   `docs.autogeneration.test.ts:184` does.
+4. **Assert on real rows** in `runGeneratedDocuments` filtered by `runId`:
+   **exactly zero** when the condition is false, **exactly one** when true. For
+   the true branch also read the produced file back and assert its merged text,
+   using the `readDocxText` pattern at `docs.autogeneration.test.ts:60-65`.
 
-If a fixture turns out to be genuinely impractical, that is a blocker to
-report, not a reason to restore an assertion-free test.
+The gate you are proving is `EnhancedDocumentEngine.renderFinalBlock()` at
+`server/services/document/EnhancedDocumentEngine.ts:397-409` (`if
+(doc.conditions) { ... skipped.push({ reason: 'Conditions not met' }) }`),
+which evaluates via `evaluateConditions()` at lines 493-517.
+
+### The trap in this ticket — read before turning in
+
+**A false-branch test that asserts "zero rows" passes trivially if generation
+never ran at all** — which is exactly the bug the current test has. Zero rows
+is the same observation whether the condition correctly excluded the document
+or the template was never wired up.
+
+So AC 5 below is not optional bookkeeping: you must **mutation-test** the pair.
+Flip the fixture's condition (or the step value) so the false case should
+become true, re-run, and confirm the false-branch test **fails**. If it still
+passes, your test is measuring nothing and the ticket is not done. Seven
+turn-ins on a sibling initiative shipped tests that passed for the wrong
+reason; this is the specific check that catches it.
 
 ### Ties
 
-- Introduced by `42996bcb`; the guard that found them is
-  `vitest/expect-expect` in `.eslintrc.json`.
-- **Load `run-tests`** — `runtime-pipelines.test.ts` is in the `integration`
-  project and `collab.server.test.ts` is in `unit`; they need different
-  commands and different database setup.
-- These are two independent files and may be worked in parallel.
+- Introduced by `42996bcb`; the guard that found them is `vitest/expect-expect`
+  in `.eslintrc.json`.
+- **Pattern to copy: `tests/integration/docs.autogeneration.test.ts`** — real
+  PizZip docx, real disk write, real `generateDocuments` call, real row
+  assertions. Read it first.
+- **Load `run-tests`.** This file is in the **`integration`** project, not
+  `unit` — it needs a database (`npm run test:docker:up`) and
+  `npm run test:integration`. `npm test` naively gives wrong results here.
+- **File footprint: this one test file.** No overlap with DEBT-2 (which is
+  repo-wide but touches only files carrying a blanket `/* eslint-disable`
+  header — this file has none) or with the live IEX2 tickets (portability
+  only). Safe to run concurrently with both.
+- Sibling: **DEBT-3b** (collab), deliberately not in scope here.
 
 ### Acceptance criteria
 
-1. All three tests are un-skipped and passing with real assertions.
-2. The document-generation pair asserts on actual
-   `run_generated_documents` rows for both the true and false `visibleIf`
-   branch.
-3. The collab test asserts document convergence between two clients, not
-   merely that both sockets are `OPEN`.
-4. No fixed-duration `setTimeout` is used as the synchronization primitive;
-   wait on a condition with a timeout instead.
-5. `vitest/expect-expect` passes on all three without a suppression.
-6. Gates: type-check 0 errors, lint 0 problems, `npm run test:fast` ≥ baseline,
-   relevant `test:unit` / `test:integration` green.
+1. Both tests at `runtime-pipelines.test.ts:332` and `:356` are un-skipped and
+   passing with real assertions.
+2. The template used is a real, byte-valid docx written to disk by the test,
+   wired into a `'final'` step (or legacy Final Documents section) that the run
+   actually reaches — not an orphaned `templates` row with a fake `fileRef`.
+3. Each test calls a real generation entry point
+   (`runLifecycleService.generateDocuments(runId)` or
+   `runService.generateDocuments(runId)`) and asserts on `runGeneratedDocuments`
+   rows scoped to that run: exactly 0 for the false branch, exactly 1 for the
+   true branch.
+4. The true branch additionally asserts on the *content* of the generated
+   file, read back off disk, not merely on row count.
+5. **Mutation proof, pasted into the turn-in:** with the condition inverted so
+   the false case should generate, the false-branch test **fails**; restored,
+   it passes. Show both runs' output. A turn-in without this is incomplete.
+6. No fixed-duration `setTimeout` is used as a synchronization primitive; wait
+   on a condition with a timeout instead.
+7. `vitest/expect-expect` passes on both tests without a suppression.
+8. Any fixture written to disk is cleaned up in `afterAll`, and the file's
+   existing `afterAll` cleanup (line 325) still leaves no rows behind.
+9. Gates: type-check 0 errors, lint 0 problems, `npm run test:fast` ≥ baseline
+   (152 files / 2045 tests at `7fd88e89`), and
+   `npm run test:integration -- runtime-pipelines` green.
+
+---
+
+## DEBT-3b — Restore the skipped collab sync test 🔲
+
+**Priority: P1** · Size: S · Files: `tests/unit/collab.server.test.ts`
+
+*Split from the original DEBT-3 on 2026-07-30.*
+
+### Finding
+
+`tests/unit/collab.server.test.ts:97` — `should sync document updates between
+two clients` connects two WebSocket clients, waits 1s, and closes them. Its own
+comment: *"Full Yjs protocol integration would be needed for complete test."*
+**Real-time collaboration sync is currently untested**, which also means the
+pending `yjs` bump in DEBT-10 has no safety net.
+
+### Preferred fix
+
+Drive the Yjs handshake properly — apply an update on client A and assert
+client B's `Y.Doc` converges, with a bounded wait on a condition rather than a
+fixed `setTimeout`.
+
+### Ties
+
+- **Sequence after DEBT-2, or accept a collision.** The server this test
+  drives, `server/realtime/collabServer.ts`, carries a blanket file-level
+  `eslint-disable` header and is therefore in DEBT-2's path. The test file
+  itself has no header, so if the fix stays purely in the test, the conflict
+  is avoidable — but any server-side change will collide.
+- **DEBT-10** wants this landed first for the `yjs` bump.
+- Load `run-tests` — this one is in the `unit` project.
+
+### Acceptance criteria
+
+1. The test is un-skipped and asserts document convergence between two
+   clients, not merely that both sockets are `OPEN`.
+2. No fixed-duration `setTimeout` as the synchronization primitive.
+3. `vitest/expect-expect` passes without a suppression.
+4. Gates: type-check 0 errors, lint 0 problems, `npm run test:unit` green.
 
 ---
 
