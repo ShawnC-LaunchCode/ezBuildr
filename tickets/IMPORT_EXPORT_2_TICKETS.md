@@ -1923,7 +1923,55 @@ tracked as D-7.
 
 ---
 
-## IEX2-14 — Secret redaction reaches one JSON path; the scanner cannot see inside JSON at all 🔲
+## IEX2-14 — Secret redaction reaches one JSON path; the scanner cannot see inside JSON at all ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-31 — `0d73dbf7`.** Passed on the first
+> submission; the implementation was good. Gates re-run by the reviewer:
+> type-check 0 · lint 0 · **`check:strict-zones` passed** · `test:fast` 154 /
+> 2052 · portability `unit-db` **7 files / 71 tests** · portability integration
+> **3 / 24**.
+>
+> ⚠️ **The turn-in reported `npx tsx scripts/pre-commit-checks.ts` as a passing
+> gate. Its own quoted output says `No TypeScript/JavaScript files staged for
+> commit. Skipping quality checks.`** — it ran with nothing staged and checked
+> nothing. `check:strict-zones` was therefore never executed by the dev. It does
+> pass; that was luck, not evidence. See
+> [[type-check-is-not-the-commit-gate]].
+>
+> **Mutation-proved:** removing the object descent from `scanRecursive` turns
+> the new JSON-config test red (`expected undefined to be defined`). AC 1 was
+> verified by reading: `walkPath` now takes an `onLeaf` callback and is the
+> single traversal; `scanRecursive` is a *value* descender, not a second path
+> walker, so there is genuinely only one copy.
+>
+> **AC 5 was satisfied by pre-existing coverage** the turn-in never mentioned:
+> `secretScanner.test.ts:16-17` already pins `ctx.secrets.get("STRIPE")` and a
+> bare UUID as non-matches, and both stayed green. Worth noting the false-
+> positive risk did not rise as much as feared — `ASSIGNED_LITERAL` and
+> `LONG_LITERAL` both require surrounding quotes, so scanning raw JSON *values*
+> mostly fires only on `VENDOR_TOKEN` shapes.
+>
+> ### Two reviewer changes
+>
+> 1. **Dropped `scanPaths: ["defaultHeaders"]` from `connections` — this
+>    ticket asked for it and this ticket was wrong.** `ExportService` calls
+>    `applyRedaction` *before* `scanForSecrets`, and `redactPaths:
+>    ["defaultHeaders"]` blanks that whole object, so the scan sees nulls and
+>    can never fire. Proved with a probe: redacted-then-scanned yields **0**
+>    warnings, the same row scanned unredacted yields **1**. Not the dev's
+>    error — Preferred fix step 2 named that column explicitly.
+> 2. **Added the missing half of AC 4.** The test asserted the export was
+>    non-destructive but never imported the bundle back. That half is the one
+>    that matters: IEX2-8 showed a warning shape missing from `manifestSchema`
+>    makes the reader reject the entire bundle. Now asserts
+>    `importService.preview(...).canProceed`.
+>
+> **Honest note on that second one:** mutating `secret_scan` out of
+> `manifestSchema` turns all 5 tests red, because the manifest then fails to
+> *write* on export. So that mutation proves the schema contract is exercised
+> end-to-end but does **not** isolate the import assertion specifically. The
+> assertion is justified by the IEX2-8 precedent rather than by its own
+> mutation.
 
 **Priority: P2** · Size: M · Files: `server/services/portability/redaction.ts`, `server/services/portability/entityGraph.ts`
 
@@ -2044,6 +2092,66 @@ scanning it would produce warnings on every export. Leave it out and say why.
 ## IEX2-15 — The round-trip harness passes because it tests nothing hard 🔲
 
 **Priority: P2** · Size: M · Files: `scripts/verifyPortabilityRoundTrip.ts`
+
+> **Refs re-verified 2026-07-31 against `0d73dbf7`, the dispatch base.** All
+> still current: tenant/user/project creation `:61`, workflow seeding `:84`,
+> section `:91`, steps `:99`, `blobsRestored` `:122-123`, `UI login path OK`
+> `:76`, `RESULT: PASS` near `:172`. `BASE` is `:23` and is overridable with
+> **`PORTABILITY_VERIFY_BASE`** (defaults to `http://localhost:5000`).
+>
+> **Baselines: `test:fast` 154 files / 2052 tests; portability `unit-db` 7
+> files / 71 tests; portability integration 3 files / 24 tests.**
+>
+> **The blocking dependency is cleared — dispatch is now correct.** This ticket
+> says "dispatch LAST"; Phases A, B and C are all committed (IEX2-1..9, 11, 12,
+> 13, 14, 17). This harness is the last portability ticket in the round.
+>
+> ### ⚠️ Four things changed under this ticket since it was written
+>
+> 1. **Export now requires `edit`, not `view` (IEX2-17).** The harness's user
+>    creates its own project so should hold owner rights — but if any assertion
+>    exports as a *second* user or through a share, it now gets a **403** where
+>    it used to get a bundle. If you hit an unexplained 403 on export, this is
+>    why; do not "fix" it by widening the permission check.
+> 2. **Bundles now carry real `appVersion` and `migrationHead`, and import
+>    validates the head (IEX2-8).** Export and import here run against the same
+>    system, so the heads match and nothing should warn. A `schema_drift`
+>    warning appearing in this harness means something is genuinely off — report
+>    it rather than asserting around it.
+> 3. **Bundles can now carry `secret_scan` warnings for JSON config columns
+>    (IEX2-14).** If your seeded `steps.config` / `blocks.config` contains
+>    anything secret-shaped (`sk-…`, `ghp_…`), the manifest will include
+>    warnings. That is correct behaviour and must **not** fail the harness —
+>    warnings are informational, only the import succeeding matters.
+> 4. **The database holds only test data**, so accumulated junk tenants are not
+>    dangerous. Still add the cleanup AC 6 asks for; the point is hygiene, not
+>    rescue.
+>
+> ### ⚠️ Running the server — the trap that will waste your afternoon
+>
+> This is the only ticket in the round that needs a **live app**, and the
+> project's `preview_start` tooling **reads the main checkout's `launch.json`
+> and launches from the repo root** — so it will happily serve **main's**
+> source while you believe you are testing your worktree. Every assertion would
+> then be measuring code you did not write.
+>
+> **Start the server yourself, from inside the worktree, on a non-default
+> port**, and point the harness at it:
+>
+> ```powershell
+> $env:PORT=5055; npm run dev              # from the worktree
+> $env:PORTABILITY_VERIFY_BASE="http://localhost:5055"
+> npx tsx scripts/verifyPortabilityRoundTrip.ts
+> ```
+>
+> Confirm you are hitting your own server before trusting any output — change a
+> log line in the harness, or check that `/health` responds on 5055 and not
+> just 5000.
+>
+> **Do not run this harness while any test suite is running.** It drives a real
+> database, and DB-backed suites share one Postgres with deterministic
+> per-worker schema names — concurrent runs corrupt each other and produce
+> dozens of unrelated failures.
 
 ### Finding
 
