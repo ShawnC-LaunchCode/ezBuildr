@@ -2099,8 +2099,14 @@ scanning it would produce warnings on every export. Leave it out and say why.
 > `:76`, `RESULT: PASS` near `:172`. `BASE` is `:23` and is overridable with
 > **`PORTABILITY_VERIFY_BASE`** (defaults to `http://localhost:5000`).
 >
-> **Baselines: `test:fast` 154 files / 2052 tests; portability `unit-db` 7
-> files / 71 tests; portability integration 3 files / 24 tests.**
+> **Baselines, measured on this exact dispatch base (`785349ca`): `test:fast`
+> **155 files / 2053 tests**; portability `unit-db` 7 files / 71 tests;
+> portability integration 3 files / 24 tests.**
+>
+> Note `test:fast` moved from 154/2052 to 155/2053 mid-review — that was Shawn's
+> own concurrent commit `24957000` adding `QuestionAddMenu.test.tsx`, not
+> anything in this initiative. **Report the number you actually observe**; do
+> not adjust a run to match a target.
 >
 > **The blocking dependency is cleared — dispatch is now correct.** This ticket
 > says "dispatch LAST"; Phases A, B and C are all committed (IEX2-1..9, 11, 12,
