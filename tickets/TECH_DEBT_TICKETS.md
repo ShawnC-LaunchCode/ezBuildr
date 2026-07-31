@@ -205,47 +205,121 @@ fixed `setTimeout`.
 
 ## DEBT-6 — Two parallel file subsystems 🔲
 
-**Priority: P2** · Size: L · Files: `server/services/FileStorageService.ts`,
-`server/services/storage/*`, `shared/schema/files.ts`
+**Priority: P2** · Size: **M** (was L) · Files:
+`server/services/FileStorageService.ts`, `shared/schema/files.ts`,
+`server/repositories/index.ts`, a migration
 
-### Finding
+> ### ⚠️ Re-scoped 2026-07-31 — the premise was wrong, and this is now much smaller
+>
+> **There are not two competing file subsystems. There is one live subsystem and
+> one that is entirely dead code.** Verified against `4ea5f6fd`:
+>
+> - **Nothing anywhere inserts, updates, reads or selects the `files` table.**
+>   `git grep "insert(files\|from(files\|update(files\|schema.files"` over
+>   `server/`, `tests/` and `scripts/` returns **no matches at all**.
+> - **`fileStorageService` is imported by nobody.** The singleton is exported at
+>   `FileStorageService.ts:224`; the only other file in the repo mentioning it
+>   is `entityGraph.ts`, and only inside a *comment* plus an `EXCLUDED_TABLES`
+>   entry that deliberately keeps `files` out of export bundles.
+> - **`FileRepository` was already deleted.** `server/repositories/FileRepository.ts`
+>   does not exist and its export is commented out at
+>   `server/repositories/index.ts:19`.
+> - `storageProvider` has **seven** consumers and is the real subsystem:
+>   `TemplatePreviewService`, `TemplateVersionService`, `templates`,
+>   `templateFiles`, portability `ImportService` and `blobs`, plus
+>   `storage/index.ts`.
+>
+> So the "unification" this ticket was written to design does not need
+> designing. There is nothing to unify and nothing to migrate — and per the
+> project-wide confirmation that the database holds only test data with zero
+> dependencies on existing rows, there are no `files` rows to preserve either.
+>
+> **The original AC 1 (a written proposal approved before implementation) is
+> hereby satisfied by this block.** Shawn's remaining decision is the one in
+> "Decision required" below; everything after it is ordinary deletion work.
+>
+> **Do not** attempt to make `FileStorageService` the surviving subsystem, and
+> do not port its quota/virus-scanning ideas into `storageProvider` as part of
+> this ticket. Those are real gaps but they are separate work — this ticket is
+> removal only.
 
-The app has **two independent file subsystems** that do not know about each
-other:
+### Decision — DELETE, approved by Shawn 2026-07-31
 
-1. The `files` table (`shared/schema/files.ts:28`) plus `FileStorageService`,
-   with its own `storageKey` / `provider` columns.
-2. `storageProvider` (`server/services/storage/index.ts`) addressed by bare
-   `fileRef` strings, with no database row at all — this is where template
-   binaries live.
+✅ **Shawn approved deletion on 2026-07-31 when dispatching this ticket. The
+blocking question is closed — do not stop to re-ask it, and do not implement the
+"keep it" branch.** The reasoning that was put to him is preserved below.
 
-The split is a live source of error. The IEX audit had to warn dispatched devs
-explicitly not to reach for `FileStorageService` when handling template bytes,
-because the obvious-looking API is the wrong one. Storage quota accounting,
-virus scanning, and cleanup all have to be implemented twice or silently apply
-to only one half.
+**Delete the dead subsystem (recommended), or keep it?** Recommended: delete.
+It has never been wired up, `FileRepository` was already removed, and leaving
+it costs a recurring tax — the IEX audit had to warn dispatched devs off it
+precisely because it is the obvious-looking API and the wrong one. That warning
+is the only thing this code has ever done.
 
-### Preferred fix
+The counter-case is that `files` is a more principled design than bare
+`fileRef` strings — it has `storageKey`, `provider`, `size` and a
+`file_context` enum, which is what you would want if quota accounting or
+retention ever became real. Keeping it means keeping a table nothing writes,
+on the chance it is revived. **Deleting does not foreclose that:** the schema
+is recoverable from git history, and rebuilding it against a real requirement
+would be better than reviving a shape guessed at in advance.
 
-Design work before code. Produce a short proposal covering: which subsystem
-survives, how existing `fileRef` values migrate, what happens to quota
-accounting, and whether a database row becomes mandatory for every stored
-object. Bring that to Shawn before implementing — this is a Size L change with
-a migration, and picking the wrong direction is expensive.
+### Preferred fix (once the delete is confirmed)
+
+1. Delete `server/services/FileStorageService.ts` (201 lines) and its
+   `UploadResult` interface.
+2. Drop the `files` table and the `file_context` enum from
+   `shared/schema/files.ts`, plus a generated migration. **Author it with
+   `npm run db:generate` — never hand-edit the journal** (see
+   `db-schema-change`).
+3. Remove the commented-out `FileRepository` export line at
+   `server/repositories/index.ts:19` and the stale comment at `:12`.
+4. Update `entityGraph.ts`'s `EXCLUDED_TABLES` entry for `files` — the table
+   will no longer exist, so an exclusion referencing it is misleading. Check
+   whether `EXCLUDED_TABLES` is asserted against the live schema by
+   `schemaCoverage.test.ts`; if it is, that test is the one that will catch
+   this and it must stay green.
 
 ### Ties
 
-- **Sequence after DEBT-5**, which removes the worst individual symptom.
-- Load `db-schema-change` — any unification needs a migration.
-- Context: the IEX initiative's Phase 1 notes on why template bytes are not in
-  the `files` table.
+- **No longer sequenced after DEBT-5.** That dependency existed because both
+  touched a shared live path; with this reduced to deleting dead code, the only
+  overlap is `entityGraph.ts`.
+- ⚠️ **`entityGraph.ts` is shared with IEX2-14, which is in flight right now.**
+  These were dispatched in parallel deliberately. The regions differ — IEX2-14
+  works the descriptors' `redactPaths`/`scanPaths` near the top of the file,
+  this ticket touches only the `EXCLUDED_TABLES` entry for `files` near the
+  bottom — so a clean merge is expected but not guaranteed. **Do
+  `entityGraph.ts` last**, and `git merge main --ff-only` immediately before you
+  hand the work in so whichever ticket lands second sees the other's edit.
+- Load `db-schema-change` (a table drop is still a migration) and `run-tests`.
+- Related: [[runtime-cwd-files-vs-docker-stage]] is *not* in play here; this
+  code path never ran at all.
 
 ### Acceptance criteria
 
-1. A written proposal exists and has been approved by Shawn **before** any
-   implementation commit.
-2. (Post-approval criteria to be written into this ticket once the direction
-   is chosen — do not implement against a guess.)
+1. `git grep -n "FileStorageService\|fileStorageService"` returns **no matches
+   outside git history** — including the `entityGraph.ts` comment.
+2. The `files` table and `file_context` enum are gone from
+   `shared/schema/files.ts`, with a migration generated by `npm run db:generate`
+   that applies cleanly against a fresh test database.
+3. `schemaCoverage.test.ts` (or whichever test asserts `ENTITY_GRAPH` /
+   `EXCLUDED_TABLES` against the live schema) is green **and** was confirmed to
+   actually cover the removed table — if it does not reference `files` at all,
+   say so rather than claiming coverage.
+4. Portability export and import still round-trip: portability `unit-db` and
+   the portability integration suites green at or above baseline.
+5. Gates: type-check 0, lint 0, `check:strict-zones` passed, `test:fast` ≥
+   baseline. **Note `npm run type-check` is not the commit gate** — run
+   `npx tsx scripts/pre-commit-checks.ts` with the work staged.
+
+### Follow-up spotted while scoping this — not part of DEBT-6
+
+`server/routes/files.routes.ts:33` serves generated documents from
+`path.join(process.cwd(), 'server', 'files', 'outputs')` — the **raw container
+filesystem**, which is a third storage path and is ephemeral on Railway. Any
+generated document written there does not survive a redeploy. That deserves its
+own ticket; it is a live durability question, not a dead-code cleanup, and it
+should not be bundled into this one.
 
 ---
 
