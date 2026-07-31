@@ -1399,14 +1399,39 @@ for this ticket — see D-7.
 
 ---
 
-## IEX2-11 — Export loads every matching row into memory with no pagination 🔲
+## IEX2-11 — Export loads every matching row into memory with no pagination 🔄
 
 **Priority: P1** · Size: M · Files: `server/services/portability/ExportService.ts`
+
+> **Refs re-verified 2026-07-30 against `cc7ef72e`.** The finding reproduces
+> verbatim. Most refs were still accurate; four drifted and are corrected below
+> (`processDescriptor` query block, the id accumulation, and both
+> `portability.routes.ts` refs). IEX2-9 did not touch `ExportService.ts`, which
+> is why the drift is small.
+>
+> ⚠️ **`entityCounts` is the trap in this ticket.**
+> `ExportService.ts:222` sets `state.entityCounts[descriptor.name] =
+> rows.length` from the single unbounded result. Once reads are batched,
+> `rows.length` is one *batch*, and a naive port silently writes a manifest
+> claiming the entity has `BATCH_SIZE` rows. That number is not cosmetic —
+> **IEX2-5 hardened the import audit record specifically so it stops trusting
+> bundle-supplied counts**, and `bundleFormat`'s manifest is round-tripped.
+> Accumulate the total across batches, and assert the manifest count in a test.
+>
+> Two more things the batching must not break, both already in the code:
+> `processBlobRefs` is awaited **per row** inside the loop (`ExportService.ts:207`),
+> and `writeEntityRow` is awaited per row (`ExportService.ts:218`) — that is the
+> backpressure path IEX2-9 just fixed. Do not batch the *writes* into an array;
+> the point of the ticket is that peak memory stays at one chunk.
+>
+> Baselines are now **`test:fast` 152 files / 2045 tests; portability `unit-db`
+> 59 passed / 7 files** (IEX2-9 raised them). Worktree `.claude/worktrees/iex2-9`
+> is reused for this ticket — it already holds the committed IEX2-9 work.
 
 ### Finding
 
 `processDescriptor` runs one unbounded query per entity and materialises all of
-it (`ExportService.ts:196-224`):
+it (`ExportService.ts:194-224`):
 
 ```ts
 const query = conditions.length > 0
@@ -1429,7 +1454,7 @@ file has already scoped.
 There is also no cap on how much an export may produce: no row-count ceiling, no
 timeout. `strictLimiter` (`rateLimiter.ts:54-62`) bounds request *rate*, not the
 cost of one request, and export is a synchronous request/response
-(`portability.routes.ts:202-212`).
+(`portability.routes.ts:206-217` — three GET routes, workflow/project/database).
 
 ### Preferred fix
 
@@ -1440,8 +1465,8 @@ chunk rather than one table.
 
 Mind two existing invariants:
 
-- `state.extractedIds` (`ExportService.ts:201-220`) must still accumulate the
-  **full** id set — child descriptors depend on it (`ExportService.ts:268-277`),
+- `state.extractedIds` (`ExportService.ts:200-220`) must still accumulate the
+  **full** id set — child descriptors depend on it (`ExportService.ts:268-276`),
   and the topological-sort assertion at `ExportService.ts:270-272` must keep
   working. Ids are cheap; rows are not.
 - `workflow_data_sources` has a composite PK and no `id` column
@@ -1451,7 +1476,7 @@ Mind two existing invariants:
 
 Also add a configurable ceiling on total exported rows that fails with a clear
 message rather than running until the process dies, in the style of
-`PORTABILITY_MAX_UPLOAD_BYTES` (`portability.routes.ts:26`).
+`PORTABILITY_MAX_UPLOAD_BYTES` (`portability.routes.ts:27`).
 
 ### Ties
 
