@@ -163,7 +163,120 @@ tranche commits at review instead. Do not repeat that criterion here.
 
 ---
 
-## DEBT-3b — Restore the skipped collab sync test 🔲
+## DEBT-3b — Restore the skipped collab sync test ✅
+
+> **✅ DONE — implemented and verified by the reviewer 2026-07-31, `8dfdee82`.**
+> Not dispatched.
+>
+> ### It found a live production break
+>
+> **Real-time collaboration could not connect at all, for any registered user.**
+> `authenticateConnection` validated `payload.role` against
+> `owner|builder|runner|viewer`, but that claim is the **system** role —
+> `auth.routes.ts:223` sets it to `'creator'` on every registration — so every
+> WebSocket was closed with `1008 Invalid user role` immediately after auth. I
+> saw the close frame directly. `canMutate()` and `AuthenticatedUser.role` are
+> both defined in tenant-role terms, so `tenantRole` is the claim the check
+> always meant. ESLint then flagged the return cast as unnecessary, which is its
+> own confirmation the corrected claim already has the right type.
+>
+> ### The ticket was mis-scoped and could not have been done as written
+>
+> It assumed a test-file-only change in the `unit` project. In fact the whole
+> describe block is gated on `COLLAB_SERVER_URL`, which **nothing in the repo
+> sets**, against a hardcoded `ws://localhost:5174` that nothing starts — so it
+> could never have run. And the collab server calls `loadDocument()`, requiring
+> a database that a `unit-fast` test must not touch. Real coverage now lives in
+> **`tests/integration/collab.sync.test.ts`**; the dead skipped test is deleted
+> and points there.
+>
+> **Gates:** type-check 0 · lint 0 · `check:strict-zones` passed · `test:fast`
+> 2052 passing (skipped 15 → 14) · `collab.sync` 3/3 on an isolated database.
+>
+> **Mutation-proved, and the split is the useful part:** disabling
+> `broadcastUpdate` fails the two live-sync tests while the late-joiner test
+> still passes — because that one exercises the initial-sync path instead.
+> Reverting the auth fix fails all three. A whole-file revert would have shown
+> neither.
+>
+> **Two traps worth keeping:** `server/routes.ts:48` already calls
+> `initCollabServer`, so attaching a second one produces
+> `handleUpgrade() was called more than once` **while the tests still appear to
+> pass**. And the integration harness mints `authToken` at registration, before
+> it assigns the tenant, so that token carries a null `tenantId` and the collab
+> server rejects it as cross-tenant — re-mint from the persisted user row.
+
+---
+
+## DEBT-14 — `creation-routes.test.ts` fails 18 tests only when the whole file runs 🔲
+
+**Priority: P2** · Size: M · Files: `tests/integration/creation-routes.test.ts`
+
+*Filed by the reviewer 2026-07-31 while clearing DEBT-3b. Not a product bug —
+the endpoints are fine. This is a test-isolation defect that has been poisoning
+every full integration run.*
+
+### Finding
+
+Running the full `integration` project, this file fails **18 of 38 tests**, all
+of them in the two `duplicate` describe blocks (`:630` steps, `:719` sections),
+and the file takes **~1270 seconds** — roughly 33s per failing test, the shape
+of request timeouts rather than assertion failures.
+
+**The same tests pass in isolation.** Verified on a dedicated, empty Postgres
+with nothing else running:
+
+- `-t "returns 404 for a nonexistent section"` → **1 passed**, 9.3s.
+- `-t "ICW2-B5"` (both duplicate blocks, 10 tests) → **10 passed**, 12.8s.
+
+So the endpoints work. Something earlier in the file leaves state that makes the
+last two describes hang. The file has a single `setupIntegrationTest` in one
+`beforeAll` (`:39`), so it is not a per-describe server leak. A prime suspect is
+the `aggregate size caps (ICW-11)` block at `:247`, which mutates the shared
+`LIMITS.MAX_SECTIONS_PER_WORKFLOW` / `MAX_STEPS_PER_WORKFLOW` globals and
+restores them in `afterEach` — a leak there would make later duplicate calls hit
+a cap of 3 — but that is a hypothesis, not a diagnosis.
+
+### Why this matters more than 18 tests
+
+**It has been masking real signal.** Two full integration runs during the DEBT-3b
+review failed with *different* files each time, which read as database
+contention — and some of it was. This file is not contention: it reproduces on a
+private database with nothing else running. As long as it fails, no full
+integration run can be trusted, and the reviewer discipline of "run the whole
+suite before committing" is unusable.
+
+### Preferred fix
+
+Find what leaks, do not paper over it. Bisect by running progressively more of
+the file — the duplicate blocks pass alone, so add preceding describes until
+they start failing, and the last one added is the culprit. Then fix the leak at
+its source rather than reordering tests or adding retries.
+
+Capture the **actual error** from a failing run first: a filtered
+`Select-String` on the output hides it, which is why this went undiagnosed
+through two full-suite runs. Report what the failing requests actually return.
+
+### Ties
+
+- Load `run-tests`. Use a dedicated database (see below) so contention cannot be
+  confused with the defect.
+- Related: `concurrent-test-runs-share-one-db` — schema names are per *worker*,
+  not per process, so any two DB-backed runs collide. There are now reviewer
+  Postgres instances on **5435** and **5436** for exactly this.
+
+### Acceptance criteria
+
+1. The root cause is named with evidence — which earlier describe leaks what.
+2. `npm run test:integration -- tests/integration/creation-routes.test.ts` runs
+   **38 passed** in a time comparable to the ~13s the duplicate blocks take
+   alone, not ~1270s.
+3. The fix is at the source of the leak; no test reordering, retries, or
+   increased timeouts as the remedy.
+4. A full `npm run test:integration` completes green on a dedicated database.
+5. Gates: type-check 0, lint 0, `check:strict-zones` passed.
+
+---
 
 **Priority: P1** · Size: S · Files: `tests/unit/collab.server.test.ts`
 
