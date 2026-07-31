@@ -239,7 +239,30 @@ Close, with a reason, anything not wanted rather than leaving it open.
 
 ---
 
-## DEBT-13 — Legacy Final Documents casts `metadata.visibleIf` onto a mismatched type 🔲
+## DEBT-13 — Legacy Final Documents casts `metadata.visibleIf` onto a mismatched type ✅
+
+> **DONE — implemented and verified by the reviewer 2026-07-31, `fec4dbe7`.**
+> Not dispatched; the rescope reduced it below dispatch overhead.
+>
+> The read and the cast are gone; `conditions` is now unconditionally `null`,
+> which is byte-for-byte what `metadata?.visibleIf ?? null` already produced for
+> every row, so the change cannot alter runtime behaviour.
+> `buildLegacyFinalBlockConfig` was retained as required.
+>
+> **Gates, all run by the reviewer:** type-check exit 0 · lint exit 0
+> (`npm run lint`) · `test:fast` **153 files / 2047 tests** (exactly baseline) ·
+> `docs.autogeneration` + `runner-hardening-run13` **9/9 green**.
+>
+> **Mutation-proved.** Neutering `buildLegacyFinalBlockConfig` with an early
+> `return null` turned **exactly one** `docs.autogeneration` test red in 13.8s —
+> a genuine assertion failure, not a crash or hang, and the probe was confirmed
+> present in the file before the run. The coverage claimed in AC 4 is real.
+>
+> ⚠️ **Process note for the next person:** `docs.autogeneration.test.ts` failed
+> with a 300s hook timeout and 6 skipped tests when run in parallel with another
+> integration file, then passed 6/6 alone under `VITEST_SINGLE_FORK=true`. That
+> is the flake the `run-tests` skill warns about — not a regression. Re-run
+> single-fork before believing an integration failure in this area.
 
 **Priority: P3** · Size: S · Files:
 `server/services/workflow-runs/RunLifecycleService.ts`
