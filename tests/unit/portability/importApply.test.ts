@@ -9,7 +9,7 @@ import AdmZip from 'adm-zip';
 import { randomUUID } from 'crypto';
 import { db } from '../../../server/db';
 import {
-  projects, workflows, datavaultTables, datavaultDatabases, steps, projectAccess,
+  projects, workflows, datavaultTables, datavaultDatabases, steps, projectAccess, workflowAccess,
   sections, logicRules, blocks, transformBlocks, lifecycleHooks, documentHooks,
   workflowVersions, datavaultRows
 } from '@shared/schema';
@@ -115,6 +115,22 @@ describeWithDb('ImportService - apply', () => {
       databaseId: dbRow.id,
       name: 'Test Table',
       slug: 'test-table-slug'
+    });
+
+    await db.insert(projectAccess).values({
+      id: randomUUID(),
+      projectId: project.id,
+      principalType: 'user',
+      principalId: user.id,
+      role: 'edit'
+    });
+
+    await db.insert(workflowAccess).values({
+      id: randomUUID(),
+      workflowId: workflow.id,
+      principalType: 'user',
+      principalId: user.id,
+      role: 'edit'
     });
 
     projectBundle = await exportService.export({ scope: 'project', id: project.id }, user.id);
@@ -789,6 +805,47 @@ describeWithDb('ImportService - apply', () => {
     const nullTargetRule = rules.find(r => r.targetStepId === null);
     expect(nullTargetRule).toBeDefined();
     expect(rules.length).toBe(2);
+  });
+
+  it('reads importable flag instead of field matching (IEX2-6 AC 1/AC 2)', () => {
+    const shouldSkipEntity = (importService as any).shouldSkipEntity.bind(importService);
+    
+    // importable: false and no role field -> skipped
+    const skippedDesc = { importable: false, fields: ['id', 'someField'] };
+    expect(shouldSkipEntity(skippedDesc)).toBe(true);
+
+    // importable: true (or undefined) and role field -> NOT skipped
+    const notSkippedDesc = { fields: ['id', 'role'] };
+    expect(shouldSkipEntity(notSkippedDesc)).toBe(false);
+
+    const explicitlyNotSkippedDesc = { importable: true, fields: ['id', 'role'] };
+    expect(shouldSkipEntity(explicitlyNotSkippedDesc)).toBe(false);
+  });
+
+  it('bundle contains no principalId values from the source system (IEX2-6 AC 3)', async () => {
+    // We already have projectBundle exported from beforeEach.
+    // Check its zip entries.
+    const zip = new AdmZip(projectBundle);
+    for (const entry of zip.getEntries()) {
+      if (entry.entryName.startsWith('entities/') && entry.entryName.endsWith('.jsonl')) {
+        const lines = entry.getData().toString('utf8').split('\n').filter(Boolean);
+        for (const line of lines) {
+          const row = JSON.parse(line);
+          expect(row.principalId).toBeUndefined();
+        }
+      }
+    }
+    
+    const wfZip = new AdmZip(workflowBundle);
+    for (const entry of wfZip.getEntries()) {
+      if (entry.entryName.startsWith('entities/') && entry.entryName.endsWith('.jsonl')) {
+        const lines = entry.getData().toString('utf8').split('\n').filter(Boolean);
+        for (const line of lines) {
+          const row = JSON.parse(line);
+          expect(row.principalId).toBeUndefined();
+        }
+      }
+    }
   });
 
   it('does not write a REAL foreign step id verbatim (IEX2-2 AC 1)', async () => {

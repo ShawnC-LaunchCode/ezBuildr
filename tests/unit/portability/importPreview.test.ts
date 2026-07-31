@@ -7,6 +7,7 @@ import AdmZip from 'adm-zip';
 import { randomUUID } from 'crypto';
 import { FORMAT_VERSION } from '../../../server/services/portability/bundleFormat';
 import { db } from '../../../server/db';
+import { eq } from 'drizzle-orm';
 import { projects, workflows, datavaultTables, steps, secrets, externalConnections, transformBlocks } from '@shared/schema';
 
 import { recomputeChecksum } from '../../helpers/bundleTestHelper';
@@ -21,11 +22,21 @@ describeWithDb('ImportService - preview', () => {
   
   beforeEach(async () => {
     tf = new TestFactory();
-    const t = await tf.createTenant();
-    user = t.user;
-    project = t.project;
-    const w = await tf.createWorkflow(project.id, user.id);
-    workflow = w.workflow;
+    const tfResult = await tf.createTenant();
+    user = tfResult.user;
+    project = tfResult.project;
+
+    // Set ownerType and ownerUuid so that ensureUniqueProjectTitle will find it
+    await db.update(projects).set({ ownerType: 'user', ownerUuid: user.id }).where(eq(projects.id, project.id));
+    project.ownerType = 'user';
+    project.ownerUuid = user.id;
+
+    workflow = (await tf.createWorkflow(project.id, user.id)).workflow;
+    
+    // Set ownerType and ownerUuid on workflow so ensureUniqueWorkflowTitle will find it
+    await db.update(workflows).set({ ownerType: 'user', ownerUuid: user.id }).where(eq(workflows.id, workflow.id));
+    workflow.ownerType = 'user';
+    workflow.ownerUuid = user.id;
     
     // Add some entities to test collisions and re-entry
     await db.insert(secrets).values({
@@ -199,21 +210,142 @@ describeWithDb('ImportService - preview', () => {
     );
   });
 
-  it('detects name/slug/alias collisions', async () => {
+  it('detects accurate project/workflow collisions but ignores false alias/workflow collisions (IEX2-7)', async () => {
     const previewProject = await importService.preview(projectBundle, user.id);
-    const previewWorkflow = await importService.preview(workflowBundle, user.id);
+    const previewWorkflow = await importService.preview(workflowBundle, user.id, project.id);
+    
+    // Project bundle: project title collides, but workflows don't (they go into the new project)
     expect(previewProject.collisions).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ entity: 'projects' }),
+        expect.objectContaining({ entity: 'projects' })
+      ])
+    );
+    expect(previewProject.collisions.find(c => c.entity === 'workflows')).toBeUndefined();
+
+    // Workflow bundle: workflow title collides, but step aliases don't (they are unique to the new workflow)
+    expect(previewWorkflow.collisions).toEqual(
+      expect.arrayContaining([
         expect.objectContaining({ entity: 'workflows' })
       ])
     );
-    expect(previewWorkflow.collisions).toEqual(
+    expect(previewWorkflow.collisions.find(c => c.entity === 'steps')).toBeUndefined();
+  });
+
+  it('detects step alias collisions within the same bundle (IEX2-7 AC 2)', async () => {
+    // We inject a duplicate step into the workflow bundle
+    const zip = new AdmZip(workflowBundle);
+    // Insert two steps with the SAME alias into the same workflow bundle
+    const secId = randomUUID();
+    const stepRow1 = { 
+      id: randomUUID(), 
+      workflowId: workflow.id, 
+      sectionId: secId,
+      title: 'Step 1',
+      order: 1,
+      alias: 'duplicate_alias', 
+      type: 'short_text' 
+    };
+    const stepRow2 = { 
+      id: randomUUID(), 
+      workflowId: workflow.id, 
+      sectionId: secId,
+      title: 'Step 2',
+      order: 2,
+      alias: 'duplicate_alias', 
+      type: 'short_text' 
+    };
+    
+    // Delete existing steps.jsonl and add the tampered one
+    zip.deleteFile('entities/steps.jsonl');
+    zip.addFile('entities/steps.jsonl', Buffer.from(`${JSON.stringify(stepRow1)}\n${JSON.stringify(stepRow2)}\n`));
+    
+    let newBuffer = zip.toBuffer();
+
+    // Recompute the checksum of the zip contents because we tampered with steps.jsonl
+    const zip2 = new AdmZip(newBuffer);
+    const manifestEntry = zip2.getEntry('manifest.json');
+    const manifest = JSON.parse(manifestEntry!.getData().toString('utf8'));
+    
+    // Ensure steps are counted in the manifest so the reader actually processes them
+    manifest.entityCounts = manifest.entityCounts || {};
+    manifest.entityCounts.steps = 2;
+    
+    recomputeChecksum(zip2, manifest);
+    zip2.deleteFile('manifest.json');
+    zip2.addFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
+    newBuffer = zip2.toBuffer();
+
+    const preview = await importService.preview(newBuffer, user.id);
+    
+    expect(preview.collisions).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ entity: 'workflows' }),
-        expect.objectContaining({ entity: 'steps' })
+        expect.objectContaining({ entity: 'steps', name: 'duplicate_alias', type: 'step_alias' })
       ])
     );
+  });
+
+  it('ignores identical step aliases across different workflows in the same bundle', async () => {
+      // Simulate two different workflows in a project bundle sharing an alias 'email'
+      const zip = new AdmZip(projectBundle);
+      const secId = randomUUID();
+      const stepRow1 = { 
+        id: randomUUID(), 
+        workflowId: randomUUID(), // Workflow A
+        sectionId: secId,
+        title: 'Email Step A',
+        order: 1,
+        alias: 'email', 
+        type: 'short_text' 
+      };
+      const stepRow2 = { 
+        id: randomUUID(), 
+        workflowId: randomUUID(), // Workflow B
+        sectionId: secId,
+        title: 'Email Step B',
+        order: 1,
+        alias: 'email', 
+        type: 'short_text' 
+      };
+      
+      // Since it's a project bundle, it might not have steps.jsonl yet, or we can just create/overwrite it
+      if (zip.getEntry('entities/steps.jsonl')) {
+        zip.deleteFile('entities/steps.jsonl');
+      }
+      zip.addFile('entities/steps.jsonl', Buffer.from(`${JSON.stringify(stepRow1)}\n${JSON.stringify(stepRow2)}\n`));
+      
+      let newBuffer = zip.toBuffer();
+
+      const zip2 = new AdmZip(newBuffer);
+      const manifestEntry = zip2.getEntry('manifest.json');
+      const manifest = JSON.parse(manifestEntry!.getData().toString('utf8'));
+      
+      manifest.entityCounts = manifest.entityCounts || {};
+      manifest.entityCounts.steps = 2;
+      
+      recomputeChecksum(zip2, manifest);
+      zip2.deleteFile('manifest.json');
+      zip2.addFile('manifest.json', Buffer.from(JSON.stringify(manifest)));
+      newBuffer = zip2.toBuffer();
+
+      const preview = await importService.preview(newBuffer, user.id);
+      
+      // Should NOT report a collision for 'email' because they are in different workflows
+      expect(preview.collisions.find(c => c.entity === 'steps' && c.name === 'email')).toBeUndefined();
+    });
+
+  it('detects project title collisions accurately based on target owner (IEX2-7 AC 3)', async () => {
+    // The testFactory created a project for 'user'. So importing it for 'user' causes a collision.
+    const previewSelf = await importService.preview(projectBundle, user.id);
+    expect(previewSelf.collisions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ entity: 'projects' })
+      ])
+    );
+    
+    // If imported by another user (who doesn't have a project with that title), no collision!
+    const otherUserTenant = await tf.createTenant();
+    const previewOther = await importService.preview(projectBundle, otherUserTenant.user.id);
+    expect(previewOther.collisions.find(c => c.entity === 'projects')).toBeUndefined();
   });
 
   it('sets executable-code flag when hooks or transform blocks are present', async () => {

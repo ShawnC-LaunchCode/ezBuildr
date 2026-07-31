@@ -12,6 +12,7 @@ export interface EntityDescriptor {
   blobRefs?: string[];
   redactPaths?: string[];
   scanPaths?: string[];
+  importable?: boolean;
 }
 
 export const ENTITY_GRAPH: EntityDescriptor[] = [
@@ -40,14 +41,6 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     redactPaths: ["defaultHeaders"]
   },
   {
-    table: schema.projectAccess,
-    name: 'project_access',
-    scopes: ["project"],
-    parent: {"name":"projects","fk":"projectId"},
-    fields: ["id","projectId","principalType","principalId","role"],
-    refs: ["projectId"],
-  },
-  {
     table: schema.workflows,
     name: 'workflows',
     scopes: ["project","workflow"],
@@ -55,14 +48,6 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     fields: ["id","title","name","description","creatorId","ownerId","modeOverride","publicLink","projectId","currentVersionId","isPublic","slug","requireLogin","intakeConfig","settings","pinnedVersionId","status","ownerType","ownerUuid","sourceBlueprintId"],
     refs: ["projectId", "currentVersionId", "pinnedVersionId", "sourceBlueprintId"],
     jsonRefs: ["intakeConfig"],
-  },
-  {
-    table: schema.workflowAccess,
-    name: 'workflow_access',
-    scopes: ["project","workflow"],
-    parent: {"name":"workflows","fk":"workflowId"},
-    fields: ["id","workflowId","principalType","principalId","role"],
-    refs: ["workflowId"],
   },
   {
     table: schema.sections,
@@ -217,22 +202,6 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     jsonRefs: ["value"],
   },
   {
-    table: schema.datavaultDatabaseAccess,
-    name: 'datavault_database_access',
-    scopes: ["project","workflow","database"],
-    parent: {"name":"datavault_databases","fk":"databaseId"},
-    fields: ["id","databaseId","principalType","principalId","role"],
-    refs: ["databaseId"],
-  },
-  {
-    table: schema.datavaultTableAccess,
-    name: 'datavault_table_access',
-    scopes: ["project","workflow","database"],
-    parent: {"name":"datavault_tables","fk":"tableId"},
-    fields: ["id","tableId","principalType","principalId","role"],
-    refs: ["tableId"],
-  },
-  {
     table: schema.workflowDataSources,
     name: 'workflow_data_sources',
     scopes: ["project","workflow"],
@@ -261,6 +230,10 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
 ];
 
 export const EXCLUDED_TABLES: Record<string, string> = {
+  'project_access': 'Access control lists are instance-bound and never exported.',
+  'workflow_access': 'Access control lists are instance-bound and never exported.',
+  'datavault_database_access': 'Access control lists are instance-bound and never exported.',
+  'datavault_table_access': 'Access control lists are instance-bound and never exported.',
   'tenants': 'System identity is instance-specific and not portable.',
   'users': 'User identities belong to the host system.',
   'organizations': 'Organization structure is instance-bound.',

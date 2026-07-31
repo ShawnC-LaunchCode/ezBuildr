@@ -108,7 +108,12 @@ export class ImportService {
     }
   }
 
-  private async getTargetTenantId(userId: string, targetProjectId?: string): Promise<string | null> {
+  private async getTargetOwnerForPreview(userId: string, targetProjectId?: string): Promise<TargetOwner | null> {
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (user?.tenantId == null) {
+      return null;
+    }
+
     if (targetProjectId !== undefined) {
       const [project] = await db.select().from(projects).where(eq(projects.id, targetProjectId)).limit(1);
       if (project === undefined) {
@@ -118,24 +123,32 @@ export class ImportService {
       if (!canView) {
         throw new Error('Access denied - insufficient permissions for this project');
       }
-      return project.tenantId;
+      return {
+        ownerType: project.ownerType ?? 'user',
+        ownerUuid: project.ownerUuid ?? project.ownerId ?? project.createdBy ?? project.creatorId ?? userId,
+        tenantId: project.tenantId ?? user.tenantId
+      };
     }
-    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    if (user !== undefined) {
-      return user.tenantId;
-    }
-    return null;
+    return {
+      ownerType: 'user',
+      ownerUuid: userId,
+      tenantId: user.tenantId
+    };
   }
 
   private async checkCollisions(
-    targetTenantId: string,
+    targetOwner: TargetOwner,
+    targetProjectId: string | undefined,
     extracted: { projects: Set<string>; workflows: Set<string>; tableSlugs: Set<string>; stepAliases: Set<string> },
     result: ImportPreview
   ): Promise<void> {
     if (extracted.projects.size > 0) {
-      const existingProjects = await db.select({ name: projects.name })
+      const existingProjects = await db.select({ name: projects.title })
         .from(projects)
-        .where(eq(projects.tenantId, targetTenantId));
+        .where(and(
+          eq(projects.ownerType, targetOwner.ownerType),
+          eq(projects.ownerUuid, targetOwner.ownerUuid)
+        ));
       const existingNames = new Set(existingProjects.map(p => p.name).filter(Boolean));
       for (const name of extracted.projects) {
         if (existingNames.has(name)) {
@@ -144,13 +157,16 @@ export class ImportService {
       }
     }
 
-    if (extracted.workflows.size > 0) {
-      const query = db.select({ title: workflows.title })
+    if (extracted.workflows.size > 0 && extracted.projects.size === 0) {
+      const projectCondition = targetProjectId ? eq(workflows.projectId, targetProjectId) : isNull(workflows.projectId);
+      const existingWorkflows = await db.select({ title: workflows.title })
         .from(workflows)
-        .innerJoin(projects, eq(workflows.projectId, projects.id))
-        .where(eq(projects.tenantId, targetTenantId));
+        .where(and(
+          eq(workflows.ownerType, targetOwner.ownerType),
+          eq(workflows.ownerUuid, targetOwner.ownerUuid),
+          projectCondition
+        ));
         
-      const existingWorkflows = await query;
       const existingNames = new Set(existingWorkflows.map(w => w.title).filter(Boolean));
       for (const title of extracted.workflows) {
         if (existingNames.has(title)) {
@@ -162,7 +178,7 @@ export class ImportService {
     if (extracted.tableSlugs.size > 0) {
       const existingTables = await db.select({ slug: datavaultTables.slug })
         .from(datavaultTables)
-        .where(eq(datavaultTables.tenantId, targetTenantId));
+        .where(eq(datavaultTables.tenantId, targetOwner.tenantId));
       const existingSlugs = new Set(existingTables.map(t => t.slug).filter(Boolean));
       for (const slug of extracted.tableSlugs) {
         if (existingSlugs.has(slug)) {
@@ -170,26 +186,12 @@ export class ImportService {
         }
       }
     }
-
-    if (extracted.stepAliases.size > 0) {
-      const query = db.select({ alias: steps.alias })
-        .from(steps)
-        .innerJoin(workflows, eq(steps.workflowId, workflows.id))
-        .innerJoin(projects, eq(workflows.projectId, projects.id))
-        .where(eq(projects.tenantId, targetTenantId));
-        
-      const existingSteps = await query;
-      const existingAliases = new Set(existingSteps.map(s => s.alias).filter(Boolean));
-      for (const alias of extracted.stepAliases) {
-        if (existingAliases.has(alias)) {
-          result.collisions.push({ entity: 'steps', name: alias, type: 'step_alias' });
-        }
-      }
-    }
+    
+    // Step aliases check removed: checked during processEntityStream.
   }
 
   private shouldSkipEntity(desc: EntityDescriptor): boolean {
-    return desc.fields.includes('role') || desc.fields.includes('tenantRole');
+    return desc.importable === false;
   }
 
   private wrapDateField(schema: z.ZodTypeAny): z.ZodTypeAny {
@@ -335,8 +337,13 @@ export class ImportService {
       if (desc.name === 'datavault_tables' && typeof data['slug'] === 'string' && data['slug'] !== '') {
         extracted.tableSlugs.add(data['slug']);
       }
-      if (desc.name === 'steps' && typeof data['alias'] === 'string' && data['alias'] !== '') {
-        extracted.stepAliases.add(data['alias']);
+      if (desc.name === 'steps' && typeof data['alias'] === 'string' && data['alias'] !== '' && typeof data['workflowId'] === 'string' && data['workflowId'] !== '') {
+        const scopeKey = `${data['workflowId']}::${data['alias']}`;
+        if (extracted.stepAliases.has(scopeKey)) {
+          result.collisions.push({ entity: 'steps', name: data['alias'], type: 'step_alias' });
+        } else {
+          extracted.stepAliases.add(scopeKey);
+        }
       }
 
       this.checkDanglingReferences(desc, data, bundleIds, result);
@@ -350,7 +357,7 @@ export class ImportService {
   }
 
   async preview(buffer: Buffer, userId: string, targetProjectId?: string): Promise<ImportPreview> {
-    const targetTenantId = await this.getTargetTenantId(userId, targetProjectId);
+    const targetOwner = await this.getTargetOwnerForPreview(userId, targetProjectId);
     const tmpPath = path.join(os.tmpdir(), `import_preview_${randomUUID()}.ezb`);
     await fs.promises.writeFile(tmpPath, buffer);
     const result: ImportPreview = {
@@ -392,8 +399,8 @@ export class ImportService {
       }
       this.extractManifestMetadata(reader.manifest, result);
 
-      if (targetTenantId !== null) {
-        await this.checkCollisions(targetTenantId, extracted, result);
+      if (targetOwner !== null) {
+        await this.checkCollisions(targetOwner, targetProjectId, extracted, result);
       }
     } catch (err: unknown) {
       if (err instanceof Error) {
