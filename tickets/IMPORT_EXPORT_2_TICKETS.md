@@ -125,7 +125,7 @@ Proven live are marked **[PROVEN]** with the reproduction.
 | Phase | Theme | Tickets | Status |
 |---|---|---|---|
 | A | **P0 — the feature does not work on real data** | IEX2-1..4 | ✅ **COMPLETE** — all four P0s fixed |
-| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔄 IEX2-5 ✅ IEX2-6 ✅ IEX2-7 ✅ IEX2-9 ✅; IEX2-11 in review, then 8 → 17 |
+| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔄 IEX2-5 ✅ 6 ✅ 7 ✅ 9 ✅ 11 ✅; **only IEX2-8 → 17 left** |
 | C | P2 — hardening, redaction depth, real proof | IEX2-12..15 | 🔄 IEX2-12 ✅ + IEX2-13 ✅ done |
 | D | Make the feature reachable | IEX2-16 | ⏸️ **deferred out of round 2** |
 
@@ -1435,7 +1435,40 @@ for this ticket — see D-7.
 
 ---
 
-## IEX2-11 — Export loads every matching row into memory with no pagination 🔄
+## IEX2-11 — Export loads every matching row into memory with no pagination ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-31 — `bc8ac67a`.** Gates re-run by the
+> reviewer: tsc 0, lint 0, `test:fast` **153 files / 2047 tests**, portability
+> `unit-db` **67 / 7**, integration `portability.export` **8 passed**.
+>
+> Passed on the **third** submission. All five criteria mutation-verified:
+> AC 2 `entityCounts` → one batch (`expected 2 to be 5`); AC 3 `ids.clear()`
+> per batch (`expected 1 to be 5`); AC 5 `statusCode` removed
+> (`expected 500 to be 413`).
+>
+> **Why it took three rounds — two reusable lessons:**
+> 1. Round 2's AC 5 test was a route-level integration test that **never passed
+>    in either direction**: 429 in-file (it sat after the rate-limit test in a
+>    `describe.sequential` block) and 200 in isolation (**the integration suite
+>    drives a separate server process, so `process.env` set in the test process
+>    never reaches the server**). An env-var-driven limit cannot be exercised
+>    over HTTP that way. It now asserts `classifyRouteError` directly, in
+>    `tests/unit/utils/routeErrors.test.ts`, where it is observable.
+> 2. Three consecutive "mutation proofs" were a **crash, a hang, and a
+>    pre-existing failure** — an infinite loop tripping the row cap, a timeout,
+>    and a test that was already red. See [[mutation-testing-pitfalls]]: a
+>    mutation only counts when a specific assertion flips.
+>
+> **Design notes for IEX2-8/17, which follow in this file:**
+> - Keyset (`gt(id, lastId)`) is used wherever a descriptor has an `id`. Do not
+>   regress this to OFFSET — it is quadratic in exactly the large-table case.
+> - `workflow_data_sources` is the **only** descriptor without an `id`; it uses
+>   limit/offset ordered by `createdAt` + `descriptor.fields`, which for that
+>   table are the composite PK columns, so the sort is unique. `createdAt` alone
+>   is not enough: `now()` is transaction-constant, so rows written together tie.
+> - No descriptor has an `id` column while omitting `id` from `fields` — if one
+>   is ever added, `nextLastId` becomes `undefined` and the keyset loop spins
+>   until the row cap fires.
 
 **Priority: P1** · Size: M · Files: `server/services/portability/ExportService.ts`
 
