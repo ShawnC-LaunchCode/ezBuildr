@@ -125,7 +125,7 @@ Proven live are marked **[PROVEN]** with the reproduction.
 | Phase | Theme | Tickets | Status |
 |---|---|---|---|
 | A | **P0 — the feature does not work on real data** | IEX2-1..4 | ✅ **COMPLETE** — all four P0s fixed |
-| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔄 IEX2-5 ✅ done; IEX2-9 in flight |
+| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔄 IEX2-5 ✅ done; IEX2-9 + IEX2-6/7 in flight |
 | C | P2 — hardening, redaction depth, real proof | IEX2-12..15 | 🔄 IEX2-12 ✅ + IEX2-13 ✅ done |
 | D | Make the feature reachable | IEX2-16 | ⏸️ **deferred out of round 2** |
 
@@ -901,9 +901,15 @@ malformed input, and returning 201 for it is wrong.
 
 ---
 
-## IEX2-6 — Bundles leak the source system's user/team UUIDs and role assignments, and import drops them via a fragile heuristic 🔲
+## IEX2-6 — Bundles leak the source system's user/team UUIDs and role assignments, and import drops them via a fragile heuristic 🔄
 
 **Priority: P1 (information disclosure)** · Size: M · Files: `server/services/portability/entityGraph.ts`, `server/services/portability/ImportService.ts`
+
+> **Refs re-verified 2026-07-30 against `54b1fcc7`.** Every finding below still
+> reproduces verbatim. `entityGraph.ts` line numbers are unchanged; all
+> `ImportService.ts` line numbers were refreshed (Phase A + IEX2-5 shifted them
+> 15–125 lines). Dispatched with IEX2-7 into worktree
+> `.claude/worktrees/iex2-6-7` — **do IEX2-6 first and completely, then IEX2-7.**
 
 ### Finding
 
@@ -929,7 +935,7 @@ source system and who holds which role on what. `EXCLUDED_TABLES`
 re-export their primary keys anyway.
 
 On the import side, all four are dropped — but by a **field-name heuristic**
-(`ImportService.ts:176-178`):
+(`ImportService.ts:191-193`):
 
 ```ts
 private shouldSkipEntity(desc: EntityDescriptor): boolean {
@@ -951,7 +957,7 @@ Two changes:
    to `EntityDescriptor` (`entityGraph.ts:4-15`) and set `importable: false` on
    the four `*_access` descriptors. Replace the body of `shouldSkipEntity` with a
    read of that flag. Keep the method — its call sites
-   (`ImportService.ts:266, 484, 695, 712`) are fine.
+   (`ImportService.ts:380, 390, 624, 866, 922`) are fine.
 2. **Stop exporting principal identifiers.** Drop the four `*_access`
    descriptors from `scopes` for export, *or* keep the row and drop
    `principalId`/`principalType` from `fields`. Recommend the former: a
@@ -961,7 +967,7 @@ Two changes:
    of the existing entries).
 
 For the user-id columns on ordinary entities, **do not remove them in this
-ticket** — `enforceOwnership` (`ImportService.ts:441-457`) already overwrites
+ticket** — `enforceOwnership` (`ImportService.ts:565-597`) already overwrites
 every one of them on import, so they are import-safe; only the export-side
 disclosure remains. Raise it in your report and it will be triaged (backlog B-1).
 
@@ -973,7 +979,7 @@ disclosure remains. Raise it in your report and it will be triaged (backlog B-1)
 - `tests/unit/portability/schemaCoverage.test.ts` **will fail** when you change
   the classification — that is the test doing its job. Update it deliberately,
   with a reason string, and say so in your report.
-- Existing test to preserve: `importApply.test.ts:330` "silently drops role
+- Existing test to preserve: `importApply.test.ts:490` "silently drops role
   assignments to prevent privilege escalation (AC 5)" must still pass.
 - Load `add-api-endpoint` and `run-tests`.
 
@@ -996,13 +1002,20 @@ disclosure remains. Raise it in your report and it will be triaged (backlog B-1)
 
 ---
 
-## IEX2-7 — Preview reports collisions that are not collisions 🔲
+## IEX2-7 — Preview reports collisions that are not collisions 🔄
 
 **Priority: P1** · Size: S · Files: `server/services/portability/ImportService.ts`
 
+> **Refs re-verified 2026-07-30 against `54b1fcc7`.** Both defects still
+> reproduce verbatim: preview still reads `projects.name` while apply enforces
+> on `projects.title`, and the alias check still joins out to the tenant. All
+> `ImportService.ts` line numbers below were refreshed. Dispatched with IEX2-6
+> into worktree `.claude/worktrees/iex2-6-7` — **work this only after IEX2-6 is
+> finished and its gates are green.**
+
 ### Finding
 
-`checkCollisions` (`ImportService.ts:115-174`) is what the user reads before
+`checkCollisions` (`ImportService.ts:130-188`) is what the user reads before
 deciding whether to apply a bundle. Two of its four checks are wrong.
 
 **(a) Step aliases are checked tenant-wide; they are unique per workflow.** The
@@ -1014,7 +1027,7 @@ uniqueIndex("steps_workflow_alias_unique")
 — `shared/schema/workflow.ts:287`, on `(workflowId, alias)`.
 
 But the preview query joins all the way out to the tenant
-(`ImportService.ts:159-173`) and flags any alias used anywhere in it. Aliases are
+(`ImportService.ts:172-186`) and flags any alias used anywhere in it. Aliases are
 short, human-chosen names (`email`, `full_name`, `address`) — in a tenant with a
 handful of workflows, essentially **every** alias in an incoming bundle will be
 reported as a collision. The user is shown a wall of red for an import that
@@ -1023,9 +1036,9 @@ collide). The predictable outcome is that users learn to ignore the collision
 list, which defeats the point of preview.
 
 **(b) The project check reads a different column than the enforcement does.**
-Preview compares `projects.name` (`ImportService.ts:121-124`); the actual
+Preview compares `projects.name` (`ImportService.ts:135-142`); the actual
 uniqueness enforcement at apply time, `ensureUniqueProjectTitle`
-(`ImportService.ts:360-378`), compares `projects.title` scoped to
+(`ImportService.ts:484-501`), compares `projects.title` scoped to
 `(ownerType, ownerUuid)`. So preview can report a collision that apply will not
 act on, and miss one it will.
 
@@ -1035,14 +1048,14 @@ act on, and miss one it will.
 an import always creates a new workflow, so the only alias collision that can
 occur is *within the bundle itself* — two steps in one imported workflow sharing
 an alias. Check for that instead (it is a cheap in-memory check over the rows
-already streamed in `processEntityStream`, `ImportService.ts:228-230`), and only
+already streamed in `processEntityStream`, `ImportService.ts:305-311`), and only
 report those.
 
 **(b)** Make preview query the same columns and the same scope that
 `ensureUniqueProjectTitle`/`ensureUniqueWorkflowTitle` use at apply time —
 `title`, scoped by `(ownerType, ownerUuid)`. Preview must predict what apply
 will do; anything else is noise. Note that preview may run without a
-`targetProjectId` (`ImportService.ts:271-273`), so resolve the same owner context
+`targetProjectId` (`ImportService.ts:394-396`), so resolve the same owner context
 apply would, or state clearly in the preview response that the scope is the
 caller's default.
 
