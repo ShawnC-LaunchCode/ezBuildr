@@ -44,6 +44,7 @@ export interface ImportPreview {
   hasExecutableCode: boolean;
   warnings: ExportWarning[];
   errors: string[];
+  migrationHead?: string | null;
 }
 
 interface ProcessEntityContext {
@@ -92,6 +93,7 @@ interface BlobReference {
 
 export class ImportService {
   private extractManifestMetadata(manifest: BundleManifest, result: ImportPreview): void {
+    result.migrationHead = manifest.migrationHead;
     if (manifest.requiresReentry !== undefined) {
       for (const entry of manifest.requiresReentry) {
         if (entry.type === 'secret' || entry.type === 'connection') {
