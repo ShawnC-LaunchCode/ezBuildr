@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useWorkflowSteps } from "@/hooks/api/useSteps";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useWorkflowVariables } from "@/lib/vault-hooks";
@@ -24,6 +25,7 @@ interface VariablesInspectorProps {
 
 export function VariablesInspector({ workflowId, className }: VariablesInspectorProps) {
   const { data: variables = [] } = useWorkflowVariables(workflowId);
+  const { data: steps = [] } = useWorkflowSteps(workflowId);
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedVars, setExpandedVars] = useState<Set<string>>(new Set());
@@ -102,6 +104,7 @@ export function VariablesInspector({ workflowId, className }: VariablesInspector
                       isExpanded={expandedVars.has(variable.key)}
                       onToggle={toggleExpanded}
                       onCopy={handleCopy}
+                      steps={steps}
                     />
                   ))}
                 </div>

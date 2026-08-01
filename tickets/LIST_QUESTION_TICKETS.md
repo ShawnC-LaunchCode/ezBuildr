@@ -1,4 +1,4 @@
-# List Question Type — New Feature Tickets (LIST-1..14 + backlog B1..B9)
+# List Question Type — New Feature Tickets (LIST-1..14 + backlog B1..B10)
 
 Source: feature design session + codebase investigation, 2026-07-31.
 Scope: a new nestable, repeating question type ("List") under **Add Question**,
@@ -891,7 +891,7 @@ the dev's report. 851 lines across 5 new files + 2 one-line wirings.
 
 ---
 
-## LIST-7 — Surface list variables in the builder's variable pickers 🔲
+## LIST-7 — Surface list variables in the builder's variable pickers ✅ Done (2026-08-01)
 
 **Priority: P2** · Size: M · File: `client/src/components/builder/VariablesInspector.tsx`
 
@@ -943,6 +943,94 @@ should appear as a single leaf there, not a tree.
 6. New test asserts 1, 2, and 4.
 7. **Live proof required:** screenshot of both panels with a 3-level list.
 8. Gates: type-check 0 errors, lint clean, `npm run test:fast` green.
+
+### Verification (2026-08-01)
+
+- New pure module `client/src/components/builder/variables/listVariableTree.ts`:
+  `buildListVariableTree(variable, steps)` finds the matching step, structurally
+  guards its `config` (returns `null` for a non-list variable or a
+  missing/malformed config, same convention as the two existing `isListConfig`
+  duplicates in `server/services/document/VariableNormalizer.ts` and
+  `server/workflows/validation.ts`), and recursively expands `ListConfig.fields`
+  (sorted by `order`) into a tree. Each node carries a `templateSnippet`: a
+  leaf gets `{{#ancestor1}}...{{#ancestorN}}{{alias}}{{/ancestorN}}...{{/ancestor1}}`;
+  a nested `kind: "list"` node gets the same wrapping with an empty body — the
+  loop-scope form the finding asked for, verified byte-for-byte against
+  docxtemplater's existing `{{#collection}}...{{/collection}}` convention used
+  elsewhere in `docs/guides/VARIABLES_IN_DOCUMENTS.md`. LIST-11 (document
+  projection) is still open, so this is the syntax LIST-11 must match, not the
+  reverse.
+- New `client/src/components/builder/variables/ListFieldTree.tsx`: recursive
+  renderer, one `useState<Set<id>>` per level so a 3-level/12-field list stays
+  collapsed below the level a user actually opened (AC5) — each level requires
+  its own click, proven live (see below).
+- `VariableItem.tsx` (VariablesInspector) and `VariablePalette.tsx` both now
+  fetch `useWorkflowSteps(workflowId)` and pass it into `buildListVariableTree`;
+  a `list` variable renders `ListFieldTree` in place of the old
+  query/read_table/list_tools-only placeholder body, which is unchanged for
+  those types. `utils.tsx` gained a `ListTree` icon for `type === "list"`,
+  distinct from the DataVault `Database` icon `isListType` already owned —
+  the two "list" concepts (DataVault action results vs. the List question
+  type) were kept separate rather than merged.
+- **Scope note, decided with Shawn before implementing:** `VariablesInspector`
+  turned out to be dead code — nothing imported it anywhere in the client.
+  Its own docstring said it was built for the Logic panel's "Variables" tab,
+  which instead rendered `LogicVariablesTab.tsx`, a hardcoded fake JSON
+  placeholder admitting in a comment it wasn't real. Shawn chose wiring the
+  real component into that tab over leaving it orphaned. `LogicInspectorPanel.tsx`
+  now renders `VariablesInspector` there (deleted the dead placeholder file).
+  This left the panel itself with no way to open it — `logicPanelOpen` state
+  existed in `WorkflowBuilder.tsx` but nothing ever called
+  `setLogicPanelOpen(true)`. Added a "Logic" toolbar button next to
+  Preview/Share/AI Assist, matching their existing pattern, so the panel (and
+  this ticket's live-proof requirement) is reachable at all. Filed as
+  observations, not new tickets — both are one-line fixes bundled with this
+  ticket's own change, not separate scope.
+- AC4 (count-only operand in logic pickers): no condition/operand-picker UI
+  exists in this ticket's file footprint to touch, so the new test pins the
+  regression at the source — `getOperatorsForStepType('list')` still returns
+  exactly the 5 count operators LIST-4 added, unchanged by this ticket.
+- New test file `tests/unit/client/listVariableTree.test.ts` (11 tests): null
+  for non-list/malformed config, top-level expansion (AC1/AC2), 3-level
+  recursion (children → addresses → occupants, matching the initiative's
+  canonical example), field-order sorting, step-id alias fallback, the
+  templateSnippet form at 1/2/3 levels deep including the nested-list-node
+  empty-body shell (AC3), and the AC4 operator-count pin.
+- **Live proof (2026-08-01):** built a real 3-level List ("children" →
+  "addresses" → "occupants") in the running dev app (workflow "LIST-7 Verify"),
+  confirmed via direct API fetch that the authored config persisted correctly,
+  then drove both surfaces:
+  - VariablesInspector, now live at Logic → Variables: expanding each level in
+    sequence produced exactly `children[LIST] → name[SHORT_TEXT], addresses[LIST]
+    → street[SHORT_TEXT], occupants[LIST] → occName[SHORT_TEXT]`, matching AC1/2/5.
+    Copying the deepest leaf produced the toast
+    `{{#children}}{{#addresses}}{{#occupants}}{{occName}}{{/occupants}}{{/addresses}}{{/children}}`.
+  - VariablePalette, live inside a JS Transform block's variable panel: same
+    expansion, same copied snippet, byte-identical to VariablesInspector and to
+    the unit test.
+  - The Browser pane wasn't displayed in this session (pane-not-displayed —
+    see `browser-pane-frozen-animations` in project memory), so `computer`
+    screenshots weren't obtainable; verification instead used direct DOM
+    inspection (`innerText`, `aria-expanded`, toast content) against the live
+    running app, which confirms the same rendered output a screenshot would
+    have shown. Noting this as a deviation from AC7's literal "screenshot,"
+    not a skipped criterion — the behavior was proven live, pixel capture was
+    the only unavailable part.
+- Gates: `npm run type-check` 0 errors; `npx eslint` on all 9 touched/new
+  files clean; `npm run test:fast` 2123/2137 passed (14 pre-existing skips, up
+  from 2112 at the previous ticket, no reductions); `npm run check:strict-zones`
+  all 6 zones pass (none of this ticket's files are in a strict zone).
+- File footprint (final, includes the two scope-note additions above):
+  `client/src/components/builder/VariablesInspector.tsx`,
+  `client/src/components/builder/pages/VariablePalette.tsx`,
+  `client/src/components/builder/variables/VariableItem.tsx`,
+  `client/src/components/builder/variables/utils.tsx`,
+  `client/src/components/builder/variables/ListFieldTree.tsx` (new),
+  `client/src/components/builder/variables/listVariableTree.ts` (new),
+  `client/src/components/builder/LogicInspectorPanel.tsx`,
+  `client/src/pages/WorkflowBuilder.tsx`,
+  deleted `client/src/components/builder/logic/LogicVariablesTab.tsx`,
+  `tests/unit/client/listVariableTree.test.ts` (new).
 
 ---
 
@@ -1329,7 +1417,7 @@ so a deep list can't produce an unreadable wall.
 Makes collected list data useful. Scope is deliberately narrow: template loop
 tags and the top-level dropdown binding. No script helpers (Decision 7).
 
-## LIST-11 — Project list values into document templates as nested loops 🔲
+## LIST-11 — Project list values into document templates as nested loops ✅ Done (2026-08-01)
 
 **Priority: ENH** · Size: M · File: `server/services/document/VariableNormalizer.ts`
 
@@ -1433,6 +1521,39 @@ LIST-7 must display to authors:
 8. New test file covers 2–5 against a real DOCX fixture.
 9. Gates: type-check 0 errors, lint clean, `npm run test:fast` green,
    document-related integration tests green.
+
+### Verification (2026-08-01) — committed `004a7055`
+
+All nine criteria checked against the tree by the reviewer.
+
+- **The Finding held up.** The loop machinery genuinely needed no changes:
+  `RenderCore.ts` and `templatePlaceholders.ts` are byte-identical (AC6
+  verified via `git status`), and the only work was projecting the right shape
+  into machinery that already worked.
+- **Wired at all three surfaces, not left as an unreachable helper** — the real
+  run path (`RunLifecycleService`), the preview path (`finalBlock.routes`), and
+  the threading between them (`FinalBlockRenderer`). This is the trap LIST-3
+  fell into (its validator sat uncalled until LIST-14); LIST-11 avoided it.
+- **AC7 is satisfied structurally, not just by test.** `listConfigs` defaults to
+  `{}`, and a key with no config passes `value` through unchanged — so every
+  existing caller and every non-list value takes exactly the old path. The
+  array passthrough that made loops work in the first place is untouched.
+- **AC8's tests are a real round-trip**, not mocks: they build a DOCX with
+  PizZip, render through docxtemplater, and extract the resulting text. The four
+  cases map one-to-one onto AC2–AC5, including the two empty-list edge cases.
+- Reviewer-run gates: `tsc --noEmit` 0 errors repo-wide, `eslint` 0 problems on
+  all 5 files, the new file 4/4, document suites 116 tests across 7 files,
+  `test:fast` 163 files / 2112 tests green, pre-commit 4/4.
+- **On the test count:** the dev's report of 2112 looked like it should have
+  been 2116 after adding 4 tests. It reconciles — the reviewer's own
+  post-LIST-13 "baseline" of 2112 was measured while this ticket's test file
+  was *already* present in the shared tree, so it had counted these 4 tests
+  before they were turned in. The dev's explanation of the shift (LIST-13
+  deleting two files) was accurate.
+- Committed staging only this ticket's 5 paths; the tree concurrently held
+  in-flight auth/marketing/signup work, untouched.
+
+**Filed from this review: LIST-B10.**
 
 ---
 
@@ -1754,6 +1875,16 @@ structural and always active regardless of mode. The open question is only
 whether a 50,000-item submission should be *stored*. Reviewer's view: these two
 caps should be unconditional, unlike ordinary field rules. Shawn to decide;
 this is a ticket-design question, not a defect in LIST-14.
+
+**LIST-B10 — `MappingValidator` does not project list values.** Noted
+reviewing LIST-11 (2026-08-01). `MappingValidator.ts:150` and `:332` call
+`normalizeVariables(testStepValues)` with no options, so list steps are not
+projected there. Template mapping *validation* therefore sees the raw storage
+envelope while actual *rendering* sees the projected array — a mapping onto a
+list variable could report a false warning even though the document renders
+correctly. Output is unaffected; this is a validation-surface inconsistency
+only. Fix by threading `getListConfigsByAlias` into both call sites, the same
+way LIST-11 did for the render paths.
 
 **LIST-B9 — the `db-schema-change` skill is stale and gave wrong guidance twice.**
 It documents the migration chain as `0000`–`0002` and states "The next new

@@ -7,7 +7,7 @@ import type { ApiWorkflow } from "@/lib/vault-api";
 
 import { LogicDebugTab } from "./logic/LogicDebugTab";
 import { LogicGeneratorTab } from "./logic/LogicGeneratorTab";
-import { LogicVariablesTab } from "./logic/LogicVariablesTab";
+import { VariablesInspector } from "./VariablesInspector";
 
 interface LogicInspectorPanelProps {
     workflowId: string;
@@ -46,8 +46,8 @@ export function LogicInspectorPanel({ workflowId, currentWorkflow, isOpen, onClo
                         <LogicDebugTab workflowId={workflowId} currentWorkflow={currentWorkflow} />
                     </TabsContent>
 
-                    <TabsContent value="variables" className="flex-1 p-4 space-y-4 overflow-auto">
-                        <LogicVariablesTab />
+                    <TabsContent value="variables" className="flex-1 p-0 overflow-hidden">
+                        <VariablesInspector workflowId={workflowId} className="h-full border-0 rounded-none" />
                     </TabsContent>
                 </Tabs>
             </div>

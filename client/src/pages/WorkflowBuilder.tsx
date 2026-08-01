@@ -7,6 +7,7 @@ import {
   Eye,
   ChevronDown,
   ArrowLeft,
+  GitGraph,
   Link2,
   Sparkles,
   Share2,
@@ -321,6 +322,13 @@ export default function WorkflowBuilder() {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    <Button
+                      variant={logicPanelOpen ? "secondary" : "outline"}
+                      size="sm"
+                      onClick={() => setLogicPanelOpen(!logicPanelOpen)}
+                    >
+                      <GitGraph className="w-4 h-4 mr-2" /> Logic
+                    </Button>
                     <Button
                       variant={aiPanelOpen ? "secondary" : "outline"}
                       size="sm"

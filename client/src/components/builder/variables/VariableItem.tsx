@@ -4,8 +4,10 @@ import { Copy, ChevronDown, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { type ApiWorkflowVariable } from "@/lib/vault-api";
+import { type ApiStep, type ApiWorkflowVariable } from "@/lib/vault-api";
 
+import { ListFieldTree } from "./ListFieldTree";
+import { buildListVariableTree } from "./listVariableTree";
 import { getVariableIcon, isListType } from "./utils";
 
 interface VariableItemProps {
@@ -13,15 +15,19 @@ interface VariableItemProps {
     isExpanded: boolean;
     onToggle: (key: string) => void;
     onCopy: (path: string) => void;
+    /** Full steps (with config), needed to expand a `list` variable's field tree. */
+    steps?: ApiStep[];
 }
 
 export function VariableItem({
     variable,
     isExpanded,
     onToggle,
-    onCopy
+    onCopy,
+    steps = []
 }: VariableItemProps) {
-    const showExpand = isListType(variable.type);
+    const listTree = buildListVariableTree(variable, steps);
+    const showExpand = isListType(variable.type) || listTree !== null;
     const variablePath = variable.alias ?? variable.key;
 
     return (
@@ -82,7 +88,12 @@ export function VariableItem({
                 </Button>
             </div>
             {/* Expanded List Inspector */}
-            {showExpand && isExpanded && (
+            {showExpand && isExpanded && listTree && (
+                <div className="ml-7 pl-2 border-l-2 border-muted">
+                    <ListFieldTree nodes={listTree} onCopy={onCopy} />
+                </div>
+            )}
+            {showExpand && isExpanded && !listTree && (
                 <div className="ml-7 pl-2 border-l-2 border-muted">
                     {/* Placeholder for actual list data - in real usage, this would need list metadata */}
                     <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded-md">
