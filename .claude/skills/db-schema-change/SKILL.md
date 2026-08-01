@@ -41,14 +41,30 @@ lockstep.**
    `npm run db:push`, but push is interactive and destructive on drift — never
    the source of truth.
 
-### Current chain (2026-07-19 regeneration)
+### The chain (regenerated 2026-07-19)
 
-- `0000_init_baseline.sql` — full current schema (all tables/enums/FKs/indexes), regenerated from `shared/schema.ts`.
+The chain **starts** with three files that will not change:
+
+- `0000_init_baseline.sql` — full schema at regeneration time (all tables/enums/FKs/indexes), generated from `shared/schema.ts`.
 - `0001_enable_rls.sql` — custom: direct-`tenant_id` policies + `app_current_tenant()`/`app_owner_tenant()` + workflows/sections/steps policies.
 - `0002_db_functions.sql` — custom: DataVault autonumber PL/pgSQL functions.
 
-The next new migration is `0003_...`. Do **not** edit the baseline for new
+Everything after `0002` is ordinary incremental work and grows over time, so
+**never trust a hard-coded "next migration is NNNN" here** — this section said
+`0003` long after the chain had reached `0009`, which is exactly the kind of
+stale instruction that produces a wrong migration. Get the real answer from the
+tree every time:
+
+```bash
+ls migrations/*.sql | tail -3          # highest applied number
+```
+
+`db:generate` picks the next number itself. Do **not** edit the baseline for new
 changes — always add a new file via `db:generate`.
+
+⚠️ **Check for unmerged migrations before generating.** `db:generate` numbers
+from the *local* chain, so two devs working in parallel both produce `NNNN` and
+collide at merge.
 
 ## Tests apply migrations their own way — keep them working
 
@@ -79,7 +95,38 @@ A tenant table without a policy is a silent cross-tenant leak once RLS is enforc
 
 ## Enum changes
 
-`stepTypeEnum` and friends are `pgEnum`s (e.g. `shared/schema/workflow.ts:38`). Adding a value needs both the TS enum edit **and** a migration with `ALTER TYPE "step_type" ADD VALUE IF NOT EXISTS 'new_value';`. Postgres can't remove enum values — plan additions carefully.
+`stepTypeEnum` and friends are `pgEnum`s (e.g. `shared/schema/workflow.ts:38`).
+
+**Edit the TS `pgEnum` list, then run plain `npm run db:generate`. That is all.**
+drizzle-kit handles both directions natively — do **not** reach for `--custom`
+(both LIST-1 and LIST-13 specified it wrongly on the strength of this section's
+earlier wording):
+
+- **Adding** a value → `ALTER TYPE "step_type" ADD VALUE 'new_value';`
+- **Removing** a value → Postgres has no `DROP VALUE`, but drizzle-kit emits the
+  standard type-recreate round-trip on its own:
+
+  ```sql
+  ALTER TABLE "steps" ALTER COLUMN "type" SET DATA TYPE text;
+  DROP TYPE "public"."step_type";
+  CREATE TYPE "public"."step_type" AS ENUM(...remaining values...);
+  ALTER TABLE "steps" ALTER COLUMN "type" SET DATA TYPE "public"."step_type" USING "type"::"public"."step_type";
+  ```
+
+**`--custom` is actively wrong for enum work**: it prepares an empty file by
+**copying the previous snapshot** rather than regenerating one, so `meta/` ends
+up claiming values that no longer exist and the *next* `db:generate` diffs
+against a false baseline.
+
+Two things worth knowing about a removal:
+
+- That final `USING ...::"public"."step_type"` cast is **self-guarding** — a
+  surviving row holding a retired value aborts the migration with
+  `invalid input value for enum`, rather than silently losing data. You do not
+  need to hand-write a pre-check.
+- Check what else depends on the type first (`grep -rn "myEnum" shared/schema/`).
+  A type used by one column is a clean swap; several columns means several
+  `ALTER COLUMN` pairs, and drizzle handles that too, but read the generated SQL.
 
 ## Troubleshooting
 

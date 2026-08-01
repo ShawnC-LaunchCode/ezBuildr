@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Midnight Waffle Society — Coordinates at Midnight</title>
+<meta name="description" content="A secret society that meets over waffles. Coordinates released at midnight on the first Friday. Tell no one. Tell everyone.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3Cmask id='b'%3E%3Crect width='64' height='64' fill='white'/%3E%3Ccircle cx='56' cy='12' r='16' fill='black'/%3E%3C/mask%3E%3C/defs%3E%3Cg mask='url(%23b)'%3E%3Crect x='4' y='4' width='56' height='56' rx='14' fill='%23f0a63c'/%3E%3Cpath d='M22 8v48M42 8v48M8 22h48M8 42h48' stroke='%23875312' stroke-width='6' stroke-linecap='round'/%3E%3C/g%3E%3Ccircle cx='47' cy='20' r='1.8' fill='%23f0a63c'/%3E%3Ccircle cx='52' cy='26' r='1.2' fill='%23f0a63c'/%3E%3C/svg%3E">
+
+<!-- Real typefaces: Fraunces (buttery, wonky, made for this) + Space Mono (the dossier voice).
+     Robust fallbacks below mean nothing breaks offline. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   THE MIDNIGHT WAFFLE SOCIETY — ceiling pass
+   Art direction: a leaked case file photographed on a midnight
+   diner table — paper evidence under syrup-colored light,
+   and someone bit the moon.
+   Mood: clandestine / buttery / nocturnal-giddy
+   ============================================================ */
+
+:root {
+  /* night side — espresso darks, warmed, never gray */
+  --bg:        oklch(14% 0.016 65);
+  --bg-2:      oklch(18% 0.02 68);
+  --bg-3:      oklch(22% 0.024 70);
+  --line:      oklch(31% 0.034 72);
+  --line-soft: oklch(24% 0.026 70);
+  --ink:       oklch(94% 0.028 88);
+  --ink-dim:   oklch(72% 0.035 82);
+  --ink-faint: oklch(54% 0.035 78);
+
+  /* syrup — THE accent, hot where it matters */
+  --amber:     oklch(79% 0.15 78);
+  --amber-hot: oklch(87% 0.165 84);
+  --amber-dim: oklch(60% 0.115 72);
+
+  /* paper side — the evidence */
+  --paper:      oklch(93% 0.022 92);
+  --paper-2:    oklch(89% 0.026 90);
+  --paper-ink:  oklch(24% 0.02 60);
+  --paper-dim:  oklch(42% 0.025 65);
+  --paper-line: oklch(24% 0.02 60 / 0.28);
+
+  /* case-file red — braver now */
+  --red:      oklch(54% 0.20 27);
+  --red-hot:  oklch(60% 0.22 28);
+  --redact:   oklch(11% 0.012 65);
+
+  /* type */
+  --serif: "Fraunces", "Palatino Linotype", Palatino, Georgia, serif;
+  --mono:  "Space Mono", ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+
+  --t-xs: 0.72rem;
+  --t-sm: 0.85rem;
+  --t-md: 1.0625rem;   /* 17px body */
+  --t-lg: 1.33rem;
+  --t-xl: 1.7rem;
+  --t-2xl: clamp(2.2rem, 1.4rem + 3.2vw, 3.6rem);
+
+  --s-1: 0.5rem; --s-2: 1rem; --s-3: 1.5rem; --s-4: 2rem;
+  --s-6: 3rem;  --s-8: 4rem; --s-12: 6rem;  --s-16: 8rem;
+
+  --radius: 4px;
+  --radius-lg: 10px;
+  --fast: 160ms;
+  --med: 320ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --measure: 60ch;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  background:
+    radial-gradient(120vmax 90vmax at 78% -12%, oklch(24% 0.05 72 / 0.55), transparent 55%),
+    var(--bg);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-size: var(--t-md);
+  line-height: 1.68;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--amber); color: oklch(16% 0.03 70); }
+
+::-webkit-scrollbar { width: 12px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 6px; border: 3px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--amber-dim); }
+
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* film grain — static (whisper volume, zero jank) */
+body::after {
+  content: "";
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 60;
+  opacity: 0.055;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---------- voices ---------- */
+.overline {
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--amber);
+}
+.file-no {
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.14em;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+}
+
+/* ---------- rumor ticker ---------- */
+.ticker {
+  position: relative;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--bg-2);
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 0.55rem 0;
+  z-index: 5;
+}
+.ticker__track { display: inline-block; animation: ticker 48s linear infinite; }
+.ticker__track span {
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-dim);
+  padding-right: 3.5rem;
+}
+.ticker__track span b { color: var(--amber); font-weight: 400; }
+@keyframes ticker { to { transform: translateX(-50%); } }
+
+/* ============================================================
+   THE MOMENT — asymmetric hero: someone bit the moon
+   ============================================================ */
+.hero {
+  position: relative;
+  min-height: 100svh;
+  display: grid;
+  align-content: center;
+  padding: clamp(4rem, 9vh, 7rem) clamp(1.25rem, 5vw, 5rem) clamp(5rem, 11vh, 8rem);
+  isolation: isolate;
+  /* no overflow clip: the moon must slide under the ticker and off the
+     right edge naturally; body overflow-x handles the horizontal spill */
+}
+
+/* the bitten waffle moon — off-center, cropped by the frame.
+   .moonpar is the parallax target (kept animation-free so inline
+   transforms from the scroll handler never fight a keyframe). */
+.moonpar {
+  position: absolute;
+  top: clamp(-4rem, -2vw, 0rem);
+  right: clamp(-18vmin, -6vw, -4rem);
+  width: clamp(300px, 62vmin, 660px);
+  aspect-ratio: 1;
+  z-index: -1;
+  will-change: transform;
+}
+.moonwrap {
+  position: relative;
+  display: block;
+  width: 100%; height: 100%;
+  border: none; background: none; padding: 0;
+  cursor: pointer;
+  filter:
+    drop-shadow(0 0 50px oklch(74% 0.15 78 / 0.32))
+    drop-shadow(0 0 160px oklch(72% 0.15 76 / 0.22));
+  animation: moonrise 1.8s var(--ease) both;
+}
+.moonwrap svg { width: 100%; height: 100%; display: block; overflow: visible; animation: moonbob 11s ease-in-out 1.8s infinite; }
+@keyframes moonrise {
+  from { opacity: 0; transform: translateY(6%) rotate(4deg); }
+  to   { opacity: 1; transform: translateY(0) rotate(0deg); }
+}
+@keyframes moonbob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(-0.8deg); }
+}
+.moonwrap:focus-visible { outline-offset: 10px; border-radius: 50%; }
+
+/* vertical coordinates running the left edge — case-file margin note */
+.coord-rail {
+  position: absolute;
+  left: clamp(0.4rem, 1.4vw, 1.4rem);
+  top: 50%;
+  translate: 0 -50%;
+  writing-mode: vertical-rl;
+  rotate: 180deg;
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.22em;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  animation: fadein 1.2s var(--ease) 1.2s both;
+  z-index: 1;
+}
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 900px) { .coord-rail { display: none; } }
+
+.hero__inner { max-width: 76rem; margin-inline: auto; width: 100%; }
+
+.hero__overline { display: block; margin-bottom: var(--s-3); animation: rise 0.9s var(--ease) 0.2s both; }
+
+.hero h1 {
+  font-family: var(--serif);
+  font-weight: 850;
+  font-optical-sizing: auto;
+  font-size: clamp(3.4rem, 12.5vw, 11.5rem);
+  line-height: 0.9;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+  color: var(--ink);
+  text-shadow: 0 2px 40px oklch(8% 0.02 70 / 0.85);
+}
+.hero h1 .row { display: block; animation: rise 0.9s var(--ease) both; }
+.hero h1 .row:nth-child(1) { animation-delay: 0.30s; }
+.hero h1 .row:nth-child(2) {
+  animation-delay: 0.42s;
+  font-style: italic;
+  font-weight: 640;
+  color: var(--amber);
+  padding-right: 0.06em; /* italic overhang */
+  text-shadow: 0 2px 40px oklch(8% 0.02 70 / 0.85), 0 0 90px oklch(78% 0.15 80 / 0.5);
+  margin-left: 0.9ch; /* the wonky step — deliberate misalignment */
+}
+.hero h1 .row:nth-child(3) { animation-delay: 0.54s; }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hero__sub {
+  margin-top: var(--s-3);
+  max-width: 44ch;
+  color: var(--ink-dim);
+  font-style: italic;
+  font-weight: 420;
+  font-size: var(--t-lg);
+  line-height: 1.5;
+  animation: rise 0.9s var(--ease) 0.68s both;
+}
+
+/* the countdown — a real perforated ticket now */
+.ticket {
+  margin-top: var(--s-6);
+  display: inline-grid;
+  grid-template-columns: 1fr auto;
+  align-items: stretch;
+  background: oklch(19% 0.02 72 / 0.92);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 1px 0 oklch(42% 0.05 75 / 0.3) inset, 0 24px 60px oklch(5% 0.012 70 / 0.6);
+  rotate: -0.6deg;
+  animation: rise 0.9s var(--ease) 0.82s both;
+  max-width: 100%;
+}
+.ticket__main { padding: var(--s-3) var(--s-4); display: flex; flex-direction: column; gap: var(--s-2); }
+.ticket__stub {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: var(--s-2) var(--s-3);
+  border-left: 2px dashed var(--line);
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--amber-dim);
+  writing-mode: vertical-rl;
+}
+/* punch holes on the perforation */
+.ticket__stub::before, .ticket__stub::after {
+  content: "";
+  position: absolute;
+  left: -8px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--bg);
+  box-shadow: inset 0 1px 2px oklch(5% 0.01 70 / 0.8);
+}
+.ticket__stub::before { top: -8px; }
+.ticket__stub::after  { bottom: -8px; }
+
+.ticket__label {
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--ink-faint);
+}
+.ticket__label .dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--amber);
+  margin-right: 0.5em;
+  vertical-align: 1px;
+  animation: pulse 2.2s ease-in-out infinite;
+}
+@keyframes pulse { 50% { opacity: 0.25; } }
+
+.countdown { display: flex; gap: clamp(0.8rem, 3vw, 1.8rem); }
+.countdown .cell { display: flex; flex-direction: column; gap: 2px; }
+.countdown .num {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1.9rem, 5.4vw, 3rem);
+  line-height: 1;
+  color: var(--amber-hot);
+  text-shadow: 0 0 26px oklch(78% 0.15 80 / 0.55);
+}
+.countdown .unit {
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--ink-faint);
+}
+.ticket__coords {
+  font-family: var(--mono);
+  font-size: var(--t-sm);
+  color: var(--ink-dim);
+  letter-spacing: 0.04em;
+}
+
+/* redaction bars — night side */
+.redacted {
+  position: relative;
+  display: inline-block;
+  background: var(--redact);
+  color: transparent;
+  border-radius: 2px;
+  padding: 0 0.35em;
+  box-shadow: 0 0 0 1px oklch(30% 0.02 70 / 0.6);
+  cursor: not-allowed;
+  transition: background var(--fast) var(--ease);
+  user-select: none;
+}
+.redacted::after {
+  content: attr(data-taunt);
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  font-family: var(--mono);
+  color: var(--amber);
+  font-size: 0.68em;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity var(--fast) var(--ease);
+}
+.redacted:hover { background: oklch(13% 0.02 70); }
+.redacted:hover::after { opacity: 1; }
+
+/* redaction bars — paper side: black marker on cream */
+.paper .redacted { background: oklch(14% 0.01 60); box-shadow: none; rotate: -0.4deg; }
+.paper .redacted::after { color: var(--paper); }
+.paper .redacted:hover { background: oklch(20% 0.015 60); }
+
+.scroll-hint {
+  position: absolute;
+  bottom: var(--s-3);
+  left: clamp(1.25rem, 5vw, 5rem);
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  text-decoration: none;
+  animation: rise 0.9s var(--ease) 1.1s both;
+}
+.scroll-hint::after {
+  content: "↓";
+  display: inline-block;
+  margin-left: 0.8em;
+  animation: bob 1.8s ease-in-out infinite;
+}
+@keyframes bob { 50% { transform: translateY(5px); } }
+.scroll-hint:hover { color: var(--amber); }
+
+/* ============================================================
+   DOSSIER — the disciplined field around the Moment
+   ============================================================ */
+main { position: relative; z-index: 1; }
+
+.dossier {
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 0 clamp(1.25rem, 4vw, 3rem);
+}
+
+.file {
+  position: relative;
+  border-top: 1px solid var(--line-soft);
+  padding: var(--s-12) 0;
+  display: grid;
+  grid-template-columns: minmax(0, 16rem) minmax(0, 1fr);
+  gap: var(--s-6);
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .file { grid-template-columns: 1fr; gap: var(--s-3); padding: var(--s-8) 0; }
+}
+
+/* ghost numeral — enormous, outlined, behind each file */
+.file::before {
+  content: attr(data-no);
+  position: absolute;
+  top: var(--s-4);
+  right: -0.04em;
+  font-family: var(--serif);
+  font-weight: 300;
+  font-size: clamp(5rem, 14vw, 12rem);
+  line-height: 0.8;
+  color: transparent;
+  -webkit-text-stroke: 1px oklch(38% 0.04 74 / 0.35);
+  letter-spacing: -0.04em;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.file__meta { position: sticky; top: var(--s-4); }
+@media (max-width: 760px) { .file__meta { position: static; } }
+.file__meta .file-no { display: block; margin-bottom: var(--s-1); }
+.file__meta h2 {
+  font-size: var(--t-2xl);
+  font-weight: 750;
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.file__meta h2 em { color: var(--amber); font-style: italic; font-weight: 600; }
+
+.file__body { max-width: var(--measure); }
+.file__body.wide { max-width: none; }
+.file__body p + p { margin-top: var(--s-3); }
+.file__body .lead {
+  font-size: var(--t-lg);
+  font-weight: 460;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.file__body p { color: var(--ink-dim); }
+.file__body strong { color: var(--ink); font-weight: 650; }
+.file__body .mono-note {
+  margin-top: var(--s-4);
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+  border-left: 2px solid var(--amber-dim);
+  padding-left: var(--s-2);
+  text-transform: uppercase;
+}
+
+/* scroll reveal — JS-gated so content is never hidden without it */
+.js .reveal { opacity: 0; transform: translateY(26px); transition: opacity 0.7s var(--ease), transform 0.7s var(--ease); }
+.js .reveal.in { opacity: 1; transform: none; }
+
+/* ---------- protocol steps — index cards from the file ---------- */
+.protocol {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s-3);
+  counter-reset: step;
+}
+@media (max-width: 900px) { .protocol { grid-template-columns: 1fr; } }
+
+.step {
+  counter-increment: step;
+  position: relative;
+  background: var(--bg-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg);
+  padding: var(--s-4) var(--s-3) var(--s-3);
+  transition: transform var(--fast) var(--ease), border-color var(--fast) var(--ease), background var(--fast) var(--ease);
+}
+.step:nth-child(1) { rotate: -0.5deg; }
+.step:nth-child(2) { rotate: 0.4deg; translate: 0 10px; }
+.step:nth-child(3) { rotate: -0.3deg; }
+@media (max-width: 900px) { .step { rotate: 0deg !important; translate: 0 0 !important; } }
+.step:hover {
+  transform: translateY(-5px) rotate(-0.4deg);
+  border-color: var(--amber-dim);
+  background: var(--bg-3);
+}
+.step::before {
+  content: "0" counter(step);
+  font-family: var(--serif);
+  font-weight: 300;
+  font-size: clamp(2.8rem, 5vw, 4rem);
+  line-height: 1;
+  color: transparent;
+  -webkit-text-stroke: 1px var(--amber-dim);
+  display: block;
+  margin-bottom: var(--s-2);
+  letter-spacing: -0.03em;
+}
+.step h3 { font-size: var(--t-lg); font-weight: 700; letter-spacing: -0.01em; margin-bottom: var(--s-1); }
+.step p { color: var(--ink-dim); font-size: 0.97rem; line-height: 1.6; }
+.step .step__tag {
+  display: inline-block;
+  margin-top: var(--s-2);
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  color: var(--amber);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   PAPER — the evidence. Cream documents on the dark table.
+   ============================================================ */
+.paper {
+  position: relative;
+  background:
+    linear-gradient(174deg, var(--paper) 0%, var(--paper-2) 100%);
+  color: var(--paper-ink);
+  border-radius: 3px;
+  padding: clamp(1.5rem, 4vw, 3rem);
+  box-shadow:
+    0 1px 0 oklch(98% 0.01 95 / 0.7) inset,
+    0 2px 6px oklch(6% 0.01 65 / 0.5),
+    0 24px 70px oklch(4% 0.01 65 / 0.75);
+  font-family: var(--mono);
+}
+.paper::before { /* paper grain */
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  opacity: 0.05;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='2'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23p)'/%3E%3C/svg%3E");
+}
+.paper > * { position: relative; }
+.paper--memo { rotate: -1deg; max-width: 44rem; }
+.paper--form { rotate: 0.7deg; max-width: 42rem; }
+@media (max-width: 760px) { .paper--memo, .paper--form { rotate: 0deg; } }
+
+/* the big honest stamp — ink on paper */
+.stamp-big {
+  position: absolute;
+  top: clamp(0.8rem, 2.5vw, 1.6rem);
+  right: clamp(0.8rem, 2.5vw, 1.6rem);
+  padding: 0.35rem 1rem;
+  border: 3px double var(--red);
+  border-radius: 3px;
+  color: var(--red);
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: clamp(0.85rem, 1.8vw, 1.15rem);
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  rotate: -8deg;
+  opacity: 0.88;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='48'%3E%3Cfilter id='r'%3E%3CfeTurbulence baseFrequency='0.55' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.9 0.22'/%3E%3CfeComposite in2='SourceGraphic' operator='in'/%3E%3C/filter%3E%3Crect width='160' height='48' fill='%23fff' filter='url(%23r)'/%3E%3C/svg%3E");
+  mask-size: cover;
+}
+
+/* small night-side stamp (file 001) */
+.stamp {
+  display: inline-block;
+  margin-top: var(--s-3);
+  padding: 0.3rem 0.9rem;
+  border: 2px solid var(--red);
+  border-radius: 3px;
+  color: var(--red-hot);
+  font-family: var(--mono);
+  font-size: var(--t-sm);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  rotate: -2.5deg;
+  opacity: 0.9;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40'%3E%3Cfilter id='r2'%3E%3CfeTurbulence baseFrequency='0.6' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.9 0.25'/%3E%3CfeComposite in2='SourceGraphic' operator='in'/%3E%3C/filter%3E%3Crect width='120' height='40' fill='%23fff' filter='url(%23r2)'/%3E%3C/svg%3E");
+  mask-size: cover;
+}
+
+/* paperclip — a bent wire of gradient, holding the memo */
+.clip {
+  position: absolute;
+  top: -14px;
+  left: clamp(1.2rem, 6vw, 3rem);
+  width: 22px; height: 58px;
+  border: 3px solid oklch(62% 0.02 80);
+  border-bottom: none;
+  border-radius: 11px 11px 0 0;
+  box-shadow: 0 2px 4px oklch(10% 0.01 65 / 0.4);
+  pointer-events: none;
+}
+.clip::after {
+  content: "";
+  position: absolute;
+  left: 3px; top: 8px;
+  width: 10px; height: 44px;
+  border: 3px solid oklch(70% 0.02 82);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+}
+
+.paper .overline { color: var(--red); letter-spacing: 0.2em; }
+.paper dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--s-2) var(--s-4);
+  margin-top: var(--s-4);
+  font-size: var(--t-sm);
+  line-height: 1.7;
+}
+@media (max-width: 560px) { .paper dl { grid-template-columns: 1fr; gap: 0.35rem; } .paper dd { margin-bottom: var(--s-2); } }
+.paper dt {
+  color: var(--paper-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: var(--t-xs);
+  padding-top: 3px;
+}
+.paper dd { color: var(--paper-ink); }
+.paper .hint {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: var(--t-md);
+  color: oklch(45% 0.09 60);
+}
+.paper .memo-footer {
+  margin-top: var(--s-4);
+  padding-top: var(--s-2);
+  border-top: 1px solid var(--paper-line);
+  font-size: var(--t-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+
+/* ---------- the form, typed on paper ---------- */
+.form-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s-2);
+  border-bottom: 2px solid var(--paper-ink);
+  padding-bottom: var(--s-2);
+  margin-bottom: var(--s-4);
+  flex-wrap: wrap;
+}
+.form-head .file-no { color: var(--paper-dim); }
+
+.field { margin-bottom: var(--s-4); }
+.field label {
+  display: block;
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--paper-dim);
+  margin-bottom: 0.4rem;
+}
+.field label .req { color: var(--red); }
+
+.field input[type="text"],
+.field input[type="email"],
+.field select {
+  width: 100%;
+  font-family: var(--mono);
+  font-size: var(--t-md);
+  color: var(--paper-ink);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid oklch(24% 0.02 60 / 0.4);
+  border-radius: 0;
+  padding: 0.45rem 0.1rem;
+  transition: border-color var(--fast) var(--ease), background var(--fast) var(--ease);
+  appearance: none;
+}
+.field select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23574a33' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.4rem center;
+  cursor: pointer;
+}
+.field input::placeholder { color: oklch(24% 0.02 60 / 0.35); }
+.field input:hover, .field select:hover { border-color: oklch(45% 0.09 60); }
+.field input:focus, .field select:focus {
+  outline: none;
+  border-color: oklch(52% 0.13 70);
+  background: oklch(52% 0.13 70 / 0.06);
+}
+.field input:user-invalid { border-color: var(--red); }
+.field .err {
+  display: none;
+  font-size: var(--t-xs);
+  color: var(--red);
+  margin-top: 0.4rem;
+  letter-spacing: 0.06em;
+}
+.field input:user-invalid ~ .err { display: block; }
+
+.oath {
+  display: flex;
+  gap: 0.8rem;
+  align-items: flex-start;
+  padding: var(--s-2);
+  border: 1px dashed oklch(24% 0.02 60 / 0.45);
+  border-radius: var(--radius);
+  margin-bottom: var(--s-4);
+  cursor: pointer;
+  transition: border-color var(--fast) var(--ease), background var(--fast) var(--ease);
+}
+.oath:hover { border-color: oklch(45% 0.09 60); background: oklch(45% 0.09 60 / 0.05); }
+.oath input {
+  accent-color: oklch(45% 0.13 60);
+  width: 1.1rem; height: 1.1rem;
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.oath span {
+  font-family: var(--serif);
+  font-size: 0.98rem;
+  color: var(--paper-ink);
+  font-style: italic;
+  line-height: 1.55;
+}
+
+.btn {
+  display: inline-block;
+  width: 100%;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: var(--t-md);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--paper);
+  background: oklch(20% 0.02 60);
+  border: none;
+  border-radius: var(--radius);
+  padding: 1rem 2rem;
+  cursor: pointer;
+  transition: transform var(--fast) var(--ease), background var(--fast) var(--ease), box-shadow var(--fast) var(--ease);
+  box-shadow: 0 3px 0 oklch(10% 0.01 60), 0 10px 26px oklch(10% 0.015 60 / 0.35);
+}
+.btn:hover {
+  background: oklch(26% 0.03 62);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 0 oklch(10% 0.01 60), 0 16px 36px oklch(10% 0.015 60 / 0.4);
+}
+.btn:active { transform: translateY(1px); box-shadow: 0 2px 0 oklch(10% 0.01 60), 0 6px 16px oklch(10% 0.015 60 / 0.35); }
+
+/* success state — inked onto the same paper */
+.success { display: none; text-align: center; padding: var(--s-4) 0; }
+.success.show { display: block; animation: rise 0.6s var(--ease) both; }
+.success .sigil {
+  width: 76px; height: 76px;
+  margin: 0 auto var(--s-3);
+  border-radius: 18px;
+  rotate: -4deg;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 15px, oklch(38% 0.1 68 / 0.9) 15px 20px),
+    repeating-linear-gradient(90deg, transparent 0 15px, oklch(38% 0.1 68 / 0.9) 15px 20px),
+    radial-gradient(circle at 35% 30%, oklch(76% 0.15 82), oklch(56% 0.13 68));
+  box-shadow: 0 6px 24px oklch(45% 0.1 65 / 0.5);
+}
+.success h3 { font-family: var(--serif); font-weight: 750; font-size: var(--t-xl); margin-bottom: var(--s-1); color: var(--paper-ink); }
+.success p { font-family: var(--serif); font-style: italic; color: var(--paper-dim); max-width: 38ch; margin: 0 auto; }
+.success .mono-sig {
+  display: block;
+  margin-top: var(--s-3);
+  font-size: var(--t-xs);
+  letter-spacing: 0.14em;
+  color: var(--red);
+  text-transform: uppercase;
+}
+
+/* ---------- footer ---------- */
+footer {
+  border-top: 1px solid var(--line-soft);
+  margin-top: var(--s-12);
+  padding: var(--s-6) clamp(1.25rem, 4vw, 3rem) var(--s-8);
+  text-align: center;
+}
+footer .glyph { width: 30px; height: 30px; margin: 0 auto var(--s-2); display: block; opacity: 0.8; }
+footer p {
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  color: var(--ink-faint);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 2;
+}
+footer .whisper {
+  font-family: var(--serif);
+  font-style: italic;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--t-sm);
+  color: var(--ink-dim);
+  margin-top: var(--s-2);
+}
+
+/* secret message (moon easter egg) */
+.secret {
+  position: fixed;
+  left: 50%; bottom: 6vh;
+  translate: -50% 20px;
+  background: var(--bg-3);
+  border: 1px solid var(--amber-dim);
+  border-radius: var(--radius-lg);
+  padding: var(--s-2) var(--s-3);
+  font-family: var(--mono);
+  font-size: var(--t-sm);
+  color: var(--amber);
+  letter-spacing: 0.08em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--med) var(--ease), translate var(--med) var(--ease);
+  z-index: 80;
+  box-shadow: 0 20px 60px oklch(5% 0.01 70 / 0.7);
+  max-width: min(90vw, 34rem);
+  text-align: center;
+}
+.secret.show { opacity: 1; translate: -50% 0; }
+
+/* mobile: the moon yields to the words */
+@media (max-width: 900px) {
+  .moonpar {
+    top: -6vmin;
+    right: -22vmin;
+    width: clamp(240px, 68vmin, 420px);
+    opacity: 0.85;
+  }
+  .hero h1 { font-size: clamp(2.9rem, 14vw, 6rem); }
+  .hero h1 .row:nth-child(2) { margin-left: 0.4ch; }
+}
+
+/* ============================================================
+   ATMOSPHERE — the cut-above layer
+   ============================================================ */
+
+/* photographic vignette: shot at night, corners fall away */
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 55;
+  background: radial-gradient(120% 95% at 50% 38%, transparent 58%, oklch(6% 0.014 62 / 0.55) 100%);
+}
+
+/* steam wisps — undulate and fade, forever */
+.steam path {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: steam 7s ease-in-out infinite;
+}
+.steam .s1 { animation-delay: 0s; }
+.steam .s2 { animation-delay: 2.3s; animation-duration: 8.5s; }
+.steam .s3 { animation-delay: 4.1s; animation-duration: 7.6s; }
+@keyframes steam {
+  0%   { opacity: 0; transform: translateY(6px) scaleY(0.85); }
+  25%  { opacity: 0.55; }
+  55%  { opacity: 0.3; }
+  80%  { opacity: 0; transform: translateY(-10px) scaleY(1.08); }
+  100% { opacity: 0; transform: translateY(-10px) scaleY(1.08); }
+}
+
+/* the syrup drop: forms, hangs, falls. patience rewarded */
+.syrup .drop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dropfall 8s cubic-bezier(0.5, 0, 0.9, 0.4) infinite;
+}
+@keyframes dropfall {
+  0%   { opacity: 0; transform: translateY(0) scale(0.3); }
+  38%  { opacity: 1; transform: translateY(0) scale(1); }
+  52%  { opacity: 1; transform: translateY(1px) scale(1.05, 0.95); }
+  70%  { opacity: 1; transform: translateY(34px) scale(0.9); }
+  79%  { opacity: 0; transform: translateY(52px) scale(0.85); }
+  100% { opacity: 0; transform: translateY(52px) scale(0.85); }
+}
+
+/* one crumb slowly tumbling off */
+.crumb-fall {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: crumbfall 9s ease-in infinite;
+}
+@keyframes crumbfall {
+  0%   { opacity: 0; transform: translate(0, 0) rotate(0deg); }
+  15%  { opacity: 1; }
+  70%  { opacity: 0.8; transform: translate(7px, 26px) rotate(140deg); }
+  85%  { opacity: 0; transform: translate(9px, 38px) rotate(200deg); }
+  100% { opacity: 0; transform: translate(9px, 38px) rotate(200deg); }
+}
+
+/* fireflies in the night field */
+.fireflies { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.fireflies i {
+  position: absolute;
+  left: var(--x); top: var(--y);
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: oklch(82% 0.145 82);
+  box-shadow: 0 0 10px 2px oklch(78% 0.15 80 / 0.55);
+  opacity: 0;
+  animation: fly var(--dur, 10s) ease-in-out var(--delay, 0s) infinite;
+}
+@keyframes fly {
+  0%, 100% { opacity: 0; transform: translate(0, 0); }
+  14% { opacity: 0.75; }
+  50% { opacity: 0.2; transform: translate(var(--dx, 20px), -30px); }
+  78% { opacity: 0.6; transform: translate(calc(var(--dx, 20px) * 0.5), -46px); }
+}
+
+/* the shout — giant outlined type rolling between the files */
+.shout {
+  position: relative;
+  margin-inline: calc(50% - 50vw);
+  overflow: hidden;
+  padding: var(--s-6) 0;
+  border-block: 1px solid var(--line-soft);
+  user-select: none;
+}
+.shout__track {
+  display: flex;
+  gap: 4rem;
+  width: max-content;
+  white-space: nowrap;
+  animation: shout 44s linear infinite;
+}
+.shout__track span {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 800;
+  font-size: clamp(3.2rem, 9vw, 8.5rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: transparent;
+  -webkit-text-stroke: 1.5px oklch(48% 0.075 76 / 0.6);
+}
+.shout__track span:nth-child(even) {
+  color: oklch(30% 0.055 72);
+  -webkit-text-stroke: 0px transparent;
+}
+@keyframes shout { to { transform: translateX(-50%); } }
+
+/* papers drop onto the table when their file opens */
+.js .reveal .paper { opacity: 0; }
+.js .reveal.in .paper {
+  animation: paperdrop 0.85s cubic-bezier(0.3, 1.25, 0.45, 1) 0.12s both;
+}
+@keyframes paperdrop {
+  from { opacity: 0; transform: translateY(36px) scale(0.975); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* cursor glow — warm light follows the pointer (fine pointers only) */
+.glow-cursor {
+  position: fixed;
+  left: 0; top: 0;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 70;
+  background: radial-gradient(circle, oklch(82% 0.15 82 / 0.5), transparent 70%);
+  transform: translate(-50%, -50%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity 0.4s var(--ease), width 0.25s var(--ease), height 0.25s var(--ease);
+}
+.glow-cursor.on { opacity: 1; }
+.glow-cursor.hot { width: 84px; height: 84px; }
+@media (pointer: coarse) { .glow-cursor { display: none; } }
+
+/* ============================================================
+   REDUCED MOTION — a designed still, not broken stubs
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001s !important;
+  }
+  .ticker__track { animation: none; }
+  .moonwrap svg { animation: none; }
+  .scroll-hint::after { animation: none; }
+  .ticket__label .dot { animation: none; }
+  .reveal { opacity: 1; transform: none; }
+  /* the still is designed: steam gone, drop hangs glossy, crumb rests,
+     fireflies dark, shout sits as a static band, papers just there */
+  .steam path, .syrup .drop, .crumb-fall, .fireflies i, .shout__track { animation: none; }
+  .syrup .drop { opacity: 1; }
+  .js .reveal .paper { opacity: 1; }
+  .js .reveal.in .paper { animation: none; }
+  .glow-cursor { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- rumor ticker -->
+<div class="ticker" aria-hidden="true">
+  <div class="ticker__track" id="tickerTrack">
+    <span>the syrup hour is real <b>◆</b></span>
+    <span>butter is a love language <b>◆</b></span>
+    <span>no photographs of the griddle <b>◆</b></span>
+    <span>first friday. midnight. tell no one <b>◆</b></span>
+    <span>the batter remembers <b>◆</b></span>
+    <span>membership by rumor only <b>◆</b></span>
+  </div>
+</div>
+
+<!-- ══════════ THE MOMENT — someone bit the moon ══════════ -->
+<header class="hero">
+
+  <div class="moonpar" id="moonpar">
+  <button class="moonwrap" id="moon" aria-label="The waffle moon. Someone has already taken a bite. It may respond to persistence.">
+    <svg viewBox="0 0 200 200" role="img" aria-hidden="true">
+      <defs>
+        <radialGradient id="glow" cx="38%" cy="32%" r="75%">
+          <stop offset="0%"  stop-color="oklch(82% 0.145 86)"/>
+          <stop offset="55%" stop-color="oklch(63% 0.135 73)"/>
+          <stop offset="100%" stop-color="oklch(41% 0.1 62)"/>
+        </radialGradient>
+        <radialGradient id="butterG" cx="35%" cy="30%" r="80%">
+          <stop offset="0%"  stop-color="oklch(93% 0.12 96)"/>
+          <stop offset="100%" stop-color="oklch(78% 0.15 88)"/>
+        </radialGradient>
+        <pattern id="pockets" width="26" height="26" patternUnits="userSpaceOnUse">
+          <rect x="4" y="4" width="18" height="18" rx="4.5" fill="oklch(29% 0.085 62 / 0.85)"/>
+          <rect x="5.4" y="5.4" width="15.2" height="15.2" rx="3.6" fill="oklch(24% 0.07 60 / 0.5)"/>
+          <path d="M6.5 19 q8.5 3.5 14.5 -1" stroke="oklch(86% 0.15 88 / 0.28)" stroke-width="1.3" fill="none"/>
+        </pattern>
+        <filter id="steamBlur" x="-80%" y="-80%" width="260%" height="260%">
+          <feGaussianBlur stdDeviation="2.4"/>
+        </filter>
+        <clipPath id="moonclip"><circle cx="100" cy="100" r="96"/></clipPath>
+        <mask id="bite">
+          <circle cx="100" cy="100" r="96" fill="white"/>
+          <!-- the bite: three overlapping scallops out of the upper right -->
+          <circle cx="168" cy="46"  r="34" fill="black"/>
+          <circle cx="143" cy="26"  r="20" fill="black"/>
+          <circle cx="186" cy="76"  r="18" fill="black"/>
+          <!-- tooth nicks along the bite edge -->
+          <circle cx="152" cy="63"  r="6"  fill="black"/>
+          <circle cx="167" cy="83"  r="5"  fill="black"/>
+        </mask>
+      </defs>
+
+      <!-- steam: it's still hot -->
+      <g class="steam" filter="url(#steamBlur)" stroke="oklch(92% 0.03 92)" stroke-width="2.6" fill="none" stroke-linecap="round">
+        <path class="s1" d="M50 22 C43 12 56 6 49 -6"/>
+        <path class="s2" d="M76 14 C69 4 82 -2 75 -14"/>
+        <path class="s3" d="M100 20 C93 10 106 4 99 -8"/>
+      </g>
+
+      <g mask="url(#bite)">
+        <circle cx="100" cy="100" r="96" fill="url(#glow)"/>
+        <circle cx="100" cy="100" r="96" fill="url(#pockets)"/>
+        <!-- rim light -->
+        <circle cx="100" cy="100" r="95" fill="none" stroke="oklch(87% 0.15 88 / 0.55)" stroke-width="1.6"/>
+        <!-- inner shadow, lower left -->
+        <circle cx="100" cy="100" r="96" fill="none" stroke="oklch(19% 0.05 60 / 0.6)" stroke-width="26" transform="translate(-7 9)" opacity="0.5"/>
+        <!-- butter pat, mid-melt -->
+        <g class="butter">
+          <rect x="64" y="50" width="18" height="15" rx="4.5" fill="url(#butterG)" transform="rotate(-6 73 57)"/>
+          <path d="M66 63 q4.5 6 1 10" stroke="oklch(88% 0.14 92 / 0.85)" stroke-width="3.6" fill="none" stroke-linecap="round"/>
+          <ellipse cx="71" cy="54.5" rx="4.6" ry="2.1" fill="oklch(97% 0.05 100 / 0.8)" transform="rotate(-9 71 54.5)"/>
+        </g>
+      </g>
+
+      <!-- crumb-line: the exposed interior hugging the bite -->
+      <g clip-path="url(#moonclip)" fill="none" stroke="oklch(88% 0.1 88 / 0.65)" stroke-width="2.4" stroke-dasharray="3 5.5" stroke-linecap="round">
+        <circle cx="168" cy="46" r="36.5"/>
+        <circle cx="143" cy="26" r="22.5"/>
+        <circle cx="186" cy="76" r="20.5"/>
+      </g>
+
+      <!-- syrup: a glossy drip forming at the bite's lower lip -->
+      <g class="syrup">
+        <path d="M158 86 q4 9 -0.5 16 q-3.5 5.5 -6.5 1 q-2.8 -4.5 0.5 -10.5 q2.5 -4.8 6.5 -6.5z" fill="oklch(52% 0.125 60)"/>
+        <ellipse cx="154.6" cy="97" rx="1.5" ry="2.7" fill="oklch(84% 0.14 84 / 0.75)"/>
+        <circle class="drop" cx="154" cy="105" r="3.1" fill="oklch(56% 0.13 62)"/>
+      </g>
+
+      <!-- crumbs drifting off the bite -->
+      <circle cx="176" cy="18" r="3.2" fill="oklch(74% 0.14 80)"/>
+      <circle cx="192" cy="38" r="2.1" fill="oklch(68% 0.13 76)"/>
+      <circle cx="160" cy="8"  r="1.7" fill="oklch(70% 0.13 78)"/>
+      <circle cx="197" cy="60" r="1.6" fill="oklch(64% 0.12 72)"/>
+      <circle class="crumb-fall" cx="183" cy="30" r="2.3" fill="oklch(71% 0.135 78)"/>
+    </svg>
+  </button>
+  </div>
+
+  <div class="fireflies" aria-hidden="true">
+    <i style="--x:8%;  --y:62%; --dur:11s;  --delay:0.4s; --dx:24px"></i>
+    <i style="--x:16%; --y:30%; --dur:13s;  --delay:2.8s; --dx:-18px"></i>
+    <i style="--x:27%; --y:74%; --dur:9.5s; --delay:1.5s; --dx:14px"></i>
+    <i style="--x:44%; --y:22%; --dur:12s;  --delay:4.4s; --dx:-22px"></i>
+    <i style="--x:58%; --y:80%; --dur:10s;  --delay:0.9s; --dx:20px"></i>
+    <i style="--x:70%; --y:66%; --dur:14s;  --delay:3.6s; --dx:-14px"></i>
+    <i style="--x:82%; --y:38%; --dur:11.5s;--delay:5.2s; --dx:16px"></i>
+    <i style="--x:90%; --y:72%; --dur:9s;   --delay:2.1s; --dx:-20px"></i>
+    <i style="--x:36%; --y:48%; --dur:12.5s;--delay:6.0s; --dx:12px"></i>
+  </div>
+
+  <span class="coord-rail" aria-hidden="true">CASE MWS-001 · OPENED 00:00 · SUBJECT: THE SOCIETY · STATUS: ACTIVE</span>
+
+  <div class="hero__inner">
+    <span class="overline hero__overline">Est. midnight · membership by rumor only</span>
+
+    <h1>
+      <span class="row">The Midnight</span>
+      <span class="row">Waffle</span>
+      <span class="row">Society</span>
+    </h1>
+
+    <p class="hero__sub">A secret location. A hot griddle. Once a month, somewhere in this city, the batter hits the iron at 12:00 a.m. sharp.</p>
+
+    <div class="ticket" role="timer" aria-label="Countdown to the next coordinate drop">
+      <div class="ticket__main">
+        <span class="ticket__label"><span class="dot"></span>Next coordinate drop in</span>
+        <div class="countdown" id="countdown">
+          <div class="cell"><span class="num" id="cd-d">--</span><span class="unit">days</span></div>
+          <div class="cell"><span class="num" id="cd-h">--</span><span class="unit">hours</span></div>
+          <div class="cell"><span class="num" id="cd-m">--</span><span class="unit">mins</span></div>
+          <div class="cell"><span class="num" id="cd-s">--</span><span class="unit">secs</span></div>
+        </div>
+        <span class="ticket__coords">LAT <span class="redacted" data-taunt="nice try">40.7431° N</span> · LON <span class="redacted" data-taunt="patience">−73.9712° W</span></span>
+      </div>
+      <span class="ticket__stub" aria-hidden="true">Admit one</span>
+    </div>
+  </div>
+
+  <a class="scroll-hint" href="#file-001">Open the file</a>
+</header>
+
+<main class="dossier">
+
+  <!-- FILE 001 — WHAT WE ARE (night side) -->
+  <section class="file" id="file-001" data-no="001" aria-labelledby="h-001">
+    <div class="file__meta reveal">
+      <span class="file-no">File 001 / 004</span>
+      <h2 id="h-001">What we <em>are</em></h2>
+      <span class="stamp">Classified</span>
+    </div>
+    <div class="file__body reveal">
+      <p class="lead">The Midnight Waffle Society is a monthly conspiracy of night people, carb loyalists, and the incurably curious.</p>
+      <p>Once a month we commandeer a place that has no business hosting a waffle service — a laundromat, a rooftop greenhouse, the mezzanine of a parking garage — and we run a griddle line until the batter runs out. There is no menu. There is <strong>the waffle of the month</strong>, and there is a topping table operated on the honor system.</p>
+      <p>We are not a restaurant. We are not a brand activation. We are forty strangers standing in warm yellow light at one in the morning, holding something crisp, agreeing not to explain it to anyone who wasn't there.</p>
+      <p class="mono-note">Attendance is capped by griddle throughput. The griddle does not negotiate.</p>
+    </div>
+  </section>
+
+  <!-- FILE 002 — THE PROTOCOL (night side, index cards) -->
+  <section class="file" id="file-002" data-no="002" aria-labelledby="h-002">
+    <div class="file__meta reveal">
+      <span class="file-no">File 002 / 004</span>
+      <h2 id="h-002">The <em>protocol</em></h2>
+    </div>
+    <div class="file__body wide reveal">
+      <div class="protocol">
+        <article class="step">
+          <h3>Subscribe</h3>
+          <p>Submit your application below. No fees, no interviews, no LinkedIn. We ask one question, and we take your answer seriously.</p>
+          <span class="step__tag">→ effort: one form</span>
+        </article>
+        <article class="step">
+          <h3>Wait for midnight</h3>
+          <p>On the first Friday of every month, as Friday tips into Saturday, coordinates land in your inbox. They expire at sunrise. They are never the same twice.</p>
+          <span class="step__tag">→ first friday, 12:00 a.m.</span>
+        </article>
+        <article class="step">
+          <h3>Follow the smell</h3>
+          <p>Arrive before the batter runs out. Say nothing to the door except the word printed at the bottom of the email. Eat. Vanish.</p>
+          <span class="step__tag">→ bring nothing but hunger</span>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- interlude: the rule, shouted -->
+  <div class="shout" aria-hidden="true">
+    <div class="shout__track" id="shoutTrack">
+      <span>Tell no one</span>
+      <span>Tell everyone</span>
+      <span>Tell no one</span>
+      <span>Tell everyone</span>
+    </div>
+  </div>
+
+  <!-- FILE 003 — NEXT DROP (paper evidence) -->
+  <section class="file" id="file-003" data-no="003" aria-labelledby="h-003">
+    <div class="file__meta reveal">
+      <span class="file-no">File 003 / 004</span>
+      <h2 id="h-003">Next month's <em>drop</em></h2>
+    </div>
+    <div class="file__body wide reveal">
+      <div class="paper paper--memo">
+        <span class="clip" aria-hidden="true"></span>
+        <span class="stamp-big" aria-hidden="true">Intercepted</span>
+        <p class="overline">Memo · August session · do not circulate</p>
+        <dl>
+          <dt>Waffle of the month</dt>
+          <dd>Brown-butter miso, torched honeycomb, <span class="redacted" data-taunt="wait for it">smoked maple cream</span></dd>
+          <dt>Venue class</dt>
+          <dd><span class="redacted" data-taunt="you'll see">decommissioned swimming pool</span> — dry, we promise</dd>
+          <dt>Capacity</dt>
+          <dd>44 covers. Then the iron goes cold.</dd>
+          <dt>Dress note</dt>
+          <dd class="hint">"Bring a jacket you don't mind smelling like brown butter for a week."</dd>
+        </dl>
+        <p class="memo-footer"><span>Recovered from a coat pocket</span><span>MWS evidence № 3</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FILE 004 — APPLICATION (paper form) -->
+  <section class="file" id="file-004" data-no="004" aria-labelledby="h-004">
+    <div class="file__meta reveal">
+      <span class="file-no">File 004 / 004</span>
+      <h2 id="h-004">Application for <em>induction</em></h2>
+    </div>
+    <div class="file__body wide reveal">
+      <div class="paper paper--form">
+        <span class="stamp-big" aria-hidden="true">Form MWS-01</span>
+        <div class="form-head">
+          <span class="overline">Application for induction</span>
+          <span class="file-no">Void where waffles are prohibited</span>
+        </div>
+
+        <form id="joinForm" novalidate>
+          <div class="field">
+            <label for="f-name">Name, alias, or griddle handle <span class="req">*</span></label>
+            <input type="text" id="f-name" name="name" placeholder="e.g. The Butter Baron" required autocomplete="name">
+            <span class="err">The society needs something to call you.</span>
+          </div>
+
+          <div class="field">
+            <label for="f-email">Where the coordinates should land <span class="req">*</span></label>
+            <input type="email" id="f-email" name="email" placeholder="you@somewhere.night" required autocomplete="email">
+            <span class="err">Coordinates cannot land on an invalid address.</span>
+          </div>
+
+          <div class="field">
+            <label for="f-secret">Can you keep a secret?</label>
+            <select id="f-secret" name="secret">
+              <option value="yes">Yes</option>
+              <option value="mostly">Mostly, unless the waffle is exceptional</option>
+              <option value="no" selected>No, and that's how you'll grow</option>
+            </select>
+          </div>
+
+          <label class="oath">
+            <input type="checkbox" id="f-oath" required>
+            <span>I solemnly swear to arrive hungry, leave quietly, and never reveal the coordinates to anyone who wouldn't appreciate them.</span>
+          </label>
+
+          <button type="submit" class="btn">Whisper me in</button>
+        </form>
+
+        <div class="success" id="success" role="status">
+          <div class="sigil" aria-hidden="true"></div>
+          <h3>Your name is in the batter.</h3>
+          <p>Watch your inbox as the first Friday turns over. When the coordinates arrive, tell no one. Bring one friend anyway.</p>
+          <span class="mono-sig">— The Recording Secretary, MWS</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <svg class="glyph" aria-hidden="true" viewBox="0 0 64 64"><defs><mask id="fb"><rect width="64" height="64" fill="white"/><circle cx="56" cy="12" r="16" fill="black"/></mask></defs><g mask="url(#fb)"><rect x="4" y="4" width="56" height="56" rx="14" fill="oklch(74% 0.14 80)"/><path d="M22 8v48M42 8v48M8 22h48M8 42h48" stroke="oklch(38% 0.09 62)" stroke-width="6" stroke-linecap="round"/></g><circle cx="47" cy="20" r="1.8" fill="oklch(74% 0.14 80)"/><circle cx="52" cy="26" r="1.2" fill="oklch(74% 0.14 80)"/></svg>
+  <p>The Midnight Waffle Society · no fixed address · no further comment<br>this page will deny everything</p>
+  <p class="whisper">If anyone asks, you were asleep by ten.</p>
+</footer>
+
+<div class="secret" id="secret" role="status"></div>
+<div class="glow-cursor" id="glowCursor" aria-hidden="true"></div>
+
+<script>
+(function () {
+  "use strict";
+  document.documentElement.classList.add("js");
+  var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---- rumor ticker + shout: duplicate tracks for seamless loops ---- */
+  var track = document.getElementById("tickerTrack");
+  if (track && !reducedMotion) track.innerHTML += track.innerHTML;
+  var shout = document.getElementById("shoutTrack");
+  if (shout && !reducedMotion) shout.innerHTML += shout.innerHTML;
+
+  /* ---- moon parallax: the sky moves slower than the table ---- */
+  var moonPar = document.getElementById("moonpar");
+  if (moonPar && !reducedMotion) {
+    var parTicking = false;
+    var onScroll = function () {
+      if (parTicking) return;
+      parTicking = true;
+      requestAnimationFrame(function () {
+        var y = window.scrollY;
+        if (y < window.innerHeight * 1.6) {
+          moonPar.style.transform = "translate3d(0," + (y * 0.18).toFixed(1) + "px,0) rotate(" + (y * 0.004).toFixed(2) + "deg)";
+        }
+        parTicking = false;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+  }
+
+  /* ---- cursor glow: warm light follows the pointer ---- */
+  var glow = document.getElementById("glowCursor");
+  if (glow && !reducedMotion && window.matchMedia("(pointer: fine)").matches) {
+    var gx = -100, gy = -100, cx = -100, cy = -100, glowOn = false;
+    document.addEventListener("mousemove", function (e) {
+      gx = e.clientX; gy = e.clientY;
+      if (!glowOn) { glowOn = true; glow.classList.add("on"); glowLoop(); }
+      var t = e.target;
+      var hot = t.closest && t.closest("a, button, select, input, .oath, .redacted");
+      glow.classList.toggle("hot", !!hot);
+    }, { passive: true });
+    var glowLoop = function () {
+      cx += (gx - cx) * 0.22;
+      cy += (gy - cy) * 0.22;
+      glow.style.left = cx.toFixed(1) + "px";
+      glow.style.top = cy.toFixed(1) + "px";
+      requestAnimationFrame(glowLoop);
+    };
+  }
+
+  /* ---- countdown to midnight ending the first Friday ---- */
+  function nextDrop() {
+    var now = new Date();
+    for (var add = 0; add < 3; add++) {
+      var first = new Date(now.getFullYear(), now.getMonth() + add, 1);
+      var offset = (5 - first.getDay() + 7) % 7;
+      var drop = new Date(first.getFullYear(), first.getMonth(), 1 + offset + 1, 0, 0, 0);
+      if (drop > now) return drop;
+    }
+    return null;
+  }
+
+  var elD = document.getElementById("cd-d"),
+      elH = document.getElementById("cd-h"),
+      elM = document.getElementById("cd-m"),
+      elS = document.getElementById("cd-s");
+
+  function pad(n) { return String(n).padStart(2, "0"); }
+
+  function tick() {
+    var target = nextDrop();
+    if (!target) return;
+    var diff = target - Date.now();
+    if (diff < 0) diff = 0;
+    var s = Math.floor(diff / 1000);
+    elD.textContent = pad(Math.floor(s / 86400));
+    elH.textContent = pad(Math.floor(s / 3600) % 24);
+    elM.textContent = pad(Math.floor(s / 60) % 60);
+    elS.textContent = pad(s % 60);
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  /* ---- scroll reveals ---- */
+  if (!reducedMotion && "IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); }
+      });
+    }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
+    document.querySelectorAll(".reveal").forEach(function (el) { io.observe(el); });
+  } else {
+    document.querySelectorAll(".reveal").forEach(function (el) { el.classList.add("in"); });
+  }
+
+  /* ---- fake join form ---- */
+  var form = document.getElementById("joinForm");
+  var successEl = document.getElementById("success");
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (!form.reportValidity()) return;
+    form.style.display = "none";
+    successEl.classList.add("show");
+    successEl.scrollIntoView({ block: "center", behavior: reducedMotion ? "auto" : "smooth" });
+  });
+
+  /* ---- easter egg: knock on the moon five times ---- */
+  var moon = document.getElementById("moon");
+  var secret = document.getElementById("secret");
+  var knocks = 0, hideTimer = null;
+  var lines = [
+    "…someone's at the door.",
+    "knock softer. the batter is resting.",
+    "two more and we'll consider it.",
+    "the griddle hears you.",
+    "FINE. password for next month: “STROOPWAFEL”. you didn't get it from the moon."
+  ];
+  moon.addEventListener("click", function () {
+    knocks = Math.min(knocks + 1, 5);
+    secret.textContent = lines[knocks - 1];
+    secret.classList.add("show");
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(function () { secret.classList.remove("show"); }, knocks === 5 ? 8000 : 3000);
+    if (knocks === 5) knocks = 0;
+  });
+
+  /* ---- for the ones who open the console ---- */
+  console.log(
+    "%c🧇 THE MIDNIGHT WAFFLE SOCIETY %c\n\nYou looked under the table. Good instinct.\nThe door word is always lowercase.\nSee you on the first Friday.",
+    "font-size:16px; font-weight:bold; color:#f0a63c;",
+    "font-size:12px; color:#a08a63;"
+  );
+})();
+</script>
+
+</body>
+</html>
