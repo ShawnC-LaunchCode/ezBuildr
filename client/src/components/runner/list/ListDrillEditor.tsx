@@ -6,7 +6,7 @@
  * back/Done controls instead of the section's Back/Next.
  */
 import { ChevronLeft } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { BlockErrorBoundary } from "@/components/runner/BlockErrorBoundary";
 import { BlockRenderer } from "@/components/runner/blocks/BlockRenderer";
@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import type { ApiStep } from "@/lib/vault-api";
 
 import { evaluateConditionExpression } from "@shared/conditionEvaluator";
+import { validateListValue } from "@shared/validation/BlockValidation";
 import type { ListConfig, ListField, ListValue } from "@shared/types/stepConfigs";
 
 import { useListDrill, type ListDrillState } from "./ListDrillContext";
@@ -57,6 +58,17 @@ export function ListDrillEditor({ step, value, onChange, drill }: ListDrillEdito
   const rootConfig = step.config as ListConfig;
   const rootValue = normalizeListValue(value);
   const scope = resolveDrillScope(rootConfig, rootValue, drill.segments);
+
+  // Live per-field errors for the currently-open item (LIST-9 AC2/AC7):
+  // validated as a synthetic one-item list ({ items: [scope.item] }) so the
+  // exact same validateListValue used everywhere else in this feature keys a
+  // field's error at "[0].<alias>" — no separate path-resolution needed for
+  // the item currently being edited. Recomputed on every render from the
+  // current values, so fixing a field clears its own message immediately.
+  const itemErrors = useMemo(
+    () => (scope ? validateListValue({ items: [scope.item] }, scope.config) : {}),
+    [scope]
+  );
 
   const lastSegment = drill.segments[drill.segments.length - 1];
   const shouldAutoFocus = Boolean(lastSegment?.autoFocusFirstField);
@@ -104,6 +116,7 @@ export function ListDrillEditor({ step, value, onChange, drill }: ListDrillEdito
             if (!evaluateConditionExpression(field.visibleIf ?? null, scope.item.values)) {
               return null;
             }
+            const fieldMessages = itemErrors[`[0].${field.alias}`];
             return (
               <BlockErrorBoundary key={field.id} stepId={field.id}>
                 <BlockRenderer
@@ -113,7 +126,8 @@ export function ListDrillEditor({ step, value, onChange, drill }: ListDrillEdito
                     onChange(setFieldValueAtScope(rootValue, drill.segments, field.alias, fieldValue));
                   }}
                   required={field.required}
-                  showValidation={false}
+                  error={fieldMessages?.[0]}
+                  showValidation={Boolean(fieldMessages?.length)}
                   context={scope.item.values}
                 />
               </BlockErrorBoundary>

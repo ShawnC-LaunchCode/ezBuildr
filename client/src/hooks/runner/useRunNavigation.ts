@@ -2,10 +2,12 @@ import { useState, useCallback, useEffect, useMemo, useRef, type Dispatch, type 
 import { useToast } from "@/hooks/use-toast";
 import { fetchAPI, type ApiSection, type ApiStep } from "@/lib/vault-api";
 import { useSubmitSection, useNext, useCompleteRun } from "@/lib/vault-hooks";
-import { getValidationSchema } from "@shared/validation/BlockValidation";
+import { getValidationSchema, validateListValue } from "@shared/validation/BlockValidation";
 import { validatePage } from "@shared/validation/PageValidator";
 import type { ValidateRule } from "@shared/types/blocks";
+import type { ListConfig } from "@shared/types/stepConfigs";
 import type { ValidationSchema } from "@shared/validation/ValidationSchema";
+import { describeListErrorsForSummary, normalizeListValue } from "@/components/runner/list/listRuntime";
 import { clearRunToken } from "@/lib/runTokens";
 import { usePreviewStore } from "@/store/preview";
 import { analytics } from "@/lib/analytics";
@@ -365,7 +367,17 @@ export function useRunNavigation({
 
     try {
       const stepSchemas: Record<string, ValidationSchema> = {};
+      // List steps carry recursive, path-keyed errors that the flat
+      // ValidationRule[]/blockErrors contract below cannot express — they are
+      // validated separately below via validateListValue (LIST-3) and merged
+      // additively, so blockErrors/fieldErrors keying for every other step
+      // type is untouched (LIST-9 AC1).
+      const listSteps: ApiStep[] = [];
       visibleSectionSteps.forEach((step: ApiStep) => {
+        if (step.type === 'list') {
+          listSteps.push(step);
+          return;
+        }
         stepSchemas[step.id] = getValidationSchema({
           id: step.id,
           type: step.type,
@@ -381,9 +393,31 @@ export function useRunNavigation({
         pageRules: (currentSection.config as { validationRules?: ValidateRule[] })?.validationRules ?? [],
       });
 
-      if (!validationResult.valid) {
+      const listSummaryLines: string[] = [];
+      let listsValid = true;
+      for (const step of listSteps) {
+        const config = step.config as ListConfig;
+        const value = normalizeListValue(effectiveValues[step.id]);
+        const stepErrors = validateListValue(value, config);
+        // validateListValue only enforces config.minItems. A step-level
+        // "required" toggle (the builder's generic RequiredToggle, LIST-6)
+        // means "at least one item" independent of minItems being set —
+        // flagged by LIST-8's verification as an open gap ("a required List
+        // with zero items will not yet block Next client-side"), closed here.
+        if (step.required && value.items.length === 0 && (config.minItems ?? 0) === 0) {
+          (stepErrors["$root"] ??= []).push("At least 1 item is required");
+        }
+        if (Object.keys(stepErrors).length > 0) {
+          listsValid = false;
+          describeListErrorsForSummary(value, config, stepErrors, step.title).forEach(
+            ({ label, message }) => { listSummaryLines.push(`${label} — ${message}`); }
+          );
+        }
+      }
+
+      if (!validationResult.valid || !listsValid) {
         setFieldErrors(validationResult.blockErrors);
-        const newErrors: string[] = [];
+        const newErrors: string[] = [...listSummaryLines];
         Object.values(validationResult.blockErrors).forEach((errs) => newErrors.push(...errs));
         setErrors(newErrors);
 

@@ -10,8 +10,10 @@ import {
   addItem,
   countNestedItemsRecursive,
   createItemValues,
+  describeListErrorsForSummary,
   describeNestedCounts,
   emptyListValue,
+  hasItemError,
   normalizeListValue,
   removeItem,
   reorderItems,
@@ -22,6 +24,7 @@ import {
   type DrillSegment,
 } from '../../../client/src/components/runner/list/listRuntime';
 
+import { validateListValue } from '../../../shared/validation/BlockValidation';
 import type { ListConfig, ListItem, ListValue } from '../../../shared/types/stepConfigs';
 
 const addressesField = {
@@ -343,5 +346,109 @@ describe('setFieldValueAtScope', () => {
     const segments: DrillSegment[] = [{ fieldAlias: null, itemId: 'ava', label: 'Ava' }];
     setFieldValueAtScope(rootValue, segments, 'name', 'Someone Else');
     expect(rootValue.items[0].values.name).toBe('Ava');
+  });
+});
+
+/**
+ * LIST-9 — path-keyed errors consumed into badges (AC3) and a label-based
+ * error summary (AC6), plus AC7 (fixing a field clears the badge on the item
+ * AND its ancestors, since both are computed live from the current value).
+ */
+describe('hasItemError', () => {
+  const requiredNameConfig: ListConfig = {
+    fields: [{ kind: 'question', id: 'f-name', alias: 'name', type: 'short_text', title: 'Name', order: 0, required: true }],
+  };
+
+  const nestedConfig: ListConfig = {
+    fields: [
+      { kind: 'question', id: 'f-name', alias: 'name', type: 'short_text', title: 'Name', order: 0 },
+      { ...addressesField, list: { fields: [{ kind: 'question', id: 'f-street', alias: 'street', type: 'short_text', title: 'Street', order: 0, required: true }] } },
+    ],
+  };
+
+  it('is true for an item with a directly-missing required field (AC2/AC3)', () => {
+    const value: ListValue = { items: [makeItem('a', {})] };
+    const errors = validateListValue(value, requiredNameConfig);
+    expect(hasItemError(errors, 0)).toBe(true);
+  });
+
+  it('is false for a complete item', () => {
+    const value: ListValue = { items: [makeItem('a', { name: 'Ava' })] };
+    const errors = validateListValue(value, requiredNameConfig);
+    expect(hasItemError(errors, 0)).toBe(false);
+  });
+
+  it('badges the ANCESTOR row when the error is nested one level down (AC3)', () => {
+    const value: ListValue = {
+      items: [
+        {
+          itemId: 'ava',
+          values: { name: 'Ava', addresses: { items: [{ itemId: 'addr-1', values: {} }] } },
+        },
+      ],
+    };
+    const errors = validateListValue(value, nestedConfig);
+    // The nested "street" field is required and empty — the top-level "Ava"
+    // row (index 0 of the ROOT list) must badge even though the error lives
+    // two levels deeper, at "[0].addresses[0].street".
+    expect(hasItemError(errors, 0)).toBe(true);
+  });
+
+  it('clears live once the nested field is fixed — same item, no stale state (AC7)', () => {
+    const invalid: ListValue = {
+      items: [{ itemId: 'ava', values: { name: 'Ava', addresses: { items: [{ itemId: 'addr-1', values: {} }] } } }],
+    };
+    expect(hasItemError(validateListValue(invalid, nestedConfig), 0)).toBe(true);
+
+    const fixed: ListValue = {
+      items: [{ itemId: 'ava', values: { name: 'Ava', addresses: { items: [{ itemId: 'addr-1', values: { street: '1 Oak St' } }] } } }],
+    };
+    expect(hasItemError(validateListValue(fixed, nestedConfig), 0)).toBe(false);
+  });
+});
+
+describe('describeListErrorsForSummary', () => {
+  const requiredDobConfig: ListConfig = {
+    fields: [
+      { kind: 'question', id: 'f-name', alias: 'name', type: 'short_text', title: 'Name', order: 0 },
+      { kind: 'question', id: 'f-dob', alias: 'dob', type: 'date', title: 'DOB', order: 1, required: true },
+    ],
+    labelTemplate: '{name}',
+  };
+
+  it('names the offending item by its resolved label, not by path (AC6)', () => {
+    const value: ListValue = { items: [makeItem('a', { name: 'Ben Chen' })] };
+    const errors = validateListValue(value, requiredDobConfig);
+    const entries = describeListErrorsForSummary(value, requiredDobConfig, errors, 'Children');
+    expect(entries).toEqual([{ label: 'Ben Chen', message: 'DOB is required' }]);
+  });
+
+  it('uses the fallback (list step title) label for a list-level error with no item context', () => {
+    const value: ListValue = { items: [] };
+    const config: ListConfig = { fields: requiredDobConfig.fields, minItems: 1 };
+    const errors = validateListValue(value, config);
+    const entries = describeListErrorsForSummary(value, config, errors, 'Children');
+    expect(entries).toEqual([{ label: 'Children', message: 'At least 1 item(s) required' }]);
+  });
+
+  it('walks into a nested list, using the CHILD item\'s own label for its own errors', () => {
+    const nestedConfig: ListConfig = {
+      fields: [
+        { kind: 'question', id: 'f-name', alias: 'name', type: 'short_text', title: 'Name', order: 0 },
+        {
+          ...addressesField,
+          list: {
+            fields: [{ kind: 'question', id: 'f-street', alias: 'street', type: 'short_text', title: 'Street', order: 0, required: true }],
+            labelTemplate: '{street}',
+          },
+        },
+      ],
+    };
+    const value: ListValue = {
+      items: [{ itemId: 'ava', values: { name: 'Ava', addresses: { items: [{ itemId: 'addr-1', values: {} }] } } }],
+    };
+    const errors = validateListValue(value, nestedConfig);
+    const entries = describeListErrorsForSummary(value, nestedConfig, errors, 'Children');
+    expect(entries).toContainEqual({ label: 'Item 1', message: 'Street is required' });
   });
 });

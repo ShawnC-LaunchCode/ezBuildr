@@ -21,8 +21,8 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronRight, GripVertical, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { AlertTriangle, ChevronRight, GripVertical, Plus, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import {
   AlertDialog,
@@ -36,12 +36,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 
+import { validateListValue } from "@shared/validation/BlockValidation";
 import type { ListConfig, ListItem, ListValue } from "@shared/types/stepConfigs";
 
 import {
   addItem,
   countNestedItemsRecursive,
   describeNestedCounts,
+  hasItemError,
   removeItem,
   reorderItems,
   resolveItemLabel,
@@ -74,6 +76,13 @@ export function ListItemsView({ config, value, onChange, onOpenItem, readOnly }:
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
   const [pendingDelete, setPendingDelete] = useState<ListItem | null>(null);
+
+  // Live, not gated behind a "Next was clicked" flag — Decision 4 treats the
+  // badge as an always-current completeness indicator. Recomputing from the
+  // current value+config on every render (not a stale snapshot) is also what
+  // makes fixing a field clear its badge immediately (LIST-9 AC7): the fixed
+  // path simply stops appearing in this same recursive result.
+  const errors = useMemo(() => validateListValue(value, config), [value, config]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -124,6 +133,7 @@ export function ListItemsView({ config, value, onChange, onOpenItem, readOnly }:
                   index={index}
                   allowReorder={Boolean(config.allowReorder) && !readOnly}
                   readOnly={readOnly}
+                  hasError={hasItemError(errors, index)}
                   onOpen={() => { onOpenItem(item.itemId); }}
                   onDelete={() => { setPendingDelete(item); }}
                 />
@@ -169,11 +179,12 @@ interface ListItemRowProps {
   index: number;
   allowReorder: boolean;
   readOnly?: boolean;
+  hasError?: boolean;
   onOpen: () => void;
   onDelete: () => void;
 }
 
-function ListItemRow({ item, config, index, allowReorder, readOnly, onOpen, onDelete }: ListItemRowProps) {
+function ListItemRow({ item, config, index, allowReorder, readOnly, hasError, onOpen, onDelete }: ListItemRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.itemId });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const label = resolveItemLabel(item, config, `Item ${index + 1}`);
@@ -202,6 +213,12 @@ function ListItemRow({ item, config, index, allowReorder, readOnly, onOpen, onDe
         onClick={onOpen}
       >
         <span className="flex-1 truncate text-sm font-medium">{label}</span>
+        {hasError && (
+          <span className="flex shrink-0 items-center text-yellow-600 dark:text-yellow-400">
+            <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only">Incomplete or invalid</span>
+          </span>
+        )}
         {nestedSummary && <span className="shrink-0 text-xs text-muted-foreground">{nestedSummary}</span>}
         <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
       </button>

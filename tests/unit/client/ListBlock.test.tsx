@@ -21,6 +21,30 @@ import { ListDrillProvider, useListDrill } from '../../../client/src/components/
 import type { ApiStep } from '../../../client/src/lib/vault-api';
 import type { ListConfig, ListValue } from '../../../shared/types/stepConfigs';
 
+// LIST-9: a config with a required field, used by the badge/error tests below.
+const configWithRequiredField: ListConfig = {
+  fields: [
+    { kind: 'question', id: 'f-name', alias: 'name', type: 'short_text', title: 'Name', order: 0 },
+    { kind: 'question', id: 'f-dob', alias: 'dob', type: 'short_text', title: 'DOB', order: 1, required: true },
+  ],
+  labelTemplate: '{name}',
+};
+
+const stepWithRequiredField: ApiStep = {
+  id: 'step-children',
+  workflowId: 'wf-1',
+  sectionId: 'sec-1',
+  type: 'list',
+  title: 'Children',
+  description: null,
+  required: false,
+  alias: 'children',
+  order: 0,
+  isVirtual: false,
+  config: configWithRequiredField as unknown as Record<string, unknown>,
+  createdAt: '2026-08-01T00:00:00.000Z',
+};
+
 const config: ListConfig = {
   fields: [
     { kind: 'question', id: 'f-name', alias: 'name', type: 'short_text', title: 'Name', order: 0, required: true },
@@ -55,22 +79,22 @@ const step: ApiStep = {
 };
 
 /** Mirrors WorkflowRunner.tsx's QuestionCardContent: swap collapsed list <-> drill editor based on drill context. */
-function Harness({ initialValue }: { initialValue: ListValue }) {
+function Harness({ initialValue, activeStep }: { initialValue: ListValue; activeStep: ApiStep }) {
   const [value, setValue] = useState<ListValue>(initialValue);
   const { drill } = useListDrill();
 
   if (drill) {
-    return <ListDrillEditor step={step} value={value} onChange={setValue} drill={drill} />;
+    return <ListDrillEditor step={activeStep} value={value} onChange={setValue} drill={drill} />;
   }
-  return <ListBlockRenderer step={step} value={value} onChange={setValue} />;
+  return <ListBlockRenderer step={activeStep} value={value} onChange={setValue} />;
 }
 
-function renderList(initialValue: ListValue = { items: [] }) {
+function renderList(initialValue: ListValue = { items: [] }, activeStep: ApiStep = step) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
       <ListDrillProvider>
-        <Harness initialValue={initialValue} />
+        <Harness initialValue={initialValue} activeStep={activeStep} />
       </ListDrillProvider>
     </QueryClientProvider>
   );
@@ -205,5 +229,92 @@ describe('List block: drill-in editor structure (AC7)', () => {
     await user.click(screen.getByText('Add item'));
 
     expect(await screen.findByText('Children › Ava › Item 1')).toBeInTheDocument();
+  });
+});
+
+/**
+ * LIST-9 — incomplete-item badges (AC3), drilling out of an invalid item
+ * always succeeding (AC4), and badges/inline errors clearing live once the
+ * field is fixed (AC7). Next-enforcement and the label-based error summary
+ * (AC5/AC6) are covered separately in useRunNavigation.listErrors.test.tsx,
+ * where the section-level "Next" flow actually lives.
+ */
+describe('List block: incomplete-item badges (AC3, AC4, AC7)', () => {
+  it('badges a collapsed row whose required field is empty', () => {
+    renderList({ items: [{ itemId: 'a', values: { name: 'Ava' } }] }, stepWithRequiredField);
+    expect(screen.getByText('Incomplete or invalid')).toBeInTheDocument();
+  });
+
+  it('does not badge a complete item', () => {
+    renderList({ items: [{ itemId: 'a', values: { name: 'Ava', dob: '2020-01-01' } }] }, stepWithRequiredField);
+    expect(screen.queryByText('Incomplete or invalid')).not.toBeInTheDocument();
+  });
+
+  it('shows the inline field error while drilled into the invalid item, and drilling out always succeeds (AC4)', async () => {
+    const user = userEvent.setup();
+    renderList({ items: [{ itemId: 'a', values: { name: 'Ava' } }] }, stepWithRequiredField);
+
+    await user.click(screen.getByText('Ava'));
+    expect(screen.getByText('DOB is required')).toBeInTheDocument();
+
+    // AC4: drill-out is never blocked by validity, even while the item is invalid.
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    await waitFor(() => {
+      expect(screen.getByText('Add item')).toBeInTheDocument();
+    });
+  });
+
+  it('clears the badge and the inline error live once the field is fixed, with no re-submit needed (AC7)', async () => {
+    const user = userEvent.setup();
+    renderList({ items: [{ itemId: 'a', values: { name: 'Ava' } }] }, stepWithRequiredField);
+
+    expect(screen.getByText('Incomplete or invalid')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Ava'));
+    expect(screen.getByText('DOB is required')).toBeInTheDocument();
+
+    await user.type(screen.getByRole('textbox', { name: /dob/i }), '2020-01-01');
+    await waitFor(() => {
+      expect(screen.queryByText('DOB is required')).not.toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    await waitFor(() => {
+      expect(screen.queryByText('Incomplete or invalid')).not.toBeInTheDocument();
+    });
+  });
+
+  it('badges the ancestor row when the incomplete field is nested one level down', async () => {
+    const user = userEvent.setup();
+    // The base `config` fixture's nested "street" field has no `required`
+    // flag, so use a variant with one for this test only.
+    const nestedRequiredConfig: ListConfig = {
+      ...config,
+      fields: [
+        config.fields[0],
+        {
+          kind: 'list',
+          id: 'f-addresses',
+          alias: 'addresses',
+          title: 'Addresses',
+          order: 1,
+          list: { fields: [{ kind: 'question', id: 'f-street', alias: 'street', type: 'short_text', title: 'Street', order: 0, required: true }] },
+        },
+      ],
+    };
+    const stepWithNestedRequired: ApiStep = { ...step, config: nestedRequiredConfig as unknown as Record<string, unknown> };
+
+    renderList(
+      { items: [{ itemId: 'a', values: { name: 'Ava', addresses: { items: [{ itemId: 'addr-1', values: {} }] } } }] },
+      stepWithNestedRequired
+    );
+
+    // Ancestor bubbling (AC3): the TOP-level "Ava" row badges even though the
+    // error is 2 levels down (children[0].addresses[0].street).
+    expect(screen.getByText('Incomplete or invalid')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Ava'));
+    // The nested "addresses" item row (1 level down from here) badges too.
+    expect(screen.getByText('Incomplete or invalid')).toBeInTheDocument();
   });
 });

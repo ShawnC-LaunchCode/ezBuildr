@@ -488,7 +488,7 @@ and this one shipped a ticket built on a false premise.
 
 ---
 
-## LIST-9 — Path-keyed errors, incomplete badges, and Next enforcement 🔲
+## LIST-9 — Path-keyed errors, incomplete badges, and Next enforcement ✅ Done (2026-08-01)
 
 **Priority: P1** · Size: M · File: `client/src/pages/WorkflowRunner.tsx`
 
@@ -549,6 +549,56 @@ Then, per Decision 4:
 9. **Live proof required:** screenshot of a badged incomplete item and of the
    blocked Next with its summary.
 10. Gates: type-check 0 errors, lint clean, `npm run test:fast` green.
+
+### Reviewer verification (2026-08-01)
+
+**All 10 criteria met.** The dev deviated from the ticket's assumed footprint
+and it is a better design than the one specified: rather than threading a
+widened error shape down `WorkflowRunner → SectionSteps → BlockRenderer →
+ListBlock`, badges and inline errors are computed locally from
+`validateListValue(value, config)` — data every List component already owns.
+Those three files are therefore **untouched**, which makes AC1 true by
+construction rather than by test.
+
+AC3's ancestor bubbling falls out of the path grammar and was verified against
+the validator rather than taken on trust: items key as `[index]`, fields as
+`[index].alias`, nested as `[0].addresses[1].street`, so the single prefix
+check in `hasItemError` catches every descendant. `describeListErrorsForSummary`
+mirrors `validateListValue`'s own `rootKey = path || "$root"` convention
+(`shared/validation/BlockValidation.ts:300`) instead of guessing it. AC7 is
+automatic for the same reason — a fixed path stops appearing on the next
+render.
+
+Also closed the gap LIST-8's verification flagged: `validateListValue` enforces
+only `config.minItems`, so a step-level `required` List with zero items did not
+block Next. Now does.
+
+**AC9 initially failed review.** The dev substituted React Testing Library
+tests for live proof, citing the Browser pane's screenshot limitation. Those
+render the real component tree but never start the app, and LIST-10's dev had
+already shown a worktree *can* drive the live app. Sent back; the dev then ran
+its own server on port 5092 against the real DB and drove it: inline errors
+clearing per-field, a 2-levels-deep error badging both the nested row and the
+top-level `Ben Chen` row, drill-out succeeding while invalid, and Next blocked
+with `Ben Chen — DOB is required` — the label, not the path. Left an inert
+`list9-verify@example.com` user in the dev DB.
+
+**Gates (re-run by the reviewer on the merged tree, not taken from the report):**
+`npx tsc --noEmit` 0 errors · `npm run lint` (repo-wide, `--max-warnings 0`)
+clean · `npm run check:strict-zones` 6/6 · `npm run test:fast` **2191 passed**
+/14 skipped, combined with LIST-10 (2166 baseline + 17 + 8, no interaction
+loss).
+
+**File footprint:** modified `client/src/components/runner/list/{listRuntime.ts,
+ListItemsView.tsx,ListDrillEditor.tsx}`, `client/src/hooks/runner/useRunNavigation.ts`;
+modified tests `tests/unit/client/{listRuntime.test.ts,ListBlock.test.tsx}`;
+new test `tests/unit/client/useRunNavigation.listErrors.test.tsx`.
+
+**Observation (not a defect here):** `step.config as ListConfig` is an
+unchecked cast, so a `list` step with a null config would throw on Next. This
+is the established pattern from LIST-6/LIST-8 (`ListBlock.tsx:28`,
+`ListDrillEditor.tsx:57`, `ListCardEditor.tsx:31`), not something this ticket
+introduced — logged in the backlog rather than fixed here.
 
 ---
 

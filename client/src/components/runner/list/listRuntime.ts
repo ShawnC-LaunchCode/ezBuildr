@@ -6,6 +6,7 @@
  * module edits field *definitions* (ListField[]); this one edits item
  * *values* (ListValue/ListItem) at runtime, which has no overlap with it.
  */
+import type { ListValidationErrors } from "@shared/validation/BlockValidation";
 import type { ListConfig, ListField, ListItem, ListValue } from "@shared/types/stepConfigs";
 
 export function emptyListValue(): ListValue {
@@ -264,4 +265,74 @@ function updateAtDepth(
       return { ...item, values: { ...item.values, [nestedAlias]: updatedNested } };
     }),
   };
+}
+
+/**
+ * Does the item at `index` — in a `validateListValue` result computed against
+ * THIS SAME list's own value+config — have an error directly on it or
+ * anywhere in its nested lists (LIST-9 AC3)? Paths follow validateListValue's
+ * own convention: `[index]` (malformed item), `[index].field` (a field on
+ * it), or `[index].field[nestedIndex]...` (inside one of its nested lists) —
+ * a single prefix check at `[index]` therefore also catches every descendant
+ * error. That is exactly the "ancestor rows badge too" requirement: a
+ * shallower ListItemsView calls this against the SAME recursive
+ * validateListValue result (computed from its own, shallower value+config,
+ * which still recurses all the way down), so a deeply-nested error bubbles up
+ * to every ancestor row with no extra propagation code.
+ */
+export function hasItemError(errors: ListValidationErrors, index: number): boolean {
+  const itemPath = `[${index}]`;
+  return Object.keys(errors).some((path) => path === itemPath || path.startsWith(`${itemPath}.`));
+}
+
+export interface ListErrorSummaryEntry {
+  label: string;
+  message: string;
+}
+
+/**
+ * Turns `validateListValue`'s path-keyed errors into "<item label> — <message>"
+ * lines using each item's CURRENT resolved label (LIST-9 AC6) — the section's
+ * error summary can then name the offending row by what the respondent typed
+ * ("Ben Chen — DOB is required"), not by a raw storage path
+ * ("children[1].dob is required"). `fallbackLabel` (the list step's own
+ * title) is used for an error with no item context, e.g. "At least 1 item is
+ * required". `path` mirrors validateListValue's own accumulator and must
+ * start at "" for the top-level call — every recursive call passes the exact
+ * same path a nested list's own errors were keyed under.
+ */
+export function describeListErrorsForSummary(
+  value: ListValue,
+  config: ListConfig,
+  errors: ListValidationErrors,
+  fallbackLabel: string,
+  path = ""
+): ListErrorSummaryEntry[] {
+  const entries: ListErrorSummaryEntry[] = [];
+  const rootKey = path || "$root";
+  for (const message of errors[rootKey] ?? []) {
+    entries.push({ label: fallbackLabel, message });
+  }
+
+  value.items.forEach((item, index) => {
+    const itemPath = `${path}[${index}]`;
+    const itemLabel = resolveItemLabel(item, config, `Item ${index + 1}`);
+    for (const message of errors[itemPath] ?? []) {
+      entries.push({ label: itemLabel, message });
+    }
+
+    for (const field of config.fields) {
+      const fieldPath = `${itemPath}.${field.alias}`;
+      if (field.kind === "list") {
+        const nestedValue = normalizeListValue(item.values[field.alias]);
+        entries.push(...describeListErrorsForSummary(nestedValue, field.list, errors, itemLabel, fieldPath));
+      } else {
+        for (const message of errors[fieldPath] ?? []) {
+          entries.push({ label: itemLabel, message });
+        }
+      }
+    }
+  });
+
+  return entries;
 }
