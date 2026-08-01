@@ -1,4 +1,4 @@
-# Portability — Import/Export Bundles (IEX-1..12 + Phase 3/4 outline + backlog)
+# Portability — Import/Export Bundles (only IEX-14 remains)
 
 Source: senior audit of the existing copy/clone/export surfaces, 2026-07-27,
 in response to Shawn's request for (1) admin-wide export/restore, (2) per-client
@@ -23,6 +23,20 @@ bundles that are empty shells outside this system.
 Every finding below was verified against the working tree on 2026-07-27 with
 file:line evidence and quoted code. Line numbers may drift as fixes land —
 search for the quoted code if a reference is stale.
+
+**Round 1 is closed.** IEX-1..13 all shipped and were removed from this file
+per the convention that `tickets/` holds open work only; their findings,
+preferred fixes and dated verification notes are in git history
+(`git log -p -- tickets/IMPORT_EXPORT_TICKETS.md`). Round 2's follow-up audit
+is likewise closed — see `tickets/IMPORT_EXPORT_2_TICKETS.md`, which retains
+only two standing rulings.
+
+**Only IEX-14 remains**, and it changes no code: it is the one screenshot that
+Phase 2 never captured. Note its stated blocker — a reviewing session without a
+working browser surface — is no longer absolute: a dev proved on 2026-08-01
+that a live drive-through is achievable by running its own dev server on a
+spare port and capturing DOM evidence instead of pixels. Worth retrying on that
+basis rather than leaving it parked.
 
 ---
 

@@ -49,7 +49,7 @@ feature work.
 | DEBT-7 | `WorkflowClonerService` silently drops `workflows.settings` | P1 | S | ✅ `23a5863e` — entry removed |
 | DEBT-8 | DI container is built but ~unused | P2 | M | ✅ **Decision: removed, not adopted** (2026-07-30) — `server/di/` deleted; it had zero consumers. Entry removed |
 | DEBT-9 | `type-check` is advisory in CI | P2 | S | ✅ `a0e43c9b` — entry removed |
-| DEBT-10 | 10 dependabot PRs open since 2026-07-11 | P2 | S | 🔄 1/10 — #129 merged, #130–#138 open |
+| DEBT-10 | 10 dependabot PRs open since 2026-07-11 | P2 | S | ✅ all 10 merged, verified at review 2026-08-01 — entry removed |
 | DEBT-11 | RLS policies defined but not enforced (decision, not a fix) | — | — | 🔲 tracked |
 | DEBT-13 | Legacy Final Documents casts `metadata.visibleIf` onto a mismatched type | P1? | S | ✅ `fec4dbe7` — entry removed |
 | DEBT-14 | `creation-routes.test.ts` fails 18 tests only when the whole file runs | P2 | M | ✅ `5ae7fde3` — a tx deadlock, not the test-isolation defect it was filed as; entry removed |
@@ -72,135 +72,12 @@ have been removed.
    GitHub issue **#169 (P0)**.
 2. **Branch protection is off.** CI ran red across four consecutive pushes on
    2026-07-31 — including two feature merges — and nothing prevented a single
-   merge. DEBT-10's AC 2 assumes CI gates the merge; it does not.
+   merge. This was surfaced by DEBT-10, whose AC 2 assumed CI gates the merge;
+   it does not. Still true after DEBT-10 closed: every dependency bump in that
+   ticket was merged with nothing blocking a red run, so "CI was green" there
+   rests on the dev reading each run, not on enforcement.
 3. **Delete `origin/debt9-typecheck-proof`.** Its only commit is a deliberate
    type error, kept to prove the CI gate blocks. The gate is proven.
-
----
-
-## DEBT-10 — 10 dependabot PRs open since 2026-07-11 ✅ Done (2026-08-01)
-
-> **Progress 2026-07-31 — read this before picking the ticket up.**
->
-> **#129 (`actions/github-script` 7→9) is merged** (`f9a66690`) and is fine.
-> **#130–#138 remain open.**
->
-> The first dev correctly stopped on a red post-merge run. That red was **not
-> caused by #129** — two unrelated faults were failing Deployment Safety Check,
-> and `main` was already red for every push including two feature merges. Both
-> are now fixed (`eaede9a6`, `4aad6e00`) and **`main` is fully green at
-> `4aad6e00`**. You are not inheriting a broken tree.
->
-> What broke, because it will shape how you read your own CI runs:
->
-> 1. **gitleaks scans commit history, not the diff.** Merging a three-week-old
->    dependabot branch widened the ancestry and pulled in two findings from a
->    2026-07-28 commit — fixtures in
->    `tests/unit/portability/secretScanner.test.ts`, the test for our own secret
->    scanner. Fingerprints are now in `.gitleaksignore`. **Diagnose a gitleaks
->    failure by the finding's commit date, not by what you just merged.**
-> 2. **`npm run lint` is `--max-warnings 0` repo-wide.** A stray warning
->    anywhere fails CI, and `npx eslint <changed files>` exits 0 on those same
->    warnings. Run the script, not a file list.
->
-> **#130 is `gitleaks/gitleaks-action` 2→3** — a major bump to the exact action
-> that just broke CI. Treat its post-merge run as the highest-risk step in this
-> ticket. If v3 changes ignore-file handling, `.gitleaksignore` may stop being
-> honoured and the secretScanner fixtures will surface again; that is a config
-> fix, not a reason to delete the fixtures or weaken the scan.
-
-**Original ticket follows.**
-
-**Priority: P2** · Size: S · Files: `package.json`, `.github/workflows/*`
-
-### Finding
-
-Ten dependabot PRs (#129–#138) have been open since 2026-07-11 — over two
-weeks. **Five** are GitHub Actions major-version bumps (`checkout` 3→7,
-`setup-node` 3→6, `upload-artifact` 4→7, `github-script` 7→9,
-`gitleaks-action` 2→3) and **five** are npm packages (`yjs` 13.6.28→13.6.31,
-`autoprefixer`, `@radix-ui/react-toast`, `@radix-ui/react-context-menu`,
-`@tailwindcss/typography`). *(The original text said six and four; corrected
-2026-07-31 against the live PR list.)*
-
-Action bumps that far behind eventually become forced work when GitHub retires
-the old runner images, and `yjs` underpins real-time collaboration.
-
-### Preferred fix
-
-Triage in two batches, not one merge queue. GitHub Actions bumps first — they
-are major versions and can break CI, so land them one at a time and confirm CI
-is green after each. Then the npm bumps, with the full suite run against `yjs`
-specifically since collaboration is the least-tested area (see **DEBT-3**).
-
-Close, with a reason, anything not wanted rather than leaving it open.
-
-### Ties
-
-- **DEBT-3b is now closed** (`8dfdee82`, 2026-07-31), so the collab sync test is
-  restored and `tests/integration/collab.sync.test.ts` exists. The `yjs` bump
-  finally has a safety net — run that file specifically against the bump. The
-  earlier advice to land DEBT-3 first is satisfied; do not wait on anything.
-- **Re-verified 2026-07-31:** all ten PRs (#129–#138) are still open, unchanged
-  since 2026-07-11. Five are GitHub Actions bumps (`checkout` 3→7,
-  `setup-node` 3→6, `upload-artifact` 4→7, `github-script` 7→9,
-  `gitleaks-action` 2→3) and five are npm (`yjs`, `autoprefixer`,
-  `@radix-ui/react-toast`, `@radix-ui/react-context-menu`,
-  `@tailwindcss/typography`).
-- **File overlap:** none with DEBT-15 or DEBT-16 — this ticket lives in
-  `package.json` / `package-lock.json` / `.github/workflows/`. Safe in parallel.
-- Branch protection is currently **off**, so a red CI run will not block a
-  merge. Read each run's result yourself rather than trusting the merge button.
-- Load `run-tests`.
-
-### Acceptance criteria
-
-1. Every one of #129–#138 is merged or closed with a stated reason.
-2. CI green after each Actions bump individually, not just at the end.
-3. The `yjs` bump is verified against real-time collaboration behaviour, by
-   test or by hand, with evidence attached.
-
-### Reviewer verification (2026-08-01)
-
-**All 3 criteria met.** All ten PRs merged to `main`, none closed; **zero**
-Dependabot PRs remain open, so nothing was quietly abandoned. #129 and #130
-were confirmed individually rather than inferred from the batch.
-
-AC2: the two workflows that gate every push — `Deployment Safety Check`
-(`ci.yml`) and `TypeScript Strict Mode Check` — are green across the run
-history apart from one failure matching the two pre-existing faults this
-ticket documents, and both remediation commits are real and in history
-(`eaede9a6`, `4aad6e00`). Action versions are consistent across all four
-workflow files: `checkout@v7`, `setup-node@v7`, `upload-artifact@v7`,
-`github-script@v9`, `gitleaks-action@v3`, with no stragglers on old majors.
-Note `setup-node` landed on **v7**, not the v6 this ticket's Finding
-predicted — the dev refreshed it before merging.
-
-AC3 was **reproduced by the reviewer**, not accepted from the report:
-`npx vitest run --project integration tests/integration/collab.sync.test.ts`
-→ 3 passed, against `yjs` **13.6.31** confirmed as the *installed* version,
-not merely the declared one.
-
-**The flagged highest risk is genuinely cleared.** This ticket warned that
-`gitleaks-action` v3 might stop honouring `.gitleaksignore` and resurface the
-`secretScanner` fixtures. The gitleaks step lives in the `security` job of
-`Deployment Safety Check`, which runs on every push to `main`; those runs are
-green with the 19-line `.gitleaksignore` still in place. That is evidence, not
-an assumption.
-
-**Bonus coverage:** `node_modules` was verified to match the bumped
-`package.json` (yjs 13.6.31, autoprefixer 10.5.2, react-toast 1.2.19), which
-means the LIST-9/10/12 review gates run the same day — `tsc` 0 errors,
-repo-wide `lint` clean, `test:fast` **2204 passed** — all executed against the
-upgraded dependency tree.
-
-**Observation, not a defect:** `download-artifact` remains at **v4** while
-`upload-artifact` went to v7, which resembles the classic artifact
-compatibility break. It is not one — Dependabot runs daily on
-`github-actions`, raised the upload bump, and has no open PR for download, so
-v4 is current. Worth knowing only that `auth-tests.yml` is path-filtered to
-auth source files and so never ran during this ticket; that upload/download
-pairing will first execute on the next auth-touching PR.
 
 ---
 
