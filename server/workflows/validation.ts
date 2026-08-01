@@ -6,7 +6,12 @@
  */
 
 import { isRunnerRequirableStepType } from "@shared/types/runnerStepTypes";
-import { getValidationSchema } from "@shared/validation/BlockValidation";
+import type { ListConfig } from "@shared/types/stepConfigs";
+import {
+  getValidationSchema,
+  validateListValue,
+  type ListValidationErrors,
+} from "@shared/validation/BlockValidation";
 import { validateValue } from "@shared/validation/Validator";
 
 import { logger } from "../logger";
@@ -31,6 +36,7 @@ export function isServerFieldValidationEnforced(): boolean {
 export interface ValidationError {
   fieldId: string;
   fieldTitle: string;
+  path?: string;
   errors: string[];
 }
 
@@ -49,6 +55,7 @@ export interface ValidatablePageStep {
   type: string;
   title: string;
   config: unknown;
+  alias?: string | null;
   required?: boolean | null;
   isVirtual?: boolean | null;
 }
@@ -90,6 +97,55 @@ function partitionFieldErrors(
   return [];
 }
 
+function isListConfig(config: unknown): config is ListConfig {
+  return typeof config === 'object'
+    && config !== null
+    && Array.isArray((config as { fields?: unknown }).fields);
+}
+
+/**
+ * `step.config` is jsonb, so persisted or snapshot data can be malformed even
+ * though authoring normally writes a ListConfig. Keep that bad data inside the
+ * validation result instead of allowing it to crash section submission.
+ */
+function safelyValidateListValue(
+  value: unknown,
+  config: unknown,
+  path: string
+): ListValidationErrors {
+  if (!isListConfig(config)) {
+    return { [path]: ['Invalid list configuration'] };
+  }
+
+  try {
+    return validateListValue(value, config, path);
+  } catch {
+    return { [path]: ['Invalid list configuration'] };
+  }
+}
+
+function appendListValidationErrors(
+  target: ValidationError[],
+  step: ValidatablePageStep,
+  value: unknown,
+  enforce: boolean
+): void {
+  const rootPath = step.alias ?? step.id;
+  const listErrors = safelyValidateListValue(value, step.config, rootPath);
+
+  for (const [path, pathErrors] of Object.entries(listErrors)) {
+    const blockingErrors = partitionFieldErrors(pathErrors, step, value, enforce);
+    if (blockingErrors.length > 0) {
+      target.push({
+        fieldId: step.id,
+        fieldTitle: step.title,
+        path,
+        errors: blockingErrors,
+      });
+    }
+  }
+}
+
 /**
  * Validates all fields on a page
  */
@@ -114,6 +170,18 @@ export async function validatePage(
       continue;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const value = values[step.id];
+
+    // List values have recursive, path-keyed validation that cannot be
+    // represented by the flat ValidationRule[] schema used below. Validate
+    // them before the runner-support guard so this wiring is already active
+    // when the runner starts rendering lists (LIST-8).
+    if (step.type === 'list') {
+      appendListValidationErrors(errors, step, value, enforce);
+      continue;
+    }
+
     // Skip step types the runner cannot render a fillable control for
     // (e.g. file_upload, loop_group, repeater, or an unrecognized type).
     // The runner shows only a skip notice for these, so neither a required
@@ -123,9 +191,6 @@ export async function validatePage(
     if (!isRunnerRequirableStepType(step.type)) {
       continue;
     }
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const value = values[step.id];
 
     // RUN2-16: derive the rules from the SAME shared schema builder the client
     // uses, instead of the old server-only config that carried `required` and a
