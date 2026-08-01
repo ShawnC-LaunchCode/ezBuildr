@@ -15,7 +15,7 @@ import React from "react";
 import { Label } from "@/components/ui/label";
 import type { Step } from "@/types";
 
-import type { MultiFieldValue } from "@shared/types/stepConfigs";
+import type { ListValue, MultiFieldValue } from "@shared/types/stepConfigs";
 
 // Block Renderers
 import { AddressBlockRenderer } from "./AddressBlock";
@@ -26,6 +26,7 @@ import { DateBlockRenderer } from "./DateBlock";
 import { DateTimeBlockRenderer } from "./DateTimeBlock";
 import { DisplayBlockRenderer } from "./DisplayBlock";
 import { EmailBlockRenderer } from "./EmailBlock";
+import { ListBlockRenderer } from "./ListBlock";
 import { MultiFieldBlockRenderer } from "./MultiFieldBlock";
 import { NumberBlockRenderer } from "./NumberBlock";
 import { PhoneBlockRenderer } from "./PhoneBlock";
@@ -81,6 +82,10 @@ function isMultiFieldValue(value: unknown): value is MultiFieldValue {
     || typeof item === "boolean"
     || (Array.isArray(item) && item.every(entry => typeof entry === "string"))
   );
+}
+
+function isListValue(value: unknown): value is ListValue {
+  return typeof value === "object" && value !== null && Array.isArray((value as { items?: unknown }).items);
 }
 
 function ExplicitRunnerTypeNotice({ type, status }: { type: string; status: "unsupported" | "unknown" }) {
@@ -191,6 +196,10 @@ export function BlockRenderer(props: BlockRendererProps) {
 
       case "multi_field":
         return <MultiFieldBlockRenderer step={step} value={isMultiFieldValue(value) ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+
+      // Nestable, repeating question (LIST-8)
+      case "list":
+        return <ListBlockRenderer step={step} value={isListValue(value) ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Display blocks
       case "display":

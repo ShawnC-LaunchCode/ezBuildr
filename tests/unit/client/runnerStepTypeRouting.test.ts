@@ -34,7 +34,7 @@ describe("runner step type routing", () => {
     expect(getRunnerStepTypeStatus("repeater")).toBe("unknown");
   });
 
-  it("registers 'list' as unsupported until LIST-8 renders it (LIST-1)", () => {
-    expect(getRunnerStepTypeStatus("list")).toBe("unsupported");
+  it("renders 'list' now that the runner has a drill-in control for it (LIST-8)", () => {
+    expect(getRunnerStepTypeStatus("list")).toBe("rendered");
   });
 });

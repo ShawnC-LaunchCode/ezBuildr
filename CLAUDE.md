@@ -94,7 +94,7 @@ Details, error-string contract, and security invariants: `add-api-endpoint` skil
 | `users` / `tenants` / `organizations` / `workspaces` | Auth & tenancy |
 
 ### Step Types
-37 values in `stepTypeEnum` (`shared/schema/workflow.ts:38`) — legacy types (`short_text`, `multiple_choice`, `signature_block`, `computed`, ...), easy-mode types (`phone`, `date`, `currency`, `scale`, ...), advanced-mode variants (`*_advanced`, `multi_field`, ...), and the structural `list` type (nestable repeating question, unsupported in the runner until the List initiative's Phase 3 lands — see `tickets/LIST_QUESTION_TICKETS.md`). There is **no** `checkbox` or plain `signature` type, and no `repeater`/`loop_group` (both retired in LIST-13). Adding one touches ~10 files — use the `add-step-type` skill.
+37 values in `stepTypeEnum` (`shared/schema/workflow.ts:38`) — legacy types (`short_text`, `multiple_choice`, `signature_block`, `computed`, ...), easy-mode types (`phone`, `date`, `currency`, `scale`, ...), advanced-mode variants (`*_advanced`, `multi_field`, ...), and the structural `list` type (nestable repeating question with runner drill-in navigation, LIST-8 — see `tickets/LIST_QUESTION_TICKETS.md`). There is **no** `checkbox` or plain `signature` type, and no `repeater`/`loop_group` (both retired in LIST-13). Adding one touches ~10 files — use the `add-step-type` skill.
 
 ### Logic Operators & Actions
 - **DB operators** (`conditionOperatorEnum`): equals, not_equals, contains, not_contains, greater_than, less_than, between, is_empty, is_not_empty

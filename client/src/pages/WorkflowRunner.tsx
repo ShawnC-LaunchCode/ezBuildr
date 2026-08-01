@@ -4,6 +4,8 @@ import { useEffect, useMemo, type ComponentProps, type ReactElement } from "reac
 import { FullScreenLoader } from "@/components/ui/loader";
 
 import { ClientRunnerLayout } from "@/components/runner/ClientRunnerLayout";
+import { ListDrillEditor } from "@/components/runner/list/ListDrillEditor";
+import { ListDrillProvider, useListDrill } from "@/components/runner/list/ListDrillContext";
 import { SaveAndResumeButton } from "@/components/runner/SaveAndResumeButton";
 import { FinalDocumentsSection } from "@/components/runner/sections/FinalDocumentsSection";
 import { ReviewSection } from "@/components/runner/sections/ReviewSection";
@@ -18,6 +20,7 @@ import type { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment"
 import { useWorkflow } from "@/lib/vault-hooks";
 import { fetchAPI, type ApiSection, type ApiStep, type ApiWorkflow } from "@/lib/vault-api";
 import { getRunToken } from "@/lib/runTokens";
+import type { ListValue } from "@shared/types/stepConfigs";
 import type { LogicRule } from "@shared/schema";
 
 interface WorkflowRunnerProps {
@@ -507,9 +510,9 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
     >
       <Card className="shadow-lg border-t-4 border-t-primary dark:bg-zinc-900 overflow-visible mt-6 md:mt-0">
         <QuestionSectionHeader currentSection={currentSection} />
-        <CardContent className="pt-8 overflow-visible p-6 md:p-8">
-          <ErrorSummary errors={errors} />
-          <QuestionSectionBody
+        {/* Keyed by section so drilling into a List never survives a section change (LIST-8) — resume always reopens at the section, not mid-drill. */}
+        <ListDrillProvider key={currentSection?.id}>
+          <QuestionCardContent
             currentSection={currentSection}
             visibleSectionSteps={visibleSectionSteps}
             allSteps={effectiveAllSteps}
@@ -517,16 +520,83 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
             handleUpdateValue={handleUpdateValue}
             fieldErrors={fieldErrors}
             effectiveLogicRules={effectiveLogicRules}
+            errors={errors}
+            currentSectionIndex={currentSectionIndex}
+            isLastSection={isLastSection}
+            handlePrev={handlePrev}
+            handleNext={handleNext}
           />
-        </CardContent>
+        </ListDrillProvider>
+      </Card>
+    </ClientRunnerLayout>
+  );
+}
+
+interface QuestionCardContentProps extends QuestionSectionBodyProps {
+  errors: string[];
+  currentSectionIndex: number;
+  isLastSection: boolean;
+  handlePrev: () => Promise<void>;
+  handleNext: () => Promise<void>;
+}
+
+/**
+ * Switches the section body (and Back/Next) for the List drill-in editor
+ * while a List step is drilled into (LIST-8) — drilling replaces the whole
+ * section body, not just the List step's own row, and hides Back/Next in
+ * favor of the editor's own "← parent"/"Done" controls.
+ */
+function QuestionCardContent({
+  currentSection,
+  visibleSectionSteps,
+  allSteps,
+  effectiveValues,
+  handleUpdateValue,
+  fieldErrors,
+  effectiveLogicRules,
+  errors,
+  currentSectionIndex,
+  isLastSection,
+  handlePrev,
+  handleNext,
+}: QuestionCardContentProps): ReactElement {
+  const { drill } = useListDrill();
+  const drilledStep = drill
+    ? (visibleSectionSteps.find((step) => step.id === drill.stepId) ?? allSteps?.find((step) => step.id === drill.stepId))
+    : undefined;
+
+  return (
+    <>
+      <CardContent className="pt-8 overflow-visible p-6 md:p-8">
+        <ErrorSummary errors={errors} />
+        {drill && drilledStep ? (
+          <ListDrillEditor
+            step={drilledStep}
+            value={effectiveValues[drilledStep.id] as ListValue | null | undefined}
+            onChange={(value) => { handleUpdateValue(drilledStep.id, value); }}
+            drill={drill}
+          />
+        ) : (
+          <QuestionSectionBody
+            currentSection={currentSection}
+            visibleSectionSteps={visibleSectionSteps}
+            allSteps={allSteps}
+            effectiveValues={effectiveValues}
+            handleUpdateValue={handleUpdateValue}
+            fieldErrors={fieldErrors}
+            effectiveLogicRules={effectiveLogicRules}
+          />
+        )}
+      </CardContent>
+      {!drill && (
         <QuestionNavigation
           currentSectionIndex={currentSectionIndex}
           isLastSection={isLastSection}
           handlePrev={handlePrev}
           handleNext={handleNext}
         />
-      </Card>
-    </ClientRunnerLayout>
+      )}
+    </>
   );
 }
 

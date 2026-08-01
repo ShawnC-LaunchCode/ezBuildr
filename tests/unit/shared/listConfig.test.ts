@@ -19,16 +19,20 @@ import {
 import type { ListConfig, ListField, ListValue } from '../../../shared/types/stepConfigs';
 
 describe('ListFieldQuestionType derivation (AC3)', () => {
-    it('equals RUNNER_RENDERED_STEP_TYPES minus final_documents and signature_block', () => {
+    it('equals RUNNER_RENDERED_STEP_TYPES minus final_documents, signature_block, and list', () => {
         const expected = RUNNER_RENDERED_STEP_TYPES.filter(
-            (type) => type !== 'final_documents' && type !== 'signature_block',
+            (type) => type !== 'final_documents' && type !== 'signature_block' && type !== 'list',
         );
         expect(LIST_FIELD_QUESTION_TYPES).toEqual(expected);
     });
 
-    it('excludes the two step types with no meaning per-item', () => {
+    it('excludes the step types with no meaning as a per-item question field', () => {
         expect(LIST_FIELD_QUESTION_TYPES).not.toContain('final_documents');
         expect(LIST_FIELD_QUESTION_TYPES).not.toContain('signature_block');
+        // Nesting a List inside a List is `kind: "list"`, not a `type: "list"`
+        // question field (LIST-8, once the runner rendered `list`) — otherwise
+        // there would be two ways to express the same nesting.
+        expect(LIST_FIELD_QUESTION_TYPES).not.toContain('list');
     });
 
     it('flows a newly rendered runner type through automatically', () => {
@@ -37,7 +41,7 @@ describe('ListFieldQuestionType derivation (AC3)', () => {
         // the derivation itself. This is the property that a hand-listed
         // union (like RepeaterFieldType) cannot give you.
         const grown = [...RUNNER_RENDERED_STEP_TYPES, 'js_question'] as const;
-        const derived = grown.filter((type) => type !== 'final_documents' && type !== 'signature_block');
+        const derived = grown.filter((type) => type !== 'final_documents' && type !== 'signature_block' && type !== 'list');
         expect(derived).toContain('js_question');
     });
 });

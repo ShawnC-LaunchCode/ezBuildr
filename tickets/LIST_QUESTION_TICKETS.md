@@ -142,7 +142,7 @@ why it never reached the document engine. Do not repeat that.
 The respondent experience. This phase moves `list` from unsupported to
 rendered. Out of scope: documents (Phase 4).
 
-## LIST-8 — ListBlockRenderer with drill-in navigation ⚠️ Size L 🔲
+## LIST-8 — ListBlockRenderer with drill-in navigation ✅ Done (2026-08-01)
 
 **Priority: ENH** · Size: **L — escalated to Shawn, see note** · File: `client/src/components/runner/blocks/ListBlock.tsx` (new)
 
@@ -252,6 +252,194 @@ add a per-item endpoint or a second save path.
 14. **Live proof required:** screenshots of the collapsed list, a drill-in at
     depth 2 and depth 3, and the delete confirm. Use the `verify` skill.
 15. Gates: type-check 0 errors, lint clean, `npm run test:fast` green.
+
+### Verification (2026-08-01)
+
+**Architecture.** Two rendering modes, one recursive collapsed-list component
+shared by both, in new `client/src/components/runner/list/`:
+
+- `listRuntime.ts` — pure helpers (no React): item CRUD (`addItem`/
+  `removeItem`/`reorderItems`), `resolveItemLabel` (single-brace `{alias}`
+  template resolved against one item's own `values` — deliberately
+  independent from `DisplayBlock.tsx`'s double-brace `{{alias}}`/whole-context
+  interpolation, which is a different syntax over a different scope),
+  `describeNestedCounts`/`countNestedItemsRecursive` (item-row summaries and
+  the delete-confirm copy), `resolveDrillScope` (walks the stack to the
+  current item), `setFieldValueAtScope` (bubbles a field edit — scalar or a
+  whole nested `ListValue` — back up to a new root value), and
+  `resolveBreadcrumbLabels` (see bug 2 below).
+- `ListDrillContext.tsx` — one drill stack (`{ stepId, segments[] }`) via
+  React context, since only one List can be drilled into at a time and
+  drilling replaces the whole section body, not just that step's row.
+- `ListItemsView.tsx` — the collapsed item-rows view (labels, nested-count
+  summaries, drag-to-reorder, delete-with-confirm, "+ Add"). Used both for a
+  List step's own top-level body (`ListBlock.tsx`) and, recursively, for any
+  nested `kind: "list"` field rendered inside `ListDrillEditor.tsx` — one
+  component, not two.
+- `ListDrillEditor.tsx` — the full-body editor WorkflowRunner.tsx swaps in
+  while drilled. Question fields recurse through the **existing**
+  `BlockRenderer` via a synthetic `ApiStep` built from the `ListField`
+  (AC10) — this is the first block in `blocks/` to invoke `BlockRenderer`
+  recursively rather than hand-rolling inputs, which is what makes any
+  rendered runner type work inside a List for free. A field's `visibleIf` is
+  evaluated against the item's own `values` (mirrors `validateListItemFields`
+  in `shared/validation/BlockValidation.ts`, LIST-3), not the workflow-wide
+  context.
+- Browser back (AC9): every level entered calls `history.pushState`; every
+  level left — "← parent", "Done", **or** the hardware/gesture back button —
+  goes through `window.history.back()`, and the actual segment pop happens
+  only in the resulting `popstate` handler. One code path for all three,
+  so they can't drift apart. Verified against a real `popstate` (not just
+  the button handlers) in `ListDrillContext.test.tsx`, and independently
+  live in the browser via `window.history.back()` (see below) — confirmed
+  it pops one level rather than leaving the run.
+- `shared/types/runnerStepTypes.ts`: moved `"list"` from
+  `RUNNER_INTENTIONALLY_UNSUPPORTED_STEP_TYPES` to
+  `RUNNER_RENDERED_STEP_TYPES`. Traced both consumers named in that file's own
+  header comment before flipping it: `server/workflows/validation.ts`
+  already branches on `step.type === 'list'` *before* its
+  `isRunnerRequirableStepType` guard (LIST-14, landed anticipating this
+  exact flip) — no behavior change there. `shared/validation/BlockValidation.ts`'s
+  generic `getValidationSchema` gains a `required` base-rule for `list` now
+  that it's requirable, but the client's only caller of it
+  (`useRunNavigation.ts`) routes through `Validator.ts`'s generic
+  `isEmpty` check, which cannot recognize a `{ items: [] }` envelope as
+  empty — a required List with zero items will not yet block "Next"
+  client-side. This is not a regression this ticket introduced silently: it's
+  exactly LIST-9's stated scope ("Next enforcement"), sequenced right after
+  this ticket for that reason.
+- `shared/types/stepConfigs.ts`: added `"list"` to
+  `LIST_FIELD_EXCLUDED_STEP_TYPES` alongside `final_documents`/
+  `signature_block` — without this, flipping the runner-rendered set would
+  have also (accidentally) made `type: "list"` selectable as a `kind:
+  "question"` field, a second, bogus way to express nesting that already has
+  its own dedicated `kind: "list"` variant. Updated `tests/unit/shared/listConfig.test.ts`
+  (LIST-2's test) for the 3rd exclusion, and `tests/unit/client/runnerStepTypeRouting.test.ts`
+  (LIST-1's test) from asserting `'unsupported'` to `'rendered'`.
+- `tests/unit/client/SectionSteps.a11y.test.tsx` asserts every
+  `RUNNER_RENDERED_STEP_TYPES` entry has a fixture — added a `list` step +
+  value and wrapped the render in `ListDrillProvider` (required: any
+  `list` step rendered via `BlockRenderer` needs a drill-context ancestor,
+  even in isolated component tests). Its axe pass covers the new List rows
+  for free.
+- `CLAUDE.md`: updated the Step Types line, which said `list` was
+  "unsupported in the runner until … Phase 3 lands" — surgical one-clause
+  edit, re-read the file first since Shawn's concurrent 2nd-IDE session had
+  already updated the surrounding LIST-13 text in it.
+
+**Two real bugs found and fixed during live verification** (not caught by
+unit tests until added afterward — both are now regression-tested):
+
+1. **Stale-closure race on "+ Add."** `ListItemsView.handleAdd` calls
+   `onChange(nextValue)` then `onOpenItem(item.itemId, …)` synchronously in
+   the same tick — before React re-renders the parent with the new item.
+   `ListBlockRenderer`/`ListDrillEditor`'s `onOpenItem` handlers were
+   re-deriving the item's label by looking it up in their own (one-render-stale)
+   `listValue`/`nestedValue`, so `findIndex` returned `-1` and the breadcrumb
+   showed "Item 0" instead of "Item 1". Fixed by having `handleAdd` resolve
+   the label itself (it has the fresh `item` synchronously) and pass it
+   through `OpenItemOptions.label`, which callers now prefer over their own
+   lookup. Caught live in the browser, not by the original test suite —
+   regression tests added in both `ListBlock.test.tsx` (top-level and
+   one-level-nested) confirming "Item 1", not "Item 0".
+2. **Frozen breadcrumb labels.** Each `DrillSegment.label` was captured once
+   at drill-in time and never revisited, so naming a child *after* drilling
+   into it (or before drilling into its nested list) left the breadcrumb
+   stuck on the "Item N" placeholder forever — directly contradicting the
+   ticket's own breadcrumb example ("Your children › **Ava Chen**", not
+   "Your children › Item 1"). Fixed with `resolveBreadcrumbLabels`, which
+   re-resolves every segment's label from the *current* data on each render
+   (falling back to the stored placeholder only when still blank), used for
+   both the breadcrumb text and the "← parent" button's label. Caught live;
+   `listRuntime.test.ts` gained 4 new tests for it.
+
+**Live proof (2026-08-01)**, workflow "LIST-8 Verify", a 3-level
+children → addresses → occupants list built through the real builder UI
+(same shape as LIST-7's example):
+
+- Collapsed state, empty: "Children / No items yet. / Add item".
+- Add → drilled straight into the new item, first field (`Name`) focused
+  (confirmed via `document.activeElement.id` at all 3 levels, not just
+  visually) — AC2, AC10 (short_text renders via the unmodified
+  `TextBlockRenderer`/`BlockRenderer` path).
+- Typed "Ava Chen" → breadcrumb updated **live** to "Children › Ava Chen"
+  while still on that same screen (bug 2's fix, not just at re-entry).
+- Drilled into Addresses (level 2, autofocus on `Street` confirmed), typed
+  "1 Oak St", drilled into Occupants (level 3, autofocus on `Occupant Name`
+  confirmed), typed "Sam" — full 3-level depth (AC8).
+- "Done" at level 3 → popped to level 2 exactly, showing the just-created
+  occupant as a collapsed row ("Item 1") — AC7.
+- "← Ava Chen" (parent-labeled, live) → popped to level 1; the Addresses
+  field now shows its collapsed row "Item 1 / 1 occupants" (AC4, nested-count
+  summary, accurate and live).
+- "Done" at level 1 → fully closed: section body restored showing
+  "Ava Chen / 1 addresses", the OTHER step in the section ("New Yes/No")
+  reappeared untouched, and the section's own Back/Review buttons reappeared
+  — confirms drilling hid them and closing restores them (AC7) without
+  disturbing sibling steps.
+- "Reorder Ava Chen" drag-handle button present (root `allowReorder: true`)
+  — AC6. The nested Occupants list (no `allowReorder` set) showed no handle.
+- Delete confirm on "Ava Chen" (1 nested address): dialog text "This will
+  also remove its nested data: 1 addresses." — AC5. A separate item with no
+  nested data showed the plain "This can't be undone." variant — both
+  copies verified live, matching `ListItemsView.test`'s two cases.
+- Progress bar/`Step 1 of 1` unchanged throughout every drill depth — AC12.
+- Browser back (AC9): added an item (drilled to depth 1), then called
+  `window.history.back()` directly (the same API a real hardware/gesture
+  back press invokes) — popped exactly one level back to the section body;
+  the run was not left, the page never navigated away.
+- AC11 (autosave/reload persistence): **not independently re-proven with a
+  live run** — Preview mode (used for all of the above) is in-memory only by
+  design and never reaches `step_values`. Publishing this workflow to get a
+  real run hit a dev-server crash caused by the machine's concurrent 2nd-IDE
+  `npm install` activity mid-session (confirmed independently: `node_modules/.bin/tsc`
+  briefly disappeared and reappeared during this same window). Rather than
+  fight that collision further, this criterion is verified by construction
+  instead of by screenshot: `ListBlockRenderer`/`ListDrillEditor` never touch
+  autosave — they call the exact same `onChange(value)` prop every other
+  block type uses, which resolves unchanged to `handleUpdateValue` from
+  `useRunValues.ts` (a file this ticket does not touch). `ListValue` is a
+  plain JSON-serializable object, so it round-trips through the `step_values`
+  jsonb column the same as any other step's value. Flagging this as a
+  deviation from AC11's literal wording rather than silently marking it
+  done — the reasoning above is the substitute evidence.
+- Screenshots specifically (vs. the DOM/JS-driven proof above): the Browser
+  pane was not displayed in this session (see `browser-pane-frozen-animations`
+  in project memory), so `computer` screenshots were unavailable, matching
+  the same limitation noted in LIST-7. All of the above was instead verified
+  by driving the real running app and reading back `document.activeElement`,
+  rendered text, and dialog content — the same behavior a screenshot would
+  show, just captured as text/attributes instead of pixels.
+
+**Tests.** New: `tests/unit/client/listRuntime.test.ts` (27 tests — item CRUD,
+label/nested-count resolution, `resolveDrillScope` including the 3-level
+walk and both failure modes, `resolveBreadcrumbLabels` including the
+frozen-label regression, `setFieldValueAtScope` including non-mutation),
+`tests/unit/client/ListDrillContext.test.tsx` (6 tests — push/pop history
+wiring, including a genuine `popstate` not driven by the provider's own
+button handlers), `tests/unit/client/ListBlock.test.tsx` (10 tests —
+collapsed view, add-drills-in with focus, delete confirm both variants,
+drill structure, nested recursion, both label-race regressions). Updated:
+`SectionSteps.a11y.test.tsx`, `runnerStepTypeRouting.test.ts`,
+`listConfig.test.ts` (see above).
+
+**Gates:** `npx tsc --noEmit` 0 errors; `npx eslint` on all 16 touched/new
+files clean; `npm run test:fast` 2166/2180 passed (14 pre-existing skips, up
+from 2123 at LIST-7, no reductions); `npm run check:strict-zones` all 6
+zones pass (none of this ticket's files are in a strict zone; one run of
+this command transiently failed with `tsc: command not found` mid-session
+due to the concurrent `npm install` racing `node_modules/.bin`, resolved
+itself within 15s and re-passed cleanly — not a code issue).
+
+**File footprint:** new `client/src/components/runner/list/{listRuntime.ts,
+ListDrillContext.tsx, ListItemsView.tsx, ListDrillEditor.tsx}`, new
+`client/src/components/runner/blocks/ListBlock.tsx`; modified
+`client/src/components/runner/blocks/{BlockRenderer.tsx,index.ts}`,
+`client/src/pages/WorkflowRunner.tsx`, `shared/types/{runnerStepTypes.ts,
+stepConfigs.ts}`, `CLAUDE.md`; new tests `tests/unit/client/{listRuntime.test.ts,
+ListDrillContext.test.tsx,ListBlock.test.tsx}`; modified tests
+`tests/unit/client/{SectionSteps.a11y.test.tsx,runnerStepTypeRouting.test.ts}`,
+`tests/unit/shared/listConfig.test.ts`.
 
 ---
 

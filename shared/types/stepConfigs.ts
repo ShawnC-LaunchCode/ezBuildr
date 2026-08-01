@@ -652,7 +652,7 @@ export interface SignatureBlockConfig {
 import type { ConditionExpression } from "./conditions";
 import { RUNNER_RENDERED_STEP_TYPES } from "./runnerStepTypes";
 
-const LIST_FIELD_EXCLUDED_STEP_TYPES = ["final_documents", "signature_block"] as const;
+const LIST_FIELD_EXCLUDED_STEP_TYPES = ["final_documents", "signature_block", "list"] as const;
 
 function isListFieldQuestionType(
   type: (typeof RUNNER_RENDERED_STEP_TYPES)[number]
@@ -668,7 +668,11 @@ function isListFieldQuestionType(
  * inside a List with no change here — the hand-maintained `RepeaterFieldType`
  * of the retired `repeater` type went stale by doing exactly that (LIST-13).
  * `final_documents` and `signature_block` are excluded: neither has meaning
- * per-item inside a repeating list.
+ * per-item inside a repeating list. `list` is excluded too (LIST-8, once the
+ * runner started rendering it): nesting a List inside a List already has its
+ * own dedicated `kind: "list"` field variant below — offering `type: "list"`
+ * as a `kind: "question"` choice as well would be a second, bogus way to
+ * express the same thing.
  */
 export const LIST_FIELD_QUESTION_TYPES = RUNNER_RENDERED_STEP_TYPES.filter(isListFieldQuestionType);
 

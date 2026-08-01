@@ -20,6 +20,7 @@ export { CurrencyBlockRenderer } from "./CurrencyBlock";
 export { ChoiceBlockRenderer } from "./ChoiceBlock";
 export { AddressBlockRenderer } from "./AddressBlock";
 export { MultiFieldBlockRenderer } from "./MultiFieldBlock";
+export { ListBlockRenderer } from "./ListBlock";
 export { ScaleBlockRenderer } from "./ScaleBlock";
 export { DisplayBlockRenderer } from "./DisplayBlock";
 

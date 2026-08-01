@@ -12,6 +12,7 @@ import userEvent from '@testing-library/user-event';
 import { axe } from 'vitest-axe';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { ListDrillProvider } from '../../../client/src/components/runner/list/ListDrillContext';
 import { SectionSteps } from '../../../client/src/components/runner/SectionSteps';
 import { RUNNER_RENDERED_STEP_TYPES } from '../../../client/src/components/runner/blocks/stepTypeRouting';
 
@@ -106,6 +107,13 @@ const steps: ApiStep[] = [
     provider: 'docusign',
     allowDecline: true,
   }, false),
+  createStep('list', 20, 'Children', {
+    fields: [
+      { kind: 'question', id: 'name-field', alias: 'name', type: 'short_text', title: 'Name', order: 0, required: true },
+    ],
+    labelTemplate: '{name}',
+    addButtonText: 'Add child',
+  }, false),
 ];
 
 const values: Record<string, unknown> = {
@@ -125,6 +133,7 @@ const values: Record<string, unknown> = {
   choice: ['alpha'],
   address: { street: '', city: 'Chicago', state: 'IL', zip: '60601' },
   multi_field: { firstName: 'Ada', lastName: 'Lovelace' },
+  list: { items: [{ itemId: 'item-1', values: { name: 'Ava' } }] },
 };
 
 function renderSection(errors: Record<string, string[]> = {}) {
@@ -138,14 +147,16 @@ function renderSection(errors: Record<string, string[]> = {}) {
   const view = render(
     <QueryClientProvider client={queryClient}>
       <main>
-        <SectionSteps
-          sectionId={sectionId}
-          steps={steps}
-          values={values}
-          logicRules={[]}
-          errors={errors}
-          onChange={onChange}
-        />
+        <ListDrillProvider>
+          <SectionSteps
+            sectionId={sectionId}
+            steps={steps}
+            values={values}
+            logicRules={[]}
+            errors={errors}
+            onChange={onChange}
+          />
+        </ListDrillProvider>
       </main>
     </QueryClientProvider>
   );

@@ -58,6 +58,7 @@ export const RUNNER_RENDERED_STEP_TYPES = [
   "display",
   "final_documents",
   "signature_block",
+  "list",
 ] as const satisfies readonly RunnerStepType[];
 
 export const RUNNER_HIDDEN_STEP_TYPES = [
@@ -67,7 +68,6 @@ export const RUNNER_HIDDEN_STEP_TYPES = [
 
 export const RUNNER_INTENTIONALLY_UNSUPPORTED_STEP_TYPES = [
   "file_upload",
-  "list",
 ] as const satisfies readonly RunnerStepType[];
 
 const NORMALIZED_STEP_TYPES: Record<string, RunnerStepType> = {

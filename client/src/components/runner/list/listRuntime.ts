@@ -1,0 +1,267 @@
+/**
+ * Pure runtime helpers for the runner's List block (LIST-8). No React —
+ * item CRUD, label/summary resolution, and path-based reads/writes through
+ * an arbitrarily nested drill stack. Mirrors the authoring-time pure module
+ * client/src/components/builder/cards/list/listEditorHelpers.ts, but that
+ * module edits field *definitions* (ListField[]); this one edits item
+ * *values* (ListValue/ListItem) at runtime, which has no overlap with it.
+ */
+import type { ListConfig, ListField, ListItem, ListValue } from "@shared/types/stepConfigs";
+
+export function emptyListValue(): ListValue {
+  return { items: [] };
+}
+
+/** `step.config`/a nested field's stored value is jsonb — never trust its shape. */
+export function normalizeListValue(value: unknown): ListValue {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    Array.isArray((value as { items?: unknown }).items)
+  ) {
+    return value as ListValue;
+  }
+  return emptyListValue();
+}
+
+function defaultFieldValue(field: ListField): unknown {
+  return field.kind === "list" ? emptyListValue() : undefined;
+}
+
+/**
+ * Every nested `kind: "list"` field must start as `{ items: [] }`, not
+ * absent — `validateListValue` (LIST-3) rejects an absent/undefined nested
+ * list field as malformed, it does not treat "never touched" as empty.
+ */
+export function createItemValues(config: ListConfig): Record<string, unknown> {
+  const values: Record<string, unknown> = {};
+  for (const field of config.fields) {
+    values[field.alias] = defaultFieldValue(field);
+  }
+  return values;
+}
+
+export function createListItem(config: ListConfig): ListItem {
+  return { itemId: crypto.randomUUID(), values: createItemValues(config) };
+}
+
+export function addItem(value: ListValue, config: ListConfig): { value: ListValue; item: ListItem } {
+  const item = createListItem(config);
+  return { value: { items: [...value.items, item] }, item };
+}
+
+export function removeItem(value: ListValue, itemId: string): ListValue {
+  return { items: value.items.filter((item) => item.itemId !== itemId) };
+}
+
+export function reorderItems(value: ListValue, oldIndex: number, newIndex: number): ListValue {
+  const items = [...value.items];
+  const [moved] = items.splice(oldIndex, 1);
+  if (moved === undefined) {
+    return value;
+  }
+  items.splice(newIndex, 0, moved);
+  return { items };
+}
+
+/**
+ * Resolves `config.labelTemplate`'s `{alias}` syntax against one item's own
+ * `values` — deliberately single-brace and item-scoped, unlike
+ * DisplayBlock.tsx's `{{alias}}` interpolation against the whole-workflow
+ * context (nothing there is reusable for this: different syntax, different
+ * scope). Falls back when the template is unset or resolves blank (e.g. the
+ * referenced field hasn't been answered yet).
+ */
+export function resolveItemLabel(item: ListItem, config: ListConfig, fallback: string): string {
+  const template = config.labelTemplate?.trim();
+  if (!template) {
+    return fallback;
+  }
+  const resolved = template
+    .replace(/\{([^}]+)\}/g, (_match, alias: string) => {
+      const raw = item.values[alias.trim()];
+      if (raw === null || raw === undefined || typeof raw === "object") {
+        return "";
+      }
+      return String(raw);
+    })
+    .trim();
+  return resolved || fallback;
+}
+
+/** e.g. "2 addresses" for the item row's nested-count summary. Null when the item has no nested list fields. */
+export function describeNestedCounts(item: ListItem, config: ListConfig): string | null {
+  const listFields = config.fields.filter(
+    (field): field is Extract<ListField, { kind: "list" }> => field.kind === "list"
+  );
+  if (listFields.length === 0) {
+    return null;
+  }
+  return listFields
+    .map((field) => {
+      const nested = normalizeListValue(item.values[field.alias]);
+      return `${nested.items.length} ${field.title.toLowerCase()}`;
+    })
+    .join(", ");
+}
+
+/** Total item count across this item's nested lists, recursively — used for the delete-confirm "this will also remove N nested items" copy. */
+export function countNestedItemsRecursive(item: ListItem, config: ListConfig): number {
+  let total = 0;
+  for (const field of config.fields) {
+    if (field.kind !== "list") {
+      continue;
+    }
+    const nested = normalizeListValue(item.values[field.alias]);
+    total += nested.items.length;
+    for (const nestedItem of nested.items) {
+      total += countNestedItemsRecursive(nestedItem, field.list);
+    }
+  }
+  return total;
+}
+
+/**
+ * One level of the drill stack. `fieldAlias` names the `kind: "list"` field
+ * (within the PREVIOUS segment's item, or the root step's own config for the
+ * first segment) that was drilled into; `itemId` is the item chosen inside
+ * it. `autoFocusFirstField` is set only on a segment created by "+ Add", so
+ * the drilled editor can focus the first field once and then clear it.
+ */
+export interface DrillSegment {
+  fieldAlias: string | null;
+  itemId: string;
+  label: string;
+  autoFocusFirstField?: boolean;
+}
+
+export interface DrillScope {
+  config: ListConfig;
+  value: ListValue;
+  item: ListItem;
+}
+
+/** Walks the drill stack from the root down to the currently-open item. Returns null if the stack no longer matches the data (e.g. the item was deleted from under it). */
+export function resolveDrillScope(
+  rootConfig: ListConfig,
+  rootValue: ListValue,
+  segments: readonly DrillSegment[]
+): DrillScope | null {
+  let config = rootConfig;
+  let value = rootValue;
+  let item: ListItem | undefined;
+
+  for (let depth = 0; depth < segments.length; depth += 1) {
+    const segment = segments[depth];
+    item = value.items.find((candidate) => candidate.itemId === segment.itemId);
+    if (!item) {
+      return null;
+    }
+    if (depth + 1 < segments.length) {
+      const nextSegment = segments[depth + 1];
+      const field = config.fields.find(
+        (candidate): candidate is Extract<ListField, { kind: "list" }> =>
+          candidate.kind === "list" && candidate.alias === nextSegment.fieldAlias
+      );
+      if (!field) {
+        return null;
+      }
+      config = field.list;
+      value = normalizeListValue(item.values[field.alias]);
+    }
+  }
+
+  return item ? { config, value, item } : null;
+}
+
+/**
+ * Labels for the breadcrumb, one per segment, resolved fresh from the
+ * CURRENT data rather than reusing the frozen `segment.label` — an ancestor
+ * item's name may have been typed in after it was drilled into (e.g. enter
+ * a child unnamed, drill into its addresses, then the breadcrumb must show
+ * the name once it exists, not the "Item 1" placeholder from creation time).
+ * `segment.label` is kept only as the fallback for an item that still
+ * resolves blank. Returns one fewer label than `segments` where the stack no
+ * longer matches the data (caller's `resolveDrillScope` already handles that
+ * case by closing the drill).
+ */
+export function resolveBreadcrumbLabels(
+  rootConfig: ListConfig,
+  rootValue: ListValue,
+  segments: readonly DrillSegment[]
+): string[] {
+  const labels: string[] = [];
+  let config = rootConfig;
+  let value = rootValue;
+
+  for (let depth = 0; depth < segments.length; depth += 1) {
+    const segment = segments[depth];
+    const item = value.items.find((candidate) => candidate.itemId === segment.itemId);
+    if (!item) {
+      break;
+    }
+    labels.push(resolveItemLabel(item, config, segment.label));
+
+    if (depth + 1 < segments.length) {
+      const nextSegment = segments[depth + 1];
+      const field = config.fields.find(
+        (candidate): candidate is Extract<ListField, { kind: "list" }> =>
+          candidate.kind === "list" && candidate.alias === nextSegment.fieldAlias
+      );
+      if (!field) {
+        break;
+      }
+      config = field.list;
+      value = normalizeListValue(item.values[field.alias]);
+    }
+  }
+
+  return labels;
+}
+
+/**
+ * Replaces one field's value on the item at the deepest segment, bubbling
+ * the change back up through every ancestor item so the returned value is a
+ * new root `ListValue` ready for the top-level `onChange`. Works for both a
+ * scalar/question field's value and a nested list field's whole `ListValue`
+ * (add/remove/reorder on a nested list is just "the field's value changed").
+ */
+export function setFieldValueAtScope(
+  rootValue: ListValue,
+  segments: readonly DrillSegment[],
+  fieldAlias: string,
+  fieldValue: unknown
+): ListValue {
+  if (segments.length === 0) {
+    return rootValue;
+  }
+  return updateAtDepth(rootValue, segments, 0, fieldAlias, fieldValue);
+}
+
+function updateAtDepth(
+  value: ListValue,
+  segments: readonly DrillSegment[],
+  depth: number,
+  fieldAlias: string,
+  fieldValue: unknown
+): ListValue {
+  const segment = segments[depth];
+  return {
+    items: value.items.map((item) => {
+      if (item.itemId !== segment.itemId) {
+        return item;
+      }
+      if (depth === segments.length - 1) {
+        return { ...item, values: { ...item.values, [fieldAlias]: fieldValue } };
+      }
+      const nextSegment = segments[depth + 1];
+      const nestedAlias = nextSegment.fieldAlias;
+      if (nestedAlias === null) {
+        return item;
+      }
+      const nestedValue = normalizeListValue(item.values[nestedAlias]);
+      const updatedNested = updateAtDepth(nestedValue, segments, depth + 1, fieldAlias, fieldValue);
+      return { ...item, values: { ...item.values, [nestedAlias]: updatedNested } };
+    }),
+  };
+}
