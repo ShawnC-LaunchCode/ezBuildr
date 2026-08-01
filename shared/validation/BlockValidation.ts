@@ -1,5 +1,6 @@
+import { evaluateConditionExpression } from "../conditionEvaluator";
 import { isRunnerRequirableStepType } from "../types/runnerStepTypes";
-import { StepConfig, TextAdvancedConfig, isNumberConfig } from "../types/stepConfigs";
+import { StepConfig, TextAdvancedConfig, isNumberConfig, ListConfig, ListItem, ListValue } from "../types/stepConfigs";
 
 import { ValidationRule } from "./ValidationRule";
 import { ValidationSchema } from "./ValidationSchema";
@@ -152,10 +153,175 @@ export function getValidationSchema(step: StepLike): ValidationSchema {
             }
             break;
         }
+
+        case "list": {
+            // Structural type (LIST-3): minItems/maxItems are checked against
+            // the actual submitted item count, `required` is per-field-per-item,
+            // and results must be keyed by path (e.g. `children[0].dob`) so a
+            // caller can point a badge at one row — none of that is
+            // expressible as a flat ValidationRule[]/ValidationResult.errors
+            // list, which is why there is no rule pushed here. Callers
+            // validate list values directly via `validateListValue`, exported
+            // below, which recurses through nested list fields to a hard
+            // depth cap (LIST-9 consumes its path-keyed errors).
+            break;
+        }
     }
 
     return {
         rules,
         required: isRequired
     };
+}
+
+/**
+ * Errors for a `list` value, keyed by path rather than returned as a flat
+ * list — e.g. `children[0].dob`, `children[0].addresses[1].street` — so a
+ * caller (LIST-9) can attach a badge to the exact row/field that failed.
+ * Multiple messages can land on the same path.
+ */
+export type ListValidationErrors = Record<string, string[]>;
+
+/**
+ * Hard server-side caps (LIST-3). A crafted payload could otherwise nest
+ * arbitrarily deep and blow the stack in this recursive validator (and in
+ * `projectListValue`), or submit an unbounded item count. These must not be
+ * enforceable only in the client, so they are checked here unconditionally.
+ */
+export const LIST_VALIDATION_MAX_DEPTH = 10;
+export const LIST_VALIDATION_MAX_TOTAL_ITEMS = 5000;
+
+/** Mutable budget threaded through the recursion so the item cap applies across ALL levels combined, not per level. */
+interface ListItemBudget {
+    remaining: number;
+}
+
+/** Depth + budget bundled into one object so recursive helpers stay under the 5-param lint limit. */
+interface ListRecursionState {
+    depth: number;
+    budget: ListItemBudget;
+}
+
+function isListValueShape(value: unknown): value is ListValue {
+    return typeof value === "object" && value !== null && Array.isArray((value as { items?: unknown }).items);
+}
+
+function isListItemShape(item: unknown): item is ListItem {
+    if (typeof item !== "object" || item === null) {
+        return false;
+    }
+    const values = (item as { values?: unknown }).values;
+    return typeof values === "object" && values !== null && !Array.isArray(values);
+}
+
+function isEmptyListFieldValue(value: unknown): boolean {
+    return value === null || value === undefined || value === "" || (Array.isArray(value) && value.length === 0);
+}
+
+function addListError(errors: ListValidationErrors, path: string, message: string): void {
+    (errors[path] ??= []).push(message);
+}
+
+function mergeListErrors(target: ListValidationErrors, source: ListValidationErrors): void {
+    for (const [path, messages] of Object.entries(source)) {
+        (target[path] ??= []).push(...messages);
+    }
+}
+
+/**
+ * Validates one list item's fields (required + recursion into nested list
+ * fields), skipping any field hidden by its `visibleIf` — mirrors
+ * `RepeaterService.validateInstance` (`server/services/RepeaterService.ts:57-90`,
+ * deleted in LIST-13), evaluated against that item's own values as context.
+ */
+function validateListItemFields(
+    item: ListItem,
+    config: ListConfig,
+    itemPath: string,
+    state: ListRecursionState,
+    errors: ListValidationErrors
+): void {
+    for (const field of config.fields) {
+        // `visibleIf` only exists on the "question" variant of ListField — a
+        // nested list field has no visibility expression of its own.
+        const visibleIf = field.kind === "question" ? field.visibleIf : undefined;
+        const isVisible = visibleIf ? evaluateConditionExpression(visibleIf, item.values) : true;
+        if (!isVisible) {
+            continue;
+        }
+
+        const fieldPath = `${itemPath}.${field.alias}`;
+        const raw: unknown = item.values[field.alias];
+
+        if (field.kind === "list") {
+            mergeListErrors(errors, validateListValue(raw, field.list, fieldPath, state.depth + 1, state.budget));
+            continue;
+        }
+
+        if (field.required === true && isEmptyListFieldValue(raw)) {
+            addListError(errors, fieldPath, `${field.title} is required`);
+        }
+    }
+}
+
+/**
+ * Recursively validates a `list` step's submitted value against its config
+ * (LIST-3). A `ListField` may itself be `kind: "list"`, so this recurses to
+ * `LIST_VALIDATION_MAX_DEPTH` levels; deeper values are rejected with an
+ * error instead of being recursed into, and total item count across every
+ * level combined is capped at `LIST_VALIDATION_MAX_TOTAL_ITEMS` — both are
+ * denial-of-service guards, not just correctness checks. A malformed value
+ * (anything other than `{ items: [...] }`, e.g. a bare string, `null`, or an
+ * item without a `values` map) is reported as an error and never throws.
+ *
+ * `path` is the caller-supplied name for this list (e.g. a step alias like
+ * `"children"`); omit it to key top-level errors under `"$root"`.
+ */
+export function validateListValue(
+    value: unknown,
+    config: ListConfig,
+    path = "",
+    depth = 1,
+    budget: ListItemBudget = { remaining: LIST_VALIDATION_MAX_TOTAL_ITEMS }
+): ListValidationErrors {
+    const errors: ListValidationErrors = {};
+    const rootKey = path || "$root";
+
+    if (depth > LIST_VALIDATION_MAX_DEPTH) {
+        addListError(errors, rootKey, `List nesting exceeds the maximum depth of ${LIST_VALIDATION_MAX_DEPTH} levels`);
+        return errors;
+    }
+
+    if (!isListValueShape(value)) {
+        addListError(errors, rootKey, 'Invalid list value: expected an object with an "items" array');
+        return errors;
+    }
+
+    const minItems = config.minItems ?? 0;
+    const maxItems = config.maxItems ?? Infinity;
+    if (value.items.length < minItems) {
+        addListError(errors, rootKey, `At least ${minItems} item(s) required`);
+    }
+    if (value.items.length > maxItems) {
+        addListError(errors, rootKey, `Maximum ${maxItems} item(s) allowed`);
+    }
+
+    for (let index = 0; index < value.items.length; index++) {
+        if (budget.remaining <= 0) {
+            addListError(errors, rootKey, `Total item count exceeds the maximum of ${LIST_VALIDATION_MAX_TOTAL_ITEMS} across all levels combined`);
+            break;
+        }
+        budget.remaining -= 1;
+
+        const itemPath = `${path}[${index}]`;
+        const item: unknown = value.items[index];
+        if (!isListItemShape(item)) {
+            addListError(errors, itemPath, 'Invalid list item: expected an object with a "values" map');
+            continue;
+        }
+
+        validateListItemFields(item, config, itemPath, { depth, budget }, errors);
+    }
+
+    return errors;
 }

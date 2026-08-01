@@ -342,7 +342,7 @@ a shared file reaching into `server/`. Do not copy that; import
 
 ---
 
-## LIST-3 — Server-side validation for nested list values 🔲
+## LIST-3 — Server-side validation for nested list values ✅ Done (2026-07-31)
 
 **Priority: P1** · Size: M · File: `shared/validation/BlockValidation.ts`
 
@@ -405,6 +405,39 @@ LIST-1/LIST-8 and needs no separate edit. Verify, don't duplicate.
    rejected without throwing.
 8. New test file covers 1–7, including a 3-level nest and the two abuse cases.
 9. Gates: type-check 0 errors, lint clean, `npm run test:fast` green.
+
+### Verification (2026-07-31)
+
+- Added `case "list":` to `getValidationSchema`'s switch in
+  `shared/validation/BlockValidation.ts` — a documented no-op, since that
+  function only receives the step *definition* and cannot express
+  per-item/path-keyed results through the existing `ValidationRule[]` shape.
+  The real logic is the exported `validateListValue(value, config, path?,
+  depth?, budget?)`, which recurses through `kind: "list"` fields, keys errors
+  by path (`children[0].addresses[1].street`), evaluates each field's
+  `visibleIf` via `evaluateConditionExpression` against that item's own
+  values, and enforces `LIST_VALIDATION_MAX_DEPTH = 10` and
+  `LIST_VALIDATION_MAX_TOTAL_ITEMS = 5000` unconditionally.
+- **Behavior note for LIST-8/9:** a nested `kind: "list"` field's value is
+  validated with the same strictness as the top-level submitted value —
+  `undefined`/`null`/malformed is rejected as an "Invalid list value" error,
+  not silently treated as `{items: []}`. This is a deliberate, consistent
+  reading of AC7 (malformed/absent values rejected at every depth, not just
+  the root). **Consequence: LIST-8 must initialize every nested list field to
+  `{ items: [] }` when an item is created, never leave it absent**, or a
+  freshly-added item with an untouched optional nested list will fail
+  validation immediately. Flagged by the dev, confirmed by review.
+- New test file `tests/unit/shared/validation/ListValidation.test.ts`
+  (22 tests) covers AC1–7 including the named 3-level nest, exact-boundary
+  cases for the depth cap (10 accepted, 11 rejected) and item cap (5000
+  accepted, 5001 rejected), and all five malformed-value shapes.
+- Reviewer re-ran gates independently: `npm run type-check` 0 errors;
+  `npx eslint shared/validation/BlockValidation.ts
+  tests/unit/shared/validation/ListValidation.test.ts` clean; the new test
+  file 22/22 passed; dev's full `npm run test:fast` run reported 2091/2105
+  (14 pre-existing skips, no regressions).
+- No files touched outside `shared/validation/BlockValidation.ts` and the new
+  test file.
 
 ---
 
@@ -797,6 +830,12 @@ add a per-item endpoint or a second save path.
   `client/src/components/runner/blocks/index.ts`,
   `client/src/components/runner/blocks/BlockRenderer.tsx`,
   `shared/types/runnerStepTypes.ts`.
+- **From LIST-3:** `validateListValue` rejects an absent/`undefined` nested
+  `kind: "list"` field value as malformed, the same as at the top level — it
+  does **not** treat "never touched" as `{ items: [] }`. When creating a new
+  item (Add → drill in), initialize every nested list field in `item.values`
+  to `{ items: [] }` up front, or the fresh item will fail validation
+  immediately even though the respondent hasn't done anything wrong.
 
 ### Acceptance criteria
 
