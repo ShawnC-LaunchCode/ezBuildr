@@ -1,4 +1,4 @@
-# List Question Type — New Feature Tickets (LIST-1..14 + backlog)
+# List Question Type — New Feature Tickets (LIST-1..14 + backlog B1..B7)
 
 Source: feature design session + codebase investigation, 2026-07-31.
 Scope: a new nestable, repeating question type ("List") under **Add Question**,
@@ -918,7 +918,7 @@ should appear as a single leaf there, not a tree.
 The respondent experience. This phase moves `list` from unsupported to
 rendered. Out of scope: documents (Phase 4).
 
-## LIST-14 — Wire `validateListValue` into server-side submission validation 🔲
+## LIST-14 — Wire `validateListValue` into server-side submission validation ✅ Done (2026-08-01)
 
 **Priority: P1** · Size: S · File: `server/workflows/validation.ts`
 
@@ -1008,6 +1008,43 @@ throw.
    than literals. Existing `tests/unit/workflows/serverFieldValidation.test.ts`
    still passes.
 10. Gates: type-check 0 errors, lint clean, `npm run test:fast` green.
+
+### Verification (2026-08-01) — committed `2406c39c`
+
+Worked in the isolated `list-14` worktree, base current with `main`
+(`e20bef39`). Reviewer verified all ten criteria independently rather than on
+the dev's report, then re-verified after applying to `main`.
+
+- **Branch placement is the thing that makes this work, and it's correct.** The
+  `list` branch sits *before* the `isRunnerRequirableStepType` guard, with a
+  comment saying why. `list` is still in the runner's unsupported set until
+  LIST-8, so a branch placed after that guard would be `continue`d today and
+  the wiring would be inert — passing its tests while doing nothing in
+  production. Placing it first means enforcement is live the instant LIST-8
+  flips the type.
+- **AC6 (warn/enforce) solved by reuse, not reimplementation.** Errors route
+  through the existing `partitionFieldErrors`, so warn/enforce semantics are
+  identical to every other step type by construction rather than by matching
+  behaviour twice.
+- **AC7** guarded twice: an `isListConfig` structural check plus a `try/catch`,
+  both yielding `Invalid list configuration` rather than a throw.
+- **AC5**: path-keyed errors carried on a new optional `ValidationError.path`;
+  root path is `step.alias ?? step.id`.
+- **AC9**: tests assert against the exported constants, never literals, and
+  save/restore `SERVER_FIELD_VALIDATION` in `before`/`after` so the env
+  mutation cannot leak into other suites. `it.each` covers a required field at
+  *every* depth 1..`LIST_VALIDATION_MAX_DEPTH`, not just the deepest.
+- Reviewer-run gates in the worktree **and** on `main` after apply: 25 focused
+  tests pass (including the pre-existing `serverFieldValidation.test.ts`),
+  `tsc --noEmit` 0 errors, `eslint` 0 problems, full pre-commit suite 4/4.
+- Only two callers reach the modified `validatePage`
+  (`RunExecutionCoordinator`, `intakeStateMachine`).
+  `server/routes/validation.routes.ts` imports a *different* `validatePage`
+  from `@shared/validation/PageValidator` and is unaffected — see LIST-B6.
+
+Three follow-ups filed from this review: **LIST-B5**, **LIST-B6**, **LIST-B7**.
+None blocks the ticket; all are consequences of lists being the first step type
+to produce more than one error entry, and none is reachable until LIST-8.
 
 ---
 
@@ -1582,6 +1619,46 @@ walking list data are a natural follow-on. See `docs/scripting/helper-library.md
 verified against the tree 2026-07-31. Client-side value validation lives in
 `shared/validation/BlockValidation.ts`. Fix the skill so future sessions don't
 chase it. Small, independent, can be done any time.
+
+**LIST-B5 — `intakeStateMachine` truncates multi-path list errors.** Found
+reviewing LIST-14 (2026-08-01). `server/workflows/intakeStateMachine.ts:172-175`
+collapses the error array into a `Map` keyed by `fieldId`:
+
+```ts
+    for (const error of validationResult.errors) {
+      errors.set(error.fieldId, error.errors);
+    }
+```
+
+Before LIST-14 one step produced at most one `ValidationError`, so `set` was
+safe. A list now produces **one entry per failing path**, all sharing the same
+`fieldId` — so every path but the last is silently discarded, and the new
+`path` field is dropped entirely. `RunExecutionCoordinator:157` has a milder
+version (N identical-titled messages, no path context). Not reachable until
+LIST-8 makes lists fillable. Best fixed alongside **LIST-9**, which designs how
+list errors surface; sequence it there rather than as standalone work.
+
+**LIST-B6 — a second page validator has no list handling.**
+`server/routes/validation.routes.ts:114` calls a *different* `validatePage`,
+from `shared/validation/PageValidator.ts`, which LIST-14 did not touch (its
+`listKey` references are an unrelated cross-field rule mechanism, not the
+`list` step type). The run-submission enforcement path
+(`RunExecutionCoordinator`) does go through the wired validator, so this is
+very likely an advisory/pre-submit endpoint rather than an enforcement
+boundary — **but that was not confirmed.** Confirm before Phase 3 ships; if it
+is an enforcement path, it needs the same wiring as LIST-14.
+
+**LIST-B7 — decide whether the abuse caps should bypass the warn gate.**
+`LIST_VALIDATION_MAX_DEPTH` and `LIST_VALIDATION_MAX_TOTAL_ITEMS` are described
+as denial-of-service guards, but LIST-14's AC6 (correctly, as written) routes
+them through `SERVER_FIELD_VALIDATION`. In the current default warn mode they
+log rather than block, so an oversized list would be persisted. **There is no
+stack-exhaustion risk** — `validateListValue` returns early past the depth cap
+and `break`s when the item budget is spent, so the recursion guard is
+structural and always active regardless of mode. The open question is only
+whether a 50,000-item submission should be *stored*. Reviewer's view: these two
+caps should be unconditional, unlike ordinary field rules. Shawn to decide;
+this is a ticket-design question, not a defect in LIST-14.
 
 **LIST-B4 — Prefill a list from a DataVault query.** `RepeaterService.createFromList`
 (`server/services/RepeaterService.ts:126-152`) could seed items from a
