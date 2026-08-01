@@ -12,7 +12,7 @@ interface TransformBlockFormProps {
     workflowId: string;
 }
 
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+
 export function TransformBlockForm({ formData, setFormData, workflowId }: TransformBlockFormProps) {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

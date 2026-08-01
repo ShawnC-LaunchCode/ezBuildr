@@ -85,7 +85,7 @@ export class IntakeService {
    * Supports both authenticated and anonymous runs
    * Stage 12.5: Supports URL-based prefill
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity -- multi-step intake flow: slug lookup, auth check, config parse, prefill params, initial answers
+
   async createIntakeRun(
     slug: string,
     userId?: string,

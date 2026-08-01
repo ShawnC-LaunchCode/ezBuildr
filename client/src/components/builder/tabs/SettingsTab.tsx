@@ -1,6 +1,3 @@
-/* eslint-disable complexity */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * SettingsTab - Workflow-specific settings
  * PR7: Full UI implementation with stub saves
@@ -16,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { ProjectAssignmentSection } from "@/components/workflows/settings/ProjectAssignmentSection";
 import { useToast } from "@/hooks/use-toast";
 import { workflowAPI } from "@/lib/vault-api";
-import { useWorkflow, useProjects, useMoveWorkflow, useUpdateWorkflow, useWorkflows } from "@/lib/vault-hooks";
+import { useWorkflow, useProjects, useMoveWorkflow, useUpdateWorkflow } from "@/lib/vault-hooks";
 
 import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
 
@@ -24,11 +21,21 @@ import { BehaviorSettingsCard } from "./settings/BehaviorSettingsCard";
 import { BrandingSettingsCard } from "./settings/BrandingSettingsCard";
 import { ClientAccessSettingsCard } from "./settings/ClientAccessSettingsCard";
 import { GeneralSettingsCard } from "./settings/GeneralSettingsCard";
-import { IntakeSettingsCard } from "./settings/IntakeSettingsCard";
 import { PublishingSettingsCard } from "./settings/PublishingSettingsCard";
 
 interface SettingsTabProps {
   workflowId: string;
+}
+
+interface WorkflowSettings {
+  brandingEnabled?: boolean;
+  logoUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  completionMessage?: string;
+  redirectUrl?: string;
+  allowSaveAndResume?: boolean;
+  requireLogin?: boolean;
 }
 
 export function SettingsTab({ workflowId }: SettingsTabProps) {
@@ -66,19 +73,6 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
   const [allowResume, setAllowResume] = useState(true);
   const [allowRedownload, setAllowRedownload] = useState(true);
 
-  // Prompt 24: Intake Settings
-  const [isIntake, setIsIntake] = useState(false);
-  const [upstreamWorkflowId, setUpstreamWorkflowId] = useState<string | null>(null);
-
-  // Fetch all workflows to select upstream (simple approach for now)
-  const { data: allWorkflows } = useWorkflows();
-  // Filter eligible upstream workflows: Active, Is Intake, Not current workflow
-  const eligibleUpstream = allWorkflows?.filter(w =>
-    w.id !== workflowId &&
-    w.intakeConfig?.isIntake === true &&
-    w.status !== 'archived'
-  ) ?? [];
-
   // Sync state with loaded workflow data
   useEffect(() => {
     if (workflow) {
@@ -87,7 +81,7 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
       setSlug(workflow.slug ?? "");
 
       // Load Settings from JSON
-      const settings = (workflow as any).settings;
+      const settings = workflow.settings as WorkflowSettings | undefined;
       if (settings) {
         setBrandingEnabled(settings.brandingEnabled ?? false);
         setLogoUrl(settings.logoUrl ?? "");
@@ -114,11 +108,6 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
         setAllowRedownload(workflow.accessSettings.allow_redownload ?? true);
       }
 
-      // Intake Config
-      if (workflow.intakeConfig) {
-        setIsIntake(workflow.intakeConfig.isIntake ?? false);
-        setUpstreamWorkflowId(workflow.intakeConfig.upstreamWorkflowId ?? null);
-      }
     }
   }, [workflow]);
 
@@ -159,10 +148,6 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
           allowPortal,
           allowResume,
           allowRedownload,
-        },
-        intakeConfig: {
-          isIntake,
-          upstreamWorkflowId: isIntake ? null : upstreamWorkflowId,
         },
       });
 
@@ -264,15 +249,6 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
             setDescription={setDescription}
             slug={slug}
             setSlug={setSlug}
-          />
-
-          {/* Prompt 24: Intake & Data Reuse */}
-          <IntakeSettingsCard
-            isIntake={isIntake}
-            setIsIntake={setIsIntake}
-            upstreamWorkflowId={upstreamWorkflowId}
-            setUpstreamWorkflowId={setUpstreamWorkflowId}
-            eligibleUpstream={eligibleUpstream}
           />
 
           {/* Project Assignment */}

@@ -16,12 +16,25 @@ vitest-summary.json
 integration-results.json
 
 # Lint reports
+#
+# These patterns previously missed the reports that actually get generated --
+# note eslint_report.json (underscore) vs the eslint-report.json below -- so
+# ~40MB of ESLint output sat tracked at the repo root, shipped into the Docker
+# build context via `COPY . .`, and made `git grep` unusable. Removed 2026-07-31.
 eslint-report.json
+eslint_report.json
 eslint-*-report.json
 *-lint-report.json
 *_lint_report.json
 lint-*.json
 server-services-lint.json
+unused-vars-*.json
+naming-report-*.json
+naming-ui.json
+naming-ui-verified.json
+*-strict-bool.json
+config-dump.json
+sample-report.json
 
 # Temporary files
 *.txt

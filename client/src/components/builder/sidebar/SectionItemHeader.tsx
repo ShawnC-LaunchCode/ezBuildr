@@ -1,23 +1,20 @@
 
-import { ChevronDown, ChevronRight, GripVertical, FileCheck, Settings, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, GripVertical, FileCheck, Settings } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { type Mode } from "@/lib/mode";
+
 import { cn } from "@/lib/utils";
 import { type ApiSection } from "@/lib/vault-api";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 
-import { SectionLogicMenu } from "./SectionLogicMenu";
+
 
 interface SectionItemHeaderProps {
     section: ApiSection;
     isExpanded: boolean;
     onToggle: () => void;
-    mode: Mode;
     onEditSection: () => void;
-    onCreateStep: () => void;
-    onAddBlock: (type: "write" | "read_table" | "list_tools" | "external_send") => void;
     isFinalSection: boolean;
     isPageConditional: boolean;
 }
@@ -26,10 +23,7 @@ export function SectionItemHeader({
     section,
     isExpanded,
     onToggle,
-    mode,
     onEditSection,
-    onCreateStep,
-    onAddBlock,
     isFinalSection,
     isPageConditional
 }: SectionItemHeaderProps) {
@@ -95,26 +89,7 @@ export function SectionItemHeader({
                     <Settings className="h-3 w-3 text-muted-foreground" />
                 </Button>
             </div>
-            {!isFinalSection && (
-                <div className={cn(
-                    "flex gap-1",
-                    mode === 'easy' ? "opacity-100" : "opacity-0 group-hover:opacity-100 transition-opacity"
-                )}>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onCreateStep();
-                        }}
-                        title="Add Question"
-                    >
-                        <Plus className="h-3 w-3" />
-                    </Button>
-                    <SectionLogicMenu mode={mode} onAddBlock={onAddBlock} />
-                </div>
-            )}
+
         </div>
     );
 }

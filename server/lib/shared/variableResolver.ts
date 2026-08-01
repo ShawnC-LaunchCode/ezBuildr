@@ -23,8 +23,7 @@ export function resolveSingleValue(
     expression: string | undefined | null,
     data: Record<string, unknown>,
     aliasMap?: Record<string, string>
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-): any {
+): unknown {
     if (expression === undefined || expression === null) {return null;}
     if (typeof expression !== "string") {return expression;}
 
@@ -109,7 +108,6 @@ export function resolvePayloadMappings(
     const result: Record<string, unknown> = {};
 
     for (const mapping of mappings) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const resolvedValue = resolveSingleValue(mapping.value, data, aliasMap);
         // Only include in result if value is not null/undefined
         if (resolvedValue !== undefined && resolvedValue !== null) {
@@ -135,7 +133,6 @@ export function resolveColumnMappings(
     const result: Record<string, unknown> = {};
 
     for (const mapping of mappings) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const resolvedValue = resolveSingleValue(mapping.value, data, aliasMap);
         // Only include if not undefined (allows system:autonumber to be skipped)
         if (resolvedValue !== undefined) {

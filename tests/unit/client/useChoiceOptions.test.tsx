@@ -61,7 +61,7 @@ function makeTableColumnStep(): Step {
       },
     },
     createdAt: "2026-07-25T00:00:00.000Z",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test fixture, real ApiStep shape
+
   } as any;
 }
 
@@ -87,7 +87,7 @@ function makeListStep(): Step {
       },
     },
     createdAt: "2026-07-25T00:00:00.000Z",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test fixture, real ApiStep shape
+
   } as any;
 }
 
@@ -184,7 +184,7 @@ function makeStaticStep(display: "radio" | "dropdown" | "multiple", allowMultipl
       },
     },
     createdAt: "2026-07-25T00:00:00.000Z",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test fixture, real ApiStep shape
+
   } as any;
 }
 

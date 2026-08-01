@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * RecordTable Component
  * Displays collection records in a table format with type-specific rendering
@@ -49,29 +48,28 @@ export function RecordTable({
   const hasNextPage = page < totalPages;
   const hasPrevPage = page > 1;
   // Render field value based on field type
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const renderFieldValue = (value: any, field: ApiCollectionField) => {
+  const renderFieldValue = (value: unknown, field: ApiCollectionField): React.ReactNode => {
     if (value === null || value === undefined) {
       return <span className="text-muted-foreground italic">—</span>;
     }
     switch (field.type) {
       case "boolean":
-        return value ? (
+        return value === true ? (
           <CheckCircle2 className="w-4 h-4 text-green-600" />
         ) : (
           <XCircle className="w-4 h-4 text-red-600" />
         );
       case "date":
         try {
-          return new Date(value).toLocaleDateString();
+          return new Date(value as string | number | Date).toLocaleDateString();
         } catch {
-          return value;
+          return String(value);
         }
       case "datetime":
         try {
-          return new Date(value).toLocaleString();
+          return new Date(value as string | number | Date).toLocaleString();
         } catch {
-          return value;
+          return String(value);
         }
       case "file":
         if (typeof value === "string") {
@@ -82,9 +80,9 @@ export function RecordTable({
             </div>
           );
         }
-        return value;
+        return String(value);
       case "select":
-        return <Badge variant="secondary">{value}</Badge>;
+        return <Badge variant="secondary">{String(value)}</Badge>;
       case "multi_select":
         if (Array.isArray(value)) {
           return (
@@ -97,7 +95,7 @@ export function RecordTable({
             </div>
           );
         }
-        return value;
+        return String(value);
       case "json":
         return (
           <code className="text-xs bg-muted px-2 py-1 rounded">
@@ -105,7 +103,7 @@ export function RecordTable({
           </code>
         );
       case "number":
-        return <span className="font-mono">{value}</span>;
+        return <span className="font-mono">{String(value)}</span>;
       case "text":
       default:
         // eslint-disable-next-line no-case-declarations

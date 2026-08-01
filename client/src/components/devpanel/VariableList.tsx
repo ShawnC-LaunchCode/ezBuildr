@@ -30,7 +30,7 @@ export function VariableList({ workflowId, variables, isLoading }: VariableListP
   // Filter variables based on search query
   const filteredVariables = variables.filter((v) => {
     const searchText = searchQuery.toLowerCase();
-    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+
     return (
       (v.alias?.toLowerCase().includes(searchText) ?? false) ||
       v.label.toLowerCase().includes(searchText) ||

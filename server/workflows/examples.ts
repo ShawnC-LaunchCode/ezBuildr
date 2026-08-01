@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention, @typescript-eslint/explicit-function-return-type */
 /**
  * Condition System Examples
  *
@@ -21,7 +20,7 @@ import {
 /**
  * Show employment details page only if user is employed
  */
-export const example1_employmentVisibility = () => {
+export const example1EmploymentVisibility = (): boolean => {
   const condition: ConditionExpression = {
     op: 'equals',
     left: varRef('employmentStatus'),
@@ -47,7 +46,7 @@ export const example1_employmentVisibility = () => {
  * - Has income over $50,000
  * - Is a US citizen
  */
-export const example2_investmentEligibility = () => {
+export const example2InvestmentEligibility = (): boolean => {
   const condition: ConditionExpression = {
     and: [
       { op: 'gte', left: varRef('age'), right: value(18) },
@@ -77,7 +76,7 @@ export const example2_investmentEligibility = () => {
  * OR has made 10+ purchases
  * OR has spent $1000+
  */
-export const example3_vipBenefits = () => {
+export const example3VipBenefits = (): boolean => {
   const condition: ConditionExpression = {
     or: [
       { op: 'equals', left: varRef('vipStatus'), right: value(true) },
@@ -104,7 +103,7 @@ export const example3_vipBenefits = () => {
 /**
  * Show standard signup form if user is NOT banned
  */
-export const example4_notBanned = () => {
+export const example4NotBanned = (): boolean => {
   const condition: ConditionExpression = {
     not: {
       op: 'in',
@@ -129,7 +128,7 @@ export const example4_notBanned = () => {
 /**
  * SSN is required only for US citizens
  */
-export const example5_conditionalRequired = () => {
+export const example5ConditionalRequired = (): boolean => {
   const condition: ConditionExpression = {
     op: 'equals',
     left: varRef('country'),
@@ -152,7 +151,7 @@ export const example5_conditionalRequired = () => {
 /**
  * Show medical questions if user selected health concerns that include "diabetes"
  */
-export const example6_arrayContains = () => {
+export const example6ArrayContains = (): boolean => {
   const condition: ConditionExpression = {
     op: 'contains',
     left: varRef('healthConcerns'),
@@ -175,7 +174,7 @@ export const example6_arrayContains = () => {
 /**
  * Show international shipping options if phone number is not US format
  */
-export const example7_internationalShipping = () => {
+export const example7InternationalShipping = (): boolean => {
   const condition: ConditionExpression = {
     not: {
       op: 'matches',
@@ -200,7 +199,7 @@ export const example7_internationalShipping = () => {
 /**
  * Show local tax questions if user's address is in California
  */
-export const example8_nestedAccess = () => {
+export const example8NestedAccess = (): boolean => {
   const condition: ConditionExpression = {
     op: 'equals',
     left: varRef('address.state'),
@@ -228,7 +227,7 @@ export const example8_nestedAccess = () => {
 /**
  * Show additional questions if first dependent is under 18
  */
-export const example9_repeaterAccess = () => {
+export const example9RepeaterAccess = (): boolean => {
   const condition: ConditionExpression = {
     op: 'lt',
     left: varRef('dependents[0].age'),
@@ -255,7 +254,7 @@ export const example9_repeaterAccess = () => {
  * Show update form if record status is 'pending'
  * Uses collection record data as context
  */
-export const example10_recordPrefill = () => {
+export const example10RecordPrefill = (): boolean => {
   const condition: ConditionExpression = {
     op: 'equals',
     left: varRef('status'),
@@ -284,7 +283,7 @@ export const example10_recordPrefill = () => {
  * - (Has cosigner AND cosigner income >= $50k)
  * - AND NOT (credit score < 600 OR bankruptcy in last 7 years)
  */
-export const example11_loanEligibility = () => {
+export const example11LoanEligibility = (): boolean => {
   const condition: ConditionExpression = {
     and: [
       // Primary qualification
@@ -339,7 +338,7 @@ export const example11_loanEligibility = () => {
 /**
  * Skip to final page if user selected "Not interested"
  */
-export const example12_skipLogic = () => {
+export const example12SkipLogic = (): boolean => {
   const condition: ConditionExpression = {
     op: 'equals',
     left: varRef('interest'),
@@ -362,7 +361,7 @@ export const example12_skipLogic = () => {
 /**
  * Show reminder message if optional field was left empty
  */
-export const example13_emptyCheck = () => {
+export const example13EmptyCheck = (): boolean => {
   const condition: ConditionExpression = {
     op: 'isEmpty',
     left: varRef('referralSource'),
@@ -385,7 +384,7 @@ export const example13_emptyCheck = () => {
 /**
  * Show additional questions if user selected multiple options
  */
-export const example14_multiSelect = () => {
+export const example14MultiSelect = (): boolean => {
   const condition: ConditionExpression = {
     and: [
       { op: 'contains', left: varRef('interests'), right: value('technology') },
@@ -410,7 +409,7 @@ export const example14_multiSelect = () => {
  * Show early bird pricing if registration date is before deadline
  * Note: Dates as ISO strings for comparison
  */
-export const example15_dateCondition = () => {
+export const example15DateCondition = (): boolean => {
   const condition: ConditionExpression = {
     op: 'lt',
     left: varRef('registrationDate'),

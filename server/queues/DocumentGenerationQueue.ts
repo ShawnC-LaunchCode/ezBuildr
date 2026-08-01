@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Document Generation Queue
  *
@@ -133,21 +132,20 @@ export function getDocumentGenerationQueue(): Queue<DocumentGenerationJobData> {
       logger.info({ jobId: job.id, runId: job.data.runId }, 'Job started processing');
     });
 
-    queueInstance.on('completed', (job: Job, result: { totalGenerated?: number; failed?: unknown[]; processingTimeMs?: number }) => {
+    queueInstance.on('completed', (job: Job<DocumentGenerationJobData>, result: { totalGenerated?: number; failed?: unknown[]; processingTimeMs?: number }) => {
       logger.info(
         {
           jobId: job.id,
           runId: job.data.runId,
           generated: result.totalGenerated,
-          // @ts-expect-error - TODO: fix type
-          failed: result.failed.length,
+          failed: result.failed?.length ?? 0,
           processingTimeMs: result.processingTimeMs,
         },
         'Job completed successfully'
       );
     });
 
-    queueInstance.on('failed', (job: Job, error: Error) => {
+    queueInstance.on('failed', (job: Job<DocumentGenerationJobData>, error: Error) => {
       logger.error(
         {
           jobId: job?.id,
@@ -160,7 +158,7 @@ export function getDocumentGenerationQueue(): Queue<DocumentGenerationJobData> {
       );
     });
 
-    queueInstance.on('stalled', (job: Job) => {
+    queueInstance.on('stalled', (job: Job<DocumentGenerationJobData>) => {
       logger.warn({ jobId: job.id, runId: job.data.runId }, 'Job stalled');
     });
 

@@ -228,7 +228,7 @@ export class RunExecutionCoordinator {
                 result.output,
                 context.workflowId
             );
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, no-param-reassign -- updating local data map with JS question output
+
             dataMap[step.id] = result.output; // Update local map
         }
         return {

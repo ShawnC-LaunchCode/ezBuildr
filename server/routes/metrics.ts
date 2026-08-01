@@ -17,7 +17,7 @@ export function registerMetricsRoutes(app: Express): void {
    *
    * Optional protection via METRICS_API_KEY environment variable
    */
-  // eslint-disable-next-line @typescript-eslint/require-await
+
   app.get('/metrics', asyncHandler(async (req: Request, res: Response) => {
     // Protection is OPTIONAL and keyed off METRICS_API_KEY: when no key is
     // configured the endpoint is open (Prometheus scraping is typically locked

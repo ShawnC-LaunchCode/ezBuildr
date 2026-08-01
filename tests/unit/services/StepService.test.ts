@@ -1,8 +1,15 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
+
 import { describe, it, expect, beforeEach, vi, type Mocked } from "vitest";
 
 import { StepService, generateAliasFromLabel } from "../../../server/services/StepService";
-import { stepRepository, sectionRepository, stepValueRepository } from "../../../server/repositories";
+import {
+  stepRepository,
+  sectionRepository,
+  stepValueRepository,
+  transformBlockRepository,
+  documentHookRepository,
+  lifecycleHookRepository,
+} from "../../../server/repositories";
 import { createTestStep, createTestSection, createTestWorkflow } from "../../factories/workflowFactory";
 import { workflowService } from "../../../server/services/WorkflowService";
 
@@ -40,6 +47,21 @@ vi.mock("../../../server/repositories", () => ({
   stepValueRepository: {
     countImpactForSteps: vi.fn(),
   },
+  // Exercised for real (not stubbed at the AliasRenameService boundary) by
+  // the "follow-the-label" alias-regenerate test below, since propagateRename
+  // now runs atomically and un-mocked repos would reject instead of no-op.
+  transformBlockRepository: {
+    findByWorkflowId: vi.fn(),
+    update: vi.fn(),
+  },
+  documentHookRepository: {
+    findByWorkflowId: vi.fn(),
+    update: vi.fn(),
+  },
+  lifecycleHookRepository: {
+    findByWorkflowId: vi.fn(),
+    update: vi.fn(),
+  },
 }));
 vi.mock("../../../server/services/WorkflowService", () => ({
   workflowService: {
@@ -53,6 +75,9 @@ describe("StepService", () => {
   let mockSectionRepo: Mocked<typeof sectionRepository>;
   let mockWorkflowSvc: Mocked<typeof workflowService>;
   let mockStepValueRepo: Mocked<typeof stepValueRepository>;
+  let mockTransformRepo: Mocked<typeof transformBlockRepository>;
+  let mockDocHookRepo: Mocked<typeof documentHookRepository>;
+  let mockLifecycleRepo: Mocked<typeof lifecycleHookRepository>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -61,6 +86,9 @@ describe("StepService", () => {
     mockSectionRepo = sectionRepository as Mocked<typeof sectionRepository>;
     mockWorkflowSvc = workflowService as Mocked<typeof workflowService>;
     mockStepValueRepo = stepValueRepository as Mocked<typeof stepValueRepository>;
+    mockTransformRepo = transformBlockRepository as Mocked<typeof transformBlockRepository>;
+    mockDocHookRepo = documentHookRepository as Mocked<typeof documentHookRepository>;
+    mockLifecycleRepo = lifecycleHookRepository as Mocked<typeof lifecycleHookRepository>;
 
     // Setup default mock implementations
     mockStepRepo.findById.mockResolvedValue(undefined);
@@ -73,6 +101,13 @@ describe("StepService", () => {
     mockSectionRepo.findByWorkflowId.mockResolvedValue([]);
 
     mockStepValueRepo.countImpactForSteps.mockResolvedValue({ answerCount: 0, runCount: 0 });
+
+    // propagateRename (atomic since DEBT-16) runs for real whenever a test
+    // triggers an alias change — these default to a no-op so it doesn't
+    // reject on an un-mocked repository.
+    mockTransformRepo.findByWorkflowId.mockResolvedValue([]);
+    mockDocHookRepo.findByWorkflowId.mockResolvedValue([]);
+    mockLifecycleRepo.findByWorkflowId.mockResolvedValue([]);
 
     service = new StepService(mockStepRepo, mockSectionRepo, mockWorkflowSvc, mockStepValueRepo);
   });
@@ -342,7 +377,8 @@ describe("StepService", () => {
       // The step had no custom alias, so the label change also fills the alias
       expect(mockStepRepo.update).toHaveBeenCalledWith(
         step.id,
-        expect.objectContaining({ title: "Updated Title", alias: "updatedTitle" })
+        expect.objectContaining({ title: "Updated Title", alias: "updatedTitle" }),
+        expect.anything()
       );
     });
 
@@ -612,7 +648,8 @@ describe("StepService", () => {
 
       expect(mockStepRepo.update).toHaveBeenCalledWith(
         step.id,
-        expect.objectContaining({ alias: "whatIsYourEmail" })
+        expect.objectContaining({ alias: "whatIsYourEmail" }),
+        expect.anything()
       );
     });
 
@@ -628,7 +665,8 @@ describe("StepService", () => {
 
       expect(mockStepRepo.update).toHaveBeenCalledWith(
         step.id,
-        expect.objectContaining({ alias: "companyName" })
+        expect.objectContaining({ alias: "companyName" }),
+        expect.anything()
       );
     });
 
@@ -676,7 +714,8 @@ describe("StepService", () => {
 
       expect(mockStepRepo.update).toHaveBeenCalledWith(
         step.id,
-        expect.objectContaining({ sectionId: destSection.id, order: 3 })
+        expect.objectContaining({ sectionId: destSection.id, order: 3 }),
+        expect.anything()
       );
     });
 
@@ -692,7 +731,8 @@ describe("StepService", () => {
 
       expect(mockStepRepo.update).toHaveBeenCalledWith(
         step.id,
-        expect.objectContaining({ sectionId: destSection.id, order: 5 })
+        expect.objectContaining({ sectionId: destSection.id, order: 5 }),
+        expect.anything()
       );
     });
   });

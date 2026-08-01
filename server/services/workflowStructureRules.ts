@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
 /**
  * Structural publish-time validation (RUN2-9).
  *
@@ -31,7 +30,7 @@ import type { LintResult, LintableWorkflowContent } from "./workflowLintRules";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const VALID_STEP_TYPES = new Set<string>(stepTypeEnum.enumValues);
-const VALID_CHOICE_DISPLAYS = new Set(["radio", "dropdown", "multiple"]);
+const VALID_CHOICE_DISPLAYS = new Set(["radio", "dropdown", "combobox", "multiple"]);
 
 /** Step types whose `config` is a `FinalBlockConfig` (see `RunLifecycleService`). */
 const FINAL_BLOCK_STEP_TYPES = new Set(["final", "final_documents"]);
@@ -56,20 +55,25 @@ export interface WorkflowReadinessContext {
 }
 
 /** Serialized sections carry `steps` as untyped jsonb-derived data; read it once, typed. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
 function stepsOf(section: Record<string, any>): Record<string, any>[] {
   const steps: unknown = section.steps;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
   return Array.isArray(steps) ? steps as Record<string, any>[] : [];
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
 function stepLabel(step: Record<string, any>): string {
   return String(step.title ?? step.alias ?? step.id ?? "untitled step");
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
 function sectionLabel(section: Record<string, any>): string {
   return String(section.title ?? section.id ?? "untitled section");
 }
 
 /** Check 1 — a workflow with no sections, or no real questions, cannot be run. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
 function checkHasContent(sections: Record<string, any>[], results: LintResult[]): void {
   if (sections.length === 0) {
     results.push({ type: "error", message: "Workflow must have at least one section." });
@@ -90,6 +94,7 @@ function checkHasContent(sections: Record<string, any>[], results: LintResult[])
  * A non-UUID id published here fails that parse at run time and takes the whole
  * runner down for the respondent with an opaque error (see RUN2-10).
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
 function checkIdsAreUuids(sections: Record<string, any>[], results: LintResult[]): void {
   for (const section of sections) {
     if (!UUID_PATTERN.test(String(section.id))) {
@@ -110,6 +115,7 @@ function checkIdsAreUuids(sections: Record<string, any>[], results: LintResult[]
 }
 
 /** Checks 3 and 4 — every type is real and every respondent-facing step is renderable. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
 function checkStepTypes(sections: Record<string, any>[], results: LintResult[]): void {
   for (const section of sections) {
     for (const step of stepsOf(section)) {
@@ -155,6 +161,7 @@ interface RuleContext {
   stepAliases: Set<string>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
 function buildRuleContext(sections: Record<string, any>[]): RuleContext {
   const sectionOrderById = new Map<string, number>();
   const sectionRefs = new Set<string>();
@@ -190,11 +197,13 @@ function buildRuleContext(sections: Record<string, any>[]): RuleContext {
  * `skip_to` traps the run in a navigation loop (RUN2-2). Both are refused here.
  */
 function checkLogicRules(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
   rules: Record<string, any>[],
   ctx: RuleContext,
   results: LintResult[]
 ): void {
   for (const rule of rules) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Workflow definitions contain extensible dynamic configuration.
     const conditionRef = rule.conditionStepId ?? rule.conditionStepAlias;
     const hasCondition = typeof conditionRef === "string" && conditionRef.length > 0;
     if (!hasCondition) {
@@ -209,6 +218,7 @@ function checkLogicRules(
       });
     }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Workflow definitions contain extensible dynamic configuration.
     const targetRef = rule.targetId ?? rule.targetAlias;
     const hasTarget = typeof targetRef === "string" && targetRef.length > 0;
     const targetsSection = rule.targetType === "section";
@@ -256,18 +266,22 @@ function checkSkipDirection(
 }
 
 /** Check 7 — a choice question with nothing to choose, or an unsupported display, cannot be answered. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
 function checkChoiceSteps(sections: Record<string, any>[], results: LintResult[]): void {
   for (const section of sections) {
     for (const step of stepsOf(section)) {
       if (step.isVirtual === true) { continue; }
       if (normalizeRunnerStepType(String(step.type ?? "")) !== "choice") { continue; }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
       const config = (step.config ?? {}) as Record<string, any>;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Workflow definitions contain extensible dynamic configuration.
       const options = config.options;
 
       const isDynamic = options !== null && typeof options === "object" && !Array.isArray(options) && "type" in options;
       const hasStaticOptions = Array.isArray(options) && options.length > 0;
       const hasDynamicSource = isDynamic && (
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Workflow definitions contain extensible dynamic configuration.
         options.type !== "static" || (Array.isArray(options.options) && options.options.length > 0)
       );
 
@@ -278,6 +292,7 @@ function checkChoiceSteps(sections: Record<string, any>[], results: LintResult[]
         });
       }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Workflow definitions contain extensible dynamic configuration.
       const display = config.display;
       if (display !== undefined && display !== null && !VALID_CHOICE_DISPLAYS.has(String(display))) {
         results.push({
@@ -290,9 +305,12 @@ function checkChoiceSteps(sections: Record<string, any>[], results: LintResult[]
 }
 
 /** Documents carried by a final-block or signature-block step `config`. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
 function documentEntriesOf(step: Record<string, any>): Record<string, any>[] {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
   const config = (step.config ?? {}) as Record<string, any>;
   const docs: unknown = config.documents;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
   return Array.isArray(docs) ? docs as Record<string, any>[] : [];
 }
 
@@ -313,6 +331,7 @@ function documentEntriesOf(step: Record<string, any>): Record<string, any>[] {
  * failure. Blocking here would refuse workflows that generate fine.
  */
 function checkDocumentEntry(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
   entry: Record<string, any>,
   ownerLabel: string,
   ctx: RuleContext,
@@ -343,7 +362,9 @@ function checkDocumentEntry(
   const mapping: unknown = entry.mapping;
   if (mapping === null || typeof mapping !== "object" || Array.isArray(mapping)) { return; }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
   for (const [field, binding] of Object.entries(mapping as Record<string, any>)) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Workflow definitions contain extensible dynamic configuration.
     const source: unknown = binding?.source;
     if (typeof source !== "string" || source.trim().length === 0) {
       results.push({
@@ -366,6 +387,7 @@ function checkDocumentEntry(
 
 /** Check 9 — final-block steps (`final` / `final_documents`) carry usable documents. */
 function checkFinalBlockSteps(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
   sections: Record<string, any>[],
   ctx: RuleContext,
   context: WorkflowReadinessContext,
@@ -405,11 +427,13 @@ function checkFinalBlockSteps(
  * authoring path, so it gets the same template-existence guarantee.
  */
 function checkLegacyFinalSections(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
   sections: Record<string, any>[],
   context: WorkflowReadinessContext,
   results: LintResult[]
 ): void {
   for (const section of sections) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
     const config = (section.config ?? {}) as Record<string, any>;
     if (config.finalBlock !== true) { continue; }
 
@@ -453,6 +477,7 @@ function checkLegacyFinalSections(
  * server where the registry is empty.
  */
 function checkSignatureBlocks(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
   sections: Record<string, any>[],
   ctx: RuleContext,
   context: WorkflowReadinessContext,
@@ -476,6 +501,7 @@ function checkSignatureBlocks(
         checkDocumentEntry(entry, label, ctx, context, results);
       }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
       const provider: unknown = ((step.config ?? {}) as Record<string, any>).provider;
       if (
         context.availableEsignProviders !== undefined &&
@@ -493,6 +519,7 @@ function checkSignatureBlocks(
 }
 
 /** Warnings — worth telling the author about, never worth blocking a publish. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
 function collectStructureWarnings(sections: Record<string, any>[], results: LintResult[]): void {
   for (const section of sections) {
     for (const step of stepsOf(section)) {

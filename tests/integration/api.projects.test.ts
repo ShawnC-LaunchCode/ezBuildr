@@ -659,7 +659,7 @@ describe.sequential("Projects API Integration Tests", () => {
         {
           principalType: "user" as const,
           principalId: badId,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- deliberately invalid to force a DB-level failure mid-loop
+
           role: "x".repeat(25) as any,
         },
       ];

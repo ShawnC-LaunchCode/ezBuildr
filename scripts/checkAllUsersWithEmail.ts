@@ -5,7 +5,7 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import ws from 'ws';
 
 async function checkAllUsers() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   // @ts-expect-error - TODO: fix type
   neonConfig.webSocketConstructor = ws.default as any; // WebSocket constructor type compatibility
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });

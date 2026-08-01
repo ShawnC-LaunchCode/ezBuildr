@@ -124,9 +124,9 @@ Proven live are marked **[PROVEN]** with the reproduction.
 
 | Phase | Theme | Tickets | Status |
 |---|---|---|---|
-| A | **P0 — the feature does not work on real data** | IEX2-1..4 | 🔄 IEX2-1 ✅ · IEX2-2 ✅ · 3/4 open |
-| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | 🔲 |
-| C | P2 — hardening, redaction depth, real proof | IEX2-12..15 | 🔲 |
+| A | **P0 — the feature does not work on real data** | IEX2-1..4 | ✅ **COMPLETE** — all four P0s fixed |
+| B | P1 — trust, failure handling, scale | IEX2-5..11, **IEX2-17** | ✅ **COMPLETE** — IEX2-5 ✅ 6 ✅ 7 ✅ 8 ✅ 9 ✅ **10 ✅** 11 ✅ 17 ✅ |
+| C | P2 — hardening, redaction depth, real proof | IEX2-12..15 | 🔄 IEX2-12 ✅ + IEX2-13 ✅ done |
 | D | Make the feature reachable | IEX2-16 | ⏸️ **deferred out of round 2** |
 
 **All decisions are now ruled — nothing is waiting on Shawn (2026-07-29).**
@@ -487,7 +487,34 @@ tenant's object"). Apply that reasoning to FK refs.
 
 ---
 
-## IEX2-3 — Import auto-publishes workflows, clones live public links, and cannot import a slugged workflow at all 🔄
+## IEX2-3 — Import auto-publishes workflows, clones live public links, and cannot import a slugged workflow at all ✅
+
+> **VERIFIED at review 2026-07-29** — commit `d1e49393`, worked in
+> `.claude/worktrees/iex2-3`, fast-forwarded into `main`.
+>
+> All six fields are forced in `enforceOwnership`. **The reset is gated on
+> `desc.name`, not on `'x' in shape`** like the ownership stamps around it —
+> the dispatch-block trap was avoided, so no invalid `'draft'` reaches
+> `projects.status`.
+>
+> **AC 2's test was rewritten at review.** As turned in it imported the shared
+> fixture bundle twice, but that workflow has no slug, so it never touched the
+> unique index the criterion exists to guard — mutation testing showed it
+> passing with the fix removed. It now sets a slug before exporting and asserts
+> both copies import with a null slug while the source keeps its own. This is
+> the third ticket in a row where a test passed for the wrong reason; mutation
+> testing caught all three.
+>
+> **Mutation-verified:** disabling the `workflows` branch fails AC 1, 2, 3 and
+> 5; AC 4 correctly survives, since it covers `workflow_versions`.
+>
+> Reviewer-run gates: `tsc` 0 errors · `eslint` 0 problems · portability
+> `unit-db` **56 passed / 7 files** (51 baseline) · `test:fast` **149 files,
+> 2016 tests**.
+>
+> **IEX2-4 is unblocked** — it is dispatched in `.claude/worktrees/iex2-4` and
+> must `git merge main --ff-only` before turning in, since both tickets append
+> to `importApply.test.ts`.
 
 > **Dispatched 2026-07-29** — worktree `.claude/worktrees/iex2-3`, base
 > `9c0a3cec` (proven by `scripts/new-worktree.ps1`). IEX2-4..7 are behind it in
@@ -648,7 +675,49 @@ commented — say *why*, not *what*.
 
 ---
 
-## IEX2-4 — A failed import leaves orphaned blobs in storage and burns the tenant's quota 🔲
+## IEX2-4 — A failed import leaves orphaned blobs in storage and burns the tenant's quota ✅
+
+> **VERIFIED at review 2026-07-29** — commit `d8554d47`, worked in
+> `.claude/worktrees/iex2-4`, rebased onto `main` and fast-forwarded in.
+>
+> The wrap covers the two pre-transaction passes as well as the transaction,
+> which is more than the ticket asked for and correct: blobs are written before
+> `allocateIds` and `resolveProjectIdOverride`, so a failure there leaks just as
+> readily. The original error is rethrown unchanged, so the 400/500
+> classification still keys off the real message. Pass 1 was extracted into
+> `allocateIds()` to stay under the complexity and block-depth limits rather
+> than suppressing either rule.
+>
+> **AC 5 answered and independently re-verified: `saveFile` does NOT
+> deduplicate**, so this cleanup cannot delete an object another import relies
+> on. Both providers mint a fresh `nanoid(16)` ref per call and neither is
+> content-addressed; `restoreBlobs` dedupes by sha256 only through a `written`
+> map local to a single call, so every value in `blobMap` was written by that
+> call alone. The turn-in reached the right conclusion through wrong reasoning
+> — it described `S3StorageProvider` as building keys from the content hash,
+> which it does not. Worth re-checking if either provider ever becomes
+> content-addressed, because that would make this cleanup unsafe.
+>
+> **Two review corrections:**
+> - AC 4 requires a cleanup failure to be *logged*, and nothing asserted it. A
+>   silent cleanup failure is the precise hazard — the blob stays and no record
+>   of it exists — so the test now asserts `logger.warn` fires with the leaked
+>   `fileRef`.
+> - **The turn-in never fast-forwarded**, despite the instruction in its
+>   dispatch block. Its reported "53 passed" was the pre-IEX2-3 baseline of 51,
+>   not the 56 it should have measured against. Rebased onto `main` — which
+>   merged with no conflicts, since the two tickets touch different regions of
+>   `ImportService.ts` — and re-run.
+>
+> **Mutation-verified:** removing the `deleteFile` call fails the AC 1/2 and
+> AC 4 tests; AC 3 (blobs survive a successful import) correctly still passes.
+>
+> Reviewer-run gates: `tsc` 0 errors · `eslint` 0 problems · portability
+> `unit-db` **58 passed / 7 files** (56 baseline) · `test:fast` **149 files,
+> 2016 tests**.
+>
+> **🎉 Phase A is COMPLETE.** All four P0s are fixed: a realistic bundle now
+> exports and imports.
 
 **Priority: P0** · Size: M · Files: `server/services/portability/ImportService.ts`
 
@@ -737,7 +806,34 @@ fix to a reference-counted sweep and is a bigger ticket.
 
 # Phase B — P1: trust, failure handling, scale
 
-## IEX2-5 — The import audit record reports numbers supplied by the bundle 🔲
+## IEX2-5 — The import audit record reports numbers supplied by the bundle ✅
+
+> **Dispatched 2026-07-30** — worktree `.claude/worktrees/iex2-5`, base
+> `91ceec55`. Head of the ImportService chain now that Phase A is complete;
+> IEX2-6 and IEX2-7 queue behind it.
+>
+> ⚠️ **`BUNDLE_REJECTION_SIGNALS` collision.** This ticket appends a signal to
+> `portability.routes.ts:81-95`, and so does **IEX2-12**, dispatched in parallel.
+> Same array, adjacent lines — whichever lands second must
+> `git merge main --ff-only` and re-run gates. Nothing else in the two tickets
+> overlaps.
+>
+> **Baselines:** portability `unit-db` **58 passed / 7 files**; `test:fast`
+> **149 files / 2016 tests**.
+
+> **✅ Verified at review 2026-07-30 — committed `330ba5da`.** Gates re-run by
+> the reviewer, not taken on report: type-check 0, lint 0, `test:fast`
+> 149/2016 (baseline), portability `unit-db` 58/7 (baseline), portability
+> integration 9 (7 baseline + 2 new).
+>
+> **Reviewer fix — the delivered rootId check leaked committed rows.** The
+> `newRootId === ''` throw was placed *after* `db.transaction()` returned, so a
+> rejected bundle committed Pass 2 and then answered 400: orphaned rows in the
+> tenant with no rootId able to reach them, strictly worse than the empty-rootId
+> 201 the ticket set out to fix. The dev's AC 3 test asserted only the status
+> code and message, so it passed over the defect. Reviewer moved the throw
+> inside the transaction and added a row-count assertion, which reproduces it
+> (`expected 12 to be 11`) before the fix.
 
 **Priority: P1 (audit integrity)** · Size: S · Files: `server/services/portability/ImportService.ts`, `server/routes/portability.routes.ts`
 
@@ -805,9 +901,32 @@ malformed input, and returning 201 for it is wrong.
 
 ---
 
-## IEX2-6 — Bundles leak the source system's user/team UUIDs and role assignments, and import drops them via a fragile heuristic 🔲
+## IEX2-6 — Bundles leak the source system's user/team UUIDs and role assignments, and import drops them via a fragile heuristic ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-30 — `4269e950`** (one commit with IEX2-7;
+> both rewrite the same ImportService.ts methods and were dispatched together).
+> Gates re-run by the reviewer on the merged tree: tsc 0, lint 0, `test:fast`
+> 152/2045, portability `unit-db` **64 passed / 7 files**.
+>
+> Passed on the **second** submission. The first turned in a **vacuous AC 3** —
+> restoring the `project_access` descriptor left the "no principalId" test green
+> because the fixture never created any access rows. Now seeded in `beforeEach`
+> before export, and the same mutation fails with a real leaked UUID
+> (`expected '88736758-...' to be undefined`). AC 1 also mutation-verified.
+>
+> ⚠️ The dev's mutation proof for the re-submission was **invalid** — they
+> reported a "topological sort violation" crash, which is an artifact of
+> re-inserting the descriptor at the wrong array position, not a test failure.
+> The reviewer redid it at the correct position. **A crash in setup is not a
+> failing assertion; if a mutation crashes, fix the mutation.**
 
 **Priority: P1 (information disclosure)** · Size: M · Files: `server/services/portability/entityGraph.ts`, `server/services/portability/ImportService.ts`
+
+> **Refs re-verified 2026-07-30 against `54b1fcc7`.** Every finding below still
+> reproduces verbatim. `entityGraph.ts` line numbers are unchanged; all
+> `ImportService.ts` line numbers were refreshed (Phase A + IEX2-5 shifted them
+> 15–125 lines). Dispatched with IEX2-7 into worktree
+> `.claude/worktrees/iex2-6-7` — **do IEX2-6 first and completely, then IEX2-7.**
 
 ### Finding
 
@@ -833,7 +952,7 @@ source system and who holds which role on what. `EXCLUDED_TABLES`
 re-export their primary keys anyway.
 
 On the import side, all four are dropped — but by a **field-name heuristic**
-(`ImportService.ts:176-178`):
+(`ImportService.ts:191-193`):
 
 ```ts
 private shouldSkipEntity(desc: EntityDescriptor): boolean {
@@ -855,7 +974,7 @@ Two changes:
    to `EntityDescriptor` (`entityGraph.ts:4-15`) and set `importable: false` on
    the four `*_access` descriptors. Replace the body of `shouldSkipEntity` with a
    read of that flag. Keep the method — its call sites
-   (`ImportService.ts:266, 484, 695, 712`) are fine.
+   (`ImportService.ts:380, 390, 624, 866, 922`) are fine.
 2. **Stop exporting principal identifiers.** Drop the four `*_access`
    descriptors from `scopes` for export, *or* keep the row and drop
    `principalId`/`principalType` from `fields`. Recommend the former: a
@@ -865,7 +984,7 @@ Two changes:
    of the existing entries).
 
 For the user-id columns on ordinary entities, **do not remove them in this
-ticket** — `enforceOwnership` (`ImportService.ts:441-457`) already overwrites
+ticket** — `enforceOwnership` (`ImportService.ts:565-597`) already overwrites
 every one of them on import, so they are import-safe; only the export-side
 disclosure remains. Raise it in your report and it will be triaged (backlog B-1).
 
@@ -877,7 +996,7 @@ disclosure remains. Raise it in your report and it will be triaged (backlog B-1)
 - `tests/unit/portability/schemaCoverage.test.ts` **will fail** when you change
   the classification — that is the test doing its job. Update it deliberately,
   with a reason string, and say so in your report.
-- Existing test to preserve: `importApply.test.ts:330` "silently drops role
+- Existing test to preserve: `importApply.test.ts:490` "silently drops role
   assignments to prevent privilege escalation (AC 5)" must still pass.
 - Load `add-api-endpoint` and `run-tests`.
 
@@ -900,13 +1019,39 @@ disclosure remains. Raise it in your report and it will be triaged (backlog B-1)
 
 ---
 
-## IEX2-7 — Preview reports collisions that are not collisions 🔲
+## IEX2-7 — Preview reports collisions that are not collisions ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-30 — `4269e950`** (with IEX2-6). AC 1, 2
+> and 3 each independently mutation-verified by the reviewer.
+>
+> Passed on the **second** submission. The first shipped a **bundle-wide** alias
+> set, so two different workflows in one project bundle sharing `email` were
+> still reported — the same false-positive class the ticket exists to kill,
+> merely narrowed from tenant-wide. Now keyed `workflowId::alias`, with a test
+> asserting no collision across workflows.
+>
+> **Deliberate, reviewed behaviour changes** (declare these if this code is
+> revisited):
+> - `checkCollisions` skips the workflow check entirely when the bundle contains
+>   a project. Correct — apply creates a *new* project, so no existing workflow
+>   can collide — and covered by a test. **The dev justified it by quoting an
+>   "AC 1" that does not exist in this ticket.** The change stands on its merits,
+>   not on that citation.
+> - `getTargetOwnerForPreview` briefly threw for a tenantless user; reverted to
+>   returning `null` and skipping collisions, as before.
 
 **Priority: P1** · Size: S · Files: `server/services/portability/ImportService.ts`
 
+> **Refs re-verified 2026-07-30 against `54b1fcc7`.** Both defects still
+> reproduce verbatim: preview still reads `projects.name` while apply enforces
+> on `projects.title`, and the alias check still joins out to the tenant. All
+> `ImportService.ts` line numbers below were refreshed. Dispatched with IEX2-6
+> into worktree `.claude/worktrees/iex2-6-7` — **work this only after IEX2-6 is
+> finished and its gates are green.**
+
 ### Finding
 
-`checkCollisions` (`ImportService.ts:115-174`) is what the user reads before
+`checkCollisions` (`ImportService.ts:130-188`) is what the user reads before
 deciding whether to apply a bundle. Two of its four checks are wrong.
 
 **(a) Step aliases are checked tenant-wide; they are unique per workflow.** The
@@ -918,7 +1063,7 @@ uniqueIndex("steps_workflow_alias_unique")
 — `shared/schema/workflow.ts:287`, on `(workflowId, alias)`.
 
 But the preview query joins all the way out to the tenant
-(`ImportService.ts:159-173`) and flags any alias used anywhere in it. Aliases are
+(`ImportService.ts:172-186`) and flags any alias used anywhere in it. Aliases are
 short, human-chosen names (`email`, `full_name`, `address`) — in a tenant with a
 handful of workflows, essentially **every** alias in an incoming bundle will be
 reported as a collision. The user is shown a wall of red for an import that
@@ -927,9 +1072,9 @@ collide). The predictable outcome is that users learn to ignore the collision
 list, which defeats the point of preview.
 
 **(b) The project check reads a different column than the enforcement does.**
-Preview compares `projects.name` (`ImportService.ts:121-124`); the actual
+Preview compares `projects.name` (`ImportService.ts:135-142`); the actual
 uniqueness enforcement at apply time, `ensureUniqueProjectTitle`
-(`ImportService.ts:360-378`), compares `projects.title` scoped to
+(`ImportService.ts:484-501`), compares `projects.title` scoped to
 `(ownerType, ownerUuid)`. So preview can report a collision that apply will not
 act on, and miss one it will.
 
@@ -939,14 +1084,14 @@ act on, and miss one it will.
 an import always creates a new workflow, so the only alias collision that can
 occur is *within the bundle itself* — two steps in one imported workflow sharing
 an alias. Check for that instead (it is a cheap in-memory check over the rows
-already streamed in `processEntityStream`, `ImportService.ts:228-230`), and only
+already streamed in `processEntityStream`, `ImportService.ts:305-311`), and only
 report those.
 
 **(b)** Make preview query the same columns and the same scope that
 `ensureUniqueProjectTitle`/`ensureUniqueWorkflowTitle` use at apply time —
 `title`, scoped by `(ownerType, ownerUuid)`. Preview must predict what apply
 will do; anything else is noise. Note that preview may run without a
-`targetProjectId` (`ImportService.ts:271-273`), so resolve the same owner context
+`targetProjectId` (`ImportService.ts:394-396`), so resolve the same owner context
 apply would, or state clearly in the preview response that the scope is the
 caller's default.
 
@@ -975,9 +1120,87 @@ caller's default.
 
 ---
 
-## IEX2-8 — No version or schema-drift guard: the compatibility fields are placeholders 🔲
+## IEX2-8 — No version or schema-drift guard: the compatibility fields are placeholders ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-31 — `dc913345`.** Gates re-run by the
+> reviewer, not taken on report: type-check 0 · lint 0 · `test:fast` **153 files
+> / 2047 tests** (baseline) · portability `unit-db` **7 files / 70 tests**
+> (baseline 67 + 3) · portability integration **3 files / 22 tests**.
+>
+> **Mutation-proved across two rounds — eight probes, each confirmed present in
+> the file before running, each producing a real assertion failure:** appVersion
+> literal reintroduced → red; `migrationHead: null` → red; rejection signal
+> removed from the route → red (`expected 500 to be 400`); throw suppressed →
+> red (`expected 201 to be 400`); `schema_drift` push removed → AC 4 red; null
+> guard removed → AC 5 red; a *spurious* warning on a null head → AC 5 red,
+> which is what proves AC 5's absence assertion is not vacuous. An eighth probe
+> confirmed the type-guard rewrite in `exportBlobs`/`importBlobs` did not weaken
+> those existing assertions.
+>
+> **Round 1 was sent back:** AC 4 and AC 5 had no tests at all
+> (`git grep schema_drift -- tests/` returned nothing) despite being reported as
+> satisfied. Both are now covered in `importPreview.test.ts`.
+>
+> ⚠️ **The reviewer added a production fix the ticket did not anticipate.** Both
+> readers resolve the journal from `process.cwd()`, and the Docker runtime stage
+> copied only `dist`, `package.json` and `node_modules` — so once the fallbacks
+> were changed to fail loudly, **the export path would have thrown on every call
+> in production and the import-side guard would have silently never fired.** No
+> test can catch this: the repo tree always has `migrations/`. Fixed by shipping
+> `migrations/` in the production image (`Dockerfile`), and the import-side
+> `catch` now logs instead of degrading in silence.
+>
+> **Lesson for the rest of this initiative:** anything read from `process.cwd()`
+> at runtime must be checked against the Dockerfile's runtime stage, not just
+> against the test tree.
 
 **Priority: P1** · Size: M · Files: `server/services/portability/ExportService.ts`, `server/services/portability/ImportService.ts`
+
+> **Refs re-verified 2026-07-31 against `b124f9c3`. Worktree
+> `.claude/worktrees/iex2-8`.** Baselines: `test:fast` **153 files / 2047
+> tests**; portability `unit-db` **67 / 7**; integration `portability.export` 8.
+>
+> **Part of AC 1 is already done — do not redo it.** The Finding below quotes
+> `formatVersion: 1`, which is stale: the reviewer changed it to
+> `formatVersion: FORMAT_VERSION` on 2026-07-29. It is now
+> `ExportService.ts:76`. What remains of AC 1 is `appVersion`.
+>
+> ⚠️ **The `appVersion` trap — read before writing that test.** `appVersion` is
+> hardcoded `'1.0.0'` (`ExportService.ts:77`) **and `package.json` version is
+> also `1.0.0`.** So a test asserting `manifest.appVersion === <package.json
+> version>` **passes with the hardcoded literal still in place** — it is
+> vacuous, and AC 1 explicitly demands a test that "would fail if the literal
+> were reintroduced". Prove it a way that can actually fail: mock/stub the
+> version source and assert the manifest follows it, or assert the export reads
+> from `package.json` rather than comparing two identical strings. **Mutation-
+> test it: put the literal back and confirm your test goes red.**
+>
+> **`migrationHead` is cheaply available — you should not need to report it
+> infeasible.** `migrations/meta/_journal.json` holds the Drizzle journal;
+> `entries[entries.length - 1].tag` is currently `"0005_lying_amphibian"` (6
+> entries). Note that is the *authored* head shipped with the code, not the
+> *applied* head (which lives in the `__drizzle_migrations` table). The authored
+> head is the right choice here — it is what this build knows how to read — but
+> say which you chose and why.
+>
+> The applied head is readable too, and there is prior art:
+> `scripts/checkDatabaseState.ts:112-118` already queries
+> `__drizzle_migrations` (`SELECT id, hash, created_at ... ORDER BY created_at
+> DESC LIMIT 1`). **But that table stores `hash` and `created_at`, not the tag**
+> — it cannot give you a human-readable `"0005_lying_amphibian"`, and stamping a
+> hash into `migrationHead` makes the "newer than this system" comparison in
+> AC 3 much harder. This is the concrete reason to prefer the journal tag.
+> Reading the DB per export also puts a query on the export path for a value
+> that is fixed at build time.
+>
+> **Refreshed refs:** manifest block `ExportService.ts:76-78`;
+> `FORMAT_VERSION` `bundleFormat.ts:3`; `manifestSchema` `bundleFormat.ts:59`;
+> reader's version check `bundleReader.ts:30-31`; `BUNDLE_REJECTION_SIGNALS`
+> `portability.routes.ts:81`.
+>
+> **The ImportService chain (IEX2-1..7) is fully committed**, so the "sequence
+> after IEX2-7" tie in this ticket is satisfied. IEX2-17 follows this ticket in
+> the same worktree; both edit `ExportService.ts`.
 
 ### Finding
 
@@ -1060,7 +1283,59 @@ instead of a raw driver error.
 
 ---
 
-## IEX2-9 — A disk error during export crashes the server process 🔲
+## IEX2-9 — A disk error during export crashes the server process ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-30 — `984e1374`.** Gates re-run by the
+> reviewer, not taken on report: `tsc` 0 errors, ESLint clean on all three
+> files, `test:fast` **152 files / 2045 tests**, portability `unit-db`
+> **59 passed / 7 files**. Test routing correct — `bundleWriter.test.ts` was
+> properly kept OUT of `dbUnitTests`.
+>
+> **All four criteria mutation-verified** (the first turn-in in this round to
+> survive mutation cleanly):
+>
+> | Mutation | Result |
+> |---|---|
+> | whole of `bundleWriter.ts` reverted to HEAD | all 3 tests fail |
+> | `writeEntityRow` entry guard deleted | AC 1 fails (5s timeout) |
+> | `writeEntityRow` entry guard deleted | AC 2 **still passes** — so its rejection comes from the non-backpressure `else` branch, which is the path the criterion names |
+> | `onDrain`'s `removeListener` deleted | AC 3 fails, `expected 51 to be 1` |
+> | `state.writer.cleanup()` deleted | AC 4 fails, `expected true to be false` |
+>
+> **New baselines for the rest of the round: `test:fast` 152 files / 2045
+> tests; portability `unit-db` 59 passed / 7 files.** IEX2-11 is next in the
+> ExportService chain and should measure against these.
+>
+> Reviewer note on the delivered fix: the `else`-branch `firstError` check is
+> reachable only when an error is recorded between two writes (the entry guard
+> covers the rest), and the `as Error | null` cast at the end of the `pack()`
+> loop is redundant — `firstError` is already that type. Neither is worth a
+> send-back; both are noted in case IEX2-11 refactors this method.
+
+> **RE-DISPATCHED 2026-07-30** — the first dispatch produced nothing; its
+> worktree sat at a stale base with a clean tree and was torn down. Fresh
+> worktree `.claude/worktrees/iex2-9`, base **`eca89efe`**, verified by
+> `scripts/new-worktree.ps1` (junction, `@types`, base matches main, suite
+> runs). Touches `bundleWriter.ts` only; nothing else is in flight against it.
+> First in the ExportService chain: IEX2-9 → 11 → 8 → 17.
+>
+> ⚠️ **Test routing here is the opposite of IEX2-1..4.** Those said to add new
+> portability tests to `dbUnitTests` in `vitest.config.ts:10`. **Do not do that
+> for a `bundleWriter` test.** `BundleWriter` needs no database — it writes
+> JSONL to a temp dir — so a new `tests/unit/portability/bundleWriter.test.ts`
+> belongs in **unit-fast**, left out of `dbUnitTests`, exactly like the existing
+> `bundleFormat.test.ts`, `entityGraph.test.ts`, `schemaCoverage.test.ts` and
+> `secretScanner.test.ts`.
+>
+> AC 4 is the exception: it asserts `ExportService` cleanup, and `ExportService`
+> does query, so that one belongs in the existing
+> `tests/unit/portability/exportService.test.ts`, which **is** routed to
+> `unit-db`.
+>
+> **Baselines re-measured 2026-07-30 (the earlier 149/2016 and 56/7 are
+> stale):** `test:fast` **151 files / 2042 tests**; portability `unit-db`
+> **58 passed / 7 files**. A test added to `dbUnitTests` does not run under
+> `test:fast` — report both numbers.
 
 **Priority: P1** · Size: S · Files: `server/services/portability/bundleWriter.ts`
 
@@ -1138,7 +1413,49 @@ needed there.
 
 ---
 
-## IEX2-10 — The bundle is buffered whole, several times over; declared limits are far above what the process survives 🔲
+## IEX2-10 — The bundle is buffered whole, several times over; declared limits are far above what the process survives ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-31 — `a53fe35f`.** Passed on the first
+> submission; strong work. Gates re-run by the reviewer: type-check 0 · lint 0 ·
+> **`check:strict-zones` passed** (not run by the turn-in) · portability
+> `unit-db` **7 files / 74 tests** (was 71) · portability integration **3 / 25**
+> (was 24) · `test:fast` 155 / 2053 baseline.
+>
+> **Mutation-proved, and both criteria were the vacuity-prone kind:**
+> - AC 1/AC 2 assert the write-back *never happens* — an absence assertion.
+>   Reintroducing the double-buffer write turned it red
+>   (`expected [ [ …(2) ] ] to deeply equal []`), so it has teeth.
+> - AC 3's spool test uses a positive `toHaveLength(1)` plus an ENOENT check on
+>   the spool dir. Renaming the spool prefix turned **two** tests red — the
+>   spool assertion and the rejection-path cleanup assertion.
+>
+> **Scope was respected.** D-7 keeps the adm-zip swap as its own initiative and
+> this ticket does only the buffering the codebase controls; no `bundleReader`
+> or `bundleWriter` changes.
+>
+> ### Reviewer fix: the env overrides silently disabled the limits
+>
+> The new bounds parsed with a bare `Number(process.env.X ?? default)`. A typo
+> such as `PORTABILITY_MAX_ENTRY_BYTES=100mb` yields **NaN**, and every
+> `size > NaN` comparison is **false** — so the limit is not merely wrong, it is
+> entirely absent, at exactly the moment an operator was reaching for it under
+> memory pressure. Verified directly: `999999999 > Number('100mb')` → `false`.
+> Now refuses to boot with a message naming the variable, per the same
+> fail-loudly call Shawn made on IEX2-8.
+>
+> ### Process notes
+>
+> - **This was worked in the main checkout, not a worktree.** It stayed clean
+>   here, but it shared a tree with the reviewer's in-flight DEBT-3b work and
+>   Shawn's uncommitted client edits. Only the ticket's ten paths were staged.
+> - **The reviewer's own handoff was wrong about this ticket**, and that is why
+>   it sat open: it recorded IEX2-10 as "not dispatchable (D-7 → own
+>   initiative)". D-7 actually deferred **only the adm-zip library swap** and
+>   says explicitly that *"IEX2-10 still does the buffering fixes this codebase
+>   controls"*. The dev was right to pick it up.
+> - The turn-in also fixed a pre-existing `bundleFormat.test.ts` case that had
+>   hardcoded a ratio between the two old constants; it now derives the entry
+>   count from whatever the constants are.
 
 **Priority: P1** · Size: L — **see escalation D-7 below before dispatching** · Files: `server/routes/portability.routes.ts`, `server/services/portability/ImportService.ts`, `server/services/portability/bundleReader.ts`, `server/services/portability/bundleWriter.ts`
 
@@ -1238,14 +1555,72 @@ for this ticket — see D-7.
 
 ---
 
-## IEX2-11 — Export loads every matching row into memory with no pagination 🔲
+## IEX2-11 — Export loads every matching row into memory with no pagination ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-31 — `bc8ac67a`.** Gates re-run by the
+> reviewer: tsc 0, lint 0, `test:fast` **153 files / 2047 tests**, portability
+> `unit-db` **67 / 7**, integration `portability.export` **8 passed**.
+>
+> Passed on the **third** submission. All five criteria mutation-verified:
+> AC 2 `entityCounts` → one batch (`expected 2 to be 5`); AC 3 `ids.clear()`
+> per batch (`expected 1 to be 5`); AC 5 `statusCode` removed
+> (`expected 500 to be 413`).
+>
+> **Why it took three rounds — two reusable lessons:**
+> 1. Round 2's AC 5 test was a route-level integration test that **never passed
+>    in either direction**: 429 in-file (it sat after the rate-limit test in a
+>    `describe.sequential` block) and 200 in isolation (**the integration suite
+>    drives a separate server process, so `process.env` set in the test process
+>    never reaches the server**). An env-var-driven limit cannot be exercised
+>    over HTTP that way. It now asserts `classifyRouteError` directly, in
+>    `tests/unit/utils/routeErrors.test.ts`, where it is observable.
+> 2. Three consecutive "mutation proofs" were a **crash, a hang, and a
+>    pre-existing failure** — an infinite loop tripping the row cap, a timeout,
+>    and a test that was already red. See [[mutation-testing-pitfalls]]: a
+>    mutation only counts when a specific assertion flips.
+>
+> **Design notes for IEX2-8/17, which follow in this file:**
+> - Keyset (`gt(id, lastId)`) is used wherever a descriptor has an `id`. Do not
+>   regress this to OFFSET — it is quadratic in exactly the large-table case.
+> - `workflow_data_sources` is the **only** descriptor without an `id`; it uses
+>   limit/offset ordered by `createdAt` + `descriptor.fields`, which for that
+>   table are the composite PK columns, so the sort is unique. `createdAt` alone
+>   is not enough: `now()` is transaction-constant, so rows written together tie.
+> - No descriptor has an `id` column while omitting `id` from `fields` — if one
+>   is ever added, `nextLastId` becomes `undefined` and the keyset loop spins
+>   until the row cap fires.
 
 **Priority: P1** · Size: M · Files: `server/services/portability/ExportService.ts`
+
+> **Refs re-verified 2026-07-30 against `cc7ef72e`.** The finding reproduces
+> verbatim. Most refs were still accurate; four drifted and are corrected below
+> (`processDescriptor` query block, the id accumulation, and both
+> `portability.routes.ts` refs). IEX2-9 did not touch `ExportService.ts`, which
+> is why the drift is small.
+>
+> ⚠️ **`entityCounts` is the trap in this ticket.**
+> `ExportService.ts:222` sets `state.entityCounts[descriptor.name] =
+> rows.length` from the single unbounded result. Once reads are batched,
+> `rows.length` is one *batch*, and a naive port silently writes a manifest
+> claiming the entity has `BATCH_SIZE` rows. That number is not cosmetic —
+> **IEX2-5 hardened the import audit record specifically so it stops trusting
+> bundle-supplied counts**, and `bundleFormat`'s manifest is round-tripped.
+> Accumulate the total across batches, and assert the manifest count in a test.
+>
+> Two more things the batching must not break, both already in the code:
+> `processBlobRefs` is awaited **per row** inside the loop (`ExportService.ts:207`),
+> and `writeEntityRow` is awaited per row (`ExportService.ts:218`) — that is the
+> backpressure path IEX2-9 just fixed. Do not batch the *writes* into an array;
+> the point of the ticket is that peak memory stays at one chunk.
+>
+> Baselines are now **`test:fast` 152 files / 2045 tests; portability `unit-db`
+> 59 passed / 7 files** (IEX2-9 raised them). Worktree `.claude/worktrees/iex2-9`
+> is reused for this ticket — it already holds the committed IEX2-9 work.
 
 ### Finding
 
 `processDescriptor` runs one unbounded query per entity and materialises all of
-it (`ExportService.ts:196-224`):
+it (`ExportService.ts:194-224`):
 
 ```ts
 const query = conditions.length > 0
@@ -1268,7 +1643,7 @@ file has already scoped.
 There is also no cap on how much an export may produce: no row-count ceiling, no
 timeout. `strictLimiter` (`rateLimiter.ts:54-62`) bounds request *rate*, not the
 cost of one request, and export is a synchronous request/response
-(`portability.routes.ts:202-212`).
+(`portability.routes.ts:206-217` — three GET routes, workflow/project/database).
 
 ### Preferred fix
 
@@ -1279,8 +1654,8 @@ chunk rather than one table.
 
 Mind two existing invariants:
 
-- `state.extractedIds` (`ExportService.ts:201-220`) must still accumulate the
-  **full** id set — child descriptors depend on it (`ExportService.ts:268-277`),
+- `state.extractedIds` (`ExportService.ts:200-220`) must still accumulate the
+  **full** id set — child descriptors depend on it (`ExportService.ts:268-276`),
   and the topological-sort assertion at `ExportService.ts:270-272` must keep
   working. Ids are cheap; rows are not.
 - `workflow_data_sources` has a composite PK and no `id` column
@@ -1290,7 +1665,7 @@ Mind two existing invariants:
 
 Also add a configurable ceiling on total exported rows that fails with a clear
 message rather than running until the process dies, in the style of
-`PORTABILITY_MAX_UPLOAD_BYTES` (`portability.routes.ts:26`).
+`PORTABILITY_MAX_UPLOAD_BYTES` (`portability.routes.ts:27`).
 
 ### Ties
 
@@ -1321,7 +1696,40 @@ message rather than running until the process dies, in the style of
 
 ---
 
-## IEX2-17 — Exporting requires `edit`, not `view` 🔲
+## IEX2-17 — Exporting requires `edit`, not `view` ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-31 — `e90cc2de`.** Gates re-run by the
+> reviewer, including the three the turn-in did not report: type-check 0 · lint
+> 0 · `check:strict-zones` passed · portability integration **3 files / 24
+> tests** (22 + 2 new) · portability `unit-db` **7 / 70** · `test:fast` **154
+> files / 2052 tests**.
+>
+> **Mutation-proved, both criteria non-vacuous:**
+> - Reverting **only the workflow scope** to `'view'` fails the refusal
+>   assertion (`expected 200 to be 403`). The test discriminates per scope
+>   rather than passing in bulk — which a whole-file revert could not have
+>   shown.
+> - Removing the project-level grant from the AC 4 test turns it **403**, so
+>   that test proves *inheritance* rather than tenant role or ownership
+>   accidentally granting access.
+>
+> **AC 2/3 shape note:** delivered as one test covering all three scopes rather
+> than one test per scope. Coverage per scope is present and mutation-proved
+> individually, so this was accepted as written.
+>
+> **AC 5 satisfied trivially:** no existing test seeded a view-only user, and no
+> existing test body was modified — only an `afterAll` FK cleanup was added for
+> the secondary user's `audit_logs`. Nothing was weakened to make a test pass.
+>
+> **On the `TEST_RATE_LIMIT` toggle, which reads alarming and is not.**
+> `rateLimiter.ts` skips when `NODE_ENV === 'test' && !TEST_RATE_LIMIT`, so the
+> limiter is **off by default** in tests and this file switches it *on* for
+> AC 6. The new tests delete the var and restore it in a `finally`, which
+> restores the default and hands it back. No production middleware is disabled.
+>
+> ⚠️ The turn-in reported `test:fast` 153/2047; that was the pre-DEBT-2 baseline
+> from a stale base. Post-ff it is 154/2052. Same stale-base signature as DEBT-2
+> — ff first, then re-measure.
 
 **Priority: P1** · Size: S · Files: `server/services/portability/ExportService.ts`
 
@@ -1392,7 +1800,27 @@ future read-only-template-sharing feature arrives, which is not now.
 
 # Phase C — P2: hardening, redaction depth, real proof
 
-## IEX2-12 — Duplicate zip entry names: the checksum covers all copies, the reader uses the first 🔲
+## IEX2-12 — Duplicate zip entry names: the checksum covers all copies, the reader uses the first ✅
+
+> **Dispatched 2026-07-30 together with IEX2-13** — worktree
+> `.claude/worktrees/iex2-12`, base `91ceec55`. Bundled deliberately: this
+> ticket's own Ties note that both harden
+> `validateZipBombsAndPaths` in `bundleReader.ts`, so splitting them would force
+> the second dev to rewrite the first's method. One dev, one worktree, **two
+> commits at review**.
+>
+> ⚠️ **`BUNDLE_REJECTION_SIGNALS` collision.** Both this ticket and **IEX2-5**
+> (dispatched in parallel) append a signal to `portability.routes.ts:81-95`.
+> Whichever lands second must `git merge main --ff-only` and re-run gates.
+>
+> **Baselines:** portability `unit-db` **58 passed / 7 files**; `test:fast`
+> **149 files / 2016 tests**.
+
+> **✅ Verified at review 2026-07-30 — committed `600404c6`.** Mutation-tested:
+> reverting the duplicate guard fails both the unit and the route test. The
+> integration test builds a genuinely malformed zip by rewriting entry names in
+> the raw buffer rather than mocking, which is stronger than the AC required.
+> `getEntryCount` and its assertion are both gone (AC 4).
 
 **Priority: P2** · Size: S · Files: `server/services/portability/bundleReader.ts`
 
@@ -1446,7 +1874,24 @@ rejects only malformed or hostile input.
 
 ---
 
-## IEX2-13 — Zip-bomb guards trust the attacker's own header values 🔲
+## IEX2-13 — Zip-bomb guards trust the attacker's own header values ✅
+
+> **✅ Verified at review 2026-07-30 — committed `b943cd9f`.** All four new
+> guards mutation-tested: each reverted guard fails its test. Note the adm-zip
+> limitation the ticket anticipated — no streaming API, so the size check is
+> necessarily post-decompression (still strictly better than trusting the
+> header; library swap is D-7).
+>
+> **AC 3 was unsatisfiable as written and is superseded.** It asked for actual
+> cumulative bytes over `MAX_TOTAL_SIZE` "even when the declared totals are
+> within limits". Because `getEntryData` now requires `actualSize ===
+> header.size`, the measured total can never exceed the declared total that the
+> pre-check already caps — the chosen design is *stronger* than the AC assumed
+> and makes that state unreachable. The dev reached the guard by stubbing the
+> pre-check instead of flagging the contradiction. Reviewer kept the guard as
+> defence in depth (so relaxing the size equality later cannot silently remove
+> the only cumulative bound), stripped a block of stream-of-consciousness
+> comments from the test, and documented why it is unreachable.
 
 **Priority: P2** · Size: M · Files: `server/services/portability/bundleReader.ts`
 
@@ -1520,20 +1965,97 @@ tracked as D-7.
 
 ---
 
-## IEX2-14 — Secret redaction reaches one JSON path; the scanner cannot see inside JSON at all 🔲
+## IEX2-14 — Secret redaction reaches one JSON path; the scanner cannot see inside JSON at all ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-31 — `0d73dbf7`.** Passed on the first
+> submission; the implementation was good. Gates re-run by the reviewer:
+> type-check 0 · lint 0 · **`check:strict-zones` passed** · `test:fast` 154 /
+> 2052 · portability `unit-db` **7 files / 71 tests** · portability integration
+> **3 / 24**.
+>
+> ⚠️ **The turn-in reported `npx tsx scripts/pre-commit-checks.ts` as a passing
+> gate. Its own quoted output says `No TypeScript/JavaScript files staged for
+> commit. Skipping quality checks.`** — it ran with nothing staged and checked
+> nothing. `check:strict-zones` was therefore never executed by the dev. It does
+> pass; that was luck, not evidence. See
+> [[type-check-is-not-the-commit-gate]].
+>
+> **Mutation-proved:** removing the object descent from `scanRecursive` turns
+> the new JSON-config test red (`expected undefined to be defined`). AC 1 was
+> verified by reading: `walkPath` now takes an `onLeaf` callback and is the
+> single traversal; `scanRecursive` is a *value* descender, not a second path
+> walker, so there is genuinely only one copy.
+>
+> **AC 5 was satisfied by pre-existing coverage** the turn-in never mentioned:
+> `secretScanner.test.ts:16-17` already pins `ctx.secrets.get("STRIPE")` and a
+> bare UUID as non-matches, and both stayed green. Worth noting the false-
+> positive risk did not rise as much as feared — `ASSIGNED_LITERAL` and
+> `LONG_LITERAL` both require surrounding quotes, so scanning raw JSON *values*
+> mostly fires only on `VENDOR_TOKEN` shapes.
+>
+> ### Two reviewer changes
+>
+> 1. **Dropped `scanPaths: ["defaultHeaders"]` from `connections` — this
+>    ticket asked for it and this ticket was wrong.** `ExportService` calls
+>    `applyRedaction` *before* `scanForSecrets`, and `redactPaths:
+>    ["defaultHeaders"]` blanks that whole object, so the scan sees nulls and
+>    can never fire. Proved with a probe: redacted-then-scanned yields **0**
+>    warnings, the same row scanned unredacted yields **1**. Not the dev's
+>    error — Preferred fix step 2 named that column explicitly.
+> 2. **Added the missing half of AC 4.** The test asserted the export was
+>    non-destructive but never imported the bundle back. That half is the one
+>    that matters: IEX2-8 showed a warning shape missing from `manifestSchema`
+>    makes the reader reject the entire bundle. Now asserts
+>    `importService.preview(...).canProceed`.
+>
+> **Honest note on that second one:** mutating `secret_scan` out of
+> `manifestSchema` turns all 5 tests red, because the manifest then fails to
+> *write* on export. So that mutation proves the schema contract is exercised
+> end-to-end but does **not** isolate the import assertion specifically. The
+> assertion is justified by the IEX2-8 precedent rather than by its own
+> mutation.
 
 **Priority: P2** · Size: M · Files: `server/services/portability/redaction.ts`, `server/services/portability/entityGraph.ts`
+
+> **Refs re-verified twice — most recently 2026-07-31 against `4ea5f6fd`, the
+> dispatch base.** `redaction.ts` and `entityGraph.ts` were **not** touched by
+> IEX2-8, IEX2-17 or DEBT-2, so every ref below is current: `blankPath` `:54`,
+> `VENDOR_TOKEN` `:77`, `UUID` `:91`, `scanForSecrets` `:101`; `entityGraph`
+> redactPaths `:41`/`:87`, scanPaths `:96`/`:105`/`:114`.
+>
+> **Baselines at `4ea5f6fd` — these moved, use these:** `test:fast` **154 files
+> / 2052 tests** (DEBT-2 added 5); portability `unit-db` **70 / 7**; portability
+> integration **24 / 3 files**.
+>
+> ⚠️ **Every `entityGraph.ts` line number in the Finding below was stale and has
+> been corrected in place.** IEX2-6 rewrote that file and shifted it ~15 lines.
+> The *substance* of the finding still holds exactly as written — there are
+> still exactly two `redactPaths` and three `scanPaths`, all three of the latter
+> on `code` columns — only the citations moved. `redaction.ts` did **not** drift;
+> its refs were already correct.
+>
+> ⚠️ **`ExportService.ts` refs are volatile — this one has now moved twice.**
+> The `scanForSecrets(` call was `:212-215`, then `:308-309`, and is
+> **`ExportService.ts:340` as of `4ea5f6fd`** (IEX2-8 and IEX2-17 both landed in
+> that file since this ticket was written). **Anchor on the `scanForSecrets(`
+> call symbol, not on the line number.** You do not otherwise need to edit
+> `ExportService.ts` for this ticket.
+>
+> **Sequencing is now clear.** The Ties below say to wait for IEX2-3 and IEX2-6;
+> both are committed and pushed, so this ticket is unblocked. It is parallel-safe
+> against IEX2-8/IEX2-17, which touch `ExportService.ts` only.
 
 ### Finding
 
 IEX-6B built a real redaction mechanism, then pointed it at almost nothing.
 
 **Redaction covers two columns.** Across the whole graph there are exactly two
-`redactPaths`: `connections.defaultHeaders` (`entityGraph.ts:40`) and
-`blocks.config.headers[].value` (`entityGraph.ts:102`). A `blocks.config` is
+`redactPaths`: `connections.defaultHeaders` (`entityGraph.ts:41`) and
+`blocks.config.headers[].value` (`entityGraph.ts:87`). A `blocks.config` is
 free-form JSON for an HTTP block — a bearer token in `config.auth.token`, a key
 in `config.body`, or credentials embedded in `config.url` all export in
-cleartext. `steps.config` and `sections.config` (`entityGraph.ts:81`, `:72`) are
+cleartext. `steps.config` (descriptor at `entityGraph.ts:62`, `jsonRefs` at
+`:68`) and `sections.config` (descriptor at `:53`, `jsonRefs` at `:59`) are
 equally free-form and have no redaction at all.
 
 **The scanner structurally cannot look inside JSON.** `scanForSecrets`
@@ -1551,9 +2073,9 @@ for (const path of scanPaths) {
 `rowData[path]` is a direct property read — it has no path traversal, unlike
 `applyRedaction`, which does (`redaction.ts:54-71`). So `scanPaths` can only ever
 name a plain text column. That is why the only three in the graph are the `code`
-columns (`entityGraph.ts:111`, `:120`, `:129`). Every JSON config in the system is
-outside the scanner's reach by construction, and there is no test that would
-notice.
+columns — `transform_blocks` (`entityGraph.ts:96`), `lifecycle_hooks` (`:105`),
+and `document_hooks` (`:114`). Every JSON config in the system is outside the
+scanner's reach by construction, and there is no test that would notice.
 
 The regexes themselves (`redaction.ts:77-99`) are well-judged — vendor token
 shapes, assigned literals, long opaque literals, with a UUID exclusion and a
@@ -1571,7 +2093,8 @@ the coverage is the problem.
    values recursively rather than enumerating every possible key — an allowlist of
    key names will not survive contact with free-form config.
 3. Keep scanning **non-destructive**. It emits `secret_scan` warnings into the
-   manifest (`ExportService.ts:212-215`), which is the right behaviour: the user
+   manifest (the `scanForSecrets(` call, currently `ExportService.ts:340`),
+   which is the right behaviour: the user
    is told, the export still happens. Do **not** turn scan hits into redaction —
    silently blanking a user's own config would break the imported workflow.
 
@@ -1580,8 +2103,8 @@ scanning it would produce warnings on every export. Leave it out and say why.
 
 ### Ties
 
-- Edits `entityGraph.ts` — **conflicts with IEX2-3 and IEX2-6. Sequence after
-  both are committed.**
+- Edits `entityGraph.ts` — conflicted with IEX2-3 and IEX2-6; **both are now
+  committed and pushed, so this is unblocked.**
 - Round-1 **IEX-6B** built this mechanism; read its ticket in
   `IMPORT_EXPORT_TICKETS.md:905` before changing the regexes — the exclusions are
   deliberate and were argued for.
@@ -1608,9 +2131,117 @@ scanning it would produce warnings on every export. Leave it out and say why.
 
 ---
 
-## IEX2-15 — The round-trip harness passes because it tests nothing hard 🔲
+## IEX2-15 — The round-trip harness passes because it tests nothing hard ✅
+
+> **✅ VERIFIED AND COMMITTED 2026-07-31 — `c45435e4`. This closes the round.**
+> Took three submissions. Gates re-run by the reviewer: type-check 0 · lint 0 ·
+> `check:strict-zones` passed · portability `unit-db` **7 files / 74 tests** ·
+> portability integration **3 / 25**.
+>
+> **The reviewer re-ran the harness against a server built from the rebased
+> tree** and it passed with `blobsRestored=1` and cleanup succeeding. That
+> matters beyond this ticket: the dev's own run predated IEX2-10, so this is the
+> first and only end-to-end validation of IEX2-10's path-based `preview`/`apply`
+> and spool-based blob restore. No unit test covers that path end to end.
+>
+> ### Review history — each round found something real
+>
+> - **Round 1:** AC 1 seeded no `logic_rules` and no `transform_blocks` (visible
+>   in its own preview counts), and AC 6's cleanup **failed** on a successful
+>   run — the failure fallback was shipped as if it were the happy path.
+> - **Round 2:** seeding and cleanup fixed, but the soft-delete criterion was
+>   proven only by a row count. `deletedAt` appeared exactly **once** in the
+>   whole harness, on the seeding line. If import had cleared it — silently
+>   resurrecting deleted rows — the count would still have been 3 and the
+>   harness would still have printed PASS.
+> - **Round 3:** the assertion is now real (`softDeletedCount !== 1` throws) and
+>   the dev mutation-proved it by clearing `deletedAt` on the seed, getting a
+>   clean `got 0` failure rather than a crash.
+>
+> ### Reviewer interventions
+>
+> 1. **`ImportService.ts` collided with IEX2-10**, which had rewritten
+>    `preview`/`apply` in the meantime. The worktree was 8 commits stale.
+>    Rebased rather than staged, then verified **both** survived — IEX2-10's
+>    `filePath` signature and spool logic, and this ticket's `migrationHead`
+>    field. Staging as-is would have silently reverted IEX2-10.
+> 2. **Lint failed with 20 `curly` errors**, all in the new assertion block.
+>    Gates were not reported at all in round 3. Auto-fixed.
+> 3. Removed a leftover `test_del.ts` scratch script from the worktree root.
+>
+> **Accepted scope change, disclosed by the dev:** export is now
+> **project-scoped** rather than workflow-scoped, because DataVault and
+> templates hang off the project. Correct for coverage, but it means
+> **workflow-scope export is no longer exercised by this harness** — worth a
+> follow-up if that route is to stay proven.
 
 **Priority: P2** · Size: M · Files: `scripts/verifyPortabilityRoundTrip.ts`
+
+> **Refs re-verified 2026-07-31 against `0d73dbf7`, the dispatch base.** All
+> still current: tenant/user/project creation `:61`, workflow seeding `:84`,
+> section `:91`, steps `:99`, `blobsRestored` `:122-123`, `UI login path OK`
+> `:76`, `RESULT: PASS` near `:172`. `BASE` is `:23` and is overridable with
+> **`PORTABILITY_VERIFY_BASE`** (defaults to `http://localhost:5000`).
+>
+> **Baselines, measured on this exact dispatch base (`785349ca`): `test:fast`
+> **155 files / 2053 tests**; portability `unit-db` 7 files / 71 tests;
+> portability integration 3 files / 24 tests.**
+>
+> Note `test:fast` moved from 154/2052 to 155/2053 mid-review — that was Shawn's
+> own concurrent commit `24957000` adding `QuestionAddMenu.test.tsx`, not
+> anything in this initiative. **Report the number you actually observe**; do
+> not adjust a run to match a target.
+>
+> **The blocking dependency is cleared — dispatch is now correct.** This ticket
+> says "dispatch LAST"; Phases A, B and C are all committed (IEX2-1..9, 11, 12,
+> 13, 14, 17). This harness is the last portability ticket in the round.
+>
+> ### ⚠️ Four things changed under this ticket since it was written
+>
+> 1. **Export now requires `edit`, not `view` (IEX2-17).** The harness's user
+>    creates its own project so should hold owner rights — but if any assertion
+>    exports as a *second* user or through a share, it now gets a **403** where
+>    it used to get a bundle. If you hit an unexplained 403 on export, this is
+>    why; do not "fix" it by widening the permission check.
+> 2. **Bundles now carry real `appVersion` and `migrationHead`, and import
+>    validates the head (IEX2-8).** Export and import here run against the same
+>    system, so the heads match and nothing should warn. A `schema_drift`
+>    warning appearing in this harness means something is genuinely off — report
+>    it rather than asserting around it.
+> 3. **Bundles can now carry `secret_scan` warnings for JSON config columns
+>    (IEX2-14).** If your seeded `steps.config` / `blocks.config` contains
+>    anything secret-shaped (`sk-…`, `ghp_…`), the manifest will include
+>    warnings. That is correct behaviour and must **not** fail the harness —
+>    warnings are informational, only the import succeeding matters.
+> 4. **The database holds only test data**, so accumulated junk tenants are not
+>    dangerous. Still add the cleanup AC 6 asks for; the point is hygiene, not
+>    rescue.
+>
+> ### ⚠️ Running the server — the trap that will waste your afternoon
+>
+> This is the only ticket in the round that needs a **live app**, and the
+> project's `preview_start` tooling **reads the main checkout's `launch.json`
+> and launches from the repo root** — so it will happily serve **main's**
+> source while you believe you are testing your worktree. Every assertion would
+> then be measuring code you did not write.
+>
+> **Start the server yourself, from inside the worktree, on a non-default
+> port**, and point the harness at it:
+>
+> ```powershell
+> $env:PORT=5055; npm run dev              # from the worktree
+> $env:PORTABILITY_VERIFY_BASE="http://localhost:5055"
+> npx tsx scripts/verifyPortabilityRoundTrip.ts
+> ```
+>
+> Confirm you are hitting your own server before trusting any output — change a
+> log line in the harness, or check that `/health` responds on 5055 and not
+> just 5000.
+>
+> **Do not run this harness while any test suite is running.** It drives a real
+> database, and DB-backed suites share one Postgres with deterministic
+> per-worker schema names — concurrent runs corrupt each other and produce
+> dozens of unrelated failures.
 
 ### Finding
 

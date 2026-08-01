@@ -67,6 +67,7 @@ describe.sequential("Portability Export API Integration Tests", () => {
   afterAll(async () => {
     delete process.env.TEST_RATE_LIMIT;
     if (tenantId) {
+      await db.delete(schema.auditLogs).where(eq(schema.auditLogs.tenantId, tenantId));
       await db.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
     }
     if (server) {
@@ -230,6 +231,159 @@ describe.sequential("Portability Export API Integration Tests", () => {
       .expect(404);
   });
 
+  it("IEX2-17 AC 2 & 3: should refuse user with only 'view' role (403), but allow 'edit' role", async () => {
+    const prevRateLimit = process.env.TEST_RATE_LIMIT;
+    delete process.env.TEST_RATE_LIMIT;
+
+    try {
+      // 1. Create a collaborator user in the same tenant
+      const email = `collab-export-${nanoid()}@example.com`;
+      const registerResponse = await request(baseURL)
+        .post("/api/auth/register")
+        .send({
+          email,
+          password: "TestPassword123!@#Strong",
+          firstName: "Collab",
+          lastName: "User",
+        })
+        .expect(201);
+      const collabAuthToken = registerResponse.body.token;
+      const collabUserId = registerResponse.body.user.id;
+      
+      // Put them in the same tenant as a normal member, not owner, so they don't get implicit edit
+      await db.update(schema.users)
+        .set({ tenantId, tenantRole: "viewer" })
+        .where(eq(schema.users.id, collabUserId));
+        
+      // 2. Setup workflow and datavault for testing
+      const workflowResponse = await request(baseURL)
+        .post(`/api/workflows`)
+        .set("Authorization", `Bearer ${authToken}`) // original owner token
+        .send({ projectId, title: `Test WF ${nanoid()}`, name: `test_wf_${nanoid()}` })
+        .expect(201);
+      const workflowId = workflowResponse.body.id;
+      
+      const [database] = await db.insert(schema.datavaultDatabases).values({
+        name: "Test Database",
+        tenantId,
+        ownerType: "user",
+        ownerUuid: userId, // owner is original user
+        scopeType: "project",
+        scopeId: projectId,
+      }).returning();
+      const databaseId = database.id;
+
+      // 3. Grant 'view' access on all 3 to the collab user
+      await db.insert(schema.projectAccess).values({
+        projectId, principalType: "user", principalId: collabUserId, role: "view"
+      });
+      await db.insert(schema.workflowAccess).values({
+        workflowId, principalType: "user", principalId: collabUserId, role: "view"
+      });
+      await db.insert(schema.datavaultDatabaseAccess).values({
+        databaseId, principalType: "user", principalId: collabUserId, role: "view"
+      });
+
+      // 4. Assert 'view' is rejected with 403 on all scopes (AC 2)
+      const viewProj = await request(baseURL)
+        .get(`/api/portability/export/project/${projectId}`)
+        .set("Authorization", `Bearer ${collabAuthToken}`);
+      expect(viewProj.status).toBe(403);
+      
+      const viewWf = await request(baseURL)
+        .get(`/api/portability/export/workflow/${workflowId}`)
+        .set("Authorization", `Bearer ${collabAuthToken}`);
+      expect(viewWf.status).toBe(403);
+      
+      const viewDb = await request(baseURL)
+        .get(`/api/portability/export/database/${databaseId}`)
+        .set("Authorization", `Bearer ${collabAuthToken}`);
+      expect(viewDb.status).toBe(403);
+
+      // 5. Upgrade to 'edit'
+      await db.update(schema.projectAccess)
+        .set({ role: "edit" }).where(eq(schema.projectAccess.principalId, collabUserId));
+      await db.update(schema.workflowAccess)
+        .set({ role: "edit" }).where(eq(schema.workflowAccess.principalId, collabUserId));
+      await db.update(schema.datavaultDatabaseAccess)
+        .set({ role: "edit" }).where(eq(schema.datavaultDatabaseAccess.principalId, collabUserId));
+        
+      // 6. Assert 'edit' succeeds (AC 3)
+      await request(baseURL)
+        .get(`/api/portability/export/project/${projectId}`)
+        .set("Authorization", `Bearer ${collabAuthToken}`)
+        .expect(200)
+        .expect("content-type", "application/zip");
+        
+      await request(baseURL)
+        .get(`/api/portability/export/workflow/${workflowId}`)
+        .set("Authorization", `Bearer ${collabAuthToken}`)
+        .expect(200)
+        .expect("content-type", "application/zip");
+        
+      await request(baseURL)
+        .get(`/api/portability/export/database/${databaseId}`)
+        .set("Authorization", `Bearer ${collabAuthToken}`)
+        .expect(200)
+        .expect("content-type", "application/zip");
+    } finally {
+      if (prevRateLimit !== undefined) {
+        process.env.TEST_RATE_LIMIT = prevRateLimit;
+      }
+    }
+  });
+
+  it("IEX2-17 AC 4: user with project-level edit can export an inherited database", async () => {
+    const prevRateLimit = process.env.TEST_RATE_LIMIT;
+    delete process.env.TEST_RATE_LIMIT;
+
+    try {
+      // 1. Create a collaborator user in the same tenant
+      const email = `collab2-${nanoid()}@example.com`;
+      const registerResponse = await request(baseURL)
+        .post("/api/auth/register")
+        .send({
+          email,
+          password: "TestPassword123!@#Strong",
+          firstName: "Collab2",
+          lastName: "User",
+        })
+        .expect(201);
+      const collabAuthToken = registerResponse.body.token;
+      const collabUserId = registerResponse.body.user.id;
+      
+      await db.update(schema.users)
+        .set({ tenantId, tenantRole: "viewer" })
+        .where(eq(schema.users.id, collabUserId));
+
+      const [database] = await db.insert(schema.datavaultDatabases).values({
+        name: "Inherited DB",
+        tenantId,
+        ownerType: "user",
+        ownerUuid: userId,
+        scopeType: "project",
+        scopeId: projectId,
+      }).returning();
+      
+      // Give project-level edit
+      await db.insert(schema.projectAccess).values({
+        projectId, principalType: "user", principalId: collabUserId, role: "edit"
+      });
+      // Give no specific database access!
+      
+      // Assert export database succeeds (inherits from project)
+      await request(baseURL)
+        .get(`/api/portability/export/database/${database.id}`)
+        .set("Authorization", `Bearer ${collabAuthToken}`)
+        .expect(200)
+        .expect("content-type", "application/zip");
+    } finally {
+      if (prevRateLimit !== undefined) {
+        process.env.TEST_RATE_LIMIT = prevRateLimit;
+      }
+    }
+  });
+
   it("AC 6: should enforce rate limit returning 429", async () => {
     const fakeId = "123e4567-e89b-12d3-a456-426614174000";
     
@@ -248,3 +402,4 @@ describe.sequential("Portability Export API Integration Tests", () => {
     expect(rateLimited).toBe(true);
   });
 });
+

@@ -24,7 +24,7 @@ export interface ModelConfig {
  * Task-specific max output tokens
  * These are conservative defaults to leave room for prompts
  */
-/* eslint-disable @typescript-eslint/naming-convention -- task type keys use snake_case matching shared type definitions */
+
 export const TASK_MAX_TOKENS: Record<TaskType, number> = {
   workflow_generation: 8000,
   workflow_revision: 8192,
@@ -35,7 +35,7 @@ export const TASK_MAX_TOKENS: Record<TaskType, number> = {
   logic_debug: 4000,
   logic_visualization: 4000,
 };
-/* eslint-enable @typescript-eslint/naming-convention */
+
 
 /**
  * Comprehensive model configurations

@@ -1,10 +1,10 @@
 import { db } from '../../db';
 import { projects, workflows, datavaultDatabases } from '@shared/schema';
-import { eq, inArray, and, or, SQL } from 'drizzle-orm';
+import { eq, gt, inArray, and, or, SQL } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import { ENTITY_GRAPH, EntityDescriptor } from './entityGraph';
 import { BundleWriter } from './bundleWriter';
-import { BundleManifest, RequiresReentry, ExportWarning, FORMAT_VERSION } from './bundleFormat';
+import { BundleManifest, RequiresReentry, ExportWarning, FORMAT_VERSION, ExportRowLimitError } from './bundleFormat';
 import { applyRedaction, scanForSecrets } from './redaction';
 import { aclService } from '../AclService';
 import { datavaultAclService } from '../DatavaultAclService';
@@ -23,6 +23,7 @@ type ExportState = {
   blobCollector: BlobCollector;
   requiresReentry: RequiresReentry[];
   warnings: ExportWarning[];
+  totalExportedRows: number;
 };
 
 /**
@@ -39,6 +40,45 @@ function requireTenant(tenantId: string | null, kind: string, id: string): strin
 }
 
 export class ExportService {
+  private get batchSize(): number {
+    return Number(process.env.PORTABILITY_EXPORT_BATCH_SIZE ?? String(1000));
+  }
+
+  private get maxExportRows(): number {
+    return Number(process.env.PORTABILITY_MAX_EXPORT_ROWS ?? String(100000));
+  }
+
+  private getAppVersion(): string {
+    const packagePath = path.resolve(process.cwd(), 'package.json');
+    if (!fs.existsSync(packagePath)) {
+      throw new Error(`package.json not found at ${packagePath}`);
+    }
+    const content = fs.readFileSync(packagePath, 'utf8');
+    const pkg = JSON.parse(content) as Record<string, unknown>;
+    if (typeof pkg.version !== 'string') {
+      throw new Error('package.json does not contain a valid version string');
+    }
+    return pkg.version;
+  }
+
+  private getMigrationHead(): string | null {
+    const journalPath = path.resolve(process.cwd(), 'migrations/meta/_journal.json');
+    if (!fs.existsSync(journalPath)) {
+      throw new Error(`Migration journal not found at ${journalPath}`);
+    }
+    const content = fs.readFileSync(journalPath, 'utf8');
+    const journal = JSON.parse(content) as Record<string, unknown>;
+    const entries = journal.entries;
+    if (Array.isArray(entries) && entries.length > 0) {
+      const lastEntry = entries[entries.length - 1] as Record<string, unknown>;
+      if (typeof lastEntry.tag !== 'string') {
+        throw new Error('Migration journal contains invalid entry tag');
+      }
+      return lastEntry.tag;
+    }
+    return null;
+  }
+
   async exportToFile(root: RootParams, userId: string): Promise<{ tmpPath: string; manifest: BundleManifest; tenantId: string }> {
     const tenantId = await this.verifyAccessAndGetTenant(root, userId);
 
@@ -50,7 +90,8 @@ export class ExportService {
       entityCounts: {},
       blobCollector: new BlobCollector(writer),
       requiresReentry: [],
-      warnings: []
+      warnings: [],
+      totalExportedRows: 0
     };
 
     let success = false;
@@ -64,8 +105,8 @@ export class ExportService {
 
       const manifest: BundleManifest = {
         formatVersion: FORMAT_VERSION,
-        appVersion: '1.0.0',
-        migrationHead: null,
+        appVersion: this.getAppVersion(),
+        migrationHead: this.getMigrationHead(),
         scope: root.scope,
         rootIds: [root.id],
         sourceSystem: 'ezBuildr',
@@ -122,8 +163,8 @@ export class ExportService {
         throw new Error('Project not found');
       }
       
-      const canView = await aclService.hasProjectRole(userId, root.id, 'view');
-      if (!canView) {
+      const canEdit = await aclService.hasProjectRole(userId, root.id, 'edit');
+      if (!canEdit) {
         throw new Error('Access denied - insufficient permissions for this project');
       }
 
@@ -148,8 +189,8 @@ export class ExportService {
         throw new Error('Project not found');
       }
 
-      const canView = await aclService.hasWorkflowRole(userId, root.id, 'view');
-      if (!canView) {
+      const canEdit = await aclService.hasWorkflowRole(userId, root.id, 'edit');
+      if (!canEdit) {
         throw new Error('Access denied - insufficient permissions for this workflow');
       }
 
@@ -160,8 +201,8 @@ export class ExportService {
         throw new Error('Database not found');
       }
 
-      const canView = await datavaultAclService.hasDatabaseRole(userId, root.id, 'view');
-      if (!canView) {
+      const canEdit = await datavaultAclService.hasDatabaseRole(userId, root.id, 'edit');
+      if (!canEdit) {
         throw new Error('Access denied - insufficient permissions for this database');
       }
       
@@ -193,34 +234,115 @@ export class ExportService {
 
     const selection = this.buildSelection(descriptor, tableCols);
 
-    const query = conditions.length > 0 
-      ? db.select(selection).from(descriptor.table).where(and(...conditions))
-      : db.select(selection).from(descriptor.table);
-      
-    const rows = await query;
+    let offset = 0;
+    let totalRows = 0;
     const ids = new Set<string>();
-    for (const row of rows) {
-      const rowData = row as Record<string, unknown>;
-      if (typeof rowData['id'] === 'string') {
-        ids.add(rowData['id']);
+
+    let hasMore = true;
+    let lastId: string | undefined = undefined;
+
+    while (hasMore) {
+      const page = await this.fetchPage({
+        descriptor,
+        selection,
+        conditions,
+        tableCols,
+        lastId,
+        offset
+      });
+      const rows = page.rows;
+      lastId = page.nextLastId;
+      offset = page.nextOffset;
+      
+      for (const row of rows) {
+        state.totalExportedRows++;
+        if (state.totalExportedRows > this.maxExportRows) {
+          throw new ExportRowLimitError(`Export exceeds the ${this.maxExportRows} row limit`);
+        }
+        
+        totalRows++;
+        await this.processRow(descriptor, row as Record<string, unknown>, state, ids);
       }
       
-      await this.processBlobRefs(descriptor, rowData, state);
-      this.processRequiresReentry(descriptor, rowData, state);
-      
-      applyRedaction(rowData, descriptor.redactPaths);
-      const scanWarnings = scanForSecrets(descriptor.name, rowData, descriptor.scanPaths);
-      for (const warn of scanWarnings) {
-        state.warnings.push(warn);
+      if (rows.length < this.batchSize) {
+        hasMore = false;
       }
-      
-      await state.writer.writeEntityRow(descriptor.name, rowData);
     }
     
     state.extractedIds.set(descriptor.name, ids);
-    if (rows.length > 0) {
-      state.entityCounts[descriptor.name] = rows.length;
+    if (totalRows > 0) {
+      state.entityCounts[descriptor.name] = totalRows;
     }
+  }
+
+  private async fetchPage(params: {
+    descriptor: EntityDescriptor;
+    selection: Record<string, PgColumn>;
+    conditions: SQL<unknown>[];
+    tableCols: Record<string, PgColumn>;
+    lastId: string | undefined;
+    offset: number;
+  }): Promise<{ rows: unknown[]; nextLastId: string | undefined; nextOffset: number }> {
+    const { descriptor, selection, conditions, tableCols, lastId, offset } = params;
+    const idCol = tableCols['id'];
+    let rows: unknown[];
+    let nextLastId = lastId;
+    let nextOffset = offset;
+
+    if (idCol !== undefined) {
+      const pageConditions = [...conditions];
+      if (lastId !== undefined) {
+        pageConditions.push(gt(idCol, lastId));
+      }
+
+      rows = await db.select(selection)
+        .from(descriptor.table)
+        .where(pageConditions.length > 0 ? and(...pageConditions) : undefined)
+        .orderBy(idCol)
+        .limit(this.batchSize);
+
+      if (rows.length > 0) {
+        nextLastId = (rows[rows.length - 1] as Record<string, unknown>).id as string;
+      }
+    } else {
+      const descriptorCols = descriptor.fields.map(f => tableCols[f]);
+      const orderCols = tableCols['createdAt'] !== undefined
+        ? [tableCols['createdAt'], ...descriptorCols]
+        : descriptorCols;
+
+      rows = await db.select(selection)
+        .from(descriptor.table)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(...orderCols)
+        .limit(this.batchSize)
+        .offset(offset);
+        
+      nextOffset = offset + this.batchSize;
+    }
+    
+    return { rows, nextLastId, nextOffset };
+  }
+
+  private async processRow(
+    descriptor: EntityDescriptor,
+    rowData: Record<string, unknown>,
+    state: ExportState,
+    ids: Set<string>
+  ): Promise<void> {
+    if (typeof rowData['id'] === 'string') {
+      ids.add(rowData['id']);
+    }
+    
+    await this.processBlobRefs(descriptor, rowData, state);
+    this.processRequiresReentry(descriptor, rowData, state);
+    
+    applyRedaction(rowData, descriptor.redactPaths);
+    const scanWarnings = scanForSecrets(descriptor.name, rowData, descriptor.scanPaths);
+    for (const warn of scanWarnings) {
+      state.warnings.push(warn);
+    }
+    
+    await state.writer.writeEntityRow(descriptor.name, rowData);
   }
 
   private buildConditions(

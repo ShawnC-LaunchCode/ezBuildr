@@ -8,8 +8,11 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useDebouncedFieldMutation } from './useDebouncedFieldMutation';
 import type { ApiStep } from '@/lib/vault-api';
 
+import { resolveChoiceDisplay } from '@shared/types/stepConfigs';
+
 import type {
     ChoiceAdvancedConfig,
+    ChoiceDisplay,
     ChoiceOption,
     LegacyMultipleChoiceConfig,
     LegacyRadioConfig,
@@ -17,9 +20,8 @@ import type {
 } from '@shared/types/stepConfigs';
 
 export interface ChoiceCardState {
-    display: "radio" | "dropdown" | "multiple";
+    display: ChoiceDisplay;
     allowMultiple: boolean;
-    searchable: boolean;
     staticOptions: ChoiceOption[];
     dynamicOptions: Extract<DynamicOptionsConfig, { type: 'list' }>;
 }
@@ -56,7 +58,6 @@ const createEmptyDynamicConfig = (): Extract<DynamicOptionsConfig, { type: 'list
 /**
  * Parse and migrate choice config from various formats to unified state
  */
-// eslint-disable-next-line complexity
 function parseChoiceConfig(step: ApiStep): {
     config: ChoiceCardState;
     mode: "static" | "dynamic";
@@ -99,11 +100,14 @@ function parseChoiceConfig(step: ApiStep): {
             staticOptions = rawOptions;
         }
 
+        // A saved dropdown+searchable question surfaces as a combobox, so the
+        // retired "Allow Search" switch keeps working without a data migration.
+        const display = resolveChoiceDisplay(config, step.type);
+
         return {
             config: {
-                display: config?.display ?? "radio",
-                allowMultiple: config?.allowMultiple ?? false,
-                searchable: config?.searchable ?? false,
+                display,
+                allowMultiple: display === "multiple",
                 staticOptions,
                 dynamicOptions
             },
@@ -126,7 +130,6 @@ function parseChoiceConfig(step: ApiStep): {
             config: {
                 display: step.type === "multiple_choice" ? "multiple" : "radio",
                 allowMultiple: step.type === "multiple_choice",
-                searchable: false,
                 staticOptions: options,
                 dynamicOptions: createEmptyDynamicConfig()
             },

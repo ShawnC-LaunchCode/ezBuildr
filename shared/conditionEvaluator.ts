@@ -285,7 +285,7 @@ function resolveVariable(
 /**
  * Evaluate a comparison operator
  */
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- operator dispatch table
+// eslint-disable-next-line complexity -- operator dispatch table
 function evaluateOperator(
   operator: ComparisonOperator,
   actualValue: unknown,
@@ -421,7 +421,7 @@ function evaluateOperator(
 /**
  * Check if two values are equal (with type coercion)
  */
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- multi-type equality requires branching
+// eslint-disable-next-line complexity -- multi-type equality requires branching
 function isEqual(a: unknown, b: unknown): boolean {
   // Handle null/undefined
   if ((a === null || a === undefined) && (b === null || b === undefined)) {return true;}
@@ -475,7 +475,7 @@ function toString(value: unknown): string {
 /**
  * Convert value to number
  */
-// eslint-disable-next-line sonarjs/cognitive-complexity -- multi-type conversion requires branching
+
 function toNumber(value: unknown): number {
   if (value === null || value === undefined) {return 0;}
   if (typeof value === "number") {return value;}
@@ -788,7 +788,7 @@ function describeCondition(
   return `${varLabel} ${operator} ${valueStr}`;
 }
 
-/* eslint-disable @typescript-eslint/naming-convention -- keys match ComparisonOperator enum values */
+
 function getOperatorLabel(operator: ComparisonOperator): string {
   const labels: Record<ComparisonOperator, string> = {
     equals: "=",
@@ -821,7 +821,7 @@ function getOperatorLabel(operator: ComparisonOperator): string {
   };
   return labels[operator] ?? operator;
 }
-/* eslint-enable @typescript-eslint/naming-convention */
+
 
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) {return "null";}

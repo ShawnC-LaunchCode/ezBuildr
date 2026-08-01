@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { LogicExpression } from '@shared/types/stepConfigs';
+
 import { EnhancedDocumentEngine } from '../../../server/services/document/EnhancedDocumentEngine.js';
-import { DocumentEngine } from '../../../server/services/document/DocumentEngine.js';
-import { templateAnalytics } from '../../../server/services/TemplateAnalyticsService.js';
 
 // Mock DocumentEngine to avoid real rendering
 vi.mock('../../../server/services/document/DocumentEngine.js', () => {
@@ -31,13 +30,16 @@ describe('EnhancedDocumentEngine - Conditions', () => {
     engine = new EnhancedDocumentEngine();
   });
 
-  const generateWithConditions = async (conditions: any, stepValues: any) => {
+  const generateWithConditions = async (
+    conditions: unknown,
+    stepValues: Record<string, unknown>
+  ) => {
     return engine.renderFinalBlock({
       documents: [{
         documentId: 'doc1',
         templatePath: 'test.docx',
         alias: 'testDoc',
-        conditions: conditions
+        conditions: conditions as LogicExpression | null
       }],
       stepValues
     });

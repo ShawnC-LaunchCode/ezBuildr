@@ -11,7 +11,7 @@ import { createGraphWorkflow } from "../factories/graphFactory";
 describe("Analytics Service Integration", () => {
     let userId: string;
     let tenantId: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     let workflow: any;
 
 
@@ -71,14 +71,14 @@ describe("Analytics Service Integration", () => {
         // Actually RunService.createRun(workflowId, inputData, queryParams, ...)
         // Looking at RunService signature: createRun(workflowId: string, options: ...)
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const run = await runService.createRun(workflow.id, undefined, { participantId: "anon" } as any);
         const runId = run.id;
 
         expect(runId).toBeDefined();
 
         // 2. Verify run.start event
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         let eventsAfterStart: any[] = [];
         for (let i = 0; i < 5; i++) {
             eventsAfterStart = await db.select().from(workflowRunEvents).where(eq(workflowRunEvents.runId, runId));

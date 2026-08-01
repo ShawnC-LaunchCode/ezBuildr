@@ -17,7 +17,7 @@ interface TileProps {
 }
 
 function Tile({ icon, eyebrow, title, body, className = "", children }: TileProps) {
-  // eslint-disable-next-line @typescript-eslint/naming-convention -- React component from prop
+
   const Icon = icon;
   return (
     <motion.div

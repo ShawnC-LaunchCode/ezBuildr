@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { hash as bcryptHash, compare as bcryptCompare } from "bcrypt";
 import { eq, and } from "drizzle-orm";
 import { toDataURL as qrToDataURL } from "qrcode";
-// eslint-disable-next-line @typescript-eslint/naming-convention -- speakeasy is a third-party module name
+
 import * as speakeasy from "speakeasy";
 
 import { mfaSecrets, mfaBackupCodes, users } from "@shared/schema";

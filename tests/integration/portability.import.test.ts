@@ -319,4 +319,159 @@ describe.sequential("Portability Import API Integration Tests", () => {
     expect(preview.body.canProceed).toBe(false);
     expect(preview.body.errors.some((e: string) => e.includes("Unresolvable reference"))).toBe(true);
   });
+
+  it("IEX2-5 AC 1 & 2: returned and audited entity counts are observed counts, not manifest claims", async () => {
+    const zip = new AdmZip(bundle);
+    const manifest = JSON.parse(zip.getEntry("manifest.json")!.getData().toString("utf8"));
+    
+    // Store original counts to verify actual inserted matches these, not the forged ones
+    const originalWorkflowCount = manifest.entityCounts.workflows || 0;
+    const originalStepCount = manifest.entityCounts.steps || 0;
+    
+    // Tamper with the counts in the manifest
+    manifest.entityCounts.workflows = 9999;
+    manifest.entityCounts.steps = 9999;
+    manifest.entityCounts.fake_entity = 50;
+    
+    recomputeChecksum(zip, manifest);
+    zip.updateFile("manifest.json", Buffer.from(JSON.stringify(manifest)));
+    const tampered = zip.toBuffer();
+
+    const apply = await request(baseURL)
+      .post("/api/portability/import/apply")
+      .set("Authorization", `Bearer ${authToken}`)
+      .attach("file", tampered, "bundle.ezb")
+      .expect(201);
+
+    // AC 1: Returned counts reflect actual inserted rows
+    expect(apply.body.entityCounts.workflows).toBe(originalWorkflowCount);
+    expect(apply.body.entityCounts.workflows).not.toBe(9999);
+    expect(apply.body.entityCounts.steps).toBe(originalStepCount);
+    expect(apply.body.entityCounts.fake_entity).toBeUndefined();
+
+    // AC 2: Audit row carries observed counts
+    const logs = await db.select().from(schema.auditLogs)
+      .where(and(eq(schema.auditLogs.userId, userId), eq(schema.auditLogs.action, "data_imported")));
+    expect(logs.length).toBeGreaterThan(0);
+    
+    // Get the most recent log
+    const lastLog = logs[logs.length - 1];
+    const changes = lastLog.changes as Record<string, unknown>;
+    const auditedCounts = changes.entityCounts as Record<string, number>;
+    
+    expect(auditedCounts.workflows).toBe(originalWorkflowCount);
+    expect(auditedCounts.workflows).not.toBe(9999);
+  });
+
+  it("IEX2-5 AC 3: a bundle whose rootIds match nothing is rejected with 400", async () => {
+    const zip = new AdmZip(bundle);
+    const manifest = JSON.parse(zip.getEntry("manifest.json")!.getData().toString("utf8"));
+    
+    // Tamper with the rootIds so they match nothing
+    manifest.rootIds = [randomUUID(), randomUUID()];
+    
+    recomputeChecksum(zip, manifest);
+    zip.updateFile("manifest.json", Buffer.from(JSON.stringify(manifest)));
+    const tampered = zip.toBuffer();
+
+    const workflowsBefore = await db.select().from(schema.workflows);
+
+    const apply = await request(baseURL)
+      .post("/api/portability/import/apply")
+      .set("Authorization", `Bearer ${authToken}`)
+      .attach("file", tampered, "bundle.ezb");
+
+    expect(apply.status).toBe(400);
+    expect(apply.body.message).toMatch(/Bundle roots not found/);
+
+    // Does not return 201 with an empty rootId
+    expect(apply.body.rootId).toBeUndefined();
+
+    // The rejection must roll back Pass 2, not merely report a 400 after it
+    // committed — otherwise the import leaves orphaned rows no rootId can reach.
+    const workflowsAfter = await db.select().from(schema.workflows);
+    expect(workflowsAfter.length).toBe(workflowsBefore.length);
+  });
+
+  it("IEX2-12 AC 2: duplicate entries in the zip are a 400, not a 500", async () => {
+    const zip = new AdmZip();
+    zip.addFile("manifest.json", Buffer.from(JSON.stringify({
+      formatVersion: 1, appVersion: '1.0', migrationHead: '0001',
+      scope: 'project', rootIds: ['a'], sourceSystem: 'x', createdAt: '2024-01-01T00:00:00.000Z',
+      entityCounts: {}, blobCount: 0, checksum: 'a'.repeat(64)
+    })));
+    // We want a duplicate entry. adm-zip replaces files with the same name.
+    // So we add 'fileA' and 'fileB', then rename 'fileB' to 'fileA' in the raw buffer.
+    zip.addFile("entities/fileA.jsonl", Buffer.from("A"));
+    zip.addFile("entities/fileB.jsonl", Buffer.from("B"));
+    
+    let buffer = zip.toBuffer();
+    
+    // Replace all occurrences of "fileB.jsonl" with "fileA.jsonl" in the buffer
+    let str = buffer.toString('binary');
+    str = str.replace(/fileB\.jsonl/g, "fileA.jsonl");
+    buffer = Buffer.from(str, 'binary');
+
+    const apply = await request(baseURL)
+      .post("/api/portability/import/apply")
+      .set("Authorization", `Bearer ${authToken}`)
+      .attach("file", buffer, "bundle.ezb");
+
+    expect(apply.status).toBe(400);
+    expect(apply.body.message).toMatch(/Duplicate entry detected/);
+  });
+
+  it("IEX2-13 AC 4: size mismatch in the zip is a 400, not a 500", async () => {
+    const zip = new AdmZip();
+    zip.addFile("manifest.json", Buffer.from(JSON.stringify({
+      formatVersion: 1, appVersion: '1.0', migrationHead: '0001',
+      scope: 'project', rootIds: ['a'], sourceSystem: 'x', createdAt: '2024-01-01T00:00:00.000Z',
+      entityCounts: {}, blobCount: 0, checksum: 'a'.repeat(64)
+    })));
+    zip.addFile("entities/test.jsonl", Buffer.from("1234567890"));
+    
+    const buffer = zip.toBuffer();
+    
+    // Modify central directory header uncompressed size.
+    // Central directory signature is 0x02014b50 (PK\x01\x02)
+    let offset = buffer.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+    // Find the one for test.jsonl
+    while (offset !== -1) {
+      const fileNameLen = buffer.readUInt16LE(offset + 28);
+      const fileName = buffer.toString('utf8', offset + 46, offset + 46 + fileNameLen);
+      if (fileName === "entities/test.jsonl") {
+        buffer.writeUInt32LE(99, offset + 24); // uncompressed size
+        break;
+      }
+      offset = buffer.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]), offset + 4);
+    }
+    
+    const apply = await request(baseURL)
+      .post("/api/portability/import/apply")
+      .set("Authorization", `Bearer ${authToken}`)
+      .attach("file", buffer, "bundle.ezb");
+
+    expect(apply.status).toBe(400);
+    expect(apply.body.message).toMatch(/Size mismatch/);
+  });
+
+  it("AC 7: a bundle claiming a newer migrationHead is rejected with a 400", async () => {
+    const zip = new AdmZip(bundle);
+    const manifest = JSON.parse(zip.getEntry("manifest.json")!.getData().toString("utf8"));
+    
+    // Claim a migrationHead that doesn't exist (e.g. from the future)
+    manifest.migrationHead = "9999_future_migration";
+    
+    recomputeChecksum(zip, manifest);
+    zip.updateFile("manifest.json", Buffer.from(JSON.stringify(manifest)));
+    const tampered = zip.toBuffer();
+
+    const apply = await request(baseURL)
+      .post("/api/portability/import/apply")
+      .set("Authorization", `Bearer ${authToken}`)
+      .attach("file", tampered, "bundle.ezb");
+
+    expect(apply.status).toBe(400);
+    expect(apply.body.message).toMatch(/newer version of ezBuildr/);
+  });
 });

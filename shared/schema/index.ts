@@ -12,7 +12,6 @@ export * from "./system";
 
 export * from "./template_shares";
 export * from "./analytics";
-export * from "./files";
 
 
 

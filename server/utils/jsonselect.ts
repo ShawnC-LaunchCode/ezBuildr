@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * JSON Path Selector Utility
  * Minimal JSONPath-like selector for extracting values from JSON responses
@@ -24,8 +23,7 @@
  * @param selector The selector path (e.g., '$.user.name', '$.items[0].id')
  * @returns The selected value, or undefined if not found
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSON path selector traverses arbitrary object structures
-export function select(obj: any, selector: string): any {
+export function select(obj: unknown, selector: string): unknown {
   if (!obj || typeof obj !== 'object') {
     return undefined;
   }
@@ -133,9 +131,8 @@ function parseSelector(selector: string): string[] {
 /**
  * Traverse an object following a path
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- traverses arbitrary nested JSON structures
-function traverse(obj: any, parts: string[]): any {
-  let current = obj;
+function traverse(obj: unknown, parts: string[]): unknown {
+  let current: unknown = obj;
 
   for (const part of parts) {
     if (current === null || current === undefined) {
@@ -153,7 +150,7 @@ function traverse(obj: any, parts: string[]): any {
     } else {
       // Handle object property
       if (typeof current === 'object' && part in current) {
-        current = current[part];
+        current = (current as Record<string, unknown>)[part];
       } else {
         return undefined;
       }
@@ -200,8 +197,7 @@ export function validateSelector(selector: string): { valid: boolean; error?: st
  * Test a selector against a sample object
  * Useful for debugging and validation
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- tests arbitrary JSON structures and returns dynamic values
-export function testSelector(obj: any, selector: string): {
+export function testSelector(obj: unknown, selector: string): {
   success: boolean;
   value?: unknown;
   error?: string;
@@ -223,10 +219,9 @@ export function testSelector(obj: any, selector: string): {
  * Select multiple values using multiple selectors
  * Returns an object with selector results
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- selects from arbitrary JSON structures
+
 export function selectMultiple(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  obj: any,
+  obj: unknown,
   selectors: Record<string, string>
 ): Record<string, unknown> {
   const results: Record<string, unknown> = {};

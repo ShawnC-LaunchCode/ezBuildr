@@ -78,7 +78,7 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
   afterAll(async () => {
     if (projectId) { await db.delete(projects).where(eq(projects.id, projectId)); }
     if (userId) {
-      // eslint-disable-next-line no-empty
+
       try { await db.delete(auditLogs).where(eq(auditLogs.userId, userId)); } catch (e) { /* table may be empty */ }
       await db.delete(users).where(eq(users.id, userId));
     }

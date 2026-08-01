@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect } from "react";
 import { Switch, Route, useLocation } from "wouter";
 
-// eslint-disable-next-line @typescript-eslint/naming-convention -- React component
+
 import { FullScreenLoader } from "@/components/ui/loader";
 import { useAuth } from "@/hooks/useAuth";
 

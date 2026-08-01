@@ -220,7 +220,7 @@ async function proposeEdit(
  * validation (at request parse) and IDOR checks (in `applyOps`) as generated
  * ones, so they carry no extra privilege.
  */
-// eslint-disable-next-line sonarjs/cognitive-complexity
+
 async function applyEdit(
   res: Response,
   requestData: AiWorkflowEditRequest,

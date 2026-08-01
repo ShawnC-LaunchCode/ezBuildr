@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * AI Provider Client
  *
@@ -23,6 +22,11 @@ import type { AIProviderConfig } from '../../../shared/types/ai';
 const logger = createLogger({ module: 'ai-provider-client' });
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const DEFAULT_PROVIDER_CONFIG: AIProviderConfig = {
+  provider: 'openai',
+  apiKey: '',
+  model: 'gpt-4o-mini',
+};
 
 /**
  * AI Provider Client - handles all LLM API calls with retry logic and telemetry
@@ -33,8 +37,7 @@ export class AIProviderClient {
   private readonly aiUsageRepo: AiUsageRepository;
 
   constructor(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    config: AIProviderConfig = {} as any,
+    config: AIProviderConfig = DEFAULT_PROVIDER_CONFIG,
     aiUsageRepo: AiUsageRepository = aiUsageRepository,
   ) {
     this.config = config;
@@ -92,8 +95,7 @@ export class AIProviderClient {
   ): Promise<void> {
     const { provider, model } = this.config;
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const costUsd = ModelRegistry.estimateCost(provider as any, model, inputTokens, outputTokens);
+      const costUsd = ModelRegistry.estimateCost(provider, model, inputTokens, outputTokens);
       await this.aiUsageRepo.recordUsage({
         tenantId,
         provider,
@@ -158,8 +160,7 @@ export class AIProviderClient {
 
         // Telemetry: Track success
         const duration = Date.now() - startTime;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const cost = ModelRegistry.estimateCost(provider as any, model, usage.inputTokens, usage.outputTokens);
+        const cost = ModelRegistry.estimateCost(provider, model, usage.inputTokens, usage.outputTokens);
 
         logger.info({
           event: 'ai_request_success',

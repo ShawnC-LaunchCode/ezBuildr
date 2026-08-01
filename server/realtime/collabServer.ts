@@ -1,7 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
 import { IncomingMessage, Server as HTTPServer } from 'http';
 
-import { encoding, decoding } from 'lib0';
+import * as decoding from 'lib0/decoding';
+import * as encoding from 'lib0/encoding';
 import { WebSocket, WebSocketServer } from 'ws';
 import { Awareness } from 'y-protocols/awareness';
 import * as awarenessProtocol from 'y-protocols/awareness';
@@ -37,6 +37,10 @@ const logger = createLogger({ module: 'collab-server' });
 // Message types for y-websocket protocol
 const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
+
+function encoderToUint8Array(encoder: encoding.Encoder): Uint8Array {
+  return encoding.toUint8Array(encoder) as Uint8Array;
+}
 
 interface Room {
   name: string;
@@ -113,7 +117,7 @@ export function initCollabServer(server: HTTPServer): void {
         return;
       }
 
-      conn.alive = false; // eslint-disable-line no-param-reassign
+      conn.alive = false;
       ws.ping();
     });
   }, 30000); // Every 30 seconds
@@ -203,7 +207,7 @@ function setupWebSocketHandlers(
 
   // Handle pong (heartbeat response)
   ws.on('pong', () => {
-    connection.alive = true; // eslint-disable-line no-param-reassign
+    connection.alive = true;
   });
 
   // Handle connection close
@@ -251,7 +255,7 @@ async function handleMessage(
 /**
  * Handle sync protocol message
  */
-// eslint-disable-next-line @typescript-eslint/require-await
+
 async function handleSyncMessage(
   connection: CollabConnection,
   room: Room,
@@ -270,7 +274,7 @@ async function handleSyncMessage(
 
   // If the protocol generated a response (e.g. Step 2), send it back
   if (encoding.length(encoder) > 1) { // > 1 because we wrote message type
-    connection.ws.send(encoding.toUint8Array(encoder));
+    connection.ws.send(encoderToUint8Array(encoder));
   }
 }
 
@@ -282,7 +286,7 @@ function handleAwarenessMessage(
   room: Room,
   decoder: decoding.Decoder
 ): void {
-  const update = decoding.readVarUint8Array(decoder);
+  const update = decoding.readVarUint8Array(decoder) as Uint8Array;
 
   // Apply awareness update
   awarenessProtocol.applyAwarenessUpdate(room.awareness, update, connection);
@@ -299,7 +303,7 @@ function sendInitialSync(ws: WebSocket, room: Room): void {
   const encoder = encoding.createEncoder();
   encoding.writeVarUint(encoder, MESSAGE_SYNC);
   syncProtocol.writeSyncStep1(encoder, room.doc);
-  ws.send(encoding.toUint8Array(encoder));
+  ws.send(encoderToUint8Array(encoder));
 
   // Send awareness state
   const awarenessEncoder = encoding.createEncoder();
@@ -308,7 +312,7 @@ function sendInitialSync(ws: WebSocket, room: Room): void {
     awarenessEncoder,
     awarenessProtocol.encodeAwarenessUpdate(room.awareness, Array.from(room.awareness.getStates().keys()))
   );
-  ws.send(encoding.toUint8Array(awarenessEncoder));
+  ws.send(encoderToUint8Array(awarenessEncoder));
 
   logger.debug({ activeUsers: room.connections.size }, 'Sent initial sync');
 }
@@ -320,7 +324,7 @@ function broadcastUpdate(room: Room, update: Uint8Array, senderWs: WebSocket): v
   const encoder = encoding.createEncoder();
   encoding.writeVarUint(encoder, MESSAGE_SYNC);
   syncProtocol.writeUpdate(encoder, update);
-  const message = encoding.toUint8Array(encoder);
+  const message = encoderToUint8Array(encoder);
 
   room.connections.forEach((conn) => {
     if (conn.ws !== senderWs && conn.ws.readyState === WebSocket.OPEN) {
@@ -340,7 +344,7 @@ function broadcastAwarenessUpdate(
   const encoder = encoding.createEncoder();
   encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
   encoding.writeVarUint8Array(encoder, update);
-  const message = encoding.toUint8Array(encoder);
+  const message = encoderToUint8Array(encoder);
 
   room.connections.forEach((conn) => {
     if (conn.ws !== senderWs && conn.ws.readyState === WebSocket.OPEN) {

@@ -142,12 +142,6 @@ export function WorkflowCard({
       actions={actions}
       renderBadge={() => (
         <div className="flex gap-2">
-          {/* eslint-disable-next-line @typescript-eslint/no-unsafe-member-access */}
-          {workflow.intakeConfig?.isIntake && (
-            <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
-              Intake
-            </Badge>
-          )}
           <Badge variant={statusVariant}>
             {workflow.status}
           </Badge>

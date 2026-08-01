@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Base class for all block runners
  * Provides common utilities and helper methods
@@ -31,6 +30,7 @@ export abstract class BaseBlockRunner implements IBlockRunner {
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- data structure varies by block execution context
   protected evaluateCondition(condition: WhenCondition, data: Record<string, any>): boolean {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Block configuration values are intentionally dynamic.
     const actualValue = this.getValueByPath(data, condition.key);
     return this.compareValues(actualValue, condition.op, condition.value);
   }
@@ -40,6 +40,7 @@ export abstract class BaseBlockRunner implements IBlockRunner {
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- data structure varies by block execution context
   protected evaluateAssertion(assertion: AssertExpression, data: Record<string, any>): boolean {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Block configuration values are intentionally dynamic.
     const actualValue = this.getValueByPath(data, assertion.key);
 
     switch (assertion.op) {
@@ -71,7 +72,7 @@ export abstract class BaseBlockRunner implements IBlockRunner {
   /**
    * Compare two values using the specified operator
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- value types vary by comparison context
+
   protected compareValues(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     actualValue: any,
@@ -115,6 +116,7 @@ export abstract class BaseBlockRunner implements IBlockRunner {
   protected isEqual(actual: any, expected: any): boolean {
     // Handle arrays
     if (Array.isArray(actual) && Array.isArray(expected)) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Block configuration values are intentionally dynamic.
       return JSON.stringify([...actual].sort()) === JSON.stringify([...expected].sort());
     }
 
@@ -153,7 +155,9 @@ export abstract class BaseBlockRunner implements IBlockRunner {
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- value types vary by comparison context
   protected compareNumeric(actual: any, expected: any): number {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- Block configuration values are intentionally dynamic.
     const numActual = parseFloat(actual);
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- Block configuration values are intentionally dynamic.
     const numExpected = parseFloat(expected);
 
     if (isNaN(numActual) || isNaN(numExpected)) {
@@ -181,6 +185,7 @@ export abstract class BaseBlockRunner implements IBlockRunner {
     }
 
     if (typeof value === "object") {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- Block configuration values are intentionally dynamic.
       return Object.keys(value).length === 0;
     }
 
@@ -223,6 +228,7 @@ export abstract class BaseBlockRunner implements IBlockRunner {
       if (result == null) {
         return undefined;
       }
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Block configuration values are intentionally dynamic.
       result = result[key];
     }
 
@@ -235,16 +241,20 @@ export abstract class BaseBlockRunner implements IBlockRunner {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- object structure varies by context
   protected setValueByPath(obj: any, path: string, value: any): void {
     const parts = path.split(".");
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Block configuration values are intentionally dynamic.
     let current = obj;
 
     for (let i = 0; i < parts.length - 1; i++) {
       const part = parts[i];
       if (!(part in current)) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Block configuration values are intentionally dynamic.
         current[part] = {};
       }
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Block configuration values are intentionally dynamic.
       current = current[part];
     }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Block configuration values are intentionally dynamic.
     current[parts[parts.length - 1]] = value;
   }
 
@@ -274,16 +284,21 @@ export abstract class BaseBlockRunner implements IBlockRunner {
     ];
 
     if (Array.isArray(data)) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-return -- Block configuration values are intentionally dynamic.
       return data.map((item) => this.redact(item));
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment -- Block configuration values are intentionally dynamic.
     const result: any = { ...data };
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- Block configuration values are intentionally dynamic.
     for (const key of Object.keys(result)) {
       const lowerKey = key.toLowerCase();
       if (sensitiveKeys.some((s) => lowerKey.includes(s))) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Block configuration values are intentionally dynamic.
         result[key] = "[REDACTED]";
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Block configuration values are intentionally dynamic.
       } else if (typeof result[key] === "object") {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Block configuration values are intentionally dynamic.
         result[key] = this.redact(result[key]);
       }
     }

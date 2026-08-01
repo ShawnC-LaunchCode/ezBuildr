@@ -1,11 +1,5 @@
 import { fetchAPI } from "@/lib/vault-api";
 
-export interface DefaultValueConfig {
-    source?: string;
-    variable?: string;
-    value?: unknown;
-}
-
 export type StepValue = unknown;
 
 // Helper to check if a string is a valid UUID

@@ -75,7 +75,7 @@ export function OptionsEditor({ options, onChange }: OptionsEditorProps) {
       {options.length > 0 && (
         <div className="space-y-2">
           {options.map((option, index) => (
-            // eslint-disable-next-line react/no-array-index-key
+
             <div key={index} className="flex items-center gap-2 p-2 border rounded-md bg-accent/20">
               <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab flex-shrink-0" />
               <div className="flex-1 grid grid-cols-3 gap-2 min-w-0">

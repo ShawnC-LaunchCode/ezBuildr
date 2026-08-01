@@ -51,7 +51,7 @@ describe('DatavaultGuardrails', () => {
         mockQueryBuilder = builder;
 
         // Override db.select to enter the mockQueryBuilder chain
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
         // @ts-expect-error - TODO: fix type
         vi.mocked(db).select = vi.fn().mockReturnValue(mockQueryBuilder) as unknown as typeof db.select;
 

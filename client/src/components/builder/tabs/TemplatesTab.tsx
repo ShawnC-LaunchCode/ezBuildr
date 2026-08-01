@@ -60,7 +60,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       if (workflowProjectId == null) {return;}
       const response = await axios.get(`/api/projects/${workflowProjectId}/templates`);
       const data: unknown = response.data;
-      /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+
       const items = (data as Record<string, unknown>).items ?? [];
       const mappedTemplates = (items as Array<Record<string, unknown>>).map((t) => ({
         id: t.id as string,
@@ -72,7 +72,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
         // Used only for PDF cards; DOCX cards validate against the server
         variables: (t.variables ?? []) as string[]
       }));
-      /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+
       setTemplates(mappedTemplates);
     } catch (error: unknown) {
       console.error("Error fetching templates:", error);
@@ -91,7 +91,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
     if (workflowProjectId != null) {
       void fetchTemplates();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [workflowProjectId]);
 
   // Handle template upload
@@ -116,7 +116,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       });
 
       const data: unknown = response.data;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
       const warnings = (data as any).warnings as string[] | undefined;
 
       if (warnings && warnings.length > 0) {
@@ -137,7 +137,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
     } catch (error: unknown) {
       console.error("Upload error:", error);
       const errorMessage = error != null && typeof error === 'object' && 'response' in error
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
         ? ((error as any).response?.data?.message as string | undefined)
         : undefined;
@@ -177,7 +177,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
     } catch (error: unknown) {
       console.error("Test error:", error);
       const errorMessage = error != null && typeof error === 'object' && 'response' in error
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
         ? ((error as any).response?.data?.message as string | undefined)
         : undefined;
@@ -206,7 +206,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
     } catch (error: unknown) {
       console.error("Delete error:", error);
       const errorMessage = error != null && typeof error === 'object' && 'response' in error
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
         ? ((error as any).response?.data?.message as string | undefined)
         : undefined;
@@ -239,9 +239,9 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredTemplates.map((template) => (
           <TemplateCard
-            // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
             key={template.id}
-            // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
             template={template}
             workflowId={workflowId}
             workflowVariableAliases={workflowVariableAliases}

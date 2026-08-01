@@ -245,7 +245,7 @@ export class TemplatePreviewService {
   /**
    * Schedule cleanup of preview file after expiration
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   private scheduleCleanup(fileKey: string, delaySeconds: number): void {
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     setTimeout(async () => {

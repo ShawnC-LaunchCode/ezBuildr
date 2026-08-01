@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { Sparkles, X, MessageSquare, HelpCircle, Settings } from 'lucide-react';
 import React, { useState } from 'react';
 
@@ -19,6 +18,17 @@ interface FloatingAIAssistProps {
     onRewrite?: (text: string) => void;
     onHelp?: (text: string) => void;
 }
+
+async function readTextResponse(response: Response): Promise<string | null> {
+    const data: unknown = await response.json();
+    return typeof data === 'object'
+        && data !== null
+        && 'text' in data
+        && typeof data.text === 'string'
+        ? data.text
+        : null;
+}
+
 export const FloatingAIAssist: React.FC<FloatingAIAssistProps> = ({ currentBlockText, onRewrite, onHelp }) => {
     const { isOpen, togglePanel, settings, setSettings } = usePersonalizationStore();
     const [loading, setLoading] = useState(false);
@@ -34,9 +44,9 @@ export const FloatingAIAssist: React.FC<FloatingAIAssistProps> = ({ currentBlock
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ block: { text: currentBlockText }, userAnswers: {} }) // TODO: pass actual answers if needed
             });
-            const data = await res.json();
-            if (data.text && onRewrite) {
-                onRewrite(data.text);
+            const text = await readTextResponse(res);
+            if (text && onRewrite) {
+                onRewrite(text);
                 setAiResponse("I've rewritten the question for you.");
             }
         } catch (e) {
@@ -55,10 +65,10 @@ export const FloatingAIAssist: React.FC<FloatingAIAssistProps> = ({ currentBlock
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text: currentBlockText })
             });
-            const data = await res.json();
-            if (data.text) {
-                setAiResponse(data.text);
-                if (onHelp) { onHelp(data.text); }
+            const text = await readTextResponse(res);
+            if (text) {
+                setAiResponse(text);
+                if (onHelp) { onHelp(text); }
             }
         } catch (e) {
             setAiResponse("Sorry, I couldn't explain that.");
@@ -120,8 +130,7 @@ export const FloatingAIAssist: React.FC<FloatingAIAssistProps> = ({ currentBlock
                         <Label>Tone</Label>
                         <Select
                             value={settings.tone}
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            onValueChange={(v: any) => setSettings({ tone: v })}
+                            onValueChange={(tone) => setSettings({ tone: tone as typeof settings.tone })}
                         >
                             <SelectTrigger>
                                 <SelectValue />
@@ -137,8 +146,9 @@ export const FloatingAIAssist: React.FC<FloatingAIAssistProps> = ({ currentBlock
                         <Label>Reading Level</Label>
                         <Select
                             value={settings.readingLevel}
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            onValueChange={(v: any) => setSettings({ readingLevel: v })}
+                            onValueChange={(readingLevel) => setSettings({
+                                readingLevel: readingLevel as typeof settings.readingLevel
+                            })}
                         >
                             <SelectTrigger>
                                 <SelectValue />
@@ -154,8 +164,9 @@ export const FloatingAIAssist: React.FC<FloatingAIAssistProps> = ({ currentBlock
                         <Label>Language</Label>
                         <Select
                             value={settings.language}
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            onValueChange={(v: any) => setSettings({ language: v })}
+                            onValueChange={(language) => setSettings({
+                                language
+                            })}
                         >
                             <SelectTrigger>
                                 <SelectValue />

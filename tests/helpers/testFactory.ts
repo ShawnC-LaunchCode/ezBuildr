@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-unnecessary-type-assertion */
+
 import { randomUUID } from 'crypto';
 
 import { eq } from 'drizzle-orm';

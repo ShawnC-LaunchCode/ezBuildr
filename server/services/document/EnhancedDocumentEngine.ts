@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Enhanced Document Engine
  *
@@ -213,7 +212,8 @@ export class EnhancedDocumentEngine {
       } catch (error: unknown) {
         throw createNormalizationError(
           baseOptions.outputName || 'unknown',
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- Legacy dynamic boundary requires these narrow checks.
           error as any,
           rawData
         );
@@ -248,7 +248,8 @@ export class EnhancedDocumentEngine {
           throw createMappingError(
             baseOptions.templatePath,
             baseOptions.outputName || 'unknown',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- Legacy dynamic boundary requires these narrow checks.
             error as any,
             mapping
           );
@@ -286,6 +287,7 @@ export class EnhancedDocumentEngine {
             undefined,
             metricsRunId
           ).catch((err) => {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Document template data is dynamically typed at this rendering boundary.
             logger.warn({ error: err }, 'Failed to track generation metric');
           });
         }
@@ -301,6 +303,7 @@ export class EnhancedDocumentEngine {
             (error as Error).message,
             metricsRunId
           ).catch((err) => {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Document template data is dynamically typed at this rendering boundary.
             logger.warn({ error: err }, 'Failed to track generation metric');
           });
         }
@@ -308,7 +311,8 @@ export class EnhancedDocumentEngine {
         throw createRenderError(
           baseOptions.templatePath,
           baseOptions.outputName || 'unknown',
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- Legacy dynamic boundary requires these narrow checks.
           error as any,
           finalData
         );
@@ -508,6 +512,7 @@ export class EnhancedDocumentEngine {
         id: `doc_cond_${index}`,
         variable: cond.key,
         operator: cond.op,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Document template data is dynamically typed at this rendering boundary.
         value: cond.value,
         valueType: 'constant'
       }))

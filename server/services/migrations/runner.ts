@@ -37,7 +37,7 @@ export async function runMigrations(
         logger.info({ from: current, to: migration.toVersion }, "Applying migration");
 
         try {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- migration chain passes schema through
+
             migratedSchema = await migration.migrate(migratedSchema);
             applied.push(`${current}->${migration.toVersion}`);
             current = migration.toVersion;
@@ -47,6 +47,6 @@ export async function runMigrations(
         }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- migrated schema preserves WorkflowSchema shape
+
     return { schema: migratedSchema, appliedMigrations: applied };
 }

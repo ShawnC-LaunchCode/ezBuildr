@@ -17,6 +17,7 @@ import { remapJsonIds } from '../../utils/remapJsonIds';
 import { storageProvider } from '../storage';
 import { storageQuotaService } from '../StorageQuotaService';
 import { virusScanner } from '../security/VirusScanner';
+import { logger } from '../../logger';
 
 export type TargetOwner = {
   ownerType: 'user' | 'org';
@@ -43,6 +44,7 @@ export interface ImportPreview {
   hasExecutableCode: boolean;
   warnings: ExportWarning[];
   errors: string[];
+  migrationHead?: string | null;
 }
 
 interface ProcessEntityContext {
@@ -91,6 +93,7 @@ interface BlobReference {
 
 export class ImportService {
   private extractManifestMetadata(manifest: BundleManifest, result: ImportPreview): void {
+    result.migrationHead = manifest.migrationHead;
     if (manifest.requiresReentry !== undefined) {
       for (const entry of manifest.requiresReentry) {
         if (entry.type === 'secret' || entry.type === 'connection') {
@@ -107,7 +110,57 @@ export class ImportService {
     }
   }
 
-  private async getTargetTenantId(userId: string, targetProjectId?: string): Promise<string | null> {
+  private checkMigrationHead(bundleHead: string | null, warnings: ExportWarning[]): void {
+    if (bundleHead === null) {
+      return;
+    }
+    
+    let entries: Array<{ tag: string }> = [];
+    try {
+      const journalPath = path.resolve(process.cwd(), 'migrations/meta/_journal.json');
+      const content = fs.readFileSync(journalPath, 'utf8');
+      const journal = JSON.parse(content) as Record<string, unknown>;
+      if (Array.isArray(journal.entries)) {
+        entries = journal.entries as Array<{ tag: string }>;
+      }
+    } catch (err) {
+      // The journal is the only source for this comparison, so an unreadable
+      // one means the drift guard silently does nothing -- precisely the
+      // failure mode this check exists to prevent, and invisible from tests
+      // because the repo tree always has migrations/. Say so out loud.
+      logger.warn(
+        { err, bundleHead },
+        'Migration journal unreadable; skipping schema-drift check for this import'
+      );
+      return;
+    }
+    
+    if (entries.length === 0) {
+      return;
+    }
+    
+    const systemHead = entries[entries.length - 1].tag;
+    if (bundleHead === systemHead) {
+      return;
+    }
+    
+    const bundleIdx = entries.findIndex(e => e.tag === bundleHead);
+    if (bundleIdx === -1) {
+      throw new Error(`this bundle was created on a newer version of ezBuildr (migrationHead: ${bundleHead})`);
+    } else {
+      warnings.push({
+        type: 'schema_drift',
+        message: `This bundle was created on an older version of ezBuildr (migrationHead: ${bundleHead}). Import will proceed, but some fields may be mapped to defaults.`
+      });
+    }
+  }
+
+  private async getTargetOwnerForPreview(userId: string, targetProjectId?: string): Promise<TargetOwner | null> {
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (user?.tenantId == null) {
+      return null;
+    }
+
     if (targetProjectId !== undefined) {
       const [project] = await db.select().from(projects).where(eq(projects.id, targetProjectId)).limit(1);
       if (project === undefined) {
@@ -117,24 +170,32 @@ export class ImportService {
       if (!canView) {
         throw new Error('Access denied - insufficient permissions for this project');
       }
-      return project.tenantId;
+      return {
+        ownerType: project.ownerType ?? 'user',
+        ownerUuid: project.ownerUuid ?? project.ownerId ?? project.createdBy ?? project.creatorId ?? userId,
+        tenantId: project.tenantId ?? user.tenantId
+      };
     }
-    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    if (user !== undefined) {
-      return user.tenantId;
-    }
-    return null;
+    return {
+      ownerType: 'user',
+      ownerUuid: userId,
+      tenantId: user.tenantId
+    };
   }
 
   private async checkCollisions(
-    targetTenantId: string,
+    targetOwner: TargetOwner,
+    targetProjectId: string | undefined,
     extracted: { projects: Set<string>; workflows: Set<string>; tableSlugs: Set<string>; stepAliases: Set<string> },
     result: ImportPreview
   ): Promise<void> {
     if (extracted.projects.size > 0) {
-      const existingProjects = await db.select({ name: projects.name })
+      const existingProjects = await db.select({ name: projects.title })
         .from(projects)
-        .where(eq(projects.tenantId, targetTenantId));
+        .where(and(
+          eq(projects.ownerType, targetOwner.ownerType),
+          eq(projects.ownerUuid, targetOwner.ownerUuid)
+        ));
       const existingNames = new Set(existingProjects.map(p => p.name).filter(Boolean));
       for (const name of extracted.projects) {
         if (existingNames.has(name)) {
@@ -143,13 +204,16 @@ export class ImportService {
       }
     }
 
-    if (extracted.workflows.size > 0) {
-      const query = db.select({ title: workflows.title })
+    if (extracted.workflows.size > 0 && extracted.projects.size === 0) {
+      const projectCondition = targetProjectId ? eq(workflows.projectId, targetProjectId) : isNull(workflows.projectId);
+      const existingWorkflows = await db.select({ title: workflows.title })
         .from(workflows)
-        .innerJoin(projects, eq(workflows.projectId, projects.id))
-        .where(eq(projects.tenantId, targetTenantId));
+        .where(and(
+          eq(workflows.ownerType, targetOwner.ownerType),
+          eq(workflows.ownerUuid, targetOwner.ownerUuid),
+          projectCondition
+        ));
         
-      const existingWorkflows = await query;
       const existingNames = new Set(existingWorkflows.map(w => w.title).filter(Boolean));
       for (const title of extracted.workflows) {
         if (existingNames.has(title)) {
@@ -161,7 +225,7 @@ export class ImportService {
     if (extracted.tableSlugs.size > 0) {
       const existingTables = await db.select({ slug: datavaultTables.slug })
         .from(datavaultTables)
-        .where(eq(datavaultTables.tenantId, targetTenantId));
+        .where(eq(datavaultTables.tenantId, targetOwner.tenantId));
       const existingSlugs = new Set(existingTables.map(t => t.slug).filter(Boolean));
       for (const slug of extracted.tableSlugs) {
         if (existingSlugs.has(slug)) {
@@ -169,26 +233,12 @@ export class ImportService {
         }
       }
     }
-
-    if (extracted.stepAliases.size > 0) {
-      const query = db.select({ alias: steps.alias })
-        .from(steps)
-        .innerJoin(workflows, eq(steps.workflowId, workflows.id))
-        .innerJoin(projects, eq(workflows.projectId, projects.id))
-        .where(eq(projects.tenantId, targetTenantId));
-        
-      const existingSteps = await query;
-      const existingAliases = new Set(existingSteps.map(s => s.alias).filter(Boolean));
-      for (const alias of extracted.stepAliases) {
-        if (existingAliases.has(alias)) {
-          result.collisions.push({ entity: 'steps', name: alias, type: 'step_alias' });
-        }
-      }
-    }
+    
+    // Step aliases check removed: checked during processEntityStream.
   }
 
   private shouldSkipEntity(desc: EntityDescriptor): boolean {
-    return desc.fields.includes('role') || desc.fields.includes('tenantRole');
+    return desc.importable === false;
   }
 
   private wrapDateField(schema: z.ZodTypeAny): z.ZodTypeAny {
@@ -334,8 +384,13 @@ export class ImportService {
       if (desc.name === 'datavault_tables' && typeof data['slug'] === 'string' && data['slug'] !== '') {
         extracted.tableSlugs.add(data['slug']);
       }
-      if (desc.name === 'steps' && typeof data['alias'] === 'string' && data['alias'] !== '') {
-        extracted.stepAliases.add(data['alias']);
+      if (desc.name === 'steps' && typeof data['alias'] === 'string' && data['alias'] !== '' && typeof data['workflowId'] === 'string' && data['workflowId'] !== '') {
+        const scopeKey = `${data['workflowId']}::${data['alias']}`;
+        if (extracted.stepAliases.has(scopeKey)) {
+          result.collisions.push({ entity: 'steps', name: data['alias'], type: 'step_alias' });
+        } else {
+          extracted.stepAliases.add(scopeKey);
+        }
       }
 
       this.checkDanglingReferences(desc, data, bundleIds, result);
@@ -348,10 +403,13 @@ export class ImportService {
     }
   }
 
-  async preview(buffer: Buffer, userId: string, targetProjectId?: string): Promise<ImportPreview> {
-    const targetTenantId = await this.getTargetTenantId(userId, targetProjectId);
-    const tmpPath = path.join(os.tmpdir(), `import_preview_${randomUUID()}.ezb`);
-    await fs.promises.writeFile(tmpPath, buffer);
+  /**
+   * `filePath` is the caller's own file (the multer upload in production, a
+   * spooled temp file in tests) — read directly, never copied (IEX2-10).
+   * Cleanup of `filePath` itself is the caller's responsibility.
+   */
+  async preview(filePath: string, userId: string, targetProjectId?: string): Promise<ImportPreview> {
+    const targetOwner = await this.getTargetOwnerForPreview(userId, targetProjectId);
     const result: ImportPreview = {
       canProceed: true,
       entityCounts: {},
@@ -364,7 +422,7 @@ export class ImportService {
     
     let reader: BundleReader | null = null;
     try {
-      reader = new BundleReader(tmpPath);
+      reader = new BundleReader(filePath);
       await reader.open();
 
       const extracted = {
@@ -390,9 +448,10 @@ export class ImportService {
         await this.processEntityStream(reader, desc, extracted, result, bundleIds);
       }
       this.extractManifestMetadata(reader.manifest, result);
+      this.checkMigrationHead(reader.manifest.migrationHead, result.warnings);
 
-      if (targetTenantId !== null) {
-        await this.checkCollisions(targetTenantId, extracted, result);
+      if (targetOwner !== null) {
+        await this.checkCollisions(targetOwner, targetProjectId, extracted, result);
       }
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -413,11 +472,6 @@ export class ImportService {
       result.canProceed = false;
     } finally {
       reader?.close();
-      try {
-        await fs.promises.rm(tmpPath, { force: true });
-      } catch (err) {
-        // Ignore removal error
-      }
     }
 
     return result;
@@ -577,6 +631,22 @@ export class ImportService {
     if ('updatedBy' in shape) { data['updatedBy'] = userId; }
     if ('lastModifiedBy' in shape) { data['lastModifiedBy'] = userId; }
     if ('ownerUserId' in shape) { data['ownerUserId'] = userId; }
+
+    // Publication state is stamped locally and never inherited.
+    // A live publicLink shared across tenants exposes data to the wrong client,
+    // an imported slug guarantees a unique-index violation preventing import,
+    // and versions must not bypass this system's publish gate by arriving pre-published.
+    // We force workflows back to draft and versions to unpublished.
+    if (desc.name === 'workflows') {
+      data['isPublic'] = false;
+      data['publicLink'] = null;
+      data['slug'] = null;
+      data['status'] = 'draft';
+    }
+    if (desc.name === 'workflow_versions') {
+      data['published'] = false;
+      data['publishedAt'] = null;
+    }
   }
 
   private async enforceNameUniqueness(ctx: ProcessEntityContext, data: Record<string, unknown>): Promise<void> {
@@ -665,46 +735,55 @@ export class ImportService {
     const totalBytes = entries.reduce((sum, [, meta]) => sum + meta.size, 0);
     await storageQuotaService.checkQuota(tenantId, totalBytes);
 
-    // Gates 2 and 3 — integrity then scan, deduplicated by content hash so a
-    // blob shared by many rows is verified and scanned exactly once.
-    const verified = new Map<string, Buffer>();
-    for (const [fileRef, meta] of entries) {
-      if (verified.has(meta.sha256)) {continue;}
+    // Gates 2 and 3 verify+scan one blob at a time and spool each survivor to
+    // disk instead of holding it in a Map — peak heap is one blob, not the
+    // bundle's total blob size (IEX2-10). The spool dir is what lets "every
+    // gate before any write" survive without keeping every buffer in memory.
+    const spoolDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'ezb-blobs-'));
+    try {
+      const verifiedShas = new Set<string>();
+      for (const [fileRef, meta] of entries) {
+        if (verifiedShas.has(meta.sha256)) {continue;}
 
-      const buffer = await reader.readBlob(meta.sha256);
-      const actual = createHash('sha256').update(buffer).digest('hex');
-      if (actual !== meta.sha256) {
-        throw new Error(
-          `Bundle integrity check failed: blob content does not match its sha256 ` +
-          `(expected ${meta.sha256}, got ${actual}), referenced by ${this.describeRef(references, fileRef)}`
-        );
+        const buffer = await reader.readBlob(meta.sha256);
+        const actual = createHash('sha256').update(buffer).digest('hex');
+        if (actual !== meta.sha256) {
+          throw new Error(
+            `Bundle integrity check failed: blob content does not match its sha256 ` +
+            `(expected ${meta.sha256}, got ${actual}), referenced by ${this.describeRef(references, fileRef)}`
+          );
+        }
+
+        const scan = await virusScanner().scan(buffer, meta.filename);
+        if (!scan.safe) {
+          throw new Error(
+            `Import rejected: potential malware detected (${String(scan.threatName)}) ` +
+            `in blob referenced by ${this.describeRef(references, fileRef)}`
+          );
+        }
+
+        await fs.promises.writeFile(path.join(spoolDir, meta.sha256), buffer);
+        verifiedShas.add(meta.sha256);
       }
 
-      const scan = await virusScanner().scan(buffer, meta.filename);
-      if (!scan.safe) {
-        throw new Error(
-          `Import rejected: potential malware detected (${String(scan.threatName)}) ` +
-          `in blob referenced by ${this.describeRef(references, fileRef)}`
-        );
+      // Gate 4 — every blob passed; now write. One stored object per unique
+      // hash, read off the spool disk one at a time rather than from memory.
+      const written = new Map<string, string>();
+      for (const [fileRef, meta] of entries) {
+        let newRef = written.get(meta.sha256);
+        if (newRef === undefined) {
+          if (!verifiedShas.has(meta.sha256)) {continue;}
+          const buffer = await fs.promises.readFile(path.join(spoolDir, meta.sha256));
+          newRef = await storageProvider.saveFile(buffer, meta.filename, meta.mimeType);
+          written.set(meta.sha256, newRef);
+        }
+        mapping.set(fileRef, newRef);
       }
 
-      verified.set(meta.sha256, buffer);
+      return mapping;
+    } finally {
+      await fs.promises.rm(spoolDir, { recursive: true, force: true });
     }
-
-    // Gate 4 — every blob passed; now write. One stored object per unique hash.
-    const written = new Map<string, string>();
-    for (const [fileRef, meta] of entries) {
-      let newRef = written.get(meta.sha256);
-      if (newRef === undefined) {
-        const buffer = verified.get(meta.sha256);
-        if (buffer === undefined) {continue;}
-        newRef = await storageProvider.saveFile(buffer, meta.filename, meta.mimeType);
-        written.set(meta.sha256, newRef);
-      }
-      mapping.set(fileRef, newRef);
-    }
-
-    return mapping;
   }
 
   /**
@@ -819,8 +898,9 @@ export class ImportService {
     return null;
   }
 
-  private async processEntityInsertion(ctx: ProcessEntityContext): Promise<string> {
+  private async processEntityInsertion(ctx: ProcessEntityContext): Promise<{ rootId: string; count: number }> {
     let newRootId = '';
+    let count = 0;
     const schemaObj = this.getZodSchema(ctx.desc);
     const stream = ctx.reader.readEntityStream(ctx.desc.name);
     
@@ -837,24 +917,52 @@ export class ImportService {
       if (rootId) {
         newRootId = rootId;
       }
+      count++;
     }
-    return newRootId;
+    return { rootId: newRootId, count };
   }
 
-  async apply(buffer: Buffer, userId: string, options: ImportApplyOptions = {}): Promise<ImportApplyResult> {
+  private async allocateIds(reader: BundleReader, idMap: Map<string, string>): Promise<Set<string>> {
+    const bundleProjectIds = new Set<string>();
+    for (const desc of ENTITY_GRAPH) {
+      if (this.shouldSkipEntity(desc)) {continue;}
+      const schemaObj = this.getZodSchema(desc);
+      const stream = reader.readEntityStream(desc.name);
+      for await (const rawRow of stream) {
+         const parsed = schemaObj.safeParse(rawRow);
+         if (parsed.success) {
+           const data = parsed.data as Record<string, unknown>;
+           if (typeof data['id'] === 'string') {
+             idMap.set(data['id'], randomUUID());
+           }
+           if (desc.name === 'workflows' && typeof data['projectId'] === 'string') {
+             bundleProjectIds.add(data['projectId']);
+           }
+         }
+      }
+    }
+    return bundleProjectIds;
+  }
+
+  /**
+   * `filePath` is the caller's own file (the multer upload in production, a
+   * spooled temp file in tests) — read directly, never copied (IEX2-10).
+   * Cleanup of `filePath` itself is the caller's responsibility.
+   */
+  async apply(filePath: string, userId: string, options: ImportApplyOptions = {}): Promise<ImportApplyResult> {
     const targetOwner = await this.resolveTargetOwner(userId, options);
 
-    const tmpPath = path.join(os.tmpdir(), `import_apply_${randomUUID()}.ezb`);
-    await fs.promises.writeFile(tmpPath, buffer);
     let reader: BundleReader | null = null;
     let newRootId = '';
     const warnings: ExportWarning[] = [];
     const adjustments: string[] = [];
 
     try {
-      reader = new BundleReader(tmpPath);
+      reader = new BundleReader(filePath);
       await reader.open();
       const manifest = reader.manifest;
+
+      this.checkMigrationHead(manifest.migrationHead, warnings);
 
       const idMap = new Map<string, string>();
       const rootIds = manifest.rootIds;
@@ -863,71 +971,75 @@ export class ImportService {
       // gate must reject the import before any row is created.
       const blobMap = await this.restoreBlobs(reader, targetOwner.tenantId, warnings);
 
-      // Pass 1: Allocate new UUIDs for every row across all entities
-      // This allows forward references (like currentVersionId) to be remapped
-      // correctly during insertion in Pass 2.
-      const bundleProjectIds = new Set<string>();
-      for (const desc of ENTITY_GRAPH) {
-        if (this.shouldSkipEntity(desc)) {continue;}
-        const schemaObj = this.getZodSchema(desc);
-        const stream = reader.readEntityStream(desc.name);
-        for await (const rawRow of stream) {
-           const parsed = schemaObj.safeParse(rawRow);
-           if (parsed.success) {
-             const data = parsed.data as Record<string, unknown>;
-             if (typeof data['id'] === 'string') {
-               idMap.set(data['id'], randomUUID());
-             }
-             if (desc.name === 'workflows' && typeof data['projectId'] === 'string') {
-               bundleProjectIds.add(data['projectId']);
-             }
-           }
-        }
-      }
+      try {
+        // Pass 1: Allocate new UUIDs for every row across all entities
+        // This allows forward references (like currentVersionId) to be remapped
+        // correctly during insertion in Pass 2.
+        const bundleProjectIds = await this.allocateIds(reader, idMap);
 
-      const projectIdOverride = await this.resolveProjectIdOverride({
-        bundleProjectIds, idMap, userId, targetOwner, options, adjustments
-      });
+        const projectIdOverride = await this.resolveProjectIdOverride({
+          bundleProjectIds, idMap, userId, targetOwner, options, adjustments
+        });
 
-      // Pass 2: Remap foreign keys and insert rows
-      await db.transaction(async (tx: DbTransaction) => {
-        for (const desc of ENTITY_GRAPH) {
-          if (this.shouldSkipEntity(desc)) {continue;}
-          
-          const rootId = await this.processEntityInsertion({
-            tx,
-            desc,
-            reader: reader as BundleReader,
-            targetOwner,
-            userId,
-            idMap,
-            rootIds,
-            blobMap,
-            projectIdOverride,
-            warnings
-          });
-          if (rootId) {
-            newRootId = rootId;
+        const observedEntityCounts: Record<string, number> = {};
+
+        // Pass 2: Remap foreign keys and insert rows
+        await db.transaction(async (tx: DbTransaction) => {
+          for (const desc of ENTITY_GRAPH) {
+            if (this.shouldSkipEntity(desc)) {continue;}
+            
+            const result = await this.processEntityInsertion({
+              tx,
+              desc,
+              reader: reader as BundleReader,
+              targetOwner,
+              userId,
+              idMap,
+              rootIds,
+              blobMap,
+              projectIdOverride,
+              warnings
+            });
+            if (result.rootId) {
+              newRootId = result.rootId;
+            }
+            if (result.count > 0) {
+              observedEntityCounts[desc.name] = result.count;
+            }
+          }
+
+          // Must stay inside the transaction: throwing after it commits would
+          // reject the import with a 400 while leaving every inserted row
+          // behind, unreachable because no rootId was ever resolved.
+          if (newRootId === '') {
+            throw new Error('Bundle roots not found in bundle data');
+          }
+        });
+
+        return {
+          rootId: newRootId,
+          scope: manifest.scope,
+          tenantId: targetOwner.tenantId,
+          entityCounts: observedEntityCounts,
+          warnings,
+          blobsRestored: new Set(blobMap.values()).size,
+          adjustments
+        };
+      } catch (error) {
+        if (blobMap.size > 0) {
+          const writtenRefs = new Set(blobMap.values());
+          for (const ref of writtenRefs) {
+            try {
+              await storageProvider.deleteFile(ref);
+            } catch (deleteError) {
+              logger.warn({ error: deleteError, fileRef: ref }, 'Failed to clean up blob after import failure');
+            }
           }
         }
-      });
-
-      return {
-        rootId: newRootId,
-        scope: manifest.scope,
-        tenantId: targetOwner.tenantId,
-        entityCounts: manifest.entityCounts,
-        warnings,
-        blobsRestored: new Set(blobMap.values()).size,
-        adjustments
-      };
+        throw error;
+      }
     } finally {
       reader?.close();
-      try {
-        await fs.promises.rm(tmpPath, { force: true });
-      } catch (err) {
-        // Ignore
-      }
     }
   }
 }

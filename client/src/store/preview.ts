@@ -44,7 +44,7 @@ export const usePreviewStore = create<PreviewState>()(
           if (keys.length > 20) {
             const keysToRemove = keys.slice(0, keys.length - 20);
             keysToRemove.forEach(k => {
-              // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+
               delete newTokens[k];
             });
           }

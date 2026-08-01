@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * E-Signature API Routes
  * Handles signature block execution and callbacks
@@ -216,7 +215,9 @@ router.post(
       
       if (authHeader?.startsWith('Bearer ')) {
           token = authHeader.substring(7);
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
       } else if (req.body && typeof req.body.token === 'string') {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
           token = req.body.token;
       }
       
@@ -226,15 +227,20 @@ router.post(
         return;
       }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
       const { envelopeId, status, completedAt, ...eventData } = req.body;
 
       await SignatureBlockService.handleSignatureCallback(
         runId,
         stepId,
         {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
           envelopeId,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
           status,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
           completedAt: completedAt ? new Date(completedAt) : undefined,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
           eventData,
         }
       );
@@ -256,6 +262,7 @@ router.post(
   '/callback/docusign',
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     try {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
       const payload = req.body;
       const signature = req.headers['x-docusign-signature-1'] as string;
 
@@ -274,6 +281,7 @@ router.post(
 
       // Extract runId and stepId from event metadata
       // (These should have been stored when creating the envelope)
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
       const { runId, stepId } = payload.customFields || {};
 
       if (!runId || !stepId) {
@@ -284,7 +292,9 @@ router.post(
 
       // Handle callback
       await SignatureBlockService.handleSignatureCallback(
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
         runId,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
         stepId,
         {
           envelopeId: event.envelopeId,
@@ -346,8 +356,10 @@ router.post(
         return;
       }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
       const { provider = 'docusign' } = req.body;
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
       const providerInstance = EsignProviderFactory.getProvider(provider);
 
       res.json({
@@ -371,6 +383,7 @@ export default router;
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function registerEsignRoutes(app: any): void {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
   app.use('/api/esign', router);
   logger.info('[Routes] E-Signature routes registered at /api/esign');
 }

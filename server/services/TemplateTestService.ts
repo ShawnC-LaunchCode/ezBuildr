@@ -10,6 +10,8 @@ import { logger } from '../logger';
 import { documentTemplateRepository } from '../repositories';
 
 import { enhancedDocumentEngine } from './document/EnhancedDocumentEngine';
+import { storageProvider } from './storage';
+import { promises as fs } from 'fs';
 import { analyzeTemplate, type TemplateAnalysis } from './TemplateAnalysisService';
 import { getTemplateFilePath, templateFileExists } from './templateFiles';
 
@@ -43,7 +45,7 @@ export class TemplateTestService {
   /**
    * Run a template test with sample data
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity -- template test orchestration with multiple validation/render/error steps
+
   async runTest(request: TemplateTestRequest): Promise<TemplateTestResult> {
     const startTime = Date.now();
     try {
@@ -97,12 +99,23 @@ export class TemplateTestService {
           normalize: false, // test data is already prepared by the caller
         });
 
-        const docxUrl = renderResult.docxPath
-          ? `/api/files/download/${path.basename(renderResult.docxPath)}`
-          : undefined;
-        const pdfUrl = renderResult.pdfPath
-          ? `/api/files/download/${path.basename(renderResult.pdfPath)}`
-          : undefined;
+        let docxUrl;
+        if (renderResult.docxPath) {
+          const buffer = await fs.readFile(renderResult.docxPath);
+          const key = `previews/${path.basename(renderResult.docxPath)}`;
+          await storageProvider.uploadFile(key, buffer, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', { preview: 'true' });
+          docxUrl = await storageProvider.getSignedUrl(key, 3600); // 1 hour expiry
+          await fs.unlink(renderResult.docxPath).catch(() => {});
+        }
+
+        let pdfUrl;
+        if (renderResult.pdfPath) {
+          const buffer = await fs.readFile(renderResult.pdfPath);
+          const key = `previews/${path.basename(renderResult.pdfPath)}`;
+          await storageProvider.uploadFile(key, buffer, 'application/pdf', { preview: 'true' });
+          pdfUrl = await storageProvider.getSignedUrl(key, 3600); // 1 hour expiry
+          await fs.unlink(renderResult.pdfPath).catch(() => {});
+        }
 
         return {
           ok: true,

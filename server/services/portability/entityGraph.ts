@@ -12,6 +12,7 @@ export interface EntityDescriptor {
   blobRefs?: string[];
   redactPaths?: string[];
   scanPaths?: string[];
+  importable?: boolean;
 }
 
 export const ENTITY_GRAPH: EntityDescriptor[] = [
@@ -37,15 +38,13 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     parent: {"name":"projects","fk":"projectId"},
     fields: ["id","tenantId","projectId","name","type","baseUrl","defaultHeaders","timeoutMs","retries","backoffMs","enabled","secretRefs"],
     refs: ["projectId"],
+    // No scanPaths here on purpose. ExportService redacts before it scans
+    // (applyRedaction then scanForSecrets), and redactPaths blanks the whole
+    // defaultHeaders object -- so a scanPath on the same column sees nulls and
+    // can never fire. Verified: redacted then scanned yields 0 warnings, the
+    // same row scanned unredacted yields 1. The IEX2-14 ticket asked for this
+    // entry; the ticket was wrong about the ordering.
     redactPaths: ["defaultHeaders"]
-  },
-  {
-    table: schema.projectAccess,
-    name: 'project_access',
-    scopes: ["project"],
-    parent: {"name":"projects","fk":"projectId"},
-    fields: ["id","projectId","principalType","principalId","role"],
-    refs: ["projectId"],
   },
   {
     table: schema.workflows,
@@ -57,14 +56,6 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     jsonRefs: ["intakeConfig"],
   },
   {
-    table: schema.workflowAccess,
-    name: 'workflow_access',
-    scopes: ["project","workflow"],
-    parent: {"name":"workflows","fk":"workflowId"},
-    fields: ["id","workflowId","principalType","principalId","role"],
-    refs: ["workflowId"],
-  },
-  {
     table: schema.sections,
     name: 'sections',
     scopes: ["project","workflow"],
@@ -72,6 +63,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     fields: ["id","workflowId","title","description","order","config","visibleIf","skipIf"],
     refs: ["workflowId"],
     jsonRefs: ["config","visibleIf","skipIf"],
+    scanPaths: ["config"]
   },
   {
     table: schema.steps,
@@ -81,6 +73,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     fields: ["id","workflowId","sectionId","type","title","description","required","config","alias","defaultValue","order","isVirtual","visibleIf","repeaterConfig"],
     refs: ["workflowId", "sectionId"],
     jsonRefs: ["config","defaultValue","visibleIf","repeaterConfig"],
+    scanPaths: ["config"]
   },
   {
     table: schema.logicRules,
@@ -99,7 +92,8 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     fields: ["id","workflowId","sectionId","type","phase","config","virtualStepId","enabled","order"],
     refs: ["workflowId", "sectionId", "virtualStepId"],
     jsonRefs: ["config"],
-    redactPaths: ["config.headers[].value"]
+    redactPaths: ["config.headers[].value"],
+    scanPaths: ["config"]
   },
   {
     table: schema.transformBlocks,
@@ -217,22 +211,6 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     jsonRefs: ["value"],
   },
   {
-    table: schema.datavaultDatabaseAccess,
-    name: 'datavault_database_access',
-    scopes: ["project","workflow","database"],
-    parent: {"name":"datavault_databases","fk":"databaseId"},
-    fields: ["id","databaseId","principalType","principalId","role"],
-    refs: ["databaseId"],
-  },
-  {
-    table: schema.datavaultTableAccess,
-    name: 'datavault_table_access',
-    scopes: ["project","workflow","database"],
-    parent: {"name":"datavault_tables","fk":"tableId"},
-    fields: ["id","tableId","principalType","principalId","role"],
-    refs: ["tableId"],
-  },
-  {
     table: schema.workflowDataSources,
     name: 'workflow_data_sources',
     scopes: ["project","workflow"],
@@ -261,6 +239,10 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
 ];
 
 export const EXCLUDED_TABLES: Record<string, string> = {
+  'project_access': 'Access control lists are instance-bound and never exported.',
+  'workflow_access': 'Access control lists are instance-bound and never exported.',
+  'datavault_database_access': 'Access control lists are instance-bound and never exported.',
+  'datavault_table_access': 'Access control lists are instance-bound and never exported.',
   'tenants': 'System identity is instance-specific and not portable.',
   'users': 'User identities belong to the host system.',
   'organizations': 'Organization structure is instance-bound.',
@@ -336,12 +318,7 @@ export const EXCLUDED_TABLES: Record<string, string> = {
   'workflow_personalization_settings': 'Workflow personalization is local state.',
   'ai_usage': 'AI usage metrics are billing/telemetry data.',
   'system_stats': 'System wide statistics are host telemetry.',
-  'template_shares': 'Template sharing links are instance-specific.',
-  // `files` is the second file subsystem (FileStorageService), distinct from the
-  // bare `fileRef` storage keys that `blobRefs` follows. Bundle payloads travel
-  // as content-addressed entries under blobs/ and are re-created on import, so
-  // the host's storage bookkeeping rows are never portable.
-  'files': 'Host-managed storage records; bundle bytes travel in blobs/ instead.'
+  'template_shares': 'Template sharing links are instance-specific.'
 };
 
 

@@ -117,7 +117,7 @@ describe("Blueprint instantiate (ICW2-15)", () => {
     // Workflow creation auto-adds a default "Section 1"; the template also
     // carries the explicitly-built "Applicant Info" section.
     expect(newWfRes.body.sections).toHaveLength(2);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+
     const newSection = newWfRes.body.sections.find((s: any) => s.title === "Applicant Info");
     expect(newSection).toBeDefined();
     expect(newSection.steps).toHaveLength(3);

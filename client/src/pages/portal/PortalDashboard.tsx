@@ -76,9 +76,9 @@ export default function PortalDashboard() {
                 }
             } finally {
                 setLoading(false);
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+
             }
-        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+
         };
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         fetchRuns();

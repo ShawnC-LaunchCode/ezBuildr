@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { describe, it, expect, vi, beforeEach, type Mocked } from 'vitest';
 
 import { JsQuestionConfig } from '@shared/types/steps';
@@ -184,18 +183,19 @@ describe('RunExecutionCoordinator - JS Execution', () => {
         );
 
         expect(result.success).toBe(true);
-        expect(scriptEngine.execute).toHaveBeenCalledWith(expect.objectContaining({
+        const executionRequest = vi.mocked(scriptEngine.execute).mock.calls[0]?.[0];
+        expect(executionRequest).toMatchObject({
             code: mockJsStep.config.code,
             inputKeys: mockJsStep.config.inputKeys,
-            data: expect.objectContaining({ 'step-a': 10, 'step-b': 20 }),
-            context: expect.objectContaining({
+            data: { 'step-a': 10, 'step-b': 20 },
+            context: {
                 runId: 'run-1',
                 phase: 'question_execution',
-                metadata: expect.objectContaining({
+                metadata: {
                     stepId: mockJsStep.id
-                })
-            })
-        }));
+                }
+            }
+        });
 
         const { runPersistenceWriter } = await import('../../../server/services/runs/RunPersistenceWriter');
         expect(runPersistenceWriter.saveStepValue).toHaveBeenCalledWith(

@@ -129,7 +129,9 @@ describeWithDb('exportBlobs', () => {
     const missingWarning = warnings?.find(w => w.type === 'missing_blob' && w.fileRef === 'test-bucket/missing-file.docx');
     expect(missingWarning).toBeDefined();
     expect(missingWarning?.type).toBe('missing_blob');
-    expect(missingWarning?.entity).toBe('templates');
+    if (missingWarning?.type === 'missing_blob') {
+      expect(missingWarning.entity).toBe('templates');
+    }
     
     // Ensure blob content matches
     const blob1Data = await reader.readBlob(hash1);

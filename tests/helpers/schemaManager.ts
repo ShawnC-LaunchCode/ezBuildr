@@ -28,8 +28,15 @@ export class SchemaManager {
     // `sections`/`steps` (soft-delete) and rebuilds `steps_workflow_alias_unique`
     // with a `deleted_at IS NULL` scope — stale _v7 schemas lack the column
     // and the new unique-index shape.
+    //
+    // Bumped to _v9 for 0006_remove_legacy_intake_reuse, which removes retired
+    // columns `assigned_to` and `reuse_strategy` from `workflow_runs`.
+    // Bumped to _v10 for 0007_add_storage_key, which adds `storageKey` to
+    // `run_generated_documents` (DEBT-15).
+    // Bumped to _v11 because _v10 got cached with an empty 0007 migration.
+    // Bumped to _v12 because _v11 got cached without not-null constraints on storageKey.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v8`;
+        return `test_schema_w${this.workerId}_v12`;
     }
 
     /**

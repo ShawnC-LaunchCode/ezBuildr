@@ -477,6 +477,7 @@ export class RunLifecycleService {
               runId: run.id,
               fileName: doc.filename,
               fileUrl: `/api/runs/${run.id}/final-documents/${doc.filename}/download`,
+              storageKey: doc.storageKey,
               mimeType: doc.mimeType,
               fileSize: doc.size,
               templateId: null,
@@ -525,8 +526,17 @@ export class RunLifecycleService {
   /**
    * Synthesize a FinalBlockConfig from legacy Final Documents sections
    * (section.config.finalBlock === true with config.templates: string[]).
-   * Template-level mapping and metadata.visibleIf conditions carry over so
-   * the unified renderer path preserves the old behavior.
+   * Template-level mapping carries over so the unified renderer path
+   * preserves the old behavior.
+   *
+   * DEBT-13: this also used to read `template.metadata.visibleIf` into
+   * `conditions` through an `as` cast, and the cast hid a shape mismatch --
+   * the stored value is a ConditionGroup (`{ variable, operator }`) while the
+   * renderer reads a LogicExpression (`{ key, op }`), so any such condition
+   * would have evaluated to garbage. No code in this repo's history has ever
+   * written that key and no rows carry it, so the read was deleted rather
+   * than normalized. `conditions` is now unconditionally null -- which is
+   * exactly what the old expression already produced for every row.
    *
    * RVP-4: `sections` is the run's pinned (or, for a versionless run, live)
    * definition from `RunDefinitionProvider` -- not a fresh live-table read --
@@ -558,12 +568,11 @@ export class RunLifecycleService {
         logger.warn({ workflowId, templateId }, 'Legacy Final Documents section references unresolvable template');
         throw createError.notFound('Template', templateId);
       }
-      const metadata = template.metadata as { visibleIf?: unknown } | null;
       documents.push({
         id: templateId,
         documentId: templateId,
         alias: template.name,
-        conditions: (metadata?.visibleIf ?? null) as FinalBlockConfig['documents'][number]['conditions'],
+        conditions: null,
         mapping: (template.mapping ?? undefined) as FinalBlockConfig['documents'][number]['mapping'],
       });
     }

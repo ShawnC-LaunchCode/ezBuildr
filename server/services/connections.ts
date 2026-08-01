@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Connections Service (Stage 16)
  * Manages unified integration connections with OAuth2 3-legged flow support
@@ -432,14 +431,17 @@ export async function testConnection(
       const apiKeyLocation = connection.authConfig.apiKeyLocation || 'header';
       const apiKeyName = connection.authConfig.apiKeyName || 'X-API-Key';
       // @ts-expect-error - TODO: fix type
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- OAuth provider responses are dynamically typed.
       const apiKey = resolved.secrets[connection.authConfig.apiKeyRef || 'apiKey'];
 
       if (apiKeyLocation === 'header') {
         // @ts-expect-error - TODO: fix type
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- OAuth provider responses are dynamically typed.
         headers[apiKeyName] = apiKey;
       }
     } else if (connection.type === 'bearer') {
       // @ts-expect-error - TODO: fix type
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- OAuth provider responses are dynamically typed.
       const token = resolved.secrets[connection.authConfig.tokenRef || 'token'];
       headers['Authorization'] = `Bearer ${token}`;
     // eslint-disable-next-line sonarjs/no-collapsible-if

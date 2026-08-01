@@ -115,7 +115,7 @@ describe("AliasRenameService.propagateRename", () => {
     expect(result.transformBlocksUpdated).toBe(1);
     expect(mockTransformRepo.update).toHaveBeenCalledWith("tb-1", {
       inputKeys: ["newName", "other"],
-    });
+    }, undefined);
   });
 
   it("should rewrite hook inputKeys", async () => {
@@ -130,8 +130,8 @@ describe("AliasRenameService.propagateRename", () => {
 
     expect(result.documentHooksUpdated).toBe(1);
     expect(result.lifecycleHooksUpdated).toBe(1);
-    expect(mockDocHookRepo.update).toHaveBeenCalledWith("dh-1", { inputKeys: ["newName"] });
-    expect(mockLifecycleRepo.update).toHaveBeenCalledWith("lh-1", { inputKeys: ["a", "newName", "b"] });
+    expect(mockDocHookRepo.update).toHaveBeenCalledWith("dh-1", { inputKeys: ["newName"] }, undefined);
+    expect(mockLifecycleRepo.update).toHaveBeenCalledWith("lh-1", { inputKeys: ["a", "newName", "b"] }, undefined);
   });
 
   it("should rewrite Final Block mapping sources", async () => {
@@ -155,7 +155,7 @@ describe("AliasRenameService.propagateRename", () => {
     const updatePayload = mockStepRepo.update.mock.calls[0][1] as {
       config?: { documents?: unknown[] };
     };
-    expect(mockStepRepo.update).toHaveBeenCalledWith("step-final", expect.anything());
+    expect(mockStepRepo.update).toHaveBeenCalledWith("step-final", expect.anything(), undefined);
     expect(updatePayload.config?.documents).toEqual([
       { documentId: "d1", mapping: { name: { type: "variable", source: "newName" } } },
     ]);
@@ -192,7 +192,7 @@ describe("AliasRenameService.propagateRename", () => {
           { type: "condition", id: "c1", variable: "newName", operator: "equals", value: "yes", valueType: "constant" },
         ],
       },
-    });
+    }, undefined);
     expect(mockStepRepo.update).not.toHaveBeenCalledWith("step-untouched", expect.anything());
   });
 
@@ -225,7 +225,7 @@ describe("AliasRenameService.propagateRename", () => {
           { type: "condition", id: "c1", variable: "newName", operator: "is_not_empty", valueType: "constant" },
         ],
       },
-    });
+    }, undefined);
     expect(mockSectionRepo.update).not.toHaveBeenCalledWith("sec-untouched", expect.anything());
   });
 
@@ -330,15 +330,18 @@ describe("AliasRenameService.propagateRename", () => {
     expect(mockStepRepo.update).not.toHaveBeenCalled();
   });
 
-  it("should continue with other reference types when one fails", async () => {
+  it("should abort immediately and not touch other reference types when one fails (atomic — DEBT-16)", async () => {
+    // propagateRename runs inside the caller's transaction (StepService.updateStep),
+    // so a failing query must reject and stop, not be swallowed and continued —
+    // catching it here would let the caller believe the rename succeeded while
+    // Postgres silently rolled the whole transaction back underneath it.
     mockTransformRepo.findByWorkflowId.mockRejectedValue(new Error("db down"));
     mockDocHookRepo.findByWorkflowId.mockResolvedValue([
       { id: "dh-1", inputKeys: ["oldName"] },
     ] as never);
 
-    const result = await service.propagateRename("wf-1", "oldName", "newName");
+    await expect(service.propagateRename("wf-1", "oldName", "newName")).rejects.toThrow("db down");
 
-    expect(result.transformBlocksUpdated).toBe(0);
-    expect(result.documentHooksUpdated).toBe(1);
+    expect(mockDocHookRepo.findByWorkflowId).not.toHaveBeenCalled();
   });
 });

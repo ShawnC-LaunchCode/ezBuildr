@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { Router, Express } from 'express';
 
 import { logger } from '../logger';
@@ -10,6 +9,19 @@ import { asyncHandler } from '../utils/asyncHandler';
 import { classifyRouteError } from '../utils/routeErrors';
 
 const router = Router();
+
+interface CreateBlueprintBody {
+    name?: string;
+    description?: string;
+    sourceWorkflowId?: string;
+    metadata?: Record<string, unknown>;
+    isPublic?: boolean;
+}
+
+interface InstantiateBlueprintBody {
+    projectId?: string | null;
+    name?: string;
+}
 
 // List blueprints
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
@@ -30,7 +42,7 @@ router.get('/', requireAuth, requireUser, asyncHandler(async (req, res) => {
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
 router.post('/', requireAuth, requireUser, asyncHandler(async (req, res) => {
     try {
-        const { name, description, sourceWorkflowId, metadata, isPublic } = req.body;
+        const { name, description, sourceWorkflowId, metadata, isPublic } = req.body as CreateBlueprintBody;
 
         if (!name || !sourceWorkflowId) {
             res.status(400).json({ error: "Name and Source Workflow ID are required" });
@@ -62,7 +74,7 @@ router.post('/', requireAuth, requireUser, asyncHandler(async (req, res) => {
 router.post('/:id/instantiate', requireAuth, requireUser, asyncHandler(async (req, res) => {
     try {
         const { id } = req.params;
-        const { projectId, name } = req.body;
+        const { projectId, name } = req.body as InstantiateBlueprintBody;
         const { user } = req as UserRequest;
         if (!user.tenantId) { return res.status(401).json({ error: 'Tenant required' }); }
 

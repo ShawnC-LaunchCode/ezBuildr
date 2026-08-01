@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any -- vitest mocks of injected repos + drizzle query chain */
 /**
  * RunStateService.getSharedRunDetails — final-block config resolution.
  *
@@ -57,9 +56,9 @@ function mockVersionSelect(graphJson: unknown) {
 }
 
 describe('RunStateService.getSharedRunDetails', () => {
-  let runRepo: any;
-  let docsRepo: any;
-  let completionJobRepo: any;
+  let runRepo: { findByShareToken: ReturnType<typeof vi.fn> };
+  let docsRepo: { findByRunId: ReturnType<typeof vi.fn> };
+  let completionJobRepo: Record<string, never>;
   let service: RunStateService;
 
   beforeEach(() => {
@@ -67,8 +66,12 @@ describe('RunStateService.getSharedRunDetails', () => {
     runRepo = { findByShareToken: vi.fn() };
     docsRepo = { findByRunId: vi.fn().mockResolvedValue([]) };
     completionJobRepo = {};
-    service = new RunStateService(runRepo, docsRepo, completionJobRepo);
-    vi.mocked(workflowRepository.findById).mockResolvedValue({ accessSettings: {} } as any);
+    service = new RunStateService(
+      runRepo as unknown as ConstructorParameters<typeof RunStateService>[0],
+      docsRepo as unknown as ConstructorParameters<typeof RunStateService>[1],
+      completionJobRepo as unknown as ConstructorParameters<typeof RunStateService>[2]
+    );
+    vi.mocked(workflowRepository.findById).mockResolvedValue({ accessSettings: {} } as never);
   });
 
   it('AC1: resolves the config of a "final" step in the pinned version sections[]', async () => {
@@ -124,7 +127,7 @@ describe('RunStateService.getSharedRunDetails', () => {
     runRepo.findByShareToken.mockResolvedValue(makeRun({ workflowVersionId: null }));
     vi.mocked(stepRepository.findByWorkflowIdWithAliases).mockResolvedValue([
       { id: 'st1', type: 'final', config: { documents: ['draft-doc'] } },
-    ] as any);
+    ] as never);
 
     const result = await service.getSharedRunDetails('token');
 

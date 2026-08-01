@@ -193,7 +193,7 @@ export function registerAdminAiSettingsRoutes(app: Express): void {
                     ratingDistribution,
                     byOperationType: operationTypeStats,
                     byProvider: providerStats,
-                    // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+
                     timeSeries: timeSeriesData,
                     // eslint-disable-next-line @typescript-eslint/restrict-template-expressions, @typescript-eslint/no-base-to-string
                     period: `${days} days`,

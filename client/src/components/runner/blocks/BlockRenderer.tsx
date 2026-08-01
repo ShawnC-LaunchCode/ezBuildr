@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * BlockRenderer - Core Block Rendering System
  *
@@ -15,6 +14,8 @@ import React from "react";
 
 import { Label } from "@/components/ui/label";
 import type { Step } from "@/types";
+
+import type { MultiFieldValue } from "@shared/types/stepConfigs";
 
 // Block Renderers
 import { AddressBlockRenderer } from "./AddressBlock";
@@ -44,12 +45,10 @@ export interface BlockRendererProps {
   step: Step;
 
   /** Current value (keyed by step.alias or step.id) */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  value: any;
+  value: unknown;
 
   /** Callback when value changes */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onChange: (value: any) => void;
+  onChange: (value: unknown) => void;
 
   /** Whether this field is required (computed from step + logic rules) */
   required?: boolean;
@@ -68,6 +67,20 @@ export interface BlockRendererProps {
 
   /** Maps a step's alias to its step id, for alias-aware `{{variable}}` interpolation in display blocks */
   aliasMap?: Record<string, string>;
+}
+
+function isMultiFieldValue(value: unknown): value is MultiFieldValue {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  return Object.values(value).every(item =>
+    item === null
+    || typeof item === "string"
+    || typeof item === "number"
+    || typeof item === "boolean"
+    || (Array.isArray(item) && item.every(entry => typeof entry === "string"))
+  );
 }
 
 function ExplicitRunnerTypeNotice({ type, status }: { type: string; status: "unsupported" | "unknown" }) {
@@ -132,7 +145,7 @@ export function BlockRenderer(props: BlockRendererProps) {
       case "long_text":
       case "text":
 
-        return <TextBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <TextBlockRenderer step={step} value={typeof value === "string" ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Boolean blocks
       case "boolean":
@@ -177,7 +190,7 @@ export function BlockRenderer(props: BlockRendererProps) {
         return <AddressBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "multi_field":
-        return <MultiFieldBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+        return <MultiFieldBlockRenderer step={step} value={isMultiFieldValue(value) ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Display blocks
       case "display":

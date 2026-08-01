@@ -1,7 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { z } from "zod";
 
 import { insertWorkflowSchema } from "@shared/schema";
+import { IntakeConfigSchema } from "@shared/zod-schemas";
 
 import { logger } from "../logger";
 import { hybridAuth, optionalHybridAuth, type AuthRequest } from '../middleware/auth';
@@ -180,7 +180,7 @@ export function registerWorkflowRoutes(app: Express): void {
       isPublic: z.boolean().optional(),
       slug: z.string().optional(),
       requireLogin: z.boolean().optional(),
-      intakeConfig: z.record(z.any()).optional(),
+      intakeConfig: IntakeConfigSchema.optional(),
       settings: z.record(z.any()).optional(),
       sections: z.array(z.any()).optional(),
       modeOverride: z.string().optional(),
@@ -221,6 +221,9 @@ export function registerWorkflowRoutes(app: Express): void {
       res.json(workflow);
     } catch (error) {
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error updating workflow");
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: ERR_INVALID_INPUT, errors: error.errors });
+      }
       const { status, message } = classifyRouteError(error, "Failed to update workflow");
       res.status(status).json({ message });
     }
@@ -259,8 +262,10 @@ export function registerWorkflowRoutes(app: Express): void {
       }
 
       const { workflowId } = req.params;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
       const { status } = req.body;
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
       if (!['draft', 'active', 'archived'].includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
       }
@@ -272,9 +277,11 @@ export function registerWorkflowRoutes(app: Express): void {
           return res.status(400).json({ message: `Cannot activate workflow: ${errors.map(e => e.message).join(', ')}` });
         }
       }
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
       const workflow = await workflowService.changeStatus(workflowId, userId, status);
       res.json(workflow);
     } catch (error) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId, status: req.body.status }, "Error changing workflow status");
       const { status, message } = classifyRouteError(error, "Failed to change status");
       res.status(status).json({ message });
@@ -293,22 +300,15 @@ export function registerWorkflowRoutes(app: Express): void {
       }
 
       const { workflowId } = req.params;
-      const intakeConfigSchema = z.object({
-        allowPrefill: z.boolean().optional(),
-        allowedPrefillKeys: z.array(z.string()).optional(),
-        requireCaptcha: z.boolean().optional(),
-        captchaType: z.enum(["simple", "recaptcha"]).optional(),
-        sendEmailReceipt: z.boolean().optional(),
-        receiptEmailVar: z.string().optional(),
-        receiptTemplateId: z.string().optional(),
-      });
-
-      const intakeConfig = intakeConfigSchema.parse(req.body);
+      const intakeConfig = IntakeConfigSchema.parse(req.body);
 
       const workflow = await workflowService.updateIntakeConfig(workflowId, userId, intakeConfig);
       res.json(workflow);
     } catch (error) {
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error updating intake config");
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: ERR_INVALID_INPUT, errors: error.errors });
+      }
       const { status, message } = classifyRouteError(error, "Failed to update intake config");
       res.status(status).json({ message });
     }
@@ -333,11 +333,12 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.moveToProject(workflowId, userId, projectId);
       return res.status(200).json(workflow);
     } catch (error: unknown) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId, projectId: req.body.projectId }, "Error moving workflow");
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
-          // eslint-disable-next-line sonarjs/no-duplicate-string
+
           message: "Invalid input",
           details: error.errors,
         });
@@ -388,6 +389,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.setModeOverride(workflowId, userId, modeOverride);
       res.json({ success: true, data: workflow });
     } catch (error) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId, modeOverride: req.body.modeOverride }, "Error setting workflow mode");
 
       if (error instanceof z.ZodError) {
@@ -641,6 +643,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.transferWorkflowOwnership(workflowId, currentOwnerId, newOwnerId);
       res.json({ success: true, data: workflow });
     } catch (error) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
       logger.error({ error, workflowId: req.params.workflowId, currentOwnerId: (req as AuthRequest).userId, newOwnerId: req.body.userId }, "Error transferring workflow ownership");
 
       if (error instanceof z.ZodError) {
@@ -679,7 +682,7 @@ export function registerWorkflowRoutes(app: Express): void {
       // Validate request body
       const schema = z.object({
         outputType: z.enum(['docx', 'pdf', 'both']),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic sample data for template testing
+
         sampleData: z.record(z.any()),
       });
 

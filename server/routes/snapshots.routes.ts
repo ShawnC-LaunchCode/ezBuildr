@@ -33,7 +33,7 @@ const saveFromRunSchema = z.object({
  * Register snapshot-related routes
  * Handles snapshot CRUD operations and run value persistence
  */
-// eslint-disable-next-line max-lines-per-function
+
 export function registerSnapshotRoutes(app: Express): void {
   /**
    * GET /api/workflows/:workflowId/snapshots

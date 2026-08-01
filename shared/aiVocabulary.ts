@@ -24,7 +24,7 @@ import { workflowPatchOpSchema } from "./validation/aiWorkflowEdit.schema";
 /** Unwrap optionals/defaults/nullables to reach the underlying type. */
 function unwrap(schema: z.ZodTypeAny): z.ZodTypeAny {
   let current = schema;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Zod internals are untyped across wrapper kinds
+
   while (current instanceof z.ZodOptional || current instanceof z.ZodDefault || current instanceof z.ZodNullable) {
     current = (current as unknown as { _def: { innerType: z.ZodTypeAny } })._def.innerType;
   }

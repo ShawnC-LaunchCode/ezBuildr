@@ -58,7 +58,7 @@ export function TemplateBrowserDialog({
     // Filter templates
     const filteredTemplates = templates?.filter(t => {
         // Search filter
-        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+
         const matchesSearch =
             t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (t.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||

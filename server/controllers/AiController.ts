@@ -73,7 +73,7 @@ interface AiVariable {
 }
 
 export class AiController {
-    /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+
 
 
     /**

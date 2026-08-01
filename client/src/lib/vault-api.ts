@@ -1,4 +1,3 @@
-/* eslint-disable max-lines -- API client module necessarily defines all endpoint wrappers in one file */
 /**
  * Vault-Logic API Client
  * Handles all API calls to the workflow backend
@@ -370,8 +369,7 @@ export interface ApiWorkflow {
   createdAt: string;
   updatedAt: string;
   modeOverride?: 'easy' | 'advanced' | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intake config is an opaque JSON object from the server
-  intakeConfig?: any;
+  intakeConfig?: import('@shared/types/intake').IntakeConfig;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- settings is an opaque JSON object from the server
   settings?: any;
   /* eslint-disable @typescript-eslint/naming-convention -- keys match database column naming convention */
@@ -1139,6 +1137,7 @@ export interface EmailTemplateMetadata {
   description?: string | null;
   subjectPreview?: string | null;
   brandingTokens?: Record<string, boolean> | null;
+  // eslint-disable-next-line max-lines -- This legacy API module is split incrementally under DEBT-2.
   createdAt: Date;
   updatedAt: Date;
 }

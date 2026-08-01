@@ -71,7 +71,7 @@ export class RunService {
   private metricsService: RunMetricsService;
   private shareService: RunShareService;
   private completionService: RunCompletionService;
-  // eslint-disable-next-line max-params, complexity, sonarjs/cognitive-complexity
+  // eslint-disable-next-line max-params
   constructor(
     runRepo?: typeof workflowRunRepository,
     valueRepo?: typeof stepValueRepository,

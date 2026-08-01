@@ -1,15 +1,18 @@
 import { LIMITS, LimitExceededError } from "@shared/limits";
 import { type Step, type InsertStep } from "@shared/schema";
-import type { StepConfig } from "@shared/types/stepConfigs";
+import type { StepConfig , ChoiceOption } from "@shared/types/stepConfigs";
 
 import { logger } from "../logger";
 import { validateAndNormalizeConfig } from "../utils/stepConfigUtils";
-import { stepRepository, sectionRepository, stepValueRepository, type DeleteImpact } from "../repositories";
+import { stepRepository, sectionRepository, stepValueRepository, logicRuleRepository, type DeleteImpact , DbTransaction } from "../repositories";
 import { db } from "../db";
 
 import { aliasRenameService } from "./AliasRenameService";
 import { generateAliasCopy, generateAliasFromLabel, generateUniqueAliasFromTaken, validateAliasFormat } from "./stepAlias";
 import { workflowService } from "./WorkflowService";
+
+
+
 
 const SECTION_NOT_FOUND = "Section not found";
 const STEP_NOT_FOUND = "Step not found";
@@ -21,6 +24,48 @@ export { generateAliasFromLabel, generateUniqueAliasFromTaken };
 /**
  * Service layer for step-related business logic
  */
+/**
+ * Static choice options live in two shapes: a bare array (legacy) or
+ * `{ type: 'static', options: [...] }`. Both are read here so the callers stay
+ * free of `any` casts; anything else (dynamic/list-backed configs) yields [].
+ */
+function extractChoiceOptions(config: unknown): ChoiceOption[] {
+  if (typeof config !== 'object' || config === null) { return []; }
+  const options = (config as { options?: unknown }).options;
+  if (Array.isArray(options)) { return options as ChoiceOption[]; }
+  if (typeof options === 'object' && options !== null) {
+    const nested = options as { type?: unknown; options?: unknown };
+    if (nested.type === 'static' && Array.isArray(nested.options)) {
+      return nested.options as ChoiceOption[];
+    }
+  }
+  return [];
+}
+
+const CHOICE_STEP_TYPES = new Set(['choice', 'radio', 'multiple_choice']);
+
+/**
+ * Map every option whose saved value changed, keyed old -> new. Matched by
+ * option `id`, which survives a rename; the alias is precisely what does not.
+ * Returns an empty map when either side has no static options, so a
+ * list-backed config is a no-op rather than a spurious rewrite.
+ */
+function diffChoiceOptionAliases(oldConfig: unknown, newConfig: unknown): Map<string, string> {
+  const changes = new Map<string, string>();
+  const oldOptions = extractChoiceOptions(oldConfig);
+  const newOptions = extractChoiceOptions(newConfig);
+  if (oldOptions.length === 0 || newOptions.length === 0) { return changes; }
+
+  for (const oldOpt of oldOptions) {
+    const newOpt = newOptions.find(o => o.id === oldOpt.id);
+    if (!newOpt) { continue; }
+    const oldAlias = oldOpt.alias ?? oldOpt.id;
+    const newAlias = newOpt.alias ?? newOpt.id;
+    if (oldAlias !== newAlias) { changes.set(oldAlias, newAlias); }
+  }
+  return changes;
+}
+
 export class StepService {
   private stepRepo: typeof stepRepository;
   private sectionRepo: typeof sectionRepository;
@@ -42,9 +87,9 @@ export class StepService {
 
 
   /** All aliases in a workflow, lowercased for case-insensitive comparison */
-  private async getWorkflowAliases(workflowId: string): Promise<Set<string>> {
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
-    const allSteps = await this.stepRepo.findBySectionIds(sections.map((s) => s.id), undefined, true);
+  private async getWorkflowAliases(workflowId: string, tx?: DbTransaction): Promise<Set<string>> {
+    const sections = await this.sectionRepo.findByWorkflowId(workflowId, tx);
+    const allSteps = await this.stepRepo.findBySectionIds(sections.map((s) => s.id), tx, true);
     return new Set(
       allSteps
         .map((s) => s.alias?.toLowerCase())
@@ -56,8 +101,8 @@ export class StepService {
    * Generate a unique alias from a question label, suffixing with a number
    * when the base name is taken (clientName, clientName2, ...)
    */
-  private async generateUniqueAlias(workflowId: string, label: string): Promise<string | null> {
-    const taken = await this.getWorkflowAliases(workflowId);
+  private async generateUniqueAlias(workflowId: string, label: string, tx?: DbTransaction): Promise<string | null> {
+    const taken = await this.getWorkflowAliases(workflowId, tx);
     return generateUniqueAliasFromTaken(label, taken);
   }
 
@@ -69,7 +114,8 @@ export class StepService {
   private async maybeRegenerateAlias(
     workflowId: string,
     step: Step,
-    data: Partial<InsertStep>
+    data: Partial<InsertStep>,
+    tx?: DbTransaction
   ): Promise<string | null> {
     if (data.title === undefined || data.title === step.title || data.alias !== undefined) {
       return null;
@@ -84,7 +130,7 @@ export class StepService {
     if (!followsLabel) {
       return null;
     }
-    return this.generateUniqueAlias(workflowId, data.title);
+    return this.generateUniqueAlias(workflowId, data.title, tx);
   }
 
   /**
@@ -93,7 +139,8 @@ export class StepService {
   private async validateAliasUniqueness(
     workflowId: string,
     alias: string | null | undefined,
-    excludeStepId?: string
+    excludeStepId?: string,
+    tx?: DbTransaction
   ): Promise<void> {
     // Skip validation if alias is null/undefined/empty
     if (!alias || alias.trim() === '') {
@@ -101,11 +148,11 @@ export class StepService {
     }
 
     // Get all sections for the workflow
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
+    const sections = await this.sectionRepo.findByWorkflowId(workflowId, tx);
     const sectionIds = sections.map(s => s.id);
 
     // Get all steps for these sections
-    const allSteps = await this.stepRepo.findBySectionIds(sectionIds, undefined, true);
+    const allSteps = await this.stepRepo.findBySectionIds(sectionIds, tx, true);
 
     // Check if alias is already used by another step
     const conflictingStep = allSteps.find(
@@ -262,8 +309,8 @@ export class StepService {
   /**
    * Resolve append order for cross-section move
    */
-  private async resolveCrossSectionOrder(sectionId: string): Promise<number> {
-    const destSteps = await this.stepRepo.findBySectionId(sectionId);
+  private async resolveCrossSectionOrder(sectionId: string, tx?: DbTransaction): Promise<number> {
+    const destSteps = await this.stepRepo.findBySectionId(sectionId, tx);
     return destSteps.length > 0 ? Math.max(...destSteps.map((s) => s.order)) + 1 : 1;
   }
 
@@ -281,16 +328,18 @@ export class StepService {
     }
   }
 
-  private async handleAliasRenamePropagation(workflowId: string, stepId: string, oldAlias: string | null, newAlias: string | null): Promise<void> {
+  /**
+   * Propagate the rename to workflow-scoped references. Atomic (DEBT-16):
+   * propagateRename runs inside this method's caller's transaction, so a
+   * failure here must abort that transaction, not be caught and logged —
+   * the same defect class the per-phase catches inside propagateRename
+   * itself were removed for. Swallowing here would let the step's own alias
+   * update commit while Postgres silently rolled the rest of the transaction
+   * back underneath it.
+   */
+  private async handleAliasRenamePropagation(workflowId: string, oldAlias: string | null, newAlias: string | null, tx?: DbTransaction): Promise<void> {
     if (oldAlias && newAlias && oldAlias !== newAlias) {
-      try {
-        await aliasRenameService.propagateRename(workflowId, oldAlias, newAlias);
-      } catch (error) {
-        logger.error(
-          { error, workflowId, stepId, oldAlias, newAlias },
-          'Alias rename propagation failed; references may still use the old name'
-        );
-      }
+      await aliasRenameService.propagateRename(workflowId, oldAlias, newAlias, tx);
     }
   }
 
@@ -302,76 +351,83 @@ export class StepService {
     workflowId: string,
     userId: string,
     data: Partial<InsertStep>
-  ): Promise<Step> {
+  ): Promise<Step & { warnings?: string[] }> {
     await this.workflowSvc.verifyAccess(workflowId, userId, 'edit');
 
-    const step = await this.stepRepo.findById(stepId);
-    if (!step) {
-      throw new Error(STEP_NOT_FOUND);
-    }
-
-    // Verify step's section belongs to workflow
-    const section = await this.sectionRepo.findById(step.sectionId);
-    if (!section || section.workflowId !== workflowId) {
-      throw new Error("Step not found in this workflow");
-    }
-
-    // If sectionId is being changed, validate new section belongs to same workflow
-    if (data.sectionId && data.sectionId !== step.sectionId) {
-      const newSection = await this.sectionRepo.findById(data.sectionId);
-      if (!newSection || newSection.workflowId !== workflowId) {
-        throw new Error("Cannot move step to a section in a different workflow");
+    // Run the entire update in a transaction
+    return db.transaction(async (tx) => {
+      const step = await this.stepRepo.findById(stepId, tx);
+      if (!step) {
+        throw new Error(STEP_NOT_FOUND);
       }
 
-      // If moving across sections and no explicit order provided, append to end of new section
-      if (data.order === undefined) {
-        data.order = await this.resolveCrossSectionOrder(data.sectionId);
+      // Verify step's section belongs to workflow
+      const section = await this.sectionRepo.findById(step.sectionId, tx);
+      if (!section || section.workflowId !== workflowId) {
+        throw new Error("Step not found in this workflow");
       }
-    }
 
-    // Validate alias format + uniqueness if alias is being changed
-    // (existing aliases are grandfathered until edited)
-    if (data.alias !== undefined && data.alias !== step.alias) {
-      if (data.alias) {
-        validateAliasFormat(data.alias);
+      // If sectionId is being changed, validate new section belongs to same workflow
+      if (data.sectionId && data.sectionId !== step.sectionId) {
+        const newSection = await this.sectionRepo.findById(data.sectionId, tx);
+        if (!newSection || newSection.workflowId !== workflowId) {
+          throw new Error("Cannot move step to a section in a different workflow");
+        }
+
+        // If moving across sections and no explicit order provided, append to end of new section
+        if (data.order === undefined) {
+          data.order = await this.resolveCrossSectionOrder(data.sectionId, tx);
+        }
       }
-      await this.validateAliasUniqueness(workflowId, data.alias, stepId);
-    }
 
-    const updates = { ...data };
-    delete updates.workflowId;
-    // Server-controlled / immutable fields are never accepted from a general
-    // update payload — stripping them prevents mass-assignment. `id` in
-    // particular would rewrite the primary key, orphaning the step and every
-    // step_value / logic rule / alias that references it. `isVirtual` is owned
-    // by the transform-block virtual-step machinery, not the client.
-    delete updates.id;
-    delete updates.isVirtual;
-    delete updates.createdAt;
-    delete updates.updatedAt;
-    // deletedAt is only ever set/cleared by the dedicated delete/restore
-    // endpoints (ICW2-B1), never a general update.
-    delete updates.deletedAt;
+      // Validate alias format + uniqueness if alias is being changed
+      // (existing aliases are grandfathered until edited)
+      if (data.alias !== undefined && data.alias !== step.alias) {
+        if (data.alias) {
+          validateAliasFormat(data.alias);
+        }
+        await this.validateAliasUniqueness(workflowId, data.alias, stepId, tx);
+      }
 
-    const finalConfig = data.config;
-    if (finalConfig) {
-      const typeToValidate = data.type ?? step.type;
-      updates.config = this.validateConfigForUpdate(typeToValidate, workflowId, finalConfig);
-    }
+      const updates = { ...data };
+      delete updates.workflowId;
+      delete updates.id;
+      delete updates.isVirtual;
+      delete updates.createdAt;
+      delete updates.updatedAt;
+      delete updates.deletedAt;
 
-    const regenerated = await this.maybeRegenerateAlias(workflowId, step, data);
-    if (regenerated !== null) {
-      updates.alias = regenerated;
-    }
+      const finalConfig = data.config;
+      let aliasChanges = new Map<string, string>();
 
-    const updated = await this.stepRepo.update(stepId, updates);
+      if (finalConfig) {
+        const typeToValidate = data.type ?? step.type;
+        updates.config = this.validateConfigForUpdate(typeToValidate, workflowId, finalConfig);
 
-    // Propagate the rename to workflow-scoped references (transform block
-    // and hook inputKeys, Final Block mapping sources) so renaming a
-    // variable does not silently break documents and transforms.
-    await this.handleAliasRenamePropagation(workflowId, stepId, step.alias, updated.alias);
+        // If step is a choice type, compute alias diff for logic rules
+        if (CHOICE_STEP_TYPES.has(typeToValidate)) {
+          aliasChanges = diffChoiceOptionAliases(step.config, updates.config);
+        }
+      }
 
-    return updated;
+      const regenerated = await this.maybeRegenerateAlias(workflowId, step, data, tx);
+      if (regenerated !== null) {
+        updates.alias = regenerated;
+      }
+
+      const updated = await this.stepRepo.update(stepId, updates, tx);
+
+      // Propagate choice option alias changes
+      let warnings: string[] = [];
+      if (aliasChanges.size > 0) {
+        warnings = await this.propagateChoiceOptionRenames(stepId, workflowId, aliasChanges, tx);
+      }
+
+      // Propagate the rename to workflow-scoped references
+      await this.handleAliasRenamePropagation(workflowId, step.alias, updated.alias, tx);
+
+      return warnings.length > 0 ? { ...updated, warnings } : updated;
+    });
   }
 
   /**
@@ -585,7 +641,7 @@ export class StepService {
     stepId: string,
     userId: string,
     data: Partial<InsertStep>
-  ): Promise<Step> {
+  ): Promise<Step & { warnings?: string[] }> {
     // Look up the step to get its section
     const step = await this.stepRepo.findById(stepId);
     if (!step) {
@@ -600,6 +656,57 @@ export class StepService {
 
     // Use the existing method with the workflowId
     return this.updateStep(stepId, section.workflowId, userId, data);
+  }
+
+  public async propagateChoiceOptionRenames(stepId: string, workflowId: string, aliasChanges: Map<string, string>, tx: DbTransaction): Promise<string[]> {
+    const warnings: string[] = [];
+
+    // 1. Rewrite logic_rules
+    const rules = await logicRuleRepository.findByConditionStepId(stepId, tx);
+    for (const rule of rules) {
+      let changed = false;
+      let newValue = rule.conditionValue;
+
+      if (Array.isArray(newValue)) {
+        newValue = newValue.map((val: unknown) => {
+          if (typeof val === 'string' && aliasChanges.has(val)) {
+            changed = true;
+            return aliasChanges.get(val);
+          }
+          return val;
+        });
+      } else if (typeof newValue === 'string' && aliasChanges.has(newValue)) {
+        changed = true;
+        newValue = aliasChanges.get(newValue);
+      }
+
+      if (changed) {
+        await logicRuleRepository.update(rule.id, { conditionValue: newValue }, tx);
+      }
+    }
+
+    // 2. Scan visibleIf across all steps and sections for warnings
+    const steps = await this.stepRepo.findByWorkflowId(workflowId, tx);
+    const sections = await this.sectionRepo.findByWorkflowId(workflowId, tx);
+
+    const checkVisibleIf = (visibleIf: unknown, sourceName: string): void => {
+      if (!visibleIf) {return;}
+      const str = JSON.stringify(visibleIf);
+      for (const [oldAlias] of aliasChanges.entries()) {
+        if (str.includes(`"${oldAlias}"`)) {
+          warnings.push(`Warning: ${sourceName} has a visibility rule that may depend on the renamed option '${oldAlias}'. Please update it manually.`);
+        }
+      }
+    };
+
+    for (const s of steps) {
+      if (s.id !== stepId) {checkVisibleIf(s.visibleIf, `Step "${s.title}"`);}
+    }
+    for (const s of sections) {
+      checkVisibleIf(s.visibleIf, `Section "${s.title}"`);
+    }
+
+    return warnings;
   }
 
   /**

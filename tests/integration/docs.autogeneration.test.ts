@@ -24,6 +24,7 @@ import * as schema from '@shared/schema';
 import { db } from '../../server/db';
 import { runLifecycleService } from '../../server/services/workflow-runs/RunLifecycleService';
 import { versionService } from '../../server/services/VersionService';
+import { storageProvider } from '../../server/services/storage/index';
 import { TestFactory } from '../helpers/testFactory';
 
 function createDocxBuffer(content: string): Buffer {
@@ -57,8 +58,7 @@ function createDocxBuffer(content: string): Buffer {
 }
 
 /** Read the rendered body text of a generated DOCX */
-async function readDocxText(filePath: string): Promise<string> {
-  const buffer = await fs.readFile(filePath);
+async function readDocxText(buffer: Buffer): Promise<string> {
   const zip = new PizZip(buffer);
   const xml = zip.file('word/document.xml')?.asText() ?? '';
   return xml.replace(/<[^>]+>/g, '');
@@ -66,20 +66,12 @@ async function readDocxText(filePath: string): Promise<string> {
 
 const FILES_DIR = path.join(process.cwd(), 'server', 'files');
 const OUTPUTS_DIR = path.join(FILES_DIR, 'outputs');
-const ARCHIVES_DIR = path.join(FILES_DIR, 'archives');
 
 /**
- * Resolve a generated document the same way the download route does:
- * archives directory first, outputs directory as fallback.
+ * Retrieve the generated file buffer from the storage provider.
  */
-async function resolveGeneratedFile(fileName: string): Promise<string> {
-  const archivePath = path.join(ARCHIVES_DIR, fileName);
-  try {
-    await fs.access(archivePath);
-    return archivePath;
-  } catch {
-    return path.join(OUTPUTS_DIR, fileName);
-  }
+async function getGeneratedFileBuffer(storageKey: string): Promise<Buffer> {
+  return storageProvider.getFile(storageKey);
 }
 
 describe('Automatic document generation on run completion', () => {
@@ -197,8 +189,8 @@ describe('Automatic document generation on run completion', () => {
     );
 
     // The generated file exists and contains the merged value
-    const outputPath = await resolveGeneratedFile(records[0].fileName);
-    const text = await readDocxText(outputPath);
+    const buffer = await getGeneratedFileBuffer(records[0].storageKey);
+    const text = await readDocxText(buffer);
     expect(text).toContain('Contract for Acme Corporation');
   });
 
@@ -269,7 +261,7 @@ describe('Automatic document generation on run completion', () => {
       .where(eq(schema.runGeneratedDocuments.runId, run.id));
     expect(records).toHaveLength(1);
 
-    const text = await readDocxText(await resolveGeneratedFile(records[0].fileName));
+    const text = await readDocxText(await getGeneratedFileBuffer(records[0].storageKey));
     expect(text).toContain('Contract A for Acme Corporation');
     expect(text).not.toContain('Contract B');
   });
@@ -305,7 +297,7 @@ describe('Automatic document generation on run completion', () => {
       .where(eq(schema.runGeneratedDocuments.runId, runId));
     expect(records).toHaveLength(1);
 
-    const text = await readDocxText(await resolveGeneratedFile(records[0].fileName));
+    const text = await readDocxText(await getGeneratedFileBuffer(records[0].storageKey));
     expect(text).toContain('Dear Globex LLC, welcome aboard.');
   });
 

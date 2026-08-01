@@ -105,17 +105,17 @@ export interface AddressBlockProps {
 
 interface Suggestion {
   description: string;
-  // eslint-disable-next-line @typescript-eslint/naming-convention
+  // eslint-disable-next-line @typescript-eslint/naming-convention -- Google Places API response uses snake_case.
   place_id: string;
 }
-/* eslint-disable @typescript-eslint/naming-convention -- Google Places API response shape */
 interface AddressComponent {
+  // eslint-disable-next-line @typescript-eslint/naming-convention -- Google Places API response uses snake_case.
   long_name: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention -- Google Places API response uses snake_case.
   short_name: string;
   types: string[];
 }
-/* eslint-enable @typescript-eslint/naming-convention */
-// eslint-disable-next-line max-lines-per-function
+
 
 // eslint-disable-next-line max-lines-per-function
 export function AddressBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: AddressBlockProps) {
@@ -141,7 +141,7 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly , ariaDes
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           });
-        // eslint-disable-next-line no-console
+
         },
         (error) => {
           // eslint-disable-next-line no-console

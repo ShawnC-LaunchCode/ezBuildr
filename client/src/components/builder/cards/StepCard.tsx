@@ -25,13 +25,11 @@ import {
     useUpdateStep,
     useDeleteStep,
     useDuplicateStep,
-    useWorkflow,
     useWorkflowMode
 } from "@/lib/vault-hooks";
 
 import type { ConditionExpression } from "@shared/types/conditions";
 
-import { useIntake } from "../IntakeContext";
 import { StepEditorRouter } from "../StepEditorRouter";
 
 import { StepBadges } from "./common/StepBadges";
@@ -49,16 +47,10 @@ interface StepCardProps {
     onEnterNext?: () => void;
 }
 
-interface StepDefaultValue {
-    source?: string;
-    variable?: string;
-    value?: unknown;
-}
-
 // Get icon for each question type
 
 
-// eslint-disable-next-line max-lines-per-function, complexity
+
 export function StepCard({
     step,
     sectionId,
@@ -74,13 +66,6 @@ export function StepCard({
     const { toast } = useToast();
     const { data: modeData } = useWorkflowMode(workflowId);
     const mode = modeData?.mode ?? 'easy';
-    const { data: _workflow } = useWorkflow(workflowId);
-    const { upstreamWorkflow, upstreamVariables } = useIntake();
-
-    // Intake Derived Values
-    const defVal = step.defaultValue as StepDefaultValue | undefined;
-    const isLinkedToIntake = defVal?.source === 'intake';
-    const linkedVariable = isLinkedToIntake ? upstreamVariables.find(v => v.alias === defVal?.variable) : null;
 
     // Collaboration Hooks
     const { updateActiveBlock, user: currentUser } = useCollaboration();
@@ -236,13 +221,10 @@ export function StepCard({
 
                         {/* Content */}
                         <div className="flex-1 min-w-0 space-y-2">
-                            {/* Badges (Required, Conditional, Intake) */}
+                            {/* Badges (Required, Conditional) */}
                             <StepBadges
                                 step={step}
                                 isExpanded={isExpanded}
-                                isLinkedToIntake={!!isLinkedToIntake}
-                                linkedVariable={linkedVariable}
-                                upstreamWorkflowTitle={upstreamWorkflow?.title}
                             />
 
                             {/* Title and Delete Row */}

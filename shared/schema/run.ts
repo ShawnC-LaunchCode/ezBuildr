@@ -194,6 +194,7 @@ export const runGeneratedDocuments = pgTable("run_generated_documents", {
     runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
     fileName: text("file_name").notNull(),
     fileUrl: text("file_url").notNull(),
+    storageKey: text("storage_key").notNull(),
     mimeType: text("mime_type"),
     fileSize: integer("file_size"),
     templateId: uuid("template_id").references(() => workflowTemplates.id, { onDelete: 'set null' }),

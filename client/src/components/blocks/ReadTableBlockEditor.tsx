@@ -98,7 +98,7 @@ export function ReadTableBlockEditor({
     if (isNative && tables.length === 1 && config.tableId !== tables[0].id) {
       updateConfig({ tableId: tables[0].id });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [selectedDataSource, tables, config.tableId]); // Intentionally omitting updateConfig
 
   // ---------------------------------------------------------------------------

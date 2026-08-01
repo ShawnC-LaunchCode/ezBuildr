@@ -72,7 +72,7 @@ async function initializeDatabase() {
       const schemaStr = String(testSchema);
       const workerId = process.env.VITEST_WORKER_ID ?? '?';
       type ConnectCallback = (err: Error | undefined, client: PoolClient, release: () => void) => void;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
       // @ts-expect-error - TODO: fix type
       (pool as Pool & { connect: (callback?: ConnectCallback) => Promise<PoolClient> }).connect = async function (callback?: ConnectCallback) {
         if (callback != null) {
@@ -144,7 +144,7 @@ function getDb() {
   return _db;
 }
 
-// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
 // Close database connection (useful for tests)
 // Idempotent - safe to call multiple times
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -167,7 +167,7 @@ const db = new Proxy({} as DrizzleDB, {
     if (!_db) {
       throw new Error("Database not initialized. Call await initializeDatabase() first.");
     }
-    if (typeof prop === 'symbol') { return (_db as unknown as Record<symbol, unknown>)[prop]; } // eslint-disable-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+    if (typeof prop === 'symbol') { return (_db as unknown as Record<symbol, unknown>)[prop]; }
     return _db[prop as keyof DrizzleDB];
   },
   set(_target, prop, value) {

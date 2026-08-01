@@ -31,7 +31,7 @@ export function useJSBlockEditor({ block, onChange, workflowId }: UseJSBlockEdit
     const { toast } = useToast();
     const { data: variables = [] } = useWorkflowVariables(workflowId ?? "");
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
     const updateBlockConfig = useCallback((updates: Partial<JSBlockConfig>) => {
         onChange({
             ...block,

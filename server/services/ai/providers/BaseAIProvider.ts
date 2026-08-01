@@ -111,7 +111,7 @@ export abstract class BaseAIProvider implements IAIProvider {
     /**
      * Helper to create typed AI errors
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     protected createError(message: string, code: string, details?: unknown): AIError {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
         return new AIError(message, code as any, details);

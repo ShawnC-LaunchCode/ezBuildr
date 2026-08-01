@@ -48,7 +48,7 @@ app.use('/api', globalLimiter);
 app.use('/intake', globalLimiter);
 app.use('/public', globalLimiter);
 app.use('/oauth', globalLimiter);
-// eslint-disable-next-line sonarjs/cognitive-complexity -- server bootstrap is inherently complex
+
 void (async () => {
     try {
         // Swagger UI (/api-docs) is mounted by registerDocsRoutes() via registerRoutes(),

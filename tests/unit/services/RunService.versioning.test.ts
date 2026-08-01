@@ -1,24 +1,45 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unnecessary-type-assertion */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RunService } from "../../../server/services/RunService";
 
+type RunServiceArgs = ConstructorParameters<typeof RunService>;
+type CreateRunInput = Parameters<RunService["createRun"]>[2];
+type MockFunction = ReturnType<typeof vi.fn>;
+type RunRepoMock = { create: MockFunction };
+type WorkflowRepoMock = { findByPublicLink: MockFunction };
+type AuthResolverMock = { verifyCreateAccess: MockFunction };
+type PersistenceWriterMock = { createRun: MockFunction };
+type LifecycleServiceMock = {
+  loadSnapshotValues: MockFunction;
+  generateRandomValues: MockFunction;
+  populateInitialValues: MockFunction;
+  determineStartSection: MockFunction;
+  executeOnRunStart: MockFunction;
+};
+type MetricsServiceMock = { captureRunStarted: MockFunction };
+type LogicServiceMock = { evaluateNavigation: MockFunction };
+type StateServiceMock = { updateProgress: MockFunction };
+type VersionServiceMock = {
+  createDraftVersion: MockFunction;
+  getLatestVersion: MockFunction;
+};
+
 describe("RunService version pinning", () => {
-  let runRepo: any;
-  let workflowRepo: any;
-  let authResolver: any;
-  let persistenceWriter: any;
-  let lifecycleService: any;
-  let metricsService: any;
-  let logicSvc: any;
-  let stateService: any;
+  let runRepo: RunRepoMock;
+  let workflowRepo: WorkflowRepoMock;
+  let authResolver: AuthResolverMock;
+  let persistenceWriter: PersistenceWriterMock;
+  let lifecycleService: LifecycleServiceMock;
+  let metricsService: MetricsServiceMock;
+  let logicSvc: LogicServiceMock;
+  let stateService: StateServiceMock;
   let service: RunService;
 
   beforeEach(() => {
     vi.clearAllMocks();
 
     runRepo = {
-      create: vi.fn(async (data) => ({ id: "run-1", ...data })),
+      create: vi.fn(async (data: Record<string, unknown>) => ({ id: "run-1", ...data })),
     };
     workflowRepo = {
       findByPublicLink: vi.fn(),
@@ -27,7 +48,7 @@ describe("RunService version pinning", () => {
       verifyCreateAccess: vi.fn(),
     };
     persistenceWriter = {
-      createRun: vi.fn(async (data) => ({ id: "run-1", ...data })),
+      createRun: vi.fn(async (data: Record<string, unknown>) => ({ id: "run-1", ...data })),
     };
     lifecycleService = {
       loadSnapshotValues: vi.fn(),
@@ -55,24 +76,24 @@ describe("RunService version pinning", () => {
     };
 
     service = new RunService(
-      runRepo,
-      {} as any,
-      workflowRepo,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      logicSvc,
-      authResolver,
-      {} as any,
-      persistenceWriter,
-      lifecycleService,
-      stateService,
-      metricsService,
-      {} as any,
-      {} as any,
+      runRepo as unknown as RunServiceArgs[0],
+      {} as NonNullable<RunServiceArgs[1]>,
+      workflowRepo as unknown as RunServiceArgs[2],
+      {} as NonNullable<RunServiceArgs[3]>,
+      {} as NonNullable<RunServiceArgs[4]>,
+      {} as NonNullable<RunServiceArgs[5]>,
+      {} as NonNullable<RunServiceArgs[6]>,
+      {} as NonNullable<RunServiceArgs[7]>,
+      {} as NonNullable<RunServiceArgs[8]>,
+      logicSvc as unknown as RunServiceArgs[9],
+      authResolver as unknown as RunServiceArgs[10],
+      {} as NonNullable<RunServiceArgs[11]>,
+      persistenceWriter as unknown as RunServiceArgs[12],
+      lifecycleService as unknown as RunServiceArgs[13],
+      stateService as unknown as RunServiceArgs[14],
+      metricsService as unknown as RunServiceArgs[15],
+      {} as NonNullable<RunServiceArgs[16]>,
+      {} as NonNullable<RunServiceArgs[17]>,
     );
   });
 
@@ -83,7 +104,7 @@ describe("RunService version pinning", () => {
       currentVersionId: null,
     });
 
-    await expect(service.createRun("wf-1", undefined, {} as any)).rejects.toThrow(
+    await expect(service.createRun("wf-1", undefined, {} as CreateRunInput)).rejects.toThrow(
       "Workflow has no published version for anonymous runs"
     );
     expect(persistenceWriter.createRun).not.toHaveBeenCalled();
@@ -96,7 +117,7 @@ describe("RunService version pinning", () => {
       currentVersionId: "version-current",
     });
 
-    await service.createRun("wf-1", undefined, {} as any);
+    await service.createRun("wf-1", undefined, {} as CreateRunInput);
 
     expect(persistenceWriter.createRun).toHaveBeenCalledWith(expect.objectContaining({
       workflowId: "wf-1",
@@ -147,22 +168,22 @@ describe("RunService version pinning", () => {
 });
 
 describe("RunService RVP-6: pin every new run at creation (Option B)", () => {
-  let runRepo: any;
-  let workflowRepo: any;
-  let authResolver: any;
-  let persistenceWriter: any;
-  let lifecycleService: any;
-  let metricsService: any;
-  let logicSvc: any;
-  let stateService: any;
-  let versionSvc: any;
+  let runRepo: RunRepoMock;
+  let workflowRepo: WorkflowRepoMock;
+  let authResolver: AuthResolverMock;
+  let persistenceWriter: PersistenceWriterMock;
+  let lifecycleService: LifecycleServiceMock;
+  let metricsService: MetricsServiceMock;
+  let logicSvc: LogicServiceMock;
+  let stateService: StateServiceMock;
+  let versionSvc: VersionServiceMock;
   let service: RunService;
 
   beforeEach(() => {
     vi.clearAllMocks();
 
     runRepo = {
-      create: vi.fn(async (data) => ({ id: "run-1", ...data })),
+      create: vi.fn(async (data: Record<string, unknown>) => ({ id: "run-1", ...data })),
     };
     workflowRepo = {
       findByPublicLink: vi.fn(),
@@ -171,7 +192,7 @@ describe("RunService RVP-6: pin every new run at creation (Option B)", () => {
       verifyCreateAccess: vi.fn(),
     };
     persistenceWriter = {
-      createRun: vi.fn(async (data) => ({ id: "run-1", ...data })),
+      createRun: vi.fn(async (data: Record<string, unknown>) => ({ id: "run-1", ...data })),
     };
     lifecycleService = {
       loadSnapshotValues: vi.fn(),
@@ -201,25 +222,25 @@ describe("RunService RVP-6: pin every new run at creation (Option B)", () => {
     };
 
     service = new RunService(
-      runRepo,
-      {} as any,
-      workflowRepo,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      logicSvc,
-      authResolver,
-      {} as any,
-      persistenceWriter,
-      lifecycleService,
-      stateService,
-      metricsService,
-      {} as any,
-      {} as any,
-      versionSvc,
+      runRepo as unknown as RunServiceArgs[0],
+      {} as NonNullable<RunServiceArgs[1]>,
+      workflowRepo as unknown as RunServiceArgs[2],
+      {} as NonNullable<RunServiceArgs[3]>,
+      {} as NonNullable<RunServiceArgs[4]>,
+      {} as NonNullable<RunServiceArgs[5]>,
+      {} as NonNullable<RunServiceArgs[6]>,
+      {} as NonNullable<RunServiceArgs[7]>,
+      {} as NonNullable<RunServiceArgs[8]>,
+      logicSvc as unknown as RunServiceArgs[9],
+      authResolver as unknown as RunServiceArgs[10],
+      {} as NonNullable<RunServiceArgs[11]>,
+      persistenceWriter as unknown as RunServiceArgs[12],
+      lifecycleService as unknown as RunServiceArgs[13],
+      stateService as unknown as RunServiceArgs[14],
+      metricsService as unknown as RunServiceArgs[15],
+      {} as NonNullable<RunServiceArgs[16]>,
+      {} as NonNullable<RunServiceArgs[17]>,
+      versionSvc as unknown as RunServiceArgs[18],
     );
   });
 
@@ -231,7 +252,7 @@ describe("RunService RVP-6: pin every new run at creation (Option B)", () => {
     });
     versionSvc.createDraftVersion.mockResolvedValue({ id: "version-draft-new" });
 
-    const run = await service.createRun("wf-1", "user-1", {} as any);
+    const run = await service.createRun("wf-1", "user-1", {} as CreateRunInput);
 
     expect(versionSvc.createDraftVersion).toHaveBeenCalledWith("wf-1", "user-1");
     expect(versionSvc.getLatestVersion).not.toHaveBeenCalled();
@@ -251,7 +272,7 @@ describe("RunService RVP-6: pin every new run at creation (Option B)", () => {
     versionSvc.createDraftVersion.mockResolvedValue(null);
     versionSvc.getLatestVersion.mockResolvedValue({ id: "version-existing" });
 
-    const run = await service.createRun("wf-1", "user-1", {} as any);
+    const run = await service.createRun("wf-1", "user-1", {} as CreateRunInput);
 
     expect(versionSvc.getLatestVersion).toHaveBeenCalledWith("wf-1");
     expect(persistenceWriter.createRun).toHaveBeenCalledWith(expect.objectContaining({
@@ -268,7 +289,7 @@ describe("RunService RVP-6: pin every new run at creation (Option B)", () => {
       currentVersionId: "version-current",
     });
 
-    await service.createRun("wf-1", "user-1", {} as any);
+    await service.createRun("wf-1", "user-1", {} as CreateRunInput);
 
     expect(versionSvc.createDraftVersion).not.toHaveBeenCalled();
     expect(versionSvc.getLatestVersion).not.toHaveBeenCalled();
@@ -285,7 +306,7 @@ describe("RunService RVP-6: pin every new run at creation (Option B)", () => {
       currentVersionId: null,
     });
 
-    await expect(service.createRun("wf-1", undefined, {} as any)).rejects.toThrow(
+    await expect(service.createRun("wf-1", undefined, {} as CreateRunInput)).rejects.toThrow(
       "Workflow has no published version for anonymous runs"
     );
     expect(versionSvc.createDraftVersion).not.toHaveBeenCalled();
@@ -294,21 +315,21 @@ describe("RunService RVP-6: pin every new run at creation (Option B)", () => {
 });
 
 describe("RunService ICW2-B9: initial currentSectionId on run creation", () => {
-  let runRepo: any;
-  let workflowRepo: any;
-  let authResolver: any;
-  let persistenceWriter: any;
-  let lifecycleService: any;
-  let metricsService: any;
-  let logicSvc: any;
-  let stateService: any;
+  let runRepo: RunRepoMock;
+  let workflowRepo: WorkflowRepoMock;
+  let authResolver: AuthResolverMock;
+  let persistenceWriter: PersistenceWriterMock;
+  let lifecycleService: LifecycleServiceMock;
+  let metricsService: MetricsServiceMock;
+  let logicSvc: LogicServiceMock;
+  let stateService: StateServiceMock;
   let service: RunService;
 
   beforeEach(() => {
     vi.clearAllMocks();
 
     runRepo = {
-      create: vi.fn(async (data) => ({ id: "run-1", currentSectionId: null, ...data })),
+      create: vi.fn(async (data: Record<string, unknown>) => ({ id: "run-1", currentSectionId: null, ...data })),
     };
     workflowRepo = {
       findByPublicLink: vi.fn(),
@@ -317,9 +338,11 @@ describe("RunService ICW2-B9: initial currentSectionId on run creation", () => {
       verifyCreateAccess: vi.fn(),
     };
     persistenceWriter = {
-      createRun: vi.fn(async (data) => ({ id: "run-1", currentSectionId: null, ...data })),
+      createRun: vi.fn(async (data: Record<string, unknown>) => ({ id: "run-1", currentSectionId: null, ...data })),
     };
     lifecycleService = {
+      loadSnapshotValues: vi.fn(),
+      generateRandomValues: vi.fn(),
       populateInitialValues: vi.fn().mockResolvedValue(undefined),
       determineStartSection: vi.fn(),
       executeOnRunStart: vi.fn().mockResolvedValue(undefined),
@@ -335,24 +358,24 @@ describe("RunService ICW2-B9: initial currentSectionId on run creation", () => {
     };
 
     service = new RunService(
-      runRepo,
-      {} as any,
-      workflowRepo,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      logicSvc,
-      authResolver,
-      {} as any,
-      persistenceWriter,
-      lifecycleService,
-      stateService,
-      metricsService,
-      {} as any,
-      {} as any,
+      runRepo as unknown as RunServiceArgs[0],
+      {} as NonNullable<RunServiceArgs[1]>,
+      workflowRepo as unknown as RunServiceArgs[2],
+      {} as NonNullable<RunServiceArgs[3]>,
+      {} as NonNullable<RunServiceArgs[4]>,
+      {} as NonNullable<RunServiceArgs[5]>,
+      {} as NonNullable<RunServiceArgs[6]>,
+      {} as NonNullable<RunServiceArgs[7]>,
+      {} as NonNullable<RunServiceArgs[8]>,
+      logicSvc as unknown as RunServiceArgs[9],
+      authResolver as unknown as RunServiceArgs[10],
+      {} as NonNullable<RunServiceArgs[11]>,
+      persistenceWriter as unknown as RunServiceArgs[12],
+      lifecycleService as unknown as RunServiceArgs[13],
+      stateService as unknown as RunServiceArgs[14],
+      metricsService as unknown as RunServiceArgs[15],
+      {} as NonNullable<RunServiceArgs[16]>,
+      {} as NonNullable<RunServiceArgs[17]>,
     );
   });
 
@@ -370,7 +393,7 @@ describe("RunService ICW2-B9: initial currentSectionId on run creation", () => {
       currentProgress: 0,
     });
 
-    const run = await service.createRun("wf-1", "user-1", {} as any);
+    const run = await service.createRun("wf-1", "user-1", {} as CreateRunInput);
 
     // Resolved via the same null-current-section rule `next()` uses, so the
     // starting position matches what "first visible section" already means.
@@ -395,7 +418,7 @@ describe("RunService ICW2-B9: initial currentSectionId on run creation", () => {
       currentProgress: 0,
     });
 
-    const run = await service.createRun("wf-1", "user-1", {} as any);
+    const run = await service.createRun("wf-1", "user-1", {} as CreateRunInput);
 
     expect(stateService.updateProgress).not.toHaveBeenCalled();
     expect(run.currentSectionId).toBeNull();
@@ -413,7 +436,7 @@ describe("RunService ICW2-B9: initial currentSectionId on run creation", () => {
     const run = await service.createRun(
       "wf-1",
       "user-1",
-      {} as any,
+      {} as CreateRunInput,
       undefined,
       { snapshotId: "snap-1" }
     );

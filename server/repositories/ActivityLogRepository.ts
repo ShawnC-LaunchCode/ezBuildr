@@ -200,7 +200,7 @@ export class ActivityLogRepository {
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const dataResult = await database.execute(dataQuery);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const rows = dataResult.rows as ActivityLog[];
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment

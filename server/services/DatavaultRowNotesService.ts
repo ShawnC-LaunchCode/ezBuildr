@@ -1,4 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/naming-convention -- third-party package name
+
 import DOMPurify from 'isomorphic-dompurify';
 
 import type { DatavaultRowNote } from "@shared/schema";
@@ -56,7 +56,7 @@ export class DatavaultRowNotesService {
    */
   private sanitizeText(text: string): string {
     // Strip all HTML tags - notes should be plain text only
-    // eslint-disable-next-line @typescript-eslint/naming-convention -- DOMPurify API uses UPPER_CASE config keys
+
     return DOMPurify.sanitize(text, { ALLOWED_TAGS: [] });
   }
   /**
@@ -99,7 +99,7 @@ export class DatavaultRowNotesService {
       },
       tx
     );
-    // eslint-disable-next-line no-console -- debug logging for note creation audit trail
+
     logger.debug({ noteId: note.id, tenantId: note.tenantId, userId: note.userId }, "Created note");
     return note;
   }
@@ -116,7 +116,7 @@ export class DatavaultRowNotesService {
     // Find note with tenant verification
     const note = await this.notesRepo.findByIdAndTenant(noteId, tenantId, tx);
     if (!note) {
-      // eslint-disable-next-line no-console -- debug logging for note deletion audit trail
+
       logger.warn({ noteId, tenantId }, "Delete note failed: note not found");
       throw new Error("Note not found");
     }

@@ -71,7 +71,7 @@ const updateConnectionSchema = z.object({
 /**
  * Register connections routes
  */
-// eslint-disable-next-line max-lines-per-function -- route registration function
+
 export function registerConnectionsV2Routes(app: Express): void {
   /**
    * GET /api/projects/:projectId/connections
