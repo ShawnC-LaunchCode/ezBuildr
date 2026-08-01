@@ -168,9 +168,12 @@ export default function OrganizationDetail() {
       setInviteEmail('');
     } catch (error) {
       console.error('Failed to create invite:', error);
+      const description = error instanceof Error && error.message
+        ? error.message
+        : 'Failed to send invitation. Please try again.';
       toast({
         title: 'Error',
-        description: 'Failed to send invitation. Please try again.',
+        description,
         variant: 'destructive',
       });
     }
