@@ -1,7 +1,11 @@
 import { Edit2, CheckCircle2 } from "lucide-react";
 
+import { ListAnswerView } from "@/components/runner/list/ListAnswerView";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatAnswerValue } from "@/lib/formatAnswerValue";
+
+import type { ListConfig, ListValue } from "@shared/types/stepConfigs";
 interface ReviewSectionProps {
     sections: ReviewSectionData[];
     allSteps: ReviewStepData[];
@@ -19,6 +23,8 @@ interface ReviewStepData {
     id: string;
     sectionId: string;
     title: string;
+    type?: string;
+    config?: Record<string, unknown> | null;
 }
 export function ReviewSection({
     sections,
@@ -27,25 +33,6 @@ export function ReviewSection({
     onEditSection,
     visibleSectionIds
 }: ReviewSectionProps) {
-    // Helper to format values for display
-    const formatValue = (val: unknown): string => {
-        if (val === null || val === undefined || val === "") {
-            return "Not answered";
-        }
-        if (typeof val === "boolean") {
-            return val ? "Yes" : "No";
-        }
-        if (val instanceof Date) {
-            return val.toLocaleDateString();
-        }
-        if (Array.isArray(val)) {
-            return val.join(", ");
-        }
-        if (typeof val === "object") {
-            return JSON.stringify(val);
-        } // Fallback
-        return String(val);
-    };
     return (
         <div className="space-y-8">
             <div className="text-center space-y-2 mb-8">
@@ -89,6 +76,21 @@ export function ReviewSection({
                                         // If a step was hidden by logic, it shouldn't be here (values might be empty or stale).
                                         // Ideally, we check step visibility too, but that requires re-running logic.
                                         // Simplification: Show if value exists or if it's in the list.
+                                        // A list answer always renders (even at zero items, as "None added"), since
+                                        // an unanswered list is a meaningful confirmation state, not conciseness noise.
+                                        if (step.type === "list") {
+                                            return (
+                                                <div key={step.id} className="p-4 hover:bg-slate-50/30 transition-colors">
+                                                    <div className="text-sm font-medium text-slate-500 mb-2">
+                                                        {step.title}
+                                                    </div>
+                                                    <ListAnswerView
+                                                        config={(step.config as unknown as ListConfig | null) ?? { fields: [] }}
+                                                        value={values[step.id] as ListValue | null | undefined}
+                                                    />
+                                                </div>
+                                            );
+                                        }
                                         const val = values[step.id];
                                         if (val === undefined || val === null || val === "") {
                                             return null;
@@ -99,12 +101,12 @@ export function ReviewSection({
                                                     {step.title}
                                                 </div>
                                                 <div className="text-sm text-slate-900 md:col-span-2 font-medium break-words">
-                                                    {formatValue(val)}
+                                                    {formatAnswerValue(val)}
                                                 </div>
                                             </div>
                                         );
                                     })}
-                                    {sectionSteps.every(s => !values[s.id]) && (
+                                    {sectionSteps.every(s => s.type !== "list" && !values[s.id]) && (
                                         <div className="p-4 text-sm text-slate-400 italic text-center">
                                             No questions answered in this section.
                                         </div>

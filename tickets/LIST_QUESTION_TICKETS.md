@@ -602,7 +602,7 @@ introduced — logged in the backlog rather than fixed here.
 
 ---
 
-## LIST-10 — Review-step and run-detail display of list answers 🔲
+## LIST-10 — Review-step and run-detail display of list answers ✅ Done (2026-08-01)
 
 **Priority: P2** · Size: S · File: `client/src/components/runner/sections/ReviewSection.tsx`
 
@@ -643,6 +643,49 @@ so a deep list can't produce an unreadable wall.
 5. New test asserts 1–3.
 6. **Live proof required:** screenshot of the review step with a 2-level list.
 7. Gates: type-check 0 errors, lint clean, `npm run test:fast` green.
+
+### Reviewer verification (2026-08-01)
+
+**All 7 criteria met.** AC4 was the criterion most at risk (this ticket
+predates LIST-8, so a dev could easily have written a second label resolver):
+`ListAnswerView` imports `resolveItemLabel` and `normalizeListValue` straight
+from LIST-8's `listRuntime.ts`, and that file is untouched by this ticket —
+genuine reuse, verified rather than taken from the report. It also extracted
+`formatAnswerValue` out of `ReviewSection` so a list item's field values and
+top-level answers cannot drift apart, and capped display recursion at the
+shared `LIST_VALIDATION_MAX_DEPTH` instead of inventing a second cap.
+
+Reachability was checked rather than assumed — a `type`/`config` that never
+arrives would have made the new branch dead code that silently renders "None
+added" forever. `allSteps` is `ApiStep[]`, which carries both
+(`client/src/lib/vault-api.ts:736-746`), so the branch is genuinely reached.
+
+**Live proof accepted.** The Browser pane cannot composite screenshots here,
+so the dev ran its own dev server from the worktree on port 5091, seeded a
+real workflow/run against the dev DB, and drove the running app: the review
+screen rendered `Ava Chen` with two nested addresses and `Ben Chen` with
+`Addresses: None added`, with four distinct `.border-l-2.pl-3` containers
+confirming per-level indentation. That is a live app with non-pixel evidence,
+which is the accepted substitute — as distinct from component tests, which are
+not (see LIST-9, where that distinction had to be enforced).
+
+**Scope deviation accepted:** run-detail (`ExecutionDetailView.tsx`) was left
+alone. Verified the stated reason rather than taking it on trust —
+`runAPI.getWithValues` returns `ApiStepValue[]` (`client/src/lib/vault-api.ts:966`),
+which carries no step type or config at all, so rendering a list there needs
+step-definition plumbing well beyond this Size-S ticket. Filed as **LIST-B11**.
+
+**Gates (re-run by the reviewer on the merged tree):** `npx tsc --noEmit` 0
+errors · `npm run lint` (repo-wide) clean · `npm run check:strict-zones` 6/6 ·
+`npm run test:fast` **2191 passed**/14 skipped combined with LIST-9. The new
+test file contains **8** tests, not the 10 its report claimed; the +8 delta is
+the reviewer's own measurement.
+
+**File footprint:** modified
+`client/src/components/runner/sections/ReviewSection.tsx`; new
+`client/src/components/runner/list/ListAnswerView.tsx`,
+`client/src/lib/formatAnswerValue.ts`,
+`tests/unit/client/ListAnswerView.test.tsx`.
 
 ---
 
@@ -845,3 +888,15 @@ Cosmetic today; revisit if authoring feels laggy on a large list.
 (`server/services/RepeaterService.ts:126-152`) could seed items from a
 `QueryListVariable`, and `ListConfig` deliberately leaves room for a
 `listSource`. Not scoped here; worth considering once List is in real use.
+
+**LIST-B11 — Run-detail (`ExecutionDetailView.tsx`) dumps list answers as raw
+JSON.** Noted reviewing LIST-10, whose Finding named run-detail alongside the
+review step. The dev correctly left it alone and flagged it: that view renders
+every step value via `JSON.stringify(val.value)` for *all* types, because
+`runAPI.getWithValues` returns `ApiStepValue[]` (`client/src/lib/vault-api.ts:966`)
+— `{id, runId, stepId, value, ...}` with no step type or config. Rendering a
+list properly there needs step definitions plumbed into the view (or a widened
+endpoint), which is a real scope expansion beyond LIST-10's Size S. Note this
+is an internal/staff surface, not respondent-facing, which is why it did not
+block LIST-10. Reusable pieces already exist: `ListAnswerView` +
+`formatAnswerValue`, both of which only need `ListConfig` to render.
