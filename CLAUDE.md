@@ -39,7 +39,7 @@ ezBuildr/
 ├── client/src/
 │   ├── Router.tsx           # Wouter route table (source of truth for pages)
 │   ├── components/
-│   │   ├── builder/         # Workflow builder (5-tab nav, canvas, inspector)
+│   │   ├── builder/         # Workflow builder (7-tab nav, canvas, inspector)
 │   │   ├── runner/          # Run-time rendering (blocks/, sections/)
 │   │   ├── preview/         # In-memory preview shell (PreviewRunner, DevToolbar)
 │   │   ├── blocks/          # Block editors
@@ -54,8 +54,7 @@ ezBuildr/
 │   ├── routes/              # API handlers (63 *.routes.ts incl. ai/, datavault/)
 │   ├── services/            # Business logic (~185 files incl. subdirs)
 │   ├── repositories/        # Data access (BaseRepository pattern, ~41 files)
-│   ├── middleware/          # hybridAuth, tenant, requireUser, error handling
-│   └── di/                  # DI container (only partially adopted — prefer singletons)
+│   └── middleware/          # hybridAuth, tenant, requireUser, error handling
 ├── shared/
 │   ├── schema/              # Drizzle schema, one file per domain (103 tables)
 │   ├── types/               # StepType, conditions, stepConfigs, ai, ...
@@ -227,6 +226,110 @@ npm run db:migrate       # Run SQL migrations (see db-schema-change skill first)
 4. **Two-Tier Visibility:** workflow logic rules + step-level `visibleIf` expressions
 5. **Sandboxed Execution:** JS (vm2/vm) + Python (subprocess) with timeouts; vm2/isolated-vm are optional deps and may be missing locally
 6. **Secrets:** AES-256-GCM encrypted, accessed via the secrets service only; outbound HTTP to user URLs goes through `safeFetch`
+7. **Tenant Isolation:** service-layer `tenant_id` scoping, plus the `withTenant` helper and staged Postgres RLS (`migrations/0001_enable_rls.sql`, defined not-yet-enforced). New tenant tables need an RLS policy; never set the tenant GUC session-level — see `docs/architecture/TENANT_ISOLATION_RLS.md` (SEC-051)
+8. **Parallel agents use worktrees, never the shared tree** — see below.
+
+## Parallel work: use git worktrees
+
+When dispatching more than one agent at a time (e.g. the `ticket-flow` skill's
+Mode B), give each one its own git worktree: `Agent(isolation: "worktree")`.
+Do **not** run concurrent agents in the main checkout.
+
+This is a hard-won default. Running a 16-ticket initiative with 3-4 concurrent
+devs in one shared tree (2026-07-25) produced, in a single session:
+
+- **Co-mingled commits.** Three ticket pairs landed in the same file before
+  either could be committed and had to share a commit (RUN2-2/5, RUN2-3/13,
+  RUN2-12/16), losing one-commit-per-ticket traceability.
+- **A near-miss data loss.** A dev ran `git stash` to get a clean baseline; a
+  concurrent edit landed between push and pop, the pop conflicted, and both
+  files were reset to HEAD. Recovered by hand, but only because it was noticed.
+- **Blocked commits and false gate reports.** The repo-wide `tsc` in the
+  pre-commit hook fails whenever *any* concurrent dev is mid-edit, so verified
+  work could not be committed until unrelated agents finished — and agents
+  reported their own gates green while the tree was red.
+
+**Use the script. Do not hand-roll this.**
+
+```powershell
+pwsh scripts/new-worktree.ps1 -Name <ticket-id>
+```
+
+It creates the worktree from current `main`, junctions `node_modules`, copies
+`.env`, and then *proves* the result: junction (not symlink), `@types`
+resolves, base commit matches `main`, and `test:fast` actually reports passing
+tests. It fails loudly rather than handing you a tree that looks fine.
+
+**Tear worktrees down with `-Remove`, never with a bare `git worktree remove`:**
+
+```powershell
+pwsh scripts/new-worktree.ps1 -Name <ticket-id> -Remove
+```
+
+`git worktree remove --force` recurses **into** the `node_modules` junction and
+deletes the main checkout's packages along with the worktree. This is not
+hypothetical — it wiped all 1018 packages here and needed a full `npm ci` to
+recover. `-Remove` drops the junction as a reparse point first, then removes
+the worktree, then verifies the main `node_modules` survived.
+
+The rest of this section is why it exists — read it if the script fails.
+
+**A worktree has no `node_modules` or `.env`** — `tsc`, ESLint and Vitest all
+need them. Create the junction with **PowerShell**. Two different Git Bash
+mistakes have now cost real time, and they fail in opposite ways:
+
+- `cmd //c mklink` from Git Bash mangles the Windows path into a doubled drive
+  letter (`C:\C:\Users\...`) that resolves to an *empty* directory. The gates
+  then run against nothing and **report green**.
+- `ln -s` from Git Bash creates a POSIX symlink rather than a Windows junction.
+  `tsc` and ESLint work fine, so it looks healthy — but **every Vitest project
+  fails to run at all** with `Vitest failed to find the runner`, because the
+  setup file and the runner resolve two different `vitest` instances through
+  the link. A dev agent turned in two submissions this way, having never
+  executed a single test; both times the reviewer had to copy the work into the
+  main checkout to find out whether it passed.
+
+```powershell
+New-Item -ItemType Junction -Path node_modules -Target C:\Users\<you>\path\to\repo\node_modules
+```
+
+Then **verify it resolved** before trusting any gate — `ls node_modules | head`
+should list packages, and `node_modules/@types` must exist. Confirm it is a real
+junction, not a symlink: `Get-Item node_modules | Select LinkType` must print
+`Junction`. Copy `.env` from the main checkout too, or ~27 suites fail on
+`DATABASE_URL: Required`.
+
+**Prove the suite actually runs before dispatching anyone into the worktree:**
+`npm run test:fast` must report passing files, not `0 test`. A worktree where
+tests cannot run produces confident, unverifiable turn-ins.
+
+**Check the worktree's base commit before trusting it.** A new worktree is not
+guaranteed to start from current `HEAD` — in practice they have been created
+from an older commit. On the first run of this policy, all three agents got a
+base ~14 commits stale, so the tickets they were dispatched to work did not
+exist in their copy of the ticket file and one correctly stopped with a blocker.
+After dispatching, verify and fast-forward:
+
+```bash
+git worktree list                                  # confirm each base commit
+git -C .claude/worktrees/<agent-dir> merge main --ff-only
+```
+
+Check `git diff --name-only <base>..main` for overlap with the agent's files
+first; with no overlap the fast-forward preserves in-flight edits cleanly. Then
+tell the agent to re-read its ticket and re-run its gates, since a stale base
+also makes its test counts wrong.
+
+Rules that still apply even with worktrees:
+
+- The reviewer commits, one commit per passed ticket, staging **only that
+  ticket's files by path**. Never `git add -A` — the repo owner works this
+  repo from a second IDE concurrently, and unrelated staged changes are common.
+- Verify gates yourself rather than trusting an agent's report. `tsc --pretty`
+  emits ANSI codes, so `grep "error TS"` finds nothing on a failing tree — read
+  the raw output or grep `Found [0-9]+ error`.
+- Sequence, don't parallelize, tickets that touch the same file. Note each
+  ticket's file footprint in its Ties so dispatch is a lookup.
 
 ---
 

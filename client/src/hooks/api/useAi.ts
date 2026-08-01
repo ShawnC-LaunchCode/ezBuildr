@@ -1,85 +1,87 @@
-import { useMutation, type UseMutationResult } from "@tanstack/react-query";
+import { useMutation, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
 
+import { DevPanelBus } from "../../lib/devpanelBus";
 import { fetchAPI } from "../../lib/vault-api";
 
+import { queryKeys } from "./queryKeys";
+
 import type {
-    AIWorkflowRevisionRequest,
-    AIWorkflowRevisionResponse,
-    AIGeneratedWorkflow,
+    AiEditProposal,
+    WorkflowPatchOp,
+} from "../../../../shared/validation/aiWorkflowEdit.schema";
+import type {
     AIConnectLogicRequest,
     AIConnectLogicResponse,
     AIDebugLogicRequest,
     AIDebugLogicResponse,
     AIVisualizeLogicRequest,
     AIVisualizeLogicResponse,
-    QualityScore
 } from "../../../../shared/types/ai";
 
-export function useReviseWorkflow(): UseMutationResult<AIWorkflowRevisionResponse, unknown, AIWorkflowRevisionRequest> {
-    return useMutation({
-        mutationFn: async (data: AIWorkflowRevisionRequest) => {
-            // 1. Enqueue Job
-            const initRes = await fetchAPI<{ jobId: string }>('/api/ai/workflows/revise', {
-                method: 'POST',
-                body: JSON.stringify(data),
-            });
-            const { jobId } = initRes;
-            if (!jobId) {
-                throw new Error("Failed to start AI revision job");
-            }
-            // 2. Poll for Completion
-            // Using a recursive promise or a while loop
-            const poll = async (): Promise<AIWorkflowRevisionResponse> => {
-                // Explicitly type the expected response to avoid 'unknown' error
-                interface RevisionStatusResponse { status: 'completed' | 'failed' | 'pending'; result: AIWorkflowRevisionResponse; error?: string }
-                const statusRes = await fetchAPI<RevisionStatusResponse>(`/api/ai/workflows/revise/${jobId}`);
+/**
+ * AI workflow editing on the hardened ops pipeline (ICW2-10).
+ *
+ * `/api/workflows/:id/ai/edit` serves both halves of the manual-review flow:
+ * a `dryRun` propose that writes nothing, then an apply of the reviewed ops
+ * through the snapshot + transaction pipeline.
+ */
+export interface AiEditApplyResult {
+    workflowId: string;
+    versionId: string | null;
+    versionNumber?: number;
+    noChanges: boolean;
+    summary: string[];
+    warnings: string[];
+}
 
-                if (statusRes.status === 'completed') {
-                    return statusRes.result;
-                }
-                if (statusRes.status === 'failed') {
-                    throw new Error(statusRes.error ?? "AI revision job failed");
-                }
-                // Wait 2s and retry
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                return poll();
-            };
-            return poll();
+const AI_EDIT_URL = (workflowId: string): string =>
+    `/api/workflows/${workflowId}/ai/edit`;
+
+/** Propose changes without writing anything. */
+export function useProposeAiEdit(): UseMutationResult<
+    AiEditProposal,
+    unknown,
+    { workflowId: string; userMessage: string }
+> {
+    return useMutation({
+        mutationFn: async ({ workflowId, userMessage }) => {
+            const res = await fetchAPI<{ data: AiEditProposal }>(AI_EDIT_URL(workflowId), {
+                method: 'POST',
+                body: JSON.stringify({ userMessage, dryRun: true }),
+            });
+            return res.data;
         },
     });
 }
 
-export function useGenerateWorkflow(): UseMutationResult<{
-    success: boolean;
-    workflow: AIGeneratedWorkflow & { id: string };
-    metadata: {
-        duration: number;
-        sectionsGenerated: number;
-        logicRulesGenerated: number;
-        transformBlocksGenerated: number;
-    };
-    quality?: QualityScore;
-}, unknown, {
-    projectId: string;
-    description: string;
-    category?: 'application' | 'survey' | 'intake' | 'onboarding' | 'request' | 'checklist' | 'general';
-}> {
+/**
+ * Apply ops. With `ops` omitted the server generates and applies in one shot
+ * (easy-mode auto-apply); with `ops` supplied it applies exactly the reviewed
+ * proposal.
+ */
+export function useApplyAiEdit(): UseMutationResult<
+    AiEditApplyResult,
+    unknown,
+    { workflowId: string; userMessage: string; ops?: WorkflowPatchOp[] }
+> {
+    const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (data) => {
-            return fetchAPI<{
-                success: boolean;
-                workflow: AIGeneratedWorkflow & { id: string };
-                metadata: {
-                    duration: number;
-                    sectionsGenerated: number;
-                    logicRulesGenerated: number;
-                    transformBlocksGenerated: number;
-                };
-                quality?: QualityScore;
-            }>('/api/ai/workflows/generate', {
+        mutationFn: async ({ workflowId, userMessage, ops }) => {
+            const res = await fetchAPI<{ data: AiEditApplyResult }>(AI_EDIT_URL(workflowId), {
                 method: 'POST',
-                body: JSON.stringify(data),
+                body: JSON.stringify(ops !== undefined ? { userMessage, ops } : { userMessage }),
             });
+            return res.data;
+        },
+        onSuccess: async (_result, variables) => {
+            // The ops pipeline writes sections, steps and logic rules directly,
+            // so every builder-facing cache for this workflow is now stale.
+            await queryClient.invalidateQueries({ queryKey: queryKeys.workflow(variables.workflowId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.sections(variables.workflowId) });
+            await queryClient.invalidateQueries({ queryKey: ["steps"] });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.logicRules(variables.workflowId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.workflows });
+            DevPanelBus.emitWorkflowUpdate();
         },
     });
 }

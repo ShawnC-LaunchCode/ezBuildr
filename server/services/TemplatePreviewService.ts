@@ -172,7 +172,6 @@ export class TemplatePreviewService {
         outputName: `preview-${nanoid(8)}`,
         outputDir: tempOutputDir,
         toPdf: outputFormat === 'pdf',
-        pdfStrategy: 'puppeteer',
         normalize: true,
       });
 
@@ -246,7 +245,7 @@ export class TemplatePreviewService {
   /**
    * Schedule cleanup of preview file after expiration
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   private scheduleCleanup(fileKey: string, delaySeconds: number): void {
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     setTimeout(async () => {

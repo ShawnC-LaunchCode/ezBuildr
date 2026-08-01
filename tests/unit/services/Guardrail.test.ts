@@ -51,8 +51,8 @@ describe('DatavaultGuardrails', () => {
         mockQueryBuilder = builder;
 
         // Override db.select to enter the mockQueryBuilder chain
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        // @ts-ignore - TODO: fix type
+
+        // @ts-expect-error - TODO: fix type
         vi.mocked(db).select = vi.fn().mockReturnValue(mockQueryBuilder) as unknown as typeof db.select;
 
         mockColumnsRepo = {
@@ -73,7 +73,7 @@ describe('DatavaultGuardrails', () => {
 
         mockRowsRepo = {
             deleteValuesByColumnId: vi.fn(),
-            cleanupAutoNumberSequence: vi.fn(),
+            createNumberSequence: vi.fn(),
             checkColumnHasDuplicates: vi.fn(),
         } as unknown as Mocked<typeof datavaultRowsRepository>;
 

@@ -138,7 +138,7 @@ describe('DatavaultRowsRepository', () => {
         createdBy: null,
         updatedBy: null,
         deletedAt: null,
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - TODO: fix type
         deletedAt: null,
       };
 

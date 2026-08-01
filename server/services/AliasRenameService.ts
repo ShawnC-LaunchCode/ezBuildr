@@ -2,19 +2,32 @@
  * Alias Rename Propagation
  *
  * When a step's variable name (alias) changes, every workflow-scoped
- * reference that stores the alias as a string must follow, or documents and
- * transforms silently break. This service rewrites:
+ * reference that stores the alias as a string must follow, or documents,
+ * transforms, and visibility logic silently break. This service rewrites:
  *
  * - transform block inputKeys
  * - document hook inputKeys
  * - lifecycle hook inputKeys
- * - Final Block document mapping sources (step options.documents[].mapping)
+ * - Final Block document mapping sources (step config.documents[].mapping)
+ * - step visibleIf expressions (any step in the workflow, not just the
+ *   renamed one)
+ * - section visibleIf expressions
  *
  * Not rewritten (by design):
  * - templates.mapping (project-scoped, shared across workflows)
  * - placeholder text inside uploaded DOCX files (unreachable; the template
  *   validation panel surfaces these as missing with a rename suggestion)
+ * - `logic_rules` rows: `conditionStepId`/`targetStepId`/`targetSectionId`
+ *   are step/section UUID foreign keys, not alias strings — the alias is
+ *   only ever resolved to an id once, at ingest time
+ *   (WorkflowContentIngestService.syncLogicRules), and is re-derived live
+ *   from the current alias for display/lint purposes
+ *   (VersionService.serializeWorkflow). A rename cannot leave a logic rule
+ *   referencing a stale alias because none is stored.
  */
+
+import { renameAliasInExpression } from '@shared/conditionEvaluator';
+import type { ConditionExpression } from '@shared/types/conditions';
 
 import { logger } from '../logger';
 import {
@@ -24,6 +37,8 @@ import {
   stepRepository,
   transformBlockRepository,
 } from '../repositories';
+import type { Section, Step } from '../../shared/schema';
+import type { DbTransaction } from '../repositories/BaseRepository';
 
 import type { DocumentMapping } from './document/MappingInterpreter';
 
@@ -32,6 +47,8 @@ export interface AliasRenameResult {
   documentHooksUpdated: number;
   lifecycleHooksUpdated: number;
   finalBlockStepsUpdated: number;
+  stepVisibleIfUpdated: number;
+  sectionVisibleIfUpdated: number;
 }
 
 interface FinalBlockDocumentConfig {
@@ -52,15 +69,15 @@ function replaceKey(keys: string[] | null | undefined, oldAlias: string, newAlia
 }
 
 /**
- * Rewrite mapping sources in a Final Block options object.
- * Returns the updated options, or null when nothing referenced the alias.
+ * Rewrite mapping sources in a Final Block config object.
+ * Returns the updated config, or null when nothing referenced the alias.
  */
 export function rewriteFinalBlockMapping(
-  options: unknown,
+  config: unknown,
   oldAlias: string,
   newAlias: string
 ): FinalBlockOptions | null {
-  const opts = options as FinalBlockOptions | null;
+  const opts = config as FinalBlockOptions | null;
   if (!opts?.documents || !Array.isArray(opts.documents)) {
     return null;
   }
@@ -93,92 +110,130 @@ export function rewriteFinalBlockMapping(
 export class AliasRenameService {
   /**
    * Rewrite all workflow-scoped references from oldAlias to newAlias.
-   * Best-effort per reference type: a failure in one type is logged and
-   * does not block the others (the step's own alias is already renamed).
+   *
+   * Atomic (DEBT-16): this runs inside the caller's transaction (`tx`,
+   * threaded since DEBT-14) alongside the step's own alias update, so a
+   * failing query here must abort that same transaction rather than being
+   * caught and logged. Postgres aborts the whole transaction on any
+   * statement error regardless — swallowing the error here only hid that
+   * fact, letting the caller believe the rename succeeded while the step
+   * update it ran alongside silently failed to commit. There is no
+   * best-effort mode: callers must let this reject and roll back with it.
    */
   async propagateRename(
     workflowId: string,
     oldAlias: string,
-    newAlias: string
+    newAlias: string,
+    tx?: DbTransaction
   ): Promise<AliasRenameResult> {
     const result: AliasRenameResult = {
       transformBlocksUpdated: 0,
       documentHooksUpdated: 0,
       lifecycleHooksUpdated: 0,
       finalBlockStepsUpdated: 0,
+      stepVisibleIfUpdated: 0,
+      sectionVisibleIfUpdated: 0,
     };
     const log = logger.child({ workflowId, oldAlias, newAlias, service: 'AliasRenameService' });
 
     // Transform block inputKeys
-    try {
-      const blocks = await transformBlockRepository.findByWorkflowId(workflowId);
-      for (const block of blocks) {
-        const replaced = replaceKey(block.inputKeys, oldAlias, newAlias);
-        if (replaced !== null) {
-          await transformBlockRepository.update(block.id, { inputKeys: replaced });
-          result.transformBlocksUpdated++;
-        }
+    const transformBlocks = await transformBlockRepository.findByWorkflowId(workflowId, tx);
+    for (const block of transformBlocks) {
+      const replaced = replaceKey(block.inputKeys, oldAlias, newAlias);
+      if (replaced !== null) {
+        await transformBlockRepository.update(block.id, { inputKeys: replaced }, tx);
+        result.transformBlocksUpdated++;
       }
-    } catch (error) {
-      log.error({ error }, 'Failed to propagate alias rename to transform blocks');
     }
 
     // Document hook inputKeys
-    try {
-      const hooks = await documentHookRepository.findByWorkflowId(workflowId);
-      for (const hook of hooks) {
-        const replaced = replaceKey(hook.inputKeys, oldAlias, newAlias);
-        if (replaced !== null) {
-          await documentHookRepository.update(hook.id, { inputKeys: replaced });
-          result.documentHooksUpdated++;
-        }
+    const documentHooks = await documentHookRepository.findByWorkflowId(workflowId, tx);
+    for (const hook of documentHooks) {
+      const replaced = replaceKey(hook.inputKeys, oldAlias, newAlias);
+      if (replaced !== null) {
+        await documentHookRepository.update(hook.id, { inputKeys: replaced }, tx);
+        result.documentHooksUpdated++;
       }
-    } catch (error) {
-      log.error({ error }, 'Failed to propagate alias rename to document hooks');
     }
 
     // Lifecycle hook inputKeys
-    try {
-      const hooks = await lifecycleHookRepository.findByWorkflowId(workflowId);
-      for (const hook of hooks) {
-        const replaced = replaceKey(hook.inputKeys, oldAlias, newAlias);
-        if (replaced !== null) {
-          await lifecycleHookRepository.update(hook.id, { inputKeys: replaced });
-          result.lifecycleHooksUpdated++;
-        }
+    const lifecycleHooks = await lifecycleHookRepository.findByWorkflowId(workflowId, tx);
+    for (const hook of lifecycleHooks) {
+      const replaced = replaceKey(hook.inputKeys, oldAlias, newAlias);
+      if (replaced !== null) {
+        await lifecycleHookRepository.update(hook.id, { inputKeys: replaced }, tx);
+        result.lifecycleHooksUpdated++;
       }
-    } catch (error) {
-      log.error({ error }, 'Failed to propagate alias rename to lifecycle hooks');
     }
 
+    // Sections + steps are shared by the Final Block, step-visibleIf, and
+    // section-visibleIf reference types below.
+    const sections: Section[] = await sectionRepository.findByWorkflowId(workflowId, tx);
+    const steps: Step[] = await stepRepository.findBySectionIds(sections.map((s) => s.id), tx);
+
     // Final Block document mapping sources
-    try {
-      const sections = await sectionRepository.findByWorkflowId(workflowId);
-      const steps = await stepRepository.findBySectionIds(sections.map((s) => s.id));
-      for (const step of steps) {
-        if (step.type !== 'final' && step.type !== 'final_documents') {
-          continue;
-        }
-        const rewritten = rewriteFinalBlockMapping(step.options, oldAlias, newAlias);
-        if (rewritten !== null) {
-          await stepRepository.update(step.id, { options: rewritten });
-          result.finalBlockStepsUpdated++;
-        }
+    for (const step of steps) {
+      if (step.type !== 'final' && step.type !== 'final_documents') {
+        continue;
       }
-    } catch (error) {
-      log.error({ error }, 'Failed to propagate alias rename to Final Block mappings');
+      const rewritten = rewriteFinalBlockMapping(step.config, oldAlias, newAlias);
+      if (rewritten !== null) {
+        await stepRepository.update(step.id, { config: rewritten }, tx);
+        result.finalBlockStepsUpdated++;
+      }
     }
+
+    result.stepVisibleIfUpdated = await this.renameStepVisibleIf(steps, oldAlias, newAlias, tx);
+    result.sectionVisibleIfUpdated = await this.renameSectionVisibleIf(sections, oldAlias, newAlias, tx);
 
     const total =
       result.transformBlocksUpdated +
       result.documentHooksUpdated +
       result.lifecycleHooksUpdated +
-      result.finalBlockStepsUpdated;
+      result.finalBlockStepsUpdated +
+      result.stepVisibleIfUpdated +
+      result.sectionVisibleIfUpdated;
     if (total > 0) {
       log.info(result, 'Alias rename propagated to workflow references');
     }
 
     return result;
+  }
+
+  /** Rewrite step.visibleIf expressions referencing oldAlias. */
+  private async renameStepVisibleIf(
+    steps: Step[],
+    oldAlias: string,
+    newAlias: string,
+    tx?: DbTransaction
+  ): Promise<number> {
+    let count = 0;
+    for (const step of steps) {
+      const rewritten = renameAliasInExpression(step.visibleIf as ConditionExpression, oldAlias, newAlias);
+      if (rewritten !== step.visibleIf) {
+        await stepRepository.update(step.id, { visibleIf: rewritten }, tx);
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /** Rewrite section.visibleIf expressions referencing oldAlias. */
+  private async renameSectionVisibleIf(
+    sections: Section[],
+    oldAlias: string,
+    newAlias: string,
+    tx?: DbTransaction
+  ): Promise<number> {
+    let count = 0;
+    for (const section of sections) {
+      const rewritten = renameAliasInExpression(section.visibleIf as ConditionExpression, oldAlias, newAlias);
+      if (rewritten !== section.visibleIf) {
+        await sectionRepository.update(section.id, { visibleIf: rewritten }, tx);
+        count++;
+      }
+    }
+    return count;
   }
 }
 

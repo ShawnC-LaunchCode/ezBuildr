@@ -77,7 +77,7 @@ export function getReferenceDisplayValue(
     return { displayValue: 'Loading...', isLoading: true, isError: false };
   }
 
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
   const result = batchResult[rowId];
   // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (!result) {

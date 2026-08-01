@@ -1,10 +1,8 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import type { ApiStep } from "@/lib/vault-api";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
 
@@ -15,18 +13,12 @@ import { AliasField } from "./common/AliasField";
 import { DefaultValueField, DefaultValueType } from "./common/DefaultValueField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
+import type { StepEditorCommonProps } from "./common/stepEditorProps";
 import { InputTypeSection, TextValidationSection, TextCardState } from "./TextCardEditor.components";
 
+type TextEditorConfig = Partial<TextAdvancedConfig>;
 
-// Local Props
-interface TextCardEditorProps {
-  stepId: string;
-  sectionId: string;
-  workflowId: string;
-  step: ApiStep;
-}
-
-export function TextCardEditor({ stepId, sectionId, workflowId, step }: TextCardEditorProps): JSX.Element {
+export function TextCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
   const { toast } = useToast();
 
@@ -35,7 +27,7 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: TextCard
   const isEasyMode = step.type === "short_text" || step.type === "long_text";
 
   // Get config with defaults using generic access for flexibility
-  const config = step.config;
+  const config = step.config as TextEditorConfig | null;
   const variant = isAdvancedMode
     ? (config?.variant ?? "short")
     : step.type === "long_text"
@@ -54,7 +46,7 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: TextCard
 
   useEffect(() => {
     // Re-sync local config when step props change
-    const currentConfig = step.config;
+    const currentConfig = step.config as TextEditorConfig | null;
     const currentAdvanced = step.type === "text";
 
     // Determine variant from current state
@@ -77,7 +69,7 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: TextCard
     if (!pattern.trim()) { return null; }
 
     try {
-      // eslint-disable-next-line security/detect-non-literal-regexp
+
       new RegExp(pattern);
       return null;
     } catch (error) {
@@ -180,7 +172,7 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: TextCard
   return (
     <div className="space-y-4 p-4 border-t bg-muted/30">
       {/* Alias */}
-      <AliasField value={step.alias} onChange={handleAliasChange} />
+      <AliasField value={step.alias} onChange={handleAliasChange} workflowId={workflowId} currentStepId={stepId} />
 
       {/* Required Toggle */}
       <RequiredToggle checked={step.required} onChange={handleRequiredChange} />
@@ -219,7 +211,6 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: TextCard
           <DefaultValueField
             stepId={stepId}
             sectionId={sectionId}
-            workflowId={workflowId}
             defaultValue={step.defaultValue as DefaultValueType}
             type={step.type}
             mode={isEasyMode ? 'easy' : 'advanced'}
@@ -229,7 +220,6 @@ export function TextCardEditor({ stepId, sectionId, workflowId, step }: TextCard
             sectionId={sectionId}
             workflowId={workflowId}
             visibleIf={step.visibleIf as ConditionExpression}
-            mode={isAdvancedMode ? 'advanced' : 'easy'}
           />
         </>
       )}

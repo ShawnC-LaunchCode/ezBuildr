@@ -4,16 +4,16 @@
  */
 
 import { ArrowLeft, Sparkles, LayoutTemplate } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 
 import { TemplateBrowserDialog } from "@/components/templates/TemplateBrowserDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { CreateWorkflowForm } from "@/components/workflows/CreateWorkflowForm";
 import { useToast } from "@/hooks/use-toast";
 import { blueprintAPI, ApiBlueprint } from "@/lib/vault-api";
 import { useCreateWorkflow } from "@/lib/vault-hooks";
@@ -24,48 +24,9 @@ export default function NewWorkflow() {
   const createWorkflowMutation = useCreateWorkflow();
 
   const [isTemplateBrowserOpen, setIsTemplateBrowserOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-  });
   const [aiPrompt, setAiPrompt] = useState("");
   const requestedTab = new URLSearchParams(window.location.search).get("tab");
   const defaultTab = requestedTab === "ai" || requestedTab === "template" ? requestedTab : "manual";
-
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.title.trim()) {
-      toast({
-        title: "Error",
-        description: "Workflow title is required",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      // Prepare data, converting empty description to undefined
-      const workflowData = {
-        title: formData.title.trim(),
-        ...(formData.description.trim() && { description: formData.description.trim() }),
-      };
-
-      const workflow = await createWorkflowMutation.mutateAsync(workflowData);
-      toast({
-        title: "Success",
-        description: "Workflow created successfully",
-      });
-      // Navigate to the builder for the newly created workflow
-      navigate(`/workflows/${workflow.id}/builder`);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to create workflow",
-      });
-    }
-  };
 
   const handleAiSubmit = async () => {
     if (!aiPrompt.trim()) {
@@ -78,9 +39,12 @@ export default function NewWorkflow() {
     }
 
     try {
-      // Create a default workflow shell
+      // Derive a title from the first ~40 chars of the prompt so the workflow
+      // list doesn't fill with identical "AI Generated Workflow" names (the AI
+      // edit can rename it later).
+      const derivedTitle = aiPrompt.trim().slice(0, 40).trim();
       const workflowData = {
-        title: "AI Generated Workflow", // Could ask for this or generic
+        title: derivedTitle.length > 0 ? derivedTitle : "AI Generated Workflow",
         description: "Created via AI Assistant",
       };
 
@@ -156,47 +120,12 @@ export default function NewWorkflow() {
               </TabsList>
 
               <TabsContent value="manual">
-                <form onSubmit={(e) => { e.preventDefault(); void handleSubmit(e); }} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="title">Title *</Label>
-                    <Input
-                      id="title"
-                      placeholder="e.g., Customer Onboarding"
-                      value={formData.title}
-                      onChange={(e) => { void setFormData({ ...formData, title: e.target.value }); }}
-                      autoFocus
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      placeholder="Describe what this workflow is for..."
-                      value={formData.description}
-                      onChange={(e) => { void setFormData({ ...formData, description: e.target.value }); }}
-                      rows={4}
-                    />
-                  </div>
-
-                  <div className="flex gap-3 justify-end pt-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => { void navigate("/workflows"); }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={createWorkflowMutation.isPending}
-                      className="bg-indigo-600 hover:bg-indigo-700"
-                    >
-                      {createWorkflowMutation.isPending ? "Creating..." : "Create Workflow"}
-                    </Button>
-                  </div>
-                </form>
+                <CreateWorkflowForm
+                  autoFocus
+                  submitLabel="Create Workflow"
+                  onCancel={() => { void navigate("/workflows"); }}
+                  onCreated={(workflow) => { void navigate(`/workflows/${workflow.id}/builder`); }}
+                />
               </TabsContent>
 
               <TabsContent value="template">

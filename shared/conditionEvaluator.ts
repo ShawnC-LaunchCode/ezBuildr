@@ -58,7 +58,12 @@ export function evaluateConditionExpression(
     return true;
   }
 
-  return evaluateGroup(expression, data, aliasResolver);
+  try {
+    return evaluateGroup(expression, data, aliasResolver);
+  } catch (error) {
+    console.error("[conditionEvaluator] Failed to evaluate condition expression", error);
+    return false;
+  }
 }
 
 /**
@@ -84,23 +89,106 @@ export function evaluateConditionExpressionWithDetails(
       if (item.type === "group") {
         return evaluateGroupDetailed(item);
       }
-      // Script conditions - not yet implemented
+      console.warn("[conditionEvaluator] Script conditions are not supported in visibility evaluation");
       return false;
     });
 
-    if (group.operator === "AND") {
-      return results.every((r) => r);
-    } else {
-      return results.some((r) => r);
-    }
+    const groupResult = group.operator === "AND"
+      ? results.every((r) => r)
+      : results.some((r) => r);
+
+    return group.not ? !groupResult : groupResult;
   }
 
-  const visible = evaluateGroupDetailed(expression);
+  let visible = false;
+  try {
+    visible = evaluateGroupDetailed(expression);
+  } catch (error) {
+    console.error("[conditionEvaluator] Failed to evaluate condition expression", error);
+    visible = false;
+  }
 
   return {
     visible,
     reason: visible ? "Conditions satisfied" : "Conditions not satisfied",
     evaluatedConditions: evaluatedCount,
+  };
+}
+
+// =====================================================================
+// ALIAS RENAME PROPAGATION
+// =====================================================================
+
+/**
+ * Rewrite every reference to `oldAlias` inside a condition expression tree to
+ * `newAlias` — both the `variable` a condition compares, and `value`/`value2`
+ * when `valueType` is `"variable"` (a reference to another step). Constants
+ * and references to other aliases are left untouched.
+ *
+ * Returns the same object reference when nothing changed — including when
+ * `expression` is `null`/empty or isn't a recognizable `ConditionGroup` shape
+ * (e.g. a legacy string-form expression, or malformed jsonb) — so callers can
+ * cheaply detect "no update needed" with `!==` before writing back to the DB.
+ */
+export function renameAliasInExpression(
+  expression: ConditionExpression,
+  oldAlias: string,
+  newAlias: string
+): ConditionExpression {
+  if (!expression || expression.type !== "group" || !Array.isArray(expression.conditions)) {
+    return expression;
+  }
+  return renameInGroup(expression, oldAlias, newAlias);
+}
+
+function renameInGroup(
+  group: ConditionGroup,
+  oldAlias: string,
+  newAlias: string
+): ConditionGroup {
+  let changed = false;
+  const conditions = group.conditions.map((item) => {
+    if (item.type === "condition") {
+      const renamed = renameInCondition(item, oldAlias, newAlias);
+      if (renamed !== item) { changed = true; }
+      return renamed;
+    }
+    if (item.type === "group") {
+      const renamed = renameInGroup(item, oldAlias, newAlias);
+      if (renamed !== item) { changed = true; }
+      return renamed;
+    }
+    // Script conditions don't reference aliases through `variable`/`value`.
+    return item;
+  });
+
+  return changed ? { ...group, conditions } : group;
+}
+
+function renameInCondition(
+  condition: Condition,
+  oldAlias: string,
+  newAlias: string
+): Condition {
+  const variableMatches = condition.variable === oldAlias;
+  const valueMatches =
+    condition.valueType === "variable" &&
+    typeof condition.value === "string" &&
+    condition.value === oldAlias;
+  const value2Matches =
+    condition.valueType === "variable" &&
+    typeof condition.value2 === "string" &&
+    condition.value2 === oldAlias;
+
+  if (!variableMatches && !valueMatches && !value2Matches) {
+    return condition;
+  }
+
+  return {
+    ...condition,
+    variable: variableMatches ? newAlias : condition.variable,
+    value: valueMatches ? newAlias : condition.value,
+    value2: value2Matches ? newAlias : condition.value2,
   };
 }
 
@@ -130,15 +218,15 @@ function evaluateGroup(
       return evaluateGroup(item, data, aliasResolver);
     }
     // Script conditions - not yet implemented, equivalent to false/hidden for safety
+    console.warn("[conditionEvaluator] Script conditions are not supported in visibility evaluation");
     return false;
   });
 
-  if (group.operator === "AND") {
-    return results.every((r) => r);
-  } else {
-    // OR
-    return results.some((r) => r);
-  }
+  const groupResult = group.operator === "AND"
+    ? results.every((r) => r)
+    : results.some((r) => r);
+
+  return group.not ? !groupResult : groupResult;
 }
 
 /**
@@ -149,9 +237,10 @@ function evaluateSingleCondition(
   data: DataMap,
   aliasResolver?: AliasResolver
 ): boolean {
-  // Skip conditions with no variable selected
+  // Conditions without a selected variable are malformed. Hide the target.
   if (!condition.variable) {
-    return true;
+    console.warn("[conditionEvaluator] Condition is missing a variable");
+    return false;
   }
 
   // Resolve the variable to get the actual value
@@ -196,7 +285,7 @@ function resolveVariable(
 /**
  * Evaluate a comparison operator
  */
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- operator dispatch table
+// eslint-disable-next-line complexity -- operator dispatch table
 function evaluateOperator(
   operator: ComparisonOperator,
   actualValue: unknown,
@@ -224,25 +313,67 @@ function evaluateOperator(
     case "ends_with":
       return toString(actualValue).toLowerCase().endsWith(toString(compareValue).toLowerCase());
 
-    // Numeric comparisons
-    case "greater_than":
-      return toNumber(actualValue) > toNumber(compareValue);
+    // Numeric comparisons. Fail closed when the answer (or threshold) is empty
+    // or non-numeric: an unanswered field must NOT satisfy `age < 18` etc.
+    // `toComparableNumber` returns null for null/undefined/""/unparseable (but
+    // still handles numeric and date strings), so the condition only fires once
+    // a real value has been entered — matching the logic_rules engine (which
+    // early-returns false on null/undefined).
+    case "greater_than": {
+      const a = toComparableNumber(actualValue);
+      const b = toComparableNumber(compareValue);
+      return a !== null && b !== null && a > b;
+    }
 
-    case "less_than":
-      return toNumber(actualValue) < toNumber(compareValue);
+    case "less_than": {
+      const a = toComparableNumber(actualValue);
+      const b = toComparableNumber(compareValue);
+      return a !== null && b !== null && a < b;
+    }
 
-    case "greater_or_equal":
-      return toNumber(actualValue) >= toNumber(compareValue);
+    case "greater_or_equal": {
+      const a = toComparableNumber(actualValue);
+      const b = toComparableNumber(compareValue);
+      return a !== null && b !== null && a >= b;
+    }
 
-    case "less_or_equal":
-      return toNumber(actualValue) <= toNumber(compareValue);
+    case "less_or_equal": {
+      const a = toComparableNumber(actualValue);
+      const b = toComparableNumber(compareValue);
+      return a !== null && b !== null && a <= b;
+    }
 
     case "between": {
-      const num = toNumber(actualValue);
-      const min = toNumber(compareValue);
-      const max = toNumber(compareValue2);
-      return num >= min && num <= max;
+      const num = toComparableNumber(actualValue);
+      const min = toComparableNumber(compareValue);
+      const max = toComparableNumber(compareValue2);
+      return num !== null && min !== null && max !== null && num >= min && num <= max;
     }
+
+    // Date comparisons
+    case "before":
+      return compareDates(actualValue, compareValue, (actual, compare) => actual < compare);
+
+    case "after":
+      return compareDates(actualValue, compareValue, (actual, compare) => actual > compare);
+
+    case "on_or_before":
+      return compareDates(actualValue, compareValue, (actual, compare) => actual <= compare);
+
+    case "on_or_after":
+      return compareDates(actualValue, compareValue, (actual, compare) => actual >= compare);
+
+    case "diff_days":
+      return evaluateDateDifference(actualValue, compareValue, compareValue2, "days");
+
+    case "diff_weeks":
+      return evaluateDateDifference(actualValue, compareValue, compareValue2, "weeks");
+
+    case "diff_months":
+      return evaluateDateDifference(actualValue, compareValue, compareValue2, "months");
+
+    case "diff_years":
+      return evaluateDateDifference(actualValue, compareValue, compareValue2, "years");
 
     // Boolean shortcuts
     case "is_true":
@@ -278,9 +409,8 @@ function evaluateOperator(
     }
 
     default:
-      // Unknown operator - default to true
-      console.warn(`Unknown operator: ${operator}`);
-      return true;
+      console.warn("[conditionEvaluator] Unknown operator");
+      return false;
   }
 }
 
@@ -291,7 +421,7 @@ function evaluateOperator(
 /**
  * Check if two values are equal (with type coercion)
  */
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- multi-type equality requires branching
+// eslint-disable-next-line complexity -- multi-type equality requires branching
 function isEqual(a: unknown, b: unknown): boolean {
   // Handle null/undefined
   if ((a === null || a === undefined) && (b === null || b === undefined)) {return true;}
@@ -345,7 +475,7 @@ function toString(value: unknown): string {
 /**
  * Convert value to number
  */
-// eslint-disable-next-line sonarjs/cognitive-complexity -- multi-type conversion requires branching
+
 function toNumber(value: unknown): number {
   if (value === null || value === undefined) {return 0;}
   if (typeof value === "number") {return value;}
@@ -363,6 +493,116 @@ function toNumber(value: unknown): number {
   if (typeof value === "boolean") {return value ? 1 : 0;}
   if (value instanceof Date) {return value.getTime();}
   return 0;
+}
+
+/**
+ * Like {@link toNumber} (handles numeric strings, ISO date strings → epoch ms,
+ * booleans, Date), but returns `null` — instead of `0` — for unanswered/empty
+ * or unparseable input. Numeric comparison operators use this so an empty field
+ * fails the comparison rather than silently reading as 0.
+ */
+function toComparableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") { return null; }
+  if (typeof value === "number") { return Number.isFinite(value) ? value : null; }
+  if (typeof value === "string") {
+    if (value.includes("-") || value.includes("/")) {
+      const date = new Date(value);
+      if (!Number.isNaN(date.getTime())) { return date.getTime(); }
+    }
+    const num = parseFloat(value);
+    return Number.isNaN(num) ? null : num;
+  }
+  if (typeof value === "boolean") { return value ? 1 : 0; }
+  if (value instanceof Date) { const t = value.getTime(); return Number.isNaN(t) ? null : t; }
+  return null;
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const numberValue = typeof value === "string" ? Number(value) : toNumber(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function toDateMs(value: unknown): number | null {
+  if (value instanceof Date) {
+    const time = value.getTime();
+    return Number.isNaN(time) ? null : time;
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const time = new Date(value).getTime();
+    return Number.isNaN(time) ? null : time;
+  }
+  return null;
+}
+
+function compareDates(
+  actualValue: unknown,
+  compareValue: unknown,
+  predicate: (actual: number, compare: number) => boolean
+): boolean {
+  const actualDate = toDateMs(actualValue);
+  const compareDate = toDateMs(compareValue);
+
+  if (actualDate === null || compareDate === null) {
+    return false;
+  }
+
+  return predicate(actualDate, compareDate);
+}
+
+function evaluateDateDifference(
+  actualValue: unknown,
+  compareValue: unknown,
+  expectedDifference: unknown,
+  unit: "days" | "weeks" | "months" | "years"
+): boolean {
+  const actualDate = toDateMs(actualValue);
+  const compareDate = toDateMs(compareValue);
+  const expected = toFiniteNumber(expectedDifference);
+
+  if (actualDate === null || compareDate === null || expected === null) {
+    return false;
+  }
+
+  return getDateDifference(actualDate, compareDate, unit) === expected;
+}
+
+function getDateDifference(
+  actualDate: number,
+  compareDate: number,
+  unit: "days" | "weeks" | "months" | "years"
+): number {
+  const millisecondsPerDay = 24 * 60 * 60 * 1000;
+  const diffDays = Math.floor(Math.abs(actualDate - compareDate) / millisecondsPerDay);
+
+  if (unit === "days") {
+    return diffDays;
+  }
+  if (unit === "weeks") {
+    return Math.floor(diffDays / 7);
+  }
+
+  const earlier = new Date(Math.min(actualDate, compareDate));
+  const later = new Date(Math.max(actualDate, compareDate));
+  let months =
+    (later.getUTCFullYear() - earlier.getUTCFullYear()) * 12 +
+    later.getUTCMonth() -
+    earlier.getUTCMonth();
+
+  if (later.getUTCDate() < earlier.getUTCDate()) {
+    months -= 1;
+  }
+
+  if (unit === "months") {
+    return months;
+  }
+
+  return Math.floor(months / 12);
 }
 
 /**
@@ -548,7 +788,7 @@ function describeCondition(
   return `${varLabel} ${operator} ${valueStr}`;
 }
 
-/* eslint-disable @typescript-eslint/naming-convention -- keys match ComparisonOperator enum values */
+
 function getOperatorLabel(operator: ComparisonOperator): string {
   const labels: Record<ComparisonOperator, string> = {
     equals: "=",
@@ -581,7 +821,7 @@ function getOperatorLabel(operator: ComparisonOperator): string {
   };
   return labels[operator] ?? operator;
 }
-/* eslint-enable @typescript-eslint/naming-convention */
+
 
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) {return "null";}

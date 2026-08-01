@@ -22,6 +22,7 @@ import { runGeneratedDocuments, workflowRuns } from '../../shared/schema';
 import { db } from '../db';
 import { logger } from '../logger';
 import { EnhancedDocumentEngine } from '../services/document/EnhancedDocumentEngine';
+import { storageProvider } from '../services/storage';
 
 import { getDocumentGenerationQueue, DocumentGenerationJobData, DocumentGenerationJobResult } from './DocumentGenerationQueue';
 
@@ -105,18 +106,33 @@ async function processDocumentGenerationJob(
     // producing broken links; the extra `metadata` key was silently dropped
     // because run_generated_documents has no such column).
     if (result.documents.length > 0) {
-      const documentRecords = result.documents.map((doc) => {
+      const documentRecords = [];
+      const fs = await import('fs/promises');
+      
+      for (const doc of result.documents) {
         const filePath = doc.pdfPath ?? doc.docxPath;
         const fileName = path.basename(filePath);
-        return {
+        
+        // Upload to storage provider
+        const fileBuffer = await fs.readFile(filePath);
+        const storageKey = `runs/${runId}/documents/${fileName}`;
+        const mimeType = filePath.endsWith('.pdf')
+            ? 'application/pdf'
+            : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+            
+        await storageProvider.uploadFile(storageKey, fileBuffer, mimeType);
+
+        documentRecords.push({
           runId,
           fileName,
           fileUrl: `/api/runs/${runId}/final-documents/${fileName}/download`,
-          mimeType: filePath.endsWith('.pdf')
-            ? 'application/pdf'
-            : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        };
-      });
+          storageKey,
+          mimeType,
+        });
+        
+        // Clean up local file
+        await fs.unlink(filePath).catch(() => {});
+      }
 
       await db.insert(runGeneratedDocuments).values(documentRecords);
 
@@ -374,7 +390,6 @@ if (require.main === module) {
 
   startDocumentGenerationWorker();
 
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   // Graceful shutdown
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   process.on('SIGTERM', async () => {
@@ -382,7 +397,6 @@ if (require.main === module) {
     await stopDocumentGenerationWorker();
     process.exit(0);
   });
-// eslint-disable-next-line @typescript-eslint/no-misused-promises
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   process.on('SIGINT', async () => {

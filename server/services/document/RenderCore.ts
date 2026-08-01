@@ -9,9 +9,9 @@
 
 import fs from 'fs/promises';
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
+
 import Docxtemplater from 'docxtemplater';
-// eslint-disable-next-line @typescript-eslint/naming-convention
+
 import PizZip from 'pizzip';
 
 import { logger } from '../../logger';
@@ -120,12 +120,17 @@ export function createExpressionParser(tag: string): {
 }
 
 /** Shared docxtemplater construction — the one place render options live */
-export function createDocxRenderer(zip: PizZip): Docxtemplater {
+export function createDocxRenderer(zip: PizZip, unresolvedVariables?: string[]): Docxtemplater {
     return new Docxtemplater(zip, {
         paragraphLoop: true,
         linebreaks: true,
         delimiters: { start: '{{', end: '}}' },
-        nullGetter: (): string => '',
+        nullGetter: (part: { value?: string }): string => {
+            if (unresolvedVariables && part?.value && !unresolvedVariables.includes(part.value)) {
+                unresolvedVariables.push(part.value);
+            }
+            return '';
+        },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment -- docxtemplater parser type is not publicly exported
         parser: ((tag: string) => createExpressionParser(tag)) as any,
     });
@@ -135,6 +140,7 @@ export interface RenderDocxBufferOptions {
     templatePath: string;
     templateBuffer?: Buffer;
     data: Record<string, unknown>;
+    unresolvedVariables?: string[];
 }
 
 /**
@@ -145,12 +151,13 @@ export async function renderDocxBuffer({
     templatePath,
     templateBuffer,
     data,
+    unresolvedVariables,
 }: RenderDocxBufferOptions): Promise<Buffer> {
     try {
-        // eslint-disable-next-line security/detect-non-literal-fs-filename
+
         const content = templateBuffer ?? (await fs.readFile(templatePath, 'binary'));
         const zip = new PizZip(content);
-        const doc = createDocxRenderer(zip);
+        const doc = createDocxRenderer(zip, unresolvedVariables);
 
         // Merge data with helpers for template use (top-level access)
         const templateData = {

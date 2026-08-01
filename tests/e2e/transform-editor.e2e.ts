@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 /**
  * Transform Editor (List Tools) E2E Tests
  * Covers paths from MANUAL_UI_TEST_GUIDE.md
- * Target context: Standard Builder (Sidebar > Add Logic > List Tools)
+ * Target context: Standard Builder (Sidebar > Add Action > List Tools)
  */
 test.describe("Transform Editor (List Tools) - Manual Paths", () => {
     test.setTimeout(60000);
@@ -87,10 +87,10 @@ test.describe("Transform Editor (List Tools) - Manual Paths", () => {
         const sectionItem = page.getByText("Test Page 1").locator(".."); // Go up to parent div
         await sectionItem.hover();
 
-        // Click "Add Logic" (Zap icon)
+        // Click "Add Action" (Zap icon)
         // It might be hidden if not hovered, but Playwright hover() should trigger it.
-        console.log("Looking for Add Logic button...");
-        const addLogicBtn = page.locator('button[title="Add Logic"]').first();
+        console.log("Looking for Add Action button...");
+        const addLogicBtn = page.locator('button[title="Add Action"]').first();
         await addLogicBtn.click();
 
         // Click "List Tools" in dropdown
@@ -172,7 +172,7 @@ test.describe("Transform Editor (List Tools) - Manual Paths", () => {
         // Find Section & Add Block
         const sectionItem = page.getByText("Test Page 1").locator("..");
         await sectionItem.hover();
-        await sectionItem.locator('button[title="Add Logic"]').click();
+        await sectionItem.locator('button[title="Add Action"]').click();
         await page.getByRole('menuitem', { name: "List Tools" }).click();
 
         // Use generic node locator (only 1 block exists)
@@ -198,7 +198,7 @@ test.describe("Transform Editor (List Tools) - Manual Paths", () => {
         // Find Section & Add Block
         const sectionItem = page.getByText("Test Page 1").locator("..");
         await sectionItem.hover();
-        await sectionItem.locator('button[title="Add Logic"]').click();
+        await sectionItem.locator('button[title="Add Action"]').click();
         await page.getByRole('menuitem', { name: "List Tools" }).click();
 
         // Use generic node locator (only 1 block exists)
@@ -289,7 +289,7 @@ test.describe("Transform Editor (List Tools) - Manual Paths", () => {
         // Add Block
         const sectionItem = page.getByText("Test Page 1").locator("..");
         await sectionItem.hover();
-        await sectionItem.locator('button[title="Add Logic"]').click();
+        await sectionItem.locator('button[title="Add Action"]').click();
         await page.getByRole('menuitem', { name: "List Tools" }).click();
 
         // Use generic node locator (only 1 block exists)

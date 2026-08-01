@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect } from "react";
 import { Switch, Route, useLocation } from "wouter";
 
-// eslint-disable-next-line @typescript-eslint/naming-convention -- React component
+
 import { FullScreenLoader } from "@/components/ui/loader";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -16,10 +16,10 @@ const AuthRedirect = () => {
 // Lazy load pages
 const NotFound = lazy(() => import("@/pages/not-found"));
 const Landing = lazy(() => import("@/marketing/LandingPage"));
-const LandingV2 = lazy(() => import("@/marketing/v2/LandingV2"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const WorkflowsList = lazy(() => import("@/pages/WorkflowsList"));
 const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
+const AdminOrgStats = lazy(() => import("@/pages/AdminOrgStats"));
 const AdminUsers = lazy(() => import("@/pages/AdminUsers"));
 const AdminLogs = lazy(() => import("@/pages/AdminLogs"));
 const AdminAiSettings = lazy(() => import("@/pages/AdminAiSettings"));
@@ -49,7 +49,6 @@ const DatabaseSettingsPage = lazy(() => import("@/pages/datavault/DatabaseSettin
 const UrlParametersDoc = lazy(() => import("@/pages/docs/UrlParametersDoc")); // Documentation
 const BillingDashboard = lazy(() => import("@/pages/billing/BillingDashboard"));
 const PricingPage = lazy(() => import("@/pages/billing/PricingPage"));
-const PublicRunner = lazy(() => import("@/pages/public/PublicRunner"));
 const RunCompletionView = lazy(() => import("@/pages/RunCompletionView"));
 const OAuthApps = lazy(() => import("@/pages/developer/OAuthApps"));
 const LoginPage = lazy(() => import("@/pages/auth/LoginPage"));
@@ -69,8 +68,11 @@ export default function Router() {
     return (
         <Suspense fallback={<FullScreenLoader />}>
             <Switch>
-                {/* Public Workflow Runner */}
-                <Route path="/w/:slug" component={PublicRunner} />
+                {/* Public Workflow Runner — same runner as /run/:id; the old
+                    PublicRunner stub never rendered questions and faked completion */}
+                <Route path="/w/:slug">
+                    {(params) => <WorkflowRunner runId={params.slug} />}
+                </Route>
                 {/* Public Shared Run View */}
                 <Route path="/share/:token" component={RunCompletionView} />
                 {/* Client Portal Routes - Independent Auth */}
@@ -89,8 +91,6 @@ export default function Router() {
                 <Route path="/intake/preview" component={IntakePreviewPage} />
                 {/* Documentation - available to everyone */}
                 <Route path="/docs/url-parameters" component={UrlParametersDoc} />
-                {/* Secondary marketing landing page - available to everyone */}
-                <Route path="/landing-v2" component={LandingV2} />
                 {isLoading || !isAuthenticated ? (
                     <>
                         <Route path="/" component={Landing} />
@@ -139,6 +139,7 @@ export default function Router() {
                         <Route path="/projects/:id/settings/email-templates/:templateId" component={EmailTemplateEditorPage} />
                         {/* Admin routes */}
                         <Route path="/admin" component={AdminDashboard} />
+                        <Route path="/admin/org-stats" component={AdminOrgStats} />
                         <Route path="/admin/users" component={AdminUsers} />
                         <Route path="/admin/logs" component={AdminLogs} />
                         <Route path="/admin/ai-settings" component={AdminAiSettings} />

@@ -1,10 +1,10 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Enhanced Sandbox Executor for Custom Scripting System
  * Extends sandboxExecutor.ts with helper library and context injection
  */
 
 import { spawn } from "child_process";
+import { createRequire } from "module";
 import vm from "vm";
 
 import type { ScriptExecutionResult, ScriptContextAPI, HelperLibraryAPI } from "@shared/types/scripting";
@@ -45,6 +45,32 @@ interface IvmReference {
 interface IvmScript {
   run(context: IvmContext, options?: unknown): Promise<unknown>;
 }
+interface IvmExternalCopy {
+  copyInto(): unknown;
+}
+interface IvmModule {
+  isolate: new (options: { memoryLimit: number }) => IvmIsolate;
+  externalCopy: new (value: unknown) => IvmExternalCopy;
+  reference: new (value: unknown) => IvmReference;
+}
+
+function hasAsyncCopy(value: unknown): value is { copy(): Promise<unknown> } {
+  return typeof value === "object"
+    && value !== null
+    && "copy" in value
+    && typeof value.copy === "function";
+}
+
+const optionalRequire = createRequire(import.meta.url);
+
+function loadIvmModule(): IvmModule {
+  const raw = optionalRequire("isolated-vm") as Record<string, unknown>;
+  return {
+    isolate: raw.Isolate as IvmModule["isolate"],
+    externalCopy: raw.ExternalCopy as IvmModule["externalCopy"],
+    reference: raw.Reference as IvmModule["reference"],
+  };
+}
 
 
 interface ExecuteCodeWithHelpersParams {
@@ -81,11 +107,9 @@ async function runJsWithHelpers(
   // When consoleEnabled, always use helperLib.helpers to ensure console capture works
   const actualHelpers = consoleEnabled ? helperLib.helpers : (helpers ?? helperLib.helpers);
 
-  // @ts-ignore - TODO: fix type
-  let ivm: typeof import("isolated-vm") | undefined;
+  let ivm: IvmModule | undefined;
   try {
-    // @ts-ignore - TODO: fix type
-    ivm = await import("isolated-vm");
+    ivm = loadIvmModule();
   } catch (error) {
     // SECURITY: Node's built-in `vm` module is NOT a security boundary — it is trivially
     // escapable (e.g. `this.constructor.constructor("return process")()`). Silently falling
@@ -114,8 +138,7 @@ async function runJsWithHelpers(
       { error },
       "isolated-vm not found — using INSECURE node 'vm' fallback (non-production only, not a security boundary)"
     );
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- helper library has dynamic method signatures
-    const result = await runJsWithVmFallback(code, input, context, actualHelpers as Record<string, any>, timeoutMs, consoleEnabled);
+    const result = await runJsWithVmFallback(code, input, context, actualHelpers, timeoutMs, consoleEnabled);
     // Merge logs from helper library (which captures helpers.console.* calls)
     if (helperLib.getConsoleLogs) {
       const libLogs = helperLib.getConsoleLogs();
@@ -129,7 +152,7 @@ async function runJsWithHelpers(
 
   // Create or reuse Isolate
   // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-  const isolate = (existingIsolate as IvmIsolate) || new ivm.Isolate({ memoryLimit: 128 });
+  const isolate = (existingIsolate as IvmIsolate) || new ivm.isolate({ memoryLimit: 128 });
   const disposeIsolate = !existingIsolate; // Only dispose if we created it
 
 
@@ -161,10 +184,10 @@ async function runJsWithHelpers(
     await jail.set("global", jail.derefInto());
 
     // 3. Transfer Input (Data)
-    await jail.set("input", new ivm.ExternalCopy(input).copyInto());
+    await jail.set("input", new ivm.externalCopy(input).copyInto());
 
     // 4. Transfer Context (Data - confirmed purely JSON)
-    await jail.set("context", new ivm.ExternalCopy(context).copyInto());
+    await jail.set("context", new ivm.externalCopy(context).copyInto());
 
     // 5. Setup Helpers Bridge
     // We can't transfer functions directly. We create a structure map and a generic caller.
@@ -183,11 +206,11 @@ async function runJsWithHelpers(
     };
 
     const helpersStructure = getStructure(actualHelpers);
-    await jail.set("_helpersStructure", new ivm.ExternalCopy(helpersStructure).copyInto());
+    await jail.set("_helpersStructure", new ivm.externalCopy(helpersStructure).copyInto());
 
     // Setup emit callback
     let emittedValue: unknown = undefined;
-    await jail.set("_emitCallback", new ivm.Reference((val: unknown) => {
+    await jail.set("_emitCallback", new ivm.reference((val: unknown) => {
       // Handle potential reference if val is object
       // But typically we want the value. ivm passes value for primitives, Reference for objects?
       // Actually with primitives it passes value.
@@ -200,13 +223,13 @@ async function runJsWithHelpers(
 
     // Setup console capture callbacks
     const capturedConsoleLogs: unknown[][] = [];
-    await jail.set("_consoleLog", new ivm.Reference((...args: unknown[]) => {
+    await jail.set("_consoleLog", new ivm.reference((...args: unknown[]) => {
       capturedConsoleLogs.push(args);
     }));
-    await jail.set("_consoleWarn", new ivm.Reference((...args: unknown[]) => {
+    await jail.set("_consoleWarn", new ivm.reference((...args: unknown[]) => {
       capturedConsoleLogs.push(['[WARN]', ...args]);
     }));
-    await jail.set("_consoleError", new ivm.Reference((...args: unknown[]) => {
+    await jail.set("_consoleError", new ivm.reference((...args: unknown[]) => {
       capturedConsoleLogs.push(['[ERROR]', ...args]);
     }));
 
@@ -226,31 +249,31 @@ async function runJsWithHelpers(
     // If we define:
     // jail.setSync("callHost", new ivm.Reference( (path, ...args) => ... ));
 
-    await jail.set("callHost", new ivm.Reference((path: string[], ...args: unknown[]) => {
+    await jail.set("callHost", new ivm.reference((path: string[], ...args: unknown[]) => {
       // With { arguments: { copy: true } }, path and args are copied by value (not References)
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- traversing dynamic helper object tree
-      let target: any = actualHelpers;
+      let target: unknown = actualHelpers;
       // Debug log
       // logger.debug({ path: path.join('.') }, 'Bridge Path');
 
       for (const key of path) {
-        if (!target) {
+        if (typeof target !== "object" || target === null) {
           throw new Error(`Helper not found: ${path.join('.')}`);
         }
-        target = target[key];
+        target = (target as Record<string, unknown>)[key];
       }
 
-      // eslint-disable-next-line @typescript-eslint/ban-types
-      const fn = target as Function;
+      if (typeof target !== "function") {
+        throw new Error(`Helper is not callable: ${path.join('.')}`);
+      }
 
       // Args are already copies
-      const res = fn(...args);
+      const res: unknown = target(...args);
 
       // Handle void return (undefined)
       if (res === undefined) { return undefined; }
 
-      return new ivm.ExternalCopy(res).copyInto();
+      return new ivm.externalCopy(res).copyInto();
     }));
 
     // Bootstrap Script to rebuild helpers object
@@ -344,10 +367,8 @@ async function runJsWithHelpers(
     // Prioritize emitted value if exists
     if (emittedValue !== undefined) {
       output = emittedValue;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- isolated-vm Reference has dynamic copy method
-    } else if (typeof resultRef === 'object' && resultRef !== null && typeof (resultRef as any).copy === 'function') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- isolated-vm Reference API
-      output = await (resultRef as any).copy();
+    } else if (hasAsyncCopy(resultRef)) {
+      output = await resultRef.copy();
     }
 
     // Explicitly dispose context (script is cached or disposed by isolate)
@@ -384,7 +405,7 @@ async function runPythonWithHelpers(
   code: string,
   input: Record<string, unknown>,
   context: ScriptContextAPI,
-  // eslint-disable-next-line max-lines-per-function
+
   timeoutMs: number,
   _consoleEnabled: boolean
 ): Promise<ScriptExecutionResult> {
@@ -725,8 +746,28 @@ except Exception as e:
 
         try {
           // Parse JSON output
-          const result = JSON.parse(stdout.trim());
-          result.durationMs = durationMs;
+          const parsed: unknown = JSON.parse(stdout.trim());
+          if (typeof parsed !== "object" || parsed === null || !("ok" in parsed) || typeof parsed.ok !== "boolean") {
+            throw new Error("Python output did not contain a boolean ok field");
+          }
+
+          const result: ScriptExecutionResult = {
+            ok: parsed.ok,
+            durationMs,
+          };
+          if ("output" in parsed) {
+            result.output = parsed.output;
+          }
+          if ("error" in parsed && typeof parsed.error === "string") {
+            result.error = parsed.error;
+          }
+          if (
+            "consoleLogs" in parsed
+            && Array.isArray(parsed.consoleLogs)
+            && parsed.consoleLogs.every(Array.isArray)
+          ) {
+            result.consoleLogs = parsed.consoleLogs as unknown[][];
+          }
           resolve(result);
         } catch (parseError) {
           resolve({
@@ -812,6 +853,7 @@ async function runJsWithVmFallback(
   _consoleEnabled: boolean
 ): Promise<ScriptExecutionResult> {
   const consoleLogs: unknown[][] = [];
+  let emittedResult: unknown;
 
   const sandbox = {
     input,
@@ -825,8 +867,7 @@ async function runJsWithVmFallback(
     },
     emit: (val: unknown) => {
       // Mimic emit behavior: captures the value as the result
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- sandbox needs dynamic property for emit capture
-      (sandbox as any).__emitResult__ = val;
+      emittedResult = val;
     }
   };
 
@@ -842,13 +883,12 @@ async function runJsWithVmFallback(
     const script = new vm.Script(wrappedCode);
     const result = script.runInNewContext(sandbox, {
       timeout: timeoutMs
-    });
+    }) as unknown;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- sandbox emit capture uses dynamic property
+
     return {
       ok: true,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      output: (sandbox as any).__emitResult__ !== undefined ? (sandbox as any).__emitResult__ : result,
+      output: emittedResult !== undefined ? emittedResult : result,
       consoleLogs: consoleLogs.length > 0 ? consoleLogs : undefined,
       durationMs: Date.now() - startTime
     };

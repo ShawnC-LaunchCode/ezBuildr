@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import { z } from "zod";
@@ -116,7 +115,7 @@ export const reviseTransforms = async (request: RevisionRequest): Promise<Transf
 
   try {
     const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
-    const parsed = JSON.parse(cleanedText);
+    const parsed: unknown = JSON.parse(cleanedText);
     
     const validationResult = transformResultSchema.safeParse(parsed);
     if (!validationResult.success) {

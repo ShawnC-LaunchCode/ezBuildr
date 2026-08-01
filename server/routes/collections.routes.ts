@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { z } from 'zod';
 
 import { insertCollectionSchema, insertCollectionFieldSchema, insertRecordSchema } from '@shared/schema';
@@ -14,6 +13,10 @@ import { classifyRouteError } from '../utils/routeErrors';
 
 import type { Express, Request, Response } from 'express';
 
+function parseRecordData(body: unknown): Record<string, unknown> {
+  const parsed = z.object({ data: z.record(z.unknown()).optional() }).passthrough().parse(body);
+  return parsed.data ?? parsed;
+}
 
 /**
  * Register collections/datastore routes
@@ -244,8 +247,7 @@ export function registerCollectionsRoutes(app: Express): void {
 
       const { fields: fieldsData } = bulkSchema.parse(req.body);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const fields = await collectionFieldService.bulkCreateFields(collectionId, fieldsData as any);
+      const fields = await collectionFieldService.bulkCreateFields(collectionId, fieldsData);
       res.status(201).json(fields);
     } catch (error) {
       logger.error({ error }, 'Error bulk creating fields');
@@ -406,7 +408,7 @@ export function registerCollectionsRoutes(app: Express): void {
       const recordData = insertRecordSchema.parse({
         tenantId,
         collectionId,
-        data: req.body.data || req.body, // Support both {data: {...}} and direct {...}
+        data: parseRecordData(req.body),
       });
 
       const record = await recordService.createRecord(recordData, userId);
@@ -534,7 +536,7 @@ export function registerCollectionsRoutes(app: Express): void {
       const userId = authReq.userId;
 
       // Updates can be partial field updates
-      const updates = req.body.data || req.body; // Support both {data: {...}} and direct {...}
+      const updates = parseRecordData(req.body);
 
       const record = await recordService.updateRecord(recordId, tenantId, updates, userId);
       res.json(record);

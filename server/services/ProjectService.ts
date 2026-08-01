@@ -1,14 +1,21 @@
-import type { Project, InsertProject, Workflow, ProjectAccess, PrincipalType, AccessRole } from "@shared/schema";
+import { and, eq, inArray } from "drizzle-orm";
 
+import type { Project, InsertProject, Workflow, ProjectAccess, PrincipalType, AccessRole } from "@shared/schema";
+import { workflows, workflowRuns, datavaultDatabases, datavaultTables, workflowDataSources } from "@shared/schema";
+
+import { db } from "../db";
 import {
   projectRepository,
   workflowRepository,
   projectAccessRepository,
   type DbTransaction,
+  type ProjectListOptions,
+  type ProjectWithOwnerName,
 } from "../repositories";
 import { canCreateWithOwnership, canManageOrg, isOrgMember } from "../utils/ownershipAccess";
 
 import { aclService } from "./AclService";
+import { transferService } from "./TransferService";
 /**
  * Service layer for project-related business logic
  */
@@ -114,19 +121,19 @@ export class ProjectService {
   /**
    * List all projects for a user
    */
-  async listProjects(creatorId: string): Promise<Project[]> {
-    return this.projectRepo.findByCreatorId(creatorId);
+  async listProjects(creatorId: string, options: ProjectListOptions = {}): Promise<ProjectWithOwnerName[]> {
+    return this.projectRepo.findByCreatorId(creatorId, options);
   }
   /**
    * List active (non-archived) projects for a user
    */
-  async listActiveProjects(creatorId: string): Promise<Project[]> {
-    return this.projectRepo.findActiveByCreatorId(creatorId);
+  async listActiveProjects(creatorId: string, options: ProjectListOptions = {}): Promise<ProjectWithOwnerName[]> {
+    return this.projectRepo.findActiveByCreatorId(creatorId, options);
   }
   /**
    * List projects owned by a specific organization.
    */
-  async listOrganizationProjects(orgId: string, userId: string, activeOnly = true): Promise<Project[]> {
+  async listOrganizationProjects(orgId: string, userId: string, activeOnly = true): Promise<ProjectWithOwnerName[]> {
     const isMember = await isOrgMember(userId, orgId);
     if (!isMember) {
       throw new Error("Access denied - you do not have permission to access this organization");
@@ -141,8 +148,24 @@ export class ProjectService {
     userId: string,
     data: Partial<InsertProject>
   ): Promise<Project> {
-    await this.verifyProjectAccess(projectId, userId, 'edit');
+    const project = await this.verifyProjectAccess(projectId, userId, 'edit');
+    if (data.status !== undefined || data.archived !== undefined) {
+      const willArchive = data.status === 'archived' || data.archived === true;
+      await this.requireOrgAdminForOrgOwnedProject(project, userId, willArchive ? 'archive' : 'unarchive');
+    }
     return this.projectRepo.update(projectId, data);
+  }
+  /**
+   * Shared write path for putting a project into the archived state.
+   * `archiveProject` and `deleteProject` both call this instead of each
+   * writing `{ status: 'archived', archived: true }` independently, so the
+   * two entry points can't drift apart (PROJ-5).
+   */
+  private async writeArchivedState(projectId: string): Promise<Project> {
+    return this.projectRepo.update(projectId, {
+      status: 'archived',
+      archived: true,
+    });
   }
   /**
    * Archive project (soft delete)
@@ -150,13 +173,18 @@ export class ProjectService {
   async archiveProject(projectId: string, userId: string): Promise<Project> {
     const project = await this.verifyProjectAccess(projectId, userId, 'edit');
     await this.requireOrgAdminForOrgOwnedProject(project, userId, 'archive');
-    return this.projectRepo.update(projectId, {
-      status: 'archived',
-      archived: true,
-    });
+    return this.writeArchivedState(projectId);
   }
   /**
    * Unarchive project
+   *
+   * NOTE (deliberate, Backlog B6): this is gated at 'edit', the same as
+   * archiveProject. Because `deleteProject` below writes the identical
+   * archived state as archiveProject, there is no way to distinguish an
+   * "archived" project from an owner-"deleted" one — so an edit-role user
+   * can unarchive a project that its owner deleted. Closing this requires a
+   * `deletedAt` column plus owner-gated resurrect, tracked as Backlog B6;
+   * not addressed here.
    */
   async unarchiveProject(projectId: string, userId: string): Promise<Project> {
     const project = await this.verifyProjectAccess(projectId, userId, 'edit');
@@ -167,16 +195,21 @@ export class ProjectService {
     });
   }
   /**
-   * Delete project (hard delete)
-   * Note: Workflows will have their projectId set to null (on delete set null)
+   * Delete project (soft delete — archives the project; workflows are
+   * retained, not detached or destroyed).
+   *
+   * Writes the exact same archived state as `archiveProject`, via the
+   * shared `writeArchivedState` helper, so the two paths cannot drift. The
+   * only difference is authorization: this is gated at 'owner' (+ org-admin
+   * for org-owned projects) rather than `archiveProject`'s 'edit' gate. See
+   * the note on `unarchiveProject` above (Backlog B6) for the resulting
+   * quirk: an edit-role user can unarchive a project that was "deleted" by
+   * its owner, since the row is indistinguishable from a plain archive.
    */
   async deleteProject(projectId: string, userId: string): Promise<void> {
     const project = await this.verifyProjectAccess(projectId, userId, 'owner');
     await this.requireOrgAdminForOrgOwnedProject(project, userId, 'delete');
-    await this.projectRepo.update(projectId, {
-      status: 'archived',
-      archived: true,
-    });
+    await this.writeArchivedState(projectId);
   }
   /**
    * Get workflows in a project
@@ -206,14 +239,37 @@ export class ProjectService {
   /**
    * Grant or update access to a project
    * Only owner can grant 'owner' role to others
+   *
+   * The authorization check runs outside any transaction (it only reads).
+   * The write loop is atomic: if a caller already holds a transaction it is
+   * reused (no nested transaction), otherwise one is opened here — mirrors
+   * `DatavaultRowsService.createRow`'s tx-reuse pattern. Every entry must
+   * apply or none do (PROJ-9); a mid-loop DB error rolls back all prior
+   * upserts in the same call instead of leaving a partial ACL change.
    */
   async grantProjectAccess(
     projectId: string,
     requestorId: string,
-    entries: Array<{ principalType: PrincipalType; principalId: string; role: string }>,
+    entries: Array<{ principalType: PrincipalType; principalId: string; role: Exclude<AccessRole, 'none'> }>,
     tx?: DbTransaction
   ): Promise<ProjectAccess[]> {
     await this.verifyProjectAccess(projectId, requestorId, 'owner');
+    if (tx) {
+      return this._grantProjectAccessImpl(projectId, entries, tx);
+    }
+    return db.transaction((newTx) => this._grantProjectAccessImpl(projectId, entries, newTx));
+  }
+  /**
+   * Internal implementation of grantProjectAccess.
+   * Must be called within a transaction; every repo call below MUST use
+   * `tx` (not the pool `db`) — a pool query issued while the transaction
+   * still holds the connection deadlocks the size-1 test pool.
+   */
+  private async _grantProjectAccessImpl(
+    projectId: string,
+    entries: Array<{ principalType: PrincipalType; principalId: string; role: Exclude<AccessRole, 'none'> }>,
+    tx: DbTransaction
+  ): Promise<ProjectAccess[]> {
     const results: ProjectAccess[] = [];
     for (const entry of entries) {
       const acl = await this.projectAccessRepo.upsert(
@@ -229,6 +285,9 @@ export class ProjectService {
   }
   /**
    * Revoke access from a project
+   *
+   * Same tx-reuse/atomicity shape as `grantProjectAccess` — see its doc
+   * comment.
    */
   async revokeProjectAccess(
     projectId: string,
@@ -237,6 +296,21 @@ export class ProjectService {
     tx?: DbTransaction
   ): Promise<void> {
     await this.verifyProjectAccess(projectId, requestorId, 'owner');
+    if (tx) {
+      return this._revokeProjectAccessImpl(projectId, entries, tx);
+    }
+    return db.transaction((newTx) => this._revokeProjectAccessImpl(projectId, entries, newTx));
+  }
+  /**
+   * Internal implementation of revokeProjectAccess.
+   * Must be called within a transaction; every repo call below MUST use
+   * `tx` (not the pool `db`) — see `_grantProjectAccessImpl` above.
+   */
+  private async _revokeProjectAccessImpl(
+    projectId: string,
+    entries: Array<{ principalType: PrincipalType; principalId: string }>,
+    tx: DbTransaction
+  ): Promise<void> {
     for (const entry of entries) {
       await this.projectAccessRepo.deleteByPrincipal(
         projectId,
@@ -245,26 +319,6 @@ export class ProjectService {
         tx
       );
     }
-  }
-  /**
-   * Transfer project ownership to another user
-   * Only current owner can transfer ownership
-   */
-  async transferProjectOwnership(
-    projectId: string,
-    currentOwnerId: string,
-    newOwnerId: string,
-    tx?: DbTransaction
-  ): Promise<Project> {
-    const project = await this.verifyProjectAccess(projectId, currentOwnerId, 'owner');
-    await this.requireOrgAdminForOrgOwnedProject(project, currentOwnerId, 'transfer');
-    return this.projectRepo.update(
-      projectId,
-      {
-        ownerId: newOwnerId,
-      },
-      tx
-    );
   }
   /**
    * Transfer project ownership (new ownership model)
@@ -281,10 +335,7 @@ export class ProjectService {
     targetOwnerType: 'user' | 'org',
     targetOwnerUuid: string
   ): Promise<Project> {
-    const { transferService } = await import('./TransferService');
-    const { workflowRuns, datavaultDatabases, datavaultTables, workflowDataSources } = await import('@shared/schema');
-    const { and, eq, inArray } = await import('drizzle-orm');
-    const { db } = await import('../db');
+    // Authorization checks run outside the transaction — they only read.
     const project = await this.verifyProjectAccess(projectId, userId, 'owner');
     await this.requireOrgAdminForOrgOwnedProject(project, userId, 'transfer');
     // Transfer-into-org requires org membership (not admin); validateTransfer
@@ -296,69 +347,85 @@ export class ProjectService {
       targetOwnerType,
       targetOwnerUuid
     );
-    // Update project ownership and cascade to workflows
-    const updatedProject = await this.projectRepo.update(projectId, {
-      ownerType: targetOwnerType,
-      ownerUuid: targetOwnerUuid,
-    });
-    // Cascade: Transfer all child workflows to same owner
-    const workflows = await this.workflowRepo.findByProjectId(projectId);
-    const workflowIds = workflows.map(w => w.id);
-    if (workflowIds.length > 0) {
-      // Update workflows
-      for (const workflow of workflows) {
-        await this.workflowRepo.update(workflow.id, {
+    // Everything below is a single multi-table cascade — wrap it in one
+    // transaction so a failure partway (network blip, constraint violation)
+    // cannot leave the project pointing at the new owner while workflows,
+    // runs, or DataVault assets still belong to the old one. Every query in
+    // this callback MUST use `tx` (not the pool `db`) — a pool query issued
+    // while the transaction still holds the connection deadlocks the size-1
+    // test pool.
+    return db.transaction(async (tx) => {
+      // Update project ownership
+      const updatedProject = await this.projectRepo.update(
+        projectId,
+        {
           ownerType: targetOwnerType,
           ownerUuid: targetOwnerUuid,
-        });
+        },
+        tx
+      );
+      // Cascade: Transfer all child workflows to same owner
+      const projectWorkflows = await this.workflowRepo.findByProjectId(projectId, undefined, tx);
+      const workflowIds = projectWorkflows.map(w => w.id);
+      if (workflowIds.length > 0) {
+        // Bulk-update every workflow in one round trip (mirrors the
+        // workflowRuns update below, instead of one query per workflow).
+        await tx
+          .update(workflows)
+          .set({
+            ownerType: targetOwnerType,
+            ownerUuid: targetOwnerUuid,
+            updatedAt: new Date(),
+          })
+          .where(inArray(workflows.id, workflowIds));
+        // Cascade ownership to all runs for these workflows
+        await tx
+          .update(workflowRuns)
+          .set({
+            ownerType: targetOwnerType,
+            ownerUuid: targetOwnerUuid,
+          })
+          .where(inArray(workflowRuns.workflowId, workflowIds));
       }
-      // FIX #1: Cascade ownership to all runs for these workflows
-      await db
-        .update(workflowRuns)
-        .set({
-          ownerType: targetOwnerType,
-          ownerUuid: targetOwnerUuid,
-        })
-        .where(inArray(workflowRuns.workflowId, workflowIds));
-    }
-    const linkedDatabaseRows = workflowIds.length > 0
-      ? await db
-        .select({ id: workflowDataSources.dataSourceId })
-        .from(workflowDataSources)
-        .where(inArray(workflowDataSources.workflowId, workflowIds))
-      : [];
-    const databaseIds = new Set<string>(linkedDatabaseRows.map((row) => row.id));
-    const scopedDatabases = await db
-      .select({ id: datavaultDatabases.id })
-      .from(datavaultDatabases)
-      .where(and(eq(datavaultDatabases.scopeType, 'project'), eq(datavaultDatabases.scopeId, projectId)));
-    scopedDatabases.forEach((row) => databaseIds.add(row.id));
-    if (workflowIds.length > 0) {
-      const workflowScopedDatabases = await db
+      const linkedDatabaseRows = workflowIds.length > 0
+        ? await tx
+          .select({ id: workflowDataSources.dataSourceId })
+          .from(workflowDataSources)
+          .where(inArray(workflowDataSources.workflowId, workflowIds))
+        : [];
+      const databaseIds = new Set<string>(linkedDatabaseRows.map((row) => row.id));
+      const scopedDatabases = await tx
         .select({ id: datavaultDatabases.id })
         .from(datavaultDatabases)
-        .where(and(eq(datavaultDatabases.scopeType, 'workflow'), inArray(datavaultDatabases.scopeId, workflowIds)));
-      workflowScopedDatabases.forEach((row) => databaseIds.add(row.id));
-    }
-    if (databaseIds.size > 0) {
-      await db
-        .update(datavaultDatabases)
-        .set({
-          ownerType: targetOwnerType,
-          ownerUuid: targetOwnerUuid,
-          updatedAt: new Date(),
-        })
-        .where(inArray(datavaultDatabases.id, [...databaseIds]));
-      await db
-        .update(datavaultTables)
-        .set({
-          ownerType: targetOwnerType,
-          ownerUuid: targetOwnerUuid,
-          updatedAt: new Date(),
-        })
-        .where(inArray(datavaultTables.databaseId, [...databaseIds]));
-    }
-    return updatedProject;
+        .where(and(eq(datavaultDatabases.scopeType, 'project'), eq(datavaultDatabases.scopeId, projectId)));
+      scopedDatabases.forEach((row) => databaseIds.add(row.id));
+      if (workflowIds.length > 0) {
+        const workflowScopedDatabases = await tx
+          .select({ id: datavaultDatabases.id })
+          .from(datavaultDatabases)
+          .where(and(eq(datavaultDatabases.scopeType, 'workflow'), inArray(datavaultDatabases.scopeId, workflowIds)));
+        workflowScopedDatabases.forEach((row) => databaseIds.add(row.id));
+      }
+      if (databaseIds.size > 0) {
+        await tx
+          .update(datavaultDatabases)
+          .set({
+            ownerType: targetOwnerType,
+            ownerUuid: targetOwnerUuid,
+            updatedAt: new Date(),
+          })
+          .where(inArray(datavaultDatabases.id, [...databaseIds]));
+        await tx
+          .update(datavaultTables)
+          .set({
+            ownerType: targetOwnerType,
+            ownerUuid: targetOwnerUuid,
+            updatedAt: new Date(),
+          })
+          .where(inArray(datavaultTables.databaseId, [...databaseIds]));
+      }
+      return updatedProject;
+    });
   }
 }
 // Singleton instance

@@ -1,0 +1,195 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const getWorkflowWithDetails = vi.fn();
+const findBlocks = vi.fn();
+const findDocumentHooks = vi.fn();
+const findLifecycleHooks = vi.fn();
+
+vi.mock("../../../server/services/WorkflowService", () => ({
+  workflowService: { getWorkflowWithDetails },
+}));
+
+vi.mock("../../../server/db", () => ({
+  db: {
+    query: {
+      blocks: { findMany: findBlocks },
+      documentHooks: { findMany: findDocumentHooks },
+      lifecycleHooks: { findMany: findLifecycleHooks },
+    },
+  },
+  initializeDatabase: vi.fn(),
+}));
+
+vi.mock("../../../server/services/AclService", () => ({
+  aclService: { hasWorkflowRole: vi.fn().mockResolvedValue(true) },
+}));
+
+vi.mock("../../../server/services/diff/WorkflowDiffService", () => ({
+  workflowDiffService: { diff: vi.fn() },
+}));
+
+describe("VersionService.serializeWorkflow", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("preserves runtime-critical workflow, logic, block, and hook fields", async () => {
+    const conditionValue = { choices: ["yes", 2], exact: true };
+    const visibleIf = { operator: "equals", alias: "approved", value: true };
+    const skipIf = { operator: "is_empty", alias: "email" };
+
+    getWorkflowWithDetails.mockResolvedValue({
+      id: "workflow-1",
+      title: "Pinned interview",
+      description: "Immutable runtime definition",
+      settings: { theme: "midnight", progress: "compact" },
+      intakeConfig: { allowPrefill: true, completionMessage: "Done" },
+      sections: [{
+        id: "section-1",
+        alias: "section-1",
+        title: "Applicant",
+        description: "Applicant details",
+        order: 3,
+        visibleIf,
+        skipIf,
+        config: { layout: "wide" },
+        steps: [{
+          id: "step-1",
+          sectionId: "section-1",
+          type: "multiple_choice",
+          title: "Approved?",
+          description: "Choose one",
+          required: true,
+          config: { options: ["yes", "no"] },
+          order: 4,
+          alias: "approved",
+          visibleIf: { operator: "is_not_empty", alias: "email" },
+          repeaterConfig: { min: 1 },
+          defaultValue: ["yes", 2],
+        }],
+      }],
+      logicRules: [{
+        id: "rule-1",
+        conditionStepId: "step-1",
+        operator: "equals",
+        conditionValue,
+        targetType: "section",
+        targetSectionId: "section-1",
+        targetStepId: null,
+        action: "show",
+        logicalOperator: "OR",
+        order: 7,
+      }],
+      transformBlocks: [{
+        id: "transform-1",
+        workflowId: "workflow-1",
+        sectionId: "section-1",
+        name: "Normalize",
+        language: "javascript",
+        code: "emit(input)",
+        inputKeys: ["approved"],
+        outputKey: "normalized",
+        virtualStepId: "virtual-transform-1",
+        phase: "onSectionSubmit",
+        enabled: false,
+        order: 8,
+        timeoutMs: 2250,
+      }],
+    });
+
+    findBlocks.mockResolvedValue([{
+      id: "block-1",
+      workflowId: "workflow-1",
+      sectionId: "section-1",
+      type: "webhook",
+      phase: "onSectionSubmit",
+      config: { url: "https://example.test/hook", method: "POST" },
+      virtualStepId: "virtual-block-1",
+      enabled: false,
+      order: 9,
+    }]);
+    findLifecycleHooks.mockResolvedValue([{
+      id: "lifecycle-1",
+      workflowId: "workflow-1",
+      sectionId: "section-1",
+      name: "Before submit",
+      phase: "beforeSectionSubmit",
+      language: "python",
+      code: "emit(data)",
+      inputKeys: ["approved"],
+      outputKeys: ["first", "second"],
+      virtualStepIds: ["virtual-life-1", "virtual-life-2"],
+      enabled: false,
+      order: 10,
+      timeoutMs: 3250,
+      mutationMode: true,
+    }]);
+    findDocumentHooks.mockResolvedValue([{
+      id: "document-1",
+      workflowId: "workflow-1",
+      finalBlockDocumentId: "document-template-1",
+      name: "After document",
+      phase: "afterDocument",
+      language: "javascript",
+      code: "emit(document)",
+      inputKeys: ["normalized"],
+      outputKeys: ["documentResult", "auditResult"],
+      enabled: false,
+      order: 11,
+      timeoutMs: 4250,
+    }]);
+
+    const { VersionService } = await import("../../../server/services/VersionService");
+    const result = await new VersionService().serializeWorkflow("workflow-1", "user-1");
+
+    expect(result.settings).toEqual({ theme: "midnight", progress: "compact" });
+    expect(result.intakeConfig).toEqual({ allowPrefill: true, completionMessage: "Done" });
+    expect(result.sections?.[0]).toMatchObject({ visibleIf, skipIf });
+    expect(result.sections?.[0]?.steps?.[0]?.defaultValue).toEqual(["yes", 2]);
+    expect(result.logicRules).toEqual([expect.objectContaining({
+      id: "rule-1",
+      conditionStepAlias: "approved",
+      conditionValue,
+      targetId: "section-1",
+      targetAlias: "Applicant",
+      logicalOperator: "OR",
+      order: 7,
+    })]);
+    expect(result.blocks).toEqual([{
+      id: "block-1",
+      sectionId: "section-1",
+      type: "webhook",
+      phase: "onSectionSubmit",
+      config: { url: "https://example.test/hook", method: "POST" },
+      virtualStepId: "virtual-block-1",
+      enabled: false,
+      order: 9,
+    }]);
+    expect(result.transformBlocks).toEqual([expect.objectContaining({
+      id: "transform-1",
+      sectionId: "section-1",
+      outputKey: "normalized",
+      virtualStepId: "virtual-transform-1",
+      enabled: false,
+      timeoutMs: 2250,
+    })]);
+    expect(result.lifecycleHooks).toEqual([expect.objectContaining({
+      id: "lifecycle-1",
+      sectionId: "section-1",
+      outputAlias: "first",
+      outputKeys: ["first", "second"],
+      virtualStepIds: ["virtual-life-1", "virtual-life-2"],
+      enabled: false,
+      timeoutMs: 3250,
+      mutationMode: true,
+    })]);
+    expect(result.documentHooks).toEqual([expect.objectContaining({
+      id: "document-1",
+      finalBlockDocumentId: "document-template-1",
+      outputAlias: "documentResult",
+      outputKeys: ["documentResult", "auditResult"],
+      enabled: false,
+      timeoutMs: 4250,
+    })]);
+  });
+});

@@ -63,11 +63,11 @@ export class IntakeReceiptService {
             const excludeList = intakeConfig.excludeFromReceipt ?? [];
 
             for (const stepValue of stepValues) {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- dynamic step data access
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- dynamic step data access
                 const step = stepMap.get(stepValue.stepId);
-                // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-member-access -- step alias may be undefined/falsy
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- step alias may be undefined/falsy
                 if (step?.alias && !this.isSensitiveField(step.alias as string, excludeList)) {
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment -- dynamic summary building
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- dynamic summary building
                     summary[step.alias] = stepValue.value;
                 }
             }

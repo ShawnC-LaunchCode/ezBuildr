@@ -24,7 +24,7 @@ export function registerAdminAiSettingsRoutes(app: Express): void {
             const settings = await aiSettingsService.getGlobalSettings();
             res.json({
                 settings: settings ?? null,
-                defaultPrompt: !settings ? await aiSettingsService.getEffectivePrompt({}) : undefined
+                defaultPrompt: !settings ? await aiSettingsService.getEffectivePrompt() : undefined
             });
         } catch (error) {
             logger.error({ err: error, adminId: req.adminUser!.id }, 'Error fetching AI settings');
@@ -41,19 +41,31 @@ export function registerAdminAiSettingsRoutes(app: Express): void {
                 return res.status(401).json({ message: "Unauthorized" });
             }
             const updateSchema = z.object({
-                systemPrompt: z.string().min(10, "Invalid system prompt. Must be a string of at least 10 characters.")
+                systemPrompt: z.string()
+                    .min(10, "Invalid system prompt. Must be a string of at least 10 characters.")
+                    .max(20_000, "System prompt too long. Maximum is 20,000 characters.")
             });
             const validation = updateSchema.safeParse(req.body);
             if (!validation.success) {
                 return res.status(400).json({ message: validation.error.errors[0].message });
             }
             const { systemPrompt } = validation.data;
+            // Warn (don't reject) when none of the documented placeholders are
+            // present — an admin may legitimately want a static prompt, but a
+            // prompt missing all three silently drops preference personalization.
+            const placeholders = ['{{interviewerRole}}', '{{readingLevel}}', '{{tone}}'];
+            const warnings: string[] = [];
+            if (!placeholders.some(p => systemPrompt.includes(p))) {
+                warnings.push(
+                    `System prompt contains none of the personalization placeholders (${placeholders.join(', ')}). Reading level, tone, and interviewer role preferences will be ignored.`
+                );
+            }
             const updated = await aiSettingsService.updateGlobalSettings(systemPrompt, req.adminUser.id);
             logger.info(
-                { adminId: req.adminUser.id, promptLength: systemPrompt.length },
+                { adminId: req.adminUser.id, promptLength: systemPrompt.length, warningsCount: warnings.length },
                 'Admin updated global AI settings'
             );
-            res.json(updated);
+            res.json({ settings: updated, warnings });
         } catch (error) {
             logger.error({ err: error, adminId: req.adminUser!.id }, 'Error updating AI settings');
             res.status(500).json({ message: "Failed to update AI settings" });
@@ -181,7 +193,7 @@ export function registerAdminAiSettingsRoutes(app: Express): void {
                     ratingDistribution,
                     byOperationType: operationTypeStats,
                     byProvider: providerStats,
-                    // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+
                     timeSeries: timeSeriesData,
                     // eslint-disable-next-line @typescript-eslint/restrict-template-expressions, @typescript-eslint/no-base-to-string
                     period: `${days} days`,

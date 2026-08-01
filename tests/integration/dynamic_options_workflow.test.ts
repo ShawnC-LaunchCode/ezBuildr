@@ -82,14 +82,13 @@ describe('Dynamic Options Integration Flow', () => {
         const choiceStep = await stepService.createStep(workflowId, sectionId, userId, {
             type: 'choice',
             title: 'Select User',
-            options: choiceConfig,
+            config: choiceConfig,
             order: 10
         });
         expect(choiceStep).toBeDefined();
-        // The step stores the config in the 'options' column
-        const storedOptions = choiceStep.options as ChoiceAdvancedConfig;
-        expect((storedOptions.options as any).type).toBe('list');
-        expect((storedOptions.options as any).listVariable).toBe('userList');
+        const storedConfig = choiceStep.config as ChoiceAdvancedConfig;
+        expect((storedConfig.options as any).type).toBe('list');
+        expect((storedConfig.options as any).listVariable).toBe('userList');
     });
     // Note: Full runtime data flow verification requires simulating the Runner's 
     // interaction with the API which is complex in this environment. 

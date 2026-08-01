@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { createLogger } from "../logger";
 import { hybridAuth, optionalHybridAuth, type AuthRequest } from '../middleware/auth';
 import { z } from "zod";
@@ -6,6 +5,7 @@ import { z } from "zod";
 import { creatorOrRunTokenAuth, type RunAuthRequest } from "../middleware/runTokenAuth";
 import { strictLimiter } from "../middleware/rateLimiter";
 import { runService } from "../services/RunService";
+import { runRuntimeService } from "../services/workflow-runs/RunRuntimeService";
 import { asyncHandler } from "../utils/asyncHandler";
 import { classifyRouteError } from "../utils/routeErrors";
 import { exceedsValueSizeLimit, MAX_VALUE_BYTES } from "../utils/valueSizeLimit";
@@ -18,14 +18,32 @@ const CreateRunBodySchema = z.object({
   metadata: z.record(z.any()).optional()
 }).strict();
 
+const RunIdParamsSchema = z.object({
+  runId: z.string().uuid(),
+});
+
 import type { Express, Request, Response } from "express";
 const logger = createLogger({ module: "runs-routes" });
 
 // Common error messages
 // eslint-disable-next-line sonarjs/no-duplicate-string
 const ERROR_UNAUTHORIZED_NO_USER = "Unauthorized - no user ID";
-// eslint-disable-next-line sonarjs/no-duplicate-string
+
 const ERROR_ACCESS_DENIED = "Access denied";
+
+function getPublicErrorDetails(error: unknown, status: number): unknown {
+  if (status >= 500 || typeof error !== 'object' || error === null || !('details' in error)) {
+    return undefined;
+  }
+  return error.details;
+}
+
+function getPublicErrorCode(error: unknown, status: number): string | undefined {
+  if (status >= 500 || typeof error !== 'object' || error === null || !('code' in error)) {
+    return undefined;
+  }
+  return typeof error.code === 'string' ? error.code : undefined;
+}
 
 /**
  * Register workflow run-related routes
@@ -39,12 +57,12 @@ export function registerRunRoutes(app: Express): void {
    * No authentication required - creates anonymous run
    * Body: { initialValues?: Record<string, any> } - Optional key/value pairs to pre-populate steps
    */
-  app.post('/api/workflows/public/:publicLinkSlug/start', asyncHandler(async (req: Request, res: Response) => {
+  app.post('/api/workflows/public/:publicLinkSlug/start', optionalHybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { publicLinkSlug } = req.params;
       const { initialValues } = req.body as { initialValues?: Record<string, unknown> };
-      // Create anonymous run with optional initial values
-      const run = await runService.createRun(publicLinkSlug, undefined, {}, initialValues);
+      const userId = (req as AuthRequest).userId;
+      const run = await runService.createRun(publicLinkSlug, userId, {}, initialValues);
       return res.status(201).json({
         success: true,
         data: {
@@ -73,14 +91,14 @@ export function registerRunRoutes(app: Express): void {
    *   ...runData
    * }
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity -- Complex auth logic required
+
   app.post('/api/workflows/:workflowId/runs', optionalHybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { workflowId } = req.params;
       const { publicLink } = req.query;
-      
+
       const parsedBody = CreateRunBodySchema.parse(req.body);
-      const { initialValues, snapshotId, randomize, ...runData } = parsedBody;
+      const { initialValues, snapshotId, randomize, clientEmail, metadata } = parsedBody;
       // Check if this is an anonymous run request
       const isAnonymous = publicLink != null && publicLink !== '';
       // For authenticated runs, require user ID from AuthRequest (populated by middleware)
@@ -96,9 +114,14 @@ export function registerRunRoutes(app: Express): void {
         const authenticatedRun = await runService.createRun(
           workflowId,
           userId,
-          runData as Record<string, unknown>,
+          metadata ? { metadata } : {},
           initialValues,
-          { snapshotId, randomize }
+          {
+            snapshotId,
+            randomize,
+            clientEmail: clientEmail?.toLowerCase(),
+            accessMode: clientEmail ? 'portal' : undefined,
+          }
         );
         return res.status(201).json({
           success: true,
@@ -113,7 +136,7 @@ export function registerRunRoutes(app: Express): void {
       const anonymousRun = await runService.createRun(
         workflowId,
         undefined,
-        runData as Record<string, unknown>,
+        metadata ? { metadata } : {},
         initialValues,
         { snapshotId, randomize }
       );
@@ -149,10 +172,22 @@ export function registerRunRoutes(app: Express): void {
    * Get a workflow run
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.get('/api/runs/:runId', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response): Promise<void> => {
     try {
       const { runId } = req.params;
+      const runAuth = (req as RunAuthRequest).runAuth;
+      // Run-token holders (anonymous respondents) are valid callers here —
+      // this endpoint previously ignored runAuth and 401'd them.
+      if (runAuth != null) {
+        if (runAuth.runId !== runId) {
+          res.status(403).json({ success: false, error: `${ERROR_ACCESS_DENIED} - run mismatch` });
+          return;
+        }
+        const tokenRun = await runService.getRunNoAuth(runId);
+        res.json({ success: true, data: tokenRun });
+        return;
+      }
       const authReq = req as AuthRequest;
       const userId = authReq.userId;
       if (!userId) {
@@ -194,7 +229,7 @@ export function registerRunRoutes(app: Express): void {
    * Get a workflow run with all step values
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.get('/api/runs/:runId/values', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response): Promise<void> => {
     try {
       const { runId } = req.params;
@@ -241,10 +276,11 @@ export function registerRunRoutes(app: Express): void {
    * Upsert a single step value
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  app.post('/api/runs/:runId/values', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
+
+  app.post('/api/runs/:runId/values', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
       const { stepId, value } = req.body;
       const userId = (req as AuthRequest).userId;
       const runAuth = (req as RunAuthRequest).runAuth;
@@ -262,6 +298,7 @@ export function registerRunRoutes(app: Express): void {
           // eslint-disable-next-line sonarjs/no-duplicate-string
           return res.status(403).json({ success: false, error: "Access denied - run mismatch" });
         }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
         await runService.upsertStepValueNoAuth(runId, { runId, stepId, value });
         return res.status(200).json({ success: true, message: "Step value saved" });
       }
@@ -271,6 +308,7 @@ export function registerRunRoutes(app: Express): void {
       }
       await runService.upsertStepValue(runId, userId, {
         runId,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
         stepId,
         value,
       });
@@ -278,7 +316,8 @@ export function registerRunRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error saving step value");
       const { status, message } = classifyRouteError(error, "Failed to save step value");
-      res.status(status).json({ success: false, error: message });
+      const code = getPublicErrorCode(error, status);
+      res.status(status).json({ success: false, error: message, ...(code ? { code } : {}) });
     }
   }));
   /**
@@ -287,10 +326,11 @@ export function registerRunRoutes(app: Express): void {
    * Executes onSectionSubmit blocks (transform + validate)
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  app.post('/api/runs/:runId/sections/:sectionId/submit', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
+
+  app.post('/api/runs/:runId/sections/:sectionId/submit', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId, sectionId } = req.params;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
       const { values } = req.body;
       const userId = (req as AuthRequest).userId;
       const runAuth = (req as RunAuthRequest).runAuth;
@@ -300,16 +340,22 @@ export function registerRunRoutes(app: Express): void {
         valuesType: typeof values,
         isArray: Array.isArray(values),
         valuesLength: Array.isArray(values) ? values.length : 0,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
         bodyKeys: Object.keys(req.body)
       }, "Section submit request received");
+
       if (!Array.isArray(values)) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
         logger.warn({ runId, sectionId, values }, "values is not an array");
         return res.status(400).json({ success: false, errors: ["values must be an array"] });
       }
 
       // SEC-122: Per-field JSONB size cap (shared limit, byte-accurate)
+
       for (const v of values) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
         if (v?.value !== undefined && exceedsValueSizeLimit(v.value)) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
           return res.status(413).json({ success: false, errors: [`Payload too large. Value for step ${v.stepId} exceeds ${MAX_VALUE_BYTES}-byte limit.`] });
         }
       }
@@ -318,6 +364,7 @@ export function registerRunRoutes(app: Express): void {
         if (runAuth.runId !== runId) {
           return res.status(403).json({ success: false, errors: ["Access denied - run mismatch"] });
         }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
         const result = await runService.submitSectionNoAuth(runId, sectionId, values);
         // Return 200 for both success and validation errors
         // (400 would cause fetch to throw, losing the error details)
@@ -328,6 +375,7 @@ export function registerRunRoutes(app: Express): void {
         return res.status(401).json({ success: false, errors: ["Unauthorized - no user ID"] });
       }
       // Submit section with validation
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
       const result = await runService.submitSection(runId, sectionId, userId, values);
       if (result.success) {
         logger.info({ runId, sectionId }, "Section submitted successfully");
@@ -346,7 +394,8 @@ export function registerRunRoutes(app: Express): void {
         sectionId,
       }, "Error submitting section values");
       const { status, message } = classifyRouteError(error, "Failed to submit section values");
-      res.status(status).json({ success: false, errors: [message] });
+      const code = getPublicErrorCode(error, status);
+      res.status(status).json({ success: false, errors: [message], ...(code ? { code } : {}) });
     }
   }));
   /**
@@ -354,7 +403,7 @@ export function registerRunRoutes(app: Express): void {
    * Navigate to next section (executes branch blocks)
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.post('/api/runs/:runId/next', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
@@ -378,7 +427,8 @@ export function registerRunRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error navigating to next section");
       const { status, message } = classifyRouteError(error, "Failed to navigate to next section");
-      res.status(status).json({ success: false, errors: [message] });
+      const code = getPublicErrorCode(error, status);
+      res.status(status).json({ success: false, errors: [message], ...(code ? { code } : {}) });
     }
   }));
   /**
@@ -386,10 +436,11 @@ export function registerRunRoutes(app: Express): void {
    * Bulk upsert step values
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  app.post('/api/runs/:runId/values/bulk', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
+
+  app.post('/api/runs/:runId/values/bulk', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
       const { values } = req.body;
       const userId = (req as AuthRequest).userId;
       const runAuth = (req as RunAuthRequest).runAuth;
@@ -402,6 +453,7 @@ export function registerRunRoutes(app: Express): void {
           return res.status(403).json({ success: false, error: "Access denied - run mismatch" });
         }
         // Bulk upsert without userId check (run token auth)
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
         await runService.bulkUpsertValuesNoAuth(runId, values);
         return res.status(200).json({ success: true, message: "Step values saved" });
       }
@@ -409,11 +461,43 @@ export function registerRunRoutes(app: Express): void {
       if (!userId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
       await runService.bulkUpsertValues(runId, userId, values);
       res.status(200).json({ success: true, message: "Step values saved" });
     } catch (error) {
       logger.error({ error }, "Error saving step values");
       const { status, message } = classifyRouteError(error, "Failed to save step values");
+      const details = getPublicErrorDetails(error, status);
+      const code = getPublicErrorCode(error, status);
+      res.status(status).json({
+        success: false,
+        error: message,
+        ...(code ? { code } : {}),
+        ...(details !== undefined ? { details } : {}),
+      });
+    }
+  }));
+  /**
+   * GET /api/runs/:runId/runtime
+   * Return the immutable, sanitized definition pinned to this run plus saved
+   * values and cursor. Accepts creator session OR the matching Bearer runToken.
+   */
+  app.get('/api/runs/:runId/runtime', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const { runId } = RunIdParamsSchema.parse(req.params);
+      const userId = (req as AuthRequest).userId;
+      const runAuth = (req as RunAuthRequest).runAuth;
+      const runtime = await runRuntimeService.getRuntime(runId, {
+        userId,
+        tokenRunId: runAuth?.runId,
+      });
+      res.json({ success: true, data: runtime });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: "Invalid input", errors: error.errors });
+      }
+      logger.error({ error, runId: req.params.runId }, "Error fetching run runtime");
+      const { status, message } = classifyRouteError(error, "Failed to fetch run runtime");
       res.status(status).json({ success: false, error: message });
     }
   }));
@@ -423,7 +507,7 @@ export function registerRunRoutes(app: Express): void {
    * Mark a run as complete (with validation)
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.put('/api/runs/:runId/complete', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
@@ -446,7 +530,8 @@ export function registerRunRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error completing run");
       const { status, message } = classifyRouteError(error, "Failed to complete run");
-      res.status(status).json({ success: false, error: message });
+      const code = getPublicErrorCode(error, status);
+      res.status(status).json({ success: false, error: message, ...(code ? { code } : {}) });
     }
   }));
   /**
@@ -474,7 +559,7 @@ export function registerRunRoutes(app: Express): void {
    * Get generated documents for a workflow run
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.get('/api/runs/:runId/documents', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
@@ -493,19 +578,19 @@ export function registerRunRoutes(app: Express): void {
           return res.status(403).json({ success: false, error: "Access denied - run mismatch" });
         }
         // Fetch documents without userId check
-        const documents = await runService.getGeneratedDocuments(runId);
-        return res.json({ success: true, documents });
+        const { documents, generationStatus } = await runService.getGeneratedDocuments(runId);
+        return res.json({ success: true, documents, generationStatus });
       }
       // For session auth, we need userId
       if (!userId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
-      
+
       // Verify user has access to the run
       await runService.getRun(runId, userId);
-      
-      const documents = await runService.getGeneratedDocuments(runId);
-      res.json({ success: true, documents });
+
+      const { documents, generationStatus } = await runService.getGeneratedDocuments(runId);
+      res.json({ success: true, documents, generationStatus });
     } catch (error) {
       logger.error({ error, runId: req.params.runId }, "Error fetching generated documents");
       const { status, message } = classifyRouteError(error, "Failed to fetch documents");
@@ -519,7 +604,7 @@ export function registerRunRoutes(app: Express): void {
    * Idempotent - won't regenerate if documents already exist
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.post('/api/runs/:runId/generate-documents', strictLimiter, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
@@ -544,7 +629,7 @@ export function registerRunRoutes(app: Express): void {
         }
         await runService.getRun(runId, userId);
       }
-      
+
       // Trigger document generation
       await runService.generateDocuments(runId);
       return res.json({ success: true, message: "Documents generation triggered" });
@@ -559,7 +644,7 @@ export function registerRunRoutes(app: Express): void {
    * Delete all generated documents for a run (for regeneration)
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.delete('/api/runs/:runId/documents', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;
@@ -584,7 +669,7 @@ export function registerRunRoutes(app: Express): void {
         }
         await runService.getRun(runId, userId);
       }
-      
+
       // Delete all documents for this run
       await runService.deleteGeneratedDocuments(runId);
       return res.json({ success: true, message: "Documents deleted successfully" });
@@ -599,7 +684,7 @@ export function registerRunRoutes(app: Express): void {
    * Generate a shareable link for a run
    * Accepts creator session OR Bearer runToken
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.post('/api/runs/:runId/share', creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const { runId } = req.params;

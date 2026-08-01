@@ -1,10 +1,13 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Data Source Connector Interface
  * Common abstraction for all data sources (native tables, Google Sheets, future connectors)
  */
 
 export type HealthStatus = 'healthy' | 'degraded' | 'unreachable';
+
+async function readJson<T>(response: Response): Promise<T> {
+    return response.json() as Promise<T>;
+}
 
 export interface DataSourceHealth {
     status: HealthStatus;
@@ -33,8 +36,7 @@ export interface ReadOptions {
     filters?: Array<{
         column: string; // UUID
         operator: '=' | '!=' | '>' | '<' | '>=' | '<=' | 'contains';
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        value: any;
+        value: unknown;
     }>;
     sort?: Array<{
         column: string; // UUID
@@ -182,7 +184,7 @@ export class GoogleSheetsConnector implements DataSourceConnector {
             throw new Error(`Failed to list sheets: ${response.statusText}`);
         }
 
-        const data = await response.json();
+        const data = await readJson<{ sheets?: TableMetadata[] }>(response);
         return data.sheets ?? [];
     }
 
@@ -201,7 +203,7 @@ export class GoogleSheetsConnector implements DataSourceConnector {
             throw new Error(`Failed to get sheet metadata: ${response.statusText}`);
         }
 
-        return response.json();
+        return readJson<TableMetadata>(response);
     }
 
     async readRows(sheetId: string, options?: ReadOptions): Promise<Record<string, unknown>[]> {
@@ -231,7 +233,7 @@ export class GoogleSheetsConnector implements DataSourceConnector {
             throw new Error(`Failed to read rows: ${response.statusText}`);
         }
 
-        const data = await response.json();
+        const data = await readJson<{ rows?: Record<string, unknown>[] }>(response);
         return data.rows ?? [];
     }
 
@@ -260,7 +262,7 @@ export class GoogleSheetsConnector implements DataSourceConnector {
             throw new Error(`Failed to write rows: ${response.statusText}`);
         }
 
-        return response.json();
+        return readJson<WriteResult>(response);
     }
 }
 
@@ -307,7 +309,7 @@ export class NativeTableConnector implements DataSourceConnector {
             throw new Error(`Failed to list tables: ${response.statusText}`);
         }
 
-        return response.json();
+        return readJson<TableMetadata[]>(response);
     }
 
     async getTableMetadata(tableId: string): Promise<TableMetadata> {
@@ -319,7 +321,7 @@ export class NativeTableConnector implements DataSourceConnector {
             throw new Error(`Failed to get table metadata: ${response.statusText}`);
         }
 
-        return response.json();
+        return readJson<TableMetadata>(response);
     }
 
     async readRows(tableId: string, options?: ReadOptions): Promise<Record<string, unknown>[]> {
@@ -334,7 +336,7 @@ export class NativeTableConnector implements DataSourceConnector {
             throw new Error(`Failed to read rows: ${response.statusText}`);
         }
 
-        const data = await response.json();
+        const data = await readJson<{ rows?: Record<string, unknown>[] }>(response);
         return data.rows ?? [];
     }
 
@@ -357,6 +359,6 @@ export class NativeTableConnector implements DataSourceConnector {
             throw new Error(`Failed to write rows: ${response.statusText}`);
         }
 
-        return response.json();
+        return readJson<WriteResult>(response);
     }
 }

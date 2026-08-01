@@ -4,10 +4,12 @@ import { useSortable } from "@dnd-kit/sortable";
 import { useState } from "react";
 
 import { useToast } from "@/hooks/use-toast";
+import { useDebouncedFieldMutation } from "@/hooks/useDebouncedFieldMutation";
 import { combinePageItems, getNextOrder, PageItem } from "@/lib/dnd";
-import { ApiBlock, ApiSection, ApiStep } from "@/lib/vault-api";
+import { ApiBlock, ApiSection, ApiStep, sectionAPI, type ApiDeleteImpact } from "@/lib/vault-api";
 import {
     useDeleteSection,
+    useDuplicateSection,
     useTransformBlocks,
     useUpdateSection,
     useWorkflowMode,
@@ -38,9 +40,19 @@ interface UsePageCardLogicReturn {
     transform: any; // Transform type is complex, any or specific
     transition: string | undefined;
     isDragging: boolean;
+    localTitle: string;
+    localDescription: string;
     handleTitleChange: (title: string) => void;
+    flushTitle: () => void;
     handleDescriptionChange: (description: string) => void;
+    flushDescription: () => void;
     handleDelete: () => Promise<void>;
+    handleDuplicate: () => Promise<void>;
+    isDeleteImpactOpen: boolean;
+    setIsDeleteImpactOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    pendingDeleteImpact: ApiDeleteImpact | null;
+    confirmDestructiveDelete: () => void;
+    isDeleteSectionPending: boolean;
     selectSection: (id: string) => void;
     selectBlock: (id: string) => void;
     selectStep: (id: string) => void;
@@ -60,11 +72,16 @@ export function usePageCardLogic(
     const mode = modeData?.mode ?? "easy";
     const updateSectionMutation = useUpdateSection();
     const deleteSectionMutation = useDeleteSection();
+    const duplicateSectionMutation = useDuplicateSection();
     const { selectSection, selectBlock, selectStep } = useWorkflowBuilder();
     const { toast } = useToast();
 
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isLogicSheetOpen, setIsLogicSheetOpen] = useState(false);
+
+    // Delete-impact warning (ICW2-13): only shown when the section's steps have stored answers.
+    const [isDeleteImpactOpen, setIsDeleteImpactOpen] = useState(false);
+    const [pendingDeleteImpact, setPendingDeleteImpact] = useState<ApiDeleteImpact | null>(null);
 
     // Check if this is a Final Documents section
     const isFinalDocumentsSection =
@@ -105,23 +122,17 @@ export function usePageCardLogic(
         isDragging,
     } = useSortable({ id: page.id });
 
-    const handleTitleChange = (title: string): void => {
-        updateSectionMutation.mutate({ id: page.id, workflowId, title });
-    };
+    const { localValue: localTitle, onChange: handleTitleChange, onBlur: flushTitle } = useDebouncedFieldMutation(
+        page.title,
+        (title: string) => updateSectionMutation.mutate({ id: page.id, workflowId, title })
+    );
 
-    const handleDescriptionChange = (description: string): void => {
-        updateSectionMutation.mutate({ id: page.id, workflowId, description });
-    };
+    const { localValue: localDescription, onChange: handleDescriptionChange, onBlur: flushDescription } = useDebouncedFieldMutation(
+        page.description ?? "",
+        (description: string) => updateSectionMutation.mutate({ id: page.id, workflowId, description })
+    );
 
-    const handleDelete = async (): Promise<void> => {
-        if (
-            // eslint-disable-next-line no-alert
-            !window.confirm(
-                `Delete page "${page.title}"? This will remove all questions and logic blocks.`
-            )
-        ) {
-            return;
-        }
+    const performDelete = async (): Promise<void> => {
         try {
             await deleteSectionMutation.mutateAsync({ id: page.id, workflowId });
             toast({
@@ -132,6 +143,50 @@ export function usePageCardLogic(
             toast({
                 title: "Error",
                 description: "Failed to delete page",
+                variant: "destructive",
+            });
+        }
+    };
+
+    const handleDelete = async (): Promise<void> => {
+        try {
+            const impact = await sectionAPI.getDeleteImpact(page.id);
+            if (impact.answerCount > 0) {
+                setPendingDeleteImpact(impact);
+                setIsDeleteImpactOpen(true);
+                return;
+            }
+        } catch {
+            // Impact check failed (e.g. network hiccup) — fall back to the
+            // existing plain confirmation rather than silently skipping it.
+        }
+        if (
+            // eslint-disable-next-line no-alert
+            !window.confirm(
+                `Delete page "${page.title}"? This will remove all questions and logic blocks.`
+            )
+        ) {
+            return;
+        }
+        await performDelete();
+    };
+
+    const confirmDestructiveDelete = (): void => {
+        setIsDeleteImpactOpen(false);
+        void performDelete();
+    };
+
+    const handleDuplicate = async (): Promise<void> => {
+        try {
+            await duplicateSectionMutation.mutateAsync({ id: page.id, workflowId });
+            toast({
+                title: "Page duplicated",
+                description: `A copy of "${page.title}" was added`,
+            });
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to duplicate page",
                 variant: "destructive",
             });
         }
@@ -183,9 +238,19 @@ export function usePageCardLogic(
         transform,
         transition,
         isDragging,
+        localTitle,
+        localDescription,
         handleTitleChange,
+        flushTitle,
         handleDescriptionChange,
+        flushDescription,
         handleDelete,
+        handleDuplicate,
+        isDeleteImpactOpen,
+        setIsDeleteImpactOpen,
+        pendingDeleteImpact,
+        confirmDestructiveDelete,
+        isDeleteSectionPending: deleteSectionMutation.isPending,
         selectSection,
         selectBlock,
         selectStep,

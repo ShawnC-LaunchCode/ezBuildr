@@ -136,6 +136,14 @@ export const WORKFLOW_CONFIG = {
 } as const;
 
 /**
+ * Version id standing for "the workflow's live editable state" rather than a
+ * stored `workflow_versions` row. Accepted anywhere a version id is taken so a
+ * saved version can be diffed against unsaved work; the server serializes the
+ * workflow on the fly instead of loading a row.
+ */
+export const CURRENT_VERSION_ID = "current";
+
+/**
  * Type exports for TypeScript autocomplete
  */
 export type DatavaultConfig = typeof DATAVAULT_CONFIG;

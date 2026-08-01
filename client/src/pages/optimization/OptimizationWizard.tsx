@@ -165,11 +165,11 @@ interface OverviewMetrics {
 
 function OverviewStep({ analysis, onNext }: { analysis: unknown, onNext: () => void }) {
     if (analysis == null) {return null;}
-    /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+
     const metrics = (analysis as { metrics: OverviewMetrics }).metrics;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const suggestions = (analysis as Record<string, unknown>).suggestions as Array<Record<string, unknown>>;
-    /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+
 
     return (
         <div className="space-y-6">
@@ -182,7 +182,7 @@ function OverviewStep({ analysis, onNext }: { analysis: unknown, onNext: () => v
             <div className="space-y-4">
                 <h3 className="text-lg font-medium">Top Suggestions</h3>
                 {suggestions.map((sugg) => (
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
                     <Card key={sugg.id as string}>
                         <CardHeader>
                             <CardTitle className="text-base flex items-center gap-2">
@@ -208,11 +208,11 @@ function OverviewStep({ analysis, onNext }: { analysis: unknown, onNext: () => v
     );
 }
 function CategoryStep({ stepId, title, analysis, onNext, onBack }: { stepId: string; title: string; analysis: unknown; onNext: () => void; onBack: () => void }) {
-    /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+
     const allIssues = (analysis as Record<string, unknown>).issues as Array<Record<string, unknown>>;
     const issues = allIssues.filter((i) => i.category === stepId);
-    /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
+
 
     return (
         <div className="space-y-6">
@@ -222,7 +222,7 @@ function CategoryStep({ stepId, title, analysis, onNext, onBack }: { stepId: str
             </div>
             <div className="space-y-4">
                 {issues.map((issue) => (
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
                     <Card key={issue.id as string} className="border-l-4 border-l-orange-500">
                         <CardHeader>
                             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

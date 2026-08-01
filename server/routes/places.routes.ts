@@ -1,6 +1,5 @@
-import { Router } from "express";
+import { Router, type NextFunction, type Request, type RequestHandler, type Response } from "express";
 import rateLimit from "express-rate-limit";
-// @ts-ignore - TODO: fix type
 import apicache from "apicache";
 
 import { creatorOrRunTokenAuth } from "../middleware/runTokenAuth";
@@ -8,7 +7,7 @@ import { googlePlacesService } from "../services/GooglePlacesService";
 import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
-const cache = apicache.middleware;
+const cache = (apicache as { middleware: (duration: string) => RequestHandler }).middleware;
 
 const placesRateLimit = rateLimit({
     windowMs: 60 * 1000, // 1 minute
@@ -17,7 +16,6 @@ const placesRateLimit = rateLimit({
 });
 
 // Allow either standard user session/JWT OR a valid run token (for preview/public runners)
-// eslint-disable-next-line @typescript-eslint/no-misused-promises
 router.use(creatorOrRunTokenAuth);
 
 // Protect these routes to logged-in users to prevent abuse of our API key
@@ -30,11 +28,28 @@ router.use(creatorOrRunTokenAuth);
 // Actually, looking at `routes/index.ts`: `registerAuthRoutes(app)` etc.
 // `server/middleware/auth.ts` probably exists. 
 
-const sanitizeAutocompleteCache = (req: any, res: any, next: any) => {
-    const input = (req.query.input || '').toString().toLowerCase().trim();
-    const lat = req.query.lat ? parseFloat(req.query.lat as string).toFixed(4) : '';
-    const lng = req.query.lng ? parseFloat(req.query.lng as string).toFixed(4) : '';
-    const radius = req.query.radius ? parseFloat(req.query.radius as string).toFixed(0) : '';
+function getQueryString(value: unknown): string {
+    if (Array.isArray(value)) {
+        const [first] = value as unknown[];
+        return typeof first === 'string' ? first : '';
+    }
+    return typeof value === 'string' ? value : '';
+}
+
+function parseOptionalNumber(value: unknown): number | undefined {
+    const rawValue = getQueryString(value);
+    if (rawValue === '') {
+        return undefined;
+    }
+    const parsed = Number.parseFloat(rawValue);
+    return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+const sanitizeAutocompleteCache = (req: Request, _res: Response, next: NextFunction): void => {
+    const input = getQueryString(req.query.input).toLowerCase().trim();
+    const lat = parseOptionalNumber(req.query.lat)?.toFixed(4) ?? '';
+    const lng = parseOptionalNumber(req.query.lng)?.toFixed(4) ?? '';
+    const radius = parseOptionalNumber(req.query.radius)?.toFixed(0) ?? '';
     // SEC-010: Normalize URL so apicache uses a sanitized, bloated-free key
     req.originalUrl = req.url = `/api/places/autocomplete?i=${encodeURIComponent(input)}&l=${lat}&g=${lng}&r=${radius}`;
     next();
@@ -42,15 +57,12 @@ const sanitizeAutocompleteCache = (req: any, res: any, next: any) => {
 
 router.get("/autocomplete", placesRateLimit, sanitizeAutocompleteCache, cache("15 minutes"), asyncHandler(async (req, res) => {
     try {
-        const input = req.query.input as string;
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        const lat = req.query.lat ? parseFloat(req.query.lat as string) : undefined;
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        const lng = req.query.lng ? parseFloat(req.query.lng as string) : undefined;
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        const radius = req.query.radius ? parseFloat(req.query.radius as string) : undefined;
+        const input = getQueryString(req.query.input);
+        const lat = parseOptionalNumber(req.query.lat);
+        const lng = parseOptionalNumber(req.query.lng);
+        const radius = parseOptionalNumber(req.query.radius);
 
-        if (!input) {
+        if (input === '') {
             res.status(400).json({ error: "Input is required" });
             return;
         }
@@ -63,8 +75,8 @@ router.get("/autocomplete", placesRateLimit, sanitizeAutocompleteCache, cache("1
 
 router.get("/details", placesRateLimit, cache("1 hour"), asyncHandler(async (req, res) => {
     try {
-        const placeId = req.query.placeId as string;
-        if (!placeId) {
+        const placeId = getQueryString(req.query.placeId);
+        if (placeId === '') {
             res.status(400).json({ error: "Place ID is required" });
             return;
         }

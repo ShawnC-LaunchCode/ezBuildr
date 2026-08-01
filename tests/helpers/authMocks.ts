@@ -75,7 +75,7 @@ export const createMockRequest = (overrides: Partial<Request> = {}): Partial<Req
   const user = createMockUser();
 
   return {
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     session: session as Request['session'],
     user: user as Request['user'],
     headers: {},
@@ -117,13 +117,13 @@ export const createMockNext = (): NextFunction => {
 export const createMockAuthMiddleware = () => {
   return {
     requireAuth: vi.fn((req: Request, res: Response, next: NextFunction) => {
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       (req as any).session = (req as any).session ?? createMockSession() as Request['session'];
       req.user = req.user ?? createMockUser() as Request['user'];
       next();
     }),
     optionalAuth: vi.fn((req: Request, res: Response, next: NextFunction) => {
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       (req as any).session = (req as any).session ?? createMockSession() as Request['session'];
       req.user = req.user ?? createMockUser() as Request['user'];
       next();
@@ -137,7 +137,7 @@ export const createMockAuthMiddleware = () => {
  */
 export const createMockSessionMiddleware = () => {
   return vi.fn((req: Request, res: Response, next: NextFunction) => {
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     (req as any).session = (req as any).session ?? createMockSession() as Request['session'];
     (req as any).sessionID = (req as any).sessionID ?? 'test-session-id';
     next();

@@ -157,7 +157,6 @@ export function applyMapping(
     } else {
       // Source variable not found
       missing.push(targetField);
-      result[targetField] = ''; // Use empty string as fallback
     }
   }
 

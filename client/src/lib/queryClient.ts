@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { QueryClient, QueryFunction, MutationCache } from "@tanstack/react-query";
+import { toast } from "../hooks/use-toast";
 
 // Custom API Error class to carry status and details
 export class ApiError extends Error {
@@ -7,8 +7,7 @@ export class ApiError extends Error {
     message: string,
     public status: number,
     public code?: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    public details?: any
+    public details?: unknown
   ) {
     super(message);
     this.name = 'ApiError';
@@ -21,8 +20,13 @@ async function throwIfResNotOk(res: Response) {
     const contentType = res.headers.get("content-type");
     // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
     if (contentType && contentType.includes("application/json")) {
-      const json = await res.json().catch(() => ({}));
-      throw new ApiError(json.message || res.statusText, res.status, json.code, json.details);
+      const parsed: unknown = await res.json().catch((): Record<string, never> => ({}));
+      const json = typeof parsed === "object" && parsed !== null
+        ? parsed as Record<string, unknown>
+        : {};
+      const message = typeof json.message === "string" ? json.message : res.statusText;
+      const code = typeof json.code === "string" ? json.code : undefined;
+      throw new ApiError(message, res.status, code, json.details);
     }
     const text = (await res.text()) || res.statusText;
     throw new ApiError(text, res.status);
@@ -116,7 +120,7 @@ export async function apiRequest(
         const status = (error instanceof ApiError) ? error.status : undefined;
         if (isRetryableError(error, status) || (error instanceof TypeError)) {
           lastError = error as Error;
-          // eslint-disable-next-line no-console
+
           const delay = getRetryDelay(attempt);
           // eslint-disable-next-line no-console
           console.log(`Request failed, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})...`, error);
@@ -138,27 +142,44 @@ export async function apiRequest(
 // Define behavior for 401 Unauthorized responses
 export type UnauthorizedBehavior = "returnNull" | "throw";
 
-export const getQueryFn: <T>(options: {
+export function getQueryFn<T>(options: {
   on401: UnauthorizedBehavior;
-}) => QueryFunction<T> =
-  ({ on401: unauthorizedBehavior }) =>
-    async ({ queryKey }) => {
+}): QueryFunction<T> {
+  const { on401: unauthorizedBehavior } = options;
+  return async ({ queryKey }): Promise<T> => {
       try {
         const endpoint = queryKey.join("/");
         // Check if endpoint starts with /api (some keys might not)
         const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return await fetchAPI<any>(path);
+        const data: unknown = await fetchAPI<unknown>(path);
+        return data as T;
       } catch (error: unknown) {
         if (unauthorizedBehavior === "returnNull" && error instanceof Error && (error.message.includes('401') || error.message.includes('Unauthorized'))) {
-          return null;
+          return null as unknown as T;
         }
         throw error;
       }
-    };
+  };
+}
 
 export const queryClient = new QueryClient({
+  mutationCache: new MutationCache({
+    onError: (error, variables, context, mutation) => {
+      // Allow specific mutations to opt out of the global toast
+      if (mutation.meta?.suppressGlobalError) {
+        return;
+      }
+
+      const customMessage = mutation.meta?.errorMessage as string | undefined;
+
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: customMessage ?? "Change could not be saved — it has been reverted.",
+      });
+    },
+  }),
   defaultOptions: {
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),

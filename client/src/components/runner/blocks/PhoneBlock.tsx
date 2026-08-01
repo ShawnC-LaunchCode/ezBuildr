@@ -23,9 +23,12 @@ export interface PhoneBlockProps {
   value: any;
   onChange: (value: string) => void;
   readOnly?: boolean;
+  ariaDescribedBy?: string;
+  required?: boolean;
+  hasError?: boolean;
 }
 
-export function PhoneBlockRenderer({ step, value, onChange, readOnly }: PhoneBlockProps) {
+export function PhoneBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: PhoneBlockProps) {
   const config = step.config as PhoneConfig;
   const format = config?.format ?? "US";
 
@@ -79,6 +82,9 @@ export function PhoneBlockRenderer({ step, value, onChange, readOnly }: PhoneBlo
       placeholder={format === "US" ? "(555) 123-4567" : "Phone number"}
       autoComplete="tel"
       disabled={readOnly}
-    />
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      />
   );
 }

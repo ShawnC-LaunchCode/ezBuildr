@@ -1,5 +1,5 @@
 {
-  "id": "3a65356d-6b8c-4f7c-bfcd-d05a8a5ed172",
+  "id": "12f64565-57f7-4706-ba6b-869a3d117abd",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -4338,6 +4338,12 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
+        "workflow_id": {
+          "name": "workflow_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "section_id": {
           "name": "section_id",
           "type": "uuid",
@@ -4370,8 +4376,8 @@
           "notNull": false,
           "default": false
         },
-        "options": {
-          "name": "options",
+        "config": {
+          "name": "config",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
@@ -4429,6 +4435,21 @@
         }
       },
       "indexes": {
+        "steps_workflow_idx": {
+          "name": "steps_workflow_idx",
+          "columns": [
+            {
+              "expression": "workflow_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "steps_section_idx": {
           "name": "steps_section_idx",
           "columns": [
@@ -4444,29 +4465,43 @@
           "method": "btree",
           "with": {}
         },
-        "steps_section_alias_unique": {
-          "name": "steps_section_alias_unique",
+        "steps_workflow_alias_unique": {
+          "name": "steps_workflow_alias_unique",
           "columns": [
             {
-              "expression": "section_id",
+              "expression": "workflow_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             },
             {
-              "expression": "alias",
-              "isExpression": false,
+              "expression": "lower(\"alias\")",
               "asc": true,
+              "isExpression": true,
               "nulls": "last"
             }
           ],
           "isUnique": true,
+          "where": "\"steps\".\"alias\" IS NOT NULL AND \"steps\".\"alias\" <> ''",
           "concurrently": false,
           "method": "btree",
           "with": {}
         }
       },
       "foreignKeys": {
+        "steps_workflow_id_workflows_id_fk": {
+          "name": "steps_workflow_id_workflows_id_fk",
+          "tableFrom": "steps",
+          "tableTo": "workflows",
+          "columnsFrom": [
+            "workflow_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
         "steps_section_id_sections_id_fk": {
           "name": "steps_section_id_sections_id_fk",
           "tableFrom": "steps",
@@ -5661,6 +5696,13 @@
           "notNull": true,
           "default": "'{}'::jsonb"
         },
+        "settings": {
+          "name": "settings",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
         "pinned_version_id": {
           "name": "pinned_version_id",
           "type": "uuid",
@@ -6822,6 +6864,203 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.run_completion_jobs": {
+      "name": "run_completion_jobs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "max_attempts": {
+          "name": "max_attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 5
+        },
+        "available_at": {
+          "name": "available_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "lease_owner": {
+          "name": "lease_owner",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lease_expires_at": {
+          "name": "lease_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_error": {
+          "name": "last_error",
+          "type": "varchar(4000)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "run_completion_jobs_run_kind_unique": {
+          "name": "run_completion_jobs_run_kind_unique",
+          "columns": [
+            {
+              "expression": "run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "run_completion_jobs_claim_idx": {
+          "name": "run_completion_jobs_claim_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "available_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "lease_expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"run_completion_jobs\".\"status\" IN ('pending', 'retry', 'processing')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "run_completion_jobs_run_idx": {
+          "name": "run_completion_jobs_run_idx",
+          "columns": [
+            {
+              "expression": "run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "run_completion_jobs_run_id_workflow_runs_id_fk": {
+          "name": "run_completion_jobs_run_id_workflow_runs_id_fk",
+          "tableFrom": "run_completion_jobs",
+          "tableTo": "workflow_runs",
+          "columnsFrom": [
+            "run_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "run_completion_jobs_attempts_check": {
+          "name": "run_completion_jobs_attempts_check",
+          "value": "\"run_completion_jobs\".\"attempts\" >= 0"
+        },
+        "run_completion_jobs_max_attempts_check": {
+          "name": "run_completion_jobs_max_attempts_check",
+          "value": "\"run_completion_jobs\".\"max_attempts\" > 0"
+        },
+        "run_completion_jobs_status_check": {
+          "name": "run_completion_jobs_status_check",
+          "value": "\"run_completion_jobs\".\"status\" IN ('pending', 'processing', 'retry', 'succeeded', 'dead_letter')"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.run_generated_documents": {
       "name": "run_generated_documents",
       "schema": "",
@@ -6866,6 +7105,26 @@
         "template_id": {
           "name": "template_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "unresolved_variables": {
+          "name": "unresolved_variables",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'[]'::jsonb"
+        },
+        "pdf_failed": {
+          "name": "pdf_failed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "pdf_strategy": {
+          "name": "pdf_strategy",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -8520,6 +8779,13 @@
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
+        },
+        "generation_status": {
+          "name": "generation_status",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'pending'"
         },
         "metadata": {
           "name": "metadata",

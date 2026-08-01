@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * CollectionDetailPage Component
  * Shows collection details with fields manager and records viewer
@@ -63,6 +62,19 @@ export default function CollectionDetailPage() {
       limit: recordsPageSize,
     }
   );
+  const recordsResponse = recordsData as unknown;
+  const collectionRecords = typeof recordsResponse === "object"
+    && recordsResponse !== null
+    && "records" in recordsResponse
+    && Array.isArray(recordsResponse.records)
+    ? recordsResponse.records as ApiCollectionRecord[]
+    : [];
+  const totalRecords = typeof recordsResponse === "object"
+    && recordsResponse !== null
+    && "total" in recordsResponse
+    && typeof recordsResponse.total === "number"
+    ? recordsResponse.total
+    : 0;
 
   const createFieldMutation = useCreateCollectionField();
   const updateFieldMutation = useUpdateCollectionField();
@@ -319,8 +331,7 @@ export default function CollectionDetailPage() {
             Fields ({fields?.length ?? 0})
           </TabsTrigger>
           <TabsTrigger value="records">
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            Records ({(recordsData as any)?.total || 0})
+            Records ({totalRecords})
           </TabsTrigger>
         </TabsList>
 
@@ -356,14 +367,12 @@ export default function CollectionDetailPage() {
             </div>
           ) : (
             <RecordsList
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              records={(recordsData as any)?.records ?? []}
+              records={collectionRecords}
               fields={fields ?? []}
               isLoading={loadingRecords}
               page={recordsPage}
               pageSize={recordsPageSize}
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              totalRecords={(recordsData as any)?.total || 0}
+              totalRecords={totalRecords}
               onPageChange={setRecordsPage}
               onRecordClick={handleEditRecord}
               onAddRecord={() => setRecordModalOpen(true)}

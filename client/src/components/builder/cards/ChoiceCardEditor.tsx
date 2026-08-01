@@ -17,7 +17,6 @@ import { useState, useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useChoiceConfig, type ChoiceCardState } from "@/hooks/useChoiceConfig";
@@ -25,12 +24,10 @@ import { useListToolsValidation } from "@/hooks/useListToolsValidation";
 import { blockAPI, type ApiTransformBlock } from "@/lib/vault-api";
 import { useUpdateStep, useWorkflowVariables, useWorkflow } from "@/lib/vault-hooks";
 
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import type { ChoiceAdvancedConfig, ChoiceOption } from "@shared/types/stepConfigs";
+import type { ChoiceAdvancedConfig, ChoiceDisplay, ChoiceOption } from "@shared/types/stepConfigs";
 
 import { BlockEditorDialog, type UniversalBlock } from "../BlockEditorDialog";
-// eslint-disable-next-line import/no-cycle
-import { StepEditorCommonProps } from "../StepEditorRouter";
+import type { StepEditorCommonProps } from "./common/stepEditorProps";
 
 import { ListToolsDialogs } from "./choices/ListToolsDialogs";
 import { AliasField } from "./common/AliasField";
@@ -39,6 +36,16 @@ import { SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { DynamicOptionsEditor } from "./DynamicOptionsEditor";
 import { StaticOptionsEditor } from "./StaticOptionsEditor";
+
+const SINGLE_SELECT_DISPLAYS: Array<{ value: ChoiceDisplay; label: string; hint: string }> = [
+  { value: "radio", label: "Radio", hint: "Every option is visible at once. Best for short lists." },
+  { value: "dropdown", label: "Dropdown", hint: "A closed list. Best when there are many options." },
+  {
+    value: "combobox",
+    label: "Combo Box",
+    hint: "Searchable, and the respondent can enter an answer that isn't listed.",
+  },
+];
 
 // eslint-disable-next-line max-lines-per-function
 export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps) {
@@ -66,39 +73,8 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
   // Determine mode (kept for compatibility, but hook also provides this)
   const isAdvancedMode = step.type === "choice";
 
-  // Use custom hooks for config management
-  const { localConfig, setLocalConfig, sourceMode, setSourceMode } = useChoiceConfig(step);
-
   // State
   const [errors, setErrors] = useState<string[]>([]);
-
-  // Fetch Workflow Variables (for dynamic mode)
-  const { data: variables = [] } = useWorkflowVariables(workflowId);
-
-  // Filter for List variables only
-  const listVariables = useMemo(() => {
-    return (variables).filter(v => v.type === 'read_table' || v.type === 'list_tools');
-  }, [variables]);
-
-  // Use custom hook for validation
-  const {
-    timingWarning,
-    labelColumnWarning,
-    valueColumnWarning,
-    sourceBlock,
-    sourceTableId,
-    columns,
-    loadingColumns,
-    blocks
-  } = useListToolsValidation({ localConfig, workflowId, sectionId });
-
-
-  // Derived state for Dynamic Columns
-  const _selectedListVarName = localConfig?.dynamicOptions?.listVariable;
-
-  // ---------------------------------------------------------------------------
-  // HANDLERS
-  // ---------------------------------------------------------------------------
 
   const saveConfig = (newConfig: ChoiceCardState, saveSourceMode: "static" | "dynamic") => {
     // Validation
@@ -120,10 +96,12 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
     const isNowAdvanced = saveSourceMode === "dynamic" || isAdvancedMode;
 
     if (isNowAdvanced) {
+      // `searchable` is deliberately not written: display: 'combobox' now
+      // carries that meaning. Old configs still setting it are normalised on
+      // read by resolveChoiceDisplay.
       const payload: ChoiceAdvancedConfig = {
         display: newConfig.display,
         allowMultiple: newConfig.allowMultiple,
-        searchable: newConfig.searchable,
         options: saveSourceMode === 'static'
           // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
           ? { type: 'static', options: newConfig.staticOptions || [] }
@@ -150,37 +128,91 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
     }
   };
 
+  // Use custom hooks for config management
+  const { localConfig, setLocalConfig, sourceMode, setSourceMode } = useChoiceConfig(step, saveConfig);
+
+  // Fetch Workflow Variables (for dynamic mode)
+  const { data: variables = [] } = useWorkflowVariables(workflowId);
+
+  // Filter for List variables only
+  const listVariables = useMemo(() => {
+    return (variables).filter(v => v.type === 'read_table' || v.type === 'list_tools');
+  }, [variables]);
+
+  // Use custom hook for validation
+  const {
+    timingWarning,
+    labelColumnWarning,
+    valueColumnWarning,
+    sourceBlock,
+    sourceTableId,
+    columns,
+    loadingColumns,
+    blocks
+  } = useListToolsValidation({ localConfig, workflowId, sectionId });
+
+
+  // Derived state for Dynamic Columns
+  const _selectedListVarName = localConfig?.dynamicOptions?.listVariable;
+
+  // Compute duplicate aliases for inline row highlighting
+  const duplicateAliases = useMemo(() => {
+    const dupes = new Set<string>();
+    const seen = new Set<string>();
+    const options = localConfig?.staticOptions ?? [];
+    for (const opt of options) {
+      const alias = opt.alias ?? opt.id;
+      if (seen.has(alias)) { dupes.add(alias); }
+      else { seen.add(alias); }
+    }
+    return dupes;
+  }, [localConfig?.staticOptions]);
+
+  // ---------------------------------------------------------------------------
+  // HANDLERS
+  // ---------------------------------------------------------------------------
+
   const handleUpdate = (updates: Partial<ChoiceCardState>) => {
     if (!localConfig) { return; }
     const next: ChoiceCardState = { ...localConfig, ...updates };
     setLocalConfig(next);
-    saveConfig(next, sourceMode);
   };
 
   const handleSourceModeChange = (val: string) => {
     if (!localConfig) { return; }
     const newMode = val as "static" | "dynamic";
     setSourceMode(newMode);
+    // Mode changes are discrete actions; save immediately to bypass debounce queue
     saveConfig(localConfig, newMode);
   };
 
   const handleAddOption = () => {
     if (!localConfig) { return; }
+    // Derive the next suffix from the free slots, not the array length: after a
+    // middle option is deleted, `length + 1` can re-mint an id/alias that a
+    // surviving option still holds, which trips the duplicate-alias check on
+    // save. Bump until both the id and the alias are unused.
+    const usedIds = new Set(localConfig.staticOptions.map((o) => o.id));
+    const usedAliases = new Set(
+      localConfig.staticOptions.map((o) => o.alias).filter((a): a is string => Boolean(a))
+    );
+    let n = localConfig.staticOptions.length + 1;
+    while (usedIds.has(`opt${n}`) || usedAliases.has(`option${n}`)) { n++; }
     const newOptions = [
       ...localConfig.staticOptions,
       {
-        id: `opt${localConfig.staticOptions.length + 1}`,
-        label: `Option ${localConfig.staticOptions.length + 1}`,
-        alias: `option${localConfig.staticOptions.length + 1}`,
+        id: `opt${n}`,
+        label: `Option ${n}`,
+        alias: `Option ${n}`,
       },
     ];
     handleUpdate({ staticOptions: newOptions });
   };
 
-  const handleUpdateOption = (index: number, field: keyof ChoiceOption, value: string) => {
+  const handleUpdateOption = (index: number, updates: Partial<ChoiceOption>) => {
     if (!localConfig) { return; }
     const newOptions = [...localConfig.staticOptions];
-    newOptions[index] = { ...newOptions[index], [field]: value };
+    newOptions[index] = { ...newOptions[index], ...updates };
     handleUpdate({ staticOptions: newOptions });
   };
 
@@ -193,11 +225,25 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
 
   const handleAliasChange = (alias: string | null) => updateStepMutation.mutate({ id: stepId, sectionId, alias });
   const handleRequiredChange = (required: boolean) => updateStepMutation.mutate({ id: stepId, sectionId, required });
-  const handleDisplayChange = (display: "radio" | "dropdown" | "multiple") => {
+  const handleDisplayChange = (display: ChoiceDisplay) => {
     const allowMultiple = display === "multiple";
+    // Easy-mode `radio` / `multiple_choice` steps have nowhere to store a
+    // display mode, so dropdown and combobox both require promoting the step
+    // to the advanced `choice` type first.
+    const needsAdvancedType = display === "dropdown" || display === "combobox";
+
     if (!isAdvancedMode && sourceMode === 'static') {
-      const newType = allowMultiple ? "multiple_choice" : "radio";
-      updateStepMutation.mutate({ id: stepId, sectionId, type: newType });
+      if (needsAdvancedType) {
+        const payload: ChoiceAdvancedConfig = {
+          display,
+          allowMultiple,
+          options: { type: 'static', options: localConfig?.staticOptions ?? [] }
+        };
+        updateStepMutation.mutate({ id: stepId, sectionId, type: 'choice', config: payload });
+      } else {
+        const newType = allowMultiple ? "multiple_choice" : "radio";
+        updateStepMutation.mutate({ id: stepId, sectionId, type: newType });
+      }
     } else {
       handleUpdate({ display, allowMultiple });
     }
@@ -424,7 +470,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
   };
 
   const linkedBlock = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/prefer-nullish-coalescing
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!localConfig?.dynamicOptions?.linkedListToolsBlockId || !blocks) { return null; }
     return (blocks ?? []).find((b) => b.id === localConfig.dynamicOptions?.linkedListToolsBlockId);
   }, [localConfig?.dynamicOptions?.linkedListToolsBlockId, blocks]);
@@ -467,44 +513,39 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
 
   if (localConfig === null || localConfig === undefined) { return null; }
 
+  const isMultiSelect = localConfig.display === "multiple";
+
   return (
     <div className="space-y-4 p-4 border-t bg-muted/30">
-      <AliasField value={step.alias} onChange={(val) => { void handleAliasChange(val); }} />
+      <AliasField value={step.alias} onChange={(val) => { void handleAliasChange(val); }} workflowId={workflowId} currentStepId={stepId} />
       <RequiredToggle checked={step.required} onChange={(val) => { void handleRequiredChange(val); }} />
 
       <Separator />
 
-      {/* Display Mode */}
-      <div className="space-y-3">
-        <SectionHeader title="Display Mode" description="How choices are displayed" />
-        <RadioGroup value={localConfig.display} onValueChange={(v) => handleDisplayChange(v as "radio" | "dropdown" | "multiple")} disabled={false} className="flex gap-4">
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="radio" id="d-radio" />
-            <Label htmlFor="d-radio">Radio</Label>
+      {!isMultiSelect && (
+        <>
+          <div className="space-y-3">
+            <SectionHeader title="Display Mode" description="How choices are displayed" />
+            <RadioGroup
+              value={localConfig.display}
+              onValueChange={(v) => handleDisplayChange(v as ChoiceDisplay)}
+              className="flex gap-4"
+            >
+              {SINGLE_SELECT_DISPLAYS.map((opt) => (
+                <div key={opt.value} className="flex items-center space-x-2">
+                  <RadioGroupItem value={opt.value} id={`d-${opt.value}`} />
+                  <Label htmlFor={`d-${opt.value}`}>{opt.label}</Label>
+                </div>
+              ))}
+            </RadioGroup>
+            <p className="text-xs text-muted-foreground">
+              {SINGLE_SELECT_DISPLAYS.find((o) => o.value === localConfig.display)?.hint}
+            </p>
           </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="dropdown" id="d-dropdown" />
-            <Label htmlFor="d-dropdown">Dropdown</Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="multiple" id="d-multiple" />
-            <Label htmlFor="d-multiple">Multiple</Label>
-          </div>
-        </RadioGroup>
 
-        {(localConfig.display === 'dropdown' || localConfig.display === 'multiple') && (
-          <div className="flex items-center space-x-2 pt-2">
-            <Switch
-              id="searchable-mode"
-              checked={localConfig.searchable ?? false}
-              onCheckedChange={(c) => handleUpdate({ searchable: c })}
-            />
-            <Label htmlFor="searchable-mode" className="text-xs font-normal text-muted-foreground">Allow Search</Label>
-          </div>
-        )}
-      </div>
-
-      <Separator />
+          <Separator />
+        </>
+      )}
 
       {/* Options Source Toggle */}
       <Tabs value={sourceMode} onValueChange={handleSourceModeChange} className="w-full">
@@ -522,6 +563,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
             onUpdate={handleUpdateOption}
             onDelete={handleDeleteOption}
             onAdd={handleAddOption}
+            duplicateAliases={duplicateAliases}
           />
         </TabsContent>
 
@@ -534,7 +576,6 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
             columns={columns}
             loadingColumns={loadingColumns}
             timingWarning={timingWarning}
-            // eslint-disable-next-line @typescript-eslint/no-misused-promises
             labelColumnWarning={labelColumnWarning}
             valueColumnWarning={valueColumnWarning}
             onUpdate={(updates) => handleUpdate({ dynamicOptions: { ...localConfig.dynamicOptions, ...updates } })}
@@ -583,7 +624,6 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
       <DefaultValueField
         stepId={stepId}
         sectionId={sectionId}
-        workflowId={workflowId}
         defaultValue={step.defaultValue as DefaultValueType}
         type={step.type}
         mode={isAdvancedMode ? 'advanced' : 'easy'}

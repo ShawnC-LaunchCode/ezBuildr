@@ -22,9 +22,12 @@ export interface EmailBlockProps {
   value: any;
   onChange: (value: string) => void;
   readOnly?: boolean;
+  ariaDescribedBy?: string;
+  required?: boolean;
+  hasError?: boolean;
 }
 
-export function EmailBlockRenderer({ step, value, onChange, readOnly }: EmailBlockProps) {
+export function EmailBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: EmailBlockProps) {
   const config = step.config as EmailConfig;
   const placeholder = config?.placeholder ?? "email@example.com";
 
@@ -38,6 +41,9 @@ export function EmailBlockRenderer({ step, value, onChange, readOnly }: EmailBlo
       placeholder={placeholder}
       autoComplete="email"
       disabled={readOnly}
-    />
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      />
   );
 }

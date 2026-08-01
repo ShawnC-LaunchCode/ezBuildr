@@ -37,7 +37,7 @@ export function initTelemetry(): void {
       instrumentations: [
         getNodeAutoInstrumentations({
           // Disable specific instrumentations if needed
-          // eslint-disable-next-line @typescript-eslint/naming-convention -- third-party package config key
+
           '@opentelemetry/instrumentation-fs': {
             enabled: false, // Can be noisy
           },

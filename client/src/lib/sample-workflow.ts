@@ -1,17 +1,28 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
+import type { UseMutationResult } from "@tanstack/react-query";
+
+interface CreatedWorkflow {
+    id: string;
+}
+
+interface CreatedEntity {
+    id: string;
+}
+
+async function readJson<T>(response: Response): Promise<T> {
+    return response.json() as Promise<T>;
+}
+
 /**
  * Creates a complete sample workflow with multiple sections, steps, logic, and blocks.
  * Demonstrates: Pages, Questions, Variables, Logic, and Documents.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function useCreateSampleWorkflow() {
+export function useCreateSampleWorkflow(): UseMutationResult<CreatedWorkflow, unknown, void> {
     const { toast } = useToast();
     const [, navigate] = useLocation();
     const queryClient = useQueryClient();
@@ -23,7 +34,7 @@ export function useCreateSampleWorkflow() {
                 title: "Sample: Customer Intake",
                 description: "A demo workflow showing forms, logic, and document generation. Feel free to edit or delete!",
             });
-            const workflow = await workflowRes.json();
+            const workflow = await readJson<CreatedWorkflow>(workflowRes);
             const workflowId = workflow.id;
 
             // 2. Create Page 1: Contact Info
@@ -32,7 +43,7 @@ export function useCreateSampleWorkflow() {
                 title: "Contact Information",
                 order: 0,
             });
-            const p1 = await p1Res.json();
+            const p1 = await readJson<CreatedEntity>(p1Res);
 
             // P1 - Step 1: Name
             await apiRequest("POST", "/api/steps", {
@@ -62,7 +73,7 @@ export function useCreateSampleWorkflow() {
                 title: "Service Preferences",
                 order: 1,
             });
-            const p2 = await p2Res.json();
+            const p2 = await readJson<CreatedEntity>(p2Res);
 
             // P2 - Step 1: Service Type
             await apiRequest("POST", "/api/steps", {

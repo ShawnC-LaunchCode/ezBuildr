@@ -125,7 +125,7 @@ export function WorkflowHistoryDialog({
                                                         <TableCell>
                                                             <div className="flex items-center gap-1 font-mono text-xs text-muted-foreground">
                                                                 <GitCommit className="w-3 h-3" />
-                                                                v{versions?.find(v => v.id === run.versionId)?.versionNumber}
+                                                                v{versions?.find(v => v.id === run.workflowVersionId)?.versionNumber}
                                                             </div>
                                                         </TableCell>
                                                         <TableCell className="text-muted-foreground text-sm">

@@ -65,7 +65,6 @@ export function createTestUser(overrides?: DeepPartial<User>): Omit<User, 'id' |
   const firstName = overrides?.firstName || `Test${uniqueId}`;
   const lastName = overrides?.lastName || 'User';
 
-  // @ts-ignore - TODO: fix type
   return {
     email: overrides?.email || `test-${uniqueId}@example.com`,
     fullName: overrides?.fullName || `${firstName} ${lastName}`,
@@ -78,6 +77,7 @@ export function createTestUser(overrides?: DeepPartial<User>): Omit<User, 'id' |
     authProvider: overrides?.authProvider || 'local',
     defaultMode: overrides?.defaultMode || 'easy',
     emailVerified: overrides?.emailVerified ?? true,
+    isActive: overrides?.isActive ?? true,
     mfaEnabled: overrides?.mfaEnabled ?? false,
     lastPasswordChange: overrides?.lastPasswordChange || null,
     isPlaceholder: overrides?.isPlaceholder ?? false,
@@ -194,6 +194,7 @@ export function createTestWorkflow(overrides?: DeepPartial<Workflow>): Omit<Work
     modeOverride: overrides?.modeOverride || null,
     currentVersionId: overrides?.currentVersionId || null,
     intakeConfig: overrides?.intakeConfig || {},
+    settings: overrides?.settings || {},
     sourceBlueprintId: overrides?.sourceBlueprintId || null,
     ownerType: overrides?.ownerType || 'user',
   };
@@ -214,6 +215,7 @@ export function createTestSection(overrides?: DeepPartial<Section>): Omit<Sectio
     skipIf: overrides?.skipIf || null,
     visibleIf: overrides?.visibleIf || null,
     config: overrides?.config || {},
+    deletedAt: overrides?.deletedAt ?? null,
     ...overrides,
   };
 }
@@ -227,18 +229,20 @@ export function createTestStep(overrides?: DeepPartial<Step>): Omit<Step, 'id' |
   const uniqueId = nanoid(8);
 
   return {
+    workflowId: overrides?.workflowId || uuidv4(),
     sectionId: overrides?.sectionId || uuidv4(), // Fix: sec-${uniqueId} -> uuidv4
     type: overrides?.type || 'short_text',
     title: overrides?.title || `Step ${uniqueId}`,
     description: overrides?.description || null,
     required: overrides?.required ?? false,
-    options: overrides?.options || null,
+    config: overrides?.config || null,
     alias: overrides?.alias || null,
     defaultValue: overrides?.defaultValue || null,
     order: overrides?.order ?? 0,
     isVirtual: overrides?.isVirtual ?? false,
     visibleIf: overrides?.visibleIf || null,
     repeaterConfig: overrides?.repeaterConfig || null,
+    deletedAt: overrides?.deletedAt ?? null,
     ...overrides,
   };
 }
@@ -274,8 +278,7 @@ export function createTestWorkflowRun(overrides?: DeepPartial<WorkflowRun>): Omi
     ownerUuid: null,
   };
 
-  // @ts-ignore - TODO: fix type
-  return { ...defaults, ...overrides };
+  return { ...defaults, ...overrides } as Omit<WorkflowRun, 'id' | 'createdAt' | 'updatedAt'>;
 }
 
 /**
@@ -390,9 +393,11 @@ export function createTestSteps(
   sectionId: string,
   overrides?: DeepPartial<Step>
 ): Array<Omit<Step, 'id' | 'createdAt' | 'updatedAt'>> {
+  const workflowId = overrides?.workflowId || uuidv4();
   return Array.from({ length: count }, (_, index) =>
     createTestStep({
       sectionId,
+      workflowId,
       order: index,
       alias: `step_${index + 1}`,
       ...overrides,

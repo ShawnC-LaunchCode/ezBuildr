@@ -94,7 +94,10 @@ describe('External Send Block Integration', () => {
         const [version] = await db.insert(workflowVersions).values({
             workflowId,
             versionNumber: 1,
-            graphJson: {},
+            // Schema-valid placeholder: RVP-1 parses a pinned version's
+            // graphJson, so `{}` is no longer inert. The runs below are
+            // deliberately versionless, so this is never actually read.
+            graphJson: { title: 'External Send Workflow', sections: [] },
             createdBy: userId,
             published: true
         } as any).returning();
@@ -125,6 +128,7 @@ describe('External Send Block Integration', () => {
         const inputStepId = uuidv4();
         await db.insert(steps).values({
             id: inputStepId,
+            workflowId,
             sectionId,
             type: 'short_text',
             title: 'Input',
@@ -153,7 +157,14 @@ describe('External Send Block Integration', () => {
         await runPersistenceWriter.createRun({
             id: runId,
             workflowId,
-            workflowVersionId,
+            // Deliberately versionless: this suite exercises external-send
+            // block execution against the live workflow, and its steps are
+            // created inside each test — after the version above — so a pinned
+            // snapshot could never contain them. A run with no
+            // workflowVersionId takes RunDefinitionProvider's `source: 'live'`
+            // branch and reads the live tables, which is what these tests mean
+            // to assert (RVP-3).
+            workflowVersionId: null,
             createdBy: userId,
             completed: false,
             status: 'pending',
@@ -182,6 +193,7 @@ describe('External Send Block Integration', () => {
         const inputStepId = uuidv4();
         await db.insert(steps).values({
             id: inputStepId,
+            workflowId,
             sectionId,
             type: 'short_text',
             title: 'Input',
@@ -210,7 +222,14 @@ describe('External Send Block Integration', () => {
         await runPersistenceWriter.createRun({
             id: runId,
             workflowId,
-            workflowVersionId,
+            // Deliberately versionless: this suite exercises external-send
+            // block execution against the live workflow, and its steps are
+            // created inside each test — after the version above — so a pinned
+            // snapshot could never contain them. A run with no
+            // workflowVersionId takes RunDefinitionProvider's `source: 'live'`
+            // branch and reads the live tables, which is what these tests mean
+            // to assert (RVP-3).
+            workflowVersionId: null,
             createdBy: userId,
             completed: false,
             status: 'pending',

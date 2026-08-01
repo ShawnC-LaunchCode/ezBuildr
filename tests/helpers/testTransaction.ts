@@ -47,7 +47,7 @@ export async function beginTestTransaction(): Promise<DbTransaction | undefined>
     'DEPRECATION WARNING: beginTestTransaction() is deprecated and will be removed in v2.0.0. ' +
     'Use runInTransaction() instead. See TESTING_STRATEGY.md for migration guide.'
   );
-  const db = getDb()!;
+  const db = getDb();
   // This pattern is fundamentally flawed - uses never-resolving promise
   return new Promise((resolve, reject) => {
     db.transaction(async (tx: DbTransaction) => {
@@ -142,7 +142,7 @@ export async function releaseSavepoint(tx: DbTransaction, name: string): Promise
 export async function runInTransaction<T>(
   testFn: (tx: DbTransaction) => Promise<T>
 ): Promise<T> {
-  const db = getDb()!;
+  const db = getDb();
   let result: T;
   try {
     await db.transaction(async (tx: DbTransaction) => {
@@ -166,7 +166,7 @@ export async function runInTransaction<T>(
  * This is useful for integration tests that need a clean slate
  */
 export async function truncateAllTables(): Promise<void> {
-  const db = getDb()!;
+  const db = getDb();
   // Disable foreign key checks temporarily
   await db.execute(sql.raw('SET session_replication_role = replica'));
   try {

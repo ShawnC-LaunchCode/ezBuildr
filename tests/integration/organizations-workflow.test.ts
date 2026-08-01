@@ -309,7 +309,7 @@ describe('Organization Workflow Integration Tests', () => {
         .delete(organizationInvites)
         .where(eq(organizationInvites.id, invite.inviteId));
     });
-    it('Cannot transfer workflow to org user is not a member of', { timeout: 30000 }, async () => {
+    it('Cannot transfer workflow into an org the user does not administer', { timeout: 30000 }, async () => {
       // Create another org
       const org2 = await organizationService.createOrganization(
         {
@@ -317,7 +317,8 @@ describe('Organization Workflow Integration Tests', () => {
         },
         user3Id
       );
-      // User1 tries to transfer their workflow to org2 (not a member)
+      // User1 tries to transfer their workflow into org2 (not an admin there).
+      // Transferring assets INTO an org requires org-admin (members use copy instead).
       await expect(
         workflowService.transferOwnership(
           testWorkflowId,
@@ -325,7 +326,7 @@ describe('Organization Workflow Integration Tests', () => {
           'org',
           org2.id
         )
-      ).rejects.toThrow(/not a member/i);
+      ).rejects.toThrow(/organization admin/i);
       // Cleanup
       await db
         .delete(organizationMemberships)

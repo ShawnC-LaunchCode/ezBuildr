@@ -10,7 +10,6 @@ export { AIProviderClient } from './AIProviderClient';
 // Services
 export { WorkflowGenerationService } from './WorkflowGenerationService';
 export { WorkflowSuggestionService } from './WorkflowSuggestionService';
-export { WorkflowRevisionService } from './WorkflowRevisionService';
 
 export {
     estimateTokenCount,

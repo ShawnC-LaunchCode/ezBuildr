@@ -4,6 +4,7 @@ import { workflowRuns, type WorkflowRun, type InsertWorkflowRun } from "@shared/
 
 import { db } from "../db";
 import { hashToken } from "../utils/encryption";
+import { createError } from "../utils/errors";
 
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
@@ -138,7 +139,9 @@ export class WorkflowRunRepository extends BaseRepository<
   }
 
   /**
-   * Mark run as complete
+   * Mark run as complete. Conditional on completed = false so that two
+   * concurrent completions cannot both succeed (the loser gets
+   * "Run is already completed" instead of re-triggering side effects).
    */
   async markComplete(runId: string, tx?: DbTransaction): Promise<WorkflowRun> {
     const database = this.getDb(tx);
@@ -147,12 +150,105 @@ export class WorkflowRunRepository extends BaseRepository<
       .set({
         completed: true,
         completedAt: new Date(),
+        progress: 100,
         updatedAt: new Date(),
       })
-      .where(eq(workflowRuns.id, runId))
+      .where(and(eq(workflowRuns.id, runId), eq(workflowRuns.completed, false)))
       .returning();
-    if (updated == null) {throw new Error("Failed to mark run as complete");}
+    if (updated == null) {
+      const existing = await this.findById(runId, tx);
+      if (existing) {throw createError.runCompleted();}
+      throw createError.notFound('Run', runId);
+    }
     return updated;
+  }
+
+  /**
+   * Rotate a portal-assigned run token only when the authenticated portal
+   * email exactly matches the run assignment.
+   */
+  async rotatePortalToken(
+    runId: string,
+    clientEmail: string,
+    runTokenHash: string,
+    tokenExpiresAt: Date,
+    tx?: DbTransaction
+  ): Promise<WorkflowRun | null> {
+    const database = this.getDb(tx);
+    const [updated] = await database
+      .update(workflowRuns)
+      .set({ runToken: runTokenHash, tokenExpiresAt, updatedAt: new Date() })
+      .where(and(
+        eq(workflowRuns.id, runId),
+        eq(workflowRuns.clientEmail, clientEmail),
+        eq(workflowRuns.accessMode, 'portal')
+      ))
+      .returning();
+    return updated ?? null;
+  }
+
+  /**
+   * Apply respondent-facing state transitions only while the run is mutable.
+   * The conditional update serializes with markComplete at the row boundary.
+   */
+  async updateIfIncomplete(
+    runId: string,
+    updates: Partial<InsertWorkflowRun>,
+    tx?: DbTransaction
+  ): Promise<WorkflowRun> {
+    const database = this.getDb(tx);
+    const [updated] = await database
+      .update(workflowRuns)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(workflowRuns.id, runId), eq(workflowRuns.completed, false)))
+      .returning();
+    if (updated !== undefined) {return updated;}
+
+    const existing = await this.findById(runId, tx);
+    if (existing) {throw createError.runCompleted();}
+    throw createError.notFound('Run', runId);
+  }
+
+  /**
+   * Update the generation status of a run.
+   *
+   * generation_status is varchar(50); a long `failed:<reason>` must not make
+   * the status write itself fail — that would strand the run in 'generating'.
+   * The full reason is always in the server logs; the status only needs the
+   * machine-readable prefix plus a hint.
+   */
+  async updateGenerationStatus(runId: string, status: string, tx?: DbTransaction): Promise<void> {
+    const database = this.getDb(tx);
+    const GENERATION_STATUS_MAX_LENGTH = 50;
+    const bounded = status.length > GENERATION_STATUS_MAX_LENGTH
+      ? status.slice(0, GENERATION_STATUS_MAX_LENGTH)
+      : status;
+    await database
+      .update(workflowRuns)
+      .set({ generationStatus: bounded, updatedAt: new Date() })
+      .where(eq(workflowRuns.id, runId));
+  }
+
+  /**
+   * Atomically claim document generation for a run. Only pending/failed rows can
+   * transition into generating, so two app instances cannot both render the same
+   * document set after racing on a read.
+   */
+  async tryMarkGenerationStarted(runId: string, tx?: DbTransaction): Promise<boolean> {
+    const database = this.getDb(tx);
+    const [updated] = await database
+      .update(workflowRuns)
+      .set({ generationStatus: 'generating', updatedAt: new Date() })
+      .where(and(
+        eq(workflowRuns.id, runId),
+        or(
+          sql`${workflowRuns.generationStatus} IS NULL`,
+          eq(workflowRuns.generationStatus, 'pending'),
+          sql`${workflowRuns.generationStatus} LIKE 'failed:%'`
+        )
+      ))
+      .returning({ id: workflowRuns.id });
+    return updated !== undefined;
   }
 
   /**
