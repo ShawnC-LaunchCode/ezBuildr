@@ -528,17 +528,22 @@ empty.
 
 ---
 
-## Phase 1 Gate
+## Phase 1 Gate ✅ Passed (2026-07-31)
 
-- [ ] LIST-1..4 ✅ with dated verification notes
-- [ ] `npm run type-check` → 0 errors
-- [ ] `npm run lint` → clean (`--max-warnings 0` repo-wide)
-- [ ] `npm run test:fast` → green, no reduction in passing count vs baseline
-- [ ] `npm run test:unit:db` → green
-- [ ] Fresh-DB migration proof: full chain applies to an empty database, zero errors
-- [ ] Pre-commit script run in full (`type-check` alone is **not** the gate —
-      it misses `check:strict-zones`)
-- [ ] Reviewer has committed each passed ticket + this gate
+- [x] LIST-1..4 ✅ with dated verification notes
+- [x] `npm run type-check` → 0 errors
+- [x] `npm run lint` → clean (`--max-warnings 0` repo-wide) — verified repo-wide
+      at the gate, not just per-ticket touched files
+- [x] `npm run test:fast` → green, no reduction in passing count vs baseline
+      (2112 tests passing after LIST-4, up from 2062 at LIST-1)
+- [x] `npm run test:unit:db` → green (11 files, 124/124, against the port-5434
+      test container)
+- [x] Fresh-DB migration proof: unchanged since LIST-1 — LIST-2, LIST-3, and
+      LIST-4 touched no schema or migration files, so no new proof was needed
+- [x] Pre-commit script run in full for every ticket's commit (LIST-2:
+      `27e226a8`, LIST-3: `2c623df8`, LIST-4: `95d503cd`) — all 4/4 checks
+      passed each time, including `check:strict-zones`
+- [x] Reviewer has committed each passed ticket + this gate
 
 ---
 
