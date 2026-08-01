@@ -24,13 +24,191 @@ interface ActivityLog {
   status?: string | null;
   ipAddress?: string | null;
   userAgent?: string | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  metadata?: any;
+  metadata?: Record<string, unknown> | null;
 }
 
 interface ActivityLogResult {
   rows: ActivityLog[];
   total: number;
+}
+
+type LogSortColumn = 'timestamp' | 'event' | 'actorEmail' | 'entityType' | 'ipAddress' | 'userAgent' | 'status';
+type LogSortDirection = 'asc' | 'desc';
+type LogSortOrder = `${LogSortColumn}_${LogSortDirection}`;
+
+function isLogSortOrder(value: string): value is LogSortOrder {
+  return /^(timestamp|event|actorEmail|entityType|ipAddress|userAgent|status)_(asc|desc)$/.test(value);
+}
+
+function formatTimestamp(timestamp: string): string {
+  const date = new Date(timestamp);
+  return date.toLocaleString('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+}
+
+function getStatusBadgeClass(status?: string | null): string {
+  if (status === null || status === undefined || status === '') {
+    return "bg-gray-100 text-gray-700";
+  }
+  switch (status.toLowerCase()) {
+    case "error":
+      return "bg-red-100 text-red-700";
+    case "success":
+      return "bg-green-100 text-green-700";
+    case "warn":
+    case "warning":
+      return "bg-yellow-100 text-yellow-700";
+    default:
+      return "bg-blue-100 text-blue-700";
+  }
+}
+
+function getMetadataActorEmail(log: ActivityLog): string | null {
+  const metadataEmail = log.metadata?._actorEmail;
+  if (typeof metadataEmail === "string" && metadataEmail !== "") {
+    return metadataEmail;
+  }
+  return log.actorEmail ?? null;
+}
+
+function SortHeader({
+  column,
+  label,
+  sortColumn,
+  sortDirection,
+  onSort,
+}: {
+  column: LogSortColumn;
+  label: string;
+  sortColumn: string;
+  sortDirection: string;
+  onSort: (column: LogSortColumn) => void;
+}) {
+  const isActive = sortColumn === column;
+  return (
+    <th className="px-4 py-3 font-medium text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => onSort(column)}>
+      <div className="flex items-center gap-1">
+        {label}
+        {isActive && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
+      </div>
+    </th>
+  );
+}
+
+function ActorCell({ log }: { log: ActivityLog }) {
+  const actorEmail = getMetadataActorEmail(log);
+  if (actorEmail !== null) {
+    return <span className="font-medium">{actorEmail}</span>;
+  }
+  if (log.actorId !== null && log.actorId !== undefined) {
+    return <span className="text-muted-foreground text-xs font-mono">{log.actorId.substring(0, 8)}...</span>;
+  }
+  return <span className="text-muted-foreground italic">System</span>;
+}
+
+function EntityCell({ log }: { log: ActivityLog }) {
+  if (log.entityType !== null && log.entityType !== undefined && log.entityId !== null && log.entityId !== undefined) {
+    return <span className="text-xs">{log.entityType}:{log.entityId.substring(0, 8)}...</span>;
+  }
+  if (log.entityId !== null && log.entityId !== undefined) {
+    return <span className="text-xs">{log.entityId.substring(0, 8)}...</span>;
+  }
+  return <span className="text-gray-400">-</span>;
+}
+
+function MetadataCell({ metadata }: { metadata?: Record<string, unknown> | null }) {
+  if (metadata === null || metadata === undefined) {
+    return <span className="text-gray-400">-</span>;
+  }
+  return (
+    <details className="cursor-pointer">
+      <summary className="text-xs text-blue-600 hover:text-blue-800">View JSON</summary>
+      <pre className="mt-2 text-xs text-gray-600 whitespace-pre-wrap break-words bg-gray-50 p-2 rounded">
+        {JSON.stringify(metadata, null, 2)}
+      </pre>
+    </details>
+  );
+}
+
+function LogRow({ log, onSelect }: { log: ActivityLog; onSelect: (log: ActivityLog) => void }) {
+  return (
+    <tr key={log.id} className="border-b hover:bg-gray-50 cursor-pointer" onClick={() => onSelect(log)}>
+      <td className="px-4 py-3 whitespace-nowrap text-gray-700">{formatTimestamp(log.timestamp)}</td>
+      <td className="px-4 py-3 font-medium">{log.event}</td>
+      <td className="px-4 py-3"><ActorCell log={log} /></td>
+      <td className="px-4 py-3"><EntityCell log={log} /></td>
+      <td className="px-4 py-3 whitespace-nowrap text-xs">{log.ipAddress ?? <span className="text-gray-400">-</span>}</td>
+      <td className="px-4 py-3 max-w-xs truncate text-xs" title={log.userAgent ?? ''}>
+        {log.userAgent ?? <span className="text-gray-400">-</span>}
+      </td>
+      <td className="px-4 py-3">
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getStatusBadgeClass(log.status)}`}>
+          {log.status ?? "info"}
+        </span>
+      </td>
+      <td className="px-4 py-3 max-w-md"><MetadataCell metadata={log.metadata} /></td>
+    </tr>
+  );
+}
+
+function LogDetailsDialog({
+  selectedLog,
+  onClose,
+}: {
+  selectedLog: ActivityLog | null;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog open={selectedLog !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Activity Log Details</DialogTitle>
+        </DialogHeader>
+        {selectedLog !== null && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-semibold block text-gray-500">Event</span>
+                {selectedLog.event}
+              </div>
+              <div>
+                <span className="font-semibold block text-gray-500">Timestamp</span>
+                {formatTimestamp(selectedLog.timestamp)}
+              </div>
+              <div>
+                <span className="font-semibold block text-gray-500">Actor</span>
+                {getMetadataActorEmail(selectedLog) ?? selectedLog.actorId ?? "System"}
+              </div>
+              <div>
+                <span className="font-semibold block text-gray-500">Status</span>
+                {selectedLog.status ?? "N/A"}
+              </div>
+              <div>
+                <span className="font-semibold block text-gray-500">IP Address</span>
+                {selectedLog.ipAddress ?? "N/A"}
+              </div>
+              <div className="break-words">
+                <span className="font-semibold block text-gray-500">User Agent</span>
+                {selectedLog.userAgent ?? "N/A"}
+              </div>
+            </div>
+            <div>
+              <span className="font-semibold block text-gray-500 mb-2 text-sm">Raw JSON</span>
+              <pre className="bg-gray-50 p-4 rounded-md whitespace-pre-wrap break-all text-xs font-mono border max-h-[400px] overflow-y-auto">
+                {JSON.stringify(selectedLog, null, 2)}
+              </pre>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 // eslint-disable-next-line max-lines-per-function
@@ -45,9 +223,9 @@ export default function AdminLogs() {
   const [statusFilter, _setStatusFilter] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [sortOrder, setSortOrder] = useState<string>("timestamp_desc");
+  const [sortOrder, setSortOrder] = useState<LogSortOrder>("timestamp_desc");
 
-  const handleSort = (column: string) => {
+  const handleSort = (column: LogSortColumn) => {
     setSortOrder((prev) => {
       const [prevCol, prevDir] = prev.split("_");
       if (prevCol === column) {
@@ -135,33 +313,6 @@ export default function AdminLogs() {
   const totalPages = Math.ceil(total / limit);
   const hasNextPage = page < totalPages - 1;
   const hasPrevPage = page > 0;
-
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
-  };
-
-  const getStatusBadgeClass = (status?: string | null) => {
-    if (!status) {return "bg-gray-100 text-gray-700";}
-    switch (status.toLowerCase()) {
-      case "error":
-        return "bg-red-100 text-red-700";
-      case "success":
-        return "bg-green-100 text-green-700";
-      case "warn":
-      case "warning":
-        return "bg-yellow-100 text-yellow-700";
-      default:
-        return "bg-blue-100 text-blue-700";
-    }
-  };
 
   const handleExport = () => {
     const exportParams = new URLSearchParams();
@@ -253,8 +404,11 @@ export default function AdminLogs() {
               </select>
               <select
                 value={sortOrder}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
-                onChange={(e) => setSortOrder(e.target.value as any)}
+                onChange={(e) => {
+                  if (isLogSortOrder(e.target.value)) {
+                    setSortOrder(e.target.value);
+                  }
+                }}
                 className="border rounded-lg px-3 py-2 text-sm bg-white"
               >
                 <option value="timestamp_desc">Newest first</option>
@@ -274,85 +428,19 @@ export default function AdminLogs() {
                 <table className="min-w-[1400px] w-full text-sm">
                   <thead className="bg-gray-50 border-b">
                     <tr className="text-left">
-                      <th className="px-4 py-3 font-medium text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('timestamp')}>
-                        <div className="flex items-center gap-1">Time {sortColumn === 'timestamp' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
-                      </th>
-                      <th className="px-4 py-3 font-medium text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('event')}>
-                        <div className="flex items-center gap-1">Event {sortColumn === 'event' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
-                      </th>
-                      <th className="px-4 py-3 font-medium text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('actorEmail')}>
-                        <div className="flex items-center gap-1">Actor Email {sortColumn === 'actorEmail' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
-                      </th>
-                      <th className="px-4 py-3 font-medium text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('entityType')}>
-                        <div className="flex items-center gap-1">Entity {sortColumn === 'entityType' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
-                      </th>
-                      <th className="px-4 py-3 font-medium text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('ipAddress')}>
-                        <div className="flex items-center gap-1">IP Address {sortColumn === 'ipAddress' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
-                      </th>
-                      <th className="px-4 py-3 font-medium text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('userAgent')}>
-                        <div className="flex items-center gap-1">User Agent {sortColumn === 'userAgent' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
-                      </th>
-                      <th className="px-4 py-3 font-medium text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('status')}>
-                        <div className="flex items-center gap-1">Status {sortColumn === 'status' && (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}</div>
-                      </th>
+                      <SortHeader column="timestamp" label="Time" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+                      <SortHeader column="event" label="Event" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+                      <SortHeader column="actorEmail" label="Actor Email" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+                      <SortHeader column="entityType" label="Entity" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+                      <SortHeader column="ipAddress" label="IP Address" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+                      <SortHeader column="userAgent" label="User Agent" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
+                      <SortHeader column="status" label="Status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} />
                       <th className="px-4 py-3 font-medium text-gray-700">Metadata</th>
                     </tr>
                   </thead>
                   <tbody>
                     {logs.map((log) => (
-                      <tr key={log.id} className="border-b hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedLog(log)}>
-                        <td className="px-4 py-3 whitespace-nowrap text-gray-700">
-                          {formatTimestamp(log.timestamp)}
-                        </td>
-                        <td className="px-4 py-3 font-medium">
-                          {log.event}
-                        </td>
-                        <td className="px-4 py-3">
-                          {log.actorEmail || log.metadata?._actorEmail ? (
-                            <span className="font-medium">{log.actorEmail || log.metadata?._actorEmail}</span>
-                          ) : log.actorId ? (
-                            <span className="text-muted-foreground text-xs font-mono">{log.actorId.substring(0, 8)}...</span>
-                          ) : (
-                            <span className="text-muted-foreground italic">System</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {log.entityType && log.entityId ? (
-                            <span className="text-xs">
-                              {log.entityType}:{log.entityId.substring(0, 8)}...
-                            </span>
-                          ) : log.entityId ? (
-                            <span className="text-xs">{log.entityId.substring(0, 8)}...</span>
-                          ) : (
-                            <span className="text-gray-400">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-xs">
-                          {log.ipAddress ?? <span className="text-gray-400">—</span>}
-                        </td>
-                        <td className="px-4 py-3 max-w-xs truncate text-xs" title={log.userAgent ?? ''}>
-                          {log.userAgent ?? <span className="text-gray-400">—</span>}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getStatusBadgeClass(log.status)}`}>
-                            {log.status ?? "info"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 max-w-md">
-                          {log.metadata ? (
-                            <details className="cursor-pointer">
-                              <summary className="text-xs text-blue-600 hover:text-blue-800">
-                                View JSON
-                              </summary>
-                              <pre className="mt-2 text-xs text-gray-600 whitespace-pre-wrap break-words bg-gray-50 p-2 rounded">
-                                {JSON.stringify(log.metadata, null, 2)}
-                              </pre>
-                            </details>
-                          ) : (
-                            <span className="text-gray-400">—</span>
-                          )}
-                        </td>
-                      </tr>
+                      <LogRow key={log.id} log={log} onSelect={setSelectedLog} />
                     ))}
                     {logs.length === 0 && !isLoading && (
                       <tr>
@@ -408,50 +496,7 @@ export default function AdminLogs() {
         </div>
       </main>
 
-      {/* Log Details Dialog */}
-      <Dialog open={!!selectedLog} onOpenChange={(open) => !open && setSelectedLog(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Activity Log Details</DialogTitle>
-          </DialogHeader>
-          {selectedLog && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-semibold block text-gray-500">Event</span>
-                  {selectedLog.event}
-                </div>
-                <div>
-                  <span className="font-semibold block text-gray-500">Timestamp</span>
-                  {formatTimestamp(selectedLog.timestamp)}
-                </div>
-                <div>
-                  <span className="font-semibold block text-gray-500">Actor</span>
-                  {selectedLog.actorEmail || selectedLog.actorId || "System"}
-                </div>
-                <div>
-                  <span className="font-semibold block text-gray-500">Status</span>
-                  {selectedLog.status || "N/A"}
-                </div>
-                <div>
-                  <span className="font-semibold block text-gray-500">IP Address</span>
-                  {selectedLog.ipAddress || "N/A"}
-                </div>
-                <div className="break-words">
-                  <span className="font-semibold block text-gray-500">User Agent</span>
-                  {selectedLog.userAgent || "N/A"}
-                </div>
-              </div>
-              <div>
-                <span className="font-semibold block text-gray-500 mb-2 text-sm">Raw JSON</span>
-                <pre className="bg-gray-50 p-4 rounded-md whitespace-pre-wrap break-all text-xs font-mono border max-h-[400px] overflow-y-auto">
-                  {JSON.stringify(selectedLog, null, 2)}
-                </pre>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <LogDetailsDialog selectedLog={selectedLog} onClose={() => setSelectedLog(null)} />
     </div>
   );
 }

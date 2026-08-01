@@ -6,6 +6,10 @@ import { ActivityLog, ActivityLogQuery, ActivityLogInsert, ActivityLogResult } f
 
 import type { DbTransaction } from "./BaseRepository";
 
+interface RawRowsResult {
+  rows: Array<Record<string, unknown>>;
+}
+
 /**
  * Schema-Agnostic Activity Log Repository
  *
@@ -196,7 +200,7 @@ export class ActivityLogRepository {
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const dataResult = await database.execute(dataQuery);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const rows = dataResult.rows as ActivityLog[];
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -269,12 +273,10 @@ export class ActivityLogRepository {
       ORDER BY ${sql.raw(this.columns.event)}
     `;
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const result = await database.execute(query);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
-    // @ts-ignore - TODO: fix type
-    return (result.rows as unknown[]).map((row: Record<string, unknown>) => row.event as string); // Raw SQL result from Drizzle
+    const result = await database.execute(query) as RawRowsResult;
+    return result.rows
+      .map((row) => row.event)
+      .filter((event): event is string => typeof event === "string");
   }
 
   /**
@@ -295,11 +297,9 @@ export class ActivityLogRepository {
       LIMIT 100
     `;
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const result = await database.execute(query);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
-    // @ts-ignore - TODO: fix type
-    return (result.rows as unknown[]).map((row: Record<string, unknown>) => row.actor as string); // Raw SQL result from Drizzle
+    const result = await database.execute(query) as RawRowsResult;
+    return result.rows
+      .map((row) => row.actor)
+      .filter((actor): actor is string => typeof actor === "string");
   }
 }

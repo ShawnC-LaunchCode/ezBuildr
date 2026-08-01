@@ -28,7 +28,7 @@ class Logger {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-function-return-type
     debug(message: string, ...args: any[]) {
-        // eslint-disable-next-line no-console
+
         if (this.isDevelopment) {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, no-console
             console.debug(this.formatMessage(message), ...args);

@@ -141,12 +141,10 @@ describe.sequential("Auth Middleware Integration Tests", () => {
         });
     });
 
-    // optionalAuth is currently unused in the server, so we skip these tests
-    describe.skip("optionalAuth Middleware", () => {
-        it("should proceed without authentication if no token provided", async () => {
-            // Tests skipped
-        });
-    });
+    // optionalAuth is currently unused in the server. The placeholder suite that
+    // sat here held one `it` with an empty body — it asserted nothing and only
+    // existed to be skipped. Write real tests here if optionalAuth is ever wired
+    // up; an empty test is worse than no test, because it looks like coverage.
 
     describe("hybridAuth Middleware", () => {
         it("should authenticate with JWT Bearer token", async () => {
@@ -177,9 +175,9 @@ describe.sequential("Auth Middleware Integration Tests", () => {
 
         it("should reject cookie auth for PUT requests", async () => {
             await request(ctx.baseURL)
-                .put("/api/account")
+                .put("/api/account/preferences")
                 .set("Cookie", refreshCookie)
-                .send({ firstName: "Updated" })
+                .send({ preferences: { theme: "dark" } })
                 .expect(401);
         });
 

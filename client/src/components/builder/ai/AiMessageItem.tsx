@@ -8,17 +8,46 @@ import { cn } from "@/lib/utils";
 
 import { AIGeneratedWorkflow, WorkflowChange } from "@shared/types/ai";
 
+import type { AiEditChange } from "@shared/validation/aiWorkflowEdit.schema";
+
 import { Message } from "./types";
 
 interface AiMessageItemProps {
     msg: Message;
     isLast: boolean;
+    /** Non-null while a proposal is awaiting review, enabling Apply/Discard. */
     proposedWorkflow: AIGeneratedWorkflow | Record<string, unknown> | null;
     onApply: () => void;
     onDiscard: () => void;
 }
 
+/**
+ * Ops-derived changes and the legacy full-replace diff render as the same list;
+ * normalize both to one row shape so the card has a single presentation path.
+ */
+interface ChangeRow {
+    type: WorkflowChange['type'];
+    entity?: AiEditChange['entity'];
+    text: string;
+}
+
+function toRows(msg: Message): ChangeRow[] {
+    if (msg.changes && msg.changes.length > 0) {
+        return msg.changes.map((change) => ({
+            type: change.type,
+            entity: change.entity,
+            text: change.explanation,
+        }));
+    }
+    return (msg.diff?.changes ?? []).map((change) => ({
+        type: change.type,
+        text: change.explanation ?? change.target,
+    }));
+}
+
 export function AiMessageItem({ msg, isLast, proposedWorkflow, onApply, onDiscard }: AiMessageItemProps) {
+    const rows = toRows(msg);
+
     return (
         <div className={`flex flex-col gap-2 ${msg.role === 'user' ? 'items-end' : 'items-start'} w-full`}>
             <div className={`rounded-lg p-3 max-w-[80%] text-sm shadow-sm ${msg.role === 'user'
@@ -28,7 +57,7 @@ export function AiMessageItem({ msg, isLast, proposedWorkflow, onApply, onDiscar
                 <p className="whitespace-pre-wrap break-words">{msg.content}</p>
             </div>
 
-            {msg.diff?.changes && msg.diff.changes.length > 0 && (
+            {rows.length > 0 && (
                 <Card className={cn(
                     "w-full max-w-[80%] mt-1 p-3 border shadow-sm self-start",
                     msg.status === 'applied' ? "bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-900" :
@@ -46,22 +75,29 @@ export function AiMessageItem({ msg, isLast, proposedWorkflow, onApply, onDiscar
                                 msg.status === 'discarded' ? 'Changes Discarded' :
                                     'Proposed Changes'}
                         </span>
-                        <Badge variant="outline" className="text-[10px] whitespace-nowrap ml-2">{msg.diff.changes.length} changes</Badge>
+                        <Badge variant="outline" className="text-[10px] whitespace-nowrap ml-2">
+                            {rows.length} {rows.length === 1 ? 'change' : 'changes'}
+                        </Badge>
                     </div>
 
                     <ul className="space-y-1 mb-3 min-w-0">
-                        {msg.diff.changes.map((change: WorkflowChange, i: number) => (
+                        {rows.map((row, i) => (
                             <li key={i} className="text-xs flex gap-2 w-full min-w-0 items-center">
                                 <Badge
-                                    variant={change.type === 'add' ? 'default' : change.type === 'remove' ? 'destructive' : 'secondary'}
+                                    variant={row.type === 'add' ? 'default' : row.type === 'remove' ? 'destructive' : 'secondary'}
                                     className={cn("h-5 px-1 text-[10px] capitalize shrink-0",
-                                        change.type === 'add' && "bg-green-500 hover:bg-green-600",
-                                        change.type === 'update' && "bg-blue-500 hover:bg-blue-600"
+                                        row.type === 'add' && "bg-green-500 hover:bg-green-600",
+                                        row.type === 'update' && "bg-blue-500 hover:bg-blue-600"
                                     )}
                                 >
-                                    {change.type}
+                                    {row.type}
                                 </Badge>
-                                <span className="whitespace-normal break-words text-muted-foreground min-w-0">{change.explanation}</span>
+                                {row.entity && (
+                                    <Badge variant="outline" className="h-5 px-1 text-[10px] capitalize shrink-0 font-normal">
+                                        {row.entity}
+                                    </Badge>
+                                )}
+                                <span className="whitespace-normal break-words text-muted-foreground min-w-0">{row.text}</span>
                             </li>
                         ))}
                     </ul>

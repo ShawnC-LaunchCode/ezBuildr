@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * AI Service Utilities
  *
@@ -11,7 +10,7 @@ import { AIError } from './AIError';
 import { ModelRegistry } from './ModelRegistry';
 
 import type { AIErrorCode } from './types';
-import type { AIGeneratedWorkflow } from '../../../shared/types/ai';
+import type { AIGeneratedWorkflow, AIProvider } from '../../../shared/types/ai';
 
 const logger = createLogger({ module: 'ai-service-utils' });
 
@@ -23,13 +22,19 @@ export function estimateTokenCount(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
+function parseProvider(provider: string): AIProvider {
+  if (provider === 'openai' || provider === 'anthropic' || provider === 'gemini') {
+    return provider;
+  }
+  throw new Error(`Unsupported AI provider: ${provider}`);
+}
+
 /**
  * Get maximum context window for a given provider/model
  * @deprecated Use ModelRegistry.getMaxContextTokens instead
  */
 export function getMaxContextTokens(provider: string, model: string): number {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return ModelRegistry.getMaxContextTokens(provider as any, model);
+  return ModelRegistry.getMaxContextTokens(parseProvider(provider), model);
 }
 
 /**
@@ -98,8 +103,7 @@ export function estimateCost(
   promptTokens: number,
   responseTokens: number,
 ): number {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return ModelRegistry.estimateCost(provider as any, model, promptTokens, responseTokens);
+  return ModelRegistry.estimateCost(parseProvider(provider), model, promptTokens, responseTokens);
 }
 
 /**
@@ -112,8 +116,8 @@ export function isResponseTruncated(response: string): boolean {
   // Check 1: Response should end with closing brace or bracket
   const endsCorrectly = trimmed.endsWith('}') || trimmed.endsWith(']');
   if (!endsCorrectly) {
+    // Log length only — never response content, which can echo tenant data (SEC-039).
     logger.warn({
-      lastChar: trimmed.charAt(trimmed.length - 1),
       responseLength: trimmed.length,
     }, 'Response does not end with closing brace/bracket');
     return true;
@@ -227,27 +231,28 @@ export function getTroubleshootingHints(code: string): string {
 export function createAIError(
   message: string,
   code: AIErrorCode,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  details?: any,
+  details?: unknown,
 ): AIError {
   const troubleshootingHints = getTroubleshootingHints(code);
   const fullMessage = troubleshootingHints ? `${message}\n\n${troubleshootingHints}` : message;
 
   const error = new AIError(fullMessage, code, details);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (error as any).troubleshooting = troubleshootingHints;
+  error.troubleshooting = troubleshootingHints;
   return error;
 }
 
 /**
  * Extract retry delay from error if available
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function getRetryAfter(error: any): number | null {
+export function getRetryAfter(error: unknown): number | null {
+  const message = error instanceof Error ? error.message : undefined;
   // Check for Google's "Please retry in X s"
-  if (typeof error.message === 'string') {
-    const match = error.message.match(/retry in ([0-9.]+)s/);
-    if (match) { return Math.ceil(parseFloat(match[1]) * 1000); }
+  if (message !== undefined) {
+    // The capture group is optional under noUncheckedIndexedAccess. Typing
+    // `error` properly is what exposed that -- while it was `any`, `match[1]`
+    // was `any` too and the unchecked index was invisible (DEBT-2).
+    const seconds = message.match(/retry in ([0-9.]+)s/)?.[1];
+    if (seconds !== undefined) { return Math.ceil(parseFloat(seconds) * 1000); }
   }
   return null;
 }
@@ -361,10 +366,13 @@ export const VALID_STEP_TYPES = [
   'address_advanced', 'multi_field', 'display_advanced',
 ] as const;
 
+type GeneratedStepType = AIGeneratedWorkflow['sections'][number]['steps'][number]['type'];
+type ValidStepType = typeof VALID_STEP_TYPES[number];
+
 /**
  * Type mapping for AI-friendly names to DB types
  */
-export const TYPE_ALIASES: Record<string, string> = {
+export const TYPE_ALIASES: Record<string, ValidStepType> = {
   'checkbox': 'multiple_choice', // Common AI mistake
   'select': 'choice',
   'dropdown': 'choice',
@@ -381,14 +389,12 @@ export function normalizeWorkflowTypes(workflow: AIGeneratedWorkflow): void {
       // Apply type alias mapping
       if (TYPE_ALIASES[step.type]) {
         const originalType = step.type;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        step.type = TYPE_ALIASES[step.type] as any;
+        step.type = TYPE_ALIASES[step.type] as GeneratedStepType;
         logger.debug({ originalType, normalizedType: step.type, stepId: step.id }, 'Normalized step type');
       }
 
       // Validate against DB schema
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if (!VALID_STEP_TYPES.includes(step.type as any)) {
+      if (!VALID_STEP_TYPES.includes(step.type as ValidStepType)) {
         logger.error({
           invalidType: step.type,
           stepId: step.id,

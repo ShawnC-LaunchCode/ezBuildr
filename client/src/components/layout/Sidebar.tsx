@@ -1,4 +1,4 @@
-import { Home, Settings, Folder, Workflow, ShoppingBag, CreditCard, Shield, Users, List, Bot } from "lucide-react";
+import { Home, Settings, Folder, Workflow, ShoppingBag, CreditCard, Shield, Users, List, Bot, BarChart3 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 import logo from "@/assets/images/logo.png";
@@ -22,6 +22,7 @@ const navigation = [
 
 const adminNavigation = [
   { name: "Admin Dashboard", href: "/admin", icon: Shield },
+  { name: "Org Stats", href: "/admin/org-stats", icon: BarChart3 },
   { name: "Manage Users", href: "/admin/users", icon: Users },
   { name: "Activity Logs", href: "/admin/logs", icon: List },
   { name: "AI Settings", href: "/admin/ai-settings", icon: Bot },

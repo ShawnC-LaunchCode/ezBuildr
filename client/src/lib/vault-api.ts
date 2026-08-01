@@ -1,4 +1,3 @@
-/* eslint-disable max-lines -- API client module necessarily defines all endpoint wrappers in one file */
 /**
  * Vault-Logic API Client
  * Handles all API calls to the workflow backend
@@ -88,7 +87,6 @@ export function getAuthHeaders(): Record<string, string> {
 
   return headers;
 }
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- core fetch wrapper handles auth refresh, token injection, and error handling in a single flow
 export async function fetchAPI<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -106,12 +104,10 @@ export async function fetchAPI<T>(
   // Builder endpoints (workflows, sections, steps, etc.) should use session auth (cookies)
   // Preview/run endpoints use bearer tokens for anonymous access
   const isRunEndpoint = endpoint.startsWith('/api/runs/');
-  /* eslint-disable @typescript-eslint/naming-convention -- HTTP headers use PascalCase/hyphenated names */
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
-  /* eslint-enable @typescript-eslint/naming-convention */
   // Only add bearer token for run endpoints
   if (runToken && isRunEndpoint) {
     headers["Authorization"] = `Bearer ${runToken}`;
@@ -172,12 +168,10 @@ export function apiWithToken(runToken: string) {
     get: <T>(endpoint: string) =>
       fetch(`${API_BASE}${endpoint}`, {
         method: "GET",
-        /* eslint-disable @typescript-eslint/naming-convention -- HTTP headers */
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${runToken}`,
         },
-        /* eslint-enable @typescript-eslint/naming-convention */
       }).then(async (res) => {
         if (!res.ok) {
           const error = await res.json().catch(() => ({ message: res.statusText })) as ApiErrorResponse;
@@ -189,12 +183,10 @@ export function apiWithToken(runToken: string) {
     post: <T, B = unknown>(endpoint: string, body?: B) =>
       fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
-        /* eslint-disable @typescript-eslint/naming-convention -- HTTP headers */
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${runToken}`,
         },
-        /* eslint-enable @typescript-eslint/naming-convention */
         body: body !== undefined ? JSON.stringify(body) : undefined,
       }).then(async (res) => {
         if (!res.ok) {
@@ -207,12 +199,10 @@ export function apiWithToken(runToken: string) {
     put: <T, B = unknown>(endpoint: string, body?: B) =>
       fetch(`${API_BASE}${endpoint}`, {
         method: "PUT",
-        /* eslint-disable @typescript-eslint/naming-convention -- HTTP headers */
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${runToken}`,
         },
-        /* eslint-enable @typescript-eslint/naming-convention */
         body: body !== undefined ? JSON.stringify(body) : undefined,
       }).then(async (res) => {
         if (!res.ok) {
@@ -369,6 +359,7 @@ export interface ApiWorkflow {
   slug?: string; // Stage 12
   isPublic?: boolean; // Stage 17
   publicLink?: string | null; // Stage 17
+  requireLogin?: boolean;
   creatorId: string;
   projectId: string | null;
   status: "draft" | "active" | "archived";
@@ -378,8 +369,9 @@ export interface ApiWorkflow {
   createdAt: string;
   updatedAt: string;
   modeOverride?: 'easy' | 'advanced' | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intake config is an opaque JSON object from the server
-  intakeConfig?: any;
+  intakeConfig?: import('@shared/types/intake').IntakeConfig;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- settings is an opaque JSON object from the server
+  settings?: any;
   /* eslint-disable @typescript-eslint/naming-convention -- keys match database column naming convention */
   accessSettings?: {
     allow_portal: boolean;
@@ -509,9 +501,6 @@ export const versionAPI = {
       method: "POST",
       body: JSON.stringify({ toVersionId: versionId }),
     }),
-  export: (workflowId: string) =>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- export format is an opaque JSON structure
-    fetchAPI<any>(`/api/workflows/${workflowId}/export`),
 };
 // ============================================================================
 // Workflow Snapshots
@@ -621,6 +610,16 @@ export const authAPI = {
   }),
 };
 // ============================================================================
+// Delete impact (ICW2-13) — answers + distinct runs a step/section delete
+// would permanently destroy via the step_values cascade. Shared shape
+// returned by both GET .../steps/:id/delete-impact and .../sections/:id/delete-impact.
+// ============================================================================
+export interface ApiDeleteImpact {
+  answerCount: number;
+  runCount: number;
+}
+
+// ============================================================================
 // Sections
 // ============================================================================
 export interface ApiSection {
@@ -659,6 +658,12 @@ export const sectionAPI = {
       method: "DELETE",
       body: JSON.stringify({}), // Some servers require body for DELETE
     }),
+  getDeleteImpact: (id: string) =>
+    fetchAPI<ApiDeleteImpact>(`/api/sections/${id}/delete-impact`),
+  duplicate: (id: string) =>
+    fetchAPI<ApiSection>(`/api/sections/${id}/duplicate`, {
+      method: "POST",
+    }),
 };
 // ============================================================================
 // Logic Rules
@@ -696,6 +701,8 @@ export type StepType =
   | "date"
   | "time"
   | "date_time"
+  | "datetime"
+  | "datetime_unified"
   // Choice Types
   | "multiple_choice"
   | "radio"
@@ -707,6 +714,12 @@ export type StepType =
   | "signature"
   | "signature_block"
   | "multi_field"
+  | "phone_advanced"
+  | "email_advanced"
+  | "number_advanced"
+  | "scale_advanced"
+  | "website_advanced"
+  | "address_advanced"
   // Display/Logic Types
   | "display"
   | "js_question"
@@ -714,16 +727,17 @@ export type StepType =
   | "final"
   | "display_advanced"
   | "final_documents"
+  | "loop_group"
+  | "repeater"
   | "true_false";
 export interface ApiStep {
   id: string;
+  workflowId: string;
   sectionId: string;
   type: StepType;
   title: string;
   description: string | null;
   required: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step options contain heterogeneous choice values
-  options: Record<string, any> | null; // JSON - for choice types
   alias: string | null; // Optional variable name for logic/blocks
   visibleIf?: unknown; // Condition expression for visibility
   order: number;
@@ -739,9 +753,11 @@ export interface ApiStep {
 export const stepAPI = {
   list: (sectionId: string) =>
     fetchAPI<ApiStep[]>(`/api/sections/${sectionId}/steps`),
+  listByWorkflow: (workflowId: string) =>
+    fetchAPI<ApiStep[]>(`/api/workflows/${workflowId}/steps`),
   get: (id: string) =>
     fetchAPI<ApiStep>(`/api/steps/${id}`),
-  create: (sectionId: string, data: Omit<ApiStep, "id" | "createdAt" | "sectionId">) =>
+  create: (sectionId: string, data: Omit<ApiStep, "id" | "createdAt" | "sectionId" | "workflowId">) =>
     fetchAPI<ApiStep>(`/api/sections/${sectionId}/steps`, {
       method: "POST",
       body: JSON.stringify(data),
@@ -759,6 +775,12 @@ export const stepAPI = {
   delete: (id: string) =>
     fetchAPI<void>(`/api/steps/${id}`, {
       method: "DELETE",
+    }),
+  getDeleteImpact: (id: string) =>
+    fetchAPI<ApiDeleteImpact>(`/api/steps/${id}/delete-impact`),
+  duplicate: (id: string) =>
+    fetchAPI<ApiStep>(`/api/steps/${id}/duplicate`, {
+      method: "POST",
     }),
 };
 // ============================================================================
@@ -873,7 +895,8 @@ export const transformBlockAPI = {
 export interface ApiRun {
   id: string;
   workflowId: string;
-  versionId: string;
+  workflowVersionId: string | null;
+  currentSectionId?: string | null;
   participantId: string | null;
   completed: boolean;
   completedAt: string | null;
@@ -888,6 +911,36 @@ export interface ApiStepValue {
   value: unknown;
   createdAt: string;
   updatedAt: string;
+}
+export interface ApiRunRuntime {
+  contractVersion: 1;
+  run: {
+    id: string;
+    workflowId: string;
+    workflowVersionId: string;
+    currentSectionId: string | null;
+    completed: boolean;
+    generationStatus: string | null;
+  };
+  workflow: Pick<ApiWorkflow, 'id' | 'title' | 'description' | 'projectId' | 'intakeConfig' | 'settings'>;
+  sections: ApiSection[];
+  steps: ApiStep[];
+  logicRules: Array<{
+    id: string;
+    workflowId: string;
+    conditionStepId: string;
+    operator: string;
+    conditionValue: unknown;
+    targetType: 'section' | 'step';
+    targetStepId: string | null;
+    targetSectionId: string | null;
+    action: string;
+    logicalOperator: string | null;
+    order: number;
+    createdAt: string | null;
+    updatedAt: string | null;
+  }>;
+  values: ApiStepValue[];
 }
 // Note: This is for visual workflow runs (Stage 7+)
 export const runAPI = {
@@ -915,6 +968,8 @@ export const runAPI = {
     fetchAPI<{ success: boolean; data: ApiRun }>(`/api/runs/${id}`).then(res => res.data),
   getWithValues: (id: string) =>
     fetchAPI<{ success: boolean; data: ApiRun & { values: ApiStepValue[] } }>(`/api/runs/${id}/values`).then(res => res.data),
+  getRuntime: (id: string) =>
+    fetchAPI<{ success: boolean; data: ApiRunRuntime }>(`/api/runs/${id}/runtime`).then(res => res.data),
   getDocuments: (id: string) =>
     fetchAPI<{ success: boolean; documents: unknown[] }>(`/api/runs/${id}/documents`).then(res => res.documents),
   upsertValue: (runId: string, stepId: string, value: unknown) =>
@@ -1082,6 +1137,7 @@ export interface EmailTemplateMetadata {
   description?: string | null;
   subjectPreview?: string | null;
   brandingTokens?: Record<string, boolean> | null;
+  // eslint-disable-next-line max-lines -- This legacy API module is split incrementally under DEBT-2.
   createdAt: Date;
   updatedAt: Date;
 }
@@ -1325,6 +1381,7 @@ export interface AIStepData {
   key: string;
   type: string;
   label?: string;
+  choices?: string[];
   options?: string[];
   description?: string;
 }
@@ -1430,7 +1487,6 @@ export const workflowExportAPI = {
     // Auth uses the in-memory access token (with cookie fallback), consistent with fetchAPI/apiRequest.
     const url = `/api/workflows/${workflowId}/export?format=${format}`;
     const token = getAccessToken();
-    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const response = await fetch(url, {
       headers,

@@ -34,13 +34,12 @@ export const createNodeId = (prefix: string = 'node') => `${prefix}_${nanoid(6)}
 export function createQuestionNode(
     id: string,
     question: string,
-    type: 'short_text' | 'yes_no' | 'multiple_choice' = 'short_text',
+    _type: 'short_text' | 'yes_no' | 'multiple_choice' = 'short_text',
     options: Record<string, unknown> = {}
 ): Node {
     return {
         id,
         type: 'question',
-        // @ts-ignore - TODO: fix type
         config: {
             key: id,
             question,

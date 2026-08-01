@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-import { eq, sql, count, getTableColumns, inArray } from "drizzle-orm";
+import { eq, sql, count, inArray } from "drizzle-orm";
 
 import { users, workflows, type User, type UpsertUser } from "@shared/schema";
 
@@ -7,6 +6,14 @@ import { db } from "../db";
 import { logger } from "../logger";
 
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
+
+type AdminUserListRow = Pick<User, "id" | "tenantId" | "firstName" | "lastName" | "email" | "role" | "isActive" | "createdAt" | "updatedAt" | "mfaEnabled">;
+
+type AdminUserWorkflowCountsRow = AdminUserListRow & {
+  workflowCount: number;
+  personalWorkflowCount: number;
+  orgWorkflowCount: number;
+};
 
 /**
  * Repository for user-related database operations
@@ -46,8 +53,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
         if (existingUser) {
           // Update existing user with new data, but only update provided fields
           // This preserves fields like 'role' that aren't included in Google OAuth userData
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const updateData: any = { // Dynamic update object for partial user data
+          const updateData: Partial<UpsertUser> = {
             updatedAt: new Date(),
           };
 
@@ -79,10 +85,9 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
 
       // If no existing user found, insert new user
       // Handle conflict on ID in case it's provided and already exists
-      const [user] = await database
-        .insert(users)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .values(userData as any) // Drizzle insert type assertion
+          const [user] = await database
+            .insert(users)
+        .values(userData)
         .onConflictDoUpdate({
           target: users.id,
           set: {
@@ -115,8 +120,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
 
         if (existingUser) {
           // Only update provided fields to preserve existing role
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const updateData: any = { // Dynamic update object for partial user data
+          const updateData: Partial<UpsertUser> = {
             updatedAt: new Date(),
           };
 
@@ -151,7 +155,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
   /**
    * Get all users (admin only)
    */
-  async findAllUsers(tx?: DbTransaction) {
+  async findAllUsers(tx?: DbTransaction): Promise<AdminUserListRow[]> {
     const database = this.getDb(tx);
     return database
       .select({
@@ -174,7 +178,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
    * Get all users with their workflow count (admin only)
    * Optimized to use a single query with LEFT JOIN instead of fetching all workflows
    */
-  async findAllUsersWithWorkflowCounts(tx?: DbTransaction) {
+  async findAllUsersWithWorkflowCounts(tx?: DbTransaction): Promise<AdminUserWorkflowCountsRow[]> {
     const database = this.getDb(tx);
 
     // Select specific safe columns plus the count of workflows
@@ -191,8 +195,8 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
         updatedAt: users.updatedAt,
         mfaEnabled: users.mfaEnabled,
         workflowCount: count(workflows.id),
-        personalWorkflowCount: sql`SUM(CASE WHEN ${workflows.ownerType} = 'user' OR ${workflows.ownerType} IS NULL AND ${workflows.id} IS NOT NULL THEN 1 ELSE 0 END)`,
-        orgWorkflowCount: sql`SUM(CASE WHEN ${workflows.ownerType} = 'org' THEN 1 ELSE 0 END)`,
+        personalWorkflowCount: sql<number>`SUM(CASE WHEN ${workflows.ownerType} = 'user' OR ${workflows.ownerType} IS NULL AND ${workflows.id} IS NOT NULL THEN 1 ELSE 0 END)`,
+        orgWorkflowCount: sql<number>`SUM(CASE WHEN ${workflows.ownerType} = 'org' THEN 1 ELSE 0 END)`,
       })
       .from(users)
       .leftJoin(workflows, eq(users.id, workflows.creatorId))
@@ -202,8 +206,8 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
     return rows.map(row => ({
       ...row,
       workflowCount: Number(row.workflowCount),
-      personalWorkflowCount: Number(row.personalWorkflowCount || 0),
-      orgWorkflowCount: Number(row.orgWorkflowCount || 0),
+      personalWorkflowCount: Number(row.personalWorkflowCount ?? 0),
+      orgWorkflowCount: Number(row.orgWorkflowCount ?? 0),
     }));
   }
 
@@ -246,7 +250,7 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
       .where(eq(users.id, userId))
       .returning();
 
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
     if (updatedUser == null) {
       throw new Error('User not found');
     }
@@ -259,11 +263,10 @@ export class UserRepository extends BaseRepository<typeof users, User, UpsertUse
    */
   async updateUser(userId: string, data: Partial<User>, tx?: DbTransaction): Promise<User> {
     const database = this.getDb(tx);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updateData: any = { ...data, updatedAt: new Date() }; // Dynamic update object for flexible user fields
+    const updateData: Partial<UpsertUser> = { ...data, updatedAt: new Date() };
 
     // Remove undefined fields
-    Object.keys(updateData).forEach(key => {
+    (Object.keys(updateData) as Array<keyof typeof updateData>).forEach(key => {
       if (updateData[key] === undefined) {
         delete updateData[key];
       }

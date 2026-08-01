@@ -1,0 +1,124 @@
+// @vitest-environment jsdom
+import { cleanup, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { SidebarTree } from '../../../client/src/components/builder/SidebarTree';
+
+const createSectionAtEnd = vi.fn();
+const createStepAsync = vi.fn();
+
+vi.mock('@/lib/vault-hooks', () => ({
+  useWorkflow: () => ({ data: { id: 'workflow-1', modeOverride: 'easy', projectId: null } }),
+  useSections: () => ({ data: [] }),
+  useBlocks: () => ({ data: [] }),
+  useCreateSectionAtEnd: () => ({ createSectionAtEnd, isPending: false }),
+  useCreateStep: () => ({ mutateAsync: createStepAsync }),
+}));
+
+// Child surfaces are stubbed so this test isolates the outline's own wiring:
+// the regression it guards is an action losing its only entry point.
+vi.mock('@/components/builder/ai/AiAssistantDialog', () => ({
+  AiAssistantDialog: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="ai-dialog-open" /> : null,
+}));
+
+vi.mock('@/components/builder/AddSnipDialog', () => ({
+  AddSnipDialog: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="snip-dialog-open" /> : null,
+}));
+
+vi.mock('@/components/builder/BlockEditorDialog', () => ({
+  BlockEditorDialog: () => null,
+}));
+
+vi.mock('@/components/builder/SectionSettingsDialog', () => ({
+  SectionSettingsDialog: () => null,
+}));
+
+vi.mock('@/components/builder/sidebar/DocumentStatusPanel', () => ({
+  DocumentStatusPanel: () => null,
+}));
+
+vi.mock('@/components/builder/sidebar/SectionItem', () => ({
+  SectionItem: () => null,
+}));
+
+beforeEach(() => {
+  createSectionAtEnd.mockReset().mockResolvedValue({ id: 'section-1' });
+  createStepAsync.mockReset().mockResolvedValue({ id: 'step-1' });
+});
+
+afterEach(() => {
+  cleanup();
+});
+
+describe('SidebarTree authoring actions', () => {
+  it('surfaces every authoring action in the header', async () => {
+    const user = userEvent.setup();
+    render(<SidebarTree workflowId="workflow-1" />);
+
+    expect(screen.getByRole('button', { name: /Edit with AI/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Add Snip/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Add Page/i }));
+
+    expect(screen.getByRole('menuitem', { name: /Regular Page/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitem', { name: /Final Documents Section/i })
+    ).toBeInTheDocument();
+  });
+
+  it('opens the AI assistant dialog', async () => {
+    const user = userEvent.setup();
+    render(<SidebarTree workflowId="workflow-1" />);
+
+    expect(screen.queryByTestId('ai-dialog-open')).toBeNull();
+    await user.click(screen.getByRole('button', { name: /Edit with AI/i }));
+
+    expect(screen.getByTestId('ai-dialog-open')).toBeInTheDocument();
+  });
+
+  it('opens the add-snip dialog', async () => {
+    const user = userEvent.setup();
+    render(<SidebarTree workflowId="workflow-1" />);
+
+    expect(screen.queryByTestId('snip-dialog-open')).toBeNull();
+    await user.click(screen.getByRole('button', { name: /Add Snip/i }));
+
+    expect(screen.getByTestId('snip-dialog-open')).toBeInTheDocument();
+  });
+
+  it('creates a plain page', async () => {
+    const user = userEvent.setup();
+    render(<SidebarTree workflowId="workflow-1" />);
+
+    await user.click(screen.getByRole('button', { name: /Add Page/i }));
+    await user.click(screen.getByRole('menuitem', { name: /Regular Page/i }));
+
+    expect(createSectionAtEnd).toHaveBeenCalledWith();
+    expect(createStepAsync).not.toHaveBeenCalled();
+  });
+
+  it('creates a final-documents page with its system step', async () => {
+    const user = userEvent.setup();
+    render(<SidebarTree workflowId="workflow-1" />);
+
+    await user.click(screen.getByRole('button', { name: /Add Page/i }));
+    await user.click(screen.getByRole('menuitem', { name: /Final Documents Section/i }));
+
+    expect(createSectionAtEnd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Final Documents',
+        config: expect.objectContaining({ finalBlock: true }),
+      })
+    );
+    expect(createStepAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sectionId: 'section-1',
+        type: 'final_documents',
+        alias: 'final_documents',
+      })
+    );
+  });
+});

@@ -125,7 +125,7 @@ export default function BrandingSettingsPage() {
       setIsSaving(false);
     }
   };
-  // eslint-disable-next-line @typescript-eslint/no-floating-promises
+
   const handleReset = () => {
     // eslint-disable-next-line @typescript-eslint/no-floating-promises
     loadBranding();

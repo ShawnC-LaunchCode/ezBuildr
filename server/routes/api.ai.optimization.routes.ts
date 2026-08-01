@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { Router } from "express";
 
 import { AnalyzeWorkflowSchema, ApplyFixesSchema } from "@shared/types/optimization";
@@ -20,7 +19,7 @@ const optimizeRateLimit = rateLimit({
 });
 
 // POST /api/ai/workflows/optimize/analyze
-router.post("/analyze", hybridAuth, requireBuilder, optimizeRateLimit, validateWorkflowSize(50, 50), asyncHandler(async (req, res) => {
+router.post("/analyze", hybridAuth, requireBuilder, optimizeRateLimit, validateWorkflowSize(), asyncHandler(async (req, res) => {
     try {
         const validation = AnalyzeWorkflowSchema.safeParse(req.body);
         if (!validation.success) {
@@ -38,7 +37,7 @@ router.post("/analyze", hybridAuth, requireBuilder, optimizeRateLimit, validateW
     }
 }));
 // POST /api/ai/workflows/optimize/apply
-router.post("/apply", hybridAuth, requireBuilder, optimizeRateLimit, validateWorkflowSize(50, 50), asyncHandler(async (req, res) => {
+router.post("/apply", hybridAuth, requireBuilder, optimizeRateLimit, validateWorkflowSize(), asyncHandler(async (req, res) => {
     try {
         const validation = ApplyFixesSchema.safeParse(req.body);
         if (!validation.success) {

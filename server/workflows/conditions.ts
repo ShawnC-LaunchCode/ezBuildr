@@ -203,7 +203,7 @@ function isEmpty(value: unknown): boolean {
     return value.length === 0;
   }
   if (typeof value === 'object') {
-    return Object.keys(value as object).length === 0;
+    return Object.keys(value).length === 0;
   }
   return false;
 }
@@ -302,7 +302,7 @@ function evaluateComparison(
     case 'matches':
       if (typeof left === 'string' && typeof right === 'string') {
         try {
-          // eslint-disable-next-line security/detect-non-literal-regexp
+
           const regex = new RegExp(right);
           return regex.test(left);
         } catch {
@@ -387,7 +387,7 @@ export function value(val: ConditionValue): ValueLiteral {
 export function validateConditionExpression(expression: unknown): string[] {
   const errors: string[] = [];
 
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
   if (!expression || typeof expression !== 'object') {
     errors.push('Condition expression must be an object');
     return errors;
@@ -424,7 +424,7 @@ export function validateConditionExpression(expression: unknown): string[] {
 
   if ('not' in expression) {
     const { not } = expression as { not: unknown };
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
     if (!not || typeof not !== 'object') {
       errors.push('NOT condition must have a sub-expression');
     } else {
@@ -435,16 +435,16 @@ export function validateConditionExpression(expression: unknown): string[] {
   }
 
   // Check if it looks like a comparison condition
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
   if ('left' in expression || 'right' in expression || 'op' in expression) {
     const expr = expression as Record<string, unknown>;
 
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
     if (!expr['op'] || typeof expr['op'] !== 'string') {
       errors.push('Comparison condition must have an operator');
     }
 
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
     if (!expr['left'] || typeof expr['left'] !== 'object') {
       errors.push('Comparison condition must have a left operand');
     } else {
@@ -454,7 +454,7 @@ export function validateConditionExpression(expression: unknown): string[] {
       }
     }
 
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
     if (!expr['right'] || typeof expr['right'] !== 'object') {
       errors.push('Comparison condition must have a right operand');
     } else {

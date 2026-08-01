@@ -1,8 +1,24 @@
+import PizZip from 'pizzip';
 import request from 'supertest';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 import { storageQuotaService } from '../../../server/services/StorageQuotaService';
 import { setupIntegrationTest } from '../../helpers/integrationTestHelper';
+
+/**
+ * A real, parseable DOCX archive.
+ *
+ * Magic bytes followed by arbitrary padding is no longer enough: DOCH-3 added a
+ * ZIP-limits gate that runs before the quota check and rejects an unreadable
+ * archive with 400, which would mask the 403 this suite is asserting.
+ */
+const createMinimalDocx = (): Buffer => {
+    const zip = new PizZip();
+    zip.file('[Content_Types].xml', '<Types/>');
+    zip.file('_rels/.rels', '<Relationships/>');
+    zip.file('word/document.xml', '<w:document/>');
+    return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
+};
 
 // Mock VirusScanner
 vi.mock('../../../server/services/security/VirusScanner', () => ({
@@ -29,9 +45,7 @@ describe('Hardening: Storage Quota', () => {
         // Spy on singleton instance
         vi.spyOn(storageQuotaService, 'getTenantUsage').mockResolvedValue(524287900);
 
-        // Use valid DOCX header to pass MagicBytes check
-        const zipHeader = Buffer.from([0x50, 0x4B, 0x03, 0x04]);
-        const fileContent = Buffer.concat([zipHeader, Buffer.alloc(200)]);
+        const fileContent = createMinimalDocx();
 
         const res = await request(app)
             .post(`/api/projects/${projectId}/templates`)

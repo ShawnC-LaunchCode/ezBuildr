@@ -1,6 +1,6 @@
 # Services Reference
 
-Map of service classes in `server/services/` (verified July 2026): ~91 top-level files plus subdirectories (`ai/`, `analytics/`, `document/`, `esign/`, `scripting/`, `blockRunners/`, `runs/`, `storage/`, `security/`, and others) — ~185 files total. **Grep `server/services/` for the class before assuming a name here is current.**
+Map of service classes in `server/services/` (verified July 2026): ~92 top-level files plus subdirectories (`ai/`, `analytics/`, `document/`, `esign/`, `scripting/`, `blockRunners/`, `runs/`, `storage/`, `security/`, and others) — ~185 files total. **Grep `server/services/` for the class before assuming a name here is current.**
 
 Conventions: services export a module-level singleton (`export const fooService = new FooService()`) with optional constructor repo params for tests; tenancy is checked in the service layer via `verifyTenantOwnership`-style methods. See the `add-api-endpoint` skill.
 
@@ -9,6 +9,7 @@ Conventions: services export a module-level singleton (`export const fooService 
 | Service | Purpose |
 |---------|---------|
 | WorkflowService | Workflow CRUD, status management |
+| WorkflowContentIngestService | Normalizes structural blueprints |
 | SectionService / StepService | Section and step management |
 | LogicService | Conditional logic rules |
 | VariableService / AliasResolver / AliasRenameService | Step alias management |
@@ -23,6 +24,8 @@ Conventions: services export a module-level singleton (`export const fooService 
 | Service | Purpose |
 |---------|---------|
 | RunService | Run lifecycle management |
+| RunRuntimeService | Authorized, sanitized runtime definition pinned to a run version |
+| RunDataService | Canonical run data views: step-id keyed for runtime logic, alias-keyed for document generation |
 | BlockRunner + `blockRunners/*` | Execute workflow blocks (per-type runner classes) |
 | TransformBlockService | JS/Python transform execution |
 | IntakeService / IntakeNavigationService / IntakeQuestionVisibilityService | Intake flow, navigation, real-time visibility |
@@ -108,7 +111,7 @@ TemplateService, TemplateTestService, TemplateVersionService, TemplateValidation
 
 ## Business & Utility
 
-ProjectService, TeamService, OrganizationService, ReviewTaskService (orphaned — its routes were removed), BrandingService, DataSourceService, RandomizerService, ActivityLogService, emailService (SendGrid), fileService, FileStorageService, StorageQuotaService, UserPreferencesService, AccountService, EmailTemplateMetadataService, CollectionService/CollectionFieldService/RecordService (legacy).
+ProjectService, TeamService, OrganizationService, AdminOrgStatsService, ReviewTaskService (orphaned — its routes were removed), BrandingService, DataSourceService, RandomizerService, ActivityLogService, emailService (SendGrid), fileService, FileStorageService, StorageQuotaService, UserPreferencesService, AccountService, EmailTemplateMetadataService, CollectionService/CollectionFieldService/RecordService (legacy).
 
 ## Removed — do not reference
 

@@ -305,7 +305,7 @@ export class SignatureBlockService {
    */
   static async findSignatureRequestByEnvelope(
     envelopeId: string
-  ): Promise<{ id: string; runId: string; stepId: string } | null> {
+  ): Promise<{ id: string; runId: string } | null> {
     const request = await db.query.signatureRequests.findFirst({
       where: eq(signatureRequests.providerRequestId, envelopeId),
       columns: {
@@ -314,7 +314,7 @@ export class SignatureBlockService {
       }
     });
     
-    return request as any || null;
+    return request ?? null;
   }
 
   /**

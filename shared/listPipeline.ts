@@ -38,7 +38,7 @@ function safeStr(value: unknown): string {
 /**
  * Evaluate a single filter rule against a row
  */
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- operator dispatch table
+// eslint-disable-next-line complexity -- operator dispatch table
 export function evaluateFilterRule(
   row: Record<string, unknown>,
   rule: ListToolsFilterRule,
@@ -183,7 +183,7 @@ export function applyListSort(
 ): ListVariable {
   if (sortKeys.length === 0) {return list;}
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity -- multi-key sort comparator
+  // eslint-disable-next-line sonarjs/cognitive-complexity -- multi-key sort comparator
   const sortedRows = [...list.rows].sort((a, b) => {
     for (const sortKey of sortKeys) {
       const valA: unknown = getFieldValue(a, sortKey.fieldPath);

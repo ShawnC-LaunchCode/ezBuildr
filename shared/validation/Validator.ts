@@ -1,6 +1,7 @@
 import { evaluateConditionExpression } from "../conditionEvaluator";
 
 import { defaultValidationMessages, formatMessage } from "./messages";
+import { safeRegexTest } from "./regexSafety";
 
 import type { ValidationRule } from "./ValidationRule";
 import type { ValidationSchema, ValidationResult } from "./ValidationSchema";
@@ -23,7 +24,7 @@ export interface ValidatorOptions {
 /**
  * Validates a single value against a schema.
  */
-// eslint-disable-next-line @typescript-eslint/require-await -- kept async for future script validation support
+
 export async function validateValue(options: ValidatorOptions): Promise<ValidationResult> {
     const { schema, value, values = {} } = options;
     const errors: string[] = [];
@@ -90,15 +91,16 @@ function validateRule(
             break;
         case "pattern":
             if (typeof value === "string") {
-                try {
-                    // eslint-disable-next-line security/detect-non-literal-regexp -- regex comes from validated schema, not user input
-                    const regex = new RegExp(rule.regex);
-                    if (!regex.test(value)) {
-                        return formatMessage(msg, { regex: rule.regex });
-                    }
-                } catch {
-                    console.error("Invalid regex in validation rule", rule.regex);
-                    // Don't fail validation for broken regex, just log
+                // RUN2-16: patterns are author-supplied and this code now runs
+                // server-side, where an exponentially-backtracking regex would
+                // block the event loop for every request. safeRegexTest refuses
+                // such patterns instead of running them; a refused pattern is
+                // skipped, never turned into a failure for the respondent.
+                const result = safeRegexTest(rule.regex, value);
+                if (result.skipped) {
+                    console.warn("Skipped unsafe validation pattern", { regex: rule.regex, reason: result.reason });
+                } else if (!result.matched) {
+                    return formatMessage(msg, { regex: rule.regex });
                 }
             }
             break;

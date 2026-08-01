@@ -9,14 +9,13 @@ import {
   Settings,
   Camera,
   ClipboardCheck,
-  GitBranch,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 import type { ComponentType } from "react";
 
-export type BuilderTab = "sections" | "templates" | "data-sources" | "settings" | "snapshots" | "review" | "assignment";
+export type BuilderTab = "sections" | "templates" | "data-sources" | "settings" | "snapshots" | "review";
 interface TabConfig {
   id: BuilderTab;
   label: string;
@@ -29,23 +28,20 @@ const TABS: TabConfig[] = [
   { id: "review", label: "Review", icon: ClipboardCheck },
   { id: "snapshots", label: "Snapshots", icon: Camera },
   { id: "settings", label: "Settings", icon: Settings },
-  { id: "assignment", label: "Assignment", icon: GitBranch },
 ];
 interface BuilderTabNavProps {
-  workflowId: string;
   activeTab: BuilderTab;
   onTabChange: (tab: BuilderTab) => void;
-  isIntake?: boolean;
 }
-export function BuilderTabNav({ workflowId: _workflowId, activeTab, onTabChange, isIntake }: BuilderTabNavProps) {
-  const visibleTabs = TABS.filter(tab => {
-    // eslint-disable-next-line sonarjs/prefer-single-boolean-return
-    if (tab.id === "assignment" && !isIntake) {return false;}
-    return true;
-  });
+
+export function isBuilderTab(value: string | null): value is BuilderTab {
+  return value !== null && TABS.some((tab) => tab.id === value);
+}
+
+export function BuilderTabNav({ activeTab, onTabChange }: BuilderTabNavProps) {
   return (
-    <div className="flex items-center justify-center gap-1 border-b bg-card/50">
-      {visibleTabs.map((tab) => {
+    <div className="flex items-center justify-start gap-1 overflow-x-auto border-b bg-card/50 lg:justify-center">
+      {TABS.map((tab) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.id;
         return (
@@ -54,7 +50,7 @@ export function BuilderTabNav({ workflowId: _workflowId, activeTab, onTabChange,
             onClick={() => onTabChange(tab.id)}
             className={cn(
               "flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 py-3 text-sm font-medium transition-colors relative",
-              "w-[100px] md:w-auto md:px-4",
+              "w-[100px] shrink-0 md:w-auto md:px-4",
               "hover:text-foreground hover:bg-accent/50",
               isActive
                 ? "text-foreground bg-background border-b-2 border-primary"

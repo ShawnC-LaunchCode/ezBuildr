@@ -34,7 +34,7 @@ const createSecretSchema = z.object({
   key: z.string().min(1).max(255).regex(/^[a-zA-Z0-9_-]+$/, 'Key must contain only letters, numbers, underscores, and hyphens'),
   valuePlain: z.string().min(1),
   type: z.enum(['api_key', 'bearer', 'oauth2', 'basic_auth']),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic metadata for secrets
+
   metadata: z.record(z.any()).optional(),
 });
 
@@ -42,7 +42,7 @@ const updateSecretSchema = z.object({
   key: z.string().min(1).max(255).regex(/^[a-zA-Z0-9_-]+$/).optional(),
   valuePlain: z.string().min(1).optional(),
   type: z.enum(['api_key', 'bearer', 'oauth2', 'basic_auth']).optional(),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic metadata for secrets
+
   metadata: z.record(z.any()).optional(),
 }).refine(data => Object.keys(data).length > 0, {
   message: 'At least one field must be provided for update',

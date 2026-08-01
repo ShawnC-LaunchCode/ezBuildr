@@ -70,8 +70,12 @@ const swaggerUiOptions: swaggerUi.SwaggerUiOptions = {
     operationsSorter: "alpha"
   }
 };
-// Redirect /api-docs to /api-docs/ for proper resource loading
-router.get("/api-docs", (req, res) => {
+// Redirect /api-docs to /api-docs/ for proper resource loading.
+// Express's default non-strict routing matches "/api-docs" and "/api-docs/"
+// identically, so without the trailing-slash check this handler redirects
+// "/api-docs/" to itself and never falls through to swaggerUi below.
+router.get("/api-docs", (req, res, next) => {
+  if (req.path.endsWith('/')) { return next(); }
   res.redirect("/api-docs/");
 });
 // Serve Swagger UI

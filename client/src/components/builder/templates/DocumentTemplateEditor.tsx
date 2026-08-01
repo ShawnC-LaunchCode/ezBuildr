@@ -25,7 +25,7 @@ export function DocumentTemplateEditor({ templateId, isOpen, onClose, workflowVa
     // Note: Assuming an API exists to get the raw file or we reuse the upload buffer if new
     // For this mock, we'll try to fetch from a hypothetical download endpoint
     useEffect(() => {
-        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+
         if (isOpen && templateId) {
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
             fetchTemplate();

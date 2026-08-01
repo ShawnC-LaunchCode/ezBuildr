@@ -1,8 +1,11 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+
 import { ArrowLeft, Users, Mail, Crown, UserMinus, Shield, AlertCircle, Folder, FolderPlus } from 'lucide-react';
 import React, { useState } from 'react';
 import { useParams, useLocation } from 'wouter';
 
+import { ProjectCard } from '@/components/dashboard/ProjectCard';
+import { CopyAssetDialog } from '@/components/dialogs/CopyAssetDialog';
+import { TransferOwnershipDialog } from '@/components/dialogs/TransferOwnershipDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -11,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import type { ApiAssetCopyOptions, ApiProject } from '@/lib/vault-api';
 import {
   useOrganization,
   useOrganizationMembers,
@@ -24,8 +28,8 @@ import {
   useLeaveOrganization,
   useDeleteOrganization,
 } from '@/hooks/useOrganizations';
-import { useCreateProject, useOrganizationProjects } from '@/lib/vault-hooks';
-// eslint-disable-next-line max-lines-per-function, complexity
+import { useCopyProject, useCreateProject, useDeleteProject, useOrganizationProjects, useTransferProject } from '@/lib/vault-hooks';
+// eslint-disable-next-line max-lines-per-function, complexity, sonarjs/cognitive-complexity
 export default function OrganizationDetail() {
   const { id: orgId } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
@@ -44,6 +48,9 @@ export default function OrganizationDetail() {
   const leaveOrg = useLeaveOrganization();
   const deleteOrg = useDeleteOrganization(orgId);
   const createProject = useCreateProject();
+  const copyProject = useCopyProject();
+  const transferProject = useTransferProject();
+  const deleteProject = useDeleteProject();
   const [isEditingOrg, setIsEditingOrg] = useState(false);
   const [orgName, setOrgName] = useState('');
   const [orgDescription, setOrgDescription] = useState('');
@@ -54,6 +61,9 @@ export default function OrganizationDetail() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [copyingProject, setCopyingProject] = useState<ApiProject | null>(null);
+  const [transferringProject, setTransferringProject] = useState<ApiProject | null>(null);
+  const [deletingProject, setDeletingProject] = useState<ApiProject | null>(null);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const isAdmin = organization?.role === 'admin';
   const handleEditOrg = () => {
@@ -194,6 +204,63 @@ export default function OrganizationDetail() {
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to create project. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+  const handleCopyProject = async (options: ApiAssetCopyOptions) => {
+    if (!copyingProject) { return; }
+    try {
+      const result = await copyProject.mutateAsync({ id: copyingProject.id, options });
+      toast({
+        title: 'Project copied',
+        description: `Copied ${result.workflows?.length ?? 0} workflow${(result.workflows?.length ?? 0) === 1 ? '' : 's'}.`,
+      });
+      setCopyingProject(null);
+    } catch (error) {
+      toast({
+        title: 'Copy failed',
+        description: error instanceof Error ? error.message : 'Failed to copy project',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+  const handleTransferProject = async (targetOwnerType: 'user' | 'org', targetOwnerUuid: string) => {
+    if (!transferringProject) { return; }
+    try {
+      await transferProject.mutateAsync({
+        id: transferringProject.id,
+        targetOwnerType,
+        targetOwnerUuid,
+      });
+      toast({
+        title: 'Project transferred',
+        description: 'Ownership is updated',
+      });
+      setTransferringProject(null);
+    } catch (error) {
+      toast({
+        title: 'Transfer failed',
+        description: error instanceof Error ? error.message : 'Failed to transfer project',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+  const handleDeleteProject = async () => {
+    if (!deletingProject) { return; }
+    try {
+      await deleteProject.mutateAsync(deletingProject.id);
+      toast({
+        title: 'Project deleted',
+        description: `${deletingProject.title} has been deleted`,
+      });
+      setDeletingProject(null);
+    } catch (error) {
+      toast({
+        title: 'Delete failed',
+        description: error instanceof Error ? error.message : 'Failed to delete project',
         variant: 'destructive',
       });
     }
@@ -372,26 +439,17 @@ export default function OrganizationDetail() {
               <p className="text-muted-foreground">No organization projects yet</p>
             </div>
           ) : (
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
               {projects.map((project) => (
-                <div
+                <ProjectCard
                   key={project.id}
-                  className="flex items-center justify-between rounded-lg border bg-card p-4 hover:bg-accent/50 transition-colors"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium truncate">{project.name ?? project.title}</p>
-                    {project.description && (
-                      <p className="text-sm text-muted-foreground truncate">{project.description}</p>
-                    )}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => { void navigate(`/projects/${project.id}`); }}
-                  >
-                    Open
-                  </Button>
-                </div>
+                  project={project}
+                  currentUserId={user?.id}
+                  currentUserOrgRole={organization.role}
+                  onCopy={() => setCopyingProject(project)}
+                  onTransfer={() => setTransferringProject(project)}
+                  onDelete={() => setDeletingProject(project)}
+                />
               ))}
             </div>
           )}
@@ -616,6 +674,50 @@ export default function OrganizationDetail() {
               disabled={createProject.isPending || !projectName.trim()}
             >
               {createProject.isPending ? 'Creating...' : 'Create Project'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {copyingProject && (
+        <CopyAssetDialog
+          open={copyingProject !== null}
+          onOpenChange={(open) => !open && setCopyingProject(null)}
+          assetType="project"
+          assetName={copyingProject.title}
+          onCopy={handleCopyProject}
+          isPending={copyProject.isPending}
+        />
+      )}
+      {transferringProject && (
+        <TransferOwnershipDialog
+          open={transferringProject !== null}
+          onOpenChange={(open) => !open && setTransferringProject(null)}
+          assetType="project"
+          assetName={transferringProject.title}
+          sourceOwnerType={transferringProject.ownerType}
+          sourceOwnerUuid={transferringProject.ownerUuid}
+          onTransfer={handleTransferProject}
+          isPending={transferProject.isPending}
+        />
+      )}
+      <Dialog open={deletingProject !== null} onOpenChange={(open) => !open && setDeletingProject(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Project</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. Workflows inside this project will be moved to unfiled.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { void setDeletingProject(null); }}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => { void handleDeleteProject(); }}
+              disabled={deleteProject.isPending}
+            >
+              {deleteProject.isPending ? 'Deleting...' : 'Delete Project'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -6,12 +6,12 @@
 
 import express from 'express';
 
-import { securityHeaders } from '../server/middleware/securityHeaders.js';
+import { applySecurityMiddleware } from '../server/middleware/securityConfig.js';
 
 const app = express();
 
 // Apply security headers
-app.use(securityHeaders());
+applySecurityMiddleware(app);
 
 // Simple test endpoint
 app.get('/test', (req, res) => {

@@ -240,6 +240,13 @@ export interface AIProviderConfig {
   model: string;
   temperature?: number;
   maxTokens?: number;
+  /**
+   * Tenant the call is billed/budgeted to (ICW2-B7). Optional so existing
+   * unauthenticated/env-only callers keep working with no budget enforcement;
+   * when present, `AIProviderClient.callLLM` records usage and enforces the
+   * rolling budget for this tenant.
+   */
+  tenantId?: string;
 }
 
 /**

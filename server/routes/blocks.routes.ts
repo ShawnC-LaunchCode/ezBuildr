@@ -43,7 +43,7 @@ export function registerBlockRoutes(app: Express): void {
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.post('/api/workflows/:workflowId/blocks', hybridAuth, autoRevertToDraft, asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    // eslint-disable-next-line sonarjs/cognitive-complexity
+
     try {
       const userId = (req as AuthRequest).userId;
       if (!userId) {
@@ -53,7 +53,7 @@ export function registerBlockRoutes(app: Express): void {
       const { workflowId } = req.params;
       const blockData = req.body as BlockRequest;
       // Validate required fields
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
       if (!blockData.type || !blockData.phase || !blockData.config) {
         res.status(400).json({
           success: false,
@@ -62,7 +62,7 @@ export function registerBlockRoutes(app: Express): void {
         return;
       }
       // Route to specialized service for query, read_table, and list_tools blocks (they need virtual steps)
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let block: any;
       if (blockData.type === 'query') {
         block = await queryBlockService.createBlock(workflowId, userId, {
@@ -164,7 +164,7 @@ export function registerBlockRoutes(app: Express): void {
       // Apply auto-revert
       await autoRevertToDraft(req, res, () => { });
       // Route to specialized service for query, read_table, and list_tools blocks
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let updatedBlock: any;
       if ((block.type as string) === 'query') {
         updatedBlock = await queryBlockService.updateBlock(blockId, userId, {
@@ -271,7 +271,7 @@ export function registerBlockRoutes(app: Express): void {
       }
       const { workflowId, stepId } = req.params;
       const transformConfigSchema = z.object({
-        filters: z.array(z.any()).optional(),
+        filters: z.array(z.unknown()).optional(),
         sort: z.object({
           field: z.string(),
           direction: z.enum(['asc', 'desc'])
@@ -281,22 +281,21 @@ export function registerBlockRoutes(app: Express): void {
         dedupe: z.boolean().optional(),
         select: z.array(z.string()).optional()
       }).optional().nullable();
+      const createListToolsSchema = z.object({
+        sourceListVar: z.string().min(1, "sourceListVar is required"),
+        sectionId: z.string().min(1, "sectionId is required"),
+        transformConfig: transformConfigSchema,
+      });
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const { sourceListVar, sectionId } = req.body;
-      let transformConfig: z.infer<typeof transformConfigSchema>;
-      
-      try {
-        transformConfig = transformConfigSchema.parse(req.body.transformConfig);
-      } catch (err) {
-        if (err instanceof z.ZodError) {
-          return res.status(400).json({ success: false, errors: err.errors.map(e => e.message) });
-        }
-        return res.status(400).json({ success: false, errors: ["Invalid transformConfig"] });
+      const parsedBody = createListToolsSchema.safeParse(req.body);
+      if (!parsedBody.success) {
+        return res.status(400).json({ success: false, errors: parsedBody.error.issues.map(e => e.message) });
       }
 
+      const { sourceListVar, sectionId, transformConfig } = parsedBody.data;
+
       // Validation
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
       if (!sourceListVar) {
         res.status(400).json({
           success: false,
@@ -304,7 +303,7 @@ export function registerBlockRoutes(app: Express): void {
         });
         return;
       }
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
       if (!sectionId) {
         res.status(400).json({
           success: false,
@@ -324,50 +323,50 @@ export function registerBlockRoutes(app: Express): void {
       // Build List Tools config from transform config
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- config structure built dynamically
       const listToolsConfig: any = {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
         sourceListVar,
         outputKey: outputVar,
         outputListVar: outputVar,
       };
       // Map transform config from Choice question format to List Tools format
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
       if (transformConfig) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
         if (transformConfig.filters) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           listToolsConfig.filters = transformConfig.filters;
         }
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
         if (transformConfig.sort) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           listToolsConfig.sort = transformConfig.sort;
         }
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
         if (transformConfig.limit !== undefined) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           listToolsConfig.limit = transformConfig.limit;
         }
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
         if (transformConfig.offset !== undefined) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           listToolsConfig.offset = transformConfig.offset;
         }
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
         if (transformConfig.dedupe) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           listToolsConfig.dedupe = transformConfig.dedupe;
         }
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
         if (transformConfig.select) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           listToolsConfig.select = transformConfig.select;
         }
       }
       // Create the List Tools block
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
       const block = await listToolsBlockService.createBlock(workflowId, userId, {
         name: `Options for ${stepId.substring(0, 8)}`,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
         sectionId: sectionId,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         config: listToolsConfig,
@@ -376,10 +375,10 @@ export function registerBlockRoutes(app: Express): void {
       logger.info({
         blockId: block.id,
         stepId,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
         sourceListVar,
         outputVar,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
         sectionId
       }, "Created List Tools block inline from Choice question");
       res.status(201).json({

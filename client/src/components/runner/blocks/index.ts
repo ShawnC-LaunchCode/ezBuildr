@@ -23,8 +23,5 @@ export { MultiFieldBlockRenderer } from "./MultiFieldBlock";
 export { ScaleBlockRenderer } from "./ScaleBlock";
 export { DisplayBlockRenderer } from "./DisplayBlock";
 
-// Output Blocks
-export { FinalBlockRenderer } from "./FinalBlock";
 export { SignatureBlockRenderer } from "./SignatureBlockRenderer";
 
-export { validateBlockValue, validateSectionSteps } from "./validation";

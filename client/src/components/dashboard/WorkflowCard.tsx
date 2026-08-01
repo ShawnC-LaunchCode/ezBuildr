@@ -3,25 +3,44 @@
  * Displays a workflow document card with status
  */
 
-import { FileText, Archive, Trash2, Play, Move, Link, Copy } from "lucide-react";
+import { FileText, Archive, Trash2, Play, Move, Link, Copy, Users, ShieldCheck, ArrowRightLeft } from "lucide-react";
 
 import { EntityCard, type EntityAction } from "@/components/shared/EntityCard";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
+import type { OrgRole } from "@/lib/ownership";
 import type { ApiWorkflow } from "@/lib/vault-api";
 import { workflowAPI } from "@/lib/vault-api";
 
 interface WorkflowCardProps {
   workflow: ApiWorkflow;
+  currentUserId?: string;
+  currentUserOrgRole?: OrgRole | null;
+  orgRoleLoading?: boolean;
   onMove?: (workflow: ApiWorkflow) => void;
   onCopy?: (workflow: ApiWorkflow) => void;
+  onTransfer?: (workflow: ApiWorkflow) => void;
   onArchive?: (id: string) => void;
   onActivate?: (id: string) => void;
   onDelete?: (id: string) => void;
 }
 
-export function WorkflowCard({ workflow, onMove, onCopy, onArchive, onActivate, onDelete }: WorkflowCardProps) {
+export function WorkflowCard({
+  workflow,
+  currentUserId,
+  currentUserOrgRole,
+  orgRoleLoading = false,
+  onMove,
+  onCopy,
+  onTransfer,
+  onArchive,
+  onActivate,
+  onDelete,
+}: WorkflowCardProps) {
   const statusVariant = workflow.status === "active" ? "default" : workflow.status === "draft" ? "secondary" : "outline";
+  const orgRestrictedReason = workflow.ownerType === "org" && currentUserOrgRole !== "admin"
+    ? (orgRoleLoading ? "Checking org role" : "Org admin required")
+    : undefined;
 
   const handleCopyLink = async () => {
     try {
@@ -71,6 +90,16 @@ export function WorkflowCard({ workflow, onMove, onCopy, onArchive, onActivate, 
     });
   }
 
+  if (onTransfer) {
+    actions.push({
+      label: "Transfer",
+      icon: ArrowRightLeft,
+      onClick: () => onTransfer(workflow),
+      disabled: !!orgRestrictedReason,
+      disabledReason: orgRestrictedReason,
+    });
+  }
+
   // Conditional activate/archive action
   if (workflow.status === "draft" || workflow.status === "archived") {
     actions.push({
@@ -78,6 +107,8 @@ export function WorkflowCard({ workflow, onMove, onCopy, onArchive, onActivate, 
       icon: Play,
       onClick: () => onActivate?.(workflow.id),
       separator: !onMove, // Only add separator if no move action above
+      disabled: !!orgRestrictedReason,
+      disabledReason: orgRestrictedReason,
     });
   } else if (onArchive) {
     actions.push({
@@ -85,6 +116,8 @@ export function WorkflowCard({ workflow, onMove, onCopy, onArchive, onActivate, 
       icon: Archive,
       onClick: () => onArchive(workflow.id),
       separator: !onMove, // Only add separator if no move action above
+      disabled: !!orgRestrictedReason,
+      disabledReason: orgRestrictedReason,
     });
   }
 
@@ -95,6 +128,8 @@ export function WorkflowCard({ workflow, onMove, onCopy, onArchive, onActivate, 
       onClick: () => onDelete(workflow.id),
       variant: "destructive",
       separator: true,
+      disabled: !!orgRestrictedReason,
+      disabledReason: orgRestrictedReason,
     });
   }
 
@@ -107,15 +142,25 @@ export function WorkflowCard({ workflow, onMove, onCopy, onArchive, onActivate, 
       actions={actions}
       renderBadge={() => (
         <div className="flex gap-2">
-          {/* eslint-disable-next-line @typescript-eslint/no-unsafe-member-access */}
-          {workflow.intakeConfig?.isIntake && (
-            <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
-              Intake
-            </Badge>
-          )}
           <Badge variant={statusVariant}>
             {workflow.status}
           </Badge>
+          {currentUserId && workflow.ownerType === "user" && workflow.ownerUuid === currentUserId ? (
+            <Badge variant="outline" className="opacity-70">Owner</Badge>
+          ) : workflow.ownerType === "org" ? (
+            <>
+              <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
+                <Users className="w-3 h-3 mr-1" />
+                {workflow.ownerName ?? "Organization"}
+              </Badge>
+              {currentUserOrgRole && (
+                <Badge variant={currentUserOrgRole === "admin" ? "default" : "outline"} className="gap-1">
+                  {currentUserOrgRole === "admin" && <ShieldCheck className="w-3 h-3" />}
+                  {currentUserOrgRole === "admin" ? "Admin" : "Member"}
+                </Badge>
+              )}
+            </>
+          ) : null}
         </div>
       )}
     />

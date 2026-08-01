@@ -3,7 +3,8 @@ import { ReactNode } from "react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface ConfirmationDialogProps {
-  trigger: ReactNode;
+  /** Omit when the dialog is fully controlled via `open`/`onOpenChange` (no visible trigger element). */
+  trigger?: ReactNode;
   title: string;
   description: string;
   confirmText?: string;
@@ -37,9 +38,11 @@ export function ConfirmationDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogTrigger asChild>
-        {trigger}
-      </AlertDialogTrigger>
+      {trigger !== undefined && (
+        <AlertDialogTrigger asChild>
+          {trigger}
+        </AlertDialogTrigger>
+      )}
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>

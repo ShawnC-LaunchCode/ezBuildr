@@ -12,7 +12,7 @@ export class BranchBlockRunner extends BaseBlockRunner {
     return "branch";
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
+
   async execute(config: BranchConfig, context: BlockContext, _block: Block): Promise<BlockResult> {
     // Evaluate branches in order (first match wins)
     for (const branch of config.branches) {

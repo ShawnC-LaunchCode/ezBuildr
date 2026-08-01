@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Secrets Service
  * Manages encrypted secrets (API keys, tokens, OAuth2 credentials) for projects
@@ -60,10 +59,13 @@ export async function listSecrets(projectId: string): Promise<SecretMetadata[]> 
     })
     .from(secrets)
     .where(eq(secrets.projectId, projectId));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return -- Legacy dynamic boundary requires these narrow checks.
   return results.map((s: any) => ({
     ...s,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Secret-provider responses are dynamically typed at this boundary.
     type: s.type as 'api_key' | 'bearer' | 'oauth2' | 'basic_auth',
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Secret-provider responses are dynamically typed at this boundary.
     metadata: s.metadata as Record<string, unknown> | undefined,
   }));
 }
@@ -137,7 +139,8 @@ export async function secretKeyExists(projectId: string, key: string, excludeId?
     .where(and(eq(secrets.projectId, projectId), eq(secrets.key, key)));
   const results = await query;
   if (excludeId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- Legacy dynamic boundary requires these narrow checks.
     return results.some((r: any) => r.id !== excludeId);
   }
   return results.length > 0;
@@ -205,7 +208,8 @@ export async function updateSecret(
   // Update
   const [result] = await db
     .update(secrets)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- Legacy dynamic boundary requires these narrow checks.
     .set(updates as any)
     .where(and(eq(secrets.id, secretId), eq(secrets.projectId, projectId)))
     .returning();

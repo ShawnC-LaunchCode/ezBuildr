@@ -31,7 +31,7 @@ interface Usage {
 interface Limits {
     runs: number;
     documents: number;
-    // eslint-disable-next-line complexity
+
     // eslint-disable-next-line @typescript-eslint/naming-convention
     storage_mb: number;
 }

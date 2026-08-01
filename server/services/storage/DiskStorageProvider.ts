@@ -17,7 +17,30 @@ export class DiskStorageProvider implements StorageProvider {
     private baseDir: string;
 
     constructor(baseDir?: string) {
-        this.baseDir = baseDir ?? path.join(process.cwd(), 'server', 'files');
+        this.baseDir = path.resolve(baseDir ?? path.join(process.cwd(), 'server', 'files'));
+    }
+
+    /**
+     * Resolve a caller-supplied ref to an absolute path inside `baseDir`, or
+     * refuse. Every disk operation goes through here rather than calling
+     * `path.join` directly, because a ref is not always trusted input: import
+     * writes fileRefs straight out of an uploaded bundle (IEX-10), and a ref
+     * like `../../.env` would otherwise resolve cleanly outside the store.
+     *
+     * The check is on the resolved path, not the raw string, so it also covers
+     * encodings that only become traversal after normalisation, and absolute
+     * refs — `path.join(base, 'C:\\secrets')` stays inside base but
+     * `path.resolve` would escape, so resolve-then-contain is the safe order.
+     */
+    private resolveWithinBase(ref: string): string {
+        const resolved = path.resolve(this.baseDir, ref);
+        const relative = path.relative(this.baseDir, resolved);
+        const escapes = relative.startsWith('..') || path.isAbsolute(relative);
+        if (relative !== '' && escapes) {
+            logger.warn({ ref }, 'Rejected storage path outside the storage root');
+            throw createError.validation('Invalid file path');
+        }
+        return resolved;
     }
 
     async init(): Promise<void> {
@@ -39,7 +62,7 @@ export class DiskStorageProvider implements StorageProvider {
 
     async uploadFile(key: string, buffer: Buffer, _mimeType: string, _metadata?: Record<string, unknown>): Promise<string> {
         await this.init();
-        const filePath = path.join(this.baseDir, key);
+        const filePath = this.resolveWithinBase(key);
 
         // Ensure directory exists
         await fs.mkdir(path.dirname(filePath), { recursive: true });
@@ -55,7 +78,7 @@ export class DiskStorageProvider implements StorageProvider {
     }
 
     async deleteFile(fileRef: string): Promise<void> {
-        const filePath = path.join(this.baseDir, fileRef);
+        const filePath = this.resolveWithinBase(fileRef);
         try {
             await fs.unlink(filePath);
         } catch (error: unknown) {
@@ -66,7 +89,7 @@ export class DiskStorageProvider implements StorageProvider {
     }
 
     async exists(fileRef: string): Promise<boolean> {
-        const filePath = path.join(this.baseDir, fileRef);
+        const filePath = this.resolveWithinBase(fileRef);
         try {
             await fs.access(filePath);
             return true;
@@ -76,7 +99,7 @@ export class DiskStorageProvider implements StorageProvider {
     }
 
     async getFile(fileRef: string): Promise<Buffer> {
-        const filePath = path.join(this.baseDir, fileRef);
+        const filePath = this.resolveWithinBase(fileRef);
         try {
             return await fs.readFile(filePath);
         } catch (error) {
@@ -89,7 +112,7 @@ export class DiskStorageProvider implements StorageProvider {
     }
 
     async getLocalPath(fileRef: string): Promise<string> {
-        const filePath = path.join(this.baseDir, fileRef);
+        const filePath = this.resolveWithinBase(fileRef);
         const exists = await this.exists(fileRef);
         if (!exists) {
             // For Disk provider, we check existance. If not found, throw.
@@ -100,7 +123,7 @@ export class DiskStorageProvider implements StorageProvider {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async getMetadata(fileRef: string): Promise<any> {
-        const filePath = path.join(this.baseDir, fileRef);
+        const filePath = this.resolveWithinBase(fileRef);
         try {
             const stats = await fs.stat(filePath);
             return {
@@ -124,7 +147,7 @@ export class DiskStorageProvider implements StorageProvider {
 
     async list(prefix: string): Promise<string[]> {
         await this.init();
-        const dir = path.join(this.baseDir, prefix);
+        const dir = this.resolveWithinBase(prefix);
         try {
             const files = await fs.readdir(dir);
             return files.map(f => path.join(prefix, f).replace(/\\/g, '/'));

@@ -37,12 +37,12 @@ async function main() {
   try {
     if (projectId && workflowId) {
       // Compute SLI for specific workflow
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       logger.info('Computing SLI for workflow', { projectId, workflowId, window });
 
       const sliResult = await sli.computeSLI({ projectId, workflowId, window });
 
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       logger.info('SLI computed', {
         successPct: sliResult.successPct,
         p95Ms: sliResult.p95Ms,
@@ -59,7 +59,7 @@ async function main() {
 
       if (project) {
         await sli.saveSLIWindow({
-          // @ts-ignore - TODO: fix type
+          // @ts-expect-error - TODO: fix type
           tenantId: project.tenantId,
           projectId,
           workflowId,
@@ -69,12 +69,12 @@ async function main() {
       }
     } else if (projectId) {
       // Compute SLI for specific project
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       logger.info('Computing SLI for project', { projectId, window });
 
       const sliResult = await sli.computeSLI({ projectId, window });
 
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       logger.info('SLI computed', {
         successPct: sliResult.successPct,
         p95Ms: sliResult.p95Ms,
@@ -91,7 +91,7 @@ async function main() {
 
       if (project) {
         await sli.saveSLIWindow({
-          // @ts-ignore - TODO: fix type
+          // @ts-expect-error - TODO: fix type
           tenantId: project.tenantId,
           projectId,
           sli: sliResult,

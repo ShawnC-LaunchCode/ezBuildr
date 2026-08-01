@@ -6,6 +6,7 @@
 import { CSS } from "@dnd-kit/utilities";
 
 import { SectionLogicSheet } from "@/components/logic";
+import { DeleteImpactDialog } from "@/components/shared/DeleteImpactDialog";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { ApiSection, ApiBlock, ApiStep } from "@/lib/vault-api";
@@ -54,9 +55,19 @@ export function PageCard({
     transform,
     transition,
     isDragging,
+    localTitle,
+    localDescription,
     handleTitleChange,
+    flushTitle,
     handleDescriptionChange,
+    flushDescription,
     handleDelete,
+    handleDuplicate,
+    isDeleteImpactOpen,
+    setIsDeleteImpactOpen,
+    pendingDeleteImpact,
+    confirmDestructiveDelete,
+    isDeleteSectionPending,
     selectSection,
     selectBlock,
     selectStep,
@@ -88,12 +99,19 @@ export function PageCard({
             setIsCollapsed(!isCollapsed);
           }}
           onTitleChange={handleTitleChange}
+          flushTitle={flushTitle}
+          localTitle={localTitle}
           onDescriptionChange={handleDescriptionChange}
+          flushDescription={flushDescription}
+          localDescription={localDescription}
           onSelectSection={() => {
             void selectSection(page.id);
           }}
           onOpenLogicSheet={() => {
             void setIsLogicSheetOpen(true);
+          }}
+          onDuplicate={() => {
+            void handleDuplicate();
           }}
           onDelete={() => {
             void handleDelete();
@@ -127,6 +145,15 @@ export function PageCard({
         onOpenChange={setIsLogicSheetOpen}
         section={page}
         workflowId={workflowId}
+      />
+
+      <DeleteImpactDialog
+        open={isDeleteImpactOpen}
+        onOpenChange={setIsDeleteImpactOpen}
+        impact={pendingDeleteImpact}
+        itemLabel="page"
+        onConfirm={confirmDestructiveDelete}
+        isPending={isDeleteSectionPending}
       />
     </div>
   );

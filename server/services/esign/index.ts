@@ -37,7 +37,8 @@ export type { BuildEnvelopeRequest } from './EnvelopeBuilder';
 // Signature block service
 export { SignatureBlockService } from './SignatureBlockService';
 
-// Initialize providers on module load
+// Dormant provider initialization hook. Server startup intentionally does not
+// call this until the external DocuSign operations are fully implemented.
 import { createDocusignProvider } from './DocusignProvider';
 import { EsignProviderFactory } from './EsignProvider';
 

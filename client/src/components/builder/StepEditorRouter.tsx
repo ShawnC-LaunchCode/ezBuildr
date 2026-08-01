@@ -1,36 +1,22 @@
-import type { ApiStep } from '@/lib/vault-api';
-
-// eslint-disable-next-line import/no-cycle
 import { AddressCardEditor } from './cards/AddressCardEditor';
-// eslint-disable-next-line import/no-cycle
 import { BooleanCardEditor } from './cards/BooleanCardEditor';
-// eslint-disable-next-line import/no-cycle
 import { ChoiceCardEditor } from './cards/ChoiceCardEditor';
-// eslint-disable-next-line import/no-cycle
+import { DateTimeCardEditor } from './cards/DateTimeCardEditor';
 import { DisplayCardEditor } from './cards/DisplayCardEditor';
-// eslint-disable-next-line import/no-cycle
 import { EmailCardEditor } from './cards/EmailCardEditor';
+import { GenericStepEditor } from './cards/GenericStepEditor';
+import { JsQuestionCardEditor } from './cards/JsQuestionCardEditor';
 import { MultiFieldCardEditor } from './cards/MultiFieldCardEditor';
 import { NumberCardEditor } from './cards/NumberCardEditor';
-// eslint-disable-next-line import/no-cycle
 import { PhoneCardEditor } from './cards/PhoneCardEditor';
 import { ScaleCardEditor } from './cards/ScaleCardEditor';
 import { SignatureBlockEditor } from './cards/SignatureBlockEditor';
 import { TextCardEditor } from './cards/TextCardEditor';
-// eslint-disable-next-line import/no-cycle
 import { WebsiteCardEditor } from './cards/WebsiteCardEditor';
-// eslint-disable-next-line import/no-cycle
-import { LegacyStepBody } from './questions/LegacyStepBody';
-
-export interface StepEditorCommonProps {
-    stepId: string;
-    sectionId: string;
-    workflowId: string;
-    step: ApiStep;
-}
+import type { StepEditorCommonProps } from './cards/common/stepEditorProps';
 
 // eslint-disable-next-line complexity
-export function StepEditorRouter({ step, sectionId, workflowId }: { step: ApiStep; sectionId: string; workflowId: string }) {
+export function StepEditorRouter({ step, sectionId, workflowId }: Omit<StepEditorCommonProps, 'stepId'>) {
     const commonProps: StepEditorCommonProps = {
         stepId: step.id,
         sectionId,
@@ -88,6 +74,22 @@ export function StepEditorRouter({ step, sectionId, workflowId }: { step: ApiSte
         return <ScaleCardEditor {...commonProps} />;
     }
 
+    // Date/Time Steps
+    if (
+        step.type === 'date' ||
+        step.type === 'time' ||
+        step.type === 'date_time' ||
+        step.type === 'datetime' ||
+        step.type === 'datetime_unified'
+    ) {
+        return <DateTimeCardEditor {...commonProps} />;
+    }
+
+    // JS / Computed Steps
+    if (step.type === 'js_question') {
+        return <JsQuestionCardEditor {...commonProps} />;
+    }
+
     // Multi-Field Steps
     if (step.type === 'multi_field') {
         return <MultiFieldCardEditor {...commonProps} />;
@@ -98,8 +100,8 @@ export function StepEditorRouter({ step, sectionId, workflowId }: { step: ApiSte
         return <SignatureBlockEditor {...commonProps} />;
     }
 
-    // Phase 1: Route everything to LegacyStepBody
-    // Phase 2: Incrementally add specialized editors here
-    // Remaining Legacy Types: date_time, date, time, file_upload, js_question, signature, signature_block
-    return <LegacyStepBody {...commonProps} />;
+    // Fallback for legacy / imported enum types with no dedicated editor
+    // (e.g. computed, repeater, file_upload, *_advanced variants). These have no
+    // creation path in the palette but may exist in older workflows.
+    return <GenericStepEditor {...commonProps} />;
 }

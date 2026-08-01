@@ -43,14 +43,14 @@ export class OcrExtractor implements IPdfExtractor {
   readonly name = 'ocr';
   readonly priority = 3; // Last resort
 
-  // eslint-disable-next-line @typescript-eslint/require-await
+
   async canHandle(_buffer: Buffer): Promise<boolean> {
     // OCR can technically handle any PDF, but it's slow
     // Only use as last resort when other extractors fail
     return true;
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
+
   async extract(_buffer: Buffer): Promise<ExtractionResult> {
     logger.info(
       { extractor: this.name },
@@ -103,7 +103,7 @@ export class OcrExtractor implements IPdfExtractor {
   /**
    * Convert PDF to images (one per page)
    */
-  // eslint-disable-next-line @typescript-eslint/require-await
+
   private async pdfToImages(_buffer: Buffer): Promise<Buffer[]> {
     // TODO: Implement using pdf-poppler or similar
     return [];

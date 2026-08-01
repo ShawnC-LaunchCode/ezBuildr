@@ -28,7 +28,7 @@ export class WritebackExecutionService {
    * Execute all writeback mappings for a completed workflow run
    * Called from RunService.completeRun()
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity
+
   async executeWritebacksForRun(
     runId: string,
     workflowId: string,
@@ -94,7 +94,7 @@ export class WritebackExecutionService {
           const rowValues: Record<string, unknown> = {};
           const columnMappings = mapping.columnMappings as Record<string, string>;
 
-          /* eslint-disable max-depth */
+
           for (const [stepAlias, columnId] of Object.entries(columnMappings)) {
             const step = stepsByAlias.get(stepAlias);
             if (!step) {
@@ -110,7 +110,7 @@ export class WritebackExecutionService {
 
             rowValues[columnId] = value;
           }
-          /* eslint-enable max-depth */
+
 
           // Only create row if we have at least one value
           if (Object.keys(rowValues).length === 0) {

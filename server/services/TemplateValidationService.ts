@@ -58,6 +58,8 @@ export interface TemplateValidationReport {
   stepsWithoutAlias: Array<{ stepId: string; label: string; sectionTitle: string }>;
   /** Malformed template tags (unclosed/mismatched); analysis is skipped */
   syntaxErrors: string[];
+  /** Helpers referenced in tags but not defined in docxHelpers */
+  unknownHelpers: string[];
   /** True when the template parses and every top-level placeholder resolves */
   valid: boolean;
 }
@@ -141,7 +143,7 @@ export class TemplateValidationService {
 
     let placeholders: PlaceholderInfo[];
     try {
-      placeholders = await extractPlaceholdersDetailed(getTemplateFilePath(fileRef));
+      placeholders = await extractPlaceholdersDetailed(await getTemplateFilePath(fileRef));
     } catch (error) {
       if (error instanceof TemplateSyntaxError) {
         const report = this.buildReport(templateId, workflowId, [], variables);
@@ -167,10 +169,15 @@ export class TemplateValidationService {
 
     const matched = new Set<string>();
     const loopScoped = new Set<string>();
+    const unknownHelpersSet = new Set<string>();
     const missing: MissingPlaceholderReport[] = [];
     const referenced = new Set<string>();
 
     for (const placeholder of placeholders) {
+      if (placeholder.kind === 'unknown_helper') {
+        unknownHelpersSet.add(placeholder.helper ?? placeholder.name);
+      }
+
       // The engine resolves dot paths from the root scope, so a placeholder
       // matches when its first segment is a workflow alias
       const rootSegment = placeholder.name.split('.')[0];
@@ -210,6 +217,8 @@ export class TemplateValidationService {
       .filter((v) => (v.alias === null || v.alias === '') && !VALUELESS_STEP_TYPES.has(v.type))
       .map((v) => ({ stepId: v.stepId, label: v.label, sectionTitle: v.sectionTitle }));
 
+    const unknownHelpers = Array.from(unknownHelpersSet).sort();
+
     return {
       templateId,
       workflowId,
@@ -220,7 +229,8 @@ export class TemplateValidationService {
       unusedVariables,
       stepsWithoutAlias,
       syntaxErrors: [],
-      valid: missing.length === 0,
+      unknownHelpers,
+      valid: missing.length === 0 && unknownHelpers.length === 0,
     };
   }
 }

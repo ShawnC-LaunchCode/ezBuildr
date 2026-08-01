@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { cleanupStaleTokens } from "@/lib/runTokens";
 import { cleanupStalePreviewTokens } from "@/store/preview";
 
-// eslint-disable-next-line @typescript-eslint/naming-convention -- React component
+
 import FeedbackWidget from "@/components/FeedbackWidget";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";

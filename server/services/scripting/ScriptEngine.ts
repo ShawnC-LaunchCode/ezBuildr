@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Script Engine - Core execution service for Custom Scripting System
  * Orchestrates script execution with helper library and context injection
@@ -40,7 +39,7 @@ export class ScriptEngine {
       inputKeys,
       data,
       context,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment -- Script execution values are intentionally dynamic.
       helpers = helperLibrary as any,
       timeoutMs = 1000,
       consoleEnabled = false,
@@ -87,9 +86,11 @@ export class ScriptEngine {
 
       // Execute with helpers and context injection
       // Extract resources if available in context (casted to any as ScriptEngine uses generics/loose types often)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Legacy dynamic boundary requires these narrow checks.
       const resources = (context as any).resources || {};
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Legacy dynamic boundary requires these narrow checks.
       const cache = (context as any).cache || {};
 
       const result = await executeCodeWithHelpers({
@@ -97,10 +98,13 @@ export class ScriptEngine {
         code,
         input,
         context: scriptContext,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Script execution values are intentionally dynamic.
         helpers,
         timeoutMs,
         consoleEnabled,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Script execution values are intentionally dynamic.
         isolate: resources.isolate,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Script execution values are intentionally dynamic.
         scriptCache: cache.scripts,
       });
 
