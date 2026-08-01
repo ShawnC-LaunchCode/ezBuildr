@@ -48,27 +48,11 @@ app.use('/api', globalLimiter);
 app.use('/intake', globalLimiter);
 app.use('/public', globalLimiter);
 app.use('/oauth', globalLimiter);
-// eslint-disable-next-line sonarjs/cognitive-complexity -- server bootstrap is inherently complex
+
 void (async () => {
     try {
-        // =====================================================================
-        // 📖 API DOCUMENTATION (Swagger UI)
-        // SECURITY: do not expose the full API surface publicly in production unless
-        // explicitly opted in via ENABLE_API_DOCS. (registerDocsRoutes applies the same gate.)
-        // =====================================================================
-        if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_API_DOCS === 'true') {
-            try {
-                const swaggerUi = (await import("swagger-ui-express")).default;
-                const YAML = (await import("yamljs")).default;
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- yamljs returns untyped value
-                const swaggerDocument = YAML.load("./openapi.yaml");
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- swagger document from yamljs
-                app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-            } catch (error) {
-                // Log but don't crash if docs fail
-                logger.warn({ error }, "Failed to load OpenAPI spec for Swagger UI");
-            }
-        }
+        // Swagger UI (/api-docs) is mounted by registerDocsRoutes() via registerRoutes(),
+        // which applies the production/ENABLE_API_DOCS gate and the configured UI options.
         // CONFIGURATION FIX: Validate master key at startup (fail fast if misconfigured)
         const { validateMasterKey } = await import("./utils/encryption.js");
         try {
@@ -92,12 +76,19 @@ void (async () => {
         }
         // Ensure database is initialized before starting server
         logger.info('Initializing database...');
-        const { dbInitPromise } = await import("./db.js");
+        const { dbInitPromise, initializeDatabase } = await import("./db.js");
         await dbInitPromise;
+        // The real server process must connect the DB even under NODE_ENV=test
+        // (the `dev:test` mode Playwright's webServer launches), where db.ts skips
+        // auto-init to protect Vitest's per-worker schema setup. initializeDatabase
+        // is idempotent, so this is a no-op in dev/prod. Vitest never runs this file.
+        await initializeDatabase();
         logger.info('Database initialized.');
         // Start Email Queue Worker
         const { emailQueueService } = await import('./services/EmailQueueService.js');
         emailQueueService.startWorker();
+        const { runCompletionJobWorker } = await import('./services/workflow-runs/RunCompletionJobWorker.js');
+        runCompletionJobWorker.start();
         // Initialize Cron Jobs
         const { initCronJobs } = await import('./cron.js');
         initCronJobs();
@@ -136,6 +127,14 @@ void (async () => {
             host: "0.0.0.0", // Bind to all network interfaces for Railway/Docker
         }, () => {
             logger.warn(`serving on port ${port}`);
+            // Record which DOCX->PDF converter this instance will use. Without
+            // this, a misconfigured converter degraded every generated PDF with
+            // nothing in the boot log to show it.
+            void import('./services/document/PdfConverter.js')
+                .then(({ logPdfConverterSelection }) => { logPdfConverterSelection(); })
+                .catch((error: unknown) => {
+                    logger.warn({ error }, 'Could not log PDF converter selection');
+                });
         });
         // RESOURCE LEAK FIX: Graceful shutdown handlers
         const shutdown = async (signal: string): Promise<void> => {
@@ -149,6 +148,8 @@ void (async () => {
             // Stop Email Queue Worker
             const { emailQueueService } = await import('./services/EmailQueueService.js');
             emailQueueService.stopWorker();
+            const { runCompletionJobWorker } = await import('./services/workflow-runs/RunCompletionJobWorker.js');
+            runCompletionJobWorker.stop();
             // Close server
             server.close(() => {
                 logger.info('Server closed successfully');

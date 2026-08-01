@@ -1,9 +1,9 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { eq, desc, or } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 
 import { workflowBlueprints, workflows, workflowVersions } from '../../shared/schema';
 import { db } from '../db';
+import { createError } from '../utils/errors';
 import { workflowService } from './WorkflowService';
 import { workflowContentIngestService } from './WorkflowContentIngestService';
 import type { WorkflowContentData } from './WorkflowContentIngestService';
@@ -14,8 +14,7 @@ export interface CreateTemplateParams {
   sourceVersionId?: string; // If not provided, uses current/pinned
   creatorId: string;
   tenantId: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- metadata can contain arbitrary template metadata
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   isPublic?: boolean;
 }
 export interface InstantiateTemplateParams {
@@ -97,6 +96,13 @@ class TemplateService {
     if (template.tenantId !== tenantId && !template.isPublic) {
       throw new Error("Access denied to this template");
     }
+    // Reject empty/`{}` templates up front (before any workflow is created) so
+    // an empty blueprint fails with a clear 400 instead of silently producing
+    // a zero-section interview (ICW2-15).
+    const content = template.graphJson as WorkflowContentData | null;
+    if (!content || !Array.isArray(content.sections) || content.sections.length === 0) {
+      throw createError.badRequest("Template has no content");
+    }
     // 2. Create Workflow
     const workflowId = uuidv4();
     const versionId = uuidv4();
@@ -104,6 +110,7 @@ class TemplateService {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- drizzle transaction type is complex and auto-inferred
     await db.transaction(async (tx: any) => {
       // Create Workflow Entry
+// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Legacy metadata is dynamically typed at this persistence boundary.
       await tx.insert(workflows).values({
         id: workflowId,
         projectId,
@@ -117,6 +124,7 @@ class TemplateService {
         currentVersionId: versionId // Pre-link version
       });
       // Create Initial Version from Template snapshot
+// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Legacy metadata is dynamically typed at this persistence boundary.
       await tx.insert(workflowVersions).values({
         id: versionId,
         workflowId: workflowId,
@@ -131,15 +139,14 @@ class TemplateService {
       });
     });
     
-    // 3. Populate sections, steps, logic rules, and blocks from the template's graphJson
-    // template.graphJson in blueprints is historically the full structural payload
-    if (template.graphJson) {
-      await workflowContentIngestService.apply(
-        workflowId, 
-        template.graphJson as unknown as any, // Cast appropriately
-        { source: 'template' }
-      );
-    }
+    // 3. Populate sections, steps, logic rules, and blocks from the template's
+    // graphJson (post-ICW2-6, blueprint snapshots are ingest-shaped
+    // `WorkflowContentData`; emptiness was already rejected above).
+    await workflowContentIngestService.apply(
+      workflowId,
+      content,
+      { source: 'template' }
+    );
 
     return { workflowId, versionId };
   }

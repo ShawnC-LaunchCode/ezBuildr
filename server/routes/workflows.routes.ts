@@ -1,7 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { z } from "zod";
 
 import { insertWorkflowSchema } from "@shared/schema";
+import { IntakeConfigSchema } from "@shared/zod-schemas";
 
 import { logger } from "../logger";
 import { hybridAuth, optionalHybridAuth, type AuthRequest } from '../middleware/auth';
@@ -13,6 +13,7 @@ import { variableService } from "../services/VariableService";
 import { aclService } from "../services/AclService";
 import { workflowClonerService } from "../services/WorkflowClonerService";
 import { workflowService } from "../services/WorkflowService";
+import { workflowLintService } from "../services/WorkflowLintService";
 import { asyncHandler } from "../utils/asyncHandler";
 import { classifyRouteError } from "../utils/routeErrors";
 
@@ -60,9 +61,16 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.createWorkflow(workflowData, userId);
       res.status(201).json(workflow);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Invalid workflow data",
+          errors: error.errors
+        });
+      }
+      const { status, message } = classifyRouteError(error, "Failed to create workflow");
       logger.error({ error, userId: (req as AuthRequest).userId }, "Error creating workflow");
-      res.status(500).json({
-        message: "Failed to create workflow",
+      res.status(status).json({
+        message,
         error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined,
       });
     }
@@ -172,8 +180,8 @@ export function registerWorkflowRoutes(app: Express): void {
       isPublic: z.boolean().optional(),
       slug: z.string().optional(),
       requireLogin: z.boolean().optional(),
-      intakeConfig: z.record(z.any()).optional(),
-      status: z.enum(['draft', 'published', 'archived']).optional(),
+      intakeConfig: IntakeConfigSchema.optional(),
+      settings: z.record(z.any()).optional(),
       sections: z.array(z.any()).optional(),
       modeOverride: z.string().optional(),
       publicLink: z.string().optional(),
@@ -194,7 +202,12 @@ export function registerWorkflowRoutes(app: Express): void {
       const updateData = { ...parsedData };
       delete updateData.ownerType;
       delete updateData.ownerUuid;
-      delete updateData.status;
+      // A workflow's project is changed only through moveToProject, which
+      // requires 'owner' on the workflow AND 'edit' on the target project and
+      // keeps ownerType/ownerUuid consistent. Accepting projectId here let an
+      // 'edit' collaborator reparent the workflow into an arbitrary project
+      // (injecting it into that project's listing) with no target-project check.
+      delete updateData.projectId;
 
       let workflow;
       // Deep update if sections are provided (e.g. from AI)
@@ -208,6 +221,9 @@ export function registerWorkflowRoutes(app: Express): void {
       res.json(workflow);
     } catch (error) {
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error updating workflow");
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: ERR_INVALID_INPUT, errors: error.errors });
+      }
       const { status, message } = classifyRouteError(error, "Failed to update workflow");
       res.status(status).json({ message });
     }
@@ -246,15 +262,26 @@ export function registerWorkflowRoutes(app: Express): void {
       }
 
       const { workflowId } = req.params;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
       const { status } = req.body;
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
       if (!['draft', 'active', 'archived'].includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
       }
 
+      if (status === 'active') {
+        const lintResults = await workflowLintService.lint(workflowId, userId);
+        const errors = lintResults.filter(r => r.type === 'error');
+        if (errors.length > 0) {
+          return res.status(400).json({ message: `Cannot activate workflow: ${errors.map(e => e.message).join(', ')}` });
+        }
+      }
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
       const workflow = await workflowService.changeStatus(workflowId, userId, status);
       res.json(workflow);
     } catch (error) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId, status: req.body.status }, "Error changing workflow status");
       const { status, message } = classifyRouteError(error, "Failed to change status");
       res.status(status).json({ message });
@@ -273,22 +300,15 @@ export function registerWorkflowRoutes(app: Express): void {
       }
 
       const { workflowId } = req.params;
-      const intakeConfigSchema = z.object({
-        allowPrefill: z.boolean().optional(),
-        allowedPrefillKeys: z.array(z.string()).optional(),
-        requireCaptcha: z.boolean().optional(),
-        captchaType: z.enum(["simple", "recaptcha"]).optional(),
-        sendEmailReceipt: z.boolean().optional(),
-        receiptEmailVar: z.string().optional(),
-        receiptTemplateId: z.string().optional(),
-      });
-
-      const intakeConfig = intakeConfigSchema.parse(req.body);
+      const intakeConfig = IntakeConfigSchema.parse(req.body);
 
       const workflow = await workflowService.updateIntakeConfig(workflowId, userId, intakeConfig);
       res.json(workflow);
     } catch (error) {
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId }, "Error updating intake config");
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: ERR_INVALID_INPUT, errors: error.errors });
+      }
       const { status, message } = classifyRouteError(error, "Failed to update intake config");
       res.status(status).json({ message });
     }
@@ -313,11 +333,12 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.moveToProject(workflowId, userId, projectId);
       return res.status(200).json(workflow);
     } catch (error: unknown) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId, projectId: req.body.projectId }, "Error moving workflow");
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({
-          // eslint-disable-next-line sonarjs/no-duplicate-string
+
           message: "Invalid input",
           details: error.errors,
         });
@@ -368,6 +389,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.setModeOverride(workflowId, userId, modeOverride);
       res.json({ success: true, data: workflow });
     } catch (error) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
       logger.error({ error, workflowId: req.params.workflowId, userId: (req as AuthRequest).userId, modeOverride: req.body.modeOverride }, "Error setting workflow mode");
 
       if (error instanceof z.ZodError) {
@@ -469,6 +491,30 @@ export function registerWorkflowRoutes(app: Express): void {
    * GET /api/workflows/:workflowId/access
    * Get all ACL entries for a workflow
    */
+  /**
+   * GET /api/workflows/:workflowId/lint
+   * Get linting warnings for the workflow
+   */
+  app.get('/api/workflows/:workflowId/lint', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
+      const { workflowId } = req.params;
+      const issues = await workflowLintService.lint(workflowId, userId);
+      res.json(issues);
+    } catch (error) {
+      const { status, message } = classifyRouteError(error, "Failed to lint workflow");
+      logger.error({ error, userId: (req as AuthRequest).userId }, "Error linting workflow");
+      res.status(status).json({
+        message,
+        error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined,
+      });
+    }
+  }));
+
   app.get('/api/workflows/:workflowId/access', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
       const userId = (req as AuthRequest).userId;
@@ -597,6 +643,7 @@ export function registerWorkflowRoutes(app: Express): void {
       const workflow = await workflowService.transferWorkflowOwnership(workflowId, currentOwnerId, newOwnerId);
       res.json({ success: true, data: workflow });
     } catch (error) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
       logger.error({ error, workflowId: req.params.workflowId, currentOwnerId: (req as AuthRequest).userId, newOwnerId: req.body.userId }, "Error transferring workflow ownership");
 
       if (error instanceof z.ZodError) {
@@ -635,7 +682,7 @@ export function registerWorkflowRoutes(app: Express): void {
       // Validate request body
       const schema = z.object({
         outputType: z.enum(['docx', 'pdf', 'both']),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic sample data for template testing
+
         sampleData: z.record(z.any()),
       });
 

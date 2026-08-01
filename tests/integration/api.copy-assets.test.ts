@@ -85,6 +85,10 @@ describe.sequential("Asset Copy API Integration Tests", () => {
     expect(response.body.data.workflow.ownerUuid).toBe(member.userId);
     expect(response.body.data.workflow.projectId).toBeNull();
     expect(response.body.data.workflow.title).toMatch(/^dev_/);
+    expect(response.body.data.workflow.settings).toEqual({
+      branding: { primaryColor: "#123456" },
+      behavior: { showProgressBar: false },
+    });
   });
 
   it("rejects transferring an org project out when the requester is not an org admin", async () => {
@@ -133,6 +137,10 @@ describe.sequential("Asset Copy API Integration Tests", () => {
         isPublic: false,
         requireLogin: false,
         intakeConfig: {},
+        settings: {
+          branding: { primaryColor: "#123456" },
+          behavior: { showProgressBar: false },
+        },
       })
       .returning();
 

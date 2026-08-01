@@ -66,7 +66,7 @@ export class TransformBlockService {
     // SECURITY: SEC-041 Enforce AST validation on the save path
     if (data.code) {
       const validation = await scriptEngine.validate({ 
-        language: data.language as "javascript" | "python", 
+        language: data.language, 
         code: data.code 
       });
       if (!validation.valid) {
@@ -167,7 +167,7 @@ export class TransformBlockService {
     if (data.code) {
       const languageToValidate = data.language ?? block.language;
       const validation = await scriptEngine.validate({ 
-        language: languageToValidate as "javascript" | "python", 
+        language: languageToValidate, 
         code: data.code 
       });
       if (!validation.valid) {
@@ -212,21 +212,23 @@ export class TransformBlockService {
   async deleteBlock(blockId: string, userId: string): Promise<void> {
     const block = await this.getBlock(blockId, userId); // Verify ownership
 
-    // Delete the virtual step first (if it exists)
+    // Soft-delete the virtual step first, if it exists (ICW2-B1/ICW2-B11):
+    // the virtual step's step_values hold this block's computed output
+    // history, so we preserve it instead of a hard DELETE.
     if (block.virtualStepId) {
       try {
-        await this.stepRepo.delete(block.virtualStepId);
+        await this.stepRepo.softDelete(block.virtualStepId);
         logger.info({
           blockId: block.id,
           virtualStepId: block.virtualStepId,
-        }, "Deleted virtual step for transform block");
+        }, "Soft-deleted virtual step for transform block");
       } catch (error) {
         // Log but don't fail - the step might have been manually deleted
         logger.warn({
           error,
           blockId: block.id,
           virtualStepId: block.virtualStepId,
-        }, "Failed to delete virtual step (may not exist)");
+        }, "Failed to soft-delete virtual step (may not exist)");
       }
     }
 

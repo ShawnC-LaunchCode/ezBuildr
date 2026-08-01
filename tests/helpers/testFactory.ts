@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-unnecessary-type-assertion */
+
 import { randomUUID } from 'crypto';
 
 import { eq } from 'drizzle-orm';
@@ -89,7 +89,7 @@ export class TestFactory {
         .values({
           id: generateId(),
           name: 'Test Tenant',
-          // @ts-ignore - TODO: fix type
+          // @ts-expect-error - TODO: fix type
           slug: generateSlug('test-tenant'),
           plan: 'pro',
           ...overrides?.tenant,
@@ -163,7 +163,15 @@ export class TestFactory {
           id: generateId(),
           workflowId: workflow.id,
           versionNumber: 1,
-          graphJson: {},
+          // RVP-2: a run pinned to this version now has its navigation and
+          // completion validated against this graph (via
+          // RunDefinitionProvider), not just the live tables. `{}` used to be
+          // a harmless placeholder because nothing ever parsed it; now it
+          // fails VersionRuntimeSchema (missing `title`/`sections`) for any
+          // test that points currentVersionId/pinnedVersionId at this
+          // version. Default to a schema-valid empty graph; tests that need
+          // specific pinned content still override via `overrides.version`.
+          graphJson: { title: workflow.title, sections: [] },
           createdBy: userId,
           ...overrides?.version,
         })
@@ -283,7 +291,7 @@ export class TestFactory {
       .insert(schema.datavaultDatabases)
       .values({
         id: generateId(),
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - TODO: fix type
         projectId,
         tenantId,
         name: 'Test Database',
@@ -312,7 +320,7 @@ export class TestFactory {
         slug: `test-table-${generateId()}`,
         description: 'Test table',
         ownerUserId: userId,
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - TODO: fix type
         columns: [],
         ...overrides,
       })
@@ -335,7 +343,7 @@ export class TestFactory {
         name: 'Test Collection',
         slug: `test-collection-${generateId()}`,
         description: 'Test collection',
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - TODO: fix type
         createdBy: userId,
         ...overrides,
       })

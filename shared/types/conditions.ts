@@ -89,20 +89,25 @@ export interface OperatorConfig {
   needsValue: boolean;
   impliedValue?: unknown; // For operators like is_true/is_false
   valueType?: "text" | "number" | "boolean" | "date" | "choices" | "multi_choices";
-  needsTwoValues?: boolean; // For 'between' operator
+  // Type of the second value input, when it differs from `valueType` (e.g. the
+  // date-diff operators compare a date in `value` against a day/week/month/year
+  // count in `value2`). Defaults to `valueType` when omitted (e.g. `between`).
+  value2Type?: "text" | "number" | "boolean" | "date" | "choices" | "multi_choices";
+  needsTwoValues?: boolean; // For 'between' and date-diff operators
 }
 
 /**
  * Operators available for each step type
  */
-/* eslint-disable @typescript-eslint/naming-convention, sonarjs/no-duplicate-string -- keys match StepType enum values; labels are intentionally repeated for readability */
+const IS_NOT_EMPTY_LABEL = "is not empty";
+
 export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, OperatorConfig[]> = {
   // Boolean type - simplified operators
   yes_no: [
     { value: "is_true", label: "is Yes", needsValue: false, impliedValue: true },
     { value: "is_false", label: "is No", needsValue: false, impliedValue: false },
     { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: "is not empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
   // Short text
@@ -114,7 +119,7 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
     { value: "starts_with", label: "starts with", needsValue: true, valueType: "text" },
     { value: "ends_with", label: "ends with", needsValue: true, valueType: "text" },
     { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: "is not empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
   // Long text - same as short text
@@ -126,7 +131,7 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
     { value: "starts_with", label: "starts with", needsValue: true, valueType: "text" },
     { value: "ends_with", label: "ends with", needsValue: true, valueType: "text" },
     { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: "is not empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
   // Single-select choice (radio, dropdown)
@@ -134,7 +139,7 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
     { value: "equals", label: "is", needsValue: true, valueType: "choices" },
     { value: "not_equals", label: "is not", needsValue: true, valueType: "choices" },
     { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: "is not empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
   // Multiple choice (single select mode)
@@ -146,20 +151,52 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
     { value: "includes_all", label: "includes all of", needsValue: true, valueType: "multi_choices" },
     { value: "includes_any", label: "includes any of", needsValue: true, valueType: "multi_choices" },
     { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: "is not empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
   // Date/time
   date_time: [
     { value: "equals", label: "is", needsValue: true, valueType: "date" },
     { value: "not_equals", label: "is not", needsValue: true, valueType: "date" },
-    { value: "greater_than", label: "is after", needsValue: true, valueType: "date" },
-    { value: "less_than", label: "is before", needsValue: true, valueType: "date" },
-    { value: "greater_or_equal", label: "is on or after", needsValue: true, valueType: "date" },
-    { value: "less_or_equal", label: "is on or before", needsValue: true, valueType: "date" },
+    { value: "after", label: "is after", needsValue: true, valueType: "date" },
+    { value: "before", label: "is before", needsValue: true, valueType: "date" },
+    { value: "on_or_after", label: "is on or after", needsValue: true, valueType: "date" },
+    { value: "on_or_before", label: "is on or before", needsValue: true, valueType: "date" },
     { value: "between", label: "is between", needsValue: true, valueType: "date", needsTwoValues: true },
+    {
+      value: "diff_days",
+      label: "differs by N days from",
+      needsValue: true,
+      valueType: "date",
+      value2Type: "number",
+      needsTwoValues: true,
+    },
+    {
+      value: "diff_weeks",
+      label: "differs by N weeks from",
+      needsValue: true,
+      valueType: "date",
+      value2Type: "number",
+      needsTwoValues: true,
+    },
+    {
+      value: "diff_months",
+      label: "differs by N months from",
+      needsValue: true,
+      valueType: "date",
+      value2Type: "number",
+      needsTwoValues: true,
+    },
+    {
+      value: "diff_years",
+      label: "differs by N years from",
+      needsValue: true,
+      valueType: "date",
+      value2Type: "number",
+      needsTwoValues: true,
+    },
     { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: "is not empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
   // File upload - limited operators
@@ -181,7 +218,7 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
     { value: "is_true", label: "is true", needsValue: false, impliedValue: true },
     { value: "is_false", label: "is false", needsValue: false, impliedValue: false },
     { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: "is not empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
   // Loop group - check count
@@ -190,7 +227,7 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
     { value: "greater_than", label: "has more than", needsValue: true, valueType: "number" },
     { value: "less_than", label: "has less than", needsValue: true, valueType: "number" },
     { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: "is not empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
   // JS Question - same as computed
@@ -203,7 +240,7 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
     { value: "is_true", label: "is true", needsValue: false, impliedValue: true },
     { value: "is_false", label: "is false", needsValue: false, impliedValue: false },
     { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: "is not empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
   // Repeater - check count
@@ -212,17 +249,32 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
     { value: "greater_than", label: "has more than", needsValue: true, valueType: "number" },
     { value: "less_than", label: "has less than", needsValue: true, valueType: "number" },
     { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: "is not empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 };
-/* eslint-enable @typescript-eslint/naming-convention, sonarjs/no-duplicate-string */
-
 /**
  * Get operators for a given step type
  */
 export function getOperatorsForStepType(stepType: ConditionSupportedStepType): OperatorConfig[] {
   return OPERATORS_BY_STEP_TYPE[stepType] ?? OPERATORS_BY_STEP_TYPE.short_text;
 }
+
+/**
+ * Date conditions saved before the dedicated date operators (`after`, `before`,
+ * `on_or_after`, `on_or_before`) were exposed here used the generic
+ * numeric-comparison operators instead (`greater_than`, etc). The evaluator
+ * treats both identically for date/datetime values (see
+ * `shared/conditionEvaluator.ts`'s `toNumber`), so this fallback lets already
+ * saved conditions keep resolving to a correct label and value input even
+ * though the curated `date_time` operator list now only offers the dedicated
+ * operator going forward.
+ */
+const LEGACY_OPERATOR_FALLBACK: Partial<Record<ComparisonOperator, ComparisonOperator>> = {
+  greater_than: "after",
+  less_than: "before",
+  greater_or_equal: "on_or_after",
+  less_or_equal: "on_or_before",
+};
 
 /**
  * Get operator config by value
@@ -232,7 +284,12 @@ export function getOperatorConfig(
   operator: ComparisonOperator
 ): OperatorConfig | undefined {
   const operators = getOperatorsForStepType(stepType);
-  return operators.find((op) => op.value === operator);
+  const direct = operators.find((op) => op.value === operator);
+  if (direct) {
+    return direct;
+  }
+  const fallbackOperator = LEGACY_OPERATOR_FALLBACK[operator];
+  return fallbackOperator ? operators.find((op) => op.value === fallbackOperator) : undefined;
 }
 
 // =====================================================================

@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { getRunToken, setRunToken } from "@/lib/runTokens";
-import { fetchAPI, type ApiRun, type ApiStepValue } from "@/lib/vault-api";
-import { useRunWithValues } from "@/lib/vault-hooks";
+import { fetchAPI, type ApiRunRuntime, type ApiStepValue } from "@/lib/vault-api";
+import { useRunRuntime } from "@/lib/vault-hooks";
 import { isUUID, startRunFromSlug, startRunFromWorkflowId, type StepValue } from "@/pages/workflow-runner/runner.utils";
 import type { PreviewEnvironment, PreviewRunState } from "@/lib/previewRunner/PreviewEnvironment";
 import { usePreviewEnvironment } from "@/lib/previewRunner/usePreviewEnvironment";
@@ -11,7 +11,7 @@ const RESERVED_URL_PARAMS = ['ref', 'source', 'utm_source', 'utm_medium', 'utm_c
 
 type RunnerMode = 'preview' | 'production';
 type InitialValues = Record<string, StepValue> | undefined;
-type RunWithValues = ApiRun & { values: ApiStepValue[] };
+type RunWithValues = ApiRunRuntime['run'] & { values: ApiStepValue[] };
 
 interface ResolvedRunSession {
   runId: string;
@@ -26,6 +26,7 @@ interface UseRunSessionReturn {
   mode: RunnerMode;
   previewState: PreviewRunState | null;
   run: RunWithValues | undefined;
+  runtime: ApiRunRuntime | undefined;
   workflowId: string | undefined;
 }
 
@@ -180,19 +181,33 @@ export function useRunSession(runId?: string, previewEnvironment?: PreviewEnviro
     void initialize();
   }, [runId, toast, previewEnvironment]);
 
-  const { data: run } = useRunWithValues(actualRunId ?? '', {
+  const { data: runtime, error: runtimeError, isLoading: isRuntimeLoading } = useRunRuntime(actualRunId ?? '', {
     enabled: mode === 'production' && actualRunId !== null && !isInitializing,
   });
+  // Memoized on `runtime` (react-query keeps that reference stable across
+  // re-renders via structural sharing, only changing on a real refetch) so
+  // downstream effects that depend on `run` — e.g. useRunValues' saved-run
+  // hydration — don't re-fire on every render. An unmemoized spread here
+  // previously produced a brand-new object every render, which retriggered
+  // that hydration effect every render, clobbering in-progress answers back
+  // to the server snapshot and running away into React's "Maximum update
+  // depth exceeded" (ICW2-B10).
+  const run = useMemo(
+    () => (runtime == null ? undefined : { ...runtime.run, values: runtime.values }),
+    [runtime]
+  );
 
   const workflowId = mode === 'preview' ? previewState?.workflowId : run?.workflowId;
+  const effectiveInitError = initError ?? (runtimeError instanceof Error ? runtimeError.message : null);
 
   return {
     actualRunId,
-    isInitializing,
-    initError,
+    isInitializing: isInitializing || (mode === 'production' && actualRunId !== null && isRuntimeLoading),
+    initError: effectiveInitError,
     mode,
     previewState,
     run,
+    runtime,
     workflowId,
   };
 }

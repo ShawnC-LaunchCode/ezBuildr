@@ -24,7 +24,7 @@ import { UI_LABELS } from "@/lib/labels";
 import { Mode } from "@/lib/mode";
 import {
   useBlocks,
-  useCreateSection,
+  useCreateSectionAtEnd,
   useSections,
   useTransformBlocks,
   useWorkflowMode,
@@ -47,18 +47,13 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
   const { data: modeData } = useWorkflowMode(workflowId);
   const mode = modeData?.mode ?? "easy";
 
-  const createSectionMutation = useCreateSection();
+  const { createSectionAtEnd } = useCreateSectionAtEnd(workflowId);
 
   const [editingBlock, setEditingBlock] = useState<UniversalBlock | null>(null);
   const [isBlockEditorOpen, setIsBlockEditorOpen] = useState(false);
 
   const handleCreateSection = async () => {
-    const order = pages.length;
-    await createSectionMutation.mutateAsync({
-      workflowId,
-      title: `${UI_LABELS.PAGE} ${order + 1}`,
-      order,
-    });
+    await createSectionAtEnd();
   };
 
   const handleEditBlock = (blockId: string) => {
@@ -163,14 +158,18 @@ export function PageCanvas({ workflowId }: PageCanvasProps) {
                   onEditBlock={handleEditBlock}
                 />
               ))}
-              {/* Add Page Button at Bottom */}
-              <div className="flex justify-center pt-4 pb-8">
+              {/* Add Page Button at Bottom
+                  Sized and coloured to read as the next card in the stack:
+                  same width, card surface, rounded-lg and shadow-sm as the
+                  PageCards above. The dashed border is what keeps it legible
+                  as an empty slot rather than a real page. */}
+              <div className="pb-8">
                 <Button
                   onClick={() => { void handleCreateSection(); }}
                   variant="outline"
-                  className="w-full max-w-sm border-dashed text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  className="h-14 w-full rounded-lg border-dashed bg-card text-sm font-medium text-muted-foreground shadow-sm transition-colors hover:border-primary/40 hover:bg-card hover:text-foreground"
                 >
-                  <Plus className="w-4 h-4 mr-2" />
+                  <Plus className="mr-2 h-4 w-4" />
                   {UI_LABELS.ADD_PAGE}
                 </Button>
               </div>

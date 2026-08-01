@@ -7,7 +7,6 @@
  * Features:
  * - Workflow Generation (via WorkflowGenerationService)
  * - Workflow Suggestions (via WorkflowSuggestionService)
- * - Workflow Revision (via WorkflowRevisionService)
  * - Logic Assistance (via WorkflowLogicService)
  * - Workflow Optimization (via WorkflowOptimizationService)
  */
@@ -20,8 +19,6 @@ import {
   AIWorkflowSuggestionRequest,
   AITemplateBindingsResponse,
   AITemplateBindingsRequest,
-  AIWorkflowRevisionRequest,
-  AIWorkflowRevisionResponse,
   AIConnectLogicRequest,
   AIConnectLogicResponse,
   AIDebugLogicRequest,
@@ -37,7 +34,6 @@ import { QualityImprovementConfig, ImprovementResult } from './ai/IterativeQuali
 import { WorkflowGenerationService } from './ai/WorkflowGenerationService';
 import { WorkflowLogicService } from './ai/WorkflowLogicService';
 import { workflowOptimizationService, WorkflowOptimizationService } from './ai/WorkflowOptimizationService';
-import { WorkflowRevisionService } from './ai/WorkflowRevisionService';
 import { WorkflowSuggestionService } from './ai/WorkflowSuggestionService';
 import { WorkflowWithAliases } from './AliasResolver';
 import { QualityScore } from './WorkflowQualityValidator';
@@ -48,7 +44,6 @@ const logger = createLogger({ module: 'ai-service' });
 export class AIService {
   private generationService: WorkflowGenerationService;
   private suggestionService: WorkflowSuggestionService;
-  private revisionService: WorkflowRevisionService;
   private logicService: WorkflowLogicService;
   private optimizationService: WorkflowOptimizationService;
   // Keep config for potential introspection
@@ -61,7 +56,6 @@ export class AIService {
     // Initialize specialized services
     this.generationService = new WorkflowGenerationService(client, promptBuilder);
     this.suggestionService = new WorkflowSuggestionService(client, promptBuilder);
-    this.revisionService = new WorkflowRevisionService(client, promptBuilder);
     this.logicService = new WorkflowLogicService(client, promptBuilder);
     this.optimizationService = workflowOptimizationService;
   }
@@ -148,14 +142,6 @@ export class AIService {
     return this.suggestionService.suggestValues(steps, mode);
   }
   /**
-   * Revise an existing workflow based on user instructions
-   */
-  async reviseWorkflow(
-    request: AIWorkflowRevisionRequest,
-  ): Promise<AIWorkflowRevisionResponse> {
-    return this.revisionService.reviseWorkflow(request);
-  }
-  /**
    * Generate logic connections based on natural language description
    */
   async generateLogic(
@@ -196,9 +182,14 @@ function getDefaultModel(provider: AIProvider): string {
   }
 }
 /**
- * Create AIService instance from environment variables
+ * Create AIService instance from environment variables.
+ *
+ * @param tenantId Optional tenant to bill/budget the resulting calls to
+ * (ICW2-B7). Passed through to `AIProviderClient` via the config; omitted by
+ * any caller not yet updated to supply it, which keeps that caller's flows
+ * running with no budget enforcement — the same as before this ticket.
  */
-export function createAIServiceFromEnv(): AIService {
+export function createAIServiceFromEnv(tenantId?: string): AIService {
   // Check for GEMINI_API_KEY first
   const geminiKey = process.env.GEMINI_API_KEY;
   if (geminiKey) {
@@ -210,6 +201,7 @@ export function createAIServiceFromEnv(): AIService {
       model,
       temperature: 0.7,
       maxTokens: 4000,
+      tenantId,
     };
     return new AIService(config);
   }
@@ -236,6 +228,7 @@ export function createAIServiceFromEnv(): AIService {
     model: modelWorkflow,
     temperature: 0.7,
     maxTokens: 4000,
+    tenantId,
   };
   return new AIService(config);
 }

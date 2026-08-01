@@ -38,7 +38,7 @@ export class AuditLogger {
                 entityId: event.resourceId ?? 'global',
                 resourceType: event.resourceType,
                 resourceId: event.resourceId,
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- audit event before/after are typed as unknown but DB column accepts jsonb
+
                 changes: {
                     before: event.before,
                     after: event.after

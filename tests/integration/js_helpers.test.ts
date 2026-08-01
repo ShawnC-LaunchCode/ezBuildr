@@ -53,7 +53,13 @@ vi.mock("../../server/middleware/auth", async (importOriginal) => {
             return actual.hybridAuth(req, res, next);
         },
         optionalHybridAuth: (req: any, res: any, next: any) => {
-            if (req.user) {return next();}
+            if (req.user) {
+                // Match the hybridAuth mock — routes behind optionalHybridAuth
+                // (e.g. POST /api/workflows/:id/runs) read req.userId
+                req.tenantId = req.user.tenantId;
+                req.userId = req.user.id;
+                return next();
+            }
             return actual.optionalHybridAuth(req, res, next);
         }
     };

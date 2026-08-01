@@ -18,8 +18,7 @@ import { useUpdateStep } from "@/lib/vault-hooks";
 import type { ConditionExpression } from "@shared/types/conditions";
 import type { AddressConfig } from "@shared/types/stepConfigs";
 
-// eslint-disable-next-line import/no-cycle
-import { StepEditorCommonProps } from "../StepEditorRouter";
+import type { StepEditorCommonProps } from "./common/stepEditorProps";
 
 import { AliasField } from "./common/AliasField";
 import { SwitchField, SectionHeader } from "./common/EditorField";
@@ -144,7 +143,6 @@ export function AddressCardEditor({ stepId, sectionId, workflowId, step }: StepE
           sectionId={sectionId}
           workflowId={workflowId}
           visibleIf={step.visibleIf as ConditionExpression}
-          mode="advanced"
         />
       )}
     </div>

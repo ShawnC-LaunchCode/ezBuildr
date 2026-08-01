@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Helper Library for Custom Scripting System
  * Provides safe utility functions available in script sandbox
@@ -306,6 +305,7 @@ const numberHelpers = {
 const arrayHelpers = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   unique: (arr: any[]): any[] => {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-return -- Script helpers operate on dynamic workflow values.
     return [...new Set(arr)];
   },
 
@@ -326,8 +326,11 @@ const arrayHelpers = {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sortBy: (arr: any[], key: string): any[] => {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Script helpers operate on dynamic workflow values.
     return [...arr].sort((a, b) => {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Script helpers operate on dynamic workflow values.
       const aVal = a[key];
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Script helpers operate on dynamic workflow values.
       const bVal = b[key];
       if (aVal < bVal) { return -1; }
       if (aVal > bVal) { return 1; }
@@ -360,7 +363,7 @@ const objectHelpers = {
     return Object.values(obj);
   },
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   pick: (obj: Record<string, unknown>, keys: string[]): Record<string, unknown> => {
     const result: Record<string, unknown> = {};
     for (const key of keys) {
@@ -371,7 +374,7 @@ const objectHelpers = {
     return result;
   },
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   omit: (obj: Record<string, unknown>, keys: string[]): Record<string, unknown> => {
     const result = { ...obj };
     for (const key of keys) {
@@ -380,8 +383,9 @@ const objectHelpers = {
     return result;
   },
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   merge: (...objects: Record<string, unknown>[]): Record<string, unknown> => {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-return -- Script helpers operate on dynamic workflow values.
     return Object.assign({}, ...objects);
   },
 };

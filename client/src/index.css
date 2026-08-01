@@ -55,6 +55,45 @@
   --block-action-foreground: hsl(30, 80%, 40%);
   --block-action-border: hsl(30, 80%, 85%);
 
+  /* Question Type Colors (by data family)
+     One hue per BLOCK_REGISTRY category, so question types sort visually into
+     families before the label is read. Same triplet shape as --block-* above.
+     Foreground lightness is derived, not eyeballed: every pair clears 5.2:1
+     against its own tint in both themes (WCAG AA floor is 4.5). Adjacent hues
+     are kept >=33deg apart so the families stay separable. */
+  --qtype-text: hsl(215, 80%, 96%);
+  --qtype-text-foreground: hsl(215, 80%, 44%);
+  --qtype-text-border: hsl(215, 70%, 87%);
+
+  --qtype-boolean: hsl(145, 80%, 96%);
+  --qtype-boolean-foreground: hsl(145, 80%, 26%);
+  --qtype-boolean-border: hsl(145, 70%, 87%);
+
+  --qtype-validated: hsl(178, 80%, 96%);
+  --qtype-validated-foreground: hsl(178, 80%, 25%);
+  --qtype-validated-border: hsl(178, 70%, 87%);
+
+  --qtype-datetime: hsl(258, 80%, 96%);
+  --qtype-datetime-foreground: hsl(258, 80%, 50%);
+  --qtype-datetime-border: hsl(258, 70%, 87%);
+
+  --qtype-choice: hsl(330, 80%, 96%);
+  --qtype-choice-foreground: hsl(330, 80%, 41%);
+  --qtype-choice-border: hsl(330, 70%, 87%);
+
+  --qtype-numeric: hsl(25, 80%, 96%);
+  --qtype-numeric-foreground: hsl(25, 80%, 35%);
+  --qtype-numeric-border: hsl(25, 70%, 87%);
+
+  --qtype-advanced: hsl(292, 80%, 96%);
+  --qtype-advanced-foreground: hsl(292, 80%, 41%);
+  --qtype-advanced-border: hsl(292, 70%, 87%);
+
+  /* Display blocks collect no answer, so they stay deliberately neutral. */
+  --qtype-display: hsl(220, 13%, 94%);
+  --qtype-display-foreground: hsl(220, 10%, 38%);
+  --qtype-display-border: hsl(220, 13%, 86%);
+
   /* Sidebar */
   --sidebar: hsl(220, 14%, 98%);
   --sidebar-foreground: hsl(220, 10%, 20%);
@@ -127,6 +166,39 @@
   --block-action: hsl(30, 40%, 18%);
   --block-action-foreground: hsl(30, 60%, 80%);
   --block-action-border: hsl(30, 40%, 25%);
+
+  /* Question Type Colors (Dark) */
+  --qtype-text: hsl(215, 40%, 18%);
+  --qtype-text-foreground: hsl(215, 60%, 66%);
+  --qtype-text-border: hsl(215, 40%, 26%);
+
+  --qtype-boolean: hsl(145, 40%, 18%);
+  --qtype-boolean-foreground: hsl(145, 60%, 55%);
+  --qtype-boolean-border: hsl(145, 40%, 26%);
+
+  --qtype-validated: hsl(178, 40%, 18%);
+  --qtype-validated-foreground: hsl(178, 60%, 55%);
+  --qtype-validated-border: hsl(178, 40%, 26%);
+
+  --qtype-datetime: hsl(258, 40%, 18%);
+  --qtype-datetime-foreground: hsl(258, 60%, 70%);
+  --qtype-datetime-border: hsl(258, 40%, 26%);
+
+  --qtype-choice: hsl(330, 40%, 18%);
+  --qtype-choice-foreground: hsl(330, 60%, 68%);
+  --qtype-choice-border: hsl(330, 40%, 26%);
+
+  --qtype-numeric: hsl(25, 40%, 18%);
+  --qtype-numeric-foreground: hsl(25, 60%, 62%);
+  --qtype-numeric-border: hsl(25, 40%, 26%);
+
+  --qtype-advanced: hsl(292, 40%, 18%);
+  --qtype-advanced-foreground: hsl(292, 60%, 67%);
+  --qtype-advanced-border: hsl(292, 40%, 26%);
+
+  --qtype-display: hsl(220, 10%, 20%);
+  --qtype-display-foreground: hsl(220, 12%, 66%);
+  --qtype-display-border: hsl(220, 10%, 27%);
 
   --sidebar: hsl(220, 15%, 11%);
   --sidebar-foreground: hsl(220, 10%, 90%);

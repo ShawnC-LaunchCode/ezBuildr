@@ -142,9 +142,8 @@ describe('Lifecycle Hooks Execution', () => {
       expect(result.consoleOutput?.length).toBeGreaterThan(0);
 
       // Verify console logs were captured
-      const consoleLogs = result.consoleOutput![0].logs;
-      // @ts-ignore - TODO: fix type
-      expect(consoleLogs.some(log => log[0].includes('Entering page'))).toBe(true);
+      const consoleLogs = result.consoleOutput?.[0]?.logs ?? [];
+      expect(consoleLogs.some(log => String(log[0]).includes('Entering page'))).toBe(true);
 
       // Verify execution was logged
       const logs = await db.select()

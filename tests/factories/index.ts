@@ -65,7 +65,6 @@ export function createTestUser(overrides?: DeepPartial<User>): Omit<User, 'id' |
   const firstName = overrides?.firstName || `Test${uniqueId}`;
   const lastName = overrides?.lastName || 'User';
 
-  // @ts-ignore - TODO: fix type
   return {
     email: overrides?.email || `test-${uniqueId}@example.com`,
     fullName: overrides?.fullName || `${firstName} ${lastName}`,
@@ -78,6 +77,7 @@ export function createTestUser(overrides?: DeepPartial<User>): Omit<User, 'id' |
     authProvider: overrides?.authProvider || 'local',
     defaultMode: overrides?.defaultMode || 'easy',
     emailVerified: overrides?.emailVerified ?? true,
+    isActive: overrides?.isActive ?? true,
     mfaEnabled: overrides?.mfaEnabled ?? false,
     lastPasswordChange: overrides?.lastPasswordChange || null,
     isPlaceholder: overrides?.isPlaceholder ?? false,
@@ -194,6 +194,7 @@ export function createTestWorkflow(overrides?: DeepPartial<Workflow>): Omit<Work
     modeOverride: overrides?.modeOverride || null,
     currentVersionId: overrides?.currentVersionId || null,
     intakeConfig: overrides?.intakeConfig || {},
+    settings: overrides?.settings || {},
     sourceBlueprintId: overrides?.sourceBlueprintId || null,
     ownerType: overrides?.ownerType || 'user',
   };
@@ -214,6 +215,7 @@ export function createTestSection(overrides?: DeepPartial<Section>): Omit<Sectio
     skipIf: overrides?.skipIf || null,
     visibleIf: overrides?.visibleIf || null,
     config: overrides?.config || {},
+    deletedAt: overrides?.deletedAt ?? null,
     ...overrides,
   };
 }
@@ -240,6 +242,7 @@ export function createTestStep(overrides?: DeepPartial<Step>): Omit<Step, 'id' |
     isVirtual: overrides?.isVirtual ?? false,
     visibleIf: overrides?.visibleIf || null,
     repeaterConfig: overrides?.repeaterConfig || null,
+    deletedAt: overrides?.deletedAt ?? null,
     ...overrides,
   };
 }
@@ -275,8 +278,7 @@ export function createTestWorkflowRun(overrides?: DeepPartial<WorkflowRun>): Omi
     ownerUuid: null,
   };
 
-  // @ts-ignore - TODO: fix type
-  return { ...defaults, ...overrides };
+  return { ...defaults, ...overrides } as Omit<WorkflowRun, 'id' | 'createdAt' | 'updatedAt'>;
 }
 
 /**

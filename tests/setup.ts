@@ -16,13 +16,11 @@ dotenv.config();
  * Runs before all tests
  */
 // Define db and helpers at file scope but initialize them dynamically
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 let db: any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 let initializeDatabase: any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let closeDatabase: any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 let dbInitPromise: any;
 process.env.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "test-google-client-id";
 process.env.VITE_GOOGLE_CLIENT_ID = process.env.VITE_GOOGLE_CLIENT_ID || "test-google-client-id";
@@ -36,12 +34,26 @@ process.env.VL_MASTER_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 // CI has no GEMINI_API_KEY, and per-test-file `process.env` assignments run too
 // late because ESM imports (which build the singleton) are hoisted above them.
 process.env.GEMINI_API_KEY = process.env.GEMINI_API_KEY || "test-key";
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = "postgres://postgres:postgres@localhost:5432/ezbuildr_test";
-}
-// Enforce usage of TEST_DATABASE_URL if available
-if (process.env.TEST_DATABASE_URL) {
-  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+// Tests create/drop schemas and mutate data, so they MUST run against a
+// disposable local/test database — never the app's DATABASE_URL, which may
+// point at a shared cloud dev DB (that's how 355 stray test_schema_* schemas
+// once accumulated on Neon). Resolve the test DB from TEST_DATABASE_URL, else a
+// local default; ignore the inherited DATABASE_URL entirely.
+process.env.DATABASE_URL =
+  process.env.TEST_DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/ezbuildr_test";
+// Fail closed: refuse to run the DB-mutating setup against a remote host unless
+// explicitly opted in. This is the guardrail that stops tests polluting a
+// cloud database ever again.
+{
+  const testHost = new URL(process.env.DATABASE_URL).hostname;
+  const isLocal = testHost === "localhost" || testHost === "127.0.0.1" || testHost === "::1";
+  if (!isLocal && process.env.ALLOW_REMOTE_TEST_DB !== "true") {
+    throw new Error(
+      `Refusing to run tests against non-local database host "${testHost}". ` +
+      `Point TEST_DATABASE_URL at a local/Docker test DB (e.g. the port-5434 container), ` +
+      `or set ALLOW_REMOTE_TEST_DB=true to override deliberately.`
+    );
+  }
 }
 // Increase hook timeout for slow migrations globally
 vi.setConfig({ hookTimeout: 300000 });
@@ -102,7 +114,7 @@ const shouldConnectToDb = () => {
     const testPath = state.testPath || state.currentTestName;
     // Only skip DB for pure unit tests (components, hooks, utils)
     // Service tests in tests/unit often use the DB (integration tests in disguise)
-    // eslint-disable-next-line @typescript-eslint/prefer-includes
+
     if (testPath && (
       testPath.includes('/unit/components/') ||
       testPath.includes('\\unit\\components\\') ||
@@ -129,7 +141,7 @@ beforeAll(async () => {
   // Conditionally load jest-dom for UI tests (JSDOM environment)
   if (typeof window !== 'undefined') {
     try {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+
       // @ts-expect-error - types for jest-dom might be missing in this context
       await import("@testing-library/jest-dom");
     } catch (e) {
@@ -184,7 +196,6 @@ beforeAll(async () => {
       if ('db' in dbModule && 'initializeDatabase' in dbModule && dbModule.db && dbModule.initializeDatabase) {
         db = dbModule.db;
         initializeDatabase = dbModule.initializeDatabase;
-        closeDatabase = dbModule.closeDatabase;
         dbInitPromise = dbModule.dbInitPromise;
         // Initialize DB if not already initialized (idempotent - no-op after first call per fork)
         // We intentionally do NOT close the pool between test files to avoid "pool already ended" errors.
@@ -233,54 +244,12 @@ beforeAll(async () => {
             console.warn(`⚠️ Failed to truncate stale data: ${truncErr.message}`);
           }
         }
-        // FAILSAFE: Hardcode fixes for known schema regressions
-        // We use fully qualified names to ensure we target the isolated schema
-        const currentTestSchema = (global as any).__TEST_SCHEMA__ || 'public';
-        try {
-          // Fix 0: system_stats (no migration file exists for this table)
-          await db.execute(`CREATE TABLE IF NOT EXISTS "${currentTestSchema}"."system_stats" (
-            "id" integer PRIMARY KEY,
-            "total_users_created" integer NOT NULL DEFAULT 0,
-            "total_workflows_created" integer NOT NULL DEFAULT 0,
-            "updated_at" timestamp DEFAULT now()
-          )`);
-          // Fix 1: ai_settings updated_by
-          await db.execute(`ALTER TABLE "${currentTestSchema}"."ai_settings" ADD COLUMN IF NOT EXISTS "updated_by" varchar`);
-          try {
-            await db.execute(`ALTER TABLE "${currentTestSchema}"."ai_settings" ADD CONSTRAINT "ai_settings_updated_by_users_id_fk" FOREIGN KEY ("updated_by") REFERENCES "${currentTestSchema}"."users"("id") ON DELETE set null`);
-          } catch (e: any) { /* benign if exists */ }
-          // Fix 2: audit_logs tenant_id, workspace_id, user_id
-          await db.execute(`ALTER TABLE "${currentTestSchema}"."audit_logs" ADD COLUMN IF NOT EXISTS "tenant_id" uuid`);
-          await db.execute(`ALTER TABLE "${currentTestSchema}"."audit_logs" ADD COLUMN IF NOT EXISTS "workspace_id" uuid`);
-          await db.execute(`ALTER TABLE "${currentTestSchema}"."audit_logs" ADD COLUMN IF NOT EXISTS "user_id" varchar`);
-          // Fix 3: audit_logs missing columns from stale schema
-          await db.execute(`ALTER TABLE "${currentTestSchema}"."audit_logs" ADD COLUMN IF NOT EXISTS "entity_type" varchar DEFAULT 'security' NOT NULL`);
-          await db.execute(`ALTER TABLE "${currentTestSchema}"."audit_logs" ADD COLUMN IF NOT EXISTS "entity_id" varchar DEFAULT 'system' NOT NULL`);
-          await db.execute(`ALTER TABLE "${currentTestSchema}"."audit_logs" ADD COLUMN IF NOT EXISTS "details" jsonb`);
-          await db.execute(`ALTER TABLE "${currentTestSchema}"."audit_logs" ADD COLUMN IF NOT EXISTS "created_at" timestamp DEFAULT now()`);
-          // Fix 4: users.is_active — added to the Drizzle schema (shared/schema/auth.ts)
-          // after the 0000 baseline migration, with no follow-up migration file. Every
-          // user insert/select references it, so its absence fails setupIntegrationTest.
-          await db.execute(`ALTER TABLE "${currentTestSchema}"."users" ADD COLUMN IF NOT EXISTS "is_active" boolean DEFAULT true NOT NULL`);
-          // Fix 5: workflow_runs.token_expires_at / share_token_expires_at — added by
-          // migration 0007 (run-token expiry), which is skipped on schema REUSE, so a
-          // reused local schema lacks them and every workflow_run insert fails.
-          await db.execute(`ALTER TABLE "${currentTestSchema}"."workflow_runs" ADD COLUMN IF NOT EXISTS "token_expires_at" timestamp`);
-          await db.execute(`ALTER TABLE "${currentTestSchema}"."workflow_runs" ADD COLUMN IF NOT EXISTS "share_token_expires_at" timestamp`);
-          // Fix 6: workflow_runs.share_token_hash — the token-hashing remediation
-          // (migration 0013) RENAMED share_token -> share_token_hash. On schema REUSE the
-          // rename is skipped, so the reused schema still has share_token and every select
-          // of share_token_hash fails with "column does not exist". Add the new column
-          // (the stale share_token is left in place, unused).
-          await db.execute(`ALTER TABLE "${currentTestSchema}"."workflow_runs" ADD COLUMN IF NOT EXISTS "share_token_hash" varchar`);
-          console.log("✅ Applied failsafe schema fixes");
-        } catch (e: any) {
-          console.log(`⚠️ Failed to apply manual failsafe fixes: ${e.message}`);
-          console.warn("⚠️ Failed to apply manual failsafe fixes:", e);
-        }
-        // Ensure DB functions exist (with concurrency retry)
-        // Critical: run this even if migrations fail
-        await ensureDbFunctionsWithRetry();
+        // NOTE: The former "failsafe" ADD COLUMN block and ensureDbFunctions()
+        // were removed once the migration chain was regenerated to build the full
+        // schema from scratch (0000_init_baseline) plus RLS (0001) and the
+        // DataVault functions (0002). Fresh per-worker schemas now get everything
+        // from the migrations alone — if something is missing, the migration is
+        // wrong and tests should fail loudly rather than be papered over here.
       } else {
         console.log("⚠️ DB module loaded but appears to be a mock. Skipping real DB setup.");
       }
@@ -307,152 +276,6 @@ beforeEach(async () => {
 afterEach(async () => {
   vi.restoreAllMocks();
 });
-// Helper to ensure DB functions exist with retry logic for concurrency
-async function ensureDbFunctionsWithRetry(retries = 3) {
-  // Only proceed if db is actually connected to a real DB-like object
-  if (!db?.execute) { return; }
-  for (let i = 0; i < retries; i++) {
-    try {
-      await ensureDbFunctions();
-      return; // Success
-    } catch (err: any) {
-      // Check for "tuple concurrently updated" (Postgres error 40001) or Unique Violation (23505)
-      // 23505 happens when two tests try to create the same function at the exact same millisecond
-      if (
-        (err.code === '23505' || err.code === '40001') ||
-        (err.message && (err.message.includes('tuple concurrently updated') || err.message.includes('deadlock detected')))
-      ) {
-        console.log(`⚠️ Concurrency conflict creating DB functions (attempt ${i + 1}/${retries}). Retrying...`);
-        await new Promise(r => setTimeout(r, 300 * (i + 1))); // Exponential backoff
-        continue;
-      }
-      throw err; // Rethrow other errors
-    }
-  }
-}
-// Helper to ensure DB functions exist
-async function ensureDbFunctions() {
-  // FORCE RECREATE function to ensure correct signature (7 args)
-  // We use CREATE OR REPLACE to handle updates atomically-ish.
-  // Removed explicit DROP to reduce race condition window unless purely necessary.
-  // DEBUG: Check what functions exist before we try to drop/create
-  // FIX: Filter by current_schema() to prevent dropping functions from other worker schemas!
-  const existingFuncs = await db.execute(`
-      SELECT p.proname, p.proargnames, p.proargtypes, p.oid::regprocedure as signature
-      FROM pg_proc p
-      JOIN pg_namespace n ON n.oid = p.pronamespace
-      WHERE p.proname = 'datavault_get_next_autonumber'
-      AND n.nspname = current_schema();
-    `);
-  // Create a loop to drop all existing overloads
-  if (existingFuncs.rows && existingFuncs.rows.length > 0) {
-    for (const func of existingFuncs.rows) {
-      await db.execute(`DROP FUNCTION IF EXISTS ${func.signature} CASCADE;`);
-    }
-  } else {
-    // Fallback if no rows (shouldn't happen if function exists, but harmless)
-    await db.execute('DROP FUNCTION IF EXISTS datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text) CASCADE;');
-  }
-  // FORCEFUL CLEANUP: Explicitly drop the exact signature we are about to create to avoid "cannot change name of input parameter"
-  // This handles cases where the dynamic lookup might miss it due to search_path issues.
-  try {
-    await db.execute('DROP FUNCTION IF EXISTS datavault_get_next_autonumber(uuid,uuid,uuid,text,integer,text,text) CASCADE;');
-  } catch (e) {
-    console.warn("Minor warning during forceful cleanup:", e);
-  }
-  await db.execute(`
-        CREATE OR REPLACE FUNCTION datavault_get_next_autonumber(
-          p_tenant_id UUID,
-          p_table_id UUID,
-          p_column_id UUID,
-          p_context_key TEXT,
-          p_min_digits INTEGER DEFAULT 1,
-          p_prefix TEXT DEFAULT '',
-          p_format TEXT DEFAULT NULL
-        )
-        RETURNS TEXT
-        LANGUAGE plpgsql
-        AS $$
-        DECLARE
-          v_sequence_name TEXT;
-          v_next_val BIGINT;
-          v_year TEXT;
-          v_formatted TEXT;
-          v_final_result TEXT;
-          v_prefix TEXT;
-        BEGIN
-          -- Use MD5 hash for sequence name to ensure uniqueness and stay within 63 char limit
-          -- Format: seq_{md5_hash}
-          v_sequence_name := 'seq_' || md5(p_tenant_id::text || '_' || p_column_id::text);
-          -- Handle Year-based updates
-          IF p_format = 'YYYY' THEN
-              v_year := to_char(current_date, 'YYYY');
-              v_sequence_name := v_sequence_name || '_' || v_year;
-          END IF;
-          -- Create sequence if not exists
-          EXECUTE format('CREATE SEQUENCE IF NOT EXISTS %I START 1', v_sequence_name);
-          -- Get next value
-          EXECUTE format('SELECT nextval(%L)', v_sequence_name) INTO v_next_val;
-          -- Ensure defaults for NULL inputs to prevent NULL results
-          v_prefix := COALESCE(p_prefix, '');
-          -- Format the number
-          v_formatted := lpad(v_next_val::text, COALESCE(p_min_digits, 4), '0');
-          -- Combine
-          -- Logic: [Prefix-] [Year-] Number
-          -- 1. Start with Prefix (if exists, add dash)
-          IF v_prefix <> '' THEN
-             v_final_result := v_prefix || '-';
-          ELSE
-             v_final_result := '';
-          END IF;
-          -- 2. Add Year (if exists, add dash)
-          IF p_format = 'YYYY' THEN
-               v_final_result := v_final_result || v_year || '-';
-          END IF;
-          -- 3. Add Number
-          v_final_result := v_final_result || v_formatted;
-          RETURN v_final_result;
-        END;
-        $$;
-      `);
-  // Cleanup function
-  await db.execute(`
-        CREATE OR REPLACE FUNCTION datavault_cleanup_sequence(p_column_id UUID)
-        RETURNS VOID
-        LANGUAGE plpgsql
-        AS $$
-        DECLARE
-            r RECORD;
-        BEGIN
-            -- Cleanup based on hashing pattern used above is harder without keeping track.
-            -- For tests, we might skip precise cleanup or try to match partially?
-            -- Since we used MD5(tenant + column), we can't search by LIKE easily without tenant_id.
-            -- But standard cleanup might just drop by specific logic or we ignore it for tests.
-            -- Actually, to properly clean, we'd need tenant_id.
-            -- For now, invalidation is sufficient.
-            NULL;
-        END;
-        $$;
-      `);
-  // Legacy name support if needed (alias)
-  // Renamed p_tenant_id to p_table_id to match usage semantics (though types are same)
-  await db.execute('DROP FUNCTION IF EXISTS datavault_get_next_auto_number(uuid,uuid,integer);');
-  await db.execute(`
-        CREATE OR REPLACE FUNCTION datavault_get_next_auto_number(
-          p_table_id UUID,
-          p_column_id UUID,
-          p_start_value INTEGER
-        )
-        RETURNS INTEGER
-        LANGUAGE plpgsql
-        AS $$
-        BEGIN
-            -- Simple wrapper or lightweight sequence fallback
-            return 1; 
-        END;
-        $$;
-      `);
-}
 // Helper to apply manual migrations
 async function applyManualMigrations(db: any) {
   // Wrap in try-catch so failing migrations (e.g. existing tables) don't block function creation
@@ -619,7 +442,7 @@ vi.mock("@anthropic-ai/sdk", () => {
     },
   }; });
   return {
-    // eslint-disable-next-line @typescript-eslint/naming-convention
+
     'Anthropic': MockAnthropic,
     default: MockAnthropic,
   };

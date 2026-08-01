@@ -59,7 +59,7 @@ Some route families (snapshots, secrets, esign, ai-workflowEdit) intentionally d
   constructor(fooRepo?: FooRepository) { this.fooRepo = fooRepo ?? fooRepository; }
   ```
 - **Tenancy check first** in every read/update/delete: a `verifyTenantOwnership(id, tenantId, tx?)` method that fetches the row and throws the 404/403-phrased errors above (see `CollectionService.ts:63`).
-- Export a module-level singleton at the bottom: `export const fooService = new FooService();`. Routes import the singleton directly — the DI container in `server/di/` exists but only a few services use it; follow the singleton pattern unless working in already-DI'd code (then update `server/di/tokens.ts` ServiceMap + `registrations.ts`).
+- Export a module-level singleton at the bottom: `export const fooService = new FooService();`. Routes import the singleton directly — singletons plus optional constructor injection are the **only** wiring mechanism here. (A DI container once lived in `server/di/`; it was never adopted and was deleted in DEBT-8. Do not reintroduce one for a single service.)
 
 ## 4. Repository (`server/repositories/FooRepository.ts`)
 

@@ -1,0 +1,75 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap");
+
+/*
+ * Scoped design tokens for the marketing landing page.
+ * Everything is namespaced under .lp2 so this stylesheet cannot
+ * leak into the app shell even though Vite bundles CSS globally.
+ */
+.lp2 {
+  --lp2-bg: #0a0a0f;
+  --lp2-surface: #12121a;
+  --lp2-line: rgba(242, 242, 234, 0.08);
+  --lp2-ink: #f2f2ea;
+  --lp2-dim: #90909c;
+  --lp2-lime: #d7fe54;
+  --lp2-violet: #8b7cff;
+  font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  background-color: var(--lp2-bg);
+  color: var(--lp2-ink);
+}
+
+.lp2-mono {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Film-grain overlay */
+.lp2-grain::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+}
+
+/* Capability marquee */
+@keyframes lp2-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.lp2-marquee-track {
+  animation: lp2-marquee 32s linear infinite;
+}
+
+/* Animated connector dashes in the hero flow diagram */
+@keyframes lp2-flow {
+  to { stroke-dashoffset: -24; }
+}
+.lp2-flow {
+  stroke-dasharray: 6 6;
+  animation: lp2-flow 1.1s linear infinite;
+}
+
+/* Soft pulsing glow for live nodes */
+@keyframes lp2-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+.lp2-pulse {
+  animation: lp2-pulse 2.4s ease-in-out infinite;
+}
+
+/* Giant outlined numerals in the how-it-works section */
+.lp2-outline-num {
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgba(242, 242, 234, 0.22);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp2-marquee-track,
+  .lp2-flow,
+  .lp2-pulse {
+    animation: none;
+  }
+}

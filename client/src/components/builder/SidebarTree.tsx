@@ -2,10 +2,9 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { UI_LABELS } from "@/lib/labels";
 import { Mode } from "@/lib/mode";
 import { ApiSection, ApiBlock } from "@/lib/vault-api";
-import { useSections, useCreateSection, useCreateStep, useBlocks, useWorkflow } from "@/lib/vault-hooks";
+import { useSections, useCreateSectionAtEnd, useCreateStep, useBlocks, useWorkflow } from "@/lib/vault-hooks";
 
 import { AddSnipDialog } from "./AddSnipDialog";
 import { AiAssistantDialog } from "./ai/AiAssistantDialog";
@@ -13,6 +12,7 @@ import { BlockEditorDialog, type UniversalBlock } from "./BlockEditorDialog";
 import { SectionSettingsDialog } from "./SectionSettingsDialog";
 import { DocumentStatusPanel } from "./sidebar/DocumentStatusPanel";
 import { SectionItem } from "./sidebar/SectionItem";
+import { SidebarHeader } from "./sidebar/SidebarHeader";
 
 
 export function SidebarTree({ workflowId }: { workflowId: string }) {
@@ -21,7 +21,7 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
   // const { data: transformBlocks } = useTransformBlocks(workflowId); // Unused
   const mode: Mode = (workflow?.modeOverride as Mode) ?? 'easy';
   const { data: blocks } = useBlocks(workflowId);
-  const createSectionMutation = useCreateSection();
+  const { createSectionAtEnd } = useCreateSectionAtEnd(workflowId);
   const createStepMutation = useCreateStep();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [editingBlock, setEditingBlock] = useState<UniversalBlock | null>(null);
@@ -42,20 +42,12 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
   }, {});
 
   const handleCreateSection = async () => {
-    const order = sections?.length ?? 0;
-    await createSectionMutation.mutateAsync({
-      workflowId,
-      title: `${UI_LABELS.PAGE} ${order + 1} `,
-      order,
-    });
+    await createSectionAtEnd();
   };
 
   const handleCreateFinalDocumentsSection = async () => {
-    const order = sections?.length ?? 0;
-    const section = await createSectionMutation.mutateAsync({
-      workflowId,
+    const section = await createSectionAtEnd({
       title: "Final Documents",
-      order,
       config: {
         finalBlock: true,
         templates: [],
@@ -91,23 +83,17 @@ export function SidebarTree({ workflowId }: { workflowId: string }) {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between border-b p-2">
+      <div className="flex items-center border-b p-2">
         <h2 className="text-lg font-semibold">Document Outline</h2>
-        <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={() => { void handleCreateSection(); }}>
-            Add Page
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => { void handleCreateFinalDocumentsSection(); }}>
-            Add Final Docs
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => { void setShowAiDialog(true); }}>
-            AI Assist
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => { void setShowSnipDialog(true); }}>
-            Add Snip
-          </Button>
-        </div>
       </div>
+      {/* Authoring actions live in one grouped panel rather than a row of
+          ghost buttons in the title bar; the outline below stays navigation. */}
+      <SidebarHeader
+        onAddPage={() => { void handleCreateSection(); }}
+        onAddFinalDocs={() => { void handleCreateFinalDocumentsSection(); }}
+        onAiAssist={() => { setShowAiDialog(true); }}
+        onAddSnip={() => { setShowSnipDialog(true); }}
+      />
       {mode === 'easy' && workflow?.projectId && (
         <DocumentStatusPanel workflowId={workflowId} projectId={workflow.projectId} />
       )}

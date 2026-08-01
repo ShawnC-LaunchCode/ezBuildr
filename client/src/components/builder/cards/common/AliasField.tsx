@@ -44,7 +44,7 @@ export function AliasField({ value, onChange, placeholder = "variable_name", wor
     if (value === localValue) {
       lastSubmittedValue.current = value;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [value]);
 
   const validateAlias = (alias: string): string | null => {
@@ -76,7 +76,7 @@ export function AliasField({ value, onChange, placeholder = "variable_name", wor
 
   useEffect(() => {
     setError(validateAlias(localValue));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [localValue, workflowSteps, currentStepId]);
 
   const handleChange = (newValue: string) => {

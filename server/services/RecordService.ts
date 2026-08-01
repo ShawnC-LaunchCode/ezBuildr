@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import type { CollectionRecord, InsertRecord, CollectionField } from "@shared/schema";
 
 import {
@@ -190,7 +189,7 @@ export class RecordService {
   /**
    * Apply default values to record data
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSONB record data can contain any valid JSON value
+
   private async applyDefaults(
     collectionId: string,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSONB record data can contain any valid JSON value
@@ -281,8 +280,7 @@ export class RecordService {
   async updateRecord(
     recordId: string,
     tenantId: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSONB record updates can contain any valid JSON value
-    updates: Partial<Record<string, any>>,
+    updates: Partial<Record<string, unknown>>,
     userId?: string,
     tx?: DbTransaction
   ): Promise<CollectionRecord> {
@@ -370,7 +368,9 @@ export class RecordService {
     const filterObj: Record<string, any> = {};
     if (Array.isArray(filters)) {
       for (const f of filters) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- This legacy service consumes dynamically typed persisted data.
         if (f.operator === 'equals') {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- This legacy service consumes dynamically typed persisted data.
           filterObj[f.field] = f.value;
         }
       }

@@ -75,7 +75,7 @@ export async function extractPlaceholders(fileRef: string): Promise<PlaceholderI
     throw createError.notFound('Template file');
   }
 
-  const analysis = await analyzeTemplate(getTemplateFilePath(fileRef));
+  const analysis = await analyzeTemplate(await getTemplateFilePath(fileRef));
 
   const placeholders: PlaceholderInfo[] = analysis.variables.map((v) => ({
     name: v.name,

@@ -16,12 +16,37 @@ import { analyticsService } from "../analytics/AnalyticsService";
 import { captureRunLifecycle } from "../metrics";
 
 import type { WorkflowContext } from "./types";
+import type { AnalyticsEventInput } from "../analytics/AnalyticsService";
 
 export class RunMetricsService {
   constructor(
     private workflowRepo = workflowRepository,
     private projectRepo = projectRepository
   ) { }
+
+  /**
+   * Record an analytics event, unless the run has no pinned version.
+   *
+   * `workflow_run_events.version_id` is a NOT NULL uuid column with a foreign
+   * key to `workflow_versions` (shared/schema/run.ts) — there is no value that
+   * can be written for a versionless run, so the event is skipped rather than
+   * attempting an insert that is guaranteed to fail. All three lifecycle
+   * capture methods below share this one guard.
+   */
+  private async recordAnalyticsEvent(
+    versionId: string | undefined,
+    event: Omit<AnalyticsEventInput, 'versionId'>
+  ): Promise<void> {
+    if (!versionId) {
+      logger.debug(
+        { runId: event.runId, type: event.type },
+        'Skipping analytics event for versionless run'
+      );
+      return;
+    }
+
+    await analyticsService.recordEvent({ ...event, versionId });
+  }
 
   /**
    * Get tenant and project IDs for a workflow (for metrics)
@@ -76,10 +101,9 @@ export class RunMetricsService {
       });
 
       // Capture new analytics (Stage 15)
-      await analyticsService.recordEvent({
+      await this.recordAnalyticsEvent(versionId, {
         runId,
         workflowId,
-        versionId: versionId ?? 'draft',
         type: 'run.start',
         timestamp: new Date().toISOString(),
         isPreview: false,
@@ -120,10 +144,9 @@ export class RunMetricsService {
       });
 
       // Capture new analytics (Stage 15)
-      await analyticsService.recordEvent({
+      await this.recordAnalyticsEvent(versionId, {
         runId,
         workflowId,
-        versionId: versionId ?? 'draft',
         type: 'workflow.complete',
         timestamp: new Date().toISOString(),
         isPreview: false,
@@ -173,10 +196,9 @@ export class RunMetricsService {
       });
 
       // Capture new analytics (Stage 15)
-      await analyticsService.recordEvent({
+      await this.recordAnalyticsEvent(versionId, {
         runId,
         workflowId,
-        versionId: versionId ?? 'draft',
         type: 'validation.error',
         timestamp: new Date().toISOString(),
         isPreview: false,

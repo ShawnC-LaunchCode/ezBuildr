@@ -41,11 +41,41 @@ async function lookupWorkflowIdFromStepMiddleware(
       res.status(404).json({ message: "Section not found" });
       return;
     }
-    // eslint-disable-next-line no-param-reassign -- Express middleware convention: augment req.params for downstream handlers
+
     req.params.workflowId = section.workflowId;
     next();
   } catch (error) {
     logger.error({ error }, "Error in lookupWorkflowIdFromStepMiddleware");
+    next(error);
+  }
+}
+
+/**
+ * Middleware helper: Look up workflowId from stepId before auto-revert, for
+ * the restore route only. Must find the step even when soft-deleted
+ * (ICW2-B1) — unlike `lookupWorkflowIdFromStepMiddleware`, which uses the
+ * filtered `findById` and would 404 before the restore ever runs.
+ */
+async function lookupWorkflowIdFromStepIncludingDeletedMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { stepId } = req.params;
+    if (!stepId) {
+      return next();
+    }
+    const step = await stepRepository.findByIdIncludingDeleted(stepId);
+    if (!step) {
+      res.status(404).json({ message: "Step not found" });
+      return;
+    }
+
+    req.params.workflowId = step.workflowId;
+    next();
+  } catch (error) {
+    logger.error({ error }, "Error in lookupWorkflowIdFromStepIncludingDeletedMiddleware");
     next(error);
   }
 }
@@ -69,7 +99,7 @@ async function lookupWorkflowIdFromSectionMiddleware(
       res.status(404).json({ message: "Section not found" });
       return;
     }
-    // eslint-disable-next-line no-param-reassign -- Express middleware convention: augment req.params for downstream handlers
+
     req.params.workflowId = section.workflowId;
     next();
   } catch (error) {
@@ -183,7 +213,7 @@ function registerWorkflowStepRoutes(app: Express): void {
 /**
  * Register simplified step routes (without workflowId in path)
  */
-// eslint-disable-next-line max-lines-per-function -- route registration functions are inherently long
+
 function registerSimplifiedStepRoutes(app: Express): void {
   /**
    * GET /api/sections/:sectionId/steps
@@ -243,7 +273,22 @@ function registerSimplifiedStepRoutes(app: Express): void {
       if (!Array.isArray(steps)) {
         return res.status(400).json({ message: "Invalid steps array" });
       }
-      await stepService.reorderStepsBySectionId(sectionId, userId, steps as { id: string; order: number }[]);
+      // Validate each entry's id is a UUID and order is a finite number before
+      // touching the DB (mirrors the sections/reorder guard).
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      for (const entry of steps) {
+        const step = entry as { id?: unknown; order?: unknown };
+        if (typeof step.id !== 'string' || !uuidRegex.test(step.id)) {
+          return res.status(400).json({
+            message: "Invalid step ID format",
+            details: "Step ID must be a valid UUID",
+          });
+        }
+        if (typeof step.order !== 'number' || !Number.isFinite(step.order)) {
+          return res.status(400).json({ message: "Step order must be a finite number" });
+        }
+      }
+      await stepService.reorderStepsBySectionId(sectionId, userId, steps as Array<{ id: string; order: number }>);
       res.status(200).json({ message: "Steps reordered successfully" });
     } catch (error) {
       logger.error({ error }, "Error reordering steps");
@@ -268,6 +313,28 @@ function registerSimplifiedStepRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error fetching step");
       const { status, message } = classifyRouteError(error, "Failed to fetch step");
+      res.status(status).json({ message });
+    }
+  }));
+
+  /**
+   * GET /api/steps/:stepId/delete-impact
+   * Preview the answers/runs that would be permanently destroyed by
+   * deleting this step (workflow looked up automatically). Read-only —
+   * used to gate the client's destructive-confirm dialog (ICW2-13).
+   */
+  app.get('/api/steps/:stepId/delete-impact', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
+      }
+      const { stepId } = req.params;
+      const impact = await stepService.getStepDeleteImpactById(stepId, userId);
+      res.json(impact);
+    } catch (error) {
+      logger.error({ error }, "Error fetching step delete impact");
+      const { status, message } = classifyRouteError(error, "Failed to fetch step delete impact");
       res.status(status).json({ message });
     }
   }));
@@ -311,6 +378,51 @@ function registerSimplifiedStepRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error deleting step");
       const { status, message } = classifyRouteError(error, "Failed to delete step");
+      res.status(status).json({ message });
+    }
+  }));
+
+  /**
+   * POST /api/steps/:stepId/duplicate
+   * Duplicate a step into the same section, immediately after the source
+   * (workflow looked up automatically). ICW2-B5.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async lookup
+  app.post('/api/steps/:stepId/duplicate', hybridAuth, createLimiter, lookupWorkflowIdFromStepMiddleware, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
+      }
+      const { stepId } = req.params;
+      const step = await stepService.duplicateStep(stepId, userId);
+      res.status(201).json(step);
+    } catch (error) {
+      logger.error({ error }, "Error duplicating step");
+      const { status, message } = classifyRouteError(error, "Failed to duplicate step");
+      res.status(status).json({ message });
+    }
+  }));
+
+  /**
+   * POST /api/steps/:stepId/restore
+   * Restore a previously soft-deleted step (workflow looked up
+   * automatically). Requires edit access. Restore UI is deferred — this is
+   * server-side only (ICW2-B1).
+   */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async lookup
+  app.post('/api/steps/:stepId/restore', hybridAuth, createLimiter, lookupWorkflowIdFromStepIncludingDeletedMiddleware, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
+      }
+      const { stepId } = req.params;
+      const step = await stepService.restoreStep(stepId, userId);
+      res.json(step);
+    } catch (error) {
+      logger.error({ error }, "Error restoring step");
+      const { status, message } = classifyRouteError(error, "Failed to restore step");
       res.status(status).json({ message });
     }
   }));

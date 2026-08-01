@@ -1,230 +1,167 @@
 /**
- * Integration tests for DataVault autonumber columns
- * Tests the new autonumber functionality with prefix, padding, and yearly reset
+ * Integration tests for DataVault `auto_number` columns (DVA-1)
+ *
+ * Verifies the server-generated, transactional counter mechanism backed by
+ * `datavault_number_sequences`: distinct/increasing integer values seeded from
+ * `column.autoNumberStart`, the missing-counter-row self-heal path, and the
+ * CASCADE delete of the counter row when its column is deleted.
+ *
+ * Supersedes the old version of this file, which tested the now-deleted `v4`
+ * `autonumber` type (prefix/padding/yearly reset) — that generation path was
+ * unreachable from the client UI and has been removed per DVA-1.
  */
-
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-import { tenants } from '@shared/schema';
+import { tenants, datavaultNumberSequences } from '@shared/schema';
 
 import { db } from '../../server/db';
 import { datavaultColumnsService } from '../../server/services/DatavaultColumnsService';
 import { datavaultRowsService } from '../../server/services/DatavaultRowsService';
 import { datavaultTablesService } from '../../server/services/DatavaultTablesService';
 
-describe('DataVault Autonumber Integration Tests', () => {
+describe('DataVault auto_number Integration Tests', () => {
   let tenantId: string;
   let tableId: string;
-  let basicAutonumberColumnId: string;
-  let prefixAutonumberColumnId: string;
-  let yearlyResetColumnId: string;
+  let idColumnId: string; // auto-created primary key column (bypasses the service create-path)
+  let ticketColumnId: string; // explicitly created via DatavaultColumnsService (normal create-path)
 
   beforeAll(async () => {
-    // Create a test tenant
     const [tenant] = await db.insert(tenants).values({
       name: 'Autonumber Test Tenant',
-      plan: 'pro',
     }).returning();
     tenantId = tenant.id;
 
-    // Create a test table
-    const table = await datavaultTablesService.createTable(
-      {
-        tenantId,
-        slug: 'autonumber_test_table',
-        name: 'Autonumber Test Table',
-        description: 'Testing autonumber functionality',
-        ownerUserId: null
-      }
-    );
+    const table = await datavaultTablesService.createTable({
+      tenantId,
+      slug: 'autonumber_test_table',
+      name: 'Autonumber Test Table',
+      description: null,
+      ownerUserId: null,
+    });
     tableId = table.id;
 
-    // Create autonumber columns with different configurations
-    // 1. Basic autonumber (no prefix, never reset)
-    const basicColumn = await datavaultColumnsService.createColumn(
-      {
-        tableId,
-        name: 'Basic Number',
-        slug: 'basic_number',
-        type: 'autonumber',
-        autonumberPrefix: null,
-        autonumberPadding: 4,
-        autonumberResetPolicy: 'never',
-      },
-      tenantId
-    );
-    basicAutonumberColumnId = basicColumn.id;
+    const columns = await datavaultColumnsService.listColumns(tableId, tenantId);
+    const idColumn = columns.find((c) => c.slug === 'id');
+    expect(idColumn).toBeDefined();
+    idColumnId = idColumn!.id;
 
-    // 2. Autonumber with prefix (never reset)
-    const prefixColumn = await datavaultColumnsService.createColumn(
+    const ticketColumn = await datavaultColumnsService.createColumn(
       {
         tableId,
-        name: 'Case Number',
-        slug: 'case_number',
-        type: 'autonumber',
-        autonumberPrefix: 'CASE',
-        autonumberPadding: 5,
-        autonumberResetPolicy: 'never',
+        name: 'Ticket Number',
+        slug: 'ticket_number',
+        type: 'auto_number',
+        required: true,
+        autoNumberStart: 100,
       },
       tenantId
     );
-    prefixAutonumberColumnId = prefixColumn.id;
-
-    // 3. Autonumber with yearly reset
-    const yearlyColumn = await datavaultColumnsService.createColumn(
-      {
-        tableId,
-        name: 'Invoice Number',
-        slug: 'invoice_number',
-        type: 'autonumber',
-        autonumberPrefix: 'INV',
-        autonumberPadding: 3,
-        autonumberResetPolicy: 'yearly',
-      },
-      tenantId
-    );
-    yearlyResetColumnId = yearlyColumn.id;
+    ticketColumnId = ticketColumn.id;
   });
 
   afterAll(async () => {
-    // Cleanup: delete the test table (cascade will delete columns and rows)
     if (tableId) {
-      try {
-        await datavaultTablesService.deleteTable(tenantId, tableId);
-      } catch (error) {
-        console.log('Error cleaning up table:', error);
-      }
+      await datavaultTablesService.deleteTable(tableId, tenantId);
     }
-    // Cleanup: delete the test tenant
     if (tenantId) {
-      try {
-        await db.delete(tenants).where(eq(tenants.id, tenantId));
-      } catch (error) {
-        console.log('Error cleaning up tenant:', error);
-      }
+      await db.delete(tenants).where(eq(tenants.id, tenantId));
     }
   });
 
-  it('should generate basic autonumber without prefix', async () => {
-    // Create first row
-    const row1 = await datavaultRowsService.createRow(
-      tableId,
-      tenantId,
-      {}, // Empty values - autonumber should be auto-generated
-      undefined
-    );
+  it('creates a counter row seeded from autoNumberStart when the column is created', async () => {
+    const [sequence] = await db
+      .select()
+      .from(datavaultNumberSequences)
+      .where(eq(datavaultNumberSequences.columnId, ticketColumnId));
 
-    expect(row1.values[basicAutonumberColumnId]).toBe('0001');
-
-    // Create second row
-    const row2 = await datavaultRowsService.createRow(
-      tableId,
-      tenantId,
-      {},
-      undefined
-    );
-
-    console.log('Row 1 Basic Autonumber:', row1.values[basicAutonumberColumnId]);
-    console.log('Row 2 Basic Autonumber:', row2.values[basicAutonumberColumnId]);
-
-    expect(row2.values[basicAutonumberColumnId]).toBe('0002');
+    expect(sequence).toBeDefined();
+    expect(sequence?.nextValue).toBe(100);
   });
 
-  it('should generate autonumber with prefix', async () => {
-    // Create first row
-    const row1 = await datavaultRowsService.createRow(
-      tableId,
-      tenantId,
-      {},
-      undefined
-    );
+  it('generates distinct, increasing integer values via the server', async () => {
+    const row1 = await datavaultRowsService.createRow(tableId, tenantId, {}, undefined);
+    const row2 = await datavaultRowsService.createRow(tableId, tenantId, {}, undefined);
 
-    expect(row1.values[prefixAutonumberColumnId]).toBe('CASE-00003');
+    // `id` column: auto-created by createTable() (bypasses the column-create
+    // service path entirely), so this also exercises the self-heal path on
+    // first use.
+    expect(row1.values[idColumnId]).toBe(1);
+    expect(row2.values[idColumnId]).toBe(2);
 
-    // Create second row
-    const row2 = await datavaultRowsService.createRow(
-      tableId,
-      tenantId,
-      {},
-      undefined
-    );
-
-    expect(row2.values[prefixAutonumberColumnId]).toBe('CASE-00004');
+    // `ticket_number` column: created via the normal service create-path,
+    // seeded from autoNumberStart: 100.
+    expect(row1.values[ticketColumnId]).toBe(100);
+    expect(row2.values[ticketColumnId]).toBe(101);
   });
 
-  it('should generate autonumber with yearly reset format', async () => {
-    const currentYear = new Date().getFullYear();
-
-    // Create first row
-    const row1 = await datavaultRowsService.createRow(
-      tableId,
-      tenantId,
-      {},
-      undefined
-    );
-
-    // Format should be: PREFIX-YEAR-PADDED_NUMBER
-    expect(row1.values[yearlyResetColumnId]).toBe(`INV-${currentYear}-005`);
-
-    // Create second row
-    const row2 = await datavaultRowsService.createRow(
-      tableId,
-      tenantId,
-      {},
-      undefined
-    );
-
-    expect(row2.values[yearlyResetColumnId]).toBe(`INV-${currentYear}-006`);
-  });
-
-  it('should be atomic and prevent race conditions', { timeout: 30000 }, async () => {
-    // Create multiple rows concurrently
+  it('is atomic and prevents duplicate values under concurrent inserts', { timeout: 30000 }, async () => {
     const promises = Array(10)
       .fill(null)
       .map(() => datavaultRowsService.createRow(tableId, tenantId, {}, undefined));
 
     const rows = await Promise.all(promises);
+    const numbers = rows.map((r) => r.values[idColumnId]);
 
-    // Extract all basic autonumber values
-    const numbers = rows.map((r) => r.values[basicAutonumberColumnId]);
-
-    // All numbers should be unique (no duplicates)
     const uniqueNumbers = new Set(numbers);
     expect(uniqueNumbers.size).toBe(numbers.length);
   });
 
-  it('should prevent manual updates to autonumber values', async () => {
-    // Create a row
-    const row = await datavaultRowsService.createRow(
-      tableId,
-      tenantId,
-      {},
-      undefined
+  it('self-heals when the counter row is missing', async () => {
+    // Simulate a column whose counter row never got created (predates this
+    // feature, or created via a path that skips it) by deleting it directly.
+    await db.delete(datavaultNumberSequences).where(
+      and(
+        eq(datavaultNumberSequences.tenantId, tenantId),
+        eq(datavaultNumberSequences.tableId, tableId),
+        eq(datavaultNumberSequences.columnId, ticketColumnId)
+      )
     );
 
-    const _originalValue = row.values[basicAutonumberColumnId];
+    const [sequenceBefore] = await db
+      .select()
+      .from(datavaultNumberSequences)
+      .where(eq(datavaultNumberSequences.columnId, ticketColumnId));
+    expect(sequenceBefore).toBeUndefined();
 
-    // Attempt to update the autonumber value manually
-    // This should either be ignored or throw an error depending on implementation
-    try {
-      await datavaultRowsService.updateRow(
-        row.row.id,
-        tenantId,
-        {
-          [basicAutonumberColumnId]: '9999', // Try to manually set value
-        },
-        undefined
-      );
+    // Generation must recreate the counter row seeded from autoNumberStart
+    // (100) rather than throwing or colliding with previously-issued values.
+    const row = await datavaultRowsService.createRow(tableId, tenantId, {}, undefined);
+    expect(row.values[ticketColumnId]).toBe(100);
 
-      // If update succeeds, verify the value didn't change
-      const _updatedRow = await datavaultRowsService.getRow(row.row.id, tenantId);
-      // Autonumber values should not be manually updatable
-      // For now, we allow updates but in production this could be restricted
-      // expect(updatedRow?.values[basicAutonumberColumnId]).toBe(originalValue);
-    } catch (error) {
-      // It's also acceptable to throw an error
-      expect(error).toBeDefined();
-    }
+    const [sequenceAfter] = await db
+      .select()
+      .from(datavaultNumberSequences)
+      .where(eq(datavaultNumberSequences.columnId, ticketColumnId));
+    expect(sequenceAfter).toBeDefined();
+    expect(sequenceAfter?.nextValue).toBe(101);
+  });
+
+  it('removes the counter row via CASCADE when the auto_number column is deleted', async () => {
+    const column = await datavaultColumnsService.createColumn(
+      {
+        tableId,
+        name: 'Temp Auto Number',
+        slug: 'temp_auto_number',
+        type: 'auto_number',
+        required: false,
+        autoNumberStart: 1,
+      },
+      tenantId
+    );
+
+    const [sequenceBefore] = await db
+      .select()
+      .from(datavaultNumberSequences)
+      .where(eq(datavaultNumberSequences.columnId, column.id));
+    expect(sequenceBefore).toBeDefined();
+
+    await datavaultColumnsService.deleteColumn(column.id, tenantId);
+
+    const [sequenceAfter] = await db
+      .select()
+      .from(datavaultNumberSequences)
+      .where(eq(datavaultNumberSequences.columnId, column.id));
+    expect(sequenceAfter).toBeUndefined();
   });
 });

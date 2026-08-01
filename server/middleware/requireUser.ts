@@ -15,7 +15,7 @@ export { invalidateUserCache };
 /**
  * Extended AuthRequest with attached user object
  */
-// @ts-ignore - TODO: fix type
+// @ts-expect-error - TODO: fix type
 export interface UserRequest extends Request {
   userId?: string;
   userEmail?: string;
@@ -27,7 +27,7 @@ export interface UserRequest extends Request {
 /**
  * Type guard to check if a request has user attached
  */
-// @ts-ignore - TODO: fix type
+// @ts-expect-error - TODO: fix type
 export function hasUser(req: Request): req is UserRequest {
   return isAuthRequest(req) && 'user' in req && req.user !== undefined;
 }
@@ -117,14 +117,14 @@ export async function optionalUser(req: Request, res: Response, next: NextFuncti
  * Returns undefined if user is not attached
  */
 export function getUser(req: Request): User | undefined {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+
   return hasUser(req) ? req.user : undefined;
 }
 /**
  * Helper function to assert user exists on request
  * Throws error if user is not attached (use in middleware chains where requireUser was used)
  */
-// @ts-ignore - TODO: fix type
+// @ts-expect-error - TODO: fix type
 export function assertUser(req: Request): asserts req is UserRequest {
   if (!hasUser(req)) {
     throw new Error('User not attached to request');

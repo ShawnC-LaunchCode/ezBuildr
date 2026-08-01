@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { generateSampleData } from "@/lib/sampleData";
 import { type ApiWorkflowVariable } from "@/lib/vault-api";
-import { useWorkflow, useProjects, useWorkflowVariables } from "@/lib/vault-hooks";
+import { useWorkflow, useWorkflowVariables } from "@/lib/vault-hooks";
 import { DocumentTemplateEditor } from "@/components/builder/templates/DocumentTemplateEditor";
 
 import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
@@ -18,6 +18,7 @@ import { PdfMappingEditor } from "../templates/PdfMappingEditor";
 
 import { Template, TemplateCard } from "./templates/TemplateCard";
 import { TemplateUploadDialog } from "./templates/TemplateUploadDialog";
+import { UnfiledWorkflowNotice } from "./templates/UnfiledWorkflowNotice";
 
 interface TemplatesTabProps {
   workflowId: string;
@@ -37,8 +38,8 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
   const { data: workflow } = useWorkflow(workflowId);
   // Fetch variables for variable analysis
   const { data: variables } = useWorkflowVariables(workflowId);
-  // Fetch projects to find fallback
-  const { data: projects } = useProjects();
+  // Unfiled once the workflow has loaded and has no project (never guess one — ICW2-B8)
+  const isUnfiled = workflow != null && workflow.projectId == null;
 
   const workflowVariables = (variables ?? []).map((v: ApiWorkflowVariable) => ({
     id: v.key,
@@ -59,7 +60,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       if (workflowProjectId == null) {return;}
       const response = await axios.get(`/api/projects/${workflowProjectId}/templates`);
       const data: unknown = response.data;
-      /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+
       const items = (data as Record<string, unknown>).items ?? [];
       const mappedTemplates = (items as Array<Record<string, unknown>>).map((t) => ({
         id: t.id as string,
@@ -71,7 +72,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
         // Used only for PDF cards; DOCX cards validate against the server
         variables: (t.variables ?? []) as string[]
       }));
-      /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+
       setTemplates(mappedTemplates);
     } catch (error: unknown) {
       console.error("Error fetching templates:", error);
@@ -79,19 +80,18 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
   };
 
   useEffect(() => {
-    if (workflow?.projectId != null) {
+    // No silent fallback to another project when unfiled (ICW2-B8) — mirror
+    // the workflow's own project id, which is `null` until it is filed.
+    if (workflow != null) {
       setWorkflowProjectId(workflow.projectId);
-    } else if (projects != null && projects.length > 0) {
-      // Fallback: Use the first project (Default Project) if workflow is unfiled
-      setWorkflowProjectId(projects[0].id);
     }
-  }, [workflow?.projectId, projects]);
+  }, [workflow]);
 
   useEffect(() => {
     if (workflowProjectId != null) {
       void fetchTemplates();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [workflowProjectId]);
 
   // Handle template upload
@@ -116,7 +116,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       });
 
       const data: unknown = response.data;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
       const warnings = (data as any).warnings as string[] | undefined;
 
       if (warnings && warnings.length > 0) {
@@ -137,7 +137,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
     } catch (error: unknown) {
       console.error("Upload error:", error);
       const errorMessage = error != null && typeof error === 'object' && 'response' in error
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
         ? ((error as any).response?.data?.message as string | undefined)
         : undefined;
@@ -177,7 +177,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
     } catch (error: unknown) {
       console.error("Test error:", error);
       const errorMessage = error != null && typeof error === 'object' && 'response' in error
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
         ? ((error as any).response?.data?.message as string | undefined)
         : undefined;
@@ -206,7 +206,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
     } catch (error: unknown) {
       console.error("Delete error:", error);
       const errorMessage = error != null && typeof error === 'object' && 'response' in error
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
         ? ((error as any).response?.data?.message as string | undefined)
         : undefined;
@@ -219,6 +219,10 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
   };
 
   const renderTemplateGrid = (type: 'docx' | 'pdf') => {
+    if (isUnfiled) {
+      return <UnfiledWorkflowNotice />;
+    }
+
     const filteredTemplates = templates.filter(t => t.type === type);
 
     if (filteredTemplates.length === 0 && workflowProjectId != null) {
@@ -235,9 +239,9 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredTemplates.map((template) => (
           <TemplateCard
-            // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
             key={template.id}
-            // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
             template={template}
             workflowId={workflowId}
             workflowVariableAliases={workflowVariableAliases}
@@ -269,7 +273,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
             onUpload={handleUpload}
             isUploading={isUploading}
             trigger={
-              <Button>
+              <Button disabled={isUnfiled} title={isUnfiled ? "Save the workflow to a project first" : undefined}>
                 <Upload className="w-4 h-4 mr-2" />
                 Upload Template
               </Button>
@@ -319,6 +323,8 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
                   size="sm"
                   variant="default"
                   className="bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={isUnfiled}
+                  title={isUnfiled ? "Save the workflow to a project first" : undefined}
                   onClick={() => {
                     setUploadDialogOpen(true);
                   }}
@@ -338,6 +344,8 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
                 size="sm"
                 variant="default"
                 className="bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={isUnfiled}
+                title={isUnfiled ? "Save the workflow to a project first" : undefined}
                 onClick={() => {
                   setUploadDialogOpen(true);
                 }}

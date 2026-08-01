@@ -70,6 +70,7 @@ export function useCreateStep(): UseMutationResult<ApiStep, unknown, Omit<ApiSte
 export function useUpdateStep(): UseMutationResult<ApiStep, unknown, Partial<ApiStep> & { id: string; sectionId: string }> {
     const queryClient = useQueryClient();
     return useMutation({
+        meta: { errorMessage: "Failed to save step. Change has been reverted." },
         mutationFn: ({ id, sectionId: _sectionId, ...data }: Partial<ApiStep> & { id: string; sectionId: string }) =>
             stepAPI.update(id, data),
         onMutate: async (variables) => {
@@ -121,6 +122,7 @@ export function useUpdateStep(): UseMutationResult<ApiStep, unknown, Partial<Api
 export function useReorderSteps(): UseMutationResult<unknown, unknown, { sectionId: string; steps: Array<{ id: string; order: number }> }> {
     const queryClient = useQueryClient();
     return useMutation({
+        meta: { errorMessage: "Failed to reorder questions. The order has been reverted." },
         mutationFn: ({ sectionId, steps }: { sectionId: string; steps: Array<{ id: string; order: number }> }) =>
             stepAPI.reorder(sectionId, steps),
         onMutate: async (variables) => {
@@ -162,6 +164,24 @@ export function useDeleteStep(): UseMutationResult<void, unknown, { id: string; 
         onSuccess: async (_, variables) => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.sectionId) });
             await queryClient.invalidateQueries({ queryKey: ["steps", "workflow"] });
+            DevPanelBus.emitWorkflowUpdate();
+        },
+    });
+}
+
+/**
+ * Duplicate a single step into the same section (ICW2-B5). Invalidates the
+ * section's step list (and the workflow-wide step list) so the copy appears
+ * without a full reload.
+ */
+export function useDuplicateStep(): UseMutationResult<ApiStep, unknown, { id: string; sectionId: string }> {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (variables: { id: string; sectionId: string }) =>
+            stepAPI.duplicate(variables.id),
+        onSuccess: async (step, variables) => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.steps(variables.sectionId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.workflowSteps(step.workflowId) });
             DevPanelBus.emitWorkflowUpdate();
         },
     });

@@ -1,9 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { useState, useEffect } from "react";
 
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import type { ApiStep } from "@/lib/vault-api";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
 
@@ -15,31 +13,27 @@ import { DefaultValueField, DefaultValueType } from "./common/DefaultValueField"
 import { SwitchField, SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
+import type { StepEditorCommonProps } from "./common/stepEditorProps";
 import { NumberCardState, NumberModeSection, NumberValidationSection, NumberPreviewSection } from "./NumberCardEditor.components";
 
-interface NumberCardEditorProps {
-  stepId: string;
-  sectionId: string;
-  workflowId: string;
-  step: ApiStep;
-}
+type NumberEditorConfig = Partial<NumberConfig & CurrencyConfig & NumberAdvancedConfig>;
 
-export function NumberCardEditor({ stepId, sectionId, workflowId, step }: NumberCardEditorProps): JSX.Element {
+export function NumberCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
   const { toast } = useToast();
 
   // Determine mode and type using generic access
-  const configAny = step.config;
-  const isAdvancedMode = step.type === "number" && configAny?.mode !== undefined;
+  const numberConfig = step.config as NumberEditorConfig | null;
+  const isAdvancedMode = step.type === "number" && numberConfig?.mode !== undefined;
   const isCurrency = step.type === "currency";
   const isEasyMode = !isAdvancedMode && !isCurrency;
 
   // Determine initial mode
   const getInitialMode = (): "number" | "currency_whole" | "currency_decimal" => {
     if (isAdvancedMode) {
-      return (configAny as NumberAdvancedConfig).mode;
+      return numberConfig?.mode ?? "number";
     } else if (isCurrency) {
-      const currencyConfig = configAny as CurrencyConfig;
+      const currencyConfig = numberConfig;
       return currencyConfig?.allowDecimal === false ? "currency_whole" : "currency_decimal";
     } else {
       // Regular number type
@@ -49,16 +43,16 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: Number
 
   const [localConfig, setLocalConfig] = useState<NumberCardState>({
     mode: getInitialMode(),
-    min: configAny?.min,
-    max: configAny?.max,
-    step: configAny?.step ?? 1,
-    allowDecimal: configAny?.allowDecimal ?? false,
-    formatOnInput: configAny?.formatOnInput ?? false,
+    min: numberConfig?.min,
+    max: numberConfig?.max,
+    step: numberConfig?.step ?? 1,
+    allowDecimal: numberConfig?.allowDecimal ?? false,
+    formatOnInput: numberConfig?.formatOnInput ?? false,
   });
 
   useEffect(() => {
     // Re-sync local config when step props change
-    const currentConfig = step.config;
+    const currentConfig = step.config as NumberEditorConfig | null;
 
     // Recalculate based on current step
     const currentAdvanced = step.type === "number" && currentConfig?.mode !== undefined;
@@ -66,7 +60,7 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: Number
 
     let nextMode: "number" | "currency_whole" | "currency_decimal" = "number";
     if (currentAdvanced) {
-      nextMode = currentConfig.mode;
+      nextMode = currentConfig?.mode ?? "number";
     } else if (currentCurrency) {
       nextMode = currentConfig?.allowDecimal === false ? "currency_whole" : "currency_decimal";
     }
@@ -219,7 +213,6 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: Number
           <DefaultValueField
             stepId={stepId}
             sectionId={sectionId}
-            workflowId={workflowId}
             defaultValue={step.defaultValue as DefaultValueType}
             type={step.type}
             mode={isEasyMode ? 'easy' : 'advanced'}
@@ -229,7 +222,6 @@ export function NumberCardEditor({ stepId, sectionId, workflowId, step }: Number
             sectionId={sectionId}
             workflowId={workflowId}
             visibleIf={step.visibleIf as ConditionExpression}
-            mode={isAdvancedMode ? 'advanced' : 'easy'}
           />
         </>
       )}

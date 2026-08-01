@@ -8,6 +8,7 @@ import {
   workflowContentIngestService,
   type WorkflowContentData,
 } from '../../server/services/WorkflowContentIngestService';
+import { workflowService } from '../../server/services/WorkflowService';
 import { TestFactory } from '../helpers/testFactory';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
 
@@ -89,7 +90,7 @@ const parityFixture: WorkflowContentData = {
           config: {
             trueLabel: 'Veteran',
             falseLabel: 'Civilian',
-            displayStyle: 'segmented',
+            displayStyle: 'toggle',
           },
           order: 0,
         },
@@ -239,5 +240,80 @@ describe.sequential('WorkflowContentIngestService source parity', () => {
     await expect(readPersistedShape(mutatedWorkflowId)).resolves.not.toEqual(
       await readPersistedShape(baseWorkflowId)
     );
+  });
+
+  it('sanitizes invalid ingest aliases into the canonical format (ICW-4)', async () => {
+    const workflowId = await createWorkflow('Alias sanitize workflow');
+    const fixture = cloneFixture();
+    // Only mutate aliases NOT referenced by the fixture's logic rule
+    // (contactPreference / eligibilityNotes must stay resolvable).
+    const applicantStep = fixture.sections?.[0]?.steps?.[0];
+    const veteranStep = fixture.sections?.[1]?.steps?.[0];
+    if (applicantStep === undefined || veteranStep === undefined) {
+      throw new Error('Expected fixture steps to exist');
+    }
+    applicantStep.alias = 'applicant.name!'; // punctuation stripped
+    veteranStep.alias = '1st-choice'; // leading digit prefixed
+
+    await workflowContentIngestService.apply(workflowId, fixture, { source: 'ai' });
+
+    const stored = await db.select().from(schema.steps).where(eq(schema.steps.workflowId, workflowId));
+    const aliases = stored.map((step) => step.alias);
+    expect(aliases).toContain('applicantname');
+    expect(aliases).toContain('_1stchoice');
+    for (const alias of aliases) {
+      if (alias !== null && alias !== '') {
+        expect(alias).toMatch(/^[a-zA-Z_][a-zA-Z0-9_]*$/);
+      }
+    }
+  });
+
+  it('rolls back metadata and audit log when content sync fails mid-transaction (ICW-3)', async () => {
+    const workflowId = await createWorkflow('Original Title');
+
+    // An invalid logic-rule action passes in-memory validation
+    // (validateWorkflowStructure only checks alias references) but violates
+    // the conditionalActionEnum DURING the logic-rule insert — i.e. after the
+    // workflow-metadata UPDATE and the section/step inserts have executed
+    // inside the same replaceWorkflowContent transaction. This is the
+    // torn-write scenario ICW-3 fixed.
+    const badFixture = cloneFixture({ title: 'Torn Title' });
+    const rule = badFixture.logicRules?.[0];
+    if (rule === undefined) {
+      throw new Error('Expected fixture logic rule to exist');
+    }
+    rule.action = 'not_a_real_action';
+
+    await expect(
+      workflowService.replaceWorkflowContent(workflowId, ctx.userId, badFixture)
+    ).rejects.toThrow();
+
+    const [wf] = await db
+      .select()
+      .from(schema.workflows)
+      .where(eq(schema.workflows.id, workflowId));
+    expect(wf?.title).toBe('Original Title');
+
+    const audits = await db
+      .select()
+      .from(schema.auditLogs)
+      .where(eq(schema.auditLogs.entityId, workflowId));
+    expect(audits.filter((row) => row.action === 'ai_revision_apply')).toHaveLength(0);
+
+    // Happy path through the same method still works end-to-end (metadata +
+    // content + audit all land when nothing fails).
+    await workflowService.replaceWorkflowContent(workflowId, ctx.userId, cloneFixture({ title: 'Replaced Title' }));
+
+    const [wfAfter] = await db
+      .select()
+      .from(schema.workflows)
+      .where(eq(schema.workflows.id, workflowId));
+    expect(wfAfter?.title).toBe('Replaced Title');
+
+    const auditsAfter = await db
+      .select()
+      .from(schema.auditLogs)
+      .where(eq(schema.auditLogs.entityId, workflowId));
+    expect(auditsAfter.filter((row) => row.action === 'ai_revision_apply')).toHaveLength(1);
   });
 });

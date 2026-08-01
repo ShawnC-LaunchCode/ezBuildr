@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import { generateOptionsFromList } from "@/lib/choice-utils";
 import { Step } from "@/types";
 
-import { ChoiceOption, ChoiceAdvancedConfig, DynamicOptionsConfig } from "@shared/types/stepConfigs";
+import { resolveChoiceDisplay } from "@shared/types/stepConfigs";
+
+import type { ChoiceOption, ChoiceAdvancedConfig, ChoiceDisplay, DynamicOptionsConfig } from "@shared/types/stepConfigs";
 
 // Interfaces for Legacy Options
 interface LegacyOption {
@@ -29,9 +31,56 @@ interface UseChoiceOptionsResult {
     options: ChoiceOption[];
     loading: boolean;
     error: string | null;
-    displayMode: "radio" | "dropdown" | "multiple";
+    displayMode: ChoiceDisplay;
     allowMultiple: boolean;
-    isSearchable: boolean;
+}
+
+/** True for strings with at least one non-whitespace character. */
+function isUsableString(value: unknown): value is string {
+    return typeof value === "string" && value.trim().length > 0;
+}
+
+/** First usable (non-empty, non-whitespace) string among the candidates, else `undefined`. */
+function firstUsableString(...candidates: Array<string | undefined>): string | undefined {
+    return candidates.find(isUsableString);
+}
+
+/**
+ * Single choke point for option identity. Radix's SelectItem throws on an
+ * empty `value`, and `id`/`alias` both double as React keys and stored
+ * values, so every option leaving this hook must have a non-empty `id` and
+ * `alias` — regardless of which source (legacy, static, list, table_column)
+ * produced it. Options with neither a usable label nor a usable id/alias
+ * carry nothing to show or store, so they're dropped instead of guessed at.
+ */
+function normalizeChoiceOptions(rawOptions: ChoiceOption[]): ChoiceOption[] {
+    const normalized: ChoiceOption[] = [];
+
+    rawOptions.forEach((opt, idx) => {
+        const fallback = `opt${idx}`;
+        const id = firstUsableString(opt.id, opt.alias);
+        const alias = firstUsableString(opt.alias, opt.id);
+
+        if (!isUsableString(opt.label) && id === undefined && alias === undefined) {
+            return;
+        }
+
+        normalized.push({ ...opt, id: id ?? fallback, alias: alias ?? fallback });
+    });
+
+    return normalized;
+}
+
+/**
+ * Parses `config.options` into a `DynamicOptionsConfig` when it's the
+ * discriminated-union (dynamic) shape, else `undefined` for the plain
+ * `ChoiceOption[]` (static/legacy) shape.
+ */
+function parseDynamicOptionsConfig(config: unknown): DynamicOptionsConfig | undefined {
+    const advancedConfig = config as ChoiceAdvancedConfig | undefined;
+    const configOptions = advancedConfig?.options;
+    const isDynamic = configOptions !== null && typeof configOptions === "object" && "type" in configOptions;
+    return isDynamic ? configOptions : undefined;
 }
 
 export function useChoiceOptions(step: Step, context?: Record<string, unknown>): UseChoiceOptionsResult {
@@ -39,34 +88,37 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    let displayMode: "radio" | "dropdown" | "multiple" = "radio";
-    let allowMultiple = false;
-    let isSearchable = false;
+    // Shared with the builder so a saved question can't render one way in the
+    // editor and another in the run: it also folds the legacy
+    // dropdown + searchable pair into 'combobox'.
+    const displayMode = resolveChoiceDisplay(
+        step.type === "choice" ? (step.config as ChoiceAdvancedConfig | undefined) : undefined,
+        step.type
+    );
+    const allowMultiple = displayMode === "multiple";
 
-    // Get display mode from config
-    if (step.type === "choice") {
-        const config = step.config as ChoiceAdvancedConfig;
-        displayMode = config?.display ?? "radio";
-        allowMultiple = config?.allowMultiple ?? false;
-        isSearchable = config?.searchable ?? false;
-    } else if (step.type === "multiple_choice") {
-        displayMode = "multiple";
-        allowMultiple = true;
-    }
+    // Option resolution only ever reads one thing off `context`: the source
+    // list for a `type: 'list'` dynamic config (table_column/static/legacy
+    // read nothing from it). `listVariableValue` narrows the effect's
+    // dependency to that single value instead of the whole run value map —
+    // see the effect below.
+    const dynamicOptionsConfig = step.type === "choice" ? parseDynamicOptionsConfig(step.config) : undefined;
+    const listVariable = dynamicOptionsConfig?.type === "list" ? dynamicOptionsConfig.listVariable : undefined;
+    const listVariableValue = listVariable !== undefined ? context?.[listVariable] : undefined;
 
     const parseLegacyOptions = (rawOptions: unknown): ChoiceOption[] => {
         if (!Array.isArray(rawOptions)) {
             return [];
         }
 
-        return rawOptions.map((opt: string | LegacyOption, idx: number) => {
+        return rawOptions.map((opt: string | LegacyOption): ChoiceOption => {
             if (typeof opt === "string") {
                 return { id: opt, label: opt, alias: opt };
             }
             return {
-                id: opt.id ?? `opt${idx}`,
-                label: opt.label ?? (opt as unknown as string),
-                alias: opt.alias ?? opt.id ?? opt.label ?? `opt${idx}`,
+                id: opt.id ?? "",
+                label: opt.label ?? "",
+                alias: opt.alias ?? "",
             };
         });
     };
@@ -108,19 +160,14 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
         ctx: Record<string, unknown> | undefined
     ): Promise<ChoiceOption[]> => {
         if (dynamicConfig.type === 'static') {
-            const opts = dynamicConfig.options ?? [];
-            return opts.map(opt => ({ ...opt, alias: opt.alias ?? opt.id }));
+            return dynamicConfig.options ?? [];
         }
 
         if (dynamicConfig.type === 'list') {
-            const { listVariable } = dynamicConfig;
-            // Cast to Record<string, any> to allow safe property access and passing to legacy util
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const ctxAny = ctx as Record<string, any> | undefined;
+            const { listVariable: sourceListVariable } = dynamicConfig;
 
-            if (ctxAny && listVariable && Object.prototype.hasOwnProperty.call(ctxAny, listVariable)) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                return generateOptionsFromList(ctxAny[listVariable], dynamicConfig, ctxAny);
+            if (ctx && sourceListVariable && Object.prototype.hasOwnProperty.call(ctx, sourceListVariable)) {
+                return generateOptionsFromList(ctx[sourceListVariable], dynamicConfig, ctx);
             }
             return [];
         }
@@ -147,17 +194,13 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
         config: unknown,
         ctx: Record<string, unknown> | undefined
     ): Promise<ChoiceOption[]> => {
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-        const advancedConfig = config as ChoiceAdvancedConfig | undefined;
-        const configOptions = advancedConfig?.options;
-        const isDynamic = configOptions !== null && typeof configOptions === 'object' && 'type' in configOptions;
-
-        if (isDynamic) {
-            return resolveDynamicOptions(configOptions, ctx);
-        } else {
-            const opts = (configOptions as ChoiceOption[]) ?? [];
-            return opts.map(opt => ({ ...opt, alias: opt.alias ?? opt.id }));
+        const dynamicConfig = parseDynamicOptionsConfig(config);
+        if (dynamicConfig) {
+            return resolveDynamicOptions(dynamicConfig, ctx);
         }
+
+        const advancedConfig = config as ChoiceAdvancedConfig | undefined;
+        return (advancedConfig?.options as ChoiceOption[] | undefined) ?? [];
     };
 
     useEffect(() => {
@@ -181,7 +224,7 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
                 }
 
                 if (isMounted) {
-                    setOptions(newOptions);
+                    setOptions(normalizeChoiceOptions(newOptions));
                 }
 
             } catch (err) {
@@ -202,16 +245,22 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
         loadOptions();
 
         return () => { isMounted = false; };
-        // We exclude options from dependencies to avoid infinite loops if we return []
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [step, context]);
+        // Deliberately narrower than [step, context]: `context` is the whole
+        // run value map and changes on every keystroke in any field on the
+        // page. Option resolution only ever reads context[listVariable] (for
+        // `type: 'list'`), so depending on the full object would refetch/
+        // rebuild options — including issuing a table_column network request
+        // — on every unrelated keystroke. listVariableValue is that narrowed
+        // read; list-backed options still refresh when it changes. We also
+        // exclude `options` itself to avoid an infinite loop when a resolver
+        // returns [].
+    }, [step, listVariableValue]);
 
     return {
         options,
         loading,
         error,
         displayMode,
-        allowMultiple,
-        isSearchable
+        allowMultiple
     };
 }

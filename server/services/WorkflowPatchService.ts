@@ -1,6 +1,7 @@
 import crypto from "crypto";
 
 import { createLogger } from "../logger";
+import { db } from "../db";
 import {
   sectionRepository,
   stepRepository as defaultStepRepository,
@@ -11,7 +12,7 @@ import {
   projectRepository,
   datavaultWritebackMappingsRepository,
 } from "../repositories";
-import { type WorkflowPatchOp, workflowPatchOpSchema } from "../schemas/aiWorkflowEdit.schema";
+import { type WorkflowPatchOp, workflowPatchOpSchema } from "@shared/validation/aiWorkflowEdit.schema";
 
 import { DatavaultColumnsService } from "./DatavaultColumnsService";
 import { DatavaultTablesService } from "./DatavaultTablesService";
@@ -220,7 +221,13 @@ export class WorkflowPatchService {
         const sectionId = this.resolve(op.id ?? op.tempId);
         if (!sectionId) { throw new Error("Section ID or tempId required"); }
         await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section');
-        await sectionRepository.delete(sectionId);
+        // Soft-delete (ICW2-B1/ICW2-B11): preserves respondent step_values.
+        // Cascade to the section's own steps, mirroring the manual delete
+        // path in SectionService.deleteSection.
+        await db.transaction(async (tx) => {
+          await this.stepRepository.softDeleteBySectionId(sectionId, tx);
+          await sectionRepository.softDelete(sectionId, tx);
+        });
         return `Deleted section`;
       }
       case "section.reorder": {
@@ -234,12 +241,30 @@ export class WorkflowPatchService {
         }
         return `Reordered ${op.sectionIds.length} sections`;
       }
+      case "section.setVisibleIf": {
+        const sectionId = this.resolve(op.id ?? op.tempId);
+        if (!sectionId) { throw new Error("Section ID or tempId required"); }
+        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section');
+        await sectionRepository.update(sectionId, {
+          visibleIf: op.visibleIf,
+        });
+        return op.visibleIf === null
+          ? `Cleared section visibility condition`
+          : `Updated section visibility condition`;
+      }
       // ====================================================================
       // Step Operations
       // ====================================================================
       case "step.create": {
         const sectionId = this.resolve(op.sectionId ?? op.sectionRef);
         if (!sectionId) { throw new Error("Section ID or sectionRef required"); }
+        // IDOR guard (parity with step.move/update/delete): the target section
+        // must belong to this workflow. Without this a caller with edit access
+        // to their own workflow could inject a step into another workflow's —
+        // even another tenant's — section by passing its UUID. A tempId from a
+        // same-batch section.create resolves to a section created in *this*
+        // workflow, so the assertion still passes for the legitimate path.
+        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section');
         // Get max order for this section if not specified
         const order = op.order ?? await this.getNextStepOrder(sectionId);
         const step = await this.stepRepository.create({
@@ -250,6 +275,9 @@ export class WorkflowPatchService {
           alias: op.alias,
           required: op.required ?? false,
           order,
+          // Without this, choice steps land with no options and date/number
+          // steps with no validation — the ICW2-2 defect, at the ops seam.
+          config: op.config,
           defaultValue: op.defaultValue,
         });
         if (op.tempId) {
@@ -268,6 +296,7 @@ export class WorkflowPatchService {
           title: op.title,
           alias: op.alias,
           required: op.required,
+          config: op.config,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ConditionExpression validated by Zod schema
           visibleIf: op.visibleIf as any,
           defaultValue: op.defaultValue,
@@ -279,7 +308,8 @@ export class WorkflowPatchService {
         const stepId = this.resolve(op.id || op.tempId);
         if (!stepId) { throw new Error("Step ID or tempId required"); }
         await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step');
-        await this.stepRepository.delete(stepId);
+        // Soft-delete (ICW2-B1/ICW2-B11): preserves respondent step_values.
+        await this.stepRepository.softDelete(stepId);
         return `Deleted step`;
       }
       case "step.move": {
@@ -306,7 +336,22 @@ export class WorkflowPatchService {
         await this.stepRepository.update(stepId, {
           visibleIf: op.visibleIf,
         });
-        return `Updated step visibility condition`;
+        return op.visibleIf === null
+          ? `Cleared step visibility condition`
+          : `Updated step visibility condition`;
+      }
+      case "step.reorder": {
+        const sectionId = this.resolve(op.sectionId);
+        if (!sectionId) { throw new Error("Section ID required"); }
+        await this.assertEntityBelongsToWorkflow(sectionId, workflowId, 'section');
+        for (let i = 0; i < op.stepIds.length; i++) {
+          const stepId = this.resolve(op.stepIds[i]);
+          if (stepId) {
+            await this.assertEntityBelongsToWorkflow(stepId, workflowId, 'step');
+            await this.stepRepository.update(stepId, { sectionId, order: i + 1 });
+          }
+        }
+        return `Reordered ${op.stepIds.length} steps`;
       }
       case "step.setRequired": {
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
@@ -486,19 +531,25 @@ export class WorkflowPatchService {
       // ====================================================================
       case "datavault.createTable": {
         const { tenantId } = await this.getTenantContext(workflowId);
-        // Verify database exists if provided
-        if (op.databaseId) {
+        // Normalize to null so an empty-string databaseId can't (a) slip past
+        // the ownership check below via a falsy guard, nor (b) be persisted as a
+        // bogus "" reference (`"" ?? null` keeps the empty string).
+        const databaseId = typeof op.databaseId === 'string' && op.databaseId.trim() !== ''
+          ? op.databaseId
+          : null;
+        // Verify database exists and belongs to this tenant if provided
+        if (databaseId) {
           const { datavaultDatabasesRepository } = await import('../repositories');
-          const dbObj = await datavaultDatabasesRepository.findById(op.databaseId);
+          const dbObj = await datavaultDatabasesRepository.findById(databaseId);
           if (!dbObj || dbObj.tenantId !== tenantId) {
-              throw new Error(`Database ${op.databaseId} not found or does not belong to your tenant`);
+              throw new Error(`Database ${databaseId} not found or does not belong to your tenant`);
           }
         }
         // Create table with auto-generated slug
         const table = await this.datavaultTablesService.createTable({
           tenantId,
           ownerUserId: userId,
-          databaseId: op.databaseId ?? null,
+          databaseId,
           name: op.name,
           slug: this.generateSlug(op.name),
           description: null,
@@ -665,7 +716,14 @@ export class WorkflowPatchService {
       'is_true', 'is_false', 'between',
     ];
     for (const rawOperator of operators) {
-      const operatorIndex = condition.indexOf(` ${rawOperator} `);
+      // Valueless operators ("has_pet is_true") end the string, so match a
+      // trailing operator as well as an infix one — otherwise is_true/is_false/
+      // is_empty/is_not_empty are unparseable and the model cannot express
+      // boolean or emptiness rules at all.
+      let operatorIndex = condition.indexOf(` ${rawOperator} `);
+      if (operatorIndex === -1 && condition.endsWith(` ${rawOperator}`)) {
+        operatorIndex = condition.length - rawOperator.length - 1;
+      }
       if (operatorIndex === -1) { continue; }
       const left = condition.substring(0, operatorIndex).trim();
       const right = condition.substring(operatorIndex + rawOperator.length + 2).trim();

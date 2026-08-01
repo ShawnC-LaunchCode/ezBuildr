@@ -9,7 +9,79 @@
  * This allows rules to reference steps by either alias or key, with everything normalized to keys.
  */
 
-import type { LogicRule, Section, Step } from './schema';
+import { evaluateConditionExpression } from './conditionEvaluator';
+import type { ConditionExpression } from './types/conditions';
+import { isRunnerRequirableStepType } from './types/runnerStepTypes';
+import type { LogicRule } from './schema';
+
+export type EvaluableLogicRule = Pick<
+  LogicRule,
+  'conditionStepId' | 'operator' | 'conditionValue' | 'targetType' |
+  'targetStepId' | 'targetSectionId' | 'action' | 'order'
+>;
+
+interface VisibilitySectionDefinition {
+  id: string;
+  visibleIf?: unknown;
+}
+
+interface VisibilityStepDefinition {
+  id: string;
+  sectionId: string;
+  required?: boolean | null;
+  visibleIf?: unknown;
+  /**
+   * Step type, used to exclude runner-unsupported/unknown types from
+   * `requiredSteps` (RUN2-3). Optional only because some historical callers
+   * may not supply it; a missing type is treated as requirable rather than
+   * silently dropped (see `evaluateWorkflowVisibility`).
+   */
+  type?: string;
+}
+
+export interface WorkflowVisibilityResult {
+  visibleSections: Set<string>;
+  visibleSteps: Set<string>;
+  requiredSteps: Set<string>;
+  ruleEvaluation: WorkflowEvaluationResult;
+}
+
+/**
+ * Minimal section/step shape `LogicContext` needs. Both a live DB row
+ * (`Section`/`Step` from `./schema`) and a run's pinned-definition snapshot
+ * (`RunSection`/`RunStep` in
+ * `server/services/workflow-runs/RunDefinitionProvider.ts`, RVP-1) satisfy
+ * this -- `LogicContext` must accept either source. RVP-2 made
+ * `LogicService` resolve through the run-definition provider (pinned graph
+ * when a run has a version, live tables otherwise) instead of always
+ * reading the live tables directly, so this can no longer be pinned to the
+ * exact DB-inferred `Section`/`Step` types.
+ */
+export interface LogicContextSection {
+  id: string;
+  workflowId: string;
+  title: string;
+  description: string | null;
+  order: number;
+  visibleIf?: unknown;
+  skipIf?: unknown;
+  config?: unknown;
+}
+
+export interface LogicContextStep {
+  id: string;
+  workflowId: string;
+  sectionId: string;
+  type: string;
+  title: string;
+  description: string | null;
+  required: boolean | null;
+  alias: string | null;
+  visibleIf?: unknown;
+  order: number;
+  isVirtual: boolean;
+  updatedAt: Date | null;
+}
 
 /**
  * Context containing pre-loaded workflow definition and current data state
@@ -17,15 +89,15 @@ import type { LogicRule, Section, Step } from './schema';
  */
 export interface LogicContext {
   workflowId: string;
-  sections: Section[];
-  steps: Step[];
+  sections: LogicContextSection[];
+  steps: LogicContextStep[];
   rules: LogicRule[];
   data: Record<string, unknown>;
-  
+
   // Pre-computed indexes for O(1) lookups
   sectionHideRulesMap: Map<string, LogicRule[]>;
   stepHideRulesMap: Map<string, LogicRule[]>;
-  
+
   // Helper for visibleIf expressions
   aliasResolver: (name: string) => string | undefined;
 }
@@ -65,7 +137,7 @@ export interface WorkflowEvaluationResult {
  * @returns Evaluation result with visible sections, steps, and requirements
  */
 export function evaluateRules(
-  rules: LogicRule[],
+  rules: EvaluableLogicRule[],
   data: Record<string, unknown>
 ): WorkflowEvaluationResult {
   const result: WorkflowEvaluationResult = {
@@ -80,8 +152,11 @@ export function evaluateRules(
   const sectionRules = rules.filter(r => r.targetType === 'section');
   const stepRules = rules.filter(r => r.targetType === 'step');
 
-  // Evaluate section-level rules
-  sectionRules.forEach(rule => {
+  // Evaluate section-level rules in ascending rule.order so that, when
+  // multiple skip_to rules fire, the outcome is deterministic (first firing
+  // rule wins) rather than depending on incoming array order.
+  const orderedSectionRules = [...sectionRules].sort((a, b) => a.order - b.order);
+  orderedSectionRules.forEach(rule => {
     const conditionMet = evaluateCondition(rule, data);
 
     if (conditionMet) {
@@ -98,8 +173,10 @@ export function evaluateRules(
           result.hiddenSections.add(targetId);
           break;
         case 'skip_to':
-          // Set the skip target - this takes precedence over normal flow
-          result.skipToSectionId = targetId;
+          // First firing skip_to rule (lowest order) wins; later ones are ignored.
+          if (result.skipToSectionId === undefined) {
+            result.skipToSectionId = targetId;
+          }
           break;
       }
     }
@@ -137,9 +214,97 @@ export function evaluateRules(
 }
 
 /**
+ * Canonical visibility/requiredness calculation shared by runner rendering,
+ * navigation, and completion validation. Targets controlled by a `show` rule
+ * are hidden until at least one matching show rule explicitly reveals them.
+ * Invalid visibleIf expressions fail closed.
+ */
+export function evaluateWorkflowVisibility(options: {
+  sections: VisibilitySectionDefinition[];
+  steps: VisibilityStepDefinition[];
+  rules: EvaluableLogicRule[];
+  data: Record<string, unknown>;
+  resolveAlias: (name: string) => string | undefined;
+}): WorkflowVisibilityResult {
+  const { sections, steps, rules, data, resolveAlias } = options;
+  const ruleEvaluation = evaluateRules(rules, data);
+  const sectionShowTargets = new Set(
+    rules.filter((rule) => rule.targetType === 'section' && rule.action === 'show')
+      .map((rule) => rule.targetSectionId)
+      .filter((id): id is string => Boolean(id))
+  );
+  const stepShowTargets = new Set(
+    rules.filter((rule) => rule.targetType === 'step' && rule.action === 'show')
+      .map((rule) => rule.targetStepId)
+      .filter((id): id is string => Boolean(id))
+  );
+
+  const expressionVisible = (expression: unknown): boolean => {
+    if (expression == null) {return true;}
+    try {
+      return evaluateConditionExpression(expression as ConditionExpression, data, resolveAlias);
+    } catch {
+      return false;
+    }
+  };
+
+  const visibleSections = new Set(
+    sections
+      .filter((section) => expressionVisible(section.visibleIf))
+      .filter((section) => sectionShowTargets.has(section.id)
+        ? ruleEvaluation.visibleSections.has(section.id)
+        : !ruleEvaluation.hiddenSections.has(section.id))
+      .map((section) => section.id)
+  );
+
+  const visibleSteps = new Set(
+    steps
+      .filter((step) => visibleSections.has(step.sectionId))
+      .filter((step) => expressionVisible(step.visibleIf))
+      .filter((step) => stepShowTargets.has(step.id)
+        ? ruleEvaluation.visibleSteps.has(step.id)
+        : !ruleEvaluation.hiddenSteps.has(step.id))
+      .map((step) => step.id)
+  );
+
+  const initiallyRequired = new Set(
+    steps.filter((step) => step.required === true).map((step) => step.id)
+  );
+  const effectiveRequired = getEffectiveRequiredSteps(initiallyRequired, rules, data);
+
+  // A step whose type the runner cannot render (unsupported/unknown — e.g.
+  // file_upload, loop_group, repeater — see RUN2-3) can never be satisfied
+  // by a respondent, whether it is required by its own `required: true` or
+  // by a rule's `require` action. Excluding it here — the one place
+  // navigation, section-submit, and completion all derive `requiredSteps`
+  // from — fixes all three at once. A step with no `type` supplied is
+  // treated as requirable rather than silently dropped.
+  const stepTypeById = new Map(steps.map((step) => [step.id, step.type]));
+  const requiredSteps = new Set(
+    Array.from(effectiveRequired).filter((stepId) => {
+      if (!visibleSteps.has(stepId)) {
+        return false;
+      }
+      const type = stepTypeById.get(stepId);
+      return type === undefined || isRunnerRequirableStepType(type);
+    })
+  );
+
+  return { visibleSections, visibleSteps, requiredSteps, ruleEvaluation };
+}
+
+/**
  * Evaluates a single condition
  */
-function evaluateCondition(rule: LogicRule, data: Record<string, unknown>): boolean {
+function evaluateCondition(rule: EvaluableLogicRule, data: Record<string, unknown>): boolean {
+  // RUN2-11: a rule whose condition step could not be resolved (empty/missing
+  // conditionStepId) must have no effect - fail safe for every operator,
+  // including is_empty/is_not_empty, which would otherwise treat the
+  // resulting `undefined` lookup as "empty" and fire unconditionally.
+  if (!rule.conditionStepId) {
+    return false;
+  }
+
   const actualValue = data[rule.conditionStepId];
   const expectedValue = rule.conditionValue;
 
@@ -188,9 +353,15 @@ function evaluateCondition(rule: LogicRule, data: Record<string, unknown>): bool
  * Checks if two values are equal
  */
 function isEqual(actual: unknown, expected: unknown): boolean {
-  // Handle arrays
+  // Handle arrays. Sort copies, never the caller-owned arrays: `actual` is the
+  // live value from the run's data map (the same array `formValues` state
+  // holds on the client) and `expected` is `rule.conditionValue` (shared
+  // across the whole evaluation pass), so sorting in place would silently
+  // reorder saved respondent data (RUN2-5).
   if (Array.isArray(actual) && Array.isArray(expected)) {
-    return JSON.stringify(actual.sort()) === JSON.stringify(expected.sort());
+    const actualArr = actual as unknown[];
+    const expectedArr = expected as unknown[];
+    return JSON.stringify([...actualArr].sort()) === JSON.stringify([...expectedArr].sort());
   }
 
   // Handle strings (case-insensitive)
@@ -328,20 +499,28 @@ export function calculateNextSection(
 /**
  * Resolves the actual next section considering skip logic
  *
+ * A skip target that is not strictly after the current section (i.e. its
+ * `order` is <= the current section's `order`) is treated as a no-op and
+ * navigation falls through to normal flow. Without this guard, a `skip_to`
+ * rule whose condition remains true would trap the run in an infinite
+ * navigation loop (see RUN2-2).
+ *
+ * @param currentSectionId - Current section ID (null if at start)
  * @param nextSectionId - Normal next section
- * @param skipToSectionId - Skip target section (takes precedence)
+ * @param skipToSectionId - Skip target section (takes precedence when forward)
  * @param sections - Array of sections ordered by their 'order' field
  * @param visibleSections - Set of visible section IDs
  * @returns Resolved next section ID or null if completed
  */
 export function resolveNextSection(
+  currentSectionId: string | null,
   nextSectionId: string | null,
   skipToSectionId: string | undefined,
   sections: Array<{ id: string; order: number }>,
   visibleSections: Set<string>
 ): string | null {
-  // Skip logic takes precedence
-  if (skipToSectionId) {
+  // Skip logic takes precedence, but only when it moves the run forward.
+  if (skipToSectionId && isForwardSkipTarget(currentSectionId, skipToSectionId, sections)) {
     // If skip target is visible, use it
     if (visibleSections.has(skipToSectionId)) {
       return skipToSectionId;
@@ -351,8 +530,34 @@ export function resolveNextSection(
     return calculateNextSection(skipToSectionId, sections, visibleSections);
   }
 
-  // Use normal next section if no skip
+  // Use normal next section if no skip, or if the skip target is backwards/same (no-op)
   return nextSectionId;
+}
+
+/**
+ * Determines whether a skip target's `order` is strictly after the current
+ * section's `order`. A skip target whose section can't be resolved against
+ * the known sections is left to the existing "not found" handling in
+ * `calculateNextSection` rather than being pre-filtered here.
+ */
+function isForwardSkipTarget(
+  currentSectionId: string | null,
+  skipToSectionId: string,
+  sections: Array<{ id: string; order: number }>
+): boolean {
+  if (currentSectionId === null) {
+    // No current section yet (start of run) - any skip target is forward.
+    return true;
+  }
+
+  const currentOrder = sections.find(s => s.id === currentSectionId)?.order;
+  const skipTargetOrder = sections.find(s => s.id === skipToSectionId)?.order;
+
+  if (currentOrder === undefined || skipTargetOrder === undefined) {
+    return true;
+  }
+
+  return skipTargetOrder > currentOrder;
 }
 
 /**
@@ -391,7 +596,7 @@ export function validateRequiredSteps(
  */
 export function getEffectiveRequiredSteps(
   initialRequiredSteps: Set<string>,
-  rules: LogicRule[],
+  rules: EvaluableLogicRule[],
   data: Record<string, unknown>
 ): Set<string> {
   const result = new Set(initialRequiredSteps);

@@ -1,27 +1,66 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
+
 import { describe, it, expect, beforeEach, vi, type Mocked } from "vitest";
 
 import { StepService, generateAliasFromLabel } from "../../../server/services/StepService";
-import { stepRepository, sectionRepository } from "../../../server/repositories";
+import {
+  stepRepository,
+  sectionRepository,
+  stepValueRepository,
+  transformBlockRepository,
+  documentHookRepository,
+  lifecycleHookRepository,
+} from "../../../server/repositories";
 import { createTestStep, createTestSection, createTestWorkflow } from "../../factories/workflowFactory";
 import { workflowService } from "../../../server/services/WorkflowService";
 
+import { LIMITS } from "@shared/limits";
+
 import type { InsertStep, Step } from "@shared/schema";
 
+// duplicateStep wraps its writes in db.transaction; the fake just invokes
+// the callback with a stub tx (the mocked repo below ignores it).
+vi.mock("../../../server/db", () => ({
+  db: {
+    transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({})),
+  },
+}));
 // Mock the repositories and services
 vi.mock("../../../server/repositories", () => ({
   stepRepository: {
     findById: vi.fn(),
+    findByIdIncludingDeleted: vi.fn(),
     findBySectionId: vi.fn(),
     findBySectionIds: vi.fn(),
+    countByWorkflowId: vi.fn(),
+    updateOrder: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    softDelete: vi.fn(),
+    restore: vi.fn(),
   },
   sectionRepository: {
     findById: vi.fn(),
     findByIdAndWorkflow: vi.fn(),
     findByWorkflowId: vi.fn(),
+  },
+  stepValueRepository: {
+    countImpactForSteps: vi.fn(),
+  },
+  // Exercised for real (not stubbed at the AliasRenameService boundary) by
+  // the "follow-the-label" alias-regenerate test below, since propagateRename
+  // now runs atomically and un-mocked repos would reject instead of no-op.
+  transformBlockRepository: {
+    findByWorkflowId: vi.fn(),
+    update: vi.fn(),
+  },
+  documentHookRepository: {
+    findByWorkflowId: vi.fn(),
+    update: vi.fn(),
+  },
+  lifecycleHookRepository: {
+    findByWorkflowId: vi.fn(),
+    update: vi.fn(),
   },
 }));
 vi.mock("../../../server/services/WorkflowService", () => ({
@@ -35,6 +74,10 @@ describe("StepService", () => {
   let mockStepRepo: Mocked<typeof stepRepository>;
   let mockSectionRepo: Mocked<typeof sectionRepository>;
   let mockWorkflowSvc: Mocked<typeof workflowService>;
+  let mockStepValueRepo: Mocked<typeof stepValueRepository>;
+  let mockTransformRepo: Mocked<typeof transformBlockRepository>;
+  let mockDocHookRepo: Mocked<typeof documentHookRepository>;
+  let mockLifecycleRepo: Mocked<typeof lifecycleHookRepository>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -42,17 +85,31 @@ describe("StepService", () => {
     mockStepRepo = stepRepository as Mocked<typeof stepRepository>;
     mockSectionRepo = sectionRepository as Mocked<typeof sectionRepository>;
     mockWorkflowSvc = workflowService as Mocked<typeof workflowService>;
+    mockStepValueRepo = stepValueRepository as Mocked<typeof stepValueRepository>;
+    mockTransformRepo = transformBlockRepository as Mocked<typeof transformBlockRepository>;
+    mockDocHookRepo = documentHookRepository as Mocked<typeof documentHookRepository>;
+    mockLifecycleRepo = lifecycleHookRepository as Mocked<typeof lifecycleHookRepository>;
 
     // Setup default mock implementations
     mockStepRepo.findById.mockResolvedValue(undefined);
     mockStepRepo.findBySectionId.mockResolvedValue([]);
     mockStepRepo.findBySectionIds.mockResolvedValue([]);
+    mockStepRepo.countByWorkflowId.mockResolvedValue(0);
 
     mockSectionRepo.findById.mockResolvedValue(undefined);
     mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(undefined);
     mockSectionRepo.findByWorkflowId.mockResolvedValue([]);
 
-    service = new StepService(mockStepRepo, mockSectionRepo, mockWorkflowSvc);
+    mockStepValueRepo.countImpactForSteps.mockResolvedValue({ answerCount: 0, runCount: 0 });
+
+    // propagateRename (atomic since DEBT-16) runs for real whenever a test
+    // triggers an alias change — these default to a no-op so it doesn't
+    // reject on an un-mocked repository.
+    mockTransformRepo.findByWorkflowId.mockResolvedValue([]);
+    mockDocHookRepo.findByWorkflowId.mockResolvedValue([]);
+    mockLifecycleRepo.findByWorkflowId.mockResolvedValue([]);
+
+    service = new StepService(mockStepRepo, mockSectionRepo, mockWorkflowSvc, mockStepValueRepo);
   });
 
   describe("createStep", () => {
@@ -112,6 +169,46 @@ describe("StepService", () => {
       const result = await service.createStep(workflow.id, section.id, "user-123", newStepData);
 
       expect(result.order).toBe(1);
+    });
+
+    it("should reject creation once the workflow question limit is reached (ICW-11)", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
+      mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(section);
+      mockStepRepo.countByWorkflowId.mockResolvedValue(LIMITS.MAX_STEPS_PER_WORKFLOW);
+
+      await expect(
+        service.createStep(workflow.id, section.id, "user-123", {
+          type: "short_text",
+          title: "One too many",
+          required: false,
+          config: {},
+        })
+      ).rejects.toThrow(/Question limit reached/);
+      expect(mockStepRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("should allow creation just below the workflow question limit (ICW-11)", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+      const createdStep = createTestStep(section.id, { order: 1 });
+
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
+      mockSectionRepo.findByIdAndWorkflow.mockResolvedValue(section);
+      mockStepRepo.countByWorkflowId.mockResolvedValue(LIMITS.MAX_STEPS_PER_WORKFLOW - 1);
+      mockStepRepo.findBySectionId.mockResolvedValue([]);
+      mockStepRepo.create.mockResolvedValue(createdStep as unknown as Step);
+
+      await expect(
+        service.createStep(workflow.id, section.id, "user-123", {
+          type: "short_text",
+          title: "Last one in",
+          required: false,
+          config: {},
+        })
+      ).resolves.toBeDefined();
     });
 
     it("should validate alias uniqueness before creating", async () => {
@@ -251,7 +348,7 @@ describe("StepService", () => {
         service.createStep(workflow.id, section.id, "other-user", newStepData)
       ).rejects.toThrow("Access denied");
 
-      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "other-user");
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "other-user", "edit");
     });
   });
 
@@ -280,7 +377,8 @@ describe("StepService", () => {
       // The step had no custom alias, so the label change also fills the alias
       expect(mockStepRepo.update).toHaveBeenCalledWith(
         step.id,
-        expect.objectContaining({ title: "Updated Title", alias: "updatedTitle" })
+        expect.objectContaining({ title: "Updated Title", alias: "updatedTitle" }),
+        expect.anything()
       );
     });
 
@@ -348,7 +446,7 @@ describe("StepService", () => {
   });
 
   describe("deleteStep", () => {
-    it("should delete step successfully", async () => {
+    it("should soft-delete step successfully (ICW2-B1)", async () => {
       const workflow = createTestWorkflow();
       const section = createTestSection(workflow.id);
       const step = createTestStep(section.id);
@@ -356,12 +454,12 @@ describe("StepService", () => {
       mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
       mockStepRepo.findById.mockResolvedValue(step as unknown as Step);
       mockSectionRepo.findById.mockResolvedValue(section);
-      mockStepRepo.delete.mockResolvedValue(undefined);
-      mockStepRepo.delete.mockResolvedValue(undefined);
+      mockStepRepo.softDelete.mockResolvedValue({ ...step, deletedAt: new Date() } as unknown as Step);
 
       await service.deleteStep(step.id, workflow.id, "user-123");
 
-      expect(mockStepRepo.delete).toHaveBeenCalledWith(step.id);
+      expect(mockStepRepo.softDelete).toHaveBeenCalledWith(step.id);
+      expect(mockStepRepo.delete).not.toHaveBeenCalled();
     });
 
     it("should throw error if step not found", async () => {
@@ -386,6 +484,125 @@ describe("StepService", () => {
       await expect(
         service.deleteStep(step.id, workflow.id, "user-123")
       ).rejects.toThrow("Step not found in this workflow");
+    });
+  });
+
+  describe("restoreStep (ICW2-B1)", () => {
+    it("restores a soft-deleted step under edit access", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+      const step = createTestStep(section.id, { workflowId: workflow.id, deletedAt: new Date() });
+
+      mockStepRepo.findByIdIncludingDeleted.mockResolvedValue(step as unknown as Step);
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
+      mockStepRepo.restore.mockResolvedValue({ ...step, deletedAt: null } as unknown as Step);
+
+      const restored = await service.restoreStep(step.id, "user-123");
+
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
+      expect(mockStepRepo.restore).toHaveBeenCalledWith(step.id);
+      expect(restored.deletedAt).toBeNull();
+    });
+
+    it("throws if the step does not exist at all", async () => {
+      mockStepRepo.findByIdIncludingDeleted.mockResolvedValue(undefined);
+
+      await expect(service.restoreStep("nonexistent", "user-123")).rejects.toThrow("Step not found");
+    });
+  });
+
+  describe("getStepDeleteImpact (ICW2-13)", () => {
+    it("should return the answer/run counts for the step from stepValueRepo", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+      const step = createTestStep(section.id);
+
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
+      mockStepRepo.findById.mockResolvedValue(step as unknown as Step);
+      mockSectionRepo.findById.mockResolvedValue(section);
+      mockStepValueRepo.countImpactForSteps.mockResolvedValue({ answerCount: 5, runCount: 3 });
+
+      const result = await service.getStepDeleteImpact(step.id, workflow.id, "user-123");
+
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
+      expect(mockStepValueRepo.countImpactForSteps).toHaveBeenCalledWith([step.id]);
+      expect(result).toEqual({ answerCount: 5, runCount: 3 });
+    });
+
+    it("should return zero counts for a step with no stored answers", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+      const step = createTestStep(section.id);
+
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
+      mockStepRepo.findById.mockResolvedValue(step as unknown as Step);
+      mockSectionRepo.findById.mockResolvedValue(section);
+      mockStepValueRepo.countImpactForSteps.mockResolvedValue({ answerCount: 0, runCount: 0 });
+
+      const result = await service.getStepDeleteImpact(step.id, workflow.id, "user-123");
+
+      expect(result).toEqual({ answerCount: 0, runCount: 0 });
+    });
+
+    it("should throw if the step is not found", async () => {
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
+      mockStepRepo.findById.mockResolvedValue(undefined);
+
+      await expect(
+        service.getStepDeleteImpact("nonexistent", "workflow-123", "user-123")
+      ).rejects.toThrow("Step not found");
+      expect(mockStepValueRepo.countImpactForSteps).not.toHaveBeenCalled();
+    });
+
+    it("should throw if the step does not belong to the workflow", async () => {
+      const workflow = createTestWorkflow();
+      const otherWorkflow = createTestWorkflow();
+      const section = createTestSection(otherWorkflow.id);
+      const step = createTestStep(section.id);
+
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
+      mockStepRepo.findById.mockResolvedValue(step);
+      mockSectionRepo.findById.mockResolvedValue(section);
+
+      await expect(
+        service.getStepDeleteImpact(step.id, workflow.id, "user-123")
+      ).rejects.toThrow("Step not found in this workflow");
+      expect(mockStepValueRepo.countImpactForSteps).not.toHaveBeenCalled();
+    });
+
+    it("should propagate access-denied errors without leaking counts", async () => {
+      mockWorkflowSvc.verifyAccess.mockRejectedValue(new Error("Access denied - insufficient permissions for this workflow"));
+
+      await expect(
+        service.getStepDeleteImpact("step-1", "workflow-1", "user-123")
+      ).rejects.toThrow("Access denied");
+      expect(mockStepValueRepo.countImpactForSteps).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("getStepDeleteImpactById (ICW2-13)", () => {
+    it("should look up the workflow from the step and delegate to getStepDeleteImpact", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+      const step = createTestStep(section.id);
+
+      mockStepRepo.findById.mockResolvedValue(step as unknown as Step);
+      mockSectionRepo.findById.mockResolvedValue(section);
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(workflow);
+      mockStepValueRepo.countImpactForSteps.mockResolvedValue({ answerCount: 2, runCount: 1 });
+
+      const result = await service.getStepDeleteImpactById(step.id, "user-123");
+
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(section.workflowId, "user-123", "edit");
+      expect(result).toEqual({ answerCount: 2, runCount: 1 });
+    });
+
+    it("should throw when the step does not exist", async () => {
+      mockStepRepo.findById.mockResolvedValue(undefined);
+
+      await expect(
+        service.getStepDeleteImpactById("nonexistent", "user-123")
+      ).rejects.toThrow("Step not found");
     });
   });
 
@@ -431,7 +648,8 @@ describe("StepService", () => {
 
       expect(mockStepRepo.update).toHaveBeenCalledWith(
         step.id,
-        expect.objectContaining({ alias: "whatIsYourEmail" })
+        expect.objectContaining({ alias: "whatIsYourEmail" }),
+        expect.anything()
       );
     });
 
@@ -447,7 +665,8 @@ describe("StepService", () => {
 
       expect(mockStepRepo.update).toHaveBeenCalledWith(
         step.id,
-        expect.objectContaining({ alias: "companyName" })
+        expect.objectContaining({ alias: "companyName" }),
+        expect.anything()
       );
     });
 
@@ -466,6 +685,159 @@ describe("StepService", () => {
 
       const updatePayload = mockStepRepo.update.mock.calls[0][1];
       expect(updatePayload).not.toHaveProperty("alias");
+    });
+  });
+
+  describe("updateStep cross-section move", () => {
+    function setupMove(step: Step, srcSection: ReturnType<typeof createTestSection>, destSection: ReturnType<typeof createTestSection>): void {
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(createTestWorkflow());
+      mockStepRepo.findById.mockResolvedValue(step);
+      mockSectionRepo.findById.mockImplementation(async (id) => id === srcSection.id ? srcSection : (id === destSection.id ? destSection : undefined) as unknown as ReturnType<typeof createTestSection>);
+      mockStepRepo.update.mockImplementation(async (_id, data) => ({ ...step, ...data }) as Step);
+    }
+
+    it("should append to the end of the destination section if order is not provided", async () => {
+      const workflow = createTestWorkflow();
+      const srcSection = createTestSection(workflow.id);
+      const destSection = createTestSection(workflow.id);
+      
+      const step = createTestStep(srcSection.id, { order: 2 }) as unknown as Step;
+      setupMove(step, srcSection, destSection);
+
+      // Destination has 2 steps currently
+      mockStepRepo.findBySectionId.mockResolvedValue([
+        createTestStep(destSection.id, { order: 1 }) as unknown as Step,
+        createTestStep(destSection.id, { order: 2 }) as unknown as Step,
+      ]);
+
+      await service.updateStep(step.id, workflow.id, "user-123", { sectionId: destSection.id });
+
+      expect(mockStepRepo.update).toHaveBeenCalledWith(
+        step.id,
+        expect.objectContaining({ sectionId: destSection.id, order: 3 }),
+        expect.anything()
+      );
+    });
+
+    it("should respect explicit order if provided during cross-section move", async () => {
+      const workflow = createTestWorkflow();
+      const srcSection = createTestSection(workflow.id);
+      const destSection = createTestSection(workflow.id);
+      
+      const step = createTestStep(srcSection.id, { order: 2 }) as unknown as Step;
+      setupMove(step, srcSection, destSection);
+
+      await service.updateStep(step.id, workflow.id, "user-123", { sectionId: destSection.id, order: 5 });
+
+      expect(mockStepRepo.update).toHaveBeenCalledWith(
+        step.id,
+        expect.objectContaining({ sectionId: destSection.id, order: 5 }),
+        expect.anything()
+      );
+    });
+  });
+
+  describe("duplicateStep (ICW2-B5)", () => {
+    it("copies the step into the same section with a fresh alias, positioned after the source", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+      const step = createTestStep(section.id, { order: 1, alias: "clientName", workflowId: workflow.id });
+      const laterSibling = createTestStep(section.id, { order: 2, alias: "otherField", workflowId: workflow.id });
+
+      mockStepRepo.findById.mockResolvedValue(step);
+      mockSectionRepo.findById.mockResolvedValue(section);
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(workflow);
+      mockStepRepo.countByWorkflowId.mockResolvedValue(2);
+      // getWorkflowAliases: every alias currently in the workflow (for uniqueness).
+      mockSectionRepo.findByWorkflowId.mockResolvedValue([section]);
+      mockStepRepo.findBySectionIds.mockResolvedValue([step, laterSibling]);
+      // Sibling shift: everything in the section, including the source itself.
+      mockStepRepo.findBySectionId.mockResolvedValue([step, laterSibling]);
+
+      const created = createTestStep(section.id, { order: 2, alias: "clientName_copy", workflowId: workflow.id });
+      mockStepRepo.create.mockResolvedValue(created);
+
+      const result = await service.duplicateStep(step.id, "user-123");
+
+      expect(mockWorkflowSvc.verifyAccess).toHaveBeenCalledWith(workflow.id, "user-123", "edit");
+
+      // The later sibling shifts down by one to make room for the copy.
+      expect(mockStepRepo.updateOrder).toHaveBeenCalledWith(
+        laterSibling.id, section.id, laterSibling.order + 1, expect.anything()
+      );
+
+      // Copy is inserted at source.order + 1, same section, config carried over,
+      // and — unlike the whole-workflow cloner — a fresh alias, never verbatim.
+      expect(mockStepRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sectionId: section.id,
+          workflowId: section.workflowId,
+          order: step.order + 1,
+          alias: "clientName_copy",
+          type: step.type,
+          title: step.title,
+        }),
+        expect.anything()
+      );
+      expect(result).toBe(created);
+    });
+
+    it("leaves the alias null when the source step has none", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+      const step = createTestStep(section.id, { order: 1, alias: null, workflowId: workflow.id });
+
+      mockStepRepo.findById.mockResolvedValue(step);
+      mockSectionRepo.findById.mockResolvedValue(section);
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(workflow);
+      mockStepRepo.countByWorkflowId.mockResolvedValue(1);
+      mockSectionRepo.findByWorkflowId.mockResolvedValue([section]);
+      mockStepRepo.findBySectionIds.mockResolvedValue([step]);
+      mockStepRepo.findBySectionId.mockResolvedValue([step]);
+      mockStepRepo.create.mockResolvedValue(
+        createTestStep(section.id, { order: 2, alias: null, workflowId: workflow.id })
+      );
+
+      await service.duplicateStep(step.id, "user-123");
+
+      expect(mockStepRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ alias: null }),
+        expect.anything()
+      );
+    });
+
+    it("throws Step not found for a missing step", async () => {
+      mockStepRepo.findById.mockResolvedValue(undefined);
+
+      await expect(service.duplicateStep("missing", "user-123")).rejects.toThrow("Step not found");
+      expect(mockWorkflowSvc.verifyAccess).not.toHaveBeenCalled();
+    });
+
+    it("rejects once the workflow step limit is reached (ICW-11)", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+      const step = createTestStep(section.id, { order: 1 });
+
+      mockStepRepo.findById.mockResolvedValue(step);
+      mockSectionRepo.findById.mockResolvedValue(section);
+      mockWorkflowSvc.verifyAccess.mockResolvedValue(workflow);
+      mockStepRepo.countByWorkflowId.mockResolvedValue(LIMITS.MAX_STEPS_PER_WORKFLOW);
+
+      await expect(service.duplicateStep(step.id, "user-123")).rejects.toThrow(/Question limit reached/);
+      expect(mockStepRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("propagates access-denied errors without creating a copy", async () => {
+      const workflow = createTestWorkflow();
+      const section = createTestSection(workflow.id);
+      const step = createTestStep(section.id, { order: 1 });
+
+      mockStepRepo.findById.mockResolvedValue(step);
+      mockSectionRepo.findById.mockResolvedValue(section);
+      mockWorkflowSvc.verifyAccess.mockRejectedValue(new Error("Access denied - insufficient permissions for this workflow"));
+
+      await expect(service.duplicateStep(step.id, "user-123")).rejects.toThrow("Access denied");
+      expect(mockStepRepo.create).not.toHaveBeenCalled();
     });
   });
 });

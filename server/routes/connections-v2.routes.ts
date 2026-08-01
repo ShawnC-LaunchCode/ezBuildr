@@ -45,8 +45,7 @@ const createConnectionSchema = z.object({
   authConfig: z.record(z.any()),
   secretRefs: z.record(z.string()),
   defaultHeaders: z.record(z.string()).optional().refine(headers => {
-      if (headers && Object.keys(headers).some(k => k.toLowerCase() === 'authorization')) return false;
-      return true;
+      return headers === undefined || !Object.keys(headers).some(k => k.toLowerCase() === 'authorization');
   }, "Authorization header not allowed in defaultHeaders"),
   timeoutMs: z.number().int().min(100).max(60000).optional(),
   retries: z.number().int().min(0).max(10).optional(),
@@ -59,8 +58,7 @@ const updateConnectionSchema = z.object({
   authConfig: z.record(z.any()).optional(),
   secretRefs: z.record(z.string()).optional(),
   defaultHeaders: z.record(z.string()).optional().refine(headers => {
-      if (headers && Object.keys(headers).some(k => k.toLowerCase() === 'authorization')) return false;
-      return true;
+      return headers === undefined || !Object.keys(headers).some(k => k.toLowerCase() === 'authorization');
   }, "Authorization header not allowed in defaultHeaders"),
   timeoutMs: z.number().int().min(100).max(60000).optional(),
   retries: z.number().int().min(0).max(10).optional(),
@@ -73,7 +71,7 @@ const updateConnectionSchema = z.object({
 /**
  * Register connections routes
  */
-// eslint-disable-next-line max-lines-per-function -- route registration function
+
 export function registerConnectionsV2Routes(app: Express): void {
   /**
    * GET /api/projects/:projectId/connections

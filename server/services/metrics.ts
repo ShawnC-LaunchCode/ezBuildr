@@ -322,7 +322,7 @@ function redactPayload(payload: Record<string, any>): Record<string, any> {
       redacted[key] = '[REDACTED]';
     } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
       // Recursively redact nested objects
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- recursive call with same Record type
+
       redacted[key] = redactPayload(value as Record<string, unknown>);
     } else {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- value from Record<string, any> payload

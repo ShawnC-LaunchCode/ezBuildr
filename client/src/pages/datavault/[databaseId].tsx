@@ -13,8 +13,8 @@ import { DatabaseTableTabs } from "@/components/datavault/DatabaseTableTabs";
 import { MoveTableModal } from "@/components/datavault/MoveTableModal";
 import { RowEditorModal } from "@/components/datavault/RowEditorModal";
 import { ResourceAccessDialog } from "@/components/access/ResourceAccessDialog";
-import Header from "@/components/layout/Header"; // eslint-disable-line @typescript-eslint/naming-convention
-import Sidebar from "@/components/layout/Sidebar"; // eslint-disable-line @typescript-eslint/naming-convention
+import Header from "@/components/layout/Header";
+import Sidebar from "@/components/layout/Sidebar";
 import {
   AlertDialog,
   AlertDialogAction,

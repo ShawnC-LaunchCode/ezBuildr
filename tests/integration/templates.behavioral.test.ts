@@ -7,18 +7,17 @@
  */
 
 import fsSync from 'fs';
-import fs from 'fs/promises';
-import path from 'path';
-
 
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import PizZip from 'pizzip';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 
 import * as schema from '@shared/schema';
 
 import { db } from '../../server/db';
+import { storageProvider } from '../../server/services/storage';
 import { getTemplateFilePath } from '../../server/services/templates';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
 
@@ -36,11 +35,31 @@ vi.mock('../../server/services/document/TemplateScanner', () => ({
 
 // Create a minimal valid DOCX file for testing
 const createMinimalDocx = (): Buffer => {
-  // A minimal valid DOCX is a ZIP file with specific XML structure
-  // For testing, we'll use a pre-generated minimal DOCX buffer
-  // This is the binary content of a minimal valid DOCX
-  const minimalDocxBase64 = 'UEsDBBQAAAAIAAAAAACzfDxbXQAAAGEAAAALAAAAX3JlbHMvLnJlbHONzrEKwjAQgOG9T3HkbpsODiJNNxfRVYi6hyO92hBzCblSfXtTBxcHJ/9/8L+sTBOsM8uVJcKoVNImJ3J2D0kQ3j+UEk3Jb1bSJt0qEL0G/D+P17vgaVgU0XN8Y3UtTW3ddoaNJVOH3gQ33WZWePDhwhPM6EJPuDWBsQz2H+RjC+MbYJjkNzDxKdYCK15HQVL+PKL8AlBLAwQUAAAACAAAAAAAnQDDcV0AAABhAAAAEQAAAGRvY1Byb3BzL2NvcmUueG1sbc5BCsIwEAXQvadYsneT6kJEknYhrtyLC3EZxtRWmkmYCdXbi4ILXf6fz0+t3bh2zxixT9HAXCow6EPqe9cYuJwPswMwZutkChQN3BHBrouTvJJhSOjz+5PRxJoR00AL5kPOEcOCvcR58ujyz1caveR8jQ2HMq7kwKQulJIU8R28Xsp9XYX4R7y+AFBLAwQUAAAACAAAAAAAbJlTSkIAAABEAAAAEAAAAGRvY1Byb3BzL2FwcC54bWyzsa/IzVEoSyzSUShLLSrOUNBRSE4t8kxRSs5ITMpJVSjPL8pJAQBQSwMEFAAAAAgAAAAAAKeLlj9zAAAA+gAAABMAAABbQ29udGVudF9UeXBlc10ueG1svY/LCsIwEEX3fkXI3k5bFyJSdSMuXQoux/RRSzNDMon4+QZBXIh7l3c4c2fKi2uc7aEBMjTYOGNlUr4DuMtXiYjDTCFZSTKhuePx8YGtwUgOzHNLDPr3JIEYx7fQhNArcgQ2sM2x7jXksDjxiY+ysznQqQn5LbRUfxrx6v8CUEsBAj8DFAAAAAgAAAAAALN8PFtdAAAAYQAAAAsAJAAAAAAAAAAgAAAAAAAAAF9yZWxzLy5yZWxzCgAgAAAAAAABGAAAAAAAAAAAAAAAAAAAAFBLAQI/AxQAAAAIAAAAAACdAMNxXQAAAGEAAAARACQAAAAAAAAAIAAAAIYAAABkb2NQcm9wcy9jb3JlLnhtbAoAIAAAAAAAARgAAAAAAAAAAAAAAAAAAABQSwECPwMUAAAACAAAAAAAbJlTSkIAAABEAAAAEAAkAAAAAAAAACAAAAACwQAAZG9jUHJvcHMvYXBwLnhtbAoAIAAAAAAAARgAAAAAAAAAAAAAAAAAAABQSwECPwMUAAAACAAAAAAApouWP3MAAAD6AAAAEAAkAAAAAAAAACAAAAGIBAABbQ29udGVudF9UeXBlc10ueG1sCgAgAAAAAAABGAAAAAAAAAAAAAAAAAAAAFBLBQYAAAAABAAEAEsBAAD2AQAAAAA=';
-  return Buffer.from(minimalDocxBase64, 'base64');
+  const zip = new PizZip();
+  zip.file(
+    '[Content_Types].xml',
+    '<?xml version="1.0" encoding="UTF-8"?>' +
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+      '</Types>'
+  );
+  zip.file(
+    '_rels/.rels',
+    '<?xml version="1.0" encoding="UTF-8"?>' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
+      '</Relationships>'
+  );
+  zip.file(
+    'word/document.xml',
+    '<?xml version="1.0" encoding="UTF-8"?>' +
+      '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+      '<w:body><w:p><w:r><w:t>Test template</w:t></w:r></w:p></w:body>' +
+      '</w:document>'
+  );
+  return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 };
 
 describe.sequential('Templates Behavioral Tests - DB Failure Simulation', () => {
@@ -82,7 +101,7 @@ describe.sequential('Templates Behavioral Tests - DB Failure Simulation', () => 
 
     testTemplateId = createResponse.body.id;
     originalFileRef = createResponse.body.fileRef;
-    originalFilePath = getTemplateFilePath(originalFileRef);
+    originalFilePath = await getTemplateFilePath(originalFileRef);
 
     // Verify original file exists
     expect(fsSync.existsSync(originalFilePath)).toBe(true);
@@ -200,9 +219,7 @@ describe.sequential('Templates Behavioral Tests - DB Failure Simulation', () => 
         const { nanoid } = await import('nanoid');
         const ext = originalname.endsWith('.pdf') ? '.pdf' : '.docx';
         newFileRef = `${nanoid(16)}${ext}`;
-        const filePath = getTemplateFilePath(newFileRef);
-        await fs.mkdir(path.dirname(filePath), { recursive: true });
-        await fs.writeFile(filePath, buffer);
+        await storageProvider.uploadFile(newFileRef, buffer, _mimetype);
         return newFileRef;
       }
     );
@@ -228,7 +245,7 @@ describe.sequential('Templates Behavioral Tests - DB Failure Simulation', () => 
 
       // The file should exist
       if (newFileRef) {
-        const newFilePath = getTemplateFilePath(response.body.fileRef);
+        const newFilePath = await getTemplateFilePath(response.body.fileRef);
         expect(fsSync.existsSync(newFilePath)).toBe(true);
       }
     } finally {
@@ -266,7 +283,7 @@ describe.sequential('Templates Behavioral Tests - Atomicity Verification', () =>
 
     const templateId = createResponse.body.id;
     const initialFileRef = createResponse.body.fileRef;
-    const initialFilePath = getTemplateFilePath(initialFileRef);
+    const initialFilePath = await getTemplateFilePath(initialFileRef);
 
     // Verify initial file exists
     expect(fsSync.existsSync(initialFilePath)).toBe(true);
@@ -281,7 +298,7 @@ describe.sequential('Templates Behavioral Tests - Atomicity Verification', () =>
       .expect(200);
 
     const newFileRef = updateResponse.body.fileRef;
-    const newFilePath = getTemplateFilePath(newFileRef);
+    const newFilePath = await getTemplateFilePath(newFileRef);
 
     // DB should point to new file
     expect(newFileRef).not.toBe(initialFileRef);
@@ -324,7 +341,7 @@ describe.sequential('Templates Behavioral Tests - Atomicity Verification', () =>
     expect(template!.fileRef).toBeDefined();
 
     // Verify file exists at the referenced path
-    const filePath = getTemplateFilePath(template!.fileRef);
+    const filePath = await getTemplateFilePath(template!.fileRef);
     expect(fsSync.existsSync(filePath)).toBe(true);
 
     // Perform multiple rapid updates
@@ -343,7 +360,7 @@ describe.sequential('Templates Behavioral Tests - Atomicity Verification', () =>
       where: eq(schema.templates.id, templateId),
     });
 
-    const finalFilePath = getTemplateFilePath(finalTemplate!.fileRef);
+    const finalFilePath = await getTemplateFilePath(finalTemplate!.fileRef);
     expect(fsSync.existsSync(finalFilePath)).toBe(true);
   });
 });

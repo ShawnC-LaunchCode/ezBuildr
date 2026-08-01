@@ -11,8 +11,7 @@ import { useUpdateStep } from "@/lib/vault-hooks";
 import type { ConditionExpression } from "@shared/types/conditions";
 import type { BooleanAdvancedConfig, TrueFalseConfig } from "@shared/types/stepConfigs";
 
-// eslint-disable-next-line import/no-cycle
-import { StepEditorCommonProps } from "../StepEditorRouter";
+import type { StepEditorCommonProps } from "./common/stepEditorProps";
 
 import { AliasField } from "./common/AliasField";
 import { DefaultValueField, DefaultValueType } from "./common/DefaultValueField";
@@ -200,7 +199,6 @@ export function BooleanCardEditor({ stepId, sectionId, workflowId, step }: StepE
           <DefaultValueField
             stepId={stepId}
             sectionId={sectionId}
-            workflowId={workflowId}
             defaultValue={step.defaultValue as DefaultValueType}
             type={step.type}
             mode={isEasyMode ? 'easy' : 'advanced'}
@@ -210,7 +208,6 @@ export function BooleanCardEditor({ stepId, sectionId, workflowId, step }: StepE
             sectionId={sectionId}
             workflowId={workflowId}
             visibleIf={step.visibleIf as ConditionExpression}
-            mode={isAdvancedMode ? 'advanced' : 'easy'}
           />
         </>
       )}

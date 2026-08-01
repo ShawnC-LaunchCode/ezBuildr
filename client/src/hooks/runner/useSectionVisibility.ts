@@ -1,10 +1,9 @@
 import { useMemo, useCallback } from "react";
 import type { ApiStep, ApiSection } from "@/lib/vault-api";
-import { evaluateConditionExpression } from "@shared/conditionEvaluator";
-import type { ConditionExpression } from "@shared/types/conditions";
 import type { StepValue } from "@/pages/workflow-runner/runner.utils";
 import type { LogicRule } from "@shared/schema";
-import { evaluateRules } from "@shared/workflowLogic";
+import { evaluateWorkflowVisibility } from "@shared/workflowLogic";
+import { normalizeRunnerStepType } from "@shared/types/runnerStepTypes";
 
 interface VisibilityTraceRecorder {
   addTraceEntry: (entry: {
@@ -44,13 +43,16 @@ export function useSectionVisibility(
     return step?.id;
   }, [allSteps]);
 
-  const ruleEvaluation = useMemo(() => {
-    return evaluateRules(logicRules, effectiveValues);
-  }, [logicRules, effectiveValues]);
-
-  const sectionsWithShowRules = useMemo(() => new Set(logicRules.filter(r => r.targetType === 'section' && r.action === 'show').map(r => r.targetSectionId).filter(Boolean) as string[]), [logicRules]);
-  
-  const stepsWithShowRules = useMemo(() => new Set(logicRules.filter(r => r.targetType === 'step' && r.action === 'show').map(r => r.targetStepId).filter(Boolean) as string[]), [logicRules]);
+  const visibility = useMemo(() => evaluateWorkflowVisibility({
+    // SectionSteps also uses this hook as a step-only visibility adapter. In
+    // that mode preserve the supplied steps' parent sections as visible roots.
+    sections: sections ?? Array.from(new Set((allSteps ?? []).map((step) => step.sectionId)))
+      .map((id) => ({ id })),
+    steps: allSteps ?? [],
+    rules: logicRules,
+    data: effectiveValues,
+    resolveAlias,
+  }), [sections, allSteps, logicRules, effectiveValues, resolveAlias]);
 
   // Compute visible sections
   const visibleSections = useMemo(() => {
@@ -58,37 +60,8 @@ export function useSectionVisibility(
       return [];
     }
 
-    return sections.filter((section) => {
-      // 1. Step-level visibility (visibleIf)
-      let sectionLevelVisible = true;
-      if (section.visibleIf) {
-        try {
-          sectionLevelVisible = evaluateConditionExpression(
-            section.visibleIf as ConditionExpression,
-            effectiveValues,
-            resolveAlias
-          );
-        } catch (error) {
-          console.error('[useSectionVisibility] Error evaluating section visibility', section.id, error);
-          sectionLevelVisible = false;
-        }
-      }
-
-      // 2. Workflow-level logic rules
-      const hasShowRules = sectionsWithShowRules.has(section.id);
-      const explicitlyShown = ruleEvaluation.visibleSections.has(section.id);
-      const explicitlyHidden = ruleEvaluation.hiddenSections.has(section.id);
-
-      let workflowLevelVisible = true;
-      if (hasShowRules) {
-        workflowLevelVisible = explicitlyShown;
-      } else if (explicitlyHidden) {
-        workflowLevelVisible = false;
-      }
-
-      return sectionLevelVisible && workflowLevelVisible;
-    });
-  }, [sections, effectiveValues, resolveAlias, sectionsWithShowRules, ruleEvaluation.visibleSections, ruleEvaluation.hiddenSections]);
+    return sections.filter((section) => visibility.visibleSections.has(section.id));
+  }, [sections, visibility.visibleSections]);
 
   // Compute visible steps for a specific section
   const getVisibleSectionSteps = useCallback((sectionId: string, traceRecorder?: VisibilityTraceRecorder) => {
@@ -97,38 +70,11 @@ export function useSectionVisibility(
     }
     
     const sectionSteps = allSteps.filter(
-      (step) => step.sectionId === sectionId && !step.isVirtual && step.type !== 'final_documents'
+      (step) => step.sectionId === sectionId && !step.isVirtual && normalizeRunnerStepType(step.type) !== 'final_documents'
     );
 
     return sectionSteps.filter((step) => {
-      // 1. Step-level visibility (visibleIf)
-      let stepLevelVisible = true;
-      if (step.visibleIf) {
-        try {
-          stepLevelVisible = evaluateConditionExpression(
-            step.visibleIf as ConditionExpression,
-            effectiveValues,
-            resolveAlias
-          );
-        } catch (e) {
-          console.error("[useSectionVisibility] Error evaluating step visibility", e);
-          stepLevelVisible = false;
-        }
-      }
-
-      // 2. Workflow-level logic rules
-      const hasShowRules = stepsWithShowRules.has(step.id);
-      const explicitlyShown = ruleEvaluation.visibleSteps.has(step.id);
-      const explicitlyHidden = ruleEvaluation.hiddenSteps.has(step.id);
-
-      let workflowLevelVisible = true;
-      if (hasShowRules) {
-        workflowLevelVisible = explicitlyShown;
-      } else if (explicitlyHidden) {
-        workflowLevelVisible = false;
-      }
-
-      const isVisible = stepLevelVisible && workflowLevelVisible;
+      const isVisible = visibility.visibleSteps.has(step.id);
         
       if (!isVisible && traceRecorder) {
         void traceRecorder.addTraceEntry({
@@ -141,7 +87,7 @@ export function useSectionVisibility(
       
       return isVisible;
     });
-  }, [allSteps, effectiveValues, resolveAlias, stepsWithShowRules, ruleEvaluation.visibleSteps, ruleEvaluation.hiddenSteps]);
+  }, [allSteps, visibility.visibleSteps]);
 
   return {
     visibleSections,

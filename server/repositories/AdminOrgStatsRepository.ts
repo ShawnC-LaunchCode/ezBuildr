@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import { sql } from "drizzle-orm";
 
 import { db } from "../db";
@@ -7,45 +6,45 @@ interface RawExecuteResult<T> {
   rows?: T[];
 }
 
-export interface AdminOrgStatsQueryRow {
-  org_id: string;
-  org_name: string;
-  slug: string | null;
-  domain: string | null;
-  tenant_id: string | null;
-  tenant_name: string | null;
-  created_at: Date | string | null;
-  member_count: number | string | null;
-  admin_member_count: number | string | null;
-  project_count: number | string | null;
-  active_project_count: number | string | null;
-  archived_project_count: number | string | null;
-  workflow_count: number | string | null;
-  active_workflow_count: number | string | null;
-  draft_workflow_count: number | string | null;
-  archived_workflow_count: number | string | null;
-  public_workflow_count: number | string | null;
-  database_count: number | string | null;
-  native_database_count: number | string | null;
-  external_database_count: number | string | null;
-  table_count: number | string | null;
-  column_count: number | string | null;
-  row_count: number | string | null;
-  value_count: number | string | null;
-  template_count: number | string | null;
-  template_version_count: number | string | null;
-  generated_document_count: number | string | null;
-  datavault_storage_bytes: number | string | null;
-  generated_document_storage_bytes: number | string | null;
-  template_storage_bytes: number | string | null;
-  total_run_count: number | string | null;
-  completed_run_count: number | string | null;
-  in_progress_run_count: number | string | null;
-  runs_24h: number | string | null;
-  runs_7d: number | string | null;
-  runs_30d: number | string | null;
-  last_run_at: Date | string | null;
-}
+type OrgIdentityColumn = "org_id" | "org_name";
+type NullableTextColumn = "slug" | "domain" | "tenant_id" | "tenant_name";
+type TimestampColumn = "created_at" | "last_run_at";
+type NumericColumn =
+  | "member_count"
+  | "admin_member_count"
+  | "project_count"
+  | "active_project_count"
+  | "archived_project_count"
+  | "workflow_count"
+  | "active_workflow_count"
+  | "draft_workflow_count"
+  | "archived_workflow_count"
+  | "public_workflow_count"
+  | "database_count"
+  | "native_database_count"
+  | "external_database_count"
+  | "table_count"
+  | "column_count"
+  | "row_count"
+  | "value_count"
+  | "template_count"
+  | "template_version_count"
+  | "generated_document_count"
+  | "datavault_storage_bytes"
+  | "generated_document_storage_bytes"
+  | "template_storage_bytes"
+  | "total_run_count"
+  | "completed_run_count"
+  | "in_progress_run_count"
+  | "runs_24h"
+  | "runs_7d"
+  | "runs_30d";
+
+export type AdminOrgStatsQueryRow =
+  Record<OrgIdentityColumn, string>
+  & Record<NullableTextColumn, string | null>
+  & Record<TimestampColumn, Date | string | null>
+  & Record<NumericColumn, number | string | null>;
 
 function rowsFromResult<T>(result: unknown): T[] {
   if (Array.isArray(result)) {

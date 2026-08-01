@@ -9,14 +9,19 @@ import path from 'path';
 
 import { storageProvider } from './storage';
 
-export const OUTPUTS_DIR = path.join(process.cwd(), 'server', 'files', 'outputs');
+import type { StorageProvider } from './storage/types';
+
+export const OUTPUTS_DIR = path.resolve(process.cwd(), 'server/files/outputs');
 
 /**
- * Get file path for a template
+ * Resolve a storage-backed template to a local path. Remote providers own the
+ * download/cache lifecycle; callers must not derive paths from file refs.
  */
-export function getTemplateFilePath(fileRef: string): string {
-  // Legacy support: We assume disk storage provider structure for now.
-  return path.join(process.cwd(), 'server', 'files', fileRef);
+export async function getTemplateFilePath(
+  fileRef: string,
+  provider: Pick<StorageProvider, 'getLocalPath'> = storageProvider
+): Promise<string> {
+  return provider.getLocalPath(fileRef);
 }
 
 /**

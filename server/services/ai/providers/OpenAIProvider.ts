@@ -1,4 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/naming-convention -- third-party package name
+
 import OpenAI from 'openai';
 
 import { createLogger } from '../../../logger';
@@ -6,7 +6,7 @@ import { createLogger } from '../../../logger';
 import { BaseAIProvider } from './BaseAIProvider';
 
 import type { TaskType } from '../types';
-import type { AIProviderConfig } from './types';
+import type { AIProviderConfig, AIProviderResponse } from './types';
 
 const logger = createLogger({ module: 'openai-provider' });
 
@@ -23,7 +23,7 @@ export class OpenAIProvider extends BaseAIProvider {
         prompt: string,
         taskType: TaskType,
         systemMessage?: string
-    ): Promise<string> {
+    ): Promise<AIProviderResponse> {
         const { model, temperature = 0.7, maxTokens } = this.config;
         const startTime = Date.now();
         const promptTokens = this.estimateTokenCount(prompt); // Rough estimate
@@ -54,10 +54,10 @@ export class OpenAIProvider extends BaseAIProvider {
                 model,
                 messages,
                 temperature,
-                /* eslint-disable @typescript-eslint/naming-convention -- OpenAI API uses snake_case */
+
                 max_tokens: safeMaxTokens,
                 response_format: { type: 'json_object' },
-                /* eslint-enable @typescript-eslint/naming-convention */
+
             });
 
             const content = response.choices[0]?.message?.content;
@@ -65,9 +65,14 @@ export class OpenAIProvider extends BaseAIProvider {
                 throw this.createError('No content in OpenAI response', 'INVALID_RESPONSE');
             }
 
-            const responseTokens = this.estimateTokenCount(content);
+            // Real usage from OpenAI's response; char/4 estimate is only a
+            // fallback if the SDK ever omits `usage` (ICW2-B7).
+            const usage = response.usage
+                ? { inputTokens: response.usage.prompt_tokens, outputTokens: response.usage.completion_tokens }
+                : undefined;
+            const responseTokens = usage?.outputTokens ?? this.estimateTokenCount(content);
             const duration = Date.now() - startTime;
-            const actualCost = this.estimateCost(promptTokens, responseTokens);
+            const actualCost = this.estimateCost(usage?.inputTokens ?? promptTokens, responseTokens);
 
             logger.info({
                 event: 'ai_request_success',
@@ -78,9 +83,10 @@ export class OpenAIProvider extends BaseAIProvider {
                 responseTokens,
                 durationMs: duration,
                 estimatedCostUSD: actualCost,
+                usageSource: usage ? 'provider' : 'estimate',
             }, 'OpenAI request succeeded');
 
-            return content;
+            return { text: content, usage };
         } catch (error) {
             logger.error({ error }, 'OpenAI request failed');
             throw error;

@@ -5,7 +5,6 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import type { ApiStep } from "@/lib/vault-api";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
 
@@ -16,16 +15,7 @@ import { AliasField } from "./common/AliasField";
 import { SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { VisibilityField } from "./common/VisibilityField";
-
-
-
-// Local Props
-interface MultiFieldCardEditorProps {
-  stepId: string;
-  sectionId: string;
-  workflowId: string;
-  step: ApiStep;
-}
+import type { StepEditorCommonProps } from "./common/stepEditorProps";
 
 // Layout presets
 const layoutPresets: Record<string, MultiFieldConfig['fields']> = {
@@ -161,7 +151,7 @@ const StorageModeSection = ({
   </div>
 );
 
-export function MultiFieldCardEditor({ stepId, sectionId, workflowId, step }: MultiFieldCardEditorProps): JSX.Element {
+export function MultiFieldCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
 
   // Parse config
@@ -263,7 +253,6 @@ export function MultiFieldCardEditor({ stepId, sectionId, workflowId, step }: Mu
           sectionId={sectionId}
           workflowId={workflowId}
           visibleIf={step.visibleIf as ConditionExpression}
-          mode="advanced"
         />
       )}
     </div>

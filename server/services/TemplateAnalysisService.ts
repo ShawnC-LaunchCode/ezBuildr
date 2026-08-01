@@ -88,7 +88,7 @@ export interface ValidationWarning {
 export async function analyzeTemplate(fileRefOrPath: string): Promise<TemplateAnalysis> {
   const templatePath = path.isAbsolute(fileRefOrPath)
     ? fileRefOrPath
-    : getTemplateFilePath(fileRefOrPath);
+    : await getTemplateFilePath(fileRefOrPath);
 
   let extracted: SharedPlaceholderInfo[];
   try {

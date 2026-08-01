@@ -13,12 +13,30 @@ export class SchemaManager {
     // Generate a schema name that is unique to this worker and STABLE across test files
     // Logic: test_schema_w{workerId}
     //
-    // The _vN suffix is the schema-cache generation. Bumped to _v5 when the
-    // migration chain was compacted into the single 0000_init_baseline.sql that
-    // builds correctly from scratch; the old _v4 schemas predated later
-    // migrations (e.g. datavault ownership columns) and the graph run-table drop.
+    // The _vN suffix is the schema-cache generation. Bumped to _v6 when the
+    // migration chain was regenerated from the Drizzle schema: a fresh
+    // 0000_init_baseline (full current schema) + 0001_enable_rls +
+    // 0002_db_functions. Bumping forces a from-scratch rebuild, so stale _v5
+    // schemas (which relied on the now-removed tests/setup.ts failsafe block)
+    // are abandoned and new schemas are built by the migrations alone.
+    //
+    // Bumped to _v7 for ICW2-B7: 0003_rich_wild_child (ai_usage table) +
+    // 0004_ai_usage_rls (its tenant_isolation policy) — stale _v6 schemas
+    // don't have ai_usage and would fail every AI-budget test.
+    //
+    // Bumped to _v8 for ICW2-B1: 0005_lying_amphibian adds `deleted_at` to
+    // `sections`/`steps` (soft-delete) and rebuilds `steps_workflow_alias_unique`
+    // with a `deleted_at IS NULL` scope — stale _v7 schemas lack the column
+    // and the new unique-index shape.
+    //
+    // Bumped to _v9 for 0006_remove_legacy_intake_reuse, which removes retired
+    // columns `assigned_to` and `reuse_strategy` from `workflow_runs`.
+    // Bumped to _v10 for 0007_add_storage_key, which adds `storageKey` to
+    // `run_generated_documents` (DEBT-15).
+    // Bumped to _v11 because _v10 got cached with an empty 0007 migration.
+    // Bumped to _v12 because _v11 got cached without not-null constraints on storageKey.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v5`;
+        return `test_schema_w${this.workerId}_v12`;
     }
 
     /**

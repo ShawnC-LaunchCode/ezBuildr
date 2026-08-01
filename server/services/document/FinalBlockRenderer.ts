@@ -21,11 +21,14 @@ import { createLogger } from '../../logger.js';
 import { createError } from '../../utils/errors.js';
 import { documentHookService } from '../scripting/DocumentHookService.js';
 
+import { getTemplateFilePath } from '../templateFiles.js';
 import { validateTemplateWithData } from '../TemplateAnalysisService.js';
 import { enhancedDocumentEngine } from './EnhancedDocumentEngine.js';
 import { createFinalBlockZip, type ZipDocument, type ZipResult } from './ZipBundler.js';
+import { storageProvider } from '../storage/index.js';
 
 import type { EnhancedGenerationResult } from './EnhancedDocumentEngine.js';
+import type { PdfStrategyName } from './PdfConverter.js';
 import type { FinalBlockConfig } from '../../../shared/types/stepConfigs.js';
 
 
@@ -57,9 +60,6 @@ export interface FinalBlockRenderRequest {
   /** Whether to convert documents to PDF */
   toPdf?: boolean;
 
-  /** PDF conversion strategy */
-  pdfStrategy?: 'puppeteer';
-
   /** Output directory (optional, defaults to server/files/archives) */
   outputDir?: string;
 }
@@ -73,10 +73,14 @@ export interface FinalBlockRenderResponse {
     alias: string;
     filename: string;
     filePath: string;
+    storageKey: string;
     mimeType: string;
     size: number;
     unresolvedVariables?: string[];
-    pdfStrategy?: string;
+    /** The converter that actually produced the PDF, observed at generation time. */
+    pdfStrategy?: PdfStrategyName;
+    /** True when the high-fidelity converter failed and a degraded one produced the PDF. */
+    pdfFellBack?: boolean;
     pdfFailed?: boolean;
   }>;
 
@@ -84,6 +88,7 @@ export interface FinalBlockRenderResponse {
   archive?: {
     filename: string;
     filePath: string;
+    storageKey: string;
     size: number;
   };
 
@@ -136,7 +141,10 @@ export class FinalBlockRenderer {
       runId,
       resolveTemplate,
       toPdf = false,
-      pdfStrategy = 'puppeteer',
+      // DEBT-15: intentionally ephemeral. This is only the scratch directory the
+      // renderer writes into while building a document; the bytes are uploaded to
+      // storageProvider in prepareResponseDocuments and unlinked from here before
+      // this method returns. Nothing durable may be read back out of this path.
       outputDir = path.join(process.cwd(), 'server', 'files', 'archives'),
     } = request;
 
@@ -165,7 +173,9 @@ export class FinalBlockRenderer {
 
     // Step 1.25: Pre-generation validation
     for (const doc of documentsWithPaths) {
-      if (!doc.templatePath) continue;
+      if (!doc.templatePath) {
+        continue;
+      }
       
       try {
         const validationResult = await validateTemplateWithData(doc.templatePath, stepValues);
@@ -208,7 +218,6 @@ export class FinalBlockRenderer {
       stepValues: enhancedStepValues,
       outputDir,
       toPdf,
-      pdfStrategy,
       runId,
     });
 
@@ -241,7 +250,7 @@ export class FinalBlockRenderer {
     const documents = await this.prepareResponseDocuments(
       generationResult.documents,
       toPdf,
-      pdfStrategy
+      runId
     );
 
     // Step 4: Create ZIP archive if multiple documents
@@ -266,6 +275,15 @@ export class FinalBlockRenderer {
         logger.error({ error }, 'Failed to create ZIP archive');
         // Continue without archive - individual files still available
       }
+    }
+
+    // Step 4.5: Cleanup local temporary files
+    for (const res of generationResult.documents) {
+      if (res.pdfPath) {await fs.unlink(res.pdfPath).catch(() => {});}
+      if (res.docxPath) {await fs.unlink(res.docxPath).catch(() => {});}
+    }
+    if (archive?.filePath) {
+      await fs.unlink(archive.filePath).catch(() => {});
     }
 
     // Step 5: Build response
@@ -336,7 +354,7 @@ export class FinalBlockRenderer {
   private async prepareResponseDocuments(
     results: EnhancedGenerationResult[],
     toPdf: boolean,
-    pdfStrategy: 'puppeteer'
+    runId: string
   ): Promise<FinalBlockRenderResponse['documents']> {
     const documents: FinalBlockRenderResponse['documents'] = [];
 
@@ -349,15 +367,25 @@ export class FinalBlockRenderer {
         : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
       const stats = await fs.stat(filePath);
+      const fileBuffer = await fs.readFile(filePath);
+
+      const storageKey = `runs/${runId}/documents/${filename}`;
+      await storageProvider.uploadFile(storageKey, fileBuffer, mimeType);
 
       documents.push({
         alias: result.alias ?? 'document',
         filename,
         filePath,
+        storageKey,
         mimeType,
         size: stats.size,
         unresolvedVariables: result.unresolvedVariables,
-        pdfStrategy: toPdf ? pdfStrategy : undefined,
+        // Observed, not requested: whichever converter actually ran for THIS
+        // document. Previously this recorded a hardcoded 'puppeteer' regardless,
+        // so Gotenberg output and a silent fallback to the low-fidelity path
+        // were indistinguishable in the audit trail.
+        pdfStrategy: toPdf ? result.pdfStrategy : undefined,
+        pdfFellBack: toPdf ? result.pdfFellBack : undefined,
         pdfFailed: result.pdfFailed,
       });
     }
@@ -377,43 +405,44 @@ export class FinalBlockRenderer {
   ): Promise<NonNullable<FinalBlockRenderResponse['archive']>> {
     const zipDocuments: ZipDocument[] = [];
 
-    // Read all generated files into memory for zipping
     for (const result of results) {
       const filePath = toPdf && result.pdfPath ? result.pdfPath : result.docxPath;
       const filename = path.basename(filePath);
-      const buffer = await fs.readFile(filePath);
       const mimeType = filePath.endsWith('.pdf')
         ? 'application/pdf'
         : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
       zipDocuments.push({
         filename,
-        buffer,
+        filePath,
         mimeType,
-        size: buffer.length,
       });
     }
 
-    // Create ZIP archive
+    await fs.mkdir(outputDir, { recursive: true });
+
     const zipResult: ZipResult = await createFinalBlockZip(
       zipDocuments,
       workflowId,
       runId,
+      outputDir,
       {
         'Document Count': String(zipDocuments.length),
         'Format': toPdf ? 'PDF' : 'DOCX',
       }
     );
 
-    // Save ZIP to disk
-    await fs.mkdir(outputDir, { recursive: true });
-    const zipPath = path.join(outputDir, zipResult.filename);
-    await fs.writeFile(zipPath, zipResult.buffer);
+    const stats = await fs.stat(zipResult.filePath);
+    const fileBuffer = await fs.readFile(zipResult.filePath);
+
+    const storageKey = `runs/${runId}/documents/${zipResult.filename}`;
+    await storageProvider.uploadFile(storageKey, fileBuffer, 'application/zip');
 
     return {
       filename: zipResult.filename,
-      filePath: zipPath,
-      size: zipResult.size,
+      filePath: zipResult.filePath,
+      storageKey,
+      size: stats.size,
     };
   }
 }
@@ -463,35 +492,14 @@ export function createTemplateResolver(
       throw createError.notFound('Template', documentId);
     }
 
-    // Construct full path to template file
-    const templatesDir = path.join(process.cwd(), 'server', 'files');
-    return path.join(templatesDir, template.fileRef);
+    // Resolve through the configured storage provider rather than assuming the
+    // disk layout, so this keeps working under S3 (DEBT-5). The provider owns
+    // containment now — DiskStorageProvider.resolveWithinBase refuses a ref
+    // that escapes the storage root, and S3StorageProvider sanitises the ref
+    // before it becomes a temp filename — so the traversal check that used to
+    // live here is inherited rather than re-implemented per caller.
+    return getTemplateFilePath(template.fileRef);
   };
-}
-
-/**
- * Cleanup generated files after a specified delay
- *
- * Useful for temporary file cleanup after download.
- *
- * @param filePaths - Paths to files to delete
- * @param delayMs - Delay before deletion (default: 1 hour)
- */
-export async function scheduleCleanup(
-  filePaths: string[],
-  delayMs: number = 60 * 60 * 1000 // 1 hour
-): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  setTimeout(async () => {
-    for (const filePath of filePaths) {
-      try {
-        await fs.unlink(filePath);
-        logger.debug({ filePath }, 'Cleaned up temporary file');
-      } catch (error) {
-        logger.warn({ filePath, error }, 'Failed to cleanup file');
-      }
-    }
-  }, delayMs);
 }
 
 // ============================================================================
@@ -503,5 +511,4 @@ export default {
   finalBlockRenderer,
   renderFinalBlock,
   createTemplateResolver,
-  scheduleCleanup,
 };

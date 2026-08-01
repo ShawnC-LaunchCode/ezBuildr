@@ -4,6 +4,7 @@ import { workflowRuns, type WorkflowRun, type InsertWorkflowRun } from "@shared/
 
 import { db } from "../db";
 import { hashToken } from "../utils/encryption";
+import { createError } from "../utils/errors";
 
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
@@ -156,10 +157,56 @@ export class WorkflowRunRepository extends BaseRepository<
       .returning();
     if (updated == null) {
       const existing = await this.findById(runId, tx);
-      if (existing) {throw new Error("Run is already completed");}
-      throw new Error("Run not found");
+      if (existing) {throw createError.runCompleted();}
+      throw createError.notFound('Run', runId);
     }
     return updated;
+  }
+
+  /**
+   * Rotate a portal-assigned run token only when the authenticated portal
+   * email exactly matches the run assignment.
+   */
+  async rotatePortalToken(
+    runId: string,
+    clientEmail: string,
+    runTokenHash: string,
+    tokenExpiresAt: Date,
+    tx?: DbTransaction
+  ): Promise<WorkflowRun | null> {
+    const database = this.getDb(tx);
+    const [updated] = await database
+      .update(workflowRuns)
+      .set({ runToken: runTokenHash, tokenExpiresAt, updatedAt: new Date() })
+      .where(and(
+        eq(workflowRuns.id, runId),
+        eq(workflowRuns.clientEmail, clientEmail),
+        eq(workflowRuns.accessMode, 'portal')
+      ))
+      .returning();
+    return updated ?? null;
+  }
+
+  /**
+   * Apply respondent-facing state transitions only while the run is mutable.
+   * The conditional update serializes with markComplete at the row boundary.
+   */
+  async updateIfIncomplete(
+    runId: string,
+    updates: Partial<InsertWorkflowRun>,
+    tx?: DbTransaction
+  ): Promise<WorkflowRun> {
+    const database = this.getDb(tx);
+    const [updated] = await database
+      .update(workflowRuns)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(and(eq(workflowRuns.id, runId), eq(workflowRuns.completed, false)))
+      .returning();
+    if (updated !== undefined) {return updated;}
+
+    const existing = await this.findById(runId, tx);
+    if (existing) {throw createError.runCompleted();}
+    throw createError.notFound('Run', runId);
   }
 
   /**

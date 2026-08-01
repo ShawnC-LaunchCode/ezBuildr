@@ -11,6 +11,7 @@ import * as schema from '@shared/schema';
 
 import { db } from '../../server/db';
 import { RunLifecycleService } from '../../server/services/workflow-runs/RunLifecycleService';
+import { runCompletionJobWorker } from '../../server/services/workflow-runs/RunCompletionJobWorker';
 import { runService } from '../../server/services/RunService';
 import { TestFactory } from '../helpers/testFactory';
 import { setupIntegrationTest, type IntegrationTestContext } from '../helpers/integrationTestHelper';
@@ -111,7 +112,7 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
   }
 
   async function createLegacyWorkflowWithTemplate(templateId: string): Promise<{ workflowId: string; runId: string; runToken: string }> {
-    const { workflow, version } = await factory.createWorkflow(ctx.projectId!, ctx.userId);
+    const { workflow } = await factory.createWorkflow(ctx.projectId!, ctx.userId);
     const section = await factory.createSection(workflow.id, {
       config: { finalBlock: true, templates: [templateId] },
     });
@@ -122,7 +123,15 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
       required: false,
       order: 0,
     });
-    const run = await createRun(workflow.id, version.id);
+    // RVP-4: generateDocuments now collects final-block configs from a
+    // pinned run's VERSION graph, not the live tables -- and the publish
+    // gate (GH-152 / DOCUMENT_HARDENING) refuses to publish a version whose
+    // legacy Final Documents section references a template outside the
+    // project in the first place, so this exact broken-reference scenario
+    // can no longer reach a pinned run in production. Leave the run
+    // versionless here, matching the pre-existing/legacy runs this
+    // defense-in-depth check still protects (provider's 'live' branch).
+    const run = await createRun(workflow.id);
     return { workflowId: workflow.id, ...run };
   }
 
@@ -152,7 +161,7 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
   }
 
   it('RUN-10: concurrent document generation persists exactly one document set', async () => {
-    const { workflow, version } = await factory.createWorkflow(ctx.projectId!, ctx.userId);
+    const { workflow } = await factory.createWorkflow(ctx.projectId!, ctx.userId);
     const section = await factory.createSection(workflow.id);
     const textStep = await factory.createStep(section.id, {
       type: 'short_text',
@@ -172,7 +181,11 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
         ],
       },
     });
-    const { runId } = await createRun(workflow.id, version.id);
+    // RVP-4: this test's concern is generateDocuments' locking/idempotency,
+    // not version-pinning -- versionless keeps it on the provider's 'live'
+    // branch instead of pinning to the empty placeholder graph
+    // factory.createWorkflow creates before this test adds its steps.
+    const { runId } = await createRun(workflow.id);
     await db.insert(schema.stepValues).values({
       runId,
       stepId: textStep.id,
@@ -195,6 +208,10 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
     const { runId } = await createLegacyWorkflowWithTemplate(templateId);
 
     await runService.completeRun(runId, ctx.userId);
+    // Completion only enqueues the durable outbox job; nothing polls it in the
+    // integration harness (only server/index.ts starts the worker), so the
+    // job must be claimed and run inline for generationStatus to advance.
+    await runCompletionJobWorker.processBatch();
 
     const status = await waitForGenerationStatus(runId, 'failed:');
     expect(status).toContain('Template with id');
@@ -211,6 +228,8 @@ describe.sequential('RUN-13 runner hardening close-out coverage', () => {
 
     expect(response.status, JSON.stringify(response.body)).toBe(200);
     expect(response.body.success).toBe(true);
+    // Same as above: the outbox job needs an explicit claim in-process.
+    await runCompletionJobWorker.processBatch();
     const status = await waitForGenerationStatus(runId, 'failed:');
     expect(status).toContain('Template with id');
     await expect(getGeneratedDocuments(runId)).resolves.toHaveLength(0);

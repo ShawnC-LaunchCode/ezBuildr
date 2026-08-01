@@ -20,19 +20,26 @@ import type { DisplayConfig } from "@shared/types/stepConfigs";
 export interface DisplayBlockProps {
   step: Step;
   context?: Record<string, unknown>;
+  /** Maps a step's alias (the authoring variable name) to its step id, so `{{alias}}` can resolve against the id-keyed context. */
+  aliasMap?: Record<string, string>;
 }
 
-// Helper to interpolate variables like {{variableName}}
-function interpolateVariables(text: string, context?: Record<string, unknown>): string {
+// Helper to interpolate variables like {{variableName}}. Resolves against
+// alias first (the documented authoring variable), then falls back to a raw
+// step id for back-compat, then empty string for anything unknown.
+function interpolateVariables(
+  text: string,
+  context?: Record<string, unknown>,
+  aliasMap?: Record<string, string>
+): string {
   if (!text || !context) {
     return text;
   }
 
-  return text.replace(/\{\{([^}]+)\}\}/g, (match, variableName) => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+  return text.replace(/\{\{([^}]+)\}\}/g, (_match: string, variableName: string) => {
     const key = variableName.trim();
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const value = context[key];
+    const resolvedStepId = aliasMap?.[key];
+    const value = resolvedStepId !== undefined ? context[resolvedStepId] : context[key];
 
     if (value === undefined || value === null) {
       return ""; // Replace missing variables with empty string
@@ -46,13 +53,13 @@ function interpolateVariables(text: string, context?: Record<string, unknown>): 
   });
 }
 
-export function DisplayBlockRenderer({ step, context }: DisplayBlockProps) {
+export function DisplayBlockRenderer({ step, context, aliasMap }: DisplayBlockProps) {
   const config = step.config as DisplayConfig;
   // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
   const rawMarkdown = config?.markdown || step.description || "";
 
   // Interpolate variables
-  const markdown = interpolateVariables(rawMarkdown, context);
+  const markdown = interpolateVariables(rawMarkdown, context, aliasMap);
 
   if (!markdown) {
     return (

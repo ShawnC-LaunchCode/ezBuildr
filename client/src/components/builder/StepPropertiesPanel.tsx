@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from "react";
 
+import { QuestionTypeIcon } from "@/components/shared/QuestionTypeIcon";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -150,9 +151,12 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
             placeholder="Step Title"
             autoFocus
           />
-          <p className="text-xs text-muted-foreground px-0.5">
-            {step.type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-          </p>
+          <div className="flex items-center gap-1.5 px-0.5">
+            <QuestionTypeIcon type={step.type} size="sm" />
+            <p className="text-xs text-muted-foreground">
+              {step.type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+            </p>
+          </div>
         </div>
       </div>
 

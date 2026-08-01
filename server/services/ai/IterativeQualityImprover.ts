@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Iterative Quality Improver
  *
@@ -334,9 +333,11 @@ Do NOT include any explanation or markdown - just the JSON object.`;
         }
       }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- AI quality analysis receives dynamically typed provider output.
       const parsed = JSON.parse(jsonStr);
 
       // Validate basic structure
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- AI quality analysis receives dynamically typed provider output.
       if (!parsed.sections || !Array.isArray(parsed.sections)) {
         logger.warn('Improved workflow missing sections array, using fallback');
         return fallback;
@@ -344,10 +345,15 @@ Do NOT include any explanation or markdown - just the JSON object.`;
 
       // Ensure required fields exist
       return {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- AI quality analysis receives dynamically typed provider output.
         title: parsed.title || fallback.title,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- AI quality analysis receives dynamically typed provider output.
         description: parsed.description || fallback.description,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- AI quality analysis receives dynamically typed provider output.
         sections: parsed.sections,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- AI quality analysis receives dynamically typed provider output.
         logicRules: (parsed.logicRules || fallback.logicRules) ?? [],
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- AI quality analysis receives dynamically typed provider output.
         transformBlocks: (parsed.transformBlocks || fallback.transformBlocks) ?? [],
       };
     } catch (error: unknown) {

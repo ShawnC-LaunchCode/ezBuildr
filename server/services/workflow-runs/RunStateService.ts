@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * RunStateService
  *
@@ -20,15 +19,21 @@ import type { WorkflowRun } from "@shared/schema";
 
 import { db } from "../../db";
 import { logger } from "../../logger";
-import { workflowRunRepository, runGeneratedDocumentsRepository } from "../../repositories";
+import {
+  workflowRunRepository,
+  runGeneratedDocumentsRepository,
+  runCompletionJobRepository,
+} from "../../repositories";
 
 import { hashToken } from "../../utils/encryption";
+import type { WorkflowContentData } from "../WorkflowContentIngestService";
 import type { ShareTokenResult, SharedRunDetails } from "./types";
 
 export class RunStateService {
   constructor(
     private runRepo = workflowRunRepository,
-    private docsRepo = runGeneratedDocumentsRepository
+    private docsRepo = runGeneratedDocumentsRepository,
+    private completionJobRepo = runCompletionJobRepository
   ) {}
 
   /**
@@ -47,8 +52,9 @@ export class RunStateService {
       updates.progress = progress;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await this.runRepo.update(runId, updates as any);
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- Legacy dynamic boundary requires these narrow checks.
+    await this.runRepo.updateIfIncomplete(runId, updates as any);
   }
 
   /**
@@ -56,6 +62,24 @@ export class RunStateService {
    */
   async markCompleted(runId: string): Promise<WorkflowRun> {
     return this.runRepo.markComplete(runId);
+  }
+
+  /** Atomically submit the run and create all required durable follow-up work. */
+  async markCompletedAndEnqueue(
+    runId: string,
+    workflowId: string,
+    userId?: string
+  ): Promise<WorkflowRun> {
+    return this.runRepo.transaction(async (tx) => {
+      const completedRun = await this.runRepo.markComplete(runId, tx);
+      const payload = {
+        workflowId,
+        ...(userId !== undefined ? { userId } : {}),
+      };
+      await this.completionJobRepo.enqueue({ runId, kind: 'writebacks', payload }, tx);
+      await this.completionJobRepo.enqueue({ runId, kind: 'documents', payload: { workflowId } }, tx);
+      return completedRun;
+    });
   }
 
   /**
@@ -119,7 +143,8 @@ export class RunStateService {
     // Get workflow to get access settings
     const { workflowRepository } = await import('../../repositories');
     const workflow = await workflowRepository.findById(run.workflowId);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Legacy dynamic boundary requires these narrow checks.
     const accessSettings = (workflow as any)?.accessSettings || {
       allow_portal: false,
       allow_resume: true,
@@ -134,7 +159,10 @@ export class RunStateService {
     let finalBlockConfig: any = null;
 
     if (run.workflowVersionId) {
-      // Fetch version graph
+      // Fetch the pinned version's serialized content. VersionService.serializeWorkflow
+      // emits `sections[].steps[]` (there is no `nodes[]` graph shape anymore — the
+      // graph builder was removed), so find the first Final Block step in there,
+      // mirroring RunLifecycleService.generateDocuments' 'final'/'final_documents' handling.
       const [version] = await db
         .select()
         .from(workflowVersions)
@@ -142,15 +170,12 @@ export class RunStateService {
         .limit(1);
 
       if (version?.graphJson) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const graph = version.graphJson as any;
-        // Search for 'final' node
-        if (graph.nodes && Array.isArray(graph.nodes)) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const finalNode = graph.nodes.find((n: any) => n.type === 'final');
-          if (finalNode?.data?.config) {
-            finalBlockConfig = finalNode.data.config;
-          }
+        const content = version.graphJson as WorkflowContentData;
+        const finalStep = (content.sections ?? [])
+          .flatMap(section => section.steps ?? [])
+          .find(step => step.type === 'final' || step.type === 'final_documents');
+        if (finalStep?.config) {
+          finalBlockConfig = finalStep.config;
         }
       }
     } else {
@@ -165,8 +190,10 @@ export class RunStateService {
     }
 
     return {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Run state values are dynamically typed at the persistence boundary.
       run: { ...run, accessSettings },
       documents,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Run state values are dynamically typed at the persistence boundary.
       finalBlockConfig
     };
   }

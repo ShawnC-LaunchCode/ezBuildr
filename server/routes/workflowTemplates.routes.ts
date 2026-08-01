@@ -14,6 +14,7 @@ import { workflowVersions } from '@shared/schema';
 import { db } from '../db';
 import { asyncHandler } from '../middleware';
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
+import { aclService } from '../services/AclService';
 import { workflowService } from '../services/WorkflowService';
 import { workflowTemplateService } from '../services/WorkflowTemplateService';
 import { createError } from '../utils/errors';
@@ -135,6 +136,16 @@ workflowVersionTemplatesRouter.post(
 
     // Validate request body
     const body = attachSchema.parse(req.body);
+
+    // SECURITY: the template is resolved by (templateId, projectId) with no
+    // tenant scoping downstream, so verify the caller can actually access the
+    // project the template lives in — otherwise a caller who knows another
+    // tenant's templateId + projectId could attach that template to their own
+    // workflow (cross-tenant template disclosure at document generation).
+    const hasProjectAccess = await aclService.hasProjectRole(userId, body.projectId, 'view');
+    if (!hasProjectAccess) {
+      throw createError.notFound('Template');
+    }
 
     const mapping = await workflowTemplateService.attachTemplate({
       workflowVersionId: versionId,

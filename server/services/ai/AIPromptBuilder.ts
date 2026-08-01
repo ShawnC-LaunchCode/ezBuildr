@@ -9,7 +9,6 @@ import type {
   AIWorkflowSuggestionRequest,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   AITemplateBindingsRequest,
-  AIWorkflowRevisionRequest,
   AIConnectLogicRequest,
   AIDebugLogicRequest,
   AIVisualizeLogicRequest,
@@ -237,7 +236,9 @@ Guidelines:
 
 Output ONLY the JSON object, no additional text or markdown.`;
 
-    const userPrompt = `Available Workflow Variables:\n${variables.map((v) => `- ${v.alias} (${v.type}): ${v.label}`).join('\n')}\n\nTemplate Placeholders to Match:\n${placeholders.map((p) => `- {{${p}}}`).join('\n')}`;
+    const variableLines = variables.map((v) => `- ${v.alias} (${v.type}): ${v.label}`).join('\n');
+    const placeholderLines = placeholders.map((p) => `- {{${p}}}`).join('\n');
+    const userPrompt = `Available Workflow Variables:\n${variableLines}\n\nTemplate Placeholders to Match:\n${placeholderLines}`;
 
     return { systemMessage, userPrompt };
   }
@@ -293,93 +294,6 @@ Return ONLY a JSON object with this structure:
 Do not include any markdown formatting, code blocks, or additional text. Return raw JSON only.`;
 
     const userPrompt = `Fields to populate:\n${stepDescriptions}`;
-
-    return { systemMessage, userPrompt };
-  }
-
-  /**
-   * Build prompt for workflow revision
-   */
-  buildWorkflowRevisionPrompt(request: AIWorkflowRevisionRequest): { systemMessage: string; userPrompt: string } {
-    const systemMessage = `You are a ezBuildr Workflow Revision Engine.
-Your task is to modify the Current Workflow based on the User Instruction and Conversation History.
-
-Current Workflow JSON:
-${JSON.stringify(request.currentWorkflow, null, 2)}
-
-Mode: ${request.mode} (Respect constraints of this mode)
-
-Output a JSON object with this exact structure:
-{
-  "updatedWorkflow": {
-    "title": "Workflow Title",
-    "description": "Description",
-    "sections": [
-      {
-        "id": "section-1",
-        "title": "Section Title",
-        "description": null,
-        "order": 0,
-        "steps": [
-          {
-            "id": "step-1",
-            "type": "short_text",
-            "title": "What is your name?",  // REQUIRED - question text
-            "description": null,
-            "alias": "name",
-            "required": true,
-            "config": {}
-          }
-        ]
-      }
-    ],
-    "logicRules": [
-      {
-        "id": "rule-1",
-        "conditionStepAlias": "step_alias",  // REQUIRED - alias of step to check
-        "operator": "equals",  // REQUIRED - use: equals, not_equals, contains, greater_than, less_than, is_empty, etc. (never use "is")
-        "value": "some value",  // Value to compare against
-        "targetType": "step",  // REQUIRED - "step" or "section"
-        "targetAlias": "other_step",  // REQUIRED - alias of step/section to affect
-        "action": "show",  // REQUIRED - "show", "hide", "require", "make_optional", or "skip_to"
-        "description": "Show other_step if step_alias equals 'some value'"
-      }
-    ],
-    "transformBlocks": [],
-    "notes": null
-  },
-  "diff": {
-    "changes": [
-      {
-        "type": "add|remove|update|move",
-        "target": "path.to.element",
-        "before": null,
-        "after": { ... },
-        "explanation": "Added a new specific question"
-      }
-    ]
-  },
-  "explanation": ["Point 1 about what changed", "Point 2"],
-  "suggestions": ["Follow-up suggestion 1"]
-}
-
-CRITICAL REQUIREMENTS:
-    1. **FULL RESPONSE REQUIRED**: You MUST return the ENTIRE workflow structure in 'updatedWorkflow', including ALL existing sections and steps that you did not change.
-    2. **DELETION WARNING**: Any section or step that is missing from your 'updatedWorkflow' will be PERMANENTLY DELETED. Do not be lazy.
-    3. **TITLES**: Every step MUST have a "title" field.
-    4. **IDS**: Preserve existing IDs. Generate new UUIDs for new items.
-    5. **CONTENT GENERATION**: If the User Instruction asks to "build", "create", or "automate" a form/workflow, and the current workflow has few or no questions, you MUST generate the full structure (multiple sections, relevant questions). DO NOT just update the title. YOU MUST BUILD THE CONTENT.
-    6. **ALIASES**: Every step MUST have a unique "alias" in camelCase (e.g., "firstName", "driverLicenseNumber"). Do not leave it null or empty.
-
-    Valid Step Types:
-    - Text: "short_text", "long_text", "email", "phone", "website", "number", "currency"
-    - Choice: "radio", "multiple_choice", "yes_no"
-    - Date: "date", "time", "date_time"
-    - Other: "scale", "address", "file_upload", "display", "signature_block"
-
-    Output ONLY the JSON object.`;
-
-    const userPrompt = `User Instruction:\n${this.fenceUntrusted(request.userInstruction)}\n\nConversation History:\n${request.conversationHistory ? request.conversationHistory.map((m) => `${m.role.toUpperCase()}: ${this.fenceUntrusted(m.content)}`).join('\n') : 'None'}`;
 
     return { systemMessage, userPrompt };
   }

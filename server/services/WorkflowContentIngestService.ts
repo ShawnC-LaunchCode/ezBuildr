@@ -1,11 +1,16 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, and, isNull } from "drizzle-orm";
 
 import { db } from "../db";
 import { createLogger } from "../logger";
 import { sections, steps, logicRules, transformBlocks, lifecycleHooks, documentHooks } from "../../shared/schema";
 
+import { LIMITS, LimitExceededError } from "../../shared/limits";
+import { validateAndNormalizeConfig } from "../utils/stepConfigUtils";
+
+import type { StepConfig } from "../../shared/types/stepConfigs";
+
 import { normalizeWorkflowTypes, validateWorkflowStructure } from "./ai/AIServiceUtils";
-import { generateUniqueAliasFromTaken } from "./stepAlias";
+import { generateUniqueAliasFromTaken, sanitizeAliasFormat } from "./stepAlias";
 
 import type {
   InsertDocumentHook,
@@ -33,10 +38,12 @@ export interface WorkflowStepData {
   alias?: string;
   visibleIf?: string;
   repeaterConfig?: Record<string, unknown>;
-  defaultValue?: Record<string, unknown>;
+  defaultValue?: unknown;
+  isVirtual?: boolean;
 }
 
 export interface WorkflowLogicRuleData {
+  id?: string;
   conditionStepAlias: string;
   conditionStepId?: string;
   operator: string;
@@ -46,9 +53,13 @@ export interface WorkflowLogicRuleData {
   targetAlias: string;
   targetId?: string;
   action: string;
+  logicalOperator?: string | null;
+  order?: number;
 }
 
 export interface WorkflowTransformBlockData {
+  id?: string;
+  sectionId?: string | null;
   phase: string;
   name: string;
   code: string;
@@ -56,19 +67,41 @@ export interface WorkflowTransformBlockData {
   inputKeys?: string[];
   outputAlias?: string;
   outputKey?: string;
+  virtualStepId?: string | null;
+  enabled?: boolean;
   order?: number;
+  timeoutMs?: number | null;
 }
 
 export interface WorkflowHookData {
+  id?: string;
+  sectionId?: string | null;
+  finalBlockDocumentId?: string | null;
   phase: string;
   name: string;
   code: string;
   language: string;
   inputKeys?: string[];
   outputAlias?: string;
+  outputKeys?: string[];
+  virtualStepIds?: string[] | null;
   order?: number;
   config?: Record<string, unknown>;
   isEnabled?: boolean;
+  enabled?: boolean;
+  timeoutMs?: number | null;
+  mutationMode?: boolean | null;
+}
+
+export interface WorkflowBlockData {
+  id?: string;
+  sectionId?: string | null;
+  type: string;
+  phase: string;
+  config: unknown;
+  virtualStepId?: string | null;
+  enabled?: boolean;
+  order?: number;
 }
 
 export interface WorkflowSectionData {
@@ -78,6 +111,7 @@ export interface WorkflowSectionData {
   order?: number;
   alias?: string;
   visibleIf?: string;
+  skipIf?: unknown;
   config?: Record<string, unknown>;
   steps?: WorkflowStepData[];
 }
@@ -85,8 +119,12 @@ export interface WorkflowSectionData {
 export interface WorkflowContentData {
   title?: string;
   description?: string;
+  projectId?: string | null;
+  settings?: Record<string, unknown>;
+  intakeConfig?: Record<string, unknown>;
   sections?: WorkflowSectionData[];
   logicRules?: WorkflowLogicRuleData[];
+  blocks?: WorkflowBlockData[];
   transformBlocks?: WorkflowTransformBlockData[];
   lifecycleHooks?: WorkflowHookData[];
   documentHooks?: WorkflowHookData[];
@@ -115,14 +153,29 @@ interface StepUpsertContext {
   aliasState: AliasSyncState;
 }
 
-function normalizeStepConfig(stepData: WorkflowStepData): Record<string, unknown> | null {
+function normalizeStepConfig(stepData: WorkflowStepData, workflowId: string): Record<string, unknown> | null {
+  let config: Record<string, unknown> | null = null;
   if (stepData.config !== undefined) {
-    return stepData.config;
+    config = stepData.config;
+  } else if (stepData.options !== undefined) {
+    config = { options: stepData.options };
   }
-  if (stepData.options !== undefined) {
-    return { options: stepData.options };
+
+  if (config && stepData.type) {
+    try {
+      // Enforce strict validation
+      config = validateAndNormalizeConfig(stepData.type, config as StepConfig, { strict: true }) as Record<string, unknown> | null;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      createLogger({ module: 'ingest-service' }).warn(
+        { stepType: stepData.type, workflowId, error: message },
+        "Step config validation failed during ingest"
+      );
+      throw new Error(`Validation error: ${message}`);
+    }
   }
-  return null;
+
+  return config;
 }
 
 function normalizeContent(data: WorkflowContentData): WorkflowContentData {
@@ -134,6 +187,24 @@ function normalizeContent(data: WorkflowContentData): WorkflowContentData {
 
   normalizeWorkflowTypes(normalizedData as unknown as AIGeneratedWorkflow);
   validateWorkflowStructure(normalizedData as unknown as AIGeneratedWorkflow);
+
+  // Aggregate size caps (ICW-11): the deep-update path replaces the whole
+  // workflow, so enforce the same ceilings the incremental path checks.
+  const sectionCount = normalizedData.sections?.length ?? 0;
+  if (sectionCount > LIMITS.MAX_SECTIONS_PER_WORKFLOW) {
+    throw new LimitExceededError(
+      `Section limit reached (${LIMITS.MAX_SECTIONS_PER_WORKFLOW} per workflow)`
+    );
+  }
+  const stepCount = (normalizedData.sections ?? []).reduce(
+    (sum, section) => sum + (section.steps?.length ?? 0),
+    0
+  );
+  if (stepCount > LIMITS.MAX_STEPS_PER_WORKFLOW) {
+    throw new LimitExceededError(
+      `Question limit reached (${LIMITS.MAX_STEPS_PER_WORKFLOW} per workflow)`
+    );
+  }
 
   return normalizedData;
 }
@@ -149,17 +220,21 @@ export class WorkflowContentIngestService {
   async apply(
     workflowId: string,
     data: WorkflowContentData,
-    options: { source: "ai" | "template" | "manual" }
+    options: { source: "ai" | "template" | "manual"; tx?: Transaction }
   ): Promise<void> {
     logger.info({ workflowId, source: options.source }, "Applying workflow content");
 
     const normalizedData = normalizeContent(data);
 
-    return db.transaction(async (tx) => {
+    const runner = async (tx: Transaction): Promise<void> => {
+      // Excludes soft-deleted rows (ICW2-B1) so reconciliation never
+      // re-considers an already-deleted section for deletion, and so a
+      // section removed from the incoming payload is soft-deleted exactly
+      // once.
       const existingSections = await tx
         .select()
         .from(sections)
-        .where(eq(sections.workflowId, workflowId));
+        .where(and(eq(sections.workflowId, workflowId), isNull(sections.deletedAt)));
 
       const aliasState = await this.buildAliasState(tx, workflowId);
       const incomingSectionIds = await this.syncSections(
@@ -175,10 +250,18 @@ export class WorkflowContentIngestService {
       await this.syncTransformBlocks(tx, workflowId, normalizedData.transformBlocks ?? []);
       await this.syncLifecycleHooks(tx, workflowId, normalizedData.lifecycleHooks);
       await this.syncDocumentHooks(tx, workflowId, normalizedData.documentHooks);
-    });
+    };
+
+    if (options.tx) {
+      return runner(options.tx);
+    }
+    return db.transaction(runner);
   }
 
   private async buildAliasState(tx: Transaction, workflowId: string): Promise<AliasSyncState> {
+    // Excludes soft-deleted steps (ICW2-B1) — a soft-deleted step's alias is
+    // free to be reused by an incoming step, matching the unique index's
+    // `deleted_at IS NULL` scope.
     const existingWorkflowSteps = await tx
       .select({
         id: steps.id,
@@ -186,7 +269,7 @@ export class WorkflowContentIngestService {
       })
       .from(steps)
       .innerJoin(sections, eq(steps.sectionId, sections.id))
-      .where(eq(sections.workflowId, workflowId));
+      .where(and(eq(sections.workflowId, workflowId), isNull(steps.deletedAt)));
 
     const existingAliasByStepId = new Map(existingWorkflowSteps.map((step) => [step.id, step.alias]));
     const takenAliases = new Set(
@@ -310,7 +393,12 @@ export class WorkflowContentIngestService {
   }
 
   private async getExistingStepIds(tx: Transaction, sectionId: string): Promise<Set<string>> {
-    const dbSteps = await tx.select({ id: steps.id }).from(steps).where(eq(steps.sectionId, sectionId));
+    // Excludes soft-deleted steps (ICW2-B1) so reconciliation never
+    // re-considers an already-deleted step for deletion.
+    const dbSteps = await tx
+      .select({ id: steps.id })
+      .from(steps)
+      .where(and(eq(steps.sectionId, sectionId), isNull(steps.deletedAt)));
     return new Set(dbSteps.map((step) => step.id));
   }
 
@@ -322,7 +410,7 @@ export class WorkflowContentIngestService {
     const existingId = stepData.id;
     const isExisting = existingId !== undefined && existingId !== null && context.existingStepIds.has(existingId);
     const alias = this.resolveStepAlias(stepData, existingId, context.aliasState);
-    const config = normalizeStepConfig(stepData);
+    const config = normalizeStepConfig(stepData, context.workflowId);
 
     if (isExisting) {
       context.incomingStepIds.add(existingId);
@@ -375,6 +463,13 @@ export class WorkflowContentIngestService {
       aliasState.takenAliases.delete(previousAlias.toLowerCase());
     }
 
+    if (stepData.alias) {
+      stepData.alias = sanitizeAliasFormat(stepData.alias);
+      if (stepData.alias === "") {
+        stepData.alias = undefined;
+      }
+    }
+
     let alias = stepData.alias ?? generateUniqueAliasFromTaken(stepData.title, aliasState.takenAliases);
     if (alias !== undefined && alias !== null && aliasState.takenAliases.has(alias.toLowerCase())) {
       alias = generateUniqueAliasFromTaken(alias, aliasState.takenAliases);
@@ -386,6 +481,11 @@ export class WorkflowContentIngestService {
     return alias ?? null;
   }
 
+  /**
+   * Soft-deletes (ICW2-B1) sections dropped from the incoming payload, and
+   * cascades to their steps — a hard `DELETE` would destroy `step_values`
+   * (respondent answers) via the FK cascade; soft-delete never triggers it.
+   */
   private async deleteMissingSections(
     tx: Transaction,
     existingSections: ExistingSection[],
@@ -396,10 +496,13 @@ export class WorkflowContentIngestService {
       .filter((id) => !incomingSectionIds.has(id));
 
     if (sectionsToDelete.length > 0) {
-      await tx.delete(sections).where(inArray(sections.id, sectionsToDelete));
+      const deletedAt = new Date();
+      await tx.update(steps).set({ deletedAt }).where(inArray(steps.sectionId, sectionsToDelete));
+      await tx.update(sections).set({ deletedAt }).where(inArray(sections.id, sectionsToDelete));
     }
   }
 
+  /** Soft-deletes (ICW2-B1) steps dropped from the incoming payload. */
   private async deleteMissingSteps(
     tx: Transaction,
     existingStepIds: Set<string>,
@@ -407,7 +510,7 @@ export class WorkflowContentIngestService {
   ): Promise<void> {
     const stepsToDelete = [...existingStepIds].filter((id) => !incomingStepIds.has(id));
     if (stepsToDelete.length > 0) {
-      await tx.delete(steps).where(inArray(steps.id, stepsToDelete));
+      await tx.update(steps).set({ deletedAt: new Date() }).where(inArray(steps.id, stepsToDelete));
     }
   }
 

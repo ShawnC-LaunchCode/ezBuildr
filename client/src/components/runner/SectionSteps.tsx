@@ -1,13 +1,10 @@
-import { Database } from "lucide-react";
 import { useMemo } from "react";
 
 import { BlockRenderer } from "@/components/runner/blocks";
 import { BlockErrorBoundary } from "@/components/runner/BlockErrorBoundary";
-import { Badge } from "@/components/ui/badge";
 import { useSectionVisibility } from "@/hooks/runner/useSectionVisibility";
 import type { ApiStep } from "@/lib/vault-api";
 import { useSteps } from "@/lib/vault-hooks";
-import type { DefaultValueConfig } from "@/pages/workflow-runner/runner.utils";
 import type { Step } from "@/types";
 
 import type { LogicRule } from "@shared/schema";
@@ -16,24 +13,28 @@ import type { LogicRule } from "@shared/schema";
 interface SectionStepsProps {
     sectionId: string;
     steps?: ApiStep[];
+    /**
+     * Every step in the workflow (not just this section's), used only to
+     * build the alias->step id map for display-block `{{alias}}`
+     * interpolation. Aliases are workflow-wide, but rendering (visibility,
+     * ordering) stays scoped to `steps`. Falls back to `steps` when the
+     * caller doesn't have the full-workflow list on hand.
+     */
+    allSteps?: ApiStep[];
     values: Record<string, unknown>;
     logicRules: LogicRule[];
     onChange: (stepId: string, value: unknown) => void;
     errors?: Record<string, string[]>;
-    intakeData?: {
-        sourceWorkflowTitle?: string;
-        values?: Record<string, unknown>;
-    };
 }
 
 export function SectionSteps({
     sectionId,
     steps: providedSteps,
+    allSteps: providedAllSteps,
     values,
     logicRules,
     onChange,
-    errors,
-    intakeData
+    errors
 }: SectionStepsProps) {
     const { data: rawSteps } = useSteps(sectionId, {
         enabled: !providedSteps
@@ -62,6 +63,22 @@ export function SectionSteps({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
     const { getVisibleSectionSteps } = useSectionVisibility(undefined, steps as any, values, logicRules);
 
+    // Alias -> step id map for display-block {{alias}} interpolation. Aliases
+    // are workflow-wide (a display block on page 3 routinely references an
+    // answer from page 1), so this is built from the whole-workflow step list
+    // when the caller supplies one, falling back to this section's own steps
+    // otherwise (still correct, just unable to resolve cross-section aliases).
+    const aliasSourceSteps = providedAllSteps ?? steps;
+    const aliasMap = useMemo(() => {
+        const map: Record<string, string> = {};
+        for (const step of aliasSourceSteps) {
+            if (step.alias) {
+                map[step.alias] = step.id;
+            }
+        }
+        return map;
+    }, [aliasSourceSteps]);
+
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!steps || steps.length === 0) {
         return <p className="text-muted-foreground text-sm">No steps in this section</p>;
@@ -77,7 +94,7 @@ export function SectionSteps({
     }
 
     return (
-        <>
+        <div data-testid="runner-section-steps" className="space-y-8">
             {visibleSteps.map((step) => (
                 <BlockErrorBoundary key={step.id} stepId={step.id}>
                     <StepField
@@ -86,25 +103,12 @@ export function SectionSteps({
                         onChange={(v) => { onChange(step.id, v); }}
                         error={errors?.[step.id]?.[0]} // Pass first error message
                         context={values}
-                        intakeSource={getIntakeSource(step, intakeData)}
+                        aliasMap={aliasMap}
                     />
                 </BlockErrorBoundary>
             ))}
-        </>
+        </div>
     );
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getIntakeSource(step: any, intakeData?: { sourceWorkflowTitle?: string; values?: Record<string, unknown> }) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const defVal = step.defaultValue as DefaultValueConfig | undefined;
-    return defVal?.source === 'intake' && defVal.variable
-        ? {
-            title: intakeData?.sourceWorkflowTitle ?? 'Intake',
-            variable: defVal.variable,
-            value: intakeData?.values?.[defVal.variable]
-        }
-        : undefined;
 }
 
 /**
@@ -125,28 +129,12 @@ interface StepFieldProps {
     onChange: (value: unknown) => void;
     error?: string;
     context: Record<string, unknown>;
-    intakeSource?: {
-        title: string;
-        variable: string;
-        value: unknown;
-    };
+    aliasMap?: Record<string, string>;
 }
 
-function StepField({ step, value, onChange, error, context, intakeSource }: StepFieldProps) {
-    // Check if current value matches intake value to decide if we show the badge
-    const isUsingIntakeValue = intakeSource && value === intakeSource.value;
-
+function StepField({ step, value, onChange, error, context, aliasMap }: StepFieldProps) {
     return (
         <div className="space-y-1 relative group">
-            {intakeSource && isUsingIntakeValue && (
-                <div className="absolute -top-3 right-0 z-10">
-                    <Badge variant="outline" className="text-[10px] h-5 gap-1 bg-emerald-50 text-emerald-700 border-emerald-200 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Database className="w-3 h-3" />
-                        From {intakeSource.title}
-                    </Badge>
-                </div>
-            )}
-
             {/* 
           BlockRenderer expects 'Step' type which is our main internal type. 
           RuntimeStep is derived from ApiStep. Casting is necessary until types are unified.
@@ -160,15 +148,8 @@ function StepField({ step, value, onChange, error, context, intakeSource }: Step
                 error={error}
                 showValidation={!!error}
                 context={context}
+                aliasMap={aliasMap}
             />
-
-            {intakeSource && (
-                <div className="flex justify-end">
-                    {isUsingIntakeValue ? null : ( // If value changed, maybe show "Restore" button? For now just visual cue
-                        <span className="text-[10px] text-muted-foreground hidden">Modified from original</span>
-                    )}
-                </div>
-            )}
         </div>
     );
 }

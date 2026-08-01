@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { z } from 'zod';
 import { validateSafeUrl } from '../utils/ssrfValidator';
 
@@ -24,7 +24,7 @@ const postgresConfigSchema = z.object({
     user: z.string().optional(),
     password: z.string().optional(),
     ssl: z.boolean().optional()
-}).refine(c => c.connectionString || c.host, 'need connectionString or host');
+}).refine(c => c.connectionString !== undefined || c.host !== undefined, 'need connectionString or host');
 const airtableConfigSchema = z.object({
     apiUrl: z.string().url().optional(),
     baseId: z.string(),
@@ -49,16 +49,44 @@ const dataSourceConfigUnion = z.discriminatedUnion('type', [
 
 export const dataSourceRouter = Router();
 
+const NETWORK_KEYS: Record<string, string[]> = {
+    external: ['url'],
+    postgres: ['connectionString', 'host'],
+    airtable: ['apiUrl'],
+    google_sheets: [],
+    native: [],
+    native_table: [],
+};
+
+function protocolsFor(type: string, _key: string): string[] | undefined {
+    return type === 'postgres' ? ["postgres:", "postgresql:", "http:", "https:"] : undefined;
+}
+
+async function isSafeNetworkValue(urlStr: string, allowedProtocols?: string[]): Promise<boolean> {
+    return validateSafeUrl(urlStr, allowedProtocols);
+}
+
+async function validateNetworkConfig(type: string, config: Record<string, unknown>): Promise<string | null> {
+    for (const key of NETWORK_KEYS[type] ?? []) {
+        const val = config[key];
+        if (typeof val !== 'string') {
+            continue;
+        }
+        const checkVal = type === 'postgres' && key === 'host' ? `postgres://${val}` : val;
+        if (!(await isSafeNetworkValue(checkVal, protocolsFor(type, key)))) {
+            return key;
+        }
+    }
+    return null;
+}
 
 // Apply auth to all routes
 dataSourceRouter.use(hybridAuth);
 
 // Helper to get tenantId safely
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const getTenant = (req: any): string => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+const getTenant = (req: Request): string => {
     const tenantId = getAuthUserTenantId(req);
-    if (!tenantId) {
+    if (tenantId === undefined || tenantId === '') {
         throw new Error('Tenant ID missing from session');
     }
     return tenantId;
@@ -182,45 +210,15 @@ dataSourceRouter.post('/', asyncHandler(async (req, res) => {
 
         const data = dataSourceConfigUnion.parse(req.body);
         
-        // SEC-005: Validate URL/Host for SSRF across all relevant types, not just external
-        const checkSsrf = async (urlStr: string, allowedProtocols?: string[]) => {
-            const isSafe = await validateSafeUrl(urlStr, allowedProtocols);
-            if (!isSafe) {
-                return false;
-            }
-            return true;
-        };
-
-        const NETWORK_KEYS: Record<string, string[]> = {
-            external: ['url'],
-            postgres: ['connectionString', 'host'],
-            airtable: ['apiUrl'],
-            google_sheets: [],
-            native: [],
-            native_table: [],
-        };
-
-        const protocolsFor = (type: string, key: string): string[] | undefined => {
-            if (type === 'postgres') return ["postgres:", "postgresql:", "http:", "https:"];
-            return undefined;
-        };
-
-        for (const key of NETWORK_KEYS[data.type] || []) {
-            const val = (data.config as Record<string, unknown>)[key];
-            if (typeof val === 'string') {
-                const checkVal = (data.type === 'postgres' && key === 'host') ? `postgres://${val}` : val;
-                if (!(await checkSsrf(checkVal, protocolsFor(data.type, key)))) {
-                    return res.status(400).json({ message: `Invalid or unsafe ${key}` });
-                }
-            }
+        const invalidNetworkKey = await validateNetworkConfig(data.type, data.config as Record<string, unknown>);
+        if (invalidNetworkKey !== null) {
+            return res.status(400).json({ message: `Invalid or unsafe ${invalidNetworkKey}` });
         }
 
-        /* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any */
         const dataSource = await dataSourceService.createDataSource({
             ...data,
             tenantId,
-        } as any);
-        /* eslint-enable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any */
+        });
 
         res.status(201).json(dataSource);
     } catch (error) {
@@ -245,13 +243,13 @@ dataSourceRouter.patch('/:id', asyncHandler(async (req, res) => {
         const schema = z.object({
             name: z.string().min(1).max(255).optional(),
             description: z.string().optional(),
-            config: z.record(z.any()).optional(),
+            config: z.record(z.unknown()).optional(),
         });
 
         const data = schema.parse(req.body);
-        if (data.config) {
+        if (data.config !== undefined) {
             const existing = await dataSourceService.getDataSource(id, tenantId);
-            if (!existing) { return res.status(404).json({message: "Not found"}); }
+            if (existing === null) { return res.status(404).json({message: "Not found"}); }
             
             // Validate config against the proper schema based on existing type
             const typeForValidation = existing.type;
@@ -263,37 +261,9 @@ dataSourceRouter.patch('/:id', asyncHandler(async (req, res) => {
             };
             dataSourceConfigUnion.parse(fullDataForValidation);
 
-            // SEC-005: Validate URL/Host for SSRF across all relevant types, not just external
-            const checkSsrf = async (urlStr: string, allowedProtocols?: string[]) => {
-                const isSafe = await validateSafeUrl(urlStr, allowedProtocols);
-                if (!isSafe) {
-                    return false;
-                }
-                return true;
-            };
-
-            const NETWORK_KEYS: Record<string, string[]> = {
-                external: ['url'],
-                postgres: ['connectionString', 'host'],
-                airtable: ['apiUrl'],
-                google_sheets: [],
-                native: [],
-                native_table: [],
-            };
-
-            const protocolsFor = (type: string, key: string): string[] | undefined => {
-                if (type === 'postgres') return ["postgres:", "postgresql:", "http:", "https:"];
-                return undefined;
-            };
-
-            for (const key of NETWORK_KEYS[typeForValidation] || []) {
-                const val = (data.config as Record<string, unknown>)[key];
-                if (typeof val === 'string') {
-                    const checkVal = (typeForValidation === 'postgres' && key === 'host') ? `postgres://${val}` : val;
-                    if (!(await checkSsrf(checkVal, protocolsFor(typeForValidation, key)))) {
-                        return res.status(400).json({ message: `Invalid or unsafe ${key}` });
-                    }
-                }
+            const invalidNetworkKey = await validateNetworkConfig(typeForValidation, data.config);
+            if (invalidNetworkKey !== null) {
+                return res.status(400).json({ message: `Invalid or unsafe ${invalidNetworkKey}` });
             }
         }
 

@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { fetchAPI, type ApiStep } from "@/lib/vault-api";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { fetchAPI } from "@/lib/vault-api";
 import { useAutoSave } from "@/hooks/useAutoSave";
 
-import type { StepValue, DefaultValueConfig } from "@/pages/workflow-runner/runner.utils";
+import type { StepValue } from "@/pages/workflow-runner/runner.utils";
 import type { PreviewEnvironment, PreviewRunState } from "@/lib/previewRunner/PreviewEnvironment";
 
 interface UseRunValuesProps {
@@ -11,8 +11,6 @@ interface UseRunValuesProps {
   run: { values?: { stepId: string; value: StepValue }[] } | null | undefined;
   previewState: PreviewRunState | null;
   previewEnvironment: Pick<PreviewEnvironment, 'setValue'> | null | undefined;
-  allSteps: ApiStep[] | undefined;
-  intakeData: { values?: Record<string, StepValue> | null; isLoading?: boolean } | null;
 }
 
 import { type SaveStatus } from "@/hooks/useAutoSave";
@@ -31,7 +29,6 @@ interface RunValueAdapter {
   values: Record<string, StepValue>;
   updateValue: (stepId: string, value: StepValue) => void;
   hydrateFromSavedRun: boolean;
-  hydrateFromIntake: boolean;
   autosaveEnabled: boolean;
 }
 
@@ -40,9 +37,7 @@ export function useRunValues({
   actualRunId,
   run,
   previewState,
-  previewEnvironment,
-  allSteps,
-  intakeData
+  previewEnvironment
 }: UseRunValuesProps): UseRunValuesReturn {
   const [formValues, setFormValues] = useState<Record<string, StepValue>>({});
   const isProductionMode = mode === 'production';
@@ -61,7 +56,6 @@ export function useRunValues({
         values: formValues,
         updateValue: updateProductionValue,
         hydrateFromSavedRun: true,
-        hydrateFromIntake: true,
         autosaveEnabled: Boolean(actualRunId),
       };
     }
@@ -70,7 +64,6 @@ export function useRunValues({
       values: previewState?.values ?? {},
       updateValue: updatePreviewValue,
       hydrateFromSavedRun: false,
-      hydrateFromIntake: false,
       autosaveEnabled: false,
     };
   }, [isProductionMode, formValues, updateProductionValue, actualRunId, previewState?.values, updatePreviewValue]);
@@ -79,44 +72,43 @@ export function useRunValues({
     values: effectiveValues,
     updateValue,
     hydrateFromSavedRun,
-    hydrateFromIntake,
     autosaveEnabled,
   } = valueAdapter;
 
-  // Initialize form values from run.values (production mode only)
+  // Initialize form values from run.values (production mode only).
+  //
+  // Guarded to fire once per run (ICW2-B10): `run` used to be rebuilt as a
+  // brand-new object on every render (see useRunSession), so this effect
+  // re-ran on every render and unconditionally clobbered `formValues` back to
+  // the last-persisted server snapshot — silently discarding whatever the
+  // user had just answered client-side (and, since `setFormValues` always
+  // triggered another render, running away into "Maximum update depth
+  // exceeded"). `run` is now memoized, but a real refetch (autosave
+  // completing, a background revalidation) still produces a new `run`
+  // reference — hydrating again at that point would just as silently wipe an
+  // in-progress answer, so hydration is limited to the first time a given
+  // `actualRunId`'s saved values become available, and merges under (rather
+  // than over) anything already in local state — unless `actualRunId` itself
+  // changed (the rare case where a session resolves to a *different* run
+  // without remounting, e.g. the "existing run replaced" fallback in
+  // useRunSession), in which case `prev` belongs to the old run and must not
+  // leak into the new one.
+  const hydratedRunIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (hydrateFromSavedRun && run?.values) {
-      const initial: Record<string, StepValue> = {};
-      run.values.forEach((v) => {
-        initial[v.stepId] = v.value;
-      });
-      setFormValues(initial);
+    if (!hydrateFromSavedRun || !run?.values || !actualRunId) {
+      return;
     }
-  }, [run, hydrateFromSavedRun]);
-
-  // Intake Data Hydration (Production Mode)
-  useEffect(() => {
-    const intakeValues = intakeData?.values;
-    if (hydrateFromIntake && allSteps && intakeValues !== null && intakeValues !== undefined && !intakeData?.isLoading) {
-      setFormValues((prev) => {
-        const next = { ...prev };
-        let changed = false;
-        allSteps.forEach((step: ApiStep) => {
-          if (next[step.id] === undefined || next[step.id] === null || next[step.id] === "") {
-            const defVal = step.defaultValue as DefaultValueConfig | undefined;
-            if (defVal?.source === 'intake' && defVal.variable) {
-              const val = intakeValues[defVal.variable];
-              if (val !== undefined) {
-                next[step.id] = val;
-                changed = true;
-              }
-            }
-          }
-        });
-        return changed ? next : prev;
-      });
+    if (hydratedRunIdRef.current === actualRunId) {
+      return;
     }
-  }, [hydrateFromIntake, allSteps, intakeData?.values, intakeData?.isLoading]);
+    const isDifferentRun = hydratedRunIdRef.current !== null && hydratedRunIdRef.current !== actualRunId;
+    hydratedRunIdRef.current = actualRunId;
+    const initial: Record<string, StepValue> = {};
+    run.values.forEach((v) => {
+      initial[v.stepId] = v.value;
+    });
+    setFormValues((prev) => (isDifferentRun ? initial : { ...initial, ...prev }));
+  }, [run, hydrateFromSavedRun, actualRunId]);
 
   const handleUpdateValue = useCallback((stepId: string, value: StepValue) => {
     updateValue(stepId, value);

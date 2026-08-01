@@ -53,6 +53,40 @@ describe("conditionEvaluator", () => {
       const result = evaluateConditionExpression(expression, {});
       expect(result).toBe(true);
     });
+
+    describe("numeric operators fail closed on unanswered input", () => {
+      const numExpr = (operator: Condition["operator"], value: unknown, value2?: unknown): ConditionExpression => ({
+        type: "group", id: "g1", operator: "AND",
+        conditions: [
+          { type: "condition", id: "c1", variable: "age", operator, value, value2, valueType: "constant" } as Condition,
+        ],
+      });
+
+      // A step gated "show if age < 18" must NOT appear before `age` is answered.
+      it.each([
+        ["less_than", 18],
+        ["greater_than", 0],
+        ["greater_or_equal", 0],
+        ["less_or_equal", 0],
+      ] as const)("'%s' is false when the field is undefined/missing", (operator, value) => {
+        expect(evaluateConditionExpression(numExpr(operator, value), {})).toBe(false);
+        expect(evaluateConditionExpression(numExpr(operator, value), { age: null })).toBe(false);
+        expect(evaluateConditionExpression(numExpr(operator, value), { age: "" })).toBe(false);
+      });
+
+      it("'between' is false when the field is unanswered", () => {
+        expect(evaluateConditionExpression(numExpr("between", 0, 50000), {})).toBe(false);
+        expect(evaluateConditionExpression(numExpr("between", 0, 50000), { age: "" })).toBe(false);
+      });
+
+      it("numeric operators still evaluate correctly once answered", () => {
+        expect(evaluateConditionExpression(numExpr("less_than", 18), { age: 10 })).toBe(true);
+        expect(evaluateConditionExpression(numExpr("less_than", 18), { age: 25 })).toBe(false);
+        expect(evaluateConditionExpression(numExpr("greater_than", 18), { age: 25 })).toBe(true);
+        expect(evaluateConditionExpression(numExpr("between", 0, 50000), { age: 30000 })).toBe(true);
+        expect(evaluateConditionExpression(numExpr("between", 0, 50000), { age: 60000 })).toBe(false);
+      });
+    });
   });
 
   describe("evaluateConditionExpressionWithDetails", () => {

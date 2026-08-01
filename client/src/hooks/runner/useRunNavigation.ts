@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, type Dispatch, type SetStateAction } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { fetchAPI, type ApiSection, type ApiStep } from "@/lib/vault-api";
 import { useSubmitSection, useNext, useCompleteRun } from "@/lib/vault-hooks";
@@ -59,6 +59,8 @@ interface UseRunNavigationProps {
   actualRunId: string | null;
   workflowId?: string;
   runVersionId?: string;
+  initialCompleted?: boolean;
+  initialSectionId?: string | null;
   visibleSections: ApiSection[];
   effectiveValues: RunnerValues;
   transport: RunNavigationTransport;
@@ -274,9 +276,10 @@ export function useRunNavigationTransport({
 export interface UseRunNavigationReturn {
   currentSectionIndex: number;
   setCurrentSectionIndex: Dispatch<SetStateAction<number>>;
-  currentSection: ApiSection;
+  currentSection: ApiSection | undefined;
   isLastSection: boolean;
   showReview: boolean;
+  isCompleted: boolean;
   setShowReview: Dispatch<SetStateAction<boolean>>;
   errors: string[];
   fieldErrors: Record<string, string[]>;
@@ -290,14 +293,33 @@ export function useRunNavigation({
   actualRunId,
   workflowId,
   runVersionId,
+  initialCompleted = false,
+  initialSectionId,
   visibleSections,
   effectiveValues,
   transport,
 }: UseRunNavigationProps): UseRunNavigationReturn {
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [showReview, setShowReview] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(initialCompleted);
   const [errors, setErrors] = useState<string[]>([]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const initializedRunRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!actualRunId || visibleSections.length === 0 || initializedRunRef.current === actualRunId) {
+      return;
+    }
+    const savedIndex = initialSectionId
+      ? visibleSections.findIndex((section) => section.id === initialSectionId)
+      : 0;
+    setCurrentSectionIndex(savedIndex >= 0 ? savedIndex : 0);
+    initializedRunRef.current = actualRunId;
+  }, [actualRunId, initialSectionId, visibleSections]);
+
+  useEffect(() => {
+    setIsCompleted(initialCompleted);
+  }, [actualRunId, initialCompleted]);
 
   const { toast } = useToast();
   const completeMutation = useCompleteRun();
@@ -316,9 +338,11 @@ export function useRunNavigation({
   }, [showReview, transport]);
 
   const handleFinalSubmit = useCallback(async () => {
-    if (!actualRunId) {return;}
+    if (!actualRunId || isCompleted || completeMutation.isPending) {return;}
     try {
       await completeMutation.mutateAsync(actualRunId);
+      setIsCompleted(true);
+      setShowReview(false);
       if (workflowId && runVersionId) {
         void analytics.runComplete(actualRunId, workflowId, runVersionId);
       }
@@ -329,10 +353,11 @@ export function useRunNavigation({
     } catch {
       toast({ title: "Error", description: "Failed to submit workflow", variant: "destructive" });
     }
-  }, [actualRunId, workflowId, runVersionId, completeMutation, toast]);
+  }, [actualRunId, workflowId, runVersionId, isCompleted, completeMutation, toast]);
 
   const handleNext = useCallback(async () => {
     setErrors([]);
+    setFieldErrors({});
 
     if (currentSection == null) {return;}
 
@@ -422,6 +447,7 @@ export function useRunNavigation({
     currentSection,
     isLastSection,
     showReview,
+    isCompleted,
     setShowReview,
     errors,
     fieldErrors,

@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 
@@ -18,9 +16,16 @@ interface SchemaAlignmentResult {
     missingTransforms: TransformBlock[];
 }
 
+interface TextGenerationModel {
+    generateContent(prompt: string): Promise<{
+        response: {
+            text(): string;
+        };
+    }>;
+}
+
 // Lazy initialization helper
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const getModel = (systemPrompt: string) => {
+const getModel = (systemPrompt: string): TextGenerationModel => {
     const apiKey = process.env.GEMINI_API_KEY ?? "";
     if (!apiKey) {
         throw new Error("GEMINI_API_KEY is not set");
@@ -28,8 +33,9 @@ const getModel = (systemPrompt: string) => {
 
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
-        return genAI.getGenerativeModel({ 
-            model: "gemini-1.5-pro",
+        return genAI.getGenerativeModel({
+            // Env-driven with a registry-known default; no hardcoded model pin (ICW-13).
+            model: process.env.GEMINI_MODEL ?? "gemini-2.0-flash",
             systemInstruction: { role: "system", parts: [{ text: systemPrompt }] }
         });
     } catch (e) {
@@ -39,8 +45,7 @@ const getModel = (systemPrompt: string) => {
                 generateContent: async () => ({
                     response: { text: () => "{ \"issues\": [], \"missingTransforms\": [] }" }
                 })
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test mock
-            } as any;
+            };
         }
         throw e;
     }
@@ -102,7 +107,7 @@ export const alignSchema = async (request: SchemaAlignRequest): Promise<SchemaAl
 
     try {
         const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
-        const parsed = JSON.parse(cleanedText);
+        const parsed: unknown = JSON.parse(cleanedText);
         
         const validationResult = schemaAlignResultSchema.safeParse(parsed);
         if (!validationResult.success) {

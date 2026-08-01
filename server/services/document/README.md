@@ -73,9 +73,39 @@ The VaultLogic Document Generation Engine provides enterprise-grade document tem
 ### Layer 2: PDF Converter (Format Transformation)
 
 **File:** `PdfConverter.ts`
-**Strategy:** Puppeteer
+**Strategies:** Gotenberg (high fidelity) and Puppeteer (degraded fallback)
 
-#### Puppeteer Pipeline
+#### Strategy selection
+
+Chosen at construction from `PDF_CONVERTER_API_URL`:
+
+| `PDF_CONVERTER_API_URL` | Primary | Fallback |
+|---|---|---|
+| set | `gotenberg` | `puppeteer` |
+| unset | `puppeteer` | none |
+
+Callers **cannot request a strategy** — it is environment-derived. `convert()`
+returns `{ strategy, fellBack }` reporting which converter actually produced the
+file, and that strategy is persisted per document on
+`run_generated_documents.pdf_strategy`. Recording a requested (rather than
+observed) strategy is what previously made a silent fidelity downgrade
+invisible: with a Gotenberg URL configured against an unimplemented client,
+every PDF was produced by the fallback while the record claimed otherwise.
+
+#### Gotenberg Pipeline (production default when configured)
+```
+DOCX → POST /forms/libreoffice/convert → PDF Buffer
+```
+
+Preserves headers, footers, page and list numbering, fonts, tables and
+section-level layout. Bounded by `PDF_CONVERTER_TIMEOUT_MS` (default 60s); the
+uploaded part keeps its `.docx` filename because Gotenberg selects its converter
+from the extension. Reachability is probed via `GET /health` and surfaced in the
+app's own `/health` response as `pdfConverter`, where an unreachable converter
+reports `degraded` (HTTP 200) rather than `unhealthy` — documents still generate,
+just at lower fidelity.
+
+#### Puppeteer Pipeline (fallback)
 ```
 DOCX → Mammoth (DOCX→HTML) → Puppeteer (HTML→PDF) → PDF Buffer
 ```
@@ -97,9 +127,15 @@ DOCX → Mammoth (DOCX→HTML) → Puppeteer (HTML→PDF) → PDF Buffer
 - Print background: enabled
 - Scale: 1.0
 
-When PDF conversion fails, the generation path records `pdfFailed: true` on the
-document record and keeps the DOCX output available rather than silently
-substituting another converter.
+When **both** strategies fail, the generation path records `pdfFailed: true` on
+the document record and keeps the DOCX output available.
+
+When only the *primary* fails, the fallback runs — that is a deliberate
+availability/fidelity trade, and it is made visible three ways rather than being
+silent: an `error`-level log naming both strategies, `pdfStrategy` on the
+document record reflecting the converter that actually ran, and the `pdfConverter`
+field on `GET /health`. A `puppeteer` record on a server with
+`PDF_CONVERTER_API_URL` set therefore means the high-fidelity converter failed.
 
 ---
 

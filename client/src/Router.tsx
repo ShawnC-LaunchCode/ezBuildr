@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect } from "react";
 import { Switch, Route, useLocation } from "wouter";
 
-// eslint-disable-next-line @typescript-eslint/naming-convention -- React component
+
 import { FullScreenLoader } from "@/components/ui/loader";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -16,7 +16,6 @@ const AuthRedirect = () => {
 // Lazy load pages
 const NotFound = lazy(() => import("@/pages/not-found"));
 const Landing = lazy(() => import("@/marketing/LandingPage"));
-const LandingV2 = lazy(() => import("@/marketing/v2/LandingV2"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const WorkflowsList = lazy(() => import("@/pages/WorkflowsList"));
 const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
@@ -92,8 +91,6 @@ export default function Router() {
                 <Route path="/intake/preview" component={IntakePreviewPage} />
                 {/* Documentation - available to everyone */}
                 <Route path="/docs/url-parameters" component={UrlParametersDoc} />
-                {/* Secondary marketing landing page - available to everyone */}
-                <Route path="/landing-v2" component={LandingV2} />
                 {isLoading || !isAuthenticated ? (
                     <>
                         <Route path="/" component={Landing} />

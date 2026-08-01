@@ -14,7 +14,6 @@ const logger = createLogger({ module: "captcha-service" });
  * Supports simple math puzzles (MVP) and reCAPTCHA (optional).
  */
 
-const MAX_ATTEMPTS = 3;
 const CHALLENGE_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
 function getCaptchaSecret(): string {
@@ -168,7 +167,7 @@ export class CaptchaService {
       const response = await safeFetch("https://www.google.com/recaptcha/api/siteverify", {
         method: "POST",
         headers: {
-          // eslint-disable-next-line @typescript-eslint/naming-convention -- standard HTTP header name
+
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({

@@ -22,14 +22,52 @@ import { createError } from "../../utils/errors";
 
 import type { PopulateValuesOptions, SnapshotValueMap, DocumentGenerationResult, WritebackExecutionResult } from "./types";
 import { runDataService, type RunData, type RunDataService } from "./RunDataService";
+import { runDefinitionProvider, RunDefinitionProvider, type RunSection } from "./RunDefinitionProvider";
+import { normalizeRunnerStepType } from "../../../shared/types/runnerStepTypes";
 
 export interface GenerateDocumentsOptions {
   runData?: RunData;
   finalStepId?: string;
   toPdf?: boolean;
-  pdfStrategy?: 'puppeteer';
 }
 
+// RUN2-20: `initialValues` may come straight from a URL query string
+// (client/src/hooks/runner/useRunSession.ts), where every value has already
+// been run through `JSON.parse` best-effort. That makes the stored *type*
+// depend on the digits' shape (`"12345"` -> number, `"01234"` -> string) with
+// no reference to what the question actually expects. Coerce against the
+// step's normalized runner type instead, so a short_text alias always stores
+// a string, a number/currency/scale alias always stores a number (or is left
+// alone rather than becoming NaN), and a boolean alias always stores a real
+// boolean. Everything else (choice, address, multi_field, date/time, ...)
+// legitimately carries arrays/objects and is left as parsed.
+const TEXT_LIKE_RUNNER_STEP_TYPES = new Set<string>(["short_text", "long_text", "text", "email", "website", "phone"]);
+const NUMERIC_RUNNER_STEP_TYPES = new Set<string>(["number", "currency", "scale"]);
+
+function coerceInitialValueForStepType(value: unknown, stepType: string): unknown {
+  const normalizedType = normalizeRunnerStepType(stepType);
+
+  if (TEXT_LIKE_RUNNER_STEP_TYPES.has(normalizedType)) {
+    return typeof value === "string" ? value : String(value);
+  }
+
+  if (NUMERIC_RUNNER_STEP_TYPES.has(normalizedType)) {
+    if (typeof value === "number") {return value;}
+    if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) {
+      return Number(value);
+    }
+    return value; // non-numeric string: leave as-is rather than coercing to NaN
+  }
+
+  if (normalizedType === "boolean") {
+    if (typeof value === "boolean") {return value;}
+    if (value === "true") {return true;}
+    if (value === "false") {return false;}
+    return value;
+  }
+
+  return value;
+}
 
 export class RunLifecycleService {
   // eslint-disable-next-line max-params
@@ -39,7 +77,8 @@ export class RunLifecycleService {
     private sectionRepo = sectionRepository,
     private persistence = new RunPersistenceWriter(),
     private logicSvc = logicService,
-    private runDataSvc: RunDataService = runDataService
+    private runDataSvc: RunDataService = runDataService,
+    private definitionProvider: RunDefinitionProvider = runDefinitionProvider
   ) { }
 
   /**
@@ -104,9 +143,9 @@ export class RunLifecycleService {
       // Priority 1: initialValues (by alias or stepId)
       if (initialValues) {
         if (step.alias && initialValues[step.alias] !== undefined) {
-          valueToSet = initialValues[step.alias];
+          valueToSet = coerceInitialValueForStepType(initialValues[step.alias], step.type);
         } else if (initialValues[step.id] !== undefined) {
-          valueToSet = initialValues[step.id];
+          valueToSet = coerceInitialValueForStepType(initialValues[step.id], step.type);
         }
       }
 
@@ -233,8 +272,11 @@ export class RunLifecycleService {
       dataMap[value.stepId] = value.value;
     }
 
-    // Build LogicContext once
-    const logicCtx = await this.logicSvc.buildContext(workflowId, dataMap);
+    // Build LogicContext once. RVP-2: buildContext now sources from the
+    // run's pinned definition (via runId) rather than always reading the
+    // live tables -- pass runId through so a pinned run's start section is
+    // resolved from what the respondent was actually shown.
+    const logicCtx = await this.logicSvc.buildContext(workflowId, dataMap, runId);
     const sections = logicCtx.sections;
     if (sections.length === 0) {
       throw new Error("Workflow has no sections");
@@ -353,13 +395,20 @@ export class RunLifecycleService {
       //    - Final Block steps (step.config as FinalBlockConfig), for both
       //      'final' and 'final_documents'
       //    - Legacy Final Documents sections (section.config.finalBlock)
-      const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(workflowId);
+      // RVP-4: sourced from the run's pinned definition (RunDefinitionProvider,
+      // RVP-1), not the live tables. A document generated after the fact must
+      // reflect the template mapping the respondent actually answered against,
+      // not whatever the author has since edited the final block to say --
+      // this is a correctness/auditability guarantee, not just UX. A
+      // versionless run still falls back to the live tables via the
+      // provider's 'live' branch (unchanged today-behavior, AC3).
+      const { steps: definitionSteps, sections: definitionSections } = await this.definitionProvider.getDefinition(run);
       const workflow = await workflowRepository.findById(workflowId);
       if (!workflow) {throw createError.notFound('Workflow', workflowId);}
       if (!workflow.projectId) {throw createError.validation('Workflow has no projectId');}
 
       const finalBlockConfigs: FinalBlockConfig[] = [];
-      for (const step of allSteps) {
+      for (const step of definitionSteps) {
         if (step.type !== 'final' && step.type !== 'final_documents') {continue;}
         if (options.finalStepId !== undefined && step.id !== options.finalStepId) {continue;}
         const config = step.config as FinalBlockConfig | null;
@@ -369,7 +418,7 @@ export class RunLifecycleService {
       }
 
       if (options.finalStepId === undefined) {
-        const legacyConfig = await this.buildLegacyFinalBlockConfig(workflowId, workflow.projectId);
+        const legacyConfig = await this.buildLegacyFinalBlockConfig(workflowId, workflow.projectId, definitionSections);
         if (legacyConfig) {
           finalBlockConfigs.push(legacyConfig);
         }
@@ -413,7 +462,6 @@ export class RunLifecycleService {
           runId: run.id,
           resolveTemplate,
           toPdf: options.toPdf ?? false,
-          pdfStrategy: options.pdfStrategy ?? 'puppeteer',
         });
         totalGenerated += generationResult.totalGenerated;
         documents.push(...generationResult.documents);
@@ -429,11 +477,20 @@ export class RunLifecycleService {
               runId: run.id,
               fileName: doc.filename,
               fileUrl: `/api/runs/${run.id}/final-documents/${doc.filename}/download`,
+              storageKey: doc.storageKey,
               mimeType: doc.mimeType,
               fileSize: doc.size,
               templateId: null,
               unresolvedVariables: doc.unresolvedVariables ?? [],
-              pdfStrategy: doc.pdfStrategy ?? (options.toPdf ? options.pdfStrategy ?? 'puppeteer' : undefined),
+              // Whichever converter actually ran. Never defaulted: recording a
+              // guess here is what made silently degraded PDFs invisible.
+              //
+              // Fallback is not stored separately (no column, and this change
+              // deliberately avoids a migration) but it is recoverable: a
+              // 'puppeteer' row on a server with PDF_CONVERTER_API_URL set means
+              // the high-fidelity converter failed. The fallback itself is
+              // logged at error level in PdfConverter.convert.
+              pdfStrategy: doc.pdfStrategy,
             });
           } catch (persistError) {
             logger.warn({ persistError, runId, filename: doc.filename }, 'Failed to persist generated document record');
@@ -469,11 +526,24 @@ export class RunLifecycleService {
   /**
    * Synthesize a FinalBlockConfig from legacy Final Documents sections
    * (section.config.finalBlock === true with config.templates: string[]).
-   * Template-level mapping and metadata.visibleIf conditions carry over so
-   * the unified renderer path preserves the old behavior.
+   * Template-level mapping carries over so the unified renderer path
+   * preserves the old behavior.
+   *
+   * DEBT-13: this also used to read `template.metadata.visibleIf` into
+   * `conditions` through an `as` cast, and the cast hid a shape mismatch --
+   * the stored value is a ConditionGroup (`{ variable, operator }`) while the
+   * renderer reads a LogicExpression (`{ key, op }`), so any such condition
+   * would have evaluated to garbage. No code in this repo's history has ever
+   * written that key and no rows carry it, so the read was deleted rather
+   * than normalized. `conditions` is now unconditionally null -- which is
+   * exactly what the old expression already produced for every row.
+   *
+   * RVP-4: `sections` is the run's pinned (or, for a versionless run, live)
+   * definition from `RunDefinitionProvider` -- not a fresh live-table read --
+   * so a legacy Final Documents section edited after the respondent started
+   * does not retroactively change what gets generated.
    */
-  private async buildLegacyFinalBlockConfig(workflowId: string, projectId: string): Promise<FinalBlockConfig | null> {
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
+  private async buildLegacyFinalBlockConfig(workflowId: string, projectId: string, sections: RunSection[]): Promise<FinalBlockConfig | null> {
     const templateIds: string[] = [];
     for (const section of sections) {
       const config = section.config as { finalBlock?: boolean; templates?: string[] } | null;
@@ -490,15 +560,19 @@ export class RunLifecycleService {
     for (const templateId of templateIds) {
       const template = await documentTemplateRepository.findByIdAndProjectId(templateId, projectId);
       if (!template) {
-        logger.warn({ workflowId, templateId }, 'Legacy Final Documents section references missing template, skipping');
-        continue;
+        // RUN-12: a legacy template id that doesn't resolve within this
+        // project is either deleted or cross-project — fail the generation
+        // loudly (surfaced as generationStatus 'failed:…' by the caller)
+        // instead of silently skipping, matching the step-based path's
+        // resolver semantics.
+        logger.warn({ workflowId, templateId }, 'Legacy Final Documents section references unresolvable template');
+        throw createError.notFound('Template', templateId);
       }
-      const metadata = template.metadata as { visibleIf?: unknown } | null;
       documents.push({
         id: templateId,
         documentId: templateId,
         alias: template.name,
-        conditions: (metadata?.visibleIf ?? null) as FinalBlockConfig['documents'][number]['conditions'],
+        conditions: null,
         mapping: (template.mapping ?? undefined) as FinalBlockConfig['documents'][number]['mapping'],
       });
     }

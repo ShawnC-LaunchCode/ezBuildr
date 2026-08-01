@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { z } from "zod";
 
 import { insertTransformBlockSchema } from "@shared/schema";
@@ -37,6 +36,7 @@ export function registerTransformBlockRoutes(app: Express): void {
       const { workflowId } = req.params;
 
       // Merge workflowId from URL params into body data for schema validation
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
       const dataWithWorkflowId = { ...req.body, workflowId };
 
       // Validate request body
@@ -112,6 +112,7 @@ export function registerTransformBlockRoutes(app: Express): void {
       }
 
       const { blockId } = req.params;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
       const updateData = req.body;
 
       // Look up workflowId for auto-revert middleware
@@ -124,6 +125,7 @@ export function registerTransformBlockRoutes(app: Express): void {
       // Apply auto-revert
       await autoRevertToDraft(req, res, () => { });
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
       const updatedBlock = await transformBlockService.updateBlock(blockId, userId, updateData);
       res.json({ success: true, data: updatedBlock });
     } catch (error) {
@@ -177,6 +179,7 @@ export function registerTransformBlockRoutes(app: Express): void {
       }
 
       const { blockId } = req.params;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
       const { data } = req.body;
 
       if (!data || typeof data !== 'object') {
@@ -189,6 +192,7 @@ export function registerTransformBlockRoutes(app: Express): void {
         return res.status(400).json({ success: false, error: "data size exceeds 64KB limit" });
       }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
       const result = await transformBlockService.testBlock(blockId, userId, data);
 
       if (result.success) {

@@ -271,12 +271,17 @@ curl -X DELETE "$BASE_URL/api/projects/$PROJECT_ID/access" \
 
 ### Transfer Project Ownership
 
+The legacy `PUT /api/projects/:projectId/owner` endpoint has been removed (it
+only updated the legacy `ownerId` column and never actually transferred
+effective ownership). Use the new-model transfer endpoint instead:
+
 ```bash
-curl -X PUT "$BASE_URL/api/projects/$PROJECT_ID/owner" \
+curl -X POST "$BASE_URL/api/projects/$PROJECT_ID/transfer" \
   -H "Content-Type: application/json" \
   -H "Cookie: connect.sid=$TOKEN" \
   -d '{
-    "userId": "'"$USER_ID"'"
+    "targetOwnerType": "user",
+    "targetOwnerUuid": "'"$USER_ID"'"
   }'
 
 # Expected Response:
@@ -284,7 +289,8 @@ curl -X PUT "$BASE_URL/api/projects/$PROJECT_ID/owner" \
 #   "success": true,
 #   "data": {
 #     "id": "<project-id>",
-#     "ownerId": "<new-owner-user-id>",
+#     "ownerType": "user",
+#     "ownerUuid": "<new-owner-user-id>",
 #     ...
 #   }
 # }

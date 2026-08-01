@@ -124,7 +124,7 @@ function storeSnipMetadata(
  * - Stores version metadata for future auditability
  * - Never overwrites existing workflow data
  */
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
+
 export async function importSnip(
     workflowId: string,
     request: SnipImportRequest
@@ -189,9 +189,11 @@ export async function importSnip(
             // Apply alias mapping if exists
             const originalAlias = snipQuestion.alias;
             const finalAlias = aliasMappings[originalAlias] ?? originalAlias;
-            const config = snipQuestion.config ?? (
-                snipQuestion.options !== undefined && snipQuestion.options !== null
-                    ? { options: snipQuestion.options }
+            const snipConfig = snipQuestion.config as unknown;
+            const snipOptions = snipQuestion.options as unknown;
+            const config = snipConfig ?? (
+                snipOptions !== undefined && snipOptions !== null
+                    ? { options: snipOptions }
                     : {}
             );
             const stepPayload = {
@@ -201,11 +203,9 @@ export async function importSnip(
                 description: snipQuestion.description ?? null,
                 required: snipQuestion.required, // PRESERVE REQUIRED STATUS
                 alias: finalAlias,
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-                defaultValue: snipQuestion.defaultValue ?? null,
+                defaultValue: (snipQuestion.defaultValue as unknown) ?? null,
                 visibleIf: snipQuestion.visibleIf ?? null, // PRESERVE CONDITIONAL LOGIC
                 order: snipQuestion.order,
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 config,
             };
             const stepResponse = await fetch(`/api/sections/${section.id as string}/steps`, {
@@ -221,7 +221,7 @@ export async function importSnip(
             const step = (await stepResponse.json()) as Record<string, unknown>;
             importedQuestionIds.push(step.id as string);
         }
-    // eslint-disable-next-line @typescript-eslint/await-thenable
+
     }
     // Store version metadata (MVP: log for now, implement storage later)
     // eslint-disable-next-line @typescript-eslint/await-thenable

@@ -11,6 +11,7 @@ interface ClientRunnerLayoutProps {
     currentStep?: number;
     totalSteps?: number;
     saveStatus?: "idle" | "saving" | "saved" | "error";
+    saveAndResumeAction?: ReactNode;
     className?: string;
 }
 
@@ -21,6 +22,7 @@ export function ClientRunnerLayout({
     currentStep,
     totalSteps,
     saveStatus,
+    saveAndResumeAction,
     className
 }: ClientRunnerLayoutProps) {
     return (
@@ -35,6 +37,7 @@ export function ClientRunnerLayout({
                     </div>
                     {/* Status area (Step count + Save Status) */}
                     <div className="flex items-center gap-4">
+                        {saveAndResumeAction}
                         {saveStatus && saveStatus !== "idle" && (
                             <div className="flex items-center gap-1.5 text-xs font-medium animate-in fade-in zoom-in duration-300">
                                 {saveStatus === "saving" && (

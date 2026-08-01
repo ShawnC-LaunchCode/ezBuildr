@@ -29,7 +29,7 @@ const UNAUTHORIZED_MSG = "Unauthorized - no user ID";
 /**
  * Register team-related routes
  */
-// eslint-disable-next-line max-lines-per-function
+
 export function registerTeamRoutes(app: Express): void {
   /**
    * POST /api/teams

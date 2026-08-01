@@ -116,6 +116,83 @@ export function evaluateConditionExpressionWithDetails(
 }
 
 // =====================================================================
+// ALIAS RENAME PROPAGATION
+// =====================================================================
+
+/**
+ * Rewrite every reference to `oldAlias` inside a condition expression tree to
+ * `newAlias` — both the `variable` a condition compares, and `value`/`value2`
+ * when `valueType` is `"variable"` (a reference to another step). Constants
+ * and references to other aliases are left untouched.
+ *
+ * Returns the same object reference when nothing changed — including when
+ * `expression` is `null`/empty or isn't a recognizable `ConditionGroup` shape
+ * (e.g. a legacy string-form expression, or malformed jsonb) — so callers can
+ * cheaply detect "no update needed" with `!==` before writing back to the DB.
+ */
+export function renameAliasInExpression(
+  expression: ConditionExpression,
+  oldAlias: string,
+  newAlias: string
+): ConditionExpression {
+  if (!expression || expression.type !== "group" || !Array.isArray(expression.conditions)) {
+    return expression;
+  }
+  return renameInGroup(expression, oldAlias, newAlias);
+}
+
+function renameInGroup(
+  group: ConditionGroup,
+  oldAlias: string,
+  newAlias: string
+): ConditionGroup {
+  let changed = false;
+  const conditions = group.conditions.map((item) => {
+    if (item.type === "condition") {
+      const renamed = renameInCondition(item, oldAlias, newAlias);
+      if (renamed !== item) { changed = true; }
+      return renamed;
+    }
+    if (item.type === "group") {
+      const renamed = renameInGroup(item, oldAlias, newAlias);
+      if (renamed !== item) { changed = true; }
+      return renamed;
+    }
+    // Script conditions don't reference aliases through `variable`/`value`.
+    return item;
+  });
+
+  return changed ? { ...group, conditions } : group;
+}
+
+function renameInCondition(
+  condition: Condition,
+  oldAlias: string,
+  newAlias: string
+): Condition {
+  const variableMatches = condition.variable === oldAlias;
+  const valueMatches =
+    condition.valueType === "variable" &&
+    typeof condition.value === "string" &&
+    condition.value === oldAlias;
+  const value2Matches =
+    condition.valueType === "variable" &&
+    typeof condition.value2 === "string" &&
+    condition.value2 === oldAlias;
+
+  if (!variableMatches && !valueMatches && !value2Matches) {
+    return condition;
+  }
+
+  return {
+    ...condition,
+    variable: variableMatches ? newAlias : condition.variable,
+    value: valueMatches ? newAlias : condition.value,
+    value2: value2Matches ? newAlias : condition.value2,
+  };
+}
+
+// =====================================================================
 // INTERNAL EVALUATION FUNCTIONS
 // =====================================================================
 
@@ -208,7 +285,7 @@ function resolveVariable(
 /**
  * Evaluate a comparison operator
  */
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- operator dispatch table
+// eslint-disable-next-line complexity -- operator dispatch table
 function evaluateOperator(
   operator: ComparisonOperator,
   actualValue: unknown,
@@ -236,24 +313,41 @@ function evaluateOperator(
     case "ends_with":
       return toString(actualValue).toLowerCase().endsWith(toString(compareValue).toLowerCase());
 
-    // Numeric comparisons
-    case "greater_than":
-      return toNumber(actualValue) > toNumber(compareValue);
+    // Numeric comparisons. Fail closed when the answer (or threshold) is empty
+    // or non-numeric: an unanswered field must NOT satisfy `age < 18` etc.
+    // `toComparableNumber` returns null for null/undefined/""/unparseable (but
+    // still handles numeric and date strings), so the condition only fires once
+    // a real value has been entered — matching the logic_rules engine (which
+    // early-returns false on null/undefined).
+    case "greater_than": {
+      const a = toComparableNumber(actualValue);
+      const b = toComparableNumber(compareValue);
+      return a !== null && b !== null && a > b;
+    }
 
-    case "less_than":
-      return toNumber(actualValue) < toNumber(compareValue);
+    case "less_than": {
+      const a = toComparableNumber(actualValue);
+      const b = toComparableNumber(compareValue);
+      return a !== null && b !== null && a < b;
+    }
 
-    case "greater_or_equal":
-      return toNumber(actualValue) >= toNumber(compareValue);
+    case "greater_or_equal": {
+      const a = toComparableNumber(actualValue);
+      const b = toComparableNumber(compareValue);
+      return a !== null && b !== null && a >= b;
+    }
 
-    case "less_or_equal":
-      return toNumber(actualValue) <= toNumber(compareValue);
+    case "less_or_equal": {
+      const a = toComparableNumber(actualValue);
+      const b = toComparableNumber(compareValue);
+      return a !== null && b !== null && a <= b;
+    }
 
     case "between": {
-      const num = toNumber(actualValue);
-      const min = toNumber(compareValue);
-      const max = toNumber(compareValue2);
-      return num >= min && num <= max;
+      const num = toComparableNumber(actualValue);
+      const min = toComparableNumber(compareValue);
+      const max = toComparableNumber(compareValue2);
+      return num !== null && min !== null && max !== null && num >= min && num <= max;
     }
 
     // Date comparisons
@@ -315,7 +409,7 @@ function evaluateOperator(
     }
 
     default:
-      console.warn(`[conditionEvaluator] Unknown operator: ${operator}`);
+      console.warn("[conditionEvaluator] Unknown operator");
       return false;
   }
 }
@@ -327,7 +421,7 @@ function evaluateOperator(
 /**
  * Check if two values are equal (with type coercion)
  */
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- multi-type equality requires branching
+// eslint-disable-next-line complexity -- multi-type equality requires branching
 function isEqual(a: unknown, b: unknown): boolean {
   // Handle null/undefined
   if ((a === null || a === undefined) && (b === null || b === undefined)) {return true;}
@@ -381,7 +475,7 @@ function toString(value: unknown): string {
 /**
  * Convert value to number
  */
-// eslint-disable-next-line sonarjs/cognitive-complexity -- multi-type conversion requires branching
+
 function toNumber(value: unknown): number {
   if (value === null || value === undefined) {return 0;}
   if (typeof value === "number") {return value;}
@@ -399,6 +493,28 @@ function toNumber(value: unknown): number {
   if (typeof value === "boolean") {return value ? 1 : 0;}
   if (value instanceof Date) {return value.getTime();}
   return 0;
+}
+
+/**
+ * Like {@link toNumber} (handles numeric strings, ISO date strings → epoch ms,
+ * booleans, Date), but returns `null` — instead of `0` — for unanswered/empty
+ * or unparseable input. Numeric comparison operators use this so an empty field
+ * fails the comparison rather than silently reading as 0.
+ */
+function toComparableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") { return null; }
+  if (typeof value === "number") { return Number.isFinite(value) ? value : null; }
+  if (typeof value === "string") {
+    if (value.includes("-") || value.includes("/")) {
+      const date = new Date(value);
+      if (!Number.isNaN(date.getTime())) { return date.getTime(); }
+    }
+    const num = parseFloat(value);
+    return Number.isNaN(num) ? null : num;
+  }
+  if (typeof value === "boolean") { return value ? 1 : 0; }
+  if (value instanceof Date) { const t = value.getTime(); return Number.isNaN(t) ? null : t; }
+  return null;
 }
 
 function toFiniteNumber(value: unknown): number | null {
@@ -672,7 +788,7 @@ function describeCondition(
   return `${varLabel} ${operator} ${valueStr}`;
 }
 
-/* eslint-disable @typescript-eslint/naming-convention -- keys match ComparisonOperator enum values */
+
 function getOperatorLabel(operator: ComparisonOperator): string {
   const labels: Record<ComparisonOperator, string> = {
     equals: "=",
@@ -705,7 +821,7 @@ function getOperatorLabel(operator: ComparisonOperator): string {
   };
   return labels[operator] ?? operator;
 }
-/* eslint-enable @typescript-eslint/naming-convention */
+
 
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) {return "null";}

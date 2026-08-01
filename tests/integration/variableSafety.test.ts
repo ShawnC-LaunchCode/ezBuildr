@@ -61,6 +61,7 @@ describe("Variable Schema Safety & Resolution", () => {
         } as any);
         workflowId = uuidv4();
         versionId = uuidv4();
+        sectionId = uuidv4();
         await db.insert(workflowsSchema).values({
             id: workflowId,
             projectId,
@@ -69,15 +70,36 @@ describe("Variable Schema Safety & Resolution", () => {
             ownerId: userId,
             currentVersionId: versionId,
         } as any);
+        // RVP-7: RunPersistenceWriter now resolves a pinned run's step
+        // membership through RunDefinitionProvider (the same pinned-graph
+        // parser LogicService/RunExecutionCoordinator/RunLifecycleService
+        // already use), which fails closed on a version whose graphJson
+        // doesn't match VersionRuntimeSchema (RUN2-10). An empty `{}`
+        // placeholder used to be harmless here because saveStepValue read
+        // the live tables directly; it now must be a real (if minimal)
+        // snapshot of the section/step this test creates below.
         await db.insert(workflowVersionsSchema).values({
             id: versionId,
             workflowId,
             versionNumber: 1,
-            graphJson: {},
+            graphJson: {
+                title: "Safety Workflow",
+                sections: [{
+                    id: sectionId,
+                    title: "Main Section",
+                    order: 1,
+                    steps: [{
+                        id: stepId1,
+                        type: "text",
+                        title: "My Step",
+                        alias: stepAlias1,
+                        order: 1,
+                    }],
+                }],
+            },
             createdBy: userId,
         } as any);
         // 3. Setup Section & Step
-        sectionId = uuidv4();
         await db.insert(sectionsSchema).values({
             id: sectionId,
             workflowId,

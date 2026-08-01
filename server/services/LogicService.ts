@@ -1,21 +1,24 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-import { evaluateConditionExpression } from "@shared/conditionEvaluator";
-import type { Section, LogicRule } from "@shared/schema";
+import type { WorkflowRun, LogicRule } from "@shared/schema";
 import {
-  evaluateRules,
+  evaluateWorkflowVisibility,
   calculateNextSection,
   resolveNextSection,
   validateRequiredSteps,
-  getEffectiveRequiredSteps,
   type LogicContext,
+  type WorkflowVisibilityResult,
 } from "@shared/workflowLogic";
 
 import {
-  sectionRepository,
-  stepRepository,
-  logicRuleRepository,
+  workflowRunRepository,
   stepValueRepository,
 } from "../repositories";
+
+import {
+  runDefinitionProvider,
+  RunDefinitionProvider,
+} from "./workflow-runs/RunDefinitionProvider";
+
+const ERR_RUN_NOT_FOUND = "Run not found";
 
 /**
  * Navigation result from logic evaluation
@@ -42,21 +45,40 @@ export interface ValidationResult {
  * Service layer for workflow logic evaluation and navigation
  */
 export class LogicService {
-  private sectionRepo: typeof sectionRepository;
-  private stepRepo: typeof stepRepository;
-  private logicRuleRepo: typeof logicRuleRepository;
+  private runRepo: typeof workflowRunRepository;
+  private definitionProvider: RunDefinitionProvider;
   private valueRepo: typeof stepValueRepository;
 
   constructor(
-    sectionRepo?: typeof sectionRepository,
-    stepRepo?: typeof stepRepository,
-    logicRuleRepo?: typeof logicRuleRepository,
+    runRepo?: typeof workflowRunRepository,
+    definitionProvider?: RunDefinitionProvider,
     valueRepo?: typeof stepValueRepository
   ) {
-    this.sectionRepo = sectionRepo ?? sectionRepository;
-    this.stepRepo = stepRepo ?? stepRepository;
-    this.logicRuleRepo = logicRuleRepo ?? logicRuleRepository;
+    this.runRepo = runRepo ?? workflowRunRepository;
+    this.definitionProvider = definitionProvider ?? runDefinitionProvider;
     this.valueRepo = valueRepo ?? stepValueRepository;
+  }
+
+  /**
+   * Load the run this decision is being made for and confirm it belongs to
+   * the claimed workflow (mirrors the check `RunDefinitionProvider` itself
+   * makes for a pinned version, RUN2-10 in spirit).
+   *
+   * RVP-2: every entry point below used to re-read the LIVE `sections`/
+   * `steps`/`logic_rules` tables directly, so a respondent's in-flight run
+   * was validated against whatever the author changed the workflow to be
+   * *after* the run started -- not what the respondent was actually shown.
+   * Resolving the run here and handing it to `RunDefinitionProvider` (RVP-1)
+   * sources every decision from the run's pinned version instead (falling
+   * back to the live tables for a run with no `workflowVersionId`, which is
+   * the provider's `source: 'live'` branch).
+   */
+  private async resolveRun(workflowId: string, runId: string): Promise<WorkflowRun> {
+    const run = await this.runRepo.findById(runId);
+    if (!run || run.workflowId !== workflowId) {
+      throw new Error(ERR_RUN_NOT_FOUND);
+    }
+    return run;
   }
 
   /**
@@ -64,16 +86,15 @@ export class LogicService {
    */
   async buildContext(
     workflowId: string,
-    data: Record<string, unknown>
+    data: Record<string, unknown>,
+    runId: string
   ): Promise<LogicContext> {
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
-    const sectionIds = sections.map((s) => s.id);
-    const steps = await this.stepRepo.findBySectionIds(sectionIds);
-    const logicRules = await this.logicRuleRepo.findByWorkflowId(workflowId);
+    const run = await this.resolveRun(workflowId, runId);
+    const { sections, steps, logicRules } = await this.definitionProvider.getDefinition(run);
 
     const sectionHideRulesMap = new Map<string, LogicRule[]>();
     const stepHideRulesMap = new Map<string, LogicRule[]>();
-    
+
     for (const rule of logicRules) {
       if (rule.action === "hide") {
         if (rule.targetType === "section" && rule.targetSectionId) {
@@ -93,7 +114,7 @@ export class LogicService {
     const aliasResolver = (name: string): string | undefined => steps.find((s) => s.alias === name)?.id;
 
     return {
-      workflowId,
+      workflowId: run.workflowId,
       sections,
       steps,
       rules: logicRules,
@@ -107,10 +128,14 @@ export class LogicService {
   /**
    * Evaluate logic and determine next section for a workflow run
    *
-   * PERFORMANCE OPTIMIZED (Dec 2025):
-   * Pre-builds rule index Maps for O(1) lookup instead of O(n) filtering
+   * RVP-2: sourced from the run's pinned definition (`RunDefinitionProvider`)
+   * rather than the live `sections`/`steps`/`logic_rules` tables, so editing
+   * the live workflow mid-run no longer desyncs navigation from what the
+   * respondent is actually looking at. A run with no `workflowVersionId`
+   * still resolves from the live tables (the provider's `source: 'live'`
+   * fallback) -- unchanged from today's behavior.
    *
-   * @param workflowId - Workflow ID
+   * @param workflowId - Workflow ID (validated against the run's own workflowId)
    * @param runId - Current run ID
    * @param currentSectionId - Current section ID (null if starting)
    * @returns Navigation result with next section and visibility info
@@ -120,69 +145,19 @@ export class LogicService {
     runId: string,
     currentSectionId: string | null
   ): Promise<NavigationResult> {
-    // Load all workflow components
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
-    const sectionIds = sections.map((s) => s.id);
-    const steps = await this.stepRepo.findBySectionIds(sectionIds);
-    const logicRules = await this.logicRuleRepo.findByWorkflowId(workflowId);
+    const run = await this.resolveRun(workflowId, runId);
+    const { sections, steps, logicRules } = await this.definitionProvider.getDefinition(run);
     // Build data object for evaluation
     const data = await this.valueRepo.getRunDataAsJson(runId);
 
-    // Evaluate all rules
-    const evalResult = evaluateRules(logicRules, data);
-
-    // Build visible sections set
-    // Start with all sections, then apply hide rules
-    const allSectionIds = new Set(sections.map((s) => s.id));
-    const visibleSections = new Set(
-      Array.from(allSectionIds).filter((id) => {
-        // If explicitly shown by a rule, include it
-        if (evalResult.visibleSections.has(id)) {return true;}
-        return !evalResult.hiddenSections.has(id);
-      })
-    );
-
-    // Build visible steps set (only from visible sections)
-    const visibleSteps = new Set(
-      steps
-        .filter((step) => visibleSections.has(step.sectionId))
-        .filter((step) => {
-          // 1. Check step-level visibleIf
-          if (step.visibleIf) {
-            // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-            const aliasResolver = (name: string) => steps.find((s) => s.alias === name)?.id;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- visibleIf structure varies by condition type
-            const isVisible = evaluateConditionExpression(
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              step.visibleIf as any,
-              data,
-              aliasResolver
-            );
-            if (!isVisible) {return false;}
-          }
-
-          // 2. Check logic rules
-          // If explicitly shown by a rule, include it
-          if (evalResult.visibleSteps.has(step.id)) {return true;}
-          return !evalResult.hiddenSteps.has(step.id);
-        })
-        .map((s) => s.id)
-    );
-
-    // Get initially required steps
-    const initialRequiredSteps = new Set(steps.filter((s) => s.required).map((s) => s.id));
-
-    // Get effective required steps (considering logic rules)
-    const effectiveRequiredSteps = getEffectiveRequiredSteps(
-      initialRequiredSteps,
-      logicRules,
-      data
-    );
-
-    // Filter to only include visible required steps
-    const visibleRequiredSteps = new Set(
-      Array.from(effectiveRequiredSteps).filter((id) => visibleSteps.has(id))
-    );
+    const visibility = evaluateWorkflowVisibility({
+      sections,
+      steps,
+      rules: logicRules,
+      data,
+      resolveAlias: (name) => steps.find((step) => step.alias === name)?.id,
+    });
+    const { visibleSections, visibleSteps, requiredSteps: visibleRequiredSteps } = visibility;
 
     // Calculate normal next section
     const nextSectionId = calculateNextSection(
@@ -193,8 +168,9 @@ export class LogicService {
 
     // Resolve final next section (considering skip logic)
     const resolvedNextSectionId = resolveNextSection(
+      currentSectionId,
       nextSectionId,
-      evalResult.skipToSectionId,
+      visibility.ruleEvaluation.skipToSectionId,
       sections.map((s) => ({ id: s.id, order: s.order })),
       visibleSections
     );
@@ -210,7 +186,7 @@ export class LogicService {
       visibleSections: Array.from(visibleSections),
       visibleSteps: Array.from(visibleSteps),
       requiredSteps: Array.from(visibleRequiredSteps),
-      skipToSectionId: evalResult.skipToSectionId,
+      skipToSectionId: visibility.ruleEvaluation.skipToSectionId,
       nextSectionId: resolvedNextSectionId,
       currentProgress,
     };
@@ -219,10 +195,15 @@ export class LogicService {
   /**
    * Validate workflow completion
    *
-   * PERFORMANCE OPTIMIZED (Dec 2025):
-   * Uses same Map-based optimization as evaluateNavigation
+   * RVP-2: the required-step set is now built from the run's pinned
+   * definition, not the live workflow. Before this, a required question
+   * added to the workflow after a respondent started would block their
+   * submission with "Missing required steps: <title>" for a question they
+   * were never shown and had no way to answer (RVP ticket, "consequence 2").
+   * A run with no `workflowVersionId` still validates against the live
+   * tables (the provider's `source: 'live'` fallback) -- unchanged.
    *
-   * @param workflowId - Workflow ID
+   * @param workflowId - Workflow ID (validated against the run's own workflowId)
    * @param runId - Run ID to validate
    * @returns Validation result
    */
@@ -231,71 +212,22 @@ export class LogicService {
     runId: string,
     runDataByStepId?: Record<string, unknown>
   ): Promise<ValidationResult> {
-    // Load all workflow components
-    const sections = await this.sectionRepo.findByWorkflowId(workflowId);
-    const sectionIds = sections.map((s) => s.id);
-    const steps = await this.stepRepo.findBySectionIds(sectionIds);
-    const logicRules = await this.logicRuleRepo.findByWorkflowId(workflowId);
+    const run = await this.resolveRun(workflowId, runId);
+    const { sections, steps, logicRules } = await this.definitionProvider.getDefinition(run);
 
     // Build data object for evaluation
     const data = runDataByStepId ?? await this.valueRepo.getRunDataAsJson(runId);
 
-    // Evaluate rules to determine visibility
-    const evalResult = evaluateRules(logicRules, data);
-
-    // Build visible sections
-    const allSectionIds = new Set(sections.map((s) => s.id));
-    const visibleSections = new Set(Array.from(allSectionIds).filter((id) => {
-      if (evalResult.visibleSections.has(id)) {return true;}
-      return !evalResult.hiddenSections.has(id);
-    }));
-
-    // Build visible steps
-    const visibleStepsInVisibleSections = steps.filter((step) =>
-      visibleSections.has(step.sectionId)
-    );
-
-    const visibleSteps = new Set(
-      visibleStepsInVisibleSections
-        .filter((step) => {
-          // 1. Check step-level visibleIf
-          if (step.visibleIf) {
-            // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-            const aliasResolver = (name: string) => steps.find((s) => s.alias === name)?.id;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- visibleIf structure varies by condition type
-            const isVisible = evaluateConditionExpression(
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              step.visibleIf as any,
-              data,
-              aliasResolver
-            );
-            if (!isVisible) {return false;}
-          }
-
-          // 2. Check logic rules
-          if (evalResult.visibleSteps.has(step.id)) {return true;}
-          return !evalResult.hiddenSteps.has(step.id);
-        })
-        .map((s) => s.id)
-    );
-
-    // Get initially required steps
-    const initialRequiredSteps = new Set(steps.filter((s) => s.required).map((s) => s.id));
-
-    // Get effective required steps
-    const effectiveRequiredSteps = getEffectiveRequiredSteps(
-      initialRequiredSteps,
-      logicRules,
-      data
-    );
-
-    // Filter to only visible required steps
-    const visibleRequiredSteps = new Set(
-      Array.from(effectiveRequiredSteps).filter((id) => visibleSteps.has(id))
-    );
+    const visibility = evaluateWorkflowVisibility({
+      sections,
+      steps,
+      rules: logicRules,
+      data,
+      resolveAlias: (name) => steps.find((step) => step.alias === name)?.id,
+    });
 
     // Validate all visible required steps have values
-    const validation = validateRequiredSteps(visibleRequiredSteps, data);
+    const validation = validateRequiredSteps(visibility.requiredSteps, data);
 
     // Get step titles for missing steps
     const missingStepTitles = validation.missingSteps
@@ -319,7 +251,7 @@ export class LogicService {
    */
   private calculateProgress(
     currentSectionId: string | null,
-    sections: Section[],
+    sections: Array<{ id: string; order: number }>,
     visibleSections: Set<string>
   ): number {
     if (!currentSectionId) {
@@ -360,16 +292,7 @@ export class LogicService {
     ctx: LogicContext,
     sectionId: string
   ): Promise<boolean> {
-    const logicRules = ctx.rules;
-    const data = ctx.data;
-    const evalResult = evaluateRules(logicRules, data);
-
-    // Check if explicitly shown
-    if (evalResult.visibleSections.has(sectionId)) {
-      return true;
-    }
-
-    return !evalResult.hiddenSections.has(sectionId);
+    return this.evaluateContextVisibility(ctx).visibleSections.has(sectionId);
   }
 
   /**
@@ -384,31 +307,7 @@ export class LogicService {
     ctx: LogicContext,
     stepId: string
   ): Promise<boolean> {
-    const data = ctx.data;
-    
-    const step = ctx.steps.find((s) => s.id === stepId);
-    if (!step) {return false;}
-
-    // Check step-level visibleIf
-    if (step.visibleIf) {
-      const isVisible = evaluateConditionExpression(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        step.visibleIf as any,
-        data,
-        ctx.aliasResolver
-      );
-      if (!isVisible) {return false;}
-    }
-
-    const logicRules = ctx.rules;
-    const evalResult = evaluateRules(logicRules, data);
-
-    // Check if explicitly shown
-    if (evalResult.visibleSteps.has(stepId)) {
-      return true;
-    }
-
-    return !evalResult.hiddenSteps.has(stepId);
+    return this.evaluateContextVisibility(ctx).visibleSteps.has(stepId);
   }
 
   /**
@@ -423,49 +322,17 @@ export class LogicService {
     ctx: LogicContext,
     stepId: string
   ): Promise<boolean> {
-    const data = ctx.data;
-    const step = ctx.steps.find((s) => s.id === stepId);
-    if (!step) {
-      return false;
-    }
+    return this.evaluateContextVisibility(ctx).requiredSteps.has(stepId);
+  }
 
-    const logicRules = ctx.rules;
-    const evalResult = evaluateRules(logicRules, data);
-
-    // Check if explicitly marked as required by a rule
-    if (evalResult.requiredSteps.has(stepId)) {
-      return true;
-    }
-
-    // Check for make_optional rules
-    const makeOptionalRules = logicRules.filter(
-      (r) => r.targetType === "step" && r.targetStepId === stepId && r.action === "make_optional"
-    );
-
-    // If there are make_optional rules and any are triggered, step is optional
-    if (makeOptionalRules.length > 0) {
-      const isMadeOptional = makeOptionalRules.some((rule) => {
-        const actualValue = data[rule.conditionStepId];
-        return actualValue !== undefined;
-      });
-
-      if (isMadeOptional) {
-        return false;
-      }
-    }
-
-    if (step.visibleIf) {
-      const isVisible = evaluateConditionExpression(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        step.visibleIf as any,
-        data,
-        ctx.aliasResolver
-      );
-      if (!isVisible) {return false;}
-    }
-
-    // Default to the step's base required flag
-    return step.required ?? false;
+  private evaluateContextVisibility(ctx: LogicContext): WorkflowVisibilityResult {
+    return evaluateWorkflowVisibility({
+      sections: ctx.sections,
+      steps: ctx.steps,
+      rules: ctx.rules,
+      data: ctx.data,
+      resolveAlias: ctx.aliasResolver,
+    });
   }
 }
 

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * AI Error Handling
  *
@@ -10,8 +9,7 @@ import type { AIErrorCode } from './types';
 export interface AIErrorDetails {
   code: AIErrorCode;
   message: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- error details can be any type from various API responses
-  details?: any;
+  details?: unknown;
   retryable?: boolean;
   retryAfterSeconds?: number;
 }
@@ -21,16 +19,15 @@ export interface AIErrorDetails {
  */
 export class AIError extends Error {
   public readonly code: AIErrorCode;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- error details can be any type from various API responses
-  public readonly details?: any;
+  public readonly details?: unknown;
   public readonly retryable: boolean;
   public readonly retryAfterSeconds?: number;
+  public troubleshooting?: string;
 
   constructor(
     message: string,
     code: AIErrorCode,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- error details can be any type from various API responses
-    details?: any,
+    details?: unknown,
     retryable = false,
     retryAfterSeconds?: number
   ) {
@@ -86,8 +83,7 @@ export class AIError extends Error {
 export function createAIError(
   message: string,
   code: AIErrorCode,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- error details can be any type from various API responses
-  details?: any,
+  details?: unknown,
   retryable = false,
   retryAfterSeconds?: number
 ): AIError {
@@ -97,47 +93,64 @@ export function createAIError(
 /**
  * Check if error is a rate limit error
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- error can be any type from various API responses
-export function isRateLimitError(error: any): boolean {
+interface ExternalError {
+  code?: unknown;
+  status?: unknown;
+  message?: unknown;
+  response?: { headers?: Record<string, unknown> };
+}
+
+function asExternalError(error: unknown): ExternalError {
+  return typeof error === 'object' && error !== null ? error as ExternalError : {};
+}
+
+function includesMessage(error: ExternalError, text: string): boolean {
+  return typeof error.message === 'string' && error.message.includes(text);
+}
+
+export function isRateLimitError(error: unknown): boolean {
+  const externalError = asExternalError(error);
   return (
-    error?.code === 'RATE_LIMIT' ||
-    error?.status === 429 ||
-    error?.code === 'rate_limit_exceeded' ||
-    error?.message?.includes('429') ||
-    error?.message?.includes('Quota exceeded') ||
-    error?.message?.includes('rate limit')
+    externalError.code === 'RATE_LIMIT' ||
+    externalError.status === 429 ||
+    externalError.code === 'rate_limit_exceeded' ||
+    includesMessage(externalError, '429') ||
+    includesMessage(externalError, 'Quota exceeded') ||
+    includesMessage(externalError, 'rate limit')
   );
 }
 
 /**
  * Check if error is a timeout error
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- error can be any type from various API responses
-export function isTimeoutError(error: any): boolean {
+export function isTimeoutError(error: unknown): boolean {
+  const externalError = asExternalError(error);
   return (
-    error?.code === 'TIMEOUT' ||
-    error?.code === 'ETIMEDOUT' ||
-    error?.message?.includes('timeout') ||
-    error?.message?.includes('timed out')
+    externalError.code === 'TIMEOUT' ||
+    externalError.code === 'ETIMEDOUT' ||
+    includesMessage(externalError, 'timeout') ||
+    includesMessage(externalError, 'timed out')
   );
 }
 
 /**
  * Extract retry-after seconds from error
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- error can be any type from various API responses
-export function getRetryAfter(error: any): number {
+export function getRetryAfter(error: unknown): number {
+  const headers = asExternalError(error).response?.headers;
   // Check for Retry-After header (seconds)
-  if (error?.response?.headers?.['retry-after']) {
-    const retryAfter = parseInt(error.response.headers['retry-after'], 10);
+  const retryAfterHeader = headers?.['retry-after'];
+  if (typeof retryAfterHeader === 'string') {
+    const retryAfter = parseInt(retryAfterHeader, 10);
     if (!isNaN(retryAfter)) {
       return retryAfter * 1000; // Convert to ms
     }
   }
 
   // Check for rate limit reset timestamp
-  if (error?.response?.headers?.['x-ratelimit-reset']) {
-    const resetTime = parseInt(error.response.headers['x-ratelimit-reset'], 10);
+  const resetHeader = headers?.['x-ratelimit-reset'];
+  if (typeof resetHeader === 'string') {
+    const resetTime = parseInt(resetHeader, 10);
     if (!isNaN(resetTime)) {
       const now = Math.floor(Date.now() / 1000);
       const waitSeconds = Math.max(0, resetTime - now);
@@ -224,7 +237,6 @@ export class QualityThresholdError extends AIError {
 /**
  * Check if error is a quality threshold error
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function isQualityThresholdError(error: any): error is QualityThresholdError {
-  return error instanceof QualityThresholdError || error?.code === 'QUALITY_THRESHOLD';
+export function isQualityThresholdError(error: unknown): error is QualityThresholdError {
+  return error instanceof QualityThresholdError || asExternalError(error).code === 'QUALITY_THRESHOLD';
 }

@@ -33,7 +33,7 @@ export function NumberBlockRenderer({ step, value, onChange, readOnly , ariaDesc
   const config = (step.config as NumberConfig) || (step.config as NumberAdvancedConfig);
 
   const min = config?.min;
-  // eslint-disable-next-line @typescript-eslint/naming-convention
+
   const max = config?.max;
   // eslint-disable-next-line @typescript-eslint/naming-convention
   const step_value = config?.step ?? 1;

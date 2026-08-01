@@ -1,7 +1,21 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import type { TenantBranding, TenantDomain, GetBrandingResponse, UpdateBrandingResponse, GetDomainsResponse, CreateDomainRequest, CreateDomainResponse } from '@shared/types/branding';
+
+async function readJson<T>(response: Response): Promise<T> {
+  const data: unknown = await response.json();
+  return data as T;
+}
+
+async function readErrorMessage(response: Response, fallback: string): Promise<string> {
+  const error: unknown = await response.json();
+  return typeof error === 'object'
+    && error !== null
+    && 'message' in error
+    && typeof error.message === 'string'
+    ? error.message
+    : fallback;
+}
 
 /**
  * Stage 17: Branding API Hooks
@@ -33,7 +47,7 @@ export function useTenantBranding(tenantId: string | undefined) {
         throw new Error('Failed to fetch tenant branding');
       }
 
-      const data: GetBrandingResponse = await response.json();
+      const data = await readJson<GetBrandingResponse>(response);
       return data.branding;
     },
     enabled: !!tenantId,
@@ -59,11 +73,10 @@ export function useUpdateTenantBranding(tenantId: string) {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to update branding');
+        throw new Error(await readErrorMessage(response, 'Failed to update branding'));
       }
 
-      const data: UpdateBrandingResponse = await response.json();
+      const data = await readJson<UpdateBrandingResponse>(response);
       return data.branding;
     },
     onSuccess: () => {
@@ -98,7 +111,7 @@ export function useTenantDomains(tenantId: string | undefined) {
         throw new Error('Failed to fetch tenant domains');
       }
 
-      const data: GetDomainsResponse = await response.json();
+      const data = await readJson<GetDomainsResponse>(response);
       return data.domains;
     },
     enabled: !!tenantId,
@@ -124,11 +137,10 @@ export function useAddTenantDomain(tenantId: string) {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to add domain');
+        throw new Error(await readErrorMessage(response, 'Failed to add domain'));
       }
 
-      const data: CreateDomainResponse = await response.json();
+      const data = await readJson<CreateDomainResponse>(response);
       return data.domain;
     },
     onSuccess: () => {
@@ -154,8 +166,7 @@ export function useRemoveTenantDomain(tenantId: string) {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to remove domain');
+        throw new Error(await readErrorMessage(response, 'Failed to remove domain'));
       }
     },
     onSuccess: () => {

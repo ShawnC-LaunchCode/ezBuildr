@@ -1,5 +1,30 @@
 export const ALIAS_MAX_LENGTH = 60;
 
+export const ALIAS_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+export const ALIAS_FORMAT_MESSAGE = 'Variable names must start with a letter or underscore and contain only letters, numbers, and underscores.';
+
+export function validateAliasFormat(alias: string): void {
+  // Bad alias format is user input, not a server fault: tag statusCode 400 so
+  // classifyRouteError surfaces it as a 400 rather than collapsing to 500.
+  if (!ALIAS_FORMAT.test(alias)) {
+    throw Object.assign(new Error(ALIAS_FORMAT_MESSAGE), { statusCode: 400 });
+  }
+  if (alias.length > ALIAS_MAX_LENGTH) {
+    throw Object.assign(
+      new Error(`Variable names must be at most ${ALIAS_MAX_LENGTH} characters.`),
+      { statusCode: 400 }
+    );
+  }
+}
+
+export function sanitizeAliasFormat(alias: string): string {
+  let sanitized = alias.replace(/[^a-zA-Z0-9_]/g, '');
+  if (sanitized.length > 0 && /^[0-9]/.test(sanitized)) {
+    sanitized = `_${sanitized}`;
+  }
+  return sanitized.slice(0, ALIAS_MAX_LENGTH);
+}
+
 /**
  * Derive a camelCase variable name from a question label.
  * "What is your first name?" -> "whatIsYourFirstName"
@@ -31,6 +56,31 @@ export function generateUniqueAliasFromTaken(label: string, taken: Set<string>):
 
   if (!taken.has(base.toLowerCase())) {
     return base;
+  }
+
+  for (let i = 2; i < 100; i++) {
+    const suffix = String(i);
+    const trimmedBase = base.slice(0, ALIAS_MAX_LENGTH - suffix.length);
+    const candidate = `${trimmedBase}${suffix}`;
+    if (!taken.has(candidate.toLowerCase())) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Mint a fresh, unique alias for a same-workflow duplicate (ICW2-B5).
+ * Suffixes with `_copy`, `_copy2`, ... rather than a numeric suffix so the
+ * duplicate is recognizable as a copy. Uses an underscore (not the hyphen
+ * ICW2-B5's "preferred fix" illustrates) because `ALIAS_FORMAT` forbids
+ * hyphens in variable names.
+ */
+export function generateAliasCopy(sourceAlias: string, taken: Set<string>): string | null {
+  const base = `${sourceAlias}_copy`;
+  if (!taken.has(base.toLowerCase())) {
+    return base.slice(0, ALIAS_MAX_LENGTH);
   }
 
   for (let i = 2; i < 100; i++) {

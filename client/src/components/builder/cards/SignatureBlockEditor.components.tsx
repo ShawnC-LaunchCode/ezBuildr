@@ -95,9 +95,9 @@ export const ProviderSection = ({ config, onUpdate }: { config: SignatureBlockCo
                 value={config.provider ?? "docusign"}
                 onChange={(e) => onUpdate({ provider: e.target.value as SignatureBlockConfig['provider'] })}
             >
-                <option value="docusign">DocuSign</option>
-                <option value="hellosign">HelloSign (Coming Soon)</option>
-                <option value="native">Native Signature (Coming Soon)</option>
+                <option value="docusign" disabled>DocuSign (Coming Soon)</option>
+                <option value="hellosign" disabled>HelloSign (Coming Soon)</option>
+                <option value="native" disabled>Native Signature (Coming Soon)</option>
             </select>
         </div>
 
@@ -156,7 +156,7 @@ export const DocumentsSection = ({ config, onUpdate }: { config: SignatureBlockC
     const handleAddDocument = () => {
         const newDocument = {
             id: `doc_${Date.now()}`,
-            documentId: "placeholder",
+            documentId: "",
             mapping: {} as Record<string, { type: 'variable', source: string }>,
         };
         onUpdate({
@@ -207,7 +207,7 @@ export const DocumentsSection = ({ config, onUpdate }: { config: SignatureBlockC
                             <div className="space-y-1">
                                 <label className="text-xs font-medium text-muted-foreground">Document Template</label>
                                 <DocumentPicker
-                                    value={doc.documentId === "placeholder" ? "" : doc.documentId}
+                                    value={doc.documentId}
                                     onChange={(val) => handleUpdateDocument(doc.id, { documentId: val })}
                                 />
                             </div>

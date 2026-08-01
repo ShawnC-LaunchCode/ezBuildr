@@ -14,7 +14,6 @@
  * @date December 6, 2025
  */
 
-import { promises as fs } from 'fs';
 import { classifyRouteError } from '../utils/routeErrors';
 import path from 'path';
 
@@ -24,9 +23,10 @@ import { createLogger } from '../logger.js';
 import { hybridAuth, type AuthRequest } from '../middleware/auth.js';
 import { creatorOrRunTokenAuth, type RunAuthRequest } from '../middleware/runTokenAuth.js';
 import { strictLimiter } from '../middleware/rateLimiter.js';
-import { documentTemplateRepository } from '../repositories/index.js';
+import { documentTemplateRepository, runGeneratedDocumentsRepository } from '../repositories/index.js';
 import { finalBlockRenderer, createTemplateResolver } from '../services/document/FinalBlockRenderer.js';
 import { runService } from '../services/RunService.js';
+import { storageProvider } from '../services/storage/index.js';
 import { workflowService } from '../services/WorkflowService.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { createError } from '../utils/errors.js';
@@ -42,7 +42,6 @@ const logger = createLogger({ module: 'finalBlock-routes' });
 const generateFinalDocumentsSchema = z.object({
   stepId: z.string().uuid(),
   toPdf: z.boolean().optional().default(false),
-  pdfStrategy: z.enum(['puppeteer']).optional().default('puppeteer'),
 });
 
 const previewGenerateSchema = z.object({
@@ -61,7 +60,6 @@ const previewGenerateSchema = z.object({
   }),
   stepValues: z.record(z.any()),
   toPdf: z.boolean().optional().default(false),
-  pdfStrategy: z.enum(['puppeteer']).optional().default('puppeteer'),
 });
 
 // ============================================================================
@@ -78,17 +76,17 @@ export function registerFinalBlockRoutes(app: Express): void {
    *
    * Authentication: Creator or run token
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.post(
     '/api/runs/:runId/generate-final',
     strictLimiter,
-    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
     creatorOrRunTokenAuth,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     asyncHandler(async (req: Request, res: Response) => {
       try {
         const runAuthReq = req as RunAuthRequest;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+
         const { runId } = req.params;
         const userId = (req as AuthRequest).userId;
         const runAuth = runAuthReq.runAuth;
@@ -104,29 +102,29 @@ export function registerFinalBlockRoutes(app: Express): void {
         }
 
         // Validate request body
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-        const { stepId, toPdf, pdfStrategy } = generateFinalDocumentsSchema.parse(req.body);
+
+        const { stepId, toPdf } = generateFinalDocumentsSchema.parse(req.body);
 
         logger.info({
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
           runId,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
           stepId,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
           toPdf,
           userId,
         }, 'Generating Final Block documents for run');
 
         // Step 1: Verify run access
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
         const run = runAuth != null
           ? await runService.getRunWithValuesNoAuth(runId)
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
           : await runService.getRun(runId, userId!);
 
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         if (!run) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
           throw createError.notFound('Run', runId);
         }
 
@@ -134,11 +132,10 @@ export function registerFinalBlockRoutes(app: Express): void {
         const result = await runService.generateDocuments(run.id, {
           finalStepId: stepId,
           toPdf,
-          pdfStrategy,
         });
 
         logger.info({
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
           runId,
           generated: result.documentsGenerated,
           skipped: result.skipped?.length ?? 0,
@@ -159,7 +156,7 @@ export function registerFinalBlockRoutes(app: Express): void {
       } catch (error: unknown) {
         logger.error({
           error,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+
           runId: req.params.runId,
         }, 'Failed to generate Final Block documents');
 
@@ -175,16 +172,16 @@ export function registerFinalBlockRoutes(app: Express): void {
    *
    * Authentication: Required (workflow creator)
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.post(
     '/api/workflows/:workflowId/preview/generate-final',
     strictLimiter,
     hybridAuth,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     asyncHandler(async (req: Request, res: Response) => {
       try {
         const authReq = req as AuthRequest;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+
         const { workflowId } = req.params;
         const userId = authReq.userId;
 
@@ -193,28 +190,27 @@ export function registerFinalBlockRoutes(app: Express): void {
         }
 
         // Validate request body
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+
         const {
           stepId,
           finalBlockConfig,
           stepValues,
           toPdf,
-          pdfStrategy,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
         } = previewGenerateSchema.parse(req.body);
 
         logger.info({
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
           workflowId,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
           stepId,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
           toPdf,
           userId,
         }, 'Generating Final Block documents in preview mode');
 
         // Step 1: Load workflow and verify access
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument
+
         const workflow = await workflowService.verifyAccess(workflowId, userId, 'view');
 
         // Step 2: Create template resolver
@@ -237,11 +233,10 @@ export function registerFinalBlockRoutes(app: Express): void {
           runId: `preview-${Date.now()}`, // Temporary run ID for preview
           resolveTemplate,
           toPdf,
-          pdfStrategy,
         });
 
         logger.info({
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
           workflowId,
           generated: result.totalGenerated,
         }, 'Preview Final Block documents generated successfully');
@@ -262,7 +257,7 @@ export function registerFinalBlockRoutes(app: Express): void {
       } catch (error: unknown) {
         logger.error({
           error,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+
           workflowId: req.params.workflowId,
         }, 'Failed to generate preview Final Block documents');
 
@@ -278,16 +273,16 @@ export function registerFinalBlockRoutes(app: Express): void {
    *
    * Authentication: Creator or run token
    */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
   app.get(
     '/api/runs/:runId/final-documents/:filename/download',
-    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
     creatorOrRunTokenAuth,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     asyncHandler(async (req: Request, res: Response) => {
       try {
         const runAuthReq = req as RunAuthRequest;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+
         const { runId, filename } = req.params;
         const userId = (req as AuthRequest).userId;
         const runAuth = runAuthReq.runAuth;
@@ -303,67 +298,53 @@ export function registerFinalBlockRoutes(app: Express): void {
         }
 
         logger.info({
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
           runId,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
           filename,
           userId,
         }, 'Downloading Final Block document');
 
         // Verify run access
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
         const run = runAuth != null
           ? await runService.getRunWithValuesNoAuth(runId)
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
           : await runService.getRun(runId, userId!);
 
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         if (!run) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
           throw createError.notFound('Run', runId);
         }
 
         // Sanitize filename to prevent path traversal
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
         const sanitizedFilename = path.basename(filename);
 
-        // Security check: ensure the file belongs to this run
-        // ZIP files are prefixed with final-docs-{runId.slice(0, 8)}
-        // Individual files are prefixed with {runId}_
-        if (!sanitizedFilename.includes(runId) && !sanitizedFilename.includes(`final-docs-${runId.slice(0, 8)}`)) {
-          logger.warn({ runId, filename: sanitizedFilename }, 'Attempted to access file not belonging to run');
+        // Look up storageKey from DB
+        const docs = await runGeneratedDocumentsRepository.findByRunId(runId);
+        const docRecord = docs.find(d => d.fileName === sanitizedFilename);
+
+        if (!docRecord?.storageKey) {
+          logger.warn({ runId, filename: sanitizedFilename }, 'File record not found or lacks storageKey');
           throw createError.notFound('File', filename);
         }
 
-        // Check in archives directory
-        const archivesDir = path.join(process.cwd(), 'server', 'files', 'archives');
-        const filePath = path.join(archivesDir, sanitizedFilename);
-
-        // Verify file exists
-        try {
-          await fs.access(filePath);
-        } catch {
-          // Try outputs directory as fallback
-          const outputsDir = path.join(process.cwd(), 'server', 'files', 'outputs');
-          const fallbackPath = path.join(outputsDir, sanitizedFilename);
-
-          try {
-            await fs.access(fallbackPath);
-            return res.download(fallbackPath, sanitizedFilename);
-          } catch {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-            throw createError.notFound('File', filename);
-          }
-        }
+        // Retrieve file from storageProvider
+        const fileBuffer = await storageProvider.getFile(docRecord.storageKey);
 
         // Send file
-        res.download(filePath, sanitizedFilename);
+        res.setHeader('Content-Disposition', `attachment; filename="${sanitizedFilename}"`);
+        res.setHeader('Content-Type', docRecord.mimeType ?? 'application/octet-stream');
+        res.setHeader('Content-Length', fileBuffer.length.toString());
+        res.send(fileBuffer);
       } catch (error: unknown) {
         logger.error({
           error,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+
           runId: req.params.runId,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+
           filename: req.params.filename,
         }, 'Failed to download Final Block document');
 

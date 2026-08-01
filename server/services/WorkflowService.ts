@@ -3,6 +3,7 @@ import crypto from "crypto";
 
 import type { Workflow, InsertWorkflow, Step, WorkflowAccess, PrincipalType, AccessRole } from "@shared/schema";
 import { workflowVersions, workflows, auditLogs, projects, workflowRuns } from "@shared/schema";
+import type { IntakeConfig } from "@shared/types/intake";
 
 interface GraphConfig {
   title?: string;
@@ -318,7 +319,16 @@ export class WorkflowService {
     if (status === 'archived') {
       await this.requireOrgAdminForOrgOwnedWorkflow(workflow, userId, 'archive');
     }
-    return this.workflowRepo.update(workflowId, { status });
+    
+    const updateData: Partial<InsertWorkflow> = { status };
+    if (status === 'active') {
+            // eslint-disable-next-line import/no-cycle
+      const { versionService } = await import("./VersionService");
+      const version = await versionService.publishVersion(workflowId, userId, 'Published from builder');
+      updateData.currentVersionId = version.id;
+    }
+    
+    return this.workflowRepo.update(workflowId, updateData);
   }
   /**
    * Ensure workflow is in draft status before editing
@@ -356,6 +366,8 @@ export class WorkflowService {
     // Verify user has owner access to the workflow
     await this.verifyAccess(workflowId, userId, 'owner');
     // If moving to a project (not unfiled), verify user has access to target project
+    let ownerType: Workflow['ownerType'];
+    let ownerUuid: Workflow['ownerUuid'];
     if (projectId !== null) {
       const project = await this.projectRepo.findById(projectId);
       if (!project) {
@@ -365,14 +377,21 @@ export class WorkflowService {
       if (!hasProjectAccess) {
         throw new Error("Access denied - you do not have access to the target project");
       }
-      const ownerType = project.ownerType ?? 'user';
-      const ownerUuid = project.ownerUuid ?? project.ownerId ?? userId;
+      ownerType = project.ownerType ?? 'user';
+      ownerUuid = project.ownerUuid ?? project.ownerId ?? userId;
+    } else {
+      // Unfiled: reset to personal/user ownership, mirroring the no-projectId
+      // branch of createWorkflow (ownerType 'user', ownerUuid = the acting user).
+      ownerType = 'user';
+      ownerUuid = userId;
+    }
+    return this.workflowRepo.transaction(async (tx) => {
       const workflow = await this.workflowRepo.update(workflowId, {
         projectId,
         ownerType,
         ownerUuid,
-      });
-      await db
+      }, tx);
+      await tx
         .update(workflowRuns)
         .set({
           ownerType,
@@ -380,8 +399,7 @@ export class WorkflowService {
         })
         .where(eq(workflowRuns.workflowId, workflowId));
       return workflow;
-    }
-    return this.workflowRepo.update(workflowId, { projectId });
+    });
   }
   /**
    * Get unfiled workflows (workflows with no project) for a creator
@@ -506,15 +524,11 @@ export class WorkflowService {
   async updateIntakeConfig(
     workflowId: string,
     userId: string,
-    intakeConfig: Record<string, unknown>,
+    intakeConfig: IntakeConfig,
     tx?: DbTransaction
   ): Promise<Workflow> {
     // Verify user has edit access
     await this.verifyAccess(workflowId, userId, 'edit');
-
-    if (Array.isArray(intakeConfig)) {
-      throw new Error("Invalid intakeConfig: must be a JSON object");
-    }
 
     return this.workflowRepo.update(
       workflowId,
@@ -601,19 +615,22 @@ export class WorkflowService {
           config: sectionConfig
         });
       }
-    } else {
-      // If final node removed, remove final section? 
-      // For safety, we might keep it or mark it invisible, but deleting is cleaner if we assume graph is truth.
-      if (finalSection) {
-        await this.sectionRepo.delete(finalSection.id);
-      }
+    } else if (finalSection) {
+      // If the final node was removed from the graph, soft-delete the final
+      // section (ICW2-B1/ICW2-B11) so respondent step_values on its steps
+      // survive; cascade to its own steps first, mirroring the manual
+      // delete path in SectionService.deleteSection.
+      await db.transaction(async (tx) => {
+        await this.stepRepo.softDeleteBySectionId(finalSection.id, tx);
+        await this.sectionRepo.softDelete(finalSection.id, tx);
+      });
     }
   }
   /**
    * Replace full workflow content (Deep Update)
    * Used by AI Assistant to apply full structural changes
    */
-  /* eslint-disable-next-line complexity, sonarjs/cognitive-complexity, max-lines-per-function */
+
   async replaceWorkflowContent(
     workflowId: string,
     userId: string,
@@ -624,34 +641,36 @@ export class WorkflowService {
     if (!hasAccess) {
       throw new Error("Access denied - you do not have permission to edit this workflow");
     }
-    // 2. Update Workflow Metadata
-    const [updatedWorkflow] = await db
-      .update(workflows)
-      .set({
-        title: data.title,
-        description: data.description,
-        updatedAt: new Date(),
-      })
-      .where(eq(workflows.id, workflowId))
-      .returning();
-      
-    if (updatedWorkflow === undefined) {
-      throw new Error("Workflow not found");
-    }
+    return db.transaction(async (tx) => {
+      // 2. Update Workflow Metadata
+      const [updatedWorkflow] = await tx
+        .update(workflows)
+        .set({
+          title: data.title,
+          description: data.description,
+          updatedAt: new Date(),
+        })
+        .where(eq(workflows.id, workflowId))
+        .returning();
+        
+      if (updatedWorkflow === undefined) {
+        throw new Error("Workflow not found");
+      }
 
-    // 3. Sync Sections and everything else
-    await workflowContentIngestService.apply(workflowId, data, { source: 'ai' });
+      // 3. Sync Sections and everything else
+      await workflowContentIngestService.apply(workflowId, data, { source: 'ai', tx });
 
-    // 4. Audit Log
-    await db.insert(auditLogs).values({
-      userId: userId,
-      entityType: 'workflow',
-      entityId: workflowId,
-      action: 'ai_revision_apply',
-      details: { summary: 'Full content replaced by AI' },
+      // 4. Audit Log
+      await tx.insert(auditLogs).values({
+        userId: userId,
+        entityType: 'workflow',
+        entityId: workflowId,
+        action: 'ai_revision_apply',
+        details: { summary: 'Full content replaced by AI' },
+      });
+
+      return updatedWorkflow;
     });
-
-    return updatedWorkflow;
   }
   /**
    * Transfer workflow ownership (new ownership model)

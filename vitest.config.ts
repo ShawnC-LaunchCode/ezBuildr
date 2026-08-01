@@ -12,6 +12,15 @@ const dbUnitTests = [
   "tests/unit/repositories/WorkflowTemplateRepository.test.ts",
   "tests/unit/services/PdfQueueService.test.ts",
   "tests/unit/services/WorkflowTemplateService.test.ts",
+  "tests/unit/portability/exportService.test.ts",
+  "tests/unit/portability/exportBlobs.test.ts",
+  "tests/unit/portability/exportSecrets.test.ts",
+  "tests/unit/portability/exportRedaction.test.ts",
+  "tests/unit/portability/importPreview.test.ts",
+  "tests/unit/portability/importApply.test.ts",
+  "tests/unit/portability/importBlobs.test.ts",
+  "tests/unit/services/StepService.db.test.ts",
+  "tests/unit/scripts/migrateOptionAliases.db.test.ts",
 ];
 
 // Integration tests excluded from the default run (require special setup)

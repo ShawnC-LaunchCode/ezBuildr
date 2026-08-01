@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Repository Index
  * Central export point for all repository classes
  *
@@ -9,23 +9,33 @@
 // Export base repository and transaction type
 export { BaseRepository, type DbTransaction } from "./BaseRepository";
 
-// Export domain repositories (user, analytics, files, system)
+// Export domain repositories (user, analytics, system)
 // NOTE: Survey repositories removed (Nov 2025) - workflow-only platform
 export { UserRepository, userRepository } from "./UserRepository";
 export { UserCredentialsRepository, userCredentialsRepository } from "./UserCredentialsRepository";
 export { UserPreferencesRepository, userPreferencesRepository } from "./UserPreferencesRepository";
 export { AdminOrgStatsRepository, adminOrgStatsRepository } from "./AdminOrgStatsRepository";
 // export { AnalyticsRepository, analyticsRepository } from "./AnalyticsRepository";
-// export { FileRepository, fileRepository } from "./FileRepository";
 export { SystemStatsRepository, systemStatsRepository } from "./SystemStatsRepository";
 
+// AI usage/budget ledger (ICW2-B7)
+export { AiUsageRepository, aiUsageRepository } from "./AiUsageRepository";
+
 // Vault-Logic Workflow repositories
-export { ProjectRepository, projectRepository } from "./ProjectRepository";
+export { ProjectRepository, projectRepository, type ProjectListOptions, type ProjectWithOwnerName } from "./ProjectRepository";
 export { WorkflowRepository, workflowRepository } from "./WorkflowRepository";
+export { WorkflowVersionRepository, workflowVersionRepository } from "./WorkflowVersionRepository";
 export { SectionRepository, sectionRepository } from "./SectionRepository";
 export { StepRepository, stepRepository } from "./StepRepository";
 export { WorkflowRunRepository, workflowRunRepository } from "./WorkflowRunRepository";
-export { StepValueRepository, stepValueRepository } from "./StepValueRepository";
+export {
+  RunCompletionJobRepository,
+  runCompletionJobRepository,
+  type EnqueueRunCompletionJobInput,
+  type ClaimRunCompletionJobsOptions,
+  type RetryRunCompletionJobOptions,
+} from "./RunCompletionJobRepository";
+export { StepValueRepository, stepValueRepository, type DeleteImpact } from "./StepValueRepository";
 export { LogicRuleRepository, logicRuleRepository } from "./LogicRuleRepository";
 export { BlockRepository, blockRepository } from "./BlockRepository";
 export { TransformBlockRepository, transformBlockRepository, TransformBlockRunRepository, transformBlockRunRepository } from "./TransformBlockRepository";

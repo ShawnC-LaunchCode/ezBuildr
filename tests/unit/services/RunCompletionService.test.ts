@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument -- vitest mocks of injected services */
 /**
  * RunCompletionService — completion pipeline unit tests.
  *
@@ -28,8 +27,6 @@ vi.mock('../../../server/repositories', () => ({
     stepRepository: {},
 }));
 
-const flushBackground = () => new Promise((resolve) => setTimeout(resolve, 0));
-
 function makeRun(overrides: Partial<WorkflowRun> = {}): WorkflowRun {
     return {
         id: 'run-1',
@@ -41,15 +38,22 @@ function makeRun(overrides: Partial<WorkflowRun> = {}): WorkflowRun {
 }
 
 describe('RunCompletionService', () => {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
-    let runRepo: any;
-    let valueRepo: any;
-    let logicSvc: any;
-    let stateService: any;
-    let lifecycleService: any;
-    let metricsService: any;
-    let runDataSvc: any;
-    /* eslint-enable @typescript-eslint/no-explicit-any */
+    let runRepo: { findById: ReturnType<typeof vi.fn> };
+    let valueRepo: Record<string, never>;
+    let logicSvc: { validateCompletion: ReturnType<typeof vi.fn> };
+    let stateService: { markCompletedAndEnqueue: ReturnType<typeof vi.fn> };
+    let lifecycleService: {
+        executeWritebacks: ReturnType<typeof vi.fn>;
+        generateDocuments: ReturnType<typeof vi.fn>;
+    };
+    let metricsService: {
+        captureRunSucceeded: ReturnType<typeof vi.fn>;
+        captureRunFailed: ReturnType<typeof vi.fn>;
+    };
+    let runDataSvc: {
+        buildForRun: ReturnType<typeof vi.fn>;
+        fromStepIdData: ReturnType<typeof vi.fn>;
+    };
     let service: RunCompletionService;
 
     beforeEach(() => {
@@ -57,7 +61,9 @@ describe('RunCompletionService', () => {
         runRepo = { findById: vi.fn() };
         valueRepo = {};
         logicSvc = { validateCompletion: vi.fn().mockResolvedValue({ valid: true, missingSteps: [] }) };
-        stateService = { markCompleted: vi.fn().mockResolvedValue(makeRun({ completed: true })) };
+        stateService = {
+            markCompletedAndEnqueue: vi.fn().mockResolvedValue(makeRun({ completed: true })),
+        };
         lifecycleService = {
             executeWritebacks: vi.fn().mockResolvedValue({ success: true, rowsCreated: 0, errors: [] }),
             generateDocuments: vi.fn().mockResolvedValue({ success: true, documentsGenerated: 1 }),
@@ -87,21 +93,25 @@ describe('RunCompletionService', () => {
         vi.mocked(blockRunner.runPhase).mockResolvedValue({ success: true, data: { 'step-1': 'value' } });
 
         service = new RunCompletionService(
-            runRepo,
-            valueRepo,
-            logicSvc,
-            stateService,
-            lifecycleService,
-            metricsService,
-            runDataSvc
+            runRepo as unknown as ConstructorParameters<typeof RunCompletionService>[0],
+            valueRepo as unknown as ConstructorParameters<typeof RunCompletionService>[1],
+            logicSvc as unknown as ConstructorParameters<typeof RunCompletionService>[2],
+            stateService as unknown as ConstructorParameters<typeof RunCompletionService>[3],
+            lifecycleService as unknown as ConstructorParameters<typeof RunCompletionService>[4],
+            metricsService as unknown as ConstructorParameters<typeof RunCompletionService>[5],
+            runDataSvc as unknown as ConstructorParameters<typeof RunCompletionService>[6]
         );
     });
 
-    it('completes an authenticated run and kicks off writebacks + documents', async () => {
+    it('atomically completes an authenticated run and enqueues durable work', async () => {
         const run = makeRun();
         const result = await service.completeRun('run-1', run, 'user-1');
 
-        expect(stateService.markCompleted).toHaveBeenCalledWith('run-1');
+        expect(stateService.markCompletedAndEnqueue).toHaveBeenCalledWith(
+            'run-1',
+            'wf-1',
+            'user-1'
+        );
         expect(result.completed).toBe(true);
         expect(metricsService.captureRunSucceeded).toHaveBeenCalled();
         expect(blockRunner.runPhase).toHaveBeenCalledWith(expect.objectContaining({
@@ -109,17 +119,11 @@ describe('RunCompletionService', () => {
         }));
         expect(logicSvc.validateCompletion).toHaveBeenCalledWith('wf-1', 'run-1', { 'step-1': 'value' });
 
-        await flushBackground();
-        expect(lifecycleService.executeWritebacks).toHaveBeenCalledWith('run-1', 'wf-1', 'user-1');
-        expect(lifecycleService.generateDocuments).toHaveBeenCalledWith('run-1', {
-            runData: expect.objectContaining({
-                byStepId: { 'step-1': 'value' },
-                byAlias: { clientName: 'value' },
-            }),
-        });
+        expect(lifecycleService.executeWritebacks).not.toHaveBeenCalled();
+        expect(lifecycleService.generateDocuments).not.toHaveBeenCalled();
     });
 
-    it('passes alias-keyed transformed data to document generation', async () => {
+    it('validates transformed completion data before enqueueing durable work', async () => {
         vi.mocked(blockRunner.runPhase).mockResolvedValue({
             success: true,
             data: { 'step-1': 'Ada', total: 42 },
@@ -127,13 +131,8 @@ describe('RunCompletionService', () => {
 
         await service.completeRun('run-1', makeRun(), 'user-1');
 
-        await flushBackground();
-        expect(lifecycleService.generateDocuments).toHaveBeenCalledWith('run-1', {
-            runData: expect.objectContaining({
-                byStepId: { 'step-1': 'Ada', total: 42 },
-                byAlias: { clientName: 'Ada', total: 42 },
-            }),
-        });
+        expect(stateService.markCompletedAndEnqueue).toHaveBeenCalledWith('run-1', 'wf-1', 'user-1');
+        expect(lifecycleService.generateDocuments).not.toHaveBeenCalled();
     });
 
     it('completeRunNoAuth runs writebacks too (anonymous runs previously skipped them)', async () => {
@@ -141,9 +140,9 @@ describe('RunCompletionService', () => {
 
         await service.completeRunNoAuth('run-1');
 
-        await flushBackground();
-        expect(lifecycleService.executeWritebacks).toHaveBeenCalledWith('run-1', 'wf-1', undefined);
-        expect(lifecycleService.generateDocuments).toHaveBeenCalledWith('run-1', expect.anything());
+        expect(stateService.markCompletedAndEnqueue).toHaveBeenCalledWith('run-1', 'wf-1', undefined);
+        expect(lifecycleService.executeWritebacks).not.toHaveBeenCalled();
+        expect(lifecycleService.generateDocuments).not.toHaveBeenCalled();
     });
 
     it('rejects an already-completed run without re-triggering side effects', async () => {
@@ -151,8 +150,7 @@ describe('RunCompletionService', () => {
 
         await expect(service.completeRun('run-1', run, 'user-1')).rejects.toThrow('Run is already completed');
 
-        await flushBackground();
-        expect(stateService.markCompleted).not.toHaveBeenCalled();
+        expect(stateService.markCompletedAndEnqueue).not.toHaveBeenCalled();
         expect(lifecycleService.generateDocuments).not.toHaveBeenCalled();
         expect(lifecycleService.executeWritebacks).not.toHaveBeenCalled();
     });
@@ -160,11 +158,10 @@ describe('RunCompletionService', () => {
     it('propagates a lost markCompleted race without generating documents', async () => {
         // Simulates the conditional UPDATE ... WHERE completed = false losing
         // to a concurrent completion
-        stateService.markCompleted.mockRejectedValue(new Error('Run is already completed'));
+        stateService.markCompletedAndEnqueue.mockRejectedValue(new Error('Run is already completed'));
 
         await expect(service.completeRun('run-1', makeRun(), 'user-1')).rejects.toThrow('Run is already completed');
 
-        await flushBackground();
         expect(lifecycleService.generateDocuments).not.toHaveBeenCalled();
         expect(lifecycleService.executeWritebacks).not.toHaveBeenCalled();
     });
@@ -179,7 +176,7 @@ describe('RunCompletionService', () => {
         await expect(service.completeRun('run-1', makeRun(), 'user-1')).rejects.toThrow(
             'Missing required steps: Client name'
         );
-        expect(stateService.markCompleted).not.toHaveBeenCalled();
+        expect(stateService.markCompletedAndEnqueue).not.toHaveBeenCalled();
         expect(metricsService.captureRunFailed).toHaveBeenCalledWith(
             'wf-1', 'run-1', 'v1', expect.any(Number), 'missing_required_steps', expect.anything()
         );
@@ -191,6 +188,6 @@ describe('RunCompletionService', () => {
         await expect(service.completeRun('run-1', makeRun(), 'user-1')).rejects.toThrow(
             'Validation failed: amount must be positive'
         );
-        expect(stateService.markCompleted).not.toHaveBeenCalled();
+        expect(stateService.markCompletedAndEnqueue).not.toHaveBeenCalled();
     });
 });

@@ -1,9 +1,9 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any -- repository mocks are intentionally partial */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { LogicRule, Section, Step, StepValue } from '@shared/schema';
+import type { LogicRule, Section, Step, StepValue, WorkflowRun } from '@shared/schema';
 
 import { LogicService } from '../../../server/services/LogicService';
+import { RunDefinitionProvider } from '../../../server/services/workflow-runs/RunDefinitionProvider';
 import { RunLifecycleService } from '../../../server/services/workflow-runs/RunLifecycleService';
 
 function makeSections(): Section[] {
@@ -45,10 +45,17 @@ describe('Logic query counts', () => {
     let steps: Step[];
     let runValues: StepValue[];
     let runData: Record<string, unknown>;
-    let sectionRepo: any;
-    let stepRepo: any;
-    let logicRuleRepo: any;
-    let valueRepo: any;
+    let sectionRepo: { findByWorkflowId: ReturnType<typeof vi.fn> };
+    let stepRepo: {
+        findBySectionIds: ReturnType<typeof vi.fn>;
+        findByWorkflowIdWithAliases: ReturnType<typeof vi.fn>;
+    };
+    let logicRuleRepo: { findByWorkflowId: ReturnType<typeof vi.fn> };
+    let valueRepo: {
+        findByRunId: ReturnType<typeof vi.fn>;
+        getRunDataAsJson: ReturnType<typeof vi.fn>;
+    };
+    let runRepo: { findById: ReturnType<typeof vi.fn> };
     let logicSvc: LogicService;
 
     beforeEach(() => {
@@ -71,16 +78,38 @@ describe('Logic query counts', () => {
             findByRunId: vi.fn().mockResolvedValue(runValues),
             getRunDataAsJson: vi.fn().mockResolvedValue(runData),
         };
+        // RVP-2: LogicService now resolves sections/steps/rules through
+        // RunDefinitionProvider (RVP-1) rather than reading the live repos
+        // directly. This run has no workflowVersionId, so the provider takes
+        // its 'live' branch -- the same sectionRepo/stepRepo/logicRuleRepo
+        // reads these tests already assert on, just one hop further away.
+        runRepo = {
+            findById: vi.fn().mockResolvedValue({
+                id: 'run-1',
+                workflowId: 'wf-1',
+                workflowVersionId: null,
+            } as WorkflowRun),
+        };
+        const definitionProvider = new RunDefinitionProvider(
+            undefined,
+            sectionRepo as unknown as ConstructorParameters<typeof RunDefinitionProvider>[1],
+            stepRepo as unknown as ConstructorParameters<typeof RunDefinitionProvider>[2],
+            logicRuleRepo as unknown as ConstructorParameters<typeof RunDefinitionProvider>[3]
+        );
 
-        logicSvc = new LogicService(sectionRepo, stepRepo, logicRuleRepo, valueRepo);
+        logicSvc = new LogicService(
+            runRepo as unknown as ConstructorParameters<typeof LogicService>[0],
+            definitionProvider,
+            valueRepo as unknown as ConstructorParameters<typeof LogicService>[2]
+        );
     });
 
     it('determineStartSection builds one logic context for a multi-section workflow', async () => {
         const service = new RunLifecycleService(
-            valueRepo,
-            stepRepo,
-            sectionRepo,
-            {} as any,
+            valueRepo as unknown as ConstructorParameters<typeof RunLifecycleService>[0],
+            stepRepo as unknown as ConstructorParameters<typeof RunLifecycleService>[1],
+            sectionRepo as unknown as ConstructorParameters<typeof RunLifecycleService>[2],
+            {} as ConstructorParameters<typeof RunLifecycleService>[3],
             logicSvc
         );
 

@@ -7,8 +7,167 @@ import {
   resolveNextSection,
   validateRequiredSteps,
   getEffectiveRequiredSteps,
+  evaluateWorkflowVisibility,
   type LogicOperator,
 } from "@shared/workflowLogic";
+
+describe("evaluateWorkflowVisibility parity contract", () => {
+  const sections = [
+    { id: "intro" },
+    {
+      id: "details",
+      visibleIf: {
+        type: "group",
+        operator: "AND",
+        conditions: [{
+          type: "condition",
+          variable: "controller",
+          operator: "equals",
+          value: "yes",
+          valueType: "constant",
+        }],
+      },
+    },
+  ];
+  const steps = [
+    { id: "controller", sectionId: "intro", required: true },
+    { id: "detail", sectionId: "details", required: true },
+  ];
+
+  it("fails closed for section visibleIf and excludes its required steps", () => {
+    const result = evaluateWorkflowVisibility({
+      sections,
+      steps,
+      rules: [],
+      data: {},
+      resolveAlias: (name) => name,
+    });
+
+    expect(Array.from(result.visibleSections)).toEqual(["intro"]);
+    expect(Array.from(result.visibleSteps)).toEqual(["controller"]);
+    expect(Array.from(result.requiredSteps)).toEqual(["controller"]);
+  });
+
+  it("keeps show-rule targets hidden until the rule matches", () => {
+    const rules: LogicRule[] = [{
+      id: "show-details",
+      workflowId: "workflow-1",
+      conditionStepId: "controller",
+      operator: "equals",
+      conditionValue: "yes",
+      targetType: "section",
+      targetSectionId: "details",
+      targetStepId: null,
+      action: "show",
+      logicalOperator: null,
+      order: 1,
+      createdAt: null,
+      updatedAt: null,
+    }];
+
+    const hidden = evaluateWorkflowVisibility({ sections, steps, rules, data: {}, resolveAlias: (name) => name });
+    const shown = evaluateWorkflowVisibility({
+      sections,
+      steps,
+      rules,
+      data: { controller: "yes" },
+      resolveAlias: (name) => name,
+    });
+
+    expect(hidden.visibleSections.has("details")).toBe(false);
+    expect(shown.visibleSections.has("details")).toBe(true);
+  });
+});
+describe("evaluateWorkflowVisibility excludes runner-unrequirable step types (RUN2-3)", () => {
+  // requiredSteps is the one place navigation, section-submit validation, and
+  // run completion all derive "what must have a value" from. A required step
+  // of a type the runner cannot render (file_upload, loop_group, repeater, or
+  // an unrecognized type) can never be satisfied by a respondent, so it must
+  // never end up in requiredSteps here - fixing it in this one function fixes
+  // all three call sites at once.
+  const sections = [{ id: "sec-1" }];
+
+  it("excludes a required file_upload step from requiredSteps while keeping it visible", () => {
+    const steps = [
+      { id: "upload-step", sectionId: "sec-1", required: true, type: "file_upload" },
+    ];
+
+    const result = evaluateWorkflowVisibility({
+      sections,
+      steps,
+      rules: [],
+      data: {},
+      resolveAlias: (name) => name,
+    });
+
+    expect(result.visibleSteps.has("upload-step")).toBe(true);
+    expect(result.requiredSteps.has("upload-step")).toBe(false);
+  });
+
+  it("still includes a required short_text step in requiredSteps (unchanged behavior)", () => {
+    const steps = [
+      { id: "text-step", sectionId: "sec-1", required: true, type: "short_text" },
+    ];
+
+    const result = evaluateWorkflowVisibility({
+      sections,
+      steps,
+      rules: [],
+      data: {},
+      resolveAlias: (name) => name,
+    });
+
+    expect(result.requiredSteps.has("text-step")).toBe(true);
+  });
+
+  it("excludes a step made required only via a rule's require action when its type is unsupported", () => {
+    const steps = [
+      { id: "trigger", sectionId: "sec-1", required: false, type: "short_text" },
+      { id: "upload-step", sectionId: "sec-1", required: false, type: "file_upload" },
+    ];
+    const rules: LogicRule[] = [{
+      id: "require-upload",
+      workflowId: "workflow-1",
+      conditionStepId: "trigger",
+      operator: "equals",
+      conditionValue: "yes",
+      targetType: "step",
+      targetStepId: "upload-step",
+      targetSectionId: null,
+      action: "require",
+      logicalOperator: null,
+      order: 1,
+      createdAt: null,
+      updatedAt: null,
+    }];
+
+    const result = evaluateWorkflowVisibility({
+      sections,
+      steps,
+      rules,
+      data: { trigger: "yes" },
+      resolveAlias: (name) => name,
+    });
+
+    expect(result.requiredSteps.has("upload-step")).toBe(false);
+  });
+
+  it("treats a step definition with no type as requirable (fail-open on missing classification, not silently dropped)", () => {
+    const steps = [
+      { id: "legacy-step", sectionId: "sec-1", required: true },
+    ];
+
+    const result = evaluateWorkflowVisibility({
+      sections,
+      steps,
+      rules: [],
+      data: {},
+      resolveAlias: (name) => name,
+    });
+
+    expect(result.requiredSteps.has("legacy-step")).toBe(true);
+  });
+});
 describe("workflowLogic", () => {
   describe("evaluateRules", () => {
     describe("Section-level rules", () => {
@@ -68,6 +227,42 @@ describe("workflowLogic", () => {
         const data = { "step-1": "skip" };
         const result = evaluateRules(rules, data);
         expect(result.skipToSectionId).toBe("sec-3");
+      });
+      it("should deterministically keep the lower-order rule when two skip_to rules both fire", () => {
+        // RUN2-2: multiple firing skip_to rules must not "last one wins" by
+        // incoming array order - the lowest rule.order wins, deterministically,
+        // regardless of the order the rules are passed in.
+        const higherOrderRule: LogicRule = {
+          id: "rule-high-order",
+          workflowId: "wf-1",
+          targetType: "section",
+          targetSectionId: "sec-4", targetStepId: null,
+          conditionStepId: "step-1",
+          operator: "equals",
+          conditionValue: "skip",
+          action: "skip_to",
+          order: 5, createdAt: null, updatedAt: null, logicalOperator: null,
+        };
+        const lowerOrderRule: LogicRule = {
+          id: "rule-low-order",
+          workflowId: "wf-1",
+          targetType: "section",
+          targetSectionId: "sec-2", targetStepId: null,
+          conditionStepId: "step-1",
+          operator: "equals",
+          conditionValue: "skip",
+          action: "skip_to",
+          order: 2, createdAt: null, updatedAt: null, logicalOperator: null,
+        };
+        const data = { "step-1": "skip" };
+
+        // Passed in ascending order already.
+        const ascending = evaluateRules([lowerOrderRule, higherOrderRule], data);
+        expect(ascending.skipToSectionId).toBe("sec-2");
+
+        // Passed in reverse (descending) array order - result must be identical.
+        const descending = evaluateRules([higherOrderRule, lowerOrderRule], data);
+        expect(descending.skipToSectionId).toBe("sec-2");
       });
       it("should ignore rule with missing targetSectionId", () => {
         const rules: LogicRule[] = [
@@ -257,6 +452,35 @@ describe("workflowLogic", () => {
           const data = { "step-1": 42 };
           const result = evaluateRules(rules, data);
           expect(result.visibleSteps.has("step-2")).toBe(true);
+        });
+        it("does not mutate the data map's array value or rule.conditionValue when comparing arrays (RUN2-5)", () => {
+          const conditionValue = ["c", "a", "b"];
+          const actualAnswer = ["z", "x", "y"];
+          const conditionValueClone = [...conditionValue];
+          const actualAnswerClone = [...actualAnswer];
+          const rules: LogicRule[] = [
+            {
+              id: "rule-1",
+              workflowId: "wf-1",
+              targetType: "step",
+              targetStepId: "step-2", targetSectionId: null,
+              conditionStepId: "step-1",
+              operator: "equals",
+              conditionValue,
+              action: "show",
+              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            },
+          ];
+          const data = { "step-1": actualAnswer };
+
+          evaluateRules(rules, data);
+
+          // Byte-identical to the pre-evaluation clones (acceptance criterion 1/4).
+          expect(data["step-1"]).toEqual(actualAnswerClone);
+          expect(rules[0].conditionValue).toEqual(conditionValueClone);
+          // Same object references, not merely equal-but-replaced arrays.
+          expect(data["step-1"]).toBe(actualAnswer);
+          expect(rules[0].conditionValue).toBe(conditionValue);
         });
       });
       describe("not_equals", () => {
@@ -674,6 +898,83 @@ describe("workflowLogic", () => {
           expect(result.visibleSteps.has("step-2")).toBe(false);
         });
       });
+      describe("Unresolvable condition step (RUN2-11)", () => {
+        // [probe-confirmed] A rule reaching the engine with an empty
+        // conditionStepId (e.g. RunRuntimeService's old `?? ""` fallback for
+        // an alias that no longer resolves) must have NO effect, for every
+        // operator - not just degrade to "always fires" for is_empty.
+        it("does not fire is_empty for an empty conditionStepId, even though data[''] is undefined", () => {
+          const rules: LogicRule[] = [
+            {
+              id: "rule-1",
+              workflowId: "wf-1",
+              targetType: "section",
+              targetSectionId: "B", targetStepId: null,
+              conditionStepId: "",
+              operator: "is_empty",
+              conditionValue: null,
+              action: "hide",
+              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            },
+          ];
+          const data = { q1: "anything" };
+          const result = evaluateRules(rules, data);
+          expect(result.hiddenSections.has("B")).toBe(false);
+        });
+        it("does not fire is_not_empty for an empty conditionStepId", () => {
+          const rules: LogicRule[] = [
+            {
+              id: "rule-1",
+              workflowId: "wf-1",
+              targetType: "step",
+              targetStepId: "step-2", targetSectionId: null,
+              conditionStepId: "",
+              operator: "is_not_empty",
+              conditionValue: null,
+              action: "show",
+              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            },
+          ];
+          const result = evaluateRules(rules, { "step-2": "irrelevant" });
+          expect(result.visibleSteps.has("step-2")).toBe(false);
+        });
+        it("does not fire equals/contains/greater_than for an empty conditionStepId", () => {
+          const baseRule = {
+            id: "rule-1",
+            workflowId: "wf-1",
+            targetType: "step" as const,
+            targetStepId: "step-2", targetSectionId: null,
+            conditionStepId: "",
+            conditionValue: "yes",
+            action: "show" as const,
+            order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+          };
+          const data = { "step-1": "yes" };
+
+          expect(evaluateRules([{ ...baseRule, operator: "equals" }], data).visibleSteps.has("step-2")).toBe(false);
+          expect(evaluateRules([{ ...baseRule, operator: "contains" }], data).visibleSteps.has("step-2")).toBe(false);
+          expect(evaluateRules([{ ...baseRule, operator: "greater_than" }], data).visibleSteps.has("step-2")).toBe(false);
+        });
+        it("still fires is_empty normally once conditionStepId resolves to a real step", () => {
+          // Guardrail: the RUN2-11 fix must not change legitimate is_empty
+          // behavior for a step that genuinely has no value yet.
+          const rules: LogicRule[] = [
+            {
+              id: "rule-1",
+              workflowId: "wf-1",
+              targetType: "section",
+              targetSectionId: "B", targetStepId: null,
+              conditionStepId: "q1",
+              operator: "is_empty",
+              conditionValue: null,
+              action: "hide",
+              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            },
+          ];
+          const result = evaluateRules(rules, {});
+          expect(result.hiddenSections.has("B")).toBe(true);
+        });
+      });
       describe("Unknown operator", () => {
         it("should return false and log warning for unknown operator", () => {
           const rules: LogicRule[] = [
@@ -826,26 +1127,81 @@ describe("workflowLogic", () => {
       { id: "sec-3", order: 3 },
       { id: "sec-4", order: 4 },
     ];
-    it("should use skipToSectionId when provided and visible", () => {
+    it("should use skipToSectionId when provided, visible, and forward of current", () => {
       const visibleSections = new Set(["sec-1", "sec-2", "sec-3", "sec-4"]);
-      const result = resolveNextSection("sec-2", "sec-4", sections, visibleSections);
+      const result = resolveNextSection("sec-1", "sec-2", "sec-4", sections, visibleSections);
       expect(result).toBe("sec-4");
     });
-    it("should find next visible section when skip target is not visible", () => {
+    it("should find next visible section when forward skip target is not visible", () => {
       const visibleSections = new Set(["sec-1", "sec-2", "sec-4"]);
-      const result = resolveNextSection("sec-2", "sec-3", sections, visibleSections);
+      const result = resolveNextSection("sec-1", "sec-2", "sec-3", sections, visibleSections);
       // sec-3 is not visible, so should get next visible after sec-3, which is sec-4
       expect(result).toBe("sec-4");
     });
     it("should use normal next section when no skip target", () => {
       const visibleSections = new Set(["sec-1", "sec-2", "sec-3"]);
-      const result = resolveNextSection("sec-2", undefined, sections, visibleSections);
+      const result = resolveNextSection("sec-1", "sec-2", undefined, sections, visibleSections);
       expect(result).toBe("sec-2");
     });
-    it("should return null when skip target has no visible sections after", () => {
+    it("should return null when forward skip target has no visible sections after", () => {
       const visibleSections = new Set(["sec-1", "sec-2"]);
-      const result = resolveNextSection("sec-2", "sec-4", sections, visibleSections);
+      const result = resolveNextSection("sec-2", "sec-2", "sec-4", sections, visibleSections);
       expect(result).toBe(null);
+    });
+    it("should treat a skip target at or before the current section as a no-op (backwards skip)", () => {
+      // RUN2-2: a backwards skip_to (target order < current order) must not
+      // override normal flow, or the run loops forever on the same section.
+      const visibleSections = new Set(["sec-1", "sec-2", "sec-3", "sec-4"]);
+      const result = resolveNextSection("sec-2", "sec-3", "sec-1", sections, visibleSections);
+      // Falls through to the normal next section, ignoring the backwards skip.
+      expect(result).toBe("sec-3");
+    });
+    it("should treat a skip target equal to the current section as a no-op (same-order skip)", () => {
+      const visibleSections = new Set(["sec-1", "sec-2", "sec-3", "sec-4"]);
+      const result = resolveNextSection("sec-2", "sec-3", "sec-2", sections, visibleSections);
+      expect(result).toBe("sec-3");
+    });
+    it("should allow a skip target at the start of the run (no current section) regardless of order", () => {
+      const visibleSections = new Set(["sec-1", "sec-2", "sec-3", "sec-4"]);
+      const result = resolveNextSection(null, "sec-1", "sec-3", sections, visibleSections);
+      expect(result).toBe("sec-3");
+    });
+    it("regression: six consecutive calls from a backwards-skip workflow terminate rather than repeating one id", () => {
+      // Mirrors the audit probe: sections A(1), B(2), C(3), all visible, one
+      // rule "skip_to A" that keeps firing (its trigger condition never
+      // changes). Before the fix this produced A -> A -> A -> A -> A -> A
+      // forever. After the fix the run must progress and terminate.
+      const loopSections = [
+        { id: "A", order: 1 },
+        { id: "B", order: 2 },
+        { id: "C", order: 3 },
+      ];
+      const visibleSections = new Set(["A", "B", "C"]);
+      const skipToSectionId = "A";
+
+      const visited: (string | null)[] = [];
+      let current: string | null = "B";
+      for (let i = 0; i < 6; i++) {
+        const nextSectionId = calculateNextSection(current, loopSections, visibleSections);
+        const resolved: string | null = resolveNextSection(
+          current,
+          nextSectionId,
+          skipToSectionId,
+          loopSections,
+          visibleSections
+        );
+        visited.push(resolved);
+        if (resolved !== null) {
+          // Workflow still in progress - the respondent advances to it.
+          current = resolved;
+        }
+        // Once resolved is null the run is complete; further "Next" presses
+        // (simulated here) must keep terminating, not snap back to "A".
+      }
+
+      expect(visited).toHaveLength(6);
+      expect(visited).not.toEqual(["A", "A", "A", "A", "A", "A"]);
+      expect(visited).toContain(null);
     });
   });
   describe("validateRequiredSteps", () => {

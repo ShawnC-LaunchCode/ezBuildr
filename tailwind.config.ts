@@ -85,6 +85,51 @@ export default {
             border: "var(--block-action-border)",
           },
         },
+        // Question-type tiles, one entry per BLOCK_REGISTRY category.
+        // Consumed through the static CATEGORY_TILE map in QuestionTypeIcon —
+        // never interpolated, so the JIT always sees whole class names.
+        qtype: {
+          text: {
+            DEFAULT: "var(--qtype-text)",
+            foreground: "var(--qtype-text-foreground)",
+            border: "var(--qtype-text-border)",
+          },
+          boolean: {
+            DEFAULT: "var(--qtype-boolean)",
+            foreground: "var(--qtype-boolean-foreground)",
+            border: "var(--qtype-boolean-border)",
+          },
+          validated: {
+            DEFAULT: "var(--qtype-validated)",
+            foreground: "var(--qtype-validated-foreground)",
+            border: "var(--qtype-validated-border)",
+          },
+          datetime: {
+            DEFAULT: "var(--qtype-datetime)",
+            foreground: "var(--qtype-datetime-foreground)",
+            border: "var(--qtype-datetime-border)",
+          },
+          choice: {
+            DEFAULT: "var(--qtype-choice)",
+            foreground: "var(--qtype-choice-foreground)",
+            border: "var(--qtype-choice-border)",
+          },
+          numeric: {
+            DEFAULT: "var(--qtype-numeric)",
+            foreground: "var(--qtype-numeric-foreground)",
+            border: "var(--qtype-numeric-border)",
+          },
+          advanced: {
+            DEFAULT: "var(--qtype-advanced)",
+            foreground: "var(--qtype-advanced-foreground)",
+            border: "var(--qtype-advanced-border)",
+          },
+          display: {
+            DEFAULT: "var(--qtype-display)",
+            foreground: "var(--qtype-display-foreground)",
+            border: "var(--qtype-display-border)",
+          },
+        },
       },
       fontFamily: {
         sans: ["var(--font-sans)", "Inter", "sans-serif"],

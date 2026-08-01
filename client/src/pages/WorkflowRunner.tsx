@@ -1,23 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Check } from "lucide-react";
-import { useMemo, type ComponentProps, type ReactElement } from "react";
+import { ChevronLeft, ChevronRight, Check, CheckCircle2 } from "lucide-react";
+import { useEffect, useMemo, type ComponentProps, type ReactElement } from "react";
 import { FullScreenLoader } from "@/components/ui/loader";
 
 import { ClientRunnerLayout } from "@/components/runner/ClientRunnerLayout";
+import { SaveAndResumeButton } from "@/components/runner/SaveAndResumeButton";
 import { FinalDocumentsSection } from "@/components/runner/sections/FinalDocumentsSection";
-import { IntakeAssignmentSection } from "@/components/runner/sections/IntakeAssignmentSection";
 import { ReviewSection } from "@/components/runner/sections/ReviewSection";
 import { SectionSteps } from "@/components/runner/SectionSteps";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useIntakeRuntime } from "@/hooks/useIntakeRuntime";
 import { useRunSession } from "@/hooks/runner/useRunSession";
 import { useRunValues } from "@/hooks/runner/useRunValues";
 import { useSectionVisibility } from "@/hooks/runner/useSectionVisibility";
 import { useRunNavigation, useRunNavigationTransport } from "@/hooks/runner/useRunNavigation";
 import type { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
-import { useSections, useWorkflow } from "@/lib/vault-hooks";
-import { apiWithToken, fetchAPI, type ApiSection, type ApiStep, type ApiWorkflow } from "@/lib/vault-api";
+import { useWorkflow } from "@/lib/vault-hooks";
+import { fetchAPI, type ApiSection, type ApiStep, type ApiWorkflow } from "@/lib/vault-api";
 import { getRunToken } from "@/lib/runTokens";
 import type { LogicRule } from "@shared/schema";
 
@@ -28,10 +27,11 @@ interface WorkflowRunnerProps {
   onPreviewComplete?: () => void;
 }
 
+type RunnerWorkflow = Pick<ApiWorkflow, 'id' | 'title' | 'description' | 'projectId' | 'settings'>;
+
 type FinalSectionConfig = ComponentProps<typeof FinalDocumentsSection>['sectionConfig'];
 type SaveStatus = ComponentProps<typeof ClientRunnerLayout>['saveStatus'];
 type RunnerSectionConfig = FinalSectionConfig & {
-  intakeAssignment?: unknown;
   finalBlock?: unknown;
 };
 
@@ -42,7 +42,7 @@ interface WorkflowRunnerScreenProps {
   workflowId: string | undefined;
   isProductionMode: boolean;
   actualRunId: string | null;
-  workflow: ApiWorkflow | undefined;
+  workflow: RunnerWorkflow | undefined;
   currentSection: ApiSection | undefined;
   currentSectionIndex: number;
   visibleSections: ApiSection[];
@@ -52,7 +52,10 @@ interface WorkflowRunnerScreenProps {
   visibleSectionSteps: ApiStep[];
   runToken: string | null;
   saveStatus: SaveStatus;
+  saveNow: () => Promise<void>;
   showReview: boolean;
+  isCompleted: boolean;
+  finalSectionConfig?: RunnerSectionConfig;
   isLastSection: boolean;
   errors: string[];
   fieldErrors: Record<string, string[]>;
@@ -65,7 +68,7 @@ interface WorkflowRunnerScreenProps {
   setShowReview: (showReview: boolean) => void;
 }
 
-type LoadedRunnerScreenProps = Omit<
+export type LoadedRunnerScreenProps = Omit<
   WorkflowRunnerScreenProps,
   'isInitializing' | 'initError' | 'sections' | 'workflowId' | 'isProductionMode'
 >;
@@ -74,67 +77,60 @@ function getRunnerSectionConfig(section: ApiSection): RunnerSectionConfig {
   return (section.config ?? {}) as RunnerSectionConfig;
 }
 
-function hasIntakeAssignment(section: ApiSection | undefined): boolean {
-  return section != null && Boolean(getRunnerSectionConfig(section).intakeAssignment);
-}
-
 function hasFinalBlock(section: ApiSection | undefined): boolean {
   return section != null && Boolean(getRunnerSectionConfig(section).finalBlock);
+}
+
+export function partitionRunnerSections(visibleSections: ApiSection[]): {
+  respondentSections: ApiSection[];
+  finalSection: ApiSection | undefined;
+} {
+  return {
+    respondentSections: visibleSections.filter((section) => !hasFinalBlock(section)),
+    finalSection: visibleSections.find((section) => hasFinalBlock(section)),
+  };
 }
 
 function getProgress(currentSectionIndex: number, totalSections: number): number {
   return Math.round((currentSectionIndex / Math.max(1, totalSections)) * 100);
 }
 
-function getWorkflowTitle(workflow: ApiWorkflow | undefined): string {
+function getWorkflowTitle(workflow: RunnerWorkflow | undefined): string {
   return workflow?.title ?? "Workflow";
+}
+
+function allowsSaveAndResume(workflow: RunnerWorkflow | undefined): boolean {
+  const settings: unknown = workflow?.settings;
+  return typeof settings !== "object" ||
+    settings === null ||
+    !("allowSaveAndResume" in settings) ||
+    settings.allowSaveAndResume !== false;
 }
 
 export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPreview = false, onPreviewComplete }: WorkflowRunnerProps) {
   // 1. Session & Initialization
-  const { actualRunId, isInitializing, initError, mode, previewState, run, workflowId } = useRunSession(runId, previewEnvironment);
+  const { actualRunId, isInitializing, initError, mode, previewState, run, runtime, workflowId } = useRunSession(runId, previewEnvironment);
   const isProductionMode = mode === 'production';
 
   // 2. Fetch Core Data
-  const intakeData = useIntakeRuntime(workflowId ?? "");
-  const { data: workflow } = useWorkflow(workflowId ?? "");
-  const { data: fetchedSections } = useSections(workflowId, { enabled: isProductionMode });
+  const { data: previewWorkflow } = useWorkflow(workflowId ?? "", { enabled: !isProductionMode && workflowId != null });
+  const workflow = isProductionMode ? runtime?.workflow : previewWorkflow;
 
   // 3. Resolve Sections & Steps
   const sections = useMemo(() => {
-    return isProductionMode ? fetchedSections : previewEnvironment?.getSections();
-  }, [isProductionMode, previewEnvironment, fetchedSections]);
+    return isProductionMode ? runtime?.sections : previewEnvironment?.getSections();
+  }, [isProductionMode, previewEnvironment, runtime?.sections]);
 
   const runToken = actualRunId != null ? getRunToken(actualRunId) : null;
-  const { data: allSteps } = useQuery({
-    queryKey: ['/api/workflows', workflowId, 'all-steps', actualRunId],
-    queryFn: () => {
-      if (runToken != null) {
-        const client = apiWithToken(runToken);
-        return client.get<ApiStep[]>(`/api/workflows/${workflowId}/steps`);
-      } else {
-        return fetchAPI<ApiStep[]>(`/api/workflows/${workflowId}/steps`);
-      }
-    },
-    enabled: workflowId != null && workflowId !== "" && isProductionMode,
-  });
-  
-  const effectiveAllSteps = isProductionMode ? allSteps : previewEnvironment?.getSteps();
+  const effectiveAllSteps = isProductionMode ? runtime?.steps : previewEnvironment?.getSteps();
 
   const { data: logicRules } = useQuery({
     queryKey: ['/api/workflows', workflowId, 'logic-rules', actualRunId],
-    queryFn: () => {
-      if (runToken != null) {
-        const client = apiWithToken(runToken);
-        return client.get<LogicRule[]>(`/api/workflows/${workflowId}/logic-rules`);
-      } else {
-        return fetchAPI<LogicRule[]>(`/api/workflows/${workflowId}/logic-rules`);
-      }
-    },
-    enabled: workflowId != null && workflowId !== "",
+    queryFn: () => fetchAPI<LogicRule[]>(`/api/workflows/${workflowId}/logic-rules`),
+    enabled: workflowId != null && workflowId !== "" && !isProductionMode,
   });
 
-  const effectiveLogicRules = logicRules ?? [];
+  const effectiveLogicRules = (isProductionMode ? runtime?.logicRules : logicRules) as LogicRule[] | undefined ?? [];
 
   // 4. Form Values & Autosave
   const { effectiveValues, handleUpdateValue, saveStatus, saveNow } = useRunValues({
@@ -142,9 +138,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
     actualRunId,
     run,
     previewState,
-    previewEnvironment,
-    allSteps: effectiveAllSteps,
-    intakeData
+    previewEnvironment
   });
 
   // 5. Visibility Engine
@@ -154,6 +148,11 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
     effectiveValues,
     effectiveLogicRules
   );
+  const { respondentSections, finalSection } = useMemo(
+    () => partitionRunnerSections(visibleSections),
+    [visibleSections]
+  );
+  const finalSectionConfig = finalSection ? getRunnerSectionConfig(finalSection) : undefined;
 
   const navigationTransport = useRunNavigationTransport({
     mode,
@@ -170,6 +169,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
     currentSection,
     isLastSection,
     showReview,
+    isCompleted,
     setShowReview,
     errors,
     fieldErrors,
@@ -180,8 +180,10 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
   } = useRunNavigation({
     actualRunId,
     workflowId,
-    runVersionId: run?.versionId,
-    visibleSections,
+    runVersionId: run?.workflowVersionId ?? undefined,
+    initialCompleted: run?.completed ?? false,
+    initialSectionId: run?.currentSectionId,
+    visibleSections: respondentSections,
     effectiveValues,
     transport: navigationTransport
   });
@@ -199,14 +201,17 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
       workflow={workflow}
       currentSection={currentSection}
       currentSectionIndex={currentSectionIndex}
-      visibleSections={visibleSections}
+      visibleSections={respondentSections}
       effectiveAllSteps={effectiveAllSteps}
       effectiveValues={effectiveValues}
       effectiveLogicRules={effectiveLogicRules}
       visibleSectionSteps={visibleSectionSteps}
       runToken={runToken}
       saveStatus={saveStatus}
+      saveNow={saveNow}
       showReview={showReview}
+      isCompleted={isCompleted}
+      finalSectionConfig={finalSectionConfig}
       isLastSection={isLastSection}
       errors={errors}
       fieldErrors={fieldErrors}
@@ -239,82 +244,186 @@ function WorkflowRunnerScreen(props: WorkflowRunnerScreenProps): ReactElement {
   return <LoadedRunnerScreen {...props} />;
 }
 
-function SessionError({ message }: { message: string }): ReactElement {
+interface CenteredScreenCardProps {
+  title: string;
+  description: string;
+  titleClassName?: string;
+  cardClassName?: string;
+  children: ReactElement;
+}
+
+function CenteredScreenCard({ title, description, titleClassName, cardClassName, children }: CenteredScreenCardProps): ReactElement {
   return (
     <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-zinc-950 p-4">
-      <Card className="w-full max-w-md shadow-lg border-destructive/20">
+      <Card className={`w-full max-w-md shadow-lg ${cardClassName ?? ""}`}>
         <CardHeader>
-          <CardTitle className="text-destructive">Session Error</CardTitle>
-          <CardDescription>We couldn&apos;t start this workflow.</CardDescription>
+          <CardTitle className={titleClassName}>{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-gray-700 dark:text-gray-300">{message}</p>
-          <Button className="mt-4 w-full" onClick={() => { window.location.href = '/'; }}>
-            Return Home
-          </Button>
-        </CardContent>
+        <CardContent>{children}</CardContent>
       </Card>
     </div>
   );
 }
 
-function LoadedRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
-  if (props.workflow != null && hasIntakeAssignment(props.currentSection)) {
-    return <IntakeSectionScreen {...props} workflow={props.workflow} />;
-  }
+function SessionError({ message }: { message: string }): ReactElement {
+  return (
+    <CenteredScreenCard
+      title="Session Error"
+      description="We couldn't start this workflow."
+      titleClassName="text-destructive"
+      cardClassName="border-destructive/20"
+    >
+      <>
+        <p className="text-sm text-gray-700 dark:text-gray-300">{message}</p>
+        <Button className="mt-4 w-full" onClick={() => { window.location.href = '/'; }}>
+          Return Home
+        </Button>
+      </>
+    </CenteredScreenCard>
+  );
+}
 
-  if (hasFinalBlock(props.currentSection)) {
-    return <FinalSectionScreen {...props} />;
+function NoVisibleSectionsScreen({ actualRunId, completeMutationIsPending, handleFinalSubmit }: LoadedRunnerScreenProps): ReactElement {
+  const canSubmit = actualRunId != null;
+
+  return (
+    <CenteredScreenCard
+      title="Nothing to complete"
+      description="No questions apply to this response."
+      cardClassName="border-t-4 border-t-primary dark:bg-zinc-900"
+    >
+      {canSubmit ? (
+        <>
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            Every question was skipped based on your answers. Submit to finish this response.
+          </p>
+          <Button
+            type="button"
+            className="mt-4 w-full"
+            onClick={() => { void handleFinalSubmit(); }}
+            disabled={completeMutationIsPending}
+          >
+            {completeMutationIsPending ? "Submitting..." : "Submit"}
+          </Button>
+        </>
+      ) : (
+        <p className="text-sm text-gray-700 dark:text-gray-300">
+          There is nothing to complete for this response.
+        </p>
+      )}
+    </CenteredScreenCard>
+  );
+}
+
+export function LoadedRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
+  if (props.isCompleted) {
+    return (
+      <CompletedRunnerScreen
+        workflow={props.workflow}
+        actualRunId={props.actualRunId}
+        runToken={props.runToken}
+        finalSectionConfig={props.finalSectionConfig}
+      />
+    );
   }
 
   if (props.showReview) {
     return <ReviewRunnerScreen {...props} />;
   }
 
+  if (props.visibleSections.length === 0) {
+    return <NoVisibleSectionsScreen {...props} />;
+  }
+
   return <QuestionRunnerScreen {...props} />;
 }
 
-function IntakeSectionScreen(props: LoadedRunnerScreenProps & { workflow: ApiWorkflow }): ReactElement {
-  const { workflow, currentSectionIndex, visibleSections, saveStatus, effectiveValues, handleNext } = props;
-
-  return (
-    <ClientRunnerLayout
-      title={getWorkflowTitle(workflow)}
-      progress={getProgress(currentSectionIndex, visibleSections.length)}
-      currentStep={currentSectionIndex}
-      totalSteps={visibleSections.length}
-      saveStatus={saveStatus}
-    >
-      <IntakeAssignmentSection workflow={workflow} runValues={effectiveValues} onComplete={() => { void handleNext(); }} />
-    </ClientRunnerLayout>
-  );
+interface RunnerSettings {
+  completionMessage?: string;
+  redirectUrl?: string;
 }
 
-function FinalSectionScreen({
-  actualRunId,
-  currentSection,
-  currentSectionIndex,
-  visibleSections,
-  saveStatus,
+function getSafeRedirectUrl(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const url = new URL(value, window.location.origin);
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+interface CompletedRunnerScreenProps {
+  workflow: RunnerWorkflow | undefined;
+  actualRunId: string | null;
+  runToken: string | null;
+  finalSectionConfig?: RunnerSectionConfig;
+}
+
+function CompletedRunnerScreen({
   workflow,
+  actualRunId,
   runToken,
-}: LoadedRunnerScreenProps): ReactElement {
-  if (actualRunId == null || currentSection == null) {
-    return <FullScreenLoader message="Preparing documents..." />;
+  finalSectionConfig,
+}: CompletedRunnerScreenProps): ReactElement {
+  const settings = (workflow?.settings ?? {}) as RunnerSettings;
+  const redirectUrl = finalSectionConfig ? null : getSafeRedirectUrl(settings.redirectUrl);
+
+  useEffect(() => {
+    if (!redirectUrl) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      window.location.assign(redirectUrl);
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [redirectUrl]);
+
+  if (actualRunId && finalSectionConfig) {
+    return (
+      <ClientRunnerLayout
+        title={getWorkflowTitle(workflow)}
+        progress={100}
+        currentStep={1}
+        totalSteps={1}
+        saveStatus="saved"
+      >
+        <FinalDocumentsSection
+          runId={actualRunId}
+          runToken={runToken ?? undefined}
+          sectionConfig={finalSectionConfig}
+        />
+      </ClientRunnerLayout>
+    );
   }
 
   return (
     <ClientRunnerLayout
       title={getWorkflowTitle(workflow)}
-      currentStep={currentSectionIndex}
-      totalSteps={visibleSections.length}
-      saveStatus={saveStatus}
+      progress={100}
+      currentStep={1}
+      totalSteps={1}
+      saveStatus="saved"
     >
-      <FinalDocumentsSection
-        runId={actualRunId}
-        runToken={runToken ?? undefined}
-        sectionConfig={getRunnerSectionConfig(currentSection)}
-      />
+      <Card className="mt-6 border-t-4 border-t-green-600 shadow-lg dark:bg-zinc-900">
+        <CardContent className="flex flex-col items-center px-6 py-12 text-center">
+          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300">
+            <CheckCircle2 className="h-9 w-9" aria-hidden="true" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight">Interview complete</h1>
+          <p className="mt-3 max-w-xl whitespace-pre-wrap text-muted-foreground">
+            {settings.completionMessage ?? "Thank you for completing this workflow!"}
+          </p>
+          <p className="mt-6 text-sm text-muted-foreground">
+            {redirectUrl ? "You’ll be redirected shortly." : "You can safely close this window."}
+          </p>
+        </CardContent>
+      </Card>
     </ClientRunnerLayout>
   );
 }
@@ -368,8 +477,10 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
     currentSectionIndex,
     visibleSections,
     saveStatus,
+    saveNow,
     errors,
     visibleSectionSteps,
+    effectiveAllSteps,
     effectiveValues,
     handleUpdateValue,
     fieldErrors,
@@ -377,7 +488,13 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
     handlePrev,
     handleNext,
     isLastSection,
+    actualRunId,
+    runToken,
   } = props;
+
+  const saveAndResumeAction = actualRunId && runToken && allowsSaveAndResume(workflow) ? (
+    <SaveAndResumeButton runId={actualRunId} runToken={runToken} saveNow={saveNow} />
+  ) : undefined;
 
   return (
     <ClientRunnerLayout
@@ -386,6 +503,7 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
       currentStep={currentSectionIndex}
       totalSteps={visibleSections.length}
       saveStatus={saveStatus}
+      saveAndResumeAction={saveAndResumeAction}
     >
       <Card className="shadow-lg border-t-4 border-t-primary dark:bg-zinc-900 overflow-visible mt-6 md:mt-0">
         <QuestionSectionHeader currentSection={currentSection} />
@@ -394,6 +512,7 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
           <QuestionSectionBody
             currentSection={currentSection}
             visibleSectionSteps={visibleSectionSteps}
+            allSteps={effectiveAllSteps}
             effectiveValues={effectiveValues}
             handleUpdateValue={handleUpdateValue}
             fieldErrors={fieldErrors}
@@ -453,6 +572,7 @@ function ErrorSummary({ errors }: { errors: string[] }): ReactElement | null {
 interface QuestionSectionBodyProps {
   currentSection: ApiSection | undefined;
   visibleSectionSteps: ApiStep[];
+  allSteps: ApiStep[] | undefined;
   effectiveValues: Record<string, unknown>;
   handleUpdateValue: (stepId: string, value: unknown) => void;
   fieldErrors: Record<string, string[]>;
@@ -462,6 +582,7 @@ interface QuestionSectionBodyProps {
 function QuestionSectionBody({
   currentSection,
   visibleSectionSteps,
+  allSteps,
   effectiveValues,
   handleUpdateValue,
   fieldErrors,
@@ -472,6 +593,7 @@ function QuestionSectionBody({
       <SectionSteps
         sectionId={currentSection.id}
         steps={visibleSectionSteps}
+        allSteps={allSteps}
         values={effectiveValues}
         onChange={handleUpdateValue}
         errors={fieldErrors}

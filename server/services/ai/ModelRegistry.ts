@@ -24,7 +24,7 @@ export interface ModelConfig {
  * Task-specific max output tokens
  * These are conservative defaults to leave room for prompts
  */
-/* eslint-disable @typescript-eslint/naming-convention -- task type keys use snake_case matching shared type definitions */
+
 export const TASK_MAX_TOKENS: Record<TaskType, number> = {
   workflow_generation: 8000,
   workflow_revision: 8192,
@@ -35,7 +35,7 @@ export const TASK_MAX_TOKENS: Record<TaskType, number> = {
   logic_debug: 4000,
   logic_visualization: 4000,
 };
-/* eslint-enable @typescript-eslint/naming-convention */
+
 
 /**
  * Comprehensive model configurations
@@ -82,11 +82,31 @@ const MODEL_CONFIGS: ModelConfig[] = [
   },
 
   // Gemini Models
+  // Pricing is the published per-1M-token rate at time of writing; used only for
+  // telemetry cost estimates, so approximate values are acceptable.
+  {
+    provider: 'gemini',
+    model: 'gemini-2.5-pro',
+    maxContextTokens: 1048576, // 1M tokens
+    pricing: { input: 1.25, output: 10.00 },
+  },
+  {
+    provider: 'gemini',
+    model: 'gemini-2.5-flash',
+    maxContextTokens: 1048576, // 1M tokens
+    pricing: { input: 0.30, output: 2.50 },
+  },
   {
     provider: 'gemini',
     model: 'gemini-2.0-flash',
     maxContextTokens: 1048576, // 1M tokens
     pricing: { input: 0.10, output: 0.40 },
+  },
+  {
+    provider: 'gemini',
+    model: 'gemini-1.5-flash',
+    maxContextTokens: 1048576, // 1M tokens
+    pricing: { input: 0.075, output: 0.30 },
   },
   {
     provider: 'gemini',

@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 
 import type { Workflow, Section, Step, LogicRule } from "@shared/schema";
@@ -6,16 +5,26 @@ import type { Workflow, Section, Step, LogicRule } from "@shared/schema";
 import { createLogger } from "../../logger";
 import { hybridAuth } from "../../middleware/auth";
 import { aiWorkflowRateLimit, aiDailyRateLimit } from "../../middleware/ai.middleware";
-import { aiWorkflowEditRequestSchema, aiPreferencesSchema, aiModelResponseSchema } from "../../schemas/aiWorkflowEdit.schema";
+import { buildOpsDiff } from "@shared/aiOpsDiff";
+import { aiWorkflowEditRequestSchema, aiPreferencesSchema, aiModelResponseSchema } from "@shared/validation/aiWorkflowEdit.schema";
+
+import { AIError } from "../../services/ai/AIError";
+import { AIProviderClient } from "../../services/ai/AIProviderClient";
 import { fenceUntrusted } from "../../services/ai/AIServiceUtils";
-import { aiSettingsService } from "../../services/AiSettingsService";
+import { resolveAiProviderConfig } from "../../services/ai/providerConfig";
+import { aiSettingsService, DEFAULT_SYSTEM_PROMPT } from "../../services/AiSettingsService";
 import { snapshotService } from "../../services/SnapshotService";
 import { versionService } from "../../services/VersionService";
 import { workflowPatchService } from "../../services/WorkflowPatchService";
 import { workflowService } from "../../services/WorkflowService";
 
 import type { AuthRequest } from "../../middleware/auth";
-import type { AiModelResponse } from "../../schemas/aiWorkflowEdit.schema";
+import type {
+  AiEditProposal,
+  AiModelResponse,
+  AiWorkflowEditRequest,
+  WorkflowPatchOp,
+} from "@shared/validation/aiWorkflowEdit.schema";
 import type { Express, Request, Response } from "express";
 
 const logger = createLogger({ module: "ai-workflow-edit-routes" });
@@ -61,7 +70,7 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
     hybridAuth,
     aiWorkflowRateLimit,
     aiDailyRateLimit,
-    // eslint-disable-next-line @typescript-eslint/no-misused-promises, complexity, sonarjs/cognitive-complexity
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     async (req: Request, res: Response) => {
 
       try {
@@ -98,184 +107,273 @@ export function registerAiWorkflowEditRoutes(app: Express): void {
         if (!currentWorkflow) {
           return res.status(404).json({ success: false, error: "Workflow not found" });
         }
-        // 3. Create BEFORE snapshot
-        let beforeSnapshot;
-        try {
-          beforeSnapshot = await snapshotService.createSnapshot(
-            workflowId,
-            `AI Edit BEFORE: ${new Date().toISOString()}`
-          );
-        } catch (error) {
-          logger.error({ error, workflowId }, "Failed to create before snapshot");
-          // Continue? Or fail? Usually fail safety.
-          // For now assume success or log
-        }
-        // 4. (Optional) Check permissions (handled by service mostly but context useful)
-        // 5. Call AI model (Gemini)
-        let aiResponse: AiModelResponse;
-        try {
-          const systemPromptTemplate = await aiSettingsService.getEffectivePrompt({ userId });
-          aiResponse = await callGeminiForWorkflowEdit(
-            requestData.userMessage,
-            currentWorkflow,
-            requestData.preferences,
-            systemPromptTemplate
-          );
-        } catch (error) {
-          logger.error({ error, workflowId }, "AI model call failed");
-          
-          if (error && typeof error === 'object' && 'code' in error && (error as { code: unknown }).code === 'VALIDATION_ERROR') {
-            return res.status(400).json({
-              success: false,
-              error: 'Failed to apply operations',
-              details: getValidationDetailMessages(error),
-            });
-          }
 
-          return res.status(500).json({
-            success: false,
-            error: `AI model call failed: ${"Unknown error"}`,
-          });
-        }
-        // 6. Apply patch operations
-        // eslint-disable-next-line no-useless-catch
-        try {
-          const { summary: _summary, errors } = await workflowPatchService.applyOps(
-            workflowId,
-            userId,
-            aiResponse.ops
-          );
-          if (errors.length > 0) {
-            logger.error({ errors, workflowId }, "Failed to apply some AI operations");
-            return res.status(400).json({
-              success: false,
-              error: "Failed to apply operations",
-              details: errors,
-            });
-          }
-        // eslint-disable-next-line sonarjs/no-useless-catch
-        } catch (applyError) {
-          throw applyError;
+        // 3. Propose-only (dry run): generate ops and return them with a diff.
+        // Nothing is written — no snapshot, no version, no rows — so Discard on
+        // the client is genuinely a no-op (ICW2-10).
+        if (requestData.dryRun === true) {
+          return await proposeEdit(res, requestData, currentWorkflow, workflowId, authReq.tenantId);
         }
 
-        // 7. Get updated workflow
-        const updatedWorkflow = await workflowService.getWorkflowWithDetails(workflowId, userId);
-        // 8. Create new version (DRAFT)
-        const graphJson = convertWorkflowToGraphJson(updatedWorkflow);
-        let draftVersion;
-        let noChanges = false;
-        try {
-          draftVersion = await versionService.createDraftVersion(
-            workflowId,
-            userId,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
-            graphJson as any,
-            `AI Edit: ${requestData.userMessage.substring(0, 30)}${requestData.userMessage.length > 30 ? '...' : ''}`,
-            {
-              source: 'ai-edit',
-              aiOpsCount: aiResponse.ops.length,
-              aiGenerated: true,
-              userPrompt: requestData.userMessage,
-              confidence: aiResponse.confidence
-              // snapshots added after creation to avoid circular dep
-            }
-          );
-          if (!draftVersion) {
-            noChanges = true;
-          } else {
-            // If workflow was active, revert to draft (because we made changes)
-            if (updatedWorkflow.status === 'active') {
-              await workflowService.changeStatus(workflowId, userId, 'draft');
-            }
-            // 9. Create AFTER snapshot
-            let afterSnapshot;
-            try {
-              afterSnapshot = await snapshotService.createSnapshot(
-                workflowId,
-                `AI Edit AFTER: ${draftVersion.versionNumber}`,
-                draftVersion.id
-              );
-              // 10. Update version metadata with snapshot IDs
-              await versionService.updateAiMetadata(draftVersion.id, {
-                source: 'ai-edit',
-                aiOpsCount: aiResponse.ops.length,
-                aiGenerated: true,
-                userPrompt: requestData.userMessage,
-                confidence: aiResponse.confidence,
-                beforeSnapshotId: beforeSnapshot?.id,
-                afterSnapshotId: afterSnapshot?.id
-              });
-            } catch (error) {
-              logger.error({ error, workflowId }, "Failed to create after snapshot or update metadata");
-            }
-          }
-        } catch (error) {
-          logger.error({ error, workflowId }, "Failed to create draft version after AI edit");
-          // Proceed, but warn?
-        }
-        res.status(200).json({
-          success: true,
-          data: {
-            workflowId: updatedWorkflow.id,
-            versionId: draftVersion?.id ?? null,
-            versionNumber: draftVersion?.versionNumber,
-            noChanges,
-            summary: aiResponse.summary,
-            warnings: aiResponse.warnings ?? [],
-            questions: aiResponse.questions ?? []
-          }
-        });
+        return await applyEdit(res, requestData, currentWorkflow, { workflowId, userId, tenantId: authReq.tenantId });
       } catch (error) {
         logger.error({ error, workflowId: req.params.workflowId }, "Error in AI workflow edit");
-        const message = "Failed to process AI edit";
-        // Map common validation/duplicate errors to 400
-        const isUserError = message.includes("Access denied") ||
-          message.includes("already exists") ||
-          message.includes("Duplicate") ||
-          message.includes("duplicate key");
-        const status = isUserError ? (message.includes("Access denied") ? 403 : 400) : 500;
-        res.status(status).json({ success: false, error: message });
+        const actual = error instanceof Error ? error.message : "";
+        const isUserError = actual.includes("Access denied") ||
+          actual.includes("already exists") ||
+          actual.includes("Duplicate") ||
+          actual.includes("duplicate key") ||
+          actual.includes("VALIDATION_ERROR");
+        const status = isUserError ? (actual.includes("Access denied") ? 403 : 400) : 500;
+        const errorMessage = status === 500 ? "Failed to process AI edit" : actual;
+        res.status(status).json({ success: false, error: errorMessage });
       }
     }
   );
 }
+
 /**
- * Call Gemini API to generate workflow edit operations
+ * Map a model-call failure onto the response contract. Shared by the propose
+ * and generate-and-apply paths so both classify identically.
  */
-async function callGeminiForWorkflowEdit(
+function respondToModelFailure(res: Response, error: unknown, workflowId: string): Response {
+  logger.error({ error, workflowId }, "AI model call failed");
+
+  if (error !== null && typeof error === 'object' && 'code' in error && (error as { code: unknown }).code === 'VALIDATION_ERROR') {
+    return res.status(400).json({
+      success: false,
+      error: 'Failed to apply operations',
+      details: getValidationDetailMessages(error),
+    });
+  }
+
+  // Per-tenant AI budget exhausted (ICW2-B7) — fail closed with a clear,
+  // non-retriable error distinct from a transient provider rate limit.
+  if (error instanceof AIError && error.code === 'BUDGET_EXCEEDED') {
+    return res.status(402).json({
+      success: false,
+      error: error.message,
+    });
+  }
+
+  // Provider rate-limit / transient exhaustion surfaces as a retriable 429.
+  if (error instanceof AIError && error.code === 'RATE_LIMIT') {
+    return res.status(429).json({
+      success: false,
+      error: "AI service is busy. Please try again in a moment.",
+      retryAfterSeconds: error.retryAfterSeconds,
+    });
+  }
+
+  // Everything else: generic 500, no internal detail echoed.
+  return res.status(500).json({ success: false, error: "AI model call failed" });
+}
+
+async function generateOps(
+  requestData: AiWorkflowEditRequest,
+  currentWorkflow: WorkflowWithDetails,
+  tenantId?: string,
+): Promise<AiModelResponse> {
+  const systemPromptTemplate = await aiSettingsService.getEffectivePrompt();
+  return callAiForWorkflowEdit(
+    requestData.userMessage ?? '',
+    currentWorkflow,
+    requestData.preferences,
+    systemPromptTemplate,
+    tenantId,
+  );
+}
+
+/**
+ * Dry run: generate ops, return them plus a reviewable diff, write nothing.
+ */
+async function proposeEdit(
+  res: Response,
+  requestData: AiWorkflowEditRequest,
+  currentWorkflow: WorkflowWithDetails,
+  workflowId: string,
+  tenantId?: string,
+): Promise<Response> {
+  let aiResponse: AiModelResponse;
+  try {
+    aiResponse = await generateOps(requestData, currentWorkflow, tenantId);
+  } catch (error) {
+    return respondToModelFailure(res, error, workflowId);
+  }
+
+  const proposal: AiEditProposal = {
+    ops: aiResponse.ops,
+    changes: buildOpsDiff(aiResponse.ops),
+    summary: aiResponse.summary,
+    confidence: aiResponse.confidence,
+    warnings: aiResponse.warnings ?? [],
+    questions: aiResponse.questions ?? [],
+  };
+
+  return res.status(200).json({ success: true, data: proposal });
+}
+
+/**
+ * Apply ops through the snapshot + transaction pipeline. Ops either come from
+ * the caller (a previously reviewed proposal) or are generated here for the
+ * easy-mode auto-apply path. Caller-supplied ops get the same per-op Zod
+ * validation (at request parse) and IDOR checks (in `applyOps`) as generated
+ * ones, so they carry no extra privilege.
+ */
+
+async function applyEdit(
+  res: Response,
+  requestData: AiWorkflowEditRequest,
+  currentWorkflow: WorkflowWithDetails,
+  ctx: { workflowId: string; userId: string; tenantId?: string },
+): Promise<Response> {
+  const { workflowId, userId, tenantId } = ctx;
+  // Create BEFORE snapshot.
+  // Fail closed: the AI-edit rollback story presumes a pre-edit snapshot
+  // exists, so if we cannot create one we abort before mutating anything
+  // rather than proceed with no safety net (ICW-16).
+  let beforeSnapshot;
+  try {
+    beforeSnapshot = await snapshotService.createSnapshot(
+      workflowId,
+      `AI Edit BEFORE: ${new Date().toISOString()}`
+    );
+  } catch (error) {
+    logger.error({ error, workflowId }, "Failed to create before snapshot — aborting AI edit");
+    return res.status(503).json({
+      success: false,
+      error: "Could not create a pre-edit snapshot. No changes were made — please try again.",
+    });
+  }
+
+  // Ops from a reviewed proposal, or freshly generated for auto-apply.
+  let ops: WorkflowPatchOp[];
+  let summary: string[];
+  let confidence: number | undefined;
+  let warnings: string[];
+  let questions: AiModelResponse['questions'];
+
+  if (requestData.ops !== undefined) {
+    ops = requestData.ops;
+    // Summary is re-derived from the ops server-side rather than trusted from
+    // the client, so the recorded changelog always matches what was applied.
+    summary = buildOpsDiff(ops).map((change) => change.explanation);
+    warnings = [];
+    questions = [];
+  } else {
+    let aiResponse: AiModelResponse;
+    try {
+      aiResponse = await generateOps(requestData, currentWorkflow, tenantId);
+    } catch (error) {
+      return respondToModelFailure(res, error, workflowId);
+    }
+    ops = aiResponse.ops;
+    summary = aiResponse.summary;
+    confidence = aiResponse.confidence;
+    warnings = aiResponse.warnings ?? [];
+    questions = aiResponse.questions ?? [];
+  }
+
+  const { errors } = await workflowPatchService.applyOps(workflowId, userId, ops);
+  if (errors.length > 0) {
+    logger.error({ errors, workflowId }, "Failed to apply some AI operations");
+    return res.status(400).json({
+      success: false,
+      error: "Failed to apply operations",
+      details: errors,
+    });
+  }
+
+  const updatedWorkflow = await workflowService.getWorkflowWithDetails(workflowId, userId);
+
+  const aiMetadata = {
+    source: 'ai-edit' as const,
+    aiOpsCount: ops.length,
+    aiGenerated: true,
+    userPrompt: requestData.userMessage,
+    confidence,
+  };
+
+  let draftVersion;
+  let noChanges = false;
+  try {
+    draftVersion = await versionService.createDraftVersion(
+      workflowId,
+      userId,
+      requestData.userMessage ?? 'AI generated edit',
+      aiMetadata, // snapshots added after creation to avoid circular dep
+    );
+    if (!draftVersion) {
+      noChanges = true;
+    } else {
+      // If workflow was active, revert to draft (because we made changes)
+      if (updatedWorkflow.status === 'active') {
+        await workflowService.changeStatus(workflowId, userId, 'draft');
+      }
+      try {
+        const afterSnapshot = await snapshotService.createSnapshot(
+          workflowId,
+          `AI Edit AFTER: ${draftVersion.versionNumber}`,
+          draftVersion.id
+        );
+        await versionService.updateAiMetadata(draftVersion.id, {
+          ...aiMetadata,
+          beforeSnapshotId: beforeSnapshot?.id,
+          afterSnapshotId: afterSnapshot?.id
+        });
+      } catch (error) {
+        logger.error({ error, workflowId }, "Failed to create after snapshot or update metadata");
+      }
+    }
+  } catch (error) {
+    logger.error({ error, workflowId }, "Failed to create draft version after AI edit");
+  }
+
+  return res.status(200).json({
+    success: true,
+    data: {
+      workflowId: updatedWorkflow.id,
+      versionId: draftVersion?.id ?? null,
+      versionNumber: draftVersion?.versionNumber,
+      noChanges,
+      summary,
+      warnings,
+      questions,
+    }
+  });
+}
+
+/**
+ * Generate workflow edit operations via the AI provider registry.
+ *
+ * Routes through `AIProviderClient` (retry/backoff/timeout/telemetry) rather
+ * than constructing the provider SDK directly (ICW-13). Three properties are
+ * security-load-bearing and preserved here:
+ *  1. System/user role separation — the instruction template travels as the
+ *     `systemMessage` (mapped to the provider's system instruction), never
+ *     concatenated into the user turn (SEC-040).
+ *  2. `fenceUntrusted` wrapping of workflow context and the user message.
+ *  3. Strict `aiModelResponseSchema.safeParse` of the model output.
+ */
+async function callAiForWorkflowEdit(
   userMessage: string,
   currentWorkflow: WorkflowWithDetails,
   preferences?: z.infer<typeof aiPreferencesSchema>,
   systemPromptTemplate?: string,
+  tenantId?: string,
 ): Promise<AiModelResponse> {
-  const geminiApiKey = process.env.GEMINI_API_KEY;
-  if (!geminiApiKey) {
-    throw new Error("GEMINI_API_KEY not configured");
-  }
-
-  let genAI;
-  try {
-    genAI = new GoogleGenerativeAI(geminiApiKey);
-  } catch (err: unknown) {
-    logger.error({ err }, "GoogleGenerativeAI Constructor Error");
-    throw err;
-  }
+  // maxTokens raised above the provider's 4k default to fit larger edit outputs.
+  // tenantId (ICW2-B7): when present, AIProviderClient enforces/records the
+  // per-tenant AI budget for this call; omitted callers get no enforcement.
+  const client = new AIProviderClient(resolveAiProviderConfig({ maxTokens: 8192, tenantId }));
 
   const systemPrompt = buildSystemPrompt(preferences, systemPromptTemplate);
-
-  const model = genAI.getGenerativeModel({ 
-    model: "gemini-1.5-pro",
-    systemInstruction: {
-      role: "system",
-      parts: [{ text: systemPrompt }]
-    }
-  });
-
-  // Build workflow context
   const workflowContext = buildWorkflowContext(currentWorkflow);
 
-  // Full prompt with fenced inputs
-  const fullPrompt = `## Current Workflow State
+  // User turn carries only fenced, untrusted data. Instructions live in the
+  // system message so injected content in the workflow/user text cannot be
+  // interpreted as instructions.
+  const userPrompt = `## Current Workflow State
 ${fenceUntrusted(workflowContext)}
 
 ## User Request
@@ -302,31 +400,32 @@ Analyze the user's request and generate a JSON response with the following struc
 }
 Return ONLY valid JSON. No markdown, no code blocks, just raw JSON.`;
 
-  logger.debug({ promptLength: fullPrompt.length }, "Calling Gemini API");
-  const result = await model.generateContent(fullPrompt);
-  const responseText = result.response.text();
-  logger.debug({ responseLength: responseText.length }, "Received Gemini response");
+  // Delegate to the registry client (handles retry/backoff/timeout/telemetry).
+  const responseText = await client.callLLM(userPrompt, 'workflow_revision', systemPrompt);
 
-  // Parse JSON response
+  // Parse JSON response. The provider already strips code fences; keep a
+  // defensive markdown fallback. Log only structural metadata, never the raw
+  // response body (may echo tenant content — SEC-039).
   let parsedJson: unknown;
   try {
-    // Try to extract JSON if wrapped in markdown code blocks
     const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
     const jsonText = jsonMatch ? jsonMatch[1] : responseText;
-
     parsedJson = JSON.parse(jsonText);
-  } catch (error) {
-    logger.error({ error, responseLength: responseText.length }, "Failed to parse Gemini JSON response");
+  } catch {
+    logger.error({ responseLength: responseText.length }, "Failed to parse AI JSON response");
     throw new Error("Invalid JSON response from AI model");
   }
 
-  // Strict Zod validation instead of basic checks
+  // Strict Zod validation (defense in depth, independent of per-op validation).
   const validationResult = aiModelResponseSchema.safeParse(parsedJson);
   if (!validationResult.success) {
-    logger.error({ errors: validationResult.error.errors }, "AI generated an invalid response structure");
+    logger.error(
+      { issuePaths: validationResult.error.errors.map((e) => e.path.join('.')) },
+      "AI generated an invalid response structure",
+    );
     throw Object.assign(new Error("Invalid AI response structure"), {
       code: 'VALIDATION_ERROR',
-      details: validationResult.error.errors
+      details: validationResult.error.errors,
     });
   }
 
@@ -339,24 +438,8 @@ function buildSystemPrompt(preferences?: z.infer<typeof aiPreferencesSchema>, te
   const readingLevel = preferences?.readingLevel ?? "standard";
   const tone = preferences?.tone ?? "neutral";
   const interviewerRole = preferences?.interviewerRole ?? "workflow designer";
-  const baseTemplate = template ?? `You are an expert {{interviewerRole}} helping to build and refine workflow automation systems.
-Your task is to analyze the user's request and generate structured operations to modify the workflow.
-Guidelines:
-- Reading level: {{readingLevel}}
-- Tone: {{tone}}
-- Generate clear, concise operation steps
-- Avoid destructive DataVault operations (no table/column drops, no data deletion)
-- Use tempId for new entities that might be referenced by other ops in the same batch
-- Provide confidence score based on request clarity
-- Ask questions if requirements are ambiguous
-- Include warnings for potentially breaking changes
-Available operation types:
-- workflow.setMetadata
-- section.create/update/delete/reorder
-- step.create/update/delete/move/setVisibleIf/setRequired
-- logicRule.create/update/delete (stub)
-- document.add/update/setConditional/bindFields (stub)
-- datavault.createTable/addColumns/createWritebackMapping (stub)`;
+  // Single source of truth for the default: DEFAULT_SYSTEM_PROMPT (ICW-15).
+  const baseTemplate = template ?? DEFAULT_SYSTEM_PROMPT;
   return baseTemplate
     .replace(/{{interviewerRole}}/g, interviewerRole)
     .replace(/{{readingLevel}}/g, readingLevel)
@@ -390,33 +473,3 @@ Steps: ${steps.length}
   }
   return context;
 }
-/**
- * Convert workflow object to graphJson format for versioning
- */
-function convertWorkflowToGraphJson(workflow: WorkflowWithDetails): Record<string, unknown> {
-  // For now, return a simplified representation
-  // In production, this would match the actual graphJson schema used by the builder
-  return {
-    pages: (workflow.sections ?? []).map((section: Section & { steps: Step[] }) => ({
-      id: section.id,
-      title: section.title,
-      order: section.order,
-      blocks: (section.steps ?? []).map((step: Step) => ({
-        id: step.id,
-        type: step.type,
-        title: step.title,
-        alias: step.alias ?? undefined,
-        required: step.required,
-        config: step.config,
-        visibleIf: step.visibleIf,
-        defaultValue: step.defaultValue,
-        order: step.order,
-      })),
-    })),
-    metadata: {
-      title: workflow.title,
-      description: workflow.description,
-    },
-  };
-}
-

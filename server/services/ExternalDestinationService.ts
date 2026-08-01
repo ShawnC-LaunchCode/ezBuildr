@@ -13,36 +13,52 @@ import { encrypt, decrypt } from "../utils/encryption";
 
 const SENSITIVE_KEYS = ['password', 'token', 'secret', 'key', 'apikey', 'apisecret', 'clientsecret', 'authorization'];
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function encryptConfig(config: any): any {
-    if (!config || typeof config !== 'object') { return config; }
-    const result = { ...config };
-    for (const [key, value] of Object.entries(result)) {
+type ConfigObject = Record<string, unknown>;
+
+function isConfigObject(value: unknown): value is ConfigObject {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function mapSensitiveConfig(config: unknown, transform: (value: string) => string): unknown {
+    if (!isConfigObject(config)) {
+        return config;
+    }
+    const result: ConfigObject = {};
+    for (const [key, value] of Object.entries(config)) {
         if (typeof value === 'string' && SENSITIVE_KEYS.some(k => key.toLowerCase().includes(k))) {
-            result[key] = encrypt(value);
-        } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-            result[key] = encryptConfig(value);
+            result[key] = transform(value);
+            continue;
         }
+        result[key] = isConfigObject(value) ? mapSensitiveConfig(value, transform) : value;
     }
     return result;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function decryptConfig(config: any): any {
-    if (!config || typeof config !== 'object') { return config; }
-    const result = { ...config };
-    for (const [key, value] of Object.entries(result)) {
+function encryptConfig(config: unknown): unknown {
+    return mapSensitiveConfig(config, encrypt);
+}
+
+function decryptConfig(config: unknown): unknown {
+    if (!isConfigObject(config)) {
+        return config;
+    }
+    const result: ConfigObject = {};
+    for (const [key, value] of Object.entries(config)) {
         if (typeof value === 'string' && SENSITIVE_KEYS.some(k => key.toLowerCase().includes(k))) {
             try {
                 result[key] = decrypt(value);
             } catch {
-                // If it fails to decrypt, assume it's legacy plaintext
+                result[key] = value;
             }
-        } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-            result[key] = decryptConfig(value);
+            continue;
         }
+        result[key] = isConfigObject(value) ? decryptConfig(value) : value;
     }
     return result;
+}
+
+function firstDestination(rows: ExternalDestination[]): ExternalDestination | undefined {
+    return rows.length > 0 ? rows[0] : undefined;
 }
 
 export class ExternalDestinationService {
@@ -55,8 +71,7 @@ export class ExternalDestinationService {
         logger.info({ tenantId: data.tenantId, type: data.type }, "Creating external destination");
 
         // Validate config based on type (basic check)
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- config may be null/undefined
-        if (!data.config) {
+        if (data.config === null || data.config === undefined) {
             throw new Error("Configuration is required");
         }
 
@@ -87,15 +102,16 @@ export class ExternalDestinationService {
      * Get a single destination by ID
      */
     async getDestination(id: string, tenantId: string): Promise<ExternalDestination | undefined> {
-        const [destination] = await this.database
+        const destinations = await this.database
             .select()
             .from(externalDestinations)
             .where(and(
                 eq(externalDestinations.id, id),
                 eq(externalDestinations.tenantId, tenantId)
             ));
+        const destination = firstDestination(destinations);
 
-        if (destination) {
+        if (destination !== undefined) {
             destination.config = decryptConfig(destination.config);
         }
         return destination;
@@ -112,11 +128,11 @@ export class ExternalDestinationService {
         logger.info({ id, tenantId }, "Updating external destination");
 
         const encryptedUpdates = { ...updates };
-        if (updates.config) {
+        if (updates.config !== null && updates.config !== undefined) {
             encryptedUpdates.config = encryptConfig(updates.config);
         }
 
-        const [updated] = await this.database
+        const updatedRows = await this.database
             .update(externalDestinations)
             .set({ ...encryptedUpdates, updatedAt: new Date() })
             .where(and(
@@ -124,8 +140,9 @@ export class ExternalDestinationService {
                 eq(externalDestinations.tenantId, tenantId)
             ))
             .returning();
+        const updated = firstDestination(updatedRows);
 
-        if (updated) {
+        if (updated !== undefined) {
             updated.config = decryptConfig(updated.config);
         }
         return updated;

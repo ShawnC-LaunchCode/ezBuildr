@@ -29,8 +29,9 @@ export function createPaginatedResponse<T extends { id: string; createdAt: Date 
   const hasMore = items.length > limit;
   const responseItems = hasMore ? items.slice(0, limit) : items;
 
-  const nextCursor = hasMore && responseItems.length > 0
-    ? encodeCursor(responseItems[responseItems.length - 1])
+  const lastItem = responseItems[responseItems.length - 1];
+  const nextCursor = hasMore && lastItem !== undefined
+    ? encodeCursor(lastItem)
     : null;
 
   return {
@@ -54,9 +55,12 @@ export function decodeCursor(cursor: string): { id: string; timestamp: number } 
   try {
     const decoded = Buffer.from(cursor, 'base64').toString('utf-8');
     const [id, timestampStr] = decoded.split(':');
+    if (!id || timestampStr === undefined) {
+      return null;
+    }
     const timestamp = parseInt(timestampStr, 10);
 
-    if (!id || isNaN(timestamp)) {
+    if (isNaN(timestamp)) {
       return null;
     }
 
@@ -67,10 +71,20 @@ export function decodeCursor(cursor: string): { id: string; timestamp: number } 
 }
 
 /**
+ * Decoded cursor position: the (createdAt, id) of the last row on the
+ * previous page. Repositories use this as the keyset predicate for the
+ * next page — see ProjectRepository.findByCreatorId for the convention.
+ */
+export interface CursorPosition {
+  timestamp: Date;
+  id: string;
+}
+
+/**
  * Build WHERE clause for cursor pagination
  * This uses a composite index on (createdAt, id) for efficient pagination
  */
-export function buildCursorWhere(cursor: string | undefined): { timestamp?: Date; id?: string } | null {
+export function buildCursorWhere(cursor: string | undefined): CursorPosition | null {
   if (!cursor) {
     return null;
   }

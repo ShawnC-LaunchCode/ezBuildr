@@ -1,19 +1,11 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-import { randomUUID } from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 
-import multer from 'multer';
-
 import { logger } from '../logger';
 
 const unlinkAsync = promisify(fs.unlink);
-const mkdirAsync = promisify(fs.mkdir);
-
-// Standard ESM import for multer v2
-const multerInstance = multer;
 
 // File upload configuration
 export const UPLOAD_DIR = process.env.UPLOAD_DIR ?? './uploads';
@@ -33,34 +25,23 @@ export const ALLOWED_FILE_TYPES = [
   'text/csv'
 ];
 
-// Ensure upload directory exists
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-async function ensureUploadDir() {
-  try {
-    await fs.promises.access(UPLOAD_DIR);
-  } catch {
-    await mkdirAsync(UPLOAD_DIR, { recursive: true });
-  }
-}
-
-
-
 // Validate file upload configuration
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/explicit-function-return-type
-export function validateFileUploadConfig(config: any) {
-  if (!config) { return true; } // No restrictions
+export function validateFileUploadConfig(config: unknown): true | string {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) { return true; } // No restrictions
+
+  const fileConfig = config as Record<string, unknown>;
 
   const errors: string[] = [];
 
-  if (config.maxFileSize && typeof config.maxFileSize !== 'number') {
+  if (fileConfig.maxFileSize && typeof fileConfig.maxFileSize !== 'number') {
     errors.push('maxFileSize must be a number');
   }
 
-  if (config.maxFiles && typeof config.maxFiles !== 'number') {
+  if (fileConfig.maxFiles && typeof fileConfig.maxFiles !== 'number') {
     errors.push('maxFiles must be a number');
   }
 
-  if (config.acceptedTypes && !Array.isArray(config.acceptedTypes)) {
+  if (fileConfig.acceptedTypes && !Array.isArray(fileConfig.acceptedTypes)) {
     errors.push('acceptedTypes must be an array');
   }
 
@@ -150,7 +131,11 @@ export async function getFileStats(filename: string) {
 export async function cleanupTempFiles(maxAgeMs = 3600000): Promise<number> {
   const dirsToClean = [
     UPLOAD_DIR,
+    // DEBT-15: 'outputs', 'previews', and 'archives' are single-request temporaries.
+    // They are intentionally ephemeral on the local disk. Durable artifacts go through storageProvider.
     path.join(process.cwd(), 'server', 'files', 'outputs', 'previews'),
+    path.join(process.cwd(), 'server', 'files', 'outputs'),
+    path.join(process.cwd(), 'server', 'files', 'archives'),
     os.tmpdir()
   ];
 

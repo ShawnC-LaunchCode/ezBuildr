@@ -6,16 +6,27 @@
 
 ---
 
+> **Status (verified July 2026): Dormant / not production-ready.**
+> The native signature UI and parts of the provider architecture exist, but
+> DocuSign authentication and envelope create/status/void/download operations
+> are placeholders that throw `not yet implemented`. The builder therefore
+> exposes DocuSign as “Coming Soon,” and the server intentionally does not
+> initialize the provider registry. The material below documents the dormant
+> architecture and the work required for a future activation; it is not an
+> operator setup guide for a working integration.
+
 ## Overview
 
-VaultLogic now supports comprehensive e-signature integration, allowing workflows to collect electronic signatures from multiple parties using DocuSign, HelloSign, or a native signature UI. This implementation provides:
+ezBuildr contains an incomplete e-signature foundation. The implemented pieces
+include:
 
 - **Signature Blocks**: Dedicated block type for collecting signatures
-- **Multi-Signer Routing**: Sequential or parallel signing with routing order
-- **Document Integration**: Works with Final Block generated documents
-- **Variable Mapping**: Pre-fill document fields with workflow data
 - **Provider Abstraction**: Extensible architecture for multiple providers
-- **Preview Mode**: Test signature flows without sending real requests
+- **Webhook Utilities**: DocuSign signature verification and payload parsing
+
+It does **not** currently send documents for signature. DocuSign and HelloSign
+must not be presented as available providers until their external API
+operations are implemented and tested.
 
 ---
 
@@ -50,10 +61,10 @@ VaultLogic now supports comprehensive e-signature integration, allowing workflow
                     ▼               ▼
         ┌─────────────────┐   ┌──────────────┐
         │ DocusignProvider│   │ Future       │
-        │                 │   │ Providers    │
-        │ - JWT Auth      │   │ - HelloSign  │
-        │ - Envelopes     │   │ - Native     │
-        │ - Webhooks      │   │              │
+        │ (dormant)       │   │ Providers    │
+        │ - Placeholders  │   │ - HelloSign  │
+        │ - Webhook utils │   │ - Native     │
+        │                 │   │              │
         └─────────────────┘   └──────────────┘
 ```
 
@@ -105,7 +116,11 @@ CREATE TABLE signature_events (
 
 ---
 
-## Configuration
+## Future Activation Requirements
+
+Do not configure or initialize the provider in a production environment yet.
+Activation requires implementing and testing the missing DocuSign API
+operations first.
 
 ### Step 1: Environment Variables
 
@@ -122,7 +137,7 @@ DOCUSIGN_OAUTH_BASE_PATH=https://account-d.docusign.com  # or https://account.do
 DOCUSIGN_WEBHOOK_SECRET=your_webhook_secret_here  # Optional, for webhook verification
 ```
 
-### Step 2: Install DocuSign SDK (Required for Production)
+### Step 2: Install and integrate the DocuSign SDK
 
 ```bash
 npm install docusign-esign
@@ -134,9 +149,10 @@ npm install docusign-esign
 2. Implement JWT authentication flow
 3. Test with DocuSign Developer account first
 
-### Step 3: Initialize Providers
+### Step 3: Initialize providers only after implementation is complete
 
-In `server/index.ts`, add:
+Once authentication and every envelope operation are implemented and covered
+by tests, server startup can call:
 
 ```typescript
 import { initializeEsignProviders } from './services/esign';
@@ -144,6 +160,8 @@ import { initializeEsignProviders } from './services/esign';
 // After database connection
 initializeEsignProviders();
 ```
+
+Until then, leaving this hook uncalled is intentional.
 
 ---
 

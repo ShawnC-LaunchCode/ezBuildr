@@ -34,7 +34,7 @@ vi.mock("mammoth", () => {
     };
 });
 // Mock multer to bypass file parsing
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 vi.mock("multer", () => {
     // The AI doc routes now read the uploaded file from disk (fs.readFile(req.file.path))
     // for magic-byte + virus-scan checks, so the mock must provide a real temp file path.
@@ -44,9 +44,9 @@ vi.mock("multer", () => {
     const path = require("path");
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const fs = require("fs");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const mockMulter = () => ({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         single: () => (req: any, res: any, next: any) => {
             if (multerState.hasFile) {
                 // PK\x03\x04 = ZIP/DOCX magic bytes so validateMagicBytes passes.
@@ -63,11 +63,8 @@ vi.mock("multer", () => {
             next();
         }
     });
-    // @ts-ignore - TODO: fix type
     mockMulter.memoryStorage = () => { };
-    // @ts-ignore - TODO: fix type
     mockMulter.diskStorage = () => { };
-    // @ts-ignore - TODO: fix type
     mockMulter.memoryStorage = () => { };
     class MockMulterError extends Error {
         code: string;
@@ -76,7 +73,6 @@ vi.mock("multer", () => {
             this.code = code;
         }
     }
-    // @ts-ignore - TODO: fix type
     mockMulter.MulterError = MockMulterError;
     return {
         default: mockMulter,
@@ -84,30 +80,30 @@ vi.mock("multer", () => {
     };
 });
 // Helper to mock JSON response
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 const mockAIResponse = (data: any) => ({
     response: {
         text: () => JSON.stringify(data)
     }
 });
 // Mock Auth Middleware to bypass login
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 vi.mock('../../server/middleware/auth', () => ({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     requireAuth: (req: any, res: any, next: any) => {
         req.user = { id: 'test-user', email: 'test@example.com' };
         next();
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     optionalAuth: (req: any, res: any, next: any) => next(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     hybridAuth: (req: any, res: any, next: any) => {
         req.user = { id: 'test-user', email: 'test@example.com' };
         next();
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     optionalHybridAuth: (req: any, res: any, next: any) => next(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     requireTenantRole: () => (req: any, res: any, next: any) => next(),
 }));
 describe("AI Document Assistant API Integration Tests", () => {
