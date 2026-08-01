@@ -24,8 +24,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Popover,
+  PopoverAnchor,
   PopoverContent,
-  PopoverTrigger,
 } from "@/components/ui/popover";
 import {
   Select,
@@ -98,24 +98,27 @@ export interface AddressBlockProps {
   value: unknown;
   onChange: (value: AddressValue) => void;
   readOnly?: boolean;
+  ariaDescribedBy?: string;
+  required?: boolean;
+  hasError?: boolean;
 }
 
 interface Suggestion {
   description: string;
-  // eslint-disable-next-line @typescript-eslint/naming-convention
+  // eslint-disable-next-line @typescript-eslint/naming-convention -- Google Places API response uses snake_case.
   place_id: string;
 }
-/* eslint-disable @typescript-eslint/naming-convention -- Google Places API response shape */
 interface AddressComponent {
+  // eslint-disable-next-line @typescript-eslint/naming-convention -- Google Places API response uses snake_case.
   long_name: string;
+  // eslint-disable-next-line @typescript-eslint/naming-convention -- Google Places API response uses snake_case.
   short_name: string;
   types: string[];
 }
-/* eslint-enable @typescript-eslint/naming-convention */
-// eslint-disable-next-line max-lines-per-function
+
 
 // eslint-disable-next-line max-lines-per-function
-export function AddressBlockRenderer({ step, value, onChange, readOnly }: AddressBlockProps) {
+export function AddressBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: AddressBlockProps) {
   const _config = step.config as AddressConfig;
 
   // Parse current value (nested object)
@@ -138,7 +141,7 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           });
-        // eslint-disable-next-line no-console
+
         },
         (error) => {
           // eslint-disable-next-line no-console
@@ -287,7 +290,7 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
         {/* Suggestions Popover */}
         <div className="relative">
           <Popover open={showSuggestions && suggestions.length > 0} onOpenChange={setShowSuggestions}>
-            <PopoverTrigger asChild>
+            <PopoverAnchor asChild>
               <div className="relative">
                 <Input
                   id={`${step.id}-street`}
@@ -296,8 +299,11 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
                   onChange={handleStreetChange}
                   placeholder="123 Main St"
                   disabled={readOnly}
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
                   className="w-full"
-                  autoComplete="chrome-off"
+                  autoComplete="street-address"
                   data-1p-ignore // Ignore 1Password
                   data-lpignore="true" // Ignore LastPass
                   onFocus={() => {
@@ -312,7 +318,7 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
                   </div>
                 )}
               </div>
-            </PopoverTrigger>
+            </PopoverAnchor>
             <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]" align="start" onOpenAutoFocus={(e) => { e.preventDefault(); }}>
               <Command shouldFilter={false}>
                 <CommandList>
@@ -352,7 +358,10 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
           }}
           placeholder="Miami"
           disabled={readOnly}
-        />
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      />
       </div>
 
       {/* State & ZIP (side by side) */}
@@ -366,7 +375,10 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
             value={currentValue.state ?? ""}
             onValueChange={(newValue) => updateField("state", newValue)}
             disabled={readOnly}
-          >
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      >
             <SelectTrigger id={`${step.id}-state`}>
               <SelectValue placeholder="Select state" />
             </SelectTrigger>
@@ -395,7 +407,10 @@ export function AddressBlockRenderer({ step, value, onChange, readOnly }: Addres
             placeholder="33101"
             maxLength={5}
             disabled={readOnly}
-          />
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      />
         </div>
       </div>
     </div>

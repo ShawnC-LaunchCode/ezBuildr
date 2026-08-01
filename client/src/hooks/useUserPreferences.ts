@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
 import { useEffect } from "react";
 
 import { getQueryFn } from "@/lib/queryClient";
+import { fetchAPI } from "@/lib/vault-api";
 
 export interface UserPreferences {
   celebrationEffects?: boolean;
@@ -28,9 +28,10 @@ export function useUserPreferences() {
   // Update preferences mutation with optimistic updates
   const updateMutation = useMutation({
     mutationFn: async (updates: Partial<UserPreferences>) => {
-      const response = await axios.put("/api/preferences", updates);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return response.data;
+      return fetchAPI<UserPreferences>("/api/preferences", {
+        method: "PUT",
+        body: JSON.stringify(updates),
+      });
     },
     onMutate: async (updates) => {
       // Cancel outgoing refetches
@@ -66,9 +67,9 @@ export function useUserPreferences() {
   // Reset preferences mutation
   const resetMutation = useMutation({
     mutationFn: async () => {
-      const response = await axios.post("/api/preferences/reset");
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return response.data;
+      return fetchAPI<UserPreferences>("/api/preferences/reset", {
+        method: "POST",
+      });
     },
     onSuccess: () => {
       // eslint-disable-next-line @typescript-eslint/no-floating-promises

@@ -39,7 +39,7 @@ export class EmailQueueService {
                 entityType: 'email',
                 entityId: job.id,
                 metadata: { to, subject, jobId: job.id } 
-            }).catch(e => logger.error({err: e}, 'Failed to log Email Queued activity'));
+            }).catch((e: unknown) => logger.error({err: e}, 'Failed to log Email Queued activity'));
 
             return job.id;
         } catch (error) {
@@ -140,7 +140,7 @@ export class EmailQueueService {
                 entityType: 'email',
                 entityId: job.id,
                 metadata: { to: job.to, subject: job.subject, jobId: job.id } 
-            }).catch(e => logger.error({err: e}, 'Failed to log Email Sent activity'));
+            }).catch((e: unknown) => logger.error({err: e}, 'Failed to log Email Sent activity'));
 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
@@ -169,7 +169,7 @@ export class EmailQueueService {
                 entityType: 'email',
                 entityId: job.id,
                 metadata: { to: job.to, subject: job.subject, jobId: job.id, attempts, error: errorMessage } 
-            }).catch(e => logger.error({err: e}, 'Failed to log Email Failed activity'));
+            }).catch((e: unknown) => logger.error({err: e}, 'Failed to log Email Failed activity'));
         }
     }
 

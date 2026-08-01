@@ -1,7 +1,9 @@
 import { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { queryKeys } from "@/hooks/api/queryKeys";
 import { ApiSection, ApiStep } from "@/lib/vault-api";
 import {
     useReorderSections,
@@ -30,6 +32,7 @@ export function usePageDragAndDrop(
     const [activeId, setActiveId] = useState<string | null>(null);
     const [activeDragData, setActiveDragData] = useState<DragData | null>(null);
 
+    const queryClient = useQueryClient();
     const reorderSectionsMutation = useReorderSections();
     const reorderStepsMutation = useReorderSteps();
     const updateStepMutation = useUpdateStep();
@@ -120,17 +123,15 @@ export function usePageDragAndDrop(
             }));
             reorderStepsMutation.mutate({ sectionId: targetSectionId, steps: updates });
         } else {
-            // Different section
+            // Different section: this is three writes (move the step, then
+            // renumber the source and target sections). If any leg fails the
+            // individual mutation hooks already roll back their own optimistic
+            // cache and surface a toast — but we must (a) not let the awaited
+            // rejection escape as an unhandled promise rejection, and (b) force
+            // both affected sections back in sync so a partially-applied move
+            // can never linger in the UI.
             const draggedStep = sourceSteps[oldIndex];
 
-            // Update the step's section
-            await updateStepMutation.mutateAsync({
-                id: draggedStep.id,
-                sectionId: targetSectionId,
-                order: newIndex,
-            });
-
-            // Update source section order
             const remainingSourceSteps = sourceSteps.filter(
                 (s) => s.id !== draggedStep.id
             );
@@ -138,14 +139,7 @@ export function usePageDragAndDrop(
                 id: step.id,
                 order: index,
             }));
-            if (sourceUpdates.length > 0) {
-                reorderStepsMutation.mutate({
-                    sectionId: sourceSectionId,
-                    steps: sourceUpdates,
-                });
-            }
 
-            // Update target section order including new step
             const targetUpdatesWithNew = [
                 ...targetSteps.slice(0, newIndex),
                 draggedStep,
@@ -155,10 +149,36 @@ export function usePageDragAndDrop(
                 order: index,
             }));
 
-            reorderStepsMutation.mutate({
-                sectionId: targetSectionId,
-                steps: targetUpdatesWithNew,
-            });
+            try {
+                // The section change must land first — the renumbering below
+                // assumes the step now lives in the target section.
+                await updateStepMutation.mutateAsync({
+                    id: draggedStep.id,
+                    sectionId: targetSectionId,
+                    order: newIndex,
+                });
+
+                await Promise.all([
+                    sourceUpdates.length > 0
+                        ? reorderStepsMutation.mutateAsync({
+                            sectionId: sourceSectionId,
+                            steps: sourceUpdates,
+                        })
+                        : Promise.resolve(),
+                    reorderStepsMutation.mutateAsync({
+                        sectionId: targetSectionId,
+                        steps: targetUpdatesWithNew,
+                    }),
+                ]);
+            } catch {
+                // Toast already shown by the global mutation error handler.
+                // Re-fetch both sections so the canvas reflects server truth
+                // rather than a half-completed move.
+                await Promise.allSettled([
+                    queryClient.invalidateQueries({ queryKey: queryKeys.steps(sourceSectionId) }),
+                    queryClient.invalidateQueries({ queryKey: queryKeys.steps(targetSectionId) }),
+                ]);
+            }
         }
     };
 

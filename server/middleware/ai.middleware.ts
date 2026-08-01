@@ -1,5 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import rateLimit from "express-rate-limit";
+
+import { LIMITS } from "@shared/limits";
 
 import { createLogger } from "../logger";
 
@@ -8,14 +9,24 @@ import type { Request, Response, NextFunction } from "express";
 
 const logger = createLogger({ module: 'ai-middleware' });
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
+
 /**
  * Middleware to validate workflow size in request body
  * Prevents memory issues and API overload from huge workflow objects
  */
-export const validateWorkflowSize = (maxSections = 100, maxStepsPerSection = 100) => {
+export const validateWorkflowSize = (
+    maxSections = LIMITS.AI_MAX_SECTIONS,
+    maxStepsPerSection = LIMITS.AI_MAX_STEPS_PER_SECTION
+) => {
     return (req: Request, res: Response, next: NextFunction) => {
         try {
-            const workflow = req.body.currentWorkflow;
+            const requestBody: unknown = req.body;
+            const workflow = isRecord(requestBody) && isRecord(requestBody.currentWorkflow)
+                ? requestBody.currentWorkflow
+                : undefined;
 
             if (!workflow) {
                 // No workflow in body, skip validation
@@ -23,13 +34,16 @@ export const validateWorkflowSize = (maxSections = 100, maxStepsPerSection = 100
             }
 
             // Check sections count
-            if (workflow.sections && workflow.sections.length > maxSections) {
+            const sections = Array.isArray(workflow.sections)
+                ? workflow.sections as unknown[]
+                : undefined;
+            if (sections && sections.length > maxSections) {
                 return res.status(413).json({
                     success: false,
-                    message: `Workflow too large: ${workflow.sections.length} sections (max: ${maxSections})`,
+                    message: `Workflow too large: ${sections.length} sections (max: ${maxSections})`,
                     error: 'workflow_too_large',
                     details: {
-                        sectionsCount: workflow.sections.length,
+                        sectionsCount: sections.length,
                         maxSections,
                         suggestion: 'Consider breaking this workflow into smaller workflows or using fewer sections.',
                     },
@@ -37,18 +51,23 @@ export const validateWorkflowSize = (maxSections = 100, maxStepsPerSection = 100
             }
 
             // Check steps per section
-            if (workflow.sections) {
-                for (let i = 0; i < workflow.sections.length; i++) {
-                    const section = workflow.sections[i];
-                    if (section.steps && section.steps.length > maxStepsPerSection) {
+            if (sections) {
+                for (let i = 0; i < sections.length; i++) {
+                    const section = sections[i];
+                    if (!isRecord(section)) {
+                        continue;
+                    }
+                    const steps = Array.isArray(section.steps) ? section.steps : undefined;
+                    if (steps && steps.length > maxStepsPerSection) {
+                        const sectionTitle = typeof section.title === 'string' ? section.title : String(i);
                         return res.status(413).json({
                             success: false,
-                            message: `Section "${section.title || i}" has too many steps: ${section.steps.length} (max: ${maxStepsPerSection})`,
+                            message: `Section "${sectionTitle}" has too many steps: ${steps.length} (max: ${maxStepsPerSection})`,
                             error: 'section_too_large',
                             details: {
                                 sectionIndex: i,
-                                sectionTitle: section.title,
-                                stepsCount: section.steps.length,
+                                sectionTitle,
+                                stepsCount: steps.length,
                                 maxStepsPerSection,
                                 suggestion: 'Split this section into multiple smaller sections.',
                             },
@@ -88,7 +107,7 @@ export const validateWorkflowSize = (maxSections = 100, maxStepsPerSection = 100
  */
 export const aiWorkflowRateLimit = rateLimit({
     windowMs: 60 * 1000, // 1 minute
-    max: 20, // limit each tenant to 20 AI requests per minute
+    max: LIMITS.AI_RATE_LIMIT_PER_MINUTE, // per-tenant AI requests/min (env: AI_TENANT_RPM_LIMIT, default 20)
     message: {
         success: false,
         message: 'Too many AI requests, please try again later.',
@@ -110,7 +129,7 @@ export const aiWorkflowRateLimit = rateLimit({
  */
 export const aiDailyRateLimit = rateLimit({
     windowMs: 24 * 60 * 60 * 1000, // 24 hours
-    max: 500, // limit each tenant to 500 AI requests per day
+    max: LIMITS.AI_RATE_LIMIT_PER_DAY, // per-tenant AI requests/day (env: AI_TENANT_DAILY_LIMIT, default 500)
     message: {
         success: false,
         message: 'Daily AI request limit reached. Please try again tomorrow.',

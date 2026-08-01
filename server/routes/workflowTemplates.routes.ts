@@ -1,3 +1,4 @@
+const AUTH_REQUIRED = 'Authentication required';
 /**
  * Stage 21: Workflow Template Mapping API Routes
  *
@@ -13,33 +14,36 @@ import { workflowVersions } from '@shared/schema';
 import { db } from '../db';
 import { asyncHandler } from '../middleware';
 import { hybridAuth, type AuthRequest } from '../middleware/auth';
+import { aclService } from '../services/AclService';
 import { workflowService } from '../services/WorkflowService';
 import { workflowTemplateService } from '../services/WorkflowTemplateService';
 import { createError } from '../utils/errors';
 
 import type { Express } from 'express';
 
-const router = express.Router();
+const workflowVersionTemplatesRouter = express.Router();
+const workflowTemplateMappingsRouter = express.Router();
 
-// All routes require authentication
-router.use(hybridAuth);
+// Route-level auth is intentional: these routers are mounted at broad prefixes
+// and must not pre-authenticate unrelated /api or /api/workflows endpoints.
 
 /**
  * List all templates attached to a workflow version
  * GET /api/workflows/:workflowId/versions/:versionId/templates
  */
-router.get(
+workflowVersionTemplatesRouter.get(
   '/:workflowId/versions/:versionId/templates',
+  hybridAuth,
   asyncHandler(async (req, res) => {
     const { workflowId, versionId } = req.params;
     
     // SECURITY FIX: Verify user has access to this workflow
     const userId = (req as AuthRequest).userId;
-    if (!userId) throw createError.unauthorized('Authentication required');
+    if (!userId) {throw createError.unauthorized(AUTH_REQUIRED);}
     await workflowService.verifyAccess(workflowId, userId);
 
     const version = await db.query.workflowVersions.findFirst({ where: eq(workflowVersions.id, versionId) });
-    if (!version || version.workflowId !== workflowId) throw createError.notFound('Workflow version not found for this workflow');
+    if (!version || version.workflowId !== workflowId) {throw createError.notFound('Workflow version not found for this workflow');}
 
     const templates = await workflowTemplateService.listTemplates(versionId);
 
@@ -54,18 +58,19 @@ router.get(
  * Get primary template for workflow version
  * GET /api/workflows/:workflowId/versions/:versionId/templates/primary
  */
-router.get(
+workflowVersionTemplatesRouter.get(
   '/:workflowId/versions/:versionId/templates/primary',
+  hybridAuth,
   asyncHandler(async (req, res) => {
     const { workflowId, versionId } = req.params;
     
     // SECURITY FIX: Verify user has access to this workflow
     const userId = (req as AuthRequest).userId;
-    if (!userId) throw createError.unauthorized('Authentication required');
+    if (!userId) {throw createError.unauthorized(AUTH_REQUIRED);}
     await workflowService.verifyAccess(workflowId, userId);
 
     const version = await db.query.workflowVersions.findFirst({ where: eq(workflowVersions.id, versionId) });
-    if (!version || version.workflowId !== workflowId) throw createError.notFound('Workflow version not found for this workflow');
+    if (!version || version.workflowId !== workflowId) {throw createError.notFound('Workflow version not found for this workflow');}
 
     const primary = await workflowTemplateService.getPrimaryTemplate(versionId);
 
@@ -80,18 +85,19 @@ router.get(
  * Get template by key
  * GET /api/workflows/:workflowId/versions/:versionId/templates/:key
  */
-router.get(
+workflowVersionTemplatesRouter.get(
   '/:workflowId/versions/:versionId/templates/:key',
+  hybridAuth,
   asyncHandler(async (req, res) => {
     const { workflowId, versionId, key } = req.params;
     
     // SECURITY FIX: Verify user has access to this workflow
     const userId = (req as AuthRequest).userId;
-    if (!userId) throw createError.unauthorized('Authentication required');
+    if (!userId) {throw createError.unauthorized(AUTH_REQUIRED);}
     await workflowService.verifyAccess(workflowId, userId);
 
     const version = await db.query.workflowVersions.findFirst({ where: eq(workflowVersions.id, versionId) });
-    if (!version || version.workflowId !== workflowId) throw createError.notFound('Workflow version not found for this workflow');
+    if (!version || version.workflowId !== workflowId) {throw createError.notFound('Workflow version not found for this workflow');}
 
     const template = await workflowTemplateService.getTemplateByKey(versionId, key);
 
@@ -114,21 +120,32 @@ const attachSchema = z.object({
   isPrimary: z.boolean().optional().default(false),
 });
 
-router.post(
+workflowVersionTemplatesRouter.post(
   '/:workflowId/versions/:versionId/templates',
+  hybridAuth,
   asyncHandler(async (req, res) => {
     const { workflowId, versionId } = req.params;
     
     // SECURITY FIX: Verify user has access to this workflow
     const userId = (req as AuthRequest).userId;
-    if (!userId) throw createError.unauthorized('Authentication required');
+    if (!userId) {throw createError.unauthorized(AUTH_REQUIRED);}
     await workflowService.verifyAccess(workflowId, userId);
 
     const version = await db.query.workflowVersions.findFirst({ where: eq(workflowVersions.id, versionId) });
-    if (!version || version.workflowId !== workflowId) throw createError.notFound('Workflow version not found for this workflow');
+    if (!version || version.workflowId !== workflowId) {throw createError.notFound('Workflow version not found for this workflow');}
 
     // Validate request body
     const body = attachSchema.parse(req.body);
+
+    // SECURITY: the template is resolved by (templateId, projectId) with no
+    // tenant scoping downstream, so verify the caller can actually access the
+    // project the template lives in — otherwise a caller who knows another
+    // tenant's templateId + projectId could attach that template to their own
+    // workflow (cross-tenant template disclosure at document generation).
+    const hasProjectAccess = await aclService.hasProjectRole(userId, body.projectId, 'view');
+    if (!hasProjectAccess) {
+      throw createError.notFound('Template');
+    }
 
     const mapping = await workflowTemplateService.attachTemplate({
       workflowVersionId: versionId,
@@ -155,8 +172,9 @@ const updateSchema = z.object({
   isPrimary: z.boolean().optional(),
 });
 
-router.patch(
+workflowTemplateMappingsRouter.patch(
   '/workflow-templates/:mappingId',
+  hybridAuth,
   asyncHandler(async (req, res) => {
     const { mappingId } = req.params;
     const { workflowVersionId } = req.query;
@@ -168,11 +186,11 @@ router.patch(
 
     // SECURITY FIX: Verify user has access to this workflow
     const userId = (req as AuthRequest).userId;
-    if (!userId) throw createError.unauthorized('Authentication required');
+    if (!userId) {throw createError.unauthorized(AUTH_REQUIRED);}
     const version = await db.query.workflowVersions.findFirst({
       where: eq(workflowVersions.id, workflowVersionId)
     });
-    if (!version) throw createError.notFound('Workflow version');
+    if (!version) {throw createError.notFound('Workflow version');}
     await workflowService.verifyAccess(version.workflowId, userId);
 
     // Validate request body
@@ -195,8 +213,9 @@ router.patch(
  * Set template as primary
  * POST /api/workflow-templates/:mappingId/set-primary?workflowVersionId=xxx
  */
-router.post(
+workflowTemplateMappingsRouter.post(
   '/workflow-templates/:mappingId/set-primary',
+  hybridAuth,
   asyncHandler(async (req, res) => {
     const { mappingId } = req.params;
     const { workflowVersionId } = req.query;
@@ -208,11 +227,11 @@ router.post(
 
     // SECURITY FIX: Verify user has access to this workflow
     const userId = (req as AuthRequest).userId;
-    if (!userId) throw createError.unauthorized('Authentication required');
+    if (!userId) {throw createError.unauthorized(AUTH_REQUIRED);}
     const version = await db.query.workflowVersions.findFirst({
       where: eq(workflowVersions.id, workflowVersionId)
     });
-    if (!version) throw createError.notFound('Workflow version');
+    if (!version) {throw createError.notFound('Workflow version');}
     await workflowService.verifyAccess(version.workflowId, userId);
 
     const updated = await workflowTemplateService.setPrimaryTemplate(
@@ -231,8 +250,9 @@ router.post(
  * Detach template from workflow version
  * DELETE /api/workflow-templates/:mappingId?workflowVersionId=xxx
  */
-router.delete(
+workflowTemplateMappingsRouter.delete(
   '/workflow-templates/:mappingId',
+  hybridAuth,
   asyncHandler(async (req, res) => {
     const { mappingId } = req.params;
     const { workflowVersionId } = req.query;
@@ -244,11 +264,11 @@ router.delete(
 
     // SECURITY FIX: Verify user has access to this workflow
     const userId = (req as AuthRequest).userId;
-    if (!userId) throw createError.unauthorized('Authentication required');
+    if (!userId) {throw createError.unauthorized(AUTH_REQUIRED);}
     const version = await db.query.workflowVersions.findFirst({
       where: eq(workflowVersions.id, workflowVersionId)
     });
-    if (!version) throw createError.notFound('Workflow version');
+    if (!version) {throw createError.notFound('Workflow version');}
     await workflowService.verifyAccess(version.workflowId, userId);
 
     await workflowTemplateService.detachTemplate(mappingId, workflowVersionId);
@@ -264,8 +284,10 @@ router.delete(
  * Register workflow template routes
  */
 export function registerWorkflowTemplateRoutes(app: Express): void {
-  app.use('/api/workflows', router);
-  app.use('/api', router); // For workflow-templates paths
+  app.use('/api/workflows', workflowVersionTemplatesRouter);
+  app.use('/api', workflowTemplateMappingsRouter); // For /api/workflow-templates paths
 }
 
-export default router;
+export default workflowVersionTemplatesRouter;
+
+

@@ -5,32 +5,28 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
-import { AIGeneratedWorkflow, AIGeneratedTransformBlock } from "@shared/types/ai";
-
 import { AiInputArea } from "./AiInputArea";
 import { AiMessageItem } from "./AiMessageItem";
 import { useAiConversation } from "./useAiConversation";
 
 interface AiConversationPanelProps {
     workflowId: string;
-    currentWorkflow: AIGeneratedWorkflow | Record<string, unknown>;
-    transformBlocks?: AIGeneratedTransformBlock[];
     initialPrompt?: string;
     className?: string;
 }
 
-export function AiConversationPanel({ workflowId, currentWorkflow, transformBlocks = [], initialPrompt, className }: AiConversationPanelProps) {
+export function AiConversationPanel({ workflowId, initialPrompt, className }: AiConversationPanelProps) {
     const {
         input,
         setInput,
         messages,
-        proposedWorkflow,
+        proposal,
         isDragging,
         uploading,
         contextFiles,
         setContextFiles,
         scrollRef,
-        reviseMutation,
+        isBusy,
         mode,
         handleDragOver,
         handleDragLeave,
@@ -38,7 +34,7 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
         handleSend,
         handleApply,
         handleDiscard
-    } = useAiConversation(workflowId, currentWorkflow, transformBlocks, initialPrompt);
+    } = useAiConversation(workflowId, initialPrompt);
 
     return (
         <div
@@ -71,13 +67,13 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                             key={idx}
                             msg={msg}
                             isLast={idx === messages.length - 1}
-                            proposedWorkflow={proposedWorkflow}
+                            proposedWorkflow={proposal}
                             onApply={() => { void handleApply(); }}
                             onDiscard={() => { void handleDiscard(); }}
                         />
                     ))}
 
-                    {(reviseMutation.isPending || uploading) && (
+                    {(isBusy || uploading) && (
                         <div className="flex items-start gap-2">
                             <div className="bg-muted rounded-lg p-3 flex items-center gap-2">
                                 <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
@@ -97,9 +93,9 @@ export function AiConversationPanel({ workflowId, currentWorkflow, transformBloc
                 contextFiles={contextFiles}
                 setContextFiles={setContextFiles}
                 mode={mode}
-                reviseMutationPending={reviseMutation.isPending}
+                isBusy={isBusy}
                 uploading={uploading}
-                proposedWorkflow={proposedWorkflow}
+                hasPendingProposal={proposal !== null}
                 onSend={() => void handleSend()}
             />
         </div>

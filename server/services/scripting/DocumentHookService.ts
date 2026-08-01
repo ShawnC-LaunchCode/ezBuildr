@@ -94,7 +94,7 @@ export class DocumentHookService {
           if (result.ok) {
             // Merge output into resultData
             if (result.output && typeof result.output === "object" && result.output !== null) {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
               resultData = { ...resultData, ...result.output };
             } else if (result.output !== undefined && hook.outputKeys.length > 0) {
               // Single value output
@@ -361,7 +361,7 @@ export class DocumentHookService {
 
     return {
       success: result.ok,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
       output: result.output,
       error: result.error,
       consoleLogs: result.consoleLogs,

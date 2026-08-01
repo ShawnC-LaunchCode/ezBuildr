@@ -4,6 +4,8 @@
 
 import type { WorkflowRun, InsertWorkflowRun } from "@shared/schema";
 
+import type { PdfStrategyName } from "../document/PdfConverter";
+
 /**
  * Execution context for run operations
  */
@@ -108,6 +110,22 @@ export interface DocumentGenerationResult {
   success: boolean;
   documentsGenerated: number;
   errors?: string[];
+  documents?: Array<{
+    alias: string;
+    filename: string;
+    filePath: string;
+    mimeType: string;
+    size: number;
+    unresolvedVariables?: string[];
+    /** Converter that actually produced the PDF (observed, not requested). */
+    pdfStrategy?: PdfStrategyName;
+    /** True when the high-fidelity converter failed and a degraded one ran. */
+    pdfFellBack?: boolean;
+  }>;
+  archive?: unknown;
+  skipped?: string[];
+  failed?: unknown[];
+  isArchived?: boolean;
 }
 
 /**

@@ -154,9 +154,9 @@ export class MappingValidator {
         // Step 6: Type compatibility check
         // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- template metadata structure varies by document type
         if (template.metadata !== null && template.metadata !== undefined && Array.isArray((template.metadata as any).fields)) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- template metadata structure varies by document type
+
           const typeMismatches = this.checkTypeCompatibility(
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access -- template metadata structure varies by document type
+
             // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
             (template.metadata as any).fields,
             mappingResult.data
@@ -221,7 +221,7 @@ export class MappingValidator {
    * - Circular references
    * - Invalid mapping types
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity -- validation logic inherently complex
+
   private validateStructure(mapping: DocumentMapping): ValidationError[] {
     const errors: ValidationError[] = [];
     if (!mapping || typeof mapping !== 'object') {
@@ -294,13 +294,13 @@ export class MappingValidator {
   /**
    * Analyze coverage (which fields are mapped vs unmapped)
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- template structure varies by document type
+
   private analyzeCoverage(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     template: any,
     mapping: DocumentMapping
   ): CoverageStats {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment -- template field structure varies
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- template field structure varies
     const templateFields: string[] =
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-explicit-any -- template metadata structure varies
       template.metadata?.fields?.map((f: any) => f.name) ?? [];
@@ -348,16 +348,16 @@ export class MappingValidator {
   /**
    * Check type compatibility between template fields and mapped values
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- template field structure varies
+
   private checkTypeCompatibility(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     templateFields: any[],
     mappedData: Record<string, unknown>
   ): TypeMismatch[] {
     const mismatches: TypeMismatch[] = [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- template field structure varies
+
     for (const field of templateFields) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment -- template field structure varies
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- template field structure varies
       const value = mappedData[field.name];
       if (value === undefined || value === null) {
         continue; // Skip missing values

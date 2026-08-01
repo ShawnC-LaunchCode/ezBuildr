@@ -12,8 +12,8 @@ const logger = createLogger({ module: "versions-routes" });
 
 // Validation schemas
 const publishSchema = z.object({
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- workflow graph structure is dynamic
-  graphJson: z.any(),
+
+  graphJson: z.any().optional(),
   notes: z.string().optional(),
   force: z.boolean().optional(),
 });
@@ -100,15 +100,14 @@ export function registerVersionRoutes(app: Express): void {
 
       const data = publishSchema.parse(req.body);
 
-      /* eslint-disable @typescript-eslint/no-unsafe-argument -- graphJson from Zod parse is typed */
+
       const version = await versionService.publishVersion(
-        id,
-        userId,
-        data.graphJson,
-        data.notes,
-        data.force
-      );
-      /* eslint-enable @typescript-eslint/no-unsafe-argument */
+          id,
+          userId,
+          data.notes,
+          data.force
+        );
+
 
       res.json({
         success: true,

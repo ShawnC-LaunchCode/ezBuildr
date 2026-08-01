@@ -39,7 +39,7 @@ export class ExternalSendBlockRunner extends BaseBlockRunner {
       return {
         success: result.success,
         errors: result.error ? [result.error] : undefined,
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-assignment
+
         data: result.responseBody ? { [config.destinationId]: result.responseBody } : undefined
       };
     } catch (error) {

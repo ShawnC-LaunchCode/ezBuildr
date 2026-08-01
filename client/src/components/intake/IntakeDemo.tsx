@@ -5,13 +5,15 @@
  * Useful for preview and testing
  */
 
-/* eslint-disable sonarjs/no-duplicate-string */
 import { useState, type FormEvent } from 'react';
 
 import IntakeLayout from './IntakeLayout';
 import IntakeProgressBar from './IntakeProgressBar';
 import ThemedButton from './ThemedButton';
 import { ThemedInput, ThemedTextarea } from './ThemedInput';
+
+const MUTED_TEXT_COLOR = 'var(--brand-text-muted, #64748B)';
+const BODY_TEXT_COLOR = 'var(--brand-text, #0F172A)';
 
 export interface IntakeDemoProps {
   /** Custom header text */
@@ -85,7 +87,7 @@ export default function IntakeDemo({ headerText, logoUrl }: IntakeDemoProps) {
                 >
                   Personal Information
                 </h2>
-                <p style={{ color: 'var(--brand-text-muted, #64748B)' }}>
+                <p style={{ color: MUTED_TEXT_COLOR }}>
                   Please provide your basic information
                 </p>
               </div>
@@ -129,7 +131,7 @@ export default function IntakeDemo({ headerText, logoUrl }: IntakeDemoProps) {
                 >
                   Additional Details
                 </h2>
-                <p style={{ color: 'var(--brand-text-muted, #64748B)' }}>
+                <p style={{ color: MUTED_TEXT_COLOR }}>
                   Tell us more about your needs
                 </p>
               </div>
@@ -148,7 +150,7 @@ export default function IntakeDemo({ headerText, logoUrl }: IntakeDemoProps) {
               <div className="space-y-3">
                 <label
                   className="block text-sm font-medium"
-                  style={{ color: 'var(--brand-text, #0F172A)' }}
+                  style={{ color: BODY_TEXT_COLOR }}
                 >
                   How did you hear about us? <span className="text-red-500">*</span>
                 </label>
@@ -157,7 +159,7 @@ export default function IntakeDemo({ headerText, logoUrl }: IntakeDemoProps) {
                     <label
                       key={option}
                       className="flex items-center gap-2 cursor-pointer"
-                      style={{ color: 'var(--brand-text, #0F172A)' }}
+                      style={{ color: BODY_TEXT_COLOR }}
                     >
                       <input
                         type="radio"
@@ -184,7 +186,7 @@ export default function IntakeDemo({ headerText, logoUrl }: IntakeDemoProps) {
                 >
                   Review & Submit
                 </h2>
-                <p style={{ color: 'var(--brand-text-muted, #64748B)' }}>
+                <p style={{ color: MUTED_TEXT_COLOR }}>
                   Please review your information before submitting
                 </p>
               </div>
@@ -199,11 +201,11 @@ export default function IntakeDemo({ headerText, logoUrl }: IntakeDemoProps) {
                 <div>
                   <p
                     className="text-sm font-medium mb-1"
-                    style={{ color: 'var(--brand-text-muted, #64748B)' }}
+                    style={{ color: MUTED_TEXT_COLOR }}
                   >
                     Full Name
                   </p>
-                  <p style={{ color: 'var(--brand-text, #0F172A)' }}>
+                  <p style={{ color: BODY_TEXT_COLOR }}>
                     {formData.name || '(Not provided)'}
                   </p>
                 </div>
@@ -211,11 +213,11 @@ export default function IntakeDemo({ headerText, logoUrl }: IntakeDemoProps) {
                 <div>
                   <p
                     className="text-sm font-medium mb-1"
-                    style={{ color: 'var(--brand-text-muted, #64748B)' }}
+                    style={{ color: MUTED_TEXT_COLOR }}
                   >
                     Email Address
                   </p>
-                  <p style={{ color: 'var(--brand-text, #0F172A)' }}>
+                  <p style={{ color: BODY_TEXT_COLOR }}>
                     {formData.email || '(Not provided)'}
                   </p>
                 </div>
@@ -224,22 +226,22 @@ export default function IntakeDemo({ headerText, logoUrl }: IntakeDemoProps) {
                   <div>
                     <p
                       className="text-sm font-medium mb-1"
-                      style={{ color: 'var(--brand-text-muted, #64748B)' }}
+                      style={{ color: MUTED_TEXT_COLOR }}
                     >
                       Phone Number
                     </p>
-                    <p style={{ color: 'var(--brand-text, #0F172A)' }}>{formData.phone}</p>
+                    <p style={{ color: BODY_TEXT_COLOR }}>{formData.phone}</p>
                   </div>
                 )}
 
                 <div>
                   <p
                     className="text-sm font-medium mb-1"
-                    style={{ color: 'var(--brand-text-muted, #64748B)' }}
+                    style={{ color: MUTED_TEXT_COLOR }}
                   >
                     Message
                   </p>
-                  <p style={{ color: 'var(--brand-text, #0F172A)' }}>
+                  <p style={{ color: BODY_TEXT_COLOR }}>
                     {formData.message || '(Not provided)'}
                   </p>
                 </div>
@@ -285,7 +287,7 @@ export default function IntakeDemo({ headerText, logoUrl }: IntakeDemoProps) {
             <div className="pt-6 space-y-3">
               <p
                 className="text-sm font-medium"
-                style={{ color: 'var(--brand-text-muted, #64748B)' }}
+                style={{ color: MUTED_TEXT_COLOR }}
               >
                 Button Variants (Demo):
               </p>

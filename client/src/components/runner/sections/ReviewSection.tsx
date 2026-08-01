@@ -1,16 +1,24 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { Edit2, CheckCircle2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 interface ReviewSectionProps {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    sections: any[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    allSteps: any[];
+    sections: ReviewSectionData[];
+    allSteps: ReviewStepData[];
     values: Record<string, unknown>;
     onEditSection: (sectionIndex: number) => void;
     visibleSectionIds: string[];
+}
+
+interface ReviewSectionData {
+    id: string;
+    title: string;
+}
+
+interface ReviewStepData {
+    id: string;
+    sectionId: string;
+    title: string;
 }
 export function ReviewSection({
     sections,
@@ -75,8 +83,7 @@ export function ReviewSection({
                             </CardHeader>
                             <CardContent className="p-0">
                                 <div className="divide-y divide-slate-100">
-                                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                    {sectionSteps.map((step: any) => {
+                                    {sectionSteps.map(step => {
                                         // Hide un-answered or invisible steps if needed
                                         // For review, we usually want to show what was answered.
                                         // If a step was hidden by logic, it shouldn't be here (values might be empty or stale).
@@ -97,8 +104,7 @@ export function ReviewSection({
                                             </div>
                                         );
                                     })}
-                                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                                    {sectionSteps.every((s: any) => !values[s.id]) && (
+                                    {sectionSteps.every(s => !values[s.id]) && (
                                         <div className="p-4 text-sm text-slate-400 italic text-center">
                                             No questions answered in this section.
                                         </div>

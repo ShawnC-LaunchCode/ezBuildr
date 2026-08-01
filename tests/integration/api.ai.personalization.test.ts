@@ -29,29 +29,29 @@ vi.mock("@google/generative-ai", () => {
 // Mock Auth - Use static ID matching the DB insert
 const TEST_USER_ID = 'test-user-id-integration';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 vi.mock('../../server/middleware/auth', () => ({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     requireAuth: (req: any, res: any, next: any) => {
         req.user = { id: 'test-user-id-integration', email: 'test@example.com' };
         next();
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     optionalAuth: (req: any, res: any, next: any) => next(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     hybridAuth: (req: any, res: any, next: any) => {
         req.user = { id: 'test-user-id-integration', email: 'test@example.com' };
         next();
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     optionalHybridAuth: (req: any, res: any, next: any) => next(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     requireTenantRole: () => (req: any, res: any, next: any) => next(),
 }));
 
 describe("Personalization API Integration Tests", () => {
     let app: Express;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     let server: any;
 
     beforeAll(async () => {

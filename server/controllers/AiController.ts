@@ -4,16 +4,11 @@ import {
     AIWorkflowGenerationRequestSchema,
     AIWorkflowSuggestionRequestSchema,
     AITemplateBindingsRequestSchema,
-    AIWorkflowRevisionRequestSchema,
     AIConnectLogicRequestSchema,
     AIDebugLogicRequestSchema,
     AIVisualizeLogicRequestSchema,
 } from "../../shared/types/ai";
 import { createLogger } from "../logger";
-import {
-    enqueueAiRevision,
-    getAiRevisionJob
-} from "../queues/AiRevisionQueue";
 import { createAIServiceFromEnv } from "../services/AIService";
 import { geminiService } from "../services/geminiService";
 import { variableService } from "../services/VariableService";
@@ -46,13 +41,30 @@ interface AIError {
     qualitySuggestions?: unknown;
 }
 
-interface AiValueSuggestionStep {
-    key: string;
-    type: string;
-    label?: string;
-    options?: string[];
-    description?: string;
+interface SanitizedValidationIssue {
+    path: string[];
+    message: string;
+    code: string;
 }
+
+function sanitizeValidationIssue(issue: unknown): SanitizedValidationIssue {
+    if (issue === null || typeof issue !== 'object') {
+        return { path: [], message: 'Invalid value', code: 'invalid_type' };
+    }
+
+    const issueRecord = issue as Record<string, unknown>;
+    const path = Array.isArray(issueRecord.path)
+        ? issueRecord.path.map((part) => String(part))
+        : [];
+
+    return {
+        path,
+        message: typeof issueRecord.message === 'string' ? issueRecord.message : 'Invalid value',
+        code: typeof issueRecord.code === 'string' ? issueRecord.code : 'custom',
+    };
+}
+
+
 
 interface AiVariable {
     alias: string;
@@ -61,7 +73,7 @@ interface AiVariable {
 }
 
 export class AiController {
-    /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+
 
 
     /**
@@ -144,8 +156,9 @@ export class AiController {
                 descriptionLength: requestData.description.length,
             }, 'AI workflow generation requested');
 
-            // Create AI service
-            const aiService = createAIServiceFromEnv();
+            // Create AI service (tenantId threads to AIProviderClient for
+            // per-tenant AI budgeting — ICW2-B7)
+            const aiService = createAIServiceFromEnv(authReq.tenantId);
 
             // Generate workflow
             const generatedWorkflow = await aiService.generateWorkflow(requestData);
@@ -228,8 +241,9 @@ export class AiController {
                 });
             }
 
-            // Create AI service
-            const aiService = createAIServiceFromEnv();
+            // Create AI service (tenantId threads to AIProviderClient for
+            // per-tenant AI budgeting — ICW2-B7)
+            const aiService = createAIServiceFromEnv(authReq.tenantId);
 
             // Generate suggestions
             const suggestions = await aiService.suggestWorkflowImprovements(
@@ -332,8 +346,9 @@ export class AiController {
                 });
             }
 
-            // Create AI service
-            const aiService = createAIServiceFromEnv();
+            // Create AI service (tenantId threads to AIProviderClient for
+            // per-tenant AI budgeting — ICW2-B7)
+            const aiService = createAIServiceFromEnv(authReq.tenantId);
 
             // Generate binding suggestions with workflow for alias validation
             const bindingSuggestions = await aiService.suggestTemplateBindings(
@@ -380,106 +395,10 @@ export class AiController {
     }
 
     /**
-     * Iteratively revise a workflow using natural language
-     */
-    static async reviseWorkflow(req: Request, res: Response): Promise<Response | void> {
-        const authReq = req as AuthRequest;
-        const userId = authReq.userId!;
-
-        try {
-            const requestData = AIWorkflowRevisionRequestSchema.parse(req.body);
-
-            // Verify ownership first
-            await workflowService.verifyAccess(requestData.workflowId, userId, 'edit');
-
-            // Enqueue Job
-            const job = await enqueueAiRevision({
-                ...requestData,
-                userId
-            });
-
-            aiLogger.info({
-                userId,
-                workflowId: requestData.workflowId,
-                jobId: job.id
-            }, 'AI workflow revision job enqueued');
-
-            res.status(202).json({
-                success: true,
-                message: 'AI revision started in background',
-                jobId: job.id,
-                status: 'pending'
-            });
-
-        } catch (error) {
-            const err = error as AIError;
-            aiLogger.error({
-                error: err.message ?? err,
-                stack: err.stack
-            }, 'Failed to enqueue AI revision job');
-
-            return AiController.handleAiError(res, error);
-        }
-    }
-
-    /**
-     * Check status of revision job
-     */
-    static async getRevisionJobStatus(req: Request, res: Response): Promise<Response | void> {
-        try {
-            const { jobId } = req.params;
-            const job = await getAiRevisionJob(jobId);
-
-            if (!job) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Job not found',
-                    error: 'not_found'
-                });
-            }
-
-            // Verify user owns this job (job.data.userId === req.userId)
-            const authReq = req as AuthRequest;
-            if (job.data.userId !== authReq.userId) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Access denied',
-                    error: 'forbidden'
-                });
-            }
-
-            const state = await job.getState();
-            const result = job.returnvalue;
-            // Sanitize error to prevent leaking raw provider messages or API keys
-            const rawError = job.failedReason;
-            let sanitizedError = rawError;
-            if (rawError && (rawError.includes('API_KEY') || rawError.length > 250)) {
-                sanitizedError = 'An internal AI processing error occurred.';
-            }
-
-            res.json({
-                success: true,
-                jobId,
-                status: state,
-                result: state === 'completed' ? result : undefined,
-                error: state === 'failed' ? sanitizedError : undefined,
-                progress: job.progress() as number | object
-            });
-
-        } catch (error) {
-            aiLogger.error({ error }, 'Failed to get job status');
-            res.status(500).json({
-                success: false,
-                message: 'Failed to get status',
-                error: 'internal_error'
-            });
-        }
-    }
-
-    /**
      * Generate random plausible values for workflow steps
      */
     static async suggestValues(req: Request, res: Response): Promise<Response | void> {
+        const authReq = req as AuthRequest;
         try {
             const AiSuggestValuesRequestSchema = z.object({
                 workflowId: z.string().uuid(),
@@ -488,6 +407,7 @@ export class AiController {
                     key: z.string(),
                     type: z.string(),
                     label: z.string().optional(),
+                    choices: z.array(z.string()).optional(),
                     options: z.array(z.string()).optional(),
                     description: z.string().optional()
                 })).min(1, 'Steps array is required and must not be empty')
@@ -511,9 +431,10 @@ export class AiController {
                 mode,
             }, 'AI value suggestion requested');
 
-            // Create AI service and generate values
-            const aiService = createAIServiceFromEnv();
-            const values = await aiService.suggestValues(steps, mode as 'full' | 'partial');
+            // Create AI service and generate values (tenantId threads to
+            // AIProviderClient for per-tenant AI budgeting — ICW2-B7)
+            const aiService = createAIServiceFromEnv(authReq.tenantId);
+            const values = await aiService.suggestValues(steps, mode);
 
             res.json({
                 success: true,
@@ -544,7 +465,8 @@ export class AiController {
 
             await workflowService.verifyAccess(requestData.workflowId, userId, 'edit');
 
-            const aiService = createAIServiceFromEnv();
+            // tenantId threads to AIProviderClient for per-tenant AI budgeting (ICW2-B7)
+            const aiService = createAIServiceFromEnv(authReq.tenantId);
             const result = await aiService.generateLogic(requestData);
 
             const duration = Date.now() - startTime;
@@ -574,9 +496,14 @@ export class AiController {
      * Analyze logic for issues
      */
     static async debugLogic(req: Request, res: Response): Promise<void> {
+        const authReq = req as AuthRequest;
         try {
             const requestData = AIDebugLogicRequestSchema.parse(req.body);
-            const aiService = createAIServiceFromEnv();
+            // Require access to the referenced workflow before spending AI budget
+            // on caller-supplied JSON (parity with generateLogic; SEC).
+            await workflowService.verifyAccess(requestData.workflowId, authReq.userId!, 'view');
+            // tenantId threads to AIProviderClient for per-tenant AI budgeting (ICW2-B7)
+            const aiService = createAIServiceFromEnv(authReq.tenantId);
             const result = await aiService.debugLogic(requestData);
             res.status(200).json({ success: true, ...result });
         } catch (error) {
@@ -589,9 +516,14 @@ export class AiController {
      * Generate graph representation of logic
      */
     static async visualizeLogic(req: Request, res: Response): Promise<void> {
+        const authReq = req as AuthRequest;
         try {
             const requestData = AIVisualizeLogicRequestSchema.parse(req.body);
-            const aiService = createAIServiceFromEnv();
+            // Require access to the referenced workflow before spending AI budget
+            // on caller-supplied JSON (parity with generateLogic; SEC).
+            await workflowService.verifyAccess(requestData.workflowId, authReq.userId!, 'view');
+            // tenantId threads to AIProviderClient for per-tenant AI budgeting (ICW2-B7)
+            const aiService = createAIServiceFromEnv(authReq.tenantId);
             const result = await aiService.visualizeLogic(requestData);
             res.status(200).json({ success: true, ...result });
         } catch (error) {
@@ -615,6 +547,17 @@ export class AiController {
 
         const err = error as AIError;
 
+        // Per-tenant AI budget exhausted (ICW2-B7) — fail closed with 402,
+        // distinct from a transient provider rate limit (429).
+        if (err.code === 'BUDGET_EXCEEDED') {
+            res.status(402).json({
+                success: false,
+                message: (err.message as string) ?? 'AI budget exceeded for this period.',
+                error: 'ai_budget_exceeded',
+            });
+            return;
+        }
+
         if (err.code === 'RATE_LIMIT') {
             res.status(429).json({
                 success: false,
@@ -635,7 +578,7 @@ export class AiController {
 
         if (err.name === 'ZodError') {
             const sanitizedErrors = Array.isArray(err.errors) 
-                ? err.errors.map((e: any) => ({ path: e.path, message: e.message, code: e.code }))
+                ? err.errors.map(sanitizeValidationIssue)
                 : undefined;
             
             res.status(400).json({
@@ -649,7 +592,7 @@ export class AiController {
 
         if (err.code === 'VALIDATION_ERROR') {
             const sanitizedDetails = Array.isArray(err.details) 
-                ? err.details.map((d: any) => ({ path: d.path, message: d.message, code: d.code }))
+                ? err.details.map((d: { path: string[], message: string, code: string }) => ({ path: d.path, message: d.message, code: d.code }))
                 : undefined;
 
             res.status(422).json({
@@ -686,3 +629,4 @@ export class AiController {
         });
     }
 }
+

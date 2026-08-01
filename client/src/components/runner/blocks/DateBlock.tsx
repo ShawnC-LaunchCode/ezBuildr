@@ -22,9 +22,12 @@ export interface DateBlockProps {
   value: any;
   onChange: (value: string) => void;
   readOnly?: boolean;
+  ariaDescribedBy?: string;
+  required?: boolean;
+  hasError?: boolean;
 }
 
-export function DateBlockRenderer({ step, value, onChange, readOnly }: DateBlockProps) {
+export function DateBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: DateBlockProps) {
   const config = step.config as DateConfig;
 
   // Initialize with today's date if configured
@@ -45,6 +48,9 @@ export function DateBlockRenderer({ step, value, onChange, readOnly }: DateBlock
       min={config?.minDate}
       max={config?.maxDate}
       disabled={readOnly}
-    />
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      />
   );
 }

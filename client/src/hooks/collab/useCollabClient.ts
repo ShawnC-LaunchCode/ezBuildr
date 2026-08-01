@@ -219,7 +219,7 @@ export function useCollabClient(
       doc.destroy();
     };
     // Only depend on core connection parameters - callbacks are set up once
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [enabled, workflowId, tenantId, token]);
 
   // Update nodes in Yjs document

@@ -67,6 +67,7 @@ export class ListToolsBlockService {
 
     // Create virtual step for persistence
     const virtualStep = await this.stepRepo.create({
+      workflowId,
       sectionId: targetSectionId,
       type: 'computed',
       title: `List Tools: ${data.name}`,

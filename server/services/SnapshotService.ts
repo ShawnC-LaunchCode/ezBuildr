@@ -149,7 +149,7 @@ export class SnapshotService {
         alias: steps.alias,
         type: steps.type,
         required: steps.required,
-        options: steps.options
+        config: steps.config
       })
       .from(steps)
       .innerJoin(sections, eq(steps.sectionId, sections.id))

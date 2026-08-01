@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { Router, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
@@ -26,6 +25,7 @@ const magicLinkLimiter = rateLimit({
     legacyHeaders: false,
     skipSuccessfulRequests: false,
     keyGenerator: (req, _res) => {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
         const emailRaw = String(req.body?.email ?? 'unknown');
         const email = emailRaw.toLowerCase().split('@').map((p, i) => i === 0 ? p.split('+')[0] : p).join('@');
         return `${req.ip ?? 'unknown'}:${email}`;
@@ -46,9 +46,12 @@ const ipLimiter = rateLimit({
 const sendMagicLinkSchema = z.object({
     email: z.string().email(),
 });
+const portalRunParamsSchema = z.object({
+    runId: z.string().uuid(),
+});
 
 // Middleware to check portal token (Bearer Auth)
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+
 const requirePortalAuth = asyncHandler(async (req: Request, res: Response, next: (...args: unknown[]) => unknown) => {
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith("Bearer ")) {
@@ -56,19 +59,19 @@ const requirePortalAuth = asyncHandler(async (req: Request, res: Response, next:
     }
 
     const token = authHeader.substring(7);
-    
+
     // Check DB for invalidated token
     const revoked = await db.query.invalidatedTokens.findFirst({
         where: and(eq(invalidatedTokens.token, token), gt(invalidatedTokens.expiresAt, new Date()))
     });
-    
+
     if (revoked) {
         return res.status(401).json({ error: "Token has been invalidated" });
     }
 
     try {
         const { email } = authService.verifyPortalToken(token);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express augmentation for portal auth
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- Express augmentation for portal auth reads untyped route state.
         (req as any).portalEmail = email;
         next();
     } catch (error) {
@@ -115,9 +118,11 @@ router.post("/auth/send", ipLimiter, magicLinkLimiter, asyncHandler(async (req: 
  */
 router.post("/auth/verify", asyncHandler(async (req: Request, res: Response) => {
     try {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
         const { token } = req.body;
         if (!token) { return res.status(400).json({ error: "Token required" }); }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
         const user = await portalAuthService.verifyMagicLink(token);
         if (!user) {
             return res.status(401).json({ error: "Invalid or expired token" });
@@ -158,13 +163,29 @@ router.post("/auth/logout", asyncHandler(async (req: Request, res: Response) => 
  */
 router.get("/runs", requirePortalAuth, asyncHandler(async (req: Request, res: Response) => {
     try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express augmentation for portal auth
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
         const email = (req as any).portalEmail;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
         const runs = await portalService.listRunsForEmail(email);
         res.json(runs);
     } catch (error) {
         logger.error({ error }, "Error listing portal runs");
         res.status(500).json({ error: "Failed to list runs" });
+    }
+}));
+
+router.post("/runs/:runId/access-token", requirePortalAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+        const { runId } = portalRunParamsSchema.parse(req.params);
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
+        const email = String((req as any).portalEmail);
+        const access = await portalService.issueRunAccessToken(runId, email);
+        res.json({ success: true, data: access });
+    } catch (error) {
+        logger.error({ error, runId: req.params.runId }, "Error issuing portal run access");
+        res.status(404).json({ success: false, error: "Run not found" });
     }
 }));
 

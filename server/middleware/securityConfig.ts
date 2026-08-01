@@ -7,7 +7,7 @@ import cors from "cors";
  * both development (index.ts) and production (production.ts) entrypoints
  * to prevent configuration drift (SEC-055).
  */
-export function applySecurityMiddleware(app: express.Application) {
+export function applySecurityMiddleware(app: express.Application): void {
     // =====================================================================
     // 1️⃣ HELMET SECURITY HEADERS
     // =====================================================================

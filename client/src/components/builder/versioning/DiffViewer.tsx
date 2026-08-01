@@ -6,11 +6,22 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { versionAPI, ApiWorkflowVersion } from "@/lib/vault-api";
+import { versionAPI } from "@/lib/vault-api";
+
+/**
+ * A side of the comparison. Deliberately narrower than ApiWorkflowVersion:
+ * one side may be the workflow's unsaved live state, which has no version row
+ * to point at — only an id the API understands and a label to show.
+ */
+export interface DiffTarget {
+    id: string;
+    label: string;
+}
+
 interface DiffViewerProps {
     workflowId: string;
-    version1: ApiWorkflowVersion | null;
-    version2: ApiWorkflowVersion | null; // If null, diff against current? Or assume explicit selection
+    version1: DiffTarget | null;
+    version2: DiffTarget | null;
     isOpen: boolean;
     onClose: () => void;
 }
@@ -78,7 +89,7 @@ export function DiffViewer({ workflowId, version1, version2, isOpen, onClose }: 
                 <DialogHeader>
                     <DialogTitle>Version Comparison</DialogTitle>
                     <DialogDescription>
-                        Comparing v{version1?.versionNumber} to v{version2?.versionNumber}
+                        Comparing {version1?.label} to {version2?.label}
                     </DialogDescription>
                 </DialogHeader>
                 {loading ? (

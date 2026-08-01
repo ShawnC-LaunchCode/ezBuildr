@@ -11,8 +11,7 @@ import { useUpdateStep } from "@/lib/vault-hooks";
 import type { ConditionExpression } from "@shared/types/conditions";
 import type { EmailConfig } from "@shared/types/stepConfigs";
 
-// eslint-disable-next-line import/no-cycle
-import { StepEditorCommonProps } from "../StepEditorRouter";
+import type { StepEditorCommonProps } from "./common/stepEditorProps";
 
 import { AliasField } from "./common/AliasField";
 import { SwitchField, SectionHeader } from "./common/EditorField";
@@ -60,7 +59,7 @@ export function EmailCardEditor({ stepId, sectionId, workflowId, step }: StepEdi
   return (
     <div className="space-y-4 p-4 border-t bg-muted/30">
       {/* Alias */}
-      <AliasField value={step.alias} onChange={handleAliasChange} />
+      <AliasField value={step.alias} onChange={handleAliasChange} workflowId={workflowId} currentStepId={stepId} />
 
       {/* Required Toggle */}
       <RequiredToggle checked={step.required} onChange={handleRequiredChange} />
@@ -111,7 +110,6 @@ export function EmailCardEditor({ stepId, sectionId, workflowId, step }: StepEdi
             sectionId={sectionId}
             workflowId={workflowId}
             visibleIf={step.visibleIf as ConditionExpression}
-            mode="advanced"
           />
         )
       }

@@ -212,9 +212,13 @@ export function ResourceAccessDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Share {resourceName}</DialogTitle>
+          <DialogTitle>
+            {resourceType === "workflow" ? `Team access for ${resourceName}` : `Share ${resourceName}`}
+          </DialogTitle>
           <DialogDescription>
-            {resourceLabels[resourceType][0].toUpperCase() + resourceLabels[resourceType].slice(1)} access
+            {resourceType === "workflow"
+              ? "Manage who can view, edit, or administer this workflow."
+              : `${resourceLabels[resourceType][0].toUpperCase() + resourceLabels[resourceType].slice(1)} access`}
           </DialogDescription>
         </DialogHeader>
 

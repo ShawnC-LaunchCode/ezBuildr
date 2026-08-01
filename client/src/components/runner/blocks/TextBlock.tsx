@@ -28,10 +28,12 @@ export interface TextBlockProps {
   value: string | undefined | null;
   onChange: (value: string) => void;
   readOnly?: boolean;
+  required?: boolean;
+  hasError?: boolean;
   ariaDescribedBy?: string;
 }
 
-export function TextBlockRenderer({ step, value, onChange, readOnly, ariaDescribedBy }: TextBlockProps) {
+export function TextBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: TextBlockProps) {
   const currentValue = value ?? "";
 
   // Determine if this is short or long text
@@ -77,9 +79,11 @@ export function TextBlockRenderer({ step, value, onChange, readOnly, ariaDescrib
           placeholder={placeholder}
           rows={4}
           disabled={readOnly}
-          className="resize-y"
-          aria-describedby={ariaDescribedBy}
-          maxLength={maxLength}
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      className="resize-y"
+      maxLength={maxLength}
         />
         {maxLength && (
           <p className="text-xs text-muted-foreground text-right">
@@ -99,8 +103,10 @@ export function TextBlockRenderer({ step, value, onChange, readOnly, ariaDescrib
         onChange={(e) => handleChange(e.target.value)}
         placeholder={placeholder}
         disabled={readOnly}
-        maxLength={maxLength}
-        aria-describedby={ariaDescribedBy}
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      maxLength={maxLength}
       />
       {maxLength && (
         <p className="text-xs text-muted-foreground text-right">

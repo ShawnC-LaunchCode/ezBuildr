@@ -1,6 +1,5 @@
 import { applySecurityMiddleware } from "./middleware/securityConfig";
 
-import { db } from "./db";
 import { logger } from "./logger";
 import { errorHandler } from "./middleware/errorHandler";
 import { globalLimiter } from "./middleware/rateLimiting";
@@ -11,7 +10,8 @@ import { serveStatic } from "./static";
 import { log } from "./utils";
 import { sanitizeInputs } from "./utils/sanitize";
 
-import { users } from "@shared/schema";
+import express from "express";
+import dotenv from "dotenv";
 // Load environment variables
 dotenv.config();
 // Diagnostic logging for startup
@@ -83,6 +83,8 @@ app.use('/oauth', globalLimiter);
     // Start Email Queue Worker
     const { emailQueueService } = await import('./services/EmailQueueService.js');
     emailQueueService.startWorker();
+    const { runCompletionJobWorker } = await import('./services/workflow-runs/RunCompletionJobWorker.js');
+    runCompletionJobWorker.start();
     
     // Initialize Cron Jobs
     const { initCronJobs } = await import('./cron.js');

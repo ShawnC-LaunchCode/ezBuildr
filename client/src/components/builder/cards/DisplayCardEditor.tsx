@@ -19,8 +19,7 @@ import { useUpdateStep } from "@/lib/vault-hooks";
 import type { ConditionExpression } from "@shared/types/conditions";
 import type { DisplayConfig, DisplayAdvancedConfig } from "@shared/types/stepConfigs";
 
-// eslint-disable-next-line import/no-cycle
-import { StepEditorCommonProps } from "../StepEditorRouter";
+import type { StepEditorCommonProps } from "./common/stepEditorProps";
 
 import { TextAreaField, SectionHeader } from "./common/EditorField";
 import { VisibilityField } from "./common/VisibilityField";
@@ -116,7 +115,6 @@ export function DisplayCardEditor({ stepId, sectionId, step, workflowId }: StepE
           sectionId={sectionId}
           workflowId={workflowId}
           visibleIf={step.visibleIf as ConditionExpression}
-          mode="advanced"
         />
       )}
     </div>

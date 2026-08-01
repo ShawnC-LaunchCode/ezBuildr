@@ -127,7 +127,7 @@ export class S3StorageProvider implements StorageProvider {
       // Convert stream to buffer
       const chunks: Uint8Array[] = [];
       if (response.Body) {
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+
         // @ts-expect-error - AWS SDK types for Body are complex (Readable | ReadableStream | Blob)
         for await (const chunk of response.Body) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-argument

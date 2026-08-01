@@ -54,7 +54,7 @@ export function useGroups() {
   const {
     data: groups,
     isLoading: groupsLoading
-  // eslint-disable-next-line sonarjs/no-duplicate-string
+
   } = useQuery<RecipientGroup[]>({
     // eslint-disable-next-line sonarjs/no-duplicate-string
     queryKey: ["/api/recipient-groups"],
@@ -76,7 +76,7 @@ export function useGroups() {
     mutationFn: async (data: { name: string; description?: string }) => {
       return apiRequest("POST", "/api/recipient-groups", data);
     },
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+
     onSuccess: () => {
       // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: ["/api/recipient-groups"] });
@@ -98,7 +98,7 @@ export function useGroups() {
     }) => {
       return apiRequest("PUT", `/api/recipient-groups/${id}`, data);
     },
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+
     onSuccess: () => {
       // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: ["/api/recipient-groups"] });
@@ -114,7 +114,7 @@ export function useGroups() {
     mutationFn: async (id: string) => {
       return apiRequest("DELETE", `/api/recipient-groups/${id}`);
     },
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+
     onSuccess: () => {
       // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: ["/api/recipient-groups"] });
@@ -138,7 +138,7 @@ export function useGroups() {
         recipientIds
       });
     },
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+
     onSuccess: (_, variables) => {
       // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: ["/api/recipient-groups", variables.groupId, "members"] });
@@ -161,9 +161,9 @@ export function useGroups() {
       recipientId: string;
     }) => {
       return apiRequest("DELETE", `/api/recipient-groups/${groupId}/members/${recipientId}`);
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+
     },
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+
     onSuccess: (_, variables) => {
       // eslint-disable-next-line @typescript-eslint/no-floating-promises
       queryClient.invalidateQueries({ queryKey: ["/api/recipient-groups", variables.groupId, "members"] });

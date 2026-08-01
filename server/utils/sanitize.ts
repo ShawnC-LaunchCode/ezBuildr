@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { Request, Response, NextFunction } from 'express';
 import DOMPurify from 'isomorphic-dompurify';
 
@@ -17,25 +16,40 @@ export function sanitizeString(input: string): string {
 }
 
 /**
+ * Sanitizes one value of unknown shape, preserving its kind: objects and
+ * arrays recurse, strings are cleaned, everything else passes through.
+ */
+function sanitizeValue(value: unknown): unknown {
+  if (typeof value === 'object' && value !== null) {
+    return sanitizeObject(value);
+  }
+  return typeof value === 'string' ? sanitizeString(value) : value;
+}
+
+/**
  * Recursively sanitizes all string values in an object
  * Handles nested objects and arrays
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- recursively sanitizes arbitrary nested object structures
-export function sanitizeObject<T extends Record<string, any>>(obj: T): T {
+export function sanitizeObject<T extends object>(obj: T): T {
   if (obj === null || obj === undefined) {return obj;}
   if (typeof obj !== 'object') {return obj;}
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- building sanitized copy of arbitrary structure
-  const sanitized: any = Array.isArray(obj) ? [] : {};
+  // Arrays must stay arrays. `sanitizeInputs` mounts this on every request
+  // (server/index.ts, server/production.ts), so building a plain object here
+  // would rewrite a JSON array body -- and any nested array-of-arrays -- into
+  // an object with numeric string keys.
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeValue(item)) as unknown as T;
+  }
+
+  const sanitized: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(obj)) {
     if (typeof value === 'string') {
       sanitized[key] = sanitizeString(value);
     } else if (Array.isArray(value)) {
-      sanitized[key] = value.map(item =>
-        typeof item === 'object' ? sanitizeObject(item) :
-        typeof item === 'string' ? sanitizeString(item) : item
-      );
+      const items = value as unknown[];
+      sanitized[key] = items.map(item => sanitizeValue(item));
     } else if (typeof value === 'object' && value !== null) {
       sanitized[key] = sanitizeObject(value);
     } else {
@@ -43,7 +57,7 @@ export function sanitizeObject<T extends Record<string, any>>(obj: T): T {
     }
   }
 
-  return sanitized;
+  return sanitized as T;
 }
 
 /**
@@ -55,14 +69,14 @@ export function sanitizeObject<T extends Record<string, any>>(obj: T): T {
  * app.use(sanitizeInputs); // Apply sanitization
  */
 export function sanitizeInputs(req: Request, res: Response, next: NextFunction): void {
-  if (req.body && typeof req.body === 'object') {
-    req.body = sanitizeObject(req.body);
+  const body = req.body as unknown;
+  if (body && typeof body === 'object') {
+    req.body = sanitizeObject(body);
   }
 
   // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (req.query && typeof req.query === 'object') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express query params are string-indexed
-    req.query = sanitizeObject(req.query as Record<string, any>);
+    req.query = sanitizeObject(req.query);
   }
 
   next();

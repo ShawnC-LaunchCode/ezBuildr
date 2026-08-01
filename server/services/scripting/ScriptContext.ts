@@ -29,9 +29,9 @@ export function buildScriptContext(executionContext: ScriptExecutionContext): Sc
         }
       : undefined,
     env: {
-      // eslint-disable-next-line @typescript-eslint/naming-convention
+
       NODE_ENV: process.env.NODE_ENV,
-      // eslint-disable-next-line @typescript-eslint/naming-convention
+
       BASE_URL: process.env.BASE_URL,
     },
     metadata: executionContext.metadata ?? {},

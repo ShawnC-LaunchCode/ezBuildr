@@ -1,5 +1,8 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-import { Awareness } from 'y-protocols/awareness';
+import {
+  Awareness,
+  applyAwarenessUpdate as applyProtocolAwarenessUpdate,
+  encodeAwarenessUpdate as encodeProtocolAwarenessUpdate,
+} from 'y-protocols/awareness';
 import * as Y from 'yjs';
 
 import { createLogger } from '../logger';
@@ -20,6 +23,20 @@ export interface PresenceState {
   };
   selectedNodeId?: string | null;
   lastActive: number;
+}
+
+function isPresenceState(value: unknown): value is PresenceState {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const state = value as Record<string, unknown>;
+  return typeof state.userId === 'string'
+    && typeof state.displayName === 'string'
+    && typeof state.email === 'string'
+    && typeof state.role === 'string'
+    && typeof state.color === 'string'
+    && typeof state.lastActive === 'number';
 }
 
 /**
@@ -86,10 +103,10 @@ export function updateCursor(
   x: number,
   y: number
 ): void {
-  const currentState = awareness.getLocalState();
-  if (currentState?.user) {
-    const updatedState = {
-      ...currentState.user,
+  const currentUser: unknown = awareness.getLocalState()?.user;
+  if (isPresenceState(currentUser)) {
+    const updatedState: PresenceState = {
+      ...currentUser,
       cursor: { x, y },
       lastActive: Date.now(),
     };
@@ -105,10 +122,10 @@ export function updateSelectedNode(
   clientId: number,
   nodeId: string | null
 ): void {
-  const currentState = awareness.getLocalState();
-  if (currentState?.user) {
-    const updatedState = {
-      ...currentState.user,
+  const currentUser: unknown = awareness.getLocalState()?.user;
+  if (isPresenceState(currentUser)) {
+    const updatedState: PresenceState = {
+      ...currentUser,
       selectedNodeId: nodeId,
       lastActive: Date.now(),
     };
@@ -136,8 +153,9 @@ export function getActiveUsers(awareness: Awareness): PresenceState[] {
   const users: PresenceState[] = [];
 
   states.forEach((state) => {
-    if (state.user) {
-      users.push(state.user);
+    const user: unknown = state.user;
+    if (isPresenceState(user)) {
+      users.push(user);
     }
   });
 
@@ -172,12 +190,13 @@ export function cleanupInactiveUsers(
   const _now = Date.now();
 
   states.forEach((state, clientId) => {
-    if (state.user && !isUserActive(state.user, thresholdMs)) {
+    const user: unknown = state.user;
+    if (isPresenceState(user) && !isUserActive(user, thresholdMs)) {
       logger.debug(
         {
           clientId,
-          userId: state.user.userId,
-          lastActive: state.user.lastActive,
+          userId: user.userId,
+          lastActive: user.lastActive,
         },
         'Removing inactive user'
       );
@@ -193,9 +212,8 @@ export function encodeAwarenessUpdate(
   awareness: Awareness,
   clients?: number[]
 ): Uint8Array {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { encodeAwarenessUpdate } = require('y-protocols/awareness');
-  return encodeAwarenessUpdate(awareness, clients);
+  const clientIds = clients ?? Array.from(awareness.getStates().keys());
+  return encodeProtocolAwarenessUpdate(awareness, clientIds);
 }
 
 /**
@@ -206,7 +224,5 @@ export function applyAwarenessUpdate(
   update: Uint8Array,
   origin?: unknown
 ): void {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { applyAwarenessUpdate } = require('y-protocols/awareness');
-  applyAwarenessUpdate(awareness, update, origin);
+  applyProtocolAwarenessUpdate(awareness, update, origin);
 }

@@ -36,7 +36,7 @@ export class IntakeNavigationService {
    * @param recordData - Optional collection record data for prefill
    * @returns Navigation result with visible pages and next/previous
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity -- multi-step navigation evaluation
+
   async evaluateNavigation(
     workflowId: string,
     runId: string,
@@ -57,7 +57,7 @@ export class IntakeNavigationService {
     for (const sv of stepValues) {
       const alias = stepIdToAlias.get(sv.stepId);
       const key = alias ?? sv.stepId;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- step values have dynamic types
+
       variables[key] = sv.value;
     }
     // Include record data in variables if present
@@ -70,7 +70,7 @@ export class IntakeNavigationService {
     for (const page of sortedPages) {
       let isVisible = true;
       // Evaluate visibleIf condition
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- visibleIf can be string or object
+
       if (page.visibleIf) {
         try {
           isVisible = evaluateVisibility(page.visibleIf, variables);
@@ -91,7 +91,7 @@ export class IntakeNavigationService {
     // Evaluate skipIf for visible pages
     const skippedPages: string[] = [];
     const navigablePages = visiblePages.filter(page => {
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- skipIf can be string or object
+
       if (page.skipIf) {
         try {
           const shouldSkip = evaluateVisibility(page.skipIf, variables);
@@ -201,7 +201,7 @@ export class IntakeNavigationService {
     const pages = await sectionRepository.findByWorkflowId(workflowId);
     // Check for pages with both visibleIf and skipIf (valid but potentially confusing)
     for (const page of pages) {
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- visibleIf/skipIf can be string or object
+
       if (page.visibleIf && page.skipIf) {
         errors.push(
           `Page "${page.title}" has both visibleIf and skipIf conditions. ` +

@@ -45,7 +45,7 @@ describe('OAuth2 3-Legged Flow - Callback Handling', () => {
     app.use(express.json());
     app.set('trust proxy', 1);
     // Mock auth middleware for tests
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     app.use((req: any, res, next) => {
       req.userId = testUserId;
       req.tenantId = testTenantId;

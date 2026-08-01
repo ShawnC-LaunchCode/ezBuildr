@@ -50,7 +50,7 @@ export function LogicGeneratorTab({ workflowId, currentWorkflow }: LogicGenerato
         <>
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-sm font-medium">Add Logic Rules</CardTitle>
+                    <CardTitle className="text-sm font-medium">Add Action Rules</CardTitle>
                     <CardDescription>Describe what should happen.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">

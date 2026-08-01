@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import crypto from "crypto";
 import fs from "fs/promises";
 import os from "os";
@@ -118,8 +117,7 @@ const cleanupFile = async (filePath?: string) => {
             await fs.unlink(filePath);
         } catch (e: unknown) {
             // Ignore if file doesn't exist (ENOENT)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- checking error code property
-            if ((e as any).code !== 'ENOENT') {
+            if (!(e instanceof Error && 'code' in e && e.code === 'ENOENT')) {
                 logger.warn({ error: e, filePath }, 'Failed to cleanup temp upload file');
             }
         }
@@ -132,8 +130,8 @@ const cleanupFile = async (filePath?: string) => {
  */
 router.post("/analyze", uploadLimiter, (req, res, next) => {
     // SECURITY FIX: Add multer error handling
-    upload.single('file')(req, res, (err) => {
-        if (err) {
+    upload.single('file')(req, res, (err: unknown) => {
+        if (err instanceof Error) {
             logger.error({ error: err, stack: err.stack, name: err.name }, 'Multer/Upload Error in analyze route');
         }
         if (err instanceof multer.MulterError) {
@@ -146,9 +144,11 @@ router.post("/analyze", uploadLimiter, (req, res, next) => {
                 return res.status(400).json({ error: 'Too many files uploaded' });
             }
             return res.status(400).json({ error: err.message });
-        } else if (err) {
+        } else if (err instanceof Error) {
             // Custom file filter error
             return res.status(400).json({ error: err.message });
+        } else if (err) {
+            return res.status(400).json({ error: 'File upload failed' });
         }
         next();
     });
@@ -190,10 +190,14 @@ router.post("/analyze", uploadLimiter, (req, res, next) => {
  * Upload a file, return raw extracted text for chat context
  */
 router.post("/extract-text", uploadLimiter, (req, res, next) => {
-    upload.single('file')(req, res, (err) => {
-        if (err) {
+    upload.single('file')(req, res, (err: unknown) => {
+        if (err instanceof Error) {
             logger.error({ error: err }, 'Upload Error: Multer failed');
             return res.status(400).json({ message: err.message, error: err.message });
+        }
+        if (err) {
+            logger.error({ error: err }, 'Upload Error: Multer failed');
+            return res.status(400).json({ message: 'File upload failed', error: 'File upload failed' });
         }
         next();
     });

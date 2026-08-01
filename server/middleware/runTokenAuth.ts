@@ -53,7 +53,7 @@ export async function runTokenAuth(
     // Look up the run by token (hashed lookup handled in the repository)
     const run = await workflowRunRepository.findByToken(token);
 
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
     if (!run) {
       res.status(401).json({
         success: false,
@@ -104,7 +104,7 @@ export async function runTokenAuth(
  * Usage:
  *   app.post('/api/runs/:runId/values', creatorOrRunTokenAuth, handler)
  */
-export async function creatorOrRunTokenAuth(
+async function creatorOrRunTokenAuthLogic(
   req: RunAuthRequest,
   res: Response,
   next: NextFunction
@@ -143,7 +143,7 @@ export async function creatorOrRunTokenAuth(
     // Look up the run by token (hashed lookup handled in the repository)
     const run = await workflowRunRepository.findByToken(token);
 
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
     if (!run) {
       res.status(401).json({
         success: false,
@@ -181,4 +181,12 @@ export async function creatorOrRunTokenAuth(
       error: "Internal server error during authentication",
     });
   }
+}
+
+export function creatorOrRunTokenAuth(
+  req: RunAuthRequest,
+  res: Response,
+  next: NextFunction
+): void {
+  void creatorOrRunTokenAuthLogic(req, res, next);
 }

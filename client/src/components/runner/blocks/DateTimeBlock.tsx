@@ -23,9 +23,12 @@ export interface DateTimeBlockProps {
   value: any;
   onChange: (value: string) => void;
   readOnly?: boolean;
+  ariaDescribedBy?: string;
+  required?: boolean;
+  hasError?: boolean;
 }
 
-export function DateTimeBlockRenderer({ step, value, onChange, readOnly }: DateTimeBlockProps) {
+export function DateTimeBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: DateTimeBlockProps) {
   const config = step.config as DateTimeConfig;
   const timeStep = config?.timeStep ?? 15;
 
@@ -43,6 +46,9 @@ export function DateTimeBlockRenderer({ step, value, onChange, readOnly }: DateT
       max={config?.maxDate}
       step={stepSeconds}
       disabled={readOnly}
-    />
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      />
   );
 }

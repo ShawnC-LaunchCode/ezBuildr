@@ -21,7 +21,7 @@ export const UI_LABELS = {
   ADD_PAGE: "Add Page",
   ADD_SECTION: "Add Page", // Alias using Page now
   ADD_QUESTION: "Add Question",
-  ADD_LOGIC: "Add Logic",
+  ADD_LOGIC: "Add Action",
   DELETE_PAGE: "Delete Page",
   DELETE_SECTION: "Delete Page", // Alias
   PAGE_SETTINGS: "Page Settings",

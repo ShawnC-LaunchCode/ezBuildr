@@ -24,9 +24,12 @@ export interface CurrencyBlockProps {
   value: any;
   onChange: (value: number | null) => void;
   readOnly?: boolean;
+  ariaDescribedBy?: string;
+  required?: boolean;
+  hasError?: boolean;
 }
 
-export function CurrencyBlockRenderer({ step, value, onChange, readOnly }: CurrencyBlockProps) {
+export function CurrencyBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: CurrencyBlockProps) {
   const config = step.config as CurrencyConfig;
   const _currency = config?.currency ?? "USD";
   const allowDecimal = config?.allowDecimal ?? true;
@@ -128,7 +131,10 @@ export function CurrencyBlockRenderer({ step, value, onChange, readOnly }: Curre
         onBlur={handleBlur}
         placeholder="0.00"
         disabled={readOnly}
-        className="pl-7"
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      className="pl-7"
       />
     </div>
   );

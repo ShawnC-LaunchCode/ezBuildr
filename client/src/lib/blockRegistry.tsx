@@ -12,7 +12,7 @@
  * @date December 2025
  */
 
-import { Type, AlignLeft, ToggleLeft, Phone, Mail, Globe, Calendar, Clock, CalendarClock, Circle, CheckSquare, Hash, DollarSign, Star, FileText, MapPin, Grid3x3, Code2 } from "lucide-react";
+import { Type, AlignLeft, ToggleLeft, Phone, Mail, Globe, Calendar, Clock, CalendarClock, CircleDot, CheckSquare, ListChecks, Hash, DollarSign, Gauge, FileText, MapPin, Grid3x3, Code2 } from "lucide-react";
 
 import type { StepConfig } from "@shared/types/stepConfigs";
 
@@ -31,9 +31,20 @@ export interface BlockRegistryEntry {
   /** Display label in UI */
   label: string;
 
-  /** Icon component from lucide-react */
+  /** Icon component from lucide-react. Fallback when `glyph` is absent. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   icon: React.ComponentType<any>;
+
+  /**
+   * Short typographic mark shown instead of `icon` (e.g. "T", "@", "Y/N").
+   *
+   * Set this only where a canonical notation for the data actually exists AND
+   * stays legible at ~8px — "@" for email, "#" for a number. Where no such
+   * mark exists (a date, an address) the stroke icon reads better than a
+   * forced abbreviation, so leave `glyph` unset. Keep to 3 characters; the
+   * tile scales its type down as the glyph gets longer.
+   */
+  glyph?: string;
 
   /** Optional description/tooltip */
   description?: string;
@@ -81,6 +92,7 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
     type: "short_text",
     label: "Short Text",
     icon: Type,
+    glyph: "T",
     description: "Single-line text input",
     category: "text",
     modes: { easy: true, advanced: false },
@@ -90,6 +102,7 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
     type: "long_text",
     label: "Long Text",
     icon: AlignLeft,
+    glyph: "¶",
     description: "Multi-line text area",
     category: "text",
     modes: { easy: true, advanced: false },
@@ -99,6 +112,7 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
     type: "text",
     label: "Text",
     icon: Type,
+    glyph: "T",
     description: "Unified text input (short/long)",
     category: "text",
     modes: { easy: false, advanced: true },
@@ -114,6 +128,7 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
     type: "yes_no",
     label: "Yes/No",
     icon: ToggleLeft,
+    glyph: "Y/N",
     description: "Yes or No toggle",
     category: "boolean",
     modes: { easy: true, advanced: false },
@@ -126,6 +141,7 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
     type: "true_false",
     label: "True/False",
     icon: ToggleLeft,
+    glyph: "T/F",
     description: "True or False toggle",
     category: "boolean",
     modes: { easy: true, advanced: false },
@@ -138,6 +154,7 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
     type: "boolean",
     label: "Boolean",
     icon: ToggleLeft,
+    glyph: "0/1",
     description: "Customizable boolean toggle",
     category: "boolean",
     modes: { easy: false, advanced: true },
@@ -155,6 +172,7 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
     type: "phone",
     label: "Phone Number",
     icon: Phone,
+    glyph: "+1",
     description: "Phone number with validation",
     category: "validated",
     modes: { easy: true, advanced: true },
@@ -166,6 +184,7 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
     type: "email",
     label: "Email",
     icon: Mail,
+    glyph: "@",
     description: "Email address with validation",
     category: "validated",
     modes: { easy: true, advanced: true },
@@ -229,8 +248,8 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
   // -------------------------------------------------------------------------
   {
     type: "radio",
-    label: "Radio",
-    icon: Circle,
+    label: "Single Select",
+    icon: CircleDot,
     description: "Single choice (radio buttons)",
     category: "choice",
     modes: { easy: true, advanced: false },
@@ -260,7 +279,7 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
   {
     type: "choice",
     label: "Choice",
-    icon: CheckSquare,
+    icon: ListChecks,
     description: "Unified choice (radio/dropdown/multiple)",
     category: "choice",
     modes: { easy: false, advanced: true },
@@ -282,6 +301,7 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
     type: "number",
     label: "Number",
     icon: Hash,
+    glyph: "#",
     description: "Numeric input",
     category: "numeric",
     modes: { easy: true, advanced: true },
@@ -294,6 +314,7 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
     type: "currency",
     label: "Currency",
     icon: DollarSign,
+    glyph: "$",
     description: "Currency input with formatting",
     category: "numeric",
     modes: { easy: true, advanced: false },
@@ -305,7 +326,7 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
   {
     type: "scale",
     label: "Rating Scale",
-    icon: Star,
+    icon: Gauge,
     description: "Rating scale (1-10 slider)",
     category: "numeric",
     modes: { easy: true, advanced: true },
@@ -370,6 +391,7 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
     type: "js_question",
     label: "JS Block",
     icon: Code2,
+    glyph: "{}",
     description: "JavaScript code execution",
     category: "advanced",
     modes: { easy: false, advanced: true },

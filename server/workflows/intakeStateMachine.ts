@@ -169,7 +169,7 @@ export class IntakeStateMachine {
       recordData
     );
     // Validate page
-    const validationResult = validatePage(steps, newAnswers, visibility.visibleQuestions);
+    const validationResult = await validatePage(steps, newAnswers, visibility.visibleQuestions);
     const errors = new Map<string, string[]>();
     for (const error of validationResult.errors) {
       errors.set(error.fieldId, error.errors);

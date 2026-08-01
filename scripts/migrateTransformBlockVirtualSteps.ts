@@ -19,7 +19,13 @@ import { createLogger } from "../server/logger";
 
 const logger = createLogger({ module: "migrate-transform-blocks" });
 
-async function migrateTransformBlocks() {
+interface MigrationResult {
+  migrated: number;
+  skipped: number;
+  errors: Array<{ blockId: string; error: string }>;
+}
+
+async function migrateTransformBlocks(): Promise<MigrationResult> {
   logger.info("Starting transform block virtual steps migration...");
 
   try {
@@ -31,7 +37,7 @@ async function migrateTransformBlocks() {
 
     if (blocksWithoutVirtualSteps.length === 0) {
       logger.info("No transform blocks need migration. All blocks already have virtual steps.");
-      return { migrated: 0, skipped: 0 };
+      return { migrated: 0, skipped: 0, errors: [] };
     }
 
     logger.info(
@@ -72,6 +78,7 @@ async function migrateTransformBlocks() {
         const [virtualStep] = await db
           .insert(steps)
           .values({
+            workflowId: block.workflowId,
             sectionId: targetSectionId,
             type: "computed",
             title: `Computed: ${block.name}`,
@@ -144,14 +151,11 @@ if (require.main === module) {
       console.log("Migration Results:");
       console.log(`  Migrated: ${result.migrated}`);
       console.log(`  Skipped:  ${result.skipped}`);
-      // @ts-ignore - TODO: fix type
       console.log(`  Errors:   ${result.errors.length}`);
       console.log("=================================\n");
 
-      // @ts-ignore - TODO: fix type
       if (result.errors.length > 0) {
         console.error("Errors:");
-        // @ts-ignore - TODO: fix type
         result.errors.forEach((err) => {
           console.error(`  Block ${err.blockId}: ${err.error}`);
         });

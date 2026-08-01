@@ -15,6 +15,7 @@ PUT         /api/workflows/:workflowId/intake-config
 PUT         /api/workflows/:workflowId/move       # Move between projects
 GET/PUT     /api/workflows/:workflowId/mode       # easy/advanced mode
 GET         /api/workflows/:workflowId/variables  # Step aliases
+GET         /api/workflows/:workflowId/steps      # Workflow step list (creator session or run token)
 GET         /api/workflows/:workflowId/public-link
 GET         /api/workflows/:workflowId/logic-rules
 GET/PUT/DEL /api/workflows/:workflowId/access     # Workflow ACL
@@ -23,7 +24,7 @@ POST        /api/workflows/:workflowId/transfer
 POST        /api/workflows/:workflowId/templates/:templateId/test
 ```
 
-Sections and steps CRUD live in `sections.routes.ts` / `steps.routes.ts`.
+Sections and steps CRUD live in `sections.routes.ts` / `steps.routes.ts`. Step config is stored in `steps.config`; workflow-wide alias uniqueness is enforced by `steps.workflow_id + lower(alias)`.
 
 ## Workflow Runs — `runs.routes.ts`
 
@@ -31,7 +32,8 @@ Sections and steps CRUD live in `sections.routes.ts` / `steps.routes.ts`.
 POST        /api/workflows/public/:publicLinkSlug/start   # Anonymous/public start
 POST        /api/workflows/:workflowId/runs               # Create run (returns runToken)
 GET         /api/workflows/:workflowId/runs               # List runs for workflow
-GET         /api/runs/:runId
+GET         /api/runs/:runId                              # Creator session OR run token
+GET         /api/runs/:runId/runtime                      # Sanitized pinned definition + cursor + values
 POST        /api/runs/:runId/revoke-token
 GET/POST    /api/runs/:runId/values                       # Get / save step values
 POST        /api/runs/:runId/values/bulk
@@ -44,6 +46,8 @@ GET         /api/shared/runs/:token                       # Public shared run vi
 ```
 
 > The old graph-run REST API was removed with the graph builder (2026). `workflow_runs` is the only run model.
+>
+> **DOC-110 Note on Step Values:** The `/api/runs/:runId/values` endpoint permits saving values for steps outside the currently active section. This is an intentional out-of-section write allowance, supporting scenarios like computed fields or external integrations writing ahead.
 
 ## Blocks & Transform Blocks — `blocks.routes.ts`, `transformBlocks.routes.ts`
 
@@ -163,6 +167,7 @@ GET         /api/admin/users
 PUT         /api/admin/users/:userId/role         # NOT /set-admin
 GET         /api/admin/logs (+ /export, /events, /actors)
 GET         /api/admin/stats
+GET         /api/admin/org-stats
 GET         /api/admin/workflows*
 PUT         /api/admin/tenants/:tenantId/mfa-required
 ```

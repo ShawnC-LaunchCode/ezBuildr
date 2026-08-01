@@ -36,9 +36,9 @@ async function createWorkflowForCurrentUser() {
 
   if (project.length === 0) {
     console.log('Creating new project for user...');
-    // @ts-ignore - TODO: fix type
     const newProject = await db.insert(projects).values({
       id: randomUUID(),
+      title: 'My Workflows',
       name: 'My Workflows',
       description: 'Personal workflow collection',
       createdBy: user.id,
@@ -80,6 +80,7 @@ async function createWorkflowForCurrentUser() {
   await db.insert(steps).values([
     {
       id: randomUUID(),
+      workflowId: workflow[0].id,
       sectionId: section1[0].id,
       type: 'short_text',
       title: 'Your Name',
@@ -89,6 +90,7 @@ async function createWorkflowForCurrentUser() {
     },
     {
       id: randomUUID(),
+      workflowId: workflow[0].id,
       sectionId: section1[0].id,
       type: 'short_text',
       title: 'Your Email',

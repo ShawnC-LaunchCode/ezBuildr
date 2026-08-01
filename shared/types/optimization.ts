@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { WorkflowJSON } from "./workflow";
+
 // Issue Categories
 export type OptimizationCategory =
     | "page_structure"
@@ -74,7 +76,7 @@ export interface OptimizationResult {
 // Zod Schemas for API Validation
 export const AnalyzeWorkflowSchema = z.object({
     workflowId: z.string().uuid(),
-    workflow: z.any(), // WorkflowJSON validator would be better if we had it handy, using any for now to avoid circular deps
+    workflow: z.custom<WorkflowJSON>(),
     options: z
         .object({
             includeLogicAnalysis: z.boolean().optional(),
@@ -86,8 +88,8 @@ export const AnalyzeWorkflowSchema = z.object({
 });
 
 export const ApplyFixesSchema = z.object({
-    workflow: z.any(),
-    fixes: z.array(z.any()), // Validating exact fix structure might be complex here
+    workflow: z.custom<WorkflowJSON>(),
+    fixes: z.array(z.custom<OptimizationFix>()),
 });
 
 export type AnalyzeWorkflowRequest = z.infer<typeof AnalyzeWorkflowSchema>;

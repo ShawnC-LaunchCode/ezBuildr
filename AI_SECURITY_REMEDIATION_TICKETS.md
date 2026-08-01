@@ -19,6 +19,7 @@ Confirmed closed against the current working tree:
 
 ## SEC-035 — `logicRule.delete` cross-workflow ownership check is inert (IDOR)
 
+- **Test coverage (2026-07-15, ICW-19):** Route-level integration test added — `tests/integration/ai/workflowEdit.test.ts` "rejects deleting a logic rule that belongs to another workflow" seeds a rule under a second workflow, drives a `logicRule.delete` op against it, and asserts a 400 (`does not belong to workflow`) with the rule still present. Satisfies AC #1/#4.
 - **Status (2026-07-10):** ✅ **Resolved.** The inert `assertEntityBelongsToWorkflow(..., 'workflow')` + dead `.catch()` is gone. `case "logicRule.delete"` now does a direct guard: `if (logicRule.workflowId !== workflowId) throw` before `logicRuleRepository.delete(op.id)` (`WorkflowPatchService.ts:373-379`). Cross-workflow deletes now throw. Acceptance criteria met.
 - **Severity:** High
 - **Location:** `server/services/WorkflowPatchService.ts`, `case "logicRule.delete"` (~line 370)
@@ -79,6 +80,7 @@ Confirmed closed against the current working tree:
 
 ## SEC-037 — `datavault.createTable` does not verify `op.databaseId` ownership
 
+- **Test coverage (2026-07-15, ICW-19):** Route-level integration test added — `tests/integration/ai/workflowEdit.test.ts` "rejects datavault.createTable with a databaseId outside the tenant" drives a `datavault.createTable` op with a foreign `databaseId` and asserts a 400 (`does not belong to your tenant`), no table created. Satisfies AC #4.
 - **Status (2026-07-10):** ✅ **Resolved.** The `// verification would go here` placeholder is replaced with a real check: `datavaultDatabasesRepository.findById(op.databaseId)` and `throw` unless `dbObj.tenantId === tenantId` (`WorkflowPatchService.ts:490-496`). A foreign `databaseId` is now rejected before the table is created. Acceptance criteria met.
 - **Severity:** Medium
 - **Location:** `server/services/WorkflowPatchService.ts`, `case "datavault.createTable"` (~lines 489-504)
@@ -107,7 +109,8 @@ Confirmed closed against the current working tree:
 
 ## SEC-038 — No per-tenant / daily AI spend ceiling (cost abuse)
 
-- **Status (2026-07-10):** ✅ **Resolved.** Both limiters are now keyed per-tenant — `keyGenerator` returns `authReq.tenantId ?? authReq.userId ?? 'anonymous'` (`ai.middleware.ts` `aiWorkflowRateLimit` and `aiDailyRateLimit`). Verified `authReq.tenantId` is genuinely populated (set from the DB user at `auth.ts:128` and re-hydrated at `auth.ts:218`), so this is a real per-tenant aggregate ceiling — 20/min and 500/day per tenant — not a silent fallback to per-user. Falls back to `userId` only for users with no tenant. **Minor (nice-to-have, not blocking):** the caps are hardcoded rather than env-configurable, so the "configurable + documented default" acceptance criterion is only partially met; consider `AI_TENANT_DAILY_LIMIT` / `AI_TENANT_RPM_LIMIT` env vars if you want ops to tune them without a deploy.
+- **Status (2026-07-15, ICW-13):** ✅ **Fully resolved.** The residual "configurable + documented default" gap is now closed: both caps read from `shared/limits.ts` — `LIMITS.AI_RATE_LIMIT_PER_MINUTE` (env `AI_TENANT_RPM_LIMIT`, default 20) and `LIMITS.AI_RATE_LIMIT_PER_DAY` (env `AI_TENANT_DAILY_LIMIT`, default 500) — consumed by `aiWorkflowRateLimit` / `aiDailyRateLimit` (`ai.middleware.ts`). Documented in `.env.example`. All four acceptance criteria now met.
+- **Status (2026-07-10):** ✅ **Resolved.** Both limiters are now keyed per-tenant — `keyGenerator` returns `authReq.tenantId ?? authReq.userId ?? 'anonymous'` (`ai.middleware.ts` `aiWorkflowRateLimit` and `aiDailyRateLimit`). Verified `authReq.tenantId` is genuinely populated (set from the DB user at `auth.ts:128` and re-hydrated at `auth.ts:218`), so this is a real per-tenant aggregate ceiling — 20/min and 500/day per tenant — not a silent fallback to per-user. Falls back to `userId` only for users with no tenant.
 - **Severity:** Medium (overlaps SEC-021)
 - **Location:** `server/middleware/ai.middleware.ts` (`aiWorkflowRateLimit`); all AI generation endpoints
 - **Problem:** The per-user limit was tightened to 20/min and now counts failed requests — a real improvement — but there is still **no per-tenant ceiling and no daily budget**. 20/min/user is ~28,800 calls/day/user against a single shared platform API key, and a tenant with many users multiplies that with no aggregate cap.
@@ -122,6 +125,11 @@ Confirmed closed against the current working tree:
 
 ## SEC-039 — Bounded AI-response previews containing tenant data still logged
 
+- **Status (2026-07-15, ICW-14):** ✅ **Resolved.** All unconditional response-content logging removed:
+  - `WorkflowRevisionService.ts` (JSON parse-error path, ~lines 278-308): default log now carries only `responseLength` + `errorPosition`; the `errorContext` substring, the raw `parseError` message, and the full-response file write are gated behind `AI_LOG_RAW_RESPONSES === 'true'` (defaults off).
+  - `AIServiceUtils.ts:113-118` and `providers/BaseAIProvider.ts:127-133`: the `lastChar` slice was dropped from `isResponseTruncated`; only `responseLength` is logged.
+  - The AI-edit route's parse/schema-failure logs (`workflowEdit.routes.ts`) log `responseLength` / Zod issue paths only, never the body.
+  - Debug flag documented in `.env.example` (`AI_LOG_RAW_RESPONSES`, default off). All three acceptance criteria met.
 - **Severity:** Low
 - **Location:**
   - `server/services/ai/WorkflowRevisionService.ts:261, 291-292` — `responsePreview` / `responseSuffix` = `response.substring(0, 500)` / last 500 chars
@@ -138,6 +146,7 @@ Confirmed closed against the current working tree:
 
 ## SEC-040 — AI workflow-edit prompt is unfenced, unseparated, and output is not schema-validated
 
+- **Test coverage (2026-07-15, ICW-19):** `fenceUntrusted` now has unit coverage (`tests/unit/services/ai/AIServiceUtils.test.ts`: sentinels, fence/role-marker/`UNTRUSTED_INPUT` neutralization, truncation, coercion), plus an integration assertion (`workflowEdit.test.ts` "fences untrusted user input in the model prompt") that the prompt reaching the provider fences the user message and neutralizes injected markers. A malformed-output test also asserts a schema-failing model response is rejected (400) before any op is applied. Satisfies AC #1/#3.
 - **Status (2026-07-10):** ✅ **Resolved.** `callGeminiForWorkflowEdit` now fences both `workflowContext` and `userMessage` with `fenceUntrusted`, passes the instructions via `systemInstruction` (removed from the concatenated `fullPrompt`), and validates the parsed response with `aiModelResponseSchema.safeParse` before returning (throws `VALIDATION_ERROR` on failure). The edit route also gained `aiWorkflowRateLimit` + `aiDailyRateLimit`. All three acceptance criteria met.
 - **Severity:** Medium
 - **Location:** `server/routes/ai/workflowEdit.routes.ts` — `callGeminiForWorkflowEdit` (~lines 232-287), `buildWorkflowContext`

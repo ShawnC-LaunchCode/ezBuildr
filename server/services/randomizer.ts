@@ -51,7 +51,7 @@ export class RandomizerService {
                 if (config.options && config.options.length > 0) {
                     // Return 1 or 2 options
                     const opts = [...config.options].sort(() => 0.5 - Math.random());
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- QuestionNodeConfig.options values are untyped
+
                     return opts.slice(0, 1 + Math.floor(Math.random() * 2)).map(o => o.value);
                 }
                 return ['option_1'];

@@ -15,21 +15,21 @@ import { useState } from "react";
 
 import { useCollaboration, useBlockCollaborators } from "@/components/collab/CollaborationContext";
 import { LogicIndicator } from "@/components/logic";
+import { DeleteImpactDialog } from "@/components/shared/DeleteImpactDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import type { ApiStep } from "@/lib/vault-api";
+import { stepAPI, type ApiStep, type ApiDeleteImpact } from "@/lib/vault-api";
 import {
     useUpdateStep,
     useDeleteStep,
-    useWorkflow,
+    useDuplicateStep,
     useWorkflowMode
 } from "@/lib/vault-hooks";
 
 import type { ConditionExpression } from "@shared/types/conditions";
 
-import { useIntake } from "../IntakeContext";
 import { StepEditorRouter } from "../StepEditorRouter";
 
 import { StepBadges } from "./common/StepBadges";
@@ -47,16 +47,10 @@ interface StepCardProps {
     onEnterNext?: () => void;
 }
 
-interface StepDefaultValue {
-    source?: string;
-    variable?: string;
-    value?: unknown;
-}
-
 // Get icon for each question type
 
 
-// eslint-disable-next-line max-lines-per-function, complexity
+
 export function StepCard({
     step,
     sectionId,
@@ -68,16 +62,10 @@ export function StepCard({
 }: StepCardProps): JSX.Element {
     const updateStepMutation = useUpdateStep();
     const deleteStepMutation = useDeleteStep();
+    const duplicateStepMutation = useDuplicateStep();
     const { toast } = useToast();
     const { data: modeData } = useWorkflowMode(workflowId);
     const mode = modeData?.mode ?? 'easy';
-    const { data: _workflow } = useWorkflow(workflowId);
-    const { upstreamWorkflow, upstreamVariables } = useIntake();
-
-    // Intake Derived Values
-    const defVal = step.defaultValue as StepDefaultValue | undefined;
-    const isLinkedToIntake = defVal?.source === 'intake';
-    const linkedVariable = isLinkedToIntake ? upstreamVariables.find(v => v.alias === defVal?.variable) : null;
 
     // Collaboration Hooks
     const { updateActiveBlock, user: currentUser } = useCollaboration();
@@ -104,6 +92,10 @@ export function StepCard({
 
     const [isGuidanceDismissed, setIsGuidanceDismissed] = useState(false);
 
+    // Delete-impact warning (ICW2-13): only shown when the step has stored answers.
+    const [isDeleteImpactOpen, setIsDeleteImpactOpen] = useState(false);
+    const [pendingDeleteImpact, setPendingDeleteImpact] = useState<ApiDeleteImpact | null>(null);
+
 
 
     // Make sortable
@@ -126,10 +118,7 @@ export function StepCard({
         updateStepMutation.mutate({ id: step.id, sectionId, title: value });
     };
 
-    const handleDelete = async () => {
-        // eslint-disable-next-line no-alert
-        if (!confirm(`Delete question "${step.title}"?`)) { return; }
-
+    const performDelete = async () => {
         try {
             await deleteStepMutation.mutateAsync({ id: step.id, sectionId });
             toast({
@@ -140,6 +129,44 @@ export function StepCard({
             toast({
                 title: "Error",
                 description: "Failed to delete question",
+                variant: "destructive",
+            });
+        }
+    };
+
+    const handleDelete = async () => {
+        try {
+            const impact = await stepAPI.getDeleteImpact(step.id);
+            if (impact.answerCount > 0) {
+                setPendingDeleteImpact(impact);
+                setIsDeleteImpactOpen(true);
+                return;
+            }
+        } catch {
+            // Impact check failed (e.g. network hiccup) — fall back to the
+            // existing plain confirmation rather than silently skipping it.
+        }
+        // eslint-disable-next-line no-alert
+        if (!confirm(`Delete question "${step.title}"?`)) { return; }
+        await performDelete();
+    };
+
+    const handleConfirmDestructiveDelete = () => {
+        setIsDeleteImpactOpen(false);
+        void performDelete();
+    };
+
+    const handleDuplicate = async () => {
+        try {
+            await duplicateStepMutation.mutateAsync({ id: step.id, sectionId });
+            toast({
+                title: "Question duplicated",
+                description: "A copy was added to this page",
+            });
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to duplicate question",
                 variant: "destructive",
             });
         }
@@ -194,13 +221,10 @@ export function StepCard({
 
                         {/* Content */}
                         <div className="flex-1 min-w-0 space-y-2">
-                            {/* Badges (Required, Conditional, Intake) */}
+                            {/* Badges (Required, Conditional) */}
                             <StepBadges
                                 step={step}
                                 isExpanded={isExpanded}
-                                isLinkedToIntake={!!isLinkedToIntake}
-                                linkedVariable={linkedVariable}
-                                upstreamWorkflowTitle={upstreamWorkflow?.title}
                             />
 
                             {/* Title and Delete Row */}
@@ -210,6 +234,7 @@ export function StepCard({
                                 isGuidanceDismissed={isGuidanceDismissed}
                                 onDismissGuidance={() => setIsGuidanceDismissed(true)}
                                 onTitleChange={(val) => { void handleTitleChange(val); }}
+                                onDuplicate={() => { void handleDuplicate(); }}
                                 onDelete={() => { void handleDelete(); }}
                                 onEnterNext={onEnterNext}
                                 autoFocus={autoFocus}
@@ -224,6 +249,14 @@ export function StepCard({
                     </div>
                 </CardContent>
             </Card>
+            <DeleteImpactDialog
+                open={isDeleteImpactOpen}
+                onOpenChange={setIsDeleteImpactOpen}
+                impact={pendingDeleteImpact}
+                itemLabel="question"
+                onConfirm={handleConfirmDestructiveDelete}
+                isPending={deleteStepMutation.isPending}
+            />
         </div >
     );
 }

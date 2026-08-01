@@ -195,7 +195,7 @@ export async function createConnection(input: CreateConnectionInput): Promise<Co
     }
   }
   // Insert
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- schema type mismatch requires explicit cast
+
   const [result] = await db
     .insert(externalConnections)
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument

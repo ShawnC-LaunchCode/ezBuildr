@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+
 import { eq, and, desc, isNull, or, inArray, sql, getTableColumns } from "drizzle-orm";
 
 import { workflows, organizations, type Workflow, type InsertWorkflow } from "@shared/schema";
@@ -44,7 +44,7 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
       .update(workflows)
       .set(effectiveUpdates)
       .where(eq(workflows.id, id))
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
       .returning();
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (updates.status && record && record.status !== updates.status) {
@@ -104,8 +104,8 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
       .where(or(...conditions))
       .orderBy(desc(workflows.updatedAt))
       .$dynamic();
-    if (options?.limit !== undefined) { query.limit(options.limit); }
-    if (options?.offset !== undefined) { query.offset(options.offset); }
+    if (options?.limit !== undefined) { void query.limit(options.limit); }
+    if (options?.offset !== undefined) { void query.offset(options.offset); }
     return query as unknown as Promise<Workflow[]>; // Join result shape is compatible with Workflow[]
   }
   /**

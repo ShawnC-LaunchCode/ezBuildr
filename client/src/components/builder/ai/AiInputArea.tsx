@@ -6,8 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-import { AIGeneratedWorkflow } from "@shared/types/ai";
-
 import { UploadedFile } from "./types";
 
 interface AiInputAreaProps {
@@ -16,9 +14,11 @@ interface AiInputAreaProps {
     contextFiles: UploadedFile[];
     setContextFiles: React.Dispatch<React.SetStateAction<UploadedFile[]>>;
     mode: string;
-    reviseMutationPending: boolean;
+    /** A propose or apply request is in flight. */
+    isBusy: boolean;
     uploading: boolean;
-    proposedWorkflow: AIGeneratedWorkflow | Record<string, unknown> | null;
+    /** Input stays locked until the user applies or discards the proposal. */
+    hasPendingProposal: boolean;
     onSend: () => void;
 }
 
@@ -28,9 +28,9 @@ export function AiInputArea({
     contextFiles,
     setContextFiles,
     mode,
-    reviseMutationPending,
+    isBusy,
     uploading,
-    proposedWorkflow,
+    hasPendingProposal,
     onSend
 }: AiInputAreaProps) {
     return (
@@ -64,14 +64,14 @@ export function AiInputArea({
                     placeholder={mode === 'easy' ? "Describe changes to auto-apply..." : "Describe changes..."}
                     value={input}
                     onChange={(e) => { setInput(e.target.value); }}
-                    disabled={reviseMutationPending || proposedWorkflow !== null || uploading}
+                    disabled={isBusy || hasPendingProposal || uploading}
                     className="flex-1"
                 />
-                <Button type="submit" size="icon" disabled={(!input.trim() && contextFiles.length === 0) || reviseMutationPending || proposedWorkflow !== null || uploading}>
+                <Button type="submit" size="icon" disabled={(!input.trim() && contextFiles.length === 0) || isBusy || hasPendingProposal || uploading}>
                     <Send className="w-4 h-4" />
                 </Button>
             </form>
-            {proposedWorkflow !== null && (
+            {hasPendingProposal && (
                 <p className="text-xs text-center mt-2 text-muted-foreground animate-pulse">Waiting for your review...</p>
             )}
         </div>
