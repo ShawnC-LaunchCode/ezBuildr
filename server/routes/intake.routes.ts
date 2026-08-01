@@ -17,6 +17,13 @@ import { virusScanner } from "../services/security/VirusScanner";
 import type { CaptchaResponse } from "../../shared/types/intake.js";
 import type { Express, Request, Response } from "express";
 const logger = createLogger({ module: "intake-routes" });
+
+function getPublicErrorCode(error: unknown, status: number): string | undefined {
+  if (status >= 500 || typeof error !== 'object' || error === null || !('code' in error)) {
+    return undefined;
+  }
+  return typeof error.code === 'string' ? error.code : undefined;
+}
 // Configure multer for file uploads
 const upload = multer({
   dest: process.env.UPLOAD_DIR ?? "./uploads/intake",
@@ -37,7 +44,7 @@ const upload = multer({
 // Validation schemas
 const createRunSchema = z.object({
   slug: z.string(),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic workflow answer values
+
   answers: z.record(z.any()).optional(),
   prefillParams: z.record(z.string()).optional(), // Stage 12.5: URL prefill
 });
@@ -69,7 +76,7 @@ const submitRunSchema = z.object({
  * Register intake portal routes
  * Public routes for workflow execution via slug
  */
-// eslint-disable-next-line max-lines-per-function
+
 export function registerIntakeRoutes(app: Express): void {
   /**
    * GET /intake/workflows/:slug/published
@@ -105,7 +112,7 @@ export function registerIntakeRoutes(app: Express): void {
    * Generate a new CAPTCHA challenge
    * Stage 12.5: Simple math CAPTCHA
    */
-  // eslint-disable-next-line @typescript-eslint/require-await
+
   app.get('/intake/captcha/challenge', asyncHandler(async (req: Request, res: Response) => {
     try {
       const challenge = CaptchaService.generateSimpleChallenge();
@@ -180,7 +187,8 @@ export function registerIntakeRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error, token: maskSecret(req.params.token) }, "Error saving intake progress");
       const { status, message } = classifyRouteError(error, "Failed to save progress");
-      res.status(status).json({ success: false, error: message });
+      const code = getPublicErrorCode(error, status);
+      res.status(status).json({ success: false, error: message, ...(code ? { code } : {}) });
     }
   }));
   /**
@@ -211,7 +219,8 @@ export function registerIntakeRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error, token: maskSecret(req.params.token) }, "Error submitting intake run");
       const { status, message } = classifyRouteError(error, "Failed to submit run");
-      res.status(status).json({ success: false, error: message });
+      const code = getPublicErrorCode(error, status);
+      res.status(status).json({ success: false, error: message, ...(code ? { code } : {}) });
     }
   }));
   /**
@@ -274,7 +283,7 @@ export function registerIntakeRoutes(app: Express): void {
    * Upload file for intake form
    * Multipart form data
    */
-  // eslint-disable-next-line @typescript-eslint/require-await
+
   app.post('/intake/upload', uploadLimiter, optionalHybridAuth, upload.single('file'), asyncHandler(async (req: Request, res: Response) => {
     try {
       // SEC-011: Require a valid intake runToken or session to bind uploads to an in-progress run

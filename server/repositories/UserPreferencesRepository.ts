@@ -35,7 +35,7 @@ export class UserPreferencesRepository extends BaseRepository<typeof userPrefere
 
     if (existing) {
       // Merge existing settings with new settings
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- settings may be null from DB
+
       const existingSettings = (existing.settings as Record<string, unknown>) ?? {};
       const merged = { ...existingSettings, ...settings };
 

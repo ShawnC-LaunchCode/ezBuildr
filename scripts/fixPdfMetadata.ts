@@ -3,9 +3,7 @@ import { eq } from 'drizzle-orm';
 import { db, initializeDatabase } from '../server/db';
 
 import { getPdfFieldExtractor } from '../server/services/document/extractors/PdfFieldExtractor';
-// eslint-disable-next-line import/no-unresolved
-// @ts-ignore - TODO: fix type
-import { LocalStorageProvider } from '../server/services/storage/LocalStorageProvider';
+import { storageProvider } from '../server/services/storage';
 import * as schema from '../shared/schema';
 
 // Hardcoded template ID from user logs
@@ -28,8 +26,6 @@ async function fixTemplate() {
 
     console.log(`Found ${templateList.length} templates.`);
 
-    const storage = new LocalStorageProvider();
-
     for (const template of templateList) {
         console.log(`Processing template: ${template.name} (${template.id})`);
 
@@ -42,7 +38,7 @@ async function fixTemplate() {
 
         try {
             console.log(`Downloading file from storage: ${template.fileRef}`);
-            const buffer = await storage.download(template.fileRef);
+            const buffer = await storageProvider.getFile(template.fileRef);
 
             console.log('Extracting fields...');
             const extractor = getPdfFieldExtractor();

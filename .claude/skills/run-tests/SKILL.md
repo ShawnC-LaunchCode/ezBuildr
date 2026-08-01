@@ -37,8 +37,8 @@ npm run test:docker:down
 
 Check these before debugging:
 
-- `tests/integration/js_helpers.test.ts` fails locally — `vm2`/`isolated-vm` are optional deps not installed on this machine. Not a regression.
-- A list of integration tests is **deliberately excluded** in `excludedIntegrationTests` in `vitest.config.ts` (Neon idle-in-transaction timeouts, pre-existing service bugs). If one of these shows up failing, someone ran it explicitly.
+- (RESOLVED 2026-07-14) `js_helpers.test.ts` used to be a known local failure; it is now green locally (the vm fallback executes JS, and its auth-mock bug was fixed). Treat any js_helpers failure as a real regression.
+- `excludedIntegrationTests` in `vitest.config.ts` now only excludes `*.real.test.ts` (needs real external credentials). The full integration project runs 744/744 locally against Docker PG on 5434.
 - Flaky parallel runs: re-run with `VITEST_SINGLE_FORK=true` before concluding a test is broken.
 
 ## Gotchas

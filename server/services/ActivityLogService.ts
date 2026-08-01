@@ -111,15 +111,17 @@ export class ActivityLogService {
       status: string | null;
       ipAddress: string | null;
       userAgent: string | null;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- metadata is dynamic JSON content
-      metadata: any;
+      metadata: Record<string, unknown> | null;
     }>
   ): Promise<void> {
     // Since actorEmail might not have a dedicated column, inject it into metadata
-    const enhancedMetadata = {
-      ...details?.metadata,
-      _actorEmail: details?.actorEmail ?? undefined
-    };
+    const enhancedMetadata: Record<string, unknown> = details?.metadata !== null && details?.metadata !== undefined
+      ? { ...details.metadata }
+      : {};
+
+    if (details?.actorEmail !== null && details?.actorEmail !== undefined) {
+      enhancedMetadata._actorEmail = details.actorEmail;
+    }
 
     const entry: ActivityLogInsert = {
       event,
@@ -131,7 +133,6 @@ export class ActivityLogService {
       status: details?.status ?? "info",
       ipAddress: details?.ipAddress ?? null,
       userAgent: details?.userAgent ?? null,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       metadata: Object.keys(enhancedMetadata).length > 0 ? enhancedMetadata : null
     };
 

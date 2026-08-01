@@ -8,11 +8,10 @@ import { db } from "../../../server/db";
 import { AuthService } from "../../../server/services/AuthService";
 
 import {
-  users,
   refreshTokens,
   passwordResetTokens,
   emailVerificationTokens,
-  type User
+  type User,
 } from "../../../shared/schema";
 
 type RefreshToken = InferSelectModel<typeof refreshTokens>;
@@ -82,27 +81,6 @@ interface DecodedToken {
   exp: number;
   portal?: boolean;
 }
-
-const createMockUser = (overrides: Partial<User> = {}): User => ({
-  id: "user-123",
-  email: "test@example.com",
-  tenantId: "tenant-123",
-  tenantRole: "owner",
-  role: "owner",
-  createdAt: new Date(),
-  emailVerified: true,
-  name: "Test User",
-  mfaEnabled: false,
-  authProvider: "local",
-  fullName: "Test User",
-  firstName: null,
-  lastName: null,
-  profileImageUrl: null,
-  updatedAt: null,
-  lastPasswordChange: null,
-  defaultMode: "easy",
-  ...overrides,
-} as User);
 
 describe("AuthService", () => {
   let authService: AuthService;

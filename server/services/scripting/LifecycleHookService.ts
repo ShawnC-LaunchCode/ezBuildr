@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Lifecycle Hook Service
  * Manages lifecycle hooks and their execution during workflow runs
@@ -27,6 +26,8 @@ import { runAuthResolver } from "../runs/RunAuthResolver";
 import { workflowService } from "../WorkflowService";
 
 import { scriptEngine } from "./ScriptEngine";
+
+const WORKFLOW_NOT_FOUND_MSG = "Workflow not found";
 
 export class LifecycleHookService {
   /**
@@ -134,7 +135,7 @@ export class LifecycleHookService {
                 for (const key of hook.outputKeys) {
                   // eslint-disable-next-line max-depth
                   if (key in result.output) {
-                    resultData[key] = (result.output as any)[key];
+                    resultData[key] = (result.output as Record<string, unknown>)[key];
                   }
                 }
 
@@ -177,7 +178,9 @@ export class LifecycleHookService {
               phase,
               status: "success",
               consoleOutput: result.consoleLogs,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Lifecycle hook values are intentionally dynamic.
               inputSample: this.truncateSample(data),
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Lifecycle hook values are intentionally dynamic.
               outputSample: this.truncateSample(result.output),
               durationMs,
             });
@@ -294,7 +297,7 @@ export class LifecycleHookService {
     // Verify workflow ownership
     const workflow = await workflowRepository.findById(workflowId);
     if (!workflow) {
-      throw new Error("Workflow not found");
+      throw new Error(WORKFLOW_NOT_FOUND_MSG);
     }
     await workflowService.verifyAccess(workflowId, userId, 'edit');
 
@@ -332,7 +335,7 @@ export class LifecycleHookService {
 
     const workflow = await workflowRepository.findById(hook.workflowId);
     if (!workflow) {
-      throw new Error("Workflow not found");
+      throw new Error(WORKFLOW_NOT_FOUND_MSG);
     }
     await workflowService.verifyAccess(hook.workflowId, userId, 'edit');
 
@@ -362,7 +365,7 @@ export class LifecycleHookService {
 
     const workflow = await workflowRepository.findById(hook.workflowId);
     if (!workflow) {
-      throw new Error("Workflow not found");
+      throw new Error(WORKFLOW_NOT_FOUND_MSG);
     }
     await workflowService.verifyAccess(hook.workflowId, userId, 'edit');
 
@@ -394,7 +397,7 @@ export class LifecycleHookService {
 
     const workflow = await workflowRepository.findById(hook.workflowId);
     if (!workflow) {
-      throw new Error("Workflow not found");
+      throw new Error(WORKFLOW_NOT_FOUND_MSG);
     }
     await workflowService.verifyAccess(hook.workflowId, userId, 'view');
 
@@ -432,7 +435,7 @@ export class LifecycleHookService {
     // Verify workflow ownership
     const workflow = await workflowRepository.findById(workflowId);
     if (!workflow) {
-      throw new Error("Workflow not found");
+      throw new Error(WORKFLOW_NOT_FOUND_MSG);
     }
     await workflowService.verifyAccess(workflowId, userId, 'view');
 
@@ -518,7 +521,7 @@ export class LifecycleHookService {
     try {
       const json = JSON.stringify(data);
       if (json.length > 1024) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+
         return JSON.parse(`${json.slice(0, 1024)}...`);
       }
       return data;

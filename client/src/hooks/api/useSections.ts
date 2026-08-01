@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
 
 import { DevPanelBus } from "../../lib/devpanelBus";
+import { UI_LABELS } from "../../lib/labels";
 import { sectionAPI, type ApiSection } from "../../lib/vault-api";
 
 import { queryKeys } from "./queryKeys";
@@ -26,9 +27,47 @@ export function useCreateSection(): UseMutationResult<ApiSection, unknown, { wor
     });
 }
 
+/**
+ * Append a new section at the end of a workflow (ICW-20).
+ *
+ * Single source of truth for the "add a page at the end" action shared by the
+ * builder canvas and the sidebar tree — it derives the next order as
+ * max(existing order) + 1 and standardizes the default title (no trailing space).
+ * Pass overrides to reuse the ordering for a specialized section (e.g. the
+ * Final Documents section keeps its own title + config).
+ */
+export function useCreateSectionAtEnd(workflowId: string): {
+    createSectionAtEnd: (overrides?: { title?: string; config?: unknown }) => Promise<ApiSection>;
+    isPending: boolean;
+} {
+    const { data: sections } = useSections(workflowId);
+    const createSection = useCreateSection();
+
+    const createSectionAtEnd = (overrides?: { title?: string; config?: unknown }): Promise<ApiSection> => {
+        // Append after the highest existing order (mirror the server's max+1
+        // rule). Using `sections.length` was 0-based and collided with the
+        // auto-scaffolded default "Section 1" (both order 1), tying section
+        // order and breaking runner navigation — nextSection resolved back to
+        // the current one (ICW2-B4). The human page label stays count-based.
+        const existing = sections ?? [];
+        const nextOrder = existing.length > 0
+            ? Math.max(...existing.map((s) => s.order)) + 1
+            : 1;
+        return createSection.mutateAsync({
+            workflowId,
+            title: overrides?.title ?? `${UI_LABELS.PAGE} ${existing.length + 1}`,
+            order: nextOrder,
+            ...(overrides?.config !== undefined ? { config: overrides.config } : {}),
+        });
+    };
+
+    return { createSectionAtEnd, isPending: createSection.isPending };
+}
+
 export function useUpdateSection(): UseMutationResult<ApiSection, unknown, Partial<ApiSection> & { id: string; workflowId: string }> {
     const queryClient = useQueryClient();
     return useMutation({
+        meta: { errorMessage: "Failed to save section. Change has been reverted." },
         mutationFn: ({ id, workflowId: _workflowId, ...data }: Partial<ApiSection> & { id: string; workflowId: string }) =>
             sectionAPI.update(id, data),
         onMutate: async (variables) => {
@@ -65,6 +104,7 @@ export function useUpdateSection(): UseMutationResult<ApiSection, unknown, Parti
 export function useReorderSections(): UseMutationResult<unknown, unknown, { workflowId: string; sections: Array<{ id: string; order: number }> }> {
     const queryClient = useQueryClient();
     return useMutation({
+        meta: { errorMessage: "Failed to reorder pages. The order has been reverted." },
         mutationFn: ({ workflowId, sections }: { workflowId: string; sections: Array<{ id: string; order: number }> }) =>
             sectionAPI.reorder(workflowId, sections),
         onMutate: async (variables) => {
@@ -106,6 +146,26 @@ export function useDeleteSection(): UseMutationResult<void, unknown, { id: strin
             sectionAPI.delete(variables.id),
         onSuccess: async (_, variables) => {
             await queryClient.invalidateQueries({ queryKey: queryKeys.sections(variables.workflowId) });
+            DevPanelBus.emitWorkflowUpdate();
+        },
+    });
+}
+
+/**
+ * Duplicate a section, its steps, and its section-scoped logic rules
+ * (ICW2-B5). Invalidates the section list, the workflow-wide step list, and
+ * the logic-rule list so the copy (and its rules) appear without a full
+ * reload.
+ */
+export function useDuplicateSection(): UseMutationResult<ApiSection, unknown, { id: string; workflowId: string }> {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (variables: { id: string; workflowId: string }) =>
+            sectionAPI.duplicate(variables.id),
+        onSuccess: async (_, variables) => {
+            await queryClient.invalidateQueries({ queryKey: queryKeys.sections(variables.workflowId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.workflowSteps(variables.workflowId) });
+            await queryClient.invalidateQueries({ queryKey: queryKeys.logicRules(variables.workflowId) });
             DevPanelBus.emitWorkflowUpdate();
         },
     });

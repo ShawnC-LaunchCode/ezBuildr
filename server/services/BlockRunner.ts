@@ -109,11 +109,12 @@ export class BlockRunner {
    * @param context - Block execution context
    * @param tx - Optional database transaction (for atomic cross-block operations)
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity, max-lines-per-function, max-depth, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- Drizzle tx for future use, lifecycle+transform+block nested execution
+  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars -- Drizzle tx for future use, lifecycle+transform+block nested execution
   async runPhase(context: BlockContext, tx?: any): Promise<BlockResult> {
     let currentData = { ...context.data };
     const allErrors: string[] = [];
     let nextSectionId: string | undefined;
+    let nextSectionBlockId: string | undefined;
 
     // 0. Execute lifecycle hooks BEFORE other blocks (if runId is provided)
     if (context.runId) {
@@ -224,6 +225,7 @@ export class BlockRunner {
       // Capture branch decision (only first match wins)
       if (result.nextSectionId && !nextSectionId) {
         nextSectionId = result.nextSectionId;
+        nextSectionBlockId = block.id;
       }
     }
 
@@ -232,6 +234,7 @@ export class BlockRunner {
       data: currentData,
       errors: allErrors.length > 0 ? allErrors : undefined,
       nextSectionId,
+      nextSectionBlockId,
     };
   }
 
@@ -240,7 +243,7 @@ export class BlockRunner {
    *
    * REFACTORED: Delegates to specialized block runners based on block type
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity -- analytics wrapping + error handling requires nested try/catch
+
   private async executeBlock(block: Block, context: BlockContext): Promise<BlockResult> {
     // Stage 15: Analytics - Block Start
     // ERROR HANDLING FIX: Wrap analytics in try/catch to prevent workflow crashes

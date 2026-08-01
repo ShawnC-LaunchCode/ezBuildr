@@ -29,6 +29,18 @@ export class LogicRuleRepository extends BaseRepository<
       .where(eq(logicRules.workflowId, workflowId))
       .orderBy(asc(logicRules.order));
   }
+
+  /**
+   * Find rules by conditionStepId
+   */
+  async findByConditionStepId(conditionStepId: string, tx?: DbTransaction): Promise<LogicRule[]> {
+    const database = this.getDb(tx);
+    return database
+      .select()
+      .from(logicRules)
+      .where(eq(logicRules.conditionStepId, conditionStepId))
+      .orderBy(asc(logicRules.order));
+  }
 }
 
 // Singleton instance

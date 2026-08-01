@@ -26,6 +26,8 @@ export enum SecurityEventType {
   TRUSTED_DEVICE_REVOKED = "trusted_device_revoked",
   ACCOUNT_LOCKED = "account_locked",
   ACCOUNT_UNLOCKED = "account_unlocked",
+  DATA_EXPORTED = "data_exported",
+  DATA_IMPORTED = "data_imported",
 }
 
 /**
@@ -118,6 +120,97 @@ export class AuditLogService {
         },
         "Failed to log security event"
       );
+      throw error;
+    }
+  }
+
+  /**
+   * Log a data export event
+   */
+  async logDataExport(params: {
+    userId: string;
+    scope: 'workflow' | 'project' | 'database';
+    rootId: string;
+    tenantId: string;
+    entityCounts: Record<string, number>;
+    blobCount: number;
+    sizeBytes: number;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+  }): Promise<AuditLog> {
+    const { userId, scope, rootId, tenantId, entityCounts, blobCount, sizeBytes, ipAddress, userAgent } = params;
+    try {
+      const auditEntry = {
+        tenantId,
+        workspaceId: null,
+        userId,
+        action: SecurityEventType.DATA_EXPORTED,
+        entityType: scope,
+        entityId: rootId,
+        resourceType: scope,
+        resourceId: rootId,
+        changes: { scope, entityCounts, blobCount, sizeBytes },
+        ipAddress: ipAddress ?? null,
+        userAgent: userAgent ?? null,
+        timestamp: new Date(),
+      };
+
+      const [result] = await db.insert(auditLogs).values(auditEntry).returning();
+
+      logger.info(
+        { userId, scope, rootId, tenantId },
+        "Data export event logged"
+      );
+
+      return result;
+    } catch (error) {
+      logger.error(
+        { error, userId, scope, rootId },
+        "Failed to log data export event"
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * The mirror of {@link logDataExport}: the record that answers "who pushed
+   * data into this tenant, and what did it create". Applies only — previews
+   * write nothing and are deliberately not logged (IEX-11 AC 6).
+   */
+  async logDataImport(params: {
+    userId: string;
+    scope: string;
+    rootId: string;
+    tenantId: string;
+    entityCounts: Record<string, number>;
+    blobsRestored: number;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+  }): Promise<AuditLog> {
+    const { userId, scope, rootId, tenantId, entityCounts, blobsRestored, ipAddress, userAgent } = params;
+    try {
+      const auditEntry = {
+        tenantId,
+        workspaceId: null,
+        userId,
+        action: SecurityEventType.DATA_IMPORTED,
+        entityType: scope,
+        entityId: rootId,
+        resourceType: scope,
+        resourceId: rootId,
+        changes: { scope, entityCounts, blobsRestored },
+        ipAddress: ipAddress ?? null,
+        userAgent: userAgent ?? null,
+        timestamp: new Date(),
+      };
+
+      const [result] = await db.insert(auditLogs).values(auditEntry).returning();
+
+      logger.info({ userId, scope, rootId, tenantId }, "Data import event logged");
+
+      return result;
+    } catch (error) {
+      logger.error({ error, userId, scope, rootId }, "Failed to log data import event");
       throw error;
     }
   }

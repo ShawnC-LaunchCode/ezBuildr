@@ -122,7 +122,7 @@ export class QueryRunner {
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         if (query.sort && query.sort.length > 0) {
             const primarySort = query.sort[0]; // Multi-sort later
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+
             const sortAlias = alias(datavaultValues, 'sort_val');
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
             sqlQuery
@@ -132,14 +132,14 @@ export class QueryRunner {
                 ))
                 .orderBy(primarySort.direction === 'desc' ? desc(sortAlias.value) : asc(sortAlias.value));
         } else {
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+
             // Default sort by createdAt desc
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
             sqlQuery.orderBy(desc(datavaultRows.createdAt));
         }
-        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+
         // 6. Limit
-        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+
         if (query.limit) {
             // eslint-disable-next-line @typescript-eslint/no-floating-promises
             sqlQuery.limit(query.limit);

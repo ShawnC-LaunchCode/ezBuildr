@@ -1,6 +1,11 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { TransformBlock } from "shared/schema";
 import { TransformIssue, TransformFix } from "shared/types/debug";
+
+function toRecord(value: unknown): Record<string, unknown> {
+    return typeof value === "object" && value !== null
+        ? value as Record<string, unknown>
+        : {};
+}
 
 export class TransformDebugger {
     static debug(transforms: TransformBlock[]): TransformIssue[] {
@@ -24,9 +29,9 @@ export class TransformDebugger {
         // 2. Detect Missing Variables (Simplified check)
         // In a real implementation, this would check against variable schema
         transforms.forEach(t => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspecting arbitrary block properties for debugging
-            const block = t as Record<string, any>;
-            if (block.inputPaths && block.inputPaths.length === 0 && block.type !== 'script') {
+            const block = toRecord(t);
+            const inputPaths = Array.isArray(block.inputPaths) ? block.inputPaths : undefined;
+            if (inputPaths?.length === 0 && block.type !== 'script') {
                 issues.push({
                     id: `missing_inputs_${t.id}`,
                     type: 'missing_var',
@@ -41,14 +46,11 @@ export class TransformDebugger {
         // Assuming output path maps to a variable name, and input paths read from variables
         const edges: Record<string, string[]> = {};
         transforms.forEach(t => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspecting arbitrary block properties for debugging
-            const block = t as Record<string, any>;
-            // eslint-disable-next-line sonarjs/no-collapsible-if
-            if (block.outputPath) {
+            const block = toRecord(t);
+            if (typeof block.outputPath === "string") {
                 // This transform produces 't.outputPath'
                 // It consumes 't.inputPaths'
-                // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-                if (!edges[block.outputPath]) { edges[block.outputPath] = []; }
+                edges[block.outputPath] ??= [];
                 // We track what PRODUCES this item -> depends on inputs
                 // A cycle exists if A depends on B, and B depends on A.
                 // Standard graph cycle detection would be better here.
@@ -57,9 +59,10 @@ export class TransformDebugger {
 
         // 4. Type Mismatches (Basic)
         transforms.forEach(t => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- inspecting arbitrary block properties for debugging
-            const block = t as Record<string, any>;
-            if (block.type === 'compute' && block.config?.operation === 'math' && !block.inputPaths?.[0]) {
+            const block = toRecord(t);
+            const config = toRecord(block.config);
+            const inputPaths = Array.isArray(block.inputPaths) ? block.inputPaths : [];
+            if (block.type === 'compute' && config.operation === 'math' && inputPaths[0] === undefined) {
                 // Example check
             }
         });

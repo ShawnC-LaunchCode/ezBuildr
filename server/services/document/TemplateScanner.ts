@@ -201,7 +201,7 @@ export class TemplateScanner {
     private extractErrors(error: any): string[] {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         if (error.properties?.errors) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+
             // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
             return error.properties.errors.map((e: any) => e.message || e.name);
         }
@@ -217,7 +217,7 @@ export class TemplateScanner {
         // Handle Multi error
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         if (error.properties.errors && Array.isArray(error.properties.errors)) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+
             // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
             return error.properties.errors.map((e: any) => this.extractErrorContext(xml, e));
         }

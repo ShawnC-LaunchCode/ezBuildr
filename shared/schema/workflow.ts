@@ -113,6 +113,7 @@ export const workflows = pgTable("workflows", {
     slug: text("slug").unique(), // DATA INTEGRITY FIX
     requireLogin: boolean("require_login").default(false).notNull(),
     intakeConfig: jsonb("intake_config").default(sql`'{}'::jsonb`).notNull(),
+    settings: jsonb("settings").default(sql`'{}'::jsonb`).notNull(),
     // Stage 13: Version management
     pinnedVersionId: uuid("pinned_version_id"),
     // Common
@@ -244,32 +245,48 @@ export const sections = pgTable("sections", {
     config: jsonb("config").default(sql`'{}'::jsonb`),
     visibleIf: jsonb("visible_if"),
     skipIf: jsonb("skip_if"),
+    // Soft-delete (ICW2-B1): set instead of a hard DELETE so cascaded
+    // `step_values` (respondent answers) survive. Chokepoint repo reads
+    // filter this out; restore clears it.
+    deletedAt: timestamp("deleted_at"),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
     index("sections_workflow_idx").on(table.workflowId),
+    index("sections_deleted_at_idx").on(table.deletedAt),
 ]);
 
 // Steps
 export const steps = pgTable("steps", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
     sectionId: uuid("section_id").references(() => sections.id, { onDelete: 'cascade' }).notNull(),
     type: stepTypeEnum("type").notNull(),
     title: varchar("title").notNull(),
     description: text("description"),
     required: boolean("required").default(false),
-    options: jsonb("options"),
+    config: jsonb("config"),
     alias: text("alias"),
     defaultValue: jsonb("default_value"),
     order: integer("order").notNull(),
     isVirtual: boolean("is_virtual").default(false).notNull(),
     visibleIf: jsonb("visible_if"),
     repeaterConfig: jsonb("repeater_config"),
+    // Soft-delete (ICW2-B1): set instead of a hard DELETE, so the
+    // `step_values.step_id` cascade never fires and answers survive.
+    deletedAt: timestamp("deleted_at"),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
+    index("steps_workflow_idx").on(table.workflowId),
     index("steps_section_idx").on(table.sectionId),
-    uniqueIndex("steps_section_alias_unique").on(table.sectionId, table.alias),
+    index("steps_deleted_at_idx").on(table.deletedAt),
+    // `deleted_at IS NULL` is part of the uniqueness scope so a soft-deleted
+    // step's alias frees up immediately — re-creating or restoring a step
+    // with the same alias never hits this unique violation (ICW2-B1).
+    uniqueIndex("steps_workflow_alias_unique")
+        .on(table.workflowId, sql`lower(${table.alias})`)
+        .where(sql`${table.alias} IS NOT NULL AND ${table.alias} <> '' AND ${table.deletedAt} IS NULL`),
 ]);
 
 // Logic Rules

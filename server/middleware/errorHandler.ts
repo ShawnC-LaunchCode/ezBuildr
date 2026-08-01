@@ -265,7 +265,7 @@ export function errorHandler(
     method: req.method,
     url: req.url,
     statusCode,
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     userId: (req as Record<string, unknown>).userId as string | undefined,
     err: { name: err.name, message: err.message, stack: isDevelopment ? err.stack : undefined },
   };

@@ -46,7 +46,7 @@ describe('DatavaultColumnsService', () => {
     },
     datavaultRowsRepository: {
       deleteValuesByColumnId: vi.fn(),
-      cleanupAutoNumberSequence: vi.fn(),
+      createNumberSequence: vi.fn(),
     },
   }));
 

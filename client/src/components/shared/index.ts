@@ -12,6 +12,7 @@ export { EmptyState } from './EmptyState';
 export { ChartEmptyState } from './ChartEmptyState';
 
 export { ConfirmationDialog } from './ConfirmationDialog';
+export { DeleteImpactDialog } from './DeleteImpactDialog';
 export { DataTable } from './DataTable';
 
 export { InlineEditableTitle } from './InlineEditableTitle';

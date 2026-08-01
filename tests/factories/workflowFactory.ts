@@ -25,6 +25,7 @@ export function createTestWorkflow(overrides?: Partial<Workflow>): Workflow {
     slug: null,
     requireLogin: false,
     intakeConfig: {},
+    settings: {},
     pinnedVersionId: null,
     modeOverride: null,
     sourceBlueprintId: null,
@@ -49,6 +50,7 @@ export function createTestSection(workflowId: string, overrides?: Partial<Sectio
     skipIf: null,
     config: {},
     visibleIf: null,
+    deletedAt: null,
     createdAt: now,
     updatedAt: now,
     ...overrides,
@@ -62,6 +64,7 @@ export function createTestStep(sectionId: string, overrides?: Partial<Step>): St
   const now = new Date();
   return {
     id: `step-${  Math.random().toString(36).substring(7)}`,
+    workflowId: overrides?.workflowId ?? "workflow-test-123",
     sectionId,
     type: "short_text",
     title: "Test Step",
@@ -70,10 +73,11 @@ export function createTestStep(sectionId: string, overrides?: Partial<Step>): St
     defaultValue: null,
     required: false,
     order: 1,
-    options: {},
+    config: {},
     visibleIf: null,
     repeaterConfig: null,
     isVirtual: false,
+    deletedAt: null,
     createdAt: now,
     updatedAt: now,
     ...overrides,
@@ -108,17 +112,18 @@ export function createTestLogicRule(workflowId: string, overrides?: Partial<Logi
  */
 export function createTestWorkflowRun(workflowId: string, overrides?: Partial<WorkflowRun>): WorkflowRun {
   const now = new Date();
-  // @ts-ignore - TODO: fix type
   return {
     id: `run-${  Math.random().toString(36).substring(7)}`,
     workflowId,
     runToken: `token-${  Math.random().toString(36).substring(7)}`,
+    tokenExpiresAt: null,
     createdBy: "creator:user-test-123",
     completed: false,
     completedAt: null,
     currentSectionId: null,
     progress: 0,
     metadata: null,
+    generationStatus: "pending",
     workflowVersionId: "v1", // Default to a dummy version
     clientEmail: null,
     portalAccessKey: null,
@@ -152,7 +157,7 @@ export function createTestWorkflowWithDetails(overrides?: {
     { title: "Step 1", type: "short_text" as const },
     { title: "Step 2", type: "long_text" as const },
   ]).map((stepData, index) =>
-    createTestStep(sections[0].id, { order: index + 1, ...stepData })
+    createTestStep(sections[0].id, { workflowId: workflow.id, order: index + 1, ...stepData })
   );
 
   const logicRules = (overrides?.logicRules || []).map((ruleData) =>

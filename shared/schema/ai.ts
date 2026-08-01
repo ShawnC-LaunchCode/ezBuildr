@@ -8,10 +8,12 @@ import {
     text,
     uuid,
     boolean,
+    integer,
+    doublePrecision,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
-import { users } from './auth';
+import { tenants, users } from './auth';
 import { workflows, type TransformBlock } from './workflow';
 
 
@@ -48,6 +50,31 @@ export const insertWorkflowPersonalizationSettingsSchema = createInsertSchema(wo
 export type WorkflowPersonalizationSettings = InferSelectModel<typeof workflowPersonalizationSettings>;
 export type InsertWorkflowPersonalizationSettings = InferInsertModel<typeof workflowPersonalizationSettings>;
 
+
+/**
+ * Per-tenant AI usage ledger (ICW2-B7). One row per `callLLM` call once a
+ * `tenantId` reaches `AIProviderClient` — inputTokens/outputTokens are the
+ * provider's real usage when available, falling back to the char/4 estimate
+ * only when a provider omits it. `AiUsageRepository` sums this table over a
+ * rolling window to enforce `LIMITS.AI_TENANT_MONTHLY_TOKEN_BUDGET`.
+ */
+export const aiUsage = pgTable("ai_usage", {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+    provider: varchar("provider", { length: 50 }).notNull(),
+    model: varchar("model", { length: 100 }).notNull(),
+    taskType: varchar("task_type", { length: 50 }),
+    inputTokens: integer("input_tokens").notNull(),
+    outputTokens: integer("output_tokens").notNull(),
+    costUsd: doublePrecision("cost_usd").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+    index("ai_usage_tenant_created_idx").on(table.tenantId, table.createdAt),
+]);
+
+export const insertAiUsageSchema = createInsertSchema(aiUsage);
+export type AiUsage = InferSelectModel<typeof aiUsage>;
+export type InsertAiUsage = InferInsertModel<typeof aiUsage>;
 
 export interface TransformResult {
     updatedTransforms: TransformBlock[];

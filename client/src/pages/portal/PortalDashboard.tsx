@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
+import { setRunToken } from "@/lib/runTokens";
+import { fetchAPI } from "@/lib/vault-api";
 interface PortalRun {
     id: string;
     workflowTitle: string;
@@ -26,6 +28,34 @@ interface PortalRun {
     // plaintext token is minted on demand via POST /api/runs/:id/share.
     hasShareToken?: boolean;
 }
+
+interface ShareTokenResponse {
+    data?: {
+        shareToken?: string;
+    };
+}
+
+interface PortalAccessTokenResponse {
+    data?: {
+        runToken?: string;
+    };
+}
+
+function isShareTokenResponse(value: unknown): value is ShareTokenResponse {
+    if (typeof value !== 'object' || value === null || !('data' in value)) {
+        return false;
+    }
+
+    const data = (value as { data?: unknown }).data;
+    if (data === undefined) {
+        return true;
+    }
+
+    return typeof data === 'object' && data !== null && (
+        !('shareToken' in data) || typeof (data as { shareToken?: unknown }).shareToken === 'string'
+    );
+}
+
 export default function PortalDashboard() {
     const [runs, setRuns] = useState<PortalRun[]>([]);
     const [loading, setLoading] = useState(true);
@@ -46,9 +76,9 @@ export default function PortalDashboard() {
                 }
             } finally {
                 setLoading(false);
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+
             }
-        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+
         };
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         fetchRuns();
@@ -61,31 +91,35 @@ export default function PortalDashboard() {
             console.error("Logout failed", error);
         }
     };
-    const handleResume = (runId: string) => {
-        // Navigate to public share/run link?
-        // If it's a "portal run", it might need a special token or session-based access.
-        // Since we are logged in, we can probably go to a run view that checks session?
-        // Wait, the regular runner (/run/:slug) uses creator session OR anon.
-        // We need a way to run AS the portal user.
-        // Current backend logic for /api/runs/:runId requires userId or runToken.
-        // We don't have a runToken here easily (unless we fetch it).
-        // AND we don't have a "Creator User ID".
-        // We have a "Portal User Email".
-        // RunService logic needs to support Portal Session for execution.
-        // Or we rely on "Magic Link" to generate a short-lived run token?
-        // For now, let's assume we can view the run details page or a "Resume" link.
-        // Actually, `RunCompletionView` (shared link) handles fetching documents.
-        // But resuming execution?
-        // We might need to generate a "Resume Link" (run token) on the fly?
-        // Let's implement that later. For now, we will create a share link or use a placeholder.
-        // Idea: Redirect to `/portal/run/:runId` which acts as a proxy wrapper?
-        // eslint-disable-next-line no-console
-        // Or simply `/share/:token` if we have a token?
-        // eslint-disable-next-line no-console
-        // But we want to RESUME provided we have access.
-        // Temporary: Log it.
-        // eslint-disable-next-line no-console
-        console.log("Resume", runId);
+    const issueRunToken = async (runId: string): Promise<string> => {
+        const response = await api.post(`/portal/runs/${runId}/access-token`) as PortalAccessTokenResponse;
+        const runToken = response.data?.runToken;
+        if (!runToken) {
+            throw new Error("No run token returned");
+        }
+        setRunToken(runId, runToken);
+        return runToken;
+    };
+    const handleResume = async (runId: string) => {
+        try {
+            await issueRunToken(runId);
+            setLocation(`/run/${runId}`);
+        } catch {
+            toast({ title: "Unable to resume", description: "This interview is no longer available.", variant: "destructive" });
+        }
+    };
+    const handleViewDocuments = async (runId: string): Promise<void> => {
+        try {
+            await issueRunToken(runId);
+            const data = await fetchAPI<unknown>(`/api/runs/${runId}/share`, { method: 'POST' });
+            const shareToken = isShareTokenResponse(data) ? data.data?.shareToken : undefined;
+            if (!shareToken) {
+                throw new Error("No share token returned");
+            }
+            setLocation(`/share/${shareToken}`);
+        } catch {
+            toast({ title: "Unable to open documents", description: "This interview is no longer available.", variant: "destructive" });
+        }
     };
     if (loading) {
         return (
@@ -146,19 +180,7 @@ export default function PortalDashboard() {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {run.status === 'completed' && run.accessSettings?.allow_redownload !== false && (
-                                            <Button variant="outline" size="sm" onClick={() => { 
-                                                // Dynamically generate share token to support hashed-at-rest tokens
-                                                fetch(`/api/runs/${run.id}/share`, { method: 'POST' })
-                                                    .then(res => res.json())
-                                                    .then(data => {
-                                                        if (data.data?.shareToken) {
-                                                            void setLocation(`/share/${data.data.shareToken}`);
-                                                        } else {
-                                                            toast({ title: "Error", description: "Failed to generate download link", variant: "destructive" });
-                                                        }
-                                                    })
-                                                    .catch(() => toast({ title: "Error", description: "Network error", variant: "destructive" }));
-                                            }}>
+                                            <Button variant="outline" size="sm" onClick={() => { void handleViewDocuments(run.id); }}>
                                                 <FileText className="h-4 w-4 mr-2" />
                                                 View Documents
                                             </Button>

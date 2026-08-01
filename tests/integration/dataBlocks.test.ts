@@ -118,6 +118,7 @@ describe('Data Block Integration Tests', () => {
         const inputBlockId = uuidv4();
         await db.insert(steps).values({
             id: inputBlockId,
+            workflowId: workflow.id,
             sectionId: section.id,
             type: 'short_text',
             title: 'Enter Text',
@@ -213,6 +214,7 @@ describe('Data Block Integration Tests', () => {
         const queryStepId = uuidv4();
         await db.insert(steps).values({
             id: queryStepId,
+            workflowId: workflow.id,
             sectionId: section.id,
             type: 'computed',
             title: 'Query Result',

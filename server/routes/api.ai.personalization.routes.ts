@@ -12,9 +12,56 @@ import { requireAssetAccess } from "../utils/ownershipAccess";
 import { asyncHandler } from '../utils/asyncHandler';
 import { strictLimiter } from "../middleware/rateLimiter";
 
+import type { Request } from "express";
+import type { AuthRequest } from "../middleware/auth";
+import type { UserPersonalizationSettings, WorkflowPersonalizationSettings } from "../../shared/schema";
+
 const logger = createLogger({ module: 'ai-personalization-routes' });
 
 const router = Router();
+
+interface PersonalizationContext {
+    userSettings: UserPersonalizationSettings;
+    workflowSettings?: WorkflowPersonalizationSettings;
+    userAnswers?: Record<string, unknown>;
+}
+
+interface PersonalizationRequest extends AuthRequest {
+    user?: {
+        id?: string;
+    };
+    personalizationContext?: PersonalizationContext;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getRequestBody(req: Request): Record<string, unknown> {
+    const body = (req as { body: unknown }).body;
+    return isRecord(body) ? body : {};
+}
+
+function getAuthenticatedUserId(req: Request): string {
+    const authReq = req as PersonalizationRequest;
+    const userId = authReq.user?.id ?? authReq.userId;
+    if (userId === undefined || userId === "") {
+        throw new Error("Authenticated user missing from request");
+    }
+    return userId;
+}
+
+function getPersonalizationContext(req: Request): PersonalizationContext {
+    const context = (req as PersonalizationRequest).personalizationContext;
+    if (context === undefined) {
+        throw new Error("Personalization context missing from request");
+    }
+    return context;
+}
+
+function setPersonalizationContext(req: Request, context: PersonalizationContext): void {
+    (req as PersonalizationRequest).personalizationContext = context;
+}
 
 const BlockRequestSchema = z.object({
     block: z.object({
@@ -37,24 +84,21 @@ const TranslateRequestSchema = z.object({
 });
 
 // Middleware to get user settings
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- middleware signature requires any for Express compatibility
-const getUserContext = asyncHandler(async (req: any, res: any, next: any) => {
+const getUserContext = asyncHandler(async (req, res, next) => {
     try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Express req augmented
-        const userId = req.user.id;
+        const userId = getAuthenticatedUserId(req);
+        const body = getRequestBody(req);
         // Get user-specific settings
         const [userSettings] = await db
             .select()
             .from(userPersonalizationSettings)
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- userId validated by auth middleware
             .where(eq(userPersonalizationSettings.userId, userId))
             .limit(1);
 
         // Get workflow-specific settings if workflowId is present
-        let workflowSettings: unknown = undefined;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Express req body
-        if (req.body.workflowId !== null && req.body.workflowId !== undefined) {
-            const workflowId = req.body.workflowId;
+        let workflowSettings: WorkflowPersonalizationSettings | undefined;
+        const workflowId = body.workflowId;
+        if (typeof workflowId === "string" && workflowId !== "") {
             const workflow = await db.query.workflows.findFirst({
                 where: eq(workflows.id, workflowId)
             });
@@ -66,7 +110,6 @@ const getUserContext = asyncHandler(async (req: any, res: any, next: any) => {
                 const [ws] = await db
                     .select()
                     .from(workflowPersonalizationSettings)
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
                     .where(eq(workflowPersonalizationSettings.workflowId, workflowId))
                     .limit(1);
                 workflowSettings = ws;
@@ -75,7 +118,6 @@ const getUserContext = asyncHandler(async (req: any, res: any, next: any) => {
 
         // Default fallback if no settings found
         const defaultSettings = {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- userId validated by auth middleware
             userId: userId,
             readingLevel: 'standard' as const,
             tone: 'neutral' as const,
@@ -85,32 +127,25 @@ const getUserContext = asyncHandler(async (req: any, res: any, next: any) => {
             allowAIClarification: true
         };
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Express req augmented
-        req.personalizationContext = {
+        setPersonalizationContext(req, {
             userSettings: userSettings ?? defaultSettings,
             workflowSettings,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Express req body
-            userAnswers: req.body.userAnswers
-        };
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- Express middleware signature
+            userAnswers: isRecord(body.userAnswers) ? body.userAnswers : undefined
+        });
         next();
     } catch (error) {
         logger.error({ error }, "Personalization Context Error");
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Express response
         res.status(500).json({ error: "Failed to load personalization context" });
     }
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with personalizationContext
-router.post("/block", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req: any, res) => {
+router.post("/block", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req, res) => {
     try {
-        const { block } = BlockRequestSchema.parse(req.body);
+        const { block } = BlockRequestSchema.parse(getRequestBody(req));
 
         const rewrittenText = await personalizationService.rewriteBlockText(
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access -- Express req body validated
             block.text,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access -- middleware sets personalizationContext
-            req.personalizationContext
+            getPersonalizationContext(req)
         );
 
         res.json({ text: rewrittenText });
@@ -120,16 +155,13 @@ router.post("/block", hybridAuth, strictLimiter, getUserContext, asyncHandler(as
     }
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with personalizationContext
-router.post("/help", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req: any, res) => {
+router.post("/help", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req, res) => {
     try {
-        const { text } = HelpRequestSchema.parse(req.body);
+        const { text } = HelpRequestSchema.parse(getRequestBody(req));
 
         const helpText = await personalizationService.generateHelpText(
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- Express req body validated
             text,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access -- middleware sets personalizationContext
-            req.personalizationContext
+            getPersonalizationContext(req)
         );
 
         res.json({ text: helpText });
@@ -139,18 +171,14 @@ router.post("/help", hybridAuth, strictLimiter, getUserContext, asyncHandler(asy
     }
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with personalizationContext
-router.post("/clarify", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req: any, res) => {
+router.post("/clarify", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req, res) => {
     try {
-        const { question, answer } = ClarifyFollowupRequestSchema.parse(req.body);
+        const { question, answer } = ClarifyFollowupRequestSchema.parse(getRequestBody(req));
 
         const clarification = await personalizationService.generateClarification(
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- Express req body validated
             question,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- Express req body validated
             answer,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access -- middleware sets personalizationContext
-            req.personalizationContext
+            getPersonalizationContext(req)
         );
 
         res.json({ clarification });
@@ -160,12 +188,10 @@ router.post("/clarify", hybridAuth, strictLimiter, getUserContext, asyncHandler(
     }
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with personalizationContext
-router.post("/followup", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req: any, res) => {
+router.post("/followup", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req, res) => {
     try {
-        const { question, answer } = ClarifyFollowupRequestSchema.parse(req.body);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access -- Express req body and middleware
-        const result = await personalizationService.generateFollowUp(question, answer, req.personalizationContext);
+        const { question, answer } = ClarifyFollowupRequestSchema.parse(getRequestBody(req));
+        const result = await personalizationService.generateFollowUp(question, answer, getPersonalizationContext(req));
         res.json({ followup: result });
     } catch (error) {
         logger.error({ error }, "Personalization Followup Error");
@@ -173,10 +199,9 @@ router.post("/followup", hybridAuth, strictLimiter, getUserContext, asyncHandler
     }
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with personalizationContext
-router.post("/translate", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req: any, res) => {
+router.post("/translate", hybridAuth, strictLimiter, getUserContext, asyncHandler(async (req, res) => {
     try {
-        const { text, targetLanguage } = TranslateRequestSchema.parse(req.body);
+        const { text, targetLanguage } = TranslateRequestSchema.parse(getRequestBody(req));
 
         const translated = await personalizationService.translateText(text, targetLanguage);
         res.json({ text: translated });
@@ -187,11 +212,9 @@ router.post("/translate", hybridAuth, strictLimiter, getUserContext, asyncHandle
 }));
 
 // Settings Management
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with user
-router.get("/settings", hybridAuth, asyncHandler(async (req: any, res) => {
+router.get("/settings", hybridAuth, asyncHandler(async (req, res) => {
     try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access -- auth middleware sets user
-        const [settings] = await db.select().from(userPersonalizationSettings).where(eq(userPersonalizationSettings.userId, req.user.id)).limit(1);
+        const [settings] = await db.select().from(userPersonalizationSettings).where(eq(userPersonalizationSettings.userId, getAuthenticatedUserId(req))).limit(1);
         res.json({ settings });
     } catch (err) {
         logger.error({ error: err }, "Personalization Settings Fetch Error");
@@ -208,25 +231,20 @@ const settingsSchema = z.object({
     allowAIClarification: z.boolean().optional()
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- req augmented with user
-router.post("/settings", hybridAuth, asyncHandler(async (req: any, res) => {
+router.post("/settings", hybridAuth, asyncHandler(async (req, res) => {
     try {
-        const parseResult = settingsSchema.safeParse(req.body);
+        const parseResult = settingsSchema.safeParse(getRequestBody(req));
         if (!parseResult.success) {
             return res.status(400).json({ error: "Invalid settings format", details: parseResult.error });
         }
         
         const settings = parseResult.data;
         // Upsert
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- Express req body validated by Drizzle schema
         await db.insert(userPersonalizationSettings).values({
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Express req body validated
             ...settings,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- auth middleware sets user
-            userId: req.user.id
+            userId: getAuthenticatedUserId(req)
         }).onConflictDoUpdate({
             target: userPersonalizationSettings.userId,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Express req body validated
             set: settings
         });
         res.json({ success: true });

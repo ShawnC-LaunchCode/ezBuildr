@@ -1,7 +1,7 @@
 
 import { sql } from "drizzle-orm";
 
-// @ts-ignore - TODO: fix type
+// @ts-expect-error - TODO: fix type
 import { auditLogs, analyticsEvents } from "@shared/schema";
 
 import { db, initializeDatabase } from "../server/db";

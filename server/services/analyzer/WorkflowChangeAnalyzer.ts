@@ -144,7 +144,7 @@ export class WorkflowChangeAnalyzer {
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
                 revMap.set(block.alias, id);
             }
-        // eslint-disable-next-line sonarjs/cognitive-complexity
+
         }
         return revMap;
     }

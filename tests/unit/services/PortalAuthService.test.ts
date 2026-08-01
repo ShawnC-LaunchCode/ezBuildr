@@ -237,14 +237,14 @@ describe("PortalAuthService", () => {
 
         await portalAuthService.sendMagicLink(email);
 
-        /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+        /* eslint-disable @typescript-eslint/no-unsafe-assignment */
         expect(mockLogger.info).toHaveBeenCalledWith(
           expect.objectContaining({
             magicLinkUrl: expect.stringContaining("http://localhost:5000"),
           }),
           expect.any(String)
         );
-        /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+        /* eslint-enable @typescript-eslint/no-unsafe-assignment */
       });
     });
 

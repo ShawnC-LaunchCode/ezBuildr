@@ -185,7 +185,7 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
    * Query table rows with filters and sorting
    * Internal helper method for read_table block
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, sonarjs/cognitive-complexity, complexity
+  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
   private async queryTableRows(params: {
     tableId: string;
     tenantId: string;

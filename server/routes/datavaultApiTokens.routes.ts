@@ -190,7 +190,7 @@ export function registerDatavaultApiTokenRoutes(app: Express): void {
         const userId = getAuthUserId(req);
         const userRole = getAuthUserRole(req);
         const { tokenId } = req.params;
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-member-access -- extracting from req.body or query
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- extracting from req.body or query
         const databaseId = (req.body.databaseId || req.query.databaseId) as string;
 
         if (!userId) {

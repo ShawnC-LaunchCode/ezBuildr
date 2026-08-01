@@ -97,13 +97,14 @@ describe("REG-1: Workflow Logic Regression", () => {
             const stepId = uuidv4();
             await db.insert(steps).values({
                 id: stepId,
+                workflowId,
                 sectionId,
                 type: "text",
                 title: "Required Question",
                 alias: "required_q",
                 order: 1,
                 required: true,
-                options: {}
+                config: {}
             });
             const runId = uuidv4();
             await db.insert(workflowRuns).values({
@@ -127,17 +128,19 @@ describe("REG-1: Workflow Logic Regression", () => {
             const triggerStepId = uuidv4();
             await db.insert(steps).values({
                 id: triggerStepId,
+                workflowId,
                 sectionId,
                 type: "boolean",
                 title: "Show Required?",
                 alias: "show_trigger",
                 order: 1,
                 required: false,
-                options: {}
+                config: {}
             });
             const requiredStepId = uuidv4();
             await db.insert(steps).values({
                 id: requiredStepId,
+                workflowId,
                 sectionId,
                 type: "text",
                 title: "Conditionally Required",
@@ -145,7 +148,7 @@ describe("REG-1: Workflow Logic Regression", () => {
                 order: 2,
                 required: true,
                 visibleIf: "show_trigger == true", // Only visible when trigger is true
-                options: {}
+                config: {}
             });
             const runId = uuidv4();
             await db.insert(workflowRuns).values({
@@ -176,17 +179,19 @@ describe("REG-1: Workflow Logic Regression", () => {
             const triggerStepId = uuidv4();
             await db.insert(steps).values({
                 id: triggerStepId,
+                workflowId,
                 sectionId,
                 type: "boolean",
                 title: "Show Required?",
                 alias: "show_trigger",
                 order: 1,
                 required: true,
-                options: {}
+                config: {}
             });
             const requiredStepId = uuidv4();
             await db.insert(steps).values({
                 id: requiredStepId,
+                workflowId,
                 sectionId,
                 type: "text",
                 title: "Conditionally Required",
@@ -194,7 +199,7 @@ describe("REG-1: Workflow Logic Regression", () => {
                 order: 2,
                 required: true,
                 visibleIf: "show_trigger == true",
-                options: {}
+                config: {}
             });
             // Set trigger to true (show required question)
             const data: Record<string, any> = { show_trigger: true };
@@ -243,12 +248,13 @@ describe("REG-1: Workflow Logic Regression", () => {
             const triggerStepId = uuidv4();
             await db.insert(steps).values({
                 id: triggerStepId,
+                workflowId,
                 sectionId: section1Id,
                 type: "boolean",
                 title: "Show Page 2?",
                 alias: "show_page_2",
                 order: 1,
-                options: {}
+                config: {}
             });
             const section2Id = uuidv4();
             await db.insert(sections).values({
@@ -261,13 +267,14 @@ describe("REG-1: Workflow Logic Regression", () => {
             const requiredStepId = uuidv4();
             await db.insert(steps).values({
                 id: requiredStepId,
+                workflowId,
                 sectionId: section2Id,
                 type: "text",
                 title: "Required on Page 2",
                 alias: "page2_required",
                 order: 1,
                 required: true,
-                options: {}
+                config: {}
             });
             // Data: don't show page 2
             const data: Record<string, any> = { show_page_2: false };
@@ -314,12 +321,13 @@ describe("REG-1: Workflow Logic Regression", () => {
             const triggerStepId = uuidv4();
             await db.insert(steps).values({
                 id: triggerStepId,
+                workflowId,
                 sectionId: section1Id,
                 type: "boolean",
                 title: "Show Page 2?",
                 alias: "show_page_2",
                 order: 1,
-                options: {}
+                config: {}
             });
             const section2Id = uuidv4();
             await db.insert(sections).values({
@@ -332,13 +340,14 @@ describe("REG-1: Workflow Logic Regression", () => {
             const requiredStepId = uuidv4();
             await db.insert(steps).values({
                 id: requiredStepId,
+                workflowId,
                 sectionId: section2Id,
                 type: "text",
                 title: "Required on Page 2",
                 alias: "page2_required",
                 order: 1,
                 required: true,
-                options: {}
+                config: {}
             });
             // Data: show page 2
             const data: Record<string, any> = { show_page_2: true };

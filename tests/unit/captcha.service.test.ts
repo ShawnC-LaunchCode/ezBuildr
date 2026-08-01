@@ -13,6 +13,14 @@ describe("CaptchaService", () => {
       expect(challenge.token.length).toBeGreaterThan(50); // It's a JWT-like payload.signature now
       expect(challenge.expiresAt).toBeGreaterThan(Date.now());
     });
+    it("SEC-053: does not embed the plaintext answer in the token", () => {
+      const challenge = CaptchaService.generateSimpleChallenge();
+      const payload = Buffer.from(challenge.token.split(".")[0], "base64url").toString("utf-8");
+      const parsed = JSON.parse(payload) as Record<string, unknown>;
+      // Only a keyed commitment + expiry may be present — never the answer itself.
+      expect(parsed.answer).toBeUndefined();
+      expect(typeof parsed.answerHash).toBe("string");
+    });
     it("should generate unique tokens for each challenge", () => {
       const challenge1 = CaptchaService.generateSimpleChallenge();
       const challenge2 = CaptchaService.generateSimpleChallenge();

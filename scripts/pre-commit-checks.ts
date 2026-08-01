@@ -89,7 +89,28 @@ function getStagedFiles(): string[] {
   }
 }
 
-function main(): void {
+/**
+ * Ask ESLint itself which paths it ignores, rather than re-parsing
+ * .eslintignore here and drifting from it.
+ */
+async function filterEslintIgnored(files: string[]): Promise<string[]> {
+  try {
+    const { ESLint } = await import('eslint');
+    const eslint = new ESLint();
+    const kept: string[] = [];
+    for (const file of files) {
+      if (!(await eslint.isPathIgnored(file))) {
+        kept.push(file);
+      }
+    }
+    return kept;
+  } catch {
+    // If the probe fails, lint everything rather than silently skipping files.
+    return files;
+  }
+}
+
+async function main(): Promise<void> {
   console.log('Running pre-commit quality checks...\n');
 
   const stagedFiles = getStagedFiles();
@@ -111,10 +132,21 @@ function main(): void {
 
   // 1. ESLint on staged files
   console.log('1. Running ESLint on staged files...');
-  const eslintFiles = stagedFiles.join(' ');
-  if (stagedFiles.length > 0) {
+  // Drop files ESLint is configured to ignore (root configs, tools/, scripts/*.js).
+  // Naming an ignored file on the command line makes ESLint emit a warning about
+  // it, and --max-warnings 0 turns that warning into a failed commit — so before
+  // this filter, touching vitest.config.ts made the hook unpassable.
+  const lintableFiles = await filterEslintIgnored(stagedFiles);
+  const eslintFiles = lintableFiles.join(' ');
+  if (lintableFiles.length > 0) {
+    // --report-unused-disable-directives is deliberately applied here, on
+    // staged files only, and not in `npm run lint`: the repo carries ~796
+    // pre-existing unused directives, so a repo-wide flip would fail the
+    // zero-error policy on day one. Scoping it to the diff ratchets the debt
+    // down instead — you cannot add a new pointless suppression, but you are
+    // not asked to clean up the existing ones to land an unrelated change.
     const passed = runCommand(
-      `npx eslint ${eslintFiles} --max-warnings 0`,
+      `npx eslint ${eslintFiles} --max-warnings 0 --report-unused-disable-directives`,
       'ESLint'
     );
     allPassed = allPassed && passed;
@@ -202,4 +234,4 @@ function main(): void {
   process.exit(0);
 }
 
-main();
+void main();

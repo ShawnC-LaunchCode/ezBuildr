@@ -151,14 +151,19 @@ export class AuthService {
         if (!JWT_SECRET) { throw new Error('JWT not configured'); }
 
         try {
-            const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as any;
-            if (payload.portal) {
+            const verified = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+            if (typeof verified === 'string') {
+                throw new InvalidTokenError('Invalid token payload');
+            }
+
+            const payload = verified as Record<string, unknown>;
+            if (payload.portal === true) {
                 throw new InvalidTokenError('Portal tokens cannot be used as access tokens');
             }
-            if (payload.mfaPending && !allowMfaPending) {
+            if (payload.mfaPending === true && !allowMfaPending) {
                 throw new InvalidTokenError('MFA pending tokens cannot be used as access tokens');
             }
-            return payload as JWTPayload;
+            return payload as unknown as JWTPayload;
         } catch (error) {
             if (error instanceof jwt.TokenExpiredError) {
                 throw new TokenExpiredError('Token has expired');

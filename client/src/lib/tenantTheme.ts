@@ -16,7 +16,7 @@ import {
 /**
  * Extended theme tokens with all color variants
  */
-// eslint-disable-next-line @typescript-eslint/naming-convention
+
 export interface ExtendedThemeTokens extends ThemeTokens {
   // Primary color variants
   // eslint-disable-next-line @typescript-eslint/naming-convention

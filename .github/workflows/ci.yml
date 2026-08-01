@@ -7,20 +7,15 @@ on:
     branches: [ "main" ]
 
 jobs:
-  # Advisory quality gates. Full-project `tsc` and eslint both carry known
-  # migration/debt backlogs (see docs/TYPESCRIPT_STRICT_MODE_MIGRATION.md);
-  # strict-mode enforcement lives in strict-mode-check.yml. These run for
-  # visibility only and MUST NOT gate the test job — otherwise a lint/type
-  # regression silently hides all test signal (which is exactly what happened
-  # before this pipeline was split).
+  # Blocking quality gates. Keep type-check and lint green before deployment.
   quality:
-    name: Quality (advisory)
+    name: Quality Gates
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
 
     - name: Use Node.js 20.x
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v7
       with:
         node-version: 20.x
         cache: 'npm'
@@ -28,13 +23,11 @@ jobs:
     - name: Install Dependencies
       run: npm ci
 
-    - name: Type Check (advisory)
-      run: npm run check
-      continue-on-error: true
+    - name: Type Check
+      run: npm run type-check
 
-    - name: Lint (advisory)
+    - name: Lint
       run: npm run lint --if-present
-      continue-on-error: true
       
     - name: Strict Zones Type Check
       run: npm run check:strict-zones
@@ -44,17 +37,17 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
 
     - name: Secret Scanning (gitleaks)
-      uses: gitleaks/gitleaks-action@v2
+      uses: gitleaks/gitleaks-action@v3
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Use Node.js 20.x
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v7
       with:
         node-version: 20.x
         cache: 'npm'
@@ -68,9 +61,20 @@ jobs:
       run: node scripts/ci/audit-check.mjs
 
     - name: SSRF Guard (Block raw fetch in server)
+      # Two files may call fetch directly, and only these two:
+      #   safeFetch.ts        - implements the SSRF-safe wrapper itself.
+      #   internalService.ts  - the single sanctioned door to operator-configured
+      #                         internal infrastructure (e.g. Gotenberg on a
+      #                         *.railway.internal address), which safeFetch
+      #                         rejects by design because it resolves to a
+      #                         private IP. Its signature takes a path, not a
+      #                         URL, so a caller cannot redirect the request to
+      #                         another host — see that file's header.
+      # Callers use internalServiceRequest(); the capital F means this grep
+      # still covers them.
       run: |
-        if grep -rnw 'server' --exclude='safeFetch.ts' --exclude-dir='tests' -e '\bfetch(' -e '\bawait fetch('; then
-          echo "ERROR: Raw fetch found in server/. Use safeFetch instead to prevent SSRF."
+        if grep -rnw 'server' --exclude='safeFetch.ts' --exclude='internalService.ts' --exclude-dir='tests' -e '\bfetch(' -e '\bawait fetch('; then
+          echo "ERROR: Raw fetch found in server/. Use safeFetch (external URLs) or internalServiceRequest (configured internal services) to prevent SSRF."
           exit 1
         fi
         echo "No raw fetch found."
@@ -102,7 +106,7 @@ jobs:
           --health-retries 5
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
 
     # qpdf is a runtime dependency of the PDF form-filling feature
     # (server/services/document/PdfService.ts unlockPdf → `qpdf --decrypt`).
@@ -112,7 +116,7 @@ jobs:
       run: sudo apt-get update && sudo apt-get install -y qpdf
 
     - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v7
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
@@ -121,8 +125,11 @@ jobs:
       run: npm ci
 
     - name: Setup Database
+      # Build the schema by replaying the migration chain (baseline + RLS +
+      # functions), the same way prod/tests do — NOT db:push, which syncs from
+      # the Drizzle schema and silently skips RLS policies and PL/pgSQL functions.
       run: |
-        npm run db:push
+        npm run db:migrate
         npm run db:seed
       env:
         NODE_ENV: test
@@ -133,6 +140,13 @@ jobs:
       env:
         NODE_ENV: test
         DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/test_db"
+        # tests/setup.ts deliberately IGNORES the inherited DATABASE_URL and
+        # resolves the test DB from TEST_DATABASE_URL, falling back to a
+        # localhost default whose password/db do NOT match this CI service.
+        # Without this line every integration test failed to connect (28P01),
+        # so the integration suite never actually ran in CI. Point it at the
+        # CI postgres service.
+        TEST_DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/test_db"
         # Must be >=32 chars — env.ts rejects shorter secrets and, in test mode,
         # only injects a fallback when the var is UNSET (not when set too short).
         SESSION_SECRET: "test-session-secret-minimum-32-characters-long-for-ci"

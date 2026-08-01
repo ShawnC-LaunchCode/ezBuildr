@@ -76,9 +76,9 @@ export async function validatePage({
                 const cr = rule;
                 const met = evaluateConditionExpression(whenToCondition(cr.when), contextValues);
                 if (met) {
-                    // eslint-disable-next-line max-depth -- validation logic requires nested conditions
+
                     for (const fieldId of cr.requiredFields) {
-                        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, max-depth -- contextValues contains dynamic data
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- contextValues contains dynamic data
                         const val = contextValues[fieldId];
                         // eslint-disable-next-line max-depth -- validation logic requires deep nesting
                         if (val === null || val === undefined || val === "" || (Array.isArray(val) && val.length === 0)) {
@@ -109,7 +109,7 @@ export async function validatePage({
     };
 }
 // Logic implementations
-// eslint-disable-next-line sonarjs/cognitive-complexity -- complex rule validation logic
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- values can contain any user input types
 function validatePageRule(rule: ValidateRule, values: Record<string, any>): string | null {
     // Type guard / Check
@@ -120,7 +120,7 @@ function validatePageRule(rule: ValidateRule, values: Record<string, any>): stri
     switch (rule.type) {
         case 'compare': {
             const r = rule;
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- dynamic validation values
+
             const leftVal = getVal(r.left, values);
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument -- dynamic validation values
             const rightVal = r.rightType === 'variable' ? getVal(r.right, values) : r.right;
@@ -133,7 +133,7 @@ function validatePageRule(rule: ValidateRule, values: Record<string, any>): stri
             return null; // Handled in main loop
         case 'foreach': {
             const r = rule;
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- dynamic validation values
+
             const list = getVal(r.listKey, values);
             if (!Array.isArray(list)) { return null; }
             for (let i = 0; i < list.length; i++) {
@@ -141,12 +141,12 @@ function validatePageRule(rule: ValidateRule, values: Record<string, any>): stri
                 const item = list[i];
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 const itemContext = { ...values, [r.itemAlias]: item };
-                // eslint-disable-next-line max-depth -- validation logic requires nested conditions
+
                 for (const subRule of r.rules) {
                     // Check legacy inner rules
-                    // eslint-disable-next-line max-depth -- validation logic requires nested conditions
+
                     if (isLegacySubRule(subRule) && subRule.assert) {
-                        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- dynamic validation values
+
                         const val = resolvePath(subRule.assert.key, itemContext);
                         if (!checkOp(val, subRule.assert.op, subRule.assert.value)) {
                             return `${subRule.message ?? "Invalid item"} (Item ${i + 1})`;
@@ -181,12 +181,12 @@ function whenToCondition(when: WhenCondition): ConditionExpression {
 function getVal(key: string, values: Record<string, any>): unknown {
     // support dot syntax?
     if (key.includes('.')) { return resolvePath(key, values); }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- dynamic value access
+
     return values[key];
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- obj can be any nested structure
 function resolvePath(path: string, obj: any): unknown {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-member-access -- dynamic path resolution
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access -- dynamic path resolution
     return path.split('.').reduce((prev, curr) => (prev !== null && prev !== undefined) ? prev[curr] : undefined, obj);
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- comparison values can be any type

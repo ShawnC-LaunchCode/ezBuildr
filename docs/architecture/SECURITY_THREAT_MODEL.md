@@ -273,8 +273,31 @@ If any answer is "I'm not sure," get a review before merging.
 
 ---
 
+## 7. Tenant Isolation (defense in depth)
+
+Cross-tenant data separation is enforced in the service layer (every query scopes
+by `tenant_id`). That is a convention, so two structural backstops were added under
+SEC-051:
+
+1. **`withTenant` query helper** (`server/repositories/tenantWrapper.ts`) — builds a
+   WHERE condition that always includes the tenant predicate and **fails closed** on
+   a missing `tenantId` column or an empty/blank tenant id (an empty value would
+   otherwise match every row).
+2. **Postgres Row-Level Security** — migration `0001_enable_rls.sql` defines a
+   `tenant_isolation` policy on every direct-`tenant_id` table. It is **defined but
+   not yet enforced** (the app connects as the table owner, which bypasses RLS until
+   `FORCE` or a restricted role is used). The full design, the connection-pooling
+   hazard, and the enforcement runbook are in
+   [TENANT_ISOLATION_RLS.md](./TENANT_ISOLATION_RLS.md).
+
+Rules for new routes/tables: a new tenant-scoped table must get an RLS policy in a
+new migration, and its queries should run through `withTenant`. Never set the tenant
+GUC with a session-level `SET` — only transaction-scoped `set_config(..., true)` via
+`server/utils/rlsContext.ts`, because the app runs on a connection pool.
+
 ## Change history
 
 | Date | Change | Author |
 |---|---|---|
 | 2026-07-06 | Initial version — captures decisions from the Q1 2026 route-layer security review (21 findings across five fix passes) | Route-layer security review |
+| 2026-07-11 | Added §7 Tenant Isolation — `withTenant` helper + staged Postgres RLS (SEC-051) | Proactive hardening |

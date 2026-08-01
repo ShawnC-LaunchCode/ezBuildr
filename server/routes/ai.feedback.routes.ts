@@ -83,13 +83,11 @@ export function registerAiFeedbackRoutes(app: Express): void {
           },
         });
       } catch (error: unknown) {
-        if (error instanceof Error && error.name === 'ZodError') {
+        if (error instanceof z.ZodError) {
           res.status(400).json({
             success: false,
             message: 'Invalid feedback data',
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            // @ts-ignore - TODO: fix type
-            errors: error.errors,
+            errors: error.issues,
           });
           return;
         }

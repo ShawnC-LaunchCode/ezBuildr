@@ -18,8 +18,5 @@ export { MultiFieldCardEditor } from "./MultiFieldCardEditor";
 export { ScaleCardEditor } from "./ScaleCardEditor";
 export { DisplayCardEditor } from "./DisplayCardEditor";
 
-// Output Editors (Prompt 9)
-export { FinalBlockEditor } from "./FinalBlockEditor";
-
 // Signature Editors (Prompt 11)
 export { SignatureBlockEditor } from "./SignatureBlockEditor";

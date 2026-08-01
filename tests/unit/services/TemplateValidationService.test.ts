@@ -97,6 +97,17 @@ describe('TemplateValidationService', () => {
       });
     });
 
+    it('should mark unknown helper tags before validation', async () => {
+      const file = await writeDocx('unknown-helper.docx', '{{mysteryHelper signedAt}}');
+      const placeholders = await extractPlaceholdersDetailed(file);
+      expect(placeholders).toHaveLength(1);
+      expect(placeholders[0]).toMatchObject({
+        name: 'signedAt',
+        kind: 'unknown_helper',
+        helper: 'mysteryHelper',
+      });
+    });
+
     it('should mark loop inner fields with their loop scope', async () => {
       const file = await writeDocx(
         'loop.docx',
@@ -210,6 +221,19 @@ describe('TemplateValidationService', () => {
       );
       expect(report.missing).toHaveLength(0);
       expect(report.valid).toBe(true);
+    });
+
+    it('should report unknown helpers even when their target variable exists', async () => {
+      const file = await writeDocx('unknown-helper-report.docx', '{{mysteryHelper clientName}}');
+      const placeholders = await extractPlaceholdersDetailed(file);
+      const variables = [variable({ key: 's1', alias: 'clientName', label: 'Client Name' })];
+
+      const report = service.buildReport('tpl-3', 'wf-3', placeholders, variables);
+
+      expect(report.matched).toContain('clientName');
+      expect(report.missing).toHaveLength(0);
+      expect(report.unknownHelpers).toEqual(['mysteryHelper']);
+      expect(report.valid).toBe(false);
     });
   });
 });

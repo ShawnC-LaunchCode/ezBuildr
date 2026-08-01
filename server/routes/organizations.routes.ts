@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { z } from 'zod';
 
 import { logger } from '../logger';
@@ -23,6 +22,11 @@ const createOrgSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().optional(),
   slug: z.string().optional(),
+});
+
+const addMemberSchema = z.object({
+  userId: z.string().min(1),
+  role: z.enum(['admin', 'member']).default('member'),
 });
 
 const updateOrgSchema = z.object({
@@ -301,15 +305,11 @@ export function registerOrganizationRoutes(app: Express): void {
       }
 
       const { orgId } = req.params;
-      const { userId: targetUserId, role = 'member' } = req.body;
-
-      if (!targetUserId) {
-        return res.status(400).json({ message: 'userId is required' });
+      const parsedBody = addMemberSchema.safeParse(req.body);
+      if (!parsedBody.success) {
+        return res.status(400).json({ message: 'Invalid member payload' });
       }
-
-      if (role !== 'admin' && role !== 'member') {
-        return res.status(400).json({ message: 'Invalid role' });
-      }
+      const { userId: targetUserId, role } = parsedBody.data;
 
       await organizationService.addMember(orgId, targetUserId, userId, role);
 

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Metrics Rollup Job
  *
@@ -68,24 +67,22 @@ async function rollupBucket(params: RollupParams): Promise<void> {
  * Row shape returned by the rollup aggregation query.
  * Postgres returns COUNT/PERCENTILE aggregates as strings.
  */
-/* eslint-disable @typescript-eslint/naming-convention -- raw SQL column names */
-interface RollupQueryRow {
-  tenant_id: string;
-  project_id: string;
-  workflow_id: string | null;
-  runs_count: string;
-  runs_success: string;
-  runs_error: string;
-  dur_p50: string | null;
-  dur_p95: string | null;
-  pdf_success: string;
-  pdf_error: string;
-  docx_success: string;
-  docx_error: string;
-  queue_enqueued: string;
-  queue_dequeued: string;
-}
-/* eslint-enable @typescript-eslint/naming-convention */
+type RollupRequiredColumn =
+  | "tenant_id"
+  | "project_id"
+  | "runs_count"
+  | "runs_success"
+  | "runs_error"
+  | "pdf_success"
+  | "pdf_error"
+  | "docx_success"
+  | "docx_error"
+  | "queue_enqueued"
+  | "queue_dequeued";
+type RollupNullableColumn = "workflow_id" | "dur_p50" | "dur_p95";
+type RollupQueryRow =
+  Record<RollupRequiredColumn, string>
+  & Record<RollupNullableColumn, string | null>;
 /**
  * Rollup a single time bucket
  */
@@ -284,7 +281,7 @@ export function startRollupWorker(intervalMs: number = 60000): NodeJS.Timeout {
     }
   }, intervalMs);
   // Run immediately on start
-  runRollup().catch((error) => {
+  runRollup().catch((error: unknown) => {
     logger.error({ err: error }, 'Initial rollup failed');
   });
   return interval;

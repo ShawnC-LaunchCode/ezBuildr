@@ -1,10 +1,11 @@
 
 import { useState, useRef, useEffect } from 'react';
 
+import { useProposeAiEdit, useApplyAiEdit } from "@/hooks/api/useAi";
 import { useToast } from "@/hooks/use-toast";
-import { useReviseWorkflow, useUpdateWorkflow, useWorkflowMode } from "@/lib/vault-hooks";
+import { useWorkflowMode } from "@/lib/vault-hooks";
 
-import { AIGeneratedWorkflow, AIGeneratedTransformBlock, AIWorkflowRevisionResponse } from "@shared/types/ai";
+import type { AiEditProposal } from "@shared/validation/aiWorkflowEdit.schema";
 
 import { Message, UploadedFile } from "./types";
 import { useFileUpload } from "./useFileUpload";
@@ -13,13 +14,13 @@ interface UseAiConversationReturn {
     input: string;
     setInput: (val: string) => void;
     messages: Message[];
-    proposedWorkflow: AIGeneratedWorkflow | Record<string, unknown> | null;
+    proposal: AiEditProposal | null;
     isDragging: boolean;
     uploading: boolean;
     contextFiles: UploadedFile[];
     setContextFiles: React.Dispatch<React.SetStateAction<UploadedFile[]>>;
     scrollRef: React.RefObject<HTMLDivElement>;
-    reviseMutation: ReturnType<typeof useReviseWorkflow>;
+    isBusy: boolean;
     mode: string;
     handleDragOver: (e: React.DragEvent) => void;
     handleDragLeave: (e: React.DragEvent) => void;
@@ -29,10 +30,15 @@ interface UseAiConversationReturn {
     handleDiscard: () => void;
 }
 
+/**
+ * Drives the builder AI panel against the hardened ops pipeline (ICW2-10).
+ *
+ * Advanced mode is propose-then-apply: sending only dry-runs, so the database
+ * is untouched while the user reviews and Discard is a genuine no-op. Easy mode
+ * auto-applies in a single call.
+ */
 export function useAiConversation(
     workflowId: string,
-    currentWorkflow: AIGeneratedWorkflow | Record<string, unknown>,
-    transformBlocks: AIGeneratedTransformBlock[] = [],
     initialPrompt?: string
 ): UseAiConversationReturn {
     const [input, setInput] = useState('');
@@ -43,13 +49,17 @@ export function useAiConversation(
             timestamp: Date.now()
         }
     ]);
-    const [proposedWorkflow, setProposedWorkflow] = useState<AIGeneratedWorkflow | Record<string, unknown> | null>(null);
+    const [proposal, setProposal] = useState<AiEditProposal | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
-    const reviseMutation = useReviseWorkflow();
-    const updateMutation = useUpdateWorkflow();
+    const proposeMutation = useProposeAiEdit();
+    const applyMutation = useApplyAiEdit();
     const { data: workflowMode } = useWorkflowMode(workflowId);
     const mode = workflowMode?.mode ?? 'easy';
+
+    // The instruction that produced the pending proposal, replayed on Apply so
+    // the resulting draft version keeps a meaningful changelog entry.
+    const proposalMessageRef = useRef<string>('');
 
     const {
         isDragging,
@@ -70,7 +80,10 @@ export function useAiConversation(
     // Handle initial prompt from "Create with AI" flow
     const hasSentInitialPrompt = useRef(false);
     useEffect(() => {
-        if (initialPrompt && !hasSentInitialPrompt.current && messages.length === 1) { // 1 because of greeting
+        // Fire once the greeting (or any message) exists — the ref guarantees
+        // this only ever sends once, so `>= 1` avoids silently dropping the
+        // prompt if the message array isn't exactly length 1 at this moment.
+        if (initialPrompt && !hasSentInitialPrompt.current && messages.length >= 1) {
             hasSentInitialPrompt.current = true;
             setInput(initialPrompt);
             // We need to wait a tick for the state to update, then send
@@ -78,11 +91,10 @@ export function useAiConversation(
                 void handleSend(initialPrompt);
             }, 100);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+
     }, [initialPrompt, messages.length]);
 
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-    const buildFullMessage = (text: string, files: UploadedFile[]) => {
+    const buildFullMessage = (text: string, files: UploadedFile[]): string => {
         let fullMessage = text;
         if (files.length > 0) {
             fullMessage += `\n\n--- CONTEXT FROM UPLOADED FILES ---\n`;
@@ -94,32 +106,60 @@ export function useAiConversation(
         return fullMessage;
     };
 
-    const processAutoApply = async (result: AIWorkflowRevisionResponse): Promise<void> => {
-        try {
-            await updateMutation.mutateAsync({
-                id: workflowId,
-                ...result.updatedWorkflow
-            });
+    const appendAssistant = (message: Omit<Message, 'role' | 'timestamp'>): void => {
+        setMessages(prev => [...prev, { role: 'assistant', timestamp: Date.now(), ...message }]);
+    };
 
-            const assistantMsg: Message = {
-                role: 'assistant',
-                content: result.explanation ? result.explanation.join(' ') : 'I have updated the workflow.',
-                diff: result.diff,
-                timestamp: Date.now(),
-                status: 'applied'
-            };
+    /** Mark the trailing pending-proposal message as resolved. */
+    const settleLastPending = (status: 'applied' | 'discarded', fallbackContent: string): void => {
+        setMessages(prev => {
+            const newMessages = [...prev];
+            const lastMsg = newMessages[newMessages.length - 1];
+            if (lastMsg.role === 'assistant' && lastMsg.status === 'pending') {
+                newMessages[newMessages.length - 1] = { ...lastMsg, status };
+            } else {
+                newMessages.push({ role: 'assistant', content: fallbackContent, timestamp: Date.now(), status });
+            }
+            return newMessages;
+        });
+    };
 
-            setMessages(prev => [...prev, assistantMsg]);
+    const summaryText = (summary: string[], fallback: string): string =>
+        summary.length > 0 ? summary.join(' ') : fallback;
+
+    const sendEasyMode = async (fullMessage: string): Promise<void> => {
+        const result = await applyMutation.mutateAsync({ workflowId, userMessage: fullMessage });
+        appendAssistant({
+            content: result.noChanges
+                ? 'I did not find anything to change.'
+                : summaryText(result.summary, 'I have updated the workflow.'),
+            status: result.noChanges ? undefined : 'applied',
+        });
+        if (!result.noChanges) {
             toast({ title: "Changes Applied", description: "Workflow updated successfully." });
-        } catch (error) {
-            console.error("Auto-apply failed", error);
         }
+    };
+
+    const sendReviewMode = async (fullMessage: string): Promise<void> => {
+        const result = await proposeMutation.mutateAsync({ workflowId, userMessage: fullMessage });
+
+        if (result.ops.length === 0) {
+            appendAssistant({ content: summaryText(result.summary, 'I did not find anything to change.') });
+            return;
+        }
+
+        proposalMessageRef.current = fullMessage;
+        appendAssistant({
+            content: summaryText(result.summary, 'Here are the suggested changes.'),
+            changes: result.changes,
+            status: 'pending',
+        });
+        setProposal(result);
     };
 
     const handleSend = async (textOverride?: string): Promise<void> => {
         const textToSend = textOverride ?? input;
 
-        // Explicit boolean check for empty input and context files
         const isInputEmpty = textToSend.trim() === '';
         const hasNoFiles = contextFiles.length === 0;
 
@@ -144,118 +184,54 @@ export function useAiConversation(
         setMessages(prev => [...prev, userMsg]);
         setInput('');
         setContextFiles([]); // Clear context after sending
-        setProposedWorkflow(null);
+        setProposal(null);
 
         try {
-            const history = messages
-                .filter(m => !m.diff)
-                .map(m => ({ role: m.role, content: m.content }));
-
-            const fullWorkflow = {
-                title: (currentWorkflow as AIGeneratedWorkflow).title ?? 'Untitled Workflow',
-                description: (currentWorkflow as AIGeneratedWorkflow).description ?? '',
-                sections: (currentWorkflow as AIGeneratedWorkflow).sections ?? [],
-                logicRules: (currentWorkflow as AIGeneratedWorkflow).logicRules ?? [],
-                transformBlocks: transformBlocks,
-                notes: ''
-            };
-
-            const result = await reviseMutation.mutateAsync({
-                workflowId,
-                currentWorkflow: fullWorkflow,
-                userInstruction: fullMessage, // Send the full context to AI
-                conversationHistory: history,
-                mode: mode
-            });
-
-            // Auto-apply if in easy mode
             if (mode === 'easy') {
-                await processAutoApply(result);
-                return;
+                await sendEasyMode(fullMessage);
+            } else {
+                await sendReviewMode(fullMessage);
             }
-
-            // Normal Flow (Manual Review)
-            const assistantMsg: Message = {
-                role: 'assistant',
-                content: result.explanation ? result.explanation.join(' ') : 'Here are the suggested changes.',
-                diff: result.diff,
-                timestamp: Date.now(),
-                status: 'pending'
-            };
-
-            setMessages(prev => [...prev, assistantMsg]);
-            setProposedWorkflow(result.updatedWorkflow);
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            setMessages(prev => [...prev, {
-                role: 'assistant',
-                content: `Sorry, I encountered an error: ${errorMessage}`,
-                timestamp: Date.now()
-            }]);
+            appendAssistant({ content: `Sorry, I encountered an error: ${errorMessage}` });
         }
     };
 
     const handleApply = async (): Promise<void> => {
-        if (proposedWorkflow === null) { return; }
+        if (proposal === null) { return; }
         try {
-            await updateMutation.mutateAsync({
-                id: workflowId,
-                ...proposedWorkflow
+            await applyMutation.mutateAsync({
+                workflowId,
+                userMessage: proposalMessageRef.current,
+                ops: proposal.ops,
             });
+            setProposal(null);
+            settleLastPending('applied', "Changes applied!");
             toast({ title: "Changes Applied", description: "Workflow updated successfully." });
-            setProposedWorkflow(null);
-
-            // Update the last message status to applied
-            setMessages(prev => {
-                const newMessages = [...prev];
-                const lastMsg = newMessages[newMessages.length - 1];
-                if (lastMsg.role === 'assistant' && lastMsg.status === 'pending') {
-                    lastMsg.status = 'applied';
-                } else {
-                    // fallback if message structure changed, though unlikely in this flow
-                    newMessages.push({
-                        role: 'assistant',
-                        content: "Changes applied!",
-                        timestamp: Date.now(),
-                        status: 'applied'
-                    });
-                }
-                return newMessages;
-            });
         } catch (error) {
-            toast({ title: "Update Failed", variant: "destructive", description: "Could not apply changes." });
+            const description = error instanceof Error ? error.message : "Could not apply changes.";
+            toast({ title: "Update Failed", variant: "destructive", description });
         }
     };
 
+    /** Nothing was written on propose, so discarding is purely local state. */
     const handleDiscard = (): void => {
-        setProposedWorkflow(null);
-        setMessages(prev => {
-            const newMessages = [...prev];
-            const lastMsg = newMessages[newMessages.length - 1];
-            if (lastMsg.role === 'assistant' && lastMsg.status === 'pending') {
-                lastMsg.status = 'discarded';
-            } else {
-                newMessages.push({
-                    role: 'assistant',
-                    content: "Changes discarded.",
-                    timestamp: Date.now()
-                });
-            }
-            return newMessages;
-        });
+        setProposal(null);
+        settleLastPending('discarded', "Changes discarded.");
     };
 
     return {
         input,
         setInput,
         messages,
-        proposedWorkflow,
+        proposal,
         isDragging,
         uploading,
         contextFiles,
         setContextFiles,
         scrollRef,
-        reviseMutation,
+        isBusy: proposeMutation.isPending || applyMutation.isPending,
         mode,
         handleDragOver,
         handleDragLeave,

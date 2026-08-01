@@ -11,6 +11,7 @@ import { MoveWorkflowDialog } from "@/components/dashboard/dialogs/MoveWorkflowD
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { WorkflowCard } from "@/components/dashboard/WorkflowCard";
 import { CopyAssetDialog } from "@/components/dialogs/CopyAssetDialog";
+import { TransferOwnershipDialog } from "@/components/dialogs/TransferOwnershipDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +26,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useOrganizations } from "@/hooks/useOrganizations";
+import { getOrgRoleForAsset } from "@/lib/ownership";
 import type { ApiAssetCopyOptions, ApiProject, ApiWorkflow } from "@/lib/vault-api";
 import {
   useProjects,
@@ -34,11 +38,13 @@ import {
   useDeleteProject,
   useArchiveProject,
   useCopyProject,
+  useTransferProject,
   useCreateWorkflow,
   useUpdateWorkflow,
   useDeleteWorkflow,
   useMoveWorkflow,
   useCopyWorkflow,
+  useTransferWorkflow,
 } from "@/lib/vault-hooks";
 // eslint-disable-next-line max-lines-per-function, complexity
 export default function WorkflowDashboard() {
@@ -50,12 +56,16 @@ export default function WorkflowDashboard() {
   const [movingWorkflow, setMovingWorkflow] = useState<ApiWorkflow | null>(null);
   const [copyingProject, setCopyingProject] = useState<ApiProject | null>(null);
   const [copyingWorkflow, setCopyingWorkflow] = useState<ApiWorkflow | null>(null);
+  const [transferringProject, setTransferringProject] = useState<ApiProject | null>(null);
+  const [transferringWorkflow, setTransferringWorkflow] = useState<ApiWorkflow | null>(null);
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const [deleteWorkflowId, setDeleteWorkflowId] = useState<string | null>(null);
 
   // Data queries
+  const { user } = useAuth();
   const { data: projects, isLoading: projectsLoading } = useProjects(true); // active only
   const { data: unfiledWorkflows, isLoading: workflowsLoading } = useUnfiledWorkflows();
+  const { data: organizations, isLoading: organizationsLoading } = useOrganizations();
 
   // Mutations
   const createProjectMutation = useCreateProject();
@@ -63,11 +73,13 @@ export default function WorkflowDashboard() {
   const deleteProjectMutation = useDeleteProject();
   const archiveProjectMutation = useArchiveProject();
   const copyProjectMutation = useCopyProject();
+  const transferProjectMutation = useTransferProject();
   const createWorkflowMutation = useCreateWorkflow();
   const updateWorkflowMutation = useUpdateWorkflow();
   const deleteWorkflowMutation = useDeleteWorkflow();
   const moveWorkflowMutation = useMoveWorkflow();
   const copyWorkflowMutation = useCopyWorkflow();
+  const transferWorkflowMutation = useTransferWorkflow();
   const { toast } = useToast();
 
   // Project handlers
@@ -134,6 +146,22 @@ export default function WorkflowDashboard() {
       setCopyingProject(null);
     } catch (error) {
       toast({ title: "Error", description: "Failed to copy project", variant: "destructive" });
+      throw error;
+    }
+  };
+
+  const handleTransferProject = async (targetOwnerType: "user" | "org", targetOwnerUuid: string) => {
+    if (!transferringProject) { return; }
+    try {
+      await transferProjectMutation.mutateAsync({
+        id: transferringProject.id,
+        targetOwnerType,
+        targetOwnerUuid,
+      });
+      toast({ title: "Project transferred", description: "Ownership is updated" });
+      setTransferringProject(null);
+    } catch (error) {
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to transfer project", variant: "destructive" });
       throw error;
     }
   };
@@ -208,6 +236,22 @@ export default function WorkflowDashboard() {
       setCopyingWorkflow(null);
     } catch (error) {
       toast({ title: "Error", description: "Failed to copy workflow", variant: "destructive" });
+      throw error;
+    }
+  };
+
+  const handleTransferWorkflow = async (targetOwnerType: "user" | "org", targetOwnerUuid: string) => {
+    if (!transferringWorkflow) { return; }
+    try {
+      await transferWorkflowMutation.mutateAsync({
+        id: transferringWorkflow.id,
+        targetOwnerType,
+        targetOwnerUuid,
+      });
+      toast({ title: "Workflow transferred", description: "Ownership is updated" });
+      setTransferringWorkflow(null);
+    } catch (error) {
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to transfer workflow", variant: "destructive" });
       throw error;
     }
   };
@@ -297,12 +341,19 @@ export default function WorkflowDashboard() {
                     <ProjectCard
                       key={project.id}
                       project={project}
+                      currentUserId={user?.id}
+                      currentUserOrgRole={getOrgRoleForAsset(project, organizations)}
+                      orgRoleLoading={organizationsLoading}
                       onEdit={openEditProjectDialog}
                       // eslint-disable-next-line @typescript-eslint/no-misused-promises
                       onArchive={handleArchiveProject}
                       onCopy={(id) => {
                         const found = projects.find((candidate) => candidate.id === id);
                         setCopyingProject(found ?? project);
+                      }}
+                      onTransfer={(id) => {
+                        const found = projects.find((candidate) => candidate.id === id);
+                        setTransferringProject(found ?? project);
                       }}
                       onDelete={(id) => setDeleteProjectId(id)}
                     />
@@ -320,8 +371,12 @@ export default function WorkflowDashboard() {
                     <WorkflowCard
                       key={workflow.id}
                       workflow={workflow}
+                      currentUserId={user?.id}
+                      currentUserOrgRole={getOrgRoleForAsset(workflow, organizations)}
+                      orgRoleLoading={organizationsLoading}
                       onMove={openMoveDialog}
                       onCopy={setCopyingWorkflow}
+                      onTransfer={setTransferringWorkflow}
                       // eslint-disable-next-line @typescript-eslint/no-misused-promises
                       onArchive={handleArchiveWorkflow}
                       // eslint-disable-next-line @typescript-eslint/no-misused-promises
@@ -384,6 +439,32 @@ export default function WorkflowDashboard() {
           assetName={copyingWorkflow.title}
           onCopy={handleCopyWorkflow}
           isPending={copyWorkflowMutation.isPending}
+        />
+      )}
+
+      {transferringProject && (
+        <TransferOwnershipDialog
+          open={transferringProject !== null}
+          onOpenChange={(open) => !open && setTransferringProject(null)}
+          assetType="project"
+          assetName={transferringProject.title}
+          sourceOwnerType={transferringProject.ownerType}
+          sourceOwnerUuid={transferringProject.ownerUuid}
+          onTransfer={handleTransferProject}
+          isPending={transferProjectMutation.isPending}
+        />
+      )}
+
+      {transferringWorkflow && (
+        <TransferOwnershipDialog
+          open={transferringWorkflow !== null}
+          onOpenChange={(open) => !open && setTransferringWorkflow(null)}
+          assetType="workflow"
+          assetName={transferringWorkflow.title}
+          sourceOwnerType={transferringWorkflow.ownerType}
+          sourceOwnerUuid={transferringWorkflow.ownerUuid}
+          onTransfer={handleTransferWorkflow}
+          isPending={transferWorkflowMutation.isPending}
         />
       )}
 

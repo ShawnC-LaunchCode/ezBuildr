@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { fetchAPI } from "@/lib/vault-api";
 import { cn } from "@/lib/utils";
 
 type WorkflowStatus = "draft" | "active" | "archived";
@@ -39,18 +40,13 @@ export function ActivateToggle({
     setIsUpdating(true);
 
     try {
-      // API call to update workflow status
-      const response = await fetch(`/api/workflows/${workflowId}/status`, {
+      // Route through fetchAPI so an expired access token is transparently
+      // refreshed and the request retried (a raw fetch here surfaced a
+      // confusing generic 401 error after the token aged out mid-session).
+      await fetchAPI(`/api/workflows/${workflowId}/status`, {
         method: "PUT",
-        // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
-        credentials: "include",
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to update workflow status");
-      }
 
       onStatusChange?.(newStatus);
 
@@ -62,9 +58,15 @@ export function ActivateToggle({
       });
     } catch (error) {
       console.error("Error updating workflow status:", error);
+      // Surface the server's actual reason (e.g. "Cannot activate workflow:
+      // <validation errors>") instead of a generic message.
+      const description =
+        error instanceof Error && error.message
+          ? error.message
+          : "Failed to update workflow status. Please try again.";
       toast({
         title: "Error",
-        description: "Failed to update workflow status. Please try again.",
+        description,
         variant: "destructive",
       });
     } finally {

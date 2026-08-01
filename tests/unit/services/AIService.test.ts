@@ -55,22 +55,6 @@ vi.mock('../../../server/services/ai/WorkflowSuggestionService', () => {
     };
 });
 
-vi.mock('../../../server/services/ai/WorkflowRevisionService', () => {
-    return {
-        // MUST use regular function for constructor mocks
-        // eslint-disable-next-line prefer-arrow-callback
-        WorkflowRevisionService: vi.fn(function () {
-            return {
-                reviseWorkflow: vi.fn().mockResolvedValue({
-                    updatedWorkflow: { title: 'Revised Flow' },
-                    diff: { changes: [{ type: 'add', target: 'sections', explanation: 'Added new section' }] },
-                    explanation: ['I did good.']
-                })
-            };
-        })
-    };
-});
-
 vi.mock('../../../server/services/ai/WorkflowLogicService', () => {
     return {
         // MUST use regular function for constructor mocks
@@ -129,20 +113,6 @@ describe('AIService Unit Tests', () => {
             console.error('Test Setup Failed:', error);
             throw error;
         }
-    });
-
-    it('reviseWorkflow should delegate to revision service', async () => {
-        const request = {
-            workflowId: '123e4567-e89b-12d3-a456-426614174000',
-            currentWorkflow: { title: 'Original', sections: [], logicRules: [], transformBlocks: [] },
-            userInstruction: 'Do something',
-            mode: 'easy' as const
-        };
-
-        const result = await aiService.reviseWorkflow(request);
-        expect(result.updatedWorkflow.title).toBe('Revised Flow');
-        expect(result.diff.changes).toHaveLength(1);
-        expect(result.explanation?.[0]).toBe('I did good.');
     });
 
     describe('Workflow Generation', () => {

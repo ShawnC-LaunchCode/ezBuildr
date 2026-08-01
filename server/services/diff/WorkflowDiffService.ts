@@ -20,6 +20,11 @@ export interface WorkflowDiff {
     severity: Severity;
 }
 
+type WorkflowData = {
+    pages?: { blocks?: WorkflowBlock[] }[];
+    sections?: { steps?: WorkflowBlock[] }[];
+};
+
 export class WorkflowDiffService {
 
     public diff(oldVersion: WorkflowJSON, newVersion: WorkflowJSON): WorkflowDiff {
@@ -78,20 +83,29 @@ export class WorkflowDiffService {
         return diff;
     }
 
-    private flattenBlocks(workflow: WorkflowJSON): Map<string, WorkflowBlock> {
+    private flattenBlocks(workflow: WorkflowData): Map<string, WorkflowBlock> {
         const map = new Map<string, WorkflowBlock>();
-        workflow.pages.forEach(p => {
-            p.blocks.forEach(b => {
-                map.set(b.id, b);
+        if (workflow.pages) {
+            workflow.pages.forEach((p) => {
+                p.blocks?.forEach((b) => {
+                    map.set(b.id, b);
+                });
             });
-        });
+        }
+        if (workflow.sections) {
+            workflow.sections.forEach((s) => {
+                s.steps?.forEach((b) => {
+                    map.set(b.id, b);
+                });
+            });
+        }
         return map;
     }
 
     private getDiffItemType(block: WorkflowBlock): DiffItemType {
         // Heuristic: If it has an alias, it's likely a variable.
         // Logic blocks: branch, validate.
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/prefer-nullish-coalescing
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         if (block.variableName || block.alias || ['short_text', 'long_text', 'number', 'email'].includes(block.type as string)) {return 'variable';}
         if (['branch', 'validate', 'jump'].includes(block.type as string)) {return 'logic';}
         return 'block';
@@ -101,7 +115,7 @@ export class WorkflowDiffService {
         return block.title ? `'${block.title}'` : `${block.type} block`;
     }
 
-    // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
+
     private calculateSeverity(diff: WorkflowDiff, oldBlocks: Map<string, WorkflowBlock>, newBlocks: Map<string, WorkflowBlock>): Severity {
         // Reuse logic from ChangeAnalyzer essentially.
         let severity: Severity = "safe";

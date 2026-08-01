@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-/* eslint-disable max-lines */
 import * as crypto from "crypto";
 
 import { serialize } from "cookie";
@@ -168,9 +166,9 @@ async function issueTokens(user: User, req: Request, res: Response): Promise<{ m
 // SECURITY FIX: Rate limiting for password-based authentication
 // Disable rate limiting in test environment to prevent flaky tests
 const isTest = process.env.NODE_ENV === 'test';
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express next function
+
 const authRateLimit = isTest ?
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return -- The test-only rate-limit bypass must match Express's untyped handler signature.
   (_req: Request, _res: Response, next: any) => next() :
   rateLimit({
     windowMs: RATE_LIMIT_CONFIG.LOGIN.WINDOW_MS,
@@ -184,7 +182,7 @@ const authRateLimit = isTest ?
  */
 // eslint-disable-next-line max-lines-per-function
 export function registerAuthRoutes(app: Express): void {
-  /* eslint-disable max-lines-per-function */
+
   /**
    * POST /api/auth/register
    */
@@ -207,11 +205,11 @@ export function registerAuthRoutes(app: Express): void {
       const pwdValidation = authService.validatePasswordStrength(password, userInputs);
       if (!pwdValidation.valid) { return res.status(400).json({ message: pwdValidation.message, error: 'weak_password' }); }
       const existingUser = await userRepository.findByEmail(email);
-      if (existingUser) { 
+      if (existingUser) {
         // Generic messaging for account enumeration prevention
-        return res.status(201).json({ 
-          message: 'Registration successful. Please verify your email.' 
-        }); 
+        return res.status(201).json({
+          message: 'Registration successful. Please verify your email.'
+        });
       }
       const userId = crypto.randomUUID();
       const user = await userRepository.create({
@@ -280,6 +278,7 @@ export function registerAuthRoutes(app: Express): void {
       // CAPTCHA check for credential stuffing protection (SEC-048)
       const failedAttempts = await accountLockoutService.getGlobalFailedAttempts(email);
       if (failedAttempts >= 3) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
         if (!req.body.captcha) {
           metricsService.recordAuthLatency(startTime, 'login', 401);
           return res.status(401).json({
@@ -288,14 +287,15 @@ export function registerAuthRoutes(app: Express): void {
             challenge: CaptchaService.generateSimpleChallenge()
           });
         }
-        
+
         // Use type assertion since Express req.body is any
-        const captchaResult = await CaptchaService.validateCaptcha(req.body.captcha as any, '');
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
+        const captchaResult = await CaptchaService.validateCaptcha(req.body.captcha, '');
         if (!captchaResult.valid) {
           await accountLockoutService.recordAttempt(email, req.ip, false);
           metricsService.recordAuthLatency(startTime, 'login', 401);
           return res.status(401).json({
-            message: captchaResult.error || 'Invalid CAPTCHA',
+            message: captchaResult.error ?? 'Invalid CAPTCHA',
             requiresCaptcha: true,
             challenge: CaptchaService.generateSimpleChallenge()
           });
@@ -310,9 +310,9 @@ export function registerAuthRoutes(app: Express): void {
         const mfaError = new MfaRequiredError(undefined, 'MFA required');
         metricsService.recordLoginAttempt('mfa_required', 'local');
         metricsService.recordAuthLatency(startTime, 'login', 200);
-        
+
         const mfaPendingToken = authService.createToken(user, true);
-        
+
         return res.status(200).json({
           message: mfaError.message,
           requiresMfa: true,
@@ -425,10 +425,11 @@ export function registerAuthRoutes(app: Express): void {
   app.post('/api/auth/forgot-password', authRateLimit, asyncHandler(async (req: Request, res: Response) => {
     const { email } = req.body as { email: string };
     if (!email) { return res.status(400).json({ message: "Email required" }); }
-    
+
     // CAPTCHA check for credential stuffing protection (SEC-048)
     const failedAttempts = await accountLockoutService.getGlobalFailedAttempts(email);
     if (failedAttempts >= 3) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
       if (!req.body.captcha) {
         return res.status(401).json({
           message: 'Suspicious activity detected. Please complete the CAPTCHA to continue.',
@@ -436,11 +437,12 @@ export function registerAuthRoutes(app: Express): void {
           challenge: CaptchaService.generateSimpleChallenge()
         });
       }
-      
-      const captchaResult = await CaptchaService.validateCaptcha(req.body.captcha as any, '');
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
+      const captchaResult = await CaptchaService.validateCaptcha(req.body.captcha, '');
       if (!captchaResult.valid) {
         return res.status(401).json({
-          message: captchaResult.error || 'Invalid CAPTCHA',
+          message: captchaResult.error ?? 'Invalid CAPTCHA',
           requiresCaptcha: true,
           challenge: CaptchaService.generateSimpleChallenge()
         });
@@ -475,7 +477,7 @@ export function registerAuthRoutes(app: Express): void {
       await userCredentialsRepository.updatePassword(userId, passwordHash);
       await authService.revokeAllUserTokens(userId);
       await authService.consumePasswordResetToken(token);
-      
+
       if (user?.isPlaceholder) {
         await userRepository.updateUser(userId, { isPlaceholder: false, emailVerified: true });
       }
@@ -667,7 +669,7 @@ export function registerAuthRoutes(app: Express): void {
         metricsService.recordAuthLatency(startTime, 'mfa_verify', 400);
         return res.status(400).json({ message: "MFA pending token required" });
       }
-      
+
       let payload;
       try {
           payload = authService.verifyToken(mfaPendingToken, true);
@@ -685,7 +687,7 @@ export function registerAuthRoutes(app: Express): void {
         metricsService.recordAuthLatency(startTime, 'mfa_verify', 404);
         return res.status(404).json({ message: "User not found" });
       }
-      
+
       // CHECK ACCOUNT LOCK (Totp failures)
       const lockStatus = await accountLockoutService.isAccountLocked(user.id, user.email, req.ip);
       if (lockStatus.locked) {
@@ -713,7 +715,7 @@ export function registerAuthRoutes(app: Express): void {
           error: "invalid_mfa_code"
         });
       }
-      
+
       await accountLockoutService.recordAttempt(user.email, req.ip, true); // Reset failure count on success
       // Generate tokens
       const accessToken = authService.createToken(user);
@@ -863,11 +865,14 @@ export function registerAuthRoutes(app: Express): void {
       });
       const enrichedSessions = sessions.map((session) => ({
         id: session.id,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access -- Session metadata is legacy untyped JSON.
         deviceName: session.deviceName ?? parseDeviceName((session.metadata as any)?.userAgent),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access -- Session metadata is legacy untyped JSON.
         location: session.location ?? getLocationFromIP(session.ipAddress ?? (session.metadata as any)?.ip),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Session metadata is legacy untyped JSON.
         ipAddress: session.ipAddress ?? (session.metadata as any)?.ip ?? 'Unknown',
         lastUsedAt: session.lastUsedAt ?? session.createdAt,
         createdAt: session.createdAt,
@@ -911,7 +916,8 @@ export function registerAuthRoutes(app: Express): void {
       // Audit log: All sessions revoked
       await auditLogService.logSessionEvent(
         userId,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- Legacy audit event names predate the narrowed event union.
         'all_sessions_revoked' as any,
         null,
         req.ip,

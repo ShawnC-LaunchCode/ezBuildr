@@ -23,7 +23,7 @@ export function createTestApp(): Express {
   registerAuthRoutes(app);
 
   // Error handler
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   app.use((err: any, req: any, res: any, _next: any) => {
     logger.error({ error: err }, 'Test app error');
     res.status(500).json({ message: 'Internal server error', error: err.message });

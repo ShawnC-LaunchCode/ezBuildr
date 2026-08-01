@@ -3,6 +3,7 @@ import crypto from "crypto";
 
 import { eq, and } from "drizzle-orm";
 import { Router } from "express";
+import { z } from "zod";
 
 import { webhookSubscriptions } from "@shared/schema";
 
@@ -33,6 +34,25 @@ const router = Router();
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
 router.use(requireExternalAuth);
 
+type WebhookSubscription = typeof webhookSubscriptions.$inferSelect;
+type WebhookSubscriptionUpdate = Partial<Pick<typeof webhookSubscriptions.$inferInsert, "targetUrl" | "events" | "enabled">>;
+
+const webhookCreateSchema = z.object({
+    url: z.string().url(),
+    events: z.array(z.string()).min(1),
+    secret: z.string().min(1).optional(),
+});
+
+const webhookUpdateSchema = z.object({
+    url: z.string().url().optional(),
+    events: z.array(z.string()).min(1).optional(),
+    enabled: z.boolean().optional(),
+});
+
+function firstSubscription(rows: WebhookSubscription[]): WebhookSubscription | undefined {
+    return rows.length > 0 ? rows[0] : undefined;
+}
+
 // GET /api/webhooks
 router.get("/", asyncHandler(async (req: ExternalAuthRequest, res) => {
     try {
@@ -54,26 +74,18 @@ router.get("/", asyncHandler(async (req: ExternalAuthRequest, res) => {
 router.post("/", asyncHandler(async (req: ExternalAuthRequest, res) => {
     try {
         const workspaceId = req.externalAuth!.workspaceId;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        const { url, events, secret } = req.body;
+        const { url, events, secret } = webhookCreateSchema.parse(req.body);
 
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        if (!url || !events) {
-            return res.status(400).json({ error: "Missing url or events" });
-        }
-
-        const isSafe = await validateSafeUrl(url as string);
+        const isSafe = await validateSafeUrl(url);
         if (!isSafe) {
             return res.status(400).json({ error: "Invalid or unsafe webhook URL" });
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const [sub] = await db.insert(webhookSubscriptions).values({
             workspaceId,
-            targetUrl: url, // eslint-disable-line @typescript-eslint/no-unsafe-assignment
-            events: events, // array // eslint-disable-line @typescript-eslint/no-unsafe-assignment
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/strict-boolean-expressions
-            secret: encrypt(secret || generateWebhookSecret()),
+            targetUrl: url,
+            events,
+            secret: encrypt(secret ?? generateWebhookSecret()),
             enabled: true
         }).returning();
 
@@ -108,29 +120,30 @@ router.patch("/:id", asyncHandler(async (req: ExternalAuthRequest, res) => {
     try {
         const workspaceId = req.externalAuth!.workspaceId;
         const { id } = req.params;
-        const { url, events, enabled } = req.body;
+        const { url, events, enabled } = webhookUpdateSchema.parse(req.body);
 
-        if (url) {
-            const isSafe = await validateSafeUrl(url as string);
+        if (url !== undefined) {
+            const isSafe = await validateSafeUrl(url);
             if (!isSafe) {
                 return res.status(400).json({ error: "Invalid or unsafe webhook URL" });
             }
         }
 
-        const updateData: any = {};
-        if (url !== undefined) updateData.targetUrl = url;
-        if (events !== undefined) updateData.events = events;
-        if (enabled !== undefined) updateData.enabled = enabled;
+        const updateData: WebhookSubscriptionUpdate = {};
+        if (url !== undefined) {updateData.targetUrl = url;}
+        if (events !== undefined) {updateData.events = events;}
+        if (enabled !== undefined) {updateData.enabled = enabled;}
 
-        const [sub] = await db.update(webhookSubscriptions)
+        const updatedRows = await db.update(webhookSubscriptions)
             .set(updateData)
             .where(and(
                 eq(webhookSubscriptions.id, id),
                 eq(webhookSubscriptions.workspaceId, workspaceId)
             ))
             .returning();
+        const sub = firstSubscription(updatedRows);
 
-        if (!sub) {
+        if (sub === undefined) {
             return res.status(404).json({ error: "Webhook not found" });
         }
 
