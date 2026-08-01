@@ -1,4 +1,4 @@
-# List Question Type — New Feature Tickets (LIST-1..14 + backlog B1..B9)
+# List Question Type — New Feature Tickets (LIST-1..14 + backlog B1..B10)
 
 Source: feature design session + codebase investigation, 2026-07-31.
 Scope: a new nestable, repeating question type ("List") under **Add Question**,
@@ -1329,7 +1329,7 @@ so a deep list can't produce an unreadable wall.
 Makes collected list data useful. Scope is deliberately narrow: template loop
 tags and the top-level dropdown binding. No script helpers (Decision 7).
 
-## LIST-11 — Project list values into document templates as nested loops 🔲
+## LIST-11 — Project list values into document templates as nested loops ✅ Done (2026-08-01)
 
 **Priority: ENH** · Size: M · File: `server/services/document/VariableNormalizer.ts`
 
@@ -1433,6 +1433,39 @@ LIST-7 must display to authors:
 8. New test file covers 2–5 against a real DOCX fixture.
 9. Gates: type-check 0 errors, lint clean, `npm run test:fast` green,
    document-related integration tests green.
+
+### Verification (2026-08-01) — committed `004a7055`
+
+All nine criteria checked against the tree by the reviewer.
+
+- **The Finding held up.** The loop machinery genuinely needed no changes:
+  `RenderCore.ts` and `templatePlaceholders.ts` are byte-identical (AC6
+  verified via `git status`), and the only work was projecting the right shape
+  into machinery that already worked.
+- **Wired at all three surfaces, not left as an unreachable helper** — the real
+  run path (`RunLifecycleService`), the preview path (`finalBlock.routes`), and
+  the threading between them (`FinalBlockRenderer`). This is the trap LIST-3
+  fell into (its validator sat uncalled until LIST-14); LIST-11 avoided it.
+- **AC7 is satisfied structurally, not just by test.** `listConfigs` defaults to
+  `{}`, and a key with no config passes `value` through unchanged — so every
+  existing caller and every non-list value takes exactly the old path. The
+  array passthrough that made loops work in the first place is untouched.
+- **AC8's tests are a real round-trip**, not mocks: they build a DOCX with
+  PizZip, render through docxtemplater, and extract the resulting text. The four
+  cases map one-to-one onto AC2–AC5, including the two empty-list edge cases.
+- Reviewer-run gates: `tsc --noEmit` 0 errors repo-wide, `eslint` 0 problems on
+  all 5 files, the new file 4/4, document suites 116 tests across 7 files,
+  `test:fast` 163 files / 2112 tests green, pre-commit 4/4.
+- **On the test count:** the dev's report of 2112 looked like it should have
+  been 2116 after adding 4 tests. It reconciles — the reviewer's own
+  post-LIST-13 "baseline" of 2112 was measured while this ticket's test file
+  was *already* present in the shared tree, so it had counted these 4 tests
+  before they were turned in. The dev's explanation of the shift (LIST-13
+  deleting two files) was accurate.
+- Committed staging only this ticket's 5 paths; the tree concurrently held
+  in-flight auth/marketing/signup work, untouched.
+
+**Filed from this review: LIST-B10.**
 
 ---
 
@@ -1754,6 +1787,16 @@ structural and always active regardless of mode. The open question is only
 whether a 50,000-item submission should be *stored*. Reviewer's view: these two
 caps should be unconditional, unlike ordinary field rules. Shawn to decide;
 this is a ticket-design question, not a defect in LIST-14.
+
+**LIST-B10 — `MappingValidator` does not project list values.** Noted
+reviewing LIST-11 (2026-08-01). `MappingValidator.ts:150` and `:332` call
+`normalizeVariables(testStepValues)` with no options, so list steps are not
+projected there. Template mapping *validation* therefore sees the raw storage
+envelope while actual *rendering* sees the projected array — a mapping onto a
+list variable could report a false warning even though the document renders
+correctly. Output is unaffected; this is a validation-surface inconsistency
+only. Fix by threading `getListConfigsByAlias` into both call sites, the same
+way LIST-11 did for the render paths.
 
 **LIST-B9 — the `db-schema-change` skill is stale and gave wrong guidance twice.**
 It documents the migration chain as `0000`–`0002` and states "The next new
