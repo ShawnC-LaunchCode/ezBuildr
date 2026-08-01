@@ -6,11 +6,11 @@
 **Status Summary:**
 | Ticket | Title | Severity | Status |
 |--------|-------|----------|--------|
-| ORG-001 | Admin pending invites shows all statuses, not just pending | Medium | 🔴 Not started |
+| ORG-001 | Admin pending invites shows all statuses, not just pending | Medium | ✅ Done (2026-08-01) |
 
 ---
 
-## ORG-001 — Admin pending invites shows all statuses, not just pending
+## ORG-001 — Admin pending invites shows all statuses, not just pending ✅ Done (2026-08-01)
 
 **Severity:** Medium  
 **Type:** Bug / State Management  
@@ -127,3 +127,37 @@ After implementation:
 - [ ] Verify expired invite doesn't appear in pending list
 - [ ] Type-check passes: `npm run type-check`
 - [ ] Lint passes: `npm run lint`
+
+---
+
+### Verification (2026-08-01) — committed `ce33986e`
+
+Worked by a Gemini session in the isolated `org-001` worktree; reviewed
+independently rather than on the dev's report.
+
+- **Fix uses `and()`, not a second chained `.where()`.** That matters more than
+  it looks: Drizzle treats a second `.where()` as a *replacement*, not a
+  conjunction, so the chained form would have silently dropped the `orgId`
+  filter and returned every pending invite across all organizations — a
+  cross-tenant leak dressed as a bug fix. `and` was already imported.
+- **The new tests were proven load-bearing.** Three of the four assert absence
+  (`toHaveLength(0)`), which passes trivially when the fixture never creates
+  the row — the exact trap recorded in the mutation-testing notes. Verified by
+  reverting the fix and re-running: **3 of 4 fail without it, all pass with
+  it.** The fourth is a positive-case test and correctly passes either way.
+- Scope was exactly the two files the ticket named; nothing outside it touched.
+  No client change, matching the ticket's "backend-only" call.
+- Reviewer-run gates, in the worktree and again on `main` after applying:
+  targeted file 22/22, full integration project **420 tests across 18 files**,
+  `tsc --noEmit` 0 errors, `eslint` 0 problems, pre-commit 4/4.
+- The ticket's manual checks (create invite → accept → refresh) were not
+  performed by the dev, which was the correct call given they could not drive
+  the running app. The integration tests cover the same three transitions
+  (accepted / expired / revoked) at the service boundary.
+
+**Note for future tickets in this file:** it does not follow the ticket-flow
+house format — no **Ties** section, no **Preferred fix** heading, and checkbox
+criteria rather than numbered ones. It was detailed enough to work from, but
+the dispatch prompt had to carry the skill and test-command context the format
+normally supplies.
+
