@@ -443,6 +443,51 @@ ListDrillContext.test.tsx,ListBlock.test.tsx}`; modified tests
 
 ---
 
+### Reviewer confirmation — LIST-7 & LIST-8 (2026-08-01)
+
+Both were committed and pushed before a review pass (`6df61638`, `d1a954fd`);
+this is the post-hoc verification. **Both pass.** LIST-7's ticket body was
+removed with the other closed tickets — read it via `git log -p`.
+
+- **LIST-8's edit to `shared/types/stepConfigs.ts` was outside its stated
+  footprint and was correct anyway.** Moving `list` into
+  `RUNNER_RENDERED_STEP_TYPES` would have made the *derived*
+  `LIST_FIELD_QUESTION_TYPES` auto-include it, giving two ways to express
+  nesting: `kind: "list"` and `kind: "question", type: "list"`. Excluding it
+  explicitly, with the parametric "grown" test updated to match, is right. This
+  is the derived-type design from LIST-2 working as intended — and the dev
+  correctly spotted the one case that should *not* flow through.
+- **LIST-8's AC11 deviation is acceptable.** Autosave/reload was argued "by
+  construction" rather than shown live. Verified: `ListBlockRenderer` takes the
+  standard `onChange: (value: ListValue) => void` and `BlockRenderer` routes
+  `case "list"` with the same handler every other type receives, so there is no
+  list-specific save path that could break. For *this* claim that is stronger
+  evidence than a screenshot. Honestly flagged rather than glossed.
+- **The two bugs found during live verification have precise regression tests
+  at both nesting levels** — the test names record the root cause ("onChange and
+  onOpenItem fire in the same tick, one render before the parent's own item list
+  reflects the addition"). Finding them live is exactly why the ticket demanded
+  live proof.
+- Reviewer-run gates on the pushed tree: `tsc --noEmit` 0 errors repo-wide,
+  `test:fast` **167 files / 2166 tests** green.
+
+**LIST-7's scope expansion was necessary, and the ticket's Finding was wrong.**
+The ticket asserted the builder "has two surfaces that enumerate available
+variables" — `VariablesInspector` and `VariablePalette`. Verified against
+`6df61638^`: `VariablesInspector` had **zero importers**, and the panel that
+would have hosted it (`LogicInspectorPanel`) was rendered with
+`isOpen={logicPanelOpen}` while **nothing ever called `setLogicPanelOpen(true)`**
+— its Variables tab showed a hardcoded fake (`clientName: "John Doe"`, comment:
+"Placeholder for real-time variables linkage"). Delivering the ticket literally
+would have added a list tree to a component no user could reach. Wiring it up
+and adding the toolbar opener was the only way the deliverable could exist.
+
+**Lesson for future tickets: check a component has an importer before writing a
+ticket premised on it being a live surface.** A reachability grep costs seconds
+and this one shipped a ticket built on a false premise.
+
+---
+
 ## LIST-9 — Path-keyed errors, incomplete badges, and Next enforcement 🔲
 
 **Priority: P1** · Size: M · File: `client/src/pages/WorkflowRunner.tsx`
