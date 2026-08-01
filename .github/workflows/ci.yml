@@ -12,10 +12,10 @@ jobs:
     name: Quality Gates
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
 
     - name: Use Node.js 20.x
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v7
       with:
         node-version: 20.x
         cache: 'npm'
@@ -37,17 +37,17 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 0
 
     - name: Secret Scanning (gitleaks)
-      uses: gitleaks/gitleaks-action@v2
+      uses: gitleaks/gitleaks-action@v3
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Use Node.js 20.x
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v7
       with:
         node-version: 20.x
         cache: 'npm'
@@ -106,7 +106,7 @@ jobs:
           --health-retries 5
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
 
     # qpdf is a runtime dependency of the PDF form-filling feature
     # (server/services/document/PdfService.ts unlockPdf → `qpdf --decrypt`).
@@ -116,7 +116,7 @@ jobs:
       run: sudo apt-get update && sudo apt-get install -y qpdf
 
     - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v7
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
