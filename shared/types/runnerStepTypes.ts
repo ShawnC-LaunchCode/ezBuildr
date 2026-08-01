@@ -36,8 +36,6 @@ export type RunnerStepType =
   | "js_question"
   | "computed"
   | "file_upload"
-  | "loop_group"
-  | "repeater"
   | "list";
 
 export const RUNNER_RENDERED_STEP_TYPES = [
@@ -69,8 +67,6 @@ export const RUNNER_HIDDEN_STEP_TYPES = [
 
 export const RUNNER_INTENTIONALLY_UNSUPPORTED_STEP_TYPES = [
   "file_upload",
-  "loop_group",
-  "repeater",
   "list",
 ] as const satisfies readonly RunnerStepType[];
 

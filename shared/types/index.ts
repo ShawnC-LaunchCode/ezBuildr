@@ -7,7 +7,6 @@ export * from "./debug";
 export * from "./intake";
 export * from "./optimization";
 export * from "./query";
-export * from "./repeater";
 export * from "./scripting";
 export * from "./stepConfigs";
 export * from "./steps";

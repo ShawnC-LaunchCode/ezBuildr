@@ -417,7 +417,7 @@ describe('RunExecutionCoordinator - JS Execution', () => {
             vi.mocked(blockRunner.runPhase).mockResolvedValue({ success: true });
         });
 
-        it.each(['file_upload', 'loop_group', 'repeater'])(
+        it.each(['file_upload'])(
             'submits successfully when the only step in the section is a required, visible %s with no value (AC3, AC4)',
             async (type) => {
                 const unsupportedStep = {
@@ -427,7 +427,6 @@ describe('RunExecutionCoordinator - JS Execution', () => {
                     required: true,
                     sectionId: 'section-1',
                     visibleIf: null,
-                    repeaterConfig: type === 'repeater' ? { minInstances: 2 } : null,
                 } as unknown as Step;
                 mockStepRepo.findBySectionIds.mockResolvedValue([unsupportedStep]);
 

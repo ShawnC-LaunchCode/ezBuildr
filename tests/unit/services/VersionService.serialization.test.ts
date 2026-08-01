@@ -64,7 +64,6 @@ describe("VersionService.serializeWorkflow", () => {
           order: 4,
           alias: "approved",
           visibleIf: { operator: "is_not_empty", alias: "email" },
-          repeaterConfig: { min: 1 },
           defaultValue: ["yes", 2],
         }],
       }],

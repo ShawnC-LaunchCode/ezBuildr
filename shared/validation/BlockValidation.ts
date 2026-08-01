@@ -54,7 +54,7 @@ export function getValidationSchema(step: StepLike): ValidationSchema {
 
     // Base requirement — only for step types the runner can actually render
     // a fillable control for. A "required" rule on an unsupported/unknown
-    // type (e.g. file_upload, loop_group, repeater) can never be satisfied
+    // type (e.g. file_upload) can never be satisfied
     // by a respondent, since the runner shows only a skip notice (RUN2-3).
     const isRequired = Boolean(step.required) && isRunnerRequirableStepType(step.type);
     if (isRequired) {
@@ -243,8 +243,8 @@ function mergeListErrors(target: ListValidationErrors, source: ListValidationErr
 /**
  * Validates one list item's fields (required + recursion into nested list
  * fields), skipping any field hidden by its `visibleIf` — mirrors
- * `RepeaterService.validateInstance` (`server/services/RepeaterService.ts:57-90`,
- * deleted in LIST-13), evaluated against that item's own values as context.
+ * the retired RepeaterService's per-instance validation (deleted in LIST-13),
+ * evaluated against that item's own values as context.
  */
 function validateListItemFields(
     item: ListItem,

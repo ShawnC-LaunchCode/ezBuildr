@@ -28,8 +28,10 @@ describe("runner step type routing", () => {
     expect(getRunnerStepTypeStatus("computed")).toBe("hidden");
     expect(getRunnerStepTypeStatus("js_question")).toBe("hidden");
     expect(getRunnerStepTypeStatus("file_upload")).toBe("unsupported");
-    expect(getRunnerStepTypeStatus("loop_group")).toBe("unsupported");
-    expect(getRunnerStepTypeStatus("repeater")).toBe("unsupported");
+    // Retired in LIST-13 — they are no longer step types at all, so they
+    // classify as "unknown" rather than "unsupported".
+    expect(getRunnerStepTypeStatus("loop_group")).toBe("unknown");
+    expect(getRunnerStepTypeStatus("repeater")).toBe("unknown");
   });
 
   it("registers 'list' as unsupported until LIST-8 renders it (LIST-1)", () => {

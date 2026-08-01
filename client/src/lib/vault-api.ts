@@ -727,8 +727,6 @@ export type StepType =
   | "final"
   | "display_advanced"
   | "final_documents"
-  | "loop_group"
-  | "repeater"
   | "true_false"
   | "list";
 export interface ApiStep {
@@ -744,8 +742,6 @@ export interface ApiStep {
   order: number;
   isVirtual?: boolean;
   defaultValue?: unknown;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- repeater config is an opaque JSON structure
-  repeaterConfig?: Record<string, any> | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step config varies by step type
   config: Record<string, any> | null; // Step-specific configuration (JSON)
   createdAt: string;
@@ -1137,10 +1133,10 @@ export interface EmailTemplateMetadata {
   name: string;
   description?: string | null;
   subjectPreview?: string | null;
-  // eslint-disable-next-line max-lines -- This legacy API module is split incrementally under DEBT-2.
   brandingTokens?: Record<string, boolean> | null;
   createdAt: Date;
   updatedAt: Date;
+  // eslint-disable-next-line max-lines -- This legacy API module is split incrementally under DEBT-2.
 }
 export interface GetEmailTemplatesResponse {
   templates: EmailTemplateMetadata[];

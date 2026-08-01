@@ -34,7 +34,7 @@ describe('AI vocabulary derivation', () => {
 
     it('teaches the previously-omitted types the audit called out', () => {
         const catalog = buildStepTypeCatalog();
-        for (const type of ['repeater', 'computed', 'js_question', 'loop_group',
+        for (const type of ['computed', 'js_question',
             'final_documents', 'true_false', 'multi_field', 'choice',
             'number_advanced', 'address_advanced']) {
             expect(catalog, `missing: ${type}`).toContain(`- ${type}`);

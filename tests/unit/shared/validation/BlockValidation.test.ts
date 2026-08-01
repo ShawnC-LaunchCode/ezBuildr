@@ -4,7 +4,7 @@ import { getValidationSchema, type StepLike } from '../../../../shared/validatio
 
 /**
  * RUN2-3: a required question of a type the runner cannot render (file_upload,
- * loop_group, repeater) or does not recognize at all previously still pushed
+ * file_upload) or does not recognize at all previously still pushed
  * a "required" rule, making the section unfinishable — the Next button would
  * report the field as required for a control that never appears on screen.
  * `getValidationSchema` must never require these types, regardless of
@@ -22,8 +22,6 @@ describe('getValidationSchema', () => {
     describe('runner-unsupported/unknown step types (RUN2-3)', () => {
         it.each([
             ['file_upload', 'file_upload'],
-            ['loop_group', 'loop_group'],
-            ['repeater', 'repeater'],
             ['an unrecognized type', 'some_future_type'],
         ])('returns no required rule and required=false for %s even when step.required is true', (_label, type) => {
             const step = baseStep({ type, required: true });

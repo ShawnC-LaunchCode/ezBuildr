@@ -14,7 +14,7 @@ export const generateMockValue = (type: string): unknown => {
             return new Date().toISOString();
         case 'file_upload':
             return 'sample-file.pdf';
-        case 'loop_group':
+        case 'list':
             return [{ iteration: 1, value: 'Sample' }];
         default:
             return 'Sample Value';

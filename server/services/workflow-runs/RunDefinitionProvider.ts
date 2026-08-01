@@ -13,7 +13,7 @@ import { createError } from "../../utils/errors";
 
 // This validates a version's serialized graphJson, whose fields come straight
 // from nullable DB columns. `.optional()` accepts `undefined` but REJECTS
-// `null` — and normal steps serialize repeaterConfig/alias/config/description as
+// `null` — and normal steps serialize alias/config/description as
 // `null`, which 500'd `GET /api/runs/:id/runtime` (and thus the whole runner)
 // for every newly-activated workflow. Use `.nullish()` (null | undefined) for
 // every field backed by a nullable column; the mapping below already
@@ -28,7 +28,6 @@ const VersionStepSchema = z.object({
   order: z.number().nullish(),
   alias: z.string().nullish(),
   visibleIf: z.unknown().optional(),
-  repeaterConfig: z.record(z.unknown()).nullish(),
   defaultValue: z.unknown().optional(),
   isVirtual: z.boolean().nullish(),
 }).passthrough();
@@ -105,7 +104,6 @@ export interface RunStep {
   order: number;
   isVirtual: boolean;
   defaultValue?: unknown;
-  repeaterConfig?: Record<string, unknown> | null;
   config: Record<string, unknown> | null;
   createdAt: Date;
   updatedAt: Date;
@@ -196,7 +194,6 @@ export class RunDefinitionProvider {
         order: step.order ?? 0,
         isVirtual: step.isVirtual ?? false,
         defaultValue: step.defaultValue,
-        repeaterConfig: step.repeaterConfig ?? null,
         config: step.config ?? null,
         createdAt: timestamp,
         updatedAt: timestamp,
@@ -305,7 +302,6 @@ export class RunDefinitionProvider {
       order: step.order,
       isVirtual: step.isVirtual ?? false,
       defaultValue: step.defaultValue,
-      repeaterConfig: (step.repeaterConfig as Record<string, unknown> | null) ?? null,
       config: (step.config as Record<string, unknown> | null) ?? null,
       createdAt: step.createdAt ?? new Date(0),
       updatedAt: step.updatedAt ?? new Date(0),

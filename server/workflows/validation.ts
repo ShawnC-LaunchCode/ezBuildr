@@ -183,9 +183,9 @@ export async function validatePage(
     }
 
     // Skip step types the runner cannot render a fillable control for
-    // (e.g. file_upload, loop_group, repeater, or an unrecognized type).
+    // (e.g. file_upload, or an unrecognized type).
     // The runner shows only a skip notice for these, so neither a required
-    // check nor a repeater instance-count check can ever be satisfied by
+    // check can ever be satisfied by
     // the respondent (RUN2-3) — mirrors the client-side skip in
     // shared/validation/BlockValidation.ts.
     if (!isRunnerRequirableStepType(step.type)) {
@@ -196,8 +196,6 @@ export async function validatePage(
     // uses, instead of the old server-only config that carried `required` and a
     // `// TODO: Extract from step.config` for everything else — which is why
     // every format rule was client-side-only and trivially bypassable.
-    // Note: `repeater` is one of the runner's intentionally-unsupported types
-    // (skipped above), so instance-count validation never runs here (RUN2-3).
     const schema = getValidationSchema({
       id: step.id,
       type: step.type,

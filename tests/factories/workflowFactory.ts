@@ -75,7 +75,6 @@ export function createTestStep(sectionId: string, overrides?: Partial<Step>): St
     order: 1,
     config: {},
     visibleIf: null,
-    repeaterConfig: null,
     isVirtual: false,
     deletedAt: null,
     createdAt: now,

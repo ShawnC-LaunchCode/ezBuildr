@@ -299,7 +299,6 @@ export class StepService {
           order: step.order + 1,
           isVirtual: step.isVirtual,
           visibleIf: step.visibleIf,
-          repeaterConfig: step.repeaterConfig,
         },
         tx
       );

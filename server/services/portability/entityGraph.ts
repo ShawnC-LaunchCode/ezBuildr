@@ -70,9 +70,9 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     name: 'steps',
     scopes: ["project","workflow"],
     parent: {"name":"sections","fk":"sectionId"},
-    fields: ["id","workflowId","sectionId","type","title","description","required","config","alias","defaultValue","order","isVirtual","visibleIf","repeaterConfig"],
+    fields: ["id","workflowId","sectionId","type","title","description","required","config","alias","defaultValue","order","isVirtual","visibleIf"],
     refs: ["workflowId", "sectionId"],
-    jsonRefs: ["config","defaultValue","visibleIf","repeaterConfig"],
+    jsonRefs: ["config","defaultValue","visibleIf"],
     scanPaths: ["config"]
   },
   {

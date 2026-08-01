@@ -67,15 +67,16 @@ describe("conditions - date_time operators (ICW2-16)", () => {
 });
 
 describe("conditions - list operators (LIST-4)", () => {
-  it("returns the five count operators for 'list', matching 'repeater'", () => {
+  // Originally asserted equality with `repeater`'s operator set, which was the
+  // donor these were copied from. `repeater` was removed in LIST-13, so the
+  // expected operators are now stated outright rather than by reference.
+  it("returns the five count operators for 'list'", () => {
     const listOperators = getOperatorsForStepType("list").map((op) => op.value);
-    const repeaterOperators = getOperatorsForStepType("repeater").map((op) => op.value);
 
     expect(listOperators).toEqual(["equals", "greater_than", "less_than", "is_empty", "is_not_empty"]);
-    expect(listOperators).toEqual(repeaterOperators);
   });
 
-  it("labels 'greater_than' as 'has more than' for list, like repeater", () => {
+  it("labels 'greater_than' as 'has more than' for list", () => {
     const config = OPERATORS_BY_STEP_TYPE.list.find((c) => c.value === "greater_than");
     expect(config?.label).toBe("has more than");
     expect(config?.valueType).toBe("number");

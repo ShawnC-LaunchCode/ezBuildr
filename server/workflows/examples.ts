@@ -221,13 +221,13 @@ export const example8NestedAccess = (): boolean => {
 };
 
 // ========================================================================
-// EXAMPLE 9: Repeater Array Access
+// EXAMPLE 9: List Array Access
 // ========================================================================
 
 /**
  * Show additional questions if first dependent is under 18
  */
-export const example9RepeaterAccess = (): boolean => {
+export const example9ListArrayAccess = (): boolean => {
   const condition: ConditionExpression = {
     op: 'lt',
     left: varRef('dependents[0].age'),

@@ -1,0 +1,5 @@
+ALTER TABLE "steps" ALTER COLUMN "type" SET DATA TYPE text;--> statement-breakpoint
+DROP TYPE "public"."step_type";--> statement-breakpoint
+CREATE TYPE "public"."step_type" AS ENUM('short_text', 'long_text', 'multiple_choice', 'radio', 'yes_no', 'date_time', 'file_upload', 'computed', 'js_question', 'final_documents', 'signature_block', 'true_false', 'phone', 'date', 'time', 'datetime', 'email', 'number', 'currency', 'scale', 'website', 'display', 'address', 'final', 'text', 'boolean', 'phone_advanced', 'datetime_unified', 'choice', 'email_advanced', 'number_advanced', 'scale_advanced', 'website_advanced', 'address_advanced', 'multi_field', 'display_advanced', 'list');--> statement-breakpoint
+ALTER TABLE "steps" ALTER COLUMN "type" SET DATA TYPE "public"."step_type" USING "type"::"public"."step_type";--> statement-breakpoint
+ALTER TABLE "steps" DROP COLUMN "repeater_config";

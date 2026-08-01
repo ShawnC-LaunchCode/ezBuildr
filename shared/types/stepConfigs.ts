@@ -666,7 +666,7 @@ function isListFieldQuestionType(
  * Derived from RUNNER_RENDERED_STEP_TYPES (shared/types/runnerStepTypes.ts)
  * rather than hand-listed, so a newly rendered runner type becomes usable
  * inside a List with no change here — the hand-maintained `RepeaterFieldType`
- * (shared/types/repeater.ts) went stale by doing exactly that.
+ * of the retired `repeater` type went stale by doing exactly that (LIST-13).
  * `final_documents` and `signature_block` are excluded: neither has meaning
  * per-item inside a repeating list.
  */
@@ -701,8 +701,7 @@ export type ListField =
 /**
  * List Config
  * Nestable, repeating question. Stored in `step.config` for `type: 'list'`
- * steps. See shared/types/repeater.ts for the (non-nestable) predecessor
- * this replaces — do not edit that file from here.
+ * steps. Replaced the non-nestable `repeater` type, removed in LIST-13.
  */
 export interface ListConfig {
   fields: ListField[];

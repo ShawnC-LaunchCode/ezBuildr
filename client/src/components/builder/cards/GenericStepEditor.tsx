@@ -5,7 +5,7 @@
  * The palette (blockRegistry) can only create types that have a specific editor;
  * this catch-all exists purely so that legacy / imported / AI-generated steps
  * whose enum value predates the card-editor migration (e.g. `computed`,
- * `repeater`, `file_upload`, `*_advanced` variants) remain editable rather than
+ * `file_upload`, `*_advanced` variants) remain editable rather than
  * crashing the builder.
  *
  * It renders only the controls common to every step (alias, required,

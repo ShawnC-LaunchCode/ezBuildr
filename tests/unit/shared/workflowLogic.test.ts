@@ -81,7 +81,7 @@ describe("evaluateWorkflowVisibility parity contract", () => {
 describe("evaluateWorkflowVisibility excludes runner-unrequirable step types (RUN2-3)", () => {
   // requiredSteps is the one place navigation, section-submit validation, and
   // run completion all derive "what must have a value" from. A required step
-  // of a type the runner cannot render (file_upload, loop_group, repeater, or
+  // of a type the runner cannot render (file_upload, list, or
   // an unrecognized type) can never be satisfied by a respondent, so it must
   // never end up in requiredSteps here - fixing it in this one function fixes
   // all three call sites at once.

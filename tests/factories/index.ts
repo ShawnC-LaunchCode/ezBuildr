@@ -241,7 +241,6 @@ export function createTestStep(overrides?: DeepPartial<Step>): Omit<Step, 'id' |
     order: overrides?.order ?? 0,
     isVirtual: overrides?.isVirtual ?? false,
     visibleIf: overrides?.visibleIf || null,
-    repeaterConfig: overrides?.repeaterConfig || null,
     deletedAt: overrides?.deletedAt ?? null,
     ...overrides,
   };

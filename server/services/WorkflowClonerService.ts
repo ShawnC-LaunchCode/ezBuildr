@@ -525,7 +525,6 @@ export class WorkflowClonerService {
             order: sourceStep.order,
             isVirtual: sourceStep.isVirtual,
             visibleIf: sourceStep.visibleIf,
-            repeaterConfig: sourceStep.repeaterConfig,
           })
           .returning();
 
@@ -1129,9 +1128,9 @@ export class WorkflowClonerService {
       tx.select({ id: datavaultTables.id }).from(datavaultTables).where(eq(datavaultTables.tenantId, tenantId)),
     ]);
     const knownDatabaseIds = new Set(tenantDatabases.map((database) => database.id));
-    // eslint-disable-next-line max-lines -- This migration-compatible cloner centralizes related asset copy operations.
     const knownTableIds = new Set(tenantTables.map((table) => table.id));
 
+    // eslint-disable-next-line max-lines -- This migration-compatible cloner centralizes related asset copy operations.
     const [workflowRows, sectionRows, stepRows, blockRows, transformRows, versionRows] = await Promise.all([
       tx.select().from(workflows).where(inArray(workflows.id, workflowIds)),
       tx.select().from(sections).where(inArray(sections.workflowId, workflowIds)),
@@ -1148,7 +1147,7 @@ export class WorkflowClonerService {
     const inspectValues: unknown[] = [
       ...workflowRows.map((workflow) => workflow.intakeConfig),
       ...sectionRows.flatMap((section) => [section.config, section.visibleIf, section.skipIf]),
-      ...stepRows.flatMap((row) => [row.steps.config, row.steps.defaultValue, row.steps.visibleIf, row.steps.repeaterConfig]),
+      ...stepRows.flatMap((row) => [row.steps.config, row.steps.defaultValue, row.steps.visibleIf]),
       ...blockRows.map((block) => block.config),
       ...versionRows.flatMap((version) => [version.graphJson, version.migrationInfo, version.changelog]),
     ];
@@ -1560,7 +1559,6 @@ export class WorkflowClonerService {
             config: remapJsonIds(step.config, idMap),
             defaultValue: remapJsonIds(step.defaultValue, idMap),
             visibleIf: remapJsonIds(step.visibleIf, idMap),
-            repeaterConfig: remapJsonIds(step.repeaterConfig, idMap),
           })
           .where(eq(steps.id, step.id));
       }

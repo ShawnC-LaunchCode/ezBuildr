@@ -273,7 +273,7 @@ export function evaluateWorkflowVisibility(options: {
   const effectiveRequired = getEffectiveRequiredSteps(initiallyRequired, rules, data);
 
   // A step whose type the runner cannot render (unsupported/unknown — e.g.
-  // file_upload, loop_group, repeater — see RUN2-3) can never be satisfied
+  // file_upload — see RUN2-3) can never be satisfied
   // by a respondent, whether it is required by its own `required: true` or
   // by a rule's `require` action. Excluding it here — the one place
   // navigation, section-submit, and completion all derive `requiredSteps`

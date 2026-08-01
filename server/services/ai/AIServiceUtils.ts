@@ -355,8 +355,8 @@ export function validateWorkflowStructure(workflow: AIGeneratedWorkflow): void {
 export const VALID_STEP_TYPES = [
   // Legacy types
   'short_text', 'long_text', 'multiple_choice', 'radio', 'yes_no',
-  'date_time', 'file_upload', 'loop_group', 'computed', 'js_question',
-  'repeater', 'final_documents', 'signature_block',
+  'date_time', 'file_upload', 'computed', 'js_question',
+  'final_documents', 'signature_block',
   // Easy mode types
   'true_false', 'phone', 'date', 'time', 'datetime', 'email',
   'number', 'currency', 'scale', 'website', 'display', 'address', 'final',

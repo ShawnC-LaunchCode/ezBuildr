@@ -29,7 +29,6 @@ function step(overrides: Partial<Step> & { id: string }): Step {
     description: null,
     visibleIf: null,
     defaultValue: null,
-    repeaterConfig: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,

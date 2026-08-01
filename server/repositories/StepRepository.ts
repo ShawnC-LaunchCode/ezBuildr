@@ -163,7 +163,6 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
         order: steps.order,
         isVirtual: steps.isVirtual,
         visibleIf: steps.visibleIf,
-        repeaterConfig: steps.repeaterConfig,
         deletedAt: steps.deletedAt,
         createdAt: steps.createdAt,
         updatedAt: steps.updatedAt,

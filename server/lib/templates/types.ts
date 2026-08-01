@@ -9,7 +9,7 @@ export interface TemplateManifest {
 
     // Technical requirements
     minCompatibleVersion: string;
-    requiredBlocks: string[]; // e.g. ['signature_block', 'repeater']
+    requiredBlocks: string[]; // e.g. ['signature_block', 'multi_field']
     requiredFeatures: string[]; // e.g. ['email_integration']
 
     // The workflow structure

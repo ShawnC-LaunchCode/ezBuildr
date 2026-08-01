@@ -37,8 +37,11 @@ export class SchemaManager {
     // Bumped to _v12 because _v11 got cached without not-null constraints on storageKey.
     // Bumped to _v13 for 0008_thick_the_order (LIST-1), which adds the 'list'
     // value to the step_type enum — stale _v12 schemas would reject it.
+    // Bumped to _v14 for 0009_drop_legacy_step_types (LIST-13), which drops the
+    // 'repeater'/'loop_group' enum values (via a full type recreate) and the
+    // `steps.repeater_config` column — a stale _v13 schema still has both.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v13`;
+        return `test_schema_w${this.workerId}_v14`;
     }
 
     /**

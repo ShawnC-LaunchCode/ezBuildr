@@ -38,12 +38,7 @@ const SAMPLE_VALUES: Record<string, (label: string) => unknown> = {
     signature: () => "Jane Doe",
     // eslint-disable-next-line @typescript-eslint/naming-convention
     file_upload: () => "sample-upload.pdf",
-    repeater: () => [
-        { item: "First item", amount: 100 },
-        { item: "Second item", amount: 250 },
-    ],
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    loop_group: () => [
+    list: () => [
         { item: "First item", amount: 100 },
         { item: "Second item", amount: 250 },
     ],

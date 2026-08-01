@@ -3,7 +3,8 @@
  *
  * The load-bearing property is that ListFieldQuestionType is *derived* from
  * RUNNER_RENDERED_STEP_TYPES rather than hand-listed (the hand-maintained
- * RepeaterFieldType in shared/types/repeater.ts is exactly the mistake this
+ * The hand-listed RepeaterFieldType (removed with the repeater type in LIST-13)
+ * was exactly the mistake this
  * must not repeat), and that projectListValue turns the itemId-keyed storage
  * shape into plain alias-keyed objects at arbitrary nesting depth.
  */

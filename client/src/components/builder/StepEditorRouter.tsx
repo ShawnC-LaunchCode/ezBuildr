@@ -107,7 +107,7 @@ export function StepEditorRouter({ step, sectionId, workflowId }: Omit<StepEdito
     }
 
     // Fallback for legacy / imported enum types with no dedicated editor
-    // (e.g. computed, repeater, file_upload, *_advanced variants). These have no
+    // (e.g. computed, file_upload, *_advanced variants). These have no
     // creation path in the palette but may exist in older workflows.
     return <GenericStepEditor {...commonProps} />;
 }

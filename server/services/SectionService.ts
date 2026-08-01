@@ -219,7 +219,6 @@ export class SectionService {
             order: step.order,
             isVirtual: step.isVirtual,
             visibleIf: step.visibleIf,
-            repeaterConfig: step.repeaterConfig,
           },
           tx
         );

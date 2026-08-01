@@ -22,10 +22,8 @@ export const AIGeneratedStepSchema = z.object({
     'yes_no',
     'date_time',
     'file_upload',
-    'loop_group',
     'computed',
     'js_question',
-    'repeater',
     'final_documents',
     'signature_block',
 

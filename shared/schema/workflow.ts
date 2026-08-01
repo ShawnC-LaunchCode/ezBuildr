@@ -37,8 +37,8 @@ export const templateTypeEnum = pgEnum('template_type', ['docx', 'html', 'pdf'])
 // Step (question) type enum
 export const stepTypeEnum = pgEnum('step_type', [
     // ===== LEGACY / EXISTING TYPES =====
-    'short_text', 'long_text', 'multiple_choice', 'radio', 'yes_no', 'date_time', 'file_upload', 'loop_group',
-    'computed', 'js_question', 'repeater', 'final_documents', 'signature_block',
+    'short_text', 'long_text', 'multiple_choice', 'radio', 'yes_no', 'date_time', 'file_upload',
+    'computed', 'js_question', 'final_documents', 'signature_block',
     // ===== EASY MODE TYPES =====
     'true_false', 'phone', 'date', 'time', 'datetime', 'email', 'number', 'currency', 'scale', 'website', 'display', 'address', 'final',
     // ===== ADVANCED MODE TYPES =====
@@ -273,7 +273,6 @@ export const steps = pgTable("steps", {
     order: integer("order").notNull(),
     isVirtual: boolean("is_virtual").default(false).notNull(),
     visibleIf: jsonb("visible_if"),
-    repeaterConfig: jsonb("repeater_config"),
     // Soft-delete (ICW2-B1): set instead of a hard DELETE, so the
     // `step_values.step_id` cascade never fires and answers survive.
     deletedAt: timestamp("deleted_at"),

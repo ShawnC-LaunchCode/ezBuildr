@@ -145,7 +145,6 @@ export class VersionService {
           order: step.order,
           alias: step.alias ?? undefined,
           visibleIf: (step.visibleIf ?? undefined) as string | undefined,
-          repeaterConfig: step.repeaterConfig as Record<string, unknown> | undefined,
           defaultValue: step.defaultValue ?? undefined,
           isVirtual: step.isVirtual,
         })),

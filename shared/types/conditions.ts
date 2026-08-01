@@ -21,9 +21,7 @@ export type ConditionSupportedStepType =
   | "computed"
   | "date_time"
   | "file_upload"
-  | "loop_group"
   | "js_question"
-  | "repeater"
   | "list";
 
 // =====================================================================
@@ -222,15 +220,6 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
     { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],
 
-  // Loop group - check count
-  loop_group: [
-    { value: "equals", label: "has count of", needsValue: true, valueType: "number" },
-    { value: "greater_than", label: "has more than", needsValue: true, valueType: "number" },
-    { value: "less_than", label: "has less than", needsValue: true, valueType: "number" },
-    { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
-  ],
-
   // JS Question - same as computed
   js_question: [
     { value: "equals", label: "equals", needsValue: true, valueType: "text" },
@@ -240,15 +229,6 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
     { value: "less_than", label: "is less than", needsValue: true, valueType: "number" },
     { value: "is_true", label: "is true", needsValue: false, impliedValue: true },
     { value: "is_false", label: "is false", needsValue: false, impliedValue: false },
-    { value: "is_empty", label: "is empty", needsValue: false },
-    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
-  ],
-
-  // Repeater - check count
-  repeater: [
-    { value: "equals", label: "has count of", needsValue: true, valueType: "number" },
-    { value: "greater_than", label: "has more than", needsValue: true, valueType: "number" },
-    { value: "less_than", label: "has less than", needsValue: true, valueType: "number" },
     { value: "is_empty", label: "is empty", needsValue: false },
     { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
   ],

@@ -47,7 +47,6 @@ export interface RunRuntimeDefinition {
     order: number;
     isVirtual: boolean;
     defaultValue?: unknown;
-    repeaterConfig?: Record<string, unknown> | null;
     config: Record<string, unknown> | null;
     createdAt: Date;
     updatedAt: Date;

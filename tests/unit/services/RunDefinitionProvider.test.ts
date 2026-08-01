@@ -92,7 +92,6 @@ function makeProvider(overrides: {
         order: 0,
         isVirtual: false,
         defaultValue: null,
-        repeaterConfig: null,
         config: null,
         createdAt: new Date('2026-07-20T00:00:00.000Z'),
         updatedAt: new Date('2026-07-20T00:00:00.000Z'),

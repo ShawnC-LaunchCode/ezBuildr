@@ -37,7 +37,6 @@ export interface WorkflowStepData {
   order?: number;
   alias?: string;
   visibleIf?: string;
-  repeaterConfig?: Record<string, unknown>;
   defaultValue?: unknown;
   isVirtual?: boolean;
 }
@@ -425,7 +424,6 @@ export class WorkflowContentIngestService {
         sectionId: context.sectionId,
         alias,
         visibleIf: stepData.visibleIf,
-        repeaterConfig: stepData.repeaterConfig,
         defaultValue: stepData.defaultValue,
       }).where(eq(steps.id, existingId));
       return existingId;
@@ -442,7 +440,6 @@ export class WorkflowContentIngestService {
       order: stepData.order ?? stepIndex,
       alias,
       visibleIf: stepData.visibleIf,
-      repeaterConfig: stepData.repeaterConfig,
       defaultValue: stepData.defaultValue,
     }).returning();
 

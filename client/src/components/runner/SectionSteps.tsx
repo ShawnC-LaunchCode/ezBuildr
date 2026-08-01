@@ -53,7 +53,6 @@ export function SectionSteps({
             visibleIf: step.visibleIf ?? null,
             defaultValue: step.defaultValue ?? null,
             isVirtual: step.isVirtual ?? false,
-            repeaterConfig: step.repeaterConfig ?? null,
         }));
     }, [sourceSteps]);
 

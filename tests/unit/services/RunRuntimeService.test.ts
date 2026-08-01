@@ -201,7 +201,6 @@ describe('RunRuntimeService', () => {
               order: 1,
               alias: null,
               visibleIf: null,
-              repeaterConfig: null,
               defaultValue: null,
               isVirtual: null,
             }],
@@ -215,7 +214,6 @@ describe('RunRuntimeService', () => {
 
     expect(runtime.steps).toHaveLength(1);
     expect(runtime.steps[0]).toMatchObject({
-      repeaterConfig: null,
       config: null,
       alias: null,
       description: null,
