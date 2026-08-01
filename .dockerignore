@@ -21,7 +21,8 @@ coverage
 test-results
 
 # Custom
-scripts
+scripts/**
+!scripts/runMigrations.ts
 custom-scripts
 uploads
 *.test.ts
