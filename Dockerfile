@@ -70,8 +70,17 @@ COPY --from=builder /app/node_modules ./node_modules
 # never fires -- neither of which any test can catch, since the repo tree always
 # has migrations/.
 COPY --from=builder /app/migrations ./migrations
+# runMigrations.ts is executed by railway.json's preDeployCommand
+# (`npm run db:migrate` -> `tsx scripts/runMigrations.ts`), so the script file
+# itself has to exist in the runtime image -- migrations/ alone is not enough.
+# It is self-contained: it imports only drizzle-orm/pg/dotenv (all in
+# node_modules, which is copied whole because the prune above is disabled) and
+# reads './migrations' relative to this WORKDIR. Same class of gap as the
+# journal copy above: nothing in the test suite can catch a missing file that
+# the repo tree always has.
+COPY --from=builder /app/scripts/runMigrations.ts ./scripts/runMigrations.ts
 # Copy any public or necessary script files if they aren't bundled
-# COPY --from=builder /app/public ./public 
+# COPY --from=builder /app/public ./public
 
 # EXPOSE instruction is documentation only, but removing to avoid confusion
 # EXPOSE 8080
