@@ -187,8 +187,20 @@ export type ListValidationErrors = Record<string, string[]>;
  * arbitrarily deep and blow the stack in this recursive validator (and in
  * `projectListValue`), or submit an unbounded item count. These must not be
  * enforceable only in the client, so they are checked here unconditionally.
+ *
+ * Depth is capped at 3 (Shawn, 2026-08-01) — the same number the builder
+ * enforces at authoring time (LIST-6) and the runner's breadcrumb is designed
+ * around (LIST-8), so all three agree on one bound instead of the original
+ * warn-at-3 / block-at-10 two-tier rule. The *types* stay unboundedly
+ * recursive (`ListField` in shared/types/stepConfigs.ts); this is a runtime
+ * policy constant, deliberately in one place, so raising it later is a
+ * one-line change. Raising a cap is backward-compatible; lowering one is not
+ * — which is why it starts low.
+ *
+ * Note the item budget below, not this, is what actually bounds a hostile
+ * payload: depth 3 vs 10 barely changes the stack, 5,000 items does.
  */
-export const LIST_VALIDATION_MAX_DEPTH = 10;
+export const LIST_VALIDATION_MAX_DEPTH = 3;
 export const LIST_VALIDATION_MAX_TOTAL_ITEMS = 5000;
 
 /** Mutable budget threaded through the recursion so the item cap applies across ALL levels combined, not per level. */

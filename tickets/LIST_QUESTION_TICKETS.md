@@ -1,4 +1,4 @@
-# List Question Type — New Feature Tickets (LIST-1..13 + backlog)
+# List Question Type — New Feature Tickets (LIST-1..14 + backlog)
 
 Source: feature design session + codebase investigation, 2026-07-31.
 Scope: a new nestable, repeating question type ("List") under **Add Question**,
@@ -43,10 +43,39 @@ for the quoted code if a reference is stale.
 |---|---|---|---|
 | 1 | Data model & shared contracts | LIST-1..4 | ~1.5 days |
 | 2 | Builder (authoring) | LIST-5..7 | ~2 days |
-| 3 | Runner (filling out) | LIST-8..10 | ~2.5 days |
+| 3 | Runner (filling out) | LIST-14, LIST-8..10 | ~2.5 days |
 | 4 | Consumers: documents & dropdowns | LIST-11..12 | ~1 day |
 | 5 | Legacy removal | LIST-13 | ~0.5 day |
 | Backlog | Not phase-gated | LIST-B1..B4 | — |
+
+### Dispatch waves (updated 2026-08-01)
+
+Phases are gates, not dispatch units — several tickets across different phases
+have no file overlap and can run concurrently. Dispatch by **wave**:
+
+| Wave | Tickets | Devs | Unblocked by | Why they can share a wave |
+|---|---|---|---|---|
+| **1** | LIST-6, LIST-14, LIST-11 | 3 | ready now | client/builder · server/workflows · server/document — zero shared files |
+| 2 | LIST-7 ∥ LIST-8 | 2 | LIST-6 merged | builder pickers vs runner blocks |
+| 3 | LIST-9 ∥ LIST-10 | 2 | LIST-8 merged | LIST-9 is same-file-as-LIST-8 so must follow it; LIST-10 is `ReviewSection.tsx` |
+| 4 | LIST-12, + LIST-11's deferred gate | 1–2 | Phase 3 | needs a fillable list for live proof |
+| 5 | LIST-13 | 1 | **Shawn's enum decision** | see the escalation in that ticket |
+
+Rules for every concurrent dispatch (from `CLAUDE.md`, learned the hard way):
+
+- **One git worktree per dev** — `pwsh scripts/new-worktree.ps1 -Name list-6`.
+  Never run concurrent devs in the shared checkout. Tear down with `-Remove`,
+  never a bare `git worktree remove`.
+- **`rm -f node_modules/typescript/tsbuildinfo` in the worktree first.** They
+  share one through the `node_modules` junction, which yields both stale
+  type-check errors and — worse — stale greens.
+- **A separate DB port per dev running DB-backed tests.** Test schema names are
+  per-worker, not per-process, so two concurrent DB suites clobber each other
+  and fabricate dozens of failures. Ports 5434/5436/5437 are the established
+  set.
+- **The reviewer stages only that ticket's files by path.** Never `git add -A`
+  — Shawn works this repo from a second IDE and unrelated dirty files are
+  normal.
 
 ---
 
@@ -72,6 +101,15 @@ for the quoted code if a reference is stale.
    `itemId`, not the label. This is a deliberate departure from the Choice Value
    Model initiative (which made choice store labels) because items get renamed
    mid-interview and a label-keyed reference would silently break.
+9. **Nesting depth is capped at 3** (Shawn, 2026-08-01), replacing the original
+   "unbounded model, warn at 3, block at 10". One bound, one constant
+   (`LIST_VALIDATION_MAX_DEPTH`), enforced by the builder, the server, and the
+   runner alike. **The types stay unboundedly recursive** — `ListField` has no
+   depth limit and must not gain one; this is a runtime policy number, so
+   raising it later is a one-line change. It starts low on purpose: raising a
+   cap is backward-compatible, lowering one breaks stored data. Note the depth
+   cap is not the real abuse guard — `LIST_VALIDATION_MAX_TOTAL_ITEMS` (5,000)
+   is; 3-vs-10 levels barely changes stack usage.
 
 ### Two shapes, deliberately different
 
@@ -398,8 +436,10 @@ LIST-1/LIST-8 and needs no separate edit. Verify, don't duplicate.
 3. A field hidden by its `visibleIf` inside an item is **not** validated
    (mirrors `RepeaterService.validateInstance`, `server/services/RepeaterService.ts:63-77`).
 4. Errors are returned keyed by path, e.g. `children[0].addresses[1].street`.
-5. A value nested deeper than 10 levels is **rejected with an error**, not
-   recursed into; the process does not crash.
+5. A value nested deeper than `LIST_VALIDATION_MAX_DEPTH` levels is **rejected
+   with an error**, not recursed into; the process does not crash. (Cap was 10
+   at authoring time, reduced to **3** on 2026-08-01 — see Decision 9. Tests
+   must assert against the constant, not a literal.)
 6. A value with more than the total-item cap is rejected with an error.
 7. A malformed value (not `{items: []}`, e.g. a bare string or `null`) is
    rejected without throwing.
@@ -438,6 +478,15 @@ LIST-1/LIST-8 and needs no separate edit. Verify, don't duplicate.
   (14 pre-existing skips, no regressions).
 - No files touched outside `shared/validation/BlockValidation.ts` and the new
   test file.
+
+#### Post-review amendment (2026-08-01, reviewer)
+
+`LIST_VALIDATION_MAX_DEPTH` reduced **10 → 3** per Decision 9. One-line change
+plus its doc comment; all 22 tests still pass untouched because the dev wrote
+them against the constant (`buildNested(LIST_VALIDATION_MAX_DEPTH + 1)`)
+rather than a literal — the reason this was a one-line change and not a test
+rewrite. `LIST_VALIDATION_MAX_TOTAL_ITEMS` unchanged at 5,000; it, not depth,
+is the actual abuse guard.
 
 ---
 
@@ -668,6 +717,30 @@ and `client/src/components/shared/QuestionTypeIcon.tsx` (used by the menu at
   `npx eslint` on all 5 touched files clean; both new/updated test files
   11/11 passed; dev's full `npm run test:fast` reported 2108/2122 (14
   pre-existing skips, no regressions).
+
+#### Defect found and fixed at second review (2026-08-01, reviewer)
+
+The `structure` category was added to `--qtype-structure` in `index.css` (both
+themes) and to `CATEGORY_TILE` in `QuestionTypeIcon.tsx`, but **never to the
+`qtype` palette in `tailwind.config.ts`** — which registered only eight
+categories (text, boolean, validated, datetime, choice, numeric, advanced,
+display). Tailwind cannot generate a utility for a color absent from the
+theme, so `bg-qtype-structure`, `text-qtype-structure-foreground` and
+`ring-qtype-structure-border` emitted **no CSS** and the List tile rendered
+unstyled everywhere a question type is shown.
+
+Reviewer fixed it directly (ticket-flow Stage 5 triage option 3 — six lines
+mirroring eight existing sibling blocks): added `qtype.structure` to
+`tailwind.config.ts` between `boolean` and `validated`, matching the category
+order used in `CATEGORY_TILE` and `CATEGORY_ORDER`.
+
+**Why every gate missed it, worth remembering:** the class names are strings,
+so `tsc` and ESLint are blind to them; no test asserts computed styles; and
+the live verification above was DOM/text-based (screenshots being unavailable
+in that session), which confirms the `<svg>` and the class *attributes* are
+present but says nothing about whether Tailwind emitted rules for them. A
+category addition needs **three** edits — CSS variables, `CATEGORY_TILE`, and
+the Tailwind theme — and only the third has no automated guard.
 - No files touched outside the declared footprint.
 
 ---
@@ -730,9 +803,13 @@ level* (siblings), not globally — `children.name` and
 step aliases, which are workflow-unique via a DB index
 (`shared/schema/workflow.ts:287-289`). Do not reuse that constraint here.
 
-Depth: allow unbounded, but surface a non-blocking warning past 3 levels
-(Decision — data model is unbounded, the UI discourages). The hard cap of 10 is
-LIST-3's server-side concern; the editor should not let an author build past it.
+Depth: **hard cap of 3 levels** (Decision 9). Adding a nested List inside a
+level-3 item is prevented outright, with a clear explanation rather than a
+disabled control with no reason. This replaces the original warn-at-3 /
+block-at-10 two-tier rule — there is now one bound, shared with LIST-3's
+`LIST_VALIDATION_MAX_DEPTH` and LIST-8's breadcrumb. Read that constant;
+do not hard-code `3`. The server enforces the same bound independently
+(LIST-3) — the editor preventing it is a courtesy, not the security boundary.
 
 Watch the `complexity` lint ceiling — `StepEditorRouter` already carries
 `// eslint-disable-next-line complexity` at `:18` for its if-chain. Do **not**
@@ -758,8 +835,10 @@ dispatch hard rules).
    page reload.
 5. Duplicate aliases **within one level** are rejected with an inline error;
    the same alias at two different levels is **accepted**.
-6. A non-blocking warning appears when nesting past 3 levels; authoring past
-   10 levels is prevented.
+6. Adding a nested List inside a level-3 item is prevented, with a visible
+   explanation of why. The limit is read from `LIST_VALIDATION_MAX_DEPTH`
+   (`shared/validation/BlockValidation.ts`), not hard-coded — a test proves
+   raising the constant raises the editor's limit with no other change.
 7. Config round-trips: author a 3-level list, reload, structure is identical.
 8. New test file covers 5, 6, and the round-trip in 7.
 9. **Live proof required:** screenshots of a 3-level list authored in the real
@@ -839,6 +918,99 @@ should appear as a single leaf there, not a tree.
 The respondent experience. This phase moves `list` from unsupported to
 rendered. Out of scope: documents (Phase 4).
 
+## LIST-14 — Wire `validateListValue` into server-side submission validation 🔲
+
+**Priority: P1** · Size: S · File: `server/workflows/validation.ts`
+
+### Finding
+
+**LIST-3 built the validator but nothing calls it.** Verified 2026-08-01: the
+only references to `validateListValue` anywhere in `server/`, `shared/`, or
+`client/` are inside its own test file. A submitted list value is currently
+validated by nobody.
+
+This was a gap in the ticket authoring, not in LIST-3's delivery — LIST-3's
+acceptance criteria specified the function's *behavior* and the dev met all of
+them. No ticket owned the wiring. LIST-9 covers only the client (badges, Next
+enforcement), which is bypassable by definition.
+
+The server's per-step validation loop is `validatePage`
+(`server/workflows/validation.ts:96`). Two things there matter:
+
+```ts
+    if (!isRunnerRequirableStepType(step.type)) {      // :123
+      continue;
+    }
+    ...
+    const schema = getValidationSchema({               // :136
+```
+
+1. `list` is skipped today because LIST-1 deliberately left it in
+   `RUNNER_INTENTIONALLY_UNSUPPORTED_STEP_TYPES`. **LIST-8 flips it to
+   rendered**, at which point list steps start flowing through this loop.
+2. When they do, `getValidationSchema` returns no rules for `list` — that case
+   is a documented no-op (`shared/validation/BlockValidation.ts`), because the
+   flat `ValidationRule[]` shape cannot express path-keyed per-item errors.
+
+So the moment LIST-8 lands, list submissions reach the server and pass
+validation unconditionally. Min/max items, per-item `required`, the depth cap,
+and the item-count cap are all enforced only in the browser.
+
+### Preferred fix
+
+In `validatePage`, branch on `step.type === 'list'` **before** the
+`getValidationSchema` path and call `validateListValue(value, step.config as
+ListConfig, step.alias ?? step.id)` instead, mapping its
+`ListValidationErrors` (`Record<path, string[]>`) into the loop's existing
+`errors.push({...})` shape (`server/workflows/validation.ts:153`).
+
+Preserve the surrounding conventions exactly:
+
+- Honour the `SERVER_FIELD_VALIDATION` gate the same way the rest of the
+  function does (`server/workflows/validation.ts:21-28`) — RUN2-16 shipped
+  this validator in warn mode deliberately. A list must not become the one
+  step type that hard-fails while everything else warns.
+- Keep the error entry shape and wording style consistent with the existing
+  `required` path, which was kept byte-identical for a reason.
+- Do not modify `validateListValue` itself; it is tested and correct.
+
+Guard the config: `step.config` is `jsonb` and may be malformed or absent. A
+list step whose config is unusable should produce a validation error, never a
+throw.
+
+### Ties
+
+- Depends on **LIST-3** (the validator, ✅ done) and must land **with or before
+  LIST-8**, which is what starts routing list steps into this loop. Sequence it
+  first in Phase 3 — it is small and unblocks nothing else.
+- Related to **LIST-9**, which surfaces the same errors client-side. The two
+  must agree on path format (`children[0].addresses[1].street`).
+- Load `.claude/skills/add-api-endpoint` (server-layer conventions) and
+  `.claude/skills/run-tests`.
+- File footprint: `server/workflows/validation.ts` only. No overlap with
+  LIST-8's files.
+
+### Acceptance criteria
+
+1. A list submission violating `minItems` is rejected server-side.
+2. A missing `required` field inside an item is rejected server-side, at every
+   depth up to the cap.
+3. A value nested deeper than `LIST_VALIDATION_MAX_DEPTH` is rejected
+   server-side, and the request does not crash the process.
+4. A value exceeding `LIST_VALIDATION_MAX_TOTAL_ITEMS` is rejected server-side.
+5. Errors carry the same path format LIST-9 consumes.
+6. Behavior respects the `SERVER_FIELD_VALIDATION` warn/enforce gate exactly as
+   other step types do — no list-only hard-fail in warn mode.
+7. A list step with a malformed or absent `config` produces an error rather
+   than a throw.
+8. Validation of every non-list step type is behaviorally unchanged.
+9. New test covers 1–4 and 6–8, asserting against the exported constants rather
+   than literals. Existing `tests/unit/workflows/serverFieldValidation.test.ts`
+   still passes.
+10. Gates: type-check 0 errors, lint clean, `npm run test:fast` green.
+
+---
+
 ## LIST-8 — ListBlockRenderer with drill-in navigation ⚠️ Size L 🔲
 
 **Priority: ENH** · Size: **L — escalated to Shawn, see note** · File: `client/src/components/runner/blocks/ListBlock.tsx` (new)
@@ -905,7 +1077,11 @@ add a per-item endpoint or a second save path.
 
 ### Ties
 
-- Depends on **Phase 2 complete** and **LIST-2**.
+- Depends on **LIST-6** and **LIST-2** — *not* on all of Phase 2. (Corrected
+  2026-08-01: this originally read "Phase 2 complete", which was stricter than
+  reality. LIST-8 needs LIST-6 so there is a list to author and fill; LIST-7 is
+  builder variable pickers and has no bearing on the runner. LIST-7 and LIST-8
+  can therefore run in parallel once LIST-6 merges.)
 - Runs **before LIST-9** (which adds error display to the component this
   ticket creates) — same file, strictly sequential.
 - **Load the `design` skill** — this is the most visible UI in the initiative.
@@ -1145,7 +1321,14 @@ LIST-7 must display to authors:
 
 ### Ties
 
-- Depends on **LIST-2** (`projectListValue`) and **Phase 3** (real data to render).
+- Depends on **LIST-2** (`projectListValue`, ✅ done) only — **this ticket is
+  workable now, ahead of Phase 3.** (Corrected 2026-08-01: it originally also
+  claimed a dependency on Phase 3 "for real data to render". Not so — the
+  projection takes a `ListValue`, which a test can hand-build, so every
+  acceptance criterion below is satisfiable against DOCX fixtures with no
+  runner involved. What genuinely needs Phase 3 is the **Phase 4 Gate's**
+  end-to-end proof, fill-in-runner → generate-document. Work and review this
+  ticket now; defer only that gate line.)
 - Related to **LIST-7** — the syntax shown to authors must match what lands
   here. This ticket is the source of truth; LIST-7 follows it.
 - Load `.claude/skills/run-tests`.
