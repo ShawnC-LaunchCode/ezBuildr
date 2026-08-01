@@ -15,6 +15,7 @@ export { NumberCardEditor } from "./NumberCardEditor";
 export { ChoiceCardEditor } from "./ChoiceCardEditor";
 export { AddressCardEditor } from "./AddressCardEditor";
 export { MultiFieldCardEditor } from "./MultiFieldCardEditor";
+export { ListCardEditor } from "./ListCardEditor";
 export { ScaleCardEditor } from "./ScaleCardEditor";
 export { DisplayCardEditor } from "./DisplayCardEditor";
 

@@ -6,6 +6,7 @@ import { DisplayCardEditor } from './cards/DisplayCardEditor';
 import { EmailCardEditor } from './cards/EmailCardEditor';
 import { GenericStepEditor } from './cards/GenericStepEditor';
 import { JsQuestionCardEditor } from './cards/JsQuestionCardEditor';
+import { ListCardEditor } from './cards/ListCardEditor';
 import { MultiFieldCardEditor } from './cards/MultiFieldCardEditor';
 import { NumberCardEditor } from './cards/NumberCardEditor';
 import { PhoneCardEditor } from './cards/PhoneCardEditor';
@@ -98,6 +99,11 @@ export function StepEditorRouter({ step, sectionId, workflowId }: Omit<StepEdito
     // Signature Steps
     if (step.type === 'signature_block' || step.type === 'signature') {
         return <SignatureBlockEditor {...commonProps} />;
+    }
+
+    // List Steps (structural, nestable)
+    if (step.type === 'list') {
+        return <ListCardEditor {...commonProps} />;
     }
 
     // Fallback for legacy / imported enum types with no dedicated editor
