@@ -184,10 +184,9 @@ export async function validatePage(
 
     // Skip step types the runner cannot render a fillable control for
     // (e.g. file_upload, or an unrecognized type).
-    // The runner shows only a skip notice for these, so neither a required
-    // check can ever be satisfied by
-    // the respondent (RUN2-3) — mirrors the client-side skip in
-    // shared/validation/BlockValidation.ts.
+    // The runner shows only a skip notice for these, so a required check can
+    // never be satisfied by the respondent (RUN2-3) — mirrors the client-side
+    // skip in shared/validation/BlockValidation.ts.
     if (!isRunnerRequirableStepType(step.type)) {
       continue;
     }
