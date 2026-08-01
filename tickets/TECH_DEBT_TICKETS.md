@@ -78,7 +78,7 @@ have been removed.
 
 ---
 
-## DEBT-10 — 10 dependabot PRs open since 2026-07-11 🔄 1 of 10 done
+## DEBT-10 — 10 dependabot PRs open since 2026-07-11 ✅ Done (2026-08-01)
 
 > **Progress 2026-07-31 — read this before picking the ticket up.**
 >
@@ -159,6 +159,48 @@ Close, with a reason, anything not wanted rather than leaving it open.
 2. CI green after each Actions bump individually, not just at the end.
 3. The `yjs` bump is verified against real-time collaboration behaviour, by
    test or by hand, with evidence attached.
+
+### Reviewer verification (2026-08-01)
+
+**All 3 criteria met.** All ten PRs merged to `main`, none closed; **zero**
+Dependabot PRs remain open, so nothing was quietly abandoned. #129 and #130
+were confirmed individually rather than inferred from the batch.
+
+AC2: the two workflows that gate every push — `Deployment Safety Check`
+(`ci.yml`) and `TypeScript Strict Mode Check` — are green across the run
+history apart from one failure matching the two pre-existing faults this
+ticket documents, and both remediation commits are real and in history
+(`eaede9a6`, `4aad6e00`). Action versions are consistent across all four
+workflow files: `checkout@v7`, `setup-node@v7`, `upload-artifact@v7`,
+`github-script@v9`, `gitleaks-action@v3`, with no stragglers on old majors.
+Note `setup-node` landed on **v7**, not the v6 this ticket's Finding
+predicted — the dev refreshed it before merging.
+
+AC3 was **reproduced by the reviewer**, not accepted from the report:
+`npx vitest run --project integration tests/integration/collab.sync.test.ts`
+→ 3 passed, against `yjs` **13.6.31** confirmed as the *installed* version,
+not merely the declared one.
+
+**The flagged highest risk is genuinely cleared.** This ticket warned that
+`gitleaks-action` v3 might stop honouring `.gitleaksignore` and resurface the
+`secretScanner` fixtures. The gitleaks step lives in the `security` job of
+`Deployment Safety Check`, which runs on every push to `main`; those runs are
+green with the 19-line `.gitleaksignore` still in place. That is evidence, not
+an assumption.
+
+**Bonus coverage:** `node_modules` was verified to match the bumped
+`package.json` (yjs 13.6.31, autoprefixer 10.5.2, react-toast 1.2.19), which
+means the LIST-9/10/12 review gates run the same day — `tsc` 0 errors,
+repo-wide `lint` clean, `test:fast` **2204 passed** — all executed against the
+upgraded dependency tree.
+
+**Observation, not a defect:** `download-artifact` remains at **v4** while
+`upload-artifact` went to v7, which resembles the classic artifact
+compatibility break. It is not one — Dependabot runs daily on
+`github-actions`, raised the upload bump, and has no open PR for download, so
+v4 is current. Worth knowing only that `auth-tests.yml` is path-filtered to
+auth source files and so never ran during this ticket; that upload/download
+pairing will first execute on the next auth-touching PR.
 
 ---
 
