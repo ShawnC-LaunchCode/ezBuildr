@@ -644,6 +644,118 @@ export interface SignatureBlockConfig {
 }
 
 // ============================================================================
+// STRUCTURAL TYPES
+// ============================================================================
+
+// ListField/ConditionExpression come from ./conditions; the rendered-type set
+// comes from ./runnerStepTypes so ListFieldQuestionType cannot go stale.
+import type { ConditionExpression } from "./conditions";
+import { RUNNER_RENDERED_STEP_TYPES } from "./runnerStepTypes";
+
+const LIST_FIELD_EXCLUDED_STEP_TYPES = ["final_documents", "signature_block"] as const;
+
+function isListFieldQuestionType(
+  type: (typeof RUNNER_RENDERED_STEP_TYPES)[number]
+): type is Exclude<(typeof RUNNER_RENDERED_STEP_TYPES)[number], (typeof LIST_FIELD_EXCLUDED_STEP_TYPES)[number]> {
+  return !(LIST_FIELD_EXCLUDED_STEP_TYPES as readonly string[]).includes(type);
+}
+
+/**
+ * Question step types selectable inside a List field.
+ *
+ * Derived from RUNNER_RENDERED_STEP_TYPES (shared/types/runnerStepTypes.ts)
+ * rather than hand-listed, so a newly rendered runner type becomes usable
+ * inside a List with no change here — the hand-maintained `RepeaterFieldType`
+ * (shared/types/repeater.ts) went stale by doing exactly that.
+ * `final_documents` and `signature_block` are excluded: neither has meaning
+ * per-item inside a repeating list.
+ */
+export const LIST_FIELD_QUESTION_TYPES = RUNNER_RENDERED_STEP_TYPES.filter(isListFieldQuestionType);
+
+export type ListFieldQuestionType = (typeof LIST_FIELD_QUESTION_TYPES)[number];
+
+/** A field inside a List item. Recursive: a field may itself be a List. */
+export type ListField =
+  | {
+    kind: "question";
+    id: string;
+    alias: string;
+    type: ListFieldQuestionType;
+    title: string;
+    description?: string;
+    required?: boolean;
+    order: number;
+    config?: StepConfig;
+    visibleIf?: ConditionExpression;
+  }
+  | {
+    kind: "list";
+    id: string;
+    alias: string;
+    title: string;
+    description?: string;
+    order: number;
+    list: ListConfig;
+  };
+
+/**
+ * List Config
+ * Nestable, repeating question. Stored in `step.config` for `type: 'list'`
+ * steps. See shared/types/repeater.ts for the (non-nestable) predecessor
+ * this replaces — do not edit that file from here.
+ */
+export interface ListConfig {
+  fields: ListField[];
+  minItems?: number;
+  maxItems?: number;
+  /** Renders each item's row label, e.g. "{firstName} {lastName}". */
+  labelTemplate?: string;
+  addButtonText?: string;      // default "Add item"
+  allowReorder?: boolean;      // default false
+  emptyStateText?: string;
+}
+
+/** Storage shape — one per list step, in step_values. Items carry stable ids. */
+export interface ListValue {
+  items: ListItem[];
+}
+
+export interface ListItem {
+  itemId: string;                          // stable across reorder/rename
+  values: Record<string, unknown>;         // keyed by field alias
+  // a nested list field's value is itself a ListValue under its alias
+}
+
+/**
+ * Storage → plain alias-keyed objects for documents and scripts.
+ *
+ * Strips `itemId`, keys by field alias, and recurses into nested list fields
+ * to arbitrary depth, e.g.
+ * `[{ name: 'Ava', dob: '2015-04-02', addresses: [{ street: '12 Oak St' }] }]`.
+ * No server imports here — this is called from both shared/ validation and
+ * the server document engine.
+ */
+export function projectListValue(
+  value: ListValue | null | undefined,
+  config: ListConfig
+): Record<string, unknown>[] {
+  if (!value?.items?.length) {
+    return [];
+  }
+  return value.items.map((item) => projectListItem(item, config));
+}
+
+function projectListItem(item: ListItem, config: ListConfig): Record<string, unknown> {
+  const projected: Record<string, unknown> = {};
+  for (const field of config.fields) {
+    const raw = item.values[field.alias];
+    projected[field.alias] =
+      field.kind === "list" ? projectListValue(raw as ListValue | null | undefined, field.list) : raw;
+  }
+  return projected;
+}
+
+// ============================================================================
 // DISCRIMINATED UNION TYPE
 // ============================================================================
 
@@ -699,6 +811,8 @@ export type StepConfig =
   | FileUploadConfig
   | FinalBlockConfig
   | SignatureBlockConfig
+  // Structural
+  | ListConfig
   // Allow empty config
   | Record<string, never>
   | null

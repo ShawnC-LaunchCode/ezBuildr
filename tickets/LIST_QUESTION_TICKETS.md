@@ -211,7 +211,7 @@ Add `list` to `ConditionSupportedStepType` in LIST-4, not here.
 
 ---
 
-## LIST-2 — Define `ListConfig`, `ListValue`, and the plain projection 🔲
+## LIST-2 — Define `ListConfig`, `ListValue`, and the plain projection ✅ Done (2026-07-31)
 
 **Priority: ENH** · Size: M · File: `shared/types/stepConfigs.ts`
 
@@ -317,6 +317,28 @@ a shared file reaching into `server/`. Do not copy that; import
 7. New test file covers 2, 4, 5 including a 3-level nest
    (children → addresses → occupants).
 8. Gates: type-check 0 errors, lint clean, `npm run test:fast` green.
+
+### Verification (2026-07-31)
+
+- `ListConfig`/`ListField`/`ListValue`/`ListItem` + `projectListValue` added to
+  `shared/types/stepConfigs.ts` in a new "STRUCTURAL TYPES" section;
+  `ListConfig` added to the `StepConfig` union. `LIST_FIELD_QUESTION_TYPES`/
+  `ListFieldQuestionType` derived from `RUNNER_RENDERED_STEP_TYPES` (imported
+  from `./runnerStepTypes`), excluding `final_documents`/`signature_block` —
+  no hand-listed union. `ConditionExpression` imported from `./conditions`
+  (not `server/workflows/conditions`).
+- New test file `tests/unit/shared/listConfig.test.ts` (7 tests): derivation
+  equality + "flows a new rendered type through automatically" (AC3), 3-level
+  recursive `ListField` structure check (AC2), and `projectListValue` for
+  empty/absent → `[]` and the named `children → addresses → occupants` 3-level
+  nest with `itemId` stripped at every level (AC4/AC5).
+- Reviewer re-ran gates independently: `npm run type-check` 0 errors;
+  `npx eslint shared/types/stepConfigs.ts tests/unit/shared/listConfig.test.ts`
+  clean; `npx vitest run --project unit-fast tests/unit/shared/listConfig.test.ts`
+  7/7 passed; dev's full `npm run test:fast` run reported 2069/2069 non-skipped
+  passing.
+- No `server/` imports in the new code. No files touched outside
+  `shared/types/stepConfigs.ts` and the new test file.
 
 ---
 
