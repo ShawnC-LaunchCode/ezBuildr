@@ -1,4 +1,4 @@
-# List Question Type — New Feature Tickets (LIST-1..14 + backlog B1..B7)
+# List Question Type — New Feature Tickets (LIST-1..14 + backlog B1..B8)
 
 Source: feature design session + codebase investigation, 2026-07-31.
 Scope: a new nestable, repeating question type ("List") under **Add Question**,
@@ -745,7 +745,7 @@ the Tailwind theme — and only the third has no automated guard.
 
 ---
 
-## LIST-6 — ListCardEditor: author nested item fields ⚠️ Size L 🔲
+## LIST-6 — ListCardEditor: author nested item fields ✅ Done (2026-08-01)
 
 **Priority: ENH** · Size: **L — escalated to Shawn, see note** · File: `client/src/components/builder/cards/ListCardEditor.tsx` (new)
 
@@ -845,6 +845,49 @@ dispatch hard rules).
    builder, plus the persisted `config` JSON. Use the `verify` skill.
 10. No new `eslint-disable` comments; no commented-out code.
 11. Gates: type-check 0 errors, lint clean, `npm run test:fast` green.
+
+### Verification (2026-08-01) — committed `e9b0a74a`
+
+All eleven criteria checked against the tree by the reviewer, not taken from
+the dev's report. 851 lines across 5 new files + 2 one-line wirings.
+
+- **Recursive state plumbing is correct**, which is the usual failure mode for
+  editors of this shape. `replaceField`/`removeField` match on **field id, not
+  array index**, rows are `key={field.id}`, and `useSortable({ id: field.id })`
+  is id-based too — so a reorder or a deep edit in one branch cannot clobber a
+  sibling. Threaded immutably at every level. AC7's test proves it explicitly.
+- **AC6 is properly parametric.** The test renders at both
+  `LIST_VALIDATION_MAX_DEPTH` (add-nested disabled) *and* `MAX_DEPTH - 1`
+  (enabled), and matches the cap copy via a regex built from the constant. A
+  hard-coded `3` in the component would fail the `MAX_DEPTH - 1` case at any
+  other cap value, so the test genuinely proves the "raise the constant, raise
+  the limit" property rather than merely referencing the constant.
+- **AC10 verified by grep:** zero `eslint-disable` in any new file, zero
+  commented-out code.
+- **Accepted deviation:** `ListLevelEditor` and `ListFieldRow` share one file
+  rather than the ticket's implied split. They are mutually recursive, so two
+  files would form an import cycle, and `import/no-cycle` is an `error` in this
+  repo (ICW-B1 removed all 9 remaining disables for it). Documented in the file
+  header. Correct call.
+- **Not a deviation, though it looks like one:** persistence fires a mutation
+  per change with no debounce. That is exactly what `MultiFieldCardEditor` —
+  the donor pattern the ticket named — does (`MultiFieldCardEditor.tsx:175-186`,
+  same local-state + immediate-mutate + `useEffect([step.config])` reset). See
+  **LIST-B8** for the scaling caveat.
+- `@dnd-kit` was already a dependency used by four sibling builder components;
+  no new packages.
+- Reviewer-run gates: `tsc --noEmit` **0 errors repo-wide** (notable — the
+  working tree also held substantial unrelated in-flight auth/marketing work),
+  `eslint` 0 problems on all 7 files, `ListLevelEditor.test.tsx` 10/10, full
+  pre-commit 4/4.
+- **Live proof:** screenshots were again impossible (`computer{screenshot}`
+  times out — the browser pane isn't compositing in a background session, the
+  same environmental limit LIST-5 hit). The dev substituted evidence that is
+  arguably *stronger* for these particular claims: the real API response
+  showing the persisted 3-level `step.config`, `element.disabled` read from the
+  live DOM at level 3 with the cap text rendering "3" from the constant, and a
+  cold page reload confirming every field's title/alias survived in order. A
+  screenshot could not have proven any of those three.
 
 ---
 
@@ -1659,6 +1702,16 @@ structural and always active regardless of mode. The open question is only
 whether a 50,000-item submission should be *stored*. Reviewer's view: these two
 caps should be unconditional, unlike ordinary field rules. Shawn to decide;
 this is a ticket-design question, not a defect in LIST-14.
+
+**LIST-B8 — Debounce List config saves.** Noted reviewing LIST-6
+(2026-08-01). `ListCardEditor` fires a full `updateStep` mutation on every
+change with no debounce. This is *correct* as delivered — it matches
+`MultiFieldCardEditor`, the donor pattern the ticket named — but the scale
+differs: MultiField carries 2–6 flat fields, whereas a 3-level List can hold
+dozens, and each keystroke PATCHes the entire nested config object. Worth
+debouncing (`ChoiceCardEditor` already has a debounce queue, per its comment at
+`ChoiceCardEditor.tsx:185`, and is the better donor for this one aspect).
+Cosmetic today; revisit if authoring feels laggy on a large list.
 
 **LIST-B4 — Prefill a list from a DataVault query.** `RepeaterService.createFromList`
 (`server/services/RepeaterService.ts:126-152`) could seed items from a
