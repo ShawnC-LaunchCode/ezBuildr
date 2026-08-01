@@ -94,7 +94,7 @@ Row notes/archive: `datavault/rowNotes.routes.ts`, `datavault/rowArchive.routes.
 ## Auth & Account — `auth.routes.ts`, `account.routes.ts`, `userPreferences.routes.ts`
 
 ```
-POST        /api/auth/register | login | refresh-token | logout
+POST        /api/auth/register | login | refresh-token | logout  # registration is feature-flagged
 POST        /api/auth/forgot-password | reset-password | verify-email
 GET         /api/auth/me | csrf-token | token
 POST/GET    /api/auth/mfa/*                       # setup, verify, verify-login, status

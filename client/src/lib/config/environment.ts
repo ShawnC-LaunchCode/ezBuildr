@@ -20,6 +20,7 @@ const envSchema = z.object({
     // Security
     SESSION_SECRET: z.string().default("dev_secret_do_not_use_in_prod"),
     VITE_GOOGLE_CLIENT_ID: z.string().optional(),
+    VITE_PUBLIC_SIGNUP_ENABLED: z.string().transform(v => v === 'true').optional(),
     GOOGLE_CLIENT_SECRET: z.string().optional(),
 
     // Feature Flags (Optional overrides, otherwise defaults apply)

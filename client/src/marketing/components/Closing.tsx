@@ -3,6 +3,7 @@ import { ArrowUpRight } from "lucide-react";
 import { useLocation } from "wouter";
 
 import logo from "@/assets/images/logo.png";
+import { PUBLIC_SIGNUP_PATH } from "@/lib/publicSignup";
 
 function QuoteSection() {
   return (
@@ -54,7 +55,7 @@ function FinalCta() {
           <div className="mt-12 flex flex-col sm:flex-row gap-4 justify-center">
             <button
               type="button"
-              onClick={() => setLocation("/auth/register")}
+              onClick={() => setLocation(PUBLIC_SIGNUP_PATH)}
               className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--lp2-lime)] text-[#0a0a0f] font-semibold text-lg px-9 py-4 hover:brightness-110 transition shadow-[0_0_60px_rgba(215,254,84,0.3)]"
             >
               Start building free

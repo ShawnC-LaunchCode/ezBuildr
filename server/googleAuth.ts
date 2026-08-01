@@ -2,6 +2,8 @@ import { serialize } from "cookie";
 import rateLimit from "express-rate-limit";
 import { OAuth2Client, type TokenPayload } from "google-auth-library";
 
+import { isPublicSignupEnabled, SIGNUP_CLOSED_MESSAGE } from "@shared/publicSignup";
+
 import { createLogger } from "./logger";
 import { userRepository } from "./repositories";
 import { authService } from "./services/AuthService";
@@ -160,6 +162,15 @@ export async function setupAuth(app: Express): Promise<void> {
       }
       // Verify and Upsert
       const payload = await verifyGoogleToken(googleToken);
+      const existingUser = payload.email
+        ? await userRepository.findByEmail(payload.email)
+        : await userRepository.findById(payload.sub);
+      if (!existingUser && !isPublicSignupEnabled(process.env)) {
+        return res.status(403).json({
+          message: SIGNUP_CLOSED_MESSAGE,
+          error: 'registration_closed',
+        });
+      }
       await upsertUser(payload);
 
       const dbUser = payload.email ? await userRepository.findByEmail(payload.email) : await userRepository.findById(payload.sub);

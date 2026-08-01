@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { PUBLIC_SIGNUP_PATH } from "@/lib/publicSignup";
 import { authAPI } from "@/lib/vault-api";
 const loginSchema = z.object({
     email: z.string().email("Please enter a valid email"),
@@ -181,7 +182,7 @@ export default function LoginPage() {
                     </h2>
                     <p className="mt-2 text-center text-sm text-gray-600">
                         Or{" "}
-                        <Link href="/auth/register" className="font-medium text-indigo-600 hover:text-indigo-500">
+                        <Link href={PUBLIC_SIGNUP_PATH} className="font-medium text-indigo-600 hover:text-indigo-500">
                             create a new account
                         </Link>
                     </p>

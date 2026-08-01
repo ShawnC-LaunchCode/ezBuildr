@@ -1,5 +1,13 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  readonly VITE_PUBLIC_SIGNUP_ENABLED?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+
 // Type declarations for image imports
 declare module '*.jpg' {
   const src: string;

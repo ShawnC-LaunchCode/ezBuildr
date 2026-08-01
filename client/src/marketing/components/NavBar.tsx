@@ -2,6 +2,7 @@ import { ArrowUpRight } from "lucide-react";
 import { useLocation } from "wouter";
 
 import logo from "@/assets/images/logo.png";
+import { PUBLIC_SIGNUP_PATH } from "@/lib/publicSignup";
 
 const LINKS = [
   { label: "Product", href: "#features" },
@@ -44,7 +45,7 @@ export default function NavBar() {
           </button>
           <button
             type="button"
-            onClick={() => setLocation("/auth/register")}
+            onClick={() => setLocation(PUBLIC_SIGNUP_PATH)}
             className="inline-flex items-center gap-1.5 rounded-full bg-[var(--lp2-lime)] text-[#0a0a0f] text-sm font-semibold px-4 sm:px-5 py-2 hover:brightness-110 transition"
           >
             Start free

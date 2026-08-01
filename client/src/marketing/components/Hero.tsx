@@ -2,6 +2,8 @@ import { motion } from "framer-motion";
 import { ArrowDown, ArrowUpRight } from "lucide-react";
 import { useLocation } from "wouter";
 
+import { PUBLIC_SIGNUP_PATH } from "@/lib/publicSignup";
+
 const STATS = [
   { value: "~90%", label: "of the build, AI-drafted" },
   { value: "15+", label: "step types" },
@@ -91,7 +93,7 @@ export default function Hero() {
           <div className="mt-10 flex flex-col sm:flex-row gap-4">
             <button
               type="button"
-              onClick={() => setLocation("/auth/register")}
+              onClick={() => setLocation(PUBLIC_SIGNUP_PATH)}
               className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--lp2-lime)] text-[#0a0a0f] font-semibold text-base px-7 py-3.5 hover:brightness-110 transition shadow-[0_0_40px_rgba(215,254,84,0.25)]"
             >
               Start building — it&apos;s free

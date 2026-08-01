@@ -4,6 +4,7 @@ import { Switch, Route, useLocation } from "wouter";
 
 import { FullScreenLoader } from "@/components/ui/loader";
 import { useAuth } from "@/hooks/useAuth";
+import { PUBLIC_SIGNUP_ENABLED } from "@/lib/publicSignup";
 
 const AuthRedirect = () => {
     const [, setLocation] = useLocation();
@@ -53,6 +54,7 @@ const RunCompletionView = lazy(() => import("@/pages/RunCompletionView"));
 const OAuthApps = lazy(() => import("@/pages/developer/OAuthApps"));
 const LoginPage = lazy(() => import("@/pages/auth/LoginPage"));
 const RegisterPage = lazy(() => import("@/pages/auth/RegisterPage"));
+const ComingSoonPage = lazy(() => import("@/pages/auth/ComingSoonPage"));
 const ForgotPasswordPage = lazy(() => import("@/pages/auth/ForgotPasswordPage"));
 const ResetPasswordPage = lazy(() => import("@/pages/auth/ResetPasswordPage"));
 const VerifyEmailPage = lazy(() => import("@/pages/auth/VerifyEmailPage"));
@@ -91,12 +93,17 @@ export default function Router() {
                 <Route path="/intake/preview" component={IntakePreviewPage} />
                 {/* Documentation - available to everyone */}
                 <Route path="/docs/url-parameters" component={UrlParametersDoc} />
+                {/* Public signup preview - stable before and after auth finishes loading */}
+                <Route path="/coming-soon" component={ComingSoonPage} />
                 {isLoading || !isAuthenticated ? (
                     <>
                         <Route path="/" component={Landing} />
                         {/* Auth Routes - Public */}
                         <Route path="/auth/login" component={LoginPage} />
-                        <Route path="/auth/register" component={RegisterPage} />
+                        <Route
+                            path="/auth/register"
+                            component={PUBLIC_SIGNUP_ENABLED ? RegisterPage : ComingSoonPage}
+                        />
                         <Route path="/auth/forgot-password" component={ForgotPasswordPage} />
                         <Route path="/auth/reset-password" component={ResetPasswordPage} />
                         <Route path="/auth/verify-email" component={VerifyEmailPage} />

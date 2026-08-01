@@ -31,6 +31,7 @@ const envSchema = z.object({
     // Feature Flags / Configs
     VITEST_INTEGRATION: z.string().optional(),
     TEST_TYPE: z.string().optional(),
+    VITE_PUBLIC_SIGNUP_ENABLED: z.enum(['true', 'false']).optional(),
 });
 
 

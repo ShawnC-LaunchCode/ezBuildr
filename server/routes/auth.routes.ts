@@ -6,6 +6,7 @@ import { rateLimit } from 'express-rate-limit';
 
 import type { User } from "@shared/schema";
 import { refreshTokens, trustedDevices, tenants } from "@shared/schema";
+import { isPublicSignupEnabled, SIGNUP_CLOSED_MESSAGE } from "@shared/publicSignup";
 
 import { RATE_LIMIT_CONFIG } from "../config/auth";
 import { db } from "../db";
@@ -188,6 +189,12 @@ export function registerAuthRoutes(app: Express): void {
    */
   app.post('/api/auth/register', authRateLimit, asyncHandler(async (req: Request, res: Response) => {
     try {
+      if (!isPublicSignupEnabled(process.env)) {
+        return res.status(403).json({
+          message: SIGNUP_CLOSED_MESSAGE,
+          error: 'registration_closed',
+        });
+      }
       // SECURITY: tenantId / tenantRole are intentionally NOT read from the request body.
       // Accepting them from unauthenticated self-registration would let anyone join an
       // arbitrary tenant (with any role, including owner). Tenant membership is assigned

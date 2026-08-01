@@ -232,7 +232,7 @@ enum SecurityEventType {
 
 ### Authentication Core
 ```
-POST   /api/auth/register          # Create account
+POST   /api/auth/register          # Create account (when VITE_PUBLIC_SIGNUP_ENABLED=true)
 POST   /api/auth/login             # Email/password login
 POST   /api/auth/logout            # Revoke current session
 POST   /api/auth/refresh           # Get new access token
