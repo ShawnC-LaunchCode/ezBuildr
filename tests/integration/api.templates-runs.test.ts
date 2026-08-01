@@ -1,15 +1,24 @@
 import _fs from "fs/promises";
 import _path from "path";
 
-import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import PizZip from "pizzip";
 import request from "supertest";
 import { vi , describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
-import * as schema from "@shared/schema";
+import { sections, steps } from "@shared/schema";
 
 import { db } from "../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../helpers/integrationTestHelper";
+
+const createMinimalDocx = (): Buffer => {
+  const zip = new PizZip();
+  zip.file("[Content_Types].xml", "<Types/>");
+  zip.file("_rels/.rels", "<Relationships/>");
+  zip.file("word/document.xml", "<w:document/>");
+  return zip.generate({ type: "nodebuffer", compression: "DEFLATE" });
+};
+
 // Mock template scanner to avoid parsing invalid zip files
 vi.mock("../../server/services/document/TemplateScanner", () => ({
   templateScanner: {
@@ -68,10 +77,30 @@ describe("Templates API Integration Tests", () => {
       })
       .expect(201);
     workflowId = workflowResponse.body.id;
+
+    // RUN2-9: publishing runs a structural gate, so the workflow needs at least
+    // one section and one real question. This used to publish an empty workflow
+    // with a vestigial `graphJson: { pages: [] }` body (publishVersion
+    // serializes from the database and ignores that field entirely), which the
+    // gate now correctly refuses — an interview with no questions cannot be
+    // completed by any respondent.
+    const [section] = await db
+      .insert(sections)
+      .values({ workflowId, title: "Page 1", order: 0 })
+      .returning();
+    await db.insert(steps).values({
+      workflowId,
+      sectionId: section.id,
+      title: "Your name",
+      type: "short_text",
+      alias: "name",
+      order: 0,
+    });
+
     await request(ctx.baseURL)
       .post(`/api/workflows/${workflowId}/publish`)
       .set("Authorization", `Bearer ${ctx.authToken}`)
-      .send({ graphJson: { pages: [] } })
+      .send({})
       .expect(200);
   });
   afterAll(async () => {
@@ -80,8 +109,7 @@ describe("Templates API Integration Tests", () => {
   describe("Templates API", () => {
     describe("POST /api/projects/:ctx.projectId/templates", () => {
       it("should create template with file upload", async () => {
-        // Create a mock .docx file (ZIP format)
-        const mockDocx = Buffer.from("PK\x03\x04"); // ZIP file signature
+        const mockDocx = createMinimalDocx();
         const response = await request(ctx.baseURL)
           .post(`/api/projects/${ctx.projectId}/templates`)
           .set("Authorization", `Bearer ${ctx.authToken}`)
@@ -90,7 +118,7 @@ describe("Templates API Integration Tests", () => {
           .expect(201)
           .catch((err: unknown) => {
             if (err && typeof err === 'object' && 'response' in err) {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
               const response = (err as any).response;
               if (response?.body) {
                 console.error("DEBUG: Template upload failed:", JSON.stringify(response.body, null, 2));
@@ -122,7 +150,7 @@ describe("Templates API Integration Tests", () => {
     });
     describe("GET /api/projects/:ctx.projectId/templates", () => {
       beforeEach(async () => {
-        const mockDocx = Buffer.from("PK\x03\x04");
+        const mockDocx = createMinimalDocx();
         await request(ctx.baseURL)
           .post(`/api/projects/${ctx.projectId}/templates`)
           .set("Authorization", `Bearer ${ctx.authToken}`)
@@ -142,7 +170,7 @@ describe("Templates API Integration Tests", () => {
     describe("GET /api/templates/:id", () => {
       let templateId: string;
       beforeEach(async () => {
-        const mockDocx = Buffer.from("PK\x03\x04");
+        const mockDocx = createMinimalDocx();
         const response = await request(ctx.baseURL)
           .post(`/api/projects/${ctx.projectId}/templates`)
           .set("Authorization", `Bearer ${ctx.authToken}`)
@@ -161,7 +189,7 @@ describe("Templates API Integration Tests", () => {
     describe("GET /api/templates/:id/placeholders", () => {
       let templateId: string;
       beforeEach(async () => {
-        const mockDocx = Buffer.from("PK\x03\x04");
+        const mockDocx = createMinimalDocx();
         const response = await request(ctx.baseURL)
           .post(`/api/projects/${ctx.projectId}/templates`)
           .set("Authorization", `Bearer ${ctx.authToken}`)
@@ -182,7 +210,7 @@ describe("Templates API Integration Tests", () => {
     describe("PATCH /api/templates/:id", () => {
       let templateId: string;
       beforeEach(async () => {
-        const mockDocx = Buffer.from("PK\x03\x04");
+        const mockDocx = createMinimalDocx();
         const response = await request(ctx.baseURL)
           .post(`/api/projects/${ctx.projectId}/templates`)
           .set("Authorization", `Bearer ${ctx.authToken}`)
@@ -202,7 +230,7 @@ describe("Templates API Integration Tests", () => {
     describe("DELETE /api/templates/:id", () => {
       let templateId: string;
       beforeEach(async () => {
-        const mockDocx = Buffer.from("PK\x03\x04");
+        const mockDocx = createMinimalDocx();
         const response = await request(ctx.baseURL)
           .post(`/api/projects/${ctx.projectId}/templates`)
           .set("Authorization", `Bearer ${ctx.authToken}`)

@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { Check } from "lucide-react";
 
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
@@ -9,6 +10,8 @@ interface ClientRunnerLayoutProps {
     progress?: number;
     currentStep?: number;
     totalSteps?: number;
+    saveStatus?: "idle" | "saving" | "saved" | "error";
+    saveAndResumeAction?: ReactNode;
     className?: string;
 }
 
@@ -18,6 +21,8 @@ export function ClientRunnerLayout({
     progress,
     currentStep,
     totalSteps,
+    saveStatus,
+    saveAndResumeAction,
     className
 }: ClientRunnerLayoutProps) {
     return (
@@ -30,11 +35,34 @@ export function ClientRunnerLayout({
                         <div className="w-6 h-6 bg-primary rounded-sm" />
                         <span className="font-semibold text-sm tracking-tight text-foreground">ezBuildr</span>
                     </div>
-                    {totalSteps && totalSteps > 0 && currentStep !== undefined && (
-                        <div className="text-xs text-muted-foreground font-medium">
-                            Step {currentStep + 1} of {totalSteps}
-                        </div>
-                    )}
+                    {/* Status area (Step count + Save Status) */}
+                    <div className="flex items-center gap-4">
+                        {saveAndResumeAction}
+                        {saveStatus && saveStatus !== "idle" && (
+                            <div className="flex items-center gap-1.5 text-xs font-medium animate-in fade-in zoom-in duration-300">
+                                {saveStatus === "saving" && (
+                                    <>
+                                        <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                        <span className="text-muted-foreground">Saving...</span>
+                                    </>
+                                )}
+                                {saveStatus === "saved" && (
+                                    <>
+                                        <Check className="h-3 w-3 text-green-500" />
+                                        <span className="text-muted-foreground">Saved</span>
+                                    </>
+                                )}
+                                {saveStatus === "error" && (
+                                    <span className="text-destructive">Save failed</span>
+                                )}
+                            </div>
+                        )}
+                        {totalSteps && totalSteps > 0 && currentStep !== undefined && (
+                            <div className="text-xs text-muted-foreground font-medium">
+                                {currentStep >= totalSteps ? "Review" : `Step ${currentStep + 1} of ${totalSteps}`}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </header>
 

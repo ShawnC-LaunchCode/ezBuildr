@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+
 /**
  * Table Grid View - With Infinite Scroll (PR 7 + PR 8 + PR 9)
  * Spreadsheet-like grid for viewing and editing rows

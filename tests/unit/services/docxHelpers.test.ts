@@ -10,15 +10,20 @@ import {
   isNotEmpty,
   defaultValue,
   formatDate,
+  addDays,
+  daysBetween,
   formatCurrency,
   formatNumber,
   add,
   subtract,
   multiply,
   divide,
+  round,
+  percentage,
   pluralize,
   truncate,
   replace,
+  concat,
   docxHelpers,
   tokenizeTag,
   parseHelperArg,
@@ -65,6 +70,17 @@ describe('DOCX Helpers', () => {
 
       it('should handle null/undefined', () => {
         expect(replace(null, 'x', 'y')).toBe('');
+      });
+    });
+
+    describe('concat', () => {
+      it('should concatenate values', () => {
+        expect(concat('a', 'b', 'c')).toBe('abc');
+        expect(concat(1, 2, 3)).toBe('123');
+      });
+
+      it('should filter out null/undefined', () => {
+        expect(concat('a', null, 'b', undefined, 'c')).toBe('abc');
       });
     });
   });
@@ -220,6 +236,31 @@ describe('DOCX Helpers', () => {
       });
     });
 
+    describe('addDays', () => {
+      it('should add days to date', () => {
+        const date = new Date('2025-03-15T10:30:00Z');
+        expect(addDays(date, 5, 'YYYY-MM-DD')).toBe('2025-03-20');
+        expect(addDays(date, -5, 'YYYY-MM-DD')).toBe('2025-03-10');
+      });
+
+      it('should handle null/undefined', () => {
+        expect(addDays(null)).toBe('');
+      });
+    });
+
+    describe('daysBetween', () => {
+      it('should return difference in days', () => {
+        const d1 = new Date('2025-03-10T10:30:00Z');
+        const d2 = new Date('2025-03-15T10:30:00Z');
+        expect(daysBetween(d1, d2)).toBe(5);
+        expect(daysBetween(d2, d1)).toBe(5);
+      });
+
+      it('should handle null/undefined', () => {
+        expect(daysBetween(null, new Date())).toBe(0);
+      });
+    });
+
     describe('formatCurrency', () => {
       it('should format USD by default', () => {
         expect(formatCurrency(1234.56)).toBe('$1,234.56');
@@ -289,8 +330,28 @@ describe('DOCX Helpers', () => {
         expect(divide(10, 3)).toBeCloseTo(3.333, 2);
       });
 
-      it('should handle division by zero', () => {
+      it('should return 0 when b is 0/empty', () => {
         expect(divide(10, 0)).toBe(0);
+      });
+    });
+
+    describe('round', () => {
+      it('should round numbers', () => {
+        expect(round(10.4)).toBe(10);
+        expect(round(10.5)).toBe(11);
+        expect(round(10.123, 2)).toBe(10.12);
+        expect(round(10.125, 2)).toBe(10.13);
+      });
+    });
+
+    describe('percentage', () => {
+      it('should calculate percentage', () => {
+        expect(percentage(50, 100)).toBe('50%');
+        expect(percentage(1, 3)).toBe('33%');
+      });
+
+      it('should handle 0 total', () => {
+        expect(percentage(10, 0)).toBe('0%');
       });
     });
   });

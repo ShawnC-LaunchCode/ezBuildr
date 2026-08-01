@@ -42,7 +42,8 @@ export type AIErrorCode =
   | 'RATE_LIMIT'
   | 'TIMEOUT'
   | 'RESPONSE_TRUNCATED'
-  | 'QUALITY_THRESHOLD';
+  | 'QUALITY_THRESHOLD'
+  | 'BUDGET_EXCEEDED';
 
 /**
  * Task types for LLM calls

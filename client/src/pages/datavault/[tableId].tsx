@@ -550,7 +550,7 @@ export default function TableViewPage() {
                               showArchived={showArchived}
                               sortBy={sortBy}
                               sortOrder={sortOrder}
-                              // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
                               filters={apiFilters}
                               selectedRowIds={selectedRowIds}
                               onSelectRow={handleSelectRow}

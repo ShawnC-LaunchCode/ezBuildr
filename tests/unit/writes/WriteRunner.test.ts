@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/unbound-method */
+
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import type { WriteBlockConfig, BlockContext } from "@shared/types/blocks";
@@ -92,7 +92,7 @@ describe("WriteRunner", () => {
             // It seems the test meant to use it or it's legacy. 
             // The original code typed it as `any`. usage: none visible except maybe compilation.
             // I'll assume it's a Partial<WriteBlockConfig> or just remove the explicit type if it's just a mock object.
-            /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
+
             const _config = {
                 id: "block-1",
                 workflowId: "wf-1",

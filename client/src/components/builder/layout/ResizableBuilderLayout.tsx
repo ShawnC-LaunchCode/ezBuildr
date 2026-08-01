@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import React, { useState, useRef, useEffect } from "react";
 
@@ -20,6 +20,55 @@ const MIN_PANEL_WIDTH = 200;
 const DEFAULT_LEFT_WIDTH = 280;
 const DEFAULT_RIGHT_WIDTH = 400;
 
+interface SavedLayoutPreferences {
+  left?: number;
+  right?: number;
+  leftCollapsed?: boolean;
+  rightCollapsed?: boolean;
+}
+
+function loadLayoutPreferences(storageKey: string): SavedLayoutPreferences | null {
+  try {
+    const saved = localStorage.getItem(storageKey);
+    return saved ? JSON.parse(saved) as SavedLayoutPreferences : null;
+  } catch (error) {
+    console.error("Failed to load layout preferences:", error);
+    return null;
+  }
+}
+
+function LeftPanelToggle({
+  collapsed,
+  panelWidth,
+  onToggle,
+}: {
+  collapsed: boolean;
+  panelWidth: number;
+  onToggle: () => void;
+}) {
+  const label = collapsed ? "Show navigation panel" : "Hide navigation panel";
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      aria-label={label}
+      title={label}
+      onClick={onToggle}
+      className="absolute top-1/2 z-20 -translate-y-1/2 rounded-l-none rounded-r-md border border-l-0 bg-background shadow-md hover:bg-accent"
+      style={{
+        left: collapsed ? "0" : `${panelWidth}px`,
+        transition: "left 0.2s ease-in-out"
+      }}
+    >
+      {collapsed ? (
+        <ChevronRight className="w-4 h-4" />
+      ) : (
+        <ChevronLeft className="w-4 h-4" />
+      )}
+    </Button>
+  );
+}
+
 export function ResizableBuilderLayout({
   leftPanel,
   centerPanel,
@@ -31,6 +80,7 @@ export function ResizableBuilderLayout({
   const containerRef = useRef<HTMLDivElement>(null);
   const [leftWidth, setLeftWidth] = useState(DEFAULT_LEFT_WIDTH);
   const [rightWidth, setRightWidth] = useState(DEFAULT_RIGHT_WIDTH);
+  const [isLeftCollapsed, setIsLeftCollapsed] = useState(false);
 
   // Internal state for right panel if not controlled externally
   const [internalRightCollapsed, setInternalRightCollapsed] = useState(true);
@@ -47,20 +97,16 @@ export function ResizableBuilderLayout({
 
   // Load saved widths from localStorage
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const { left, right } = parsed;
-        if (left != null) {setLeftWidth(left);}
-        if (right != null) {setRightWidth(right);}
-        // We don't load collapsed state if it's controlled externally
-        if (rightPanelOpen === undefined && parsed.rightCollapsed !== undefined) {
-          setInternalRightCollapsed(parsed.rightCollapsed);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load layout preferences:", error);
+    const parsed = loadLayoutPreferences(storageKey);
+    if (!parsed) {
+      return;
+    }
+    setLeftWidth((current) => parsed.left ?? current);
+    setRightWidth((current) => parsed.right ?? current);
+    setIsLeftCollapsed((current) => parsed.leftCollapsed ?? current);
+    // We don't load collapsed state if it's controlled externally
+    if (rightPanelOpen === undefined && parsed.rightCollapsed !== undefined) {
+      setInternalRightCollapsed(parsed.rightCollapsed);
     }
   }, [storageKey, rightPanelOpen]);
 
@@ -72,13 +118,14 @@ export function ResizableBuilderLayout({
         JSON.stringify({
           left: leftWidth,
           right: rightWidth,
+          leftCollapsed: isLeftCollapsed,
           rightCollapsed: isRightCollapsed,
         })
       );
     } catch (error) {
       console.error("Failed to save layout preferences:", error);
     }
-  }, [leftWidth, rightWidth, isRightCollapsed, storageKey]);
+  }, [leftWidth, rightWidth, isLeftCollapsed, isRightCollapsed, storageKey]);
 
   // Handle left resize
   useEffect(() => {
@@ -149,8 +196,11 @@ export function ResizableBuilderLayout({
     <div ref={containerRef} className="flex h-full w-full relative overflow-hidden">
       {/* Left Panel */}
       <div
-        style={{ width: `${leftWidth}px` }}
-        className="flex-shrink-0 border-r bg-background overflow-hidden relative"
+        style={{ width: isLeftCollapsed ? "0px" : `${leftWidth}px` }}
+        className={cn(
+          "flex-shrink-0 border-r bg-background overflow-hidden relative transition-[width] duration-200",
+          isLeftCollapsed && "border-r-0"
+        )}
       >
         <div className="h-full w-full overflow-y-auto">
           {leftPanel}
@@ -158,18 +208,27 @@ export function ResizableBuilderLayout({
       </div>
 
       {/* Left Resize Handle */}
-      <div
-        className={cn(
-          "w-1 cursor-col-resize hover:bg-blue-400 transition-colors flex-shrink-0 z-10",
-          isDraggingLeft && "bg-blue-500"
-        )}
-        onMouseDown={() => setIsDraggingLeft(true)}
-      />
+      {!isLeftCollapsed && (
+        <div
+          aria-hidden="true"
+          className={cn(
+            "w-1 cursor-col-resize hover:bg-blue-400 transition-colors flex-shrink-0 z-10",
+            isDraggingLeft && "bg-blue-500"
+          )}
+          onMouseDown={() => setIsDraggingLeft(true)}
+        />
+      )}
 
       {/* Center Panel (flexible) */}
       <div className="flex-1 overflow-hidden min-w-0 bg-background relative z-0">
         {centerPanel}
       </div>
+
+      <LeftPanelToggle
+        collapsed={isLeftCollapsed}
+        panelWidth={leftWidth}
+        onToggle={() => setIsLeftCollapsed((collapsed) => !collapsed)}
+      />
 
       {/* Right Panel (AI Assistant) */}
       {/* eslint-disable-next-line @typescript-eslint/strict-boolean-expressions */}
@@ -205,6 +264,8 @@ export function ResizableBuilderLayout({
           <Button
             size="sm"
             variant="ghost"
+            aria-label={isRightCollapsed ? "Show AI assistant" : "Hide AI assistant"}
+            title={isRightCollapsed ? "Show AI assistant" : "Hide AI assistant"}
             onClick={handleToggleRight}
             className={cn(
               "absolute right-0 top-1/2 -translate-y-1/2 z-20",

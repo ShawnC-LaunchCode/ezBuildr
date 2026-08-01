@@ -56,16 +56,16 @@ describe.sequential("Data Sources API - Native Catalog", () => {
         expect(catalog).toHaveProperty("databases");
         expect(catalog).toHaveProperty("orphanTables");
         // Check Database
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const foundDB = catalog.databases.find((d: any) => d.id === databaseId);
         expect(foundDB).toBeDefined();
         expect(foundDB.name).toBe(dbName);
         // Check Table inside Database
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const foundTableInDB = foundDB.tables.find((t: any) => t.name === tableName);
         expect(foundTableInDB).toBeDefined();
         // Check Orphan Table
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const foundOrphan = catalog.orphanTables.find((t: any) => t.name === orphanTableName);
         expect(foundOrphan).toBeDefined();
     });

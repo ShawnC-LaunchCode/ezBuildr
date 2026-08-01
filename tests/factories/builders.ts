@@ -52,9 +52,8 @@ export class SectionBuilder {
    * @param type Step type (e.g., 'short_text', 'email', 'phone')
    * @param overrides Additional step properties
    */
-  addStep(type: string, overrides?: Record<string, unknown>): this {
+  addStep(type: ReturnType<typeof createTestStep>["type"], overrides?: Record<string, unknown>): this {
     const step = createTestStep({
-      // @ts-ignore - TODO: fix type
       type,
       order: this.steps.length,
       ...overrides,
@@ -65,7 +64,7 @@ export class SectionBuilder {
   /**
    * Add multiple steps at once
    */
-  addSteps(steps: Array<{ type: string; overrides?: Record<string, unknown> }>): this {
+  addSteps(steps: Array<{ type: ReturnType<typeof createTestStep>["type"]; overrides?: Record<string, unknown> }>): this {
     for (const step of steps) {
       this.addStep(step.type, step.overrides);
     }
@@ -85,7 +84,7 @@ export class SectionBuilder {
     for (const stepData of this.steps) {
       const [step] = await db
         .insert(schema.steps)
-        .values({ ...stepData, sectionId: section.id })
+        .values({ ...stepData, workflowId, sectionId: section.id })
         .returning();
       insertedSteps.push(step);
     }

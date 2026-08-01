@@ -1,9 +1,9 @@
-/* eslint-disable max-depth */
 import { and, eq, inArray } from "drizzle-orm";
 import crypto from "crypto";
 
-import type { Workflow, InsertWorkflow, Step, WorkflowAccess, PrincipalType, AccessRole, InsertStep, InsertLogicRule } from "@shared/schema";
-import { workflowVersions, workflows, sections, steps, logicRules, auditLogs, projects, workflowRuns } from "@shared/schema";
+import type { Workflow, InsertWorkflow, Step, WorkflowAccess, PrincipalType, AccessRole } from "@shared/schema";
+import { workflowVersions, workflows, auditLogs, projects, workflowRuns } from "@shared/schema";
+import type { IntakeConfig } from "@shared/types/intake";
 
 interface GraphConfig {
   title?: string;
@@ -52,6 +52,7 @@ interface WorkflowContentData {
   }>;
 }
 import { db } from "../db";
+import { workflowContentIngestService } from "./WorkflowContentIngestService";
 import { logger } from "../logger";
 import {
   workflowRepository,
@@ -318,7 +319,16 @@ export class WorkflowService {
     if (status === 'archived') {
       await this.requireOrgAdminForOrgOwnedWorkflow(workflow, userId, 'archive');
     }
-    return this.workflowRepo.update(workflowId, { status });
+    
+    const updateData: Partial<InsertWorkflow> = { status };
+    if (status === 'active') {
+            // eslint-disable-next-line import/no-cycle
+      const { versionService } = await import("./VersionService");
+      const version = await versionService.publishVersion(workflowId, userId, 'Published from builder');
+      updateData.currentVersionId = version.id;
+    }
+    
+    return this.workflowRepo.update(workflowId, updateData);
   }
   /**
    * Ensure workflow is in draft status before editing
@@ -356,6 +366,8 @@ export class WorkflowService {
     // Verify user has owner access to the workflow
     await this.verifyAccess(workflowId, userId, 'owner');
     // If moving to a project (not unfiled), verify user has access to target project
+    let ownerType: Workflow['ownerType'];
+    let ownerUuid: Workflow['ownerUuid'];
     if (projectId !== null) {
       const project = await this.projectRepo.findById(projectId);
       if (!project) {
@@ -365,14 +377,21 @@ export class WorkflowService {
       if (!hasProjectAccess) {
         throw new Error("Access denied - you do not have access to the target project");
       }
-      const ownerType = project.ownerType ?? 'user';
-      const ownerUuid = project.ownerUuid ?? project.ownerId ?? userId;
+      ownerType = project.ownerType ?? 'user';
+      ownerUuid = project.ownerUuid ?? project.ownerId ?? userId;
+    } else {
+      // Unfiled: reset to personal/user ownership, mirroring the no-projectId
+      // branch of createWorkflow (ownerType 'user', ownerUuid = the acting user).
+      ownerType = 'user';
+      ownerUuid = userId;
+    }
+    return this.workflowRepo.transaction(async (tx) => {
       const workflow = await this.workflowRepo.update(workflowId, {
         projectId,
         ownerType,
         ownerUuid,
-      });
-      await db
+      }, tx);
+      await tx
         .update(workflowRuns)
         .set({
           ownerType,
@@ -380,8 +399,7 @@ export class WorkflowService {
         })
         .where(eq(workflowRuns.workflowId, workflowId));
       return workflow;
-    }
-    return this.workflowRepo.update(workflowId, { projectId });
+    });
   }
   /**
    * Get unfiled workflows (workflows with no project) for a creator
@@ -506,15 +524,11 @@ export class WorkflowService {
   async updateIntakeConfig(
     workflowId: string,
     userId: string,
-    intakeConfig: Record<string, unknown>,
+    intakeConfig: IntakeConfig,
     tx?: DbTransaction
   ): Promise<Workflow> {
     // Verify user has edit access
     await this.verifyAccess(workflowId, userId, 'edit');
-
-    if (Array.isArray(intakeConfig)) {
-      throw new Error("Invalid intakeConfig: must be a JSON object");
-    }
 
     return this.workflowRepo.update(
       workflowId,
@@ -601,19 +615,22 @@ export class WorkflowService {
           config: sectionConfig
         });
       }
-    } else {
-      // If final node removed, remove final section? 
-      // For safety, we might keep it or mark it invisible, but deleting is cleaner if we assume graph is truth.
-      if (finalSection) {
-        await this.sectionRepo.delete(finalSection.id);
-      }
+    } else if (finalSection) {
+      // If the final node was removed from the graph, soft-delete the final
+      // section (ICW2-B1/ICW2-B11) so respondent step_values on its steps
+      // survive; cascade to its own steps first, mirroring the manual
+      // delete path in SectionService.deleteSection.
+      await db.transaction(async (tx) => {
+        await this.stepRepo.softDeleteBySectionId(finalSection.id, tx);
+        await this.sectionRepo.softDelete(finalSection.id, tx);
+      });
     }
   }
   /**
    * Replace full workflow content (Deep Update)
    * Used by AI Assistant to apply full structural changes
    */
-  /* eslint-disable-next-line complexity, sonarjs/cognitive-complexity, max-lines-per-function */
+
   async replaceWorkflowContent(
     workflowId: string,
     userId: string,
@@ -624,7 +641,6 @@ export class WorkflowService {
     if (!hasAccess) {
       throw new Error("Access denied - you do not have permission to edit this workflow");
     }
-    // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
     return db.transaction(async (tx) => {
       // 2. Update Workflow Metadata
       const [updatedWorkflow] = await tx
@@ -636,145 +652,15 @@ export class WorkflowService {
         })
         .where(eq(workflows.id, workflowId))
         .returning();
+        
       if (updatedWorkflow === undefined) {
         throw new Error("Workflow not found");
       }
-      // 3. Sync Sections
-      const existingSections = await tx
-        .select()
-        .from(sections)
-        .where(eq(sections.workflowId, workflowId));
-      const existingSectionIds = new Set(existingSections.map(s => s.id));
-      const incomingSectionIds = new Set<string>();
-      const aliasMap = new Map<string, string>();
-      if (Array.isArray(data.sections)) {
-        data.sections.forEach((sectionData, index: number) => {
-          // eslint-disable-next-line no-param-reassign
-          sectionData.order = sectionData.order ?? index;
-        });
-        for (const sectionData of data.sections) {
-          let sectionId = sectionData.id;
-          const isExisting = (sectionId !== undefined && sectionId !== null) && existingSectionIds.has(sectionId);
-          if (isExisting) {
-            incomingSectionIds.add(sectionId!);
-            await tx
-              .update(sections)
-              .set({
-                title: sectionData.title,
-                description: sectionData.description,
-                order: sectionData.order,
-                visibleIf: sectionData.visibleIf,
-              })
-              .where(eq(sections.id, sectionId!));
-          } else {
-            const [newSection] = await tx
-              .insert(sections)
-              .values({
-                workflowId,
-                title: sectionData.title ?? "Untitled",
-                description: sectionData.description ?? null,
-                order: sectionData.order ?? 0,
-                visibleIf: sectionData.visibleIf as unknown as Record<string, unknown>,
-                config: sectionData.config ?? {},
-              })
-              .returning();
-            if (newSection === undefined) {
-              throw new Error("Failed to create section while applying workflow content");
-            }
-            sectionId = newSection.id;
-          }
-          if (sectionData.id) {
-            aliasMap.set(sectionData.id, sectionId!);
-          }
-          // 4. Sync Steps
-          if (Array.isArray(sectionData.steps)) {
-            let existingStepIds = new Set<string>();
-            if (isExisting) {
-              const dbSteps = await tx.select().from(steps).where(eq(steps.sectionId, sectionId!));
-              existingStepIds = new Set(dbSteps.map(s => s.id));
-            }
-            const incomingStepIds = new Set<string>();
-            // eslint-disable-next-line max-depth
-            for (const [stepIndex, stepData] of sectionData.steps.entries()) {
-              let effectiveStepId = stepData.id;
-              const isStepExisting = (effectiveStepId !== undefined && effectiveStepId !== null) && existingStepIds.has(effectiveStepId);
-              if (isStepExisting) {
-                if (effectiveStepId) { incomingStepIds.add(effectiveStepId); }
-                await tx.update(steps).set({
-                  title: stepData.title,
-                  description: stepData.description,
-                  type: stepData.type as InsertStep['type'],
-                  required: stepData.required,
-                  options: stepData.options,
-                  order: stepData.order ?? stepIndex,
-                  sectionId,
-                }).where(eq(steps.id, effectiveStepId!));
-              } else {
-                const [newStep] = await tx.insert(steps).values({
-                  sectionId: sectionId!,
-                  type: stepData.type as InsertStep['type'],
-                  title: stepData.title,
-                  description: stepData.description,
-                  required: stepData.required ?? false,
-                  options: stepData.options ?? [],
-                  order: stepData.order ?? stepIndex,
-                }).returning();
-                if (newStep === undefined) {
-                  throw new Error("Failed to create step while applying workflow content");
-                }
-                effectiveStepId = newStep.id;
-              }
-              if (effectiveStepId) {
-                if (stepData.alias) { aliasMap.set(stepData.alias, effectiveStepId); }
-                if (stepData.id) { aliasMap.set(stepData.id, effectiveStepId); }
-              }
-            }
-            if (isExisting) {
-              const stepsToDelete = [...existingStepIds].filter(id => !incomingStepIds.has(id));
-              // eslint-disable-next-line max-depth
-              if (stepsToDelete.length > 0) {
-                await tx.delete(steps).where(inArray(steps.id, stepsToDelete));
-              }
-            }
-          }
-        }
-      }
-      const sectionsToDelete = [...existingSectionIds].filter(id => !incomingSectionIds.has(id));
-      if (sectionsToDelete.length > 0) {
-        await tx.delete(sections).where(inArray(sections.id, sectionsToDelete));
-      }
-      // 5. Logic Rules
-      await tx.delete(logicRules).where(eq(logicRules.workflowId, workflowId));
-      if (Array.isArray(data.logicRules) && data.logicRules.length > 0) {
-        const mappedRules = data.logicRules.map((rule) => {
-            const conditionStepId = aliasMap.get(rule.conditionStepAlias);
-            let targetStepId: string | null = null;
-            let targetSectionId: string | null = null;
-            if (rule.targetType === 'step') {
-              targetStepId = aliasMap.get(rule.targetAlias) ?? null;
-            } else if (rule.targetType === 'section') {
-              targetSectionId = aliasMap.get(rule.targetAlias) ?? null;
-            }
-            if (!conditionStepId) {
-              return null;
-            }
-            return {
-              workflowId,
-              conditionStepId,
-              operator: rule.operator as InsertLogicRule['operator'],
-              conditionValue: rule.conditionValue,
-              targetType: rule.targetType as InsertLogicRule['targetType'],
-              targetStepId,
-              targetSectionId,
-              action: rule.action as InsertLogicRule['action'],
-              order: 1,
-            };
-          }).filter((r): r is NonNullable<typeof r> => r !== null);
-        await tx.insert(logicRules).values(mappedRules);
-      }
-      // Use the transaction handle (tx), not the global db: a nested global-db
-      // insert would deadlock waiting for the single pooled connection this
-      // transaction already holds (fatal with the test pool max=1).
+
+      // 3. Sync Sections and everything else
+      await workflowContentIngestService.apply(workflowId, data, { source: 'ai', tx });
+
+      // 4. Audit Log
       await tx.insert(auditLogs).values({
         userId: userId,
         entityType: 'workflow',
@@ -782,6 +668,7 @@ export class WorkflowService {
         action: 'ai_revision_apply',
         details: { summary: 'Full content replaced by AI' },
       });
+
       return updatedWorkflow;
     });
   }

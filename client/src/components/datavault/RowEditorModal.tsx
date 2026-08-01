@@ -52,7 +52,7 @@ export function RowEditorModal({
     if (open) {
       setValues(initialValues);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [open]);
 
   const handleSubmit = async (e: FormEvent) => {

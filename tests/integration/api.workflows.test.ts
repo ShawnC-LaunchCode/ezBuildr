@@ -89,7 +89,26 @@ describe.sequential("Workflow Move API Integration Tests", () => {
       await request(ctx.baseURL)
         .put(`/api/workflows/${workflowId}/move`)
         .set("Authorization", `Bearer ${ctx.authToken}`)
-        .send({ projectId: targetProjectId });
+        .send({ projectId: targetProjectId })
+        .expect(200);
+
+      // Confirm the workflow is now filed under the target project.
+      const [filedWorkflow] = await db
+        .select()
+        .from(schema.workflows)
+        .where(eq(schema.workflows.id, workflowId));
+      expect(filedWorkflow.projectId).toBe(targetProjectId);
+
+      // Simulate a run created while the workflow was org-owned (an owner
+      // distinct from the acting user) so the reset to the personal/user model
+      // on unfile is observable on the run.
+      const [run] = await db.insert(schema.workflowRuns).values({
+        workflowId,
+        runToken: nanoid(),
+        createdBy: ctx.userId,
+        ownerType: "org",
+        ownerUuid: ctx.orgId,
+      }).returning();
 
       // Then move back to Main Folder
       const response = await request(ctx.baseURL)
@@ -101,6 +120,10 @@ describe.sequential("Workflow Move API Integration Tests", () => {
       expect(response.body).toHaveProperty("id", workflowId);
       expect(response.body.projectId).toBeNull();
 
+      // ICW2-17 AC2: unfiled resets ownership to the personal/user model.
+      expect(response.body.ownerType).toBe("user");
+      expect(response.body.ownerUuid).toBe(ctx.userId);
+
       // Verify the workflow was actually moved to Main Folder
       const verifyResponse = await request(ctx.baseURL)
         .get(`/api/workflows/${workflowId}`)
@@ -108,6 +131,16 @@ describe.sequential("Workflow Move API Integration Tests", () => {
         .expect(200);
 
       expect(verifyResponse.body.projectId).toBeNull();
+      expect(verifyResponse.body.ownerType).toBe("user");
+      expect(verifyResponse.body.ownerUuid).toBe(ctx.userId);
+
+      // ICW2-17 AC2: the run's owner fields were propagated in the same transaction.
+      const [updatedRun] = await db
+        .select()
+        .from(schema.workflowRuns)
+        .where(eq(schema.workflowRuns.id, run.id));
+      expect(updatedRun.ownerType).toBe("user");
+      expect(updatedRun.ownerUuid).toBe(ctx.userId);
     });
 
     it("should reject move to non-existent project", async () => {
@@ -251,6 +284,42 @@ describe.sequential("Workflow Move API Integration Tests", () => {
       expect(response.body).toHaveProperty("message");
       expect(response.body.message).toContain("Access denied");
       expect(response.body.message).toContain("target project");
+    });
+  });
+
+  describe("PUT /api/workflows/:id (generic update)", () => {
+    it("ignores a client-supplied projectId (reparent must go through /move)", async () => {
+      const wfRes = await request(ctx.baseURL)
+        .post(`/api/workflows`)
+        .set("Authorization", `Bearer ${ctx.authToken}`)
+        .send({ title: "Generic PUT WF", projectId: ctx.projectId })
+        .expect(201);
+      const workflowId = wfRes.body.id as string;
+
+      const otherProject = await request(ctx.baseURL)
+        .post("/api/projects")
+        .set("Authorization", `Bearer ${ctx.authToken}`)
+        .send({ name: "Other Project" })
+        .expect(201);
+      const otherProjectId = otherProject.body.id as string;
+
+      // Generic update tries to move the workflow via mass-assignment.
+      const res = await request(ctx.baseURL)
+        .put(`/api/workflows/${workflowId}`)
+        .set("Authorization", `Bearer ${ctx.authToken}`)
+        .send({ title: "Renamed via generic PUT", projectId: otherProjectId })
+        .expect(200);
+
+      // Title updates, but the project is untouched — reparent is blocked.
+      expect(res.body.title).toBe("Renamed via generic PUT");
+      expect(res.body.projectId).toBe(ctx.projectId);
+      expect(res.body.projectId).not.toBe(otherProjectId);
+
+      const verify = await request(ctx.baseURL)
+        .get(`/api/workflows/${workflowId}`)
+        .set("Authorization", `Bearer ${ctx.authToken}`)
+        .expect(200);
+      expect(verify.body.projectId).toBe(ctx.projectId);
     });
   });
 });

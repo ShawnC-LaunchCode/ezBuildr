@@ -58,6 +58,7 @@ export const workflowRuns = pgTable("workflow_runs", {
     progress: integer("progress").default(0),
     completed: boolean("completed").default(false),
     completedAt: timestamp("completed_at"),
+    generationStatus: varchar("generation_status", { length: 50 }).default('pending'),
     metadata: jsonb("metadata"),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
@@ -79,6 +80,37 @@ export const workflowRuns = pgTable("workflow_runs", {
     index("workflow_runs_created_at_idx").on(table.createdAt),
     index("workflow_runs_owner_idx").on(table.ownerType, table.ownerUuid),
     index("workflow_runs_portal_access_key_idx").on(table.portalAccessKey),
+]);
+
+/**
+ * Durable post-completion work. Kinds and statuses intentionally use bounded
+ * strings rather than PostgreSQL enums so new completion operations can be
+ * deployed without an ALTER TYPE migration.
+ */
+export const runCompletionJobs = pgTable("run_completion_jobs", {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
+    kind: varchar("kind", { length: 50 }).notNull(),
+    status: varchar("status", { length: 20 }).default('pending').notNull(),
+    payload: jsonb("payload").default(sql`'{}'::jsonb`).notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    maxAttempts: integer("max_attempts").default(5).notNull(),
+    availableAt: timestamp("available_at", { withTimezone: true }).defaultNow().notNull(),
+    leaseOwner: varchar("lease_owner", { length: 255 }),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    lastError: varchar("last_error", { length: 4000 }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+    uniqueIndex("run_completion_jobs_run_kind_unique").on(table.runId, table.kind),
+    index("run_completion_jobs_claim_idx")
+        .on(table.status, table.availableAt, table.leaseExpiresAt)
+        .where(sql`${table.status} IN ('pending', 'retry', 'processing')`),
+    index("run_completion_jobs_run_idx").on(table.runId),
+    check("run_completion_jobs_attempts_check", sql`${table.attempts} >= 0`),
+    check("run_completion_jobs_max_attempts_check", sql`${table.maxAttempts} > 0`),
+    check("run_completion_jobs_status_check", sql`${table.status} IN ('pending', 'processing', 'retry', 'succeeded', 'dead_letter')`),
 ]);
 
 // Step values (Answers)
@@ -162,9 +194,13 @@ export const runGeneratedDocuments = pgTable("run_generated_documents", {
     runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
     fileName: text("file_name").notNull(),
     fileUrl: text("file_url").notNull(),
+    storageKey: text("storage_key").notNull(),
     mimeType: text("mime_type"),
     fileSize: integer("file_size"),
     templateId: uuid("template_id").references(() => workflowTemplates.id, { onDelete: 'set null' }),
+    unresolvedVariables: jsonb("unresolved_variables").default([]),
+    pdfFailed: boolean("pdf_failed").default(false),
+    pdfStrategy: text("pdf_strategy"), // Added for DOC-107
     createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
     index("run_generated_documents_run_idx").on(table.runId),
@@ -397,6 +433,7 @@ export const sliWindows = pgTable("sli_windows", {
 // ===================================================================
 
 export const insertWorkflowRunSchema = createInsertSchema(workflowRuns);
+export const insertRunCompletionJobSchema = createInsertSchema(runCompletionJobs);
 export const insertStepValueSchema = createInsertSchema(stepValues);
 export const insertReviewTaskSchema = createInsertSchema(reviewTasks);
 export const insertSignatureRequestSchema = createInsertSchema(signatureRequests);
@@ -414,6 +451,10 @@ export const insertSliWindowSchema = createInsertSchema(sliWindows);
 // Types
 export type WorkflowRun = InferSelectModel<typeof workflowRuns>;
 export type InsertWorkflowRun = InferInsertModel<typeof workflowRuns>;
+export type RunCompletionJob = InferSelectModel<typeof runCompletionJobs>;
+export type InsertRunCompletionJob = InferInsertModel<typeof runCompletionJobs>;
+export type RunCompletionJobKind = 'writebacks' | 'documents';
+export type RunCompletionJobStatus = 'pending' | 'processing' | 'retry' | 'succeeded' | 'dead_letter';
 export type StepValue = InferSelectModel<typeof stepValues>;
 export type InsertStepValue = InferInsertModel<typeof stepValues>;
 export type ReviewTask = InferSelectModel<typeof reviewTasks>;

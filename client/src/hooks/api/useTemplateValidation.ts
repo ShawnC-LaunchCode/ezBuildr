@@ -24,6 +24,7 @@ export interface TemplateValidationReport {
     unusedVariables: Array<{ alias: string; label: string }>;
     stepsWithoutAlias: Array<{ stepId: string; label: string; sectionTitle: string }>;
     syntaxErrors: string[];
+    unknownHelpers: string[];
     valid: boolean;
 }
 

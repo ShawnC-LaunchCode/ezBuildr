@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 dotenv.config();
-import { db, initializeDatabase } from "../server/db";
+import { initializeDatabase } from "../server/db";
 import { ActivityLogService } from "../server/services/ActivityLogService";
 
 async function main() {

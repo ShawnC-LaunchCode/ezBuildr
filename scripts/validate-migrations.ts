@@ -396,7 +396,7 @@ class MigrationValidator {
       }
 
       // Extract ALTER TABLE statements
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       const alterMatches = migration.content.matchAll(/ALTER\s+TABLE\s+"?(\w+)"?\s+(.*?)(?:--> statement-breakpoint|$)/gis);
       for (const match of alterMatches) {
         const table = match[1];

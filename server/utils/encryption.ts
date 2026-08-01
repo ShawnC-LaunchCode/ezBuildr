@@ -14,14 +14,27 @@ const KEY_LENGTH = 32; // 256 bits
 /**
  * Parse VL_KEYS from environment to a map of version -> key buffer.
  */
-function getVersionedKeys(): Record<string, Buffer> {
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.values(value).every((entry) => typeof entry === 'string')
+  );
+}
+
+function getVersionedKeys(): Partial<Record<string, Buffer>> {
   const vlKeysStr = process.env.VL_KEYS;
   if (!vlKeysStr) {
     return {};
   }
   try {
-    const keysMap: Record<string, string> = JSON.parse(vlKeysStr);
-    const parsed: Record<string, Buffer> = {};
+    const keysMap: unknown = JSON.parse(vlKeysStr);
+    if (!isStringRecord(keysMap)) {
+      return {};
+    }
+
+    const parsed: Partial<Record<string, Buffer>> = {};
     for (const [version, keyB64] of Object.entries(keysMap)) {
       const key = Buffer.from(keyB64, 'base64');
       if (key.length === KEY_LENGTH) {
@@ -128,6 +141,27 @@ function tryDecryptWithKey(encryptedB64: string, key: Buffer): string {
   return decrypted.toString('utf8');
 }
 
+function tryDecryptWithRetiredKeys(encryptedB64: string): string | undefined {
+  const retiredKeysStr = process.env.VL_RETIRED_KEYS;
+  if (!retiredKeysStr) {
+    return undefined;
+  }
+
+  const retiredKeys = retiredKeysStr.split(',').map(k => k.trim()).filter(k => k.length > 0);
+  for (const keyB64 of retiredKeys) {
+    try {
+      const key = Buffer.from(keyB64, 'base64');
+      if (key.length === KEY_LENGTH) {
+        return tryDecryptWithKey(encryptedB64, key);
+      }
+    } catch {
+      // Ignore decryption failure for this retired key, try next
+    }
+  }
+
+  return undefined;
+}
+
 /**
  * Decrypt a value encrypted with encrypt()
  * Supports legacy format and versioned prefixes (v1., v2.).
@@ -142,8 +176,8 @@ export function decrypt(encryptedPayload: string): string {
     let version = 'v1'; // Default if unversioned
 
     if (versionMatch) {
-      version = versionMatch[1];
-      encryptedB64 = versionMatch[2];
+      version = versionMatch[1] ?? version;
+      encryptedB64 = versionMatch[2] ?? encryptedB64;
     }
 
     const keysMap = getVersionedKeys();
@@ -164,19 +198,9 @@ export function decrypt(encryptedPayload: string): string {
       return tryDecryptWithKey(encryptedB64, masterKey);
     } catch (primaryError) {
       // Final fallback to retired keys logic if the user hasn't migrated fully to VL_KEYS JSON format
-      const retiredKeysStr = process.env.VL_RETIRED_KEYS;
-      if (retiredKeysStr) {
-        const retiredKeys = retiredKeysStr.split(',').map(k => k.trim()).filter(k => k.length > 0);
-        for (const keyB64 of retiredKeys) {
-          try {
-            const key = Buffer.from(keyB64, 'base64');
-            if (key.length === KEY_LENGTH) {
-              return tryDecryptWithKey(encryptedB64, key);
-            }
-          } catch {
-            // Ignore decryption failure for this retired key, try next
-          }
-        }
+      const retiredResult = tryDecryptWithRetiredKeys(encryptedB64);
+      if (retiredResult !== undefined) {
+        return retiredResult;
       }
       throw primaryError;
     }

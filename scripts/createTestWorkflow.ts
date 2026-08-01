@@ -30,13 +30,15 @@ async function createTestWorkflow() {
 
   if (project.length === 0) {
     console.log('Creating new project...');
-    // @ts-ignore - TODO: fix type
     const newProject = await db.insert(projects).values({
       id: randomUUID(),
+      title: 'Test Project',
       name: 'Test Project',
       description: 'Test project for document generation',
       createdBy: user.id,
-      tenantId: user.id, // Use user ID as tenant ID for simplicity
+      creatorId: user.id,
+      ownerId: user.id,
+      tenantId: user.tenantId,
     }).returning();
     project = newProject;
   }
@@ -75,6 +77,7 @@ async function createTestWorkflow() {
   await db.insert(steps).values([
     {
       id: randomUUID(),
+      workflowId,
       sectionId: section1[0].id,
       type: 'short_text',
       title: 'First Name',
@@ -84,6 +87,7 @@ async function createTestWorkflow() {
     },
     {
       id: randomUUID(),
+      workflowId,
       sectionId: section1[0].id,
       type: 'short_text',
       title: 'Last Name',
@@ -93,6 +97,7 @@ async function createTestWorkflow() {
     },
     {
       id: randomUUID(),
+      workflowId,
       sectionId: section1[0].id,
       type: 'short_text',
       title: 'Email',

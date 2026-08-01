@@ -8,8 +8,10 @@ import { WorkflowRepository } from "../repositories/WorkflowRepository";
 import { WorkflowRunRepository } from "../repositories/WorkflowRunRepository";
 import { accountLockoutService } from "../services/AccountLockoutService";
 import { ActivityLogService } from "../services/ActivityLogService";
+import { adminOrgStatsService } from "../services/AdminOrgStatsService";
 import { mfaService } from "../services/MfaService";
 import { asyncHandler } from "../utils/asyncHandler";
+import { classifyRouteError } from "../utils/routeErrors";
 
 import type { Express, Request, Response } from "express";
 
@@ -67,7 +69,7 @@ export function registerAdminRoutes(app: Express): void {
       }
 
       const { userId } = req.params;
-      const { isActive } = req.body;
+      const { isActive } = req.body as { isActive: boolean };
 
       if (typeof isActive !== 'boolean') {
         return res.status(400).json({ message: "isActive must be a boolean" });
@@ -369,7 +371,7 @@ export function registerAdminRoutes(app: Express): void {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const { email, role } = req.body;
+      const { email, role } = req.body as { email: string, role: string };
 
       if (!email || !role) {
         return res.status(400).json({ message: "Email and role are required" });
@@ -394,7 +396,7 @@ export function registerAdminRoutes(app: Express): void {
         email,
         placeholderEmail: email,
         isPlaceholder: true,
-        role: role as any,
+        role: role,
         authProvider: 'local',
         defaultMode: 'easy',
       });
@@ -419,7 +421,7 @@ export function registerAdminRoutes(app: Express): void {
         entityType: 'user',
         entityId: userId,
         metadata: { targetEmail: email, role }
-      }).catch(e => logger.error({err: e}, 'Failed to log User Invited activity'));
+      }).catch((e: unknown) => logger.error({err: e}, 'Failed to log User Invited activity'));
 
       res.status(201).json({
         message: "User invited successfully",
@@ -464,7 +466,7 @@ export function registerAdminRoutes(app: Express): void {
         entityType: 'user',
         entityId: userId,
         metadata: { targetEmail: user.email, role: user.role }
-      }).catch(e => logger.error({err: e}, 'Failed to log Invite Resent activity'));
+      }).catch((e: unknown) => logger.error({err: e}, 'Failed to log Invite Resent activity'));
 
       res.json({ message: "Invitation resent successfully" });
     } catch (error) {
@@ -674,6 +676,31 @@ export function registerAdminRoutes(app: Express): void {
     }
   }));
 
+  /**
+   * GET /api/admin/org-stats
+   * Get organization-level usage, storage, and run statistics
+   */
+  app.get('/api/admin/org-stats', hybridAuth, isAdmin, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      if (!req.adminUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const stats = await adminOrgStatsService.getOrgStats(req.adminUser);
+
+      logger.info(
+        { adminId: req.adminUser.id, orgCount: stats.organizations.length },
+        "Admin fetched organization stats"
+      );
+
+      res.json(stats);
+    } catch (error) {
+      logger.error({ err: error, adminId: req.adminUser?.id }, "Error fetching organization stats");
+      const { status, message } = classifyRouteError(error, "Failed to fetch organization statistics");
+      res.status(status).json({ message });
+    }
+  }));
+
   // ============================================================================
   // Activity Logs
   // ============================================================================
@@ -872,3 +899,4 @@ export function registerAdminRoutes(app: Express): void {
     }
   }));
 }
+

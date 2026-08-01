@@ -1,12 +1,14 @@
 import { randomUUID } from "crypto";
 
-import type { Workflow } from "@shared/schema";
+import type { Section, Workflow } from "@shared/schema";
 
 
 import { IntakeConfigSchema } from "../../shared/zod-schemas.js";
 import { RUN_TOKEN_CONFIG } from "../config/auth";
 import { createLogger } from "../logger";
 import { hashToken } from "../utils/encryption";
+import { createError } from "../utils/errors";
+import { filterPrefillValues } from "../utils/prefillFilter";
 import { assertStepValueSizesWithinLimit } from "../utils/valueSizeLimit";
 import { workflowRepository, workflowRunRepository, stepValueRepository, sectionRepository, projectRepository, stepRepository } from "../repositories";
 
@@ -29,8 +31,7 @@ export class IntakeService {
    */
   async getPublishedWorkflow(slug: string): Promise<{
     workflow: Workflow;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- sections have dynamic structure from database
-    sections: any[];
+    sections: Section[];
     intakeConfig: IntakeConfig;
     tenantBranding?: {
       name: string;
@@ -84,12 +85,11 @@ export class IntakeService {
    * Supports both authenticated and anonymous runs
    * Stage 12.5: Supports URL-based prefill
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity -- multi-step intake flow: slug lookup, auth check, config parse, prefill params, initial answers
+
   async createIntakeRun(
     slug: string,
     userId?: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- initialAnswers is dynamic workflow data with unknown structure
-    initialAnswers?: Record<string, any>,
+    initialAnswers?: Record<string, unknown>,
     prefillParams?: Record<string, string>
   ): Promise<{ runId: string; runToken: string }> {
     // PERFORMANCE FIX: Use indexed query instead of loading all workflows
@@ -131,8 +131,11 @@ export class IntakeService {
       },
     });
 
-    // Handle prefill from URL parameters (Stage 12.5)
-    if (prefillParams && intakeConfig.allowPrefill && intakeConfig.allowedPrefillKeys) {
+    // Handle prefill from URL parameters (Stage 12.5). Allowlist enforcement
+    // (RUN2-6) lives in the shared filterPrefillValues helper so this same
+    // check applies everywhere a run can be seeded from caller-supplied data.
+    const filteredPrefillParams = filterPrefillValues(intakeConfig, prefillParams);
+    if (Object.keys(filteredPrefillParams).length > 0) {
       // Get all steps to map aliases to stepIds
       const allSteps = await stepRepository.findByWorkflowIdWithAliases(workflow.id);
       const aliasToStepId = new Map<string, string>();
@@ -144,14 +147,11 @@ export class IntakeService {
 
       // Process prefill parameters
       const prefillData = [];
-      for (const [key, value] of Object.entries(prefillParams)) {
-        // Only prefill if key is in allowedPrefillKeys
-        if (intakeConfig.allowedPrefillKeys.includes(key)) {
-          const stepId = aliasToStepId.get(key);
-          if (stepId) {
-            prefillData.push({ runId: run.id, stepId, value });
-            logger.info({ runId: run.id, key, stepId }, "Prefilled value from URL");
-          }
+      for (const [key, value] of Object.entries(filteredPrefillParams)) {
+        const stepId = aliasToStepId.get(key);
+        if (stepId) {
+          prefillData.push({ runId: run.id, stepId, value });
+          logger.info({ runId: run.id, key, stepId }, "Prefilled value from URL");
         }
       }
       if (prefillData.length > 0) {
@@ -185,8 +185,7 @@ export class IntakeService {
    */
   async saveIntakeProgress(
     runToken: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- answers is dynamic workflow data with unknown structure
-    answers: Record<string, any>
+    answers: Record<string, unknown>
   ): Promise<void> {
     // Find run by token
     const run = await workflowRunRepository.findByToken(runToken);
@@ -201,7 +200,7 @@ export class IntakeService {
     }
 
     if (run.completed) {
-      throw new Error("Run is already completed");
+      throw createError.runCompleted();
     }
 
     // Save all answers
@@ -224,8 +223,7 @@ export class IntakeService {
    */
   async submitIntakeRun(
     runToken: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- finalAnswers is dynamic workflow data with unknown structure
-    finalAnswers: Record<string, any>,
+    finalAnswers: Record<string, unknown>,
     captchaResponse?: CaptchaResponse
   ): Promise<IntakeSubmitResult> {
     // Find run by token
@@ -241,7 +239,7 @@ export class IntakeService {
     }
 
     if (run.completed) {
-      throw new Error("Run is already completed");
+      throw createError.runCompleted();
     }
 
     // Get workflow to check intakeConfig

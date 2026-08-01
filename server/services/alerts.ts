@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Alert Service
  *
@@ -208,16 +207,19 @@ function setCooldown(key: string): void {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SLI result structure varies by computation
 function getSeverity(sliResult: any): 'warning' | 'critical' {
   // Critical if error budget is burned > 100%
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
   if (sliResult.errorBudgetBurnPct > 100) {
     return 'critical';
   }
 
   // Critical if success rate is very low
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
   if (sliResult.successPct < sliResult.target.successPct - 5) {
     return 'critical';
   }
 
   // Critical if p95 is way over target
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
   if (sliResult.p95Ms > sliResult.target.p95Ms * 2) {
     return 'critical';
   }
@@ -233,10 +235,12 @@ function buildAlertTitle(sliResult: any, workflowId?: string): string {
   const scope = workflowId ? 'Workflow' : 'Project';
   const violations: string[] = [];
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
   if (sliResult.successPct < sliResult.target.successPct) {
     violations.push('Success Rate');
   }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
   if (sliResult.p95Ms > sliResult.target.p95Ms) {
     violations.push('P95 Latency');
   }
@@ -254,34 +258,44 @@ function buildAlertMessage(sliResult: any): string {
   lines.push('Service Level Indicator (SLI) targets have been violated:');
   lines.push('');
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
   if (sliResult.successPct < sliResult.target.successPct) {
     lines.push(
+// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
       `❌ Success Rate: ${sliResult.successPct.toFixed(2)}% (target: ${sliResult.target.successPct}%)`
     );
   } else {
     lines.push(
+// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
       `✅ Success Rate: ${sliResult.successPct.toFixed(2)}% (target: ${sliResult.target.successPct}%)`
     );
   }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
   if (sliResult.p95Ms > sliResult.target.p95Ms) {
     lines.push(
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
       `❌ P95 Latency: ${sliResult.p95Ms}ms (target: ${sliResult.target.p95Ms}ms)`
     );
   } else {
     lines.push(
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
       `✅ P95 Latency: ${sliResult.p95Ms}ms (target: ${sliResult.target.p95Ms}ms)`
     );
   }
 
   lines.push('');
   lines.push(
+// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
     `Error Budget Burn: ${sliResult.errorBudgetBurnPct.toFixed(2)}% (${sliResult.target.errorBudgetPct}% allowed)`
   );
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
   lines.push(`Total Runs: ${sliResult.totalRuns}`);
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
   lines.push(`Failed Runs: ${sliResult.failedRuns}`);
   lines.push('');
   lines.push(
+// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
     `Window: ${sliResult.windowStart.toISOString()} - ${sliResult.windowEnd.toISOString()}`
   );
 
@@ -303,19 +317,25 @@ export async function batchEvaluateAlerts(): Promise<void> {
       WHERE bucket_start >= NOW() - INTERVAL '7 days'
     `;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- raw SQL execute returns untyped result
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment -- SLI query results are dynamically typed.
     const result = await db.execute({ sql: query, args: [] } as any) as any;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- database rows are dynamically typed
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
     for (const row of result.rows as any[]) {
       try {
         await evaluateAndAlert({
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
           projectId: row.project_id as string,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
           workflowId: row.workflow_id as string | undefined,
         });
       } catch (error: unknown) {
         logger.error({
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
           projectId: row.project_id,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- SLI query results are dynamically typed.
           workflowId: row.workflow_id,
           error,
         }, 'Failed to evaluate alert');

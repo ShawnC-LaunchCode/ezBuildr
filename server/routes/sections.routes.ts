@@ -34,7 +34,7 @@ async function lookupWorkflowIdMiddleware(
       res.status(404).json({ message: "Section not found" });
       return;
     }
-    // eslint-disable-next-line no-param-reassign -- Express middleware convention: augment req.params for downstream handlers
+
     req.params.workflowId = section.workflowId;
     next();
   } catch (error) {
@@ -44,10 +44,40 @@ async function lookupWorkflowIdMiddleware(
 }
 
 /**
+ * Middleware helper: Look up workflowId from sectionId before auto-revert,
+ * for the restore route only. Must find the section even when soft-deleted
+ * (ICW2-B1) — unlike `lookupWorkflowIdMiddleware`, which uses the filtered
+ * `findById` and would 404 before the restore ever runs.
+ */
+async function lookupWorkflowIdFromSectionIncludingDeletedMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { sectionId } = req.params;
+    if (!sectionId) {
+      return next();
+    }
+    const section = await sectionRepository.findByIdIncludingDeleted(sectionId);
+    if (!section) {
+      res.status(404).json({ message: "Section not found" });
+      return;
+    }
+
+    req.params.workflowId = section.workflowId;
+    next();
+  } catch (error) {
+    logger.error({ error }, "Error in lookupWorkflowIdFromSectionIncludingDeletedMiddleware");
+    next(error);
+  }
+}
+
+/**
  * Register section-related routes
  * Handles section CRUD operations and reordering
  */
-// eslint-disable-next-line max-lines-per-function -- route registration function
+
 export function registerSectionRoutes(app: Express): void {
   /**
    * POST /api/workflows/:workflowId/sections
@@ -220,6 +250,29 @@ export function registerSectionRoutes(app: Express): void {
   }));
 
   /**
+   * GET /api/sections/:sectionId/delete-impact
+   * Preview the answers/runs that would be permanently destroyed by
+   * deleting this section, aggregated across all its steps (workflow
+   * looked up automatically). Read-only — used to gate the client's
+   * destructive-confirm dialog (ICW2-13).
+   */
+  app.get('/api/sections/:sectionId/delete-impact', hybridAuth, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
+      }
+      const { sectionId } = req.params;
+      const impact = await sectionService.getSectionDeleteImpactById(sectionId, userId);
+      res.json(impact);
+    } catch (error) {
+      logger.error({ error }, "Error fetching section delete impact");
+      const { status, message } = classifyRouteError(error, "Failed to fetch section delete impact");
+      res.status(status).json({ message });
+    }
+  }));
+
+  /**
    * DELETE /api/sections/:sectionId
    * Delete a section (workflow looked up automatically)
    */
@@ -236,6 +289,51 @@ export function registerSectionRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error deleting section");
       const { status, message } = classifyRouteError(error, "Failed to delete section");
+      res.status(status).json({ message });
+    }
+  }));
+
+  /**
+   * POST /api/sections/:sectionId/duplicate
+   * Duplicate a section, its steps (fresh aliases), and its section-scoped
+   * logic rules (workflow looked up automatically). ICW2-B5.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async lookupWorkflowIdMiddleware
+  app.post('/api/sections/:sectionId/duplicate', hybridAuth, createLimiter, lookupWorkflowIdMiddleware, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
+      }
+      const { sectionId } = req.params;
+      const section = await sectionService.duplicateSection(sectionId, userId);
+      res.status(201).json(section);
+    } catch (error) {
+      logger.error({ error }, "Error duplicating section");
+      const { status, message } = classifyRouteError(error, "Failed to duplicate section");
+      res.status(status).json({ message });
+    }
+  }));
+
+  /**
+   * POST /api/sections/:sectionId/restore
+   * Restore a previously soft-deleted section and its steps (workflow
+   * looked up automatically). Requires edit access. Restore UI is deferred
+   * — this is server-side only (ICW2-B1).
+   */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async lookup
+  app.post('/api/sections/:sectionId/restore', hybridAuth, createLimiter, lookupWorkflowIdFromSectionIncludingDeletedMiddleware, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ message: UNAUTHORIZED_MSG });
+      }
+      const { sectionId } = req.params;
+      const section = await sectionService.restoreSection(sectionId, userId);
+      res.json(section);
+    } catch (error) {
+      logger.error({ error }, "Error restoring section");
+      const { status, message } = classifyRouteError(error, "Failed to restore section");
       res.status(status).json({ message });
     }
   }));

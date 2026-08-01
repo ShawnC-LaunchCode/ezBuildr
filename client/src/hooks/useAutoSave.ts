@@ -17,8 +17,11 @@ interface UseAutoSaveReturn {
 }
 
 /**
- * Hook for auto-saving data with debouncing
- * Tracks save status and provides manual save trigger
+ * Hook for auto-saving data with debouncing.
+ *
+ * Saves are serialized. If data changes while a save is in flight, the active
+ * queue drains the newest revision before resolving. A failed revision remains
+ * dirty and can be retried by the next debounced or manual save.
  */
 export function useAutoSave<T>({
   data,
@@ -28,91 +31,173 @@ export function useAutoSave<T>({
 }: UseAutoSaveOptions<T>): UseAutoSaveReturn {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChangesState] = useState(false);
 
-  const timeoutRef = useRef<NodeJS.Timeout>();
-  const lastDataRef = useRef<T>(data);
-  const isSavingRef = useRef(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const idleTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const currentDataRef = useRef<T>(data);
+  const currentRevisionRef = useRef(0);
+  const persistedRevisionRef = useRef(0);
+  const lastObservedDataRef = useRef(JSON.stringify(data));
+  const hasUnsavedChangesRef = useRef(false);
+  const saveQueueRef = useRef<Promise<void> | null>(null);
+  const onSaveRef = useRef(onSave);
+  const mountedRef = useRef(true);
 
-  // Function to perform the actual save
-  const performSave = useCallback(async () => {
-    if (isSavingRef.current) {
-      return;
+  // Update these during render so saveNow always sees the props from the render
+  // that exposed it, rather than a previous effect's data.
+  currentDataRef.current = data;
+  onSaveRef.current = onSave;
+  const serializedData = JSON.stringify(data);
+  if (serializedData !== lastObservedDataRef.current) {
+    lastObservedDataRef.current = serializedData;
+    currentRevisionRef.current += 1;
+  }
+
+  const setHasUnsavedChanges = useCallback((value: boolean) => {
+    hasUnsavedChangesRef.current = value;
+    if (mountedRef.current) {
+      setHasUnsavedChangesState(value);
+    }
+  }, []);
+
+  const clearIdleTimeout = useCallback(() => {
+    if (idleTimeoutRef.current) {
+      clearTimeout(idleTimeoutRef.current);
+      idleTimeoutRef.current = undefined;
+    }
+  }, []);
+
+  const drainSaveQueue = useCallback(async () => {
+    let completedLatestRevision = false;
+
+    while (persistedRevisionRef.current < currentRevisionRef.current) {
+      const revisionToSave = currentRevisionRef.current;
+      const dataToSave = currentDataRef.current;
+
+      clearIdleTimeout();
+      if (mountedRef.current) {
+        setSaveStatus("saving");
+      }
+
+      try {
+        await onSaveRef.current(dataToSave);
+      } catch (error) {
+        console.error("Auto-save error:", error);
+        setHasUnsavedChanges(true);
+        if (mountedRef.current) {
+          setSaveStatus("error");
+        }
+        return;
+      }
+
+      persistedRevisionRef.current = revisionToSave;
+      completedLatestRevision =
+        revisionToSave === currentRevisionRef.current;
+
+      if (mountedRef.current) {
+        setLastSavedAt(new Date());
+      }
+
+      // If another render supplied newer data during await, the loop continues
+      // without briefly claiming that all changes have been saved.
+      if (!completedLatestRevision) {
+        setHasUnsavedChanges(true);
+      }
     }
 
-    try {
-      isSavingRef.current = true;
-      setSaveStatus("saving");
-      await onSave(data);
-      setSaveStatus("saved");
-      setLastSavedAt(new Date());
+    if (completedLatestRevision) {
       setHasUnsavedChanges(false);
-      lastDataRef.current = data;
-
-      // Reset to idle after showing "saved" for a moment
-      setTimeout(() => {
-        setSaveStatus("idle");
-      }, 2000);
-    } catch (error) {
-      console.error("Auto-save error:", error);
-      setSaveStatus("error");
-      // Reset to idle after showing error
-      setTimeout(() => {
-        setSaveStatus("idle");
-      }, 3000);
-    } finally {
-      isSavingRef.current = false;
+      if (mountedRef.current) {
+        setSaveStatus("saved");
+        idleTimeoutRef.current = setTimeout(() => {
+          if (mountedRef.current) {
+            setSaveStatus("idle");
+          }
+        }, 2000);
+      }
     }
-  }, [data, onSave]);
+  }, [clearIdleTimeout, setHasUnsavedChanges]);
 
-  // Manual save trigger
+  const requestSave = useCallback((): Promise<void> => {
+    if (persistedRevisionRef.current >= currentRevisionRef.current) {
+      return Promise.resolve();
+    }
+
+    if (!saveQueueRef.current) {
+      const queue = drainSaveQueue();
+      const queueWithCleanup: Promise<void> = queue.finally(() => {
+        if (saveQueueRef.current === queueWithCleanup) {
+          saveQueueRef.current = null;
+        }
+      });
+      saveQueueRef.current = queueWithCleanup;
+    }
+
+    return saveQueueRef.current;
+  }, [drainSaveQueue]);
+
+  // Manual save trigger. The shared queue promise includes any newer revision
+  // discovered while an earlier save is awaiting its network response.
   const saveNow = useCallback(async () => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
+      timeoutRef.current = undefined;
     }
-    await performSave();
-  }, [performSave]);
+    await requestSave();
+  }, [requestSave]);
 
-  // Auto-save effect with debouncing
+  // Auto-save effect with debouncing.
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || persistedRevisionRef.current >= currentRevisionRef.current) {
       return;
     }
 
-    // Check if data has changed
-    const dataChanged = JSON.stringify(data) !== JSON.stringify(lastDataRef.current);
+    setHasUnsavedChanges(true);
 
-    if (dataChanged) {
-      setHasUnsavedChanges(true);
-
-      // Clear existing timeout
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-
-      // Set new timeout for debounced save
-      timeoutRef.current = setTimeout(() => {
-        void performSave();
-      }, delay);
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
     }
 
+    timeoutRef.current = setTimeout(() => {
+      timeoutRef.current = undefined;
+      void requestSave();
+    }, delay);
+
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
+        timeoutRef.current = undefined;
       }
     };
-  }, [data, delay, enabled, performSave]);
+  }, [data, delay, enabled, requestSave, setHasUnsavedChanges]);
 
-  // Save on unmount if there are unsaved changes
+  // Save on unmount or beforeunload if there are unsaved changes.
   useEffect(() => {
-    return () => {
-      if (hasUnsavedChanges && !isSavingRef.current) {
-        // Fire and forget - we're unmounting
-        onSave(lastDataRef.current).catch(console.error);
+    mountedRef.current = true;
+
+    const handleBeforeUnload = (): void => {
+      if (hasUnsavedChangesRef.current && !saveQueueRef.current) {
+        // Fire and forget - callers can use a keepalive request in onSave.
+        onSaveRef.current(currentDataRef.current).catch(console.error);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only run on unmount
-  }, []);
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      mountedRef.current = false;
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      clearIdleTimeout();
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      if (hasUnsavedChangesRef.current && !saveQueueRef.current) {
+        // Fire and forget - we're unmounting.
+        onSaveRef.current(currentDataRef.current).catch(console.error);
+      }
+    };
+  }, [clearIdleTimeout]);
 
   return {
     saveStatus,

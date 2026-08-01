@@ -140,7 +140,7 @@ function validateOrigin(req: Request): boolean {
     return false;
   }
 }
-// eslint-disable-next-line @typescript-eslint/require-await
+
 export async function setupAuth(app: Express): Promise<void> {
   app.set("trust proxy", 1);
   // Session middleware REMOVED
@@ -161,7 +161,7 @@ export async function setupAuth(app: Express): Promise<void> {
       // Verify and Upsert
       const payload = await verifyGoogleToken(googleToken);
       await upsertUser(payload);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
       const dbUser = payload.email ? await userRepository.findByEmail(payload.email) : await userRepository.findById(payload.sub);
       if (!dbUser) { throw new Error('User not found after upsert'); }
 

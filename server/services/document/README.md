@@ -13,7 +13,7 @@ The VaultLogic Document Generation Engine provides enterprise-grade document tem
 ### Core Capabilities
 
 ✅ **DOCX Template Rendering** - Variable substitution with `{{ placeholder }}` syntax
-✅ **PDF Conversion** - Multi-strategy (Puppeteer/LibreOffice)
+✅ **PDF Conversion** - DOCX → Mammoth HTML → Puppeteer PDF
 ✅ **60+ Helper Functions** - Formatting, date, currency, math operations
 ✅ **Template Analysis** - Extract variables, validate coverage
 ✅ **Nested Variable Support** - Dot notation `{{ user.address.city }}`
@@ -73,9 +73,39 @@ The VaultLogic Document Generation Engine provides enterprise-grade document tem
 ### Layer 2: PDF Converter (Format Transformation)
 
 **File:** `PdfConverter.ts`
-**Strategies:** Puppeteer (default) | LibreOffice (fallback)
+**Strategies:** Gotenberg (high fidelity) and Puppeteer (degraded fallback)
 
-#### Strategy 1: Puppeteer Pipeline
+#### Strategy selection
+
+Chosen at construction from `PDF_CONVERTER_API_URL`:
+
+| `PDF_CONVERTER_API_URL` | Primary | Fallback |
+|---|---|---|
+| set | `gotenberg` | `puppeteer` |
+| unset | `puppeteer` | none |
+
+Callers **cannot request a strategy** — it is environment-derived. `convert()`
+returns `{ strategy, fellBack }` reporting which converter actually produced the
+file, and that strategy is persisted per document on
+`run_generated_documents.pdf_strategy`. Recording a requested (rather than
+observed) strategy is what previously made a silent fidelity downgrade
+invisible: with a Gotenberg URL configured against an unimplemented client,
+every PDF was produced by the fallback while the record claimed otherwise.
+
+#### Gotenberg Pipeline (production default when configured)
+```
+DOCX → POST /forms/libreoffice/convert → PDF Buffer
+```
+
+Preserves headers, footers, page and list numbering, fonts, tables and
+section-level layout. Bounded by `PDF_CONVERTER_TIMEOUT_MS` (default 60s); the
+uploaded part keeps its `.docx` filename because Gotenberg selects its converter
+from the extension. Reachability is probed via `GET /health` and surfaced in the
+app's own `/health` response as `pdfConverter`, where an unreachable converter
+reports `degraded` (HTTP 200) rather than `unhealthy` — documents still generate,
+just at lower fidelity.
+
+#### Puppeteer Pipeline (fallback)
 ```
 DOCX → Mammoth (DOCX→HTML) → Puppeteer (HTML→PDF) → PDF Buffer
 ```
@@ -87,7 +117,9 @@ DOCX → Mammoth (DOCX→HTML) → Puppeteer (HTML→PDF) → PDF Buffer
 
 **Cons:**
 - Layout fidelity depends on Mammoth conversion quality
-- Complex formatting may not be preserved
+- Complex tables may be simplified by Mammoth
+- Headers, footers, comments, tracked changes, and some section-level DOCX
+  layout features are not preserved in the HTML intermediate form
 
 **Configuration:**
 - Page size: A4
@@ -95,24 +127,15 @@ DOCX → Mammoth (DOCX→HTML) → Puppeteer (HTML→PDF) → PDF Buffer
 - Print background: enabled
 - Scale: 1.0
 
-#### Strategy 2: LibreOffice CLI
-```
-DOCX → LibreOffice --headless --convert-to pdf → PDF Buffer
-```
+When **both** strategies fail, the generation path records `pdfFailed: true` on
+the document record and keeps the DOCX output available.
 
-**Pros:**
-- Native DOCX support
-- Excellent layout fidelity
-- Preserves complex formatting
-
-**Cons:**
-- Requires LibreOffice installed on system
-- Platform-dependent behavior
-
-**Command:**
-```bash
-libreoffice --headless --convert-to pdf --outdir /tmp input.docx
-```
+When only the *primary* fails, the fallback runs — that is a deliberate
+availability/fidelity trade, and it is made visible three ways rather than being
+silent: an `error`-level log naming both strategies, `pdfStrategy` on the
+document record reflecting the converter that actually ran, and the `pdfConverter`
+field on `GET /health`. A `puppeteer` record on a server with
+`PDF_CONVERTER_API_URL` set therefore means the high-fidelity converter failed.
 
 ---
 
@@ -566,8 +589,8 @@ try {
 try {
   const pdf = await PdfConverter.convert(docx, 'puppeteer');
 } catch (error) {
-  // Fallback to LibreOffice
-  return await PdfConverter.convert(docx, 'libreoffice');
+  // Record pdfFailed: true and keep the DOCX output available.
+  logger.warn({ error }, 'PDF conversion failed');
 }
 ```
 
@@ -631,7 +654,7 @@ if (mapping[field] && !normalizedData[mapping[field].source]) {
 
 ### Integration Tests
 - End-to-end document generation
-- PDF conversion (both strategies)
+- PDF conversion through the Puppeteer pipeline
 - Multi-document ZIP creation
 - API endpoint functionality
 
@@ -669,9 +692,9 @@ node, and the Bull queue worker — render through
 
 ### Issue: PDF conversion fails
 **Check:**
-1. LibreOffice installed and in PATH
-2. Puppeteer dependencies installed
-3. Fallback strategy configured
+1. Puppeteer dependencies installed
+2. Template content can survive Mammoth's DOCX-to-HTML conversion
+3. Generated document record has `pdfFailed: true` and DOCX download remains available
 
 ### Issue: Mapping not working
 **Check:**

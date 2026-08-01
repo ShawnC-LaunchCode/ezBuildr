@@ -186,7 +186,7 @@ test.describe("Token-Based Workflow Access", () => {
       { AUTHORIZATION: `Bearer ${token}` },
     ];
     for (const headers of variations) {
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       const response = await page.request.get("/api/auth/me", { headers: headers as Record<string, string> });
       // Should handle case-insensitively (depends on implementation)
       expect(response).toBeTruthy();

@@ -1,11 +1,11 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, type ModelParams } from '@google/generative-ai';
 
 import { createLogger } from '../../../logger';
 
 import { BaseAIProvider } from './BaseAIProvider';
 
 import type { TaskType } from '../types';
-import type { AIProviderConfig } from './types';
+import type { AIProviderConfig, AIProviderResponse } from './types';
 
 const logger = createLogger({ module: 'gemini-provider' });
 
@@ -23,7 +23,7 @@ export class GeminiProvider extends BaseAIProvider {
         prompt: string,
         taskType: TaskType,
         systemMessage?: string
-    ): Promise<string> {
+    ): Promise<AIProviderResponse> {
         const { model, temperature = 0.7, maxTokens } = this.config;
         const startTime = Date.now();
         const promptTokens = this.estimateTokenCount(prompt);
@@ -35,7 +35,7 @@ export class GeminiProvider extends BaseAIProvider {
 
         try {
             const genAI = new GoogleGenerativeAI(this.config.apiKey);
-            const clientOptions: any = { model };
+            const clientOptions: ModelParams = { model };
             if (systemMessage) {
                 clientOptions.systemInstruction = systemMessage;
             }
@@ -64,9 +64,15 @@ export class GeminiProvider extends BaseAIProvider {
                 text = text.replace(/^```\n/, '').replace(/\n```$/, '');
             }
 
-            const responseTokens = this.estimateTokenCount(text);
+            // Real usage from Gemini's usageMetadata; char/4 estimate is only a
+            // fallback if the SDK ever omits it (ICW2-B7).
+            const usageMetadata = response.usageMetadata;
+            const usage = usageMetadata
+                ? { inputTokens: usageMetadata.promptTokenCount, outputTokens: usageMetadata.candidatesTokenCount }
+                : undefined;
+            const responseTokens = usage?.outputTokens ?? this.estimateTokenCount(text);
             const duration = Date.now() - startTime;
-            const actualCost = this.estimateCost(promptTokens, responseTokens);
+            const actualCost = this.estimateCost(usage?.inputTokens ?? promptTokens, responseTokens);
 
             logger.info({
                 event: 'ai_request_success',
@@ -77,9 +83,10 @@ export class GeminiProvider extends BaseAIProvider {
                 responseTokens,
                 durationMs: duration,
                 estimatedCostUSD: actualCost,
+                usageSource: usage ? 'provider' : 'estimate',
             }, 'Gemini request succeeded');
 
-            return text;
+            return { text, usage };
         } catch (error) {
             logger.error({ error }, 'Gemini request failed');
             throw error;

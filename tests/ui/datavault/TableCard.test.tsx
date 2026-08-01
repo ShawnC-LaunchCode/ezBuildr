@@ -35,21 +35,9 @@ describe('TableCard Component', () => {
     expect(descriptions[0]).toBeInTheDocument();
   });
 
-  it('should render table slug', () => {
-    render(<TableCard table={mockTable} onClick={vi.fn()} onDelete={vi.fn()} />);
-    // Note: The slug is not currently rendered in the updated design, skipping assertion or updating test expectations
-    // If slug was removed from UI, remove this test. If it persists, check where.
-    // Based on previous code, slug was removed. Let's assume name is enough.
-    // But previous test expected it. If I removed it, I should update test.
-    // Let's check TableCard.tsx again.
-    // It renders {table.name}. Does it render slug?
-    // Looking at file content 2004: No slug rendered.
-  });
-
-  it('should render table slug', () => {
-    // Slug is not rendered in current component version
-  });
-
+  // Two duplicate 'should render table slug' tests lived here, both with empty
+  // bodies — TableCard renders {table.name} and never the slug, so the original
+  // assertion was deleted rather than the test. They reported green for months.
 
   it('should render column and row counts', () => {
     render(<TableCard table={mockTable} onClick={vi.fn()} onDelete={vi.fn()} />);

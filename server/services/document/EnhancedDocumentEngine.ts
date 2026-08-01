@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Enhanced Document Engine
  *
@@ -24,6 +23,8 @@ import { applyMapping, type DocumentMapping, type MappingResult } from './Mappin
 import { normalizeVariables, type NormalizedData, type NormalizationOptions } from './VariableNormalizer.js';
 
 import type { DocumentGenerationOptions, DocumentGenerationResult } from './DocumentEngine.js';
+import { evaluateConditionExpression } from '../../../shared/conditionEvaluator.js';
+import type { ConditionGroup } from '../../../shared/types/conditions.js';
 import type { LogicExpression } from '../../../shared/types/stepConfigs.js';
 
 const logger = createLogger({ module: 'enhanced-doc-engine' });
@@ -47,9 +48,6 @@ export interface EnhancedGenerationOptions extends Omit<DocumentGenerationOption
 
   /** Whether to apply normalization (default: true) */
   normalize?: boolean;
-
-  /** PDF conversion strategy */
-  pdfStrategy?: 'puppeteer' | 'libreoffice';
 
   /** Template row id (uuid) — enables generation metrics tracking */
   templateId?: string;
@@ -112,9 +110,6 @@ export interface FinalBlockRenderOptions {
 
   /** Whether to convert to PDF */
   toPdf?: boolean;
-
-  /** PDF conversion strategy */
-  pdfStrategy?: 'puppeteer' | 'libreoffice';
 
   /** Normalization options */
   normalizationOptions?: NormalizationOptions;
@@ -217,7 +212,8 @@ export class EnhancedDocumentEngine {
       } catch (error: unknown) {
         throw createNormalizationError(
           baseOptions.outputName || 'unknown',
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- Legacy dynamic boundary requires these narrow checks.
           error as any,
           rawData
         );
@@ -230,7 +226,11 @@ export class EnhancedDocumentEngine {
       if (mapping) {
         try {
           mappingResult = applyMapping(normalizedData, mapping);
-          finalData = mappingResult.data;
+          // Merge mapped fields OVER the full normalized set instead of
+          // replacing it: a partial mapping must not blank out every
+          // unmapped {{variable}} in the template. Mapped names win on
+          // key collisions.
+          finalData = { ...normalizedData, ...mappingResult.data };
 
           logger.debug({
             mapped: mappingResult.mapped.length,
@@ -248,7 +248,8 @@ export class EnhancedDocumentEngine {
           throw createMappingError(
             baseOptions.templatePath,
             baseOptions.outputName || 'unknown',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- Legacy dynamic boundary requires these narrow checks.
             error as any,
             mapping
           );
@@ -286,6 +287,7 @@ export class EnhancedDocumentEngine {
             undefined,
             metricsRunId
           ).catch((err) => {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Document template data is dynamically typed at this rendering boundary.
             logger.warn({ error: err }, 'Failed to track generation metric');
           });
         }
@@ -301,6 +303,7 @@ export class EnhancedDocumentEngine {
             (error as Error).message,
             metricsRunId
           ).catch((err) => {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Document template data is dynamically typed at this rendering boundary.
             logger.warn({ error: err }, 'Failed to track generation metric');
           });
         }
@@ -308,7 +311,8 @@ export class EnhancedDocumentEngine {
         throw createRenderError(
           baseOptions.templatePath,
           baseOptions.outputName || 'unknown',
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- Legacy dynamic boundary requires these narrow checks.
           error as any,
           finalData
         );
@@ -371,14 +375,12 @@ export class EnhancedDocumentEngine {
       stepValues,
       outputDir,
       toPdf = false,
-      pdfStrategy = 'puppeteer',
       normalizationOptions = {},
     } = options;
 
     logger.info({
       documentCount: documents.length,
       toPdf,
-      pdfStrategy,
     }, 'Rendering Final Block documents');
 
     // Pre-normalize step values once (reused for all documents)
@@ -418,7 +420,6 @@ export class EnhancedDocumentEngine {
           outputName: options.runId ? `${options.runId}_${doc.alias}` : doc.alias,
           outputDir,
           toPdf,
-          pdfStrategy,
           normalizationOptions,
           normalize: true,
           // No runId here: metrics run_id references the graph runs table,
@@ -502,41 +503,22 @@ export class EnhancedDocumentEngine {
       return true;
     }
 
-    const operator = conditions.operator ?? 'AND';
-    const results = conditions.conditions.map(cond => {
-      const value = stepValues[cond.key];
+    const expression: ConditionGroup = {
+      type: 'group',
+      id: 'root',
+      operator: conditions.operator ?? 'AND',
+      conditions: conditions.conditions.map((cond, index) => ({
+        type: 'condition',
+        id: `doc_cond_${index}`,
+        variable: cond.key,
+        operator: cond.op,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Document template data is dynamically typed at this rendering boundary.
+        value: cond.value,
+        valueType: 'constant'
+      }))
+    };
 
-      switch (cond.op) {
-        case 'equals':
-          return value === cond.value;
-        case 'not_equals':
-          return value !== cond.value;
-        case 'contains':
-          if (typeof value === 'string') {
-            return value.includes(String(cond.value));
-          }
-          if (Array.isArray(value)) {
-            return value.includes(cond.value);
-          }
-          return false;
-        case 'greater_than':
-          return Number(value) > Number(cond.value);
-        case 'less_than':
-          return Number(value) < Number(cond.value);
-        case 'is_empty':
-          return !value || value === '' || (Array.isArray(value) && value.length === 0);
-        case 'is_not_empty':
-          return !!value && value !== '' && (!Array.isArray(value) || value.length > 0);
-        default:
-          return true;
-      }
-    });
-
-    if (operator === 'AND') {
-      return results.every(r => r);
-    } else {
-      return results.some(r => r);
-    }
+    return evaluateConditionExpression(expression, stepValues);
   }
 }
 

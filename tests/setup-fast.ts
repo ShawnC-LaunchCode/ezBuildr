@@ -159,7 +159,7 @@ vi.mock("@anthropic-ai/sdk", () => {
     },
   }; });
   return {
-    // eslint-disable-next-line @typescript-eslint/naming-convention
+
     'Anthropic': MockAnthropic,
     default: MockAnthropic,
   };

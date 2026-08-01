@@ -34,7 +34,7 @@ export class ListToolsBlockRunner extends BaseBlockRunner {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const inputData = context.data[inputKey];
 
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
       if (!inputData) {
         logger.warn({ sourceListVar: listConfig.sourceListVar, inputKey }, "Input list not found, treating as empty array");
         // Treat as empty list rather than error

@@ -3,6 +3,7 @@ import { Router, Request, Response } from 'express';
 
 import { db } from '../db';
 import { logger } from '../logger';
+import { pdfConverter } from '../services/document/PdfConverter';
 import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
@@ -39,6 +40,20 @@ interface HealthCheckResponse {
     responseTime?: number;
     error?: string;
   };
+  /**
+   * Which DOCX->PDF converter this instance will use, and whether it is usable.
+   *
+   * An unreachable-but-configured converter is `degraded`, never `unhealthy`:
+   * documents still generate via the local fallback, just at lower fidelity, so
+   * the instance must stay in the load balancer. Deliberately carries no URL,
+   * hostname, or raw error — `/health` is unauthenticated.
+   */
+  pdfConverter: {
+    strategy: string;
+    reachable: boolean;
+    responseTime?: number;
+    error?: string;
+  };
   requestId?: string;
 }
 
@@ -50,6 +65,10 @@ router.get('/health', asyncHandler(async (req: Request, res: Response) => {
     environment: process.env.NODE_ENV ?? 'development',
     database: {
       connected: false,
+    },
+    pdfConverter: {
+      strategy: pdfConverter.primaryStrategy,
+      reachable: false,
     },
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- Express request augmented with id
     requestId: (req as any).id,
@@ -75,6 +94,27 @@ router.get('/health', asyncHandler(async (req: Request, res: Response) => {
     healthCheck.status = 'unhealthy';
     healthCheck.database.connected = false;
     healthCheck.database.error = 'Database connectivity check failed';
+  }
+
+  // Converter reachability. Never allowed to fail the whole check: generation
+  // still works via the local fallback, so this only downgrades to 'degraded'.
+  const converterHealth = await pdfConverter.healthCheck();
+  healthCheck.pdfConverter.strategy = converterHealth.strategy;
+  healthCheck.pdfConverter.reachable = converterHealth.reachable;
+  if (converterHealth.responseTimeMs !== undefined) {
+    healthCheck.pdfConverter.responseTime = converterHealth.responseTimeMs;
+  }
+  if (!converterHealth.reachable) {
+    // Log the real reason server-side; the response must not disclose the
+    // converter URL or hostname to unauthenticated callers.
+    logger.error(
+      { strategy: converterHealth.strategy, err: converterHealth.error },
+      'Health check: PDF converter unreachable — documents will be generated at reduced fidelity'
+    );
+    healthCheck.pdfConverter.error = 'PDF converter connectivity check failed';
+    if (healthCheck.status === 'healthy') {
+      healthCheck.status = 'degraded';
+    }
   }
 
   // Set appropriate HTTP status code

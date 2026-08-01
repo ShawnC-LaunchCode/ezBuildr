@@ -26,6 +26,7 @@ export const ErrorCode = {
   FILE_UPLOAD_ERROR: 'FILE_UPLOAD_ERROR',
 
   // Run
+  RUN_COMPLETED: 'RUN_COMPLETED',
   RUN_EXECUTION_ERROR: 'RUN_EXECUTION_ERROR',
 
   // System
@@ -90,6 +91,10 @@ export const createError = {
 
   conflict(message: string, details?: unknown): ApiError {
     return new ApiError(ErrorCode.CONFLICT, message, details, 409);
+  },
+
+  runCompleted(message = 'Run is already completed', details?: unknown): ApiError {
+    return new ApiError(ErrorCode.RUN_COMPLETED, message, details, 409);
   },
 
   validation(message: string, details?: unknown): ApiError {

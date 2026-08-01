@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 
 import { registerMigration, WorkflowSchema } from "../registry";
 
@@ -20,8 +19,10 @@ registerMigration("1.2.0", {
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         newSchema.steps = newSchema.steps.map((step: any) => {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Migration input uses legacy dynamic workflow data.
             const newStep = { ...step };
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Migration input uses legacy dynamic workflow data.
             if (step.type === "js_question") {
                 // Option A: Rename to 'script' if that's the new type
                 // Option B: Keep 'js_question' but restructure config
@@ -29,22 +30,30 @@ registerMigration("1.2.0", {
                 // Let's assume we are standardizing on 'script' or 'computation'
                 // For now, let's keep type but ensure config has 'inputs' and 'code'
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Migration input uses legacy dynamic workflow data.
                 const config = newStep.config || {};
 
                 // Ensure "functionBody" (legacy) becomes "code"
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Migration input uses legacy dynamic workflow data.
                 if (config.functionBody && !config.code) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Migration input uses legacy dynamic workflow data.
                     config.code = config.functionBody;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Migration input uses legacy dynamic workflow data.
                     delete config.functionBody;
                 }
 
                 // Ensure language is set
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Migration input uses legacy dynamic workflow data.
                 if (!config.language) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Migration input uses legacy dynamic workflow data.
                     config.language = "javascript";
                 }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Migration input uses legacy dynamic workflow data.
                 newStep.config = config;
             }
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-return -- Migration input uses legacy dynamic workflow data.
             return newStep;
         });
 

@@ -467,12 +467,13 @@ CREATE TABLE "sections" (
 --> statement-breakpoint
 CREATE TABLE "steps" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"workflow_id" uuid NOT NULL,
 	"section_id" uuid NOT NULL,
 	"type" "step_type" NOT NULL,
 	"title" varchar NOT NULL,
 	"description" text,
 	"required" boolean DEFAULT false,
-	"options" jsonb,
+	"config" jsonb,
 	"alias" text,
 	"default_value" jsonb,
 	"order" integer NOT NULL,
@@ -608,6 +609,7 @@ CREATE TABLE "workflows" (
 	"slug" text,
 	"require_login" boolean DEFAULT false NOT NULL,
 	"intake_config" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"settings" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"pinned_version_id" uuid,
 	"status" "workflow_status" DEFAULT 'draft' NOT NULL,
 	"owner_type" "owner_type",
@@ -704,6 +706,26 @@ CREATE TABLE "review_tasks" (
 	"resolved_at" timestamp
 );
 --> statement-breakpoint
+CREATE TABLE "run_completion_jobs" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"run_id" uuid NOT NULL,
+	"kind" varchar(50) NOT NULL,
+	"status" varchar(20) DEFAULT 'pending' NOT NULL,
+	"payload" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"attempts" integer DEFAULT 0 NOT NULL,
+	"max_attempts" integer DEFAULT 5 NOT NULL,
+	"available_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"lease_owner" varchar(255),
+	"lease_expires_at" timestamp with time zone,
+	"last_error" varchar(4000),
+	"completed_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "run_completion_jobs_attempts_check" CHECK ("run_completion_jobs"."attempts" >= 0),
+	CONSTRAINT "run_completion_jobs_max_attempts_check" CHECK ("run_completion_jobs"."max_attempts" > 0),
+	CONSTRAINT "run_completion_jobs_status_check" CHECK ("run_completion_jobs"."status" IN ('pending', 'processing', 'retry', 'succeeded', 'dead_letter'))
+);
+--> statement-breakpoint
 CREATE TABLE "run_generated_documents" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"run_id" uuid NOT NULL,
@@ -712,6 +734,9 @@ CREATE TABLE "run_generated_documents" (
 	"mime_type" text,
 	"file_size" integer,
 	"template_id" uuid,
+	"unresolved_variables" jsonb DEFAULT '[]'::jsonb,
+	"pdf_failed" boolean DEFAULT false,
+	"pdf_strategy" text,
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
@@ -871,6 +896,7 @@ CREATE TABLE "workflow_runs" (
 	"progress" integer DEFAULT 0,
 	"completed" boolean DEFAULT false,
 	"completed_at" timestamp,
+	"generation_status" varchar(50) DEFAULT 'pending',
 	"metadata" jsonb,
 	"created_at" timestamp DEFAULT now(),
 	"updated_at" timestamp DEFAULT now(),
@@ -1372,6 +1398,7 @@ ALTER TABLE "projects" ADD CONSTRAINT "projects_tenant_id_tenants_id_fk" FOREIGN
 ALTER TABLE "projects" ADD CONSTRAINT "projects_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "projects" ADD CONSTRAINT "projects_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sections" ADD CONSTRAINT "sections_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "steps" ADD CONSTRAINT "steps_workflow_id_workflows_id_fk" FOREIGN KEY ("workflow_id") REFERENCES "public"."workflows"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "steps" ADD CONSTRAINT "steps_section_id_sections_id_fk" FOREIGN KEY ("section_id") REFERENCES "public"."sections"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "template_versions" ADD CONSTRAINT "template_versions_template_id_templates_id_fk" FOREIGN KEY ("template_id") REFERENCES "public"."templates"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "template_versions" ADD CONSTRAINT "template_versions_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
@@ -1410,6 +1437,7 @@ ALTER TABLE "review_tasks" ADD CONSTRAINT "review_tasks_workflow_id_workflows_id
 ALTER TABLE "review_tasks" ADD CONSTRAINT "review_tasks_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "review_tasks" ADD CONSTRAINT "review_tasks_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "review_tasks" ADD CONSTRAINT "review_tasks_reviewer_id_users_id_fk" FOREIGN KEY ("reviewer_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "run_completion_jobs" ADD CONSTRAINT "run_completion_jobs_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."workflow_runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "run_generated_documents" ADD CONSTRAINT "run_generated_documents_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."workflow_runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "run_generated_documents" ADD CONSTRAINT "run_generated_documents_template_id_workflow_templates_id_fk" FOREIGN KEY ("template_id") REFERENCES "public"."workflow_templates"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "script_execution_log" ADD CONSTRAINT "script_execution_log_run_id_workflow_runs_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."workflow_runs"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -1563,8 +1591,9 @@ CREATE INDEX "idx_projects_owner" ON "projects" USING btree ("owner_type","owner
 CREATE INDEX "projects_status_idx" ON "projects" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "projects_archived_idx" ON "projects" USING btree ("archived");--> statement-breakpoint
 CREATE INDEX "sections_workflow_idx" ON "sections" USING btree ("workflow_id");--> statement-breakpoint
+CREATE INDEX "steps_workflow_idx" ON "steps" USING btree ("workflow_id");--> statement-breakpoint
 CREATE INDEX "steps_section_idx" ON "steps" USING btree ("section_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "steps_section_alias_unique" ON "steps" USING btree ("section_id","alias");--> statement-breakpoint
+CREATE UNIQUE INDEX "steps_workflow_alias_unique" ON "steps" USING btree ("workflow_id",lower("alias")) WHERE "steps"."alias" IS NOT NULL AND "steps"."alias" <> '';--> statement-breakpoint
 CREATE UNIQUE INDEX "template_versions_unique_idx" ON "template_versions" USING btree ("template_id","version_number");--> statement-breakpoint
 CREATE INDEX "templates_project_idx" ON "templates" USING btree ("project_id");--> statement-breakpoint
 CREATE INDEX "workflow_access_workflow_idx" ON "workflow_access" USING btree ("workflow_id");--> statement-breakpoint
@@ -1591,6 +1620,9 @@ CREATE INDEX "review_tasks_run_idx" ON "review_tasks" USING btree ("run_id");-->
 CREATE INDEX "review_tasks_workflow_idx" ON "review_tasks" USING btree ("workflow_id");--> statement-breakpoint
 CREATE INDEX "review_tasks_status_idx" ON "review_tasks" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "review_tasks_reviewer_idx" ON "review_tasks" USING btree ("reviewer_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "run_completion_jobs_run_kind_unique" ON "run_completion_jobs" USING btree ("run_id","kind");--> statement-breakpoint
+CREATE INDEX "run_completion_jobs_claim_idx" ON "run_completion_jobs" USING btree ("status","available_at","lease_expires_at") WHERE "run_completion_jobs"."status" IN ('pending', 'retry', 'processing');--> statement-breakpoint
+CREATE INDEX "run_completion_jobs_run_idx" ON "run_completion_jobs" USING btree ("run_id");--> statement-breakpoint
 CREATE INDEX "run_generated_documents_run_idx" ON "run_generated_documents" USING btree ("run_id");--> statement-breakpoint
 CREATE INDEX "script_execution_log_run_idx" ON "script_execution_log" USING btree ("run_id");--> statement-breakpoint
 CREATE INDEX "signature_events_request_idx" ON "signature_events" USING btree ("signature_request_id");--> statement-breakpoint

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 
 import {
     AIWorkflowSuggestionSchema,
@@ -47,6 +46,7 @@ export class WorkflowSuggestionService {
             );
             const response = await this.client.callLLM(prompt.userPrompt, 'workflow_suggestion', prompt.systemMessage);
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- AI provider output is dynamically typed at this boundary.
             const parsed = JSON.parse(response);
             const validated = AIWorkflowSuggestionSchema.parse(parsed);
 
@@ -109,6 +109,7 @@ export class WorkflowSuggestionService {
             );
             const response = await this.client.callLLM(prompt.userPrompt, 'binding_suggestion', prompt.systemMessage);
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- AI provider output is dynamically typed at this boundary.
             const parsed = JSON.parse(response);
             const validated = AITemplateBindingsResponseSchema.parse(parsed);
 
@@ -239,6 +240,7 @@ export class WorkflowSuggestionService {
             key: string;
             type: string;
             label?: string;
+            choices?: string[];
             options?: string[];
             description?: string;
         }>,
@@ -247,10 +249,15 @@ export class WorkflowSuggestionService {
         const startTime = Date.now();
 
         try {
-            const prompt = this.promptBuilder.buildValueSuggestionPrompt(steps, mode);
+            const promptSteps = steps.map(({ options, choices, ...step }) => ({
+                ...step,
+                choices: choices ?? options,
+            }));
+            const prompt = this.promptBuilder.buildValueSuggestionPrompt(promptSteps, mode);
             const response = await this.client.callLLM(prompt.userPrompt, 'value_suggestion', prompt.systemMessage);
 
             // Parse and return the response
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- AI provider output is dynamically typed at this boundary.
             const parsed = JSON.parse(response);
 
             const duration = Date.now() - startTime;
@@ -263,6 +270,7 @@ export class WorkflowSuggestionService {
                 'AI value suggestion succeeded',
             );
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return -- AI provider output is dynamically typed at this boundary.
             return parsed.values || parsed;
         } catch (error: unknown) {
             const duration = Date.now() - startTime;

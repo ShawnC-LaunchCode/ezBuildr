@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { type GenerativeModel, GoogleGenerativeAI } from "@google/generative-ai";
 
 import { type UserPersonalizationSettings, type WorkflowPersonalizationSettings } from '../../../shared/schema';
 import { logger } from "../../logger";
@@ -15,7 +14,7 @@ interface PersonalizationContext {
 
 export class PersonalizationService {
     private genAI: GoogleGenerativeAI | null = null;
-    private model: unknown;
+    private model: GenerativeModel | null = null;
 
     constructor() {
         const apiKey = process.env.GEMINI_API_KEY;
@@ -37,6 +36,15 @@ export class PersonalizationService {
             const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
             this.model = this.genAI.getGenerativeModel({ model });
         }
+    }
+
+    private async generateText(prompt: string): Promise<string> {
+        if (!this.model) {
+            throw new Error("Personalization AI is unavailable");
+        }
+
+        const result = await this.model.generateContent(prompt);
+        return result.response.text().trim();
     }
 
     async rewriteBlockText(
@@ -62,14 +70,10 @@ ${fenceUntrusted(originalText)}
       - Language: ${language}
       
       Output ONLY the rewritten text. Do not add quotes or explanations.
-    `;
+        `;
 
         try {
-            // @ts-ignore - TODO: fix type
-            const result = await this.model.generateContent(prompt);
-            const response = await result.response;
-            const text = response.text();
-            return text.trim();
+            return await this.generateText(prompt);
         } catch (error) {
             logger.error({ err: error }, "Personalization AI Error");
             return originalText; // Fallback
@@ -97,10 +101,7 @@ ${fenceUntrusted(questionText)}
      `;
 
         try {
-            // @ts-ignore - TODO: fix type
-            const result = await this.model.generateContent(prompt);
-            const response = await result.response;
-            return response.text().trim();
+            return await this.generateText(prompt);
         } catch (error) {
             logger.error({ err: error }, "Help Gen AI Error");
             return "Unable to generate help text at this time.";
@@ -131,9 +132,7 @@ ${fenceUntrusted(userAnswer)}
       `;
 
         try {
-            // @ts-ignore - TODO: fix type
-            const result = await this.model.generateContent(prompt);
-            const text = result.response.text().trim();
+            const text = await this.generateText(prompt);
             return text === "CLEAR" ? null : text;
         } catch (error) {
             return null;
@@ -159,14 +158,24 @@ ${fenceUntrusted(userAnswer)}
        `;
 
         try {
-            // @ts-ignore - TODO: fix type
-            const result = await this.model.generateContent(prompt);
-            const text = result.response.text().trim();
+            const text = await this.generateText(prompt);
             if (text.includes("NO")) { return null; }
 
             // Clean json block if present
             const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-            return JSON.parse(jsonStr);
+            const parsed: unknown = JSON.parse(jsonStr);
+            if (
+                typeof parsed !== "object"
+                || parsed === null
+                || !("text" in parsed)
+                || typeof parsed.text !== "string"
+                || !("type" in parsed)
+                || (parsed.type !== "text" && parsed.type !== "yes_no")
+            ) {
+                return null;
+            }
+
+            return { text: parsed.text, type: parsed.type };
         } catch (error) {
             return null;
         }
@@ -177,9 +186,7 @@ ${fenceUntrusted(userAnswer)}
 
         const prompt = `Translate the following text to ${targetLanguage}. Return only the translation.\n\nText:\n${fenceUntrusted(text)}`;
         try {
-            // @ts-ignore - TODO: fix type
-            const result = await this.model.generateContent(prompt);
-            return result.response.text().trim();
+            return await this.generateText(prompt);
         } catch (error) {
             logger.error({ err: error }, "Translation Error");
             return text;

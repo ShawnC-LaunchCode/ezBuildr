@@ -17,7 +17,7 @@ export function registerMetricsRoutes(app: Express): void {
    *
    * Optional protection via METRICS_API_KEY environment variable
    */
-  // eslint-disable-next-line @typescript-eslint/require-await
+
   app.get('/metrics', asyncHandler(async (req: Request, res: Response) => {
     // Protection is OPTIONAL and keyed off METRICS_API_KEY: when no key is
     // configured the endpoint is open (Prometheus scraping is typically locked
@@ -26,10 +26,10 @@ export function registerMetricsRoutes(app: Express): void {
     const isTestEnv = process.env.NODE_ENV === 'test';
     const metricsApiKey = process.env.METRICS_API_KEY;
 
-    if (!isTestEnv && metricsApiKey) {
+    if (!isTestEnv && metricsApiKey !== undefined && metricsApiKey !== '') {
       const providedKey = req.headers['x-api-key'];
 
-      if (!providedKey || typeof providedKey !== 'string') {
+      if (typeof providedKey !== 'string' || providedKey === '') {
         logger.warn({ ip: req.ip }, 'Unauthorized metrics access attempt (missing or invalid key)');
         return res.status(401).json({ error: 'Unauthorized' });
       }

@@ -33,9 +33,9 @@ describe('Step Config Schemas', () => {
             expect(result.data).toMatchObject(config);
         });
 
-        it('should fail invalid config (missing required fields)', () => {
+        it('should fail invalid config (invalid enum value)', () => {
             const config = {
-                // Missing variant
+                variant: 'medium', // invalid variant, must be short or long
                 validation: {}
             };
             const result = validateStepConfig('text', config);

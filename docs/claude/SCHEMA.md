@@ -1,8 +1,10 @@
 # Database Schema Reference
 
-Inventory of all **103 PostgreSQL tables**, organized by the `shared/schema/*.ts` domain file that defines them (verified July 2026).
+Inventory of all **104 PostgreSQL tables**, organized by the `shared/schema/*.ts` domain file that defines them (verified July 2026).
 
 **Source of truth is the Drizzle schema in `shared/schema/` — always check the domain file for exact columns before writing queries or migrations.** Entries are `sql_table_name` (`tsExportName` when it differs beyond casing). Schema changes go through the `db-schema-change` skill; update this file when tables are added or removed.
+
+> **Row-Level Security (SEC-051):** the 24 tables with a direct `tenant_id` column have a `tenant_isolation` RLS policy defined in [`migrations/0001_enable_rls.sql`](../../migrations/0001_enable_rls.sql). The indirectly-scoped `workflows` / `sections` / `steps` (no `tenant_id`) get ownership/join-based `tenant_isolation` policies in [`migrations/0005_rls_phase4_workflows_sections_steps.sql`](../../migrations/0005_rls_phase4_workflows_sections_steps.sql) (SEC-051 phase 4 / ICW-B2). All defined, not yet enforced — see [TENANT_ISOLATION_RLS.md](../architecture/TENANT_ISOLATION_RLS.md). RLS policies live in SQL migrations, **not** in the Drizzle schema. A new tenant-scoped table must add a policy in a new migration.
 
 ## Workflow Core — `shared/schema/workflow.ts` (20 tables)
 
@@ -16,7 +18,7 @@ Inventory of all **103 PostgreSQL tables**, organized by the `shared/schema/*.ts
 | `workflow_blueprints` | Template blueprint structures (JSONB) |
 | `workflow_templates` | Reusable workflow templates |
 | `sections` | Pages/sections: order, skipLogic, visibleIf |
-| `steps` | Individual steps: type, alias, config, visibleIf, defaultValue |
+| `steps` | Individual steps: workflowId, type, workflow-unique alias, config, visibleIf, defaultValue |
 | `logic_rules` | Conditional logic rules |
 | `blocks` | Reusable workflow blocks (see `blockTypeEnum` below) |
 | `transform_blocks` | JS/Python code blocks: code, inputKeys, outputKey, virtualStepId |
@@ -46,11 +48,12 @@ Inventory of all **103 PostgreSQL tables**, organized by the `shared/schema/*.ts
 | `sessions` | Express session store |
 | `teams` / `team_members` | Teams and membership |
 
-## Runs & Metrics — `shared/schema/run.ts` (18 tables)
+## Runs & Metrics — `shared/schema/run.ts` (19 tables)
 
 | Table | Purpose |
 |-------|---------|
 | `workflow_runs` | Execution instances: runToken, progress, completed |
+| `run_completion_jobs` | Durable leased outbox for idempotent post-completion writeback/document work |
 | `step_values` | Run data storage per step |
 | `review_tasks` | Human-in-the-loop review gates (FK → workflow_runs) |
 | `signature_requests` / `signature_events` | E-signature requests + audit trail |

@@ -3,6 +3,7 @@ import { SyntheticListenerMap } from "@dnd-kit/core/dist/hooks/utilities";
 import {
     ChevronDown,
     ChevronRight,
+    Copy,
     EyeOff,
     FileText,
     GripVertical,
@@ -39,9 +40,14 @@ interface PageCardHeaderProps {
     listeners: SyntheticListenerMap | undefined;
     onToggleCollapse: (e: React.MouseEvent) => void;
     onTitleChange: (val: string) => void;
+    flushTitle?: () => void;
+    localTitle?: string;
     onDescriptionChange: (val: string) => void;
+    flushDescription?: () => void;
+    localDescription?: string;
     onSelectSection: () => void;
     onOpenLogicSheet: () => void;
+    onDuplicate: () => void;
     onDelete: () => void;
 }
 
@@ -56,9 +62,14 @@ export function PageCardHeader({
     listeners,
     onToggleCollapse,
     onTitleChange,
+    flushTitle,
+    localTitle,
     onDescriptionChange,
+    flushDescription,
+    localDescription,
     onSelectSection,
     onOpenLogicSheet,
+    onDuplicate,
     onDelete,
 }: PageCardHeaderProps) {
     return (
@@ -99,9 +110,16 @@ export function PageCardHeader({
                         )}
                     <div className="flex items-center gap-2">
                         <Input
-                            value={page.title}
+                            value={localTitle ?? page.title}
                             onChange={(e) => {
                                 onTitleChange(e.target.value);
+                            }}
+                            onBlur={flushTitle}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    flushTitle?.();
+                                    e.currentTarget.blur();
+                                }
                             }}
                             className="font-semibold text-base border-none shadow-none px-0 focus-visible:ring-0 flex-1"
                             placeholder="Page title"
@@ -120,9 +138,16 @@ export function PageCardHeader({
                         />
                     </div>
                     <AutoExpandTextarea
-                        value={page.description ?? ""}
+                        value={localDescription ?? page.description ?? ""}
                         onChange={(e) => {
                             onDescriptionChange(e.target.value);
+                        }}
+                        onBlur={flushDescription}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                                flushDescription?.();
+                                // Let the AutoExpandTextarea handle its own blur or keep focus
+                            }
                         }}
                         className="text-sm text-muted-foreground border-none shadow-none px-0 focus-visible:ring-0 min-h-0"
                         placeholder="Page description (optional)"
@@ -158,6 +183,14 @@ export function PageCardHeader({
                                 {!!page.visibleIf && (
                                     <span className="ml-auto text-xs text-amber-600">Active</span>
                                 )}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={() => {
+                                    onDuplicate();
+                                }}
+                            >
+                                <Copy className="h-4 w-4 mr-2" />
+                                Duplicate Page
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem

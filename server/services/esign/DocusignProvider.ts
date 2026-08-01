@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * DocuSign E-Signature Provider
  * Implementation of IEsignProvider for DocuSign
@@ -13,6 +12,7 @@
  * @date December 2025
  */
 
+import * as crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -438,8 +438,8 @@ export class DocusignProvider implements IEsignProvider {
     }
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const crypto = require('crypto');
+
+
 
       // DocuSign sends the payload as JSON string in the body
       // We need to compute HMAC-SHA256 of the raw payload
@@ -448,21 +448,28 @@ export class DocusignProvider implements IEsignProvider {
         : JSON.stringify(payload);
 
       // Create HMAC using the webhook secret
+
       const hmac = crypto.createHmac('sha256', this.config.webhookSecret);
+
       hmac.update(payloadString);
 
       // DocuSign uses base64 encoding for the signature
+
       const expectedSignature = hmac.digest('base64');
 
       // Use timing-safe comparison to prevent timing attacks
+
       const signaturesMatch = crypto.timingSafeEqual(
         Buffer.from(signature),
+
         Buffer.from(expectedSignature)
       );
 
       if (!signaturesMatch) {
+
         logger.warn({ expected: expectedSignature, received: signature }, "[DocuSign] Webhook signature verification failed");
       }
+
 
       return signaturesMatch;
     } catch (error: unknown) {
@@ -474,8 +481,11 @@ export class DocusignProvider implements IEsignProvider {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- webhook payload structure varies by provider
   async parseWebhookEvent(payload: any): Promise<SignatureEvent> {
     // DocuSign Connect webhook format
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- DocuSign API payloads are dynamically typed at this integration boundary.
     const event = payload.event || payload.data?.event;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- DocuSign API payloads are dynamically typed at this integration boundary.
     const envelopeId = payload.envelopeId || payload.data?.envelopeId;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- DocuSign API payloads are dynamically typed at this integration boundary.
     const _status = payload.status || payload.data?.status;
 
     if (!event || !envelopeId) {
@@ -493,9 +503,13 @@ export class DocusignProvider implements IEsignProvider {
     };
 
     return {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- DocuSign API payloads are dynamically typed at this integration boundary.
       type: eventTypeMap[event] || 'sent',
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- DocuSign API payloads are dynamically typed at this integration boundary.
       envelopeId,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access -- DocuSign API payloads are dynamically typed at this integration boundary.
       timestamp: new Date(payload.generatedDateTime || Date.now()),
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- DocuSign API payloads are dynamically typed at this integration boundary.
       data: payload,
     };
   }

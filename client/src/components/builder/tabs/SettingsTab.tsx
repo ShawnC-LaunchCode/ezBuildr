@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * SettingsTab - Workflow-specific settings
  * PR7: Full UI implementation with stub saves
@@ -13,8 +12,8 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ProjectAssignmentSection } from "@/components/workflows/settings/ProjectAssignmentSection";
 import { useToast } from "@/hooks/use-toast";
-import type { ApiWorkflow } from "@/lib/vault-api";
-import { useWorkflow, useProjects, useMoveWorkflow, useUpdateWorkflow, useWorkflows } from "@/lib/vault-hooks";
+import { workflowAPI } from "@/lib/vault-api";
+import { useWorkflow, useProjects, useMoveWorkflow, useUpdateWorkflow } from "@/lib/vault-hooks";
 
 import { BuilderLayout, BuilderLayoutHeader, BuilderLayoutContent } from "../layout/BuilderLayout";
 
@@ -22,11 +21,21 @@ import { BehaviorSettingsCard } from "./settings/BehaviorSettingsCard";
 import { BrandingSettingsCard } from "./settings/BrandingSettingsCard";
 import { ClientAccessSettingsCard } from "./settings/ClientAccessSettingsCard";
 import { GeneralSettingsCard } from "./settings/GeneralSettingsCard";
-import { IntakeSettingsCard } from "./settings/IntakeSettingsCard";
 import { PublishingSettingsCard } from "./settings/PublishingSettingsCard";
 
 interface SettingsTabProps {
   workflowId: string;
+}
+
+interface WorkflowSettings {
+  brandingEnabled?: boolean;
+  logoUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  completionMessage?: string;
+  redirectUrl?: string;
+  allowSaveAndResume?: boolean;
+  requireLogin?: boolean;
 }
 
 export function SettingsTab({ workflowId }: SettingsTabProps) {
@@ -64,19 +73,6 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
   const [allowResume, setAllowResume] = useState(true);
   const [allowRedownload, setAllowRedownload] = useState(true);
 
-  // Prompt 24: Intake Settings
-  const [isIntake, setIsIntake] = useState(false);
-  const [upstreamWorkflowId, setUpstreamWorkflowId] = useState<string | null>(null);
-
-  // Fetch all workflows to select upstream (simple approach for now)
-  const { data: allWorkflows } = useWorkflows();
-  // Filter eligible upstream workflows: Active, Is Intake, Not current workflow
-  const eligibleUpstream = allWorkflows?.filter(w =>
-    w.id !== workflowId &&
-    w.intakeConfig?.isIntake === true &&
-    w.status !== 'archived'
-  ) ?? [];
-
   // Sync state with loaded workflow data
   useEffect(() => {
     if (workflow) {
@@ -84,17 +80,26 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
       setDescription(workflow.description ?? "");
       setSlug(workflow.slug ?? "");
 
-      // Branding
-      // Note: backend support for branding config might vary, check type definition
-      // Assuming branding is stored in config or separate fields?
-      // Based on previous files, branding might be tenant level or workflow config
-      // For now, let's look for known fields or leave defaults if not present
-
-      // Behavior
-      setAllowSaveAndResume(true); // Default
+      // Load Settings from JSON
+      const settings = workflow.settings as WorkflowSettings | undefined;
+      if (settings) {
+        setBrandingEnabled(settings.brandingEnabled ?? false);
+        setLogoUrl(settings.logoUrl ?? "");
+        setPrimaryColor(settings.primaryColor ?? "#3b82f6");
+        setSecondaryColor(settings.secondaryColor ?? "#8b5cf6");
+        
+        setCompletionMessage(settings.completionMessage ?? "Thank you for completing this workflow!");
+        setRedirectUrl(settings.redirectUrl ?? "");
+        setAllowSaveAndResume(settings.allowSaveAndResume ?? true);
+        
+        setRequireLogin(workflow.requireLogin ?? settings.requireLogin ?? false);
+      } else {
+        // Defaults
+        setAllowSaveAndResume(true);
+      }
 
       // Publishing
-      setIsPublic(workflow.status === 'active' || !!workflow.publicLink);
+      setIsPublic(workflow.isPublic ?? false);
 
       // Access Settings
       if (workflow.accessSettings) {
@@ -103,26 +108,18 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
         setAllowRedownload(workflow.accessSettings.allow_redownload ?? true);
       }
 
-      // Intake Config
-      if (workflow.intakeConfig) {
-        setIsIntake(workflow.intakeConfig.isIntake ?? false);
-        setUpstreamWorkflowId(workflow.intakeConfig.upstreamWorkflowId ?? null);
-      }
     }
   }, [workflow]);
 
   // Update shareable link when dependent values change
   useEffect(() => {
-    if (workflow && isPublic) {
+    if (workflow?.publicLink && isPublic) {
       const baseUrl = window.location.origin;
-      // Prioritize explicit public link, then current slug (state), then workflow ID
-      // using 'slug' state allows the link to update in real-time as user edits the slug field
-      const identifier = workflow.publicLink ?? (slug || workflow.id);
-      setShareableLink(`${baseUrl}/w/${identifier}`);
+      setShareableLink(`${baseUrl}/w/${workflow.publicLink}`);
     } else {
       setShareableLink("");
     }
-  }, [workflow, isPublic, slug]);
+  }, [workflow, isPublic]);
 
   // PR3: Real projects data
   const projects = projectsData?.map(p => ({ id: p.id, name: p.title })) ?? [];
@@ -131,46 +128,63 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
 
   const updateWorkflowMutation = useUpdateWorkflow();
 
-  const handleSaveSettings = () => {
-    updateWorkflowMutation.mutate({
-      id: workflowId,
-      title: name,
-      description,
-      slug: slug || undefined,
+  const handleSaveSettings = async (): Promise<void> => {
+    try {
+      const updated = await updateWorkflowMutation.mutateAsync({
+        id: workflowId,
+        title: name,
+        description,
+        slug: slug || undefined,
+        isPublic,
+        requireLogin,
+        settings: {
+          brandingEnabled,
+          logoUrl,
+          primaryColor,
+          secondaryColor,
+          completionMessage,
+          redirectUrl,
+          allowSaveAndResume,
+          allowPortal,
+          allowResume,
+          allowRedownload,
+        },
+      });
 
-      // status: isPublic ? 'active' : 'draft', // Careful changing status here?
-      // Other fields handled by mutation...
-      accessSettings: {
-        allow_portal: allowPortal,
-        allow_resume: allowResume,
-        allow_redownload: allowRedownload
-      },
-      intakeConfig: {
-        isIntake,
-        upstreamWorkflowId: isIntake ? null : upstreamWorkflowId // Cannot be intake AND have upstream intake (for now to avoid cycles)
+      if (updated.slug) { setSlug(updated.slug); }
+      if (isPublic) {
+        const { publicUrl } = await workflowAPI.getPublicLink(workflowId);
+        setShareableLink(publicUrl);
+      } else {
+        setShareableLink("");
       }
-    }, {
-      onSuccess: (updated: ApiWorkflow) => {
-        toast({
-          title: "Settings Saved",
-          description: "Workflow settings have been updated successfully",
-        });
-        // Update slug in UI if it changed (sanitization/uniqueness)
-        if (updated.slug) { setSlug(updated.slug); }
-      },
-      onError: (error: unknown) => {
-        const message = error instanceof Error ? error.message : "Failed to save workflow settings";
-        toast({
-          title: "Error Saving Settings",
-          description: message,
-          variant: "destructive"
-        });
-      }
-    });
+
+      toast({
+        title: "Settings Saved",
+        description: isPublic
+          ? "Workflow settings and public access are ready."
+          : "Workflow settings have been updated successfully.",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save workflow settings";
+      toast({
+        title: "Error Saving Settings",
+        description: message,
+        variant: "destructive",
+      });
+    }
   };
 
   // Copy shareable link
   const handleCopyLink = () => {
+    if (!shareableLink) {
+      toast({
+        title: "Save to create a link",
+        description: "Save these publishing settings before copying the participant link.",
+      });
+      return;
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-floating-promises
     navigator.clipboard.writeText(shareableLink);
     setLinkCopied(true);
@@ -218,7 +232,7 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
             </p>
           </div>
 
-          <Button onClick={() => { void handleSaveSettings(); }}>
+          <Button onClick={() => { void handleSaveSettings(); }} disabled={updateWorkflowMutation.isPending}>
             <Save className="w-4 h-4 mr-2" />
             Save Settings
           </Button>
@@ -235,15 +249,6 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
             setDescription={setDescription}
             slug={slug}
             setSlug={setSlug}
-          />
-
-          {/* Prompt 24: Intake & Data Reuse */}
-          <IntakeSettingsCard
-            isIntake={isIntake}
-            setIsIntake={setIsIntake}
-            upstreamWorkflowId={upstreamWorkflowId}
-            setUpstreamWorkflowId={setUpstreamWorkflowId}
-            eligibleUpstream={eligibleUpstream}
           />
 
           {/* Project Assignment */}

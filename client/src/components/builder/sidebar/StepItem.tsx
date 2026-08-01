@@ -1,12 +1,14 @@
 
-import { GripVertical, FileText, Trash2 } from "lucide-react";
-import { type MouseEvent } from "react";
+import { GripVertical, Trash2 } from "lucide-react";
+import { useState, type MouseEvent } from "react";
 
 import { ConfirmationDialog } from "@/components/shared/ConfirmationDialog";
+import { DeleteImpactDialog } from "@/components/shared/DeleteImpactDialog";
+import { QuestionTypeIcon } from "@/components/shared/QuestionTypeIcon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ApiStep } from "@/lib/vault-api";
+import { ApiStep, stepAPI, type ApiDeleteImpact } from "@/lib/vault-api";
 import { useDeleteStep } from "@/lib/vault-hooks";
 import { useWorkflowBuilder } from "@/store/workflow-builder";
 
@@ -20,8 +22,34 @@ export function StepItem({ step, sectionId }: StepItemProps) {
     const deleteStepMutation = useDeleteStep();
     const isSelected = selection?.type === "step" && selection.id === step.id;
 
+    // Delete-impact warning (ICW2-13): only shown when the step has stored answers.
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+    const [isDeleteImpactOpen, setIsDeleteImpactOpen] = useState(false);
+    const [pendingDeleteImpact, setPendingDeleteImpact] = useState<ApiDeleteImpact | null>(null);
+
     const handleDelete = () => {
         deleteStepMutation.mutate({ id: step.id, sectionId });
+    };
+
+    const handleConfirmDestructiveDelete = () => {
+        setIsDeleteImpactOpen(false);
+        handleDelete();
+    };
+
+    const handleDeleteButtonClick = async (e: MouseEvent) => {
+        e.stopPropagation();
+        try {
+            const impact = await stepAPI.getDeleteImpact(step.id);
+            if (impact.answerCount > 0) {
+                setPendingDeleteImpact(impact);
+                setIsDeleteImpactOpen(true);
+                return;
+            }
+        } catch {
+            // Impact check failed (e.g. network hiccup) — fall back to the
+            // existing confirmation dialog rather than silently skipping it.
+        }
+        setIsConfirmOpen(true);
     };
 
     return (
@@ -49,7 +77,7 @@ export function StepItem({ step, sectionId }: StepItemProps) {
                     Req
                 </Badge>
             )}
-            <FileText className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
+            <QuestionTypeIcon type={step.type} size="sm" className="mt-px" />
             {/* Question title and alias stacked */}
             <div className="flex-1 min-w-0">
                 <div className="truncate text-xs leading-tight">{step.title || "(Untitled)"}</div>
@@ -66,21 +94,30 @@ export function StepItem({ step, sectionId }: StepItemProps) {
             )}
             {/* Delete Action (Hover) */}
             <div className="opacity-0 group-hover:opacity-100 transition-opacity ml-1" onClick={(e) => e.stopPropagation()}>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    title="Delete Question"
+                    onClick={(e) => { void handleDeleteButtonClick(e); }}
+                >
+                    <Trash2 className="h-3 w-3" />
+                </Button>
                 <ConfirmationDialog
+                    open={isConfirmOpen}
+                    onOpenChange={setIsConfirmOpen}
                     title="Delete Question?"
                     description="Are you sure you want to delete this question? This action cannot be undone."
                     variant="destructive"
-                    onConfirm={handleDelete}
-                    trigger={
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                            title="Delete Question"
-                        >
-                            <Trash2 className="h-3 w-3" />
-                        </Button>
-                    }
+                    onConfirm={() => { setIsConfirmOpen(false); handleDelete(); }}
+                />
+                <DeleteImpactDialog
+                    open={isDeleteImpactOpen}
+                    onOpenChange={setIsDeleteImpactOpen}
+                    impact={pendingDeleteImpact}
+                    itemLabel="question"
+                    onConfirm={handleConfirmDestructiveDelete}
+                    isPending={deleteStepMutation.isPending}
                 />
             </div>
         </div>

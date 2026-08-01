@@ -524,4 +524,5 @@ export interface BlockResult {
   errors?: string[];                  // General validation errors
   fieldErrors?: Record<string, string[]>; // Field-specific validation errors (stepId -> errors)
   nextSectionId?: string;             // Next section decision (for branch blocks)
+  nextSectionBlockId?: string;        // Id of the branch block that set nextSectionId (diagnostics)
 }

@@ -4,7 +4,6 @@ import speakeasy from "speakeasy";
 import { describe, it, expect, vi, beforeEach, afterEach, Mock } from "vitest";
 
 import { MfaService } from "../../../server/services/MfaService";
-import { db } from "../../../server/db";
 import { mfaSecrets, mfaBackupCodes, users } from "@shared/schema";
 import type { InferSelectModel } from "drizzle-orm";
 

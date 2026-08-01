@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from "vitest";
 
 import { AccountLockoutService } from "../../../server/services/AccountLockoutService";
-import { loginAttempts, accountLocks, users } from "../../../shared/schema";
+import { loginAttempts, accountLocks } from "../../../shared/schema";
 // Service imports from @shared/schema
 import type { LoginAttempt, AccountLock, User } from "../../../shared/schema";
 
@@ -63,6 +63,7 @@ function buildFailedAttempts(count: number, email: string, at: Date = new Date()
 
 describe("AccountLockoutService", () => {
   let accountLockoutService: AccountLockoutService;
+  const anyDate = expect.any(Date) as Date;
   // Define strict types for the mocked db functions we use
   let mockDb: {
     query: {
@@ -105,7 +106,7 @@ describe("AccountLockoutService", () => {
           email,
           ipAddress,
           successful: true,
-          attemptedAt: expect.any(Date),
+          attemptedAt: anyDate,
         })
       );
     });
@@ -125,7 +126,7 @@ describe("AccountLockoutService", () => {
           email,
           ipAddress,
           successful: false,
-          attemptedAt: expect.any(Date),
+          attemptedAt: anyDate,
         })
       );
     });

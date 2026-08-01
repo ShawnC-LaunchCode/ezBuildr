@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Step Configuration Type Definitions
  *
@@ -297,10 +296,20 @@ export type DynamicOptionsConfig =
 
 /**
  * Choice Config (Advanced Mode)
- * Unified choice block (radio/dropdown/multiple)
+ * Unified choice block (radio/dropdown/combobox/multiple)
  */
 export interface ChoiceAdvancedConfig {
-  display: 'radio' | 'dropdown' | 'multiple';
+  /**
+   * How the choices are presented.
+   *
+   * Single-select: 'radio' | 'dropdown' | 'combobox'.
+   * Multi-select:  'multiple', which always renders as checkboxes.
+   *
+   * 'combobox' is a searchable dropdown that also accepts an answer the
+   * author never listed. It replaces the old `display: 'dropdown'` +
+   * `searchable: true` pairing — see `searchable` below.
+   */
+  display: 'radio' | 'dropdown' | 'combobox' | 'multiple';
   allowMultiple: boolean;  // Enable multi-select
   options: ChoiceOption[] | DynamicOptionsConfig;  // Static options or DynamicConfig (Legacy)
   dynamicOptions?: DynamicOptionsConfig; // Explicit dynamic options configuration
@@ -308,7 +317,15 @@ export interface ChoiceAdvancedConfig {
   max?: number;            // Maximum selections (for multiple)
   allowOther?: boolean;    // Allow "Other" option with text input
   otherLabel?: string;     // Label for "Other" option
-  searchable?: boolean;    // Enable search for dropdown (many options)
+  /**
+   * @deprecated Use `display: 'combobox'`.
+   *
+   * Still read when loading older configs so a saved dropdown+searchable
+   * question keeps its search box: both the builder and the runner normalise
+   * that pair to 'combobox' via `resolveChoiceDisplay`. Never written by new
+   * saves. Do not delete without a data migration.
+   */
+  searchable?: boolean;
   randomizeOrder?: boolean;  // Randomize option order
 
   /**
@@ -321,6 +338,35 @@ export interface ChoiceAdvancedConfig {
     labelColumnId: string; // Column ID to use for label (display text)
     valueColumnId: string; // Column ID to use for value (stored data)
   };
+}
+
+/** Presentation a choice question resolves to. */
+export type ChoiceDisplay = 'radio' | 'dropdown' | 'combobox' | 'multiple';
+
+/**
+ * Normalise a stored choice config to the display it should actually render.
+ *
+ * The builder and the runner both call this so they can never disagree about
+ * what a saved question looks like. It absorbs two pieces of history:
+ *
+ *  - `searchable: true` on a dropdown used to mean "searchable dropdown";
+ *    that is now simply 'combobox'.
+ *  - Multi-select was expressed three different ways (`display: 'multiple'`,
+ *    `allowMultiple: true`, or the legacy `multiple_choice` step type). Any
+ *    of them wins over `display`, because a multi-select always renders as
+ *    checkboxes.
+ */
+export function resolveChoiceDisplay(
+  config: Pick<ChoiceAdvancedConfig, 'display' | 'allowMultiple' | 'searchable'> | undefined | null,
+  stepType?: string,
+): ChoiceDisplay {
+  if (stepType === 'multiple_choice') { return 'multiple'; }
+  if (config?.allowMultiple === true || config?.display === 'multiple') { return 'multiple'; }
+  if (config?.display === 'combobox') { return 'combobox'; }
+  if (config?.display === 'dropdown') {
+    return config.searchable === true ? 'combobox' : 'dropdown';
+  }
+  return 'radio';
 }
 
 /**
@@ -521,7 +567,7 @@ export interface LogicExpression {
   operator?: 'AND' | 'OR';
   conditions: Array<{
     key: string;              // Step alias to check
-    op: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than' | 'is_empty' | 'is_not_empty';
+    op: import('./conditions').ComparisonOperator | 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than' | 'is_empty' | 'is_not_empty';
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     value?: any;              // Expected value (not needed for is_empty/is_not_empty)
   }>;
@@ -662,14 +708,16 @@ export type StepConfig =
 // TYPE GUARDS
 // ============================================================================
 
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 /**
  * Type guard for Choice config
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type guard needs to accept any input
-export function isChoiceConfig(config: any): config is ChoiceAdvancedConfig {
+export function isChoiceConfig(config: unknown): config is ChoiceAdvancedConfig {
   return (
-    config &&
-    typeof config === 'object' &&
+    isObjectRecord(config) &&
     typeof config.display === 'string' &&
     typeof config.allowMultiple === 'boolean' &&
     Array.isArray(config.options)
@@ -679,11 +727,9 @@ export function isChoiceConfig(config: any): config is ChoiceAdvancedConfig {
 /**
  * Type guard for Multi-Field config
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type guard needs to accept any input
-export function isMultiFieldConfig(config: any): config is MultiFieldConfig {
+export function isMultiFieldConfig(config: unknown): config is MultiFieldConfig {
   return (
-    config &&
-    typeof config === 'object' &&
+    isObjectRecord(config) &&
     typeof config.layout === 'string' &&
     Array.isArray(config.fields) &&
     typeof config.storeAs === 'string'
@@ -693,11 +739,9 @@ export function isMultiFieldConfig(config: any): config is MultiFieldConfig {
 /**
  * Type guard for Address config
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type guard needs to accept any input
-export function isAddressConfig(config: any): config is AddressConfig | AddressAdvancedConfig {
+export function isAddressConfig(config: unknown): config is AddressConfig | AddressAdvancedConfig {
   return (
-    config &&
-    typeof config === 'object' &&
+    isObjectRecord(config) &&
     (config.country === 'US' || typeof config.country === 'string') &&
     Array.isArray(config.fields)
   );
@@ -706,11 +750,9 @@ export function isAddressConfig(config: any): config is AddressConfig | AddressA
 /**
  * Type guard for Number/Currency config
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type guard needs to accept any input
-export function isNumberConfig(config: any): config is NumberConfig | NumberAdvancedConfig {
+export function isNumberConfig(config: unknown): config is NumberConfig | NumberAdvancedConfig {
   return (
-    config &&
-    typeof config === 'object' &&
+    isObjectRecord(config) &&
     (typeof config.min === 'number' ||
       typeof config.max === 'number' ||
       typeof config.step === 'number' ||
@@ -721,11 +763,9 @@ export function isNumberConfig(config: any): config is NumberConfig | NumberAdva
 /**
  * Type guard for DateTime config
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type guard needs to accept any input
-export function isDateTimeConfig(config: any): config is DateTimeUnifiedConfig | DateTimeConfig | LegacyDateTimeConfig {
+export function isDateTimeConfig(config: unknown): config is DateTimeUnifiedConfig | DateTimeConfig | LegacyDateTimeConfig {
   return (
-    config &&
-    typeof config === 'object' &&
+    isObjectRecord(config) &&
     (typeof config.kind === 'string' ||
       typeof config.minDate === 'string' ||
       typeof config.maxDate === 'string' ||
@@ -736,11 +776,9 @@ export function isDateTimeConfig(config: any): config is DateTimeUnifiedConfig |
 /**
  * Type guard for Signature Block config
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- type guard needs to accept any input
-export function isSignatureBlockConfig(config: any): config is SignatureBlockConfig {
+export function isSignatureBlockConfig(config: unknown): config is SignatureBlockConfig {
   return (
-    config &&
-    typeof config === 'object' &&
+    isObjectRecord(config) &&
     typeof config.signerRole === 'string' &&
     typeof config.routingOrder === 'number' &&
     Array.isArray(config.documents)
@@ -769,7 +807,6 @@ export interface AddressValue {
  * Stored in stepValues for multi-field blocks
  */
 export interface MultiFieldValue {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- field values can be various types
   [key: string]: string | number | boolean | null | string[];
 }
 

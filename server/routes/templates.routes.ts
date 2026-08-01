@@ -1,4 +1,3 @@
-/* eslint-disable max-lines -- route file with many endpoints */
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import os from 'os';
@@ -28,7 +27,10 @@ import { requirePermission } from '../middleware/rbac';
 import { requireTenant } from '../middleware/tenant';
 import { pdfService } from '../services/document/PdfService';
 import { templateScanner } from '../services/document/TemplateScanner';
-import { documentProcessingLimiter } from '../services/processingLimiter';
+import {
+  DOCUMENT_PROCESSING_TIMEOUT_MS,
+  documentProcessingLimiter,
+} from '../services/processingLimiter';
 import { virusScanner } from '../services/security/VirusScanner';
 import { storageQuotaService } from '../services/StorageQuotaService';
 import {
@@ -37,6 +39,7 @@ import {
   extractPlaceholders,
 } from '../services/templates';
 import { asyncHandler } from '../utils/asyncHandler';
+import { isProcessingTimeoutError, withTimeout } from '../utils/concurrency';
 import { createError, formatErrorResponse } from '../utils/errors';
 import { createPaginatedResponse, decodeCursor } from '../utils/pagination';
 
@@ -99,6 +102,40 @@ function isErrorWithCode(err: unknown): err is Error & { code: string } {
   return err instanceof Error && 'code' in err;
 }
 
+function rethrowProcessingTimeout(error: unknown): void {
+  if (!isProcessingTimeoutError(error)) {
+    return;
+  }
+
+  logger.error(
+    {
+      error,
+      label: error.label,
+      elapsedMs: error.elapsedMs,
+      timeoutMs: error.timeoutMs,
+    },
+    'Document processing timed out'
+  );
+  throw createError.validation(
+    `Document processing timeout: ${error.label} exceeded ${error.timeoutMs}ms`
+  );
+}
+
+async function collectDocxPlaceholderWarnings(fileBuffer: Buffer): Promise<string[]> {
+  const { extractPlaceholdersDetailed } = await import('../services/templatePlaceholders');
+  const tempPath = path.join(os.tmpdir(), `validate-${crypto.randomBytes(4).toString('hex')}.docx`);
+
+  await fs.writeFile(tempPath, fileBuffer);
+  try {
+    const placeholders = await extractPlaceholdersDetailed(tempPath);
+    return placeholders
+      .filter((placeholder) => placeholder.kind === 'unknown_helper')
+      .map((placeholder) => `Warning: Template references an unknown helper function "${placeholder.helper ?? placeholder.name}".`);
+  } finally {
+    await fs.unlink(tempPath).catch(() => {});
+  }
+}
+
 /**
  * GET /templates/:id/download
  * Download template file
@@ -127,7 +164,7 @@ router.get(
         throw createError.forbidden(ACCESS_DENIED_MSG);
       }
       const { getTemplateFilePath } = await import('../services/templates');
-      const filePath = getTemplateFilePath(template.fileRef);
+      const filePath = await getTemplateFilePath(template.fileRef);
       const fsSync = await import('fs');
       if (!fsSync.existsSync(filePath)) {
         logger.error({ filePath }, 'Template file missing at path');
@@ -246,6 +283,14 @@ router.post(
         await cleanupFile(req.file.path);
         throw createError.validation('File type mismatch (Magic Bytes validation failed)');
       }
+      if (!isPdf) {
+        const { validateZipLimits } = await import('../utils/zipLimits');
+        const zipValidation = validateZipLimits(fileBuffer, req.file.originalname);
+        if (!zipValidation.ok) {
+          await cleanupFile(req.file.path);
+          throw createError.validation(`Invalid DOCX archive: ${zipValidation.reason ?? 'ZIP safety validation failed'}`);
+        }
+      }
       const scanResult = await virusScanner().scan(fileBuffer, req.file.originalname);
       if (!scanResult.safe) {
         await cleanupFile(req.file.path);
@@ -264,30 +309,46 @@ router.post(
       let pdfMetadata: PdfMetadata = { pageCount: 0, fields: [], isEncrypted: false };
       if (!isPdf) {
         try {
-          const docxScanResult = await documentProcessingLimiter.run(() => templateScanner.scanAndFix(fileBuffer));
+          const docxScanResult = await documentProcessingLimiter.run(() =>
+            withTimeout(
+              () => templateScanner.scanAndFix(fileBuffer),
+              DOCUMENT_PROCESSING_TIMEOUT_MS,
+              'template-create-docx-scan'
+            )
+          );
           if (!docxScanResult.isValid) {
             throw createError.validation(
               `Invalid template: ${docxScanResult.errors?.join(', ') ?? 'unknown error'}`
             );
           }
-          if (docxScanResult.fixed) {
-            fileBuffer = docxScanResult.buffer;
-            warnings = docxScanResult.repairs;
-          }
-        } catch (error: unknown) {
+            if (docxScanResult.fixed) {
+              fileBuffer = docxScanResult.buffer;
+              warnings = docxScanResult.repairs;
+            }
+            // DOC-109: Validate helpers during upload
+            try {
+              warnings.push(...await collectDocxPlaceholderWarnings(fileBuffer));
+            } catch (e) {
+              logger.warn({ error: e }, "Failed to extract placeholders during template upload");
+            }
+          } catch (error: unknown) {
           await cleanupFile(req.file.path);
+          rethrowProcessingTimeout(error);
           if (isErrorWithCode(error) && error.code === 'VALIDATION_ERROR') { throw error; }
           throw createError.validation(`Template validation failed: ${isErrorWithCode(error) ? error.message : String(error)}`);
         }
       } else {
         try {
-          fileBuffer = await documentProcessingLimiter.run(async () => {
-            const unlocked = await pdfService.unlockPdf(fileBuffer);
-            pdfMetadata = await pdfService.extractFields(unlocked);
-            return unlocked;
-          });
+          fileBuffer = await documentProcessingLimiter.run(() =>
+            withTimeout(async () => {
+              const unlocked = await pdfService.unlockPdf(fileBuffer);
+              pdfMetadata = await pdfService.extractFields(unlocked);
+              return unlocked;
+            }, DOCUMENT_PROCESSING_TIMEOUT_MS, 'template-create-pdf-processing')
+          );
         } catch (error: unknown) {
           await cleanupFile(req.file.path);
+          rethrowProcessingTimeout(error);
           logger.error({ error }, 'PDF processing failed');
           throw createError.validation(`PDF processing failed: ${isErrorWithCode(error) ? error.message : String(error)}`);
         }
@@ -397,6 +458,15 @@ router.patch(
           await cleanupFile(req.file.path);
           throw createError.validation('File type mismatch (Magic Bytes validation failed)');
         }
+        const isPdf = req.file.mimetype === 'application/pdf' || req.file.originalname.endsWith('.pdf');
+        if (!isPdf) {
+          const { validateZipLimits } = await import('../utils/zipLimits');
+          const zipValidation = validateZipLimits(fileBuffer, req.file.originalname);
+          if (!zipValidation.ok) {
+            await cleanupFile(req.file.path);
+            throw createError.validation(`Invalid DOCX archive: ${zipValidation.reason ?? 'ZIP safety validation failed'}`);
+          }
+        }
         const virusScanResult = await virusScanner().scan(fileBuffer, req.file.originalname);
         if (!virusScanResult.safe) {
           await cleanupFile(req.file.path);
@@ -411,38 +481,44 @@ router.patch(
           { filename: req.file.originalname, scanner: virusScanResult.scannerName },
           'Virus scan passed (PATCH)'
         );
-        const isPdf = req.file.mimetype === 'application/pdf' || req.file.originalname.endsWith('.pdf');
         let pdfMetadata: PdfMetadata = { pageCount: 0, fields: [], isEncrypted: false };
         if (!isPdf) {
           try {
-            const docxScanResult = await documentProcessingLimiter.run(() => templateScanner.scanAndFix(fileBuffer));
-            // eslint-disable-next-line max-depth -- nested validation inside try/if
+            const docxScanResult = await documentProcessingLimiter.run(() =>
+              withTimeout(
+                () => templateScanner.scanAndFix(fileBuffer),
+                DOCUMENT_PROCESSING_TIMEOUT_MS,
+                'template-update-docx-scan'
+              )
+            );
             if (!docxScanResult.isValid) {
               logger.error({ errors: docxScanResult.errors }, 'Template validation failed in API (PATCH)');
               throw createError.validation(
                 `Invalid template: ${docxScanResult.errors?.join(', ') ?? 'unknown error'}`
               );
             }
-            // eslint-disable-next-line max-depth -- nested validation inside try/if
             if (docxScanResult.fixed) {
               fileBuffer = docxScanResult.buffer;
               warnings = docxScanResult.repairs;
             }
           } catch (error: unknown) {
             await cleanupFile(req.file.path);
-            // eslint-disable-next-line max-depth -- nested re-throw inside try/if
+            rethrowProcessingTimeout(error);
             if (isErrorWithCode(error) && error.code === 'VALIDATION_ERROR') { throw error; }
             throw createError.validation(`Template validation failed: ${isErrorWithCode(error) ? error.message : String(error)}`);
           }
         } else {
           try {
-            fileBuffer = await documentProcessingLimiter.run(async () => {
-              const unlocked = await pdfService.unlockPdf(fileBuffer);
-              pdfMetadata = await pdfService.extractFields(unlocked);
-              return unlocked;
-            });
+            fileBuffer = await documentProcessingLimiter.run(() =>
+              withTimeout(async () => {
+                const unlocked = await pdfService.unlockPdf(fileBuffer);
+                pdfMetadata = await pdfService.extractFields(unlocked);
+                return unlocked;
+              }, DOCUMENT_PROCESSING_TIMEOUT_MS, 'template-update-pdf-processing')
+            );
           } catch (error: unknown) {
             await cleanupFile(req.file.path);
+            rethrowProcessingTimeout(error);
             logger.error({ error }, 'PDF processing failed (PATCH)');
             throw createError.validation(`PDF processing failed: ${isErrorWithCode(error) ? error.message : String(error)}`);
           }

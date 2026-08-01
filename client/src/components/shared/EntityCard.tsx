@@ -40,6 +40,8 @@ export interface EntityAction<T = unknown> {
   href?: string;
   variant?: "default" | "destructive";
   separator?: boolean; // Add separator before this item
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 export interface EntityCardProps<T extends EntityBase> {
@@ -134,28 +136,40 @@ export function EntityCard<T extends EntityBase>({
                 {actions.map((action, idx) => {
                   const isDestructive = action.variant === "destructive";
                   const ActionIcon = action.icon;
+                  const content = (
+                    <>
+                      {ActionIcon && <ActionIcon className="w-4 h-4 mr-2" aria-hidden="true" />}
+                      <span>{action.label}</span>
+                      {action.disabledReason && (
+                        <span className="ml-3 text-[11px] text-muted-foreground">
+                          {action.disabledReason}
+                        </span>
+                      )}
+                    </>
+                  );
 
                   return (
                     <div key={idx}>
                       {action.separator && idx > 0 && <DropdownMenuSeparator />}
 
-                      {action.href ? (
+                      {action.href && !action.disabled ? (
                         <DropdownMenuItem asChild>
                           <Link href={action.href}>
-                            {ActionIcon && <ActionIcon className="w-4 h-4 mr-2" aria-hidden="true" />}
-                            {action.label}
+                            {content}
                           </Link>
                         </DropdownMenuItem>
                       ) : (
                         <DropdownMenuItem
                           className={isDestructive ? "text-destructive" : ""}
+                          disabled={action.disabled}
                           onClick={(e) => {
                             e.stopPropagation();
-                            action.onClick?.(entity);
+                            if (!action.disabled) {
+                              action.onClick?.(entity);
+                            }
                           }}
                         >
-                          {ActionIcon && <ActionIcon className="w-4 h-4 mr-2" aria-hidden="true" />}
-                          {action.label}
+                          {content}
                         </DropdownMenuItem>
                       )}
                     </div>

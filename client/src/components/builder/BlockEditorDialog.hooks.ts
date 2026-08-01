@@ -138,7 +138,7 @@ export function useBlockSave(
                     config: formData.config,
                     enabled: formData.enabled,
                     order,
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
                     sectionId: (block?.raw?.sectionId as string | null) ?? null
                 };
 
@@ -149,7 +149,7 @@ export function useBlockSave(
                         ...data,
                         type: data.type as BlockType,
                         phase: data.phase as BlockPhase,
-                        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
                         sectionId: data.sectionId
                     });
                 } else {
@@ -158,7 +158,7 @@ export function useBlockSave(
                         ...data,
                         type: data.type as BlockType,
                         phase: data.phase as BlockPhase,
-                        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
                         sectionId: data.sectionId
                     });
                 }
@@ -174,7 +174,7 @@ export function useBlockSave(
                     timeoutMs: formData.timeoutMs,
                     enabled: formData.enabled,
                     order,
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
                     sectionId: (block?.raw?.sectionId as string | null) ?? null
                 };
 

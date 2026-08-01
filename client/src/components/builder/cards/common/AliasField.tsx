@@ -8,17 +8,24 @@ import { useState, useEffect, useRef } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useWorkflowSteps } from "@/hooks/api/useSteps";
 
 interface AliasFieldProps {
   value: string | null;
   onChange: (value: string | null) => void;
   placeholder?: string;
+  workflowId?: string;
+  currentStepId?: string;
 }
 
-export function AliasField({ value, onChange, placeholder = "variable_name" }: AliasFieldProps) {
+export function AliasField({ value, onChange, placeholder = "variable_name", workflowId, currentStepId }: AliasFieldProps) {
   const [localValue, setLocalValue] = useState(value ?? "");
   const [error, setError] = useState<string | null>(null);
   const lastSubmittedValue = useRef(value);
+  const { data: workflowSteps = [] } = useWorkflowSteps(workflowId, {
+    enabled: Boolean(workflowId),
+    staleTime: 5000,
+  });
 
   // Sync local value with prop, but be resilient to "rollbacks" on validation error
   useEffect(() => {
@@ -37,7 +44,7 @@ export function AliasField({ value, onChange, placeholder = "variable_name" }: A
     if (value === localValue) {
       lastSubmittedValue.current = value;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [value]);
 
   const validateAlias = (alias: string): string | null => {
@@ -56,8 +63,21 @@ export function AliasField({ value, onChange, placeholder = "variable_name" }: A
       return "Can only contain letters, numbers, and underscores";
     }
 
+    const normalizedAlias = alias.trim().toLowerCase();
+    const duplicate = workflowSteps.some((step) =>
+      step.id !== currentStepId && (step.alias ?? "").trim().toLowerCase() === normalizedAlias
+    );
+    if (duplicate) {
+      return "Variable name must be unique in this workflow";
+    }
+
     return null;
   };
+
+  useEffect(() => {
+    setError(validateAlias(localValue));
+
+  }, [localValue, workflowSteps, currentStepId]);
 
   const handleChange = (newValue: string) => {
     setLocalValue(newValue);

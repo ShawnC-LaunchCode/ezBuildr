@@ -338,7 +338,7 @@ export class ASTValidator {
       loopCount: 0,
     };
 
-    /* eslint-disable-next-line complexity, sonarjs/cognitive-complexity */
+
     const traverse = (node: ASTNodeRecord, depth: number): void => {
       metrics.nodeCount++;
       metrics.maxDepth = Math.max(metrics.maxDepth, depth);
@@ -395,7 +395,7 @@ export class ASTValidator {
   detectForbiddenPatterns(ast: acorn.Node): SecurityViolation[] {
     const violations: SecurityViolation[] = [];
 
-    /* eslint-disable-next-line complexity, sonarjs/cognitive-complexity */
+
     const traverse = (node: ASTNodeRecord): void => {
       try {
         this.checkForbiddenIdentifier(node, violations);

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { randomUUID } from "crypto";
 
 import { eq } from "drizzle-orm";
@@ -49,6 +48,7 @@ export class RunShareService {
             if (!run) { throw new Error("Run not found"); }
             // Stored run token is a SHA-256 hash; match the hash of the presented
             // plaintext, or the raw value for legacy un-hashed rows.
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Shared run data is dynamically typed at the persistence boundary.
             const presented = authContext.runToken as string;
             const matches = run.runToken === hashToken(presented) || run.runToken === presented;
             if (!matches) { throw new Error("Access denied"); }
@@ -89,7 +89,8 @@ export class RunShareService {
         // 1. Get run by token (validates expiration)
         const run = await this.getRunByShareToken(token);
         const workflow = await this.workflowRepo.findById(run.workflowId);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Legacy dynamic boundary requires these narrow checks.
         const accessSettings = (workflow as any)?.accessSettings || { allow_portal: false, allow_resume: true, allow_redownload: true };
 
         // 2. Get documents
@@ -108,14 +109,19 @@ export class RunShareService {
                 .limit(1);
 
             if (version?.graphJson) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment -- Legacy dynamic boundary requires these narrow checks.
                 const graph = version.graphJson as any;
                 // Search for 'final' node
                 // Graph structure: { nodes: [], edges: [] }
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Shared run data is dynamically typed at the persistence boundary.
                 if (graph.nodes && Array.isArray(graph.nodes)) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Legacy dynamic boundary requires these narrow checks.
                     const finalNode = graph.nodes.find((n: any) => n.type === 'final');
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Shared run data is dynamically typed at the persistence boundary.
                     if (finalNode?.data?.config) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Shared run data is dynamically typed at the persistence boundary.
                         finalBlockConfig = finalNode.data.config;
                     }
                 }
@@ -126,14 +132,16 @@ export class RunShareService {
             const allSteps = await this.stepRepo.findByWorkflowIdWithAliases(run.workflowId);
             const finalStep = allSteps.find(s => s.type === 'final');
 
-            if (finalStep?.options) {
-                finalBlockConfig = finalStep.options;
+            if (finalStep?.config) {
+                finalBlockConfig = finalStep.config;
             }
         }
 
         return {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Shared run data is dynamically typed at the persistence boundary.
             run: { ...run, accessSettings },
             documents,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Shared run data is dynamically typed at the persistence boundary.
             finalBlockConfig
         };
     }

@@ -1,9 +1,10 @@
+import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 
 import { logger } from '../../logger';
 
-import { PdfConverter } from './PdfConverter';
+import { PdfConverter, type PdfStrategyName } from './PdfConverter';
 import { TemplateParser } from './TemplateParser';
 export interface DocumentGenerationOptions {
     templatePath: string;
@@ -12,12 +13,22 @@ export interface DocumentGenerationOptions {
     outputName: string;
     outputDir?: string;
     toPdf?: boolean;
-    pdfStrategy?: 'puppeteer' | 'libreoffice';
+    unresolvedVariables?: string[];
 }
 export interface DocumentGenerationResult {
     docxPath: string;
     pdfPath?: string;
+    pdfFailed?: boolean;
+    /**
+     * The converter that actually produced `pdfPath`. An observed fact, not a
+     * request — the strategy is chosen from `PDF_CONVERTER_API_URL`, so callers
+     * cannot ask for one. Undefined when no PDF was requested or produced.
+     */
+    pdfStrategy?: PdfStrategyName;
+    /** True when the high-fidelity converter failed and a degraded one produced the PDF. */
+    pdfFellBack?: boolean;
     size: number;
+    unresolvedVariables?: string[];
 }
 export class DocumentEngine {
     private parser: TemplateParser;
@@ -32,17 +43,22 @@ export class DocumentEngine {
             templateBuffer, // Extract buffer if provided
             data,
             outputName,
+            // DEBT-15: intentionally ephemeral. The engine writes its rendered
+            // output here for the caller to pick up within the same request;
+            // callers that need the artifact to survive (final-block documents)
+            // upload it to storageProvider and delete this copy.
             outputDir = path.join(process.cwd(), 'server', 'files', 'outputs'),
             toPdf = false,
+            unresolvedVariables = [],
         } = options;
         logger.info({ templatePath, outputName, toPdf }, 'Starting document generation');
         // Ensure output directory exists
         await fs.mkdir(outputDir, { recursive: true });
         // 1. Render DOCX
-        const buffer = await this.parser.render({ templatePath, templateBuffer, data });
+        const buffer = await this.parser.render({ templatePath, templateBuffer, data, unresolvedVariables });
         // Generate output filename
-        const timestamp = Date.now();
-        const docxFileName = `${outputName}-${timestamp}.docx`;
+        const uniqueId = crypto.randomUUID();
+        const docxFileName = `${outputName}-${uniqueId}.docx`;
         const docxPath = path.join(outputDir, docxFileName);
         // Write DOCX
         await fs.writeFile(docxPath, buffer);
@@ -50,22 +66,27 @@ export class DocumentEngine {
         const result: DocumentGenerationResult = {
             docxPath,
             size: stats.size,
+            unresolvedVariables,
         };
         // 2. Convert to PDF if requested
         if (toPdf) {
             try {
-                const pdfFileName = `${outputName}-${timestamp}.pdf`;
+                const pdfFileName = `${outputName}-${uniqueId}.pdf`;
                 const pdfPath = path.join(outputDir, pdfFileName);
-                // Instantiate converter (defaults to Puppeteer)
-                const converter = new PdfConverter();
-                await converter.convert({
+                const outcome = await this.pdfConverter.convert({
                     docxPath,
                     outputPath: pdfPath,
                 });
                 result.pdfPath = pdfPath;
-                logger.info({ pdfPath }, 'PDF generated successfully');
+                result.pdfStrategy = outcome.strategy;
+                result.pdfFellBack = outcome.fellBack;
+                logger.info(
+                    { pdfPath, strategy: outcome.strategy, fellBack: outcome.fellBack },
+                    'PDF generated successfully'
+                );
             } catch (error) {
                 logger.warn({ error }, 'PDF conversion failed, returning DOCX only');
+                result.pdfFailed = true;
                 // Don't fail the whole process if PDF fails
             }
         }

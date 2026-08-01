@@ -175,6 +175,7 @@ async function seed() {
     const [_step1] = await db
       .insert(schema.steps)
       .values({
+        workflowId: workflow.id,
         sectionId: section.id,
         type: 'short_text',
         title: 'Full Name',
@@ -188,6 +189,7 @@ async function seed() {
     const [_step2] = await db
       .insert(schema.steps)
       .values({
+        workflowId: workflow.id,
         sectionId: section.id,
         type: 'short_text',
         title: 'Email Address',
@@ -201,6 +203,7 @@ async function seed() {
     const [_step3] = await db
       .insert(schema.steps)
       .values({
+        workflowId: workflow.id,
         sectionId: section.id,
         type: 'date_time',
         title: 'Start Date',

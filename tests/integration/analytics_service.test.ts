@@ -11,7 +11,7 @@ import { createGraphWorkflow } from "../factories/graphFactory";
 describe("Analytics Service Integration", () => {
     let userId: string;
     let tenantId: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     let workflow: any;
 
 
@@ -45,6 +45,15 @@ describe("Analytics Service Integration", () => {
 
         const [vRes] = await db.insert(workflowVersions).values({
             ...v,
+            // RVP-2: the run created below now actually resolves navigation
+            // from this pinned graph (via RunDefinitionProvider) instead of
+            // only the live tables, so it must satisfy VersionRuntimeSchema.
+            // The legacy node/edge graph `createGraphWorkflow` produces here
+            // predates the sections-based runtime schema (the visual graph
+            // engine was removed -- see graphFactory.ts's header) and this
+            // test never exercises sections/steps, so an empty valid graph
+            // is sufficient.
+            graphJson: { title: w.title, sections: [] },
             workflowId: wfRes.id,
             published: true,
             publishedAt: new Date(),
@@ -62,14 +71,14 @@ describe("Analytics Service Integration", () => {
         // Actually RunService.createRun(workflowId, inputData, queryParams, ...)
         // Looking at RunService signature: createRun(workflowId: string, options: ...)
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const run = await runService.createRun(workflow.id, undefined, { participantId: "anon" } as any);
         const runId = run.id;
 
         expect(runId).toBeDefined();
 
         // 2. Verify run.start event
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         let eventsAfterStart: any[] = [];
         for (let i = 0; i < 5; i++) {
             eventsAfterStart = await db.select().from(workflowRunEvents).where(eq(workflowRunEvents.runId, runId));
