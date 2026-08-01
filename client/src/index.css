@@ -69,6 +69,10 @@
   --qtype-boolean-foreground: hsl(145, 80%, 26%);
   --qtype-boolean-border: hsl(145, 70%, 87%);
 
+  --qtype-structure: hsl(75, 80%, 96%);
+  --qtype-structure-foreground: hsl(75, 80%, 25%);
+  --qtype-structure-border: hsl(75, 70%, 87%);
+
   --qtype-validated: hsl(178, 80%, 96%);
   --qtype-validated-foreground: hsl(178, 80%, 25%);
   --qtype-validated-border: hsl(178, 70%, 87%);
@@ -175,6 +179,10 @@
   --qtype-boolean: hsl(145, 40%, 18%);
   --qtype-boolean-foreground: hsl(145, 60%, 55%);
   --qtype-boolean-border: hsl(145, 40%, 26%);
+
+  --qtype-structure: hsl(75, 40%, 18%);
+  --qtype-structure-foreground: hsl(75, 60%, 64%);
+  --qtype-structure-border: hsl(75, 40%, 26%);
 
   --qtype-validated: hsl(178, 40%, 18%);
   --qtype-validated-foreground: hsl(178, 60%, 55%);

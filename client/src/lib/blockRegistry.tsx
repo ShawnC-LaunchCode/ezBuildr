@@ -12,9 +12,9 @@
  * @date December 2025
  */
 
-import { Type, AlignLeft, ToggleLeft, Phone, Mail, Globe, Calendar, Clock, CalendarClock, CircleDot, CheckSquare, ListChecks, Hash, DollarSign, Gauge, FileText, MapPin, Grid3x3, Code2 } from "lucide-react";
+import { Type, AlignLeft, ToggleLeft, Phone, Mail, Globe, Calendar, Clock, CalendarClock, CircleDot, CheckSquare, ListChecks, Hash, DollarSign, Gauge, FileText, MapPin, Grid3x3, Code2, ListTree } from "lucide-react";
 
-import type { StepConfig } from "@shared/types/stepConfigs";
+import type { ListConfig, StepConfig } from "@shared/types/stepConfigs";
 
 // ============================================================================
 // TYPES
@@ -68,6 +68,7 @@ export interface BlockRegistryEntry {
 export type BlockCategory =
   | "text"
   | "boolean"
+  | "structure"
   | "validated"
   | "datetime"
   | "choice"
@@ -162,6 +163,30 @@ export const BLOCK_REGISTRY: BlockRegistryEntry[] = [
       trueLabel: "Yes",
       falseLabel: "No",
       storeAsBoolean: true,
+    }),
+  },
+
+  // -------------------------------------------------------------------------
+  // STRUCTURE
+  // -------------------------------------------------------------------------
+  {
+    type: "list",
+    label: "List",
+    icon: ListTree,
+    description: "Repeating set of questions, nestable",
+    category: "structure",
+    modes: { easy: true, advanced: true },
+    createDefaultConfig: (): ListConfig => ({
+      fields: [
+        {
+          kind: "question",
+          id: "field-1",
+          alias: "field_1",
+          type: "short_text",
+          title: "Field 1",
+          order: 0,
+        },
+      ],
     }),
   },
 
@@ -457,6 +482,7 @@ export function getBlocksByCategory(
 export const CATEGORY_LABELS: Record<BlockCategory, string> = {
   text: "Text Inputs",
   boolean: "Boolean Inputs",
+  structure: "Structure",
   validated: "Validated Inputs",
   datetime: "Date/Time",
   choice: "Choice Inputs",
@@ -467,11 +493,20 @@ export const CATEGORY_LABELS: Record<BlockCategory, string> = {
 };
 
 /**
- * Category order for UI display
+ * Category order for UI display.
+ *
+ * QuestionAddMenu splits this (mode-filtered) list into two columns by
+ * even/odd index, so position matters for balance, not just grouping.
+ * "structure" sits right after "boolean" deliberately: with the current
+ * block counts that placement lands 9 easy-mode items and 7 advanced-mode
+ * items per column (both sides even) — verified by hand when this was
+ * added (LIST-5). Re-check both modes' column balance before moving it or
+ * adding/removing blocks from the categories in between.
  */
 export const CATEGORY_ORDER: BlockCategory[] = [
   "text",
   "boolean",
+  "structure",
   "validated",
   "datetime",
   "choice",

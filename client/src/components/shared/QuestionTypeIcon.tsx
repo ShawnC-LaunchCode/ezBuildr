@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 const CATEGORY_TILE: Record<BlockCategory, string> = {
   text: "bg-qtype-text text-qtype-text-foreground ring-qtype-text-border",
   boolean: "bg-qtype-boolean text-qtype-boolean-foreground ring-qtype-boolean-border",
+  structure: "bg-qtype-structure text-qtype-structure-foreground ring-qtype-structure-border",
   validated: "bg-qtype-validated text-qtype-validated-foreground ring-qtype-validated-border",
   datetime: "bg-qtype-datetime text-qtype-datetime-foreground ring-qtype-datetime-border",
   choice: "bg-qtype-choice text-qtype-choice-foreground ring-qtype-choice-border",

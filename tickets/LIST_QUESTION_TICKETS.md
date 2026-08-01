@@ -552,7 +552,7 @@ empty.
 Makes List creatable and configurable. Out of scope: the runner (Phase 3) and
 any document behavior (Phase 4).
 
-## LIST-5 — Add List to the Add Question palette 🔲
+## LIST-5 — Add List to the Add Question palette ✅ Done (2026-07-31)
 
 **Priority: ENH** · Size: S · File: `client/src/lib/blockRegistry.tsx`
 
@@ -618,6 +618,57 @@ and `client/src/components/shared/QuestionTypeIcon.tsx` (used by the menu at
 6. **Live proof required:** screenshot of the Add Question menu showing List,
    and of a created List step selected in the builder. Use the `verify` skill.
 7. Gates: type-check 0 errors, lint clean, `npm run test:fast` green.
+
+### Verification (2026-07-31)
+
+- Added a new `"structure"` `BlockCategory` and a `list` entry to
+  `BLOCK_REGISTRY` in `client/src/lib/blockRegistry.tsx` (label "List",
+  `ListTree` icon, `modes: {easy:true, advanced:true}`,
+  `createDefaultConfig` returning one `short_text` question field), following
+  the exact shape of neighboring entries. `CATEGORY_ORDER` places `structure`
+  right after `boolean`, chosen to keep both modes' two-column palette split
+  even (documented in a code comment on `CATEGORY_ORDER` with the exact
+  counts, so a future category addition/removal knows to re-check it).
+- `client/src/components/shared/QuestionTypeIcon.tsx` +
+  `client/src/index.css`: added the `qtype-structure` tile color triplet
+  (light/dark) at hue 75°, spaced ≥33° from every existing category hue.
+  `StepIcons.tsx` needed **no change** — it's already a pass-through to
+  `QuestionTypeIcon`, added in an earlier refactor for exactly this reason;
+  the ticket's file footprint listed it defensively but there was nothing to
+  add.
+- New/updated tests: `tests/unit/client/QuestionAddMenu.test.tsx` (List
+  present in both modes; clicking it calls `createStep` with `type: 'list'`
+  and a one-field config; updated the pre-existing column-split assertion)
+  and new `tests/unit/client/blockRegistry.test.ts` (registry entry shape,
+  column balance in both modes).
+- **Live proof, gathered independently by the reviewer** against the real
+  running dev server (`ezbuildr-dev`, port 5000), not just the dev's report:
+  registered a throwaway user (`list5-verify@example.com`), verified their
+  email via a one-off script (deleted after use), logged in through the real
+  UI, and opened the existing `LIST-5 Verify` workflow's builder (which
+  already had a `New List` / `type: list` step from the dev's own live
+  check). Confirmed via `read_page`/`get_page_text`:
+  - Advanced mode: Add Question menu shows `Structure / List / Repeating set
+    of questions, nestable` in its own column.
+  - Switched to Easy mode via the real mode-switch menu: List still present,
+    same description.
+  - The List icon renders as an actual icon glyph, consistent with every
+    other entry — no fallback text glyph.
+  - Attempting to publish the workflow with the existing `list` step
+    correctly failed with *"Cannot publish workflow: Question 'New List' has
+    a type ('list') the runner cannot display"* — confirming LIST-1's
+    unsupported-type guard rail is still intact, as expected pre-Phase 3.
+  - Pixel screenshots were not possible in this session either
+    (`computer{action:"screenshot"}` times out — "the Browser pane is not
+    displayed, so the page is not compositing frames," a background-session
+    limitation, not a shortcut taken). Both the dev and the reviewer
+    independently hit the same limitation and substituted equivalent
+    DOM/text-based live evidence against the real running app.
+- Reviewer re-ran gates independently: `npm run type-check` 0 errors;
+  `npx eslint` on all 5 touched files clean; both new/updated test files
+  11/11 passed; dev's full `npm run test:fast` reported 2108/2122 (14
+  pre-existing skips, no regressions).
+- No files touched outside the declared footprint.
 
 ---
 
