@@ -65,3 +65,19 @@ describe("conditions - date_time operators (ICW2-16)", () => {
     expect(getOperatorConfig("date_time", "includes")).toBeUndefined();
   });
 });
+
+describe("conditions - list operators (LIST-4)", () => {
+  it("returns the five count operators for 'list', matching 'repeater'", () => {
+    const listOperators = getOperatorsForStepType("list").map((op) => op.value);
+    const repeaterOperators = getOperatorsForStepType("repeater").map((op) => op.value);
+
+    expect(listOperators).toEqual(["equals", "greater_than", "less_than", "is_empty", "is_not_empty"]);
+    expect(listOperators).toEqual(repeaterOperators);
+  });
+
+  it("labels 'greater_than' as 'has more than' for list, like repeater", () => {
+    const config = OPERATORS_BY_STEP_TYPE.list.find((c) => c.value === "greater_than");
+    expect(config?.label).toBe("has more than");
+    expect(config?.valueType).toBe("number");
+  });
+});

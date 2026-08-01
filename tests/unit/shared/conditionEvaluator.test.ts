@@ -1662,4 +1662,63 @@ describe("conditionEvaluator", () => {
       expect(result).toContain("]");
     });
   });
+
+  describe("List operand resolution (LIST-4)", () => {
+    const listExpr = (
+      operator: Condition["operator"],
+      value?: unknown,
+      value2?: unknown
+    ): ConditionExpression => ({
+      type: "group", id: "g1", operator: "AND",
+      conditions: [
+        { type: "condition", id: "c1", variable: "children", operator, value, value2, valueType: "constant" } as Condition,
+      ],
+    });
+
+    it("'greater_than' is true with 3 items and false with 2 against a threshold of 2", () => {
+      expect(evaluateConditionExpression(listExpr("greater_than", 2), {
+        children: { items: [{ itemId: "1", values: {} }, { itemId: "2", values: {} }, { itemId: "3", values: {} }] },
+      })).toBe(true);
+
+      expect(evaluateConditionExpression(listExpr("greater_than", 2), {
+        children: { items: [{ itemId: "1", values: {} }, { itemId: "2", values: {} }] },
+      })).toBe(false);
+    });
+
+    it("'equals' and 'less_than' compare against the top-level item count", () => {
+      const twoItems = { children: { items: [{ itemId: "1", values: {} }, { itemId: "2", values: {} }] } };
+
+      expect(evaluateConditionExpression(listExpr("equals", 2), twoItems)).toBe(true);
+      expect(evaluateConditionExpression(listExpr("equals", 3), twoItems)).toBe(false);
+      expect(evaluateConditionExpression(listExpr("less_than", 3), twoItems)).toBe(true);
+      expect(evaluateConditionExpression(listExpr("less_than", 2), twoItems)).toBe(false);
+    });
+
+    it("'is_empty' is true for a `{ items: [] }` envelope and for an absent value", () => {
+      expect(evaluateConditionExpression(listExpr("is_empty"), { children: { items: [] } })).toBe(true);
+      expect(evaluateConditionExpression(listExpr("is_empty"), {})).toBe(true);
+    });
+
+    it("'is_empty' is false and 'is_not_empty' is true with at least one item", () => {
+      const oneItem = { children: { items: [{ itemId: "1", values: {} }] } };
+
+      expect(evaluateConditionExpression(listExpr("is_empty"), oneItem)).toBe(false);
+      expect(evaluateConditionExpression(listExpr("is_not_empty"), oneItem)).toBe(true);
+    });
+
+    it("counts top-level items only — a nested list field's items do not contribute", () => {
+      // The "children" list has 1 top-level item; that item itself has a nested
+      // "pets" list field with 5 items. Count must reflect only the outer list.
+      const nested = {
+        children: {
+          items: [
+            { itemId: "1", values: { pets: { items: [1, 2, 3, 4, 5].map((n) => ({ itemId: String(n), values: {} })) } } },
+          ],
+        },
+      };
+
+      expect(evaluateConditionExpression(listExpr("equals", 1), nested)).toBe(true);
+      expect(evaluateConditionExpression(listExpr("greater_than", 1), nested)).toBe(false);
+    });
+  });
 });

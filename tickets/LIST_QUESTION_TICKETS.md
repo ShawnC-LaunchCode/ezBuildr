@@ -441,7 +441,7 @@ LIST-1/LIST-8 and needs no separate edit. Verify, don't duplicate.
 
 ---
 
-## LIST-4 — Conditional-logic operands for `list` 🔲
+## LIST-4 — Conditional-logic operands for `list` ✅ Done (2026-07-31)
 
 **Priority: P1** · Size: S · File: `shared/types/conditions.ts`
 
@@ -498,6 +498,33 @@ empty.
 4. Count is **top-level only** — nested items do not contribute.
 5. New test asserts 1–4 (extend `tests/unit/shared/` condition coverage).
 6. Gates: type-check 0 errors, lint clean, `npm run test:fast` green.
+
+### Verification (2026-07-31)
+
+- Added `"list"` to `ConditionSupportedStepType` and a `list:` entry to
+  `OPERATORS_BY_STEP_TYPE` in `shared/types/conditions.ts`, copying the
+  `repeater` block's 5 count operators verbatim; `repeater`/`loop_group`
+  entries untouched (left for LIST-13).
+- `shared/conditionEvaluator.ts`: resolves a list operand (a `{ items: [...] }`
+  envelope, checked structurally rather than importing `ListValue`, keeping
+  the footprint to these two files) to `items.length` before comparison.
+  `is_empty`/`is_not_empty` are special-cased to check `count === 0` directly,
+  since the generic object-key `isEmpty()` would treat a `{ items: [] }`
+  envelope as non-empty; an absent/undefined value still falls through to the
+  generic path, which already returns `true` for `is_empty` — so both "zero
+  items" and "field never touched" behave the same.
+- Cross-item references (`children[0].name`) intentionally not implemented —
+  out of scope per LIST-B1.
+- New tests: `tests/unit/shared/conditions.test.ts` (operator-set parity with
+  `repeater`) and `tests/unit/shared/conditionEvaluator.test.ts` (count
+  boundary at 3 vs. 2 items, `is_empty` for both `{items:[]}` and absent,
+  top-level-only counting verified against a nested list).
+- Reviewer re-ran gates independently: `npm run type-check` 0 errors;
+  `npx eslint` on all 4 touched files clean; both new test files 92/92
+  passed; dev's full `npm run test:fast` reported 2098/2112 (14 pre-existing
+  skips, no regressions).
+- No files touched outside `shared/types/conditions.ts`,
+  `shared/conditionEvaluator.ts`, and the two test files.
 
 ---
 

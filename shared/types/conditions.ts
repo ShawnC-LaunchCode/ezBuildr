@@ -23,7 +23,8 @@ export type ConditionSupportedStepType =
   | "file_upload"
   | "loop_group"
   | "js_question"
-  | "repeater";
+  | "repeater"
+  | "list";
 
 // =====================================================================
 // OPERATORS
@@ -245,6 +246,15 @@ export const OPERATORS_BY_STEP_TYPE: Record<ConditionSupportedStepType, Operator
 
   // Repeater - check count
   repeater: [
+    { value: "equals", label: "has count of", needsValue: true, valueType: "number" },
+    { value: "greater_than", label: "has more than", needsValue: true, valueType: "number" },
+    { value: "less_than", label: "has less than", needsValue: true, valueType: "number" },
+    { value: "is_empty", label: "is empty", needsValue: false },
+    { value: "is_not_empty", label: IS_NOT_EMPTY_LABEL, needsValue: false },
+  ],
+
+  // List - check top-level item count (cross-item references are LIST-B1, out of scope)
+  list: [
     { value: "equals", label: "has count of", needsValue: true, valueType: "number" },
     { value: "greater_than", label: "has more than", needsValue: true, valueType: "number" },
     { value: "less_than", label: "has less than", needsValue: true, valueType: "number" },

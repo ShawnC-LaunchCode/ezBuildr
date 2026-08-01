@@ -230,6 +230,24 @@ function evaluateGroup(
 }
 
 /**
+ * Storage envelope for `list` step values (`ListValue` in
+ * shared/types/stepConfigs.ts): `{ items: [...] }`. Checked structurally here
+ * rather than imported, so this file's footprint stays limited to
+ * conditions.ts/conditionEvaluator.ts (LIST-4).
+ */
+interface ListValueEnvelope {
+  items: unknown[];
+}
+
+function isListValueEnvelope(value: unknown): value is ListValueEnvelope {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Array.isArray((value as { items?: unknown }).items)
+  );
+}
+
+/**
  * Evaluate a single condition
  */
 function evaluateSingleCondition(
@@ -245,7 +263,21 @@ function evaluateSingleCondition(
 
   // Resolve the variable to get the actual value
   const variableKey = resolveVariable(condition.variable, aliasResolver);
-  const actualValue = getValueByPath(data, variableKey);
+  const rawValue = getValueByPath(data, variableKey);
+
+  // A `list` step's value is a `{ items: [...] }` envelope. Conditional logic
+  // only supports the top-level item count (LIST-4); cross-item references
+  // (e.g. `children[0].name`) are out of scope (LIST-B1). Resolve the
+  // envelope to that count, and special-case is_empty/is_not_empty because
+  // the envelope object itself is never "empty" under the generic
+  // object-key check even when it holds zero items.
+  const isListOperand = isListValueEnvelope(rawValue);
+  const actualValue = isListOperand ? rawValue.items.length : rawValue;
+
+  if (isListOperand && (condition.operator === "is_empty" || condition.operator === "is_not_empty")) {
+    const empty = actualValue === 0;
+    return condition.operator === "is_empty" ? empty : !empty;
+  }
 
   // Get the comparison value
   let compareValue: unknown = condition.value;
