@@ -6,7 +6,7 @@
 
 Enterprise workflow automation platform combining visual workflow building, conditional logic, custom code execution (JS/Python), and data management.
 
-**Scale:** 29 pages | 63 route files | ~185 service files | 103 DB tables | 38 step types | 40+ script helpers
+**Scale:** 29 pages | 63 route files | ~185 service files | 103 DB tables | 39 step types | 40+ script helpers
 
 ## Project Skills — use them
 
@@ -94,7 +94,7 @@ Details, error-string contract, and security invariants: `add-api-endpoint` skil
 | `users` / `tenants` / `organizations` / `workspaces` | Auth & tenancy |
 
 ### Step Types
-38 values in `stepTypeEnum` (`shared/schema/workflow.ts:38`) — legacy types (`short_text`, `multiple_choice`, `repeater`, `signature_block`, `computed`, ...), easy-mode types (`phone`, `date`, `currency`, `scale`, ...), and advanced-mode variants (`*_advanced`, `multi_field`, ...). There is **no** `checkbox` or plain `signature` type. Adding one touches ~10 files — use the `add-step-type` skill.
+39 values in `stepTypeEnum` (`shared/schema/workflow.ts:38`) — legacy types (`short_text`, `multiple_choice`, `repeater`, `signature_block`, `computed`, ...), easy-mode types (`phone`, `date`, `currency`, `scale`, ...), advanced-mode variants (`*_advanced`, `multi_field`, ...), and the structural `list` type (nestable repeating question, unsupported in the runner until the List initiative's Phase 3 lands — see `tickets/LIST_QUESTION_TICKETS.md`). There is **no** `checkbox` or plain `signature` type. Adding one touches ~10 files — use the `add-step-type` skill.
 
 ### Logic Operators & Actions
 - **DB operators** (`conditionOperatorEnum`): equals, not_equals, contains, not_contains, greater_than, less_than, between, is_empty, is_not_empty

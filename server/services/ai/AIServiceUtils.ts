@@ -364,6 +364,8 @@ export const VALID_STEP_TYPES = [
   'text', 'boolean', 'phone_advanced', 'datetime_unified', 'choice',
   'email_advanced', 'number_advanced', 'scale_advanced', 'website_advanced',
   'address_advanced', 'multi_field', 'display_advanced',
+  // Structural types
+  'list',
 ] as const;
 
 type GeneratedStepType = AIGeneratedWorkflow['sections'][number]['steps'][number]['type'];

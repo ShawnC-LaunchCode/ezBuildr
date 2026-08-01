@@ -47,7 +47,8 @@ export type StepType =
     | "address_advanced"
     | "multi_field"
     | "display_advanced"
-    | "final";
+    | "final"
+    | "list";
 
 export interface WorkflowJSON {
     id: string;

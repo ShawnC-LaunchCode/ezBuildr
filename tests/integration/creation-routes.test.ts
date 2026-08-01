@@ -193,6 +193,21 @@ describe("POST /api/workflows/:workflowId/sections/:sectionId/steps", () => {
     expect(res.body.order).toBe(1);
   });
 
+  it("creates a 'list' step and reads it back with type 'list' (LIST-1)", async () => {
+    const { workflowId, sectionId } = await makeWorkflowWithSection();
+
+    const res = await agent
+      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
+      .send({ type: "list", title: "Children" });
+
+    expect(res.status).toBe(201);
+    expect(res.body.type).toBe("list");
+
+    const getRes = await agent.get(`/api/steps/${res.body.id}`);
+    expect(getRes.status).toBe(200);
+    expect(getRes.body.type).toBe("list");
+  });
+
   it("returns 400 for an invalid alias format", async () => {
     const { workflowId, sectionId } = await makeWorkflowWithSection();
 

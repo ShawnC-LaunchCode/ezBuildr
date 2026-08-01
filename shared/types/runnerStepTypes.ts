@@ -37,7 +37,8 @@ export type RunnerStepType =
   | "computed"
   | "file_upload"
   | "loop_group"
-  | "repeater";
+  | "repeater"
+  | "list";
 
 export const RUNNER_RENDERED_STEP_TYPES = [
   "short_text",
@@ -70,6 +71,7 @@ export const RUNNER_INTENTIONALLY_UNSUPPORTED_STEP_TYPES = [
   "file_upload",
   "loop_group",
   "repeater",
+  "list",
 ] as const satisfies readonly RunnerStepType[];
 
 const NORMALIZED_STEP_TYPES: Record<string, RunnerStepType> = {

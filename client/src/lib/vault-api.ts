@@ -729,7 +729,8 @@ export type StepType =
   | "final_documents"
   | "loop_group"
   | "repeater"
-  | "true_false";
+  | "true_false"
+  | "list";
 export interface ApiStep {
   id: string;
   workflowId: string;
@@ -1136,8 +1137,8 @@ export interface EmailTemplateMetadata {
   name: string;
   description?: string | null;
   subjectPreview?: string | null;
-  brandingTokens?: Record<string, boolean> | null;
   // eslint-disable-next-line max-lines -- This legacy API module is split incrementally under DEBT-2.
+  brandingTokens?: Record<string, boolean> | null;
   createdAt: Date;
   updatedAt: Date;
 }

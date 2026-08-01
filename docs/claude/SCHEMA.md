@@ -123,10 +123,11 @@ All DataVault tables are `datavault_`-prefixed:
 
 ## Key Enums (defined in `shared/schema/workflow.ts`)
 
-**Step types (`stepTypeEnum`, 38 values):**
+**Step types (`stepTypeEnum`, 39 values):**
 - Legacy/existing: `short_text`, `long_text`, `multiple_choice`, `radio`, `yes_no`, `date_time`, `file_upload`, `loop_group`, `computed`, `js_question`, `repeater`, `final_documents`, `signature_block`
 - Easy mode: `true_false`, `phone`, `date`, `time`, `datetime`, `email`, `number`, `currency`, `scale`, `website`, `display`, `address`, `final`
 - Advanced mode: `text`, `boolean`, `phone_advanced`, `datetime_unified`, `choice`, `email_advanced`, `number_advanced`, `scale_advanced`, `website_advanced`, `address_advanced`, `multi_field`, `display_advanced`
+- Structural: `list` (nestable repeating question, replacing `repeater`/`loop_group` — see `tickets/LIST_QUESTION_TICKETS.md`; unsupported in the runner until Phase 3 lands)
 
 (Note: there is no `checkbox` or plain `signature` step type.)
 

@@ -43,7 +43,9 @@ export const stepTypeEnum = pgEnum('step_type', [
     'true_false', 'phone', 'date', 'time', 'datetime', 'email', 'number', 'currency', 'scale', 'website', 'display', 'address', 'final',
     // ===== ADVANCED MODE TYPES =====
     'text', 'boolean', 'phone_advanced', 'datetime_unified', 'choice', 'email_advanced', 'number_advanced', 'scale_advanced',
-    'website_advanced', 'address_advanced', 'multi_field', 'display_advanced'
+    'website_advanced', 'address_advanced', 'multi_field', 'display_advanced',
+    // ===== STRUCTURAL TYPES =====
+    'list'
 ]);
 
 export const logicRuleTargetTypeEnum = pgEnum('logic_rule_target_type', ['section', 'step']);

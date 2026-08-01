@@ -56,7 +56,10 @@ export const AIGeneratedStepSchema = z.object({
     'website_advanced',
     'address_advanced',
     'multi_field',
-    'display_advanced'
+    'display_advanced',
+
+    // Structural Types
+    'list',
   ]).describe('Step type (question type)'),
   title: z.string().min(1).describe('Step title/question text'),
   description: z.string().nullable().optional().describe('Optional step description'),

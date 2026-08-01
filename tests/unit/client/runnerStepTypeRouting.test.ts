@@ -31,4 +31,8 @@ describe("runner step type routing", () => {
     expect(getRunnerStepTypeStatus("loop_group")).toBe("unsupported");
     expect(getRunnerStepTypeStatus("repeater")).toBe("unsupported");
   });
+
+  it("registers 'list' as unsupported until LIST-8 renders it (LIST-1)", () => {
+    expect(getRunnerStepTypeStatus("list")).toBe("unsupported");
+  });
 });

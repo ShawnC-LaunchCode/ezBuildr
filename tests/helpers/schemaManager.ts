@@ -35,8 +35,10 @@ export class SchemaManager {
     // `run_generated_documents` (DEBT-15).
     // Bumped to _v11 because _v10 got cached with an empty 0007 migration.
     // Bumped to _v12 because _v11 got cached without not-null constraints on storageKey.
+    // Bumped to _v13 for 0008_thick_the_order (LIST-1), which adds the 'list'
+    // value to the step_type enum — stale _v12 schemas would reject it.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v12`;
+        return `test_schema_w${this.workerId}_v13`;
     }
 
     /**
