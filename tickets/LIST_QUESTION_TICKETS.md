@@ -1,4 +1,4 @@
-# List Question Type — New Feature Tickets (LIST-1..14 + backlog B1..B8)
+# List Question Type — New Feature Tickets (LIST-1..14 + backlog B1..B9)
 
 Source: feature design session + codebase investigation, 2026-07-31.
 Scope: a new nestable, repeating question type ("List") under **Add Question**,
@@ -1521,7 +1521,7 @@ reorders the dropdown.
 Removes the two dead types List replaces. Deliberately last: nothing may be
 removed until the replacement is proven in Phases 1–4.
 
-## LIST-13 — Remove `repeater` and `loop_group` ⚠️ needs a decision 🔲
+## LIST-13 — Remove `repeater` and `loop_group` ✅ Done (2026-08-01)
 
 **Priority: P2** · Size: M · File: `shared/schema/workflow.ts` + 15 sites
 
@@ -1632,6 +1632,58 @@ round-trips, which have their own test suite. Run it.
     three unsupported types at line 10), and the `CLAUDE.md` step-type list
     updated.
 
+### Verification (2026-08-01) — committed `b971fe7a`
+
+Shawn chose **option (a), the full type swap**, and asked the reviewer to
+implement it directly. 54 files changed.
+
+- **Scope was larger than this ticket estimated.** The Finding's table listed
+  19 files; the real footprint was ~30 source files plus test fixtures —
+  `repeaterConfig` also threads through version snapshots
+  (`VersionService`), run-definition serialization (`RunDefinitionProvider`,
+  including its Zod schema), `RunRuntimeService`, and `WorkflowClonerService`
+  in three places, none of which the ticket named. Size was **L, not M**.
+- **The `--custom` instruction in the Preferred fix was wrong.** Plain
+  `npm run db:generate` expresses enum-value removal natively, emitting a text
+  round-trip: `ALTER COLUMN type SET DATA TYPE text` → `DROP TYPE` →
+  `CREATE TYPE` with 37 values → `ALTER COLUMN ... USING type::step_type` →
+  `DROP COLUMN repeater_config`. It also produced a correct snapshot (37
+  values). `--custom` was actively worse here: it **copies the previous
+  snapshot** rather than regenerating, which would have left the meta stale
+  and mis-baselined the next `db:generate`. Caught and backed out before
+  committing. (Same wrong instruction as LIST-1 — root cause is the
+  `db-schema-change` skill, see the note below.)
+- **AC4 (fail loudly on a surviving row) is satisfied by construction**, not by
+  the extra pre-check the ticket asked for. The final `USING
+  "type"::"public"."step_type"` cast rejects any retired value. Verified
+  directly against the fresh database: `SELECT 'repeater'::step_type` →
+  `ERROR: invalid input value for enum step_type: "repeater"`, while
+  `SELECT 'list'::step_type` succeeds.
+- **Backward compatibility for serialized data:** `RunDefinitionProvider`'s
+  version schemas are `.passthrough()`, so already-serialized snapshots
+  carrying `repeaterConfig` still parse — the field is simply no longer read.
+  Had they been `.strict()`, this removal would have broken every existing run.
+- **AC1 deviation, deliberate:** a handful of *explanatory* references remain
+  (e.g. why `ListFieldQuestionType` is derived rather than hand-listed —
+  `RepeaterFieldType` going stale is the cautionary tale), plus
+  `runnerStepTypeRouting.test.ts` now asserts both types classify as
+  `"unknown"` — a regression guard proving they are gone. AC1's literal "zero
+  references" would have required deleting the rationale, which is worth more
+  than the grep result.
+- Two `max-lines` disable comments (`vault-api.ts`,
+  `WorkflowClonerService.ts`) had to be **repositioned** — shortening a file
+  moves the line the whole-file rule reports on. Repositioned, not duplicated.
+- Gates: fresh-database chain applies with zero errors (37 enum values, no
+  `repeater_config` column), `tsc --noEmit` 0 errors repo-wide, eslint clean on
+  all touched files, `test:fast` 163 files / 2112 tests green, `test:unit:db`
+  124/124, pre-commit 4/4. `schemaManager` bumped `_v13` → `_v14`.
+- Committed staging **only** this ticket's 54 paths: the tree concurrently held
+  in-flight auth/marketing work *and* an in-progress LIST-11 (`VariableNormalizer.ts`,
+  `ListDocumentProjection.test.ts`). An initial over-broad `git add shared/
+  server/ tests/` swept those in and was backed out before committing.
+
+**Filed from this ticket: LIST-B9.**
+
 ---
 
 ## Phase 5 Gate
@@ -1702,6 +1754,16 @@ structural and always active regardless of mode. The open question is only
 whether a 50,000-item submission should be *stored*. Reviewer's view: these two
 caps should be unconditional, unlike ordinary field rules. Shawn to decide;
 this is a ticket-design question, not a defect in LIST-14.
+
+**LIST-B9 — the `db-schema-change` skill is stale and gave wrong guidance twice.**
+It documents the migration chain as `0000`–`0002` and states "The next new
+migration is `0003_...`" — the chain is now at `0009`. It also says Postgres
+"can't remove enum values — plan additions carefully", which led both LIST-1 and
+LIST-13 to specify `db:generate --custom` when plain `db:generate` handles both
+cases natively (and `--custom` is *harmful* for removals, since it copies the
+previous snapshot instead of regenerating). Fix the skill: correct the chain
+position, and document that drizzle-kit emits the text-round-trip enum
+recreate on its own.
 
 **LIST-B8 — Debounce List config saves.** Noted reviewing LIST-6
 (2026-08-01). `ListCardEditor` fires a full `updateStep` mutation on every
