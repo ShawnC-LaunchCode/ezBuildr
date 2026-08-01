@@ -157,6 +157,21 @@ describe("useChoiceOptions — RUN2-14(a) narrowed dependency", () => {
     );
     expect(generateOptionsFromListMock).toHaveBeenCalledTimes(2);
   });
+
+  it("resolves listVariable when stored under stepId via aliasMap", async () => {
+    generateOptionsFromListMock.mockClear();
+    const step = makeListStep(); // config.options.listVariable === "myList"
+    const aliasMap = { myList: "step-list-uuid-123" };
+    const sourceList = ["Option from aliasMap"];
+
+    const { result } = renderHook(
+      () => useChoiceOptions(step, { "step-list-uuid-123": sourceList }, aliasMap)
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(generateOptionsFromListMock).toHaveBeenCalledTimes(1);
+    expect(result.current.options.map((o) => o.label)).toEqual(["Option from aliasMap"]);
+  });
 });
 
 function makeStaticStep(display: "radio" | "dropdown" | "multiple", allowMultiple = false): Step {

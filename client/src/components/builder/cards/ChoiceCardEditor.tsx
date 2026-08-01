@@ -136,7 +136,7 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
 
   // Filter for List variables only
   const listVariables = useMemo(() => {
-    return (variables).filter(v => v.type === 'read_table' || v.type === 'list_tools');
+    return (variables).filter(v => v.type === 'read_table' || v.type === 'list_tools' || v.type === 'list');
   }, [variables]);
 
   // Use custom hook for validation

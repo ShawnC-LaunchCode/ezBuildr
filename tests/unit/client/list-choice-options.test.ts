@@ -322,4 +322,174 @@ describe('List-Backed Choice Options', () => {
       expect(options[0].label).toBe('Alice');
     });
   });
+
+  describe('LIST-12 — List-step backed choice options (ListValue)', () => {
+    const listQuestionValue = {
+      items: [
+        {
+          itemId: 'item-uuid-1',
+          values: {
+            first_name: 'Alice',
+            last_name: 'Smith',
+            age: 30,
+            addresses: {
+              items: [
+                { itemId: 'nested-uuid-1', values: { street: '123 Main St' } }
+              ]
+            }
+          }
+        },
+        {
+          itemId: 'item-uuid-2',
+          values: {
+            first_name: 'Bob',
+            last_name: 'Jones',
+            age: 25,
+            addresses: {
+              items: [
+                { itemId: 'nested-uuid-2', values: { street: '456 Oak Ave' } }
+              ]
+            }
+          }
+        }
+      ]
+    };
+
+    it('AC2: generates options from top-level items only (nested items never appear)', () => {
+      const config: DynamicOptionsConfig = {
+        type: 'list',
+        listVariable: 'team_members',
+        labelPath: '',
+        valuePath: '',
+        labelTemplate: '{first_name} {last_name}'
+      };
+
+      const options = generateOptionsFromList(listQuestionValue, config);
+
+      // Exactly 2 top-level items, nested address items must never become options
+      expect(options).toHaveLength(2);
+      expect(options.map(o => o.label)).toEqual(['Alice Smith', 'Bob Jones']);
+      expect(options.some(o => o.id === 'nested-uuid-1' || o.id === 'nested-uuid-2')).toBe(false);
+    });
+
+    it('AC3 & AC4: stored value is stable itemId by default and labelTemplate renders display text', () => {
+      const config: DynamicOptionsConfig = {
+        type: 'list',
+        listVariable: 'team_members',
+        labelPath: '',
+        valuePath: '',
+        labelTemplate: '{first_name} {last_name} (age {age})'
+      };
+
+      const options = generateOptionsFromList(listQuestionValue, config);
+
+      expect(options[0]).toEqual({
+        id: 'item-uuid-1',
+        alias: 'item-uuid-1',
+        label: 'Alice Smith (age 30)'
+      });
+      expect(options[1]).toEqual({
+        id: 'item-uuid-2',
+        alias: 'item-uuid-2',
+        label: 'Bob Jones (age 25)'
+      });
+    });
+
+    it('AC5: renaming an item does not break existing selection (stored value still resolves)', () => {
+      const config: DynamicOptionsConfig = {
+        type: 'list',
+        listVariable: 'team_members',
+        labelPath: '',
+        valuePath: '',
+        labelTemplate: '{first_name} {last_name}'
+      };
+
+      // 1. Initial selection
+      const initialOptions = generateOptionsFromList(listQuestionValue, config);
+      const selectedItemId = initialOptions[0].alias; // 'item-uuid-1'
+      expect(selectedItemId).toBe('item-uuid-1');
+
+      // 2. Respondent renames 'Alice' to 'Alicia'
+      const updatedListValue = {
+        items: [
+          {
+            itemId: 'item-uuid-1',
+            values: {
+              first_name: 'Alicia',
+              last_name: 'Smith',
+              age: 30
+            }
+          },
+          listQuestionValue.items[1]
+        ]
+      };
+
+      const updatedOptions = generateOptionsFromList(updatedListValue, config);
+
+      // Selection by stored itemId still finds the option
+      const matchingOption = updatedOptions.find(o => o.alias === selectedItemId);
+      expect(matchingOption).toBeDefined();
+      expect(matchingOption?.id).toBe('item-uuid-1');
+      expect(matchingOption?.label).toBe('Alicia Smith');
+    });
+
+    it('AC6: generating options when items are deleted safely produces options for surviving items only', () => {
+      const config: DynamicOptionsConfig = {
+        type: 'list',
+        listVariable: 'team_members',
+        labelPath: '',
+        valuePath: '',
+        labelTemplate: '{first_name} {last_name}'
+      };
+
+      // Respondent deletes item 1 from the list
+      const listAfterDelete = {
+        items: [listQuestionValue.items[1]]
+      };
+
+      const optionsAfterDelete = generateOptionsFromList(listAfterDelete, config);
+      expect(optionsAfterDelete).toEqual([
+        {
+          id: 'item-uuid-2',
+          alias: 'item-uuid-2',
+          label: 'Bob Jones'
+        }
+      ]);
+    });
+
+    it('AC7: option order follows item order (reordering items reorders options)', () => {
+      const config: DynamicOptionsConfig = {
+        type: 'list',
+        listVariable: 'team_members',
+        labelPath: '',
+        valuePath: '',
+        labelTemplate: '{first_name}'
+      };
+
+      const reorderedList = {
+        items: [listQuestionValue.items[1], listQuestionValue.items[0]]
+      };
+
+      const options = generateOptionsFromList(reorderedList, config);
+      expect(options.map(o => o.label)).toEqual(['Bob', 'Alice']);
+      expect(options.map(o => o.id)).toEqual(['item-uuid-2', 'item-uuid-1']);
+    });
+
+    it('AC8: query-block-sourced dynamic options (ListVariable & arrays) remain behaviorally unchanged', () => {
+      const tableConfig: DynamicOptionsConfig = {
+        type: 'list',
+        listVariable: 'table_query',
+        labelPath: 'name',
+        valuePath: 'id'
+      };
+
+      const queryOptions = generateOptionsFromList(sampleData, tableConfig);
+      expect(queryOptions).toHaveLength(5);
+      expect(queryOptions[0]).toEqual({
+        id: '1',
+        alias: '1',
+        label: 'Alice'
+      });
+    });
+  });
 });

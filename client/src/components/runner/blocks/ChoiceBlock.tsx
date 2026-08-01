@@ -43,7 +43,8 @@ import type { Step } from "@/types";
 import { CreatableCombobox } from "./choice/CreatableCombobox";
 import { useChoiceOptions } from "./choice/useChoiceOptions";
 
-import type { ChoiceOption } from "@shared/types/stepConfigs";
+import { isListValue } from "@/lib/choice-utils";
+import type { ChoiceAdvancedConfig, ChoiceOption, DynamicOptionsConfig } from "@shared/types/stepConfigs";
 
 export interface ChoiceBlockProps {
   step: Step;
@@ -54,6 +55,8 @@ export interface ChoiceBlockProps {
   required?: boolean;
   hasError?: boolean;
   context?: Record<string, unknown>;
+  /** Alias -> step id, so a list-backed source can be found in the id-keyed context. */
+  aliasMap?: Record<string, string>;
 }
 
 interface ChoiceA11yProps {
@@ -194,12 +197,106 @@ function renderMultipleChoices({ step, options, value, onChange, readOnly, a11y 
   );
 }
 
+function isListStepSourceConfig(
+  dynamicConfig: DynamicOptionsConfig | undefined,
+  context?: Record<string, unknown>,
+  aliasMap?: Record<string, string>
+): boolean {
+  if (dynamicConfig === null || typeof dynamicConfig !== "object" || dynamicConfig.type !== "list") {
+    return false;
+  }
+
+  const listVariable = dynamicConfig.listVariable;
+  if (listVariable === undefined || listVariable === "") {
+    return false;
+  }
+
+  const resolvedStepId = aliasMap?.[listVariable];
+  const sourceData = context
+    ? (Object.prototype.hasOwnProperty.call(context, listVariable)
+        ? context[listVariable]
+        : (resolvedStepId !== undefined && Object.prototype.hasOwnProperty.call(context, resolvedStepId)
+            ? context[resolvedStepId]
+            : undefined))
+    : undefined;
+
+  // Stored choice values for list steps are stable itemIds (per Decision 8).
+  // Scope missing-state detection strictly to list-step-sourced dynamic options;
+  // static options and query-block sources (which output ListVariables / arrays)
+  // remain behaviorally untouched (AC8).
+  return (
+    isListValue(sourceData) ||
+    (sourceData === undefined &&
+      (dynamicConfig.valuePath === "" ||
+        dynamicConfig.valuePath === undefined ||
+        dynamicConfig.valuePath === "itemId"))
+  );
+}
+
+interface MissingOptionsParams {
+  step: Step;
+  options: ChoiceOption[];
+  value: unknown;
+  displayMode: string;
+  context?: Record<string, unknown>;
+  aliasMap?: Record<string, string>;
+}
+
+function resolveMissingListOptions({
+  step,
+  options,
+  value,
+  displayMode,
+  context,
+  aliasMap,
+}: MissingOptionsParams): ChoiceOption[] {
+  // CreatableCombobox is designed to accept arbitrary custom values typed by respondents.
+  // An unmatched value in a creatable combobox is treated as a custom user-typed answer
+  // (rendered with a 'custom' tag) rather than a missing list item reference.
+  if (displayMode === "combobox" || step.type !== "choice") {
+    return [];
+  }
+
+  const dynamicConfig = (step.config as ChoiceAdvancedConfig | undefined)?.options as DynamicOptionsConfig | undefined;
+  if (!isListStepSourceConfig(dynamicConfig, context, aliasMap)) {
+    return [];
+  }
+
+  const selectedIds = Array.isArray(value)
+    ? value.filter((v): v is string => typeof v === "string" && v !== "")
+    : typeof value === "string" && value !== ""
+      ? [value]
+      : [];
+
+  if (selectedIds.length === 0) {
+    return [];
+  }
+
+  // Stored value is an itemId and nothing else, so a deleted item's original label
+  // is unrecoverable from the stored value alone. The label is generic and honest
+  // rather than inventing a name, so the respondent clearly sees it needs re-picking.
+  const missingOptions: ChoiceOption[] = [];
+  for (const selectedId of selectedIds) {
+    const exists = options.some((opt) => getOptionValue(opt) === selectedId);
+    if (!exists) {
+      missingOptions.push({
+        id: selectedId,
+        alias: selectedId,
+        label: "(Deleted item)",
+      });
+    }
+  }
+
+  return missingOptions;
+}
+
 export function ChoiceBlockRenderer({
   step,
   value,
   onChange,
   readOnly,
   context,
+  aliasMap,
   ariaDescribedBy,
   required,
   hasError,
@@ -210,7 +307,7 @@ export function ChoiceBlockRenderer({
     error,
     displayMode,
     allowMultiple
-  } = useChoiceOptions(step, context);
+  } = useChoiceOptions(step, context, aliasMap);
 
   const currentValue = value ?? (allowMultiple ? [] : "");
   const a11y: ChoiceA11yProps = {
@@ -234,7 +331,20 @@ export function ChoiceBlockRenderer({
     );
   }
 
-  if (options.length === 0) {
+  // -------------------------------------------------------------------------
+  // Missing-State Detection for List-Step Dynamic Choices (AC6)
+  // -------------------------------------------------------------------------
+  const missingOptions = resolveMissingListOptions({
+    step,
+    options,
+    value,
+    displayMode,
+    context,
+    aliasMap,
+  });
+  const effectiveOptions = missingOptions.length > 0 ? [...options, ...missingOptions] : options;
+
+  if (effectiveOptions.length === 0) {
     return <div className="text-sm text-muted-foreground">No options available</div>;
   }
 
@@ -242,28 +352,28 @@ export function ChoiceBlockRenderer({
   // Render: Radio Buttons
   // -------------------------------------------------------------------------
   if (displayMode === "radio" && !allowMultiple) {
-    return renderRadioChoices({ step, options, value: currentValue, onChange, readOnly, a11y });
+    return renderRadioChoices({ step, options: effectiveOptions, value: currentValue, onChange, readOnly, a11y });
   }
 
   // -------------------------------------------------------------------------
   // Render: Dropdown (Select)
   // -------------------------------------------------------------------------
   if (displayMode === "dropdown" && !allowMultiple) {
-    return renderDropdownChoice({ step, options, value: currentValue, onChange, readOnly, a11y });
+    return renderDropdownChoice({ step, options: effectiveOptions, value: currentValue, onChange, readOnly, a11y });
   }
 
   // -------------------------------------------------------------------------
   // Render: Combo Box (search + enter an unlisted answer)
   // -------------------------------------------------------------------------
   if (displayMode === "combobox" && !allowMultiple) {
-    return renderComboboxChoice({ step, options, value: currentValue, onChange, readOnly, a11y });
+    return renderComboboxChoice({ step, options: effectiveOptions, value: currentValue, onChange, readOnly, a11y });
   }
 
   // -------------------------------------------------------------------------
   // Render: Multiple Choice (Checkboxes)
   // -------------------------------------------------------------------------
   if (displayMode === "multiple" || allowMultiple) {
-    return renderMultipleChoices({ step, options, value: currentValue, onChange, readOnly, a11y });
+    return renderMultipleChoices({ step, options: effectiveOptions, value: currentValue, onChange, readOnly, a11y });
   }
 
   // Fallback

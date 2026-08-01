@@ -1,1 +1,1 @@
-ALTER TYPE "public"."step_type" ADD VALUE 'list';
+ALTER TYPE "public"."step_type" ADD VALUE IF NOT EXISTS 'list';

@@ -83,7 +83,11 @@ function parseDynamicOptionsConfig(config: unknown): DynamicOptionsConfig | unde
     return isDynamic ? configOptions : undefined;
 }
 
-export function useChoiceOptions(step: Step, context?: Record<string, unknown>): UseChoiceOptionsResult {
+export function useChoiceOptions(
+    step: Step,
+    context?: Record<string, unknown>,
+    aliasMap?: Record<string, string>
+): UseChoiceOptionsResult {
     const [options, setOptions] = useState<ChoiceOption[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -104,7 +108,14 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
     // see the effect below.
     const dynamicOptionsConfig = step.type === "choice" ? parseDynamicOptionsConfig(step.config) : undefined;
     const listVariable = dynamicOptionsConfig?.type === "list" ? dynamicOptionsConfig.listVariable : undefined;
-    const listVariableValue = listVariable !== undefined ? context?.[listVariable] : undefined;
+    const resolvedStepId = listVariable !== undefined ? aliasMap?.[listVariable] : undefined;
+    const listVariableValue = listVariable !== undefined
+        ? (context && Object.prototype.hasOwnProperty.call(context, listVariable)
+            ? context[listVariable]
+            : (resolvedStepId !== undefined && context && Object.prototype.hasOwnProperty.call(context, resolvedStepId)
+                ? context[resolvedStepId]
+                : undefined))
+        : undefined;
 
     const parseLegacyOptions = (rawOptions: unknown): ChoiceOption[] => {
         if (!Array.isArray(rawOptions)) {
@@ -166,8 +177,17 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
         if (dynamicConfig.type === 'list') {
             const { listVariable: sourceListVariable } = dynamicConfig;
 
-            if (ctx && sourceListVariable && Object.prototype.hasOwnProperty.call(ctx, sourceListVariable)) {
-                return generateOptionsFromList(ctx[sourceListVariable], dynamicConfig, ctx);
+            if (ctx && sourceListVariable) {
+                const resolvedKey = aliasMap?.[sourceListVariable];
+                const listData = Object.prototype.hasOwnProperty.call(ctx, sourceListVariable)
+                    ? ctx[sourceListVariable]
+                    : (resolvedKey !== undefined && Object.prototype.hasOwnProperty.call(ctx, resolvedKey)
+                        ? ctx[resolvedKey]
+                        : undefined);
+
+                if (listData !== undefined) {
+                    return generateOptionsFromList(listData, dynamicConfig, ctx);
+                }
             }
             return [];
         }
@@ -254,7 +274,7 @@ export function useChoiceOptions(step: Step, context?: Record<string, unknown>):
         // read; list-backed options still refresh when it changes. We also
         // exclude `options` itself to avoid an infinite loop when a resolver
         // returns [].
-    }, [step, listVariableValue]);
+    }, [step, listVariableValue, resolvedStepId]);
 
     return {
         options,

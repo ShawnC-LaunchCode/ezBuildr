@@ -706,7 +706,7 @@ the reviewer's own measurement.
 Makes collected list data useful. Scope is deliberately narrow: template loop
 tags and the top-level dropdown binding. No script helpers (Decision 7).
 
-## LIST-12 — Bind a choice question's options to a list's top level 🔲
+## LIST-12 — Bind a choice question's options to a list's top level ✅ Done (2026-08-01)
 
 **Priority: ENH** · Size: M · File: `shared/types/stepConfigs.ts` + choice option resolution
 
@@ -772,6 +772,58 @@ reorders the dropdown.
 9. New test covers 2, 4, 5, 6, and 8.
 10. **Live proof required:** screenshot of a dropdown populated from a list.
 11. Gates: type-check 0 errors, lint clean, `npm run test:fast` green.
+
+### Reviewer verification (2026-08-01)
+
+**All 11 criteria met, after one round back.** AC1's plumbing was verified end
+to end rather than trusted: `VariableService.listVariables` returns
+`type: step.type` (`server/services/VariableService.ts:55`), so a `list` step
+genuinely appears in the builder picker once the filter admits it; at runtime
+`listVariable` holds an *alias* while the runner's `context` is keyed by step
+id, and the dev correctly resolved that through the **existing** `aliasMap`
+(`SectionSteps.tsx:71`) that `DisplayBlock` already used, rather than inventing
+a parallel mechanism. AC4's CVM-departure comment is present at the resolution
+site in `choice-utils.ts`.
+
+**AC6 failed the first review and was sent back.** There was no missing-state
+rendering anywhere in the choice path: a stored `itemId` no longer among the
+options simply fell back to the Select placeholder, so a stale answer rendered
+as if never answered — precisely the silent breakage the itemId design was
+chosen to prevent. Its test asserted `options.find(...) === undefined`, a
+property of the fixture that passes whether or not the feature exists.
+
+The re-work is correct. `resolveMissingListOptions` injects a
+`(Deleted item)` entry for any stored id with no matching option, scoped by
+`isListStepSourceConfig` so static and query-block sources are untouched
+(AC8), with `combobox` excluded and the reason stated (an unmatched value
+there is a legitimate user-typed answer). The generic label is deliberate and
+commented — the stored value is an itemId alone, so a deleted item's original
+label is unrecoverable and inventing one would be dishonest. The replacement
+test renders the real component and asserts on the DOM across dropdown, radio
+and checkbox, and the dev supplied revert-proof: reverting the injection fails
+4 of 6 with `Unable to find an element with the text: (Deleted item)`.
+
+**Reviewer fixes applied at first review** (not the dev's): removed an
+unnecessary type assertion in `choice-utils.ts` that made the turn-in
+lint-dirty despite a report claiming otherwise, and reverted ~90 lines of
+out-of-scope churn in `ChoiceBlock.tsx` that had silently dropped
+`aria-required`/`aria-invalid` from checkboxes and made `toSingleValue` coerce
+arrays to `value[0]`. Confirmed still absent after the AC6 re-work.
+
+**Live proof (AC10):** dev server on port 5092 against the real DB — dropdown
+populated `["Alice Smith", "Bob Jones"]` from the list step, deleting
+`Alice Smith` left the trigger showing `(Deleted item)` rather than blank, and
+selecting `Bob Jones` recovered cleanly.
+
+**Gates (re-run by the reviewer on the merged tree):** `npx tsc --noEmit` 0
+errors · `npm run lint` (repo-wide) clean · `npm run test:fast` **2204 passed**
+/14 skipped — 2166 baseline + 17 (LIST-9) + 8 (LIST-10) + 13 (LIST-12), no
+interaction loss.
+
+**Observation, not a defect:** the injected `(Deleted item)` entry is
+selectable rather than disabled, so a respondent can re-pick it (a harmless
+no-op, since that id is already the stored value). Marking it `aria-disabled`
+would read better; not worth a round trip.
 
 ---
 
