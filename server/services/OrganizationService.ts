@@ -804,7 +804,12 @@ export class OrganizationService {
       })
       .from(organizationInvites)
       .innerJoin(users, eq(users.id, organizationInvites.invitedByUserId))
-      .where(eq(organizationInvites.orgId, orgId));
+      .where(
+        and(
+          eq(organizationInvites.orgId, orgId),
+          eq(organizationInvites.status, 'pending')
+        )
+      );
   }
   /**
    * Delete organization (admin only)

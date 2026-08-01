@@ -356,4 +356,74 @@ describe('Organization Invites', () => {
             ).rejects.toThrow('revoked');
         });
     });
+
+    describe('getOrganizationInvites', () => {
+        it('should return pending invites for organization', async () => {
+            const inviteResult = await organizationService.createInvite(
+                testOrgId,
+                existingUserEmail,
+                adminUserId
+            );
+
+            const invites = await organizationService.getOrganizationInvites(testOrgId, adminUserId);
+
+            expect(invites).toHaveLength(1);
+            expect(invites[0].inviteId).toBe(inviteResult.inviteId);
+            expect(invites[0].invitedEmail).toBe(existingUserEmail);
+            expect(invites[0].status).toBe('pending');
+            expect(invites[0].invitedByEmail).toBe('admin@test.com');
+        });
+
+        it('should not return accepted invites', async () => {
+            const inviteResult = await organizationService.createInvite(
+                testOrgId,
+                existingUserEmail,
+                adminUserId
+            );
+
+            await organizationService.acceptInvite(inviteResult.token, existingUserId);
+
+            const invites = await organizationService.getOrganizationInvites(testOrgId, adminUserId);
+
+            expect(invites).toHaveLength(0);
+        });
+
+        it('should not return expired invites', async () => {
+            const inviteResult = await organizationService.createInvite(
+                testOrgId,
+                existingUserEmail,
+                adminUserId
+            );
+
+            await db
+                .update(organizationInvites)
+                .set({ status: 'expired' })
+                .where(eq(organizationInvites.id, inviteResult.inviteId));
+
+            const invites = await organizationService.getOrganizationInvites(testOrgId, adminUserId);
+
+            expect(invites).toHaveLength(0);
+        });
+
+        it('should not return revoked invites', async () => {
+            const inviteResult = await organizationService.createInvite(
+                testOrgId,
+                existingUserEmail,
+                adminUserId
+            );
+
+            await organizationService.revokeInvite(inviteResult.inviteId, adminUserId);
+
+            const invites = await organizationService.getOrganizationInvites(testOrgId, adminUserId);
+
+            expect(invites).toHaveLength(0);
+        });
+
+        it('should require admin access to get organization invites', async () => {
+            await expect(
+                organizationService.getOrganizationInvites(testOrgId, existingUserId)
+            ).rejects.toThrow('Access denied');
+        });
+    });
 });
+
