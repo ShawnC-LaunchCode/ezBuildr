@@ -58,6 +58,14 @@ prefix (e.g. `PAY-1..n`). Read
 [references/ticket-template.md](references/ticket-template.md) before writing
 the file — it has the exact required structure and a filled example.
 
+That reference offers **two file shapes**: Shape A for a phased multi-ticket
+initiative, Shape B for a single or small ticket file with no phases or gates.
+Pick one and follow it. The common failure is reaching Shape-A's ceremony,
+deciding phases are overkill for one bug, and improvising a bug-report layout
+instead — which quietly drops **Ties** and **Preferred fix**, the two sections
+an isolated dev most needs. Shape B exists precisely so there is a correct
+small answer to copy. The four sections below are required in both.
+
 The bar for every ticket: **a lower-level dev with zero context on this
 codebase can complete it in isolation.** That means each ticket carries:
 

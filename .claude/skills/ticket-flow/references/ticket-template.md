@@ -6,7 +6,49 @@ folder at the repo root (create it if it doesn't exist), named
 initiative: audit summary, working instructions, phases, tickets, statuses,
 and verification notes all live here.
 
-## Required file skeleton
+---
+
+## The four required sections — never optional
+
+Every ticket, in every file, regardless of size, has exactly these four
+headings. They exist because an isolated dev with no context has to work from
+them alone:
+
+| Section | Answers | Omitting it costs |
+|---|---|---|
+| **Finding** | What is wrong, with `file:line` + quoted code | Dev can't locate the problem after lines drift |
+| **Preferred fix** | The shape the reviewer expects, naming a donor pattern | Dev invents a new pattern; review bounces it |
+| **Ties** | Related tickets, skills to load, file footprint | Dev skips the project skill and re-derives conventions wrongly; dispatch can't sequence overlapping work |
+| **Acceptance criteria** | Numbered, objectively checkable, including tests | "Done" becomes a judgment call instead of a checklist |
+
+Plus the one-line stamp under the heading:
+
+```markdown
+**Priority: P1** · Size: M · File: `server/services/Foo.ts`
+```
+
+Everything *else* in this document — phases, gates, the overall grade, the
+audit summary — is initiative-scale ceremony. Drop it freely on a small file.
+Never drop the four sections.
+
+## Section names are fixed — don't rename them
+
+Writing up a bug, the instinct is to reach for bug-report headings. Those lose
+information the process depends on. Map them:
+
+| Instinct | Use instead | Why the house name is different |
+|---|---|---|
+| Problem / Root Cause | **Finding** | Finding demands *evidence* — `file:line` and quoted code, not prose |
+| Solution / Proposed Fix | **Preferred fix** | "Preferred" signals a dev may deviate *with a stated reason*; "Solution" implies it's the only option |
+| Affected Files | **Ties** | Ties carries more: sequencing against other tickets, and which skills to load first |
+| Severity / Type | **Priority · Size** | Size drives dispatch and the Size-L escalation rule; Severity alone doesn't |
+| `- [ ]` checkboxes | **Numbered list** | The reviewer cites them by number in the pass/fail report |
+
+## Two file shapes
+
+Pick by how much work the file holds. Both use the same four sections.
+
+### Shape A — multi-ticket initiative (audit output, phased)
 
 ```markdown
 # <System> — <Theme> Tickets (<PREFIX>-1..n + backlog)
@@ -26,10 +68,8 @@ quoted code if a reference is stale.
 - **Tickets are grouped into N phases**, ordered by risk and dependency. Do
   not start a phase until the previous phase's **Phase Gate** has been
   verified and committed by the reviewer (the repo owner's senior model).
-- Each ticket has: **Finding** (what is wrong, with evidence), **Preferred
-  fix** (the approach the reviewer expects — deviate only with a stated
-  reason), **Ties** (related tickets/skills/docs — load the named skills
-  before touching code), and **Acceptance criteria** (all must pass).
+- Each ticket has: **Finding**, **Preferred fix**, **Ties**, and
+  **Acceptance criteria** (all must pass).
 - <Repo-specific rules: which skills to load for which directories, which
   test command to use, any "npm test naively lies"-type warnings.>
 - Devs do not commit; the reviewer commits per passed ticket.
@@ -40,7 +80,6 @@ quoted code if a reference is stale.
 | Phase | Theme | Tickets | Est. effort |
 |---|---|---|---|
 | 1 | <theme> | <PREFIX>-1..k | <estimate> |
-| ... | | | |
 | Backlog | Not phase-gated | <PREFIX>-B1.. | |
 
 ---
@@ -70,6 +109,7 @@ whole handler — fix the inline classification only").>
 
 - <Related tickets, with coordination notes if they touch the same files.>
 - <Project skills / docs the dev must load first.>
+- <File footprint + execution order, so dispatch is a lookup not an analysis.>
 
 ### Acceptance criteria
 
@@ -89,10 +129,77 @@ whole handler — fix the inline classification only").>
 - [ ] Reviewer has committed each passed ticket + this gate
 ```
 
+### Shape B — single or small ticket file (no phases, no gates)
+
+Use when the file holds one ticket, or a handful with no ordering between
+them. **Do not invent a different structure just because phases would be
+overkill** — that is exactly how house format gets lost. Drop the ceremony,
+keep the four sections:
+
+```markdown
+# <System> — <Theme> Tickets (<PREFIX>-001..n)
+
+Source: <how this was found>, <date>.
+Scope: <what was examined>.
+
+Findings were verified against the working tree with file:line evidence; line
+numbers drift, so search for the quoted code if a reference is stale.
+
+- Each ticket has: **Finding**, **Preferred fix**, **Ties**, **Acceptance
+  criteria**. Devs do not commit; the reviewer commits per passed ticket.
+- <Repo-specific rules: skills to load, correct test commands.>
+- Status legend: 🔲 Open · 🔄 In progress · ✅ Done (verified at review)
+
+| Ticket | Title | Priority | Size | Status |
+|---|---|---|---|---|
+| <PREFIX>-001 | <title> | P1 | S | 🔲 |
+
+---
+
+## <PREFIX>-001 — <one-line summary> 🔲
+
+**Priority: P1** · Size: S · File: `<primary file path>`
+
+### Finding
+### Preferred fix
+### Ties
+### Acceptance criteria
+
+---
+
+## Gate
+
+- [ ] All tickets ✅ with dated verification notes
+- [ ] <gate commands and expected results>
+- [ ] Reviewer has committed each passed ticket
+```
+
+## Reviewer rejection checklist
+
+A ticket file gets sent back before dispatch if any of these is true. Check
+them before you hand a path to anyone:
+
+- [ ] A ticket is missing **Ties** — so the dev won't know which project skill
+      to load or which tickets it collides with
+- [ ] A ticket is missing **Preferred fix** — so the dev picks their own
+      approach and the review becomes an argument
+- [ ] Acceptance criteria are checkboxes or prose instead of a numbered list
+- [ ] No acceptance criterion names a **test** — every ticket needs one
+- [ ] Criteria are subjective ("works correctly", "is clean")
+- [ ] The Finding has no `file:line` and no quoted code
+- [ ] No **Priority · Size** stamp — Size L must be escalated before dispatch,
+      and you can't escalate what was never sized
+- [ ] Ticket IDs are inconsistent (`ORG-1` in prose, `ORG-001` in the heading)
+      — dispatch prompts are copy-pasted, and a mismatched ID sends the dev
+      hunting
+
 ## Rules that make tickets work in isolation
 
 - **Evidence over description.** Quote the offending code. Line numbers drift;
   quoted code is greppable forever.
+- **Re-verify evidence before dispatching.** Lines move as other tickets land.
+  A ticket written a week ago may point at the wrong line today; check it
+  against the current tree and refresh the refs before handing it out.
 - **One ticket, one concern — but bundle same-code concerns.** If the Finding
   needs the word "also" for an *unrelated* problem, that's a second ticket. The
   exception: two concerns that live in the *same* methods/handler belong in one
@@ -104,17 +211,22 @@ whole handler — fix the inline classification only").>
 - **Acceptance criteria are the contract.** The reviewer will check each one
   literally; write them so that checking is mechanical. Every ticket's ACs
   include its tests — a ticket without a testing criterion is unfinished.
+- **Beware criteria satisfiable by doing nothing.** An assertion that something
+  is *absent* (`toHaveLength(0)`, "does not appear in the response") passes
+  trivially when the fixture never created the thing. Word such criteria so the
+  setup is explicit, and expect the reviewer to prove the test fails without
+  the fix.
 - **Sizing:** S = under ~2 hours of focused work, M = up to a day, L = more.
-  An L ticket is a flag to escalate to the repo owner during generation — it may need
-  splitting or its own initiative.
+  An L ticket is a flag to escalate to the repo owner during generation — it may
+  need splitting or its own initiative.
 - **Priorities:** P0 = actual bug / correctness / security, P1 = meaningful
   gap, P2 = polish, ENH = new capability.
 
 ## Verification notes (written by the reviewer at review time)
 
 When tickets pass review, the reviewer inserts a dated **Verification pass**
-block at the top of the phase (see any ICW ticket file for the house style):
-the gate commands run and their results, gaps found-and-closed during review,
-deferrals with their destination ticket, and live-verification evidence
-("POST /api/x malformed body → 400, dev server, real JWT"). Completed tickets
-get ✅ in their heading; the block is the audit trail for *why* they're ✅.
+block at the top of the phase (or under the ticket, in Shape B): the gate
+commands run and their results, gaps found-and-closed during review, deferrals
+with their destination ticket, and live-verification evidence ("POST /api/x
+malformed body → 400, dev server, real JWT"). Completed tickets get ✅ in their
+heading; the block is the audit trail for *why* they're ✅.
