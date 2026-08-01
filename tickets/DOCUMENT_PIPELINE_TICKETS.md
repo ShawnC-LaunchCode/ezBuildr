@@ -32,11 +32,11 @@ initiative), so ticket IDs stay unambiguous when searching git history.
 
 | Ticket | Title | Priority | Size | Status |
 |---|---|---|---|---|
-| DOCP-001 | Puppeteer PDF conversion has no explicit timeouts | P2 | S | 🔲 |
+| DOCP-001 | Puppeteer PDF conversion has no explicit timeouts | P2 | S | ✅ verified at review 2026-08-01 |
 
 ---
 
-## DOCP-001 — Puppeteer PDF conversion has no explicit timeouts 🔲
+## DOCP-001 — Puppeteer PDF conversion has no explicit timeouts ✅ Done (2026-08-01)
 
 **Priority: P2** · Size: S · File: `server/services/document/PdfConverter.ts`
 
@@ -124,8 +124,44 @@ ticket is limited to the two unbounded calls and their cleanup.
 
 ---
 
+### Reviewer verification (2026-08-01)
+
+**All 8 criteria met.** Both page operations now pass
+`PUPPETEER_PAGE_TIMEOUT_MS` (10 s) — one named constant, no duplicated literal
+(AC1–3). The dev followed the ticket's instruction to *check before adding*: the
+existing `try/finally` around both calls already runs `page.close()`, so no
+second `finally` was introduced (AC4). The Gotenberg strategy and the
+`PDF_CONVERTER_API_URL` selection are untouched (AC6), and the diff is 14 lines
+plus a comment explaining why the budget is small and must stay under any
+upstream request timeout.
+
+AC7's test mocks `puppeteer.launch` and `mammoth.convertToHtml` rather than
+launching Chromium, so it runs anywhere. It asserts both timeouts are numbers
+**and equal to each other** — which is how AC3 gets checked behaviourally
+rather than by reading the source — and that a timing-out `setContent` rejects
+with a normal `PDF conversion failed` error, closes the page exactly once, and
+never reaches `page.pdf`. Its `afterEach` drops the static browser singleton so
+tests cannot contaminate each other.
+
+**Proved load-bearing, not vacuous.** The reviewer deleted the `setContent`
+timeout and re-ran: `1 failed | 19 passed`, with
+`AssertionError: expected 'undefined' to be 'number'`. Restored and confirmed
+byte-identical afterwards. Note the close-on-timeout assertion is a
+characterisation test — that cleanup pre-dated this ticket — which is correct,
+since AC4 asked to confirm the existing `finally` covers it.
+
+**Merge safety:** the worktree was based on `cde530ef` while `main` was at
+`fab72de9`, but no commit in between touched either file and the base copy was
+byte-identical to main's, so there was no stale-branch clobber risk.
+
+**Gates (run by the reviewer on main after merging):** `npx tsc --noEmit` 0
+errors · `npx eslint` on both files clean · `npm run test:fast` **2206 passed**
+/14 skipped (2204 before, +2 — exactly the new tests).
+
+---
+
 ## Gate
 
-- [ ] DOCP-001 ✅ with a dated verification note
-- [ ] type-check 0 errors · lint clean · `test:fast` green
-- [ ] Reviewer has committed the passed ticket
+- [x] DOCP-001 ✅ with a dated verification note
+- [x] type-check 0 errors · lint clean · `test:fast` green
+- [x] Reviewer has committed the passed ticket

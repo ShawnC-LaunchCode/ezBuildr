@@ -2,6 +2,8 @@ import fs from "fs/promises";
 import os from "os";
 import path from "path";
 
+import mammoth from "mammoth";
+import puppeteer, { type Browser } from "puppeteer";
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 
 import { logger } from "../../../server/logger";
@@ -281,5 +283,76 @@ describe("ApiStrategy", () => {
 
     await expect(new ApiStrategy(API_URL).convert({ docxPath, outputPath }))
       .rejects.toThrow(/Gotenberg returned 500: libreoffice exploded/);
+  });
+});
+
+/**
+ * DOCP-001: neither Puppeteer page operation used to carry a timeout, so a
+ * template with a remote image/font (setContent) or a rendering hang (pdf)
+ * held the request open indefinitely. These drive `convert()` for real
+ * against a mocked Puppeteer page — no Chromium launched — to pin the
+ * timeout option and the close-on-timeout cleanup in place.
+ */
+describe("PuppeteerStrategy page timeouts", () => {
+  interface FakePage {
+    setContent: MockInstance<(html: string, options?: { timeout?: number }) => Promise<unknown>>;
+    pdf: MockInstance<(options?: { timeout?: number }) => Promise<unknown>>;
+    close: MockInstance<() => Promise<void>>;
+  }
+
+  function fakePage(behaviour: "succeed" | "timeout"): FakePage {
+    const setContent = vi.fn(async () => {
+      if (behaviour === "timeout") {
+        throw new Error("Navigation timeout of 10000 ms exceeded");
+      }
+    });
+    const pdf = vi.fn(async () => undefined);
+    const close = vi.fn(async () => undefined);
+    return { setContent, pdf, close };
+  }
+
+  function stubBrowserWithPage(page: ReturnType<typeof fakePage>): void {
+    const browser = {
+      connected: true,
+      newPage: vi.fn().mockResolvedValue(page),
+      close: vi.fn().mockResolvedValue(undefined),
+    };
+    vi.spyOn(puppeteer, "launch").mockResolvedValue(browser as unknown as Browser);
+  }
+
+  beforeEach(() => {
+    vi.spyOn(mammoth, "convertToHtml").mockResolvedValue({ value: "<p>hi</p>", messages: [] });
+  });
+
+  afterEach(async () => {
+    // The shared browser is a static singleton — drop it so each test gets
+    // its own `puppeteer.launch` stub instead of reusing the last one.
+    await PuppeteerStrategy.closeBrowser();
+  });
+
+  it("passes the same named timeout constant to setContent and pdf", async () => {
+    const page = fakePage("succeed");
+    stubBrowserWithPage(page);
+
+    await new PuppeteerStrategy().convert({ docxPath, outputPath });
+
+    expect(page.setContent).toHaveBeenCalledOnce();
+    expect(page.pdf).toHaveBeenCalledOnce();
+
+    const setContentTimeout = page.setContent.mock.calls[0]?.[1]?.timeout;
+    const pdfTimeout = page.pdf.mock.calls[0]?.[0]?.timeout;
+    expect(typeof setContentTimeout).toBe("number");
+    expect(setContentTimeout).toBe(pdfTimeout);
+  });
+
+  it("closes the page and surfaces a normal conversion error when setContent times out, instead of hanging", async () => {
+    const page = fakePage("timeout");
+    stubBrowserWithPage(page);
+
+    await expect(new PuppeteerStrategy().convert({ docxPath, outputPath }))
+      .rejects.toThrow(/PDF conversion failed/);
+
+    expect(page.close).toHaveBeenCalledOnce();
+    expect(page.pdf).not.toHaveBeenCalled();
   });
 });

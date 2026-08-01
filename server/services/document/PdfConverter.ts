@@ -54,6 +54,14 @@ export interface PdfConversionStrategy {
 const CONVERSION_TIMEOUT_MS = parseInt(process.env.PDF_CONVERTER_TIMEOUT_MS ?? '60000', 10);
 /** Health probes must never hold up a request or a boot. */
 const HEALTH_TIMEOUT_MS = 3000;
+/**
+ * Budget for each Puppeteer page operation (`setContent`, `pdf`). The HTML is
+ * locally generated from Mammoth output and normally references nothing
+ * remote, so this only bites when a template embeds a remote image/font or
+ * Chromium's rendering hangs. A few seconds is generous for locally-generated
+ * HTML, and this must stay well under any upstream request timeout.
+ */
+const PUPPETEER_PAGE_TIMEOUT_MS = 10_000;
 
 /**
  * Strategy using Puppeteer (Headless Chrome)
@@ -168,7 +176,10 @@ export class PuppeteerStrategy implements PdfConversionStrategy {
 
             try {
                 // Set content
-                await page.setContent(styledHtml, { waitUntil: 'networkidle0' });
+                await page.setContent(styledHtml, {
+                    waitUntil: 'networkidle0',
+                    timeout: PUPPETEER_PAGE_TIMEOUT_MS,
+                });
 
                 // Generate PDF
                 await page.pdf({
@@ -181,6 +192,7 @@ export class PuppeteerStrategy implements PdfConversionStrategy {
                         bottom: '20mm',
                         left: '20mm',
                     },
+                    timeout: PUPPETEER_PAGE_TIMEOUT_MS,
                 });
             } finally {
                 await page.close().catch((closeError: unknown) => {
