@@ -49,18 +49,48 @@ Work through these in order; stop at the first failure and triage.
    This is a judgment call, not a checkbox: state which method you used and why
    in the verification note so it's a documented decision, not an ad-hoc one.
 
+   **Batch UI verification at the phase gate.** When several tickets land on the
+   same screen or flow, one drive-through at the gate proves all of them —
+   opening the browser once per ticket is the single most expensive redundant
+   step in the pass. Verify a UI ticket on its own only when its behavior isn't
+   reachable from the phase's end state (a transient state, an error path, a
+   branch the later tickets navigate away from). Note in each ticket's block
+   which gate run covered it.
+
 ## Pass → close and commit
 
 - Mark the ticket ✅ in its heading and add/extend the phase's dated
   **Verification pass** block: gate results, evidence, any gaps you closed
   during review, any deferrals and where they went.
-- Commit: **one commit per passed ticket**, staging only the files that
-  ticket touched. Never `git add -A` / `git add .` — the repo owner edits the same
-  repo from a second IDE and unrelated changes may be sitting in the tree.
-  Message references the ticket ID: `fix(scope): summary (PREFIX-N)`.
-- Phase gate satisfied → commit the ticket-file bookkeeping as its own
-  commit, then report to the repo owner. **Do not push** until they say so, and confirm
-  branch state with him before any branch switching.
+- **Confirm the change is still in the tree** before closing — grep a symbol
+  the ticket added, or `git log -1 --oneline -- <file>`. A merge in a shared
+  checkout can silently revert committed work; this has happened and cost a
+  re-land, and the ✅ is what stops anyone noticing.
+- Commit: **one commit per passed ticket**, staging that ticket's files **and
+  the ticket file** — the ✅ and verification note ship with the code they
+  attest to, not in a follow-up `docs(tickets)` commit. Never `git add -A` /
+  `git add .` — the repo owner edits the same repo from a second IDE and
+  unrelated changes may be sitting in the tree. Message references the ticket
+  ID: `fix(scope): summary (PREFIX-N)`.
+- Phase gate satisfied → one ticket-file-only commit covering the gate
+  checklist and backlog triage, then report to the repo owner. **Do not push**
+  until they say so, and confirm branch state with them before any branch
+  switching.
+
+## Backlog triage (at each phase gate)
+
+Review discoveries accumulate as observations. At the gate, put every open
+backlog item into exactly one lane so the board drains as fast as it fills:
+
+- **Promote** — worth dispatching in this initiative; write it up as a full
+  ticket with the four sections and re-verify its evidence first.
+- **Merge** — it belongs inside an existing open ticket; fold it in and delete
+  the standalone entry.
+- **Close won't-fix** — record the one-line reason and drop it. This is a
+  normal, encouraged outcome, not an admission of anything.
+
+An item that survives two consecutive gates without being promoted is telling
+you it's a won't-fix.
 
 ## Fail → failure report and triage
 

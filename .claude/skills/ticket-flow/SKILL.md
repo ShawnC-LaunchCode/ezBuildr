@@ -94,11 +94,14 @@ and commits before the next phase starts. Phases must not overlap.
 the default — but if two concerns live in the *same* code (the same methods,
 the same handler), make them **one ticket**. Two tickets fighting over the same
 function force sequential dispatch and messy diffs, and the second dev inherits
-the first's rewrite mid-air. It's better to bundle them and say so. Note each
-ticket's file footprint and resulting **execution order** in its Ties, so
-dispatch (Stage 3) is a lookup, not a fresh analysis — most tickets in one
-initiative touch the same one or two files, so ordering is the norm, not the
-exception.
+the first's rewrite mid-air. It's better to bundle them and say so.
+
+Note each ticket's **file footprint** in its Ties, and mark which tickets it
+collides with — that's what lets Stage 3 decide parallel-vs-sequential as a
+lookup rather than a fresh analysis. Be precise about it: an initiative usually
+has a cluster of tickets fighting over one or two files *and* a tail that
+touches nothing else, and a vague footprint gets that tail needlessly
+serialized.
 
 **Announce the ticket file path.** Whenever tickets are written (a new file
 or additions to an existing one), the Senior's report to the repo owner must state the
@@ -106,12 +109,18 @@ repo-relative ticket file path and the ticket IDs added (e.g. "Tickets
 ICW2-1..14 written to `tickets/INTERVIEW_CREATION_2_TICKETS.md`") so
 the repo owner can hand that path directly to other agents/sessions for dispatch.
 
-**Re-audit before dispatching a promoted or reopened ticket.** Backlog items
-and tickets written before earlier fixes landed will have **stale `file:line`
-evidence** — lines drift as work commits. When you promote a backlog
-observation into a full ticket (or reopen one later), re-verify its evidence
-against the *current* tree first and refresh the refs. Don't dispatch a ticket
-pointing at line numbers that have moved.
+**Anchor evidence on quoted code, not line numbers.** A Finding's locator is
+the **quoted code plus a symbol anchor** (the exported function, component, or
+constant it lives in). `file:line` is advisory — accurate when written, stale
+soon after, and the dev greps for the quote anyway. Say so in the file header
+so nobody treats a drifted line as a broken ticket.
+
+This matters because refreshing line numbers before each dispatch is a whole
+reviewer turn per ticket, and it buys nothing a grep doesn't. **Re-audit only
+when the finding itself may be stale** — i.e. intervening work plausibly
+touched that behavior, or the ticket has been sitting since before a related
+fix landed. Promoting a backlog observation is the usual trigger; a two-day-old
+ticket in an active initiative is not.
 
 **Escalation during generation:** if a ticket comes out Size L, spans many
 subsystems, requires a judgment call (schema design, security posture, API
@@ -161,20 +170,27 @@ all in one session. This is the fast loop and it works well:
 - **Use a lesser model for the dev** (e.g. `model: "sonnet"`) — the tickets
   carry the context, so the dev doesn't need the Senior's model. The Senior
   stays on the stronger model to review.
-- **The dev works in the shared tree**, so at commit time the Senior stages
+- **A solo dev works in the shared tree**, so at commit time the Senior stages
   **only that ticket's files by path** — never `git add -A`/`.` (there may be
   another ticket's or the repo owner's uncommitted changes present). This is the same
   discipline as the parallel-IDE rule, and it's what makes one-commit-per-ticket
   possible from a shared tree.
-- **Review before dispatching the next ticket** so each dev builds on committed
-  state, not a half-finished tree.
 
-**Sequencing (both modes).** Dispatch in parallel only tickets that don't touch
-the same files; otherwise sequence them. In practice most tickets in one
-initiative touch the same one or two files, so expect to run sequentially — and
-because file overlap is the norm, the ticketing stage should already note each
-ticket's execution order in its Ties (see Stage 2). Mark a ticket 🔄 In
-progress when dispatched.
+**Sequencing (both modes).** The Ties section already records every ticket's
+file footprint — dispatch is a lookup against it, not a blanket rule:
+
+- **Disjoint footprints → dispatch in parallel**, 2–3 at a time, each in its own
+  worktree (`isolation: "worktree"`; see the repo's parallel-work rules). Do not
+  serialize tickets that cannot collide — that is pure latency.
+- **Overlapping footprints → sequence**, and review the first before dispatching
+  the second so the later dev builds on committed state rather than a
+  half-finished tree.
+- **Test-suite contention is a footprint too.** Parallel devs may all run the
+  no-DB fast suite, but only one may run DB-backed suites at a time — concurrent
+  DB runs share a schema and clobber each other into dozens of fake failures. If
+  two ready tickets both need DB tests, sequence them even if their files differ.
+
+Mark a ticket 🔄 In progress when dispatched.
 
 ## Stage 4 — Working a ticket (Dev)
 
@@ -241,12 +257,24 @@ only when all of these hold:
 4. **Behavior is verified live whenever feasible** — drive the running app
    (browser/computer-use tools, real API calls) and capture proof, not just
    green unit tests. Skip only when the change genuinely isn't observable
-   live, and say so.
+   live, and say so. **Batch it where tickets compose:** several UI tickets
+   landing on the same screen are proven by one drive-through at the phase
+   gate, not one per ticket. Verify per-ticket only when a ticket's behavior
+   isn't reachable from the phase's end state.
 
 **Pass →** mark the ticket ✅ Done in the file with a dated verification note,
-and commit it: one commit per passed ticket, staging only the files that
-ticket touched (never `git add -A` — the repo owner may have concurrent edits
-from another IDE). Push only when they explicitly say to.
+and commit it **as one commit containing both the code and that ticket-file
+edit** — the ✅ and its verification note belong in the same commit as the work
+they attest to. Stage only the files that ticket touched, plus the ticket file
+(never `git add -A` — the repo owner may have concurrent edits from another
+IDE). Do not spend a second commit on marking a ticket done; phase-gate
+bookkeeping is the only ticket-file-only commit. Push only when they
+explicitly say to.
+
+**Confirm the work is actually in the tree before marking it ✅.** In a shared
+checkout a merge can silently revert a committed change — this has happened,
+and cost a re-land. Grep for a symbol the ticket added, or
+`git log -1 --oneline -- <file>`, as the last step before closing.
 
 **Fail →** write the repo owner a failure report (format in review-pass.md) and triage
 into exactly one of:
@@ -254,7 +282,12 @@ into exactly one of:
 1. **Send back to the original dev** — right direction, small finish-up work
    they still have context for.
 2. **New ticket** — a larger problem surfaced, or new issues found; write it
-   into the ticket file like any other ticket.
+   into the ticket file like any other ticket. **A discovery is an observation
+   by default, not a ticket.** Before filing one, answer: is this worth
+   dispatching *in this initiative*? If not, it goes in Backlog as a one-line
+   observation — promotable later, but not on the board and not sized. Filing
+   full tickets for every review discovery is how an initiative's board grows
+   faster than it drains.
 3. **Reviewer fixes it** — reserved for small problems where the Senior
    already has ~90% of the context and it's a quick fix; note in the report
    that you took this path and what you changed.
@@ -270,10 +303,14 @@ tickets you touched.
 ## Commit & push policy (Senior only)
 
 - Devs never commit. The Senior commits exactly one commit per passed ticket,
-  at review time, staging only that ticket's files.
+  at review time, staging only that ticket's files — **including the ticket
+  file's ✅ and verification note**. One ticket, one commit, code and closure
+  together.
 - Commit messages reference the ticket ID (e.g. `fix(api): classify create
   errors (PAY-1)`).
-- Phase Gates get their own commit for the ticket-file status updates.
+- Phase Gates get their own commit — the only ticket-file-only commit there
+  should be. Backlog triage (promote / merge / close won't-fix) happens at the
+  gate and rides in that commit.
 - **Never push without the repo owner's explicit go-ahead**, and confirm branch
   state with them before switching branches — they work the same repo from a second
   IDE.

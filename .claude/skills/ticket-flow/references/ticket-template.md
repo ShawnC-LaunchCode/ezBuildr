@@ -16,7 +16,7 @@ them alone:
 
 | Section | Answers | Omitting it costs |
 |---|---|---|
-| **Finding** | What is wrong, with `file:line` + quoted code | Dev can't locate the problem after lines drift |
+| **Finding** | What is wrong, with quoted code + a symbol anchor | Dev can't locate the problem after lines drift |
 | **Preferred fix** | The shape the reviewer expects, naming a donor pattern | Dev invents a new pattern; review bounces it |
 | **Ties** | Related tickets, skills to load, file footprint | Dev skips the project skill and re-derives conventions wrongly; dispatch can't sequence overlapping work |
 | **Acceptance criteria** | Numbered, objectively checkable, including tests | "Done" becomes a judgment call instead of a checklist |
@@ -57,9 +57,10 @@ Source: <what kind of audit>, <date>.
 Scope: <what was examined>. Overall grade at audit time: **<letter>**
 (<one-line justification>).
 
-Every finding below was verified against the working tree at audit time with
-file:line evidence. Line numbers may drift as fixes land — search for the
-quoted code if a reference is stale.
+Every finding below was verified against the working tree at audit time. **Line
+numbers are advisory** — they were accurate when written and drift as fixes
+land. The locator is the quoted code and the named symbol; grep for those. A
+stale line number is not a broken ticket and does not need re-issuing.
 
 ---
 
@@ -94,9 +95,10 @@ quoted code if a reference is stale.
 
 ### Finding
 
-<What is wrong or missing, with exact `file:line` references and a short
-quoted code block so the dev can re-locate it after drift. State the
-consequences: what breaks, for whom, how badly.>
+<What is wrong or missing. Lead with a short quoted code block and the symbol
+it lives in (`resolveListValue()` in `shared/listRuntime.ts`) — that is the
+locator. Add `file:line` after it as a convenience, not as the anchor. State
+the consequences: what breaks, for whom, how badly.>
 
 ### Preferred fix
 
@@ -142,8 +144,8 @@ keep the four sections:
 Source: <how this was found>, <date>.
 Scope: <what was examined>.
 
-Findings were verified against the working tree with file:line evidence; line
-numbers drift, so search for the quoted code if a reference is stale.
+Findings were verified against the working tree; the locator is the quoted code
+and named symbol, and line numbers are advisory.
 
 - Each ticket has: **Finding**, **Preferred fix**, **Ties**, **Acceptance
   criteria**. Devs do not commit; the reviewer commits per passed ticket.
@@ -186,7 +188,8 @@ them before you hand a path to anyone:
 - [ ] Acceptance criteria are checkboxes or prose instead of a numbered list
 - [ ] No acceptance criterion names a **test** — every ticket needs one
 - [ ] Criteria are subjective ("works correctly", "is clean")
-- [ ] The Finding has no `file:line` and no quoted code
+- [ ] The Finding has no quoted code and no named symbol — a `file:line` alone
+      is not evidence, and it's the part that goes stale
 - [ ] No **Priority · Size** stamp — Size L must be escalated before dispatch,
       and you can't escalate what was never sized
 - [ ] Ticket IDs are inconsistent (`ORG-1` in prose, `ORG-001` in the heading)
@@ -195,11 +198,13 @@ them before you hand a path to anyone:
 
 ## Rules that make tickets work in isolation
 
-- **Evidence over description.** Quote the offending code. Line numbers drift;
-  quoted code is greppable forever.
-- **Re-verify evidence before dispatching.** Lines move as other tickets land.
-  A ticket written a week ago may point at the wrong line today; check it
-  against the current tree and refresh the refs before handing it out.
+- **Evidence over description.** Quote the offending code and name its symbol.
+  Line numbers drift; quoted code is greppable forever.
+- **Re-verify the finding, not the line numbers.** Refreshing refs before every
+  dispatch is a reviewer turn per ticket that buys nothing a grep doesn't. Do a
+  real re-audit only when the *finding* may be stale — promoting a backlog item,
+  reopening an old ticket, or when intervening work plausibly touched that
+  behavior. A drifted line in an active initiative is not a reason to re-issue.
 - **One ticket, one concern — but bundle same-code concerns.** If the Finding
   needs the word "also" for an *unrelated* problem, that's a second ticket. The
   exception: two concerns that live in the *same* methods/handler belong in one
