@@ -66,7 +66,6 @@ async function readDocxText(buffer: Buffer): Promise<string> {
 
 const FILES_DIR = path.join(process.cwd(), 'server', 'files');
 const OUTPUTS_DIR = path.join(FILES_DIR, 'outputs');
-const ARCHIVES_DIR = path.join(FILES_DIR, 'archives');
 
 /**
  * Retrieve the generated file buffer from the storage provider.

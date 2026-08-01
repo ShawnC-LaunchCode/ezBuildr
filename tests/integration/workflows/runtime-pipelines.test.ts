@@ -90,7 +90,6 @@ async function getGeneratedFileBuffer(storageKey: string): Promise<Buffer> {
 
 const FILES_DIR = path.join(process.cwd(), 'server', 'files');
 const OUTPUTS_DIR = path.join(FILES_DIR, 'outputs');
-const ARCHIVES_DIR = path.join(FILES_DIR, 'archives');
 describe('Runtime Pipelines Integration Tests', () => {
   const testUserId = nanoid(); // Use random ID to prevent collisions
   let testTenantId: string;

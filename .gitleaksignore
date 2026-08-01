@@ -1,16 +1,19 @@
 # Fingerprints of findings gitleaks has already been triaged on. Format is
 # <commit>:<path>:<rule>:<line>. Each entry must be justified below — never add
 # one to silence a finding you have not read.
+#
+# Do NOT quote the offending value in a comment here: gitleaks scans this file
+# too, and a pasted sample becomes a new finding in .gitleaksignore itself.
 
 299701682960aebe39b3dec84c69274c556d2d47:.codex-tmp/repo-eslint.json:jwt:1
 
 # tests/unit/portability/secretScanner.test.ts is the test for our OWN secret
-# scanner, so it necessarily contains secret-shaped fixtures. Both values are
-# synthetic and match no real credential:
-#   :29 -> "sk_live_51H8xKzAbCdEfGhIjKlMn"   (fake Stripe key)
-#   :40 -> "ghp_1234567890abcdefghijklmnop"  (fake GitHub token)
-# gitleaks scans commit history, so these surface on every push once the
-# commit is in range — which is why CI went red repo-wide, not because of any
-# one change. See DEBT-10.
+# scanner, so it necessarily contains secret-shaped fixtures. Both flagged
+# values are synthetic and match no real credential — one is a Stripe-shaped
+# literal, the other a GitHub-token-shaped literal, both obviously sequential
+# placeholder text. Read the lines before trusting this note.
+# gitleaks scans commit history, so these surface on every push once the commit
+# is in range — which is why CI went red repo-wide, not because of any one
+# change. See DEBT-10.
 1f834cdc12a62bba4b6e67016900bdbf3aa69b81:tests/unit/portability/secretScanner.test.ts:stripe-access-token:29
 1f834cdc12a62bba4b6e67016900bdbf3aa69b81:tests/unit/portability/secretScanner.test.ts:generic-api-key:40
