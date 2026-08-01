@@ -10,6 +10,7 @@ import {
   type Organization,
 } from '../../shared/schema';
 import { db } from '../db';
+import { ConflictError } from '../errors/AppError';
 import { AuditLogger } from '../lib/audit/auditLogger';
 import { logger } from '../logger';
 import { hashToken } from '../utils/encryption';
@@ -439,7 +440,7 @@ export class OrganizationService {
     // Check if user is already a member
     const alreadyMember = await isOrgMember(existingUser.id, orgId);
     if (alreadyMember) {
-      throw new Error('User is already a member of this organization');
+      throw new ConflictError('This person is already a member of this organization');
     }
     // Check for existing pending invite (exclude expired)
     const existingInvite = await db.query.organizationInvites.findFirst({
@@ -458,7 +459,7 @@ export class OrganizationService {
           .set({ status: 'expired' })
           .where(eq(organizationInvites.id, existingInvite.id));
       } else {
-        throw new Error('Pending invite already exists for this email');
+        throw new ConflictError('Pending invite already exists for this email');
       }
     }
     // Generate secure token
