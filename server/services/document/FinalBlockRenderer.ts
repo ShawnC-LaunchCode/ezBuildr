@@ -29,6 +29,7 @@ import { storageProvider } from '../storage/index.js';
 
 import type { EnhancedGenerationResult } from './EnhancedDocumentEngine.js';
 import type { PdfStrategyName } from './PdfConverter.js';
+import type { NormalizationOptions } from './VariableNormalizer.js';
 import type { FinalBlockConfig } from '../../../shared/types/stepConfigs.js';
 
 
@@ -62,6 +63,9 @@ export interface FinalBlockRenderRequest {
 
   /** Output directory (optional, defaults to server/files/archives) */
   outputDir?: string;
+
+  /** Variable normalization metadata, including List configs by alias. */
+  normalizationOptions?: NormalizationOptions;
 }
 
 /**
@@ -141,6 +145,7 @@ export class FinalBlockRenderer {
       runId,
       resolveTemplate,
       toPdf = false,
+      normalizationOptions,
       // DEBT-15: intentionally ephemeral. This is only the scratch directory the
       // renderer writes into while building a document; the bytes are uploaded to
       // storageProvider in prepareResponseDocuments and unlinked from here before
@@ -219,6 +224,7 @@ export class FinalBlockRenderer {
       outputDir,
       toPdf,
       runId,
+      normalizationOptions,
     });
 
     logger.info({

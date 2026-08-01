@@ -16,7 +16,13 @@
  * @date December 6, 2025
  */
 
-import type { AddressValue, MultiFieldValue } from '../../../shared/types/stepConfigs';
+import {
+  projectListValue,
+  type AddressValue,
+  type ListConfig,
+  type ListValue,
+  type MultiFieldValue,
+} from '../../../shared/types/stepConfigs';
 
 // ============================================================================
 // TYPES
@@ -44,6 +50,16 @@ export interface NormalizationOptions {
 
   /** Maximum depth for nested object flattening (default: 10) */
   maxDepth?: number;
+
+  /** List step configs keyed by the alias used in template data. */
+  listConfigs?: Record<string, ListConfig | undefined>;
+}
+
+export interface ListStepConfigSource {
+  id: string;
+  alias?: string | null;
+  type: string;
+  config?: unknown;
 }
 
 /**
@@ -95,16 +111,50 @@ export function normalizeVariables(
     arrayDelimiter: options.arrayDelimiter ?? ', ',
     includeEmpty: options.includeEmpty ?? true,
     maxDepth: options.maxDepth ?? 10,
+    listConfigs: options.listConfigs ?? {},
   };
 
   const result: NormalizedData = {};
 
   // Process each step value
   for (const [key, value] of Object.entries(stepValues)) {
-    processValue(result, key, value, opts, 0);
+    const listConfig = opts.listConfigs[key];
+    const templateValue = listConfig !== undefined
+      ? projectListValue(value as ListValue | null | undefined, listConfig)
+      : value;
+    processValue(result, key, templateValue, opts, 0);
   }
 
   return result;
+}
+
+/**
+ * Collect the list configs needed to project stored values for templates.
+ * Aliases are the public document variable names; step ids remain the fallback
+ * for the same alias-keying behavior used by run data.
+ */
+export function getListConfigsByAlias(
+  steps: ListStepConfigSource[]
+): Record<string, ListConfig> {
+  const configs: Record<string, ListConfig> = {};
+
+  for (const step of steps) {
+    if (step.type !== 'list' || !isListConfig(step.config)) {
+      continue;
+    }
+    const key = step.alias !== null && step.alias !== undefined && step.alias !== ''
+      ? step.alias
+      : step.id;
+    configs[key] = step.config;
+  }
+
+  return configs;
+}
+
+function isListConfig(config: unknown): config is ListConfig {
+  return typeof config === 'object'
+    && config !== null
+    && Array.isArray((config as { fields?: unknown }).fields);
 }
 
 // ============================================================================
@@ -520,6 +570,7 @@ export function getNormalizationStats(normalizedData: NormalizedData): {
 
 export default {
   normalizeVariables,
+  getListConfigsByAlias,
   normalizeAddress,
   normalizeMultiField,
   normalizeChoice,

@@ -25,8 +25,10 @@ import { creatorOrRunTokenAuth, type RunAuthRequest } from '../middleware/runTok
 import { strictLimiter } from '../middleware/rateLimiter.js';
 import { documentTemplateRepository, runGeneratedDocumentsRepository } from '../repositories/index.js';
 import { finalBlockRenderer, createTemplateResolver } from '../services/document/FinalBlockRenderer.js';
+import { getListConfigsByAlias } from '../services/document/VariableNormalizer.js';
 import { runService } from '../services/RunService.js';
 import { storageProvider } from '../services/storage/index.js';
+import { stepService } from '../services/StepService.js';
 import { workflowService } from '../services/WorkflowService.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { createError } from '../utils/errors.js';
@@ -212,6 +214,7 @@ export function registerFinalBlockRoutes(app: Express): void {
         // Step 1: Load workflow and verify access
 
         const workflow = await workflowService.verifyAccess(workflowId, userId, 'view');
+        const workflowSteps = await stepService.getWorkflowSteps(workflowId);
 
         // Step 2: Create template resolver
         const resolveTemplate = createTemplateResolver(async (documentId: string) => {
@@ -233,6 +236,9 @@ export function registerFinalBlockRoutes(app: Express): void {
           runId: `preview-${Date.now()}`, // Temporary run ID for preview
           resolveTemplate,
           toPdf,
+          normalizationOptions: {
+            listConfigs: getListConfigsByAlias(workflowSteps),
+          },
         });
 
         logger.info({
