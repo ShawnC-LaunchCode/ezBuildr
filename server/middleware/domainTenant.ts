@@ -68,9 +68,9 @@ export async function domainTenantLookup(
 
     if (result) {
       // Inject tenant ID and branding into request
-      // eslint-disable-next-line no-param-reassign -- Express augmentation pattern
+
       req.tenantOverrideId = result.tenantId;
-      // eslint-disable-next-line no-param-reassign -- Express augmentation pattern
+
       req.tenantBranding = result.branding;
 
       logger.info(

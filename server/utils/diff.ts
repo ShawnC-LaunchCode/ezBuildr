@@ -42,10 +42,10 @@ function compareGraphs(oldGraph: any, newGraph: any): GraphDiff {
     edgesRemoved: [],
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
   const oldNodes = new Map((oldGraph?.nodes ?? []).map((n: any) => [n.id, n]));
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
   const newNodes = new Map((newGraph?.nodes ?? []).map((n: any) => [n.id, n]));
 
@@ -53,7 +53,7 @@ function compareGraphs(oldGraph: any, newGraph: any): GraphDiff {
   for (const [id, newNode] of newNodes) {
     const oldNode = oldNodes.get(id);
     if (!oldNode) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
       diff.nodesAdded.push({ id: id as string, type: (newNode as Record<string, unknown>).type as string ?? 'unknown' });
     } else {
       const changes = compareObjects(oldNode, newNode, `nodes.${id as string}`);
@@ -66,16 +66,16 @@ function compareGraphs(oldGraph: any, newGraph: any): GraphDiff {
   // Find removed nodes
   for (const [id, oldNode] of oldNodes) {
     if (!newNodes.has(id)) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
       diff.nodesRemoved.push({ id: id as string, type: (oldNode as Record<string, unknown>).type as string ?? 'unknown' });
     }
   }
 
   // Compare edges
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
   const oldEdges = new Set((oldGraph?.edges ?? []).map((e: any) => `${e.source}->${e.target}`));
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
   const newEdges = new Set((newGraph?.edges ?? []).map((e: any) => `${e.source}->${e.target}`));
 
@@ -104,7 +104,7 @@ function compareObjects(oldObj: any, newObj: any, basePath = ''): DiffChange[] {
   const changes: DiffChange[] = [];
 
   // Get all unique keys
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
   const allKeys = new Set([
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     ...Object.keys(oldObj ?? {}),

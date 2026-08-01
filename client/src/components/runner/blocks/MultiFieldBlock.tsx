@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * MultiFieldBlockRenderer - Multi-Field Input
  *
@@ -32,19 +31,21 @@ import type { MultiFieldConfig, MultiFieldValue } from "@shared/types/stepConfig
 
 export interface MultiFieldBlockProps {
   step: Step;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  value: any;
+  value: MultiFieldValue | null | undefined;
   onChange: (value: MultiFieldValue) => void;
   readOnly?: boolean;
+  ariaDescribedBy?: string;
+  required?: boolean;
+  hasError?: boolean;
 }
 
-export function MultiFieldBlockRenderer({ step, value, onChange, readOnly }: MultiFieldBlockProps) {
+export function MultiFieldBlockRenderer({ step, value, onChange, readOnly , ariaDescribedBy, required, hasError }: MultiFieldBlockProps) {
   const config = step.config as MultiFieldConfig;
   const layout = config?.layout || "first_last";
   const fields = config?.fields ?? [];
 
   // Parse current value (nested object)
-  const currentValue: MultiFieldValue = value || {};
+  const currentValue: MultiFieldValue = value ?? {};
 
   // Update a single field
   const updateField = (fieldKey: string, newValue: string | number) => {
@@ -55,8 +56,7 @@ export function MultiFieldBlockRenderer({ step, value, onChange, readOnly }: Mul
   };
 
   // Render field based on type
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const renderField = (field: any) => {
+  const renderField = (field: MultiFieldConfig["fields"][number]) => {
     const fieldValue = currentValue[field.key] ?? "";
 
     let inputType = "text";
@@ -87,9 +87,12 @@ export function MultiFieldBlockRenderer({ step, value, onChange, readOnly }: Mul
             const newValue = field.type === "number" ? parseFloat(e.target.value) : e.target.value;
             updateField(field.key, newValue);
           }}
-          placeholder={field.placeholder || field.label}
+          placeholder={field.placeholder ?? field.label}
           disabled={readOnly}
-        />
+      aria-describedby={ariaDescribedBy}
+      aria-required={required ? "true" : undefined}
+      aria-invalid={hasError ? "true" : undefined}
+      />
       </div>
     );
   };

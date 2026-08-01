@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * Stage 21: DOCX Template Helpers
  *
@@ -11,7 +10,7 @@
  * - Conditional helpers
  */
 
-import { format as formatDateFns } from 'date-fns';
+import { format as formatDateFns, addDays as fnsAddDays, differenceInDays, parseISO, isValid } from 'date-fns';
 
 import { formatters } from '../utils/formatters';
 
@@ -66,7 +65,7 @@ export function last(arr: any[] | null | undefined): any {
 export function isEmpty(value: any): boolean {
   if (value === null || value === undefined || value === '') {return true;}
   if (Array.isArray(value)) {return value.length === 0;}
-  if (typeof value === 'object') {return Object.keys(value).length === 0;}
+  if (typeof value === 'object') {return Object.keys(value as object).length === 0;}
   return false;
 }
 
@@ -149,12 +148,66 @@ export function formatDate(
   if (!iso) {return '';}
 
   try {
-    const d = typeof iso === 'string' ? new Date(iso) : iso;
+    let d = typeof iso === 'string' ? parseISO(iso) : iso;
+    if (typeof iso === 'string' && !isValid(d)) {
+      d = new Date(iso);
+    }
     if (isNaN(d.getTime())) {return '';}
 
     return formatDateFns(d, translateDateFormat(format));
   } catch (error) {
     return '';
+  }
+}
+
+/**
+ * Add days to a date
+ */
+export function addDays(
+  iso: string | Date | null | undefined,
+  days: number = 0,
+  format: string = 'MM/DD/YYYY'
+): string {
+  if (iso == null || iso === '') { return ''; }
+
+  try {
+    let d = typeof iso === 'string' ? parseISO(iso) : iso;
+    if (typeof iso === 'string' && !isValid(d)) {
+      d = new Date(iso);
+    }
+    if (isNaN(d.getTime())) { return ''; }
+
+    const updated = fnsAddDays(d, days);
+    return formatDateFns(updated, translateDateFormat(format));
+  } catch (error) {
+    return '';
+  }
+}
+
+/**
+ * Calculate difference in days between two dates
+ */
+export function daysBetween(
+  date1: string | Date | null | undefined,
+  date2: string | Date | null | undefined
+): number {
+  if (date1 == null || date1 === '' || date2 == null || date2 === '') { return 0; }
+
+  try {
+    let d1 = typeof date1 === 'string' ? parseISO(date1) : date1;
+    if (typeof date1 === 'string' && !isValid(d1)) {
+      d1 = new Date(date1);
+    }
+    let d2 = typeof date2 === 'string' ? parseISO(date2) : date2;
+    if (typeof date2 === 'string' && !isValid(d2)) {
+      d2 = new Date(date2);
+    }
+    
+    if (isNaN(d1.getTime()) || isNaN(d2.getTime())) { return 0; }
+
+    return Math.abs(differenceInDays(d1, d2));
+  } catch (error) {
+    return 0;
   }
 }
 
@@ -231,6 +284,20 @@ export function divide(a: number, b: number): number {
   return (a || 0) / b;
 }
 
+export function round(a: number, decimals: number = 0): number {
+  if (a === null || a === undefined || isNaN(a)) { return 0; }
+  const factor = Math.pow(10, decimals);
+  return Math.round((a || 0) * factor) / factor;
+}
+
+export function percentage(value: number, total: number): string {
+  if (value === null || value === undefined || isNaN(value)) { return '0%'; }
+  if (!total || total === 0 || isNaN(total)) { return '0%'; }
+  
+  const pct = (value / total) * 100;
+  return `${Math.round(pct)}%`;
+}
+
 /**
  * Pluralize word based on count
  */
@@ -262,6 +329,13 @@ export function replace(
 ): string {
   if (!s) {return '';}
   return s.replace(new RegExp(search, 'g'), replacement);
+}
+
+/**
+ * Concatenate multiple strings
+ */
+export function concat(...args: unknown[]): string {
+  return args.filter(a => a !== null && a !== undefined).map(String).join('');
 }
 
 /**
@@ -369,6 +443,11 @@ export const docxHelpers = {
 
   // Utility helpers
   pluralize,
+  concat,
+  addDays,
+  daysBetween,
+  round,
+  percentage,
 };
 
 /**
@@ -378,15 +457,15 @@ export const docxHelpers = {
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function createAngularParser() {
   return {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- scope is dynamic template data structure
-    get(scope: any, context: string) {
+
+    get(scope: Record<string, unknown>, context: string): unknown {
       // Handle dot notation (e.g., "user.name")
       const keys = context.split('.');
-      let current = scope;
+      let current: unknown = scope;
 
       for (const key of keys) {
         if (current == null) {return '';}
-        current = current[key];
+        current = (current as Record<string, unknown>)[key];
       }
 
       return current;

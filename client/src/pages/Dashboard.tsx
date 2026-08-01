@@ -7,18 +7,18 @@ import {
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 
-// eslint-disable-next-line @typescript-eslint/naming-convention -- React component
+
 import AIHeroCard from "@/components/AIHeroCard";
-// eslint-disable-next-line @typescript-eslint/naming-convention -- React component
+
 import Header from "@/components/layout/Header";
-// eslint-disable-next-line @typescript-eslint/naming-convention -- React component
+
 import Sidebar from "@/components/layout/Sidebar";
 import { QuickActionButton } from "@/components/shared/QuickActionButton";
 import { SkeletonList } from "@/components/shared/SkeletonList";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// eslint-disable-next-line @typescript-eslint/naming-convention -- React component
+
 import StatsCard from "@/components/ui/stats-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
@@ -46,7 +46,7 @@ export default function Dashboard() {
   // Analytics tracking helper
   const track = (name: string, props?: Record<string, unknown>) => {
     try {
-      // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+
       fetch("/api/analytics/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

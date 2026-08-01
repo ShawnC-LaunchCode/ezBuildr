@@ -11,7 +11,15 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 
-import type { Condition, OperatorConfig, VariableInfo } from "@shared/types/conditions";
+import type { Condition, ComparisonOperator, OperatorConfig, VariableInfo } from "@shared/types/conditions";
+
+// Unit label for the numeric side of the date-diff operators (diff_days/weeks/months/years)
+const DATE_DIFF_UNIT_LABELS: Partial<Record<ComparisonOperator, string>> = {
+    diff_days: "Days",
+    diff_weeks: "Weeks",
+    diff_months: "Months",
+    diff_years: "Years",
+};
 
 interface ConditionValueInputProps {
     condition: Condition;
@@ -91,7 +99,7 @@ export function ConditionValueInput({
     }
 
     // 2. Constant Value Mode
-    const { valueType, needsTwoValues } = operatorConfig;
+    const { valueType, needsTwoValues, value2Type = operatorConfig.valueType } = operatorConfig;
 
     // Choices (Dropdown)
     if (valueType === "choices" && selectedVariable?.choices) {
@@ -142,6 +150,12 @@ export function ConditionValueInput({
 
     // Date Input
     if (valueType === "date") {
+        // Date-diff operators (diff_days/weeks/months/years) compare a date in
+        // `value` against a day/week/month/year count in `value2`, so the
+        // second field renders as a number input in that case instead of a
+        // second date picker (e.g. plain `between`).
+        const isValue2Number = value2Type === "number";
+        const unitLabel = DATE_DIFF_UNIT_LABELS[condition.operator] ?? "Number";
         return (
             <div className="flex items-center gap-2">
                 <Input
@@ -155,11 +169,12 @@ export function ConditionValueInput({
                     <>
                         <span className="text-muted-foreground text-sm">and</span>
                         <Input
-                            type="date"
+                            type={isValue2Number ? "number" : "date"}
                             value={getStringValue(condition.value2)}
                             onChange={(e) => handleValue2Change(e.target.value)}
-                            className="w-[140px] text-sm bg-background"
-                            aria-label="Second date value"
+                            className={isValue2Number ? "w-[100px] text-sm bg-background" : "w-[140px] text-sm bg-background"}
+                            placeholder={isValue2Number ? unitLabel : undefined}
+                            aria-label={isValue2Number ? `Number of ${unitLabel.toLowerCase()}` : "Second date value"}
                         />
                     </>
                 )}

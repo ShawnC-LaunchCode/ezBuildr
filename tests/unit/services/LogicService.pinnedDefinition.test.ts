@@ -1,0 +1,201 @@
+/**
+ * LogicService — pinned-definition regression tests (RVP-2).
+ *
+ * Before this ticket, `evaluateNavigation` and `validateCompletion` always
+ * re-read the LIVE `sections`/`steps`/`logic_rules` tables, even for a run
+ * pinned to a version (`workflowVersionId` set). That meant an author
+ * editing a published workflow retroactively changed what an in-flight
+ * respondent's run was validated against. The worst case: a required
+ * question added to the live workflow after a respondent started was never
+ * shown to them, but `validateCompletion` demanded it anyway and permanently
+ * blocked their submission with "Missing required steps: <title>" -- see
+ * tickets/RUN_VERSION_PINNING_TICKETS.md, "consequence 2".
+ *
+ * These tests exercise the real `RunDefinitionProvider` (RVP-1) wired into a
+ * real `LogicService` (not a mocked provider) so the assertions prove the
+ * pinned graph is actually consulted instead of the live tables, and that a
+ * versionless run still falls back to the live tables unchanged (AC3).
+ */
+import { describe, expect, it, vi } from 'vitest';
+
+import type { LogicRule, WorkflowRun } from '@shared/schema';
+
+import { LogicService } from '../../../server/services/LogicService';
+import { RunDefinitionProvider } from '../../../server/services/workflow-runs/RunDefinitionProvider';
+
+const RUN_ID = '11111111-1111-4111-8111-111111111111';
+const WORKFLOW_ID = '22222222-2222-4222-8222-222222222222';
+const VERSION_ID = '33333333-3333-4333-8333-333333333333';
+const PINNED_SECTION_ID = '44444444-4444-4444-8444-444444444444';
+const PINNED_STEP_ID = '55555555-5555-4555-8555-555555555555';
+// A step that exists only in the LIVE tables -- simulates an author adding a
+// required question to the workflow after the respondent's run started.
+const LIVE_ONLY_REQUIRED_STEP_ID = '66666666-6666-4666-8666-666666666666';
+const LIVE_ONLY_SECTION_ID = '77777777-7777-4777-8777-777777777777';
+
+function makePinnedRun(overrides: Partial<WorkflowRun> = {}): WorkflowRun {
+  return {
+    id: RUN_ID,
+    workflowId: WORKFLOW_ID,
+    workflowVersionId: VERSION_ID,
+    ...overrides,
+  } as WorkflowRun;
+}
+
+function makeVersionlessRun(overrides: Partial<WorkflowRun> = {}): WorkflowRun {
+  return {
+    id: RUN_ID,
+    workflowId: WORKFLOW_ID,
+    workflowVersionId: null,
+    ...overrides,
+  } as WorkflowRun;
+}
+
+/**
+ * Live tables include an EXTRA section + required step that is NOT part of
+ * the pinned version's graph -- this is the "author added a required
+ * question mid-run" scenario. If a pinned run's evaluateNavigation/
+ * validateCompletion ever fell back to reading these, the tests below would
+ * fail (the live-only step would leak into requiredSteps/missingSteps).
+ */
+function makeHarness() {
+  const versionRepo = {
+    findById: vi.fn().mockResolvedValue({
+      id: VERSION_ID,
+      workflowId: WORKFLOW_ID,
+      createdAt: new Date('2026-07-20T00:00:00.000Z'),
+      graphJson: {
+        title: 'Pinned interview',
+        sections: [{
+          id: PINNED_SECTION_ID,
+          title: 'Pinned section',
+          order: 0,
+          steps: [
+            { id: PINNED_STEP_ID, type: 'short_text', title: 'Pinned required step', order: 0, required: true },
+          ],
+        }],
+        logicRules: [] as unknown[],
+      },
+    }),
+  };
+  const sectionRepo = {
+    findByWorkflowId: vi.fn().mockResolvedValue([
+      { id: PINNED_SECTION_ID, workflowId: WORKFLOW_ID, title: 'Pinned section (edited live)', order: 0, createdAt: new Date() },
+      { id: LIVE_ONLY_SECTION_ID, workflowId: WORKFLOW_ID, title: 'New section added mid-run', order: 1, createdAt: new Date() },
+    ]),
+  };
+  const stepRepo = {
+    findBySectionIds: vi.fn().mockResolvedValue([
+      { id: PINNED_STEP_ID, workflowId: WORKFLOW_ID, sectionId: PINNED_SECTION_ID, type: 'short_text', title: 'Pinned required step', required: true, order: 0, isVirtual: false, createdAt: new Date(), updatedAt: new Date() },
+      { id: LIVE_ONLY_REQUIRED_STEP_ID, workflowId: WORKFLOW_ID, sectionId: LIVE_ONLY_SECTION_ID, type: 'short_text', title: 'New required step added mid-run', required: true, order: 0, isVirtual: false, createdAt: new Date(), updatedAt: new Date() },
+    ]),
+  };
+  const logicRuleRepo = {
+    findByWorkflowId: vi.fn().mockResolvedValue([] as LogicRule[]),
+  };
+  const runRepo = {
+    findById: vi.fn(),
+  };
+  const valueRepo = {
+    getRunDataAsJson: vi.fn().mockResolvedValue({ [PINNED_STEP_ID]: 'answered' }),
+  };
+
+  const definitionProvider = new RunDefinitionProvider(
+    versionRepo as never,
+    sectionRepo as never,
+    stepRepo as never,
+    logicRuleRepo as never,
+  );
+  const logicSvc = new LogicService(runRepo as never, definitionProvider, valueRepo as never);
+
+  return { logicSvc, runRepo, sectionRepo, stepRepo, logicRuleRepo, versionRepo, valueRepo };
+}
+
+describe('LogicService pinned-definition sourcing (RVP-2)', () => {
+  describe('a run pinned to a version (AC1)', () => {
+    it('evaluateNavigation resolves requiredSteps from the pinned graph, not the live tables', async () => {
+      const { logicSvc, runRepo, sectionRepo } = makeHarness();
+      runRepo.findById.mockResolvedValue(makePinnedRun());
+
+      const navigation = await logicSvc.evaluateNavigation(WORKFLOW_ID, RUN_ID, null);
+
+      expect(navigation.requiredSteps).toEqual([PINNED_STEP_ID]);
+      expect(navigation.requiredSteps).not.toContain(LIVE_ONLY_REQUIRED_STEP_ID);
+      expect(navigation.visibleSections).toEqual([PINNED_SECTION_ID]);
+      expect(navigation.visibleSections).not.toContain(LIVE_ONLY_SECTION_ID);
+      // The live tables must not even be touched for a pinned run.
+      expect(sectionRepo.findByWorkflowId).not.toHaveBeenCalled();
+    });
+
+    it('editing the live workflow does not change navigation for the pinned run', async () => {
+      const { logicSvc, runRepo, sectionRepo, stepRepo } = makeHarness();
+      runRepo.findById.mockResolvedValue(makePinnedRun());
+
+      const before = await logicSvc.evaluateNavigation(WORKFLOW_ID, RUN_ID, null);
+
+      // Simulate a further live edit landing between requests.
+      sectionRepo.findByWorkflowId.mockResolvedValue([
+        { id: 'brand-new-section', workflowId: WORKFLOW_ID, title: 'Another edit', order: 0, createdAt: new Date() },
+      ]);
+      stepRepo.findBySectionIds.mockResolvedValue([]);
+
+      const after = await logicSvc.evaluateNavigation(WORKFLOW_ID, RUN_ID, null);
+
+      expect(after).toEqual(before);
+    });
+  });
+
+  describe('a required step added live after the run started (AC2 -- the point of this ticket)', () => {
+    it('validateCompletion does not block completion on the live-only required step', async () => {
+      const { logicSvc, runRepo } = makeHarness();
+      runRepo.findById.mockResolvedValue(makePinnedRun());
+
+      const result = await logicSvc.validateCompletion(WORKFLOW_ID, RUN_ID, { [PINNED_STEP_ID]: 'answered' });
+
+      expect(result.valid).toBe(true);
+      expect(result.missingSteps).toEqual([]);
+      expect(result.missingStepTitles).toEqual([]);
+    });
+
+    it('does not report the live-only step as missing even when it is unanswered', async () => {
+      const { logicSvc, runRepo } = makeHarness();
+      runRepo.findById.mockResolvedValue(makePinnedRun());
+
+      // Respondent answered the pinned step but obviously never saw (and
+      // could not have answered) the step the author added afterward.
+      const result = await logicSvc.validateCompletion(WORKFLOW_ID, RUN_ID, { [PINNED_STEP_ID]: 'answered' });
+
+      expect(result.missingSteps).not.toContain(LIVE_ONLY_REQUIRED_STEP_ID);
+      expect(result.valid).toBe(true);
+    });
+  });
+
+  describe('a run with no workflowVersionId (AC3: behaves exactly as today)', () => {
+    it('evaluateNavigation falls back to the live tables', async () => {
+      const { logicSvc, runRepo, sectionRepo, stepRepo, logicRuleRepo } = makeHarness();
+      runRepo.findById.mockResolvedValue(makeVersionlessRun());
+
+      const navigation = await logicSvc.evaluateNavigation(WORKFLOW_ID, RUN_ID, null);
+
+      expect(sectionRepo.findByWorkflowId).toHaveBeenCalledWith(WORKFLOW_ID);
+      expect(stepRepo.findBySectionIds).toHaveBeenCalled();
+      expect(logicRuleRepo.findByWorkflowId).toHaveBeenCalledWith(WORKFLOW_ID);
+      // Both sections (including the "live-only" one) are visible because
+      // there is no pinned graph to restrict to -- this run always reads
+      // live, so there is no "live-only" concept for it.
+      expect(navigation.visibleSections).toEqual(
+        expect.arrayContaining([PINNED_SECTION_ID, LIVE_ONLY_SECTION_ID])
+      );
+    });
+
+    it('validateCompletion still blocks on a required live step with no value (unchanged today-behavior)', async () => {
+      const { logicSvc, runRepo } = makeHarness();
+      runRepo.findById.mockResolvedValue(makeVersionlessRun());
+
+      const result = await logicSvc.validateCompletion(WORKFLOW_ID, RUN_ID, { [PINNED_STEP_ID]: 'answered' });
+
+      expect(result.valid).toBe(false);
+      expect(result.missingSteps).toContain(LIVE_ONLY_REQUIRED_STEP_ID);
+    });
+  });
+});

@@ -12,7 +12,7 @@ export function requireWorkspace(req: Request, res: Response, next: NextFunction
         return res.status(400).json({ error: "Context Error: Missing Workspace ID" });
     }
 
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     (req as Record<string, unknown>).workspaceId = workspaceId;
     next();
 }
@@ -23,7 +23,7 @@ export function enforce(action: string, getResourceId?: (req: Request) => string
             return res.status(401).json({ error: "Unauthorized" });
         }
 
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - TODO: fix type
         const workspaceId = (req as Record<string, unknown>).workspaceId;
         if (!workspaceId) {
             return res.status(400).json({ error: "Context Error: Missing Workspace ID" });

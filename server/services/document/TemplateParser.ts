@@ -12,6 +12,7 @@ export interface TemplateParserOptions {
     templatePath: string;
     templateBuffer?: Buffer;
     data: Record<string, unknown>;
+    unresolvedVariables?: string[];
 }
 
 export class TemplateParser {

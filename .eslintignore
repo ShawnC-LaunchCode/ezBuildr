@@ -61,6 +61,18 @@ seed_tenant.ts
 
 # Temp/utility scripts at root
 *.cjs
+add_admin.ts
+add_is_active_column.ts
+check-db.js
+check.ts
+check_now.ts
+check_token.ts
+check_user.ts
+delete_user.ts
+force_emails.ts
+scratch.ts
+test_upsert.ts
+vitest.quarantine.tmp.ts
 
 # JS scripts not in tsconfig
 scripts/*.js

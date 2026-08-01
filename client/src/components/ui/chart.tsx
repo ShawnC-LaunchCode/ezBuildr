@@ -317,7 +317,7 @@ const ChartLegendContent = React.forwardRef<
       >
         {payload?.map((item) => {
           const key = String(nameKey ?? item.dataKey ?? "value")
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
           const itemConfig = getPayloadConfigFromPayload(config, item, key)
 
           return (

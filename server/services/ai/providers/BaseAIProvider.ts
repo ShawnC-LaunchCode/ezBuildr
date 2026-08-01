@@ -3,7 +3,7 @@ import { AIError } from '../AIError';
 import { ModelRegistry } from '../ModelRegistry';
 
 import type { TaskType } from '../types';
-import type { IAIProvider, AIProviderConfig } from './types';
+import type { IAIProvider, AIProviderConfig, AIProviderResponse } from './types';
 
 const logger = createLogger({ module: 'ai-provider' });
 
@@ -26,7 +26,7 @@ export abstract class BaseAIProvider implements IAIProvider {
         prompt: string,
         taskType: TaskType,
         systemMessage?: string
-    ): Promise<string>;
+    ): Promise<AIProviderResponse>;
 
     /**
      * Estimate token count from text (rough approximation: 1 token ≈ 4 characters)
@@ -111,7 +111,7 @@ export abstract class BaseAIProvider implements IAIProvider {
     /**
      * Helper to create typed AI errors
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     protected createError(message: string, code: string, details?: unknown): AIError {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
         return new AIError(message, code as any, details);
@@ -126,8 +126,8 @@ export abstract class BaseAIProvider implements IAIProvider {
         // Check 1: Response should end with closing brace or bracket
         const endsCorrectly = trimmed.endsWith('}') || trimmed.endsWith(']');
         if (!endsCorrectly) {
+            // Log length only — never response content, which can echo tenant data (SEC-039).
             logger.warn({
-                lastChar: trimmed.charAt(trimmed.length - 1),
                 responseLength: trimmed.length,
             }, 'Response does not end with closing brace/bracket');
             return true;

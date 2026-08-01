@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * HeatmapService.ts
  * Provides block-level metrics for heatmap visualization.
@@ -31,7 +30,9 @@ class HeatmapService {
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return metrics.map((m: any) => {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
             const visits = m.totalVisits || 0;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
             const errors = m.validationErrorCount || 0;
             const errorRate = visits > 0 ? (errors / visits) * 100 : 0;
 
@@ -41,9 +42,12 @@ class HeatmapService {
             if (score > 100) {score = 100;}
 
             return {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
                 blockId: m.blockId,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
                 avgTimeMs: m.avgTimeMs || 0,
                 errorRate,
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Analytics query rows are dynamically typed.
                 visits,
                 score
             };

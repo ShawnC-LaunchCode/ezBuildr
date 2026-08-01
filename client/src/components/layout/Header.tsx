@@ -26,8 +26,10 @@ const navigation = [
 
 const adminNavigation = [
   { name: "Admin Dashboard", href: "/admin", icon: "fas fa-shield-alt" },
+  { name: "Org Stats", href: "/admin/org-stats", icon: "fas fa-chart-bar" },
   { name: "Manage Users", href: "/admin/users", icon: "fas fa-users-cog" },
   { name: "Activity Logs", href: "/admin/logs", icon: "fas fa-clipboard-list" },
+  { name: "AI Settings", href: "/admin/ai-settings", icon: "fas fa-robot" },
 ];
 
 export default function Header({ title, description, actions }: HeaderProps) {

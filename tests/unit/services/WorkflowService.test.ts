@@ -29,8 +29,19 @@ vi.mock("../../../server/db", () => ({
         findMany: vi.fn().mockResolvedValue([]),
       },
     },
+    // syncWithGraph's soft-delete cascade (ICW2-B11) runs inside
+    // db.transaction; the fake just invokes the callback with a stub tx.
+    transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({})),
   },
   initializeDatabase: vi.fn(),
+}));
+
+vi.mock("../../../server/services/VersionService", () => ({
+  versionService: {
+    publishVersion: vi.fn().mockResolvedValue({ id: "version-1" }),
+    createDraftVersion: vi.fn().mockResolvedValue({ id: "version-1" }),
+    serializeWorkflow: vi.fn().mockResolvedValue({}),
+  },
 }));
 
 vi.mock("../../../server/services/AclService", () => ({
@@ -78,6 +89,7 @@ describe("WorkflowService", () => {
             findMany: vi.fn().mockResolvedValue([]),
           },
         },
+        transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({})),
       },
     }));
 
@@ -106,11 +118,13 @@ describe("WorkflowService", () => {
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+      softDelete: vi.fn(),
       findById: vi.fn(),
     } as unknown as Mocked<SectionRepository>;
 
     mockStepRepo = {
       findBySectionIds: vi.fn(),
+      softDeleteBySectionId: vi.fn(),
     } as unknown as Mocked<StepRepository>;
 
     mockLogicRuleRepo = {
@@ -304,6 +318,101 @@ describe("WorkflowService", () => {
       );
     });
   });
+  describe("moveToProject", () => {
+    it("should reset ownership to the project's owner and update workflow runs in the same transaction", async () => {
+      const workflow = createTestWorkflow({
+        creatorId: "user-123",
+        projectId: null,
+        ownerType: "user",
+        ownerUuid: "user-123",
+      });
+      mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
+      mockProjectRepo.findById.mockResolvedValue({
+        id: "project-123",
+        ownerType: "org",
+        ownerUuid: "org-456",
+      } as unknown as Project);
+
+      const whereMock = vi.fn().mockResolvedValue(undefined);
+      const setMock = vi.fn().mockReturnValue({ where: whereMock });
+      const updateMock = vi.fn().mockReturnValue({ set: setMock });
+      const mockTx = { update: updateMock } as unknown as DbTransaction;
+      mockWorkflowRepo.transaction.mockImplementationOnce(
+        async (callback: (tx: DbTransaction) => Promise<unknown>) => callback(mockTx)
+      );
+
+      const updatedWorkflow = {
+        ...workflow,
+        projectId: "project-123",
+        ownerType: "org" as const,
+        ownerUuid: "org-456",
+      };
+      mockWorkflowRepo.update.mockResolvedValue(updatedWorkflow);
+
+      const result = await service.moveToProject(workflow.id, "user-123", "project-123");
+
+      expect(result).toEqual(updatedWorkflow);
+      expect(mockWorkflowRepo.update).toHaveBeenCalledWith(
+        workflow.id,
+        { projectId: "project-123", ownerType: "org", ownerUuid: "org-456" },
+        mockTx
+      );
+      expect(updateMock).toHaveBeenCalledTimes(1);
+      expect(setMock).toHaveBeenCalledWith({ ownerType: "org", ownerUuid: "org-456" });
+      expect(whereMock).toHaveBeenCalledTimes(1);
+    });
+
+    // ICW2-17 AC2: moving to unfiled resets ownership to the personal/user model
+    // (mirroring createWorkflow's no-projectId branch) and propagates it to
+    // workflowRuns, in the same transaction as the workflow update.
+    it("should reset ownership to the personal/user model and update workflow runs when moving to unfiled", async () => {
+      const workflow = createTestWorkflow({
+        creatorId: "user-123",
+        projectId: "project-123",
+        ownerType: "org",
+        ownerUuid: "org-456",
+      });
+      mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
+
+      const whereMock = vi.fn().mockResolvedValue(undefined);
+      const setMock = vi.fn().mockReturnValue({ where: whereMock });
+      const updateMock = vi.fn().mockReturnValue({ set: setMock });
+      const mockTx = { update: updateMock } as unknown as DbTransaction;
+      mockWorkflowRepo.transaction.mockImplementationOnce(
+        async (callback: (tx: DbTransaction) => Promise<unknown>) => callback(mockTx)
+      );
+
+      const updatedWorkflow = {
+        ...workflow,
+        projectId: null,
+        ownerType: "user" as const,
+        ownerUuid: "user-123",
+      };
+      mockWorkflowRepo.update.mockResolvedValue(updatedWorkflow);
+
+      const result = await service.moveToProject(workflow.id, "user-123", null);
+
+      expect(result).toEqual(updatedWorkflow);
+      // Unfiled means no target project to resolve access/ownership from.
+      expect(mockProjectRepo.findById).not.toHaveBeenCalled();
+      expect(mockWorkflowRepo.update).toHaveBeenCalledWith(
+        workflow.id,
+        { projectId: null, ownerType: "user", ownerUuid: "user-123" },
+        mockTx
+      );
+      expect(setMock).toHaveBeenCalledWith({ ownerType: "user", ownerUuid: "user-123" });
+      expect(whereMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("should throw error if user does not have owner access", async () => {
+      const workflow = createTestWorkflow({ creatorId: "user-123" });
+      mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
+      vi.mocked(aclService.hasWorkflowRole).mockResolvedValue(false);
+      await expect(
+        service.moveToProject(workflow.id, "other-user", null)
+      ).rejects.toThrow("Access denied");
+    });
+  });
   describe("changeStatus", () => {
     it("should change workflow status to active", async () => {
       const workflow = createTestWorkflow({ creatorId: "user-123", status: "draft" });
@@ -313,7 +422,10 @@ describe("WorkflowService", () => {
       mockWorkflowRepo.update.mockResolvedValue(updatedWorkflow);
       const result = await service.changeStatus(workflow.id, "user-123", "active");
       expect(result.status).toBe("active");
-      expect(mockWorkflowRepo.update).toHaveBeenCalledWith(workflow.id, { status: "active" });
+      expect(mockWorkflowRepo.update).toHaveBeenCalledWith(workflow.id, {
+        status: "active",
+        currentVersionId: "version-1"
+      });
     });
     it("should change workflow status to archived", async () => {
       const workflow = createTestWorkflow({ creatorId: "user-123", status: "active" });
@@ -331,6 +443,42 @@ describe("WorkflowService", () => {
       await expect(service.changeStatus(workflow.id, "other-user", "active")).rejects.toThrow(
         "Access denied"
       );
+    });
+  });
+  describe("syncWithGraph (ICW2-B11 soft-delete)", () => {
+    // Untyped/exported by WorkflowService.ts — mirror its shape here rather
+    // than reaching into module internals.
+    type SyncGraphJson = Parameters<WorkflowService["syncWithGraph"]>[1];
+
+    it("soft-deletes the removed final section AND cascades to its steps instead of hard-deleting either", async () => {
+      const finalSection = createTestSection("wf-1", {
+        id: "final-section-1",
+        config: { finalBlock: true },
+      });
+      mockSectionRepo.findByWorkflowId.mockResolvedValue([finalSection]);
+
+      // No 'final' node in the graph anymore — the section should be removed.
+      const graphJson: SyncGraphJson = { nodes: [{ type: "question" }] };
+
+      await service.syncWithGraph("wf-1", graphJson, "user-1");
+
+      expect(mockStepRepo.softDeleteBySectionId).toHaveBeenCalledWith(
+        "final-section-1",
+        expect.anything()
+      );
+      expect(mockSectionRepo.softDelete).toHaveBeenCalledWith("final-section-1", expect.anything());
+      expect(mockSectionRepo.delete).not.toHaveBeenCalled();
+    });
+
+    it("does nothing when there is no existing final section to remove", async () => {
+      mockSectionRepo.findByWorkflowId.mockResolvedValue([]);
+
+      const graphJson: SyncGraphJson = { nodes: [{ type: "question" }] };
+
+      await service.syncWithGraph("wf-1", graphJson, "user-1");
+
+      expect(mockSectionRepo.softDelete).not.toHaveBeenCalled();
+      expect(mockStepRepo.softDeleteBySectionId).not.toHaveBeenCalled();
     });
   });
 });

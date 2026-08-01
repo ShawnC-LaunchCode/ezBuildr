@@ -99,14 +99,14 @@ export function registerDashboardRoutes(app: Express): void {
 
       // Filter by status if provided
       let filteredWorkflows = workflows;
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+
       if (status && ['draft', 'active', 'archived'].includes(status)) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
         filteredWorkflows = workflows.filter((w: any) => w.status === status);
       }
 
       // Sort by most recently updated
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sortedWorkflows = filteredWorkflows.sort((a: any, b: any) => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
         const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
@@ -159,7 +159,7 @@ export function registerDashboardRoutes(app: Express): void {
       const runs = await workflowRunRepository.findByWorkflowIds(workflowIds);
 
       // Sort by most recent first
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sortedRuns = runs.sort((a: any, b: any) => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
         const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -172,9 +172,9 @@ export function registerDashboardRoutes(app: Express): void {
       const limitedRuns = sortedRuns.slice(0, limit);
 
       // Enrich runs with workflow titles
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
       const workflowMap = new Map(workflows.map((w: any) => [w.id, w]));
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
       const enrichedRuns = limitedRuns.map((run: any) => ({
         ...run,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment

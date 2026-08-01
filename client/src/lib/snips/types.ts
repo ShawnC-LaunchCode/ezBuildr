@@ -44,7 +44,9 @@ export interface SnipQuestion {
     alias: string;           // Dot notation: "respondent.name.first"
     description?: string;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    options?: any;
+    config?: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    options?: any;           // Legacy snips: promoted to config.options at import.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     defaultValue?: any;
     visibleIf?: ConditionExpression;

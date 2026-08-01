@@ -1,14 +1,15 @@
 import { randomUUID } from "crypto";
 
-import type { WorkflowRun, InsertWorkflowRun, InsertStepValue, StepValue } from "@shared/schema";
+import type { WorkflowRun, InsertWorkflowRun, InsertStepValue, StepValue, RunGeneratedDocument } from "@shared/schema";
 
 import { RUN_TOKEN_CONFIG } from "../config/auth";
 import { logger } from "../logger";
 import { hashToken } from "../utils/encryption";
 import { createError } from "../utils/errors";
+import { filterPrefillValues } from "../utils/prefillFilter";
 
 function validateJsonbSize(value: unknown, fieldName: string): void {
-  if (value === undefined || value === null) return;
+  if (value === undefined || value === null) {return;}
   const size = Buffer.byteLength(JSON.stringify(value), 'utf8');
   if (size > 1024 * 1024) { // 1MB
     throw createError.validation(`Payload exceeds 1MB limit for ${fieldName}`);
@@ -25,6 +26,8 @@ import {
   runGeneratedDocumentsRepository,
 } from "../repositories";
 
+import { IntakeConfigSchema } from "../../shared/zod-schemas.js";
+
 import { logicService, type NavigationResult } from "./LogicService";
 import { RunAuthResolver } from "./runs/RunAuthResolver";
 import { RunExecutionCoordinator } from "./runs/RunExecutionCoordinator";
@@ -34,12 +37,15 @@ import { RunLifecycleService } from "./workflow-runs/RunLifecycleService";
 import { RunMetricsService } from "./workflow-runs/RunMetricsService";
 import { RunShareService } from "./workflow-runs/RunShareService";
 import { RunStateService } from "./workflow-runs/RunStateService";
+import { versionService } from "./VersionService";
 import { workflowService } from "./WorkflowService";
 
-import type { CreateRunOptions } from "./workflow-runs/types";
+import type { IntakeConfig } from "../../shared/types/intake.js";
+import type { CreateRunOptions, DocumentGenerationResult } from "./workflow-runs/types";
+import type { GenerateDocumentsOptions } from "./workflow-runs/RunLifecycleService";
 
 const ERR_RUN_NOT_FOUND = "Run not found";
-const ERR_RUN_ALREADY_COMPLETED = "Run is already completed";
+const FIELD_STEP_VALUE = 'step value';
 /**
  * Service layer for workflow run-related business logic
  * Facade pattern: delegates to specialized services for cleaner architecture
@@ -55,6 +61,7 @@ export class RunService {
   private docsRepo: typeof runGeneratedDocumentsRepository;
   private workflowSvc: typeof workflowService;
   private logicSvc: typeof logicService;
+  private versionSvc: typeof versionService;
   private authResolver: RunAuthResolver;
   private executionCoordinator: RunExecutionCoordinator;
   private persistenceWriter: RunPersistenceWriter;
@@ -64,7 +71,7 @@ export class RunService {
   private metricsService: RunMetricsService;
   private shareService: RunShareService;
   private completionService: RunCompletionService;
-  // eslint-disable-next-line max-params, complexity, sonarjs/cognitive-complexity
+  // eslint-disable-next-line max-params
   constructor(
     runRepo?: typeof workflowRunRepository,
     valueRepo?: typeof stepValueRepository,
@@ -84,6 +91,7 @@ export class RunService {
     metricsService?: RunMetricsService,
     shareService?: RunShareService,
     completionService?: RunCompletionService,
+    versionSvc?: typeof versionService,
   ) {
     this.runRepo = runRepo ?? workflowRunRepository;
     this.valueRepo = valueRepo ?? stepValueRepository;
@@ -95,6 +103,7 @@ export class RunService {
     this.docsRepo = docsRepo ?? runGeneratedDocumentsRepository;
     this.workflowSvc = workflowSvc ?? workflowService;
     this.logicSvc = logicSvc ?? logicService;
+    this.versionSvc = versionSvc ?? versionService;
     this.authResolver = authResolver ?? new RunAuthResolver(
       this.runRepo,
       this.workflowRepo,
@@ -103,16 +112,13 @@ export class RunService {
     );
     this.persistenceWriter = persistenceWriter ?? new RunPersistenceWriter(
       this.runRepo,
-      this.valueRepo,
-      this.stepRepo,
-      this.sectionRepo
+      this.valueRepo
     );
     this.executionCoordinator = executionCoordinator ?? new RunExecutionCoordinator(
       this.persistenceWriter,
       this.logicSvc,
-      this.stepRepo,
-      this.sectionRepo,
-      this.workflowRepo
+      this.workflowRepo,
+      this.runRepo
     );
     this.lifecycleService = lifecycleService ?? new RunLifecycleService(
       this.valueRepo,
@@ -161,9 +167,17 @@ export class RunService {
     const workflow = await this.authResolver.verifyCreateAccess(idOrSlug, userId);
     const workflowId = workflow.id;
     // Resolve the version to use for this run
-    const targetVersionId = workflow.pinnedVersionId ?? workflow.currentVersionId;
+    let targetVersionId = workflow.pinnedVersionId ?? workflow.currentVersionId;
     if (!targetVersionId) {
-      logger.warn({ workflowId }, "No current or pinned version found for workflow, run might be unstable");
+      if (!userId) {
+        throw new Error('Workflow has no published version for anonymous runs');
+      }
+      // RVP-6 (Option B): an authenticated creator's run must not stay
+      // versionless, so pin it to a draft version created on the spot.
+      // createDraftVersion returns null when the serialized checksum already
+      // matches the latest version -- that means "nothing changed, no new row
+      // written", not a failure, so fall back to the latest existing version.
+      targetVersionId = await this.pinDraftVersionForRun(workflowId, userId);
     }
     // Generate a unique token for this run. The plaintext is returned to the
     // caller; only its hash is persisted.
@@ -172,7 +186,13 @@ export class RunService {
     const tokenExpiresAt = new Date(Date.now() + RUN_TOKEN_CONFIG.EXPIRY_MS);
     // Load snapshot values if snapshotId provided
     let snapshotValueMap: Record<string, { value: unknown; stepId: string; stepUpdatedAt: string }> | undefined;
-    let mergedInitialValues = { ...initialValues };
+    // RUN2-6: caller-supplied initialValues (from the request body, which the
+    // client populates from URL query params) are only ever applied if the
+    // workflow's intake allowlist admits them. Snapshot- and
+    // randomize-derived values below are server-derived, not
+    // caller-supplied, and are merged in unfiltered afterwards.
+    const intakeConfig = this.resolveIntakeConfig(workflow.intakeConfig);
+    let mergedInitialValues = { ...filterPrefillValues(intakeConfig, initialValues) };
     if (data.metadata) {
       validateJsonbSize(data.metadata, 'metadata');
     }
@@ -204,9 +224,19 @@ export class RunService {
       initialValues: mergedInitialValues
     });
     // Determine start section with auto-advance logic
+    let startSectionId: string | null = run.currentSectionId;
     if ((options?.snapshotId !== null && options?.snapshotId !== undefined) || options?.randomize === true) {
-      const startSectionId = await this.lifecycleService.determineStartSection(run.id, workflowId, snapshotValueMap);
+      startSectionId = await this.lifecycleService.determineStartSection(run.id, workflowId, snapshotValueMap);
       await this.stateService.updateProgress(run.id, startSectionId);
+    } else {
+      // ICW2-B9: initialize currentSectionId to the first visible section so the
+      // first POST /next advances from it instead of re-resolving to where the
+      // user already is (calculateNextSection treats a null current section as
+      // "return the first visible section").
+      startSectionId = await this.resolveInitialSectionId(run.id, workflowId);
+      if (startSectionId) {
+        await this.stateService.updateProgress(run.id, startSectionId);
+      }
     }
     // Capture metrics
     await this.metricsService.captureRunStarted(
@@ -219,7 +249,9 @@ export class RunService {
     // Execute onRunStart blocks
     await this.lifecycleService.executeOnRunStart(run.id, workflowId, targetVersionId ?? undefined);
     // Return the plaintext token to the caller; the DB only holds its hash.
-    return { ...run, runToken };
+    // currentSectionId reflects the resolved starting section (see above), not
+    // the pre-update in-memory value from the initial insert.
+    return { ...run, runToken, currentSectionId: startSectionId };
   }
   /**
    * Get run by ID
@@ -247,6 +279,15 @@ export class RunService {
     const { run, access } = await this.authResolver.resolveRun(runId, userId);
     if (!run || access === 'none') { throw new Error(ERR_RUN_NOT_FOUND); }
     await this.runRepo.revokeToken(runId);
+  }
+  /**
+   * Get run by ID without ownership check
+   * Used for run token authentication (the token itself proves access to this run)
+   */
+  async getRunNoAuth(runId: string): Promise<WorkflowRun> {
+    const run = await this.runRepo.findById(runId);
+    if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
+    return run;
   }
   /**
    * Get run with all values
@@ -285,8 +326,8 @@ export class RunService {
     const { run, access } = await this.authResolver.resolveRun(runId, userId);
     if (!run || access === 'none') { throw new Error(ERR_RUN_NOT_FOUND); }
     // Check if run is completed? 
-    if (run.completed) { throw new Error(ERR_RUN_ALREADY_COMPLETED); }
-    validateJsonbSize(data.value, 'step value');
+    if (run.completed) { throw createError.runCompleted(); }
+    validateJsonbSize(data.value, FIELD_STEP_VALUE);
     await this.persistenceWriter.saveStepValue(runId, data.stepId, data.value, run.workflowId);
   }
   /**
@@ -301,17 +342,8 @@ export class RunService {
     if (!run) {
       throw new Error(ERR_RUN_NOT_FOUND);
     }
-    // Verify step belongs to the workflow
-    const step = await this.stepRepo.findById(data.stepId);
-    if (!step) {
-      throw new Error("Step not found");
-    }
-    const section = await this.sectionRepo.findById(step.sectionId);
-    if (!section || section.workflowId !== run.workflowId) {
-      throw new Error("Step does not belong to this workflow");
-    }
-    validateJsonbSize(data.value, 'step value');
-    await this.valueRepo.upsert(data);
+    validateJsonbSize(data.value, FIELD_STEP_VALUE);
+    await this.persistenceWriter.saveStepValue(runId, data.stepId, data.value, run.workflowId);
   }
   /**
    * Bulk upsert step values
@@ -326,8 +358,8 @@ export class RunService {
   ): Promise<void> {
     const { run, access } = await this.authResolver.resolveRun(runId, userId);
     if (!run || access === 'none') { throw new Error(ERR_RUN_NOT_FOUND); }
-    values.forEach(v => validateJsonbSize(v.value, 'step value'));
-    await this.persistenceWriter.bulkSaveValues(runId, values, run.workflowId);
+    values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
+    await this.persistenceWriter.bulkSaveDraftValues(runId, values, run.workflowId);
   }
   /**
    * Bulk upsert step values without userId check (for run token auth)
@@ -338,8 +370,8 @@ export class RunService {
   ): Promise<void> {
     const run = await this.runRepo.findById(runId);
     if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
-    values.forEach(v => validateJsonbSize(v.value, 'step value'));
-    await this.persistenceWriter.bulkSaveValues(runId, values, run.workflowId);
+    values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
+    await this.persistenceWriter.bulkSaveDraftValues(runId, values, run.workflowId);
   }
   /**
    * Execute JS questions for a section
@@ -364,8 +396,8 @@ export class RunService {
     if (!run || access === 'none') {
       throw new Error(ERR_RUN_NOT_FOUND);
     }
-    if (run.completed) { throw new Error(ERR_RUN_ALREADY_COMPLETED); }
-    values.forEach(v => validateJsonbSize(v.value, 'step value'));
+    if (run.completed) { throw createError.runCompleted(); }
+    values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
     return this.executionCoordinator.submitSection(
       { runId, workflowId: run.workflowId, userId, mode: 'live' },
       sectionId,
@@ -383,13 +415,53 @@ export class RunService {
   ): Promise<{ success: boolean; errors?: string[] }> {
     const run = await this.runRepo.findById(runId);
     if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
-    if (run.completed) { throw new Error(ERR_RUN_ALREADY_COMPLETED); }
-    values.forEach(v => validateJsonbSize(v.value, 'step value'));
+    if (run.completed) { throw createError.runCompleted(); }
+    values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
     return this.executionCoordinator.submitSection(
       { runId, workflowId: run.workflowId, mode: 'live' }, // No userId
       sectionId,
       values
     );
+  }
+  /**
+   * Resolve the section a fresh run should start at: the first visible
+   * section by order (same rule `calculateNextSection` applies for a null
+   * current section). Used to initialize `run.currentSectionId` at creation
+   * time so the first `next()` call advances from a real position instead of
+   * re-resolving to where the user already is (ICW2-B9). Returns null only
+   * when the workflow has no visible sections at all.
+   */
+  private async resolveInitialSectionId(runId: string, workflowId: string): Promise<string | null> {
+    const navigation = await this.logicSvc.evaluateNavigation(workflowId, runId, null);
+    return navigation.nextSectionId;
+  }
+  /**
+   * RVP-6 (Option B): resolve the version an authenticated creator's run
+   * should pin to when the workflow has neither a published nor a pinned
+   * version. Creates a draft version from the live workflow; if
+   * `createDraftVersion` returns null (the serialized checksum already
+   * matches the latest version -- nothing changed, no new row written), reuse
+   * that latest existing version instead of treating the null as a failure.
+   * Only called for authenticated creators -- the anonymous guard in
+   * `createRun` throws before this is ever reached for anonymous callers.
+   */
+  private async pinDraftVersionForRun(workflowId: string, userId: string): Promise<string | null> {
+    const draftVersion = await this.versionSvc.createDraftVersion(workflowId, userId);
+    if (draftVersion) {
+      return draftVersion.id;
+    }
+    const latestVersion = await this.versionSvc.getLatestVersion(workflowId);
+    return latestVersion?.id ?? null;
+  }
+  /**
+   * Parse a workflow's raw `intakeConfig` jsonb column into a typed
+   * IntakeConfig, defaulting to `{}` (no prefill allowed) when absent or
+   * malformed. Shared by createRun/createAnonymousRun so RUN2-6's prefill
+   * allowlist filter (`filterPrefillValues`) has a config to check.
+   */
+  private resolveIntakeConfig(rawIntakeConfig: unknown): IntakeConfig {
+    const parsed = IntakeConfigSchema.safeParse(rawIntakeConfig);
+    return parsed.success ? parsed.data : {};
   }
   /**
    * Calculate next section and update run state
@@ -404,7 +476,7 @@ export class RunService {
     if (!run || access === 'none') {
       throw new Error(ERR_RUN_NOT_FOUND);
     }
-    if (run.completed) { throw new Error(ERR_RUN_ALREADY_COMPLETED); }
+    if (run.completed) { throw createError.runCompleted(); }
     return this.executionCoordinator.next(
       { runId, workflowId: run.workflowId, userId, mode: 'live' },
       run.currentSectionId
@@ -417,7 +489,7 @@ export class RunService {
   async nextNoAuth(runId: string): Promise<NavigationResult> {
     const run = await this.runRepo.findById(runId);
     if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
-    if (run.completed) { throw new Error(ERR_RUN_ALREADY_COMPLETED); }
+    if (run.completed) { throw createError.runCompleted(); }
     return this.executionCoordinator.next(
       { runId, workflowId: run.workflowId, mode: 'live' },
       run.currentSectionId
@@ -457,6 +529,10 @@ export class RunService {
     if (!workflow.isPublic) {
       throw new Error('Workflow is not public');
     }
+    const targetVersionId = workflow.pinnedVersionId ?? workflow.currentVersionId;
+    if (!targetVersionId) {
+      throw new Error('Workflow has no published version for anonymous runs');
+    }
     // Generate a unique token for this run. The plaintext is returned to the
     // caller; only its hash is persisted.
     const runToken = randomUUID();
@@ -465,28 +541,38 @@ export class RunService {
     // Create the run with anonymous creator
     const run = await this.runRepo.create({
       workflowId: workflow.id,
-      workflowVersionId: undefined,
+      workflowVersionId: targetVersionId,
       runToken: runTokenHash,
       tokenExpiresAt,
       createdBy: 'anon',
       completed: false,
     });
-    // Populate initial values
+    // Populate initial values. RUN2-6: filter caller-supplied initialValues
+    // against the workflow's intake allowlist before they are applied.
+    const anonIntakeConfig = this.resolveIntakeConfig(workflow.intakeConfig);
     await this.lifecycleService.populateInitialValues(run.id, workflow.id, {
-      initialValues
+      initialValues: filterPrefillValues(anonIntakeConfig, initialValues)
     });
+    // ICW2-B9: initialize currentSectionId to the first visible section (see
+    // createRun for the full rationale).
+    const initialSectionId = await this.resolveInitialSectionId(run.id, workflow.id);
+    if (initialSectionId) {
+      await this.stateService.updateProgress(run.id, initialSectionId);
+    }
     // Capture metrics
     await this.metricsService.captureRunStarted(
       workflow.id,
       run.id,
       undefined,
-      'draft',
+      targetVersionId,
       { accessMode: 'anonymous' }
     );
     // Execute onRunStart blocks
-    await this.lifecycleService.executeOnRunStart(run.id, workflow.id, 'draft');
+    await this.lifecycleService.executeOnRunStart(run.id, workflow.id, targetVersionId);
     // Return the plaintext token to the caller; the DB only holds its hash.
-    return { ...run, runToken };
+    // currentSectionId reflects the resolved starting section (see above), not
+    // the pre-update in-memory value from the initial insert.
+    return { ...run, runToken, currentSectionId: initialSectionId };
   }
   /**
    * List runs for a workflow
@@ -499,7 +585,10 @@ export class RunService {
    * Get generated documents for a run
    * Returns all documents generated during workflow completion
    */
-  async getGeneratedDocuments(runId: string): Promise<unknown> {
+  async getGeneratedDocuments(runId: string): Promise<{
+    documents: RunGeneratedDocument[];
+    generationStatus: WorkflowRun["generationStatus"];
+  }> {
     return this.stateService.getGeneratedDocuments(runId);
   }
   /**
@@ -514,7 +603,7 @@ export class RunService {
    * Idempotent - checks if documents already exist before generating
    * Used for Final Documents sections
    */
-  async generateDocuments(runId: string): Promise<void> {
+  async generateDocuments(runId: string, options: GenerateDocumentsOptions = {}): Promise<DocumentGenerationResult> {
     const run = await this.runRepo.findById(runId);
     if (!run) {
       throw new Error(ERR_RUN_NOT_FOUND);
@@ -523,13 +612,14 @@ export class RunService {
     const existingDocuments = await this.docsRepo.findByRunId(runId);
     if (existingDocuments.length > 0) {
       logger.info({ runId, documentCount: existingDocuments.length }, 'Documents already exist, skipping generation');
-      return;
+      return { success: true, documentsGenerated: 0, documents: [] };
     }
     // Generate documents
-    const result = await this.lifecycleService.generateDocuments(runId);
+    const result = await this.lifecycleService.generateDocuments(runId, options);
     if (!result.success) {
       throw new Error(`Document generation failed: ${result.errors?.join(', ')}`);
     }
+    return result;
   }
   /**
    * Determine the appropriate start section for a run

@@ -48,7 +48,7 @@ export class IntakeQuestionVisibilityService {
    * @param recordData - Optional collection record data for prefill
    * @returns Visibility result with visible/hidden question lists
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity -- multi-step visibility evaluation with caching, condition parsing, and variable resolution
+  // eslint-disable-next-line sonarjs/cognitive-complexity -- multi-step visibility evaluation with caching, condition parsing, and variable resolution
   async evaluatePageQuestions(
     sectionId: string,
     runId: string,
@@ -72,24 +72,40 @@ export class IntakeQuestionVisibilityService {
       .sort((a, b) => a.order - b.order);
     // Load all step values for this run to build context
     const stepValues = await this.stepValueRepo.findByRunId(runId);
-    // Load all steps to map stepId -> alias (for variable resolution)
-    const _workflowId = allQuestions[0]?.sectionId; // Get workflow via section
-    // TODO: Better way to get workflowId from sectionId
-    const allSteps = sortedQuestions; // For now, just use page steps
+    // Build the stepId -> alias map across the ENTIRE workflow, not just this
+    // page. A visibleIf on this page routinely references an answer from a
+    // PRIOR page by alias (the encouraged default). Keying aliases from the
+    // current page only left those cross-page references unresolved, so the
+    // server evaluated a field the client had hidden as visible+required — a
+    // dead-end where the run cannot be submitted (and the mirror case silently
+    // dropped enforcement of a genuinely required field). Steps carry their
+    // workflowId directly, so no extra section lookup is needed.
+    const workflowId = allQuestions[0]?.workflowId;
+    const aliasSourceSteps = workflowId
+      ? (await this.stepRepo.findByWorkflowId(workflowId)) ?? sortedQuestions
+      : sortedQuestions;
     const stepIdToAlias = new Map<string, string>();
-    for (const step of allSteps) {
+    for (const step of aliasSourceSteps) {
       if (step.alias) {
         stepIdToAlias.set(step.id, step.alias);
       }
     }
-    // Build evaluation context
+    // Build evaluation context. Keyed by BOTH the step id and its alias (when
+    // it has one) — a visibleIf condition may reference the controlling step
+    // either way (the builder persists the alias, but nothing prevents a
+    // condition from being authored/migrated to reference the raw id), and
+    // evaluateVisibility() below is given no alias resolver of its own, so
+    // whichever key it looks up must already be present here (ICW2-B10).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- variables is dynamic workflow context with unknown structure
     const variables: Record<string, any> = {};
     for (const sv of stepValues) {
       const alias = stepIdToAlias.get(sv.stepId);
-      const key = alias ?? sv.stepId;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- step values have dynamic types from workflow data
-      variables[key] = sv.value;
+
+      variables[sv.stepId] = sv.value;
+      if (alias) {
+
+        variables[alias] = sv.value;
+      }
     }
     // Include record data in variables if present
     if (recordData) {
@@ -295,10 +311,7 @@ export class IntakeQuestionVisibilityService {
     }
     // Perform batch delete if there are items to delete
     if (idsToDelete.length > 0) {
-      // Use inArray for batch deletion
-      const { inArray } = await import("drizzle-orm");
-      const { stepValues } = await import("../../shared/schema");
-      await this.stepValueRepo.deleteWhere(inArray(stepValues.id, idsToDelete));
+      await this.stepValueRepo.deleteByIdsForRun(runId, idsToDelete);
       logger.debug(
         { runId, count: idsToDelete.length, clearedSteps },
         "Cleared values for hidden questions (batch)"

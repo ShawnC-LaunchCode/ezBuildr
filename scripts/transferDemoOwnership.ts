@@ -23,7 +23,7 @@ async function transferOwnership(targetEmail: string, workflowId: string) {
       throw new Error(`User not found with email: ${targetEmail}`);
     }
 
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     logger.info('Found target user', { userId: targetUser.id, email: targetUser.email });
 
     // Find the workflow
@@ -35,7 +35,7 @@ async function transferOwnership(targetEmail: string, workflowId: string) {
       throw new Error(`Workflow not found with ID: ${workflowId}`);
     }
 
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     logger.info('Found workflow', {
       workflowId: workflow.id,
       title: workflow.title,
@@ -56,7 +56,7 @@ async function transferOwnership(targetEmail: string, workflowId: string) {
       throw new Error(`Project not found with ID: ${workflow.projectId}`);
     }
 
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     logger.info('Found project', {
       projectId: project.id,
       title: project.title,
@@ -74,7 +74,7 @@ async function transferOwnership(targetEmail: string, workflowId: string) {
       })
       .where(eq(workflows.id, workflowId));
 
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     logger.info('Updated workflow ownership', {
       workflowId,
       newOwnerId: targetUser.id
@@ -91,7 +91,7 @@ async function transferOwnership(targetEmail: string, workflowId: string) {
       })
       .where(eq(projects.id, workflow.projectId));
 
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     logger.info('Updated project ownership', {
       projectId: workflow.projectId,
       newOwnerId: targetUser.id
@@ -107,7 +107,7 @@ async function transferOwnership(targetEmail: string, workflowId: string) {
 
     process.exit(0);
   } catch (error) {
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     logger.error('Failed to transfer ownership', { error });
     console.error('\n❌ Error transferring ownership:', error);
     process.exit(1);

@@ -56,7 +56,7 @@ export default function AcceptInvite() {
 
     // eslint-disable-next-line @typescript-eslint/no-floating-promises
     accept();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [params?.token]);
 
   return (

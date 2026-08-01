@@ -31,10 +31,11 @@ export function Loader({ className, size = "default", ...props }: LoaderProps) {
     )
 }
 
-export function FullScreenLoader() {
+export function FullScreenLoader({ message }: { message?: string }) {
     return (
-        <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <div className="flex flex-col h-screen w-screen items-center justify-center bg-background gap-4">
             <Loader size="xl" />
+            {message && <p className="text-sm text-muted-foreground animate-pulse">{message}</p>}
         </div>
     );
 }

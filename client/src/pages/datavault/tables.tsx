@@ -332,7 +332,7 @@ export default function DataVaultTablesPage() {
       {/* Create Table Modal */}
       <CreateTableModal
         open={createModalOpen}
-        // eslint-disable-next-line @typescript-eslint/no-misused-promises
+
         onOpenChange={setCreateModalOpen}
         // eslint-disable-next-line @typescript-eslint/no-misused-promises
         onSubmit={handleCreate}

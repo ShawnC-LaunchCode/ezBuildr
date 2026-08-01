@@ -51,8 +51,8 @@ the corrected tickets are numbered **SEC-053..055** to avoid collisions.
 | SEC-046 | ✅ Closed (gate green) | Removed 3 dead deps (jspdf, jspdf-autotable, expr-eval) → critical+1 high gone; remaining 3 = one unreachable OTel advisory, allowlisted → SEC-056 |
 | SEC-047 | ✅ Closed | Magic-byte validation on all 3 upload routes; inline-serving resolved |
 | SEC-049 | ✅ Closed (guard green) | reCAPTCHA call routed through `safeFetch`; no raw `fetch` in `server/` |
-| SEC-051 | 🔴 Not started | Architectural; likely a deliberate accept-risk decision |
-| SEC-053 | 🟡 Half done — **new answer-leak bug** | Store now stateless (good); but the "simple" token base64-embeds the answer |
+| SEC-051 | 🟢 RLS foundation landed (Phase 1–2); enforcement rollout is staged | Policies defined on 24 tables + pooler-safe runtime context + full docs; enforcement deliberately deferred |
+| SEC-053 | ✅ Closed | Token now carries a keyed hash, not the answer; reCAPTCHA required in prod when configured |
 | SEC-054 | ✅ Closed | `VL_KEYS` multi-key + retired keys + `scripts/rotateMasterKey.ts` |
 | SEC-055 | ✅ Closed | Shared `securityConfig.ts` used by both entrypoints; `securityHeaders.ts` deleted |
 
@@ -190,10 +190,32 @@ cheapest ways to silently reintroduce a closed vuln class — a bare `fetch(user
 
 ## SEC-051 — Tenant isolation enforced only at the service layer; no DB-level defense in depth — P3
 
-> **STATUS 2026-07-11 — 🔴 not started.** No RLS, no `app.tenant_id`, no repository
-> query-guard wrapper. This is the largest-scope item and may be a deliberate
-> accept-risk (service-layer scoping is already consistent). Needs a decision, not
-> necessarily an implementation.
+> **STATUS 2026-07-11 — 🟢 RLS foundation landed (Phase 1–2); enforcement staged.**
+> Chose to build out Postgres RLS (the structural backstop). Delivered:
+> - **Phase 1 — policies:** [migrations/0001_enable_rls.sql](../../migrations/0001_enable_rls.sql)
+>   enables RLS + a `tenant_isolation` policy on all 24 direct-`tenant_id` tables.
+>   Verified against a fresh Docker DB: 23 policies created, `files` correctly
+>   skipped (that table isn't in the baseline — a separate drift, flagged). Safe /
+>   non-breaking: the app connects as table owner and CI as superuser, both of
+>   which bypass RLS until it is FORCEd.
+> - **Phase 2 — runtime context:** [server/utils/rlsContext.ts](../../server/utils/rlsContext.ts)
+>   sets the tenant GUC with **transaction-scoped** `set_config(...,true)` (never
+>   session-level `SET`, which would leak across pooled connections), plus
+>   [middleware/rlsContext.ts](../../server/middleware/rlsContext.ts) and an
+>   `RLS_ENFORCED` flag (default off). Proven by
+>   [tests/integration/rls-context.test.ts](../../tests/integration/rls-context.test.ts)
+>   (GUC is transaction-local, doesn't leak, fails closed on empty).
+> - **The `withTenant` app-layer helper** ([tenantWrapper.ts](../../server/repositories/tenantWrapper.ts))
+>   remains as defense in depth (fails closed; 4 tests).
+> - **Docs:** [TENANT_ISOLATION_RLS.md](../architecture/TENANT_ISOLATION_RLS.md)
+>   (design + pooling hazard + rollout runbook + manual verification), threat-model
+>   §7, SCHEMA.md, the db-schema-change skill, CLAUDE.md, and `.env.example`.
+>
+> **Deliberately deferred (needs owner/infra decisions, not blind changes):**
+> Phase 3 enforcement (FORCE mode or a non-owner role + set `RLS_ENFORCED=true`,
+> after migrating repository queries to `withTenant`), and Phase 4 join-based
+> policies for indirectly-scoped tables (`workflow_runs`, `step_values`,
+> `datavault_rows`, `secrets`, ...). Runbook in the RLS doc.
 
 **Files:** repository layer (`server/repositories/*`); no RLS in `migrations/`.
 
@@ -214,15 +236,17 @@ structural backstop, so one omitted predicate is a silent cross-tenant read/writ
 
 ## SEC-053 — CAPTCHA challenge is trivially solvable and uses a non-shared in-memory store — P3 *(new; refines existing SEC-048)*
 
-> **STATUS 2026-07-11 — 🟡 half done; a new bug was introduced.** The in-memory
-> `Map` was replaced with a stateless HMAC-signed token (fixes the multi-instance
-> problem ✅) and a reCAPTCHA option was added ✅. **New problem:** the "simple"
-> token's payload is `base64url(JSON.stringify({ answer, expiresAt }))` — the answer
-> is not encrypted, just signed ([CaptchaService.ts:35](../../server/services/CaptchaService.ts)).
-> A bot receives the token, base64-decodes it, reads `answer`, and submits it — the
-> challenge is now *more* trivially bypassable than the math puzzle was. Open items:
-> (a) don't put the answer in the token (keep it server-side, or encrypt it); (b)
-> require reCAPTCHA/Turnstile in production and treat "simple" as dev-only.
+> **STATUS 2026-07-11 — ✅ CLOSED.** (a) The token no longer contains the answer:
+> it now carries `HMAC(secret, answer:expiresAt)` and validation recomputes the
+> keyed hash of the submitted answer and compares it constant-time
+> ([CaptchaService.ts](../../server/services/CaptchaService.ts)), so a bot can no
+> longer base64-decode the token to read the answer. (b) `validateCaptcha` now
+> rejects `type: "simple"` in production when `RECAPTCHA_SECRET` is configured,
+> treating the math puzzle as dev/fallback-only. A regression test asserts the
+> answer is absent from the token; the captcha unit suite is green (10 tests).
+> Note: the math puzzle is still solvable from the *question* by design — that is
+> why reCAPTCHA is the production path; wiring the reCAPTCHA client widget + site
+> key is the remaining product step, not a security hole in this service.
 
 **Files:** [server/services/CaptchaService.ts:26,32-58](../../server/services/CaptchaService.ts),
 [server/routes/auth.routes.ts:280-303](../../server/routes/auth.routes.ts)

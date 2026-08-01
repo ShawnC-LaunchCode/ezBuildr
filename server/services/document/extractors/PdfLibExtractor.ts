@@ -102,13 +102,13 @@ export class PdfLibExtractor implements IPdfExtractor {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call, @typescript-eslint/explicit-function-return-type
                 const getGenNum = (ref: any) => ref.generationNumber ?? (typeof ref.tag === 'string' ? parseInt(ref.tag.split(' ')[1]) : undefined);
 
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 const pObj = getObjNum(pRef);
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 const wObj = getObjNum(wRef);
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 const pGen = getGenNum(pRef) ?? 0;
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                 const wGen = getGenNum(wRef) ?? 0;
 
                 return pObj !== undefined && wObj !== undefined && pObj === wObj && pGen === wGen;

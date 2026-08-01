@@ -30,13 +30,15 @@ async function createLoanApplicationWorkflow() {
   let project = await db.select().from(projects).where(eq(projects.createdBy, user.id)).limit(1);
   if (project.length === 0) {
     console.log('Creating new project...');
-    // @ts-ignore - TODO: fix type
     const newProject = await db.insert(projects).values({
       id: randomUUID(),
+      title: 'Financial Services',
       name: 'Financial Services',
       description: 'Loan and mortgage applications',
       createdBy: user.id,
-      tenantId: user.id,
+      creatorId: user.id,
+      ownerId: user.id,
+      tenantId: user.tenantId,
     }).returning();
     project = newProject;
   }
@@ -130,7 +132,7 @@ async function createLoanApplicationWorkflow() {
     },
   ];
 
-  await db.insert(steps).values(personalSteps);
+  await db.insert(steps).values(personalSteps.map((step) => ({ ...step, workflowId })));
   console.log('✓ Added 6 personal information steps');
 
   // ==================== SECTION 2: Employment & Income ====================
@@ -208,7 +210,7 @@ async function createLoanApplicationWorkflow() {
     },
   ];
 
-  await db.insert(steps).values(employmentSteps);
+  await db.insert(steps).values(employmentSteps.map((step) => ({ ...step, workflowId })));
   console.log('✓ Added 5 employment steps with conditional visibility');
 
   // ==================== SECTION 3: Loan Details ====================
@@ -258,7 +260,7 @@ async function createLoanApplicationWorkflow() {
     },
   ];
 
-  await db.insert(steps).values(loanSteps);
+  await db.insert(steps).values(loanSteps.map((step) => ({ ...step, workflowId })));
   console.log('✓ Added 3 loan detail steps');
 
   // ==================== TRANSFORM BLOCK: Calculate Debt-to-Income Ratio ====================
@@ -268,6 +270,7 @@ async function createLoanApplicationWorkflow() {
   const dtiVirtualStepId = randomUUID();
   await db.insert(steps).values({
     id: dtiVirtualStepId,
+    workflowId,
     sectionId: section3[0].id,
     type: 'computed' as const,
     title: 'Debt-to-Income Ratio',

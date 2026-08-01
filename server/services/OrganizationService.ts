@@ -140,7 +140,7 @@ export class OrganizationService {
     }
     return {
       ...org,
-      role: membership.role as 'admin' | 'member',
+      role: membership.role,
     };
   }
   /**

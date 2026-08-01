@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
+
 import { AlertCircle, User, Users } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrganizations } from '@/hooks/useOrganizations';
+import type { Organization } from '@/lib/api/organizations';
 
 export type AssetType = 'workflow' | 'project' | 'database';
 
@@ -23,6 +24,8 @@ interface TransferOwnershipDialogProps {
   onOpenChange: (open: boolean) => void;
   assetType: AssetType;
   assetName: string;
+  sourceOwnerType?: 'user' | 'org' | null;
+  sourceOwnerUuid?: string | null;
   onTransfer: (targetOwnerType: 'user' | 'org', targetOwnerUuid: string) => Promise<void>;
   isPending?: boolean;
 }
@@ -32,6 +35,8 @@ export function TransferOwnershipDialog({
   onOpenChange,
   assetType,
   assetName,
+  sourceOwnerType,
+  sourceOwnerUuid,
   onTransfer,
   isPending = false,
 }: TransferOwnershipDialogProps) {
@@ -39,9 +44,22 @@ export function TransferOwnershipDialog({
   const { data: organizations, isLoading: orgsLoading } = useOrganizations();
 
   const [selectedOwner, setSelectedOwner] = useState<string>('');
+  const sourceOrgRole = useMemo(() => {
+    if (sourceOwnerType !== 'org' || !sourceOwnerUuid) {
+      return null;
+    }
+    return organizations?.find((org) => org.id === sourceOwnerUuid)?.role ?? null;
+  }, [organizations, sourceOwnerType, sourceOwnerUuid]);
+  const sourceLocked = sourceOwnerType === 'org' && sourceOrgRole !== 'admin';
+
+  useEffect(() => {
+    if (open) {
+      setSelectedOwner('');
+    }
+  }, [open]);
 
   const handleTransfer = async () => {
-    if (!selectedOwner) {return;}
+    if (!selectedOwner || sourceLocked) {return;}
 
     const [ownerType, ownerUuid] = selectedOwner.split(':') as ['user' | 'org', string];
 
@@ -92,6 +110,18 @@ export function TransferOwnershipDialog({
             </div>
           </div>
 
+          {sourceLocked && !orgsLoading && (
+            <div className="flex items-start space-x-2 rounded-lg border border-muted bg-muted/50 p-3">
+              <AlertCircle className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div className="text-sm">
+                <p className="font-medium">Organization admin required</p>
+                <p className="text-muted-foreground">
+                  Members can copy this {getAssetLabel()} to their account, but only an org admin can transfer it.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Owner Selection */}
           <div className="space-y-3">
             <Label className="text-base font-medium">Transfer to...</Label>
@@ -105,7 +135,7 @@ export function TransferOwnershipDialog({
               <RadioGroup value={selectedOwner} onValueChange={setSelectedOwner}>
                 {/* My Account Option */}
                 <div className="flex items-center space-x-2 p-3 rounded-lg border hover:bg-accent cursor-pointer">
-                  <RadioGroupItem value={`user:${user?.id}`} id="owner-user" />
+                  <RadioGroupItem value={`user:${user?.id}`} id="owner-user" disabled={!user?.id || sourceLocked} />
                   <Label htmlFor="owner-user" className="flex items-center space-x-3 cursor-pointer flex-1">
                     <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                       <User className="h-5 w-5 text-primary" />
@@ -118,33 +148,38 @@ export function TransferOwnershipDialog({
                 </div>
 
                 {/* Organizations */}
-                {organizations && (organizations as any)?.length > 0 && (
+                {organizations && organizations.length > 0 && (
                   <>
                     <div className="pt-2">
                       <Label className="text-sm text-muted-foreground">Organizations</Label>
                     </div>
-                    {(organizations as any)?.map((org: any) => (
+                    {organizations.map((org: Organization) => {
+                      const disabled = sourceLocked || org.role !== 'admin';
+                      return (
                       <div
-                        key={(org as any).id}
-                        className="flex items-center space-x-2 p-3 rounded-lg border hover:bg-accent cursor-pointer"
+                        key={org.id}
+                        className={`flex items-center space-x-2 p-3 rounded-lg border ${disabled ? 'opacity-60' : 'hover:bg-accent cursor-pointer'}`}
                       >
-                        <RadioGroupItem value={`org:${(org as any).id}`} id={`owner-${(org as any).id}`} />
+                        <RadioGroupItem value={`org:${org.id}`} id={`owner-${org.id}`} disabled={disabled} />
                         <Label
-                          htmlFor={`owner-${(org as any).id}`}
-                          className="flex items-center space-x-3 cursor-pointer flex-1"
+                          htmlFor={`owner-${org.id}`}
+                          className={`flex items-center space-x-3 flex-1 ${disabled ? '' : 'cursor-pointer'}`}
                         >
                           <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
                             <Users className="h-5 w-5 text-purple-600" />
                           </div>
                           <div>
                             <div className="flex items-center space-x-2">
-                              <p className="font-medium">{(org as any).name}</p>
+                              <p className="font-medium">{org.name}</p>
                               {org.role === 'admin' && (
                                 <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
                                   Admin
                                 </span>
                               )}
                             </div>
+                            {org.role !== 'admin' && (
+                              <p className="text-sm text-muted-foreground">Admin required</p>
+                            )}
                             {org.description && (
                               <p className="text-sm text-muted-foreground line-clamp-1">
                                 {org.description}
@@ -153,11 +188,11 @@ export function TransferOwnershipDialog({
                           </div>
                         </Label>
                       </div>
-                    ))}
+                    );})}
                   </>
                 )}
 
-                {(!organizations || (organizations as any)?.length === 0) && (
+                {(!organizations || organizations.length === 0) && (
                   <div className="text-center py-4 text-sm text-muted-foreground">
                     <p>You don&apos;t belong to any organizations yet.</p>
                     <p className="mt-1">Create one to transfer assets to your team.</p>
@@ -174,7 +209,7 @@ export function TransferOwnershipDialog({
           </Button>
           <Button
             onClick={() => { void handleTransfer(); }}
-            disabled={!selectedOwner || isPending}
+            disabled={!selectedOwner || isPending || sourceLocked}
           >
             {isPending ? 'Transferring...' : 'Transfer Ownership'}
           </Button>

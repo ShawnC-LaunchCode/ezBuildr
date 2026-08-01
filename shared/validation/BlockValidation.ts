@@ -1,3 +1,4 @@
+import { isRunnerRequirableStepType } from "../types/runnerStepTypes";
 import { StepConfig, TextAdvancedConfig, isNumberConfig } from "../types/stepConfigs";
 
 import { ValidationRule } from "./ValidationRule";
@@ -50,13 +51,17 @@ export function getValidationSchema(step: StepLike): ValidationSchema {
     const rules: ValidationRule[] = [];
     const config = step.config as StepConfig;
 
-    // Base requirement
-    if (step.required) {
+    // Base requirement — only for step types the runner can actually render
+    // a fillable control for. A "required" rule on an unsupported/unknown
+    // type (e.g. file_upload, loop_group, repeater) can never be satisfied
+    // by a respondent, since the runner shows only a skip notice (RUN2-3).
+    const isRequired = Boolean(step.required) && isRunnerRequirableStepType(step.type);
+    if (isRequired) {
         rules.push({ type: "required" });
     }
 
     if (!config) {
-        return { rules, required: step.required };
+        return { rules, required: isRequired };
     }
 
     // Type-specific rules
@@ -151,6 +156,6 @@ export function getValidationSchema(step: StepLike): ValidationSchema {
 
     return {
         rules,
-        required: step.required
+        required: isRequired
     };
 }

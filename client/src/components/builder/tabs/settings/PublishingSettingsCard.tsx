@@ -81,7 +81,12 @@ export function PublishingSettingsCard({
                                     readOnly
                                     className="flex-1 font-mono text-sm"
                                 />
-                                <Button variant="outline" onClick={onCopyLink}>
+                                <Button
+                                    variant="outline"
+                                    onClick={onCopyLink}
+                                    disabled={!shareableLink}
+                                    aria-label="Copy participant link"
+                                >
                                     {linkCopied ? (
                                         <Check className="w-4 h-4 text-green-600" />
                                     ) : (
@@ -90,7 +95,9 @@ export function PublishingSettingsCard({
                                 </Button>
                             </div>
                             <p className="text-xs text-muted-foreground">
-                                Share this link with participants to access the workflow
+                                {shareableLink
+                                    ? "Share this link with participants to access the workflow"
+                                    : "Save settings to generate the participant link"}
                             </p>
                         </div>
                     </>

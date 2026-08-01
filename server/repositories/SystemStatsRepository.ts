@@ -16,7 +16,7 @@ import type { DbTransaction } from "./BaseRepository";
  * transaction holds the only one deadlocks.
  */
 export class SystemStatsRepository {
-  private conn(tx?: DbTransaction) {
+  private conn(tx?: DbTransaction): typeof db | DbTransaction {
     return tx ?? db;
   }
 

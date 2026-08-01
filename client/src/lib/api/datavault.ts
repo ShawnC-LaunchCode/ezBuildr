@@ -78,7 +78,7 @@ export async function getDatabaseById(id: string): Promise<DatavaultDatabase & {
 export async function createDatabase(input: CreateDatabaseInput): Promise<DatavaultDatabase> {
   const response = await fetch(`${API_BASE}/databases`, {
     method: 'POST',
-    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(input),
@@ -95,7 +95,7 @@ export async function createDatabase(input: CreateDatabaseInput): Promise<Datava
 export async function updateDatabase(id: string, input: UpdateDatabaseInput): Promise<DatavaultDatabase> {
   const response = await fetch(`${API_BASE}/databases/${id}`, {
     method: 'PATCH',
-    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(input),
@@ -163,7 +163,7 @@ export async function getTableById(id: string): Promise<DatavaultTable> {
 export async function createTable(input: CreateTableInput): Promise<DatavaultTable> {
   const response = await fetch(`${API_BASE}/tables`, {
     method: 'POST',
-    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(input),
@@ -180,7 +180,7 @@ export async function createTable(input: CreateTableInput): Promise<DatavaultTab
 export async function updateTable(id: string, input: UpdateTableInput): Promise<DatavaultTable> {
   const response = await fetch(`${API_BASE}/tables/${id}`, {
     method: 'PATCH',
-    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(input),
@@ -208,7 +208,7 @@ export async function deleteTable(id: string): Promise<void> {
 export async function moveTable(tableId: string, input: MoveTableInput): Promise<DatavaultTable> {
   const response = await fetch(`${API_BASE}/tables/${tableId}/move`, {
     method: 'PATCH',
-    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(input),
@@ -267,7 +267,7 @@ export async function createColumn(
 ): Promise<DatavaultColumn> {
   const response = await fetch(`${API_BASE}/tables/${tableId}/columns`, {
     method: 'POST',
-    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(input),
@@ -293,7 +293,7 @@ export async function updateColumn(
 ): Promise<DatavaultColumn> {
   const response = await fetch(`${API_BASE}/columns/${columnId}`, {
     method: 'PATCH',
-    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(input),
@@ -324,7 +324,7 @@ export async function reorderColumns(
 ): Promise<{ success: boolean }> {
   const response = await fetch(`${API_BASE}/tables/${tableId}/columns/reorder`, {
     method: 'PATCH',
-    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({ columnIds }),
@@ -386,7 +386,7 @@ export async function createRow(
 ): Promise<DatavaultRow> {
   const response = await fetch(`${API_BASE}/tables/${tableId}/rows`, {
     method: 'POST',
-    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({ data }),
@@ -406,7 +406,7 @@ export async function updateRow(
 ): Promise<DatavaultRow> {
   const response = await fetch(`${API_BASE}/rows/${rowId}`, {
     method: 'PATCH',
-    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({ data }),
@@ -444,7 +444,7 @@ export async function batchResolveReferences(
 ): Promise<Record<string, { displayValue: string; row: unknown }>> {
   const response = await fetch(`${API_BASE}/references/batch`, {
     method: 'POST',
-    // eslint-disable-next-line @typescript-eslint/naming-convention -- HTTP header
+
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({ requests }),

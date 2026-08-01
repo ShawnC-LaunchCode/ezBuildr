@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from "react";
 
+import { QuestionTypeIcon } from "@/components/shared/QuestionTypeIcon";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -41,13 +42,13 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
   useEffect(() => {
     if (step) {
       // Initialize options for radio/multiple_choice
-      const stepOptions = step.options as { options?: string[] } | undefined;
+      const stepOptions = step.config as { options?: string[] } | undefined;
       if ((step.type === "radio" || step.type === "multiple_choice") && stepOptions?.options) {
         setLocalOptions(stepOptions.options);
       }
 
       // Initialize date/time type
-      const dtOptions = step.options as { dateTimeType?: DateTimeType } | undefined;
+      const dtOptions = step.config as { dateTimeType?: DateTimeType } | undefined;
       if (step.type === "date_time" && dtOptions?.dateTimeType) {
         setDateTimeType(dtOptions.dateTimeType);
       }
@@ -118,12 +119,12 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
 
   const handleOptionsCommitChange = (options: string[]) => {
     setLocalOptions(options);
-    updateStepMutation.mutate({ id: stepId, sectionId, options: { options } });
+    updateStepMutation.mutate({ id: stepId, sectionId, config: { options } });
   };
 
   const handleDateTimeTypeChange = (type: DateTimeType) => {
     setDateTimeType(type);
-    updateStepMutation.mutate({ id: stepId, sectionId, options: { dateTimeType: type } });
+    updateStepMutation.mutate({ id: stepId, sectionId, config: { dateTimeType: type } });
   };
 
   const handleTextTypeChange = (type: TextType) => {
@@ -150,9 +151,12 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
             placeholder="Step Title"
             autoFocus
           />
-          <p className="text-xs text-muted-foreground px-0.5">
-            {step.type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-          </p>
+          <div className="flex items-center gap-1.5 px-0.5">
+            <QuestionTypeIcon type={step.type} size="sm" />
+            <p className="text-xs text-muted-foreground">
+              {step.type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -211,5 +215,4 @@ export function StepPropertiesPanel({ stepId, sectionId: propSectionId }: StepPr
     </div>
   );
 }
-
 

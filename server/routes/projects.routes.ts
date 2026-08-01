@@ -11,7 +11,8 @@ import { aclService } from "../services/AclService";
 import { projectService } from "../services/ProjectService";
 import { workflowClonerService } from "../services/WorkflowClonerService";
 import { asyncHandler } from "../utils/asyncHandler";
-import { createPaginatedResponse } from "../utils/pagination";
+import { createPaginatedResponse, paginationQuerySchema, buildCursorWhere } from "../utils/pagination";
+import type { CursorPosition } from "../utils/pagination";
 import { classifyRouteError } from "../utils/routeErrors";
 
 import type { UserRequest } from '../middleware/requireUser';
@@ -19,7 +20,6 @@ import type { Express, Request, Response } from "express";
 
 const ERR_CREATING_PROJECT = "Failed to create project";
 const ERR_INVALID_INPUT = "Invalid input";
-const STATUS_INTERNAL = 500;
 
 const createProjectBodySchema = z.object({
   title: z.string().trim().min(1).max(255).optional(),
@@ -36,12 +36,10 @@ const updateProjectBodySchema = z.object({
   title: z.string().trim().min(1).max(255).optional(),
   name: z.string().trim().min(1).max(255).optional(),
   description: z.string().max(5000).optional().nullable(),
-  status: z.enum(['active', 'archived']).optional(),
 });
 
-const listProjectsQuerySchema = z.object({
+const listProjectsQuerySchema = paginationQuerySchema.extend({
   active: z.enum(['true', 'false']).optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 const copyProjectBodySchema = z.object({
@@ -51,6 +49,37 @@ const copyProjectBodySchema = z.object({
   includeRelatedDatavault: z.boolean().optional(),
   includeDatavaultData: z.boolean().optional(),
   clearAccess: z.boolean().optional(),
+});
+
+/**
+ * PUT/PATCH /api/projects/:projectId
+ * Update a project (PATCH exists for compatibility with graph API clients)
+ */
+const handleProjectUpdate = asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const user = (req as UserRequest).user;
+    const { projectId } = req.params;
+
+    const parsed = updateProjectBodySchema.parse(req.body);
+    const title = parsed.title ?? parsed.name;
+    const updateData = insertProjectSchema.partial().parse({
+      ...(title !== undefined && { title, name: parsed.name ?? title }),
+      ...(parsed.description !== undefined && { description: parsed.description }),
+    });
+
+    const project = await projectService.updateProject(projectId, user.id, updateData);
+    res.json(project);
+  } catch (error) {
+    logger.error({ error }, "Error updating project");
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        error: ERR_INVALID_INPUT,
+        details: error.errors,
+      });
+    }
+    const { status, message } = classifyRouteError(error, "Failed to update project");
+    res.status(status).json({ message });
+  }
 });
 
 /**
@@ -98,7 +127,7 @@ export function registerProjectRoutes(app: Express): void {
         });
       }
       const { status, message } = classifyRouteError(error, ERR_CREATING_PROJECT);
-      res.status(status === STATUS_INTERNAL ? STATUS_INTERNAL : status).json({
+      res.status(status).json({
         message,
         error: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined,
       });
@@ -116,11 +145,22 @@ export function registerProjectRoutes(app: Express): void {
 
       const query = listProjectsQuerySchema.parse(req.query);
       const activeOnly = query.active === 'true';
-      const projects = activeOnly
-        ? await projectService.listActiveProjects(user.id)
-        : await projectService.listProjects(user.id);
 
-      res.json(createPaginatedResponse(projects.slice(0, query.limit + 1), query.limit));
+      let cursor: CursorPosition | undefined;
+      if (query.cursor !== undefined) {
+        const decoded = buildCursorWhere(query.cursor);
+        if (decoded === null) {
+          return res.status(400).json({ message: "Invalid cursor" });
+        }
+        cursor = decoded;
+      }
+
+      const listOptions = { limit: query.limit, cursor };
+      const projects = activeOnly
+        ? await projectService.listActiveProjects(user.id, listOptions)
+        : await projectService.listProjects(user.id, listOptions);
+
+      res.json(createPaginatedResponse(projects, query.limit));
     } catch (error) {
       logger.error({ error }, "Error fetching projects");
       if (error instanceof z.ZodError) {
@@ -230,66 +270,14 @@ export function registerProjectRoutes(app: Express): void {
    * Update a project
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  app.put('/api/projects/:projectId', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const user = (req as UserRequest).user;
-      const { projectId } = req.params;
-
-      const parsed = updateProjectBodySchema.parse(req.body);
-      const title = parsed.title ?? parsed.name;
-      const updateData = insertProjectSchema.partial().parse({
-        ...(title !== undefined && { title, name: parsed.name ?? title }),
-        ...(parsed.description !== undefined && { description: parsed.description }),
-        ...(parsed.status !== undefined && { status: parsed.status, archived: parsed.status === 'archived' }),
-      });
-
-      const project = await projectService.updateProject(projectId, user.id, updateData);
-      res.json(project);
-    } catch (error) {
-      logger.error({ error }, "Error updating project");
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          error: ERR_INVALID_INPUT,
-          details: error.errors,
-        });
-      }
-      const { status, message } = classifyRouteError(error, "Failed to update project");
-      res.status(status).json({ message });
-    }
-  }));
+  app.put('/api/projects/:projectId', hybridAuth, requireUser, validateProjectId(), handleProjectUpdate);
 
   /**
    * PATCH /api/projects/:projectId
    * Update a project (compatibility with graph API clients)
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  app.patch('/api/projects/:projectId', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const user = (req as UserRequest).user;
-      const { projectId } = req.params;
-
-      const parsed = updateProjectBodySchema.parse(req.body);
-      const title = parsed.title ?? parsed.name;
-      const updateData = insertProjectSchema.partial().parse({
-        ...(title !== undefined && { title, name: parsed.name ?? title }),
-        ...(parsed.description !== undefined && { description: parsed.description }),
-        ...(parsed.status !== undefined && { status: parsed.status, archived: parsed.status === 'archived' }),
-      });
-
-      const project = await projectService.updateProject(projectId, user.id, updateData);
-      res.json(project);
-    } catch (error) {
-      logger.error({ error }, "Error updating project");
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          error: ERR_INVALID_INPUT,
-          details: error.errors,
-        });
-      }
-      const { status, message } = classifyRouteError(error, "Failed to update project");
-      res.status(status).json({ message });
-    }
-  }));
+  app.patch('/api/projects/:projectId', hybridAuth, requireUser, validateProjectId(), handleProjectUpdate);
 
   /**
    * PUT /api/projects/:projectId/archive
@@ -331,8 +319,10 @@ export function registerProjectRoutes(app: Express): void {
 
   /**
    * DELETE /api/projects/:projectId
-   * Delete a project (hard delete)
-   * Note: Workflows in the project will have their projectId set to null
+   * Delete a project (soft delete — archives the project)
+   * Note: Workflows in the project are retained and keep their projectId;
+   * the row is not removed, only marked archived. Requires 'owner' role
+   * (+ org-admin for org-owned projects) — see ProjectService.deleteProject.
    */
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   app.delete('/api/projects/:projectId', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
@@ -389,9 +379,9 @@ export function registerProjectRoutes(app: Express): void {
       const schema = z.object({
         entries: z.array(z.object({
           principalType: z.enum(['user', 'team']),
-          principalId: z.string(),
+          principalId: z.string().uuid(),
           role: z.enum(['view', 'edit', 'owner']),
-        })),
+        })).min(1).max(50),
       });
 
       const { entries } = schema.parse(req.body);
@@ -432,8 +422,8 @@ export function registerProjectRoutes(app: Express): void {
       const schema = z.object({
         entries: z.array(z.object({
           principalType: z.enum(['user', 'team']),
-          principalId: z.string(),
-        })),
+          principalId: z.string().uuid(),
+        })).min(1).max(50),
       });
 
       const { entries } = schema.parse(req.body);
@@ -451,40 +441,6 @@ export function registerProjectRoutes(app: Express): void {
       }
 
       const { status, message } = classifyRouteError(error, "Failed to revoke project access");
-      res.status(status).json({ success: false, error: message });
-    }
-  }));
-
-  /**
-   * PUT /api/projects/:projectId/owner
-   * Transfer project ownership
-   * Body: { userId: string }
-   */
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  app.put('/api/projects/:projectId/owner', hybridAuth, requireUser, validateProjectId(), asyncHandler(async (req: Request, res: Response) => {
-    try {
-      const user = (req as UserRequest).user;
-      const { projectId } = req.params;
-
-      const schema = z.object({
-        userId: z.string(),
-      });
-
-      const { userId: newOwnerId } = schema.parse(req.body);
-      const project = await projectService.transferProjectOwnership(projectId, user.id, newOwnerId);
-      res.json({ success: true, data: project });
-    } catch (error) {
-      logger.error({ error }, "Error transferring project ownership");
-
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          success: false,
-          error: ERR_INVALID_INPUT,
-          details: error.errors,
-        });
-      }
-
-      const { status, message } = classifyRouteError(error, "Failed to transfer project ownership");
       res.status(status).json({ success: false, error: message });
     }
   }));

@@ -83,10 +83,10 @@ describe('DataVault Reference Columns', () => {
       const refTableId = 'ref-table-1';
 
       // Main table exists
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       mockTablesRepo.findById.mockImplementation((id: string) => {
         if (id === tableId) {
-          // @ts-ignore - TODO: fix type
+          // @ts-expect-error - TODO: fix type
           return Promise.resolve({
             id: tableId,
             tenantId,
@@ -129,10 +129,10 @@ describe('DataVault Reference Columns', () => {
       const tableId = 'table-1';
       const refTableId = 'ref-table-1';
 
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       mockTablesRepo.findById.mockImplementation((id: string) => {
         if (id === tableId) {
-          // @ts-ignore - TODO: fix type
+          // @ts-expect-error - TODO: fix type
           return Promise.resolve({
             id: tableId,
             tenantId,
@@ -152,7 +152,7 @@ describe('DataVault Reference Columns', () => {
         }
         if (id === refTableId) {
           // Referenced table belongs to different tenant
-          // @ts-ignore - TODO: fix type
+          // @ts-expect-error - TODO: fix type
           return Promise.resolve({
             id: refTableId,
             tenantId: 'tenant-2',
@@ -192,10 +192,10 @@ describe('DataVault Reference Columns', () => {
       const tableId = 'table-1';
       const refTableId = 'ref-table-1';
 
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       mockTablesRepo.findById.mockImplementation((id: string) => {
         if (id === tableId) {
-          // @ts-ignore - TODO: fix type
+          // @ts-expect-error - TODO: fix type
           return Promise.resolve({
             id: tableId,
             tenantId,
@@ -214,7 +214,7 @@ describe('DataVault Reference Columns', () => {
           } as DatavaultTable);
         }
         if (id === refTableId) {
-          // @ts-ignore - TODO: fix type
+          // @ts-expect-error - TODO: fix type
           return Promise.resolve({
             id: refTableId,
             tenantId,
@@ -236,7 +236,7 @@ describe('DataVault Reference Columns', () => {
       });
 
       // Display column doesn't exist
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       mockColumnsRepo.findByTableAndSlug.mockResolvedValue(null);
 
       await expect(
@@ -258,7 +258,7 @@ describe('DataVault Reference Columns', () => {
       const tenantId = 'tenant-1';
       const tableId = 'table-1';
 
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       mockTablesRepo.findById.mockResolvedValue({
         id: tableId,
         tenantId,
@@ -325,7 +325,7 @@ describe('DataVault Reference Columns', () => {
       const tenantId = 'tenant-1';
       const tableId = 'table-1';
 
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       mockTablesRepo.findById.mockResolvedValue({
         id: tableId,
         tenantId,
@@ -369,7 +369,7 @@ describe('DataVault Reference Columns', () => {
       const tableId = 'table-1';
       const refRowId = '550e8400-e29b-41d4-a716-446655440000';
 
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       mockTablesRepo.findById.mockResolvedValue({
         id: tableId,
         tenantId,
@@ -398,7 +398,7 @@ describe('DataVault Reference Columns', () => {
       ]);
 
       // Referenced row doesn't exist
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       mockRowsRepo.findById.mockResolvedValue(null);
 
       await expect(
@@ -417,7 +417,7 @@ describe('DataVault Reference Columns', () => {
       const tableId = 'table-1';
       const refRowId = '550e8400-e29b-41d4-a716-446655440000';
 
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       mockTablesRepo.findById.mockResolvedValue({
         id: tableId,
         tenantId,
@@ -471,7 +471,7 @@ describe('DataVault Reference Columns', () => {
       const tenantId = 'tenant-1';
       const tableId = 'table-1';
 
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       mockTablesRepo.findById.mockResolvedValue({
         id: tableId,
         tenantId,
@@ -501,7 +501,7 @@ describe('DataVault Reference Columns', () => {
 
       mockRowsRepo.createRowWithValues.mockResolvedValue({
         row: { id: 'row-1', tableId, createdAt: new Date(), updatedAt: new Date(), deletedAt: null, createdBy: null, updatedBy: null } as DatavaultRow,
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - TODO: fix type
         values: [{ columnId: 'col-1', value: null }] as unknown as Record<string, unknown>[],
       });
 
@@ -520,7 +520,7 @@ describe('DataVault Reference Columns', () => {
       const tenantId = 'tenant-1';
       const tableId = 'table-1';
 
-      // @ts-ignore - TODO: fix type
+      // @ts-expect-error - TODO: fix type
       mockTablesRepo.findById.mockResolvedValue({
         id: tableId,
         tenantId,

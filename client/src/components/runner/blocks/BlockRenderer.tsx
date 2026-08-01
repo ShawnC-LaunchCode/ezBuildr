@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * BlockRenderer - Core Block Rendering System
  *
@@ -10,10 +9,13 @@
  * @date December 2025
  */
 
+import { Info } from "lucide-react";
 import React from "react";
 
 import { Label } from "@/components/ui/label";
 import type { Step } from "@/types";
+
+import type { MultiFieldValue } from "@shared/types/stepConfigs";
 
 // Block Renderers
 import { AddressBlockRenderer } from "./AddressBlock";
@@ -24,12 +26,12 @@ import { DateBlockRenderer } from "./DateBlock";
 import { DateTimeBlockRenderer } from "./DateTimeBlock";
 import { DisplayBlockRenderer } from "./DisplayBlock";
 import { EmailBlockRenderer } from "./EmailBlock";
-import { FinalBlockRenderer } from "./FinalBlock";
 import { MultiFieldBlockRenderer } from "./MultiFieldBlock";
 import { NumberBlockRenderer } from "./NumberBlock";
 import { PhoneBlockRenderer } from "./PhoneBlock";
 import { ScaleBlockRenderer } from "./ScaleBlock";
 import { SignatureBlockRenderer } from "./SignatureBlockRenderer";
+import { getRunnerStepTypeStatus, normalizeRunnerStepType } from "./stepTypeRouting";
 import { TextBlockRenderer } from "./TextBlock";
 import { TimeBlockRenderer } from "./TimeBlock";
 import { WebsiteBlockRenderer } from "./WebsiteBlock";
@@ -43,12 +45,10 @@ export interface BlockRendererProps {
   step: Step;
 
   /** Current value (keyed by step.alias or step.id) */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  value: any;
+  value: unknown;
 
   /** Callback when value changes */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onChange: (value: any) => void;
+  onChange: (value: unknown) => void;
 
   /** Whether this field is required (computed from step + logic rules) */
   required?: boolean;
@@ -64,6 +64,43 @@ export interface BlockRendererProps {
 
   /** Full context for resolving variables (e.g. dynamic lists) */
   context?: Record<string, unknown>;
+
+  /** Maps a step's alias to its step id, for alias-aware `{{variable}}` interpolation in display blocks */
+  aliasMap?: Record<string, string>;
+}
+
+function isMultiFieldValue(value: unknown): value is MultiFieldValue {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  return Object.values(value).every(item =>
+    item === null
+    || typeof item === "string"
+    || typeof item === "number"
+    || typeof item === "boolean"
+    || (Array.isArray(item) && item.every(entry => typeof entry === "string"))
+  );
+}
+
+function ExplicitRunnerTypeNotice({ type, status }: { type: string; status: "unsupported" | "unknown" }) {
+  // Honest, not apologetic: the runner has no control for this step type, so
+  // it is not required and will not block the respondent from finishing
+  // (RUN2-3). "not available yet" previously implied a control was coming
+  // and said nothing about what happens to the answer.
+  const message = status === "unsupported"
+    ? "This question type isn't supported in the runner yet, so it's skipped for this response."
+    : "This question type isn't recognized by the runner, so it's skipped for this response.";
+
+  return (
+    <div className="flex items-start gap-2 rounded-md border border-muted bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+      <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+      <span>
+        {message}
+        <span className="ml-1 font-mono text-xs">{type}</span>
+      </span>
+    </div>
+  );
 }
 
 // ============================================================================
@@ -72,12 +109,17 @@ export interface BlockRendererProps {
 
 export function BlockRenderer(props: BlockRendererProps) {
   const { step, value, onChange, required, error, readOnly, showValidation } = props;
+  const normalizedType = normalizeRunnerStepType(step.type);
+  const typeStatus = getRunnerStepTypeStatus(step.type);
+  // Unsupported/unknown types are never required (RUN2-3) — don't mark them
+  // required in the label when there's no control to answer with.
+  const showRequiredIndicator = required && typeStatus !== "unsupported" && typeStatus !== "unknown";
 
   // -------------------------------------------------------------------------
   // Handle JS blocks (no UI, invisible execution)
   // -------------------------------------------------------------------------
-  if (step.type === "js_question" || step.isVirtual) {
-    // JS blocks and virtual steps do not render any UI
+  if (typeStatus === "hidden" || step.isVirtual) {
+    // Computed, JS, and virtual steps are execution-only and do not render UI.
     return null;
   }
 
@@ -93,70 +135,66 @@ export function BlockRenderer(props: BlockRendererProps) {
   // -------------------------------------------------------------------------
   // eslint-disable-next-line complexity
   const renderBlockInput = () => {
-    switch (step.type) {
+    if (typeStatus === "unsupported" || typeStatus === "unknown") {
+      return <ExplicitRunnerTypeNotice type={step.type} status={typeStatus} />;
+    }
+
+    switch (normalizedType) {
       // Text blocks
       case "short_text":
       case "long_text":
       case "text":
 
-        return <TextBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} />;
+        return <TextBlockRenderer step={step} value={typeof value === "string" ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Boolean blocks
-      case "yes_no":
-      case "true_false":
       case "boolean":
-        return <BooleanBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <BooleanBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Validated inputs
       case "phone":
-        return <PhoneBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <PhoneBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "email":
-        return <EmailBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <EmailBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "website":
-        return <WebsiteBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <WebsiteBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Date/Time inputs
       case "date":
-        return <DateBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <DateBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "time":
-        return <TimeBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <TimeBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "date_time":
-        return <DateTimeBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <DateTimeBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Numeric inputs
       case "number":
-        return <NumberBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <NumberBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "currency":
-        return <CurrencyBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <CurrencyBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "scale":
-        return <ScaleBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <ScaleBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Choice inputs
-      case "radio":
-      case "multiple_choice":
       case "choice":
-        return <ChoiceBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} context={props.context} />;
+        return <ChoiceBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} context={props.context} />;
 
       // Complex blocks
       case "address":
-        return <AddressBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <AddressBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       case "multi_field":
-        return <MultiFieldBlockRenderer step={step} value={value} onChange={onChange} readOnly={readOnly} />;
+        return <MultiFieldBlockRenderer step={step} value={isMultiFieldValue(value) ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Display blocks
       case "display":
-        return <DisplayBlockRenderer step={step} context={props.context} />;
-
-      // Final block (output/completion)
-      case "final_documents":
-        return <FinalBlockRenderer step={step} />;
+        return <DisplayBlockRenderer step={step} context={props.context} aliasMap={props.aliasMap} />;
 
       // Signature block (e-signature integration)
       case "signature_block":
@@ -164,12 +202,8 @@ export function BlockRenderer(props: BlockRendererProps) {
 
       // Legacy/fallback
       default:
-        console.warn(`[BlockRenderer] Unsupported block type: ${step.type}`);
-        return (
-          <div className="text-sm text-muted-foreground italic">
-            Unsupported block type: {step.type}
-          </div>
-        );
+        console.warn(`[BlockRenderer] Unmapped block type: ${step.type}`);
+        return <ExplicitRunnerTypeNotice type={step.type} status="unknown" />;
     }
   };
 
@@ -177,16 +211,16 @@ export function BlockRenderer(props: BlockRendererProps) {
   // Render block with label and error
   // -------------------------------------------------------------------------
   // Display blocks, final blocks, and signature blocks don't have labels
-  if (step.type === "display" || step.type === "final_documents" || step.type === "signature_block") {
+  if (normalizedType === "display" || normalizedType === "final_documents" || normalizedType === "signature_block") {
     return renderBlockInput();
   }
 
   return (
-    <div className="space-y-2">
+    <div id={`block-container-${step.id}`} className="space-y-2">
       {/* Label */}
       <Label htmlFor={step.id}>
         {step.title}
-        {required && <span className="text-destructive ml-1" aria-hidden="true">*</span>}
+        {showRequiredIndicator && <span className="text-destructive ml-1" aria-hidden="true">*</span>}
       </Label>
 
       {/* Description/Help Text */}

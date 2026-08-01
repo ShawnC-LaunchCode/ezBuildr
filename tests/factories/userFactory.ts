@@ -19,7 +19,7 @@ export interface TestUserOptions {
  */
 export function createTestUser(overrides: TestUserOptions = {}): User {
   const timestamp = new Date();
-  // @ts-ignore - TODO: fix type
+  // @ts-expect-error - TODO: fix type
   return {
     id: uuid(),
     email: `testuser_${Date.now()}@example.com`,

@@ -8,7 +8,7 @@ import { randomUUID } from 'crypto';
 
 async function createDemoWorkflow() {
   try {
-    // @ts-ignore - TODO: fix type
+    // @ts-expect-error - TODO: fix type
     neonConfig.webSocketConstructor = ws.default as unknown as typeof WebSocket;
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
     const client = await pool.connect();

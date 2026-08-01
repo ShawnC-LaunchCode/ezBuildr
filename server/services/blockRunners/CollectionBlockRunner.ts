@@ -207,7 +207,7 @@ export class CollectionBlockRunner extends BaseBlockRunner {
         "Finding records via block"
       );
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const result = (await this.recordSvc.findByFilters(
         tenantId,
         config.collectionId,

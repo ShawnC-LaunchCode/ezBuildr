@@ -28,7 +28,11 @@
     //
     // See docs/TYPESCRIPT_STRICT_MODE_MIGRATION.md for full details
     "incremental": true,
-    "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
+    // Tree-local, NOT under node_modules: worktrees junction node_modules to
+    // the main checkout, so a cache in there is shared across every worktree
+    // and `type-check` reports another tree's stale result — in both
+    // directions. A false "0 errors" is the dangerous one.
+    "tsBuildInfoFile": "./.tsbuildinfo",
     "noEmit": true,
     "module": "ESNext",
     "strict": true,

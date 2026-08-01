@@ -55,7 +55,8 @@ export function ExecutionDetailView({ runId, onBack }: ExecutionDetailViewProps)
                         )}
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                        {format(new Date(run.createdAt), "PPP p")}  • v{run.versionId.substring(0, 8)}
+                        {format(new Date(run.createdAt), "PPP p")}
+                        {run.workflowVersionId ? `  • v${run.workflowVersionId.substring(0, 8)}` : ''}
                     </p>
                 </div>
                 {duration && (

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 /**
  * BranchingService.ts
  * Analyzes the most common paths users take through the workflow.
@@ -43,18 +42,25 @@ class BranchingService {
         let lastPageId: string | null = null;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         rows.forEach((row: any) => {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
             pageCounts[row.page_id] = (pageCounts[row.page_id] || 0) + 1;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
             if (row.run_id !== currentRunId) {
                 // New run
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
                 currentRunId = row.run_id;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
                 lastPageId = row.page_id;
                 // Start node -> first page? Optional.
             } else {
                 // Same run, transition
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
                 if (lastPageId && row.page_id) {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
                     const key = `${lastPageId}->${row.page_id}`;
                     transitions[key] = (transitions[key] || 0) + 1;
                 }
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- Analytics query rows are dynamically typed.
                 lastPageId = row.page_id;
             }
         });

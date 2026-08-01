@@ -12,7 +12,7 @@ export class PrefillBlockRunner extends BaseBlockRunner {
     return "prefill";
   }
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity, @typescript-eslint/no-unused-vars -- prefill logic with static/query modes; _block required by IBlockRunner interface
+
   execute(config: PrefillConfig, context: BlockContext, _block: Block): Promise<BlockResult> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- updates holds arbitrary workflow step values
     const updates: Record<string, any> = {};

@@ -1,4 +1,7 @@
+
 import { randomUUID } from 'crypto';
+
+import { eq } from 'drizzle-orm';
 
 import * as schema from '@shared/schema';
 
@@ -65,7 +68,7 @@ export class TestFactory {
    *                 Pass a transaction for automatic rollback (recommended).
    */
   constructor(txOrDb?: DBInstance | DbTransaction) {
-    this.db = txOrDb ?? getDb()!;
+    this.db = txOrDb ?? getDb();
   }
   /**
    * Create a complete tenant hierarchy (tenant -> user -> project)
@@ -86,7 +89,7 @@ export class TestFactory {
         .values({
           id: generateId(),
           name: 'Test Tenant',
-          // @ts-ignore - TODO: fix type
+          // @ts-expect-error - TODO: fix type
           slug: generateSlug('test-tenant'),
           plan: 'pro',
           ...overrides?.tenant,
@@ -160,7 +163,15 @@ export class TestFactory {
           id: generateId(),
           workflowId: workflow.id,
           versionNumber: 1,
-          graphJson: {},
+          // RVP-2: a run pinned to this version now has its navigation and
+          // completion validated against this graph (via
+          // RunDefinitionProvider), not just the live tables. `{}` used to be
+          // a harmless placeholder because nothing ever parsed it; now it
+          // fails VersionRuntimeSchema (missing `title`/`sections`) for any
+          // test that points currentVersionId/pinnedVersionId at this
+          // version. Default to a schema-valid empty graph; tests that need
+          // specific pinned content still override via `overrides.version`.
+          graphJson: { title: workflow.title, sections: [] },
           createdBy: userId,
           ...overrides?.version,
         })
@@ -195,10 +206,23 @@ export class TestFactory {
     sectionId: string,
     overrides?: Partial<typeof schema.steps.$inferInsert>
   ) {
+    const workflowId = overrides?.workflowId ?? (
+      await this.db
+        .select({ workflowId: schema.sections.workflowId })
+        .from(schema.sections)
+        .where(eq(schema.sections.id, sectionId))
+        .limit(1)
+    )[0]?.workflowId;
+
+    if (!workflowId) {
+      throw new Error(`Cannot create test step for unknown section ${sectionId}`);
+    }
+
     const [step] = await this.db
       .insert(schema.steps)
       .values({
         id: generateId(),
+        workflowId,
         sectionId,
         type: 'short_text',
         title: 'Test Step',
@@ -267,7 +291,7 @@ export class TestFactory {
       .insert(schema.datavaultDatabases)
       .values({
         id: generateId(),
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - TODO: fix type
         projectId,
         tenantId,
         name: 'Test Database',
@@ -296,7 +320,7 @@ export class TestFactory {
         slug: `test-table-${generateId()}`,
         description: 'Test table',
         ownerUserId: userId,
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - TODO: fix type
         columns: [],
         ...overrides,
       })
@@ -319,7 +343,7 @@ export class TestFactory {
         name: 'Test Collection',
         slug: `test-collection-${generateId()}`,
         description: 'Test collection',
-        // @ts-ignore - TODO: fix type
+        // @ts-expect-error - TODO: fix type
         createdBy: userId,
         ...overrides,
       })

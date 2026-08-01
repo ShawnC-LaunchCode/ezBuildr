@@ -4,6 +4,7 @@
  */
 
 import { AutoExpandTextarea } from "@/components/ui/auto-expand-textarea";
+import { useDebouncedFieldMutation } from "@/hooks/useDebouncedFieldMutation";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
 import { EditorField } from "./EditorField";
@@ -27,6 +28,11 @@ export function DescriptionField({
         updateStepMutation.mutate({ id: stepId, sectionId, description: value });
     };
 
+    const { localValue, onChange, onBlur } = useDebouncedFieldMutation(
+        description ?? "",
+        handleDescriptionChange
+    );
+
     return (
         <EditorField
             label={isDisplayStep ? "Content (Markdown)" : "Description / Help Text"}
@@ -35,8 +41,9 @@ export function DescriptionField({
             <AutoExpandTextarea
                 id={`description-${stepId}`}
                 name={`description-${stepId}`}
-                value={description ?? ""}
-                onChange={(e) => handleDescriptionChange(e.target.value)}
+                value={localValue}
+                onChange={(e) => onChange(e.target.value)}
+                onBlur={onBlur}
                 placeholder={isDisplayStep ? "Enter markdown content..." : "Add instructions for the user..."}
                 minRows={isDisplayStep ? 6 : 1}
                 maxRows={isDisplayStep ? 12 : 4}

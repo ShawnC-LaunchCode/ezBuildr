@@ -5,34 +5,52 @@
  * and integration with conditional visibility.
  */
 
-import type { Step } from "@shared/schema";
-import type { RepeaterConfig, RepeaterValue } from "@shared/types/repeater";
+import { isRunnerRequirableStepType } from "@shared/types/runnerStepTypes";
+import { getValidationSchema } from "@shared/validation/BlockValidation";
+import { validateValue } from "@shared/validation/Validator";
 
-import { repeaterService } from "../services/RepeaterService";
+import { logger } from "../logger";
 
-export interface ValidationRule {
-  type: 'required' | 'minLength' | 'maxLength' | 'min' | 'max' | 'email' | 'regex' | 'date';
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- rule values vary by type (number, string, RegExp, etc.)
-  value?: any;
-  message?: string;
-}
-
-export interface FieldValidationConfig {
-  required?: boolean;
-  minLength?: number;
-  maxLength?: number;
-  min?: number;
-  max?: number;
-  pattern?: string; // Regex pattern
-  email?: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- custom validator accepts dynamic field values
-  custom?: (value: any) => string | null; // Custom validator
+/**
+ * RUN2-16 rollout switch.
+ *
+ * Format rules (minLength/maxLength/min/max/email/url/pattern) were enforced
+ * only in the browser before this change, so runs already in flight may hold
+ * values that violate them. Flipping straight to enforcement would start
+ * failing those respondents mid-interview. Warn-mode logs every divergence
+ * without blocking; set SERVER_FIELD_VALIDATION=enforce once the logs are
+ * clean.
+ *
+ * `required` is unaffected by this switch — it was always enforced server-side
+ * and still is, in both modes.
+ */
+export function isServerFieldValidationEnforced(): boolean {
+  return process.env.SERVER_FIELD_VALIDATION === 'enforce';
 }
 
 export interface ValidationError {
   fieldId: string;
   fieldTitle: string;
   errors: string[];
+}
+
+/**
+ * Minimal step shape `validatePage` needs. A live DB row (`Step` from
+ * `@shared/schema`) and a run's pinned-definition snapshot (`RunStep` in
+ * `server/services/workflow-runs/RunDefinitionProvider.ts`, RVP-1) both
+ * satisfy this -- RVP-3 made `RunExecutionCoordinator.submitSection` source
+ * steps from the run's definition provider (pinned graph or live tables)
+ * instead of always reading the live `steps` table directly, so this can no
+ * longer be pinned to the exact DB-inferred `Step` type. Mirrors the
+ * `StepLike` precedent in `shared/validation/BlockValidation.ts`.
+ */
+export interface ValidatablePageStep {
+  id: string;
+  type: string;
+  title: string;
+  config: unknown;
+  required?: boolean | null;
+  isVirtual?: boolean | null;
 }
 
 export interface PageValidationResult {
@@ -42,94 +60,52 @@ export interface PageValidationResult {
 }
 
 /**
- * Validates a single field value
+ * Split a field's validation errors into what actually blocks the submit.
+ *
+ * A `required` failure short-circuits `validateValue`, so when the value is
+ * empty and the step is required every returned error IS the required error —
+ * that has always blocked server-side and continues to, in both modes. Anything
+ * else is a format rule, newly enforced by RUN2-16, and is only blocking once
+ * SERVER_FIELD_VALIDATION=enforce.
  */
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
-export function validateField(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- validates dynamic step values of various types
-  value: any,
-  config: FieldValidationConfig,
-  fieldTitle: string
+function partitionFieldErrors(
+  errors: string[],
+  step: ValidatablePageStep,
+  value: unknown,
+  enforce: boolean
 ): string[] {
-  const errors: string[] = [];
-
-  // Required validation
-  if (config.required && isEmpty(value)) {
-    errors.push(`${fieldTitle} is required`);
-    return errors; // Stop if required and empty
+  if (errors.length === 0) {
+    return [];
   }
 
-  // Skip other validations if empty and not required
-  if (isEmpty(value)) {
+  const isRequiredFailure = step.required === true && isEmpty(value);
+  if (isRequiredFailure || enforce) {
     return errors;
   }
 
-  // String length validations
-  if (typeof value === 'string') {
-    if (config.minLength !== undefined && value.length < config.minLength) {
-      errors.push(`${fieldTitle} must be at least ${config.minLength} characters`);
-    }
-    if (config.maxLength !== undefined && value.length > config.maxLength) {
-      errors.push(`${fieldTitle} must be at most ${config.maxLength} characters`);
-    }
-  }
-
-  // Numeric range validations
-  if (typeof value === 'number' || !isNaN(Number(value))) {
-    const numValue = typeof value === 'number' ? value : Number(value);
-    if (config.min !== undefined && numValue < config.min) {
-      errors.push(`${fieldTitle} must be at least ${config.min}`);
-    }
-    if (config.max !== undefined && numValue > config.max) {
-      errors.push(`${fieldTitle} must be at most ${config.max}`);
-    }
-  }
-
-  // Email validation
-  if (config.email && typeof value === 'string') {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(value)) {
-      errors.push(`${fieldTitle} must be a valid email address`);
-    }
-  }
-
-  // Pattern validation
-  if (config.pattern && typeof value === 'string') {
-    try {
-      const regex = new RegExp(config.pattern);
-      if (!regex.test(value)) {
-        errors.push(`${fieldTitle} format is invalid`);
-      }
-    } catch (e) {
-      // Invalid regex pattern - skip validation
-    }
-  }
-
-  // Custom validation
-  if (config.custom) {
-    const customError = config.custom(value);
-    if (customError) {
-      errors.push(customError);
-    }
-  }
-
-  return errors;
+  logger.warn(
+    { stepId: step.id, stepType: step.type, errors },
+    'Server-side field validation would have rejected this value (warn mode)'
+  );
+  return [];
 }
 
 /**
  * Validates all fields on a page
  */
-export function validatePage(
-  steps: Step[],
+export async function validatePage(
+  steps: ValidatablePageStep[],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- step values are dynamic per question type
   values: Record<string, any>,
   visibleStepIds: string[] // From IntakeQuestionVisibilityService
-): PageValidationResult {
+): Promise<PageValidationResult> {
   const errors: ValidationError[] = [];
+  const visible = new Set(visibleStepIds);
+  const enforce = isServerFieldValidationEnforced();
 
   for (const step of steps) {
     // Skip hidden steps
-    if (!visibleStepIds.includes(step.id)) {
+    if (!visible.has(step.id)) {
       continue;
     }
 
@@ -138,35 +114,40 @@ export function validatePage(
       continue;
     }
 
+    // Skip step types the runner cannot render a fillable control for
+    // (e.g. file_upload, loop_group, repeater, or an unrecognized type).
+    // The runner shows only a skip notice for these, so neither a required
+    // check nor a repeater instance-count check can ever be satisfied by
+    // the respondent (RUN2-3) — mirrors the client-side skip in
+    // shared/validation/BlockValidation.ts.
+    if (!isRunnerRequirableStepType(step.type)) {
+      continue;
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const value = values[step.id];
-    const fieldErrors: string[] = [];
 
-    // Handle repeater fields specially
-    if (step.type === 'repeater' && step.repeaterConfig) {
-      const repeaterConfig = step.repeaterConfig as unknown as RepeaterConfig;
-      const repeaterValue = value as RepeaterValue | null;
-      const validationResult = repeaterService.validateRepeater(repeaterValue, repeaterConfig);
-
-      if (!validationResult.valid) {
-        // Add global errors
-        fieldErrors.push(...validationResult.globalErrors);
-
-        // Add instance errors
-        validationResult.instanceErrors.forEach((instanceErrors, _instanceId) => {
-          fieldErrors.push(...instanceErrors.map(e => `Instance: ${e}`));
-        });
-      }
-    } else {
-      // Standard field validation
-      const config: FieldValidationConfig = {
-        required: step.required ?? undefined,
-        // TODO: Extract from step.config if stored there
-      };
-
-      const stepErrors = validateField(value, config, step.title);
-      fieldErrors.push(...stepErrors);
-    }
+    // RUN2-16: derive the rules from the SAME shared schema builder the client
+    // uses, instead of the old server-only config that carried `required` and a
+    // `// TODO: Extract from step.config` for everything else — which is why
+    // every format rule was client-side-only and trivially bypassable.
+    // Note: `repeater` is one of the runner's intentionally-unsupported types
+    // (skipped above), so instance-count validation never runs here (RUN2-3).
+    const schema = getValidationSchema({
+      id: step.id,
+      type: step.type,
+      config: step.config,
+      required: step.required ?? undefined,
+    });
+    // Keep the server's existing required wording ("<title> is required") rather
+    // than the shared engine's generic default, so `required` behaviour is
+    // byte-identical to before RUN2-16 for every respondent and caller.
+    const result = await validateValue({
+      schema: { ...schema, requiredMessage: `${step.title} is required` },
+      value,
+      values,
+    });
+    const fieldErrors = partitionFieldErrors(result.errors, step, value, enforce);
 
     if (fieldErrors.length > 0) {
       errors.push({

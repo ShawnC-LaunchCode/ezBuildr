@@ -96,7 +96,7 @@ export interface IntakeReceiptData {
   };
 }
 
-// eslint-disable-next-line sonarjs/cognitive-complexity
+
 export async function sendIntakeReceipt(
   data: IntakeReceiptData
 ): Promise<{ success: boolean; error?: string }> {

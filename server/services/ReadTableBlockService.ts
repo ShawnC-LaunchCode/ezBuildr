@@ -87,6 +87,7 @@ export class ReadTableBlockService {
 
     // Create virtual step for persistence
     const virtualStep = await this.stepRepo.create({
+      workflowId,
       sectionId: targetSectionId,
       type: 'computed',
       title: `Read Table: ${data.name}`,
