@@ -49,7 +49,7 @@ feature work.
 | DEBT-7 | `WorkflowClonerService` silently drops `workflows.settings` | P1 | S | ✅ `23a5863e` — entry removed |
 | DEBT-8 | DI container is built but ~unused | P2 | M | ✅ **Decision: removed, not adopted** (2026-07-30) — `server/di/` deleted; it had zero consumers. Entry removed |
 | DEBT-9 | `type-check` is advisory in CI | P2 | S | ✅ `a0e43c9b` — entry removed |
-| DEBT-10 | 10 dependabot PRs open since 2026-07-11 | P2 | S | 🔲 |
+| DEBT-10 | 10 dependabot PRs open since 2026-07-11 | P2 | S | 🔄 1/10 — #129 merged, #130–#138 open |
 | DEBT-11 | RLS policies defined but not enforced (decision, not a fix) | — | — | 🔲 tracked |
 | DEBT-13 | Legacy Final Documents casts `metadata.visibleIf` onto a mismatched type | P1? | S | ✅ verified at review 2026-07-31 |
 | DEBT-14 | `creation-routes.test.ts` fails 18 tests only when the whole file runs | P2 | M | ✅ `5ae7fde3` — fixed in services, not the test |
@@ -841,16 +841,50 @@ should not be bundled into this one.
 
 ---
 
-## DEBT-10 — 10 dependabot PRs open since 2026-07-11 🔲
+## DEBT-10 — 10 dependabot PRs open since 2026-07-11 🔄 1 of 10 done
+
+> **Progress 2026-07-31 — read this before picking the ticket up.**
+>
+> **#129 (`actions/github-script` 7→9) is merged** (`f9a66690`) and is fine.
+> **#130–#138 remain open.**
+>
+> The first dev correctly stopped on a red post-merge run. That red was **not
+> caused by #129** — two unrelated faults were failing Deployment Safety Check,
+> and `main` was already red for every push including two feature merges. Both
+> are now fixed (`eaede9a6`, `4aad6e00`) and **`main` is fully green at
+> `4aad6e00`**. You are not inheriting a broken tree.
+>
+> What broke, because it will shape how you read your own CI runs:
+>
+> 1. **gitleaks scans commit history, not the diff.** Merging a three-week-old
+>    dependabot branch widened the ancestry and pulled in two findings from a
+>    2026-07-28 commit — fixtures in
+>    `tests/unit/portability/secretScanner.test.ts`, the test for our own secret
+>    scanner. Fingerprints are now in `.gitleaksignore`. **Diagnose a gitleaks
+>    failure by the finding's commit date, not by what you just merged.**
+> 2. **`npm run lint` is `--max-warnings 0` repo-wide.** A stray warning
+>    anywhere fails CI, and `npx eslint <changed files>` exits 0 on those same
+>    warnings. Run the script, not a file list.
+>
+> **#130 is `gitleaks/gitleaks-action` 2→3** — a major bump to the exact action
+> that just broke CI. Treat its post-merge run as the highest-risk step in this
+> ticket. If v3 changes ignore-file handling, `.gitleaksignore` may stop being
+> honoured and the secretScanner fixtures will surface again; that is a config
+> fix, not a reason to delete the fixtures or weaken the scan.
+
+**Original ticket follows.**
 
 **Priority: P2** · Size: S · Files: `package.json`, `.github/workflows/*`
 
 ### Finding
 
 Ten dependabot PRs (#129–#138) have been open since 2026-07-11 — over two
-weeks. Six are GitHub Actions major-version bumps (`checkout` 3→7,
+weeks. **Five** are GitHub Actions major-version bumps (`checkout` 3→7,
 `setup-node` 3→6, `upload-artifact` 4→7, `github-script` 7→9,
-`gitleaks-action` 2→3), four are npm packages including `yjs` 13.6.28→13.6.31.
+`gitleaks-action` 2→3) and **five** are npm packages (`yjs` 13.6.28→13.6.31,
+`autoprefixer`, `@radix-ui/react-toast`, `@radix-ui/react-context-menu`,
+`@tailwindcss/typography`). *(The original text said six and four; corrected
+2026-07-31 against the live PR list.)*
 
 Action bumps that far behind eventually become forced work when GitHub retires
 the old runner images, and `yjs` underpins real-time collaboration.
