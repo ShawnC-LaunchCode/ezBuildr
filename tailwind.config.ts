@@ -99,6 +99,11 @@ export default {
             foreground: "var(--qtype-boolean-foreground)",
             border: "var(--qtype-boolean-border)",
           },
+          structure: {
+            DEFAULT: "var(--qtype-structure)",
+            foreground: "var(--qtype-structure-foreground)",
+            border: "var(--qtype-structure-border)",
+          },
           validated: {
             DEFAULT: "var(--qtype-validated)",
             foreground: "var(--qtype-validated-foreground)",
