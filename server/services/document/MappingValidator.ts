@@ -35,6 +35,7 @@ import { applyMapping } from './MappingInterpreter';
 import { normalizeVariables } from './VariableNormalizer';
 
 import type { DocumentMapping } from './MappingInterpreter';
+import type { NormalizationOptions } from './VariableNormalizer';
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -92,7 +93,8 @@ export class MappingValidator {
   async validateWithTestData(
     templateId: string,
     mapping: DocumentMapping,
-    testStepValues: Record<string, unknown>
+    testStepValues: Record<string, unknown>,
+    normalizationOptions?: NormalizationOptions
   ): Promise<ValidationReport> {
     logger.info({ templateId }, 'Validating mapping with test data');
     const report: ValidationReport = {
@@ -143,11 +145,15 @@ export class MappingValidator {
         });
       }
       // Step 4: Source variable existence check
-      const sourceErrors = this.validateSourceVariables(mapping, testStepValues);
+      const sourceErrors = this.validateSourceVariables(
+        mapping,
+        testStepValues,
+        normalizationOptions
+      );
       report.warnings.push(...sourceErrors);
       // Step 5: Dry-run generation
       try {
-        const normalized = normalizeVariables(testStepValues);
+        const normalized = normalizeVariables(testStepValues, normalizationOptions);
         const mappingResult = applyMapping(normalized, mapping);
         report.dryRunSuccess = true;
         report.dryRunOutput = mappingResult.data;
@@ -326,10 +332,11 @@ export class MappingValidator {
    */
   private validateSourceVariables(
     mapping: DocumentMapping,
-    testStepValues: Record<string, unknown>
+    testStepValues: Record<string, unknown>,
+    normalizationOptions?: NormalizationOptions
   ): ValidationWarning[] {
     const warnings: ValidationWarning[] = [];
-    const normalized = normalizeVariables(testStepValues);
+    const normalized = normalizeVariables(testStepValues, normalizationOptions);
     for (const [target, config] of Object.entries(mapping ?? {})) {
       // eslint-disable-next-line sonarjs/no-collapsible-if
       if (config.type === 'variable' && config.source !== null && config.source !== undefined) {

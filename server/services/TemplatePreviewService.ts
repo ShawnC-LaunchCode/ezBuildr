@@ -40,6 +40,7 @@ import { mappingValidator } from './document/MappingValidator';
 import { storageProvider } from './storage';
 
 import type { DocumentMapping } from './document/MappingInterpreter';
+import type { NormalizationOptions } from './document/VariableNormalizer';
 
 // ============================================================================
 // TYPES
@@ -63,6 +64,9 @@ export interface GeneratePreviewOptions {
 
   /** Validate mapping before generating */
   validateMapping?: boolean;
+
+  /** Workflow-derived options for normalizing sample data during validation */
+  normalizationOptions?: NormalizationOptions;
 }
 
 export interface PreviewResult {
@@ -111,6 +115,7 @@ export class TemplatePreviewService {
       outputFormat = 'pdf',
       expiresIn = 300, // 5 minutes
       validateMapping = true,
+      normalizationOptions,
     } = options;
 
     logger.info({ templateId, outputFormat }, 'Generating template preview');
@@ -134,7 +139,8 @@ export class TemplatePreviewService {
         validationReport = await mappingValidator.validateWithTestData(
           templateId,
           mapping,
-          sampleData
+          sampleData,
+          normalizationOptions
         );
 
         if (!validationReport.valid) {

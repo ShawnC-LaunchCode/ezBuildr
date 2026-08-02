@@ -162,6 +162,7 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
       });
       const sampleData = generateSampleData(variables ?? []);
       const response = await axios.post(`/api/templates/${templateId}/preview`, {
+        workflowId,
         sampleData,
         outputFormat: "pdf",
       });

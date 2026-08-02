@@ -28,10 +28,15 @@ import { requireTenant } from '../middleware/tenant';
 import { pdfService } from '../services/document/PdfService';
 import { templateScanner } from '../services/document/TemplateScanner';
 import {
+  getChoiceListBindingsByAlias,
+  getListConfigsByAlias,
+} from '../services/document/VariableNormalizer';
+import {
   DOCUMENT_PROCESSING_TIMEOUT_MS,
   documentProcessingLimiter,
 } from '../services/processingLimiter';
 import { virusScanner } from '../services/security/VirusScanner';
+import { stepService } from '../services/StepService';
 import { storageQuotaService } from '../services/StorageQuotaService';
 import {
   saveTemplateFile,
@@ -45,6 +50,7 @@ import { createPaginatedResponse, decodeCursor } from '../utils/pagination';
 
 import type { AuthRequest } from '../middleware/auth';
 import type { PdfMetadata } from '../services/document/PdfService';
+import type { NormalizationOptions } from '../services/document/VariableNormalizer';
 
 const router = Router();
 
@@ -53,6 +59,33 @@ const PERMISSION_EDIT = 'template:edit';
 const PERMISSION_CREATE = 'template:create';
 const PERMISSION_DELETE = 'template:delete';
 const ACCESS_DENIED_MSG = 'Access denied to this template';
+const WORKFLOW_ACCESS_DENIED_MSG = 'Access denied to this workflow';
+
+async function getWorkflowNormalizationOptions(
+  workflowId: string | undefined,
+  tenantId: string
+): Promise<NormalizationOptions | undefined> {
+  if (workflowId === undefined) {
+    return undefined;
+  }
+
+  const workflow = await db.query.workflows.findFirst({
+    where: eq(schema.workflows.id, workflowId),
+    with: { project: true },
+  });
+  if (!workflow) {
+    throw createError.notFound('Workflow', workflowId);
+  }
+  if (workflow.project?.tenantId !== tenantId) {
+    throw createError.forbidden(WORKFLOW_ACCESS_DENIED_MSG);
+  }
+
+  const workflowSteps = await stepService.getWorkflowSteps(workflowId);
+  return {
+    listConfigs: getListConfigsByAlias(workflowSteps),
+    listBoundChoices: getChoiceListBindingsByAlias(workflowSteps),
+  };
+}
 
 // Configure multer for file uploads (Disk storage for security)
 const upload = multer({
@@ -716,9 +749,11 @@ router.post(
         sampleData: z.record(z.any()),
         outputFormat: z.enum(['pdf', 'docx']).optional().default('pdf'),
         validateMapping: z.boolean().optional().default(true),
+        workflowId: z.string().uuid().optional(),
       });
       const parsedBody = previewSchema.parse(req.body);
-      const { mapping, sampleData, outputFormat, validateMapping } = parsedBody;
+      const { mapping, sampleData, outputFormat, validateMapping, workflowId } = parsedBody;
+      const normalizationOptions = await getWorkflowNormalizationOptions(workflowId, tenantId);
 
       const { templatePreviewService } = await import('../services/TemplatePreviewService');
       const previewResult = await templatePreviewService.generatePreview({
@@ -727,6 +762,7 @@ router.post(
         sampleData: sampleData as Record<string, unknown>,
         outputFormat: outputFormat as 'pdf' | 'docx' | undefined,
         validateMapping,
+        normalizationOptions,
         expiresIn: 300,
       });
       res.json({
@@ -778,11 +814,14 @@ router.post(
       if (testData === undefined || testData === null || typeof testData !== 'object') {
         throw createError.validation('testData is required and must be an object');
       }
+      const workflowId = z.string().uuid().optional().parse(body.workflowId);
+      const normalizationOptions = await getWorkflowNormalizationOptions(workflowId, tenantId);
       const { mappingValidator } = await import('../services/document/MappingValidator');
       const report = await mappingValidator.validateWithTestData(
         params.id,
         mapping as Parameters<typeof mappingValidator.validateWithTestData>[1],
         testData as Record<string, unknown>,
+        normalizationOptions,
       );
       res.json(report);
     } catch (error) {
