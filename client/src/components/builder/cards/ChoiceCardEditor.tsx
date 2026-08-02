@@ -24,18 +24,18 @@ import { useListToolsValidation } from "@/hooks/useListToolsValidation";
 import { blockAPI, type ApiTransformBlock } from "@/lib/vault-api";
 import { useUpdateStep, useWorkflowVariables, useWorkflow } from "@/lib/vault-hooks";
 
-import type { ChoiceAdvancedConfig, ChoiceDisplay, ChoiceOption } from "@shared/types/stepConfigs";
+import type { ChoiceAdvancedConfig, ChoiceDisplay } from "@shared/types/stepConfigs";
 
 import { BlockEditorDialog, type UniversalBlock } from "../BlockEditorDialog";
 import type { StepEditorCommonProps } from "./common/stepEditorProps";
 
 import { ListToolsDialogs } from "./choices/ListToolsDialogs";
+import { ChoiceOptionsSettings } from "./choices/ChoiceOptionsSettings";
 import { AliasField } from "./common/AliasField";
 import { DefaultValueField, DefaultValueType } from "./common/DefaultValueField";
 import { SectionHeader } from "./common/EditorField";
 import { RequiredToggle } from "./common/RequiredToggle";
 import { DynamicOptionsEditor } from "./DynamicOptionsEditor";
-import { StaticOptionsEditor } from "./StaticOptionsEditor";
 
 const SINGLE_SELECT_DISPLAYS: Array<{ value: ChoiceDisplay; label: string; hint: string }> = [
   { value: "radio", label: "Radio", hint: "Every option is visible at once. Best for short lists." },
@@ -155,19 +155,6 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
   // Derived state for Dynamic Columns
   const _selectedListVarName = localConfig?.dynamicOptions?.listVariable;
 
-  // Compute duplicate aliases for inline row highlighting
-  const duplicateAliases = useMemo(() => {
-    const dupes = new Set<string>();
-    const seen = new Set<string>();
-    const options = localConfig?.staticOptions ?? [];
-    for (const opt of options) {
-      const alias = opt.alias ?? opt.id;
-      if (seen.has(alias)) { dupes.add(alias); }
-      else { seen.add(alias); }
-    }
-    return dupes;
-  }, [localConfig?.staticOptions]);
-
   // ---------------------------------------------------------------------------
   // HANDLERS
   // ---------------------------------------------------------------------------
@@ -186,40 +173,13 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
     saveConfig(localConfig, newMode);
   };
 
-  const handleAddOption = () => {
-    if (!localConfig) { return; }
-    // Derive the next suffix from the free slots, not the array length: after a
-    // middle option is deleted, `length + 1` can re-mint an id/alias that a
-    // surviving option still holds, which trips the duplicate-alias check on
-    // save. Bump until both the id and the alias are unused.
-    const usedIds = new Set(localConfig.staticOptions.map((o) => o.id));
-    const usedAliases = new Set(
-      localConfig.staticOptions.map((o) => o.alias).filter((a): a is string => Boolean(a))
-    );
-    let n = localConfig.staticOptions.length + 1;
-    while (usedIds.has(`opt${n}`) || usedAliases.has(`option${n}`)) { n++; }
-    const newOptions = [
-      ...localConfig.staticOptions,
-      {
-        id: `opt${n}`,
-        label: `Option ${n}`,
-        alias: `Option ${n}`,
-      },
-    ];
-    handleUpdate({ staticOptions: newOptions });
-  };
-
-  const handleUpdateOption = (index: number, updates: Partial<ChoiceOption>) => {
-    if (!localConfig) { return; }
-    const newOptions = [...localConfig.staticOptions];
-    newOptions[index] = { ...newOptions[index], ...updates };
-    handleUpdate({ staticOptions: newOptions });
-  };
-
-  const handleDeleteOption = (index: number) => {
-    if (!localConfig) { return; }
-    const newOptions = localConfig.staticOptions.filter((_, i: number) => i !== index);
-    handleUpdate({ staticOptions: newOptions });
+  const handleStaticOptionsChange = (config: ChoiceAdvancedConfig) => {
+    const nextOptions = Array.isArray(config.options)
+      ? config.options
+      : config.options.type === "static"
+        ? config.options.options
+        : [];
+    handleUpdate({ staticOptions: nextOptions });
   };
 
 
@@ -558,12 +518,13 @@ export function ChoiceCardEditor({ stepId, sectionId, workflowId, step }: StepEd
         </div>
 
         <TabsContent value="static" className="mt-0 space-y-3">
-          <StaticOptionsEditor
-            options={localConfig.staticOptions}
-            onUpdate={handleUpdateOption}
-            onDelete={handleDeleteOption}
-            onAdd={handleAddOption}
-            duplicateAliases={duplicateAliases}
+          <ChoiceOptionsSettings
+            config={{
+              display: localConfig.display,
+              allowMultiple: localConfig.allowMultiple,
+              options: { type: "static", options: localConfig.staticOptions },
+            }}
+            onChange={handleStaticOptionsChange}
           />
         </TabsContent>
 

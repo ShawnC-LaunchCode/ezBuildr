@@ -7,8 +7,8 @@
  * is therefore controlled (`field` + `onChange`), never self-saving, unlike
  * the standalone step editors it borrows settings sections from.
  *
- * `renderTypeSettings` is the extension point LIST2-8 registers `choice`
- * into.
+ * `renderTypeSettings` includes the controlled `choice` options editor added
+ * by LIST2-8.
  */
 import { ChevronDown, ChevronRight, EyeOff } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -23,6 +23,7 @@ import type {
   VariableInfo,
 } from "@shared/types/conditions";
 import type {
+  ChoiceAdvancedConfig,
   DisplayAdvancedConfig,
   DisplayConfig,
   ListField,
@@ -36,6 +37,7 @@ import { MultiFieldSettingsSection } from "../MultiFieldCardEditor.components";
 import type { NumberEditorConfig } from "../NumberCardEditor.components";
 import { NumberSettingsSection } from "../NumberCardEditor.components";
 import { ScaleSettingsSection } from "../ScaleCardEditor.components";
+import { ChoiceOptionsSettings } from "../choices/ChoiceOptionsSettings";
 import { SectionHeader, SwitchField, TextAreaField } from "../common/EditorField";
 
 type QuestionListField = Extract<ListField, { kind: "question" }>;
@@ -52,13 +54,19 @@ interface ListFieldSettingsProps {
 }
 
 /**
- * Renders the extracted presentational settings section for the field types
- * in LIST2-7 scope. The 11 other question types (and `choice`, LIST2-8) have
- * no per-field settings yet and fall through to `null` — they already work
- * correctly on their defaults (ticket Finding).
+ * Renders extracted presentational settings sections for the field types in
+ * LIST2-7/LIST2-8 scope. Other question types fall through to `null` and work
+ * on their defaults.
  */
 function renderTypeSettings(field: QuestionListField, onConfigChange: (config: StepConfig) => void) {
   switch (field.type) {
+    case "choice":
+      return (
+        <ChoiceOptionsSettings
+          config={field.config as ChoiceAdvancedConfig | undefined}
+          onChange={onConfigChange}
+        />
+      );
     case "scale":
       return (
         <ScaleSettingsSection
