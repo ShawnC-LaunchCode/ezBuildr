@@ -585,16 +585,74 @@ network request per keystroke.
 
 ---
 
-## Phase 1 Gate
+## Phase 1 Gate ✅ CLOSED 2026-08-02
 
-- [ ] DV-1, DV-2, DV-3 all ✅ with dated verification notes
-- [ ] `npx tsc --noEmit` → 0 errors
-- [ ] `npm run lint` → clean (repo-wide; it runs `--max-warnings 0`)
-- [ ] `npm run test:fast` → ≥2313 passing, 0 failures
-- [ ] `npm run test:integration` → no new failures vs. baseline
-- [ ] One batched live drive-through covering DV-1 and DV-3 (a read_table block feeding
-      a DataVault-backed dropdown in one interview proves both)
-- [ ] Reviewer has committed each passed ticket + this gate
+- [x] DV-1, DV-2, DV-3 all ✅ with dated verification notes — `be94a727`,
+      `5a9b39d3`, `efc1e3f3`
+- [x] `npx tsc --noEmit` → 0 errors
+- [x] `npm run lint` → clean (repo-wide, `--max-warnings 0`)
+- [x] `npm run test:fast` → **182 files / 2319 passed**, 0 failures (baseline
+      181/2313)
+- [x] `npm run test:integration` → **94 files / 992 passed**, 2 failures, **both
+      pre-existing and unrelated** — `organizations-audit-fixes` and
+      `organizations-workflow`, broken by the concurrent `f9773a18 org invite
+      fix`. Isolated by reverting only `OrganizationService.ts` to `d135977a`,
+      after which both suites pass 31/31. **Not a DataVault regression**; raised
+      to the repo owner separately.
+- [x] Batched live drive-through covering DV-1 and DV-3 — dev server on port
+      5098 against the real dev DB, own tenant/user/table fixture, everything
+      deleted afterwards (verified: 0 leftover tenants, users, or tables).
+- [x] Reviewer has committed each passed ticket + this gate
+
+### Live drive-through evidence (2026-08-02, reviewer, port 5098)
+
+Confirmed the server was running the reviewer's build before trusting anything:
+the served client module contained the new options URL once and the dead
+`/api/tables/` zero times.
+
+**DV-3 — `GET /api/datavault/tables/:id/options`**
+
+```
+value=Code label=Vendor Name -> 200
+  {"options":[{"value":"alpha","label":"Alpha Industries"},
+              {"value":"beta","label":"Beta Partners"},
+              {"value":"gamma","label":"Gamma Group"}]}
+  archived row excluded : PASS      only value+label keys : PASS
+  no row ids leaked     : PASS
+labelColumnId omitted   -> 200  {"value":"alpha","label":"alpha", ...}
+malformed columnId      -> 400      foreign columnId -> 400
+unknown tableId         -> 404      no auth          -> 401
+```
+
+**DV-1 — `read_table` block against live EAV data.** Every filter and sort below
+threw Postgres 42703 before the fix; unfiltered returned all-null cells:
+
+```
+unfiltered                  -> 3 rows: alpha=9  beta=10  gamma=11  (real values, archived excluded)
+filter equals Code='beta'   -> 1 row : beta=10
+filter contains Name~'Al'   -> 1 row : alpha=9
+filter greater_than Amt>9   -> 2 rows: beta=10  gamma=11
+filter is_empty on Amount   -> 0 rows
+sort Amount asc             -> alpha=9  beta=10  gamma=11  (numeric, not 10,11,9)
+sort Amount desc            -> gamma=11 beta=10  alpha=9
+```
+
+**Scope of this evidence, stated plainly:** the reviewer proved the *server and
+block-runner* layers directly. The client→server wiring rests on three other
+things rather than a browser screenshot taken this pass — the served-module check
+above, the two new `useChoiceOptions` unit tests (which fail on the dead URL when
+the hook is reverted), and the dev's accepted 200-response live proof from pass 1.
+
+**The `verify` skill is stale on several points — fix before the next live pass:**
+public signup is now gated (`isPublicSignupEnabled`: `NODE_ENV === 'test'` or
+`VITE_PUBLIC_SIGNUP_ENABLED === 'true'`), and a registered user gets **no
+tenant**, so `POST /api/datavault/tables` 500s with "missing tenantId" until a
+tenant is created and attached the way `tests/helpers/integrationTestHelper.ts`
+does — plus `emailVerified: true`, or login is refused. Also `POST /api/workflows`
+wants `title` not `name`, and register/login are rate-limited (restart the server
+to clear it). Any bootstrap script must `throw` rather than `process.exit()` on
+failure, or its `finally` cleanup is skipped and fixture rows leak into the dev
+DB (this happened; two orphaned tenants and users were found and deleted).
 
 ---
 
