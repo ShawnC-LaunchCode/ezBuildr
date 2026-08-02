@@ -5,9 +5,10 @@
  * this component owns the step-level concerns (alias, required, visibility)
  * and the top-level ListConfig (depth 1).
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useMemo } from "react";
 
 import { Separator } from "@/components/ui/separator";
+import { useDebouncedFieldMutation } from "@/hooks/useDebouncedFieldMutation";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
 import type { ConditionExpression } from "@shared/types/conditions";
@@ -43,59 +44,27 @@ function readListConfig(config: unknown): ListConfig {
 
 export function ListCardEditor({ stepId, sectionId, workflowId, step }: StepEditorCommonProps): JSX.Element {
   const updateStepMutation = useUpdateStep();
-  const [localConfig, setLocalConfig] = useState<ListConfig>(() => readListConfig(step.config));
-  const mutateRef = useRef(updateStepMutation.mutate);
-  const pendingSaveRef = useRef<PendingConfigSave>();
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
-  const activeStepIdRef = useRef(stepId);
-
-  useEffect(() => {
-    mutateRef.current = updateStepMutation.mutate;
-  }, [updateStepMutation.mutate]);
-
-  const flushPendingSave = useCallback(() => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = undefined;
-    }
-
-    const pendingSave = pendingSaveRef.current;
-    if (!pendingSave) { return; }
-
-    pendingSaveRef.current = undefined;
-    mutateRef.current({
-      id: pendingSave.stepId,
-      sectionId: pendingSave.sectionId,
-      config: pendingSave.config,
-    });
-  }, []);
-
-  useEffect(() => {
-    if (activeStepIdRef.current !== stepId) {
-      flushPendingSave();
-      activeStepIdRef.current = stepId;
-      setLocalConfig(readListConfig(step.config));
-      return;
-    }
-
-    // A refetch must not overwrite keystrokes that are still queued locally.
-    if (!pendingSaveRef.current) {
-      setLocalConfig(readListConfig(step.config));
-    }
-  }, [flushPendingSave, step.config, stepId]);
-
-  useEffect(() => () => {
-    flushPendingSave();
-  }, [flushPendingSave]);
+  const serverValue = useMemo<PendingConfigSave>(() => ({
+    stepId,
+    sectionId,
+    config: readListConfig(step.config),
+  }), [sectionId, step.config, stepId]);
+  const saveIdentity = useMemo(() => ({ stepId, sectionId }), [sectionId, stepId]);
+  const { localValue, onChange: queueConfigSave } = useDebouncedFieldMutation(
+    serverValue,
+    (pendingSave) => {
+      updateStepMutation.mutate({
+        id: pendingSave.stepId,
+        sectionId: pendingSave.sectionId,
+        config: pendingSave.config,
+      });
+    },
+    CONFIG_SAVE_DEBOUNCE_MS,
+    saveIdentity
+  );
 
   const handleConfigChange = (config: ListConfig) => {
-    setLocalConfig(config);
-    pendingSaveRef.current = { stepId, sectionId, config };
-
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-    saveTimeoutRef.current = setTimeout(flushPendingSave, CONFIG_SAVE_DEBOUNCE_MS);
+    queueConfigSave({ stepId, sectionId, config });
   };
 
   const handleAliasChange = (alias: string | null) => {
@@ -114,7 +83,7 @@ export function ListCardEditor({ stepId, sectionId, workflowId, step }: StepEdit
 
       <Separator />
 
-      <ListLevelEditor config={localConfig} onChange={handleConfigChange} depth={1} />
+      <ListLevelEditor config={localValue.config} onChange={handleConfigChange} depth={1} />
 
       {workflowId && (
         <VisibilityField

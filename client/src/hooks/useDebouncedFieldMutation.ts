@@ -9,26 +9,20 @@ interface DebouncedFieldMutation<T> {
 export function useDebouncedFieldMutation<T>(
     serverValue: T,
     onFlush: (val: T) => void,
-    debounceMs = 600
+    debounceMs = 600,
+    identity?: unknown
 ): DebouncedFieldMutation<T> {
     const [localValue, setLocalValue] = useState<T>(serverValue);
     const localValueRef = useRef<T>(serverValue);
     const isDirtyRef = useRef(false);
     const timeoutRef = useRef<NodeJS.Timeout>();
     const onFlushRef = useRef(onFlush);
+    const identityRef = useRef(identity);
 
     // Keep onFlushRef up to date
     useEffect(() => {
         onFlushRef.current = onFlush;
     }, [onFlush]);
-
-    // When server value changes, update local if not dirty
-    useEffect(() => {
-        if (!isDirtyRef.current) {
-            setLocalValue(serverValue);
-            localValueRef.current = serverValue;
-        }
-    }, [serverValue]);
 
     const flush = useCallback(() => {
         if (timeoutRef.current) {
@@ -40,6 +34,23 @@ export function useDebouncedFieldMutation<T>(
             isDirtyRef.current = false;
         }
     }, []);
+
+    // Flush the previous entity before adopting the next entity's server value.
+    // Keeping identity inside T lets that flush remain safe even if onFlush changed.
+    useEffect(() => {
+        if (!Object.is(identityRef.current, identity)) {
+            flush();
+            identityRef.current = identity;
+            setLocalValue(serverValue);
+            localValueRef.current = serverValue;
+            return;
+        }
+
+        if (!isDirtyRef.current) {
+            setLocalValue(serverValue);
+            localValueRef.current = serverValue;
+        }
+    }, [flush, identity, serverValue]);
 
     const onChange = useCallback((newValue: T) => {
         setLocalValue(newValue);
