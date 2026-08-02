@@ -32,6 +32,12 @@ interface RunValueAdapter {
   autosaveEnabled: boolean;
 }
 
+// A `keepalive: true` fetch is rejected outright once its body exceeds 64 KiB
+// (Fetch standard, enforced by Chrome as an inflight quota). Stay under that
+// with headroom for headers so large lists still save, just without the
+// unload-survival guarantee (LIST2-4).
+export const KEEPALIVE_MAX_BYTES = 60 * 1024;
+
 export function useRunValues({
   mode,
   actualRunId,
@@ -122,11 +128,14 @@ export function useRunValues({
     // The endpoint expects an array of {stepId, value}
     const valuesToSave = Object.entries(dataToSave).map(([stepId, value]) => ({ stepId, value }));
     if (valuesToSave.length === 0) {return;}
-    
+
+    const body = JSON.stringify({ values: valuesToSave });
+    const keepalive = new Blob([body]).size < KEEPALIVE_MAX_BYTES;
+
     await fetchAPI(`/api/runs/${actualRunId}/values/bulk`, {
       method: 'POST',
-      keepalive: true, // Allow request to complete if the page is unloading
-      body: JSON.stringify({ values: valuesToSave })
+      keepalive, // Allow request to complete if the page is unloading, unless the body is too large for a keepalive request (LIST2-4)
+      body
     });
   }, [actualRunId]);
 

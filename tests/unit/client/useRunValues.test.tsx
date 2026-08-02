@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-import { useRunValues } from '../../../client/src/hooks/runner/useRunValues';
+import { fetchAPI } from '../../../client/src/lib/vault-api';
+import { KEEPALIVE_MAX_BYTES, useRunValues } from '../../../client/src/hooks/runner/useRunValues';
 
 vi.mock('@/lib/vault-api', () => ({
   fetchAPI: vi.fn().mockResolvedValue({}),
@@ -88,5 +89,53 @@ describe('useRunValues — ICW2-B10 (saved-run hydration must not clobber live a
       actualRunId: 'run-4',
     });
     expect(result.current.effectiveValues).toEqual({ 'step-yesno': false });
+  });
+});
+
+describe('useRunValues — LIST2-4 (autosave keepalive above the 64 KiB Fetch cap)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(fetchAPI).mockResolvedValue({});
+  });
+
+  it('sends keepalive: true for a payload under the threshold', async () => {
+    const { result } = renderRunValues({ run: { values: [] }, actualRunId: 'run-small' });
+
+    act(() => {
+      result.current.handleUpdateValue('step-text', 'hello world');
+    });
+    await act(async () => {
+      await result.current.saveNow();
+    });
+
+    expect(fetchAPI).toHaveBeenCalledTimes(1);
+    const [url, options] = vi.mocked(fetchAPI).mock.calls[0];
+    expect(url).toBe('/api/runs/run-small/values/bulk');
+    expect(options?.keepalive).toBe(true);
+    expect(new Blob([options?.body as string]).size).toBeLessThan(KEEPALIVE_MAX_BYTES);
+  });
+
+  it('sends keepalive falsy for a payload over the threshold, otherwise byte-identical', async () => {
+    // A genuinely large fixture (not a mocked size) that straddles the real
+    // 60 KiB constant so the test fails if the threshold check is removed.
+    const bigValue = 'x'.repeat(80 * 1024);
+    const { result } = renderRunValues({ run: { values: [] }, actualRunId: 'run-large' });
+
+    act(() => {
+      result.current.handleUpdateValue('step-big', bigValue);
+    });
+    await act(async () => {
+      await result.current.saveNow();
+    });
+
+    expect(fetchAPI).toHaveBeenCalledTimes(1);
+    const [url, options] = vi.mocked(fetchAPI).mock.calls[0];
+    const expectedBody = JSON.stringify({ values: [{ stepId: 'step-big', value: bigValue }] });
+
+    expect(url).toBe('/api/runs/run-large/values/bulk');
+    expect(new Blob([expectedBody]).size).toBeGreaterThan(KEEPALIVE_MAX_BYTES);
+    expect(options?.body).toBe(expectedBody);
+    expect(options?.keepalive).toBeFalsy();
+    expect(options?.method).toBe('POST');
   });
 });

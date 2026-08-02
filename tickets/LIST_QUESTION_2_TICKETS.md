@@ -462,7 +462,7 @@ ListConfig` cast sites in `ListBlock.tsx` and `ListAnswerView.tsx`.
 
 ---
 
-## LIST2-4 — Autosave silently dies above 64 KB 🔲
+## LIST2-4 — Autosave silently dies above 64 KB ✅
 
 **Priority: P1** · Size: S · File: `client/src/hooks/runner/useRunValues.ts`
 
@@ -539,6 +539,18 @@ bodies. Leave it alone.
    over-threshold case must use a genuinely large fixture, not a mocked size.
 5. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
    green.
+
+### Verification pass — 2026-08-01 (reviewer)
+
+All 5 criteria met. `useRunValues.test.tsx` → 5/5 on the merged tree.
+
+The over-threshold test uses a genuine 80 KiB fixture rather than a mocked
+size, as AC4 required, and asserts the body stays byte-identical — so the
+non-keepalive path is proven to change *only* the flag. Verified by mutation:
+forcing `keepalive = true` fails that test. Reverted after.
+
+Scope held exactly — `useAutoSave.ts` and `analytics.ts` untouched, and no
+delta-save behavior was smuggled in.
 
 ---
 
