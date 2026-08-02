@@ -10,17 +10,36 @@
  *
  *   npx tsx scripts/verifyPortabilityRoundTrip.ts
  *
- * Everything except the tenant bootstrap goes over real HTTP with a real JWT.
- * The bootstrap has to touch the DB directly because POST /api/auth/register
- * does not assign a tenant, and every subsequent call 400s without one.
+ * Env:
+ *   PORTABILITY_VERIFY_BASE  point at another port (e.g. a worktree on :5098)
+ *   PORTABILITY_VERIFY_KEEP  =1 keeps the tenant alive so the printed builder
+ *                            URLs can actually be opened. Prints the cleanup
+ *                            SQL instead of running it.
+ *
+ * Everything except the user/tenant bootstrap goes over real HTTP with a real
+ * JWT. The bootstrap touches the DB directly for two reasons, both learned the
+ * hard way (IEX3-B7):
+ *
+ *   - `POST /api/auth/register` does not assign a tenant, and every subsequent
+ *     call 400s without one.
+ *   - Public signup is fail-closed outside tests (`isPublicSignupEnabled`), so
+ *     against a stock `npm run dev` that route answers 403
+ *     `registration_closed` and this script used to die at its first step. It
+ *     no longer depends on that route at all.
+ *
+ * The credentials are still proved against the real `/api/auth/login` before
+ * they are printed, so "these work in a browser" remains a checked claim
+ * rather than an assumption.
  */
 import { eq } from 'drizzle-orm';
 
 import * as schema from '@shared/schema';
-import { db } from '../server/db';
+import { db, initializeDatabase } from '../server/db';
+import { authService } from '../server/services/AuthService';
 import { storageProvider } from '../server/services/storage';
 
 const BASE = process.env.PORTABILITY_VERIFY_BASE ?? 'http://localhost:5000';
+const KEEP = process.env.PORTABILITY_VERIFY_KEEP === '1';
 const stamp = Date.now();
 const PASSWORD = 'TestPassword123!@#Strong';
 const EMAIL = `portability-verify-${stamp}@example.com`;
@@ -37,53 +56,66 @@ async function ok(res: Response, what: string): Promise<Response> {
 }
 
 async function main(): Promise<void> {
+  // `db` is a proxy over an async init and throws until that resolves. This
+  // used to be satisfied by accident — the first thing the script did was an
+  // HTTP round trip, which gave init time to finish — so moving the bootstrap
+  // off `/api/auth/register` surfaced it. Await it rather than depend on
+  // statement order.
+  await initializeDatabase();
+
   const health = await fetch(`${BASE}/health`).catch(() => null);
   if (health?.ok !== true) {
     throw new Error(`No dev server responding at ${BASE}. Start it with "npm run dev" first.`);
   }
 
-  const reg = await fetch(`${BASE}/api/auth/register`, {
-    method: 'POST',
-    headers: { 
-      'Content-Type': 'application/json',
-      'X-Forwarded-For': `192.168.1.${stamp % 255}`
-    },
-    body: JSON.stringify({ email: EMAIL, password: PASSWORD, firstName: 'Portability', lastName: 'Verify' })
-  });
-  await ok(reg, 'register');
-  const { token, user } = await reg.json() as { token: string; user: { id: string } };
-  const H = { 
-    Authorization: `Bearer ${token}`,
-    // Spoof X-Forwarded-For to dodge the rate limiter (reasonable for an automated harness)
-    'X-Forwarded-For': `192.168.1.${stamp % 255}`
-  };
-  const JH = { ...H, 'Content-Type': 'application/json' };
-
-  // Registration leaves the user tenant-less; everything downstream needs one.
-  // emailVerified matters too: a bearer token from /register works fine against
-  // the API, but the UI login form rejects an unverified user with
-  // EmailNotVerifiedError (auth.routes.ts:84). Without this, the credentials
-  // printed below are usable by scripts but NOT by a human or a headless
-  // browser trying to log in and look at the result.
+  // Bootstrap the user and tenant directly. `emailVerified` matters: the UI
+  // login form rejects an unverified user with EmailNotVerifiedError (403), so
+  // without it the credentials printed at the end would work for API callers
+  // and nobody else.
   const [tenant] = await db.insert(schema.tenants)
     .values({ name: `Portability Verify ${stamp}`, plan: 'free' }).returning();
-  await db.update(schema.users)
-    .set({ tenantId: tenant.id, tenantRole: 'owner', emailVerified: true })
-    .where(eq(schema.users.id, user.id));
+
+  const [user] = await db.insert(schema.users).values({
+    email: EMAIL,
+    emailVerified: true,
+    firstName: 'Portability',
+    lastName: 'Verify',
+    fullName: 'Portability Verify',
+    authProvider: 'local',
+    role: 'creator',
+    tenantId: tenant.id,
+    tenantRole: 'owner',
+  }).returning();
+
+  await db.insert(schema.userCredentials).values({
+    userId: user.id,
+    passwordHash: await authService.hashPassword(PASSWORD),
+  });
   log(`1. user ${user.id} in tenant ${tenant.id} (email marked verified for UI login)`);
 
-  // Prove the printed credentials actually work on the UI login path, so this
-  // script can never hand out credentials that only work for API callers.
+  // The token comes from the real login route rather than being minted here, so
+  // everything downstream still exercises the same auth path a browser would.
   const loginRes = await fetch(`${BASE}/api/auth/login`, {
     method: 'POST',
-    headers: { 
+    headers: {
       'Content-Type': 'application/json',
       'X-Forwarded-For': `192.168.1.${stamp % 255}`
     },
     body: JSON.stringify({ email: EMAIL, password: PASSWORD })
   });
   await ok(loginRes, 'login via the UI auth path');
+  const { token } = await loginRes.json() as { token: string };
+  if (typeof token !== 'string' || token === '') {
+    throw new Error('login succeeded but returned no token');
+  }
   log(`   UI login path OK (HTTP ${loginRes.status}) — these credentials work in the browser`);
+
+  const H = {
+    Authorization: `Bearer ${token}`,
+    // Spoof X-Forwarded-For to dodge the rate limiter (reasonable for an automated harness)
+    'X-Forwarded-For': `192.168.1.${stamp % 255}`
+  };
+  const JH = { ...H, 'Content-Type': 'application/json' };
 
   const projRes = await fetch(`${BASE}/api/projects`, {
     method: 'POST', headers: JH, body: JSON.stringify({ name: `Portability Verify ${stamp}` })
@@ -373,11 +405,31 @@ async function main(): Promise<void> {
   log('  Screenshot the IMPORTED builder URL: it must show the same');
   log('  sections and steps as the source, with different ids.');
 
-  // Cleanup: delete the tenant so we don't pollute the dev DB with hundreds of test tenants
+  // Teardown is opt-out, not unconditional (IEX3-B6). It used to drop the
+  // tenant immediately after printing the credentials and URLs above, which
+  // killed them before anyone could open one — the documented procedure could
+  // not be followed as written, and the workaround was to hand-edit a copy of
+  // this script.
+  if (KEEP) {
+    log('');
+    log(`7. PORTABILITY_VERIFY_KEEP=1 — tenant ${tenant.id} left in place so the URLs above work.`);
+    log('   Clean up when you are done:');
+    log('');
+    log(`   delete from audit_logs where tenant_id = '${tenant.id}';`);
+    log(`   delete from workflows where project_id in (select id from projects where tenant_id = '${tenant.id}');`);
+    log(`   delete from projects where tenant_id = '${tenant.id}';`);
+    log(`   delete from user_credentials where user_id = '${user.id}';`);
+    log(`   delete from users where tenant_id = '${tenant.id}';`);
+    log(`   delete from tenants where id = '${tenant.id}';`);
+    return;
+  }
+
+  // Default: delete the tenant so we don't pollute the dev DB with hundreds of
+  // test tenants.
   try {
     await db.delete(schema.auditLogs).where(eq(schema.auditLogs.tenantId, tenant.id));
     await db.delete(schema.tenants).where(eq(schema.tenants.id, tenant.id));
-    log(`7. cleaned up test tenant ${tenant.id}`);
+    log(`7. cleaned up test tenant ${tenant.id} (PORTABILITY_VERIFY_KEEP=1 to keep it)`);
   } catch (err: any) {
     log(`7. cleanup failed (${err.message}). To clean up test tenant by hand:`);
     log(`delete from tenants where id = '${tenant.id}';`);
