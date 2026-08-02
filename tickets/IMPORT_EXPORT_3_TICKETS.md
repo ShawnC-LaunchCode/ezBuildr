@@ -96,7 +96,7 @@ portability-shaped; do not re-litigate them.**
 | Ticket | Title | Priority | Size | Status |
 |---|---|---|---|---|
 | IEX3-1 | Workflow-scope export omits entities its own rows require | P0 | L | ✅ |
-| IEX3-2 | Entity ids embedded in jsonb are never checked or reported | P0 | M | 🔲 |
+| IEX3-2 | Entity ids embedded in jsonb are never checked or reported | P0 | M | ✅ |
 | IEX3-3 | Round-trip coverage for every question type, including List | P1 | M | 🔲 |
 | IEX3-4 | Export UI with a pre-download disclosure of what travels | P1 | L | 🔲 |
 | IEX3-5 | Import UI: upload → preview → apply | P1 | L | 🔲 |
@@ -496,7 +496,56 @@ and its integration tests are the regression net.
 
 ---
 
-## IEX3-2 — Entity ids embedded in jsonb are never checked or reported 🔲
+## IEX3-2 — Entity ids embedded in jsonb are never checked or reported ✅
+
+> **Verification pass — 2026-08-02.** All 8 acceptance criteria met.
+> Shipped in `e84bbe62`; this note lands separately because a concurrent
+> `tickets/` restructure (`5c7c7d89`) held this file at commit time.
+>
+> Gates: `npx tsc --noEmit` → 0 errors; `npm run lint` → 0 errors/0 warnings;
+> pre-commit hook 4/4 (ESLint, type-check, strict zones, related tests);
+> `npm run test:fast` → **2287 passed** (was 2279); `unit-db` → **12 files /
+> 129 passed** (was 11/124); portability integration → **32 passed** (was 31).
+>
+> Pre-fix proof: with the two wiring files reverted to HEAD, the four
+> behavioural tests failed — AC 1, 2 and 3 in `importConfigRefs.test.ts` and
+> the integration case (`expected [] to deeply equal ArrayContaining{…}`).
+> **AC 4 and AC 5 pass against the pre-fix tree by design** and are stated as
+> such rather than claimed as regression proof: they assert the *absence* of a
+> false warning, which is what the collector must not break. The eight
+> `stepConfigRefs.test.ts` cases test a module that did not previously exist.
+>
+> **Deviation from the Preferred fix — key names, not config shapes.** The
+> ticket asked for a typed walker over the `StepConfig` union mirroring
+> `projectListValue`. Rejected while writing it: references live in about a
+> dozen unions across `stepConfigs.ts` *and* `blocks.ts` (`ReadTableConfig`,
+> `WriteBlockConfig`, `ComputedStepConfig`, `FinalBlockConfig`,
+> `SignatureBlockConfig`, `DynamicOptionsConfig`, ...), a shape walker must
+> enumerate every one, and the next config type added escapes it silently —
+> the staleness that retired `RepeaterFieldType` (LIST-13). These configs
+> already name references consistently, so `collectConfigEntityRefs` keys off
+> an allowlist of reference key names and recurses the whole object. That
+> covers `ListConfig.fields[]`, nested `kind: "list"` fields at any depth,
+> `filters[]` and `columnMappings[]` with no special cases, and it satisfies
+> AC 5 structurally: local ids are keyed `id`, which is not on the allowlist,
+> so a UUID-shaped `ChoiceOption.id` can never be reported.
+>
+> Ordering detail worth keeping: the collection **must** run before
+> `remapJsonIds`. Afterwards the column holds the *new* id, which is not a key
+> of `idMap`, so every successfully remapped reference would report as
+> unresolvable.
+>
+> Scope note discovered while testing, filed as **IEX3-B5** below rather than
+> fixed here: a DataVault database referenced *only* from inside a step config
+> is still not carried by the export. IEX3-1 collects references from data
+> sources, queries and writeback mappings, not from config. This ticket's
+> contract is to report the broken reference, and it does — but making it
+> travel is the better end state.
+>
+> Not driven in a browser: no UI surface. Live proof is the HTTP-level
+> integration case (real JWT, export → preview → apply), which asserts the
+> `201` body carries
+> `config.fields[0].config.dynamicOptions.tableId`.
 
 **Priority: P0 (bug)** · Size: M · File: `server/services/portability/ImportService.ts`
 
@@ -1027,3 +1076,13 @@ Promotable later; each is a one-liner on purpose.
   **Merged into `tickets/BACKLOG.md` as `IEX-D7`** on 2026-08-02 — it had been
   tracked three times (here, as round 2's `D-7`, and as round 1's `IEX-B8`).
   Track it there, not here.
+- **IEX3-B5** — A DataVault database referenced *only* from inside a step
+  config is still not carried by the export. `collectWorkflowRefs` (IEX3-1)
+  reads `workflow_data_sources`, `workflow_queries` and writeback mappings, not
+  `steps.config`, so a choice question bound to a table the workflow never
+  registered as a data source exports without it. IEX3-2 makes this loud rather
+  than silent, which was its contract — but feeding `collectConfigEntityRefs`
+  into the export's reference collection would make it *correct*. Found while
+  writing IEX3-2's tests, 2026-08-02. Small and well-understood; promote before
+  Phase 2 if the export UI is going to show a "what travels" list, since this
+  is the case where that list would be wrong.
