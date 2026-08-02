@@ -165,12 +165,19 @@ Funnel/trends/heatmap/branching analytics and JSON/CSV/PDF export per workflow.
 ```
 GET         /api/admin/users
 PUT         /api/admin/users/:userId/role         # NOT /set-admin
+GET         /api/admin/users/:userId/workflows    # + runCount; excludes org-membership reach
 GET         /api/admin/logs (+ /export, /events, /actors)
 GET         /api/admin/stats
 GET         /api/admin/org-stats
 GET         /api/admin/workflows*
+POST        /api/admin/workflows/:workflowId/copy # copies to the acting admin, bypasses source ACL
+DELETE      /api/admin/workflows/:workflowId
 PUT         /api/admin/tenants/:tenantId/mfa-required
 ```
+
+The admin UI for the two workflow routes is `/admin/users/:userId/workflows`
+(`AdminUserWorkflows.tsx`), used to salvage or clear a user's workflows before
+deleting the account.
 
 ## Other registered domains (see route file for endpoints)
 

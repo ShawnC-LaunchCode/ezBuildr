@@ -109,6 +109,46 @@ export class WorkflowRepository extends BaseRepository<typeof workflows, Workflo
     return query as unknown as Promise<Workflow[]>; // Join result shape is compatible with Workflow[]
   }
   /**
+   * Admin-only: every workflow attributable to a single user — created by
+   * them, or owned by them under either the legacy (`ownerId`) or current
+   * (`ownerType`/`ownerUuid`) ownership model.
+   *
+   * Deliberately does NOT expand org memberships the way findByCreatorId
+   * does. This backs the admin copy/delete UI, and a workflow the user can
+   * merely reach through an org they belong to is not theirs to delete.
+   */
+  async findAttributedToUser(
+    userId: string,
+    tx?: DbTransaction
+  ): Promise<Array<Workflow & { ownerName: string | null }>> {
+    const database = this.getDb(tx);
+    // ownerUuid holds a UUID; comparing a legacy non-UUID id against it in
+    // Postgres is a wasted predicate at best.
+    const ownedUnderNewModel = isUuid(userId)
+      ? [and(eq(workflows.ownerType, 'user'), eq(workflows.ownerUuid, userId))]
+      : [];
+    return database
+      .select({
+        ...getTableColumns(workflows),
+        ownerName: organizations.name,
+      })
+      .from(workflows)
+      .leftJoin(
+        organizations,
+        and(
+          eq(workflows.ownerType, 'org'),
+          eq(workflows.ownerUuid, sql`${organizations.id}::text`)
+        )
+      )
+      .where(or(
+        eq(workflows.creatorId, userId),
+        eq(workflows.ownerId, userId),
+        ...ownedUnderNewModel
+      ))
+      .orderBy(desc(workflows.updatedAt));
+  }
+
+  /**
    * Find workflows by user access (Owner OR Shared OR Org-owned)
    */
   async findByUserAccess(

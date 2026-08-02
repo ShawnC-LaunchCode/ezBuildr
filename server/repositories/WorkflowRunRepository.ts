@@ -67,6 +67,29 @@ export class WorkflowRunRepository extends BaseRepository<
   }
 
   /**
+   * Count runs per workflow in one grouped query, keyed by workflow id.
+   * Workflows with no runs are absent from the map, not zero-filled.
+   */
+  async countByWorkflowIds(
+    workflowIds: string[],
+    tx?: DbTransaction
+  ): Promise<Map<string, number>> {
+    if (workflowIds.length === 0) {
+      return new Map();
+    }
+    const database = this.getDb(tx);
+    const rows = await database
+      .select({
+        workflowId: workflowRuns.workflowId,
+        runCount: count(workflowRuns.id),
+      })
+      .from(workflowRuns)
+      .where(inArray(workflowRuns.workflowId, workflowIds))
+      .groupBy(workflowRuns.workflowId);
+    return new Map(rows.map((row) => [row.workflowId, Number(row.runCount)]));
+  }
+
+  /**
    * Find completed runs by workflow ID
    */
   async findCompletedByWorkflowId(

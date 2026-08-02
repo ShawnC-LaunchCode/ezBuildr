@@ -310,7 +310,7 @@ function UserRow({
       <td className="p-3"><UserRoleBadge user={user} /></td>
       <td className="p-3"><UserStatusBadge isActive={user.isActive} /></td>
       <td className="p-3">
-        <Link href={`/admin/users/${user.id}/surveys`}>
+        <Link href={`/admin/users/${user.id}/workflows`}>
           <Button variant="outline" size="sm" className="whitespace-nowrap">
             <Eye className="h-4 w-4 mr-1" />
             View Workflows ({user.personalWorkflowCount}/{user.orgWorkflowCount})

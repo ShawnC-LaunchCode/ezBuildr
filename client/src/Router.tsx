@@ -22,6 +22,7 @@ const WorkflowsList = lazy(() => import("@/pages/WorkflowsList"));
 const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
 const AdminOrgStats = lazy(() => import("@/pages/AdminOrgStats"));
 const AdminUsers = lazy(() => import("@/pages/AdminUsers"));
+const AdminUserWorkflows = lazy(() => import("@/pages/AdminUserWorkflows"));
 const AdminLogs = lazy(() => import("@/pages/AdminLogs"));
 const AdminAiSettings = lazy(() => import("@/pages/AdminAiSettings"));
 const Marketplace = lazy(() => import("@/pages/Marketplace"));
@@ -148,6 +149,7 @@ export default function Router() {
                         <Route path="/admin" component={AdminDashboard} />
                         <Route path="/admin/org-stats" component={AdminOrgStats} />
                         <Route path="/admin/users" component={AdminUsers} />
+                        <Route path="/admin/users/:userId/workflows" component={AdminUserWorkflows} />
                         <Route path="/admin/logs" component={AdminLogs} />
                         <Route path="/admin/ai-settings" component={AdminAiSettings} />
                         {/* Billing Routes */}

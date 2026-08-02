@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { createLogger } from "../logger";
 import { isAdmin } from "../middleware/adminAuth";
 import { hybridAuth } from "../middleware/auth";
@@ -10,6 +12,7 @@ import { accountLockoutService } from "../services/AccountLockoutService";
 import { ActivityLogService } from "../services/ActivityLogService";
 import { adminOrgStatsService } from "../services/AdminOrgStatsService";
 import { mfaService } from "../services/MfaService";
+import { workflowClonerService } from "../services/WorkflowClonerService";
 import { asyncHandler } from "../utils/asyncHandler";
 import { classifyRouteError } from "../utils/routeErrors";
 
@@ -17,6 +20,15 @@ import type { Express, Request, Response } from "express";
 
 const logger = createLogger({ module: 'admin-routes' });
 const activityLogService = new ActivityLogService();
+
+/**
+ * The admin copy always targets the acting admin's own account, so ownership
+ * fields are deliberately not accepted from the client.
+ */
+const adminCopyWorkflowBodySchema = z.object({
+  name: z.string().trim().min(1).max(255).optional(),
+  includeDatavaultData: z.boolean().optional().default(false),
+});
 
 /**
  * Register admin-only routes
@@ -336,7 +348,8 @@ export function registerAdminRoutes(app: Express): void {
         return res.status(404).json({ message: "User not found" });
       }
 
-      const workflows = await workflowRepository.findByCreatorId(userId);
+      const workflows = await workflowRepository.findAttributedToUser(userId);
+      const runCounts = await workflowRunRepository.countByWorkflowIds(workflows.map(w => w.id));
 
       logger.info(
         { adminId: req.adminUser.id, targetUserId: userId, workflowCount: workflows.length },
@@ -350,7 +363,10 @@ export function registerAdminRoutes(app: Express): void {
           firstName: user.firstName,
           lastName: user.lastName,
         },
-        workflows
+        workflows: workflows.map(workflow => ({
+          ...workflow,
+          runCount: runCounts.get(workflow.id) ?? 0,
+        })),
       });
     } catch (error) {
       logger.error(
@@ -587,6 +603,62 @@ export function registerAdminRoutes(app: Express): void {
         'Error fetching workflow runs'
       );
       res.status(500).json({ message: "Failed to fetch runs" });
+    }
+  }));
+
+  /**
+   * POST /api/admin/workflows/:workflowId/copy
+   * Copy any workflow into the acting admin's own account. Exists so an admin
+   * can salvage a departing user's work before deleting their workflows (and
+   * then the user) — the normal /api/workflows/:id/copy route requires an ACL
+   * grant on the source, which an admin does not have.
+   */
+  app.post('/api/admin/workflows/:workflowId/copy', hybridAuth, isAdmin, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      if (!req.adminUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const options = adminCopyWorkflowBodySchema.parse(req.body);
+
+      const result = await workflowClonerService.copyWorkflowAsAdmin(
+        req.params.workflowId,
+        req.adminUser.id,
+        {
+          name: options.name,
+          includeRelatedDatavault: true,
+          includeDatavaultData: options.includeDatavaultData,
+          clearAccess: true,
+        }
+      );
+
+      logger.warn(
+        {
+          adminId: req.adminUser.id,
+          sourceWorkflowId: req.params.workflowId,
+          copyWorkflowId: result.workflow?.id,
+          includeDatavaultData: options.includeDatavaultData,
+        },
+        'Admin copied workflow to their own account'
+      );
+
+      res.status(201).json({
+        message: "Workflow copied successfully",
+        workflow: result.workflow,
+        copiedDatabases: result.copiedDatabases,
+        copiedTables: result.copiedTables,
+        copiedRows: result.copiedRows,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      logger.error(
+        { err: error, adminId: req.adminUser!.id, workflowId: req.params.workflowId },
+        'Error copying workflow as admin'
+      );
+      const { status, message } = classifyRouteError(error, "Failed to copy workflow");
+      res.status(status).json({ message });
     }
   }));
 

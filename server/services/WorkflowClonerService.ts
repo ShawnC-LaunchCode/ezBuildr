@@ -1,3 +1,8 @@
+/* eslint-disable max-lines -- This migration-compatible cloner centralizes
+   related asset copy operations. Kept file-level on purpose: max-lines is a
+   whole-file rule but reports on one shifting physical line, so a
+   disable-next-line silently stops applying as soon as the file changes
+   length. */
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 
 import {
@@ -264,6 +269,40 @@ export class WorkflowClonerService {
       throw new Error("Access denied - insufficient permissions for this workflow");
     }
 
+    return this.performWorkflowCopy(sourceWorkflow, userId, options);
+  }
+
+  /**
+   * Copy a workflow on behalf of a global admin (`users.role === 'admin'`),
+   * who holds no ACL grant on another user's workflow and would otherwise be
+   * denied by copyWorkflow.
+   *
+   * Authorization is the caller's responsibility: this method performs NO
+   * source-access check, so it must only ever be reached through a route
+   * already gated by the `isAdmin` middleware. The target side is still
+   * validated normally — resolveTargetOwnerForWorkflowCopy confines the copy
+   * to the admin themselves or an org they administer.
+   */
+  async copyWorkflowAsAdmin(
+    workflowId: string,
+    adminUserId: string,
+    options: CopyAssetOptions = {}
+  ): Promise<CopyAssetResult> {
+    logger.warn({ workflowId, adminUserId }, "Admin copying workflow, bypassing source ACL");
+
+    const sourceWorkflow = await workflowRepository.findByIdOrSlug(workflowId);
+    if (!sourceWorkflow) {
+      throw new Error("Workflow not found");
+    }
+
+    return this.performWorkflowCopy(sourceWorkflow, adminUserId, options);
+  }
+
+  private async performWorkflowCopy(
+    sourceWorkflow: Workflow,
+    userId: string,
+    options: CopyAssetOptions
+  ): Promise<CopyAssetResult> {
     const targetOwner = await this.resolveTargetOwnerForWorkflowCopy(userId, options);
     const clearAccess = options.clearAccess ?? true;
     const includeRelatedDatavault = options.includeRelatedDatavault ?? true;
@@ -1130,7 +1169,6 @@ export class WorkflowClonerService {
     const knownDatabaseIds = new Set(tenantDatabases.map((database) => database.id));
     const knownTableIds = new Set(tenantTables.map((table) => table.id));
 
-    // eslint-disable-next-line max-lines -- This migration-compatible cloner centralizes related asset copy operations.
     const [workflowRows, sectionRows, stepRows, blockRows, transformRows, versionRows] = await Promise.all([
       tx.select().from(workflows).where(inArray(workflows.id, workflowIds)),
       tx.select().from(sections).where(inArray(sections.workflowId, workflowIds)),
