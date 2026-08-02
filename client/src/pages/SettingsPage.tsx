@@ -369,7 +369,7 @@ export default function SettingsPage() {
                       AI Hints & Suggestions
                     </Label>
                     <p className="text-sm text-gray-500">
-                      Receive intelligent suggestions while building surveys
+                      Receive intelligent suggestions while building workflows
                     </p>
                   </div>
                   <Switch

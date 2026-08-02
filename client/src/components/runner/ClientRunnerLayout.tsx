@@ -69,7 +69,7 @@ export function ClientRunnerLayout({
             {/* Progress Bar (Sticky under header) */}
             {progress !== undefined && (
                 <div className="sticky top-[57px] z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                    <Progress value={progress} className="h-1 w-full rounded-none bg-muted" aria-label="Survey Progress" />
+                    <Progress value={progress} className="h-1 w-full rounded-none bg-muted" aria-label="Workflow Progress" />
                 </div>
             )}
 
