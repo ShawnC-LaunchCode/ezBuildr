@@ -976,6 +976,14 @@ export class ImportService {
     // through would be worse than either — on a same-system import it resolves
     // to the SOURCE tenant's object in shared storage, handing the importing
     // tenant a file that is not theirs. Empty fails closed on download instead.
+    // Same reasoning, for material the export withheld on purpose: the column
+    // is NOT NULL, the bundle correctly does not carry it, so the row cannot
+    // be written without a placeholder. requiresReentry already names these
+    // for the user (IEX3-7).
+    for (const col of ctx.desc.withheldColumns ?? []) {
+      data[col] = '';
+    }
+
     for (const col of ctx.desc.blobRefs ?? []) {
       const value = data[col];
       if (typeof value === 'string' && value !== '') {

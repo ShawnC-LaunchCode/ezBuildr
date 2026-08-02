@@ -20,6 +20,7 @@ const dbUnitTests = [
   "tests/unit/portability/importApply.test.ts",
   "tests/unit/portability/importBlobs.test.ts",
   "tests/unit/portability/importConfigRefs.test.ts",
+  "tests/unit/portability/importWithheldColumns.test.ts",
   "tests/unit/services/StepService.db.test.ts",
   "tests/unit/scripts/migrateOptionAliases.db.test.ts",
 ];

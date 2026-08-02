@@ -37,6 +37,18 @@ export interface EntityDescriptor {
    * these columns say where to look.
    */
   entityRefColumns?: string[];
+  /**
+   * NOT NULL columns deliberately absent from `fields` because their contents
+   * must never travel, and which therefore have to be supplied on import.
+   *
+   * `secrets.valueEnc` is the case: withholding it is the entire point of
+   * decision D-2, but the column is NOT NULL, so an import that simply omitted
+   * it hit a 23502 and **no project bundle containing a secret could be
+   * imported at all** (IEX3-7). Written as the empty sentinel, matching the
+   * blobRefs handling in ImportService: empty fails closed, and
+   * `manifest.requiresReentry` already tells the user to re-enter it.
+   */
+  withheldColumns?: string[];
 }
 
 export const ENTITY_GRAPH: EntityDescriptor[] = [
@@ -54,6 +66,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     parent: {"name":"projects","fk":"projectId"},
     fields: ["id","projectId","key","type","environment","metadata"],
     refs: ["projectId"],
+    withheldColumns: ["valueEnc"],
   },
   {
     table: schema.externalConnections,
