@@ -80,6 +80,12 @@ interface ProcessEntityContext {
    * original is legitimately the caller's.
    */
   projectIdOverride: string | null | undefined;
+  /**
+   * What the caller asked the imported root to be called, if anything.
+   * See `applyRequestedName` — `applyOptionsSchema` has accepted this since
+   * round 2 and nothing ever read it.
+   */
+  requestedName: string | undefined;
   warnings: ExportWarning[];
   /**
    * Bundle-origin ids of rows that were not inserted, so rows referencing them
@@ -716,6 +722,33 @@ export class ImportService {
     }
   }
 
+  /**
+   * Rename the imported root, when the caller asked for one.
+   *
+   * `applyOptionsSchema` has allowed `name` since round 2 and `apply` never
+   * read it, so the import screen's "Rename" field sent a value the service
+   * discarded and the user got the original title back (IEX3-8).
+   *
+   * Root row only. A project bundle carries many workflows; renaming all of
+   * them to one title is not what "rename this import" means. Runs before
+   * `enforceNameUniqueness`, so a requested name that already exists still
+   * gets the same `(2)` treatment as an inherited one.
+   */
+  private applyRequestedName(
+    ctx: ProcessEntityContext,
+    data: Record<string, unknown>,
+    oldId: string | undefined
+  ): void {
+    if (ctx.requestedName === undefined || oldId === undefined || !ctx.rootIds.includes(oldId)) {
+      return;
+    }
+    // Written by key presence rather than by entity name: `data` is already
+    // narrowed to the descriptor's field allowlist, so this reaches whichever
+    // of title/name that root actually has.
+    if ('title' in data) { data['title'] = ctx.requestedName; }
+    if ('name' in data) { data['name'] = ctx.requestedName; }
+  }
+
   private async enforceNameUniqueness(ctx: ProcessEntityContext, data: Record<string, unknown>): Promise<void> {
     if (ctx.desc.name === 'projects' && data['name']) {
       data['title'] = await this.ensureUniqueProjectTitle(ctx.tx, ctx.targetOwner.ownerType, ctx.targetOwner.ownerUuid, (data['title'] as string) ?? (data['name'] as string));
@@ -1011,6 +1044,7 @@ export class ImportService {
       data['id'] = newId;
     }
     
+    this.applyRequestedName(ctx, data, oldId);
     await this.enforceNameUniqueness(ctx, data);
     await ctx.tx.insert(ctx.desc.table).values(data as never);
     
@@ -1077,6 +1111,11 @@ export class ImportService {
   async apply(filePath: string, userId: string, options: ImportApplyOptions = {}): Promise<ImportApplyResult> {
     const targetOwner = await this.resolveTargetOwner(userId, options);
 
+    // A blank rename is no rename; treat it as absent rather than writing an
+    // empty title that then fails the uniqueness loop's `substring` on nothing.
+    const trimmedName = options.name?.trim();
+    const requestedName = trimmedName === undefined || trimmedName === '' ? undefined : trimmedName;
+
     let reader: BundleReader | null = null;
     let newRootId = '';
     const warnings: ExportWarning[] = [];
@@ -1124,6 +1163,7 @@ export class ImportService {
               rootIds,
               blobMap,
               projectIdOverride,
+              requestedName,
               warnings,
               skippedOldIds
             });
