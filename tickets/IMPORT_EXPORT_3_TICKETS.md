@@ -87,7 +87,7 @@ clicking download** — it lives in `manifest.json` inside the zip.
 
 | Ticket | Title | Priority | Size | Status |
 |---|---|---|---|---|
-| IEX3-1 | Workflow-scope export omits entities its own rows require | P0 | L | 🔲 |
+| IEX3-1 | Workflow-scope export omits entities its own rows require | P0 | L | ✅ |
 | IEX3-2 | Entity ids embedded in jsonb are never checked or reported | P0 | M | 🔲 |
 | IEX3-3 | Round-trip coverage for every question type, including List | P1 | M | 🔲 |
 | IEX3-4 | Export UI with a pre-download disclosure of what travels | P1 | L | 🔲 |
@@ -102,7 +102,61 @@ liability. Today a workflow-scope bundle is neither: it can be structurally
 un-importable, and when it does import it can quietly drop bindings without
 saying so. Phase 1 fixes the engine. No UI work belongs in this phase.
 
-## IEX3-1 — Workflow-scope export omits entities its own rows require 🔲
+## IEX3-1 — Workflow-scope export omits entities its own rows require ✅
+
+> **Verification pass — 2026-08-02.** All 8 acceptance criteria met.
+>
+> Gates: `npx tsc --noEmit` → 0 errors; `npm run lint` → 0 errors/0 warnings;
+> `npm run check:strict-zones` → 6 zones, 11 files, all passed;
+> `npm run test:fast` → **177 files / 2279 passed**, 14 skipped (was 2277);
+> `unit-db` → **11 files / 124 passed**; portability integration →
+> **3 files / 31 passed** (round-2 baseline was 25).
+>
+> Each of the 8 new tests was run against the pre-fix tree (production files
+> reverted to HEAD, tests kept) and **all 8 failed** — 2 in
+> `entityGraph.test.ts`, 6 across the two integration files. Sample:
+> `templates is reachable from the 'workflow' root but does not declare that
+> scope`, and `AssertionError: expected [] to deeply equal [ Array(1) ]` on the
+> template-carrying bundle.
+>
+> **AC 4 ruling (the question escalated at audit time):** a referenced database
+> travels *if the caller has `edit` on it*, and is otherwise omitted with a
+> manifest warning while its referencing rows are dropped. Reason: IEX2-17
+> already settled that exporting a database requires edit on that database, and
+> without that gate a user with edit on one workflow could exfiltrate a
+> tenant-wide DataVault by pointing a question at it. Templates are *not*
+> ACL-gated beyond workflow-edit — a workflow's own templates are the documents
+> it exists to produce.
+>
+> **Two deviations from the Preferred fix, both forced by facts the audit
+> missed:**
+> 1. The ticket said to collect template ids *while streaming*
+>    `workflow_templates` and reorder ENTITY_GRAPH so it precedes `templates`.
+>    That would have broken import: `ImportService.apply` Pass 2 inserts in
+>    ENTITY_GRAPH order inside one transaction, so `workflow_templates` before
+>    `templates` violates the `templateId` FK. Collection is instead a
+>    **pre-pass** (`ExportService.collectWorkflowRefs`) that runs before the
+>    descriptor loop, leaving graph order untouched.
+> 2. The fix required an unforeseen **import-side** change. `templates.projectId`
+>    is also NOT NULL and its project never travels in workflow scope, so the
+>    first green export still failed preview with `Unresolvable reference:
+>    templates.projectId`. Templates now go through the same re-parenting path
+>    as `workflows.projectId` (`REPARENTED_PROJECT_ENTITIES`), and when no target
+>    project can be resolved the template is skipped with a warning and its
+>    dependent rows skip with it (`skippedOldIds`) rather than violating a FK.
+>
+> Beyond the ticket: added a generic `dropIfUnresolved` guard to
+> `EntityDescriptor` so **no** bundle can ship a NOT NULL ref whose target did
+> not travel, plus two unit tests pinning the ordering invariant it depends on.
+> Both pre-existing graph-reachability invariant tests
+> (`entityGraph.test.ts`, `exportService.test.ts`) were updated rather than
+> weakened — they now model reference-bounded selection as a third legitimate
+> way to bound a descriptor, with the exemption named explicitly.
+>
+> Not done live in the browser: this ticket has no UI surface. The live proof is
+> the integration round trip against the running app (real JWT, real
+> export→preview→apply over HTTP), which is what the Phase 1 Gate's
+> drive-through item will extend once IEX3-2 and IEX3-3 land.
 
 **Priority: P0 (bug)** · Size: L · File: `server/services/portability/entityGraph.ts`, `server/services/portability/ExportService.ts`
 

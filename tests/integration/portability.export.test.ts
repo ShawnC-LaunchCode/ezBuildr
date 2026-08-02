@@ -13,6 +13,7 @@ import * as schema from "@shared/schema";
 import { db } from "../../server/db";
 import { registerRoutes } from "../../server/routes";
 import { BundleReader } from "../../server/services/portability/bundleReader";
+import { seedWorkflow, seedTemplate, seedDatavault } from "../helpers/bundleTestHelper";
 
 describe.sequential("Portability Export API Integration Tests", () => {
   let app: Express;
@@ -382,6 +383,174 @@ describe.sequential("Portability Export API Integration Tests", () => {
         process.env.TEST_RATE_LIMIT = prevRateLimit;
       }
     }
+  });
+
+  describe("IEX3-1: a workflow-scope bundle carries what its own rows reference", () => {
+    /**
+     * Every case here exports more than once, so the rate limiter (armed in
+     * the outer beforeAll for AC 6) has to be off — same pattern as the
+     * IEX2-17 cases above.
+     */
+    async function withoutRateLimit<T>(fn: () => Promise<T>): Promise<T> {
+      const prev = process.env.TEST_RATE_LIMIT;
+      delete process.env.TEST_RATE_LIMIT;
+      try {
+        return await fn();
+      } finally {
+        if (prev !== undefined) {
+          process.env.TEST_RATE_LIMIT = prev;
+        }
+      }
+    }
+
+    async function exportWorkflow(workflowId: string, token = authToken): Promise<BundleReader> {
+      const response = await request(baseURL)
+        .get(`/api/portability/export/workflow/${workflowId}`)
+        .set("Authorization", `Bearer ${token}`)
+        .buffer(true)
+        .parse((res, cb) => {
+          const chunks: Buffer[] = [];
+          res.on("data", (c: Buffer) => chunks.push(c));
+          res.on("end", () => cb(null, Buffer.concat(chunks)));
+        })
+        .expect(200);
+
+      const tmpPath = path.join(os.tmpdir(), `iex3_export_${nanoid()}.ezb`);
+      await fs.promises.writeFile(tmpPath, response.body as Buffer);
+      const reader = new BundleReader(tmpPath);
+      await reader.open();
+      return reader;
+    }
+
+    async function idsIn(reader: BundleReader, entity: string): Promise<string[]> {
+      const ids: string[] = [];
+      for await (const row of reader.readEntityStream(entity)) {
+        ids.push((row as { id: string }).id);
+      }
+      return ids;
+    }
+
+    it("AC 1 & 5: carries the referenced template, its version and its blob — and no other template", async () => {
+      await withoutRateLimit(async () => {
+        const { workflowId } = await seedWorkflow({ projectId, userId });
+        const referenced = await seedTemplate({
+          projectId, userId, attachToWorkflowId: workflowId, name: "Referenced Letter"
+        });
+        // Control: same project, never attached to this workflow. Without it,
+        // "the right template is present" would also pass for an exporter that
+        // dumped the project's entire template library.
+        const unreferenced = await seedTemplate({
+          projectId, userId, attachToWorkflowId: null, name: "Unrelated Letter"
+        });
+
+        const reader = await exportWorkflow(workflowId);
+
+        expect(await idsIn(reader, "templates")).toEqual([referenced.templateId]);
+        expect(await idsIn(reader, "templates")).not.toContain(unreferenced.templateId);
+        expect(reader.manifest.entityCounts["template_versions"]).toBe(1);
+        expect(reader.manifest.entityCounts["workflow_templates"]).toBe(1);
+
+        // The row is useless without the file it points at.
+        const blobIndex = await reader.readBlobIndex();
+        expect(Object.keys(blobIndex)).toContain(referenced.fileRef);
+        expect(reader.manifest.blobCount).toBeGreaterThan(0);
+      });
+    });
+
+    it("AC 3 & 5: carries a referenced project-scoped DataVault database and its data — and no other database", async () => {
+      await withoutRateLimit(async () => {
+        const { workflowId } = await seedWorkflow({ projectId, userId });
+        const referenced = await seedDatavault({
+          tenantId, userId, scopeType: "project", scopeId: projectId,
+          attachToWorkflowId: workflowId, name: "Referenced DB"
+        });
+        const unreferenced = await seedDatavault({
+          tenantId, userId, scopeType: "project", scopeId: projectId,
+          attachToWorkflowId: null, name: "Unrelated DB"
+        });
+
+        const reader = await exportWorkflow(workflowId);
+
+        expect(await idsIn(reader, "datavault_databases")).toEqual([referenced.databaseId]);
+        expect(await idsIn(reader, "datavault_databases")).not.toContain(unreferenced.databaseId);
+        expect(await idsIn(reader, "datavault_tables")).toEqual([referenced.tableId]);
+        expect(await idsIn(reader, "datavault_columns")).toEqual([referenced.columnId]);
+        expect(reader.manifest.entityCounts["datavault_rows"]).toBe(1);
+        expect(reader.manifest.entityCounts["datavault_values"]).toBe(1);
+        // The rows that made the old bundle un-importable are present and resolvable.
+        expect(reader.manifest.entityCounts["workflow_queries"]).toBe(1);
+        expect(reader.manifest.entityCounts["workflow_data_sources"]).toBe(1);
+      });
+    });
+
+    it("AC 4: an account-scoped database the caller owns travels with the workflow", async () => {
+      await withoutRateLimit(async () => {
+        const { workflowId } = await seedWorkflow({ projectId, userId });
+        const shared = await seedDatavault({
+          tenantId, userId, scopeType: "account", scopeId: null,
+          attachToWorkflowId: workflowId, name: "Tenant-wide DB"
+        });
+
+        const reader = await exportWorkflow(workflowId);
+
+        expect(await idsIn(reader, "datavault_databases")).toEqual([shared.databaseId]);
+        expect(reader.manifest.entityCounts["workflow_queries"]).toBe(1);
+      });
+    });
+
+    it("AC 4: a database the caller cannot export is omitted with a warning, and its referencing rows are dropped", async () => {
+      await withoutRateLimit(async () => {
+        // A collaborator with edit on the workflow but no claim on a
+        // tenant-wide database owned by someone else. Sweeping it into their
+        // export on the strength of workflow-edit alone would be an
+        // exfiltration path (IEX2-17 settled that exporting a database needs
+        // edit on that database).
+        const collabEmail = `collab-iex3-${nanoid()}@example.com`;
+        const collabRegister = await request(baseURL)
+          .post("/api/auth/register")
+          .send({
+            email: collabEmail,
+            password: "TestPassword123!@#Strong",
+            firstName: "Collab",
+            lastName: "Iex3",
+          })
+          .expect(201);
+        const collabToken = collabRegister.body.token as string;
+        const collabUserId = collabRegister.body.user.id as string;
+        await db.update(schema.users)
+          .set({ tenantId, tenantRole: "viewer" })
+          .where(eq(schema.users.id, collabUserId));
+
+        const { workflowId } = await seedWorkflow({ projectId, userId });
+        const shared = await seedDatavault({
+          tenantId, userId, scopeType: "account", scopeId: null,
+          attachToWorkflowId: workflowId, name: "Someone Else's DB"
+        });
+
+        await db.insert(schema.workflowAccess).values({
+          workflowId, principalType: "user", principalId: collabUserId, role: "edit"
+        });
+
+        const reader = await exportWorkflow(workflowId, collabToken);
+
+        expect(await idsIn(reader, "datavault_databases")).toEqual([]);
+        const warnings = reader.manifest.warnings ?? [];
+        expect(warnings.some(w =>
+          w.type === "dangling_reference" &&
+          w.entity === "datavault_databases" &&
+          w.missingId === shared.databaseId
+        )).toBe(true);
+
+        // The NOT NULL referrers must not ship pointing at an absent database,
+        // or the bundle is a dead artifact — the exact failure IEX3-1 exists
+        // to remove.
+        expect(reader.manifest.entityCounts["workflow_queries"] ?? 0).toBe(0);
+        expect(reader.manifest.entityCounts["workflow_data_sources"] ?? 0).toBe(0);
+        expect(warnings.some(w =>
+          w.type === "dangling_reference" && w.entity === "workflow_queries"
+        )).toBe(true);
+      });
+    });
   });
 
   it("AC 6: should enforce rate limit returning 429", async () => {

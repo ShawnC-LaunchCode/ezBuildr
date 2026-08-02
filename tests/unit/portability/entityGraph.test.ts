@@ -70,8 +70,24 @@ describe('Entity Graph Portability', () => {
     // every root scope.
     const PARENTLESS_ATTACHED = 'datavault_databases';
 
+    // The third way ExportService bounds a selection, besides "is the root" and
+    // "descends from a parent": ids collected up front from the rows that
+    // reference them (`ExportService.collectWorkflowRefs`, IEX3-1). `templates`
+    // hangs off `projects`, which is absent in workflow scope, so the parent
+    // walk cannot reach it — but `workflow_templates.templateId` names exactly
+    // which ones the workflow needs. `template_versions` then follows by the
+    // ordinary parent chain. Anything listed here must have a matching branch
+    // in `buildConditions`, or its selection really is unbounded.
+    const REFERENCE_BOUNDED: Record<string, string[]> = {
+      workflow: ['templates'],
+    };
+
     function reachableFrom(scope: string): Set<string> {
-      const reached = new Set<string>([ROOT_OF_SCOPE[scope], PARENTLESS_ATTACHED]);
+      const reached = new Set<string>([
+        ROOT_OF_SCOPE[scope],
+        PARENTLESS_ATTACHED,
+        ...(REFERENCE_BOUNDED[scope] ?? []),
+      ]);
       let grew = true;
       while (grew) {
         grew = false;
@@ -110,6 +126,57 @@ describe('Entity Graph Portability', () => {
         }
       });
     }
+  });
+
+  // IEX3-1: `dropIfUnresolved` is checked against `state.extractedIds`, which is
+  // only populated once the referenced descriptor has been processed. A target
+  // declared later in ENTITY_GRAPH would read an absent set and silently drop
+  // every row of the referencing entity — an empty bundle that still imports,
+  // which is the worst possible failure mode.
+  describe('dropIfUnresolved targets are processed first', () => {
+    it('names a real entity that appears earlier in ENTITY_GRAPH', () => {
+      const orderOf = new Map(ENTITY_GRAPH.map((e, i) => [e.name, i]));
+
+      for (const [index, entity] of ENTITY_GRAPH.entries()) {
+        for (const { column, entity: target } of entity.dropIfUnresolved ?? []) {
+          expect(
+            entity.fields,
+            `${entity.name}.dropIfUnresolved names column "${column}", which is missing from its fields allowlist`
+          ).toContain(column);
+
+          const targetIndex = orderOf.get(target);
+          expect(
+            targetIndex,
+            `${entity.name}.dropIfUnresolved points at "${target}", which is not in ENTITY_GRAPH`
+          ).toBeDefined();
+          expect(
+            targetIndex!,
+            `${entity.name} is processed before its dropIfUnresolved target "${target}", so every row would be dropped`
+          ).toBeLessThan(index);
+        }
+      }
+    });
+
+    it('covers every NOT NULL ref whose target can fall outside a workflow export', () => {
+      // The four references that made a workflow-scope bundle un-importable.
+      // If a new one appears, it needs the same protection.
+      const required: Array<[string, string]> = [
+        ['workflow_templates', 'templateId'],
+        ['workflow_data_sources', 'dataSourceId'],
+        ['workflow_queries', 'dataSourceId'],
+        ['workflow_queries', 'tableId'],
+        ['datavault_writeback_mappings', 'tableId'],
+      ];
+
+      for (const [entityName, column] of required) {
+        const entity = ENTITY_GRAPH.find(e => e.name === entityName);
+        expect(entity, `${entityName} missing from ENTITY_GRAPH`).toBeDefined();
+        expect(
+          (entity!.dropIfUnresolved ?? []).map(d => d.column),
+          `${entityName}.${column} is a NOT NULL ref that can point outside the bundle but is not guarded`
+        ).toContain(column);
+      }
+    });
   });
 
   // IEX-9: jsonRefs are passed through remapJsonIds on import for the same reason.

@@ -13,6 +13,19 @@ export interface EntityDescriptor {
   redactPaths?: string[];
   scanPaths?: string[];
   importable?: boolean;
+  /**
+   * NOT NULL references whose target may legitimately fall outside the export.
+   * If the referenced id was not extracted, the row is dropped with a warning
+   * rather than written.
+   *
+   * This is the invariant that keeps a bundle importable: `ImportService`
+   * throws `Unresolvable reference` on a NOT NULL ref it cannot map, so a row
+   * whose target did not travel turns the whole bundle into a dead artifact
+   * (IEX3-1). A dropped row plus a manifest warning is strictly better than a
+   * file that 400s. The referenced entity must be processed earlier in
+   * ENTITY_GRAPH — `ExportService.findUnresolvedRef` reads `extractedIds`.
+   */
+  dropIfUnresolved?: Array<{ column: string; entity: string }>;
 }
 
 export const ENTITY_GRAPH: EntityDescriptor[] = [
@@ -134,7 +147,12 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
   {
     table: schema.templates,
     name: 'templates',
-    scopes: ["project"],
+    // In workflow scope there is no `projects` row to descend from, so
+    // ExportService selects these by the ids `workflow_templates` references
+    // (collected up-front by collectWorkflowRefs). Without them a workflow
+    // that generates a document exports a bundle that cannot be imported at
+    // all -- workflow_templates.templateId is NOT NULL (IEX3-1).
+    scopes: ["project","workflow"],
     parent: {"name":"projects","fk":"projectId"},
     fields: ["id","projectId","name","description","fileRef","type","helpersVersion","metadata","mapping","currentVersion","lastModifiedBy"],
     refs: ["projectId"],
@@ -144,7 +162,8 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
   {
     table: schema.templateVersions,
     name: 'template_versions',
-    scopes: ["project"],
+    // Reachable in workflow scope through the templates selected above.
+    scopes: ["project","workflow"],
     parent: {"name":"templates","fk":"templateId"},
     fields: ["id","templateId","versionNumber","fileRef","metadata","mapping","createdBy","notes","isActive"],
     refs: ["templateId"],
@@ -158,6 +177,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     parent: {"name":"workflow_versions","fk":"workflowVersionId"},
     fields: ["id","workflowVersionId","templateId","key","isPrimary"],
     refs: ["workflowVersionId", "templateId"],
+    dropIfUnresolved: [{ column: "templateId", entity: "templates" }],
   },
   {
     table: schema.datavaultDatabases,
@@ -217,6 +237,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     parent: {"name":"workflows","fk":"workflowId"},
     fields: ["workflowId","dataSourceId"],
     refs: ["workflowId", "dataSourceId"],
+    dropIfUnresolved: [{ column: "dataSourceId", entity: "datavault_databases" }],
   },
   {
     table: schema.workflowQueries,
@@ -226,6 +247,10 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     fields: ["id","workflowId","dataSourceId","tableId","name","filters","sort","limit"],
     refs: ["workflowId", "dataSourceId", "tableId"],
     jsonRefs: ["filters","sort"],
+    dropIfUnresolved: [
+      { column: "dataSourceId", entity: "datavault_databases" },
+      { column: "tableId", entity: "datavault_tables" }
+    ],
   },
   {
     table: schema.datavaultWritebackMappings,
@@ -235,6 +260,7 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     fields: ["id","workflowId","tableId","columnMappings","triggerPhase","createdBy"],
     refs: ["workflowId", "tableId"],
     jsonRefs: ["columnMappings"],
+    dropIfUnresolved: [{ column: "tableId", entity: "datavault_tables" }],
   },
 ];
 

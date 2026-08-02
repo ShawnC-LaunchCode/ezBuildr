@@ -10,7 +10,9 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import * as schema from "@shared/schema";
 import { db } from "../../server/db";
 import { registerRoutes } from "../../server/routes";
-import { recomputeChecksum } from "../helpers/bundleTestHelper";
+import {
+  recomputeChecksum, seedWorkflow, seedTemplate, seedDatavault
+} from "../helpers/bundleTestHelper";
 
 describe.sequential("Portability Import API Integration Tests", () => {
   let app: Express;
@@ -453,6 +455,86 @@ describe.sequential("Portability Import API Integration Tests", () => {
 
     expect(apply.status).toBe(400);
     expect(apply.body.message).toMatch(/Size mismatch/);
+  });
+
+  describe("IEX3-1: a workflow-scope bundle round-trips", () => {
+    async function exportWorkflowBundle(workflowId: string): Promise<Buffer> {
+      return downloadBundle("workflow", workflowId, authToken);
+    }
+
+    it("AC 2: a workflow with a document template previews clean and applies 201", async () => {
+      const { workflowId } = await seedWorkflow({ projectId, userId });
+      await seedTemplate({ projectId, userId, attachToWorkflowId: workflowId });
+
+      const wfBundle = await exportWorkflowBundle(workflowId);
+
+      const preview = await request(baseURL)
+        .post("/api/portability/import/preview")
+        .set("Authorization", `Bearer ${authToken}`)
+        .attach("file", wfBundle, "wf.ezb")
+        .expect(200);
+
+      expect(preview.body.errors).toEqual([]);
+      expect(preview.body.canProceed).toBe(true);
+      expect(preview.body.entityCounts.templates).toBe(1);
+
+      const applied = await request(baseURL)
+        .post("/api/portability/import/apply")
+        .set("Authorization", `Bearer ${authToken}`)
+        .attach("file", wfBundle, "wf.ezb")
+        .expect(201);
+
+      expect(applied.body.entityCounts.templates).toBe(1);
+      expect(applied.body.entityCounts.workflow_templates).toBe(1);
+      expect(applied.body.blobsRestored).toBeGreaterThan(0);
+
+      // The imported link must point at the imported template, not the source's.
+      const [importedLink] = await db.select()
+        .from(schema.workflowTemplates)
+        .innerJoin(schema.workflowVersions,
+          eq(schema.workflowTemplates.workflowVersionId, schema.workflowVersions.id))
+        .where(eq(schema.workflowVersions.workflowId, applied.body.rootId));
+      expect(importedLink).toBeTruthy();
+      const [importedTemplate] = await db.select().from(schema.templates)
+        .where(eq(schema.templates.id, importedLink.workflow_templates.templateId));
+      expect(importedTemplate).toBeTruthy();
+    });
+
+    it("AC 3: a workflow bound to a project-scoped DataVault previews clean and applies 201", async () => {
+      const { workflowId } = await seedWorkflow({ projectId, userId });
+      await seedDatavault({
+        tenantId, userId, scopeType: "project", scopeId: projectId,
+        attachToWorkflowId: workflowId
+      });
+
+      const wfBundle = await exportWorkflowBundle(workflowId);
+
+      const preview = await request(baseURL)
+        .post("/api/portability/import/preview")
+        .set("Authorization", `Bearer ${authToken}`)
+        .attach("file", wfBundle, "wf.ezb")
+        .expect(200);
+
+      expect(preview.body.errors).toEqual([]);
+      expect(preview.body.canProceed).toBe(true);
+
+      const applied = await request(baseURL)
+        .post("/api/portability/import/apply")
+        .set("Authorization", `Bearer ${authToken}`)
+        .attach("file", wfBundle, "wf.ezb")
+        .expect(201);
+
+      expect(applied.body.entityCounts.datavault_databases).toBe(1);
+      expect(applied.body.entityCounts.workflow_queries).toBe(1);
+
+      // The imported query must resolve to the imported database.
+      const [importedQuery] = await db.select().from(schema.workflowQueries)
+        .where(eq(schema.workflowQueries.workflowId, applied.body.rootId));
+      expect(importedQuery).toBeTruthy();
+      const [importedDb] = await db.select().from(schema.datavaultDatabases)
+        .where(eq(schema.datavaultDatabases.id, importedQuery.dataSourceId));
+      expect(importedDb).toBeTruthy();
+    });
   });
 
   it("AC 7: a bundle claiming a newer migrationHead is rejected with a 400", async () => {

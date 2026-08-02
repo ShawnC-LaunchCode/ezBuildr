@@ -47,6 +47,21 @@ export interface ImportPreview {
   migrationHead?: string | null;
 }
 
+/**
+ * Entities whose `projectId` is re-pointed at the import target rather than
+ * resolved through the bundle.
+ *
+ * A workflow-scope bundle carries no `projects` row, but both of these have a
+ * `projectId` FK — `workflows.projectId` is nullable and may be unparented,
+ * `templates.projectId` is NOT NULL and must land in a real project (IEX3-1).
+ * Both are settled by `resolveProjectIdOverride`.
+ */
+const REPARENTED_PROJECT_ENTITIES = new Set(['workflows', 'templates']);
+
+function isReparentedProjectRef(entityName: string, colName: string): boolean {
+  return colName === 'projectId' && REPARENTED_PROJECT_ENTITIES.has(entityName);
+}
+
 interface ProcessEntityContext {
   tx: DbTransaction;
   desc: EntityDescriptor;
@@ -65,6 +80,13 @@ interface ProcessEntityContext {
    */
   projectIdOverride: string | null | undefined;
   warnings: ExportWarning[];
+  /**
+   * Bundle-origin ids of rows that were not inserted, so rows referencing them
+   * can be skipped too rather than inserted against a FK that was never
+   * written. Populated as the pass runs; correct only because ENTITY_GRAPH is
+   * parent-before-child.
+   */
+  skippedOldIds: Set<string>;
 }
 
 export interface ImportApplyResult {
@@ -323,9 +345,10 @@ export class ImportService {
     for (const colName of desc.refs ?? []) {
       const val = data[colName];
       if (typeof val === 'string' && val !== '' && !bundleIds.has(val)) {
-        if (desc.name === 'workflows' && colName === 'projectId') {
-          // workflows.projectId is allowed to pass through if it's the caller's own project
-          // (same-system re-import). resolveProjectIdOverride will unparent it if unauthorized.
+        if (isReparentedProjectRef(desc.name, colName)) {
+          // These projectIds are allowed to pass through if they point at the
+          // caller's own project (same-system re-import). resolveProjectIdOverride
+          // decides during apply.
           continue; // Handled by resolveProjectIdOverride during apply
         }
         this.handleDanglingReference({ mode: 'preview', desc, colName, val, previewResult: result });
@@ -340,9 +363,7 @@ export class ImportService {
         if (ctx.idMap.has(val)) {
           data[colName] = ctx.idMap.get(val)!;
         } else {
-          if (ctx.desc.name === 'workflows' && colName === 'projectId') {
-            // workflows.projectId is allowed to pass through if it's the caller's own project
-            // (same-system re-import). resolveProjectIdOverride will unparent it if unauthorized.
+          if (isReparentedProjectRef(ctx.desc.name, colName)) {
             continue; // Handled by resolveProjectIdOverride below
           }
           this.handleDanglingReference({ mode: 'apply', desc: ctx.desc, colName, val, applyCtx: ctx, data });
@@ -836,11 +857,53 @@ export class ImportService {
     return undefined;
   }
 
+  /**
+   * Why this row cannot be written, or `null` if it can.
+   *
+   * Two cases, both created by workflow-scope bundles that carry templates
+   * (IEX3-1): a template that has nowhere to live because the import could not
+   * resolve a target project, and any row whose parent was skipped for that
+   * reason. Inserting the latter would violate a FK that was never written.
+   */
+  private findSkipReason(ctx: ProcessEntityContext, data: Record<string, unknown>): string | null {
+    if (ctx.desc.name === 'templates' && ctx.projectIdOverride === null) {
+      return 'the import could not resolve a project to place it in';
+    }
+    for (const colName of ctx.desc.refs ?? []) {
+      const val = data[colName];
+      if (typeof val === 'string' && ctx.skippedOldIds.has(val)) {
+        return `the ${colName} it belongs to was not imported`;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * @returns `rootId` when this row was one of the bundle roots, and whether
+   * the row was written at all.
+   */
   private async processSingleEntity(
     ctx: ProcessEntityContext,
     data: Record<string, unknown>,
     oldId: string | undefined
-  ): Promise<string | null> {
+  ): Promise<{ rootId: string | null; skipped: boolean }> {
+    const skipReason = this.findSkipReason(ctx, data);
+    if (skipReason !== null) {
+      if (oldId !== undefined) {
+        ctx.skippedOldIds.add(oldId);
+      }
+      ctx.warnings.push({
+        type: 'dangling_reference',
+        entity: ctx.desc.name,
+        column: 'projectId',
+        missingId: oldId ?? '',
+        message:
+          `A ${ctx.desc.name} row was not imported because ${skipReason}. ` +
+          `Re-import with a target project to bring it across.`
+      });
+      return { rootId: null, skipped: true };
+    }
+
     // Role-bearing entities are dropped wholesale by shouldSkipEntity(), and any
     // other entity's `role`/`tenantRole` is stripped by the desc.fields allowlist
     // in getZodSchema(), so no per-row role scrubbing is needed here.
@@ -870,9 +933,10 @@ export class ImportService {
       }
     }
 
-    // Re-parent an imported workflow whose project did not travel with it.
-    // Decided once, before the transaction, by resolveProjectIdOverride.
-    if (ctx.desc.name === 'workflows' && ctx.projectIdOverride !== undefined) {
+    // Re-parent an imported workflow (or its templates) whose project did not
+    // travel with it. Decided once, before the transaction, by
+    // resolveProjectIdOverride.
+    if (isReparentedProjectRef(ctx.desc.name, 'projectId') && ctx.projectIdOverride !== undefined) {
       data['projectId'] = ctx.projectIdOverride;
     }
 
@@ -893,9 +957,9 @@ export class ImportService {
     await ctx.tx.insert(ctx.desc.table).values(data as never);
     
     if (oldId !== undefined && ctx.rootIds.includes(oldId)) {
-      return newId;
+      return { rootId: newId, skipped: false };
     }
-    return null;
+    return { rootId: null, skipped: false };
   }
 
   private async processEntityInsertion(ctx: ProcessEntityContext): Promise<{ rootId: string; count: number }> {
@@ -913,8 +977,11 @@ export class ImportService {
       const data = parsed.data as Record<string, unknown>;
       const oldId = typeof data['id'] === 'string' ? data['id'] : undefined;
       
-      const rootId = await this.processSingleEntity(ctx, data, oldId);
-      if (rootId) {
+      const { rootId, skipped } = await this.processSingleEntity(ctx, data, oldId);
+      if (skipped) {
+        continue;
+      }
+      if (rootId !== null) {
         newRootId = rootId;
       }
       count++;
@@ -982,6 +1049,7 @@ export class ImportService {
         });
 
         const observedEntityCounts: Record<string, number> = {};
+        const skippedOldIds = new Set<string>();
 
         // Pass 2: Remap foreign keys and insert rows
         await db.transaction(async (tx: DbTransaction) => {
@@ -998,7 +1066,8 @@ export class ImportService {
               rootIds,
               blobMap,
               projectIdOverride,
-              warnings
+              warnings,
+              skippedOldIds
             });
             if (result.rootId) {
               newRootId = result.rootId;

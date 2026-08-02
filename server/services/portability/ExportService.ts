@@ -1,5 +1,9 @@
 import { db } from '../../db';
-import { projects, workflows, datavaultDatabases } from '@shared/schema';
+import {
+  projects, workflows, datavaultDatabases, datavaultTables,
+  workflowTemplates, workflowVersions, workflowDataSources, workflowQueries,
+  datavaultWritebackMappings
+} from '@shared/schema';
 import { eq, gt, inArray, and, or, SQL } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import { ENTITY_GRAPH, EntityDescriptor } from './entityGraph';
@@ -16,6 +20,22 @@ import { BlobCollector } from './blobs';
 
 type RootParams = { scope: 'workflow' | 'project' | 'database'; id: string };
 
+/**
+ * Entities a workflow-scope export must reach that it cannot descend to
+ * through a parent chain, resolved before the main pass (IEX3-1).
+ *
+ * `templates` hangs off `projects`, which is not in workflow scope, and a
+ * DataVault database attaches by `(scopeType, scopeId)` rather than an FK — so
+ * neither is reachable from a workflow root by the generic parent walk. Both
+ * are collected here by *reference* instead: what does this workflow actually
+ * use.
+ */
+type WorkflowRefs = {
+  templateIds: Set<string>;
+  /** Referenced databases the caller is allowed to export; see collectWorkflowRefs. */
+  allowedDatabaseIds: Set<string>;
+};
+
 type ExportState = {
   writer: BundleWriter;
   extractedIds: Map<string, Set<string>>;
@@ -24,6 +44,7 @@ type ExportState = {
   requiresReentry: RequiresReentry[];
   warnings: ExportWarning[];
   totalExportedRows: number;
+  workflowRefs: WorkflowRefs;
 };
 
 /**
@@ -91,11 +112,16 @@ export class ExportService {
       blobCollector: new BlobCollector(writer),
       requiresReentry: [],
       warnings: [],
-      totalExportedRows: 0
+      totalExportedRows: 0,
+      workflowRefs: { templateIds: new Set<string>(), allowedDatabaseIds: new Set<string>() }
     };
 
     let success = false;
     try {
+      if (root.scope === 'workflow') {
+        await this.collectWorkflowRefs(root.id, userId, state);
+      }
+
       for (const descriptor of ENTITY_GRAPH) {
         if (!descriptor.scopes.includes(root.scope)) {
           continue;
@@ -211,6 +237,104 @@ export class ExportService {
     throw new Error('Invalid export scope');
   }
 
+  /**
+   * Resolve what a workflow-scope export must additionally carry: the
+   * templates its `workflow_templates` rows point at, and the DataVault
+   * databases its data sources, queries and writeback mappings point at.
+   *
+   * Templates need no extra authorization check. The caller already holds
+   * `edit` on the workflow, and a workflow's own templates are the documents
+   * it exists to produce — withholding them would make the common case
+   * (export a workflow, reuse it as a baseline) fail by design.
+   *
+   * Databases are different and are ACL-checked. A workflow may bind to a
+   * `project`- or `account`-scoped database that is shared with the rest of
+   * the tenant, so sweeping it in on the strength of workflow-edit alone would
+   * let anyone with edit on one workflow exfiltrate a tenant-wide DataVault by
+   * pointing a question at it. IEX2-17 already settled that exporting a
+   * database requires `edit` on that database (inherited from the project
+   * where applicable); this reuses that gate. Databases the workflow *owns*
+   * (`scopeType='workflow'` and this workflow's id) are excluded from the
+   * check -- they are covered by the ownership predicate in `buildConditions`
+   * and have always exported without one.
+   */
+  private async collectWorkflowRefs(workflowId: string, userId: string, state: ExportState): Promise<void> {
+    const templateRows = await db
+      .select({ templateId: workflowTemplates.templateId })
+      .from(workflowTemplates)
+      .innerJoin(workflowVersions, eq(workflowTemplates.workflowVersionId, workflowVersions.id))
+      .where(eq(workflowVersions.workflowId, workflowId));
+    for (const row of templateRows) {
+      state.workflowRefs.templateIds.add(row.templateId);
+    }
+
+    const candidateDatabaseIds = await this.collectReferencedDatabaseIds(workflowId);
+    if (candidateDatabaseIds.size === 0) {
+      return;
+    }
+
+    const candidates = await db
+      .select({
+        id: datavaultDatabases.id,
+        name: datavaultDatabases.name,
+        scopeType: datavaultDatabases.scopeType,
+        scopeId: datavaultDatabases.scopeId
+      })
+      .from(datavaultDatabases)
+      .where(inArray(datavaultDatabases.id, Array.from(candidateDatabaseIds)));
+
+    for (const candidate of candidates) {
+      if (candidate.scopeType === 'workflow' && candidate.scopeId === workflowId) {
+        continue; // already selected by the ownership predicate
+      }
+      const canExport = await datavaultAclService.hasDatabaseRole(userId, candidate.id, 'edit');
+      if (canExport) {
+        state.workflowRefs.allowedDatabaseIds.add(candidate.id);
+      } else {
+        state.warnings.push({
+          type: 'dangling_reference',
+          entity: 'datavault_databases',
+          column: 'id',
+          missingId: candidate.id,
+          message:
+            `DataVault database "${candidate.name}" is used by this workflow but was not exported: ` +
+            `it is ${candidate.scopeType}-scoped and you do not have edit access to it. ` +
+            `Queries and data sources pointing at it have been omitted from the bundle.`
+        });
+      }
+    }
+  }
+
+  /** Every DataVault database this workflow reaches, by any of its three routes. */
+  private async collectReferencedDatabaseIds(workflowId: string): Promise<Set<string>> {
+    const [fromDataSources, fromQueries, fromQueryTables, fromWriteback] = await Promise.all([
+      db.select({ id: workflowDataSources.dataSourceId })
+        .from(workflowDataSources)
+        .where(eq(workflowDataSources.workflowId, workflowId)),
+      db.select({ id: workflowQueries.dataSourceId })
+        .from(workflowQueries)
+        .where(eq(workflowQueries.workflowId, workflowId)),
+      // A query's tableId can belong to a different database than its
+      // dataSourceId claims; take both so neither can dangle.
+      db.select({ id: datavaultTables.databaseId })
+        .from(workflowQueries)
+        .innerJoin(datavaultTables, eq(workflowQueries.tableId, datavaultTables.id))
+        .where(eq(workflowQueries.workflowId, workflowId)),
+      db.select({ id: datavaultTables.databaseId })
+        .from(datavaultWritebackMappings)
+        .innerJoin(datavaultTables, eq(datavaultWritebackMappings.tableId, datavaultTables.id))
+        .where(eq(datavaultWritebackMappings.workflowId, workflowId))
+    ]);
+
+    const ids = new Set<string>();
+    for (const row of [...fromDataSources, ...fromQueries, ...fromQueryTables, ...fromWriteback]) {
+      if (row.id !== null) {
+        ids.add(row.id);
+      }
+    }
+    return ids;
+  }
+
   private async processDescriptor(
     descriptor: EntityDescriptor,
     root: RootParams,
@@ -260,8 +384,10 @@ export class ExportService {
           throw new ExportRowLimitError(`Export exceeds the ${this.maxExportRows} row limit`);
         }
         
-        totalRows++;
-        await this.processRow(descriptor, row as Record<string, unknown>, state, ids);
+        const written = await this.processRow(descriptor, row as Record<string, unknown>, state, ids);
+        if (written) {
+          totalRows++;
+        }
       }
       
       if (rows.length < this.batchSize) {
@@ -323,16 +449,59 @@ export class ExportService {
     return { rows, nextLastId, nextOffset };
   }
 
+  /**
+   * A NOT NULL reference whose target did not make it into the bundle, or
+   * `null` if every declared reference resolves.
+   *
+   * Reads `state.extractedIds`, so the referenced entity must appear earlier
+   * in ENTITY_GRAPH than the referencing one. That holds for all four current
+   * `dropIfUnresolved` entries; a descriptor added out of order would see an
+   * absent set and drop every row, which the entity-graph ordering test
+   * guards against.
+   */
+  private findUnresolvedRef(
+    descriptor: EntityDescriptor,
+    rowData: Record<string, unknown>,
+    state: ExportState
+  ): { column: string; entity: string; missingId: string } | null {
+    for (const { column, entity } of descriptor.dropIfUnresolved ?? []) {
+      const val = rowData[column];
+      if (typeof val !== 'string' || val === '') {
+        continue;
+      }
+      if (!state.extractedIds.get(entity)?.has(val)) {
+        return { column, entity, missingId: val };
+      }
+    }
+    return null;
+  }
+
+  /** @returns whether the row was written to the bundle. */
   private async processRow(
     descriptor: EntityDescriptor,
     rowData: Record<string, unknown>,
     state: ExportState,
     ids: Set<string>
-  ): Promise<void> {
+  ): Promise<boolean> {
+    const unresolved = this.findUnresolvedRef(descriptor, rowData, state);
+    if (unresolved !== null) {
+      state.warnings.push({
+        type: 'dangling_reference',
+        entity: descriptor.name,
+        column: unresolved.column,
+        missingId: unresolved.missingId,
+        message:
+          `A ${descriptor.name} row was omitted from the bundle: its ${unresolved.column} ` +
+          `references a ${unresolved.entity} record that is outside this export. ` +
+          `You will need to re-create that link after importing.`
+      });
+      return false;
+    }
+
     if (typeof rowData['id'] === 'string') {
       ids.add(rowData['id']);
     }
-    
+
     await this.processBlobRefs(descriptor, rowData, state);
     this.processRequiresReentry(descriptor, rowData, state);
     
@@ -343,6 +512,7 @@ export class ExportService {
     }
     
     await state.writer.writeEntityRow(descriptor.name, rowData);
+    return true;
   }
 
   private buildConditions(
@@ -361,6 +531,16 @@ export class ExportService {
 
     if (rootTableName === descriptor.name) {
       conditions.push(eq(tableCols['id'], root.id));
+    } else if (descriptor.name === 'templates' && root.scope === 'workflow') {
+      // `templates.projectId` points at a project that is not in workflow
+      // scope, so the parent branch below cannot serve this. Select exactly
+      // the templates this workflow's versions reference -- never the
+      // project's whole template library (IEX3-1).
+      const templateIds = Array.from(state.workflowRefs.templateIds);
+      if (templateIds.length === 0) {
+        return null;
+      }
+      conditions.push(inArray(tableCols['id'], templateIds));
     } else if (descriptor.name === 'datavault_databases') {
       // datavault_databases has no FK parent; it attaches via (scopeType, scopeId).
       // A project export must also pick up databases scoped to that project's own
@@ -375,17 +555,27 @@ export class ExportService {
         ? Array.from(state.extractedIds.get('workflows') ?? new Set<string>())
         : [];
 
+      // A workflow root also pulls in the databases it actually references,
+      // whatever their scope -- but only those the caller may export. Without
+      // this, workflow_queries/workflow_data_sources (both NOT NULL) point at
+      // databases outside the bundle and the import 400s (IEX3-1).
+      const referenced = Array.from(state.workflowRefs.allowedDatabaseIds);
+
+      const branches: Array<SQL<unknown> | undefined> = [ownScope];
       if (workflowIds.length > 0) {
-        const workflowScoped = and(
+        branches.push(and(
           eq(tableCols['scopeType'], 'workflow'),
           inArray(tableCols['scopeId'], workflowIds)
-        );
-        const combined = or(ownScope, workflowScoped);
-        if (combined !== undefined) {
-          conditions.push(combined);
-        }
-      } else if (ownScope !== undefined) {
-        conditions.push(ownScope);
+        ));
+      }
+      if (referenced.length > 0) {
+        branches.push(inArray(tableCols['id'], referenced));
+      }
+
+      const present = branches.filter((b): b is SQL<unknown> => b !== undefined);
+      const combined = present.length > 1 ? or(...present) : present[0];
+      if (combined !== undefined) {
+        conditions.push(combined);
       }
     } else if (descriptor.parent != null) {
       // Pin invariant: parent must have been processed

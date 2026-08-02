@@ -145,6 +145,17 @@ describeWithDb('ExportService', () => {
       // declares 'workflow' while its parent `projects` does not, which is
       // correct because at workflow scope it IS the root and never reads a
       // parent's ids.
+      // The third exemption, alongside the root-table clause: a descriptor
+      // whose ids `buildConditions` selects from a reference set collected up
+      // front rather than from a parent's extracted ids
+      // (`ExportService.collectWorkflowRefs`, IEX3-1). `templates` declares
+      // 'workflow' while its parent `projects` does not, which is correct
+      // because at workflow scope it never reads a parent's ids -- it is
+      // bounded by the ids `workflow_templates` references. Keep this in step
+      // with REFERENCE_BOUNDED in entityGraph.test.ts.
+      const referenceBoundedForScope: Record<string, string[]> = {
+        workflow: ['templates'],
+      };
       const rootTableForScope: Record<string, string> = {
         project: 'projects',
         workflow: 'workflows',
@@ -160,6 +171,9 @@ describeWithDb('ExportService', () => {
         const parent = byName.get(descriptor.parent.name);
         for (const scope of descriptor.scopes) {
           if (rootTableForScope[scope] === descriptor.name) {
+            continue;
+          }
+          if ((referenceBoundedForScope[scope] ?? []).includes(descriptor.name)) {
             continue;
           }
           if (parent && !parent.scopes.includes(scope)) {
