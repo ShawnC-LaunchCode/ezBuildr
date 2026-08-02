@@ -157,8 +157,11 @@ export class RunExecutionCoordinator {
             const errorMessages = validationResult.errors.map(err => {
                 const step = steps.find(s => s.id === err.fieldId);
                 const fieldName = step?.title ?? 'Field';
-                // Take first error message for each field
-                return `${fieldName}: ${err.errors[0]}`;
+                const fieldPath = err.path ? ` (${err.path})` : '';
+                // Keep one message per validation entry so existing response
+                // cardinality is stable; list validation already emits one
+                // entry per failing path.
+                return `${fieldName}${fieldPath}: ${err.errors[0]}`;
             });
             logger.warn({ runId, sectionId, errors: errorMessages }, "Section validation failed");
             return { success: false, errors: errorMessages };
