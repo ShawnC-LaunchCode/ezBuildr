@@ -97,7 +97,7 @@ portability-shaped; do not re-litigate them.**
 |---|---|---|---|---|
 | IEX3-1 | Workflow-scope export omits entities its own rows require | P0 | L | ✅ |
 | IEX3-2 | Entity ids embedded in jsonb are never checked or reported | P0 | M | ✅ |
-| IEX3-3 | Round-trip coverage for every question type, including List | P1 | M | 🔲 |
+| IEX3-3 | Round-trip coverage for every question type, including List | P1 | M | ✅ |
 | IEX3-4 | Export UI with a pre-download disclosure of what travels | P1 | L | 🔲 |
 | IEX3-5 | Import UI: upload → preview → apply | P1 | L | 🔲 |
 | IEX3-6 | Visual confirmation of an imported workflow in the builder | P2 | S | 🔲 |
@@ -700,7 +700,48 @@ train users to ignore the warning. Declare the references instead.
 
 ---
 
-## IEX3-3 — Round-trip coverage for every question type, including List 🔲
+## IEX3-3 — Round-trip coverage for every question type, including List ✅
+
+> **Verification pass — 2026-08-02.** All 7 acceptance criteria met. Worked in
+> a git worktree (`scripts/new-worktree.ps1 -Name IEX3-3`, base `b3625fa2`,
+> torn down with `-Remove`) to keep off the shared tree during concurrent
+> admin-feature work.
+>
+> Gates: `npx tsc --noEmit` → 0 errors; `npm run lint` → 0 errors/0 warnings;
+> `npm run test:fast` → **2287 passed**; portability integration →
+> **4 files / 36 passed** (was 3/32). All 37 `stepTypeEnum` values are covered;
+> `SKIPPED` is empty, because every current type can hold a config and
+> round-trip — there was nothing legitimate to skip.
+>
+> **Both guards were proved by mutation, not by inspection:**
+> - *Fidelity (AC 4/5):* patched `ImportService` to drop
+>   `steps.config.labelTemplate` on insert. Both scope tests failed and the
+>   diff named the lost key. Reverted.
+> - *Enum coverage (AC 2):* added a fake `fake_new_type` value to
+>   `stepTypeEnum`. The coverage test failed with its actionable message
+>   (`expected [ 'fake_new_type' ] to deeply equal []`). Reverted.
+>
+> **The enum-coverage proof caught a real flaw in my first draft.** The seeding
+> loop iterated the raw enum, so the fake value made `beforeAll` throw
+> `invalid input value for enum step_type` and vitest skipped all four tests —
+> the guard could never report anything, and a new step type would have looked
+> like unrelated setup breakage. The loop now iterates the *fixtures* and the
+> coverage test flags the gap independently, so setup survives an unmigrated
+> enum value and the failure says what is actually wrong. Worth noting because
+> the test passed in both versions; only the mutation exposed the difference.
+>
+> Second trap closed: a deep-equal of two empty maps passes. The round-trip
+> tests now assert the compared alias set equals the aliases actually seeded,
+> so the comparison cannot be vacuous.
+>
+> Deviation: none of substance. Ids are normalised to `<uuid>` before
+> comparison rather than asserted individually — id *remapping* is pinned by
+> IEX3-2's suite, and this test's job is that every other key, value and level
+> of nesting survives.
+>
+> AC 6 held: `git status` in the worktree showed only the new test file and
+> the one-section addition to `.claude/skills/add-step-type/SKILL.md`. No
+> production code changed.
 
 **Priority: P1** · Size: M · File: `tests/integration/portability.roundtrip.test.ts` (new)
 

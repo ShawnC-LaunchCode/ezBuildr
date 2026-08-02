@@ -48,6 +48,20 @@ Preview reuses the runner's `BlockRenderer` — there is no separate preview ren
 | AI workflow generation | `shared/types/ai.ts:15` — the `z.enum` step list (AI can't generate the type otherwise) |
 | Docs | `docs/api/BLOCKS.md` + the step-type list in `CLAUDE.md` |
 
+## Portability — this one is a gate, not optional
+
+`tests/integration/portability.roundtrip.test.ts` iterates `stepTypeEnum` and
+**fails if your new type has neither a config fixture nor an entry in its
+`SKIPPED` map** (IEX3-3). Add a representative config to `buildStepConfigs()`
+there — distinctive enough that a dropped or coerced key shows up — and the
+test proves the type survives export/import at both project and workflow
+scope.
+
+Skipping is allowed but has to be argued: a `SKIPPED` entry is a claim that
+portability does not apply to the type, and it needs a reason in the map. Two
+live defects (IEX3-1, IEX3-2) hid behind this suite covering only a single
+`text` step, which is why it is now a gate.
+
 ## Verify
 
 1. `npx tsc --noEmit` — union types will flag missed switches with exhaustiveness, but registries/validation switches won't.
