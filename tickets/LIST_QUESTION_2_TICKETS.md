@@ -1479,7 +1479,7 @@ drive-through. Distinct ports per tree from here.
 > not the same-file threading job described here. Re-scoped as **LIST2-14** below,
 > with the shape decided so it is no longer a judgment call for the dev.
 
-## LIST2-11 (original text, for reference) 🔲
+## LIST2-11 (original text, for reference — CLOSED, do not dispatch; see LIST2-14) ⛔
 
 **Priority: P2** · Size: S · File: `server/services/document/MappingValidator.ts`
 
