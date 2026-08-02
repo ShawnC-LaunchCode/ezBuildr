@@ -170,6 +170,7 @@ export class DatavaultApiTokensService {
   /**
    * Validate a token for authentication
    * Returns token details if valid, null otherwise
+   * DV-B1: intentionally uncalled until the external DataVault API adds token authentication.
    */
   async validateToken(
     plainToken: string,
@@ -188,6 +189,7 @@ export class DatavaultApiTokensService {
 
   /**
    * Check if a token has a specific scope
+   * DV-B1: intentionally uncalled until the external DataVault API adds scope enforcement.
    */
   hasScope(token: DatavaultApiToken, requiredScope: string): boolean {
     return token.scopes.includes(requiredScope);

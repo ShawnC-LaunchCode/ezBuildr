@@ -1534,7 +1534,37 @@ snapshots, which are historical and stay.
 
 ---
 
-## DV-11 — Stop issuing DataVault API tokens that authenticate nothing 🔄
+## DV-11 — Stop issuing DataVault API tokens that authenticate nothing ✅
+
+> **Verification pass — 2026-08-02 (reviewer).** PASS, all 8 criteria met.
+> Gates re-run by the reviewer in the main checkout: `npx tsc --noEmit` 0 errors,
+> `npm run lint` exit 0, `npm run test:fast` **187 files / 2337 passed**
+> (= 2335 + this ticket's 2 client tests; the dev's 2328 is the same delta on
+> their older base), `datavault.api-tokens.test.ts` **17/17** against a real DB.
+> **Regression value proved:** reverting only `DatabaseSettings.tsx` fails the
+> flag-off test. The flag-*on* test passes either way — correct, since flag-on
+> renders exactly as before; that asymmetry is the design, not a weak test.
+> **AC1 verified structurally, not just visually:** `DatabaseApiTokens` is mounted
+> in exactly **one** place, so gating that single call site removes the whole
+> surface — there is no second entry point left reachable.
+> Live proof accepted: screenshot shows Scope → Metadata → Save/Reset with no
+> orphaned card or gap, confirmed at desktop and 375px, console clean apart from
+> Vite HMR noise. Throwaway tenant deleted.
+> **Reviewed and accepted — flag mechanism.** The ticket said not to invent a new
+> flag system. The dev read `import.meta.env.VITE_ENABLE_DATAVAULT_API_TOKENS`
+> inline rather than adding a shared helper like `isPublicSignupEnabled`. That is
+> the right call: the helper in `shared/publicSignup.ts` exists because that flag
+> is needed on **both** client and server, whereas this one is client-only. Same
+> env-var convention, no parallel system. Do not "fix" this later.
+> **Reviewer fix applied:** documented `VITE_ENABLE_DATAVAULT_API_TOKENS=false` in
+> `.env.example`, mirroring the `VITE_PUBLIC_SIGNUP_ENABLED` entry two lines above.
+> Without it the flag was undiscoverable to an operator. Outside the dev's stated
+> footprint, so correctly not their change.
+> **Dev correction accepted — see the ⚠️ note in the Finding.** The ticket named a
+> `validateTokenAndScope` method that never existed; the dev put the DV-B1 comment
+> on the real `validateToken` / `hasScope` instead of creating a dead wrapper to
+> satisfy the letter of AC4. That is the correct reading of an incorrect criterion,
+> and exactly the kind of thing a dev should push back on.
 
 **Priority: P1** · Size: S · File: `client/src/components/datavault/DatabaseApiTokens.tsx` + its parent, `server/routes/datavaultApiTokens.routes.ts`
 
@@ -1551,7 +1581,11 @@ const tokenHash = hashToken(plainToken);
 return token.scopes.includes(requiredScope);
 ```
 
-**`validateTokenAndScope` has zero callers.** Grepping `server/` for it (and for
+**`validateToken` and `hasScope` have zero callers.** ⚠️ The audit originally named a
+single `validateTokenAndScope` method here; **no such method has ever existed** —
+the reviewer conflated two real methods when writing this up, and the DV-11 dev
+caught it (confirmed with `git log -S`). The finding itself is unaffected.
+Grepping `server/` for them (and for
 `datavaultApiTokensService.`) finds only the create/list/delete routes — no middleware
 authenticates a DataVault token, and no endpoint accepts one. There is no external
 DataVault API.
@@ -1579,7 +1613,7 @@ Leave the server routes in place but make the state honest:
 - Do **not** delete the service or the table: DV-B1 will use them, and existing token
   rows are harmless once nothing accepts them.
 
-Add a short comment on `validateTokenAndScope` recording that it is intentionally
+Add a short comment on `validateToken` / `hasScope` recording that they are intentionally
 uncalled pending DV-B1, so the next audit doesn't re-file it as dead code.
 
 If any existing tokens should be revoked as part of this, that is the repo owner's
@@ -1603,7 +1637,7 @@ answer is no.
 3. The chosen server behaviour with the flag off is implemented and asserted (either
    routes gated with the documented status code, or routes intact and only the UI
    hidden — whichever you chose, test it).
-4. `validateTokenAndScope` carries a comment naming DV-B1 as the reason it is
+4. `validateToken` and `hasScope` carry a comment naming DV-B1 as the reason they are
    uncalled.
 5. `tests/integration/datavault.api-tokens.test.ts` passes (updated for the flag if
    needed, with equivalent coverage).

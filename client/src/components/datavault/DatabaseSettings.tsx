@@ -35,6 +35,7 @@ interface DatabaseSettingsProps {
 export function DatabaseSettings({ database, onClose }: DatabaseSettingsProps) {
   const { toast } = useToast();
   const updateMutation = useUpdateDatavaultDatabase();
+  const apiTokensEnabled = import.meta.env.VITE_ENABLE_DATAVAULT_API_TOKENS === "true";
 
   const [name, setName] = useState(database.name);
   const [description, setDescription] = useState(database.description ?? "");
@@ -240,8 +241,7 @@ export function DatabaseSettings({ database, onClose }: DatabaseSettingsProps) {
         </CardContent>
       </Card>
 
-      {/* API Access */}
-      <DatabaseApiTokens databaseId={database.id} />
+      {apiTokensEnabled && <DatabaseApiTokens databaseId={database.id} />}
 
       {/* Actions */}
       <div className="flex gap-3">

@@ -2,9 +2,13 @@ import express, { type Express } from 'express';
 import _request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
-
-
 import { registerDatavaultApiTokenRoutes } from '../../server/routes/datavaultApiTokens.routes';
+import {
+  createAuthenticatedAgent,
+  type IntegrationTestContext,
+  setupIntegrationTest,
+} from '../helpers/integrationTestHelper';
+import { TestFactory } from '../helpers/testFactory';
 
 /**
  * DataVault v4 Micro-Phase 5: API Tokens Integration Tests
@@ -299,5 +303,58 @@ describe('DataVault API Tokens', () => {
       // Token with 'write' scope should be able to write
       expect(true).toBe(true); // Placeholder
     });
+  });
+});
+
+describe('DataVault API token feature flag behavior', () => {
+  let context: IntegrationTestContext;
+  let databaseId: string;
+
+  beforeAll(async () => {
+    context = await setupIntegrationTest({ createProject: true });
+    const factory = new TestFactory();
+    const database = await factory.createDatabase(
+      context.projectId!,
+      context.tenantId,
+      context.userId,
+    );
+    databaseId = database.id;
+  });
+
+  afterAll(async () => {
+    await context.cleanup();
+  });
+
+  it('keeps token-management routes functional while the client flag is off', async () => {
+    const previousFlag = process.env.VITE_ENABLE_DATAVAULT_API_TOKENS;
+    process.env.VITE_ENABLE_DATAVAULT_API_TOKENS = 'false';
+
+    try {
+      const agent = createAuthenticatedAgent(context.baseURL, context.authToken);
+      const createResponse = await agent
+        .post(`/api/datavault/databases/${databaseId}/tokens`)
+        .send({ label: 'Flag-off route coverage', scopes: ['read'] });
+
+      expect(createResponse.status).toBe(201);
+      expect(createResponse.body.plainToken).toEqual(expect.any(String));
+      expect(createResponse.body.token).not.toHaveProperty('tokenHash');
+
+      const listResponse = await agent.get(`/api/datavault/databases/${databaseId}/tokens`);
+      expect(listResponse.status).toBe(200);
+      expect(listResponse.body.tokens).toEqual([
+        expect.objectContaining({ id: createResponse.body.token.id }),
+      ]);
+
+      const deleteResponse = await agent
+        .delete(`/api/datavault/tokens/${createResponse.body.token.id}`)
+        .send({ databaseId });
+      expect(deleteResponse.status).toBe(200);
+    } finally {
+      if (previousFlag === undefined) {
+        delete process.env.VITE_ENABLE_DATAVAULT_API_TOKENS;
+      } else {
+        process.env.VITE_ENABLE_DATAVAULT_API_TOKENS = previousFlag;
+      }
+    }
   });
 });
