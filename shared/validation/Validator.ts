@@ -23,9 +23,13 @@ export interface ValidatorOptions {
 }
 /**
  * Validates a single value against a schema.
+ *
+ * Synchronous — the body has no `await` in it (LIST2-2). `validateValue`
+ * below just wraps this in `Promise.resolve` for the existing async callers;
+ * this is the version sync callers (e.g. list-item validation) can call
+ * directly without becoming async themselves.
  */
-
-export async function validateValue(options: ValidatorOptions): Promise<ValidationResult> {
+export function validateValueSync(options: ValidatorOptions): ValidationResult {
     const { schema, value, values = {} } = options;
     const errors: string[] = [];
     // Check required/empty first
@@ -51,6 +55,13 @@ export async function validateValue(options: ValidatorOptions): Promise<Validati
         valid: errors.length === 0,
         errors,
     };
+}
+
+/**
+ * Validates a single value against a schema.
+ */
+export async function validateValue(options: ValidatorOptions): Promise<ValidationResult> {
+    return Promise.resolve(validateValueSync(options));
 }
 /**
  * Validates a single rule.

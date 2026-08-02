@@ -327,4 +327,147 @@ describe('validateListValue', () => {
             expect(Object.keys(validateListValue('bad', config, 'children'))).toEqual(['children']);
         });
     });
+
+    /**
+     * LIST2-2: `validateListItemFields` used to check only required-emptiness
+     * for a question field — no `getValidationSchema`/type-level validation
+     * ever ran inside a list, so an `email` field accepted `"asdf"` and a
+     * bounded `number` accepted anything. These tests cover AC2-6 of LIST2-2.
+     */
+    describe('type-level validation inside list items (LIST2-2)', () => {
+        it('AC2: an email field with an invalid value errors at its [index].alias path', () => {
+            const config: ListConfig = {
+                fields: [questionField({ alias: 'email', title: 'Email', type: 'email' })],
+            };
+            const value: ListValue = { items: [item({ email: 'asdf' })] };
+
+            const errors = validateListValue(value, config, 'children');
+
+            expect(errors['children[0].email']).toBeDefined();
+            expect(errors['children[0].email'].length).toBeGreaterThan(0);
+        });
+
+        it('AC2: a well-formed email produces no error', () => {
+            const config: ListConfig = {
+                fields: [questionField({ alias: 'email', title: 'Email', type: 'email' })],
+            };
+            const value: ListValue = { items: [item({ email: 'ava@example.com' })] };
+
+            const errors = validateListValue(value, config, 'children');
+
+            expect(errors).toEqual({});
+        });
+
+        it('AC3: a number field out of its configured min/max range errors', () => {
+            const config: ListConfig = {
+                fields: [
+                    questionField({
+                        alias: 'age',
+                        title: 'Age',
+                        type: 'number',
+                        config: { min: 1, max: 10 },
+                    }),
+                ],
+            };
+            const value: ListValue = { items: [item({ age: 99 })] };
+
+            const errors = validateListValue(value, config, 'children');
+
+            expect(errors['children[0].age']).toEqual(
+                expect.arrayContaining([expect.stringContaining('10')])
+            );
+        });
+
+        it('AC3: a number field within its configured min/max range produces no error', () => {
+            const config: ListConfig = {
+                fields: [
+                    questionField({
+                        alias: 'age',
+                        title: 'Age',
+                        type: 'number',
+                        config: { min: 1, max: 10 },
+                    }),
+                ],
+            };
+            const value: ListValue = { items: [item({ age: 5 })] };
+
+            const errors = validateListValue(value, config, 'children');
+
+            expect(errors).toEqual({});
+        });
+
+        it('AC4: a field hidden by visibleIf emits no type errors even with an invalid value', () => {
+            const config: ListConfig = {
+                fields: [
+                    questionField({ alias: 'hasEmail', type: 'boolean' }),
+                    questionField({
+                        alias: 'email',
+                        title: 'Email',
+                        type: 'email',
+                        visibleIf: {
+                            type: 'group',
+                            id: 'g1',
+                            operator: 'AND',
+                            conditions: [
+                                {
+                                    type: 'condition',
+                                    id: 'c1',
+                                    variable: 'hasEmail',
+                                    operator: 'equals',
+                                    value: true,
+                                    valueType: 'constant',
+                                },
+                            ],
+                        },
+                    }),
+                ],
+            };
+            const value: ListValue = { items: [item({ hasEmail: false, email: 'not-an-email' })] };
+
+            const errors = validateListValue(value, config, 'children');
+
+            expect(errors).toEqual({});
+        });
+
+        it('AC5: a required-and-empty field produces exactly one error with the field-titled message, not a duplicate', () => {
+            const config: ListConfig = {
+                fields: [
+                    questionField({ alias: 'email', title: 'Email', type: 'email', required: true }),
+                ],
+            };
+            const value: ListValue = { items: [item({ email: '' })] };
+
+            const errors = validateListValue(value, config, 'children');
+
+            expect(errors['children[0].email']).toEqual(['Email is required']);
+        });
+
+        it('AC6: a type error nests and keys correctly through a nested list ([0].addresses[1].email)', () => {
+            const addressConfig: ListConfig = {
+                fields: [questionField({ alias: 'email', title: 'Email', type: 'email' })],
+            };
+            const childConfig: ListConfig = {
+                fields: [listField({ alias: 'addresses', list: addressConfig })],
+            };
+            const value: ListValue = {
+                items: [
+                    item(
+                        {
+                            addresses: {
+                                items: [
+                                    item({ email: 'ok@example.com' }, 'a0'),
+                                    item({ email: 'bad' }, 'a1'),
+                                ],
+                            },
+                        },
+                        'c0'
+                    ),
+                ],
+            };
+
+            const errors = validateListValue(value, childConfig, '');
+
+            expect(Object.keys(errors)).toEqual(['[0].addresses[1].email']);
+        });
+    });
 });

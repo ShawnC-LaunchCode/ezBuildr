@@ -4,6 +4,7 @@ import { StepConfig, TextAdvancedConfig, isNumberConfig, ListConfig, ListItem, L
 
 import { ValidationRule } from "./ValidationRule";
 import { ValidationSchema } from "./ValidationSchema";
+import { validateValueSync } from "./Validator";
 
 export interface StepLike {
     id: string;
@@ -272,6 +273,32 @@ function validateListItemFields(
 
         if (field.required === true && isEmptyListFieldValue(raw)) {
             addListError(errors, fieldPath, `${field.title} is required`);
+        }
+
+        // LIST2-2: run the same type-level validation (email format, number
+        // min/max, pattern, length, ...) a top-level section step gets via
+        // `getValidationSchema`. `required: false` is passed deliberately —
+        // the explicit required check above already owns the
+        // field-titled required message, and letting the schema also carry
+        // `required: true` would emit a second, generically-worded one.
+        // `getValidationSchema` returns early on a falsy `config` (used to
+        // mean "no step config row yet"), which would silently skip
+        // config-independent rules like `email`/`url`/`phone` for a list
+        // field that has never had its settings configured. A list field
+        // always conceptually has a config — it is just empty — so default
+        // to `{}` rather than passing `field.config` (often `undefined`)
+        // straight through.
+        const schema = getValidationSchema({
+            id: field.id,
+            type: field.type,
+            config: field.config ?? {},
+            required: false,
+        });
+        const result = validateValueSync({ schema, value: raw, values: item.values });
+        if (!result.valid) {
+            for (const message of result.errors) {
+                addListError(errors, fieldPath, message);
+            }
         }
     }
 }

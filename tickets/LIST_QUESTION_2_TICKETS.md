@@ -209,7 +209,7 @@ data.
 
 ---
 
-## LIST2-2 — No type-level validation runs inside a list 🔲
+## LIST2-2 — No type-level validation runs inside a list ✅
 
 **Priority: P0 (bug)** · Size: M · File: `shared/validation/BlockValidation.ts`
 
@@ -312,6 +312,35 @@ Constraints:
    2–6. Each must be shown to fail without the fix.
 8. `npm run type-check` 0 errors; `npm run lint` clean;
    `npm run test:fast` green (baseline: 2206 passing).
+
+### Verification pass — 2026-08-01 (reviewer)
+
+All 8 criteria met; each has a named test. `ListValidation.test.ts` +
+`listServerValidation.test.ts` + `useRunNavigation.listErrors.test.tsx`
+→ 47/47 on the merged tree, so the four downstream consumers of
+`validateListValue` are unaffected.
+
+**The dev found a real latent bug beyond the ticket, and it is load-bearing.**
+`getValidationSchema` returns early on a falsy `config`
+(`if (!config) { return { rules, required: isRequired }; }`), which would have
+silently skipped every *config-independent* rule — `email`, `phone_advanced`,
+`website` patterns — for any list field without an authored config. Since
+Phase 2's settings UI does not exist yet, that is currently **every** list
+field, so the ticket's headline fix would have been a no-op in practice.
+Fixed by passing `config: field.config ?? {}`.
+
+Verified by mutation, not on trust: reverting that `?? {}` to `field.config`
+fails AC2 and AC6. Reverted after.
+
+Duplicate-required behavior confirmed correct — the schema is built with
+`required: false` so the explicit field-titled check stays the sole source of
+the required message.
+
+**Process note (no impact on the work):** this ticket was committed inside its
+worktree (`d20a72f3`), against the dispatch rule that devs do not commit. The
+content was correct, so it was re-applied by path here and the commit is the
+reviewer's, preserving one-commit-per-ticket. The worktree commit is orphaned
+and dies with the worktree.
 
 ---
 
