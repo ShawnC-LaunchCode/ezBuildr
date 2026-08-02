@@ -213,6 +213,43 @@ describe('ImportWorkflow', () => {
     expect(screen.getByRole('button', { name: 'Open the imported workflow' })).toBeInTheDocument();
   });
 
+  it('IEX3-9: surfaces the adjustments the server decided on your behalf', async () => {
+    // "Your workflow has no project" is composed by the service, was dropped by
+    // the route, and is the only notice the user ever gets that the import did
+    // not land where they assumed.
+    const applyBody = {
+      rootId: 'imported-1', scope: 'workflow',
+      entityCounts: { workflows: 1 }, blobsRestored: 0, warnings: [],
+      adjustments: [
+        'Imported workflow was left without a project: the bundle referenced project p-9, ' +
+        'which is not yours in this tenant. Re-import with targetProjectId to place it.',
+      ],
+    };
+    mockFetch(CLEAN_PREVIEW, applyBody);
+    const user = userEvent.setup();
+    render(<ImportWorkflow />);
+
+    await chooseFile(user);
+    await screen.findByText('What will be created');
+    await user.click(screen.getByRole('button', { name: /Import this workflow/ }));
+
+    await screen.findByRole('region', { name: 'Where this landed had to be decided for you' });
+    expect(screen.getByText(/left without a project/)).toBeInTheDocument();
+  });
+
+  it('IEX3-9: stays quiet when the server made no adjustments', async () => {
+    mockFetch(CLEAN_PREVIEW);
+    const user = userEvent.setup();
+    render(<ImportWorkflow />);
+
+    await chooseFile(user);
+    await screen.findByText('What will be created');
+    await user.click(screen.getByRole('button', { name: /Import this workflow/ }));
+
+    await screen.findByText('Import complete');
+    expect(screen.queryByText(/had to be decided for you/)).toBeNull();
+  });
+
   it("AC 6: surfaces the server's own rejection message", async () => {
     vi.stubGlobal('fetch', vi.fn(() =>
       Promise.resolve({

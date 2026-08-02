@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2, FileUp, Link2Off, Loader2, Upload } from "lucide-react";
+import { ArrowLeft, CheckCircle2, FileUp, FolderInput, Link2Off, Loader2, Upload } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 
@@ -42,6 +42,8 @@ interface ApplyResult {
   entityCounts: Record<string, number>;
   blobsRestored: number;
   warnings: ManifestWarning[];
+  /** Structural decisions the server took — e.g. "left without a project". */
+  adjustments?: string[];
 }
 
 async function postBundle<T>(
@@ -241,6 +243,24 @@ export default function ImportWorkflow(): JSX.Element {
               </Button>
             </div>
           </Callout>
+
+          {/* Not a warning — a decision the server made for you, and the only
+              place it is ever said. Sits above the reference warnings because
+              "your workflow has no project" changes where you go next. */}
+          {(applied.adjustments ?? []).length > 0 && (
+            <Callout
+              tone="warn"
+              icon={FolderInput}
+              labelId="import-done-adjustments"
+              title="Where this landed had to be decided for you"
+            >
+              <ul className="space-y-1 text-sm text-muted-foreground">
+                {(applied.adjustments ?? []).map((adjustment, i) => (
+                  <li key={i}>{adjustment}</li>
+                ))}
+              </ul>
+            </Callout>
+          )}
 
           {/* Carried onto this screen deliberately: a warning shown only on the
               page the user immediately navigates away from is not shown. */}

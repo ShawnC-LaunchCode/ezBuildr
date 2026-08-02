@@ -340,7 +340,12 @@ export function registerPortabilityRoutes(app: Express): void {
           scope: result.scope,
           entityCounts: result.entityCounts,
           blobsRestored: result.blobsRestored,
-          warnings: result.warnings
+          warnings: result.warnings,
+          // Structural decisions the server took on the caller's behalf — most
+          // importantly "this workflow was left without a project". The service
+          // has composed these since IEX-15 and the route dropped them, so the
+          // import completed and the explanation went nowhere (IEX3-9).
+          adjustments: result.adjustments
         });
       } catch (error) {
         logger.error({ error }, "Error applying portability bundle");

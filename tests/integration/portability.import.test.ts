@@ -221,6 +221,27 @@ describe.sequential("Portability Import API Integration Tests", () => {
     expect(changes["entityCounts"]).toBeDefined();
   });
 
+  it("IEX3-8 & IEX3-9: the rename field is honoured and adjustments come back over HTTP", async () => {
+    // Both halves were dead end-to-end: `name` was allowlisted by the route and
+    // never read by the service, and `adjustments` was composed by the service
+    // and never returned by the route. Asserted here rather than only at the
+    // service layer, because the gap was in the wiring both times.
+    const response = await request(baseURL)
+      .post("/api/portability/import/apply")
+      .set("Authorization", `Bearer ${authToken}`)
+      .field("name", "Renamed On Import")
+      .attach("file", bundle, "bundle.ezb")
+      .expect(201);
+
+    const [importedProject] = await db.select().from(schema.projects)
+      .where(eq(schema.projects.id, response.body.rootId));
+    expect(importedProject.title).toBe("Renamed On Import");
+
+    // Present and empty here — this bundle's project travelled with it, so
+    // nothing had to be decided. The field existing is the contract.
+    expect(response.body.adjustments).toEqual([]);
+  });
+
   it("AC 3: unauthenticated requests are rejected with 401", async () => {
     await request(baseURL)
       .post("/api/portability/import/preview")
