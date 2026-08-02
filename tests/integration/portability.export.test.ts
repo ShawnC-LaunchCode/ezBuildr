@@ -483,6 +483,104 @@ describe.sequential("Portability Export API Integration Tests", () => {
       });
     });
 
+    it("IEX3-B5: a database bound only from a step config still travels", async () => {
+      await withoutRateLimit(async () => {
+        // The case the reference collector used to miss entirely: a choice
+        // question wired straight to a table through dynamicOptions, with the
+        // workflow never registering it as a data source. The database was left
+        // behind and the import reported a broken binding — correct, but the
+        // bundle was needlessly incomplete.
+        const { workflowId, sectionId } = await seedWorkflow({ projectId, userId });
+        const bound = await seedDatavault({
+          tenantId, userId, scopeType: "project", scopeId: projectId,
+          attachToWorkflowId: null, name: "Config-bound DB"
+        });
+        const unrelated = await seedDatavault({
+          tenantId, userId, scopeType: "project", scopeId: projectId,
+          attachToWorkflowId: null, name: "Unrelated DB"
+        });
+
+        await db.insert(schema.steps).values({
+          workflowId, sectionId, type: "choice", title: "Home state",
+          alias: "home_state", order: 1,
+          config: {
+            dynamicOptions: {
+              type: "table_column",
+              // Deliberately names the table and column but NOT the database —
+              // the collector has to resolve upward to find it.
+              tableId: bound.tableId,
+              columnId: bound.columnId,
+            },
+          },
+        });
+
+        const reader = await exportWorkflow(workflowId);
+
+        expect(await idsIn(reader, "datavault_databases")).toEqual([bound.databaseId]);
+        expect(await idsIn(reader, "datavault_databases")).not.toContain(unrelated.databaseId);
+        expect(await idsIn(reader, "datavault_tables")).toEqual([bound.tableId]);
+        expect(await idsIn(reader, "datavault_columns")).toEqual([bound.columnId]);
+      });
+    });
+
+    it("IEX3-B5: a config-bound database the caller cannot edit is still refused", async () => {
+      await withoutRateLimit(async () => {
+        // B5 widened what reaches the ACL gate — a step config can now pull a
+        // database into the candidate set. That must not become a way around
+        // IEX2-17's rule that exporting a database requires edit on it, or
+        // anyone with edit on one workflow could exfiltrate a tenant-wide
+        // DataVault by pointing a dropdown at it.
+        const collabEmail = `collab-b5-${nanoid()}@example.com`;
+        const collabRegister = await request(baseURL)
+          .post("/api/auth/register")
+          .send({
+            email: collabEmail,
+            password: "TestPassword123!@#Strong",
+            firstName: "Collab",
+            lastName: "B5",
+          })
+          .expect(201);
+        const collabToken = collabRegister.body.token as string;
+        const collabUserId = collabRegister.body.user.id as string;
+        await db.update(schema.users)
+          .set({ tenantId, tenantRole: "viewer" })
+          .where(eq(schema.users.id, collabUserId));
+
+        const { workflowId, sectionId } = await seedWorkflow({ projectId, userId });
+        const shared = await seedDatavault({
+          tenantId, userId, scopeType: "account", scopeId: null,
+          attachToWorkflowId: null, name: "Not Yours To Export"
+        });
+
+        await db.insert(schema.steps).values({
+          workflowId, sectionId, type: "choice", title: "Pick one",
+          alias: "pick_one", order: 1,
+          config: {
+            dynamicOptions: {
+              type: "table_column",
+              tableId: shared.tableId,
+              columnId: shared.columnId,
+            },
+          },
+        });
+
+        await db.insert(schema.workflowAccess).values({
+          workflowId, principalType: "user", principalId: collabUserId, role: "edit"
+        });
+
+        const reader = await exportWorkflow(workflowId, collabToken);
+
+        expect(await idsIn(reader, "datavault_databases")).toEqual([]);
+        expect(await idsIn(reader, "datavault_tables")).toEqual([]);
+        const warnings = reader.manifest.warnings ?? [];
+        expect(warnings.some(w =>
+          w.type === "dangling_reference" &&
+          w.entity === "datavault_databases" &&
+          w.missingId === shared.databaseId
+        )).toBe(true);
+      });
+    });
+
     it("AC 4: an account-scoped database the caller owns travels with the workflow", async () => {
       await withoutRateLimit(async () => {
         const { workflowId } = await seedWorkflow({ projectId, userId });

@@ -67,12 +67,20 @@ describeWithDb('ImportService - config entity references', () => {
 
   it('AC 1: reports a choice bound to a DataVault table that is not in the bundle', async () => {
     const { workflowId, sectionId } = await seedWorkflow({ projectId, userId });
-    // Deliberately NOT attached via workflow_data_sources/workflow_queries, so
-    // the export has no reason to carry it — the reference exists only inside
-    // the step config, which is exactly the blind spot.
-    const vault = await seedDatavault({
-      tenantId, userId, scopeType: 'project', scopeId: projectId, attachToWorkflowId: null
-    });
+    // Ids whose targets do not exist — the user deleted the table this dropdown
+    // was wired to. Nothing can make these travel, so the import must report
+    // them.
+    //
+    // This was a real-but-unattached database until IEX3-B5, which taught the
+    // export to follow references embedded in config. That fixture now travels,
+    // which is the better outcome and made the warning correctly stop firing.
+    // The contract under test is unchanged: an embedded reference the import
+    // cannot resolve is reported, never swallowed.
+    const vault = {
+      databaseId: randomUUID(),
+      tableId: randomUUID(),
+      columnId: randomUUID(),
+    };
 
     await db.insert(steps).values({
       workflowId, sectionId, type: 'choice', title: 'Home state',
@@ -100,14 +108,13 @@ describeWithDb('ImportService - config entity references', () => {
 
   it('AC 2: reports the same binding nested one and two levels deep inside a List', async () => {
     const { workflowId, sectionId } = await seedWorkflow({ projectId, userId });
-    const shallow = await seedDatavault({
-      tenantId, userId, scopeType: 'project', scopeId: projectId,
-      attachToWorkflowId: null, name: 'Shallow DB'
-    });
-    const deep = await seedDatavault({
-      tenantId, userId, scopeType: 'project', scopeId: projectId,
-      attachToWorkflowId: null, name: 'Deep DB'
-    });
+    // Unresolvable by construction, for the reason given in AC 1.
+    const shallow = {
+      databaseId: randomUUID(), tableId: randomUUID(), columnId: randomUUID(),
+    };
+    const deep = {
+      databaseId: randomUUID(), tableId: randomUUID(), columnId: randomUUID(),
+    };
 
     await db.insert(steps).values({
       workflowId, sectionId, type: 'list', title: 'Beneficiaries',

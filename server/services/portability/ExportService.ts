@@ -1,9 +1,10 @@
 import { db } from '../../db';
 import {
-  projects, workflows, datavaultDatabases, datavaultTables,
+  projects, workflows, datavaultDatabases, datavaultTables, datavaultColumns,
   workflowTemplates, workflowVersions, workflowDataSources, workflowQueries,
-  datavaultWritebackMappings
+  datavaultWritebackMappings, steps, blocks
 } from '@shared/schema';
+import { collectConfigEntityRefs } from '@shared/types/stepConfigRefs';
 import { eq, gt, inArray, and, or, SQL } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import { ENTITY_GRAPH, EntityDescriptor } from './entityGraph';
@@ -322,15 +323,77 @@ export class ExportService {
           message:
             `DataVault database "${candidate.name}" is used by this workflow but was not exported: ` +
             `it is ${candidate.scopeType}-scoped and you do not have edit access to it. ` +
-            `Queries and data sources pointing at it have been omitted from the bundle.`
+            `Anything in this workflow that points at it will need re-connecting after importing.`
         });
       }
     }
   }
 
-  /** Every DataVault database this workflow reaches, by any of its three routes. */
+  /**
+   * DataVault ids named inside `steps.config` / `blocks.config` (IEX3-B5).
+   *
+   * A choice question can be bound straight to a table through
+   * `dynamicOptions`, and a Read Table or Write block through its own config,
+   * without the workflow ever registering that database as a data source. Those
+   * bindings were outside every collection route below, so the database did not
+   * travel and the import reported a broken reference — correct behaviour, but
+   * the bundle was needlessly incomplete and the export's "what travels" list
+   * said nothing about it.
+   *
+   * Uses the same collector the importer validates with, so the two cannot
+   * disagree about what counts as a reference. A config may name a table or a
+   * column without naming its database, so both are resolved upward.
+   */
+  private async collectConfigDatabaseIds(workflowId: string): Promise<Set<string>> {
+    const [stepRows, blockRows] = await Promise.all([
+      db.select({ config: steps.config }).from(steps).where(eq(steps.workflowId, workflowId)),
+      db.select({ config: blocks.config }).from(blocks).where(eq(blocks.workflowId, workflowId))
+    ]);
+
+    const databaseIds = new Set<string>();
+    const tableIds = new Set<string>();
+    const columnIds = new Set<string>();
+
+    for (const row of [...stepRows, ...blockRows]) {
+      if (row.config == null) {
+        continue;
+      }
+      for (const ref of collectConfigEntityRefs(row.config)) {
+        if (ref.entity === 'datavault_databases') { databaseIds.add(ref.id); }
+        else if (ref.entity === 'datavault_tables') { tableIds.add(ref.id); }
+        else if (ref.entity === 'datavault_columns') { columnIds.add(ref.id); }
+      }
+    }
+
+    if (columnIds.size > 0) {
+      const cols = await db.select({ tableId: datavaultColumns.tableId })
+        .from(datavaultColumns)
+        .where(inArray(datavaultColumns.id, Array.from(columnIds)));
+      for (const col of cols) {
+        tableIds.add(col.tableId);
+      }
+    }
+    if (tableIds.size > 0) {
+      const tables = await db.select({ databaseId: datavaultTables.databaseId })
+        .from(datavaultTables)
+        .where(inArray(datavaultTables.id, Array.from(tableIds)));
+      for (const table of tables) {
+        // `datavault_tables.database_id` is nullable in the schema, so a
+        // parentless table is representable and simply reaches no database.
+        if (table.databaseId !== null) {
+          databaseIds.add(table.databaseId);
+        }
+      }
+    }
+
+    // A config may name an id that no longer exists; the lookups above simply
+    // return nothing for those, and a stale id never reaches the ACL gate.
+    return databaseIds;
+  }
+
+  /** Every DataVault database this workflow reaches, by any of its routes. */
   private async collectReferencedDatabaseIds(workflowId: string): Promise<Set<string>> {
-    const [fromDataSources, fromQueries, fromQueryTables, fromWriteback] = await Promise.all([
+    const [fromDataSources, fromQueries, fromQueryTables, fromWriteback, fromConfig] = await Promise.all([
       db.select({ id: workflowDataSources.dataSourceId })
         .from(workflowDataSources)
         .where(eq(workflowDataSources.workflowId, workflowId)),
@@ -346,10 +409,11 @@ export class ExportService {
       db.select({ id: datavaultTables.databaseId })
         .from(datavaultWritebackMappings)
         .innerJoin(datavaultTables, eq(datavaultWritebackMappings.tableId, datavaultTables.id))
-        .where(eq(datavaultWritebackMappings.workflowId, workflowId))
+        .where(eq(datavaultWritebackMappings.workflowId, workflowId)),
+      this.collectConfigDatabaseIds(workflowId)
     ]);
 
-    const ids = new Set<string>();
+    const ids = new Set<string>(fromConfig);
     for (const row of [...fromDataSources, ...fromQueries, ...fromQueryTables, ...fromWriteback]) {
       if (row.id !== null) {
         ids.add(row.id);

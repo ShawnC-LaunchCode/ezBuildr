@@ -560,12 +560,21 @@ describe.sequential("Portability Import API Integration Tests", () => {
 
   it("IEX3-2: a List whose nested choice lost its DataVault binding imports 201 and says so", async () => {
     const { workflowId, sectionId } = await seedWorkflow({ projectId, userId });
-    // Referenced only from inside the step config, never attached to the
-    // workflow — so it cannot travel, and the import has to report it rather
-    // than handing back a silently broken dropdown.
-    const vault = await seedDatavault({
-      tenantId, userId, scopeType: "project", scopeId: projectId, attachToWorkflowId: null
-    });
+    // A binding whose target no longer exists — the user deleted the table the
+    // dropdown was wired to. Nothing can make this travel, so the import has to
+    // report it rather than handing back a silently broken dropdown.
+    //
+    // This fixture used to be a real database that was simply never attached to
+    // the workflow. IEX3-B5 made that case *travel* (the export now follows
+    // references embedded in config), which is the better outcome and left this
+    // test asserting a warning that correctly no longer fires. The contract
+    // being tested is unchanged: an embedded reference the import cannot
+    // resolve must be reported, never swallowed.
+    const vault = {
+      databaseId: randomUUID(),
+      tableId: randomUUID(),
+      columnId: randomUUID(),
+    };
 
     await db.insert(schema.steps).values({
       workflowId, sectionId, type: "list", title: "Beneficiaries",
