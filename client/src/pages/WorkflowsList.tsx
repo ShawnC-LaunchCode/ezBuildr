@@ -1,5 +1,5 @@
 
-import { Plus, Edit, Trash2, Wand2, ChevronDown, FolderPlus, Link as LinkIcon, Play, Loader2, ArrowRightLeft, Copy, Users, ShieldCheck } from "lucide-react";
+import { Plus, Edit, Trash2, Wand2, ChevronDown, FolderPlus, Link as LinkIcon, Play, Loader2, ArrowRightLeft, Copy, Upload, Users, ShieldCheck } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "wouter";
 
@@ -286,6 +286,12 @@ export default function WorkflowsList() {
                   <DropdownMenuItem onClick={() => { void setIsProjectDialogOpen(true); }}>
                     <FolderPlus className="w-4 h-4 mr-2" />
                     New Project
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/workflows/import" className="cursor-pointer">
+                      <Upload className="w-4 h-4 mr-2" />
+                      Import from a file
+                    </Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

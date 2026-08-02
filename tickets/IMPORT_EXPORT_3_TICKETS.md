@@ -99,7 +99,8 @@ portability-shaped; do not re-litigate them.**
 | IEX3-2 | Entity ids embedded in jsonb are never checked or reported | P0 | M | ✅ |
 | IEX3-3 | Round-trip coverage for every question type, including List | P1 | M | ✅ |
 | IEX3-4 | Export UI with a pre-download disclosure of what travels | P1 | L | ✅ |
-| IEX3-5 | Import UI: upload → preview → apply | P1 | L | 🔲 |
+| IEX3-5 | Import UI: upload → preview → apply | P1 | L | ✅ |
+| IEX3-7 | `secrets.valueEnc` NOT NULL breaks every project import | P0 | S | ✅ |
 | IEX3-6 | Visual confirmation of an imported workflow in the builder | P2 | S | 🔲 |
 
 ---
@@ -1043,7 +1044,118 @@ so the data exists; it simply has no route that returns it without the bytes.
 
 ---
 
-## IEX3-5 — Import UI: upload → preview → apply 🔲
+## IEX3-5 — Import UI: upload → preview → apply ✅
+
+> **Verification pass — 2026-08-02.** All 10 acceptance criteria met. Worked in
+> a worktree, landed after an overlap check (main unchanged since the base).
+>
+> Gates: `npx tsc --noEmit` → 0; `npm run lint` → 0/0; `npm run test:fast` →
+> **2307 passed** (was 2299); `unit-db` → **13 files / 131 passed** (was
+> 12/129); portability integration → **39 passed**, unchanged.
+>
+> **Live drive-through** (own dev server on :5098 from the worktree). The demo
+> bundle was a *project* export carrying two secrets, a connection, a transform
+> block, a lifecycle hook and a List step whose nested choice pointed at a
+> DataVault table outside the bundle — so one preview exercised every branch at
+> once:
+> - AC 1 — after choosing the file the network log showed **exactly one**
+>   request, `/import/preview`. No apply.
+> - AC 2 — "This bundle contains code that will run in your workspace… It
+>   carries transform blocks and lifecycle hooks."
+> - AC 4 — collision (`Estate Planning — Project name already in use`), three
+>   unresolved references rendered with IEX3-2's full nested path
+>   (`steps.config.fields[1].config.dynamicOptions.tableId → …`), and all three
+>   re-entry items.
+> - AC 5 — apply returned **201** and the result screen still lists the three
+>   unresolved references, which is the point of that criterion: a warning
+>   shown only on the screen the user navigates away from is not shown.
+> - Screenshots: `.playwright-mcp/iex35-import-preview.png` and
+>   `iex35-import-complete.png` (gitignored).
+>
+> **The drive-through found a live P0 that no test could have caught — filed
+> and fixed as IEX3-7 below.** The first apply returned 500. Reported honestly
+> rather than worked around: the bug is in the engine, not the UI.
+>
+> Design: the shared presentational layer the Ties asked for now exists at
+> `client/src/components/portability/disclosure.tsx`, and IEX3-4's dialog was
+> rewired onto it in this ticket (its 8 tests still pass unchanged). Two copy
+> defects were caught by looking at the render rather than the code — raw
+> `secrets`/`connections` entity keys, and a comma-joined "transform blocks,
+> lifecycle hooks" that now reads "…and lifecycle hooks".
+>
+> Refactor forced by the repo's own limits, not chosen: the page tripped
+> `max-lines-per-function` (349/250) and `complexity` (28/20). Per the house
+> rule I extracted `ImportPreviewReport` rather than adding a suppression, and
+> dropped `forwardRef` for a plain `errorRef` prop to satisfy
+> `prefer-arrow-callback`.
+
+---
+
+## IEX3-7 — `secrets.valueEnc` is NOT NULL, so no project bundle imports ✅
+
+**Priority: P0 (bug)** · Size: S · File: `server/services/portability/entityGraph.ts`, `server/services/portability/ImportService.ts`
+
+> **Found and fixed 2026-08-02**, during IEX3-5's live drive-through. Filed as
+> a ticket rather than a backlog line because it is a P0 that makes a headline
+> use case fail outright, and fixed in the same pass under the reviewer-fixes-it
+> path — it is three lines against a pattern already established two functions
+> away.
+
+### Finding
+
+`secrets.valueEnc` is `text("value_enc").notNull()`. Withholding it is the
+entire point of decision D-2, so it is deliberately absent from the entity
+graph's field list:
+
+```ts
+    name: 'secrets',
+    fields: ["id","projectId","key","type","environment","metadata"],
+```
+
+`getZodSchema` picks only those fields, so the insert omits the column and
+Postgres rejects the row:
+
+```
+error: null value in column "value_enc" of relation "secrets"
+  violates not-null constraint          (code 23502)
+detail: Failing row contains (…, STRIPE_API_KEY, null, null, api_key, …)
+```
+
+**Every project-scope bundle containing a secret was un-importable** — a 500,
+not even a clean 400. Invisible to the whole suite because no portability
+fixture had ever created a secret; the export tests covered *withholding* the
+value, never re-importing it.
+
+### Preferred fix
+
+Mirror the blobRefs handling in the same method, which already solves the
+identical shape — a NOT NULL column whose value must not travel gets the empty
+sentinel, and empty fails closed:
+
+> *"A ref we could not restore is cleared to the empty sentinel rather than
+> carried over: both blobRefs columns in the graph are NOT NULL, so 'unset'
+> cannot be null… Empty fails closed on download instead."*
+
+Declared on the descriptor (`withheldColumns: ["valueEnc"]`) rather than
+hardcoding `secrets`, so the next withheld NOT NULL column is handled the same
+way.
+
+### Acceptance criteria
+
+1. A project bundle containing secrets and a connection previews with
+   `canProceed: true` and applies **201**.
+2. Imported secrets have `valueEnc === ''` — never the source's ciphertext,
+   never null.
+3. `key`, `type` and `environment` survive, so `requiresReentry` is actionable.
+4. `secrets.fields` still excludes both `value` and `valueEnc`.
+5. New unit-db test asserts 1–4.
+6. Gates green.
+
+> **Verification pass — 2026-08-02.** All 6 criteria met.
+> `tests/unit/portability/importWithheldColumns.test.ts` (2 tests) covers them
+> and is registered in `dbUnitTests`. Re-driven live after the fix: the same
+> bundle that returned 500 returned **201**, and the import completed with the
+> re-entry checklist intact. `unit-db` 131 passed.
 
 **Priority: P1** · Size: L · File: `client/src/pages/` (new), `client/src/components/`
 

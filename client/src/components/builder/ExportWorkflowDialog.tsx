@@ -18,6 +18,14 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Callout,
+  ReentryList,
+  SectionHeading,
+  WarningLine,
+  type ManifestWarning,
+  type RequiresReentryEntry,
+} from "@/components/portability/disclosure";
 import { getAccessToken } from "@/lib/vault-api";
 import { EXCLUSION_CATEGORIES } from "@shared/types/portabilityDisclosure";
 
@@ -34,24 +42,6 @@ import { EXCLUSION_CATEGORIES } from "@shared/types/portabilityDisclosure";
  * the reassurance. A disclosure that opens with "you're fine" and buries the
  * warning is worse than no disclosure.
  */
-
-interface ManifestWarning {
-  type: "missing_blob" | "secret_scan" | "dangling_reference" | "schema_drift";
-  entity?: string;
-  column?: string;
-  line?: number;
-  missingId?: string;
-  fileRef?: string;
-  message: string;
-}
-
-interface RequiresReentryEntry {
-  type: "secret" | "connection";
-  key?: string;
-  secretType?: string;
-  environment?: string | null;
-  connectionName?: string;
-}
 
 interface ExportManifest {
   entityCounts: Record<string, number>;
@@ -97,22 +87,6 @@ const ENTITY_LABELS: Record<string, string> = {
 
 function labelFor(entity: string): string {
   return ENTITY_LABELS[entity] ?? entity.replace(/_/g, " ");
-}
-
-/** "secret · production" / "secret" / "connection". */
-function describeReentry(entry: RequiresReentryEntry): string {
-  if (entry.type !== "secret") {
-    return "connection";
-  }
-  return entry.environment != null ? `secret · ${entry.environment}` : "secret";
-}
-
-function SectionHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-      {children}
-    </h3>
-  );
 }
 
 export function ExportWorkflowDialog({
@@ -235,35 +209,28 @@ export function ExportWorkflowDialog({
             <div ref={summaryRef} tabIndex={-1} className="space-y-6 outline-none">
               {/* Action-required first. */}
               {secretScans.length > 0 && (
-                <section
-                  className="rounded-md border border-amber-500/40 bg-amber-500/5 p-4"
-                  aria-labelledby="export-secret-scan"
+                <Callout
+                  tone="warn"
+                  icon={AlertTriangle}
+                  labelId="export-secret-scan"
+                  title={
+                    secretScans.length === 1
+                      ? "A possible credential was found in your code"
+                      : `${secretScans.length} possible credentials were found in your code`
+                  }
                 >
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle
-                      className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500"
-                      aria-hidden="true"
-                    />
-                    <div className="space-y-2">
-                      <h3 id="export-secret-scan" className="text-sm font-semibold">
-                        {secretScans.length === 1
-                          ? "A possible credential was found in your code"
-                          : `${secretScans.length} possible credentials were found in your code`}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        These look like keys pasted into scripts, which the bundle carries as
-                        written. Clean them up before sharing this file.
-                      </p>
-                      <ul className="space-y-1 text-sm">
-                        {secretScans.map((w, i) => (
-                          <li key={i} className="font-mono text-xs">
-                            {w.entity}.{w.column} — line {w.line}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </section>
+                  <p className="text-sm text-muted-foreground">
+                    These look like keys pasted into scripts, which the bundle carries as
+                    written. Clean them up before sharing this file.
+                  </p>
+                  <ul className="space-y-1 text-sm">
+                    {secretScans.map((w, i) => (
+                      <li key={i}>
+                        <WarningLine warning={w} />
+                      </li>
+                    ))}
+                  </ul>
+                </Callout>
               )}
 
               {reentry.length > 0 && (
@@ -277,18 +244,7 @@ export function ExportWorkflowDialog({
                   <p className="text-sm text-muted-foreground">
                     Secret values never leave this system. The bundle carries only their names.
                   </p>
-                  <ul className="space-y-1 text-sm">
-                    {reentry.map((entry, i) => (
-                      <li key={i} className="flex items-baseline gap-2">
-                        <span className="font-mono text-xs">
-                          {entry.type === "secret" ? entry.key : entry.connectionName}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {describeReentry(entry)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <ReentryList entries={reentry} />
                 </section>
               )}
 

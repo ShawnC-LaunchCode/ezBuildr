@@ -19,6 +19,7 @@ const NotFound = lazy(() => import("@/pages/not-found"));
 const Landing = lazy(() => import("@/marketing/LandingPage"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const WorkflowsList = lazy(() => import("@/pages/WorkflowsList"));
+const ImportWorkflow = lazy(() => import("@/pages/ImportWorkflow"));
 const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
 const AdminOrgStats = lazy(() => import("@/pages/AdminOrgStats"));
 const AdminUsers = lazy(() => import("@/pages/AdminUsers"));
@@ -118,6 +119,8 @@ export default function Router() {
                         {/* Workflow routes */}
                         <Route path="/workflows" component={WorkflowsList} />
                         <Route path="/workflows/new" component={NewWorkflow} />
+                        {/* Must precede /workflows/:id/* so "import" is not read as an id. */}
+                        <Route path="/workflows/import" component={ImportWorkflow} />
                         <Route path="/workflows/:id/builder" component={WorkflowBuilder} />
                         <Route path="/workflows/:id/analytics" component={WorkflowAnalytics} />
                         <Route path="/workflows/:workflowId/optimize" component={OptimizationWizard} />
