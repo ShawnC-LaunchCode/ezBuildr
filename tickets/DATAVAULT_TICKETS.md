@@ -74,6 +74,11 @@ something.
 - **D-3 — DataVault API tokens are hidden, not implemented.** We stop issuing
   credentials that authenticate nothing; a real external API is a separate initiative
   (see DV-B1). Governs DV-11.
+- **D-4 — there is one auto-number type.** `auto_number` gains an optional prefix
+  and zero-padding (`INV-0003`); `autonumber` is retired **in code only**, keeping
+  the enum value as an inert tombstone because Postgres cannot drop one and there
+  are zero rows to justify recreating the type. Yearly reset is descoped to DV-B6.
+  No migration. Governs DV-6 — the full reasoning is in that ticket.
 
 ### File footprint map (use this to sequence dispatch)
 
@@ -934,27 +939,53 @@ either method's public signature.
 
 ---
 
-## DV-6 — The `autonumber` column type is never generated 🔲
+## DV-6 — One auto-number type, with a prefix and leading zeros 🔲
 
-**Priority: P1** · Size: M · File: `server/services/DatavaultRowsService.ts`, `server/repositories/DatavaultRowsRepository.ts`
+**Priority: P1** · Size: M · File: `server/repositories/DatavaultRowsRepository.ts`, `server/services/DatavaultRowsService.ts`, `client/src/components/datavault/ColumnManagerWithDnd.tsx`
+
+> **Rewritten 2026-08-02 after the repo owner's ruling (decision D-4 below).** The
+> original ticket asked for the `autonumber` type to be implemented alongside
+> `auto_number`. That was wrong: it would have built generation for a type no UI
+> can create. Read D-4 before starting.
+
+### Decision D-4 — one auto-number type (ruled 2026-08-02, do not re-litigate)
+
+There is **one** auto-number type: `auto_number`. It gains an optional prefix and
+zero-padding, so a column can produce `INV-0003`. That is the whole requirement —
+the repo owner confirmed it is already more than currently needed.
+
+- **`autonumber` is retired in code only.** It is **not** dropped from the enum:
+  Postgres has no `ALTER TYPE ... DROP VALUE`, so removing it means creating a
+  replacement type and rewriting every dependent column — a real migration on the
+  enum behind `datavault_columns.type`, to delete a value with **zero rows**. It
+  buys nothing and would collide with DV-10's migration. Leave it as an inert
+  tombstone with a deprecation comment.
+- **Yearly reset is descoped** — see DV-B6. `autonumberResetPolicy` stays unread.
+- **No migration.** DV-10 remains the only migration in this initiative.
 
 ### Finding
 
-`datavaultColumnTypeEnum` contains **both** `'auto_number'` and `'autonumber'`. The
-schema gives `autonumber` a full feature set that `auto_number` lacks —
-`autonumberPrefix`, `autonumberPadding`, `autonumberResetPolicy` on
-`datavault_columns`, mirrored by `prefix`, `padding`, `reset_policy`, `last_reset` on
-`datavault_number_sequences`.
+`datavaultColumnTypeEnum` contains both `'auto_number'` and `'autonumber'`. The
+second is stillborn, not half-built:
 
-**None of it is ever used.** The generation loop in `validateRowData` matches only the
-legacy type:
+- **Nothing generates it.** The loop in `validateRowData()` matches one type:
+  ```ts
+  if (column.type === 'auto_number' && !(column.id in values)) {
+  ```
+- **No UI can create it.** `CreateTableModal` declares a hardcoded union ending
+  `| 'auto_number'`, and `ColumnManager` / `ColumnManagerWithDnd` enumerate their
+  `SelectItem`s explicitly — none lists `autonumber`. Only a direct API call can
+  produce one, because `insertDatavaultColumnSchema` is a permissive
+  `createInsertSchema` that accepts any enum value.
+- **It is exempted from the required check** (`column.type !== 'autonumber'`), so
+  such a column silently stays null forever.
+- **Zero of them exist.** Verified against the dev DB at audit time: 0 `autonumber`
+  columns, 0 rows in `datavault_number_sequences`, 0 columns with
+  `autonumber_prefix` or a non-default reset policy.
 
-```ts
-if (column.type === 'auto_number' && !(column.id in values)) {
-```
-
-and `getNextAutoNumber` returns a bare integer, never reading prefix, padding, or
-reset policy:
+Meanwhile the *useful* capability is missing from the type people can actually
+create. `getNextAutoNumber` returns a bare integer and never reads the config that
+already exists on the column:
 
 ```ts
 const nextValue = sequence?.nextValue ?? startValue;
@@ -962,87 +993,110 @@ const nextValue = sequence?.nextValue ?? startValue;
 return nextValue;
 ```
 
-Grepping `server/` for `autonumberPrefix` finds only the schema, the portability entity
-graph's field list, and `WorkflowClonerService` copying the values across — no reader.
-
-So an `autonumber` column:
-
-- is skipped by generation, so its value stays null;
-- is *exempted* from the required check (`column.type !== 'autonumber'`), so the null
-  is accepted silently;
-- is treated as a normal editable field by the UI — `RowEditorModal` only special-cases
-  `auto_number` (`const isAutoNumber = column.type === "auto_number"`), so the user is
-  asked to type their own "auto" number;
-- never gets a prefix or zero-padding, and `resetPolicy: 'yearly'` never resets.
+So `autonumberPrefix` and `autonumberPadding` on `datavault_columns` — and
+`prefix` / `padding` on `datavault_number_sequences` — have never been read by any
+code. There is no way to get an invoice number out of DataVault today.
 
 ### Preferred fix
 
-Generate `autonumber` alongside `auto_number` in the same loop, and format it in the
-repository where the counter already lives.
+**1. Format in the repository, where the counter already lives.** Extend
+`getNextAutoNumber` to read the counter row's `prefix` and `padding` and return
+`${prefix}${String(n).padStart(padding, '0')}`.
 
-- Extend `getNextAutoNumber` (or add a sibling that shares its locking body) to read
-  the sequence row's `prefix`, `padding` and `resetPolicy` and return the formatted
-  string: `${prefix ?? ''}${String(n).padStart(padding, '0')}`. Keep the existing
-  `FOR UPDATE` counter-lock structure exactly as-is — it is correct and its comment
-  explains why; do not swap it for a Postgres sequence.
-- Implement `resetPolicy: 'yearly'`: when `last_reset` is null or in a previous
-  calendar year, reset `next_value` to the column's start value and stamp `last_reset`,
-  **inside the same locked transaction**.
-- Seed `prefix`/`padding`/`resetPolicy` into the counter row from the column config.
-  `createNumberSequence` currently only seeds `nextValue`; carry the rest, and keep it
-  idempotent. Note `getNextAutoNumber`'s self-heal upsert also needs them, or a
-  pre-existing counter row will keep formatting with defaults.
-- Make the UI treat `autonumber` as read-only exactly as it treats `auto_number` —
-  `RowEditorModal`'s `isAutoNumber` check and its required-field filter both need the
-  second type. Grep the client for `"auto_number"` and fix every such single-type
-  check.
+**Preserve the existing data shape when unconfigured.** Return the bare **integer**
+when no prefix is set and padding is the default, exactly as today, and a
+**string** only once a prefix is configured. Existing plain auto-numbers must not
+silently turn from `1` into `"1"` — that changes the stored jsonb type and would
+ripple into sorting, display and document output. `validateAndCoerceValue` already
+tolerates both (`typeof value === 'string' ? value : Number(value)`).
 
-If the two enum values are in fact redundant and `autonumber` should simply be retired
-in favour of `auto_number` + config, **stop and raise that** rather than implementing
-both — it is a schema decision, and `db-schema-change` plus the repo owner's ruling
-apply. Do not silently pick one.
+Keep the `FOR UPDATE` counter-lock structure exactly as it is — it is correct and
+its comment explains why. Do **not** swap it for a Postgres `SEQUENCE`.
+
+**2. Seed prefix and padding into the counter row.** `createNumberSequence`
+currently seeds only `nextValue`; carry prefix and padding too, and keep it
+idempotent. `getNextAutoNumber`'s self-heal upsert needs them as well, or a
+pre-existing counter row keeps formatting with defaults.
+
+**3. Require padding whenever a prefix is set** (default 4). This is what makes
+`INV-0009 < INV-0010` sort correctly as text, and it is why the padding column
+exists. Reject a prefix with padding 0 at the column-service layer.
+
+**4. Fix the DV-1 coupling.** `sortExpression()` in
+`server/services/blockRunners/ReadTableBlockRunner.ts` currently casts both
+auto-number types to `::numeric`:
+
+```ts
+case 'number': case 'auto_number': case 'autonumber':
+  return sql`(${textValue})::numeric`;
+```
+
+Once a prefix exists that cast throws Postgres 22P02. Sort a **prefixed**
+auto-number as text (padding makes that correct) and keep the numeric cast when no
+prefix is configured. `sortExpression` already receives the full `DatavaultColumn`,
+so the prefix is available — no signature change needed.
+
+**5. Surface it in the column editor.** Add prefix and padding inputs to the
+auto-number branch of `ColumnManagerWithDnd` (the DnD manager is the live one —
+confirm which is mounted before editing both). Load the **`design`** skill first;
+this is a visible control and the repo rule requires it. Note the gotcha recorded
+in the `verify` skill: `browser_fill_form` / `fill()` silently fails on some
+controlled numeric inputs in this builder — use `browser_type` with
+`slowly: true` and read the value back.
+
+**6. Retire `autonumber`.** Normalize it to `auto_number` wherever a column type is
+read, so a column created by a raw API call generates correctly instead of staying
+null; reject `autonumber` at the create-column route with a clear message; and
+comment the enum value as deprecated per D-4. Do not add a migration.
 
 ### Ties
 
-- ⚠️ **Carried forward from DV-1 (landed 2026-08-02).** DV-1 added
-  `sortExpression()` to `ReadTableBlockRunner.ts`, which casts **both**
-  `auto_number` and `autonumber` columns to `::numeric` for sorting. That is safe
-  only because `autonumber` values are currently always null. The moment this
-  ticket makes `autonumber` emit a prefixed string like `INV-0001`, sorting a
-  read_table block by that column throws Postgres 22P02. **Change the
-  `autonumber` case in `sortExpression()` to sort as text (or to sort by the
-  underlying sequence) as part of this ticket, and add a test for it.**
-- **Sequenced after DV-4 and DV-5** — same file, and DV-5 restructures the exact
-  generation loop this ticket extends.
-- Also edits `DatavaultRowsRepository.ts` → collides with DV-7, DV-8, DV-9.
-- Load **`db-schema-change`** (only if you conclude a schema/enum change is needed —
-  and if so, escalate first), **`add-api-endpoint`**, **`run-tests`**, and **`design`**
-  for the read-only field treatment.
+- **Sequenced after DV-4 and DV-5** — all three touch `DatavaultRowsService.ts`,
+  and DV-5 restructures the exact generation loop this ticket extends. Read DV-5's
+  diff first.
+- **Parallel-safe with DV-7** despite both touching
+  `DatavaultRowsRepository.ts`: **this ticket owns `getNextAutoNumber` and
+  `createNumberSequence`**; DV-7 owns `findRowByColumnValue`. Stay in your methods.
+- Also edits `ReadTableBlockRunner.sortExpression` (added by DV-1, already
+  committed — `be94a727`) and the column-manager UI.
+- Load **`add-api-endpoint`**, **`run-tests`**, and **`design`** (item 5).
+  **Do NOT load `db-schema-change`** — per D-4 there is no schema change. If you
+  conclude one is needed, **STOP and escalate**; another ticket owns the only
+  migration in this initiative.
 - Existing coverage: `tests/integration/datavault.autonumber.test.ts`.
 
 ### Acceptance criteria
 
-1. Creating a row in a table with an `autonumber` column populates that column
-   automatically; the caller does not supply it.
-2. The generated value honours `autonumberPrefix` and `autonumberPadding` — e.g.
-   prefix `INV-`, padding 4, start 1 → `INV-0001`, then `INV-0002`.
-3. With `autonumberResetPolicy: 'never'`, values keep incrementing across calendar
-   years.
-4. With `'yearly'`, the first generation in a new calendar year restarts at the
-   column's start value and updates `last_reset` (simulate by back-dating
-   `last_reset`).
-5. Concurrent creates produce **distinct** `autonumber` values (extend the existing
-   concurrency assertion for `auto_number`).
-6. An `autonumber` column is rendered read-only in the row editor and is not listed as
-   a missing required field.
-7. Partial updates do not regenerate an `autonumber` value (the DV-5 guarantee extends
-   to the new type).
-8. New/updated tests in `tests/integration/datavault.autonumber.test.ts` assert 1–5
-   and 7; a client test asserts 6.
-9. `npx tsc --noEmit` 0 errors; `npm run lint` clean; `npm run test:fast` ≥2313
-   passing.
-
----
+1. A column with `autonumberPrefix: 'INV-'` and `autonumberPadding: 4` generates
+   `INV-0001`, then `INV-0002`, on successive row creates.
+2. Padding is honoured across a width change: the 10th value is `INV-0010` and the
+   100th is `INV-0100` — i.e. `padStart`, not string concatenation.
+3. `autoNumberStart` still applies: start 500 with prefix `INV-` yields `INV-0500`.
+4. A column with **no** prefix and default padding still stores a **bare integer**
+   (`1`, not `"1"`) — asserted on the stored value's JSON type, so the existing
+   data shape is provably unchanged.
+5. Setting a prefix with padding 0 is **rejected** at the service layer with a
+   readable message.
+6. Concurrent creates produce **distinct** values with the prefix applied (extend
+   the existing concurrency assertion).
+7. Partial updates do not regenerate an auto-number value — the DV-5 guarantee
+   holds for prefixed columns too.
+8. A `read_table` block **sorting by a prefixed auto-number column** returns
+   `INV-0009` before `INV-0010` and does **not** throw 22P02; sorting an
+   unprefixed auto-number column still orders numerically (9 before 10).
+9. A column created via the API with `type: 'autonumber'` is either rejected with a
+   clear message or normalized to `auto_number` and generated correctly — pick one,
+   state which, and test it. It must **not** silently stay null.
+10. `datavaultColumnTypeEnum` is unchanged and no migration file is added.
+11. The column editor exposes prefix and padding for an auto-number column, and the
+    values persist (read them back over the API, not just off the screen).
+12. New/updated tests in `tests/integration/datavault.autonumber.test.ts` assert
+    1–7 and 9; a test asserts 8; a client test asserts 11.
+13. `npx tsc --noEmit` 0 errors; `npm run lint` clean; `npm run test:fast` ≥ the
+    baseline recorded at the top of this file.
+14. **Live proof:** create an auto-number column with prefix `INV-` and padding 4 in
+    the running app, add two rows, and attach a screenshot showing `INV-0001` and
+    `INV-0002` in the grid. Use the **`verify`** skill.
 
 ## DV-7 — Upsert writes bypass validation, can duplicate, and match archived rows 🔲
 
@@ -1775,6 +1829,14 @@ against the tree at audit time.
   against *this* model and pointed at DataVault. **Not investigated in this audit** —
   recorded so the next reader knows the question is open, not answered. Worth a
   scoped "is Collections live, and if not, delete it" pass; do not assume it is dead.
+- **DV-B6 — yearly reset for auto-numbers** · `enhancement`. `autonumberResetPolicy`
+  and `datavault_number_sequences.last_reset` exist and are unread. Descoped from
+  DV-6 by decision D-4: the repo owner confirmed prefix + zero-padding is already
+  more than currently needed. The work is small and well-bounded — reset
+  `next_value` and stamp `last_reset` inside the existing `FOR UPDATE` lock when
+  `last_reset` is null or in a prior calendar year. Promote when someone actually
+  wants per-year numbering; note it changes uniqueness expectations, since
+  `INV-0001` would then recur in a later year.
 - **DV-B5 — the choice-options fetch bypasses `apiRequest`'s 401 refresh** ·
   `enhancement`. DV-3 deliberately used raw `fetch` with `getAuthHeaders()` so
   run-token precedence stayed scoped to that one request (the alternative was a
