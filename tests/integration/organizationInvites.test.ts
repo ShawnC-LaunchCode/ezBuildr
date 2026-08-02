@@ -238,7 +238,7 @@ describe('Organization Invites', () => {
             expect(invite?.status).toBe('expired');
         });
 
-        it('should reject already accepted invite', async () => {
+        it('should handle an already accepted invite idempotently', async () => {
             const inviteResult = await organizationService.createInvite(
                 testOrgId,
                 existingUserEmail,
@@ -248,10 +248,18 @@ describe('Organization Invites', () => {
             // Accept once
             await organizationService.acceptInvite(inviteResult.token, existingUserId);
 
-            // Try to accept again
+            // A browser retry should report the same successful result without
+            // creating a duplicate membership.
             await expect(
                 organizationService.acceptInvite(inviteResult.token, existingUserId)
-            ).rejects.toThrow('already been accepted');
+            ).resolves.toEqual({ orgId: testOrgId, orgName: 'Invite Test Org' });
+
+            const memberships = await db
+                .select()
+                .from(organizationMemberships)
+                .where(eq(organizationMemberships.userId, existingUserId));
+
+            expect(memberships).toHaveLength(1);
         });
 
         it('should verify email matches invite', async () => {
@@ -262,9 +270,42 @@ describe('Organization Invites', () => {
             );
 
             // Try to accept with wrong user
+            const acceptance = organizationService.acceptInvite(inviteResult.token, adminUserId);
+
+            await expect(acceptance).rejects.toMatchObject({
+                message: 'This invitation belongs to a different account. Sign in with the email address that received it.',
+                statusCode: 403,
+            });
+        });
+
+        it('should reconcile a pending invite when membership already exists', async () => {
+            const inviteResult = await organizationService.createInvite(
+                testOrgId,
+                existingUserEmail,
+                adminUserId
+            );
+
+            await organizationService.addMember(
+                testOrgId,
+                existingUserId,
+                adminUserId,
+                'member'
+            );
+
             await expect(
-                organizationService.acceptInvite(inviteResult.token, adminUserId)
-            ).rejects.toThrow('does not match');
+                organizationService.acceptInvite(inviteResult.token, existingUserId)
+            ).resolves.toEqual({ orgId: testOrgId, orgName: 'Invite Test Org' });
+
+            const invite = await db.query.organizationInvites.findFirst({
+                where: eq(organizationInvites.id, inviteResult.inviteId),
+            });
+            const memberships = await db
+                .select()
+                .from(organizationMemberships)
+                .where(eq(organizationMemberships.userId, existingUserId));
+
+            expect(invite?.status).toBe('accepted');
+            expect(memberships).toHaveLength(1);
         });
 
         it('should reject invalid token', async () => {

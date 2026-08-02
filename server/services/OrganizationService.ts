@@ -10,7 +10,7 @@ import {
   type Organization,
 } from '../../shared/schema';
 import { db } from '../db';
-import { ConflictError } from '../errors/AppError';
+import { ConflictError, ForbiddenError } from '../errors/AppError';
 import { AuditLogger } from '../lib/audit/auditLogger';
 import { logger } from '../logger';
 import { hashToken } from '../utils/encryption';
@@ -645,23 +645,6 @@ export class OrganizationService {
     if (!invite) {
       throw new Error('Invite not found');
     }
-    // Check if already accepted
-    if (invite.status === 'accepted') {
-      throw new Error('Invite has already been accepted');
-    }
-    // Check if revoked
-    if (invite.status === 'revoked') {
-      throw new Error('Invite has been revoked');
-    }
-    // Check expiry
-    if (invite.expiresAt !== null && new Date() > invite.expiresAt) {
-      // Mark as expired
-      await db
-        .update(organizationInvites)
-        .set({ status: 'expired' })
-        .where(eq(organizationInvites.id, invite.id));
-      throw new Error('Invite has expired');
-    }
     // Get user details
     const user = await db.query.users.findFirst({
       where: eq(users.id, userId),
@@ -671,7 +654,9 @@ export class OrganizationService {
     }
     // Verify email matches (case-insensitive)
     if (user.email.toLowerCase() !== invite.invitedEmail.toLowerCase()) {
-      throw new Error('Invite email does not match your account email');
+      throw new ForbiddenError(
+        'This invitation belongs to a different account. Sign in with the email address that received it.'
+      );
     }
     // Get org details
     const org = await db.query.organizations.findFirst({
@@ -680,28 +665,36 @@ export class OrganizationService {
     if (!org) {
       throw new Error('Organization not found');
     }
-    // FIX #2: Accept invite in transaction with membership check INSIDE to prevent race condition
-    await db.transaction(async (tx) => {
-      // Check if already a member (inside transaction to prevent race condition)
-      const existingMembership = await tx
-        .select()
-        .from(organizationMemberships)
-        .where(
-          and(
-            eq(organizationMemberships.orgId, invite.orgId),
-            eq(organizationMemberships.userId, userId)
-          )
-        )
-        .limit(1);
-      if (existingMembership.length > 0) {
-        throw new Error('You are already a member of this organization');
+    // Reopening a successfully accepted link is safe for the invited account.
+    // This also recovers cleanly when the first browser request completed but its
+    // response was lost.
+    if (invite.status === 'accepted') {
+      return { orgId: org.id, orgName: org.name };
+    }
+    if (invite.status === 'revoked') {
+      throw new ConflictError('Invite has been revoked');
+    }
+    if (
+      invite.status === 'expired' ||
+      (invite.expiresAt !== null && new Date() > invite.expiresAt)
+    ) {
+      if (invite.status === 'pending') {
+        await db
+          .update(organizationInvites)
+          .set({ status: 'expired' })
+          .where(eq(organizationInvites.id, invite.id));
       }
-      // Create membership
+      throw new ConflictError('Invite has expired');
+    }
+    // Accept in one transaction. Membership insertion is idempotent so a user
+    // who was added through another admin path does not remain both active and
+    // perpetually pending.
+    await db.transaction(async (tx) => {
       await tx.insert(organizationMemberships).values({
         orgId: invite.orgId,
         userId,
         role: 'member',
-      });
+      }).onConflictDoNothing();
       // Mark invite as accepted
       await tx
         .update(organizationInvites)
