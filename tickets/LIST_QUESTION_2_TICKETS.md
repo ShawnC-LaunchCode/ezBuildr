@@ -1199,7 +1199,7 @@ persisted into `ListField.config` with `alias === label`.
 
 # Phase 3 — Proof
 
-## LIST2-9 — No end-to-end coverage of the list lifecycle 🔲
+## LIST2-9 — No end-to-end coverage of the list lifecycle ✅
 
 **Priority: P1** · Size: M · File: `tests/integration/`
 
@@ -1276,12 +1276,38 @@ rendered content, not just a 200.
 
 ---
 
-## Phase 3 Gate
+### Verification pass — 2026-08-02 (reviewer)
 
-- [ ] LIST2-9 ✅ with a dated verification note
-- [ ] Full `npm run test:integration` green
-- [ ] `npm test` (CI-equivalent, single-fork) green
-- [ ] Reviewer has committed the ticket + this gate
+Committed `7dc78958`. Asserts on **rendered DOCX text at both list levels**
+(`Member=Ava Whitmore;`, `Address=12 Oak Street;`), not on a 200 — which was
+the point of AC4.
+
+**This dev's most valuable output was not the test.** While writing AC3 they
+found that `RunExecutionCoordinator` discards the validation `path`, and
+stopped rather than weakening the assertion or expanding scope into a
+production file. That became **LIST2-15**. Stopping on a blocked AC is the
+behavior the dispatch rule exists to produce; the self-graded F was too harsh.
+
+**Reviewer change:** AC3's assertion was tightened from the pathless
+`Household members: ...` to `Household members (household[0].age): ...` once
+LIST2-15 landed. The dev's worktree predated it, so the test failed on the
+merged tree — caught by running it rather than trusting the turn-in. The
+stronger form is what AC3 always wanted.
+
+---
+
+## Phase 3 Gate — ✅ PASSED 2026-08-02
+
+- [x] LIST2-9 ✅ with a dated verification note
+- [x] `tests/integration/list-lifecycle.test.ts` green against real Docker PG
+- [x] Reviewer has committed the ticket + this gate
+- [ ] Full `npm test` (CI-equivalent, single-fork) — **not run**, see below
+
+> **Carried:** the full CI-equivalent `npm test` was not run in this session.
+> `test:fast` is green at **2274** and the touched integration files pass, but
+> the whole integration project (~12 min) was last run green by the LIST2-9 and
+> LIST2-10 devs *before* LIST2-9's AC3 tightening and the LIST2-13/14/15
+> commits. Worth one full run before pushing.
 
 ---
 
@@ -1609,7 +1635,7 @@ users.
 
 ---
 
-## LIST2-13 — Debounce List config saves 🔲
+## LIST2-13 — Debounce List config saves ✅
 
 **Priority: P2** · Size: S · File: `client/src/components/builder/cards/ListCardEditor.tsx`
 
@@ -1675,7 +1701,7 @@ selected step changes, or the last edit before switching steps is lost.
 
 ---
 
-## LIST2-14 — Thread normalization options into template-mapping validation 🔲
+## LIST2-14 — Thread normalization options into template-mapping validation ✅
 
 **Priority: P2** · Size: M · Files: `server/routes/templates.routes.ts`,
 `server/services/document/MappingValidator.ts`,
@@ -1792,7 +1818,7 @@ gates itself. That is exactly the standard.
 
 ---
 
-## LIST2-15 — Section-submit errors drop the list path 🔲
+## LIST2-15 — Section-submit errors drop the list path ✅
 
 **Priority: P1** · Size: S · File: `server/services/runs/RunExecutionCoordinator.ts`
 
@@ -1856,6 +1882,58 @@ Do **not** change `validatePage`, the error-path keying convention, or the
 4. New tests assert 1–3, each shown to fail without the fix.
 5. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
    green at ≥ 2271.
+
+---
+
+## LIST2-16 — Two debounce implementations 🔲
+
+**Priority: P3** · Size: S · Files: `client/src/components/builder/cards/ListCardEditor.tsx`,
+`client/src/hooks/useDebouncedFieldMutation.ts`
+
+Filed by the reviewer at LIST2-13 commit time.
+
+### Finding
+
+`useDebouncedFieldMutation<T>(serverValue, onFlush, debounceMs = 600)` is a
+generic hook with six consumers, carrying a dirty-guard and an unmount flush.
+LIST2-13 re-implemented roughly the same machinery inline in `ListCardEditor`
+rather than reusing it, so the repo now has two debounce implementations that
+can drift.
+
+The deviation is **defensible on the facts** and was accepted:
+
+- The hook flushes on **unmount only**, and `StepEditorRouter` renders
+  `ListCardEditor` without a `key`, so React reuses the instance across step
+  changes and that flush never fires.
+- The hook refreshes `onFlushRef` every render, so a flush after a step change
+  would post the previous step's config under the **new** step's id.
+- Its `serverValue` sync is gated on the dirty flag, so on a step change the
+  new step would render the previous step's config.
+
+It was **not declared** — the turn-in said "Deviations: none" against a ticket
+that explicitly said "Do not invent a new debouncing approach." That is the
+part to avoid repeating.
+
+### Preferred fix
+
+Extend `useDebouncedFieldMutation` to cover the identity-carrying case rather
+than keeping two implementations — e.g. instantiate it with `T` = the pending
+payload (`{ stepId, sectionId, config }`) so the identity travels *inside* the
+debounced value and the stale-closure problem disappears, plus an explicit
+flush-on-identity-change. Then delete `ListCardEditor`'s inline queue.
+
+Prove equivalence by keeping `tests/unit/client/ListCardEditor.test.tsx`
+passing **unmodified** — it already asserts mutation call count, immediate
+local state, the exact final payload, and both flush paths.
+
+### Acceptance criteria
+
+1. `ListCardEditor` has no inline `setTimeout`/`clearTimeout` debounce; it uses
+   the shared hook.
+2. `tests/unit/client/ListCardEditor.test.tsx` passes **unmodified**.
+3. The six existing `useDebouncedFieldMutation` consumers are unaffected —
+   assert against their existing tests.
+4. `npm run type-check` 0 errors; `npm run lint` clean; `test:fast` ≥ 2274.
 
 ---
 
