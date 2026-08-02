@@ -392,6 +392,55 @@ reduced to the one working expression.
 
 **Priority: P0 (bug)** · Size: M · File: new `server/routes/datavault/options.routes.ts` + `client/src/components/runner/blocks/choice/useChoiceOptions.ts`
 
+> **Review pass 1 — 2026-08-02 (reviewer): SENT BACK.** One blocker; everything
+> else reviewed and sound. Not committed.
+>
+> **Blocker — the global `client/src/lib/queryClient.ts` change must be reverted.**
+> `apiRequest` was switched from `getAccessToken()` to
+> `getAuthHeaders().Authorization`. That changes auth for **all 15 `apiRequest`
+> call sites app-wide**, including `AdminUsers.tsx`, `AdminAiSettings.tsx` and
+> `AdminUserWorkflows.tsx` — and `getAuthHeaders()` ranks a **run token above** the
+> user's JWT with no endpoint restriction: step 2 loops over *every* path segment
+> and returns the first stored run token it finds. So on `/run/*` or `/preview/*`
+> (or any URL with a segment matching a stored run id), ordinary authenticated
+> requests would start carrying a narrow run token instead of the user's JWT.
+>
+> This contradicts an invariant documented in the very file the change imports
+> from — `fetchAPI` in `vault-api.ts`:
+> ```ts
+> // IMPORTANT: Only send run tokens for run-specific endpoints
+> // Builder endpoints (workflows, sections, steps, etc.) should use session auth
+> const isRunEndpoint = endpoint.startsWith('/api/runs/');
+> if (runToken && isRunEndpoint) { ... } else if (globalAccessToken) { ... }
+> ```
+> **Required fix:** revert `queryClient.ts` entirely, then get the run token onto
+> *this one request* without changing global behaviour — either extend the
+> `isRunEndpoint` allowlist to cover the options endpoint (keeping the
+> else-branch precedence intact), or have `fetchTableOptions` attach the token
+> explicitly. AC5 still has to pass, so a public-run test must cover whichever
+> route you choose. Keep the `fetchAPI` precedence rule: **run token only for
+> endpoints that are genuinely run-scoped, user JWT otherwise.**
+>
+> **Reviewed and accepted, do not redo:**
+> - `options.routes.ts` is sound — Zod on every param, `optionalHybridAuth` +
+>   the existing `creatorOrRunTokenAuth` (a proper donor reuse), 401 when neither
+>   identity is present, run-token tenant resolved from the run's workflow,
+>   `verifyTenantOwnership` + `requirePermission` for user callers, columns
+>   verified to belong to the table → 400, `showArchived: false`, response
+>   projected to `{value,label}` only, `classifyRouteError` on the way out.
+> - The `userId && !runAuth` guard is *defensive redundancy*, not a hole: the
+>   reviewer checked `creatorOrRunTokenAuthLogic`, which `return next()`s as soon
+>   as a `userId` exists and therefore never populates `runAuth` alongside one.
+>   So an in-tenant ACL bypass is **not** reachable. Leave it as-is.
+> - The `useChoiceOptions.ts` rewrite is clean: dead `TableRow`/`TableResponse`
+>   interfaces deleted, `normalizeChoiceOptions` still the single choke point, the
+>   deliberately-narrow effect dependency array untouched.
+> - Live proof accepted: 200 with three projected `{value,label}` pairs.
+>
+> Reviewer did **not** re-run the full gates this pass — they will be re-run in
+> the main checkout once the blocker is fixed, since the dev's own `test:fast`
+> green came from a temporary physical dependency install that no longer exists.
+
 ### Finding
 
 A choice question can be configured with `options: { type: 'table_column', tableId,
