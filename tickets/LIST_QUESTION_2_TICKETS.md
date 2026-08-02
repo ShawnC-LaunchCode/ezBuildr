@@ -1256,8 +1256,19 @@ rendered content, not just a 200.
 1. The test creates a list step with a nested list and 3+ field types through
    the real API.
 2. It saves a two-level nested value and reads it back byte-identical.
-3. It asserts a valid section submit succeeds and an invalid one is rejected
-   with a path-keyed error naming the offending field.
+3. It asserts a valid section submit succeeds and an invalid one is rejected,
+   and that the response names the offending **step**.
+
+   > **AC3 was relaxed by the reviewer, 2026-08-02 — the original was
+   > unsatisfiable and that was my error, not the dev's.** It demanded a
+   > *path-keyed* error. `validatePage` does retain the path
+   > (`server/workflows/validation.ts`, which pushes `path` into each entry),
+   > but `RunExecutionCoordinator` discards it when formatting the response:
+   > `` `${fieldName}: ${err.errors[0]}` `` never reads `err.path`. No
+   > integration test can assert a path the API does not emit, and making it
+   > emit one is a production behavior change that does not belong inside a
+   > coverage ticket. Surfacing the path is now **LIST2-15**; add the path
+   > assertion here once that lands.
 4. It asserts a generated document contains values from **both** list levels.
 5. The test passes via `npm run test:integration` and is not added to any
    exclude list.
@@ -1778,6 +1789,73 @@ occurrence this initiative (LIST2-2 was the first).
 Credit where due: the supervising session caught that its dispatched agent's
 report implied a lint run had finished when it had not, and re-ran all three
 gates itself. That is exactly the standard.
+
+---
+
+## LIST2-15 — Section-submit errors drop the list path 🔲
+
+**Priority: P1** · Size: S · File: `server/services/runs/RunExecutionCoordinator.ts`
+
+Found by the LIST2-9 dev while writing the lifecycle test, and confirmed by the
+reviewer. Filed rather than folded into LIST2-9, because that ticket is coverage
+and this is a production behavior change.
+
+### Finding
+
+`validatePage` produces one error entry **per failing path**, each carrying a
+`path` (`server/workflows/validation.ts` — `target.push({ fieldId, fieldTitle,
+path, errors })`). `RunExecutionCoordinator` then flattens them:
+
+```ts
+const errorMessages = validationResult.errors.map(err => {
+  const step = steps.find(s => s.id === err.fieldId);
+  const fieldName = step?.title ?? 'Field';
+  // Take first error message for each field
+  return `${fieldName}: ${err.errors[0]}`;
+});
+```
+
+`err.path` is never read. So three invalid items in a `Children` list produce
+three identical `"Children: Age must be at most 17"` strings, and the respondent
+cannot tell which item is wrong — in a list that is the whole question.
+`err.errors[0]` also discards every error but the first *within* one path.
+
+This is the same defect class as the `Map`-keyed-by-`fieldId` collapse that
+LIST2-10 deleted — except that one was unreachable and this is the live section
+submit path.
+
+### Preferred fix
+
+Include the path in the emitted message when there is one, and keep the bare
+`"<title>: <error>"` shape when there isn't, so non-list steps are unchanged.
+`path` is already the `[0].alias` convention the runner's per-field error
+display uses (LIST2-2, LIST2-5) — reuse it, do not invent a second format.
+
+Decide deliberately whether to emit every error for a path or keep only the
+first; if keeping the first, say so in a comment, because the current
+`errors[0]` reads like an oversight.
+
+Do **not** change `validatePage`, the error-path keying convention, or the
+`SERVER_FIELD_VALIDATION` gate.
+
+### Ties
+
+- Load `add-api-endpoint` (response shape on a service path) and `run-tests`.
+- Related: LIST2-2 (added the type errors that multiply the paths), LIST2-9
+  (blocked on this for its AC3), LIST2-10 (same defect, dead code).
+- File footprint: `server/services/runs/RunExecutionCoordinator.ts` plus tests.
+
+### Acceptance criteria
+
+1. A section submit failing on one list item returns a message identifying
+   **which** item/path failed, not just the step title.
+2. Two different items failing the same field produce two **distinguishable**
+   messages.
+3. A failing non-list step's message is **byte-identical** to today — asserted
+   against a fixture that actually produces one.
+4. New tests assert 1–3, each shown to fail without the fix.
+5. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
+   green at ≥ 2271.
 
 ---
 
