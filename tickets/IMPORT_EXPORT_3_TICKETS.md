@@ -98,7 +98,7 @@ portability-shaped; do not re-litigate them.**
 | IEX3-1 | Workflow-scope export omits entities its own rows require | P0 | L | ✅ |
 | IEX3-2 | Entity ids embedded in jsonb are never checked or reported | P0 | M | ✅ |
 | IEX3-3 | Round-trip coverage for every question type, including List | P1 | M | ✅ |
-| IEX3-4 | Export UI with a pre-download disclosure of what travels | P1 | L | 🔲 |
+| IEX3-4 | Export UI with a pre-download disclosure of what travels | P1 | L | ✅ |
 | IEX3-5 | Import UI: upload → preview → apply | P1 | L | 🔲 |
 | IEX3-6 | Visual confirmation of an imported workflow in the builder | P2 | S | 🔲 |
 
@@ -886,7 +886,63 @@ which should be closed as superseded at the Phase 1 gate.
 > repo owner has ruled on scope. They are written out here so the ruling has
 > something concrete to cut down.
 
-## IEX3-4 — Export UI with a pre-download disclosure of what travels 🔲
+## IEX3-4 — Export UI with a pre-download disclosure of what travels ✅
+
+> **Verification pass — 2026-08-02.** All 9 acceptance criteria met. Worked in
+> a worktree; landed in the main checkout after an overlap check
+> (`git diff --name-only <base>..main` intersected with the worktree's dirty
+> files — zero overlap).
+>
+> Gates: `npx tsc --noEmit` → 0; `npm run lint` → 0/0; pre-commit 4/4;
+> `npm run test:fast` → **2299 passed** (was 2287, +12); portability
+> integration → **4 files / 39 passed** (was 36).
+>
+> **Live drive-through** (own dev server on :5098 from the worktree, real
+> login, seeded workflow with a List step, a template, a transform block
+> containing a pasted-looking key):
+> - AC 3 — "Download a copy" reached from the builder's **Share** menu. It
+>   belongs there rather than as a new header button: Share is already the
+>   "get this workflow out of here" menu and the header is crowded.
+> - AC 4 — dialog rendered from live manifest data: secret-scan hit shown as
+>   `transform_blocks.code — line 2`, counts including `Document templates 1`
+>   and `Attached files 1`, and the grouped exclusion list.
+> - AC 5 — network log before confirming showed **exactly one** request, the
+>   manifest. After confirming, the export GET appeared and the browser
+>   downloaded `client-intake.ezb`.
+> - AC 8 — the downloaded file was opened and contains
+>   `entities/templates.jsonl` plus a real blob. That is the end-to-end proof
+>   of the whole phase: this is precisely the bundle that was un-importable
+>   before IEX3-1.
+> - Screenshots at 1280×800 and 390×844 (`.playwright-mcp/`, gitignored).
+>
+> **Design (R2, three critique cycles).** Draft 1 put the six exclusion
+> categories inline; only one was visible and it read as truncated rather than
+> scrollable. Draft 2 went two-column — better, still cut off. Draft 3 collapses
+> the categories behind a one-line promise ("Responses, credentials, user
+> accounts, billing and telemetry all stay in this workspace — 6 categories in
+> all"), which fits with no truncation and keeps the decision-relevant facts —
+> the warning and the counts — above the fold. The ordering is the design:
+> anything requiring action sits above the reassurance.
+>
+> **`EXCLUSION_CATEGORIES` is test-locked to the engine.**
+> `exclusionCategories.test.ts` asserts every `EXCLUDED_TABLES` key appears in
+> exactly one category and that no category claims to exclude something still
+> exported. A disclosure that drifts into understating what is withheld is the
+> worst failure this dialog can have, so it fails the build instead. Writing
+> that test also caught an over-strict assertion of my own — it banned any
+> table name in prose, which flagged the ordinary English word
+> "organizations"; narrowed to snake_case identifiers.
+>
+> Deviation: the dry-run endpoint runs the **full** export and discards the
+> temp file rather than estimating. An estimate that disagreed with the file
+> would be worse than no disclosure, and the secret-scan warnings only exist
+> because rows were actually read. AC 1 asserts no temp file is left behind.
+>
+> Note for IEX3-5: `requiresReentry` is empty for a *workflow*-scope export,
+> because secrets and connections are project-scoped and correctly do not
+> travel. The section renders (RTL-covered with a manifest that has entries)
+> but will only appear live on a project export. Not a defect; worth knowing
+> before writing the import side.
 
 **Priority: P1** · Size: L · File: `client/src/components/builder/` (new component), `client/src/pages/`
 

@@ -553,6 +553,118 @@ describe.sequential("Portability Export API Integration Tests", () => {
     });
   });
 
+  describe("IEX3-4: the manifest route reports an export without producing one", () => {
+    async function withoutRateLimit<T>(fn: () => Promise<T>): Promise<T> {
+      const prev = process.env.TEST_RATE_LIMIT;
+      delete process.env.TEST_RATE_LIMIT;
+      try {
+        return await fn();
+      } finally {
+        if (prev !== undefined) {
+          process.env.TEST_RATE_LIMIT = prev;
+        }
+      }
+    }
+
+    it("AC 1: returns the manifest as JSON and leaves no temp file behind", async () => {
+      await withoutRateLimit(async () => {
+        const { workflowId } = await seedWorkflow({ projectId, userId });
+        await seedTemplate({ projectId, userId, attachToWorkflowId: workflowId });
+
+        const before = (await fs.promises.readdir(os.tmpdir()))
+          .filter((f) => f.startsWith("export_")).length;
+
+        const response = await request(baseURL)
+          .get(`/api/portability/export/workflow/${workflowId}/manifest`)
+          .set("Authorization", `Bearer ${authToken}`)
+          .expect(200)
+          .expect("content-type", /json/);
+
+        expect(response.body.entityCounts.workflows).toBe(1);
+        expect(response.body.entityCounts.steps).toBe(1);
+        expect(response.body.entityCounts.templates).toBe(1);
+        expect(typeof response.body.blobCount).toBe("number");
+        expect(response.body.scope).toBe("workflow");
+
+        // The whole point of the route: it does the real work and keeps none
+        // of the bytes.
+        const after = (await fs.promises.readdir(os.tmpdir()))
+          .filter((f) => f.startsWith("export_")).length;
+        expect(after).toBe(before);
+      });
+    });
+
+    it("AC 1: reports requiresReentry and secret_scan warnings before any download", async () => {
+      await withoutRateLimit(async () => {
+        const { workflowId } = await seedWorkflow({ projectId, userId });
+
+        // A pasted-looking credential in hook code is exactly what the user
+        // needs told *before* they share the file.
+        await db.insert(schema.transformBlocks).values({
+          workflowId,
+          name: "Leaky block",
+          language: "javascript",
+          code: 'const apiKey = "sk-livesecretvaluethatlookslikeakey123456";\nemit(apiKey);',
+          outputKey: "leaky",
+          order: 0,
+        });
+
+        const response = await request(baseURL)
+          .get(`/api/portability/export/workflow/${workflowId}/manifest`)
+          .set("Authorization", `Bearer ${authToken}`)
+          .expect(200);
+
+        const scans = (response.body.warnings ?? []).filter(
+          (w: { type: string }) => w.type === "secret_scan"
+        );
+        expect(scans.length).toBeGreaterThan(0);
+        expect(scans[0].entity).toBe("transform_blocks");
+        expect(typeof scans[0].line).toBe("number");
+        // The manifest must never quote the match back at the user.
+        expect(JSON.stringify(response.body)).not.toContain("sk-livesecretvalue");
+      });
+    });
+
+    it("AC 2: enforces the same authorization as the streaming route", async () => {
+      await withoutRateLimit(async () => {
+        const { workflowId } = await seedWorkflow({ projectId, userId });
+
+        await request(baseURL)
+          .get(`/api/portability/export/workflow/${workflowId}/manifest`)
+          .expect(401);
+
+        await request(baseURL)
+          .get(`/api/portability/export/workflow/123e4567-e89b-12d3-a456-426614174000/manifest`)
+          .set("Authorization", `Bearer ${authToken}`)
+          .expect(404);
+
+        // A view-only collaborator can open the workflow but must not be able
+        // to enumerate what an export of it would contain.
+        const collabRegister = await request(baseURL)
+          .post("/api/auth/register")
+          .send({
+            email: `collab-manifest-${nanoid()}@example.com`,
+            password: "TestPassword123!@#Strong",
+            firstName: "View", lastName: "Only",
+          })
+          .expect(201);
+        const collabToken = collabRegister.body.token as string;
+        const collabUserId = collabRegister.body.user.id as string;
+        await db.update(schema.users)
+          .set({ tenantId, tenantRole: "viewer" })
+          .where(eq(schema.users.id, collabUserId));
+        await db.insert(schema.workflowAccess).values({
+          workflowId, principalType: "user", principalId: collabUserId, role: "view"
+        });
+
+        await request(baseURL)
+          .get(`/api/portability/export/workflow/${workflowId}/manifest`)
+          .set("Authorization", `Bearer ${collabToken}`)
+          .expect(403);
+      });
+    });
+  });
+
   it("AC 6: should enforce rate limit returning 429", async () => {
     const fakeId = "123e4567-e89b-12d3-a456-426614174000";
     

@@ -7,6 +7,7 @@ import {
   Eye,
   ChevronDown,
   ArrowLeft,
+  Download,
   GitGraph,
   Link2,
   Sparkles,
@@ -23,6 +24,7 @@ import { useParams, useLocation } from "wouter";
 
 import { ActivateToggle } from "@/components/builder/ActivateToggle";
 import { AssignInterviewDialog } from "@/components/builder/AssignInterviewDialog";
+import { ExportWorkflowDialog } from "@/components/builder/ExportWorkflowDialog";
 import { ResourceAccessDialog } from "@/components/access/ResourceAccessDialog";
 import { AiConversationPanel } from "@/components/builder/ai/AiConversationPanel";
 import { CollectionsDrawer } from "@/components/builder/data-sources/CollectionsDrawer";
@@ -87,6 +89,7 @@ export default function WorkflowBuilder() {
   const [collectionsDrawerOpen, setCollectionsDrawerOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [diffOpen, setDiffOpen] = useState(false);
   const [diffBaseVersion, setDiffBaseVersion] = useState<DiffTarget | null>(
@@ -320,6 +323,13 @@ export default function WorkflowBuilder() {
                             <div className="text-xs text-muted-foreground">Control who can view or edit</div>
                           </div>
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setExportOpen(true)}>
+                          <Download className="w-4 h-4 mr-2" />
+                          <div>
+                            <div>Download a copy</div>
+                            <div className="text-xs text-muted-foreground">Export the design as a portable file</div>
+                          </div>
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                     <Button
@@ -385,6 +395,12 @@ export default function WorkflowBuilder() {
                 open={assignOpen}
                 onOpenChange={setAssignOpen}
                 workflowId={workflowId}
+              />
+              <ExportWorkflowDialog
+                open={exportOpen}
+                onOpenChange={setExportOpen}
+                workflowId={workflowId}
+                workflowTitle={workflow.title}
               />
               {/* Versioning Components */}
               <VersionHistoryPanel

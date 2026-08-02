@@ -198,6 +198,45 @@ export function registerPortabilityRoutes(app: Express): void {
     }
   };
 
+  /**
+   * The same export, reported rather than streamed — what the pre-download
+   * disclosure reads (IEX3-4).
+   *
+   * Deliberately unlogged, matching the import preview route below: this
+   * writes nothing and hands back no data, only counts and the list of things
+   * that were withheld. The download itself is still audited. Authorization,
+   * rate limiting and error classification are `handleExport`'s, unchanged —
+   * the manifest names entity counts for a tenant's workflow, so it must not
+   * be reachable by anyone who could not export it.
+   */
+  const handleManifest = async (req: Request, res: Response, scope: 'workflow' | 'project' | 'database'): Promise<Response | void> => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+
+      const manifest = await exportService.computeManifest({ scope, id: req.params.id }, userId);
+      return res.json(manifest);
+    } catch (error) {
+      logger.error({ error }, "Error computing portability manifest");
+      const { status, message } = classifyRouteError(error, "Failed to compute export manifest");
+      return res.status(status).json({ message });
+    }
+  };
+
+  app.get('/api/portability/export/workflow/:id/manifest', hybridAuth, strictLimiter, asyncHandler(async (req, res) => {
+    await handleManifest(req, res, 'workflow');
+  }));
+
+  app.get('/api/portability/export/project/:id/manifest', hybridAuth, strictLimiter, asyncHandler(async (req, res) => {
+    await handleManifest(req, res, 'project');
+  }));
+
+  app.get('/api/portability/export/database/:id/manifest', hybridAuth, strictLimiter, asyncHandler(async (req, res) => {
+    await handleManifest(req, res, 'database');
+  }));
+
   // `hybridAuth` before `strictLimiter`, matching the convention for
   // authenticated resource routes (sections.routes.ts:87, steps.routes.ts:120).
   // Limiter-first is for token/public routes that cannot identify a caller.

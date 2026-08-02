@@ -169,6 +169,29 @@ export class ExportService {
     }
   }
 
+  /**
+   * The manifest an export *would* produce, without keeping the bytes.
+   *
+   * Backs the pre-download disclosure (IEX3-4): the counts, the withheld
+   * secrets and the secret-scan warnings are all computed during a real
+   * export, and until now were only readable by downloading the zip and
+   * opening `manifest.json` inside it — i.e. after the decision they are
+   * meant to inform.
+   *
+   * Deliberately runs the *full* export rather than estimating. An estimate
+   * that disagreed with the file would be worse than no disclosure at all,
+   * and the warnings only exist because rows were actually read and scanned.
+   * The temp file is removed before returning.
+   */
+  async computeManifest(root: RootParams, userId: string): Promise<BundleManifest> {
+    const { tmpPath, manifest } = await this.exportToFile(root, userId);
+    try {
+      return manifest;
+    } finally {
+      await fs.promises.rm(tmpPath, { force: true });
+    }
+  }
+
   async export(root: RootParams, userId: string): Promise<Buffer> {
     const { tmpPath } = await this.exportToFile(root, userId);
     try {
