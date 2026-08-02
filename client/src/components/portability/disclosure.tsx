@@ -1,4 +1,4 @@
-import { AlertTriangle, FileWarning, KeyRound, Link2Off } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 /**
  * Presentational pieces shared by the export disclosure (IEX3-4) and the
@@ -124,11 +124,3 @@ export function WarningLine({ warning }: { warning: ManifestWarning }) {
       return <span className="text-xs">{warning.message}</span>;
   }
 }
-
-export const WARNING_ICONS = {
-  secret_scan: AlertTriangle,
-  dangling_reference: Link2Off,
-  missing_blob: FileWarning,
-  schema_drift: FileWarning,
-  reentry: KeyRound,
-} as const;

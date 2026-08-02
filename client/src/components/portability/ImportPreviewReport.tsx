@@ -119,7 +119,8 @@ function CollisionSection({ collisions }: { collisions: ImportCollision[] }) {
         <span id="import-collisions">Names that already exist here</span>
       </SectionHeading>
       <p className="text-sm text-muted-foreground">
-        The import will still create these — you will have two with the same name.
+        Nothing here is overwritten. The incoming copy is given a suffix — a second
+        “Client Intake” arrives as “Client Intake (2)”.
       </p>
       <ul className="space-y-1 text-sm">
         {collisions.map((collision, i) => (

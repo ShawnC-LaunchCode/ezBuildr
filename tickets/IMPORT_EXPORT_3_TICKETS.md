@@ -102,6 +102,13 @@ portability-shaped; do not re-litigate them.**
 | IEX3-5 | Import UI: upload → preview → apply | P1 | L | ✅ |
 | IEX3-7 | `secrets.valueEnc` NOT NULL breaks every project import | P0 | S | ✅ |
 | IEX3-6 | Visual confirmation of an imported workflow in the builder | P2 | S | ✅ |
+| IEX3-8 | The import screen's "Rename" field does nothing | P1 | S | ✅ |
+| IEX3-9 | `adjustments` never leaves the server | P2 | S | ✅ |
+| IEX3-10 | Export disclosure discarded every warning but `secret_scan` | P1 | S | ✅ |
+| IEX3-11 | Three smaller corrections (AC 6 focus, collision copy, dead export) | P3 | S | ✅ |
+
+IEX3-8..11 were found by the review pass over IEX3-1..7 and fixed by the
+reviewer; see "Review-pass findings" below Phase 2.
 
 ---
 
@@ -920,20 +927,24 @@ source tree modulo re-allocated ids.
 
 ## Phase 1 Gate
 
-- [ ] IEX3-1, IEX3-2, IEX3-3 all ✅ with dated verification notes
-- [ ] `npm run type-check` → 0 errors (read raw output or grep
-      `Found [0-9]+ error`; `grep "error TS"` finds nothing on `--pretty` output)
-- [ ] `npm run lint` → 0 errors, 0 new warnings (`--max-warnings 0` repo-wide)
-- [ ] `bash .husky/pre-commit`-equivalent gate run — `type-check` alone is not
-      the commit gate; `check:strict-zones` pulls files in transitively
-- [ ] `npm run test:fast` green, count stated
-- [ ] Portability unit-db + integration suites green, counts ≥ round-2 baseline
-      (74 unit-db / 7 files, 25 integration / 3 files)
-- [ ] Reviewer has driven one workflow-scope export → import round trip against
-      the live dev app with a real JWT, on a workflow containing a document
-      template, a DataVault-bound choice, and a List step — and captured the
-      201 plus the imported config
-- [ ] Reviewer has committed each passed ticket + this gate
+**Verified by the reviewer 2026-08-02**, after the IEX3-8..11 fixes landed.
+
+- [x] IEX3-1, IEX3-2, IEX3-3 all ✅ with dated verification notes
+- [x] `npx tsc --noEmit` → **0 errors** (read raw; `grep "error TS"` finds
+      nothing on `--pretty` output)
+- [x] `npm run lint` → **0 errors, 0 warnings** (`--max-warnings 0` repo-wide)
+- [x] `npm run check:strict-zones` → **6 zones, 11 files, all passed** —
+      `type-check` alone is not the commit gate
+- [x] `npm run test:fast` → **181 files / 2313 passed**, 14 skipped (was 2307)
+- [x] Portability suites green and well above the round-2 baseline: **unit-db
+      14 files / 136 passed** (was 7/74), **portability integration 4 files /
+      40 passed** (was 3/25)
+- [x] Reviewer drove a workflow-scope export → import round trip against the
+      live dev app on :5098 with a real login, on a workflow carrying a
+      document template, a transform block and a shared DataVault binding —
+      export dialog → download → preview → apply → opened the imported
+      workflow. Evidence in the Phase 2 Gate below.
+- [x] Reviewer has committed each passed ticket + this gate
 
 ---
 
@@ -1167,74 +1178,6 @@ so the data exists; it simply has no route that returns it without the bytes.
 > dropped `forwardRef` for a plain `errorRef` prop to satisfy
 > `prefer-arrow-callback`.
 
----
-
-## IEX3-7 — `secrets.valueEnc` is NOT NULL, so no project bundle imports ✅
-
-**Priority: P0 (bug)** · Size: S · File: `server/services/portability/entityGraph.ts`, `server/services/portability/ImportService.ts`
-
-> **Found and fixed 2026-08-02**, during IEX3-5's live drive-through. Filed as
-> a ticket rather than a backlog line because it is a P0 that makes a headline
-> use case fail outright, and fixed in the same pass under the reviewer-fixes-it
-> path — it is three lines against a pattern already established two functions
-> away.
-
-### Finding
-
-`secrets.valueEnc` is `text("value_enc").notNull()`. Withholding it is the
-entire point of decision D-2, so it is deliberately absent from the entity
-graph's field list:
-
-```ts
-    name: 'secrets',
-    fields: ["id","projectId","key","type","environment","metadata"],
-```
-
-`getZodSchema` picks only those fields, so the insert omits the column and
-Postgres rejects the row:
-
-```
-error: null value in column "value_enc" of relation "secrets"
-  violates not-null constraint          (code 23502)
-detail: Failing row contains (…, STRIPE_API_KEY, null, null, api_key, …)
-```
-
-**Every project-scope bundle containing a secret was un-importable** — a 500,
-not even a clean 400. Invisible to the whole suite because no portability
-fixture had ever created a secret; the export tests covered *withholding* the
-value, never re-importing it.
-
-### Preferred fix
-
-Mirror the blobRefs handling in the same method, which already solves the
-identical shape — a NOT NULL column whose value must not travel gets the empty
-sentinel, and empty fails closed:
-
-> *"A ref we could not restore is cleared to the empty sentinel rather than
-> carried over: both blobRefs columns in the graph are NOT NULL, so 'unset'
-> cannot be null… Empty fails closed on download instead."*
-
-Declared on the descriptor (`withheldColumns: ["valueEnc"]`) rather than
-hardcoding `secrets`, so the next withheld NOT NULL column is handled the same
-way.
-
-### Acceptance criteria
-
-1. A project bundle containing secrets and a connection previews with
-   `canProceed: true` and applies **201**.
-2. Imported secrets have `valueEnc === ''` — never the source's ciphertext,
-   never null.
-3. `key`, `type` and `environment` survive, so `requiresReentry` is actionable.
-4. `secrets.fields` still excludes both `value` and `valueEnc`.
-5. New unit-db test asserts 1–4.
-6. Gates green.
-
-> **Verification pass — 2026-08-02.** All 6 criteria met.
-> `tests/unit/portability/importWithheldColumns.test.ts` (2 tests) covers them
-> and is registered in `dbUnitTests`. Re-driven live after the fix: the same
-> bundle that returned 500 returned **201**, and the import completed with the
-> re-entry checklist intact. `unit-db` 131 passed.
-
 **Priority: P1** · Size: L · File: `client/src/pages/` (new), `client/src/components/`
 
 ### Finding
@@ -1326,18 +1269,215 @@ and no human has ever seen it.
 
 ---
 
+## IEX3-7 — `secrets.valueEnc` is NOT NULL, so no project bundle imports ✅
+
+**Priority: P0 (bug)** · Size: S · File: `server/services/portability/entityGraph.ts`, `server/services/portability/ImportService.ts`
+
+> **Found and fixed 2026-08-02**, during IEX3-5's live drive-through. Filed as
+> a ticket rather than a backlog line because it is a P0 that makes a headline
+> use case fail outright, and fixed in the same pass under the reviewer-fixes-it
+> path — it is three lines against a pattern already established two functions
+> away.
+
+### Finding
+
+`secrets.valueEnc` is `text("value_enc").notNull()`. Withholding it is the
+entire point of decision D-2, so it is deliberately absent from the entity
+graph's field list:
+
+```ts
+    name: 'secrets',
+    fields: ["id","projectId","key","type","environment","metadata"],
+```
+
+`getZodSchema` picks only those fields, so the insert omits the column and
+Postgres rejects the row:
+
+```
+error: null value in column "value_enc" of relation "secrets"
+  violates not-null constraint          (code 23502)
+detail: Failing row contains (…, STRIPE_API_KEY, null, null, api_key, …)
+```
+
+**Every project-scope bundle containing a secret was un-importable** — a 500,
+not even a clean 400. Invisible to the whole suite because no portability
+fixture had ever created a secret; the export tests covered *withholding* the
+value, never re-importing it.
+
+### Preferred fix
+
+Mirror the blobRefs handling in the same method, which already solves the
+identical shape — a NOT NULL column whose value must not travel gets the empty
+sentinel, and empty fails closed:
+
+> *"A ref we could not restore is cleared to the empty sentinel rather than
+> carried over: both blobRefs columns in the graph are NOT NULL, so 'unset'
+> cannot be null… Empty fails closed on download instead."*
+
+Declared on the descriptor (`withheldColumns: ["valueEnc"]`) rather than
+hardcoding `secrets`, so the next withheld NOT NULL column is handled the same
+way.
+
+### Acceptance criteria
+
+1. A project bundle containing secrets and a connection previews with
+   `canProceed: true` and applies **201**.
+2. Imported secrets have `valueEnc === ''` — never the source's ciphertext,
+   never null.
+3. `key`, `type` and `environment` survive, so `requiresReentry` is actionable.
+4. `secrets.fields` still excludes both `value` and `valueEnc`.
+5. New unit-db test asserts 1–4.
+6. Gates green.
+
+> **Verification pass — 2026-08-02.** All 6 criteria met.
+> `tests/unit/portability/importWithheldColumns.test.ts` (2 tests) covers them
+> and is registered in `dbUnitTests`. Re-driven live after the fix: the same
+> bundle that returned 500 returned **201**, and the import completed with the
+> re-entry checklist intact. `unit-db` 131 passed.
+
+---
+
+# Review-pass findings — filed and fixed 2026-08-02
+
+Found by the senior review of IEX3-1..7, after all seven had been self-graded A
+and turned in. All four were fixed by the reviewer in one pass (the
+reviewer-fixes-it path) because each is small and the review had already
+established the context. Recorded as tickets rather than backlog lines because
+two of them are behaviour a user can see going wrong.
+
+The pattern worth keeping: **three of the four are wiring gaps between two
+correct halves.** An option the route allowlists and the service never reads; a
+value the service composes and the route never returns; a warning the engine
+writes and the dialog filters away. Each half passed its own test. Nothing
+asserted the seam.
+
+## IEX3-8 — the import screen's "Rename" field does nothing ✅
+
+**Priority: P1 (bug)** · Size: S · File: `server/services/portability/ImportService.ts`
+
+`applyOptionsSchema` has allowed `name` since round 2 and `ImportService.apply`
+never read it — `options` reaches only `resolveTargetOwner` and
+`resolveProjectIdOverride`, neither of which touches `name`. IEX3-5's Preferred
+fix said "expose project selection and an optional rename", the control was
+built, and its AC only required that apply *send* allowlisted fields. So the
+RTL test passed on a field the server discarded: the user typed a new name,
+confirmed, and got the original title back.
+
+**Fix:** `applyRequestedName` writes the requested name onto the root row's
+`title`/`name` before `enforceNameUniqueness`, so a requested name that already
+exists still gets the `(2)` treatment. Root only — renaming every workflow in a
+project bundle to one title is not what "rename this import" means. A blank or
+whitespace-only name is treated as absent.
+
+> **Verified 2026-08-02.** `tests/unit/portability/importRename.test.ts`
+> (5 tests, registered in `dbUnitTests`) covers rename, no-rename, blank,
+> collision-with-a-requested-name, and root-only scoping; plus one integration
+> case proving it over real HTTP with `.field("name", …)`.
+
+## IEX3-9 — `adjustments` never leaves the server ✅
+
+**Priority: P2 (bug)** · Size: S · File: `server/routes/portability.routes.ts`, `client/src/pages/ImportWorkflow.tsx`
+
+`ImportApplyResult.adjustments` is documented as "structural decisions the
+caller should surface" and carries the only notice a user gets that their
+workflow landed unparented — *"Imported workflow was left without a project…"*.
+The apply route's 201 body omitted it, so the import completed and the
+explanation went nowhere. Pre-existing since IEX-15; harmless while there was no
+UI, user-visible the moment IEX3-5 shipped one.
+
+**Fix:** route returns `adjustments`; the result screen renders it as its own
+callout above the reference warnings, because "your workflow has no project"
+changes where the user goes next.
+
+> **Verified 2026-08-02.** Two RTL cases (present / absent) plus the integration
+> case above asserting the field exists on the 201 body.
+
+## IEX3-10 — the export disclosure discarded every warning but `secret_scan` ✅
+
+**Priority: P1 (bug)** · Size: S · File: `client/src/components/builder/ExportWorkflowDialog.tsx`
+
+`secretScans = warnings.filter(w => w.type === "secret_scan")` was the dialog's
+only consumer of `manifest.warnings`. IEX3-1 exists partly to *emit*
+`dangling_reference` on export — "DataVault database «X» is used by this
+workflow but was not exported… queries and data sources pointing at it have been
+omitted" — and that sentence was computed, put in the manifest, fetched, and
+dropped. On the one screen whose job is stating what travels, the case where
+something deliberately did **not** travel was invisible. A sharper instance of
+the concern filed as IEX3-B5.
+
+**Fix:** an omissions callout rendering the engine's own `message` rather than
+`WarningLine`'s `entity.column → uuid` — the export-side messages are written
+for a reader, and the id is the least useful part of them.
+
+> **Verified 2026-08-02.** Two RTL cases: a manifest with a `dangling_reference`
+> and a `missing_blob` renders both by their message and leaves the secret-scan
+> callout intact; a clean manifest says nothing.
+
+## IEX3-11 — three smaller corrections ✅
+
+**Priority: P3** · Size: S
+
+1. **IEX3-4 AC 6 was neither implemented nor tested.** `summaryRef` was
+   declared, attached to a `tabIndex={-1}` div and commented *"Focus target on
+   open (AC 6)"* — and nothing ever called `.focus()`. The test named `AC 6`
+   asserted dialog labelling and that the download button could be focused
+   programmatically, which is true of any button. Not broken (Radix moves focus
+   into the dialog by default) but not the criterion. Now focuses the summary
+   when the manifest lands, with a test that asserts it.
+2. **The collision copy contradicted the importer.** *"you will have two with
+   the same name"* — but `ensureUniqueWorkflowTitle`/`ensureUniqueProjectTitle`
+   append `" (2)"`, slugs get `-2`, aliases `_2`. Rewritten to describe what
+   actually happens.
+3. **`WARNING_ICONS`** in `disclosure.tsx` was exported and referenced nowhere.
+   Deleted, with its now-unused lucide imports.
+
+---
+
 ## Phase 2 Gate
 
-- [ ] IEX3-4, IEX3-5 ✅ with dated verification notes
-- [ ] Standard gates green (type-check, lint, `test:fast`, portability suites)
-- [ ] Reviewer has driven the full loop in the browser on the live dev app:
-      export a workflow containing a List step and a document template from the
-      builder → read the disclosure dialog → download → import the same file
-      → read the preview → apply → open the imported workflow and confirm the
-      List step, its nested fields and its bindings are intact
-- [ ] IEX3-6 ✅ (not phase-gated, but close it out with this gate if still open)
-- [ ] Backlog triaged (promote / merge / close won't-fix) in the gate commit
-- [ ] Reviewer has committed each passed ticket + this gate
+**Verified by the reviewer 2026-08-02.** Own dev server on :5098, real UI
+login, Playwright MCP. Fixture: a workflow with a document template, a
+transform block holding a pasted-looking key, and a data source + saved query
+against a DataVault database owned by another user — so one export exercised
+the secret scanner, the omission path and the counts at once. Fixture tenant
+deleted afterwards; the seeding and cleanup scripts were temporary and are not
+in the tree.
+
+- [x] IEX3-4, IEX3-5 ✅ with dated verification notes
+- [x] Standard gates green — see the Phase 1 Gate above for the counts
+- [x] Reviewer drove the full loop in the browser: builder → **Share → Download
+      a copy** → disclosure dialog → **Download .ezb** → `/workflows/import` →
+      file chooser → preview → **Import this workflow** → **Open the imported
+      workflow**. The imported builder rendered `Applicant Details` with
+      `Full name` and `Email address`, `Section 1` as page 2, a different id in
+      the URL, and **Draft** rather than the source's publish state. Console:
+      no application errors, only the Vite HMR websocket noise present on every
+      page of this app.
+- [x] The loop also proved the four review-pass fixes live:
+      - **IEX3-10** — the dialog reported *"2 things could not travel with this
+        copy"*, naming the account-scoped DataVault and the missing blob, and
+        counted the 2 dropped links rather than reciting them. Before the fix
+        this dialog said nothing at all about any of it.
+      - **IEX3-8** — typed `Client Intake — 2027 baseline` into Rename; the
+        imported builder header reads exactly that. Before the fix the field
+        was inert.
+      - **IEX3-11** — the accessibility snapshot showed the dialog's summary
+        div as `[active]` on open, which is the focus criterion AC 6 asked for.
+      - **IEX3-9** — verified by test rather than live: triggering a real
+        adjustment needs a bundle whose project belongs to another tenant,
+        which the drive-through fixture deliberately did not have. Covered by
+        two RTL cases and one integration assertion instead, and said so here
+        rather than implying it was seen.
+- [x] Screenshots (`.playwright-mcp/`, gitignored): `iex3-10-export-disclosure-desktop.png`
+      (the pre-condense draft), `iex3-10-export-disclosure-v2.png`,
+      `iex3-10-export-mobile.png` at 390×844, `iex3-8-renamed-import.png`.
+- [x] IEX3-6 ✅ — closed on its own before this gate
+- [x] Backlog triaged in the gate commit: **IEX3-B5 promoted in part** — the
+      export dialog now *reports* a DataVault that cannot travel (IEX3-10), so
+      the "what travels" list can no longer say something false. Making that
+      database actually travel when it is referenced only from a step config
+      remains open and stays in the backlog below.
+- [x] Reviewer has committed each passed ticket + this gate
 
 ---
 
