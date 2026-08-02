@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Check, CheckCircle2 } from "lucide-react";
 import { useEffect, useMemo, type ComponentProps, type ReactElement } from "react";
 import { FullScreenLoader } from "@/components/ui/loader";
 
+import { BlockErrorBoundary } from "@/components/runner/BlockErrorBoundary";
 import { ClientRunnerLayout } from "@/components/runner/ClientRunnerLayout";
 import { ListDrillEditor } from "@/components/runner/list/ListDrillEditor";
 import { ListDrillProvider, useListDrill } from "@/components/runner/list/ListDrillContext";
@@ -532,7 +533,7 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
   );
 }
 
-interface QuestionCardContentProps extends QuestionSectionBodyProps {
+export interface QuestionCardContentProps extends QuestionSectionBodyProps {
   errors: string[];
   currentSectionIndex: number;
   isLastSection: boolean;
@@ -544,9 +545,11 @@ interface QuestionCardContentProps extends QuestionSectionBodyProps {
  * Switches the section body (and Back/Next) for the List drill-in editor
  * while a List step is drilled into (LIST-8) — drilling replaces the whole
  * section body, not just the List step's own row, and hides Back/Next in
- * favor of the editor's own "← parent"/"Done" controls.
+ * favor of the editor's own "← parent"/"Done" controls. Exported (alongside
+ * `partitionRunnerSections`/`LoadedRunnerScreen`) so tests can render it
+ * directly instead of standing up the whole data-fetching page.
  */
-function QuestionCardContent({
+export function QuestionCardContent({
   currentSection,
   visibleSectionSteps,
   allSteps,
@@ -565,17 +568,34 @@ function QuestionCardContent({
     ? (visibleSectionSteps.find((step) => step.id === drill.stepId) ?? allSteps?.find((step) => step.id === drill.stepId))
     : undefined;
 
+  // Alias -> step id map for a drilled field's dynamic options (e.g. a
+  // `choice` field bound to another list step), mirroring how
+  // SectionSteps.tsx builds the same map for the non-drilled path.
+  const aliasSourceSteps = allSteps ?? visibleSectionSteps;
+  const aliasMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const step of aliasSourceSteps) {
+      if (step.alias) {
+        map[step.alias] = step.id;
+      }
+    }
+    return map;
+  }, [aliasSourceSteps]);
+
   return (
     <>
       <CardContent className="pt-8 overflow-visible p-6 md:p-8">
         <ErrorSummary errors={errors} />
         {drill && drilledStep ? (
-          <ListDrillEditor
-            step={drilledStep}
-            value={effectiveValues[drilledStep.id] as ListValue | null | undefined}
-            onChange={(value) => { handleUpdateValue(drilledStep.id, value); }}
-            drill={drill}
-          />
+          <BlockErrorBoundary stepId={drilledStep.id}>
+            <ListDrillEditor
+              step={drilledStep}
+              value={effectiveValues[drilledStep.id] as ListValue | null | undefined}
+              onChange={(value) => { handleUpdateValue(drilledStep.id, value); }}
+              drill={drill}
+              aliasMap={aliasMap}
+            />
+          </BlockErrorBoundary>
         ) : (
           <QuestionSectionBody
             currentSection={currentSection}

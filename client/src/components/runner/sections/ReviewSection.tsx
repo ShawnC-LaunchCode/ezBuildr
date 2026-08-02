@@ -1,11 +1,12 @@
 import { Edit2, CheckCircle2 } from "lucide-react";
 
 import { ListAnswerView } from "@/components/runner/list/ListAnswerView";
+import { normalizeListConfig } from "@/components/runner/list/listRuntime";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatAnswerValue } from "@/lib/formatAnswerValue";
 
-import type { ListConfig, ListValue } from "@shared/types/stepConfigs";
+import type { ListValue } from "@shared/types/stepConfigs";
 interface ReviewSectionProps {
     sections: ReviewSectionData[];
     allSteps: ReviewStepData[];
@@ -85,7 +86,7 @@ export function ReviewSection({
                                                         {step.title}
                                                     </div>
                                                     <ListAnswerView
-                                                        config={(step.config as unknown as ListConfig | null) ?? { fields: [] }}
+                                                        config={normalizeListConfig(step.config)}
                                                         value={values[step.id] as ListValue | null | undefined}
                                                     />
                                                 </div>

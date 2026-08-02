@@ -15,11 +15,12 @@ import type { ApiStep } from "@/lib/vault-api";
 
 import { evaluateConditionExpression } from "@shared/conditionEvaluator";
 import { validateListValue } from "@shared/validation/BlockValidation";
-import type { ListConfig, ListField, ListValue } from "@shared/types/stepConfigs";
+import type { ListField, ListValue } from "@shared/types/stepConfigs";
 
 import { useListDrill, type ListDrillState } from "./ListDrillContext";
 import { ListItemsView } from "./ListItemsView";
 import {
+  normalizeListConfig,
   normalizeListValue,
   resolveBreadcrumbLabels,
   resolveDrillScope,
@@ -32,6 +33,7 @@ interface ListDrillEditorProps {
   value: ListValue | null | undefined;
   onChange: (value: ListValue) => void;
   drill: ListDrillState;
+  aliasMap?: Record<string, string>;
 }
 
 function fieldToStep(field: Extract<ListField, { kind: "question" }>, parent: ApiStep): ApiStep {
@@ -51,11 +53,11 @@ function fieldToStep(field: Extract<ListField, { kind: "question" }>, parent: Ap
   };
 }
 
-export function ListDrillEditor({ step, value, onChange, drill }: ListDrillEditorProps) {
+export function ListDrillEditor({ step, value, onChange, drill, aliasMap }: ListDrillEditorProps) {
   const { popOne, pushSegment, clearAutoFocus } = useListDrill();
   const fieldsContainerRef = useRef<HTMLDivElement>(null);
 
-  const rootConfig = step.config as ListConfig;
+  const rootConfig = normalizeListConfig(step.config);
   const rootValue = normalizeListValue(value);
   const scope = resolveDrillScope(rootConfig, rootValue, drill.segments);
 
@@ -129,6 +131,7 @@ export function ListDrillEditor({ step, value, onChange, drill }: ListDrillEdito
                   error={fieldMessages?.[0]}
                   showValidation={Boolean(fieldMessages?.length)}
                   context={scope.item.values}
+                  aliasMap={aliasMap}
                 />
               </BlockErrorBoundary>
             );

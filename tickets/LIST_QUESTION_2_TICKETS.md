@@ -580,7 +580,7 @@ delta-save behavior was smuggled in.
 
 ---
 
-## LIST2-5 — Dropdowns inside a list can't resolve their source 🔲
+## LIST2-5 — Dropdowns inside a list can't resolve their source ✅
 
 **Priority: P1** · Size: S · File: `client/src/components/runner/list/ListDrillEditor.tsx`
 
@@ -675,6 +675,43 @@ the `<ListDrillEditor>` render site in `WorkflowRunner.tsx` in
 6. New/updated tests assert 2, 3 and 4.
 7. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
    green.
+
+### Verification pass — 2026-08-01 (reviewer)
+
+Turned in at **B with an honest blocker**, closed to **A** by the reviewer.
+16/16 across `ListDrillEditor`, `WorkflowRunner.listDrillErrorBoundary` and
+`ListAnswerView`.
+
+**The dev did the right thing.** AC4 depended on `normalizeListConfig` from
+LIST2-3, which had not merged. Rather than writing a second copy — which the
+ticket explicitly warned would create a merge collision — they shipped the
+independent part (a) in full and reported part (b) blocked, precisely as
+instructed. That is the behavior the dispatch rule was written to produce.
+
+**Reviewer fixes** (triage option 3 — ~90% context already in hand, small):
+
+1. AC4 closed: `ListDrillEditor`'s `step.config as ListConfig` →
+   `normalizeListConfig(step.config)`, orphaned `ListConfig` import removed.
+   New `it.each` covers `null`, a bare string, and `{}`.
+2. `ReviewSection.tsx`'s `step.config as unknown as ListConfig | null` →
+   `normalizeListConfig` — the third cast, flagged by the LIST2-3 dev and
+   carried here. Its `?? { fields: [] }` handled `null` but not a malformed
+   non-null value.
+3. **AC5's test had to be rewritten, because the AC4 fix invalidated it.** As
+   delivered it triggered the boundary with a `fields`-less config — the exact
+   crash AC4 removes — so after fix 1 it failed. AC4 and AC5 are separate
+   guarantees: AC4 says *this known bad input* does not crash, AC5 says *any*
+   crash is contained. The fault is now injected by mocking `ListDrillEditor`
+   to throw, which is what keeps AC5 honest; otherwise deleting the
+   `BlockErrorBoundary` wrap would leave every test green.
+
+All three verified by mutation: reverting the cast fails all 3 AC4 cases;
+unwrapping the boundary fails AC5. Reverted after.
+
+**Ticket-authoring lesson:** two ACs in one ticket described the same
+observable event from opposite sides — one asserting it stops happening, the
+other asserting it is caught when it happens. They cannot both be tested
+against the same trigger. Watch for that pairing.
 
 ---
 
