@@ -241,9 +241,28 @@ Delete the `data->>` code path rather than leaving it commented out.
 
 ---
 
-## DV-2 — `QueryRunner` silently discards table + tenant scoping, leaking rows across tenants 🔄
+## DV-2 — `QueryRunner` silently discards table + tenant scoping, leaking rows across tenants ✅
 
 **Priority: P0 (security)** · Size: M · File: `server/lib/queries/QueryRunner.ts`
+
+> **Verification pass — 2026-08-02 (reviewer).** PASS, all 7 criteria met.
+> Gates re-run by the reviewer in the **main checkout** — the dev's own green came
+> from a temporary `node:stream` shim that no longer exists, so it was not
+> reproducible as-shipped. Results with DV-1 applied alongside: `npx tsc --noEmit`
+> 0 errors, `npm run lint` exit 0, `npm run test:fast` **182 files / 2318 passed**,
+> `tests/unit/lib/queries/QueryRunner.test.ts` **9/9**.
+> **Regression value proved independently:** reverting only `QueryRunner.ts` to HEAD
+> fails **exactly the 4 new tests** (5 pre-existing still pass) — table scope
+> escape, cross-tenant leak, dropped filters, and archived rows. Confirms the leak
+> was real and the tests catch it.
+> AC5 verified mechanically: `grep -c _tenantId` → 0, `grep -c "as any"` → 0.
+> Implementation notes: the dev used `$dynamic()` — the correct Drizzle idiom for
+> conditional builder chaining — and assigns every builder result, so the
+> mutate-and-discard pattern that caused the leak cannot recur silently. Tenant
+> enforcement is belt-and-braces as the ticket asked: `innerJoin(datavaultTables)`
+> + `eq(datavaultTables.tenantId, tenantId)` alongside the existing
+> `eq(rows.tableId, query.tableId)`. Dead `<@` assignment and five self-doubting
+> comments removed; four eslint suppressions removed, none added.
 
 ### Finding
 

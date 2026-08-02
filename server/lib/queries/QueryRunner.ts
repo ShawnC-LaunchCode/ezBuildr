@@ -1,7 +1,7 @@
-import { and, eq, exists, sql, desc, asc } from 'drizzle-orm';
+import { and, eq, exists, sql, desc, asc, isNull, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-import { datavaultRows, datavaultValues } from '@shared/schema';
+import { datavaultRows, datavaultTables, datavaultValues } from '@shared/schema';
 import type { WorkflowQuery, QueryFilter, QueryListVariable } from '@shared/types/query';
 
 import { db } from '../../db';
@@ -22,21 +22,18 @@ export class QueryRunner {
     async executeQuery(
         query: WorkflowQuery,
         contextVariables: Record<string, unknown>,
-        _tenantId: string
+        tenantId: string
     ): Promise<QueryListVariable> {
         // 1. Basic Validation
         if (!query.tableId) { throw new Error('Query missing tableId'); }
         // 2. Resolve Filter Values
         const resolvedFilters = this.resolveFilters(query.filters, contextVariables);
-        // 3. Build Query
-        // We select rows from datavaultRows where...
-        const sqlQuery = this.db.select({ id: datavaultRows.id })
-            .from(datavaultRows)
-            .where(and(
-                eq(datavaultRows.tableId, query.tableId),
-                // Filter out archived rows (unless specific requirement says otherwise, usually queries are live data)
-                sql`${datavaultRows.deletedAt} IS NULL`
-            ));
+        // 3. Build the complete condition set before applying a single WHERE clause.
+        const conditions: SQL[] = [
+            eq(datavaultRows.tableId, query.tableId),
+            eq(datavaultTables.tenantId, tenantId),
+            isNull(datavaultRows.deletedAt),
+        ];
         // 4. Apply Filters using EXISTS subqueries
         // For each filter, we ensure a value exists for that column matching the criteria
         for (const filter of resolvedFilters) {
@@ -79,17 +76,8 @@ export class QueryRunner {
                     break;
                 case 'in':
                     if (Array.isArray(value)) {
-                        // For JSONB 'in', we might need to be careful. 
-                        // Ideally: value is an array, we check if v.value is in that array.
-                        // Simplest is to assume value is a JSON array
                         const jsonVal = JSON.stringify(value);
-                        condition = sql`${v.value} <@ ${jsonVal}::jsonb`; // This checks if v.value is contained in the right side array? No, <@ is "is contained by".
-                        // Correct way for "value IN list":
-                        // If we cast both to native, drizzle inArray might work if we select the value? 
-                        // But we are in a subquery. 
-                        // Let's rely on JSONB containment or just multiple checks if small list.
-                        // Actually, Drizzle sql operator for jsonb containment is @> (contains) and <@ (contained in).
-                        condition = sql`${jsonVal}::jsonb @> ${v.value}`; // Right side contains left side (row value)
+                        condition = sql`${jsonVal}::jsonb @> ${v.value}`;
                     }
                     break;
                 case 'is_empty':
@@ -100,8 +88,7 @@ export class QueryRunner {
                     break;
             }
             if (condition) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-                (sqlQuery as any).where(exists(
+                conditions.push(exists(
                     this.db.select({ one: sql`1` })
                         .from(v)
                         .where(and(
@@ -119,30 +106,30 @@ export class QueryRunner {
         // The prompt says "Apply sorting... Return ListVariable".
         // DB sorting is better for pagination.
         // Let's implement primary sort column logic
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        if (query.sort && query.sort.length > 0) {
-            const primarySort = query.sort[0]; // Multi-sort later
-
-            const sortAlias = alias(datavaultValues, 'sort_val');
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
-            sqlQuery
-                .leftJoin(sortAlias, and(
-                    eq(sortAlias.rowId, datavaultRows.id),
-                    eq(sortAlias.columnId, primarySort.columnId)
-                ))
-                .orderBy(primarySort.direction === 'desc' ? desc(sortAlias.value) : asc(sortAlias.value));
-        } else {
-
-            // Default sort by createdAt desc
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
-            sqlQuery.orderBy(desc(datavaultRows.createdAt));
+        let sqlQuery = this.db.select({ id: datavaultRows.id })
+            .from(datavaultRows)
+            .innerJoin(datavaultTables, eq(datavaultRows.tableId, datavaultTables.id))
+            .$dynamic();
+        const primarySort = query.sort?.at(0); // Multi-sort later
+        const sortAlias = alias(datavaultValues, 'sort_val');
+        if (primarySort) {
+            sqlQuery = sqlQuery.leftJoin(sortAlias, and(
+                eq(sortAlias.rowId, datavaultRows.id),
+                eq(sortAlias.columnId, primarySort.columnId)
+            ));
         }
+
+        sqlQuery = sqlQuery.where(and(...conditions));
+        sqlQuery = primarySort
+            ? sqlQuery.orderBy(primarySort.direction === 'desc'
+                ? desc(sortAlias.value)
+                : asc(sortAlias.value))
+            : sqlQuery.orderBy(desc(datavaultRows.createdAt));
 
         // 6. Limit
 
         if (query.limit) {
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
-            sqlQuery.limit(query.limit);
+            sqlQuery = sqlQuery.limit(query.limit);
         }
         // Execute ID fetch
         const results = await sqlQuery;
