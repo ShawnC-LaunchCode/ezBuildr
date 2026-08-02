@@ -3,10 +3,13 @@ import { describe, expect, it } from 'vitest';
 
 import { TemplateParser } from '../../../server/services/document/TemplateParser';
 import {
+  getChoiceListBindingsByAlias,
   getListConfigsByAlias,
   normalizeVariables,
+  type ListStepConfigSource,
 } from '../../../server/services/document/VariableNormalizer';
 import type {
+  ChoiceAdvancedConfig,
   ListConfig,
   ListValue,
 } from '../../../shared/types/stepConfigs';
@@ -137,5 +140,120 @@ describe('List values in document templates', () => {
 
     expect(text).toContain('Child=Ava;');
     expect(text).not.toContain('Address=');
+  });
+});
+
+// ============================================================================
+// LIST2-6: list-bound choice values resolve to their item's label
+// ============================================================================
+
+const ownersConfig: ListConfig = {
+  fields: [
+    { kind: 'question', id: 'owner-name', alias: 'ownerName', type: 'short_text', title: 'Name', order: 0 },
+  ],
+  labelTemplate: '{ownerName}',
+};
+
+function dynamicListChoiceConfig(listVariable: string): ChoiceAdvancedConfig {
+  return {
+    display: 'dropdown',
+    allowMultiple: false,
+    options: {
+      type: 'list',
+      listVariable,
+      labelPath: 'ownerName',
+      valuePath: 'itemId',
+    },
+  };
+}
+
+async function renderVars(
+  template: string,
+  stepValues: Record<string, unknown>,
+  steps: ListStepConfigSource[]
+): Promise<{ data: Record<string, unknown>; text: string }> {
+  const data = normalizeVariables(stepValues, {
+    listConfigs: getListConfigsByAlias(steps),
+    listBoundChoices: getChoiceListBindingsByAlias(steps),
+  });
+  const output = await new TemplateParser().render({
+    templatePath: 'list-choice-fixture.docx',
+    templateBuffer: createDocxFixture(template),
+    data,
+  });
+  return { data, text: extractText(output) };
+}
+
+describe('List-bound choice values in document templates (LIST2-6)', () => {
+  const ownersStep: ListStepConfigSource = { id: 'owners-step', alias: 'owners', type: 'list', config: ownersConfig };
+  const favoriteOwnerStep: ListStepConfigSource = {
+    id: 'favorite-owner-step',
+    alias: 'favoriteOwner',
+    type: 'choice',
+    config: dynamicListChoiceConfig('owners'),
+  };
+
+  const owners: ListValue = {
+    items: [
+      { itemId: 'owner-1', values: { ownerName: 'Ava Whitmore' } },
+      { itemId: 'owner-2', values: { ownerName: 'Noah Blake' } },
+    ],
+  };
+
+  it('resolves the selected itemId to the source list item\'s label (AC1, AC2)', async () => {
+    const { text } = await renderVars(
+      '{{favoriteOwner}}',
+      { owners, favoriteOwner: 'owner-1' },
+      [ownersStep, favoriteOwnerStep]
+    );
+
+    expect(text.trim()).toBe('Ava Whitmore');
+    expect(text).not.toContain('owner-1');
+  });
+
+  it('falls back to the raw stored value when the item no longer exists (AC3)', async () => {
+    const { text } = await renderVars(
+      '{{favoriteOwner}}',
+      { owners, favoriteOwner: 'deleted-owner-id' },
+      [ownersStep, favoriteOwnerStep]
+    );
+
+    expect(text.trim()).toBe('deleted-owner-id');
+  });
+
+  it('resolves every selected id for a multi-select list-bound choice (AC4)', async () => {
+    const multiSelectStep: ListStepConfigSource = {
+      ...favoriteOwnerStep,
+      config: { ...dynamicListChoiceConfig('owners'), display: 'multiple', allowMultiple: true },
+    };
+
+    const data = normalizeVariables(
+      { owners, favoriteOwner: ['owner-1', 'owner-2'] },
+      {
+        listConfigs: getListConfigsByAlias([ownersStep, multiSelectStep]),
+        listBoundChoices: getChoiceListBindingsByAlias([ownersStep, multiSelectStep]),
+      }
+    );
+
+    expect(data.favoriteOwner).toEqual(['Ava Whitmore', 'Noah Blake']);
+  });
+
+  it('leaves a non-list-bound (static options) choice step completely unaffected (AC6)', async () => {
+    const staticChoiceStep: ListStepConfigSource = {
+      id: 'plan-step',
+      alias: 'plan',
+      type: 'choice',
+      config: {
+        display: 'dropdown',
+        allowMultiple: false,
+        options: { type: 'static', options: [{ id: 'basic', alias: 'basic', label: 'Basic' }] },
+      } satisfies ChoiceAdvancedConfig,
+    };
+
+    const bindings = getChoiceListBindingsByAlias([staticChoiceStep]);
+    expect(bindings.plan).toBeUndefined();
+
+    const { text } = await renderVars('{{plan}}', { plan: 'basic' }, [staticChoiceStep]);
+    expect(text.trim()).toBe('basic');
   });
 });

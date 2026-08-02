@@ -678,7 +678,7 @@ the `<ListDrillEditor>` render site in `WorkflowRunner.tsx` in
 
 ---
 
-## LIST2-6 — List-bound dropdown answers render as raw UUIDs in documents 🔲
+## LIST2-6 — List-bound dropdown answers render as raw UUIDs in documents ✅
 
 **Priority: P1** · Size: M · File: `server/services/document/VariableNormalizer.ts`
 
@@ -766,6 +766,31 @@ calls (backlog LIST-B10). Note it, do not fix it here.
    1–4 and 6.
 8. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
    green.
+
+### Verification pass — 2026-08-01 (reviewer)
+
+All 8 criteria met. `ListDocumentProjection` + `listRuntime` + `listConfig`
+→ 51/51 on the merged tree. Verified by mutation: bypassing
+`resolveListBoundChoiceValue` fails AC1/AC2 and AC4. Reverted after.
+
+`resolveItemLabel` now lives in `shared/types/stepConfigs.ts` beside
+`projectListValue`, with `listRuntime.ts` re-exporting it — one
+implementation, every existing client consumer untouched. This merged cleanly
+with LIST2-3's `normalizeListConfig` addition to the same file even though
+both tickets edited it; my collision map called this file "re-export only"
+for LIST2-6, which understated it. The regions did not overlap so it cost
+nothing, but the map was wrong.
+
+Scoping is right in a way the ticket did not spell out:
+`getChoiceListBindingsByAlias` resolves **only** when the dynamic source is
+itself a `list` step, so Read Table / List Tools sources — which also produce
+ListVariables — are deliberately left alone. AC6 has its own test.
+
+**Reported failure was not real.** The dev flagged 2 failures in
+`VersionService.diff.test.ts` as pre-existing. They are not: that file passes
+clean on `main` and passed here. It was contention from six devs running
+`test:fast` concurrently, starving its mock timers. Their conclusion (not
+caused by this change) was right; the label was wrong.
 
 ---
 

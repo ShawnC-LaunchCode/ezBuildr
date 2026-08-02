@@ -18,7 +18,10 @@
 
 import {
   projectListValue,
+  resolveItemLabel,
   type AddressValue,
+  type ChoiceAdvancedConfig,
+  type DynamicOptionsConfig,
   type ListConfig,
   type ListValue,
   type MultiFieldValue,
@@ -53,6 +56,15 @@ export interface NormalizationOptions {
 
   /** List step configs keyed by the alias used in template data. */
   listConfigs?: Record<string, ListConfig | undefined>;
+
+  /**
+   * Choice steps whose options are bound to a list step, keyed by the
+   * choice step's own alias. A stored value for such a step is the
+   * selected item's stable `itemId` (Choice Value Model Decision 8), which
+   * this resolves back to the item's display label at normalization time
+   * (LIST2-6) so documents render `Ava Whitmore` instead of a raw UUID.
+   */
+  listBoundChoices?: Record<string, ChoiceListBinding | undefined>;
 }
 
 export interface ListStepConfigSource {
@@ -60,6 +72,13 @@ export interface ListStepConfigSource {
   alias?: string | null;
   type: string;
   config?: unknown;
+}
+
+/** A `choice` step's dynamic options bound to a `list` step's own values. */
+export interface ChoiceListBinding {
+  /** Alias (or id fallback) the referenced list step's value is keyed under. */
+  listAlias: string;
+  listConfig: ListConfig;
 }
 
 /**
@@ -112,6 +131,7 @@ export function normalizeVariables(
     includeEmpty: options.includeEmpty ?? true,
     maxDepth: options.maxDepth ?? 10,
     listConfigs: options.listConfigs ?? {},
+    listBoundChoices: options.listBoundChoices ?? {},
   };
 
   const result: NormalizedData = {};
@@ -119,13 +139,48 @@ export function normalizeVariables(
   // Process each step value
   for (const [key, value] of Object.entries(stepValues)) {
     const listConfig = opts.listConfigs[key];
-    const templateValue = listConfig !== undefined
-      ? projectListValue(value as ListValue | null | undefined, listConfig)
-      : value;
+    const choiceBinding = opts.listBoundChoices[key];
+    let templateValue: unknown = value;
+    if (listConfig !== undefined) {
+      templateValue = projectListValue(value as ListValue | null | undefined, listConfig);
+    } else if (choiceBinding !== undefined) {
+      templateValue = resolveListBoundChoiceValue(value, choiceBinding, stepValues[choiceBinding.listAlias]);
+    }
     processValue(result, key, templateValue, opts, 0);
   }
 
   return result;
+}
+
+/**
+ * Resolves a list-bound choice's stored itemId(s) back to display label(s)
+ * using the same `resolveItemLabel` the runner uses. An id with no matching
+ * item (deleted item, missing source list) degrades to the raw stored value
+ * rather than throwing or emitting empty (LIST2-6 AC3).
+ */
+function resolveListBoundChoiceValue(
+  value: unknown,
+  binding: ChoiceListBinding,
+  rawListValue: unknown
+): unknown {
+  const listValue = isListValueLike(rawListValue) ? rawListValue : { items: [] };
+
+  const resolveOne = (storedId: unknown): unknown => {
+    if (typeof storedId !== 'string' || storedId === '') {
+      return storedId;
+    }
+    const item = listValue.items.find((candidate) => candidate.itemId === storedId);
+    if (!item) {
+      return storedId;
+    }
+    return resolveItemLabel(item, binding.listConfig, storedId);
+  };
+
+  return Array.isArray(value) ? value.map(resolveOne) : resolveOne(value);
+}
+
+function isListValueLike(value: unknown): value is ListValue {
+  return typeof value === 'object' && value !== null && Array.isArray((value as { items?: unknown }).items);
 }
 
 /**
@@ -155,6 +210,58 @@ function isListConfig(config: unknown): config is ListConfig {
   return typeof config === 'object'
     && config !== null
     && Array.isArray((config as { fields?: unknown }).fields);
+}
+
+/**
+ * Collect the list bindings needed to resolve a list-bound choice step's
+ * stored itemId(s) back to display labels (LIST2-6). Mirrors
+ * `getListConfigsByAlias`'s alias-with-id-fallback keying so both can be
+ * built from the same `steps` array at the same two call sites.
+ */
+export function getChoiceListBindingsByAlias(
+  steps: ListStepConfigSource[]
+): Record<string, ChoiceListBinding> {
+  const listConfigs = getListConfigsByAlias(steps);
+  const bindings: Record<string, ChoiceListBinding> = {};
+
+  for (const step of steps) {
+    if (step.type !== 'choice') {
+      continue;
+    }
+    const dynamicConfig = getListDynamicOptionsConfig(step.config);
+    if (!dynamicConfig) {
+      continue;
+    }
+    const listConfig = listConfigs[dynamicConfig.listVariable];
+    // Not every list-bound dynamic source is a `list` step (Read Table / List
+    // Tools blocks also produce ListVariables) — only resolve the case this
+    // ticket covers, a dynamic source that is itself a `list` step.
+    if (listConfig === undefined) {
+      continue;
+    }
+    const key = step.alias !== null && step.alias !== undefined && step.alias !== ''
+      ? step.alias
+      : step.id;
+    bindings[key] = { listAlias: dynamicConfig.listVariable, listConfig };
+  }
+
+  return bindings;
+}
+
+/**
+ * `config.options` is the authoritative field for a choice step's dynamic
+ * source (mirrors the client's `parseDynamicOptionsConfig` in
+ * `useChoiceOptions.ts` — the deprecated `dynamicOptions` field on
+ * `ChoiceAdvancedConfig` is never written by current saves).
+ */
+function getListDynamicOptionsConfig(
+  config: unknown
+): Extract<DynamicOptionsConfig, { type: 'list' }> | undefined {
+  const options = (config as ChoiceAdvancedConfig | undefined)?.options;
+  if (options !== null && typeof options === 'object' && 'type' in options && options.type === 'list') {
+    return options;
+  }
+  return undefined;
 }
 
 // ============================================================================
@@ -571,6 +678,7 @@ export function getNormalizationStats(normalizedData: NormalizedData): {
 export default {
   normalizeVariables,
   getListConfigsByAlias,
+  getChoiceListBindingsByAlias,
   normalizeAddress,
   normalizeMultiField,
   normalizeChoice,

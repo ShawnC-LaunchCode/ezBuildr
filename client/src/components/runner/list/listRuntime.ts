@@ -7,7 +7,10 @@
  * *values* (ListValue/ListItem) at runtime, which has no overlap with it.
  */
 import type { ListValidationErrors } from "@shared/validation/BlockValidation";
+import { resolveItemLabel } from "@shared/types/stepConfigs";
 import type { ListConfig, ListField, ListItem, ListValue } from "@shared/types/stepConfigs";
+
+export { resolveItemLabel };
 
 export function emptyListValue(): ListValue {
   return { items: [] };
@@ -81,31 +84,6 @@ export function reorderItems(value: ListValue, oldIndex: number, newIndex: numbe
   }
   items.splice(newIndex, 0, moved);
   return { items };
-}
-
-/**
- * Resolves `config.labelTemplate`'s `{alias}` syntax against one item's own
- * `values` — deliberately single-brace and item-scoped, unlike
- * DisplayBlock.tsx's `{{alias}}` interpolation against the whole-workflow
- * context (nothing there is reusable for this: different syntax, different
- * scope). Falls back when the template is unset or resolves blank (e.g. the
- * referenced field hasn't been answered yet).
- */
-export function resolveItemLabel(item: ListItem, config: ListConfig, fallback: string): string {
-  const template = config.labelTemplate?.trim();
-  if (!template) {
-    return fallback;
-  }
-  const resolved = template
-    .replace(/\{([^}]+)\}/g, (_match, alias: string) => {
-      const raw = item.values[alias.trim()];
-      if (raw === null || raw === undefined || typeof raw === "object") {
-        return "";
-      }
-      return String(raw);
-    })
-    .trim();
-  return resolved || fallback;
 }
 
 /** e.g. "2 addresses" for the item row's nested-count summary. Null when the item has no nested list fields. */

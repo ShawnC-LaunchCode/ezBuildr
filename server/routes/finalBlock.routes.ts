@@ -25,7 +25,7 @@ import { creatorOrRunTokenAuth, type RunAuthRequest } from '../middleware/runTok
 import { strictLimiter } from '../middleware/rateLimiter.js';
 import { documentTemplateRepository, runGeneratedDocumentsRepository } from '../repositories/index.js';
 import { finalBlockRenderer, createTemplateResolver } from '../services/document/FinalBlockRenderer.js';
-import { getListConfigsByAlias } from '../services/document/VariableNormalizer.js';
+import { getChoiceListBindingsByAlias, getListConfigsByAlias } from '../services/document/VariableNormalizer.js';
 import { runService } from '../services/RunService.js';
 import { storageProvider } from '../services/storage/index.js';
 import { stepService } from '../services/StepService.js';
@@ -238,6 +238,7 @@ export function registerFinalBlockRoutes(app: Express): void {
           toPdf,
           normalizationOptions: {
             listConfigs: getListConfigsByAlias(workflowSteps),
+            listBoundChoices: getChoiceListBindingsByAlias(workflowSteps),
           },
         });
 

@@ -14,7 +14,7 @@ import { logger } from "../../logger";
 import { stepValueRepository, stepRepository, sectionRepository, workflowRunRepository, workflowRepository, documentTemplateRepository, runGeneratedDocumentsRepository } from "../../repositories";
 import { blockRunner } from "../BlockRunner";
 import { finalBlockRenderer, createTemplateResolver } from "../document/FinalBlockRenderer";
-import { getListConfigsByAlias } from "../document/VariableNormalizer";
+import { getChoiceListBindingsByAlias, getListConfigsByAlias } from "../document/VariableNormalizer";
 import type { FinalBlockConfig } from "../../../shared/types/stepConfigs";
 import { logicService } from "../LogicService";
 import { RunPersistenceWriter } from "../runs/RunPersistenceWriter";
@@ -438,6 +438,7 @@ export class RunLifecycleService {
       const runData = options.runData ?? await this.runDataSvc.buildForRun(runId, workflowId);
       const stepValues = runData.byAlias;
       const listConfigs = getListConfigsByAlias(definitionSteps);
+      const listBoundChoices = getChoiceListBindingsByAlias(definitionSteps);
 
       // 4. Create scoped Template Resolver
       const resolveTemplate = createTemplateResolver(async (documentId: string) => {
@@ -464,7 +465,7 @@ export class RunLifecycleService {
           runId: run.id,
           resolveTemplate,
           toPdf: options.toPdf ?? false,
-          normalizationOptions: { listConfigs },
+          normalizationOptions: { listConfigs, listBoundChoices },
         });
         totalGenerated += generationResult.totalGenerated;
         documents.push(...generationResult.documents);

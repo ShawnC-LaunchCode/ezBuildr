@@ -758,6 +758,35 @@ function projectListItem(item: ListItem, config: ListConfig): Record<string, unk
   return projected;
 }
 
+/**
+ * Resolves `config.labelTemplate`'s `{alias}` syntax against one item's own
+ * `values` — deliberately single-brace and item-scoped, unlike
+ * DisplayBlock.tsx's `{{alias}}` interpolation against the whole-workflow
+ * context (nothing there is reusable for this: different syntax, different
+ * scope). Falls back when the template is unset or resolves blank (e.g. the
+ * referenced field hasn't been answered yet).
+ *
+ * Lives in `shared/` (moved from the client's `listRuntime.ts` in LIST2-6) so
+ * the document engine can resolve a list-bound choice value's label
+ * server-side using the exact same logic the runner uses to display it.
+ */
+export function resolveItemLabel(item: ListItem, config: ListConfig, fallback: string): string {
+  const template = config.labelTemplate?.trim();
+  if (!template) {
+    return fallback;
+  }
+  const resolved = template
+    .replace(/\{([^}]+)\}/g, (_match, alias: string) => {
+      const raw = item.values[alias.trim()];
+      if (raw === null || raw === undefined || typeof raw === "object") {
+        return "";
+      }
+      return String(raw);
+    })
+    .trim();
+  return resolved || fallback;
+}
+
 // ============================================================================
 // DISCRIMINATED UNION TYPE
 // ============================================================================
