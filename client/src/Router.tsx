@@ -97,6 +97,9 @@ export default function Router() {
                 <Route path="/docs/url-parameters" component={UrlParametersDoc} />
                 {/* Public signup preview - stable before and after auth finishes loading */}
                 <Route path="/coming-soon" component={ComingSoonPage} />
+                {/* Invitation links must remain reachable while signed out so the
+                    recipient can authenticate without losing the invite token. */}
+                <Route path="/invites/:token/accept" component={AcceptInvite} />
                 {isLoading || !isAuthenticated ? (
                     <>
                         <Route path="/" component={Landing} />
@@ -161,7 +164,6 @@ export default function Router() {
                         {/* Organizations Routes */}
                         <Route path="/organizations" component={Organizations} />
                         <Route path="/organizations/:id" component={OrganizationDetail} />
-                        <Route path="/invites/:token/accept" component={AcceptInvite} />
                         {/* Redirect auth routes to dashboard for authenticated users */}
                         <Route path="/auth/:rest*">
                             {() => <AuthRedirect />}

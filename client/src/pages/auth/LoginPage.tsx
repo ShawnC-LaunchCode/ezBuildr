@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { getSafeReturnTo, withReturnTo } from "@/lib/authRedirect";
 import { PUBLIC_SIGNUP_PATH } from "@/lib/publicSignup";
 import { authAPI } from "@/lib/vault-api";
 const loginSchema = z.object({
@@ -37,6 +38,8 @@ function isMfaRequiredResponse(value: unknown): value is MfaRequiredResponse {
 
 export default function LoginPage() {
     const [, setLocation] = useLocation();
+    const returnTo = getSafeReturnTo(window.location.search);
+    const signupPath = returnTo ? withReturnTo(PUBLIC_SIGNUP_PATH, returnTo) : PUBLIC_SIGNUP_PATH;
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     // MFA State
@@ -60,7 +63,7 @@ export default function LoginPage() {
                 token: response.token
             });
         }
-        setLocation("/dashboard");
+        setLocation(returnTo ?? "/dashboard");
     };
     const onSubmit = async (data: LoginFormValues) => {
         setIsLoading(true);
@@ -182,7 +185,7 @@ export default function LoginPage() {
                     </h2>
                     <p className="mt-2 text-center text-sm text-gray-600">
                         Or{" "}
-                        <Link href={PUBLIC_SIGNUP_PATH} className="font-medium text-indigo-600 hover:text-indigo-500">
+                        <Link href={signupPath} className="font-medium text-indigo-600 hover:text-indigo-500">
                             create a new account
                         </Link>
                     </p>
@@ -194,7 +197,7 @@ export default function LoginPage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="flex justify-center w-full">
-                            <GoogleLogin onSuccess={() => setLocation("/dashboard")} />
+                            <GoogleLogin onSuccess={() => setLocation(returnTo ?? "/dashboard")} />
                         </div>
                         <div className="relative">
                             <div className="absolute inset-0 flex items-center">

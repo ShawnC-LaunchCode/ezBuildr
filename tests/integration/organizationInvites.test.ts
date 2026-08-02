@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { db } from '../../server/db';
 import { organizationService } from '../../server/services/OrganizationService';
 import { hashToken } from '../../server/utils/encryption';
-import { organizations, organizationMemberships, organizationInvites, users, tenants, auditLogs } from '../../shared/schema';
+import { organizations, organizationMemberships, organizationInvites, users, tenants, auditLogs, passwordResetTokens } from '../../shared/schema';
 
 /**
  * Tests for Organization Invite System
@@ -93,6 +93,13 @@ describe('Organization Invites', () => {
             expect(placeholderUser?.isPlaceholder).toBe(true);
             expect(placeholderUser?.placeholderEmail).toBe(newUserEmail);
             expect(placeholderUser?.fullName).toBe(newUserEmail.split('@')[0]); // Email prefix
+
+            const setupToken = await db.query.passwordResetTokens.findFirst({
+                where: eq(passwordResetTokens.userId, placeholderUser!.id),
+            });
+
+            expect(setupToken).toMatchObject({ used: false });
+            expect(setupToken?.expiresAt.getTime()).toBeGreaterThan(Date.now());
 
 
         });

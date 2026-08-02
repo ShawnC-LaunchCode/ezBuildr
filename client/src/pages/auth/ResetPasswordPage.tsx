@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { getSafeReturnTo, withReturnTo } from "@/lib/authRedirect";
 import { authAPI } from "@/lib/vault-api";
 
 const resetPasswordSchema = z.object({
@@ -27,6 +28,7 @@ type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
 
 export default function ResetPasswordPage() {
     const [, setLocation] = useLocation();
+    const returnTo = getSafeReturnTo(window.location.search);
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [token, setToken] = useState<string | null>(null);
@@ -73,7 +75,7 @@ export default function ResetPasswordPage() {
                 title: isSetup ? "Setup successful" : "Password reset successful",
                 description: isSetup ? "You can now sign in to your new account." : "You can now sign in with your new password.",
             });
-            setLocation("/auth/login");
+            setLocation(returnTo ? withReturnTo('/auth/login', returnTo) : '/auth/login');
         } catch (error) {
             toast({
                 variant: "destructive",

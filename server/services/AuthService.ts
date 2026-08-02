@@ -533,7 +533,11 @@ export class AuthService {
         return plainToken;
     }
 
-    async generateSystemInviteToken(email: string, role: string): Promise<string | null> {
+    async generateSystemInviteToken(
+        email: string,
+        role: string,
+        returnTo?: string
+    ): Promise<string | null> {
         const user = await this.db.query.users.findFirst({
             where: eq(users.email, email)
         });
@@ -555,7 +559,7 @@ export class AuthService {
             used: false
         });
 
-        await sendSystemInviteEmail(email, plainToken, role);
+        await sendSystemInviteEmail(email, plainToken, role, returnTo);
         log.info({ email }, 'System invite email sent');
 
         return plainToken;

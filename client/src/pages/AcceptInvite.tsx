@@ -1,17 +1,22 @@
-import { Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, CheckCircle, LogIn, XCircle } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
-import { useLocation, useRoute } from 'wouter';
+import { useRoute } from 'wouter';
 
+import { GoogleLogin } from '@/components/GoogleLogin';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { useAcceptInvite } from '@/hooks/useOrganizations';
+import { withReturnTo } from '@/lib/authRedirect';
 
 export default function AcceptInvite() {
   const [, params] = useRoute('/invites/:token/accept');
-  const [, _setLocation] = useLocation();
   const { toast } = useToast();
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const acceptInvite = useAcceptInvite();
+  const returnTo = params?.token ? `/invites/${params.token}/accept` : '/organizations';
+  const loginUrl = withReturnTo('/auth/login', returnTo);
 
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [orgInfo, setOrgInfo] = useState<{ orgId: string; orgName: string } | null>(null);
@@ -20,6 +25,10 @@ export default function AcceptInvite() {
 
   useEffect(() => {
     const accept = async () => {
+      if (isAuthLoading || !isAuthenticated) {
+        return;
+      }
+
       const token = params?.token;
 
       if (!token) {
@@ -57,7 +66,41 @@ export default function AcceptInvite() {
     // eslint-disable-next-line @typescript-eslint/no-floating-promises
     accept();
 
-  }, [params?.token]);
+  }, [isAuthLoading, isAuthenticated, params?.token]);
+
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" aria-label="Loading invitation" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle>Organization Invitation</CardTitle>
+            <CardDescription>Sign in to accept your invitation</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center space-y-4">
+            <LogIn className="h-12 w-12 text-primary" />
+            <p className="text-center text-muted-foreground">
+              Use the account that received this invitation. If you are new to ezBuildr,
+              sign in with Google or use the Complete Setup email in your inbox.
+            </p>
+            <div className="flex justify-center w-full">
+              <GoogleLogin onSuccess={() => undefined} />
+            </div>
+            <Button asChild variant="outline" className="w-full">
+              <a href={loginUrl}>Sign in with email</a>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">

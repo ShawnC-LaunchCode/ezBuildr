@@ -16,6 +16,7 @@ import { logger } from '../logger';
 import { hashToken } from '../utils/encryption';
 import {  requireOrgAdmin, isOrgMember } from '../utils/ownershipAccess';
 
+import { authService } from './AuthService';
 import { brandingService } from './BrandingService';
 import { emailQueueService } from './EmailQueueService';
 interface CreateOrganizationInput {
@@ -425,6 +426,7 @@ export class OrganizationService {
     let existingUser = await db.query.users.findFirst({
       where: eq(users.email, normalizedEmail),
     });
+    let needsAccountSetup = existingUser?.isPlaceholder ?? false;
     // Create placeholder user if doesn't exist
     if (!existingUser) {
       const [placeholderUser] = await db.insert(users).values({
@@ -436,6 +438,7 @@ export class OrganizationService {
         tenantId: org.tenantId,
       }).returning();
       existingUser = placeholderUser;
+      needsAccountSetup = true;
     }
     // Check if user is already a member
     const alreadyMember = await isOrgMember(existingUser.id, orgId);
@@ -504,6 +507,23 @@ export class OrganizationService {
           workspaceId: null,
           after: { invitedEmail: normalizedEmail, error: errorMessage },
         });
+      }
+    }
+    // A placeholder cannot authenticate yet. Send the same password-setup
+    // invitation used by Admin user creation and preserve this organization
+    // invite so setup -> sign in -> acceptance is one continuous flow.
+    if (needsAccountSetup) {
+      try {
+        await authService.generateSystemInviteToken(
+          normalizedEmail,
+          'creator',
+          `/invites/${token}/accept`
+        );
+      } catch (setupEmailError: unknown) {
+        logger.error(
+          { error: setupEmailError, inviteId: invite.id, orgId },
+          'Failed to send organization invite account setup email'
+        );
       }
     }
     // Audit log
