@@ -255,10 +255,30 @@ devs in one shared tree (2026-07-25) produced, in a single session:
 pwsh scripts/new-worktree.ps1 -Name <ticket-id>
 ```
 
-It creates the worktree from current `main`, junctions `node_modules`, copies
-`.env`, and then *proves* the result: junction (not symlink), `@types`
-resolves, base commit matches `main`, and `test:fast` actually reports passing
-tests. It fails loudly rather than handing you a tree that looks fine.
+It creates the worktree from current `main`, **copies** `node_modules`, copies
+`.env`, **creates a per-worktree test database**, and then *proves* the result:
+`node_modules` is a real directory with `@types`/`typescript`/`vitest` resolving,
+base commit matches `main`, the test DB is reachable, and `test:fast` actually
+reports passing tests. It fails loudly rather than handing you a tree that looks
+fine.
+
+**Two defaults changed on 2026-08-02 — both because of real failures:**
+
+- **`node_modules` is copied, not junctioned.** A junction shares one physical
+  directory, and build caches inside it are keyed to a single project root:
+  `node_modules/.vite` (Vite's dep-optimizer cache) and
+  `node_modules/typescript/tsbuildinfo`. Sharing `.vite` across three concurrent
+  worktrees made bare specifiers misresolve — the Node builtin `stream` resolving
+  to `<worktree>\stream`. All three DataVault Phase 1 devs hit it and each
+  invented a *different, initially undisclosed* workaround, so **not one of their
+  gate reports was reproducible** and the reviewer re-ran every gate by hand.
+  Note it passed at worktree-creation time and only broke later, once a second
+  root rewrote the cache — the creation-time proof could not have caught it.
+  Copying costs ~1GB and ~30-90s; an unreproducible gate report costs far more.
+  Use `-LinkModules` only for a worktree that will never run Vitest.
+- **Each worktree gets its own database** (`ezbuildr_test_<name>`). `tests/setup.ts`
+  creates schemas per *worker*, not per process, so worktrees sharing one database
+  clobber each other and fake dozens of failures.
 
 **Tear worktrees down with `-Remove`, never with a bare `git worktree remove`:**
 
@@ -266,11 +286,20 @@ tests. It fails loudly rather than handing you a tree that looks fine.
 pwsh scripts/new-worktree.ps1 -Name <ticket-id> -Remove
 ```
 
-`git worktree remove --force` recurses **into** the `node_modules` junction and
-deletes the main checkout's packages along with the worktree. This is not
-hypothetical — it wiped all 1018 packages here and needed a full `npm ci` to
-recover. `-Remove` drops the junction as a reparse point first, then removes
-the worktree, then verifies the main `node_modules` survived.
+With `-LinkModules`, `git worktree remove --force` recurses **into** the
+`node_modules` junction and deletes the main checkout's packages along with the
+worktree. This is not hypothetical — it wiped all 1018 packages here and needed a
+full `npm ci` to recover. `-Remove` drops the junction as a reparse point first,
+then removes the worktree, then verifies the main `node_modules` survived.
+
+`-Remove` also **checks that the removal actually happened**. `git worktree
+remove` reports failures on stderr and exits non-zero, but PowerShell's
+`$ErrorActionPreference` does not apply to native commands, so the script used to
+print "Removed worktree" on a failed removal. Observed for real: git deregistered
+and emptied the worktree, then hit `Permission denied` on the now-empty directory
+(Windows holds a transient handle after a Vitest run), leaving a stale folder that
+blocked the next create. It now prunes, retries, and verifies both git's view and
+the disk before claiming success.
 
 The rest of this section is why it exists — read it if the script fails.
 
