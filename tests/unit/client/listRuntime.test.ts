@@ -14,6 +14,7 @@ import {
   describeNestedCounts,
   emptyListValue,
   hasItemError,
+  normalizeListConfig,
   normalizeListValue,
   removeItem,
   reorderItems,
@@ -79,6 +80,19 @@ describe('emptyListValue / normalizeListValue', () => {
   it('passes through a well-formed ListValue', () => {
     const value: ListValue = { items: [makeItem('a', { name: 'Ava' })] };
     expect(normalizeListValue(value)).toBe(value);
+  });
+});
+
+describe('normalizeListConfig (LIST2-3 AC6)', () => {
+  it('returns { fields: [] } for null, undefined, a string, and {}', () => {
+    expect(normalizeListConfig(null)).toEqual({ fields: [] });
+    expect(normalizeListConfig(undefined)).toEqual({ fields: [] });
+    expect(normalizeListConfig('not a config')).toEqual({ fields: [] });
+    expect(normalizeListConfig({})).toEqual({ fields: [] });
+  });
+
+  it('passes through a well-formed ListConfig', () => {
+    expect(normalizeListConfig(childrenConfig)).toBe(childrenConfig);
   });
 });
 

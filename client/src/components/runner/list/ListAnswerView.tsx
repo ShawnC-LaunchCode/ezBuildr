@@ -11,7 +11,7 @@ import { formatAnswerValue } from "@/lib/formatAnswerValue";
 import { LIST_VALIDATION_MAX_DEPTH } from "@shared/validation/BlockValidation";
 import type { ListConfig, ListItem, ListValue } from "@shared/types/stepConfigs";
 
-import { normalizeListValue, resolveItemLabel } from "./listRuntime";
+import { normalizeListConfig, normalizeListValue, resolveItemLabel } from "./listRuntime";
 
 interface ListAnswerViewProps {
   config: ListConfig;
@@ -21,6 +21,7 @@ interface ListAnswerViewProps {
 }
 
 export function ListAnswerView({ config, value, depth = 1 }: ListAnswerViewProps) {
+  const listConfig = normalizeListConfig(config);
   const listValue = normalizeListValue(value);
 
   if (listValue.items.length === 0) {
@@ -31,7 +32,7 @@ export function ListAnswerView({ config, value, depth = 1 }: ListAnswerViewProps
     <ol className="space-y-3">
       {listValue.items.map((item, index) => (
         <li key={item.itemId} className="rounded-md border border-slate-100 bg-slate-50/50 p-3">
-          <ListAnswerItem item={item} config={config} index={index} depth={depth} />
+          <ListAnswerItem item={item} config={listConfig} index={index} depth={depth} />
         </li>
       ))}
     </ol>
@@ -85,7 +86,7 @@ function ListAnswerItem({ item, config, index, depth }: ListAnswerItemProps) {
 }
 
 function MoreLevelsSummary({ value, config }: { value: ListValue; config: ListConfig }) {
-  const levels = countNestingLevels(value, config);
+  const levels = countNestingLevels(value, normalizeListConfig(config));
   return (
     <p className="pl-3 text-xs italic text-slate-400">
       +{levels} more level{levels === 1 ? "" : "s"}

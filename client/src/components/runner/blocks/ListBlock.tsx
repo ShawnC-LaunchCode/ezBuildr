@@ -8,10 +8,10 @@
  */
 import { useListDrill } from "@/components/runner/list/ListDrillContext";
 import { ListItemsView } from "@/components/runner/list/ListItemsView";
-import { normalizeListValue, resolveItemLabel } from "@/components/runner/list/listRuntime";
+import { normalizeListConfig, normalizeListValue, resolveItemLabel } from "@/components/runner/list/listRuntime";
 import type { Step } from "@/types";
 
-import type { ListConfig, ListValue } from "@shared/types/stepConfigs";
+import type { ListValue } from "@shared/types/stepConfigs";
 
 export interface ListBlockProps {
   step: Step;
@@ -25,7 +25,7 @@ export interface ListBlockProps {
 
 export function ListBlockRenderer({ step, value, onChange, readOnly }: ListBlockProps) {
   const { enterList } = useListDrill();
-  const config = step.config as ListConfig;
+  const config = normalizeListConfig(step.config);
   const listValue = normalizeListValue(value);
 
   const handleOpenItem = (itemId: string, options?: { autoFocus?: boolean; label?: string }) => {

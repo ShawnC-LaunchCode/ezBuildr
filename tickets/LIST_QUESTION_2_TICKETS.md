@@ -344,7 +344,7 @@ and dies with the worktree.
 
 ---
 
-## LIST2-3 — `list` has no server-side config schema 🔲
+## LIST2-3 — `list` has no server-side config schema ✅
 
 **Priority: P0 (bug)** · Size: M · File: `shared/validation/stepConfigSchemas.ts`
 
@@ -459,6 +459,32 @@ ListConfig` cast sites in `ListBlock.tsx` and `ListAnswerView.tsx`.
    extend).
 8. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
    green; the touched integration file passes.
+
+### Verification pass — 2026-08-01 (reviewer)
+
+All 8 criteria met. Unit: 88/88 across `stepConfigSchemas`, `listRuntime`,
+`ListBlock`, `ListAnswerView`, `listConfig`. Integration:
+`creation-routes.test.ts` **41/41** against real Docker PG.
+
+Verified by mutation: commenting out the `list: ListConfigSchema` registration
+fails exactly the two new endpoint tests (AC1 malformed alias, AC3 depth cap),
+proving they exercise the real server boundary rather than the schema in
+isolation. Reverted after.
+
+The depth cap is enforced structurally rather than by a check — at
+`LIST_VALIDATION_MAX_DEPTH` the field union simply drops its `"list"` variant,
+so an over-deep config matches neither member. Depth numbering was confirmed
+against `validateListValue` (root config = depth 1): three levels of
+`ListConfig` are accepted, the fourth is rejected. Both deviations
+(`listFieldHelpers.ts` in `shared/`, reusing `conditionExpressionSchema` for
+`visibleIf`) are accepted — the first was the ticket's own stated fallback and
+the `shared/` → `client/` import boundary was confirmed real; the second is
+free correctness.
+
+**Carried to LIST2-5:** the dev flagged a third unguarded cast at
+`ReviewSection.tsx` (`step.config as unknown as ListConfig | null` feeding
+`ListAnswerView`), correctly outside their footprint. Folded into the LIST2-5
+reviewer fix.
 
 ---
 

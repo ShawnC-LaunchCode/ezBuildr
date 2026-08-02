@@ -208,6 +208,64 @@ describe("POST /api/workflows/:workflowId/sections/:sectionId/steps", () => {
     expect(getRes.body.type).toBe("list");
   });
 
+  it("rejects a 'list' step whose config has a field with a malformed alias (LIST2-3 AC1)", async () => {
+    const { workflowId, sectionId } = await makeWorkflowWithSection();
+
+    const res = await agent
+      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
+      .send({
+        type: "list",
+        title: "Children",
+        config: {
+          fields: [
+            { kind: "question", id: "f-1", alias: "2bad", type: "short_text", title: "Bad alias", order: 0 },
+          ],
+        },
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/validation error/i);
+  });
+
+  it("rejects a 'list' step config nested deeper than the max depth (LIST2-3 AC3)", async () => {
+    const { workflowId, sectionId } = await makeWorkflowWithSection();
+
+    // LIST_VALIDATION_MAX_DEPTH is 3; nest one level past it (4 ListConfig levels).
+    const config = {
+      fields: [
+        {
+          kind: "list", id: "f-1", alias: "level1", title: "Level 1", order: 0,
+          list: {
+            fields: [
+              {
+                kind: "list", id: "f-2", alias: "level2", title: "Level 2", order: 0,
+                list: {
+                  fields: [
+                    {
+                      kind: "list", id: "f-3", alias: "level3", title: "Level 3", order: 0,
+                      list: {
+                        fields: [
+                          { kind: "question", id: "f-4", alias: "leaf", type: "short_text", title: "Leaf", order: 0 },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+    const res = await agent
+      .post(`/api/workflows/${workflowId}/sections/${sectionId}/steps`)
+      .send({ type: "list", title: "Too Deep", config });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/validation error/i);
+  });
+
   it("returns 400 for an invalid alias format", async () => {
     const { workflowId, sectionId } = await makeWorkflowWithSection();
 

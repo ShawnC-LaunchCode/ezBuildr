@@ -25,6 +25,24 @@ export function normalizeListValue(value: unknown): ListValue {
   return emptyListValue();
 }
 
+/**
+ * `step.config` for a `list` step (or a nested field's own `list` config) is
+ * jsonb — never trust its shape at read time. LIST2-3 adds server-side
+ * structural validation on write, but existing rows and any bypass of it
+ * must still degrade to an empty list rather than throwing when a consumer
+ * does `[...config.fields]`.
+ */
+export function normalizeListConfig(config: unknown): ListConfig {
+  if (
+    typeof config === "object" &&
+    config !== null &&
+    Array.isArray((config as { fields?: unknown }).fields)
+  ) {
+    return config as ListConfig;
+  }
+  return { fields: [] };
+}
+
 function defaultFieldValue(field: ListField): unknown {
   return field.kind === "list" ? emptyListValue() : undefined;
 }

@@ -104,6 +104,20 @@ afterEach(() => {
   cleanup();
 });
 
+describe('List block: malformed config (LIST2-3 AC6)', () => {
+  it('renders an empty list instead of throwing when step.config is null', () => {
+    const malformedStep: ApiStep = { ...step, config: null };
+    renderList({ items: [] }, malformedStep);
+    expect(screen.getByText('No items yet.')).toBeInTheDocument();
+  });
+
+  it('renders an empty list instead of throwing when step.config has no "fields" array', () => {
+    const malformedStep: ApiStep = { ...step, config: {} };
+    renderList({ items: [] }, malformedStep);
+    expect(screen.getByText('No items yet.')).toBeInTheDocument();
+  });
+});
+
 describe('List block: collapsed view (AC3)', () => {
   it('shows the resolved labelTemplate for each item', () => {
     renderList({ items: [{ itemId: 'a', values: { name: 'Ava Chen' } }] });

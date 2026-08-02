@@ -13,6 +13,14 @@ import {
   type ListField,
   type ListFieldQuestionType,
 } from "@shared/types/stepConfigs";
+import {
+  findDuplicateFieldAliases,
+  validateFieldAliasFormat,
+} from "@shared/validation/listFieldHelpers";
+
+// Moved into shared/ (LIST2-3) so the server-side list config schema can
+// reuse the exact same alias rule instead of a second, drifting regex.
+export { findDuplicateFieldAliases, validateFieldAliasFormat };
 
 const registryEntryByType = new Map(BLOCK_REGISTRY.map((entry) => [entry.type, entry]));
 
@@ -68,43 +76,6 @@ export function getListFieldPaletteByCategory(): Partial<Record<BlockCategory, L
     (grouped[entry.category] ??= []).push(entry);
   }
   return grouped;
-}
-
-export function validateFieldAliasFormat(alias: string): string | null {
-  const trimmed = alias.trim();
-  if (!trimmed) {
-    return "Alias is required";
-  }
-  if (!/^[a-zA-Z_]/.test(trimmed)) {
-    return "Must start with a letter or underscore";
-  }
-  if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) {
-    return "Can only contain letters, numbers, and underscores";
-  }
-  return null;
-}
-
-/**
- * Aliases duplicated within one level's field list (case/whitespace
- * insensitive). Deliberately scoped to a single `fields` array — a sibling
- * level's aliases must never factor in, since the same alias is allowed at
- * two different levels (LIST-6 AC5).
- */
-export function findDuplicateFieldAliases(fields: readonly ListField[]): Set<string> {
-  const seen = new Set<string>();
-  const duplicates = new Set<string>();
-  for (const field of fields) {
-    const key = field.alias.trim().toLowerCase();
-    if (!key) {
-      continue;
-    }
-    if (seen.has(key)) {
-      duplicates.add(key);
-    } else {
-      seen.add(key);
-    }
-  }
-  return duplicates;
 }
 
 export function isDuplicateFieldAlias(alias: string, duplicates: Set<string>): boolean {

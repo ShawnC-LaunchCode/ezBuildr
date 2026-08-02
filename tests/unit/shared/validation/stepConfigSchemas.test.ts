@@ -5,8 +5,11 @@ import {
     validateStepConfig,
     FinalBlockConfigSchema,
     TextAdvancedConfigSchema as _TextAdvancedConfigSchema,
-    ChoiceAdvancedConfigSchema
+    ChoiceAdvancedConfigSchema,
+    ListConfigSchema
 } from '../../../../shared/validation/stepConfigSchemas';
+import { LIST_VALIDATION_MAX_DEPTH } from '../../../../shared/validation/BlockValidation';
+import type { ListConfig, ListField } from '../../../../shared/types/stepConfigs';
 
 describe('Step Config Schemas', () => {
     describe('getConfigSchema', () => {
@@ -98,6 +101,131 @@ describe('Step Config Schemas', () => {
                 };
                 const result = ChoiceAdvancedConfigSchema.safeParse(validConfig);
                 expect(result.success).toBe(true);
+            });
+        });
+
+        describe('ListConfigSchema (LIST2-3)', () => {
+            function questionField(overrides: Partial<Extract<ListField, { kind: 'question' }>> = {}): ListField {
+                return {
+                    kind: 'question',
+                    id: 'f-1',
+                    alias: 'field_1',
+                    type: 'short_text',
+                    title: 'Field 1',
+                    order: 0,
+                    ...overrides,
+                };
+            }
+
+            function listField(overrides: Partial<Extract<ListField, { kind: 'list' }>> = {}): ListField {
+                return {
+                    kind: 'list',
+                    id: 'f-nested',
+                    alias: 'nested',
+                    title: 'Nested',
+                    order: 1,
+                    list: { fields: [questionField()] },
+                    ...overrides,
+                };
+            }
+
+            it('is registered under "list" in getConfigSchema, unlike before LIST2-3', () => {
+                expect(getConfigSchema('list')).toBeDefined();
+            });
+
+            it('AC1: rejects a malformed field alias', () => {
+                const config: ListConfig = { fields: [questionField({ alias: '2bad' })] };
+                const result = validateStepConfig('list', config);
+                expect(result.success).toBe(false);
+            });
+
+            it('AC1: accepts a well-formed alias', () => {
+                const config: ListConfig = { fields: [questionField({ alias: 'first_name' })] };
+                const result = validateStepConfig('list', config);
+                expect(result.success).toBe(true);
+            });
+
+            it('AC2: rejects two fields with the same alias at the same level', () => {
+                const config: ListConfig = {
+                    fields: [
+                        questionField({ id: 'f-1', alias: 'dup' }),
+                        questionField({ id: 'f-2', alias: 'DUP' }),
+                    ],
+                };
+                const result = validateStepConfig('list', config);
+                expect(result.success).toBe(false);
+            });
+
+            it('AC2: accepts the same alias reused at two different levels', () => {
+                const config: ListConfig = {
+                    fields: [
+                        questionField({ id: 'f-1', alias: 'name' }),
+                        listField({
+                            id: 'f-2',
+                            alias: 'addresses',
+                            list: { fields: [questionField({ id: 'f-3', alias: 'name' })] },
+                        }),
+                    ],
+                };
+                const result = validateStepConfig('list', config);
+                expect(result.success).toBe(true);
+            });
+
+            it(`AC3: rejects nesting deeper than LIST_VALIDATION_MAX_DEPTH (${LIST_VALIDATION_MAX_DEPTH})`, () => {
+                // Builds LIST_VALIDATION_MAX_DEPTH + 1 nested ListConfig levels — one level past the cap.
+                let deepest: ListConfig = { fields: [questionField()] };
+                for (let i = 0; i < LIST_VALIDATION_MAX_DEPTH; i += 1) {
+                    deepest = { fields: [listField({ id: `f-level-${i}`, list: deepest })] };
+                }
+                const result = validateStepConfig('list', deepest);
+                expect(result.success).toBe(false);
+            });
+
+            it(`AC3: accepts nesting exactly at LIST_VALIDATION_MAX_DEPTH (${LIST_VALIDATION_MAX_DEPTH})`, () => {
+                let deepest: ListConfig = { fields: [questionField()] };
+                for (let i = 0; i < LIST_VALIDATION_MAX_DEPTH - 1; i += 1) {
+                    deepest = { fields: [listField({ id: `f-level-${i}`, list: deepest })] };
+                }
+                const result = validateStepConfig('list', deepest);
+                expect(result.success).toBe(true);
+            });
+
+            it('AC4: rejects a question field whose type is outside LIST_FIELD_QUESTION_TYPES', () => {
+                const config = {
+                    fields: [{ ...questionField(), type: 'signature_block' }],
+                };
+                const result = validateStepConfig('list', config);
+                expect(result.success).toBe(false);
+            });
+
+            it('AC5: a well-formed config round-trips unchanged — no field dropped or reordered', () => {
+                const config: ListConfig = {
+                    fields: [
+                        questionField({ id: 'f-1', alias: 'first_name', order: 0 }),
+                        listField({
+                            id: 'f-2',
+                            alias: 'addresses',
+                            order: 1,
+                            list: {
+                                fields: [
+                                    questionField({ id: 'f-3', alias: 'street', order: 0, required: true }),
+                                    questionField({ id: 'f-4', alias: 'city', order: 1, type: 'choice' }),
+                                ],
+                            },
+                        }),
+                    ],
+                    minItems: 1,
+                    maxItems: 10,
+                    labelTemplate: '{first_name}',
+                    addButtonText: 'Add person',
+                };
+                const result = validateStepConfig('list', config);
+                expect(result.success).toBe(true);
+                expect(result.data).toEqual(config);
+            });
+
+            it('ListConfigSchema is exported directly for consumers that want it without the string dispatch', () => {
+                expect(ListConfigSchema.safeParse({ fields: [] }).success).toBe(true);
             });
         });
     });

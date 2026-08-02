@@ -39,6 +39,23 @@ const config: ListConfig = {
   labelTemplate: '{name}',
 };
 
+describe('ListAnswerView: malformed config (LIST2-3 AC6)', () => {
+  // A non-empty value forces `config.fields` to actually be read (rather
+  // than short-circuiting on the "None added" empty-items path), so these
+  // prove the normalizeListConfig guard rather than passing vacuously.
+  const nonEmptyValue: ListValue = { items: [{ itemId: 'a', values: { name: 'Ava' } }] };
+
+  it('renders without throwing when config is null', () => {
+    render(<ListAnswerView config={null as unknown as ListConfig} value={nonEmptyValue} />);
+    expect(screen.getByText('Item 1')).toBeInTheDocument();
+  });
+
+  it('renders without throwing when config has no "fields" array', () => {
+    render(<ListAnswerView config={{} as unknown as ListConfig} value={nonEmptyValue} />);
+    expect(screen.getByText('Item 1')).toBeInTheDocument();
+  });
+});
+
 describe('ListAnswerView: nested outline (AC1)', () => {
   it('renders item labels resolved via the shared labelTemplate helper, and each field value', () => {
     const value: ListValue = {

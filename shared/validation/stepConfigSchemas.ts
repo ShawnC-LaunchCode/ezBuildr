@@ -10,6 +10,11 @@
 
 import { z } from 'zod';
 
+import { LIST_VALIDATION_MAX_DEPTH } from './BlockValidation';
+import { findDuplicateFieldAliases, validateFieldAliasFormat } from './listFieldHelpers';
+import { conditionExpressionSchema } from '../types/conditions';
+import { LIST_FIELD_QUESTION_TYPES, type ListConfig, type ListField } from '../types/stepConfigs';
+
 // ============================================================================
 // BASE SCHEMAS
 // ============================================================================
@@ -390,6 +395,94 @@ export const FinalBlockConfigSchema = z.object({
 });
 
 // ============================================================================
+// STRUCTURAL SCHEMAS
+// ============================================================================
+
+/**
+ * `list` step config (LIST2-3). Recursive — a `ListField` may itself be
+ * `kind: "list"` — so it is built per-depth rather than as one `z.lazy()`
+ * shape: at `LIST_VALIDATION_MAX_DEPTH` the field union drops the `"list"`
+ * variant entirely, which is what actually enforces the cap (a config
+ * nesting one level past it fails to match either union member and is
+ * rejected). Depth numbering mirrors `validateListValue` in
+ * `BlockValidation.ts`: the step's own root config is depth 1.
+ *
+ * Alias format/uniqueness reuse the exact rules the builder enforces
+ * client-side (`listFieldHelpers.ts`) so the two never drift apart. A
+ * question field's own `config` is deliberately `z.unknown()` — this schema
+ * is about List *structure*, not validating every possible per-type config
+ * (that is LIST2-7/8's authoring-UI scope).
+ */
+const ListFieldAliasSchema = z.string().superRefine((value, ctx) => {
+  const error = validateFieldAliasFormat(value);
+  if (error) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: error });
+  }
+});
+
+const ListFieldQuestionTypeSchema = z.string().refine(
+  (value) => (LIST_FIELD_QUESTION_TYPES as readonly string[]).includes(value),
+  { message: 'Invalid list field question type' }
+);
+
+const QuestionListFieldSchema = z.object({
+  kind: z.literal('question'),
+  id: z.string().min(1),
+  alias: ListFieldAliasSchema,
+  type: ListFieldQuestionTypeSchema,
+  title: z.string(),
+  description: z.string().optional(),
+  required: z.boolean().optional(),
+  order: z.number(),
+  config: z.unknown().optional(),
+  visibleIf: conditionExpressionSchema.optional(),
+});
+
+function buildListFieldSchema(depth: number): z.ZodTypeAny {
+  if (depth >= LIST_VALIDATION_MAX_DEPTH) {
+    // Depth cap reached: a nested "list" field is not offered at all here.
+    return QuestionListFieldSchema;
+  }
+  return z.union([
+    QuestionListFieldSchema,
+    z.object({
+      kind: z.literal('list'),
+      id: z.string().min(1),
+      alias: ListFieldAliasSchema,
+      title: z.string(),
+      description: z.string().optional(),
+      order: z.number(),
+      list: z.lazy(() => buildListConfigSchema(depth + 1)),
+    }),
+  ]);
+}
+
+function buildListConfigSchema(depth: number): z.ZodTypeAny {
+  return z
+    .object({
+      fields: z.array(buildListFieldSchema(depth)),
+      minItems: z.number().int().min(0).optional(),
+      maxItems: z.number().int().min(0).optional(),
+      labelTemplate: z.string().optional(),
+      addButtonText: z.string().optional(),
+      allowReorder: z.boolean().optional(),
+      emptyStateText: z.string().optional(),
+    })
+    .superRefine((config, ctx) => {
+      const duplicates = findDuplicateFieldAliases(config.fields as ListField[]);
+      if (duplicates.size > 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['fields'],
+          message: `Duplicate field alias(es) at this level: ${[...duplicates].join(', ')}`,
+        });
+      }
+    });
+}
+
+export const ListConfigSchema = buildListConfigSchema(1) as z.ZodType<ListConfig>;
+
+// ============================================================================
 // CONFIG VALIDATOR FACTORY
 // ============================================================================
 
@@ -440,6 +533,9 @@ export function getConfigSchema(stepType: string): z.ZodTypeAny | undefined {
     computed: ComputedStepConfigSchema,
     file_upload: FileUploadConfigSchema,
     final_documents: FinalBlockConfigSchema,
+
+    // Structural
+    list: ListConfigSchema,
   };
 
   return schemaMap[stepType];
