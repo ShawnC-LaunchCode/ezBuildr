@@ -64,3 +64,6 @@ tools/skill-trigger-eval/results/
 
 # TypeScript incremental build cache (tree-local, per worktree)
 .tsbuildinfo
+
+# Playwright MCP output (snapshots, console logs, screenshots) — see the verify skill
+.playwright-mcp/

@@ -1353,7 +1353,34 @@ contract anyway.
 
 ---
 
-## LIST2-11 — `MappingValidator` doesn't project list values 🔲
+## LIST2-11 — `MappingValidator` doesn't project list values ⛔ BLOCKED → re-scoped as LIST2-14
+
+> **Closed unstarted, 2026-08-01. The dev was right and the ticket was wrong.**
+> No files were touched; the worktree was torn down clean.
+>
+> The ticket assumed the two call sites could reach the workflow's steps. They
+> cannot, and neither can anything above them:
+>
+> | Symbol | Signature | Workflow reference |
+> |---|---|---|
+> | `validateWithTestData` | `(templateId, mapping, testStepValues)` | none |
+> | `validateSourceVariables` | `(mapping, testStepValues)` | none |
+> | `POST /templates/:id/test-mapping` | has `templateId` + `tenantId`; `testData` from the request body | none |
+> | `TemplatePreviewService.generatePreview` | `GeneratePreviewOptions` = `templateId`, `mapping`, `sampleData`, `outputFormat`, `expiresIn`, `validateMapping` | none |
+>
+> This is by design, not an oversight: a template is **project**-scoped and
+> reusable across workflows, so at this layer there is no single "the workflow"
+> to resolve steps from. That is exactly the escape hatch this ticket's Preferred
+> fix named ("If a call site genuinely has no access to the workflow's steps,
+> stop and report that"), and it fired correctly.
+>
+> Verified independently by the reviewer, not taken on report.
+>
+> **Reviewer's design call:** the fix is real but is an M-sized cross-tier change,
+> not the same-file threading job described here. Re-scoped as **LIST2-14** below,
+> with the shape decided so it is no longer a judgment call for the dev.
+
+## LIST2-11 (original text, for reference) 🔲
 
 **Priority: P2** · Size: S · File: `server/services/document/MappingValidator.ts`
 
@@ -1572,6 +1599,87 @@ selected step changes, or the last edit before switching steps is lost.
    with no debounce at all.
 6. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
    green at ≥ 2246.
+
+---
+
+## LIST2-14 — Thread normalization options into template-mapping validation 🔲
+
+**Priority: P2** · Size: M · Files: `server/routes/templates.routes.ts`,
+`server/services/document/MappingValidator.ts`,
+`server/services/TemplatePreviewService.ts`,
+`client/src/components/builder/tabs/TemplatesTab.tsx`
+
+Replaces LIST2-11, which was closed unstarted once its premise was disproved
+(see above). The **defect is unchanged**; only the shape of the fix is new.
+
+### Finding
+
+Template-mapping *validation* calls `normalizeVariables(testStepValues)` with no
+options at `MappingValidator.ts` (both call sites), while *rendering*
+(`finalBlock.routes.ts`, `RunLifecycleService.ts`) passes `listConfigs`
+(LIST-11) and `listBoundChoices` (LIST2-6). So validation sees the raw
+`{ items: [{ itemId, values }] }` envelope and raw UUIDs where rendering sees
+the projected array and resolved labels — a mapping onto a list variable, or
+onto a list-bound choice, can report a false warning for a document that renders
+perfectly. Generated output is unaffected; this is a validation surface only.
+
+### Preferred fix — decided, do not redesign
+
+**`MappingValidator` stays workflow-ignorant.** It must not learn to query
+steps. Give both methods an optional trailing `normalizationOptions?:
+NormalizationOptions` and pass it straight through to `normalizeVariables`.
+That is the whole change in that file.
+
+**Resolution happens in the route**, which already has `tenantId` and auth:
+
+1. `POST /templates/:id/test-mapping` and `POST /templates/:id/preview` accept an
+   **optional** `workflowId` in the body.
+2. The route loads that workflow's steps and builds the bundle with the existing
+   exported collectors — `getListConfigsByAlias(steps)` and
+   `getChoiceListBindingsByAlias(steps)`. Do not reimplement either.
+3. `GeneratePreviewOptions` gains optional `normalizationOptions` (**not**
+   `workflowId`) so `TemplatePreviewService` stays a pass-through too.
+4. `TemplatesTab.tsx` already receives `workflowId` as a prop — send it.
+
+**Optional at every level.** When `workflowId` is absent, behavior must be
+byte-identical to today. A template previewed with no workflow context is a
+legitimate case, not an error.
+
+> **Security — this is the part that makes it a design call.** The client sends
+> a `workflowId`, **never** the resolved `listConfigs`/`listBoundChoices`.
+> Accepting caller-supplied config here would be a mass-assignment hole. The
+> route **must** verify the workflow belongs to the authenticated tenant before
+> reading its steps, or this becomes a cross-tenant read primitive: pass a
+> victim's `workflowId` and their step definitions come back inside a validation
+> report. Load the `add-api-endpoint` skill and follow its tenancy pattern; see
+> `docs/architecture/SECURITY_THREAT_MODEL.md`.
+
+### Ties
+
+- Load `add-api-endpoint` (route + tenancy) and `run-tests`.
+- Donors: `RunLifecycleService.ts` and `finalBlock.routes.ts` — the two
+  correctly-wired call sites; mirror how they build the bundle.
+- Related: LIST-11, LIST2-6 (both merged; neither changes here).
+- No collisions with LIST2-8, LIST2-10, LIST2-12 or LIST2-13.
+
+### Acceptance criteria
+
+1. Both `normalizeVariables` call sites in `MappingValidator.ts` accept and pass
+   through `normalizationOptions`; the validator gains **no** DB access.
+2. A mapping onto a `list` alias validates without a false warning when
+   `workflowId` is supplied — and warns before the fix.
+3. Same for a mapping onto a list-bound `choice`.
+4. Omitting `workflowId` produces results byte-identical to today — asserted
+   against a fixture that *does* produce warnings, so the test would catch a
+   behavior change rather than passing on an empty result.
+5. A `workflowId` belonging to **another tenant** is rejected (404/403 per the
+   error contract) and never causes that workflow's steps to be read. This has
+   its own test.
+6. `getListConfigsByAlias`, `getChoiceListBindingsByAlias` and
+   `normalizeVariables` are unchanged.
+7. New tests assert 2–5, each shown to fail without the fix.
+8. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
+   green at ≥ 2261; the touched integration file passes.
 
 ---
 
