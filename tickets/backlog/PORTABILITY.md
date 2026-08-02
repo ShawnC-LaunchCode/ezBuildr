@@ -1,14 +1,12 @@
-# Backlog detail — Portability, import/export (IEX / IEX2)
+# Backlog detail — Portability, import/export (IEX / IEX2 / IEX3)
 
 Full text for the `IEX-*` entries indexed in [`../BACKLOG.md`](../BACKLOG.md),
 plus the **standing decisions** rounds 1 and 2 ruled on. **Read this file only
 when promoting an entry, or when a portability ticket needs a settled ruling.**
 
-Round 3 is **active** — its open tickets live in
-[`../IMPORT_EXPORT_3_TICKETS.md`](../IMPORT_EXPORT_3_TICKETS.md), not here. Its
-own `IEX3-B*` backlog stays in that file until the initiative closes.
+**All three rounds are closed. There is no active portability ticket file.**
 
-Rounds 1 and 2 are closed:
+Rounds 1, 2 and 3 are closed:
 
 - **Round 1 (IEX-1..15)** built the engine: entity graph, allowlist, bundle
   format, single-object export and import. Closed 2026-07-31.
@@ -17,10 +15,18 @@ Rounds 1 and 2 are closed:
   2026-07-31. Baselines at close: `test:fast` 155 files / 2053 tests,
   portability unit-db 74 tests across 7 files, portability integration 25 tests
   across 3 files.
+- **Round 3 (IEX3-1..11)** made the bundle complete and honest, then gave it a
+  UI: reference-driven workflow-scope export, config-embedded reference
+  reporting, round-trip fidelity for all 37 step types, the pre-download
+  disclosure dialog and the import preview → apply screen. Closed 2026-08-02,
+  pushed through `59dd30c5`. Baselines at close: `test:fast` 181 files / 2313
+  tests, portability unit-db 136 tests across 14 files, portability integration
+  40 tests across 4 files.
 
 ```bash
 git log -p -- tickets/IMPORT_EXPORT_TICKETS.md     # round 1
 git log -p -- tickets/IMPORT_EXPORT_2_TICKETS.md   # round 2
+git log -p -- tickets/IMPORT_EXPORT_3_TICKETS.md   # round 3
 ```
 
 ---
@@ -220,6 +226,47 @@ These govern any portability work, including round 3. **Do not re-litigate.**
 
 ---
 
+# Round 3 leftovers (IEX3)
+
+Everything round 3 filed and did not do. Its two genuinely dispatchable items
+(`IEX3-B5`, and `IEX3-B6`/`B7`) were **fixed at the retire** rather than parked —
+see the closed table below.
+
+## IEX3-B1 — List field aliases are outside collision detection · `enhancement`
+
+`ImportService.processEntityStream()` keys the duplicate-alias check on
+`` `${data['workflowId']}::${data['alias']}` `` — the step's own alias column
+only. It never descends into `steps.config.fields[].alias`, so two List fields
+sharing an alias import without being flagged.
+
+Low impact: List field aliases are item-scoped, so a collision inside one List
+does not corrupt anything outside it. Cheap to fix now that
+`collectConfigEntityRefs` exists — the same walk, keyed on `alias` instead of
+the reference keys. Verified still true 2026-08-02 (`ImportService.ts`, the
+`extracted.stepAliases.has(scopeKey)` branch).
+
+## IEX3-B2 — `remapJsonIds` never remaps object *keys* · `informational`
+
+Its docblock is explicit that it rewrites string *values* only. Nothing in the
+schema currently uses id-keyed jsonb, so there is nothing to fix — this is
+recorded so a future audit does not re-file it as a finding. **Re-check when a
+new jsonb column is added that could be keyed by entity id.** If one ever is,
+the fix belongs in the caller, not in `remapJsonIds`: it is the one shared
+implementation for three callers (DEBT-12).
+
+## IEX3-B3 — a `.ezb` has no human-readable file · `enhancement`
+
+The bundle is a zip of `manifest.json` + JSONL, readable only by this app.
+A short generated `README.txt` at the root — what this is, which app made it,
+what was deliberately excluded, what must be re-entered — would make the
+artifact self-describing for anyone who receives one without the UI.
+
+Pairs naturally with the disclosure work: `EXCLUSION_CATEGORIES` and
+`manifest.requiresReentry` are already the exact prose this file would need, so
+it is mostly assembly. Depends on nothing.
+
+---
+
 ## Closed / withdrawn — do not re-file
 
 | Entry | Resolution |
@@ -230,3 +277,18 @@ These govern any portability work, including round 3. **Do not re-litigate.**
 | IEX-B8 — per-entry streaming on the read path | Same item as **IEX-D7**; merged 2026-08-02 |
 | IEX-B9 — `audit_logs` declared twice | **WITHDRAWN 2026-07-28 — the finding was wrong.** There is exactly one `pgTable("audit_logs", …)`, in `shared/schema/auth.ts`. The duplicate scan matched a *comment* in `shared/schema/relations.ts` quoting the declaration in backticks. The same unanchored regex was in `schemaCoverage.test.ts`; it is now anchored to `^export const` |
 | IEX2-16 — minimal export/import UI | **Superseded** by IEX3-4 + IEX3-5, which build the real surface. The 2026-07-29 *"dont worry about UI yet"* ruling is spent — its precondition (Phases A–C committed, round trip working on real data) was met |
+| IEX3-1 — workflow-scope export omits entities its own rows require | Shipped `fef6e4fa`. Reference-driven selection for templates and DataVault, `dropIfUnresolved`, import-side re-parenting |
+| IEX3-2 — entity ids embedded in jsonb never checked | Shipped `e84bbe62`. `shared/types/stepConfigRefs.ts` + import-side reporting |
+| IEX3-3 — round-trip coverage per question type | Shipped `e6d49dbf`. All 37 `stepTypeEnum` values, `SKIPPED` empty; the coverage test gates `add-step-type` |
+| IEX3-4 — export UI with pre-download disclosure | Shipped `f495a1af`. Manifest dry-run route + dialog; `EXCLUSION_CATEGORIES` test-locked to `EXCLUDED_TABLES` |
+| IEX3-5 — import UI: upload → preview → apply | Shipped `34d58a0b`. `/workflows/import`, shared `portability/disclosure.tsx` |
+| IEX3-6 — visual confirmation in the builder | Closed 2026-08-02. Also closed round 1's IEX-11 AC 8 |
+| IEX3-7 — `secrets.valueEnc` NOT NULL broke every project import | Shipped `1588f1dc`. `withheldColumns` on the descriptor |
+| IEX3-8 — the import screen's "Rename" field did nothing | Shipped `82bd6019`. `applyOptionsSchema` allowlisted `name`; `apply` never read it |
+| IEX3-9 — `adjustments` never left the server | Shipped `e086ca15`. Route returns it, result screen renders it |
+| IEX3-10 — export disclosure discarded all non-`secret_scan` warnings | Shipped `1309be1c`. Causes rendered, knock-on row drops counted |
+| IEX3-11 — AC 6 focus, collision copy, dead `WARNING_ICONS` | Shipped `59dd30c5` |
+| IEX3-B4 — replace `adm-zip` on the read side | Same item as **IEX-D7**; merged 2026-08-02. Track it there |
+| IEX3-B5 — DataVault bound only from a step config did not travel | **Fixed at the round-3 retire.** `ExportService.collectConfigDatabaseIds` feeds `collectConfigEntityRefs` into the export's reference collection, resolving table→database and column→table→database. Covers `blocks.config` too, so the same gap could not reopen one entity over |
+| IEX3-B6 — the verification harness deleted the evidence it printed | **Fixed at the round-3 retire.** `PORTABILITY_VERIFY_KEEP=1` skips teardown and prints the cleanup SQL |
+| IEX3-B7 — the harness could not run against a stock `npm run dev` | **Fixed at the round-3 retire.** It no longer touches `POST /api/auth/register` (fail-closed public signup, 403); it creates the user and credentials directly and still proves them against the real login route. Also fixed a latent DB-init race the old ordering hid |

@@ -14,6 +14,10 @@ This file is deliberately **not** named `*_TICKETS.md`, because that glob is
 what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 `tickets/*_TICKETS.md`; parked observations live here.
 
+> **As of 2026-08-02 that glob matches nothing — every initiative is closed.**
+> An empty result means there is no open work, not that the folder is broken.
+> The next initiative creates its own `<NAME>_TICKETS.md`.
+
 ### Why an entry is parked
 
 | Tag | Meaning | What unblocks it |
@@ -46,6 +50,9 @@ IDs are stable, heading anchors are not.
 | IEX-B3 | `product-decision` | Restore mode (reuse original UUIDs) | `backlog/PORTABILITY.md` |
 | IEX-B4 | `product-decision` | Passphrase-wrapped secrets sidecar | `backlog/PORTABILITY.md` |
 | IEX-B7 | `operational` | Real DR: Neon PITR + scheduled `pg_dump` | `backlog/PORTABILITY.md` |
+| IEX3-B1 | `enhancement` | List field aliases are outside collision detection | `backlog/PORTABILITY.md` |
+| IEX3-B2 | `informational` | `remapJsonIds` never remaps object keys — nothing needs it yet | `backlog/PORTABILITY.md` |
+| IEX3-B3 | `enhancement` | A `.ezb` has no human-readable `README.txt` | `backlog/PORTABILITY.md` |
 | Phase 3 | `needs-initiative` | Client-wide export/import (ask #2) | `backlog/PORTABILITY.md` |
 | Phase 4 | `needs-initiative` | Admin multi-tenant archive (ask #1) | `backlog/PORTABILITY.md` |
 | DEBT-11 | `product-decision` | RLS policies defined but not enforced | `backlog/TECH_DEBT.md` |
@@ -88,11 +95,13 @@ is a bug; all are enhancements or deferred design.
 
 ## Portability / import-export — [detail](backlog/PORTABILITY.md)
 
-Rounds 1 and 2 closed. **Round 3 is active** — see
-[`IMPORT_EXPORT_3_TICKETS.md`](IMPORT_EXPORT_3_TICKETS.md); its `IEX3-B*`
-backlog stays there until it closes. The detail file also holds the **standing
-decisions D-1..D-5**, which govern round-3 work — read them before ruling on
-anything portability-shaped.
+**All three rounds are closed — there is no active portability ticket file.**
+Round 3 (`IEX3-1..11`) shipped the complete bundle and its UI, closing
+2026-08-02 through `59dd30c5`; recover its detail with
+`git log -p -- tickets/IMPORT_EXPORT_3_TICKETS.md`. The detail file also holds
+the **standing decisions D-1..D-5**, which govern any future portability work —
+read them before ruling on anything portability-shaped, and check its
+`Closed — do not re-file` table before filing a finding.
 
 - **IEX-D7 — replace `adm-zip` on the read side** · `needs-initiative`. Ruled
   2026-07-29 as its own initiative, **sequenced before Phase 3**: adm-zip has no
@@ -112,6 +121,18 @@ anything portability-shaped.
 - **IEX-B7 — real DR: Neon PITR + scheduled `pg_dump`** · `operational`. Per
   D-4 this, not the admin archive, is the backup story. Ops task; **was tracked
   nowhere until now.**
+- **IEX3-B1 — List field aliases outside collision detection** · `enhancement`.
+  The duplicate-alias check reads `steps.alias` only and never descends into
+  `steps.config.fields[]`. Low impact (those aliases are item-scoped), cheap
+  now that the config walker exists.
+- **IEX3-B2 — `remapJsonIds` never remaps object keys** · `informational`.
+  Nothing in the schema uses id-keyed jsonb, so there is nothing to fix.
+  Recorded so it is not re-filed as a finding; re-check if such a column
+  appears.
+- **IEX3-B3 — a `.ezb` has no human-readable file** · `enhancement`. A
+  generated `README.txt` would make a received bundle self-describing without
+  the app. Mostly assembly — `EXCLUSION_CATEGORIES` and `requiresReentry`
+  already hold the prose.
 - **Phase 3 — client-wide export/import** · `needs-initiative`. Scope settled
   (D-1, D-3). Sequenced after IEX-D7. Extend round 3's UI, don't build a second.
 - **Phase 4 — admin multi-tenant archive** · `needs-initiative`. Tenant
