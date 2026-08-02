@@ -185,6 +185,50 @@ describe('ListLevelEditor — Add Question palette (LIST2-1)', () => {
   });
 });
 
+describe('ListFieldRow — Settings disclosure (LIST2-7 AC7, AC3)', () => {
+  it('starts collapsed — the settings panel is not in the document until "Settings" is clicked', () => {
+    const config: ListConfig = {
+      fields: [questionField({ id: 'f1', alias: 'rating', title: 'Rating', order: 0, type: 'scale' })],
+    };
+
+    render(<ListLevelEditor config={config} onChange={vi.fn()} depth={1} />);
+
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument();
+    expect(screen.queryByText('Description', { selector: 'label' })).not.toBeInTheDocument();
+  });
+
+  it('opens the settings panel for the clicked row only, and wires an edit back through onChange (LIST2-7 AC3)', async () => {
+    const config: ListConfig = {
+      fields: [
+        questionField({ id: 'f1', alias: 'rating', title: 'Rating', order: 0, type: 'scale' }),
+        questionField({ id: 'f2', alias: 'other', title: 'Other', order: 1, type: 'short_text' }),
+      ],
+    };
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+
+    render(<ListLevelEditor config={config} onChange={onChange} depth={1} />);
+
+    await user.click(screen.getAllByRole('button', { name: 'Settings' })[0]);
+
+    // Only one row's settings panel is open.
+    expect(screen.getAllByText('Description', { selector: 'label' })).toHaveLength(1);
+
+    const minimumValueLabel = screen.getByText(/^Minimum Value/, { selector: 'label' });
+    const minimumValueInput = minimumValueLabel.nextElementSibling as HTMLInputElement;
+    fireEvent.change(minimumValueInput, { target: { value: '3' } });
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const [nextConfig] = onChange.mock.calls[0] as [ListConfig];
+    expect(nextConfig.fields[0]).toMatchObject({
+      id: 'f1',
+      config: { min: 3, max: 10, step: 1, display: 'slider' },
+    });
+    // The sibling field is untouched.
+    expect(nextConfig.fields[1]).toEqual(config.fields[1]);
+  });
+});
+
 describe('listEditorHelpers — reorderFields / removeField (LIST-6 AC2)', () => {
   it('reorders fields and reassigns order sequentially', () => {
     const fields: ListField[] = [

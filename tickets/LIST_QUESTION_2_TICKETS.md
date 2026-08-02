@@ -929,7 +929,7 @@ Both tickets land in the same host component, so they are **sequential**.
 
 ---
 
-## LIST2-7 — Per-field settings panel (host + Scale/Number/Display/MultiField) 🔲
+## LIST2-7 — Per-field settings panel (host + Scale/Number/Display/MultiField) ✅
 
 **Priority: P1** · Size: L · File: `client/src/components/builder/cards/list/ListLevelEditor.tsx`
 
@@ -1022,6 +1022,52 @@ explicitly **out of scope**; `choice` is LIST2-8.
 9. New tests assert 3–6 and 8; the four editors' existing tests pass unchanged.
 10. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
     green.
+
+### Verification pass — 2026-08-01 (reviewer)
+
+All 10 criteria met. `test:fast` **2261 passed / 0 failed** (from 2246),
+repo-wide lint exit 0. This is the ticket the whole initiative existed for: a
+`scale` field inside a list now has bounds, a `number` has a range, `display`
+has content, `multi_field` has sub-fields, and every question field has
+`description` and `visibleIf`.
+
+Verified by mutation, not on report:
+- Breaking `handleConfigChange` so it drops `config` fails all four AC3/AC4
+  capability tests.
+- Stripping `config` from LIST2-3's `ListConfigSchema` fails the AC8
+  round-trip test — confirming that test is a real net over the
+  LIST2-3 × LIST2-7 interaction (a `visibleIf` shape that failed
+  `conditionExpressionSchema` would have had the **entire config rejected on
+  save**, which is the sharpest edge in this ticket).
+
+AC1 verified mechanically: the four extracted sections contain zero
+`useUpdateStep` *calls* — the four grep hits are comments explaining their
+absence. The wrappers retain the mutation.
+
+All three deviations accepted. The second is the notable one: `VisibilityField`
+could not be reused because **it self-saves against a real step id** — exactly
+the coupling this phase exists to work around (see the Phase 2 preamble). The
+dev reused its `ConditionGroup`/`LogicStatusText` primitives instead, which is
+the right decomposition.
+
+**AC2 was a bad criterion — my fault, and the second instance this initiative.**
+"Existing tests pass unmodified" is vacuous for these four editors: they have
+**no** dedicated tests, so nothing could have failed. That means a refactor of
+four live builder editors shipped with no regression net of its own. I read all
+four wrapper diffs and confirmed the moved logic landed intact in the extracted
+sections — scale's invalid-config save gate and stars defaulting, number's
+advanced/currency/number mode derivation and min>max message, display's
+markdown handling, multi-field's layout presets and per-sub-field label and
+**required** toggles. Faithful, but *reviewed*, not *tested*. Same lesson as
+LIST2-1's AC7: **an acceptance criterion that names existing tests must first
+establish that those tests exist.**
+
+**Live proof still owed, and now for two tickets.** The dev declined to write
+throwaway tenant/workflow rows into the shared dev DB because the repo owner
+works this repo from a second IDE — a good call on a shared resource, and the
+right instinct. But LIST2-1 and LIST2-7 are now both unverified in a browser,
+and they compose: LIST2-7's settings disclosure hangs off LIST2-1's field row.
+This is the single highest-value thing left before LIST2-8.
 
 ---
 

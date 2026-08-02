@@ -156,6 +156,113 @@ describe("ListDrillEditor — LIST2-5 aliasMap threading", () => {
 });
 
 /**
+ * LIST2-7 AC5/AC6 — the runner side of a field's `description` and
+ * `visibleIf` was already correct (Decision #2 in the LIST2 tickets); this
+ * proves the builder-authored shapes actually reach it: a `description`
+ * renders under the field, and a field hidden by `visibleIf` (evaluated
+ * against this item's own sibling values) does not render at all.
+ */
+describe("ListDrillEditor — LIST2-7 description + visibleIf", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  function makeStepWithFields(fields: Array<Record<string, unknown>>): ApiStep {
+    return {
+      id: "step-list-2",
+      workflowId: "wf-1",
+      sectionId: "sec-1",
+      type: "list",
+      title: "Item",
+      description: null,
+      required: false,
+      alias: "items",
+      order: 1,
+      isVirtual: false,
+      createdAt: "2026-08-01T00:00:00.000Z",
+      config: { fields },
+    } as unknown as ApiStep;
+  }
+
+  function DescriptionHarness({ step, values }: { step: ApiStep; values: Record<string, unknown> }) {
+    const { drill, enterList } = useListDrill();
+    const value: ListValue = { items: [{ itemId: "item-1", values }] };
+
+    useEffect(() => {
+      if (!drill) {
+        enterList(step.id, { fieldAlias: null, itemId: "item-1", label: "Item 1" });
+      }
+    }, [drill, enterList, step.id]);
+
+    if (!drill) {
+      return null;
+    }
+
+    return <ListDrillEditor step={step} value={value} onChange={() => undefined} drill={drill} />;
+  }
+
+  it("AC5: renders a question field's description beneath it", async () => {
+    const step = makeStepWithFields([
+      {
+        kind: "question",
+        id: "f1",
+        alias: "notes",
+        type: "short_text",
+        title: "Notes",
+        description: "Keep it brief.",
+        order: 0,
+      },
+    ]);
+
+    render(
+      <ListDrillProvider>
+        <DescriptionHarness step={step} values={{ notes: "" }} />
+      </ListDrillProvider>
+    );
+
+    expect(await screen.findByText("Keep it brief.")).toBeInTheDocument();
+  });
+
+  it("AC6: a field hidden by visibleIf (evaluated against this item's sibling values) does not render", async () => {
+    const step = makeStepWithFields([
+      {
+        kind: "question",
+        id: "trigger",
+        alias: "trigger",
+        type: "short_text",
+        title: "Trigger",
+        order: 0,
+      },
+      {
+        kind: "question",
+        id: "hidden",
+        alias: "hidden_field",
+        type: "short_text",
+        title: "Hidden Field",
+        order: 1,
+        visibleIf: {
+          id: "g1",
+          type: "group",
+          operator: "AND",
+          conditions: [
+            { id: "c1", type: "condition", variable: "trigger", operator: "equals", valueType: "constant", value: "show" },
+          ],
+        },
+      },
+    ]);
+
+    render(
+      <ListDrillProvider>
+        <DescriptionHarness step={step} values={{ trigger: "no", hidden_field: "" }} />
+      </ListDrillProvider>
+    );
+
+    await screen.findByDisplayValue("no"); // wait for the trigger field to render
+    expect(screen.queryByText("Hidden Field")).not.toBeInTheDocument();
+  });
+});
+
+/**
  * AC4, added by the reviewer once LIST2-3's `normalizeListConfig` landed —
  * the dev correctly reported this blocked rather than writing a second copy
  * of the helper. `step.config` is jsonb, so a row predating LIST2-3's schema

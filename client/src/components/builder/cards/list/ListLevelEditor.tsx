@@ -25,7 +25,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { AlertCircle, ChevronDown, ChevronRight, GripVertical, Plus, Trash2 } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronRight, GripVertical, Plus, Settings2, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { QuestionTypeIcon } from "@/components/shared/QuestionTypeIcon";
@@ -38,6 +38,7 @@ import { getBlockByType } from "@/lib/blockRegistry";
 import { LIST_VALIDATION_MAX_DEPTH } from "@shared/validation/BlockValidation";
 import type { ListConfig, ListField, ListFieldQuestionType } from "@shared/types/stepConfigs";
 
+import { ListFieldSettings } from "./ListFieldSettings";
 import { ListFieldTypeMenu } from "./ListFieldTypeMenu";
 import {
   NESTED_LIST_TYPE_VALUE,
@@ -104,6 +105,7 @@ export function ListLevelEditor({ config, onChange, depth }: ListLevelEditorProp
                   depth={depth}
                   canNest={canNest}
                   isDuplicateAlias={isDuplicateFieldAlias(field.alias, duplicateAliases)}
+                  siblingFields={fields.filter((sibling) => sibling.id !== field.id)}
                   onChange={(next) => handleFieldsChange(replaceField(fields, field.id, next))}
                   onRemove={() => handleFieldsChange(removeField(fields, field.id))}
                 />
@@ -144,13 +146,18 @@ interface ListFieldRowProps {
   depth: number;
   canNest: boolean;
   isDuplicateAlias: boolean;
+  /** This field's siblings at the same level — passed through to
+   * `ListFieldSettings` so a field's `visibleIf` can only reference another
+   * field in the same item (LIST2-7). */
+  siblingFields: readonly ListField[];
   onChange: (next: ListField) => void;
   onRemove: () => void;
 }
 
-function ListFieldRow({ field, index, depth, canNest, isDuplicateAlias, onChange, onRemove }: ListFieldRowProps) {
+function ListFieldRow({ field, index, depth, canNest, isDuplicateAlias, siblingFields, onChange, onRemove }: ListFieldRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
   const [isExpanded, setIsExpanded] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const style = { transform: CSS.Transform.toString(transform), transition };
   const aliasError = validateFieldAliasFormat(field.alias) ?? (isDuplicateAlias ? "Duplicate alias at this level" : null);
@@ -237,6 +244,16 @@ function ListFieldRow({ field, index, depth, canNest, isDuplicateAlias, onChange
                   checked={field.required ?? false}
                   onCheckedChange={(required) => onChange({ ...field, required })}
                 />
+                <button
+                  type="button"
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setIsSettingsOpen((v) => !v)}
+                  aria-expanded={isSettingsOpen}
+                >
+                  <Settings2 className="h-3 w-3" />
+                  Settings
+                  {isSettingsOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                </button>
               </div>
             )}
 
@@ -264,6 +281,12 @@ function ListFieldRow({ field, index, depth, canNest, isDuplicateAlias, onChange
             Level {depth + 1} of {LIST_VALIDATION_MAX_DEPTH}
           </p>
           <ListLevelEditor config={field.list} onChange={(list) => onChange({ ...field, list })} depth={depth + 1} />
+        </div>
+      )}
+
+      {field.kind === "question" && isSettingsOpen && (
+        <div className="ml-6 mr-3 mb-3 pl-4 border-l-2 border-muted">
+          <ListFieldSettings field={field} siblingFields={siblingFields} onChange={onChange} />
         </div>
       )}
     </div>

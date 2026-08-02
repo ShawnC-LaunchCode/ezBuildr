@@ -11,8 +11,6 @@
  * Note: Display blocks should NOT have "required" toggle (nothing to require)
  */
 
-import { useState, useEffect } from "react";
-
 import { Separator } from "@/components/ui/separator";
 import { useUpdateStep } from "@/lib/vault-hooks";
 
@@ -21,7 +19,7 @@ import type { DisplayConfig, DisplayAdvancedConfig } from "@shared/types/stepCon
 
 import type { StepEditorCommonProps } from "./common/stepEditorProps";
 
-import { TextAreaField, SectionHeader } from "./common/EditorField";
+import { DisplayContentSection } from "./DisplayCardEditor.components";
 import { VisibilityField } from "./common/VisibilityField";
 
 
@@ -30,29 +28,10 @@ export function DisplayCardEditor({ stepId, sectionId, step, workflowId }: StepE
 
   // Parse config (works for both easy and advanced mode)
   const config = step.config as (DisplayConfig | DisplayAdvancedConfig) | undefined;
-  const [localConfig, setLocalConfig] = useState({
-    markdown: config?.markdown ?? "",
-  });
 
-  useEffect(() => {
-    const config = step.config as (DisplayConfig | DisplayAdvancedConfig) | undefined;
-    setLocalConfig({
-      markdown: config?.markdown ?? "",
-    });
-  }, [step.config]);
-
-  const handleUpdate = (updates: Partial<typeof localConfig>) => {
-    const newConfig = { ...localConfig, ...updates };
-    setLocalConfig(newConfig);
-
-    const configToSave: DisplayConfig = {
-      markdown: newConfig.markdown,
-    };
-
-    updateStepMutation.mutate({ id: stepId, sectionId, config: configToSave });
+  const handleConfigChange = (nextConfig: DisplayConfig) => {
+    updateStepMutation.mutate({ id: stepId, sectionId, config: nextConfig });
   };
-
-
 
   return (
     <div className="space-y-4 p-4 border-t bg-muted/30">
@@ -64,50 +43,10 @@ export function DisplayCardEditor({ stepId, sectionId, step, workflowId }: StepE
 
       <Separator />
 
-      {/* Markdown Content */}
-      <div className="space-y-3">
-        <SectionHeader
-          title="Content"
-          description="Enter markdown content to display"
-        />
-
-        <TextAreaField
-          label="Markdown"
-          value={localConfig.markdown}
-          onChange={(val) => handleUpdate({ markdown: val })}
-          placeholder="# Welcome\n\nThis is a **display block** that shows formatted content."
-          description="Supports markdown formatting"
-          rows={12}
-          required
-        />
-      </div>
-
-      {/* Markdown Help */}
-      <div className="text-xs text-muted-foreground bg-muted p-3 rounded-md">
-        <p className="font-medium mb-2">Markdown Syntax:</p>
-        <div className="space-y-1 font-mono">
-          <div><span className="text-foreground"># Heading 1</span></div>
-          <div><span className="text-foreground">## Heading 2</span></div>
-          <div><span className="text-foreground">**bold text**</span></div>
-          <div><span className="text-foreground">*italic text*</span></div>
-          <div><span className="text-foreground">- List item</span></div>
-          <div><span className="text-foreground">[link](https://example.com)</span></div>
-          <div className="mt-2 font-sans">
-            Variable interpolation: <code className="font-mono">{`{{variableName}}`}</code>
-          </div>
-        </div>
-      </div>
-
-      {/* Preview Info */}
-      <div className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950 p-3 rounded-md border border-blue-200 dark:border-blue-800">
-        <p className="font-medium mb-1">ℹ️ Display Block Behavior:</p>
-        <ul className="list-disc list-inside space-y-1">
-          <li>No user input required</li>
-          <li>Does not create a variable</li>
-          <li>Use for instructions, headers, or informational content</li>
-          <li>Can reference other variables using <code className="font-mono">{`{{alias}}`}</code></li>
-        </ul>
-      </div>
+      {/* Content — extracted into DisplayContentSection (LIST2-7) so
+          ListFieldSettings can render the identical panel for a `display`
+          list field. */}
+      <DisplayContentSection config={config} onChange={handleConfigChange} />
 
       {workflowId && (
         <VisibilityField

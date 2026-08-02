@@ -1,8 +1,14 @@
 
+import { AlertCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Separator } from "@/components/ui/separator";
 
-import { TextField, NumberField, SectionHeader } from "./common/EditorField";
+import type { ScaleAdvancedConfig } from "@shared/types/stepConfigs";
+
+import { TextField, NumberField, SectionHeader, SwitchField } from "./common/EditorField";
 
 export interface ScaleCardState {
     min: number;
@@ -132,3 +138,150 @@ export const RangeSection = ({
         />
     </div>
 );
+
+function validateScaleCardState(config: ScaleCardState): string[] {
+    const errs: string[] = [];
+
+    if (config.min >= config.max) {
+        errs.push("Minimum value must be less than maximum value");
+    }
+
+    if (config.step <= 0) {
+        errs.push("Step must be greater than 0");
+    }
+
+    if (config.display === "stars") {
+        if (config.stars === null || config.stars === undefined || config.stars < 1) {
+            errs.push("Number of stars must be at least 1");
+        }
+        if (config.stars !== null && config.stars !== undefined && config.stars > 12) {
+            errs.push("Number of stars should not exceed 12");
+        }
+    }
+
+    return errs;
+}
+
+function toScaleCardState(config: ScaleAdvancedConfig | undefined): ScaleCardState {
+    return {
+        min: config?.min ?? 1,
+        max: config?.max ?? 10,
+        step: config?.step ?? 1,
+        display: (config?.display ?? "slider") as "slider" | "stars",
+        stars: config?.stars,
+        showValue: config?.showValue ?? true,
+        minLabel: config?.minLabel ?? "",
+        maxLabel: config?.maxLabel ?? "",
+    };
+}
+
+/**
+ * Presentational, save-free Scale settings panel (LIST2-7). Composes
+ * `DisplayModeSection` + `RangeSection` + the "Show Current Value" toggle +
+ * validation errors, and calls `onChange` with a complete `ScaleAdvancedConfig`
+ * on every valid edit — no `useUpdateStep` call, so it works identically as a
+ * standalone step's settings body or embedded in a List field's drilled
+ * settings (`ListFieldSettings`).
+ */
+export function ScaleSettingsSection({
+    config,
+    onChange,
+}: {
+    config: ScaleAdvancedConfig | undefined;
+    onChange: (config: ScaleAdvancedConfig) => void;
+}): JSX.Element {
+    const [localConfig, setLocalConfig] = useState<ScaleCardState>(() => toScaleCardState(config));
+    const [errors, setErrors] = useState<string[]>([]);
+
+    useEffect(() => {
+        setLocalConfig(toScaleCardState(config));
+    }, [config]);
+
+    const handleUpdate = (updates: Partial<ScaleCardState>) => {
+        const newConfig = { ...localConfig, ...updates };
+        setLocalConfig(newConfig);
+
+        const validationErrors = validateScaleCardState(newConfig);
+        setErrors(validationErrors);
+
+        if (validationErrors.length > 0) {
+            return; // Don't save if invalid
+        }
+
+        const configToSave: ScaleAdvancedConfig = {
+            min: newConfig.min,
+            max: newConfig.max,
+            step: newConfig.step,
+            display: newConfig.display,
+            showValue: newConfig.showValue,
+        };
+
+        if (newConfig.minLabel?.trim()) {
+            configToSave.minLabel = newConfig.minLabel;
+        }
+        if (newConfig.maxLabel?.trim()) {
+            configToSave.maxLabel = newConfig.maxLabel;
+        }
+        if (newConfig.display === "stars" && newConfig.stars) {
+            configToSave.stars = newConfig.stars;
+        }
+
+        onChange(configToSave);
+    };
+
+    const handleDisplayChange = (display: "slider" | "stars") => {
+        const updates: Partial<ScaleCardState> = { display };
+
+        // When switching to stars mode, set default values
+        if (display === "stars") {
+            updates.stars = localConfig.stars ?? 5;
+            updates.min = 1;
+            updates.step = 1;
+            if (!localConfig.max || localConfig.max > 12) {
+                updates.max = updates.stars;
+            }
+        }
+
+        handleUpdate(updates);
+    };
+
+    return (
+        <div className="space-y-4">
+            <DisplayModeSection display={localConfig.display} onDisplayChange={handleDisplayChange} />
+
+            <Separator />
+
+            <RangeSection config={localConfig} onUpdate={handleUpdate} />
+
+            <Separator />
+
+            <div className="space-y-3">
+                <SectionHeader
+                    title="Display Options"
+                    description="Configure how the scale is shown"
+                />
+
+                <SwitchField
+                    label="Show Current Value"
+                    description="Display the selected value as a number"
+                    checked={localConfig.showValue}
+                    onChange={(checked) => handleUpdate({ showValue: checked })}
+                />
+            </div>
+
+            {errors.length > 0 && (
+                <div className="flex items-start gap-2 text-xs text-destructive bg-destructive/10 p-3 rounded-md">
+                    <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <div>
+                        <p className="font-medium">Validation Errors</p>
+                        <ul className="list-disc list-inside">
+                            {errors.map((error, idx) => (
+                                <li key={idx}>{error}</li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
