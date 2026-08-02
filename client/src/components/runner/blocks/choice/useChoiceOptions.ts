@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 
 import { generateOptionsFromList } from "@/lib/choice-utils";
+import { getAuthHeaders } from "@/lib/vault-api";
 import { Step } from "@/types";
 
 import { resolveChoiceDisplay } from "@shared/types/stepConfigs";
@@ -15,12 +16,8 @@ interface LegacyOption {
     alias?: string;
 }
 
-interface TableRow {
-    data: Record<string, unknown>;
-}
-
-interface TableResponse {
-    rows?: TableRow[];
+interface TableOptionsResponse {
+    options: Array<{ value: string; label: string }>;
 }
 
 interface LegacyStepConfig {
@@ -141,29 +138,24 @@ export function useChoiceOptions(
 
         const { tableId, columnId, labelColumnId, limit = 100 } = dynamicConfig;
 
-        const response = await fetch(
-            `/api/tables/${tableId}/rows?limit=${limit}`,
-            { credentials: 'include' }
-        );
-
-        if (!response.ok) {
-            throw new Error(`Failed to fetch table data: ${response.statusText}`);
+        const query = new URLSearchParams({ columnId, limit: String(limit) });
+        if (labelColumnId) {
+            query.set('labelColumnId', labelColumnId);
         }
+        const response = await fetch(
+            `/api/datavault/tables/${encodeURIComponent(tableId)}/options?${query.toString()}`,
+            { method: 'GET', headers: getAuthHeaders(), credentials: 'include' }
+        );
+        if (!response.ok) {
+            throw new Error(`Failed to fetch table options: ${response.statusText}`);
+        }
+        const data = (await response.json()) as TableOptionsResponse;
 
-        const data = (await response.json()) as TableResponse;
-        const rows = data.rows ?? [];
-        const labelCol = labelColumnId ?? columnId;
-
-        return rows.map((row: TableRow, idx: number) => {
-            const idVal = row.data[columnId];
-            const labelVal = row.data[labelCol] ?? row.data[columnId];
-
-            return {
-                id: typeof idVal === 'string' ? idVal : `opt-${idx}`,
-                label: String(labelVal ?? `Option ${idx}`),
-                alias: String(idVal ?? `opt-${idx}`)
-            };
-        });
+        return data.options.map(({ value, label }) => ({
+            id: value,
+            alias: value,
+            label,
+        }));
     };
 
     const resolveDynamicOptions = async (

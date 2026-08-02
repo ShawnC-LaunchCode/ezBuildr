@@ -30,8 +30,13 @@ const TABLE_ID = '33333333-3333-4333-8333-333333333333';
 // in the global afterEach cannot wipe their implementations.
 vi.mock('../../../server/middleware/auth', () => ({
   hybridAuth: (_req: unknown, _res: unknown, next: () => void) => next(),
+  optionalHybridAuth: (_req: unknown, _res: unknown, next: () => void) => next(),
   getAuthUserId: () => 'user-1',
   getAuthUserTenantId: () => 'tenant-1',
+}));
+
+vi.mock('../../../server/middleware/runTokenAuth', () => ({
+  creatorOrRunTokenAuth: (_req: unknown, _res: unknown, next: () => void) => next(),
 }));
 
 vi.mock('../../../server/middleware/rateLimiter', () => {

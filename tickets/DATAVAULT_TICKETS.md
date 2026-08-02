@@ -388,7 +388,7 @@ reduced to the one working expression.
 
 ---
 
-## DV-3 — DataVault-backed dropdowns resolve against an endpoint that does not exist 🔄
+## DV-3 — DataVault-backed dropdowns resolve against an endpoint that does not exist ✅
 
 **Priority: P0 (bug)** · Size: M · File: new `server/routes/datavault/options.routes.ts` + `client/src/components/runner/blocks/choice/useChoiceOptions.ts`
 
@@ -440,6 +440,30 @@ reduced to the one working expression.
 > Reviewer did **not** re-run the full gates this pass — they will be re-run in
 > the main checkout once the blocker is fixed, since the dev's own `test:fast`
 > green came from a temporary physical dependency install that no longer exists.
+
+> **Review pass 2 — 2026-08-02 (reviewer): PASS.** Blocker fixed, all 9 criteria
+> met, committed.
+> **Blocker closed:** `queryClient.ts` reverted and proved byte-identical by blob
+> hash (`4f7474b1` both sides), independently re-verified by the reviewer. The dev
+> chose option (b) — request-scoped auth — attaching `getAuthHeaders()` to the
+> single options GET, so all 15 other `apiRequest` call sites keep JWT-only
+> behaviour and the `fetchAPI` run-token invariant is intact.
+> Gates re-run by the reviewer in the **main checkout under its normal install,
+> no workaround**: `npx tsc --noEmit` 0 errors, `npm run lint` exit 0,
+> `npm run test:fast` **182 files / 2319 passed** (2318 + 1, matching the dev's
+> figure exactly), and a **regression sweep across all 8 DataVault integration
+> suites → 122/122 passed** — run because this ticket changed route registration
+> in `datavault.routes.ts`, which the per-ticket suite alone would not have caught.
+> **Regression value proved:** reverting only `useChoiceOptions.ts` fails both new
+> client tests, each showing the dead `/api/tables/tbl-1/rows` URL.
+> **Coverage checked, not assumed:** test counts compared against main —
+> `useChoiceOptions.test.tsx` 7→8, `datavault.rowArchive.routes.test.ts` 13→13
+> (mocks only). No existing test was replaced or silently dropped.
+> **Accepted deviation:** the fix uses raw `fetch` rather than the `apiRequest`
+> helper the ticket named, to keep auth request-scoped. Reasonable, and safer than
+> the alternative — but it forgoes `apiRequest`'s 401-refresh/retry, so an expired
+> JWT makes the dropdown show its error state instead of refreshing. Filed as
+> **DV-B5**; not worth blocking on for a dropdown that degrades visibly.
 
 ### Finding
 
@@ -1648,6 +1672,14 @@ against the tree at audit time.
   against *this* model and pointed at DataVault. **Not investigated in this audit** —
   recorded so the next reader knows the question is open, not answered. Worth a
   scoped "is Collections live, and if not, delete it" pass; do not assume it is dead.
+- **DV-B5 — the choice-options fetch bypasses `apiRequest`'s 401 refresh** ·
+  `enhancement`. DV-3 deliberately used raw `fetch` with `getAuthHeaders()` so
+  run-token precedence stayed scoped to that one request (the alternative was a
+  global change to `apiRequest` — see DV-3's review pass 1). The cost is no
+  automatic token refresh: an expired JWT makes a DataVault-backed dropdown render
+  its error state rather than retrying. Fix shape: let `apiRequest` accept
+  per-request headers, then move this call back onto it. Small and contained;
+  promote if authors report dropdowns emptying on long builder sessions.
 - **DV-B4 — `getRowsWithValues` fetches every value for every row** ·
   `enhancement`. Column selection is applied *after* the query
   (`outputColumns.filter`), so a 60-column table costs 60 values per row over the wire

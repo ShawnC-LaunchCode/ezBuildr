@@ -22,6 +22,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { ChoiceBlockRenderer } from "../../../client/src/components/runner/blocks/ChoiceBlock";
 import { useChoiceOptions } from "../../../client/src/components/runner/blocks/choice/useChoiceOptions";
 import { generateOptionsFromList } from "../../../client/src/lib/choice-utils";
+import { clearRunToken, setRunToken } from "../../../client/src/lib/runTokens";
 
 import type { Step } from "../../../client/src/types";
 
@@ -93,21 +94,26 @@ function makeListStep(): Step {
 
 describe("useChoiceOptions — RUN2-14(a) narrowed dependency", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       statusText: "OK",
-      json: async () => ({ rows: [{ data: { "col-1": "Alpha" } }] }),
+      json: async () => ({ options: [{ value: "alpha-id", label: "Alpha" }] }),
     });
     vi.stubGlobal("fetch", fetchMock);
+    consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 
   afterEach(() => {
+    clearRunToken("run-1");
+    window.history.replaceState({}, "", "/");
+    consoleErrorSpy.mockRestore();
     vi.unstubAllGlobals();
   });
 
-  it("issues zero additional /api/tables/*/rows requests when an unrelated field changes on every keystroke", async () => {
+  it("renders server-projected table options without errors or refetching on unrelated keystrokes", async () => {
     const step = makeTableColumnStep();
     const { result, rerender } = renderHook(
       ({ context }: { context: Record<string, unknown> }) => useChoiceOptions(step, context),
@@ -116,6 +122,15 @@ describe("useChoiceOptions — RUN2-14(a) narrowed dependency", () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/datavault/tables/tbl-1/options?columnId=col-1&limit=100",
+      expect.objectContaining({ method: "GET" })
+    );
+    expect(result.current.options).toEqual([
+      { id: "alpha-id", alias: "alpha-id", label: "Alpha" },
+    ]);
+    expect(result.current.error).toBeNull();
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
 
     // Simulate keystrokes in an unrelated field: a brand-new context object
     // each time (as the real run-value map is), but the table question reads
@@ -126,6 +141,24 @@ describe("useChoiceOptions — RUN2-14(a) narrowed dependency", () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("attaches the stored run token when resolving options in a public interview", async () => {
+    window.history.replaceState({}, "", "/run/run-1");
+    setRunToken("run-1", "public-run-token");
+    const step = makeTableColumnStep();
+
+    const { result } = renderHook(() => useChoiceOptions(step, {}));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/datavault/tables/tbl-1/options?columnId=col-1&limit=100",
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer public-run-token" }),
+      })
+    );
+    expect(result.current.options.map((option) => option.label)).toEqual(["Alpha"]);
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
   });
 
   it("still refreshes a list-backed question's options when its source list changes, but not on an unrelated keystroke", async () => {

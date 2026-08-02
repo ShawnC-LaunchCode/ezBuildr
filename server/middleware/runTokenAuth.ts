@@ -1,5 +1,5 @@
 import { logger } from "../logger";
-import { workflowRunRepository } from "../repositories";
+import { workflowRunRepository } from "../repositories/WorkflowRunRepository";
 
 import type { Request, Response, NextFunction } from "express";
 

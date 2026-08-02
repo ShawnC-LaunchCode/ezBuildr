@@ -80,6 +80,7 @@ GET/PATCH/DEL /api/datavault/databases/:id
 GET/POST    /api/datavault/databases/:id/tables
 GET/PATCH/DEL /api/datavault/tables/:tableId
 GET/POST    /api/datavault/tables/:tableId/rows   # Infinite scroll pagination
+GET         /api/datavault/tables/:tableId/options # Bound value/label pairs; user or run-token auth
 GET/PATCH/DEL /api/datavault/rows/:rowId          # Row ops are row-scoped, not table-nested
 GET/POST    /api/datavault/tables/:tableId/permissions
 DELETE      /api/datavault/permissions/:permissionId

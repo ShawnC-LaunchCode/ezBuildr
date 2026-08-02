@@ -2,6 +2,7 @@ import { apiLimiter } from '../middleware/rateLimiter';
 
 import { registerDatavaultColumnRoutes } from './datavault/columns.routes';
 import { registerDatavaultDatabaseRoutes } from './datavault/databases.routes';
+import { registerDatavaultOptionRoutes } from './datavault/options.routes';
 import { registerDatavaultPermissionRoutes } from './datavault/permissions.routes';
 import { registerDatavaultRowArchiveRoutes } from './datavault/rowArchive.routes';
 import { registerDatavaultRowNoteRoutes } from './datavault/rowNotes.routes';
@@ -26,6 +27,7 @@ export function registerDatavaultRoutes(app: Express): void {
   registerDatavaultDatabaseRoutes(app);
   registerDatavaultTableRoutes(app);
   registerDatavaultColumnRoutes(app);
+  registerDatavaultOptionRoutes(app);
   registerDatavaultRowRoutes(app);
   registerDatavaultRowArchiveRoutes(app);
   registerDatavaultRowNoteRoutes(app);
