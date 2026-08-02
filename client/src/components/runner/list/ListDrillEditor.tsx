@@ -22,6 +22,7 @@ import { ListItemsView } from "./ListItemsView";
 import {
   normalizeListConfig,
   normalizeListValue,
+  pendingDrillReturnFocus,
   resolveBreadcrumbLabels,
   resolveDrillScope,
   resolveItemLabel,
@@ -56,6 +57,12 @@ function fieldToStep(field: Extract<ListField, { kind: "question" }>, parent: Ap
 export function ListDrillEditor({ step, value, onChange, drill, aliasMap }: ListDrillEditorProps) {
   const { popOne, pushSegment, clearAutoFocus } = useListDrill();
   const fieldsContainerRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  // Tracks which item the effect below last acted on, so that clearing
+  // `autoFocusFirstField` (which re-fires the same effect, since it's in the
+  // dependency array, for the SAME item) doesn't get mistaken for a genuine
+  // depth change and steal focus back to the heading.
+  const lastHandledItemIdRef = useRef<string | undefined>(undefined);
 
   const rootConfig = normalizeListConfig(step.config);
   const rootValue = normalizeListValue(value);
@@ -83,13 +90,33 @@ export function ListDrillEditor({ step, value, onChange, drill, aliasMap }: List
       popOne();
       return;
     }
+    const isNewItem = lastHandledItemIdRef.current !== scope.item.itemId;
+    lastHandledItemIdRef.current = scope.item.itemId;
+
     if (shouldAutoFocus && fieldsContainerRef.current) {
       const firstFocusable = fieldsContainerRef.current.querySelector<HTMLElement>(
         "input, textarea, select, button, [tabindex]"
       );
       firstFocusable?.focus();
       clearAutoFocus();
+    } else if (isNewItem) {
+      // LIST2-12: every other depth change — entering a level, or leaving one
+      // while staying drilled in (still mounted, just shallower) — moves
+      // focus to this level's own heading instead of leaving it on a button
+      // that no longer exists (or, worse, silently on nothing). The heading's
+      // text IS the current breadcrumb, so its accessible name updates for
+      // free on every transition. Gated on `isNewItem` (not just "not
+      // auto-focusing") so that clearing `autoFocusFirstField` — which
+      // re-fires this same effect for the SAME item — doesn't yank focus off
+      // the field "+ Add" just placed it on.
+      headingRef.current?.focus();
     }
+    // Recorded on every depth change (including the "+ Add" one) so that if
+    // the drill later closes ENTIRELY — unmounting this component outright,
+    // rather than just shrinking `scope` — whichever `ListItemsView` mounts
+    // back in its place can hand focus back to the matching row instead of
+    // letting it fall through to document.body. See pendingDrillReturnFocus.
+    pendingDrillReturnFocus.itemId = scope.item.itemId;
   }, [scope?.item.itemId, shouldAutoFocus]);
 
   if (!scope) {
@@ -109,7 +136,23 @@ export function ListDrillEditor({ step, value, onChange, drill, aliasMap }: List
           <ChevronLeft className="mr-1 h-4 w-4" />
           {parentLabel}
         </Button>
-        <p className="truncate text-sm text-muted-foreground" title={breadcrumb}>{breadcrumb}</p>
+        {/*
+          A real heading (not a <p>) so it can be the focus target on every
+          drill depth change (LIST2-12 AC1/AC2) and so its text — already the
+          full breadcrumb — doubles as an accessible name for the context
+          change (AC3), with no new visible text. `tabIndex={-1}` makes it
+          programmatically focusable without adding it to the tab order.
+          Classes are unchanged from the previous <p>, so this is a tag swap
+          only — no visual delta (AC5).
+        */}
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className="truncate text-sm text-muted-foreground"
+          title={breadcrumb}
+        >
+          {breadcrumb}
+        </h2>
       </div>
 
       <div ref={fieldsContainerRef} className="space-y-6">

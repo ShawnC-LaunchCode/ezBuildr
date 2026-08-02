@@ -138,6 +138,23 @@ export interface DrillScope {
   item: ListItem;
 }
 
+/**
+ * One-shot cross-mount focus handoff for the runner's list drill-in
+ * (LIST2-12). `ListDrillEditor` and the collapsed `ListItemsView` (rendered
+ * standalone via `ListBlockRenderer`) are never mounted at the same time —
+ * WorkflowRunner swaps one for the other at the same JSX slot, so entering or
+ * leaving the drill is a genuine unmount + mount, not a re-render either
+ * component can observe. Ordinary React state or context can't carry a "focus
+ * this row" instruction across that boundary; this tiny mutable handoff can,
+ * because it lives at module scope rather than in either component's own
+ * lifecycle. `ListDrillEditor` records the current item's id here on every
+ * level change; whichever `ListItemsView` instance mounts next claims it
+ * (reads + clears) if one of its own rows matches, and no-ops otherwise. Only
+ * one list can be drilled into at a time (see `ListDrillContext`'s header
+ * comment) and item ids are unique, so there is no cross-list leakage.
+ */
+export const pendingDrillReturnFocus: { itemId: string | null } = { itemId: null };
+
 /** Walks the drill stack from the root down to the currently-open item. Returns null if the stack no longer matches the data (e.g. the item was deleted from under it). */
 export function resolveDrillScope(
   rootConfig: ListConfig,

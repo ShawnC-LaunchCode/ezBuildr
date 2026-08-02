@@ -332,3 +332,90 @@ describe('List block: incomplete-item badges (AC3, AC4, AC7)', () => {
     expect(screen.getByText('Incomplete or invalid')).toBeInTheDocument();
   });
 });
+
+/**
+ * LIST2-12 — drilling into a list item (and back out) must move focus, not
+ * leave a screen-reader user in silence. Uses the same swap-on-`drill`
+ * `Harness` as the rest of this file, which is what actually proves AC2's
+ * full-exit case: real WorkflowRunner behavior unmounts `ListDrillEditor` and
+ * remounts `ListBlockRenderer` at the same JSX slot rather than updating one
+ * component in place, so only a harness with both wired up (like this one)
+ * can catch a focus target that silently reverts to document.body.
+ */
+describe('List block: drill focus management (LIST2-12)', () => {
+  it('AC1: opening an existing item moves focus to a heading named for the breadcrumb', async () => {
+    const user = userEvent.setup();
+    renderList({ items: [{ itemId: 'a', values: { name: 'Ava', addresses: { items: [] } } }] });
+
+    await user.click(screen.getByText('Ava'));
+
+    const heading = await screen.findByRole('heading', { name: 'Children › Ava' });
+    expect(heading).toHaveFocus();
+  });
+
+  it('AC2: leaving a nested level ("← parent") moves focus to the now-shallower heading, not document.body', async () => {
+    const user = userEvent.setup();
+    renderList({
+      items: [
+        {
+          itemId: 'a',
+          values: { name: 'Ava', addresses: { items: [{ itemId: 'addr-1', values: { street: '1 Oak St' } }] } },
+        },
+      ],
+    });
+
+    await user.click(screen.getByText('Ava'));
+    const addressesLabel = screen.getByText('Addresses');
+    const addressesSection = addressesLabel.parentElement as HTMLElement;
+    await user.click(within(addressesSection).getByText('Item 1'));
+
+    await screen.findByRole('heading', { name: 'Children › Ava › Item 1' });
+
+    // At this depth "← parent" is labeled for the parent item ("Ava").
+    await user.click(screen.getByRole('button', { name: 'Ava' }));
+
+    const heading = await screen.findByRole('heading', { name: 'Children › Ava' });
+    expect(heading).toHaveFocus();
+    expect(document.body).not.toHaveFocus();
+  });
+
+  it('AC2: leaving the last level ("Done") returns focus to the item\'s own row, not document.body', async () => {
+    const user = userEvent.setup();
+    renderList({ items: [{ itemId: 'a', values: { name: 'Ava', addresses: { items: [] } } }] });
+
+    await user.click(screen.getByText('Ava'));
+    await screen.findByRole('heading', { name: 'Children › Ava' });
+
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+
+    // The row's accessible name also includes its "0 addresses" nested-count
+    // summary (a sibling span inside the same button), hence the prefix match.
+    const row = await screen.findByRole('button', { name: /^Ava/ });
+    expect(row).toHaveFocus();
+    expect(document.body).not.toHaveFocus();
+  });
+
+  it('AC2: hardware/browser back at the last level also returns focus to the item\'s own row', async () => {
+    const user = userEvent.setup();
+    renderList({ items: [{ itemId: 'a', values: { name: 'Ava', addresses: { items: [] } } }] });
+
+    await user.click(screen.getByText('Ava'));
+    await screen.findByRole('heading', { name: 'Children › Ava' });
+
+    window.history.back();
+
+    const row = await screen.findByRole('button', { name: /^Ava/ });
+    expect(row).toHaveFocus();
+  });
+
+  it('AC4 (regression): "+ Add" still focuses the first field, not the heading', async () => {
+    const user = userEvent.setup();
+    renderList({ items: [] });
+
+    await user.click(screen.getByText('Add child'));
+
+    const nameField = await screen.findByRole('textbox', { name: /name/i });
+    expect(nameField).toHaveFocus();
+    expect(screen.getByRole('heading', { name: /children/i })).not.toHaveFocus();
+  });
+});

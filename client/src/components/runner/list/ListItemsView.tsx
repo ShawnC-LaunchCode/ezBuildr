@@ -22,7 +22,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { AlertTriangle, ChevronRight, GripVertical, Plus, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   AlertDialog,
@@ -44,6 +44,7 @@ import {
   countNestedItemsRecursive,
   describeNestedCounts,
   hasItemError,
+  pendingDrillReturnFocus,
   removeItem,
   reorderItems,
   resolveItemLabel,
@@ -76,6 +77,37 @@ export function ListItemsView({ config, value, onChange, onOpenItem, readOnly }:
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
   const [pendingDelete, setPendingDelete] = useState<ListItem | null>(null);
+
+  // LIST2-12: registry of each rendered row's "open" button, keyed by item
+  // id, so this instance can hand focus back to the right row on mount (see
+  // the effect below and pendingDrillReturnFocus's own doc comment).
+  const openButtonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const registerOpenButtonRef = (itemId: string, node: HTMLButtonElement | null) => {
+    if (node) {
+      openButtonRefs.current.set(itemId, node);
+    } else {
+      openButtonRefs.current.delete(itemId);
+    }
+  };
+
+  // Fires once per genuine mount of this component. That happens on ordinary
+  // first render (pendingDrillReturnFocus is null then — no-op) AND whenever
+  // the drill closes entirely, since WorkflowRunner swaps ListDrillEditor and
+  // this (via ListBlockRenderer) at the same JSX slot rather than updating
+  // one in place. Claims (reads + clears) the handoff only if one of this
+  // instance's own rows matches, so an unrelated List step's ListItemsView
+  // never steals focus meant for a different one.
+  useEffect(() => {
+    const targetItemId = pendingDrillReturnFocus.itemId;
+    if (!targetItemId) {
+      return;
+    }
+    const node = openButtonRefs.current.get(targetItemId);
+    if (node) {
+      node.focus();
+      pendingDrillReturnFocus.itemId = null;
+    }
+  }, []);
 
   // Live, not gated behind a "Next was clicked" flag — Decision 4 treats the
   // badge as an always-current completeness indicator. Recomputing from the
@@ -136,6 +168,7 @@ export function ListItemsView({ config, value, onChange, onOpenItem, readOnly }:
                   hasError={hasItemError(errors, index)}
                   onOpen={() => { onOpenItem(item.itemId); }}
                   onDelete={() => { setPendingDelete(item); }}
+                  registerOpenButtonRef={registerOpenButtonRef}
                 />
               ))}
             </div>
@@ -182,9 +215,20 @@ interface ListItemRowProps {
   hasError?: boolean;
   onOpen: () => void;
   onDelete: () => void;
+  registerOpenButtonRef: (itemId: string, node: HTMLButtonElement | null) => void;
 }
 
-function ListItemRow({ item, config, index, allowReorder, readOnly, hasError, onOpen, onDelete }: ListItemRowProps) {
+function ListItemRow({
+  item,
+  config,
+  index,
+  allowReorder,
+  readOnly,
+  hasError,
+  onOpen,
+  onDelete,
+  registerOpenButtonRef,
+}: ListItemRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.itemId });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const label = resolveItemLabel(item, config, `Item ${index + 1}`);
@@ -209,6 +253,7 @@ function ListItemRow({ item, config, index, allowReorder, readOnly, hasError, on
       )}
       <button
         type="button"
+        ref={(node) => { registerOpenButtonRef(item.itemId, node); }}
         className="flex flex-1 items-center justify-between gap-2 py-1 text-left"
         onClick={onOpen}
       >
