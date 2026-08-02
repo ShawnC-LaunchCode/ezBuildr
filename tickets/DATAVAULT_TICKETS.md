@@ -106,7 +106,7 @@ additionally leaks across tenants. This phase fixes reads.
 Explicitly out of scope for this phase: row-write validation (Phase 2) and the grid
 UI (Phase 3).
 
-## DV-1 — Read Table block queries a `data` column that does not exist 🔲
+## DV-1 — Read Table block queries a `data` column that does not exist 🔄
 
 **Priority: P0 (bug)** · Size: M · File: `server/services/blockRunners/ReadTableBlockRunner.ts`
 
@@ -216,7 +216,7 @@ Delete the `data->>` code path rather than leaving it commented out.
 
 ---
 
-## DV-2 — `QueryRunner` silently discards table + tenant scoping, leaking rows across tenants 🔲
+## DV-2 — `QueryRunner` silently discards table + tenant scoping, leaking rows across tenants 🔄
 
 **Priority: P0 (security)** · Size: M · File: `server/lib/queries/QueryRunner.ts`
 
@@ -344,7 +344,7 @@ reduced to the one working expression.
 
 ---
 
-## DV-3 — DataVault-backed dropdowns resolve against an endpoint that does not exist 🔲
+## DV-3 — DataVault-backed dropdowns resolve against an endpoint that does not exist 🔄
 
 **Priority: P0 (bug)** · Size: M · File: new `server/routes/datavault/options.routes.ts` + `client/src/components/runner/blocks/choice/useChoiceOptions.ts`
 
