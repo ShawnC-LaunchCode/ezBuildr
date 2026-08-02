@@ -106,9 +106,34 @@ additionally leaks across tenants. This phase fixes reads.
 Explicitly out of scope for this phase: row-write validation (Phase 2) and the grid
 UI (Phase 3).
 
-## DV-1 — Read Table block queries a `data` column that does not exist 🔄
+## DV-1 — Read Table block queries a `data` column that does not exist ✅
 
 **Priority: P0 (bug)** · Size: M · File: `server/services/blockRunners/ReadTableBlockRunner.ts`
+
+> **Verification pass — 2026-08-02 (reviewer).** PASS, all 7 criteria met.
+> Gates re-run by the reviewer in the **main checkout** (not the dev's worktree —
+> the dev's green was produced after replacing the `node_modules` junction with a
+> local `npm ci`, so it was not reproducible as-shipped): `npx tsc --noEmit` 0
+> errors, `npm run lint` (repo-wide, `--max-warnings 0`) exit 0, `npm run
+> test:fast` **182 files / 2318 passed** (baseline 181/2313; +1 file +1 test from
+> this ticket, +4 tests from DV-2 applied alongside), and
+> `tests/integration/dataBlocks.test.ts` **9/9 passed**.
+> **Regression value proved independently:** reverting only
+> `ReadTableBlockRunner.ts` to HEAD and re-running the suite fails **7 of 9** —
+> `expected undefined to be 'Alpha'` (the null-hydration bug) and five
+> `expected false to be true` failures where the block errors on the nonexistent
+> `data` column. The tests are real, not tautological.
+> AC2's five operators are covered by an `it.each` block (equals, contains,
+> greater_than, is_empty, in) — a plain `grep` for `it(` misses it.
+> Implementation notes: correlated `EXISTS` over `datavault_values` collected into
+> a **single** `and(...)`/`.where()` (avoiding the DV-2 trap), `sql.raw` eliminated
+> entirely so `columnId` is now a bound parameter, `isNull(deletedAt)` added, and
+> `is_empty` reimplemented as `NOT EXISTS(non-empty)` — which is stronger than the
+> ticket asked for, since it also matches rows with no value row at all. Nine
+> pre-existing eslint suppressions were removed rather than any added.
+> **Note for TEST_DATABASE_URL:** main's `.env` has none, so integration runs from
+> the main checkout must set it explicitly or they fail auth against the Neon dev
+> DB.
 
 ### Finding
 
@@ -784,6 +809,14 @@ apply. Do not silently pick one.
 
 ### Ties
 
+- ⚠️ **Carried forward from DV-1 (landed 2026-08-02).** DV-1 added
+  `sortExpression()` to `ReadTableBlockRunner.ts`, which casts **both**
+  `auto_number` and `autonumber` columns to `::numeric` for sorting. That is safe
+  only because `autonumber` values are currently always null. The moment this
+  ticket makes `autonumber` emit a prefixed string like `INV-0001`, sorting a
+  read_table block by that column throws Postgres 22P02. **Change the
+  `autonumber` case in `sortExpression()` to sort as text (or to sort by the
+  underlying sequence) as part of this ticket, and add a test for it.**
 - **Sequenced after DV-4 and DV-5** — same file, and DV-5 restructures the exact
   generation loop this ticket extends.
 - Also edits `DatavaultRowsRepository.ts` → collides with DV-7, DV-8, DV-9.

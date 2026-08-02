@@ -3,9 +3,11 @@
  * Reads data from a DataVault table and outputs a List
  */
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, inArray, isNull, not, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
-import { datavaultRows } from "@shared/schema";
+import { datavaultRows, datavaultValues } from "@shared/schema";
+import type { DatavaultColumn } from "@shared/schema";
 
 import { db } from "../../db";
 import { logger } from "../../logger";
@@ -14,6 +16,137 @@ import { stepValueRepository, datavaultColumnsRepository } from "../../repositor
 import { BaseBlockRunner } from "./BaseBlockRunner";
 
 import type { BlockContext, BlockResult, Block, ReadTableConfig, ReadTableOperator } from "./types";
+
+import type { SQL, SQLWrapper } from "drizzle-orm";
+
+type ReadTableQueryFilter = {
+  columnId: string;
+  column: DatavaultColumn;
+  operator: ReadTableOperator;
+  value: unknown;
+};
+
+type ReadTableQueryRow = {
+  id: string;
+  values: Record<string, unknown>;
+};
+
+function scalarText(valueColumn: SQLWrapper): SQL {
+  return sql`${valueColumn} #>> '{}'`;
+}
+
+function nonEmptyValue(valueColumn: SQLWrapper): SQL {
+  return sql`${valueColumn} IS NOT NULL AND ${valueColumn} != 'null'::jsonb AND ${valueColumn} != '""'::jsonb`;
+}
+
+function buildStringCondition(
+  valueColumn: SQLWrapper,
+  operator: 'contains' | 'starts_with' | 'ends_with',
+  value: unknown
+): SQL | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const stringValue = String(value);
+  const pattern = operator === 'contains'
+    ? `%${stringValue}%`
+    : operator === 'starts_with'
+      ? `${stringValue}%`
+      : `%${stringValue}`;
+  return sql`${scalarText(valueColumn)} LIKE ${pattern}`;
+}
+
+function buildComparisonCondition(
+  valueColumn: SQLWrapper,
+  filter: ReadTableQueryFilter,
+  operator: 'greater_than' | 'less_than'
+): SQL | undefined {
+  const textValue = scalarText(valueColumn);
+  const isGreaterThan = operator === 'greater_than';
+  if (filter.column.type === 'number') {
+    return isGreaterThan
+      ? sql`(${textValue})::numeric > ${filter.value}`
+      : sql`(${textValue})::numeric < ${filter.value}`;
+  }
+  if (filter.column.type === 'date') {
+    return isGreaterThan
+      ? sql`(${textValue})::date > ${filter.value}`
+      : sql`(${textValue})::date < ${filter.value}`;
+  }
+  if (filter.column.type === 'datetime') {
+    return isGreaterThan
+      ? sql`(${textValue})::timestamp > ${filter.value}`
+      : sql`(${textValue})::timestamp < ${filter.value}`;
+  }
+  return undefined;
+}
+
+function buildInCondition(
+  valueColumn: SQLWrapper,
+  value: unknown
+): SQL | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const comparisons = value
+    .filter(item => item !== undefined)
+    .map(item => sql`${valueColumn} = ${JSON.stringify(item)}::jsonb`);
+  if (comparisons.length === 0) {
+    return undefined;
+  }
+  const joinedComparisons = sql.join(comparisons, sql` OR `);
+  return sql`(${joinedComparisons})`;
+}
+
+function buildValueCondition(
+  valueColumn: SQLWrapper,
+  filter: ReadTableQueryFilter
+): SQL | undefined {
+  switch (filter.operator) {
+    case 'equals':
+      return filter.value === null || filter.value === undefined
+        ? undefined
+        : sql`${valueColumn} = ${JSON.stringify(filter.value)}::jsonb`;
+    case 'not_equals':
+      return filter.value === null || filter.value === undefined
+        ? undefined
+        : sql`${valueColumn} != ${JSON.stringify(filter.value)}::jsonb`;
+    case 'contains':
+    case 'starts_with':
+    case 'ends_with':
+      return buildStringCondition(valueColumn, filter.operator, filter.value);
+    case 'greater_than':
+    case 'less_than':
+      return buildComparisonCondition(valueColumn, filter, filter.operator);
+    case 'is_not_empty':
+      return nonEmptyValue(valueColumn);
+    case 'in':
+      return buildInCondition(valueColumn, filter.value);
+    default:
+      return undefined;
+  }
+}
+
+function sortExpression(
+  valueColumn: SQLWrapper,
+  column: DatavaultColumn
+): SQL {
+  const textValue = scalarText(valueColumn);
+  switch (column.type) {
+    case 'number':
+    case 'auto_number':
+    case 'autonumber':
+      return sql`(${textValue})::numeric`;
+    case 'boolean':
+      return sql`(${textValue})::boolean`;
+    case 'date':
+      return sql`(${textValue})::date`;
+    case 'datetime':
+      return sql`(${textValue})::timestamp`;
+    default:
+      return textValue;
+  }
+}
 
 export class ReadTableBlockRunner extends BaseBlockRunner {
   getBlockType(): string {
@@ -66,43 +199,37 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
         outputColumns = allColumns.filter(c => tableConfig.columns!.includes(c.id));
       }
 
-      // Build filter conditions
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let filterConditions: any[] = [];
+      // Resolve filters and discard references to columns outside this table.
+      let filterConditions: ReadTableQueryFilter[] = [];
       if (tableConfig.filters && tableConfig.filters.length > 0) {
-        filterConditions = tableConfig.filters.map(filter => {
+        filterConditions = tableConfig.filters.flatMap(filter => {
           const column = columnMap.get(filter.columnId);
           if (!column) {
             logger.warn({ columnId: filter.columnId }, "Filter references unknown column");
-            return null;
+            return [];
           }
 
           // Resolve value from context data if it's a variable reference
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-          let resolvedValue = filter.value;
+          let resolvedValue: unknown = filter.value;
           if (typeof filter.value === 'string' && filter.value.startsWith('{{') && filter.value.endsWith('}}')) {
             const variableName = filter.value.slice(2, -2).trim();
             const dataKey = context.aliasMap?.[variableName] ?? variableName;
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             resolvedValue = context.data[dataKey];
           }
 
-          return {
+          return [{
             columnId: filter.columnId,
             column,
             operator: filter.operator,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             value: resolvedValue
-          };
-        }).filter(Boolean);
+          }];
+        });
       }
 
       // Query rows with filters
       const limit = tableConfig.limit ?? 100;
       const rows = await this.queryTableRows({
         tableId: tableConfig.tableId,
-        tenantId,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         filters: filterConditions,
         sort: tableConfig.sort,
         limit,
@@ -126,11 +253,9 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
         },
         rows: rows.map(row => {
           // Convert internal row structure to column name-accessible object
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-          const rowData: Record<string, any> = { id: row.id };
+          const rowData: Record<string, unknown> = { id: row.id };
           for (const col of outputColumns) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-            rowData[col.id] = row.data?.[col.id] ?? null;
+            rowData[col.id] = row.values[col.id] ?? null;
           }
           return rowData;
         }),
@@ -185,137 +310,99 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
    * Query table rows with filters and sorting
    * Internal helper method for read_table block
    */
-  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
   private async queryTableRows(params: {
     tableId: string;
-    tenantId: string;
-    filters: Array<{
-      columnId: string;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      column: any;
-      operator: ReadTableOperator;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      value: any;
-    }>;
+    filters: ReadTableQueryFilter[];
     sort?: { columnId: string; direction: "asc" | "desc" };
     limit: number;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    columns: Map<string, any>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }): Promise<any[]> {
-    // Build WHERE conditions
-    const whereConditions = [eq(datavaultRows.tableId, params.tableId)];
+    columns: Map<string, DatavaultColumn>;
+  }): Promise<ReadTableQueryRow[]> {
+    const whereConditions: SQL[] = [
+      eq(datavaultRows.tableId, params.tableId),
+      isNull(datavaultRows.deletedAt),
+    ];
 
-    for (const filter of params.filters) {
-      // SECURITY FIX: Validate columnId to prevent SQL injection
+    for (const [index, filter] of params.filters.entries()) {
       if (!/^[a-zA-Z0-9_-]+$/.test(filter.columnId)) {
         logger.warn({ columnId: filter.columnId }, 'Invalid columnId detected - skipping filter');
         continue;
       }
 
-      const columnPath = `data->>'${filter.columnId}'`;
+      const valueAlias = alias(datavaultValues, `read_filter_${index}`);
+      const correlation = and(
+        eq(valueAlias.rowId, datavaultRows.id),
+        eq(valueAlias.columnId, filter.columnId)
+      );
 
-      switch (filter.operator) {
-        case 'equals':
-          if (filter.value !== null && filter.value !== undefined) {
-            whereConditions.push(sql`${sql.raw(columnPath)} = ${filter.value}`);
-          }
-          break;
+      if (filter.operator === 'is_empty') {
+        whereConditions.push(not(exists(
+          db.select({ one: sql`1` })
+            .from(valueAlias)
+            .where(and(correlation, nonEmptyValue(valueAlias.value)))
+        )));
+        continue;
+      }
 
-        case 'not_equals':
-          if (filter.value !== null && filter.value !== undefined) {
-            whereConditions.push(sql`${sql.raw(columnPath)} != ${filter.value}`);
-          }
-          break;
-
-        case 'contains':
-          if (filter.value) {
-            // eslint-disable-next-line sonarjs/no-nested-template-literals
-            whereConditions.push(sql`${sql.raw(columnPath)} LIKE ${`%${filter.value}%`}`);
-          }
-          break;
-
-        case 'starts_with':
-          if (filter.value) {
-            // eslint-disable-next-line sonarjs/no-nested-template-literals
-            whereConditions.push(sql`${sql.raw(columnPath)} LIKE ${`${filter.value}%`}`);
-          }
-          break;
-
-        case 'ends_with':
-          if (filter.value) {
-            // eslint-disable-next-line sonarjs/no-nested-template-literals
-            whereConditions.push(sql`${sql.raw(columnPath)} LIKE ${`%${filter.value}`}`);
-          }
-          break;
-
-        case 'greater_than':
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          if (filter.column.type === 'number') {
-            whereConditions.push(sql`(${sql.raw(columnPath)})::numeric > ${filter.value}`);
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          } else if (filter.column.type === 'date' || filter.column.type === 'datetime') {
-            whereConditions.push(sql`${sql.raw(columnPath)} > ${filter.value}`);
-          }
-          break;
-
-        case 'less_than':
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          if (filter.column.type === 'number') {
-            whereConditions.push(sql`(${sql.raw(columnPath)})::numeric < ${filter.value}`);
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          } else if (filter.column.type === 'date' || filter.column.type === 'datetime') {
-            whereConditions.push(sql`${sql.raw(columnPath)} < ${filter.value}`);
-          }
-          break;
-
-        case 'is_empty':
-          whereConditions.push(sql`(${sql.raw(columnPath)} IS NULL OR ${sql.raw(columnPath)} = '')`);
-          break;
-
-        case 'is_not_empty':
-          whereConditions.push(sql`(${sql.raw(columnPath)} IS NOT NULL AND ${sql.raw(columnPath)} != '')`);
-          break;
-
-        case 'in':
-          if (Array.isArray(filter.value) && filter.value.length > 0) {
-            // SECURITY FIX: Use parameterized array
-            const values = filter.value.map(v => String(v));
-            whereConditions.push(sql`${sql.raw(columnPath)} = ANY(${values})`);
-          }
-          break;
+      const valueCondition = buildValueCondition(valueAlias.value, filter);
+      if (valueCondition) {
+        whereConditions.push(exists(
+          db.select({ one: sql`1` })
+            .from(valueAlias)
+            .where(and(correlation, valueCondition))
+        ));
       }
     }
 
-    // Build query
-    let query = db
-      .select()
-      .from(datavaultRows)
-      .where(and(...whereConditions))
-      .limit(params.limit);
-
-    // Add sorting
-    if (params.sort) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const sortColumn = params.columns.get(params.sort.columnId);
-      if (sortColumn) {
-        // SECURITY FIX: Validate columnId
-        if (!/^[a-zA-Z0-9_-]+$/.test(params.sort.columnId)) {
-          logger.warn({ columnId: params.sort.columnId }, 'Invalid sort columnId detected - skipping sort');
-        } else {
-          const columnPath = `data->>'${params.sort.columnId}'`;
-          if (params.sort.direction === 'asc') {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-            query = (query as any).orderBy(sql`${sql.raw(columnPath)} ASC`);
-          } else {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-            query = (query as any).orderBy(sql`${sql.raw(columnPath)} DESC`);
-          }
-        }
+    let selectedRows: Array<{ id: string }>;
+    const sortColumn = params.sort ? params.columns.get(params.sort.columnId) : undefined;
+    if (params.sort && sortColumn && /^[a-zA-Z0-9_-]+$/.test(params.sort.columnId)) {
+      const sortValue = alias(datavaultValues, 'read_sort_value');
+      const direction = params.sort.direction === 'desc' ? desc : asc;
+      selectedRows = await db
+        .select({ id: datavaultRows.id })
+        .from(datavaultRows)
+        .leftJoin(sortValue, and(
+          eq(sortValue.rowId, datavaultRows.id),
+          eq(sortValue.columnId, params.sort.columnId)
+        ))
+        .where(and(...whereConditions))
+        .orderBy(direction(sortExpression(sortValue.value, sortColumn)))
+        .limit(params.limit);
+    } else {
+      if (params.sort && !/^[a-zA-Z0-9_-]+$/.test(params.sort.columnId)) {
+        logger.warn({ columnId: params.sort.columnId }, 'Invalid sort columnId detected - skipping sort');
       }
+      selectedRows = await db
+        .select({ id: datavaultRows.id })
+        .from(datavaultRows)
+        .where(and(...whereConditions))
+        .limit(params.limit);
     }
 
-    return query;
+    if (selectedRows.length === 0) {
+      return [];
+    }
+
+    const rowIds = selectedRows.map(row => row.id);
+    const values = await db
+      .select({
+        rowId: datavaultValues.rowId,
+        columnId: datavaultValues.columnId,
+        value: datavaultValues.value,
+      })
+      .from(datavaultValues)
+      .where(inArray(datavaultValues.rowId, rowIds));
+    const valuesByRow = new Map<string, Record<string, unknown>>();
+    for (const value of values) {
+      const rowValues = valuesByRow.get(value.rowId) ?? {};
+      rowValues[value.columnId] = value.value;
+      valuesByRow.set(value.rowId, rowValues);
+    }
+
+    return selectedRows.map(row => ({
+      id: row.id,
+      values: valuesByRow.get(row.id) ?? {},
+    }));
   }
 
   /**

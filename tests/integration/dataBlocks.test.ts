@@ -4,6 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import { users, tenants, projects, workflows, sections, blocks, datavaultDatabases, workflowQueries, steps } from '@shared/schema';
+import type { Block } from '@shared/schema';
+import type { ListVariable, ReadTableConfig } from '@shared/types/blocks';
 
 import { db } from '../../server/db';
 import { stepValueRepository } from '../../server/repositories';
@@ -12,6 +14,7 @@ import {
     datavaultColumnsService,
     datavaultRowsService
 } from '../../server/services';
+import { ReadTableBlockRunner } from '../../server/services/blockRunners/ReadTableBlockRunner';
 import { RunService } from '../../server/services/RunService';
 
 describe('Data Block Integration Tests', () => {
@@ -21,6 +24,10 @@ describe('Data Block Integration Tests', () => {
     let databaseId: string;
     let tableId: string;
     let columnId: string;
+    let readTableId: string;
+    let readTextColumnId: string;
+    let readNumberColumnId: string;
+    let readWorkflowId: string;
     let runService: RunService;
 
     const testEmail = 'datablock-test@example.com';
@@ -68,11 +75,124 @@ describe('Data Block Integration Tests', () => {
         }, tenantId);
         columnId = column.id;
 
+        const [project] = await db.insert(projects).values({
+            name: 'Write Block Project',
+            title: 'Write Block Project',
+            tenantId,
+            workspaceId: uuidv4(),
+            creatorId: userId,
+            createdBy: userId,
+            ownerId: userId,
+        } as any).returning();
+        projectId = project.id;
+
+        const readTable = await datavaultTablesService.createTable({
+            name: 'Read Table Integration Test',
+            description: 'Table for Read Table block tests',
+            databaseId,
+            ownerUserId: userId,
+            tenantId,
+        });
+        readTableId = readTable.id;
+
+        const readTextColumn = await datavaultColumnsService.createColumn({
+            tableId: readTableId,
+            name: 'Label',
+            type: 'text',
+            required: false,
+        }, tenantId);
+        readTextColumnId = readTextColumn.id;
+
+        const readNumberColumn = await datavaultColumnsService.createColumn({
+            tableId: readTableId,
+            name: 'Amount',
+            type: 'number',
+            required: false,
+        }, tenantId);
+        readNumberColumnId = readNumberColumn.id;
+
+        await datavaultRowsService.createRow(
+            readTableId,
+            tenantId,
+            { [readTextColumnId]: 'Alpha', [readNumberColumnId]: 9 },
+            userId
+        );
+        await datavaultRowsService.createRow(
+            readTableId,
+            tenantId,
+            { [readTextColumnId]: 'Beta', [readNumberColumnId]: 10 },
+            userId
+        );
+        await datavaultRowsService.createRow(
+            readTableId,
+            tenantId,
+            { [readTextColumnId]: 'Alpine', [readNumberColumnId]: 11 },
+            userId
+        );
+        await datavaultRowsService.createRow(
+            readTableId,
+            tenantId,
+            { [readTextColumnId]: '' },
+            userId
+        );
+        const archived = await datavaultRowsService.createRow(
+            readTableId,
+            tenantId,
+            { [readTextColumnId]: 'Archived', [readNumberColumnId]: 12 },
+            userId
+        );
+        await datavaultRowsService.archiveRow(tenantId, archived.row.id);
+
+        const [readWorkflow] = await db.insert(workflows).values({
+            projectId,
+            title: 'Read Table Block Workflow',
+            published: true,
+            version: 1,
+            creatorId: userId,
+            ownerId: userId,
+        } as any).returning();
+        readWorkflowId = readWorkflow.id;
+
         // 3. Instantiate RunService
         // Uses real dependencies from server/repositories and server/services
         runService = new RunService();
 
     });
+
+    const executeReadTable = async (
+        overrides: Partial<ReadTableConfig> = {}
+    ): Promise<ListVariable> => {
+        const config: ReadTableConfig = {
+            dataSourceId: databaseId,
+            tableId: readTableId,
+            outputKey: 'read_rows',
+            ...overrides,
+        };
+        const block = {
+            id: uuidv4(),
+            workflowId: readWorkflowId,
+            sectionId: null,
+            type: 'read_table',
+            phase: 'onSectionEnter',
+            config,
+            order: 0,
+            enabled: true,
+            virtualStepId: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        } as unknown as Block;
+
+        const result = await new ReadTableBlockRunner().execute(config, {
+            workflowId: readWorkflowId,
+            phase: 'onSectionEnter',
+            data: {},
+        }, block);
+
+        expect(result.success, result.errors?.join('\n')).toBe(true);
+        const list = result.data?.read_rows as ListVariable | undefined;
+        expect(list).toBeDefined();
+        return list!;
+    };
 
     afterAll(async () => {
         if (tenantId) {
@@ -87,17 +207,6 @@ describe('Data Block Integration Tests', () => {
 
     it('should write data to DataVault via WriteBlock', { timeout: 30000 }, async () => {
         // 1. Create Workflow & Section
-        const [project] = await db.insert(projects).values({
-            name: 'Write Block Project',
-            title: 'Write Block Project', // Required legacy field
-            tenantId: tenantId,
-            workspaceId: uuidv4(), // valid UUID
-            creatorId: userId,
-            createdBy: userId,
-            ownerId: userId,
-        } as any).returning();
-        projectId = project.id;
-
         const [workflow] = await db.insert(workflows).values({
             projectId: projectId,
             title: 'Write Block Workflow',
@@ -176,6 +285,45 @@ describe('Data Block Integration Tests', () => {
 
         // Check value
         expect(row.values[columnId]).toBe('Hello DataVault');
+    });
+
+    it('returns actual EAV cell values and excludes archived rows via Read Table block', { timeout: 30000 }, async () => {
+        const list = await executeReadTable();
+
+        const alpha = list.rows.find(row => row[readTextColumnId] === 'Alpha');
+        expect(alpha?.[readTextColumnId]).toBe('Alpha');
+        expect(alpha?.[readNumberColumnId]).toBe(9);
+        expect(list.rows.map(row => row[readTextColumnId])).not.toContain('Archived');
+        expect(list.count).toBe(4);
+    });
+
+    it.each([
+        ['equals', 'Beta', ['Beta']],
+        ['contains', 'Alp', ['Alpha', 'Alpine']],
+        ['greater_than', 9, ['Alpine', 'Beta']],
+        ['is_empty', undefined, ['']],
+        ['in', ['Alpha', 'Beta'], ['Alpha', 'Beta']],
+    ] as const)(
+        'applies the %s EAV filter without querying a nonexistent data column',
+        async (operator, value, expectedLabels) => {
+            const list = await executeReadTable({
+                filters: [{ columnId: operator === 'greater_than' ? readNumberColumnId : readTextColumnId, operator, value }],
+            });
+
+            const labels = list.rows.map(row => row[readTextColumnId] as string).sort();
+            expect(labels).toEqual([...expectedLabels].sort());
+        }
+    );
+
+    it('sorts number-column values numerically via Read Table block', { timeout: 30000 }, async () => {
+        const list = await executeReadTable({
+            sort: { columnId: readNumberColumnId, direction: 'asc' },
+        });
+
+        const amounts = list.rows
+            .map(row => row[readNumberColumnId])
+            .filter((value): value is number => typeof value === 'number');
+        expect(amounts).toEqual([9, 10, 11]);
     });
 
     it('should query data from DataVault via QueryBlock and use in Logic', { timeout: 30000 }, async () => {
