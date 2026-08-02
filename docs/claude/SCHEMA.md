@@ -127,7 +127,7 @@ All DataVault tables are `datavault_`-prefixed:
 - Legacy/existing: `short_text`, `long_text`, `multiple_choice`, `radio`, `yes_no`, `date_time`, `file_upload`, `computed`, `js_question`, `final_documents`, `signature_block`
 - Easy mode: `true_false`, `phone`, `date`, `time`, `datetime`, `email`, `number`, `currency`, `scale`, `website`, `display`, `address`, `final`
 - Advanced mode: `text`, `boolean`, `phone_advanced`, `datetime_unified`, `choice`, `email_advanced`, `number_advanced`, `scale_advanced`, `website_advanced`, `address_advanced`, `multi_field`, `display_advanced`
-- Structural: `list` (nestable repeating question; unsupported in the runner until the List initiative's Phase 3 lands — see `tickets/LIST_QUESTION_TICKETS.md`). Replaced `repeater`/`loop_group`, both dropped from the enum in LIST-13 (migration `0009`) along with the `steps.repeater_config` column.
+- Structural: `list` (nestable repeating question, fully supported in the runner via drill-in navigation; both List initiatives closed 2026-08-02, parked follow-ups in `tickets/BACKLOG.md`). Replaced `repeater`/`loop_group`, both dropped from the enum in LIST-13 (migration `0009`) along with the `steps.repeater_config` column.
 
 (Note: there is no `checkbox` or plain `signature` step type.)
 

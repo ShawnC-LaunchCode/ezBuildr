@@ -12,6 +12,8 @@ description: >-
   like "run the report", "part out the work", "is this ticket done", "what's
   still outstanding", or "close out the tickets" — even if the word "ticket"
   isn't used but the request matches this audit → tickets → review lifecycle.
+  Also use it to retire a finished initiative's ticket file, tidy the tickets/
+  folder, or file, promote, or look up anything in the backlog.
 ---
 
 # Ticket Flow — audit, ticket, dispatch, review
@@ -33,8 +35,9 @@ an existing ticket and told to work it, you are a Dev — read only your ticket
 or commit other tickets.
 
 Lifecycle: **Audit → Tickets → Dispatch → Work (self-grade to A) → Review pass
-→ Close or triage → Status report**. Commits happen only at review, only by
-the Senior, one commit per passed ticket; pushes only when the repo owner says so.
+→ Close or triage → Status report → Retire the file**. Commits happen only at
+review, only by the Senior, one commit per passed ticket; pushes only when the
+repo owner says so.
 
 ## Stage 1 — Audit
 
@@ -49,12 +52,31 @@ findings ranked by risk. Findings become tickets; observations too small or
 too speculative for a ticket go in a "Backlog / observations" section so they
 aren't lost.
 
+**Before auditing, read `tickets/BACKLOG.md`.** It is the index of everything
+already parked, with a `wont-fix` / `informational` section specifically to stop
+a settled question being re-filed as a fresh finding. Re-discovering a closed
+observation and presenting it as new is the most common way an audit loses the
+repo owner's trust.
+
 ## Stage 2 — Ticket generation
 
 Tickets live in **one markdown file per initiative, in a `tickets/` folder at
 the repo root** (create the folder if it doesn't exist yet), named for the
 initiative (e.g. `tickets/PAYMENTS_HARDENING_TICKETS.md`), with a short ticket
-prefix (e.g. `PAY-1..n`). Read
+prefix (e.g. `PAY-1..n`). The `tickets/` folder holds exactly three kinds of
+thing, and the naming is load-bearing:
+
+```
+tickets/
+  <INITIATIVE>_TICKETS.md   open, dispatchable work — the *_TICKETS.md glob
+  BACKLOG.md                index of parked entries; NOT in that glob
+  backlog/<INITIATIVE>.md   full text of parked entries, read on demand only
+```
+
+A dev told to "work the tickets" scans `tickets/*_TICKETS.md`. Anything that is
+not dispatchable must stay out of that glob or every dispatch pays to read it.
+
+Read
 [references/ticket-template.md](references/ticket-template.md) before writing
 the file — it has the exact required structure and a filled example.
 
@@ -288,6 +310,11 @@ into exactly one of:
    observation — promotable later, but not on the board and not sized. Filing
    full tickets for every review discovery is how an initiative's board grows
    faster than it drains.
+
+   While an initiative is **open**, its backlog stays in its own ticket file's
+   "Backlog / observations" section. It moves to `tickets/BACKLOG.md` only when
+   the initiative is retired (Stage 7) — so an active board is one file, not
+   two.
 3. **Reviewer fixes it** — reserved for small problems where the Senior
    already has ~90% of the context and it's a quick fix; note in the report
    that you took this path and what you changed.
@@ -300,6 +327,37 @@ previously, 🔄 in progress (with whom), 🔲 open, plus anything escalated or
 newly filed. The repo owner uses this to steer; it must be complete, not just the
 tickets you touched.
 
+## Stage 7 — Retiring an initiative
+
+When an initiative's last open ticket closes, **the ticket file goes away** —
+it does not linger as a 300-line tombstone that every future dispatch reads to
+learn nothing. Read
+[references/backlog.md](references/backlog.md) for the exact format; the shape
+of the move is:
+
+1. **Triage what is left.** Every remaining entry is one of: a real dispatchable
+   ticket (→ carry it into the *active* initiative that now owns that area, or
+   into a new file — do **not** demote it to backlog), a parked observation
+   (→ backlog), a settled ruling worth keeping (→ backlog), or noise (→ drop
+   it; git history has it).
+2. **Write the detail** into `tickets/backlog/<INITIATIVE>.md`, including a
+   `Closed — do not re-file` table so shipped work is not rediscovered.
+3. **Add index entries** to `tickets/BACKLOG.md`: 2–4 lines each, tagged with
+   *why* it is parked (`product-decision`, `needs-initiative`, `enhancement`,
+   `operational`, `informational`, `wont-fix`). The tag is the point — it tells
+   the next reader whether to open the detail at all.
+4. **Deduplicate across initiatives.** This is where the real value is. Items
+   get re-filed under new IDs by successive audits; one entry here was tracked
+   three separate times, and two others had already been fixed by a *different*
+   initiative's ticket. Cross-check every entry against the others' closed lists
+   before writing it down.
+5. **`git rm` the ticket file** and fix every cross-reference to it. References
+   of the form `git log -p -- <path>` stay valid after deletion and should be
+   kept — that is how the closed detail is recovered.
+6. **Grep the repo for the deleted filename** (`CLAUDE.md`, `AGENTS.md`, docs,
+   source comments) — ticket paths get cited in code comments and go stale
+   silently.
+
 ## Commit & push policy (Senior only)
 
 - Devs never commit. The Senior commits exactly one commit per passed ticket,
@@ -311,6 +369,10 @@ tickets you touched.
 - Phase Gates get their own commit — the only ticket-file-only commit there
   should be. Backlog triage (promote / merge / close won't-fix) happens at the
   gate and rides in that commit.
+- **Retiring an initiative (Stage 7) is one `docs(tickets):` commit** — the
+  `git rm`, the new `backlog/` detail file, the `BACKLOG.md` index entries and
+  every cross-reference fix land together, so no commit in the range leaves a
+  dangling pointer.
 - **Never push without the repo owner's explicit go-ahead**, and confirm branch
   state with them before switching branches — they work the same repo from a second
   IDE.

@@ -50,6 +50,13 @@ Recorded so a dev does not burn a turn re-litigating settled design:
 The gap is not the posture. It is that **none of it is visible to the person
 clicking download** — it lives in `manifest.json` inside the zip.
 
+**Rounds 1 and 2 also left five standing decisions (`D-1`..`D-5`) that govern
+this work** — run history excluded from bundles, shape-only secrets, the
+`export_jobs` table, DR being `pg_dump` rather than the admin archive, and the
+cloner rewrite being its own initiative. They are recorded in
+`tickets/backlog/PORTABILITY.md`. **Read them before ruling on anything
+portability-shaped; do not re-litigate them.**
+
 ---
 
 ## How to work this document
@@ -81,6 +88,7 @@ clicking download** — it lives in `manifest.json` inside the zip.
 |---|---|---|---|
 | 1 | The bundle must be complete and honest | IEX3-1..3 | ~2 days |
 | 2 | Make it reachable, with the security story in front of the user | IEX3-4..5 | ~3 days |
+| — | Carried forward from round 1, not phase-gated | IEX3-6 | ~1 hour |
 | Backlog | Not phase-gated | IEX3-B1..B4 | |
 
 ### Ticket index
@@ -92,6 +100,144 @@ clicking download** — it lives in `manifest.json` inside the zip.
 | IEX3-3 | Round-trip coverage for every question type, including List | P1 | M | 🔲 |
 | IEX3-4 | Export UI with a pre-download disclosure of what travels | P1 | L | 🔲 |
 | IEX3-5 | Import UI: upload → preview → apply | P1 | L | 🔲 |
+| IEX3-6 | Visual confirmation of an imported workflow in the builder | P2 | S | 🔲 |
+
+---
+
+# Carried forward — not phase-gated
+
+## IEX3-6 — Visual confirmation of an imported workflow in the builder 🔲
+
+**Priority: P2** · Size: S · Files: **none — this ticket changes no code**
+
+> **Carried from round 1 as `IEX-14` on 2026-08-02**, unchanged in substance,
+> when the round-1 ticket file was retired. It closes the one outstanding
+> acceptance criterion in round 1's Phase 2: IEX-11 AC 8 asked for a screenshot
+> of an imported workflow open in the builder. Everything else in that AC was
+> verified live and is recorded in IEX-11's verification block; the screenshot
+> could not be captured because the reviewing session had no browser tooling.
+>
+> **Not blocked by anything in this file** — it can be dispatched today, in
+> parallel with Phase 1. It is listed here rather than in `BACKLOG.md` because
+> it is a real, ready, dispatchable ticket, not a parked observation.
+
+### Finding
+
+`IEX-11` shipped and the round-trip is proven at the API level: a workflow was
+exported, previewed, applied, and read back through the *same* endpoints the
+builder calls (`GET /api/workflows/:id/sections`,
+`GET /api/sections/:id/steps`). Section titles matched the source exactly, steps
+stayed nested under the right section, every id was freshly minted, preview
+wrote nothing, and the audit trail showed exactly one import row.
+
+What has **not** been confirmed is that the builder UI actually renders an
+imported workflow correctly. API-level structural equivalence is strong evidence
+but it is not the same claim: the builder could still fail to load, render an
+empty canvas, or error in the console on data it did not create itself.
+
+The original blocker — a reviewing session without a working browser surface —
+is **no longer absolute**. A dev proved on 2026-08-01 that a live drive-through
+is achievable by running its own dev server on a spare port and capturing DOM
+evidence instead of pixels. Take that route if the browser pane is unavailable,
+and say which route you took.
+
+### Preferred fix
+
+Do **not** write code. Run the existing harness, then look at the result.
+
+1. Start the dev server from the repo root:
+
+   ```bash
+   npm run dev
+   ```
+
+   Wait for `http://localhost:5000/health` to return `"status":"healthy"`.
+   If port 5000 is busy, `npm run kill-server` first.
+
+2. In a second terminal, run the round-trip harness:
+
+   ```bash
+   npx tsx scripts/verifyPortabilityRoundTrip.ts
+   ```
+
+   It seeds a workflow, exports it, imports it back via preview → apply, and
+   prints a block like this:
+
+   ```
+   RESULT: PASS
+   ─────────────────────────────────────────────────────────────
+     Log in with:      portability-verify-<stamp>@example.com
+     Password:         TestPassword123!@#Strong
+     SOURCE builder:   http://localhost:5000/builder/<source-id>
+     IMPORTED builder: http://localhost:5000/builder/<imported-id>
+   ─────────────────────────────────────────────────────────────
+   ```
+
+   If it prints anything other than `RESULT: PASS`, **stop and report that** —
+   it means the round-trip itself regressed, which is a bigger finding than the
+   screenshot. Note this is now also a regression check on IEX3-1, which changed
+   what a workflow-scope export carries.
+
+3. Log in through the UI at `http://localhost:5000` with the printed email and
+   password. (Google OAuth cannot be driven headlessly; the login form also
+   accepts email/password for locally-registered users — see the `verify`
+   skill.)
+
+4. Open the **IMPORTED** builder URL. Confirm and screenshot:
+   - the section `Applicant Details` is present,
+   - it contains the steps `Full name` and `Email address`,
+   - the workflow loads without an error state or empty canvas.
+
+5. Open the **SOURCE** builder URL and screenshot it too, so the two can be
+   compared side by side.
+
+6. Check the browser console on the imported workflow and report any errors or
+   warnings verbatim.
+
+### Ties
+
+- Closes round 1's **IEX-11** AC 8. IEX-11 is otherwise ✅ and already pushed.
+- Load the `verify` skill (`.claude/skills/verify`) — it documents booting the
+  app and the local-auth workaround.
+- The harness is `scripts/verifyPortabilityRoundTrip.ts`. Read its header
+  comment before running.
+- Gotcha already paid for: `POST /api/auth/register` does **not** assign a
+  tenant, and every subsequent API call 400s with
+  `"User does not have a tenant assigned"`. The harness does that bootstrap for
+  you — do not re-derive it.
+- Second gotcha, paid for on 2026-07-28: `POST /api/auth/register` leaves
+  `users.emailVerified` false, and the UI login path rejects that with
+  `EmailNotVerifiedError` (403) at `server/routes/auth.routes.ts`. A bearer
+  token from `/register` works fine against the API, which is why the reviewer
+  never hit it — the whole IEX-11 verification went through the API path. **The
+  harness now sets `emailVerified: true` during bootstrap and proves the
+  credentials on the real login endpoint**, printing `UI login path OK (HTTP
+  200)` before it prints them.
+- Note the source workflow legitimately has **two** sections: creating a
+  workflow via the API seeds a default `Section 1` alongside
+  `Applicant Details`. Two sections is correct, not a bug.
+- File footprint: **none.** Collides with nothing; safe to run alongside any
+  other ticket. It does occupy port 5000 — coordinate if another session has
+  the dev server up.
+
+### Acceptance criteria
+
+1. `scripts/verifyPortabilityRoundTrip.ts` runs against the dev server and
+   prints `RESULT: PASS` **and** `UI login path OK (HTTP 200)`. Paste its full
+   output.
+2. A screenshot of the **imported** workflow open in the builder, showing the
+   `Applicant Details` section containing `Full name` and `Email address`. If
+   the browser pane cannot produce pixels, DOM evidence from your own dev server
+   is an accepted substitute — state which you used.
+3. The same evidence for the **source** workflow, for comparison.
+4. The two workflows are confirmed to have **different** ids (visible in the
+   URLs).
+5. Browser-console output for the imported workflow is reported — either "no
+   errors" or the errors verbatim.
+6. No files are modified. `git status` at the end shows a clean tree **for the
+   files this ticket touches** (others may be dirty — the repo owner works this
+   repo from a second IDE). If you believe a code change is needed, **stop and
+   report it** rather than making it — that is a new finding, not this ticket.
 
 ---
 
@@ -713,7 +859,8 @@ so the data exists; it simply has no route that returns it without the bytes.
   that cannot be re-imported.
 - **Pairs with IEX3-5**; they share the warning/collision rendering. Build the
   shared presentational pieces here and reuse them there, or sequence 4 → 5.
-- Supersedes **IEX2-16** in `tickets/IMPORT_EXPORT_2_TICKETS.md`.
+- Supersedes **IEX2-16** (now recorded as superseded in
+  `tickets/backlog/PORTABILITY.md`).
 - Skills to load: **`design`** (required, before any markup), then
   **`add-api-endpoint`** for the new route, **`run-tests`**, and **`verify`**
   for the live drive-through.
@@ -852,8 +999,7 @@ and no human has ever seen it.
       builder → read the disclosure dialog → download → import the same file
       → read the preview → apply → open the imported workflow and confirm the
       List step, its nested fields and its bindings are intact
-- [ ] IEX2-16 marked ✅ superseded in
-      `tickets/IMPORT_EXPORT_2_TICKETS.md`
+- [ ] IEX3-6 ✅ (not phase-gated, but close it out with this gate if still open)
 - [ ] Backlog triaged (promote / merge / close won't-fix) in the gate commit
 - [ ] Reviewer has committed each passed ticket + this gate
 
@@ -876,6 +1022,8 @@ Promotable later; each is a one-liner on purpose.
   `README.txt` at the bundle root (what this is, what was excluded, what must
   be re-entered) would make the artifact self-describing for anyone who
   receives one without the UI. Depends on nothing; pairs naturally with IEX3-4.
-- **IEX3-B4** — `D-7` (replace `adm-zip` on the read side) remains open in
-  `tickets/IMPORT_EXPORT_2_TICKETS.md` as its own initiative. Unchanged by this
-  audit; noted so it is not rediscovered as new.
+- **IEX3-B4** — replacing `adm-zip` on the read side remains open as its own
+  initiative. Unchanged by this audit; noted so it is not rediscovered as new.
+  **Merged into `tickets/BACKLOG.md` as `IEX-D7`** on 2026-08-02 — it had been
+  tracked three times (here, as round 2's `D-7`, and as round 1's `IEX-B8`).
+  Track it there, not here.

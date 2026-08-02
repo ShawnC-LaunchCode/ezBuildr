@@ -3,7 +3,7 @@
  *
  * A list field has no `steps` row and no id to PATCH — its config lives
  * inside the parent List step's own `config` jsonb (see the Decisions
- * section of tickets/LIST_QUESTION_2_TICKETS.md). Every piece rendered here
+ * section referenced from tickets/backlog/LIST.md). Every piece rendered here
  * is therefore controlled (`field` + `onChange`), never self-saving, unlike
  * the standalone step editors it borrows settings sections from.
  *

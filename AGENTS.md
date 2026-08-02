@@ -107,7 +107,12 @@ never point anything at the production database.
 ## 5. Tickets
 
 Work arrives as a ticket in `tickets/*_TICKETS.md`. Read that file's "How to
-work this document" header and **your ticket only**. Meet every acceptance
+work this document" header and **your ticket only**.
+
+`tickets/BACKLOG.md` and `tickets/backlog/` are **not** work. They hold parked
+observations from closed initiatives, deliberately outside the `*_TICKETS.md`
+glob. Do not read them unless your ticket sends you there, and never treat an
+entry in them as something to implement. Meet every acceptance
 criterion literally, then grade your own work A–F and fix to an A before
 reporting done — an A meaning: every criterion met, tests written and green,
 gates green, no leftover scratch files or debug output, and nothing in the diff

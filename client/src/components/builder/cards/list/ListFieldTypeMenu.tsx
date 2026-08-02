@@ -5,8 +5,9 @@
  *
  * Donor pattern: `QuestionAddMenu` (builder/pages/QuestionAddMenu.tsx). This
  * component does not share code with it because a list field is not a step
- * row (Decision 1, tickets/LIST_QUESTION_2_TICKETS.md) — selecting an entry
- * here only calls `onSelect`, never `useCreateStep`.
+ * row (Decision 1; the List ticket files are retired — see
+ * tickets/backlog/LIST.md) — selecting an entry here only calls `onSelect`,
+ * never `useCreateStep`.
  */
 import type { ReactElement } from "react";
 
