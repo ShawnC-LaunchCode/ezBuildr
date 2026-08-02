@@ -101,13 +101,91 @@ portability-shaped; do not re-litigate them.**
 | IEX3-4 | Export UI with a pre-download disclosure of what travels | P1 | L | ✅ |
 | IEX3-5 | Import UI: upload → preview → apply | P1 | L | ✅ |
 | IEX3-7 | `secrets.valueEnc` NOT NULL breaks every project import | P0 | S | ✅ |
-| IEX3-6 | Visual confirmation of an imported workflow in the builder | P2 | S | 🔲 |
+| IEX3-6 | Visual confirmation of an imported workflow in the builder | P2 | S | ✅ |
 
 ---
 
 # Carried forward — not phase-gated
 
-## IEX3-6 — Visual confirmation of an imported workflow in the builder 🔲
+## IEX3-6 — Visual confirmation of an imported workflow in the builder ✅
+
+> **Verification pass — 2026-08-02.** All 6 acceptance criteria met. Real
+> pixels, not DOM evidence — the browser surface worked.
+>
+> **AC 1 — harness output** (`RESULT: PASS` and `UI login path OK`):
+>
+> ```
+> 1. user 23773845-… in tenant 74cfa1b9-… (email marked verified for UI login)
+>    UI login path OK (HTTP 200) — these credentials work in the browser
+> 2. source workflow … with section "Applicant Details" and 2 steps
+>    published workflow …
+>    seeded datavault, blocks with secrets, logic rules and transform blocks
+> 3. exported 6499 bytes (application/zip)
+> 4. preview HTTP 200 canProceed=true counts={"projects":1,"workflows":1,
+>    "sections":2,"steps":2,"logic_rules":1,"blocks":1,"transform_blocks":1,
+>    "workflow_versions":1,"templates":1,"workflow_templates":1,
+>    "datavault_databases":1,"datavault_tables":1,"datavault_columns":1,
+>    "datavault_rows":3,"datavault_values":2}
+> 5. apply HTTP 201 rootId=… blobsRestored=1
+>    "Applicant Details" -> 2 step(s): "Full name", "Email address"
+>    "Section 1" -> 0 step(s):
+> 6. audit: 1 data_exported, 1 data_imported
+>
+> RESULT: PASS
+> ```
+>
+> This doubles as the regression check the ticket asked for: IEX3-1 changed
+> what a workflow-scope export carries, and the harness still passes end to
+> end, now including `templates: 1` and `blobsRestored=1`.
+>
+> **AC 2/3** — screenshots at `.playwright-mcp/iex36-imported-builder.png` and
+> `iex36-source-builder.png` (gitignored). Both render `Applicant Details`
+> containing `Full name` and `Email address`, followed by the `Send Data to
+> API` and `test_transform` action blocks, with `Section 1` as page 2 of 2.
+> The imported builder loads with no error state and no empty canvas.
+>
+> **AC 4** — different ids, visible in the URLs: source
+> `f7afd437-f714-4cb6-b82c-32b07d89eed5`, imported
+> `048ce872-55ae-402a-b8c7-c9d7e4ae2946`.
+>
+> **AC 5** — console on the imported workflow: **no application errors.** The
+> only entries are the Vite HMR websocket failing to connect
+> (`ws://localhost:5000/?token=… Unexpected response code: 400`, then
+> `[vite] failed to connect to websocket`). Dev-tooling noise, present on every
+> page of this app, unrelated to the import.
+>
+> **AC 6** — no files modified; `git status` clean for this ticket's paths.
+>
+> **An unexpected bonus find:** the two screenshots differ in exactly one
+> respect — the source shows **Active** (green publish toggle), the imported
+> shows **Draft**. That is IEX3-4's documented security property
+> (`isPublic=false, publicLink=null, slug=null` on import) confirmed visually
+> for the first time. An imported copy cannot inherit a live public URL.
+>
+> ### Two defects in the ticket's own procedure — reported, not fixed (AC 6)
+>
+> Both block the documented steps. Neither is a code change I was permitted to
+> make, and both are filed as **IEX3-B6** and **IEX3-B7** below.
+>
+> 1. **Step 1 as written does not work.** Plain `npm run dev` leaves public
+>    signup fail-closed (`isPublicSignupEnabled`, `shared/publicSignup.ts`), so
+>    the harness dies immediately on `register -> HTTP 403 registration_closed`.
+>    Worked around by starting my own server with
+>    `VITE_PUBLIC_SIGNUP_ENABLED=true` — an env flag, not a file change. This is
+>    a *third* registration gotcha on top of the two the Ties already document.
+> 2. **The harness deletes the evidence it tells you to screenshot.** Step 7
+>    unconditionally drops the tenant immediately after printing the login
+>    credentials and both builder URLs, with no flag to keep it, so those URLs
+>    are dead before anyone can open them. The ticket is impossible exactly as
+>    written. I ran the harness verbatim once to satisfy AC 1, then ran a
+>    temporary copy in `scripts/` with **only** the teardown block replaced
+>    (`diff` confirmed a single hunk) to hold the data open for the
+>    screenshots, and deleted both the copy and the tenant afterwards.
+>
+> Correction to my own earlier prediction: I expected the harness to print a
+> stale `/builder/<id>` URL. It does not — the script prints the correct
+> `/workflows/<id>/builder`. Only the example block quoted in this ticket's
+> Preferred fix is stale.
 
 **Priority: P2** · Size: S · Files: **none — this ticket changes no code**
 
@@ -1285,6 +1363,21 @@ Promotable later; each is a one-liner on purpose.
   **Merged into `tickets/BACKLOG.md` as `IEX-D7`** on 2026-08-02 — it had been
   tracked three times (here, as round 2's `D-7`, and as round 1's `IEX-B8`).
   Track it there, not here.
+- **IEX3-B6** — `scripts/verifyPortabilityRoundTrip.ts` deletes its own tenant
+  in step 7, immediately after printing the login credentials and the two
+  builder URLs it instructs you to screenshot — so they are dead on arrival and
+  the documented procedure cannot be followed. Wants an opt-out
+  (`PORTABILITY_VERIFY_KEEP=1`) that skips the teardown and prints the manual
+  cleanup SQL instead. Found working IEX3-6, 2026-08-02; worked around there
+  with a temporary copy. Small and self-contained.
+- **IEX3-B7** — The same harness cannot run against a stock `npm run dev`:
+  public signup is fail-closed outside tests (`isPublicSignupEnabled`), so
+  `POST /api/auth/register` returns 403 and the script dies at bootstrap. Either
+  document `VITE_PUBLIC_SIGNUP_ENABLED=true` in its header comment, or have the
+  bootstrap create the user directly the way it already creates the tenant.
+  This is the third registration gotcha in this area; the first two are already
+  documented in IEX3-6's Ties, which argues for fixing the cause rather than
+  adding a third note.
 - **IEX3-B5** — A DataVault database referenced *only* from inside a step
   config is still not carried by the export. `collectWorkflowRefs` (IEX3-1)
   reads `workflow_data_sources`, `workflow_queries` and writeback mappings, not
