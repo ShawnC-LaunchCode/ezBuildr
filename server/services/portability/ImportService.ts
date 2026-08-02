@@ -14,6 +14,7 @@ import { aclService } from '../AclService';
 import { projectRepository, type DbTransaction } from '../../repositories';
 import { canManageOrg } from '../../utils/ownershipAccess';
 import { remapJsonIds } from '../../utils/remapJsonIds';
+import { collectConfigEntityRefs } from '@shared/types/stepConfigRefs';
 import { storageProvider } from '../storage';
 import { storageQuotaService } from '../StorageQuotaService';
 import { virusScanner } from '../security/VirusScanner';
@@ -341,6 +342,50 @@ export class ImportService {
     }
   }
 
+  /**
+   * Warn about ids inside a jsonb config that point at entities the bundle
+   * does not contain (IEX3-2).
+   *
+   * `resolved` is the set of source ids the import can map — the bundle's own
+   * ids during preview, `idMap`'s keys during apply. **Must be called before
+   * `remapJsonIds` rewrites the column**, or every successfully remapped ref
+   * would look unresolvable: after the remap the value is the *new* id, which
+   * is never a key of either set.
+   *
+   * These are warnings, never errors. A workflow whose dropdown lost its
+   * binding is still a usable baseline; the user just has to be told, which is
+   * the whole point. The values are left in place so they can see what the
+   * binding was when they rewire it.
+   */
+  private collectConfigRefWarnings(
+    desc: EntityDescriptor,
+    data: Record<string, unknown>,
+    resolved: { has(id: string): boolean }
+  ): ExportWarning[] {
+    const warnings: ExportWarning[] = [];
+    for (const column of desc.entityRefColumns ?? []) {
+      const value = data[column];
+      if (value == null) {
+        continue;
+      }
+      for (const ref of collectConfigEntityRefs(value, column)) {
+        if (resolved.has(ref.id)) {
+          continue;
+        }
+        warnings.push({
+          type: 'dangling_reference',
+          entity: desc.name,
+          column: ref.path,
+          missingId: ref.id,
+          message:
+            `${desc.name}.${ref.path} points at a ${ref.entity} record that is not in this bundle. ` +
+            `The reference was left as-is and will not resolve here — re-point it after importing.`
+        });
+      }
+    }
+    return warnings;
+  }
+
   private checkDanglingReferences(desc: EntityDescriptor, data: Record<string, unknown>, bundleIds: Set<string>, result: ImportPreview): void {
     for (const colName of desc.refs ?? []) {
       const val = data[colName];
@@ -415,6 +460,7 @@ export class ImportService {
       }
 
       this.checkDanglingReferences(desc, data, bundleIds, result);
+      result.warnings.push(...this.collectConfigRefWarnings(desc, data, bundleIds));
 
       count++;
     }
@@ -907,6 +953,10 @@ export class ImportService {
     // Role-bearing entities are dropped wholesale by shouldSkipEntity(), and any
     // other entity's `role`/`tenantRole` is stripped by the desc.fields allowlist
     // in getZodSchema(), so no per-row role scrubbing is needed here.
+
+    // Before the remap, while the config still holds source ids: report the
+    // embedded references this import cannot resolve (IEX3-2).
+    ctx.warnings.push(...this.collectConfigRefWarnings(ctx.desc, data, ctx.idMap));
 
     // Remap IDs in JSON fields
     for (const jsonRef of (ctx.desc.jsonRefs ?? [])) {

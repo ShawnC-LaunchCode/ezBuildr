@@ -26,6 +26,17 @@ export interface EntityDescriptor {
    * ENTITY_GRAPH — `ExportService.findUnresolvedRef` reads `extractedIds`.
    */
   dropIfUnresolved?: Array<{ column: string; entity: string }>;
+  /**
+   * jsonb columns whose contents carry ids of *other* entities, to be reported
+   * when they cannot be resolved on import (IEX3-2).
+   *
+   * Distinct from `jsonRefs`, which only says "run remapJsonIds over this".
+   * That remap is silent about misses, so a DataVault-bound choice question —
+   * including one nested inside a List — used to import cleanly while still
+   * pointing at the source instance. `collectConfigEntityRefs` finds them;
+   * these columns say where to look.
+   */
+  entityRefColumns?: string[];
 }
 
 export const ENTITY_GRAPH: EntityDescriptor[] = [
@@ -86,7 +97,8 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     fields: ["id","workflowId","sectionId","type","title","description","required","config","alias","defaultValue","order","isVirtual","visibleIf"],
     refs: ["workflowId", "sectionId"],
     jsonRefs: ["config","defaultValue","visibleIf"],
-    scanPaths: ["config"]
+    scanPaths: ["config"],
+    entityRefColumns: ["config"]
   },
   {
     table: schema.logicRules,
@@ -106,7 +118,8 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     refs: ["workflowId", "sectionId", "virtualStepId"],
     jsonRefs: ["config"],
     redactPaths: ["config.headers[].value"],
-    scanPaths: ["config"]
+    scanPaths: ["config"],
+    entityRefColumns: ["config"]
   },
   {
     table: schema.transformBlocks,

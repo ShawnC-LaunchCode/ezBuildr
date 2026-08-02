@@ -537,6 +537,64 @@ describe.sequential("Portability Import API Integration Tests", () => {
     });
   });
 
+  it("IEX3-2: a List whose nested choice lost its DataVault binding imports 201 and says so", async () => {
+    const { workflowId, sectionId } = await seedWorkflow({ projectId, userId });
+    // Referenced only from inside the step config, never attached to the
+    // workflow — so it cannot travel, and the import has to report it rather
+    // than handing back a silently broken dropdown.
+    const vault = await seedDatavault({
+      tenantId, userId, scopeType: "project", scopeId: projectId, attachToWorkflowId: null
+    });
+
+    await db.insert(schema.steps).values({
+      workflowId, sectionId, type: "list", title: "Beneficiaries",
+      alias: "beneficiaries", order: 1,
+      config: {
+        fields: [
+          {
+            kind: "question", id: randomUUID(), alias: "state", type: "choice",
+            title: "State", order: 0,
+            config: {
+              display: "dropdown",
+              allowMultiple: false,
+              options: [],
+              dynamicOptions: {
+                type: "table_column",
+                dataSourceId: vault.databaseId,
+                tableId: vault.tableId,
+                columnId: vault.columnId,
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    const wfBundle = await downloadBundle("workflow", workflowId, authToken);
+
+    const preview = await request(baseURL)
+      .post("/api/portability/import/preview")
+      .set("Authorization", `Bearer ${authToken}`)
+      .attach("file", wfBundle, "list.ezb")
+      .expect(200);
+
+    // A lost binding is a warning, not a blocker: the workflow is still a
+    // usable baseline once the user re-points it.
+    expect(preview.body.canProceed).toBe(true);
+    expect(preview.body.errors).toEqual([]);
+    expect(preview.body.warnings.map((w: { missingId?: string }) => w.missingId))
+      .toEqual(expect.arrayContaining([vault.databaseId, vault.tableId, vault.columnId]));
+
+    const applied = await request(baseURL)
+      .post("/api/portability/import/apply")
+      .set("Authorization", `Bearer ${authToken}`)
+      .attach("file", wfBundle, "list.ezb")
+      .expect(201);
+
+    expect(applied.body.warnings.map((w: { column?: string }) => w.column))
+      .toContain("config.fields[0].config.dynamicOptions.tableId");
+  });
+
   it("AC 7: a bundle claiming a newer migrationHead is rejected with a 400", async () => {
     const zip = new AdmZip(bundle);
     const manifest = JSON.parse(zip.getEntry("manifest.json")!.getData().toString("utf8"));
