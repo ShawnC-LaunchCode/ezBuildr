@@ -55,7 +55,6 @@ import { registerTemplateAnalysisRoutes } from "./templateAnalysis.routes";
 import { registerTenantRoutes } from "./tenant.routes";
 import { registerTransformBlockRoutes } from "./transformBlocks.routes";
 import { registerUserPreferencesRoutes } from "./userPreferences.routes";
-import { validationRouter } from "./validation.routes";
 import { registerVersionRoutes } from "./versions.routes";
 import webhookRouter from "./webhooks.routes";
 import { registerWorkflowAnalyticsRoutes } from "./workflowAnalytics.routes";
@@ -128,9 +127,6 @@ export function registerAllRoutes(app: Express): void {
   // Platform administration (all endpoints gated by hybridAuth + isAdmin)
   registerAdminRoutes(app);
   registerAdminAiSettingsRoutes(app);
-
-  // Validation
-  app.use(validationRouter);
 
   // Features
   registerBrandingRoutes(app);
