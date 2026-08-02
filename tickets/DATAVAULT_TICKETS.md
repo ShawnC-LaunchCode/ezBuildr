@@ -96,6 +96,51 @@ Disjoint and parallel-safe: **DV-1, DV-2, DV-3** (Phase 1 — all three at once)
 
 ---
 
+## Dispatch plan after the Phase 1 gate (reviewer, 2026-08-02)
+
+**The Phase 2 gate is deliberately relaxed for DV-10, DV-11 and DV-12.** They are
+Phase 4 tickets, but they share **zero files** with Phase 2, and Phase 2's own
+tickets are a forced sequential chain. Holding them back would idle three devs to
+enforce an ordering that protects nothing. Phases still gate *within* the
+DataVault row-write code.
+
+| Wave | Tickets | Concurrency | Blocked on |
+|---|---|---|---|
+| 1 | **DV-4** · DV-10 · DV-11 · DV-12 | 4 devs | nothing |
+| 2 | **DV-5** | 1 dev | DV-4 (same method) |
+| 3 | **DV-6** ∥ **DV-7** | 2 devs | DV-5 |
+| 4 | **DV-8** → **DV-9** → **DV-13** | 1 dev, sequential | Phase 2 gate |
+
+Why the chain cannot be parallelised: DV-4 and DV-5 both rewrite
+`validateRowData()`; DV-6 extends the generation loop **DV-5 restructures**; DV-7
+needs DV-4's uniqueness enforcement for its race fix *and* DV-5's partial-update
+support in `updateRow`. DV-9 restructures the same `findByTableId` where-clause as
+DV-8, and DV-13 edits the `rows.routes.ts` handler DV-8 rewrites.
+
+DV-6 and DV-7 *are* safe together despite both touching
+`DatavaultRowsRepository.ts` — DV-6 owns `getNextAutoNumber` / the counter row,
+DV-7 owns `findRowByColumnValue`. Tell each dev which method is theirs.
+
+### Two hard constraints for this dispatch
+
+1. **Only DV-10 may generate a migration.** `db:generate` numbers from the local
+   chain, so two devs generating concurrently both produce `NNNN` and collide.
+   If any other ticket concludes it needs a migration, it **stops and escalates**
+   rather than generating one.
+2. **DB suites no longer contend** — `scripts/new-worktree.ps1` now gives each
+   worktree its own database (`ezbuildr_test_<name>`). Do not point a worktree at
+   the shared `ezbuildr_test`.
+
+### Live-verification note
+
+The `verify` skill is **known stale** (see the Phase 1 gate evidence block for the
+specific breakages: gated signup, no tenant on register, `emailVerified`,
+`title` vs `name`, rate limits). A dev whose ticket demands live proof should read
+that block first. The reviewer is rebuilding the skill; until it lands, that block
+is the authority.
+
+---
+
 # Phase 1 — The three interview integration paths are broken
 
 The ask named three capabilities: interviews store data in DataVault, DataVault feeds
