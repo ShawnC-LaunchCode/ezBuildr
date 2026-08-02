@@ -1885,7 +1885,7 @@ Do **not** change `validatePage`, the error-path keying convention, or the
 
 ---
 
-## LIST2-16 — Two debounce implementations 🔲
+## LIST2-16 — Two debounce implementations ✅
 
 **Priority: P3** · Size: S · Files: `client/src/components/builder/cards/ListCardEditor.tsx`,
 `client/src/hooks/useDebouncedFieldMutation.ts`
@@ -1934,6 +1934,38 @@ local state, the exact final payload, and both flush paths.
 3. The six existing `useDebouncedFieldMutation` consumers are unaffected —
    assert against their existing tests.
 4. `npm run type-check` 0 errors; `npm run lint` clean; `test:fast` ≥ 2274.
+
+### Verification pass — 2026-08-02 (reviewer)
+
+All 4 criteria met. Committed `963c1db9`. Turn-in graded **A**, no deviations.
+
+The shape is the one the ticket specified: `T = { stepId, sectionId, config }`,
+so identity travels **inside** the debounced value. That is what makes the flush
+safe even though the `onFlushRef` effect is declared first and has therefore
+already adopted the new step's callback by the time the identity effect runs —
+the payload carries its own ids, so the closure being stale no longer matters.
+
+**Backward compatibility for the six existing consumers verified by reading,
+not just by green tests:** `identity` defaults to `undefined`,
+`Object.is(undefined, undefined)` holds, so the new effect falls through to the
+same dirty-guarded branch as the old one, with an effectively identical
+dependency set (`flush` is a stable `useCallback([])`).
+
+AC2 is the load-bearing criterion and it genuinely holds:
+`tests/unit/client/ListCardEditor.test.tsx` is **not in the diff** — it passes
+unmodified, which is the only real proof that a behavior-preserving refactor
+preserved behavior. Mutation-proven besides: replacing the identity comparison
+with `false` fails the step-change flush test. Reverted after.
+
+**Note on the suite count.** `test:fast` shows 1 failure on this tree —
+`tests/unit/portability/entityGraph.test.ts`. It is **not** from this ticket:
+`entityGraph.ts` carries 28 uncommitted lines of concurrent IEX3 work from the
+repo owner's second IDE, and LIST2-16 touches only two client files. Staged by
+path accordingly; that work was left untouched.
+
+---
+
+## Phase 4 status
 
 ---
 
