@@ -187,6 +187,30 @@ export class DatavaultTablesRepository extends BaseRepository<
   }
 
   /**
+   * Delete every table personally owned by a user.
+   *
+   * This must run before deleting the user. Deleting both through foreign-key
+   * cascades in a single statement makes Postgres process the table cascade
+   * alongside SET NULL updates to datavault_rows.created_by/updated_by. That
+   * competing cascade order can leave a row update pointing at an already
+   * deleted table and abort the account deletion.
+   */
+  async deleteOwnedByUser(ownerUserId: string, tx?: DbTransaction): Promise<void> {
+    const database = this.getDb(tx);
+    await database
+      .delete(datavaultTables)
+      .where(
+        or(
+          eq(datavaultTables.ownerUserId, ownerUserId),
+          and(
+            eq(datavaultTables.ownerType, "user"),
+            eq(datavaultTables.ownerUuid, ownerUserId)
+          )
+        )
+      );
+  }
+
+  /**
    * Find multiple tables by IDs (batch fetch)
    */
   async findByIds(ids: string[], tx?: DbTransaction): Promise<DatavaultTable[]> {

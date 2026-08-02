@@ -10,6 +10,7 @@ import { WorkflowRepository } from "../repositories/WorkflowRepository";
 import { WorkflowRunRepository } from "../repositories/WorkflowRunRepository";
 import { accountLockoutService } from "../services/AccountLockoutService";
 import { ActivityLogService } from "../services/ActivityLogService";
+import { adminUserService } from "../services/AdminUserService";
 import { adminOrgStatsService } from "../services/AdminOrgStatsService";
 import { mfaService } from "../services/MfaService";
 import { workflowClonerService } from "../services/WorkflowClonerService";
@@ -128,7 +129,7 @@ export function registerAdminRoutes(app: Express): void {
         return res.status(400).json({ message: "You cannot delete your own account" });
       }
 
-      await userRepository.deleteUser(userId);
+      await adminUserService.deleteUser(userId);
       invalidateUserCache(userId);
 
       logger.info(
@@ -139,7 +140,11 @@ export function registerAdminRoutes(app: Express): void {
       res.json({ message: "User deleted successfully" });
     } catch (error) {
       logger.error({ err: error, adminId: req.adminUser!.id }, 'Error deleting user');
-      res.status(500).json({ message: "Failed to delete user. They may have dependent data that prevents deletion." });
+      const { status, message } = classifyRouteError(
+        error,
+        "Failed to delete user. They may have dependent data that prevents deletion."
+      );
+      res.status(status).json({ message });
     }
   }));
 

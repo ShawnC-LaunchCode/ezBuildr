@@ -188,4 +188,37 @@ describe.sequential("Admin user workflows API", () => {
       expect(response.status).toBe(403);
     });
   });
+
+  describe("DELETE /api/admin/users/:userId", () => {
+    it("deletes a zero-workflow user who owns a populated DataVault table", async () => {
+      const target = await createTestUser(ctx, "builder");
+      const [table] = await db.insert(schema.datavaultTables).values({
+        tenantId: ctx.tenantId,
+        ownerUserId: target.userId,
+        ownerType: "user",
+        ownerUuid: target.userId,
+        name: "Deletion regression table",
+        slug: `deletion-regression-${target.userId}`,
+      }).returning();
+      const [row] = await db.insert(schema.datavaultRows).values({
+        tableId: table.id,
+        createdBy: target.userId,
+        updatedBy: target.userId,
+      }).returning();
+
+      const response = await adminAgent.delete(`/api/admin/users/${target.userId}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe("User deleted successfully");
+      expect(
+        await db.select().from(schema.users).where(eq(schema.users.id, target.userId))
+      ).toHaveLength(0);
+      expect(
+        await db.select().from(schema.datavaultTables).where(eq(schema.datavaultTables.id, table.id))
+      ).toHaveLength(0);
+      expect(
+        await db.select().from(schema.datavaultRows).where(eq(schema.datavaultRows.id, row.id))
+      ).toHaveLength(0);
+    });
+  });
 });

@@ -165,6 +165,7 @@ Funnel/trends/heatmap/branching analytics and JSON/CSV/PDF export per workflow.
 
 ```
 GET         /api/admin/users
+DELETE      /api/admin/users/:userId              # removes personal DataVault data before the account
 PUT         /api/admin/users/:userId/role         # NOT /set-admin
 GET         /api/admin/users/:userId/workflows    # + runCount; excludes org-membership reach
 GET         /api/admin/logs (+ /export, /events, /actors)

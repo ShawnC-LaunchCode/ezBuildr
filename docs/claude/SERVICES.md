@@ -111,7 +111,7 @@ TemplateService, TemplateTestService, TemplateVersionService, TemplateValidation
 
 ## Business & Utility
 
-ProjectService, TeamService, OrganizationService, AdminOrgStatsService, ReviewTaskService (orphaned — its routes were removed), BrandingService, DataSourceService, RandomizerService, ActivityLogService, emailService (SendGrid), fileService, FileStorageService, StorageQuotaService, UserPreferencesService, AccountService, EmailTemplateMetadataService, CollectionService/CollectionFieldService/RecordService (legacy).
+ProjectService, TeamService, OrganizationService, AdminOrgStatsService, AdminUserService (transactional admin account deletion), ReviewTaskService (orphaned — its routes were removed), BrandingService, DataSourceService, RandomizerService, ActivityLogService, emailService (SendGrid), fileService, FileStorageService, StorageQuotaService, UserPreferencesService, AccountService, EmailTemplateMetadataService, CollectionService/CollectionFieldService/RecordService (legacy).
 
 ## Removed — do not reference
 
