@@ -14,9 +14,9 @@ This file is deliberately **not** named `*_TICKETS.md`, because that glob is
 what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 `tickets/*_TICKETS.md`; parked observations live here.
 
-> **As of 2026-08-02 that glob matches nothing — every initiative is closed.**
-> An empty result means there is no open work, not that the folder is broken.
-> The next initiative creates its own `<NAME>_TICKETS.md`.
+> **As of 2026-08-02 the one open initiative is `DATAVAULT_TICKETS.md`** (DV-1..13,
+> 4 phases — DataVault integration & enterprise readiness). Every earlier initiative
+> is closed and retired into `backlog/`.
 
 ### Why an entry is parked
 
