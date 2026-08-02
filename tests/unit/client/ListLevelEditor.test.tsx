@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ListLevelEditor } from '../../../client/src/components/builder/cards/list/ListLevelEditor';
@@ -66,48 +67,121 @@ describe('ListLevelEditor — alias uniqueness (LIST-6 AC5)', () => {
   });
 });
 
-describe('ListLevelEditor — nesting depth cap (LIST-6 AC6)', () => {
-  it('prevents adding a nested list at the maximum depth, reading the limit from the shared constant', () => {
+describe('ListLevelEditor — nesting depth cap (LIST-6 AC6, LIST2-1 AC4)', () => {
+  it('disables the Nested List palette entry at the maximum depth, reading the limit from the shared constant', async () => {
     const config: ListConfig = {
       fields: [questionField({ id: 'f1', alias: 'field_1', title: 'Field 1', order: 0 })],
     };
+    const user = userEvent.setup();
 
     render(<ListLevelEditor config={config} onChange={vi.fn()} depth={LIST_VALIDATION_MAX_DEPTH} />);
 
-    const addNestedButton = screen.getByRole('button', { name: /add nested list/i });
-    expect(addNestedButton).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Add Question' }));
+    const nestedListItem = screen.getByRole('menuitem', { name: /nested list/i });
+    expect(nestedListItem).toHaveAttribute('aria-disabled', 'true');
     expect(
       screen.getByText(new RegExp(`nest up to ${LIST_VALIDATION_MAX_DEPTH} levels deep`, 'i'))
     ).toBeInTheDocument();
   });
 
-  it('allows adding a nested list one level below the maximum', () => {
+  it('allows selecting Nested List one level below the maximum', async () => {
     const config: ListConfig = {
       fields: [questionField({ id: 'f1', alias: 'field_1', title: 'Field 1', order: 0 })],
     };
+    const user = userEvent.setup();
 
     render(<ListLevelEditor config={config} onChange={vi.fn()} depth={LIST_VALIDATION_MAX_DEPTH - 1} />);
 
-    const addNestedButton = screen.getByRole('button', { name: /add nested list/i });
-    expect(addNestedButton).not.toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Add Question' }));
+    const nestedListItem = screen.getByRole('menuitem', { name: /nested list/i });
+    expect(nestedListItem).not.toHaveAttribute('aria-disabled', 'true');
     expect(
       screen.queryByText(new RegExp(`nest up to ${LIST_VALIDATION_MAX_DEPTH} levels deep`, 'i'))
     ).not.toBeInTheDocument();
   });
 
-  it('appends a new nested list field when the button is clicked below the cap', () => {
+  it('appends a new nested list field when Nested List is selected below the cap', async () => {
     const config: ListConfig = {
       fields: [questionField({ id: 'f1', alias: 'field_1', title: 'Field 1', order: 0 })],
     };
     const onChange = vi.fn();
+    const user = userEvent.setup();
 
     render(<ListLevelEditor config={config} onChange={onChange} depth={1} />);
-    fireEvent.click(screen.getByRole('button', { name: /add nested list/i }));
+    await user.click(screen.getByRole('button', { name: 'Add Question' }));
+    await user.click(screen.getByRole('menuitem', { name: /nested list/i }));
 
     expect(onChange).toHaveBeenCalledTimes(1);
     const [nextConfig] = onChange.mock.calls[0] as [ListConfig];
     expect(nextConfig.fields).toHaveLength(2);
     expect(nextConfig.fields[1].kind).toBe('list');
+  });
+});
+
+describe('ListLevelEditor — Add Question palette (LIST2-1)', () => {
+  it('reads "Add Question", not "Add Field" (AC1)', () => {
+    render(<ListLevelEditor config={{ fields: [] }} onChange={vi.fn()} depth={1} />);
+
+    expect(screen.getByRole('button', { name: 'Add Question' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add field/i })).not.toBeInTheDocument();
+  });
+
+  it('shows a categorized, two-column palette (AC2)', async () => {
+    const user = userEvent.setup();
+    render(<ListLevelEditor config={{ fields: [] }} onChange={vi.fn()} depth={1} />);
+
+    await user.click(screen.getByRole('button', { name: 'Add Question' }));
+
+    expect(screen.getAllByTestId('question-category-column')).toHaveLength(2);
+  });
+
+  it('excludes JS Block and List (the structural block) while still rendering other entries (AC3)', async () => {
+    const user = userEvent.setup();
+    render(<ListLevelEditor config={{ fields: [] }} onChange={vi.fn()} depth={1} />);
+
+    await user.click(screen.getByRole('button', { name: 'Add Question' }));
+
+    // Sanity: the palette is actually populated, so the absences below are a
+    // real filter, not an empty menu.
+    expect(screen.getByText('Short Text')).toBeInTheDocument();
+    // Both "list" and "js_question" have BLOCK_REGISTRY entries — if the
+    // LIST_FIELD_QUESTION_TYPES filter were ever dropped in favor of
+    // rendering BLOCK_REGISTRY directly, these would reappear.
+    // final_documents/signature_block/file_upload/computed have no registry
+    // entry at all, so asserting their absence wouldn't catch a dropped filter.
+    expect(screen.queryByText('JS Block')).not.toBeInTheDocument();
+    expect(screen.queryByText('List', { exact: true })).not.toBeInTheDocument();
+    expect(screen.getByText('Nested List')).toBeInTheDocument();
+  });
+
+  it('appends a field of the selected question type via createQuestionField/appendField (AC5)', async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(<ListLevelEditor config={{ fields: [] }} onChange={onChange} depth={1} />);
+
+    await user.click(screen.getByRole('button', { name: 'Add Question' }));
+    await user.click(screen.getByText('Email'));
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const [nextConfig] = onChange.mock.calls[0] as [ListConfig];
+    expect(nextConfig.fields).toHaveLength(1);
+    expect(nextConfig.fields[0]).toMatchObject({ kind: 'question', type: 'email' });
+  });
+
+  it('reuses the same palette component to change an existing field\'s type (AC6)', async () => {
+    const config: ListConfig = {
+      fields: [questionField({ id: 'f1', alias: 'field_1', title: 'Field 1', order: 0, type: 'short_text' })],
+    };
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(<ListLevelEditor config={config} onChange={onChange} depth={1} />);
+
+    await user.click(screen.getByRole('button', { name: /short text/i }));
+    await user.click(screen.getByText('Number'));
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const [nextConfig] = onChange.mock.calls[0] as [ListConfig];
+    expect(nextConfig.fields[0]).toMatchObject({ kind: 'question', type: 'number' });
   });
 });
 

@@ -25,20 +25,21 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { AlertCircle, ChevronDown, ChevronRight, GripVertical, ListTree, Plus, Trash2 } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronRight, GripVertical, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 
+import { QuestionTypeIcon } from "@/components/shared/QuestionTypeIcon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { getBlockByType } from "@/lib/blockRegistry";
 
 import { LIST_VALIDATION_MAX_DEPTH } from "@shared/validation/BlockValidation";
 import type { ListConfig, ListField, ListFieldQuestionType } from "@shared/types/stepConfigs";
 
+import { ListFieldTypeMenu } from "./ListFieldTypeMenu";
 import {
-  LIST_FIELD_TYPE_OPTIONS,
   NESTED_LIST_TYPE_VALUE,
   appendField,
   changeFieldType,
@@ -112,27 +113,22 @@ export function ListLevelEditor({ config, onChange, depth }: ListLevelEditorProp
         </DndContext>
       )}
 
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex-1"
-          onClick={() => onChange(appendField(config, createQuestionField(fields)))}
-        >
-          <Plus className="h-4 w-4 mr-1" />
-          Add field
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex-1"
-          disabled={!canNest}
-          onClick={() => onChange(appendField(config, createNestedListField(fields)))}
-        >
-          <ListTree className="h-4 w-4 mr-1" />
-          Add nested list
-        </Button>
-      </div>
+      <ListFieldTypeMenu
+        nestedListDisabled={!canNest}
+        onSelect={(type) => {
+          if (type === NESTED_LIST_TYPE_VALUE) {
+            onChange(appendField(config, createNestedListField(fields)));
+          } else {
+            onChange(appendField(config, createQuestionField(fields, type)));
+          }
+        }}
+        trigger={
+          <Button variant="outline" size="sm" className="w-full">
+            <Plus className="h-4 w-4 mr-1" />
+            Add Question
+          </Button>
+        }
+      />
       {!canNest && (
         <p className="text-xs text-muted-foreground">
           Lists can nest up to {LIST_VALIDATION_MAX_DEPTH} levels deep — this level is already at the limit.
@@ -158,10 +154,11 @@ function ListFieldRow({ field, index, depth, canNest, isDuplicateAlias, onChange
 
   const style = { transform: CSS.Transform.toString(transform), transition };
   const aliasError = validateFieldAliasFormat(field.alias) ?? (isDuplicateAlias ? "Duplicate alias at this level" : null);
-  const typeSelectValue = field.kind === "list" ? NESTED_LIST_TYPE_VALUE : field.type;
+  const currentTypeIconType = field.kind === "list" ? "list" : field.type;
+  const currentTypeLabel = field.kind === "list" ? "Nested List" : getBlockByType(field.type)?.label ?? field.type;
 
-  const handleTypeChange = (value: string) => {
-    onChange(changeFieldType(field, value as ListFieldQuestionType | typeof NESTED_LIST_TYPE_VALUE));
+  const handleTypeChange = (type: ListFieldQuestionType | typeof NESTED_LIST_TYPE_VALUE) => {
+    onChange(changeFieldType(field, type));
   };
 
   return (
@@ -215,19 +212,22 @@ function ListFieldRow({ field, index, depth, canNest, isDuplicateAlias, onChange
           )}
 
           <div className="flex items-center gap-3">
-            <Select value={typeSelectValue} onValueChange={handleTypeChange}>
-              <SelectTrigger className="h-8 text-xs flex-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {LIST_FIELD_TYPE_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                ))}
-                <SelectItem value={NESTED_LIST_TYPE_VALUE} disabled={!canNest && typeSelectValue !== NESTED_LIST_TYPE_VALUE}>
-                  Nested List
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            <ListFieldTypeMenu
+              nestedListDisabled={!canNest && field.kind !== "list"}
+              onSelect={handleTypeChange}
+              trigger={
+                <button
+                  type="button"
+                  className="flex h-8 flex-1 items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-xs ring-offset-background hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                >
+                  <span className="flex min-w-0 items-center gap-1.5 truncate">
+                    <QuestionTypeIcon type={currentTypeIconType} size="sm" />
+                    <span className="truncate">{currentTypeLabel}</span>
+                  </span>
+                  <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
+                </button>
+              }
+            />
 
             {field.kind === "question" && (
               <div className="flex items-center gap-2 shrink-0">

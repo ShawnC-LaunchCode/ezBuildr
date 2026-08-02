@@ -5,7 +5,7 @@
  */
 import { arrayMove } from "@dnd-kit/sortable";
 
-import { BLOCK_REGISTRY } from "@/lib/blockRegistry";
+import { BLOCK_REGISTRY, type BlockCategory } from "@/lib/blockRegistry";
 
 import {
   LIST_FIELD_QUESTION_TYPES,
@@ -14,22 +14,61 @@ import {
   type ListFieldQuestionType,
 } from "@shared/types/stepConfigs";
 
-const registryLabelByType = new Map(BLOCK_REGISTRY.map((entry) => [entry.type, entry.label]));
+const registryEntryByType = new Map(BLOCK_REGISTRY.map((entry) => [entry.type, entry]));
+
+/** Sentinel value for the "Nested List" entry in the type palette (not a real ListFieldQuestionType). */
+export const NESTED_LIST_TYPE_VALUE = "__nested_list__";
+
+/** One entry in the "Add Question" / "change type" palette (LIST2-1). */
+export interface ListFieldPaletteEntry {
+  value: ListFieldQuestionType | typeof NESTED_LIST_TYPE_VALUE;
+  /** BLOCK_REGISTRY type used only to resolve an icon/color tile — see QuestionTypeIcon. */
+  iconType: string;
+  label: string;
+  description?: string;
+  category: BlockCategory;
+}
+
+const nestedListRegistryEntry = registryEntryByType.get("list");
 
 /**
- * Type options for a field's "Type" select. Falls back to the raw type
- * string if a BLOCK_REGISTRY entry is ever missing, rather than throwing —
- * this list is derived (see ListFieldQuestionType), so it must stay usable
- * even if a future rendered type has no registry label yet.
+ * Every field type the list-field palette may offer: the runner-renderable
+ * question types (LIST_FIELD_QUESTION_TYPES) plus one synthetic "Nested
+ * List" entry. Deliberately independent of the parent workflow's
+ * easy/advanced mode — a list field's type universe is fixed regardless of
+ * it (unlike QuestionAddMenu, which mode-filters BLOCK_REGISTRY).
  */
-export const LIST_FIELD_TYPE_OPTIONS: ReadonlyArray<{ value: ListFieldQuestionType; label: string }> =
-  LIST_FIELD_QUESTION_TYPES.map((type) => ({
-    value: type,
-    label: registryLabelByType.get(type) ?? type,
-  }));
+export function getListFieldPaletteEntries(): ListFieldPaletteEntry[] {
+  const questionEntries: ListFieldPaletteEntry[] = LIST_FIELD_QUESTION_TYPES.map((type) => {
+    const entry = registryEntryByType.get(type);
+    return {
+      value: type,
+      iconType: type,
+      label: entry?.label ?? type,
+      description: entry?.description,
+      category: entry?.category ?? "display",
+    };
+  });
 
-/** Sentinel value for the "Nested List" entry in the type select (not a real ListFieldQuestionType). */
-export const NESTED_LIST_TYPE_VALUE = "__nested_list__";
+  const nestedEntry: ListFieldPaletteEntry = {
+    value: NESTED_LIST_TYPE_VALUE,
+    iconType: "list",
+    label: "Nested List",
+    description: nestedListRegistryEntry?.description,
+    category: nestedListRegistryEntry?.category ?? "structure",
+  };
+
+  return [...questionEntries, nestedEntry];
+}
+
+/** Palette entries grouped by BLOCK_REGISTRY category, for the two-column layout. */
+export function getListFieldPaletteByCategory(): Partial<Record<BlockCategory, ListFieldPaletteEntry[]>> {
+  const grouped: Partial<Record<BlockCategory, ListFieldPaletteEntry[]>> = {};
+  for (const entry of getListFieldPaletteEntries()) {
+    (grouped[entry.category] ??= []).push(entry);
+  }
+  return grouped;
+}
 
 export function validateFieldAliasFormat(alias: string): string | null {
   const trimmed = alias.trim();
@@ -89,12 +128,15 @@ export function generateFieldId(): string {
   return crypto.randomUUID();
 }
 
-export function createQuestionField(fields: readonly ListField[]): ListField {
+export function createQuestionField(
+  fields: readonly ListField[],
+  type: ListFieldQuestionType = "short_text"
+): ListField {
   return {
     kind: "question",
     id: generateFieldId(),
     alias: nextFieldAlias(fields, "field"),
-    type: "short_text",
+    type,
     title: `Field ${fields.length + 1}`,
     order: fields.length,
   };

@@ -84,7 +84,7 @@ building any per-field settings UI (that is LIST2-7/8).
 
 ---
 
-## LIST2-1 — "Add Field" should be "Add Question", with the real type palette 🔲
+## LIST2-1 — "Add Field" should be "Add Question", with the real type palette ✅
 
 **Priority: P1** · Size: M · File: `client/src/components/builder/cards/list/ListLevelEditor.tsx`
 
@@ -185,6 +185,27 @@ Constraints:
    palette that is rendering other entries**, not merely that the list is empty.
 8. `npm run type-check` reports 0 errors; `npm run lint` clean;
    `npm run test:fast` green.
+
+### Verification pass — 2026-08-01 (reviewer)
+
+All 8 criteria met. `ListLevelEditor.test.tsx` + `QuestionAddMenu.test.tsx`
+→ 18/18 passing on the merged tree.
+
+**AC7 proven by mutation, not taken on trust.** Replacing the
+`LIST_FIELD_QUESTION_TYPES` filter with a direct `BLOCK_REGISTRY` map makes
+the AC3 test fail as designed; reverted after. The test also carries a
+positive control (`Short Text` present), so the absence assertions cannot
+pass against an empty menu.
+
+**Deviation accepted — the ticket was wrong, the dev was right.** AC7 named
+`signature_block` as the exclusion to assert. Verified against the tree:
+`signature_block`, `final_documents`, `file_upload` and `computed` have **zero**
+`BLOCK_REGISTRY` entries, so asserting their absence from a registry-derived
+palette passes trivially even with the filter removed — exactly the
+"criteria satisfiable by doing nothing" trap. The dev substituted
+`js_question` and `list`, the only two forbidden types with registry entries.
+Future ACs asserting absence must name a value that is present in the source
+data.
 
 ---
 
