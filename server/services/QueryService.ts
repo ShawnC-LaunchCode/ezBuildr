@@ -1,48 +1,110 @@
-import { eq } from 'drizzle-orm';
-
-import { workflowQueries } from '@shared/schema';
 import type { WorkflowQuery } from '@shared/types/query';
 import { workflowQuerySchema } from '@shared/types/query';
 
-import { db } from '../db';
 import { queryRunner } from '../lib/queries/QueryRunner';
+import {
+    projectRepository,
+    userRepository,
+    workflowQueriesRepository,
+    workflowRepository,
+} from '../repositories';
+
+const workflowQueryUpdateSchema = workflowQuerySchema.pick({
+    name: true,
+    filters: true,
+    sort: true,
+    limit: true,
+}).partial();
+
 export class QueryService {
-    /**
-     * Create a new query definition
-     */
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-    async createQuery(data: Omit<WorkflowQuery, 'id'>, _tenantId: string) {
-        // Validate schema
-        const validated = workflowQuerySchema.omit({ id: true }).parse(data);
-        // Insert
-        const [query] = await db.insert(workflowQueries).values(validated).returning();
+    private readonly queryRepo: typeof workflowQueriesRepository;
+    private readonly workflowRepo: typeof workflowRepository;
+    private readonly projectRepo: typeof projectRepository;
+    private readonly userRepo: typeof userRepository;
+
+    constructor(
+        queryRepo?: typeof workflowQueriesRepository,
+        workflowRepo?: typeof workflowRepository,
+        projectRepo?: typeof projectRepository,
+        userRepo?: typeof userRepository,
+    ) {
+        this.queryRepo = queryRepo ?? workflowQueriesRepository;
+        this.workflowRepo = workflowRepo ?? workflowRepository;
+        this.projectRepo = projectRepo ?? projectRepository;
+        this.userRepo = userRepo ?? userRepository;
+    }
+
+    private async resolveWorkflowTenantId(workflowId: string): Promise<string> {
+        const workflow = await this.workflowRepo.findById(workflowId);
+        if (!workflow) {
+            throw new Error('Workflow not found');
+        }
+
+        if (workflow.projectId) {
+            const project = await this.projectRepo.findById(workflow.projectId);
+            if (project?.tenantId) {
+                return project.tenantId;
+            }
+        }
+
+        if (workflow.creatorId) {
+            const creator = await this.userRepo.findById(workflow.creatorId);
+            if (creator?.tenantId) {
+                return creator.tenantId;
+            }
+        }
+
+        throw new Error('Workflow tenant not found');
+    }
+
+    private async verifyWorkflowTenant(workflowId: string, tenantId: string): Promise<void> {
+        const workflowTenantId = await this.resolveWorkflowTenantId(workflowId);
+        if (workflowTenantId !== tenantId) {
+            throw new Error('Access denied - workflow belongs to different tenant');
+        }
+    }
+
+    private async verifyQueryTenant(queryId: string, tenantId: string): Promise<WorkflowQuery> {
+        const query = await this.queryRepo.findById(queryId);
+        if (!query) {
+            throw new Error('Query not found');
+        }
+
+        await this.verifyWorkflowTenant(query.workflowId, tenantId);
         return query;
     }
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-    async getQuery(id: string) {
-        const data = await db.query.workflowQueries.findFirst({
-            where: eq(workflowQueries.id, id)
-        });
-        return data as WorkflowQuery | undefined;
+
+    /** Create a new query definition. */
+    async createQuery(data: Omit<WorkflowQuery, 'id'>, tenantId: string): Promise<WorkflowQuery> {
+        const validated = workflowQuerySchema.omit({ id: true }).parse(data);
+        await this.verifyWorkflowTenant(validated.workflowId, tenantId);
+        return this.queryRepo.create(validated);
     }
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-    async listQueriesForWorkflow(workflowId: string) {
-        return db.query.workflowQueries.findMany({
-            where: eq(workflowQueries.workflowId, workflowId)
-        });
+
+    async getQuery(id: string, tenantId: string): Promise<WorkflowQuery> {
+        return this.verifyQueryTenant(id, tenantId);
     }
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-    async updateQuery(id: string, updates: Partial<WorkflowQuery>) {
-        const [updated] = await db.update(workflowQueries)
-            .set({ ...updates, updatedAt: new Date() })
-            .where(eq(workflowQueries.id, id))
-            .returning();
-        return updated;
+
+    async listQueriesForWorkflow(workflowId: string, tenantId: string): Promise<WorkflowQuery[]> {
+        await this.verifyWorkflowTenant(workflowId, tenantId);
+        return this.queryRepo.findByWorkflowId(workflowId);
     }
-    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-    async deleteQuery(id: string) {
-        await db.delete(workflowQueries).where(eq(workflowQueries.id, id));
+
+    async updateQuery(
+        id: string,
+        updates: Partial<WorkflowQuery>,
+        tenantId: string,
+    ): Promise<WorkflowQuery> {
+        await this.verifyQueryTenant(id, tenantId);
+        const validatedUpdates = workflowQueryUpdateSchema.parse(updates);
+        return this.queryRepo.update(id, validatedUpdates);
     }
+
+    async deleteQuery(id: string, tenantId: string): Promise<void> {
+        await this.verifyQueryTenant(id, tenantId);
+        await this.queryRepo.delete(id);
+    }
+
     // =================================================================
     // UI Binding Helpers (Part 5)
     // =================================================================
@@ -58,8 +120,7 @@ export class QueryService {
         context: Record<string, unknown>,
         tenantId: string
     ) {
-        const query = await this.getQuery(queryId);
-        if (!query) { throw new Error('Query not found'); }
+        const query = await this.getQuery(queryId, tenantId);
         // Execute query to get live list
         const list = await queryRunner.executeQuery(query, context, tenantId);
         // Map to options
@@ -81,8 +142,7 @@ export class QueryService {
         context: Record<string, unknown>,
         tenantId: string
     ) {
-        const query = await this.getQuery(queryId);
-        if (!query) { throw new Error('Query not found'); }
+        const query = await this.getQuery(queryId, tenantId);
         const list = await queryRunner.executeQuery(query, context, tenantId);
         return list.rows.some((row: Record<string, unknown>) => {
             const rowValue = row[valueColumnId];
@@ -92,4 +152,5 @@ export class QueryService {
         });
     }
 }
+
 export const queryService = new QueryService();

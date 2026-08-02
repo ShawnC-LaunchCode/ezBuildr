@@ -1615,7 +1615,29 @@ answer is no.
 
 ---
 
-## DV-12 — `QueryService` has no tenant scoping and a mass-assignment update 🔄
+## DV-12 — `QueryService` has no tenant scoping and a mass-assignment update ✅
+
+> **Verification pass — 2026-08-02 (reviewer).** PASS, all 8 criteria met.
+> Gates re-run by the reviewer in the main checkout: `npx tsc --noEmit` 0 errors,
+> `npm run lint` exit 0, `npm run test:fast` **186 files / 2335 passed** (matching
+> the dev's figure exactly), `QueryService.test.ts` **9/9**.
+> **Regression value proved:** reverting only `QueryService.ts` fails **all 9**
+> new tests. Mechanical AC checks: `grep -c _tenantId` → 0, direct-`db` usage → 0,
+> allow-list is `workflowQuerySchema.pick({name,filters,sort,limit}).partial()` so
+> Zod's default strip silently drops `workflowId`/`dataSourceId`/`tableId`.
+> Nine tests cover every criterion including the creator-tenant fallback branch
+> and the unknown-query 404 path.
+> **Checked, not a regression:** the dev dropped the old manual
+> `updatedAt: new Date()`. `BaseRepository.update` injects `updatedAt` when the
+> table has the column, so it is still maintained.
+> **Deviation the dev did not flag (accepted, and partly the reviewer's fault):**
+> the ticket's Preferred fix said to *extract or reuse* the existing
+> workflow→tenant resolution "rather than writing a third copy", but the dispatch
+> prompt forbade touching files outside the ticket's footprint. The dev wrote a
+> local copy — a defensible resolution of two conflicting instructions, but it
+> should have been reported rather than turned in as "no deviations". No
+> acceptance criterion required the extraction, so the ticket passes on its
+> contract. The duplication is now filed as **DV-B7**.
 
 **Priority: P1** · Size: S · File: `server/services/QueryService.ts`
 
@@ -1829,6 +1851,22 @@ against the tree at audit time.
   against *this* model and pointed at DataVault. **Not investigated in this audit** —
   recorded so the next reader knows the question is open, not answered. Worth a
   scoped "is Collections live, and if not, delete it" pass; do not assume it is dead.
+- **DV-B7 — six copies of workflow→tenant resolution, with two different failure
+  semantics** · `enhancement`. Found while reviewing DV-12 (2026-08-02).
+  `workflowId → project.tenantId → fall back to creator.tenantId` is now
+  reimplemented in `QueryService`, `options.routes.ts`, `QueryBlockRunner`,
+  `ReadTableBlockRunner`, `CollectionBlockRunner` and `ExternalSendBlockRunner`.
+  **They do not agree on failure:** the two DataVault-facing ones *throw*
+  (`Access denied` / `not found`, mapping to 403/404), while the block runners
+  *return null and log a warning*, which surfaces as a failed block instead. So
+  the same missing-tenant condition behaves differently depending on the caller.
+  Extracting one helper is cheap; the reason it is parked rather than ticketed is
+  that the right *semantics* is a judgment call (throw vs. null) and changing the
+  block runners' behaviour is a behavioural change needing its own tests.
+  ⚠️ Worth noting while reading it: the **creator-tenant fallback is itself a
+  security-relevant heuristic** — a workflow with no project resolves its tenant
+  from whoever created it. That is load-bearing in all six places and was not
+  audited in this initiative.
 - **DV-B6 — yearly reset for auto-numbers** · `enhancement`. `autonumberResetPolicy`
   and `datavault_number_sequences.last_reset` exist and are unread. Descoped from
   DV-6 by decision D-4: the repo owner confirmed prefix + zero-padding is already
