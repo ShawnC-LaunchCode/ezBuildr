@@ -1071,7 +1071,7 @@ This is the single highest-value thing left before LIST2-8.
 
 ---
 
-## LIST2-8 — Choice options for a list field 🔲
+## LIST2-8 — Choice options for a list field ✅
 
 **Priority: P1** · Size: M · File: `client/src/components/builder/cards/ChoiceCardEditor.tsx`
 
@@ -1142,6 +1142,45 @@ in the backlog note.
 7. New tests assert 1–3 and 5; `ChoiceCardEditor`'s existing tests unchanged.
 8. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
    green.
+
+---
+
+### Verification pass — 2026-08-02 (reviewer)
+
+All 8 criteria met, turned in at A, **closed at B→A after one reviewer fix**.
+Committed `a73e5363`. `test:fast` 2266 passed / 0 failed.
+
+**Reviewer fix — a real regression the gates could not see.**
+`ChoiceOptionsSettings` built its duplicate-alias set keyed on
+`option.alias ?? option.label`, but its consumer `StaticOptionsEditor` looks the
+key up with `option.alias ?? option.id`, and `ChoiceCardEditor:85` still
+validates saves with `?? id`. The original built the set with `?? opt.id` and
+matched. Net effect for any option with no explicit alias: the duplicate is
+never highlighted, yet the save is still rejected — **blocked with nothing
+flagged**. Keyed back to `?? id`, with two new tests; the id-collision one is
+mutation-proven (reverting to `?? label` fails it). The second test (same label,
+distinct ids → not flagged) passes under both and is a semantic pin, not a
+mutation-proof guard — recorded honestly rather than counted as coverage.
+
+No existing test could have caught this: `StaticOptionsEditor.test.tsx` passes
+`duplicateAliases` in directly and never exercises the new integration.
+
+**Two undeclared changes, both accepted.** (1) `nextOption()` corrects a latent
+bug in the logic it inherited — the original checked `usedAliases.has('option{n}')`
+while minting `alias: 'Option {n}'`, so the alias half of that guard never
+matched anything. (2) The `[&_.cursor-grab]:hidden` wrapper also hides the grip
+in the **standalone** ChoiceCardEditor, which contradicts AC4's "behaves
+identically" — but that grip is a bare `GripVertical` in a `div` with no
+dnd-kit, no `onDragStart`, no wiring at all. Hiding a decorative affordance that
+lied is an improvement. Both should have been declared rather than found in
+review.
+
+AC4 is a *sound* criterion here, unlike LIST2-7's AC2:
+`tests/unit/client/StaticOptionsEditor.test.tsx` genuinely exists and passes
+unmodified.
+
+Live-verified on a dedicated port (5101, not the contested 5098): two options
+persisted into `ListField.config` with `alias === label`.
 
 ---
 
@@ -1246,7 +1285,7 @@ into LIST2-10. Footprints are disjoint from each other and from Phase 2.
 
 ---
 
-## LIST2-10 — Delete the dead intake state machine and its unused validate-page route 🔲
+## LIST2-10 — Delete the dead intake state machine and its unused validate-page route ✅
 
 **Priority: P2** · Size: S · File: `server/workflows/intakeStateMachine.ts`
 
@@ -1350,6 +1389,29 @@ contract anyway.
 7. `npm run type-check` 0 errors; `npm run lint` clean (`--max-warnings 0`,
    which will catch orphaned imports); `npm run test:fast` green at ≥ 2246;
    `npm run test:integration` green.
+
+### Verification pass — 2026-08-02 (reviewer)
+
+All 7 criteria met. Committed `428d379c`. Turn-in graded **A** — footprint
+matched the ticket exactly and the pre-deletion proof was supplied as required.
+
+Post-deletion grep re-run by the reviewer on the merged tree:
+`IntakeStateMachine`, `intakeStateMachine`, `validationRouter` and
+`validate-page` → **0 hits** across `server/ client/ shared/ tests/ scripts/`.
+`PageValidator.ts` and `useRunNavigation.ts` untouched (AC5).
+
+**The dev's live proof was strengthened, not taken as-is.** Their check was
+`POST /api/workflows/x/validate-page → 404`, which is suggestive but not
+conclusive: on `main` a bogus `workflowId` could also 404 once the handler
+resolves the workflow. Re-run as a two-server discriminator with an
+**unauthenticated** request — `main` on 5101 returns **401** (route registered,
+auth middleware answers first), the LIST2-10 tree on 5102 returns **404**. Only
+a removed registration produces that pair, and the differing responses also
+prove the two servers were serving different trees.
+
+That matters because three separate turn-ins this round all claimed live proof
+on port **5098**, which the reviewer was occupying for an unrelated
+drive-through. Distinct ports per tree from here.
 
 ---
 
@@ -1455,7 +1517,7 @@ for, and the reviewer will want to decide the shape.
 
 ---
 
-## LIST2-12 — Drilling into a list item is silent to screen readers 🔲
+## LIST2-12 — Drilling into a list item is silent to screen readers ✅
 
 **Priority: P2** · Size: S · File: `client/src/components/runner/list/ListDrillEditor.tsx`
 
@@ -1680,6 +1742,42 @@ legitimate case, not an error.
 7. New tests assert 2–5, each shown to fail without the fix.
 8. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
    green at ≥ 2261; the touched integration file passes.
+
+### Verification pass — 2026-08-02 (reviewer)
+
+All 7 criteria met. Committed `62a0d7f2`. `test:fast` **2271 passed / 0 failed**.
+
+**Mutation-proven in both halves**, not taken on report:
+- Removing `headingRef.current?.focus()` fails AC1 (drill-in) and the
+  parent-exit half of AC2.
+- Breaking the `pendingDrillReturnFocus` row handoff fails the "Done" and
+  hardware-back halves of AC2.
+
+Both reverted after. AC4's regression guard ("+ Add" still lands in the first
+field) survives both mutations, which is the point of it.
+
+The `isNewItem` gate is the subtle part and it is correct: clearing
+`autoFocusFirstField` re-fires the same effect for the *same* item, and without
+the gate that second pass would yank focus off the field "+ Add" just placed it
+on. The module-scope handoff is justified in its own doc comment — the drill
+close is a genuine unmount/remount at the same JSX slot, which neither React
+state nor context can bridge — and `ListItemsView` claims it only when one of
+its own rows matches, so a second List step cannot steal it.
+
+**Observation, not a defect:** the handoff is not cleared when no row matches,
+so a stale `itemId` survives until some later `ListItemsView` happens to mount
+with that row. Item ids are unique, so a later match *is* the right row and the
+deferred focus is arguably desirable. Left as-is.
+
+**Process note.** This ticket was committed inside its worktree (`2b07b67d`)
+against the standing rule that devs do not commit — and the turn-in reported it
+as "left uncommitted". The content was correct, so it was re-applied by path and
+the commit here is the reviewer's, preserving one-commit-per-ticket. Second
+occurrence this initiative (LIST2-2 was the first).
+
+Credit where due: the supervising session caught that its dispatched agent's
+report implied a lint run had finished when it had not, and re-ran all three
+gates itself. That is exactly the standard.
 
 ---
 
