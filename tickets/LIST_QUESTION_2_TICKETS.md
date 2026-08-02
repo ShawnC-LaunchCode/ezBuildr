@@ -37,9 +37,14 @@ those. A stale line number is not a broken ticket and does not need re-issuing.
 
 | Phase | Theme | Tickets | Dispatch |
 |---|---|---|---|
-| 1 | Independent fixes + hardening | LIST2-1..6 | **All 6 parallel** — footprints are disjoint |
+| 1 | Independent fixes + hardening | LIST2-1..6 | ✅ **All 6 done & committed 2026-08-01** |
 | 2 | Per-field configuration | LIST2-7, LIST2-8 | **Sequential** — both land in `ListFieldSettings` |
 | 3 | Proof | LIST2-9 | After Phase 2 |
+
+**Status at 2026-08-01:** Phase 1 complete and committed (6 commits,
+`4abc9048`..`65403610`), unpushed. `test:fast` 2246 passing. Phase 2 is
+ready to dispatch; LIST2-7 must go first and alone (LIST2-8 registers into
+the host it creates).
 
 ### Collision map (dispatch is a lookup against this table)
 
@@ -831,18 +836,70 @@ caused by this change) was right; the label was wrong.
 
 ---
 
-## Phase 1 Gate
+## Phase 1 Gate — ✅ PASSED 2026-08-01 (one item carried, see below)
 
-- [ ] LIST2-1..6 all ✅ with dated verification notes
-- [ ] `npm run type-check` → 0 errors
-- [ ] `npm run lint` → clean (`--max-warnings 0`)
-- [ ] `npm run test:fast` → green, count ≥ 2206 baseline
-- [ ] `npm run test:integration` → green (LIST2-3 adds to it)
-- [ ] **One live drive-through** covering LIST2-1 (palette), LIST2-4
-      (large-list autosave), LIST2-5 (dropdown in a list): build a list with a
-      nested list via the new palette, fill 3 items, confirm autosave status
-      reaches "saved", reload and confirm values persisted
-- [ ] Reviewer has committed each passed ticket + this gate
+- [x] LIST2-1..6 all ✅ with dated verification notes
+- [x] `npm run type-check` → 0 errors (via the pre-commit hook on every one of
+      the six commits, which also runs `check:strict-zones` — `type-check`
+      alone is **not** the commit gate here)
+- [x] `npm run lint` → exit 0, repo-wide, `--max-warnings 0`
+- [x] `npm run test:fast` → **2246 passed / 14 skipped, 0 failed**
+      (baseline 2206, +40 new)
+- [x] Integration → `creation-routes` + `dynamic_options_workflow` **42/42**
+- [x] App boots on the merged tree: `/health` reports
+      `database.connected: true`, `pdfConverter.reachable: true`
+- [x] All four changed/new client modules transform through the real Vite dev
+      pipeline (HTTP 200, no resolve/transform errors) — a check `tsc` cannot
+      make
+- [x] Reviewer has committed each passed ticket + this gate
+
+**Every ticket was mutation-tested, not taken on report.** For each, the fix
+was reverted and the new tests were confirmed to fail, then restored:
+LIST2-1 (registry filter → AC3 fails), LIST2-2 (`?? {}` → AC2/AC6 fail),
+LIST2-3 (schema registration → both endpoint tests fail), LIST2-4
+(`keepalive = true` → over-threshold test fails), LIST2-5 (raw cast → all 3
+AC4 cases fail; unwrap boundary → AC5 fails), LIST2-6 (bypass resolution →
+AC1/AC2 and AC4 fail).
+
+### ⚠️ Carried: browser drive-through not performed
+
+The gate's click-through (build a nested list via the palette, fill 3 items,
+watch autosave reach "saved", reload) **was not done** — this review session
+had no browser/computer-use tooling. What stands in for it:
+
+- Everything reachable over real HTTP **was** exercised: the integration
+  suite drives the real Express app and real auth via supertest, which is how
+  LIST2-3's server boundary was proven.
+- The app boots and serves, and all four changed client modules transform
+  through Vite — so this is not an untested tree, but it is not a
+  *user-observed* one.
+- The LIST2-1 dev reported their own live run (dev server on port 5098,
+  registered user, drove the palette and confirmed the 18-entry list). That is
+  their report, not reviewer-verified.
+
+**This is the one gate item outstanding.** Recommend the repo owner spends
+five minutes on it before Phase 2 dispatch, since LIST2-7 builds directly on
+LIST2-1's UI.
+
+### Environment finding (not a ticket, worth knowing)
+
+The main checkout has **no `TEST_DATABASE_URL`**, so `npm run test:integration`
+fails there out of the box with a confusing `password authentication failed`.
+`tests/setup.ts` deliberately ignores the inherited `DATABASE_URL` and guards
+on hostname, so there is **no risk of a test run hitting the production Neon
+database** — it simply falls back to port 5432, where nothing is listening.
+Port 5434 is currently held by a leftover `iex2-5-test-db-1` container, which
+happens to be credential-compatible and is what the worktrees (and this
+review) used. Worth either setting `TEST_DATABASE_URL` in the main `.env` or
+cleaning up the stale containers.
+
+### Process finding: don't run six devs' `test:fast` concurrently
+
+LIST2-6 reported 2 failures in `VersionService.diff.test.ts` as
+"pre-existing". They were not — that file passes clean on `main` and on the
+fully merged tree. Six concurrent `test:fast` runs starved its mock timers.
+The suite is no-DB so it is *safe* to run in parallel, but it is not
+*reliable* to, and the failure mode looks exactly like a real regression.
 
 ---
 
