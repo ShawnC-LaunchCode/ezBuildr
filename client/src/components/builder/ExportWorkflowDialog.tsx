@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronRight, Download, KeyRound, Loader2, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ChevronRight, Download, KeyRound, Link2Off, Loader2, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -89,6 +89,79 @@ function labelFor(entity: string): string {
   return ENTITY_LABELS[entity] ?? entity.replace(/_/g, " ");
 }
 
+/**
+ * What the export could not carry (IEX3-10).
+ *
+ * `causes` are things — a shared DataVault the caller may not export, a blob
+ * that went missing. `droppedRowCount` is the knock-on: rows dropped because
+ * the thing they referenced stayed behind. Counted rather than recited, so the
+ * disclosure names one problem instead of four and stays out of table names.
+ */
+function OmissionsCallout({
+  causes,
+  droppedRowCount,
+}: {
+  causes: ManifestWarning[];
+  droppedRowCount: number;
+}) {
+  const many = causes.length !== 1;
+  return (
+    <Callout
+      tone="warn"
+      icon={Link2Off}
+      labelId="export-omissions"
+      title={
+        many
+          ? `${causes.length} things could not travel with this copy`
+          : "One thing could not travel with this copy"
+      }
+    >
+      <ul className="space-y-1.5 text-sm text-muted-foreground">
+        {causes.map((w, i) => (
+          <li key={i}>{w.message}</li>
+        ))}
+      </ul>
+      <p className="text-sm text-muted-foreground">
+        The bundle is still valid — {many ? "these were" : "this was"} left out so it stays
+        importable
+        {droppedRowCount > 0 && (
+          <>
+            , along with {droppedRowCount} link{droppedRowCount === 1 ? "" : "s"} that pointed at{" "}
+            {many ? "them" : "it"}
+          </>
+        )}
+        . You will need to re-create {many ? "them" : "it"} after importing.
+      </p>
+    </Callout>
+  );
+}
+
+/** The counts, plus the blob count the entity map has no entry for. */
+function ContentsSection({ manifest }: { manifest: ExportManifest }) {
+  const counts = Object.entries(manifest.entityCounts).filter(([, n]) => n > 0);
+  return (
+    <section className="space-y-2" aria-labelledby="export-included">
+      <SectionHeading>
+        <span id="export-included">What the file contains</span>
+      </SectionHeading>
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
+        {counts.map(([entity, count]) => (
+          <div key={entity} className="flex items-baseline justify-between gap-2">
+            <dt className="truncate text-muted-foreground">{labelFor(entity)}</dt>
+            <dd className="font-mono tabular-nums">{count}</dd>
+          </div>
+        ))}
+        {manifest.blobCount > 0 && (
+          <div className="flex items-baseline justify-between gap-2">
+            <dt className="truncate text-muted-foreground">Attached files</dt>
+            <dd className="font-mono tabular-nums">{manifest.blobCount}</dd>
+          </div>
+        )}
+      </dl>
+    </section>
+  );
+}
+
 export function ExportWorkflowDialog({
   open,
   onOpenChange,
@@ -139,6 +212,16 @@ export function ExportWorkflowDialog({
     };
   }, [open, workflowId]);
 
+  // Radix parks focus on the dialog shell; move it onto the summary once there
+  // is a summary to read, so the first thing announced is what the file
+  // contains rather than the close button (AC 6). The ref was wired for this
+  // from the start and nothing ever called focus() (IEX3-11).
+  useEffect(() => {
+    if (manifest !== null) {
+      summaryRef.current?.focus();
+    }
+  }, [manifest]);
+
   const handleDownload = useCallback(async () => {
     setIsDownloading(true);
     try {
@@ -173,8 +256,23 @@ export function ExportWorkflowDialog({
   }, [workflowId, workflowTitle, onOpenChange, toast]);
 
   const secretScans = (manifest?.warnings ?? []).filter((w) => w.type === "secret_scan");
+  // Everything the export decided it could not carry. The engine composes these
+  // for a reader (IEX3-1) and this dialog used to filter them away, leaving the
+  // one screen that claims to say what travels silent about what didn't
+  // (IEX3-10).
+  //
+  // Split into causes and consequences, because printing them flat said "4
+  // things" for what is really one thing and its knock-on effects, in table
+  // names this disclosure is not supposed to use. The discriminator is the
+  // engine's own shape: a *thing* that could not travel is reported against
+  // `column: "id"` (collectWorkflowRefs), while a row dropped because its
+  // target stayed behind is reported against the FK column that dangled
+  // (processRow). Consequences are counted, not recited — the user acts on the
+  // cause.
+  const allOmissions = (manifest?.warnings ?? []).filter((w) => w.type !== "secret_scan");
+  const omissions = allOmissions.filter((w) => w.type !== "dangling_reference" || w.column === "id");
+  const droppedRowCount = allOmissions.length - omissions.length;
   const reentry = manifest?.requiresReentry ?? [];
-  const counts = Object.entries(manifest?.entityCounts ?? {}).filter(([, n]) => n > 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -233,6 +331,10 @@ export function ExportWorkflowDialog({
                 </Callout>
               )}
 
+              {omissions.length > 0 && (
+                <OmissionsCallout causes={omissions} droppedRowCount={droppedRowCount} />
+              )}
+
               {reentry.length > 0 && (
                 <section className="space-y-2" aria-labelledby="export-reentry">
                   <div className="flex items-center gap-2">
@@ -248,25 +350,7 @@ export function ExportWorkflowDialog({
                 </section>
               )}
 
-              <section className="space-y-2" aria-labelledby="export-included">
-                <SectionHeading>
-                  <span id="export-included">What the file contains</span>
-                </SectionHeading>
-                <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
-                  {counts.map(([entity, count]) => (
-                    <div key={entity} className="flex items-baseline justify-between gap-2">
-                      <dt className="truncate text-muted-foreground">{labelFor(entity)}</dt>
-                      <dd className="font-mono tabular-nums">{count}</dd>
-                    </div>
-                  ))}
-                  {manifest.blobCount > 0 && (
-                    <div className="flex items-baseline justify-between gap-2">
-                      <dt className="truncate text-muted-foreground">Attached files</dt>
-                      <dd className="font-mono tabular-nums">{manifest.blobCount}</dd>
-                    </div>
-                  )}
-                </dl>
-              </section>
+              <ContentsSection manifest={manifest} />
 
               <Separator />
 

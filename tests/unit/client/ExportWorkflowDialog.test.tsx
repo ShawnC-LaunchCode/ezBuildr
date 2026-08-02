@@ -112,6 +112,98 @@ describe('ExportWorkflowDialog', () => {
     expect(screen.getByText('transform_blocks.code — line 7')).toBeInTheDocument();
   });
 
+  it('IEX3-10: reports what could not travel, not only secret-scan hits', async () => {
+    // The engine composes these for a reader (IEX3-1) and the dialog used to
+    // filter every non-secret_scan warning away, leaving the one screen that
+    // claims to say what travels silent about what didn't.
+    mockFetch({
+      ...MANIFEST,
+      warnings: [
+        ...MANIFEST.warnings,
+        {
+          type: 'dangling_reference',
+          entity: 'datavault_databases',
+          column: 'id',
+          missingId: '44444444-4444-4444-8444-444444444444',
+          message:
+            'DataVault database "Shared Clients" is used by this workflow but was not exported: ' +
+            'it is account-scoped and you do not have edit access to it. Queries and data sources ' +
+            'pointing at it have been omitted from the bundle.',
+        },
+        {
+          type: 'missing_blob',
+          entity: 'templates',
+          column: 'fileRef',
+          fileRef: 'templates/gone.docx',
+          message: 'Blob not present in bundle: templates/gone.docx.',
+        },
+      ],
+    });
+    renderDialog();
+
+    await screen.findByText('2 things could not travel with this copy');
+    // The engine's own sentence, which is the actionable part — not
+    // `datavault_databases.id → <uuid>`.
+    expect(screen.getByText(/Shared Clients/)).toBeInTheDocument();
+    expect(screen.getByText(/templates\/gone\.docx/)).toBeInTheDocument();
+    // The secret-scan callout is unaffected.
+    expect(screen.getByText('transform_blocks.code — line 7')).toBeInTheDocument();
+  });
+
+  it('IEX3-10: counts knock-on row drops instead of reciting them', async () => {
+    // Printing every dropped row flat said "4 things" for what is one cause and
+    // its consequences, in the table names this disclosure is not allowed to
+    // use. The cause is reported against `column: "id"`; the consequences carry
+    // the FK column that dangled.
+    mockFetch({
+      ...MANIFEST,
+      warnings: [
+        {
+          type: 'dangling_reference', entity: 'datavault_databases', column: 'id',
+          missingId: '44444444-4444-4444-8444-444444444444',
+          message: 'DataVault database "Shared Clients" is used by this workflow but was not exported.',
+        },
+        {
+          type: 'dangling_reference', entity: 'workflow_queries', column: 'dataSourceId',
+          missingId: '44444444-4444-4444-8444-444444444444',
+          message: 'A workflow_queries row was omitted from the bundle.',
+        },
+        {
+          type: 'dangling_reference', entity: 'workflow_data_sources', column: 'dataSourceId',
+          missingId: '44444444-4444-4444-8444-444444444444',
+          message: 'A workflow_data_sources row was omitted from the bundle.',
+        },
+      ],
+    });
+    renderDialog();
+
+    await screen.findByText('One thing could not travel with this copy');
+    expect(screen.getByText(/along with 2 links that pointed at it/)).toBeInTheDocument();
+    // The raw row-level messages, and their table names, stay out of the dialog.
+    expect(screen.queryByText(/workflow_queries row was omitted/)).toBeNull();
+    expect(screen.queryByText(/workflow_data_sources row was omitted/)).toBeNull();
+  });
+
+  it('IEX3-10: says nothing about omissions when there are none', async () => {
+    mockFetch();
+    renderDialog();
+
+    await screen.findByText('What the file contains');
+    expect(screen.queryByText(/could not travel with this copy/)).toBeNull();
+  });
+
+  it('AC 6: moves focus onto the summary once the manifest has loaded', async () => {
+    // The ref was wired for this from the start and nothing ever called
+    // focus(), so the first thing a screen reader reached was the close button.
+    mockFetch();
+    renderDialog();
+
+    const summary = await screen.findByText('What the file contains');
+    const focusTarget = summary.closest('[tabindex="-1"]');
+    expect(focusTarget).not.toBeNull();
+    await waitFor(() => expect(focusTarget).toHaveFocus());
+  });
+
   it('AC 4: states what stays behind up front and lists every category on expand', async () => {
     mockFetch();
     const user = userEvent.setup();
