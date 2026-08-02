@@ -710,7 +710,7 @@ constraints real.
 
 Out of scope: the grid UI (Phase 3), and the unreachable writeback path (Phase 4).
 
-## DV-4 — `isUnique` / `isPrimaryKey` are never enforced on write 🔲
+## DV-4 — `isUnique` / `isPrimaryKey` are never enforced on write 🔄
 
 **Priority: P0 (bug)** · Size: M · File: `server/services/DatavaultRowsService.ts`
 
@@ -1480,7 +1480,7 @@ snapshots, which are historical and stay.
 
 ---
 
-## DV-11 — Stop issuing DataVault API tokens that authenticate nothing 🔲
+## DV-11 — Stop issuing DataVault API tokens that authenticate nothing 🔄
 
 **Priority: P1** · Size: S · File: `client/src/components/datavault/DatabaseApiTokens.tsx` + its parent, `server/routes/datavaultApiTokens.routes.ts`
 
@@ -1561,7 +1561,7 @@ answer is no.
 
 ---
 
-## DV-12 — `QueryService` has no tenant scoping and a mass-assignment update 🔲
+## DV-12 — `QueryService` has no tenant scoping and a mass-assignment update 🔄
 
 **Priority: P1** · Size: S · File: `server/services/QueryService.ts`
 
