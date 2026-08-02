@@ -1,11 +1,13 @@
 ---
 name: add-step-type
-description: 'Use this skill whenever the task involves a workflow step type, question type, or block type in ezBuildr — adding a new one (rating, slider, NPS, matrix, color picker, star scale, etc.), changing how an existing one behaves or is configured (defaults, settings panel options, runner behavior), or fixing one that is incompletely wired up (missing from the palette, erroring in AI generation, unsupported in repeaters or conditional logic). Any request that names a step/question/block type and asks to create, extend, configure, or finish it belongs here: step types are enumerated in ~10 places across shared/, the builder, and the runner, and this skill has the full checklist. Do not use for CI pipeline steps, lifecycle/document hooks, new logic operators, or pure visual styling fixes.'
+description: 'Use this skill whenever the task involves a workflow step type, question type, or block type in ezBuildr — adding a new one (rating, slider, NPS, matrix, color picker, star scale, etc.), changing how an existing one behaves or is configured (defaults, settings panel options, runner behavior), or fixing one that is incompletely wired up (missing from the palette, erroring in AI generation, unsupported inside a List or in conditional logic). Any request that names a step/question/block type and asks to create, extend, configure, or finish it belongs here: step types are enumerated in ~10 places across shared/, the builder, and the runner, and this skill has the full checklist. Do not use for CI pipeline steps, lifecycle/document hooks, new logic operators, or pure visual styling fixes.'
 ---
 
 # Adding a Step Type
 
-A step type (like `short_text`, `signature`, `computed`) is enumerated in many places. Work through this list top to bottom; the compiler catches some misses (string unions) but not all (switch defaults, registries).
+A step type (like `short_text`, `choice`, `computed`) is enumerated in many places. Work through this list top to bottom; the compiler catches some misses (string unions) but not all (switch defaults, registries).
+
+**Every path below was re-verified against the tree on 2026-08-01.** Two were dead and had misled at least one dev each: `client/src/components/runner/blocks/validation.ts` (client-side value validation lives in `shared/validation/BlockValidation.ts`) and `shared/types/repeater.ts` (deleted with the `repeater` type in LIST-13).
 
 ## 1. Shared — source of truth
 
@@ -32,7 +34,8 @@ A step type (like `short_text`, `signature`, `computed`) is enumerated in many p
 |---|---|
 | `client/src/components/runner/blocks/` | New renderer component + barrel `index.ts` export |
 | `client/src/components/runner/blocks/BlockRenderer.tsx:96` | Add the `case` in the master switch |
-| `client/src/components/runner/blocks/validation.ts:22` | Client-side `validateBlockValue` case |
+| `shared/types/runnerStepTypes.ts` | Add to `RUNNER_RENDERED_STEP_TYPES` (or `RUNNER_HIDDEN_*` / `RUNNER_INTENTIONALLY_UNSUPPORTED_*`). **Do not skip this** — it is the single source of truth for whether the runner can present a fillable control, and both validators refuse to `require` a type that is not listed (RUN2-3) |
+| `shared/validation/BlockValidation.ts` | Add the `case` in `getValidationSchema` if the type has validation rules beyond `required` |
 
 Preview reuses the runner's `BlockRenderer` — there is no separate preview renderer set.
 
@@ -41,7 +44,7 @@ Preview reuses the runner's `BlockRenderer` — there is no separate preview ren
 | Feature | File |
 |---|---|
 | Conditional logic operands | `shared/types/conditions.ts:15` — `ConditionSupportedStepType` + `OPERATORS_BY_STEP_TYPE` map |
-| Repeater fields | `shared/types/repeater.ts:14` — `RepeaterFieldType` |
+| List fields | **Nothing to do.** `LIST_FIELD_QUESTION_TYPES` (`shared/types/stepConfigs.ts`) is *derived* from `RUNNER_RENDERED_STEP_TYPES` minus `final_documents`/`signature_block`/`list`, so registering the type above automatically makes it usable inside a List. This replaced the hand-maintained `RepeaterFieldType` of the retired `repeater` type, which went stale by exactly this route (LIST-13). Only touch it to *exclude* a type that has no per-item meaning |
 | AI workflow generation | `shared/types/ai.ts:15` — the `z.enum` step list (AI can't generate the type otherwise) |
 | Docs | `docs/api/BLOCKS.md` + the step-type list in `CLAUDE.md` |
 

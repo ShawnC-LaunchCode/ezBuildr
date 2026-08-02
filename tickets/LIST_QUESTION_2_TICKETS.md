@@ -1189,6 +1189,346 @@ rendered content, not just a 200.
 
 ---
 
+# Phase 4 — Backlog promotions (not gated; dispatch any time)
+
+Two tickets promoted from the backlog on 2026-08-01 **after re-verifying each
+finding against the post-Phase-1 tree**, per the rule that a backlog entry is
+an observation until re-checked. Re-verification changed the verdict on both:
+LIST2-B2 turned out to be dead code (delete, don't fix) and LIST2-B3 turned out
+not to be a defect at all (its open question is now answered). Both are folded
+into LIST2-10. Footprints are disjoint from each other and from Phase 2.
+
+---
+
+## LIST2-10 — Delete the dead intake state machine and its unused validate-page route 🔲
+
+**Priority: P2** · Size: S · File: `server/workflows/intakeStateMachine.ts`
+
+### Finding
+
+Bundles former backlog **LIST2-B2** and **LIST2-B3**, because re-verification
+showed they are the same thing: two unreachable validation surfaces that look
+reachable, and both are answered by deletion rather than by a fix.
+
+**(a) `IntakeStateMachine` is dead.** `advancePage()` in
+`server/workflows/intakeStateMachine.ts` collapses the validation error array
+into a `Map` keyed by `fieldId`:
+
+```ts
+    const errors = new Map<string, string[]>();
+    for (const error of validationResult.errors) {
+      errors.set(error.fieldId, error.errors);
+    }
+```
+
+Before LIST-14 one step produced at most one `ValidationError`, so `set` was
+safe. A list produces **one entry per failing path**, all sharing the same
+`fieldId`, so every path but the last is silently discarded — and LIST2-2 made
+that strictly worse by adding type-level errors on top of required-ness.
+
+**The bug is real and unreachable.** `IntakeStateMachine` is exported and
+referenced from **nowhere** — verified 2026-08-01 across `server/`, `client/`,
+`shared/` and `tests/`, matching on both the class name and the module path.
+The live enforcement path is `RunExecutionCoordinator`, which LIST2-2 fixed.
+
+**(b) `POST /api/workflows/:workflowId/validate-page` has no callers.**
+`validationRouter` in `server/routes/validation.routes.ts` is registered
+(`server/routes/index.ts`, `app.use(validationRouter)`) and auth'd, and calls a
+*different* `validatePage` — the one from `shared/validation/PageValidator.ts`,
+which has no `list` handling. The old backlog entry asked whether this is an
+enforcement boundary. **It is not:** the handler ends in
+
+```ts
+        res.json(result);
+```
+
+and gates nothing, and no client or test calls the path — `useRunNavigation.ts`
+imports `validatePage` from `PageValidator` as a *module*, never over HTTP, and
+routes `list` steps around it deliberately.
+
+So this is a live, authenticated endpoint that would report a list-bearing page
+as `valid` regardless of its contents. Nothing consumes that answer today, but
+it is a trap for whoever wires it up next.
+
+### Preferred fix
+
+Delete both:
+
+1. `server/workflows/intakeStateMachine.ts` in full.
+2. `server/routes/validation.routes.ts`, its `import` and its `app.use(...)`
+   registration in `server/routes/index.ts`.
+
+Then remove anything the deletions orphan — imports, helper functions, types
+that existed only to serve them. `shared/validation/PageValidator.ts` itself
+stays: `useRunNavigation.ts` imports it directly and that is the live path.
+
+**Before deleting, prove the deletion is safe rather than assuming it.** Grep
+for each removed symbol *and* each removed route path across `server/`,
+`client/`, `shared/`, `tests/` and `scripts/`. Paste the (empty) results in
+your turn-in — this repo has a documented history of a dead-code sweep that
+over-removed live feature routes and had to be partially reverted, so an
+unproven deletion will be sent back.
+
+Do **not** "fix" the `Map` collapse on the way out. If the state machine is
+ever revived it must be rewritten against the current path-keyed error
+contract anyway.
+
+### Ties
+
+- Load `add-api-endpoint` — you are removing a route; it documents the
+  registration pattern you are reversing.
+- Load `run-tests` before running anything.
+- Related: LIST2-2 (added the error paths that exposed the truncation);
+  `RunExecutionCoordinator` is the real enforcement path and is **not** in
+  scope.
+- File footprint: `server/workflows/intakeStateMachine.ts` (deleted),
+  `server/routes/validation.routes.ts` (deleted), `server/routes/index.ts`
+  (2 lines).
+- No collisions with Phase 2 or LIST2-11.
+
+### Acceptance criteria
+
+1. `server/workflows/intakeStateMachine.ts` no longer exists.
+2. `server/routes/validation.routes.ts` no longer exists, and neither its
+   import nor its `app.use(validationRouter)` registration remains in
+   `server/routes/index.ts`.
+3. A grep for `IntakeStateMachine`, `intakeStateMachine`, `validationRouter`
+   and `validate-page` across `server/`, `client/`, `shared/`, `tests/` and
+   `scripts/` returns **no** hits.
+4. No import, type, or helper is left orphaned by the deletions.
+5. `shared/validation/PageValidator.ts` is **unchanged** and
+   `useRunNavigation.ts` still imports it — deleting it is out of scope and
+   would break the live client path.
+6. The app boots and `/health` reports healthy, proving the route registration
+   was removed cleanly.
+7. `npm run type-check` 0 errors; `npm run lint` clean (`--max-warnings 0`,
+   which will catch orphaned imports); `npm run test:fast` green at ≥ 2246;
+   `npm run test:integration` green.
+
+---
+
+## LIST2-11 — `MappingValidator` doesn't project list values 🔲
+
+**Priority: P2** · Size: S · File: `server/services/document/MappingValidator.ts`
+
+### Finding
+
+Promoted from backlog LIST2-B1 (originally LIST-B10), **re-verified 2026-08-01
+and now worse than when filed.** Both call sites in
+`server/services/document/MappingValidator.ts` still read:
+
+```ts
+        const normalized = normalizeVariables(testStepValues);
+```
+
+with no options. `normalizeVariables` needs `listConfigs` to project a `list`
+step's storage envelope into the array a template loops over, and — since
+LIST2-6 — also needs `listBoundChoices` to resolve a list-bound dropdown's
+stored `itemId` into a label.
+
+So template-mapping **validation** sees the raw `{ items: [{ itemId, values }] }`
+envelope and raw UUIDs, while actual **rendering** (`finalBlock.routes.ts` and
+`RunLifecycleService.ts`, both correctly wired) sees the projected array and
+resolved labels. A mapping onto a list variable, or onto a list-bound choice,
+can therefore report a false warning for a document that renders perfectly.
+
+Generated output is unaffected — this is a validation-surface inconsistency
+only, which is why it is P2 and not P1.
+
+### Preferred fix
+
+Thread both option sets into both call sites, exactly the way the two render
+paths already do it — `getListConfigsByAlias(steps)` (LIST-11) and
+`getChoiceListBindingsByAlias(steps)` (LIST2-6), both exported from
+`server/services/document/VariableNormalizer.ts`.
+
+Read `RunLifecycleService.ts`'s call as the donor; it builds both and passes
+them as `normalizationOptions`. Do not reimplement either collector, and do not
+change `normalizeVariables` itself — this ticket is purely about the two
+callers that skip its options.
+
+The step definitions needed to build the collectors must come from whatever
+`MappingValidator` already has in scope at each call site. If a call site
+genuinely has no access to the workflow's steps, **stop and report that** —
+plumbing a new dependency into it is a bigger change than this ticket is sized
+for, and the reviewer will want to decide the shape.
+
+### Ties
+
+- Load `run-tests` before running anything.
+- Donors: `server/services/workflow-runs/RunLifecycleService.ts` and
+  `server/routes/finalBlock.routes.ts` — the two correctly-wired call sites.
+- Related: LIST-11 (added `listConfigs`), LIST2-6 (added `listBoundChoices`).
+  Both are merged; nothing here changes their behavior.
+- File footprint: `server/services/document/MappingValidator.ts` plus tests.
+  Touches no file Phase 2 or LIST2-10 touches.
+
+### Acceptance criteria
+
+1. Both `normalizeVariables` call sites in `MappingValidator.ts` pass
+   `listConfigs` and `listBoundChoices`.
+2. A mapping onto a `list` step's alias validates **without** a false warning,
+   where the same mapping warns before the fix.
+3. A mapping onto a list-bound `choice` step validates without a false warning.
+4. Validation results for workflows containing **no** list steps are
+   byte-identical to before — assert this against a fixture that has mappings
+   and produces warnings, so the test would catch a behavior change rather
+   than passing on an empty result.
+5. `normalizeVariables`, `getListConfigsByAlias` and
+   `getChoiceListBindingsByAlias` are unchanged.
+6. New tests assert 2–4, and each must be shown to fail without the fix.
+7. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
+   green at ≥ 2246.
+
+---
+
+## LIST2-12 — Drilling into a list item is silent to screen readers 🔲
+
+**Priority: P2** · Size: S · File: `client/src/components/runner/list/ListDrillEditor.tsx`
+
+### Finding
+
+Promoted from backlog LIST2-B10. Opening a list item replaces the **entire
+section body** — `QuestionCardContent` in `client/src/pages/WorkflowRunner.tsx`
+swaps `QuestionSectionBody` for `ListDrillEditor` and hides Back/Next:
+
+```tsx
+        {drill && drilledStep ? (
+          <BlockErrorBoundary stepId={drilledStep.id}>
+            <ListDrillEditor
+```
+
+Visually this is obvious. Non-visually it is not: there is no focus move to the
+new heading, no `aria-live` announcement, and no landmark/heading change. A
+screen-reader user activates "Ava Lee" and nothing is announced — the page
+appears unchanged while every control has been replaced. The same is true in
+reverse for "← parent" / "Done".
+
+`ListDrillEditor` does manage focus on **one** path already
+(`autoFocusFirstField`, set only by "+ Add"), so the machinery exists; it just
+does not cover the ordinary open-an-existing-item case.
+
+This is the one accessibility gap in the List feature likely to surface in an
+enterprise procurement/VPAT review, which is why it is promoted rather than
+left as an observation.
+
+### Preferred fix
+
+On entering a drill level and on leaving one, move focus to the drilled
+editor's heading and make the context change announceable:
+
+- Give the breadcrumb/header region a real heading element and move focus to
+  it when the drill depth changes, rather than leaving focus on a button that
+  no longer exists.
+- Reuse the existing `useEffect` in `ListDrillEditor` that already keys off
+  `scope?.item.itemId` — the depth change is observable there. Do not add a
+  second effect racing the `autoFocusFirstField` one; "+ Add" must still land
+  in the first field, not the heading.
+- The breadcrumb string is already computed (`resolveBreadcrumbLabels`), so the
+  announcement has meaningful text available without new logic.
+
+Prefer focus management over a bare `aria-live` region — moving focus is what
+actually orients a screen-reader user, and it fixes keyboard order at the same
+time. Do not change the visual design; this should be invisible to sighted
+users.
+
+### Ties
+
+- **Load the `design` skill** — user-visible runner surface, even though the
+  intended visual delta is zero. Register R2.
+- Load `run-tests` before running anything.
+- **Not folded into LIST2-7** even though both are List UI: LIST2-7 was already
+  dispatched when this was written, and LIST2-7 is **builder**-side
+  (`cards/list/*`) while this is **runner**-side. Footprints are disjoint —
+  dispatch in parallel.
+- Related: LIST2-5 (last touched this file — wrapped the render site in
+  `BlockErrorBoundary` and threaded `aliasMap`).
+- File footprint: `client/src/components/runner/list/ListDrillEditor.tsx`,
+  possibly `ListItemsView.tsx`, plus tests.
+
+### Acceptance criteria
+
+1. Opening a list item moves focus to the drilled editor's heading.
+2. Leaving a level (via "← parent", "Done", or hardware back) moves focus
+   somewhere deliberate and existing — not to `document.body`.
+3. The drilled editor exposes an accessible name reflecting the current
+   breadcrumb, so the context change is announceable.
+4. "+ Add" still focuses the **first field**, not the heading — the existing
+   `autoFocusFirstField` behavior is unchanged and still covered by its test.
+5. No visual change: no new visible text, spacing, or layout shift.
+6. New tests assert 1, 2 and 4 (that a focused element matches the expected
+   role/name after each transition).
+7. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
+   green at ≥ 2246.
+
+---
+
+## LIST2-13 — Debounce List config saves 🔲
+
+**Priority: P2** · Size: S · File: `client/src/components/builder/cards/ListCardEditor.tsx`
+
+### Finding
+
+Promoted from backlog LIST2-B9, **and its trigger has now arrived.**
+`ListCardEditor` fires a full `updateStep` mutation on every change with no
+debounce. That was *correct as delivered* in LIST-6 — it matches
+`MultiFieldCardEditor`, the donor the ticket named — but the scale differs:
+MultiField carries 2–6 flat fields, whereas a 3-level List can hold dozens, and
+each keystroke PATCHes the entire nested config object.
+
+LIST2-7 is what makes this bite: it gives **every field its own `config`
+object** (scale bounds, number ranges, display content, sub-fields), so the
+payload being re-sent per keystroke grows by roughly an order of magnitude.
+
+Still cosmetic — no data is lost, the mutation is idempotent — which is why it
+stays P2. But authoring a large list is where it will be felt.
+
+### Preferred fix
+
+Copy the debounce queue already in `ChoiceCardEditor` (see the comment near
+its queue setup) — it is the better donor for this one aspect, and it is
+in-repo and proven. Do not invent a new debouncing approach and do not reach
+for `useAutoSave`, which is the runner's mechanism and carries save-status UI
+this editor does not want.
+
+Keep local state updates **immediate** — only the network mutation is
+debounced. The editor must stay fully responsive while typing; this is a
+request-rate fix, not an input-latency fix.
+
+Make sure an in-flight debounce is flushed when the editor unmounts or the
+selected step changes, or the last edit before switching steps is lost.
+
+### Ties
+
+- **Load the `design` skill** — builder UI behavior. Register R2.
+- Load `run-tests` before running anything.
+- **Depends on LIST2-7** — it must merge first. `ListCardEditor` renders the
+  tree LIST2-7 restructures, and the payload this debounces is the one LIST2-7
+  enlarges. Dispatching in parallel would mean debouncing a shape that is
+  changing underneath.
+- Donor: `client/src/components/builder/cards/ChoiceCardEditor.tsx`'s debounce
+  queue. Anti-donor: `MultiFieldCardEditor` (the original, undebounced donor).
+- File footprint: `client/src/components/builder/cards/ListCardEditor.tsx`
+  plus tests.
+
+### Acceptance criteria
+
+1. Typing rapidly into a List field's title/alias/config issues **one**
+   `updateStep` mutation after the debounce window, not one per keystroke.
+2. Local editor state updates immediately on every keystroke — typing is not
+   delayed or laggy.
+3. A pending debounced save is flushed when the editor unmounts or the selected
+   step changes, so the final edit is never dropped.
+4. The persisted config after a burst of edits is identical to what
+   the undebounced version would have written.
+5. New tests assert 1, 2 and 3 using fake timers, asserting on mutation **call
+   count**, not just final state — a test that only checks the end value passes
+   with no debounce at all.
+6. `npm run type-check` 0 errors; `npm run lint` clean; `npm run test:fast`
+   green at ≥ 2246.
+
+---
+
 # Backlog / observations (not phase-gated)
 
 Carried forward from the round-1 file plus this audit. A backlog entry is
