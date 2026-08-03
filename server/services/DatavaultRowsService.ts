@@ -7,6 +7,17 @@ type CoercedValue = string | number | boolean | string[] | object | null;
 const isAutoNumberType = (type: DatavaultColumn['type']): boolean =>
   type === 'auto_number' || type === 'autonumber';
 
+/**
+ * String-ish column types where a blank (or whitespace-only) input has no
+ * meaningful distinction from "no value" — see DVH-1. Deliberately excludes
+ * 'json' (where '""' may be a meaningful stored value) and
+ * 'select'/'multiselect' (validated against a fixed option list).
+ */
+const BLANK_COERCIBLE_TYPES = new Set<DatavaultColumn['type']>(['text', 'email', 'phone', 'url']);
+
+const isBlankString = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim() === '';
+
 import { db } from "../db";
 import { ConflictError } from "../errors/AppError";
 import { assertValueSizeWithinLimit } from "../utils/valueSizeLimit";
@@ -86,11 +97,20 @@ export class DatavaultRowsService {
    */
   // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
   private validateAndCoerceValue(value: unknown, column: DatavaultColumn): CoercedValue {
-    if (value !== null && value !== undefined) {
-      assertValueSizeWithinLimit(value, `Column '${column.name}' value`);
+    // DVH-1: a blank or whitespace-only string on a string-ish column has
+    // exactly one representation — null — same as an omitted value. This
+    // must happen BEFORE the required check and size check below, or a
+    // blank string bypasses both (stored as "", which false-satisfies
+    // `required` and false-conflicts with other blanks on unique columns).
+    const normalized = BLANK_COERCIBLE_TYPES.has(column.type) && isBlankString(value)
+      ? null
+      : value;
+
+    if (normalized !== null && normalized !== undefined) {
+      assertValueSizeWithinLimit(normalized, `Column '${column.name}' value`);
     }
 
-    if (value === null || value === undefined) {
+    if (normalized === null || normalized === undefined) {
       if (column.required && !isAutoNumberType(column.type)) {
         throw new Error(`Column '${column.name}' is required`);
       }
@@ -102,7 +122,7 @@ export class DatavaultRowsService {
       case 'email':
       case 'phone':
       case 'url':
-        return String(value);
+        return String(normalized);
 
       case 'number':
         // eslint-disable-next-line no-case-declarations

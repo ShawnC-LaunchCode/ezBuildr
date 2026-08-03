@@ -378,7 +378,10 @@ describe('Data Block Integration Tests', () => {
         ['equals', 'Beta', ['Beta']],
         ['contains', 'Alp', ['Alpha', 'Alpine']],
         ['greater_than', 9, ['Alpine', 'Beta']],
-        ['is_empty', undefined, ['']],
+        // DVH-1: a blank text value submitted at row creation is now stored
+        // as SQL NULL rather than "" (see DatavaultRowsService), so the
+        // "empty" fixture row's text column reads back as null, not "".
+        ['is_empty', undefined, [null]],
         ['in', ['Alpha', 'Beta'], ['Alpha', 'Beta']],
     ] as const)(
         'applies the %s EAV filter without querying a nonexistent data column',
@@ -387,7 +390,7 @@ describe('Data Block Integration Tests', () => {
                 filters: [{ columnId: operator === 'greater_than' ? readNumberColumnId : readTextColumnId, operator, value }],
             });
 
-            const labels = list.rows.map(row => row[readTextColumnId] as string).sort();
+            const labels = list.rows.map(row => row[readTextColumnId] as string | null).sort();
             expect(labels).toEqual([...expectedLabels].sort());
         }
     );

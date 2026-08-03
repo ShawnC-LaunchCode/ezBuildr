@@ -1,9 +1,9 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import express, { type Express } from 'express';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 
-import { datavaultRows, auditLogs } from '@shared/schema';
+import { datavaultRows, datavaultValues, auditLogs } from '@shared/schema';
 
 import { db } from '../../server/db';
 import { AuditLogger } from '../../server/lib/audit/auditLogger';
@@ -1748,6 +1748,163 @@ describe('DataVault Audit Trail (DV-13)', () => {
       .where(eq(auditLogs.tenantId, ctx.tenantId));
 
     expect(afterLogs.length).toBe(beforeLogs.length);
+  });
+});
+
+describe('DataVault blank value coercion (DVH-1)', () => {
+  let ctx: IntegrationTestContext;
+  let ownerToken: string;
+  let tableId: string;
+  let requiredColumnId: string;
+  let uniqueColumnId: string;
+  let jsonColumnId: string;
+  let selectColumnId: string;
+
+  const createRow = (values: Record<string, unknown>) => request(ctx.baseURL)
+    .post(`/api/datavault/tables/${tableId}/rows`)
+    .set('Authorization', `Bearer ${ownerToken}`)
+    .send({ values });
+
+  beforeAll(async () => {
+    ctx = await setupIntegrationTest({ tenantName: 'DVH-1 Blank Values' });
+    const owner = await createTestUser(ctx, 'owner');
+    ownerToken = owner.token;
+
+    const tableResponse = await request(ctx.baseURL)
+      .post('/api/datavault/tables')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'DVH-1 Blank Values Table' });
+    expect(tableResponse.status).toBe(201);
+    tableId = tableResponse.body.id as string;
+
+    const requiredColRes = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/columns`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'Full Name', type: 'text', required: true });
+    expect(requiredColRes.status).toBe(201);
+    requiredColumnId = requiredColRes.body.id as string;
+
+    const uniqueColRes = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/columns`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'Unique Code', type: 'text', isUnique: true });
+    expect(uniqueColRes.status).toBe(201);
+    uniqueColumnId = uniqueColRes.body.id as string;
+
+    const jsonColRes = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/columns`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'Metadata', type: 'json' });
+    expect(jsonColRes.status).toBe(201);
+    jsonColumnId = jsonColRes.body.id as string;
+
+    const selectColRes = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/columns`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'Category', type: 'select', options: [{ value: 'a', label: 'A' }] });
+    expect(selectColRes.status).toBe(201);
+    selectColumnId = selectColRes.body.id as string;
+  });
+
+  afterAll(async () => {
+    await ctx.cleanup();
+  });
+
+  it('AC1: rejects an empty string for a required text column', async () => {
+    const res = await createRow({ [requiredColumnId]: '' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe("Column 'Full Name' is required");
+  });
+
+  it('AC2: rejects a whitespace-only string for a required text column', async () => {
+    const res = await createRow({ [requiredColumnId]: '   ' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe("Column 'Full Name' is required");
+  });
+
+  it('AC3: two rows may both leave a unique text column blank with no 409', async () => {
+    // Same literal blank value ("") submitted twice: pre-fix this is stored as
+    // two identical non-null strings and false-conflicts with a 409. Post-fix,
+    // both normalize to null and assertUniqueValues skips nulls entirely.
+    const first = await createRow({ [requiredColumnId]: 'Row A', [uniqueColumnId]: '' });
+    const second = await createRow({ [requiredColumnId]: 'Row B', [uniqueColumnId]: '' });
+    const third = await createRow({ [requiredColumnId]: 'Row D', [uniqueColumnId]: '   ' });
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(third.status).toBe(201);
+  });
+
+  it('AC4: a blank text value is stored as SQL NULL, not the jsonb string ""', async () => {
+    const res = await createRow({ [requiredColumnId]: 'Row C', [uniqueColumnId]: '' });
+    expect(res.status).toBe(201);
+    const rowId = res.body.row.id as string;
+
+    const stored = await db.select({ value: datavaultValues.value })
+      .from(datavaultValues)
+      .where(and(eq(datavaultValues.rowId, rowId), eq(datavaultValues.columnId, uniqueColumnId)));
+    expect(stored).toHaveLength(1);
+    expect(stored[0].value).toBeNull();
+
+    // Belt-and-braces: assert directly on the jsonb type in SQL, not just what
+    // drizzle deserializes JS-side, so a stored '""' or JSON 'null' literal
+    // (which would also deserialize oddly) can't hide behind the ORM mapping.
+    const raw = await db.execute<{ is_sql_null: boolean; jsonb_type: string | null }>(sql`
+      SELECT (value IS NULL) AS is_sql_null, jsonb_typeof(value) AS jsonb_type
+      FROM datavault_values
+      WHERE row_id = ${rowId}::uuid AND column_id = ${uniqueColumnId}::uuid
+    `);
+    expect(raw.rows[0].is_sql_null).toBe(true);
+    expect(raw.rows[0].jsonb_type).toBeNull();
+  });
+
+  it('AC5: is_empty matches a row whose text column was submitted blank, and is_not_empty does not', async () => {
+    const blankRes = await createRow({ [requiredColumnId]: 'Blank Holder', [uniqueColumnId]: '' });
+    const filledRes = await createRow({ [requiredColumnId]: 'Filled Holder', [uniqueColumnId]: 'has-a-value' });
+    expect(blankRes.status).toBe(201);
+    expect(filledRes.status).toBe(201);
+    const blankRowId = blankRes.body.row.id as string;
+    const filledRowId = filledRes.body.row.id as string;
+
+    const emptyRes = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${tableId}/rows`)
+      .query({ filters: JSON.stringify([{ columnId: uniqueColumnId, operator: 'is_empty' }]) })
+      .set('Authorization', `Bearer ${ownerToken}`);
+    expect(emptyRes.status).toBe(200);
+    const emptyRowIds = (emptyRes.body.rows as Array<{ row: { id: string } }>).map((r) => r.row.id);
+    expect(emptyRowIds).toContain(blankRowId);
+    expect(emptyRowIds).not.toContain(filledRowId);
+
+    const notEmptyRes = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${tableId}/rows`)
+      .query({ filters: JSON.stringify([{ columnId: uniqueColumnId, operator: 'is_not_empty' }]) })
+      .set('Authorization', `Bearer ${ownerToken}`);
+    expect(notEmptyRes.status).toBe(200);
+    const notEmptyRowIds = (notEmptyRes.body.rows as Array<{ row: { id: string } }>).map((r) => r.row.id);
+    expect(notEmptyRowIds).toContain(filledRowId);
+    expect(notEmptyRowIds).not.toContain(blankRowId);
+  });
+
+  it('AC6: a json column still accepts a JSON-encoded empty string without coercion to null', async () => {
+    const res = await createRow({ [requiredColumnId]: 'Json Holder', [jsonColumnId]: '""' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.values[jsonColumnId]).toBe('');
+  });
+
+  it('AC7: an empty string for a select column still fails option validation instead of becoming null', async () => {
+    // Select-column validation errors are pre-existing 500s at this route
+    // (classifyRouteError has no case for "value must be one of" — a
+    // separate, pre-existing gap outside DVH-1's scope). What DVH-1 must
+    // prove is that the request is still REJECTED, not silently coerced to
+    // null and inserted — the unit-level assertion below pins the exact
+    // "must be one of" message that the service throws.
+    const res = await createRow({ [requiredColumnId]: 'Select Holder', [selectColumnId]: '' });
+
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.body.row).toBeUndefined();
   });
 });
 

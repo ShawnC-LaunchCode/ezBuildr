@@ -226,8 +226,12 @@ export function registerDatavaultRowRoutes(app: Express): void {
         });
       }
       // Validation errors from the row service are intentional 4xx messages.
+      // Note: 'is required' (DVH-1) is distinct from 'Required' above — the
+      // required-but-blank/null branch of validateAndCoerceValue throws
+      // "Column 'X' is required" (lowercase), which the pre-existing
+      // capitalized check does not match.
       const raw = error instanceof Error ? error.message : '';
-      if (raw.includes('not a valid option') || raw.includes('missing') || raw.includes('Required')) {
+      if (raw.includes('not a valid option') || raw.includes('missing') || raw.includes('Required') || raw.includes('is required')) {
         return res.status(400).json({ message: raw });
       }
       const { status, message } = classifyRouteError(error, 'Failed to create row');

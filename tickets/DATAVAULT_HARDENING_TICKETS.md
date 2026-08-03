@@ -81,9 +81,48 @@ the same btree size-limit defect as DVH-2's. It now lives in
 
 ---
 
-## DVH-1 — A blank cell is stored as `""`, which breaks `required` and false-conflicts on unique columns 🔄
+## DVH-1 — A blank cell is stored as `""`, which breaks `required` and false-conflicts on unique columns ✅
 
 **Priority: P1 (bug)** · Size: S · File: `server/services/DatavaultRowsService.ts`
+
+> **✅ Verified at review 2026-08-03.** Reviewer re-ran every gate on the tree with
+> DVH-3 merged in — the combination neither dev could test — rather than trusting the
+> dev report: `tsc --noEmit` exit 0, `npm run lint` clean, `test:fast` **2388 passed**
+> (baseline 2381, +7), the 8-suite DataVault sweep plus `rls-datavault` **9 files / 182
+> tests passed**, and full `test:integration` **97 files / 1053 passed**, 0 failures.
+>
+> **AC8 independently reproduced.** Reverted the service fix and re-ran the new
+> integration block: 5 of 7 fail pre-fix with exactly the predicted assertions —
+> `expected 201 to be 400` for AC1/AC2 (a required text column accepted `""`) and
+> `expected 409 to be 201` for AC3/AC4/AC5 (two blanks false-conflicted on a unique
+> column). AC6/AC7 correctly pass pre-fix, since they assert *unchanged* json and
+> select behaviour. Then restored the fix and confirmed 7/7 green.
+>
+> Reconciled the test arithmetic rather than accepting it: 1031 baseline + 15
+> (`rls-datavault`, which DVH-3's report undercounted as 14) + 7 (this ticket) = 1053,
+> matching the observed total exactly.
+>
+> **Accepted deviation — one line outside the ticket's stated file.** The dev added
+> `raw.includes('is required')` to the pre-existing 4xx allowlist in
+> `server/routes/datavault/rows.routes.ts`. Reviewer confirmed this was necessary, not
+> scope creep: `classifyRouteError` only returns 400 for `'Validation error'`
+> (`server/utils/routeErrors.ts`), and the route's own allowlist matched capitalised
+> `'Required'` (for `"Required column 'X' is missing"`) but not the lowercase
+> `"Column 'X' is required"` this fix now throws far more often — so AC1's message
+> would have surfaced to clients as a generic 500. Extending the route's existing
+> allowlist is the on-pattern minimal change; broadening the shared classifier would
+> have altered every route's behaviour.
+>
+> **Accepted modification to a pre-existing test.** `tests/integration/dataBlocks.test.ts`
+> had a `test.each` row asserting the `is_empty` fixture reads back as `''`. That
+> encoded the very bug DVH-1 fixes, so the expectation moved to `null`. Reviewed the
+> diff specifically for test-weakening: the assertion still requires `is_empty` to
+> return exactly the one blank row, so the test's purpose is intact.
+>
+> **Observation filed, not fixed:** that ad-hoc string allowlist in `rows.routes.ts`
+> now duplicates classifier logic across two places. Folded into DVH-2's scope rather
+> than filed separately, since DVH-2 must touch this same handler's error mapping to
+> map `23505` onto DV-4's readable 409.
 
 *Three defects, deliberately one ticket: all three are the same missing coercion in
 `validateAndCoerceValue`, and fixing any one of them separately would leave the
@@ -308,6 +347,24 @@ raw constraint string never reaches a client. For the unarchive path the message
 name the blocking column, e.g. `A row with this column 'Employee ID' already exists`
 — reuse DV-4's phrasing rather than inventing a second one, so `classifyRouteError`
 keeps mapping it to 409.
+
+⚠️ **Mind the route's ad-hoc 4xx allowlist while you are in here.** DVH-1's review
+surfaced that `server/routes/datavault/rows.routes.ts` classifies some validation
+errors with its own `raw.includes(...)` list *before* falling through to
+`classifyRouteError`, which only 400s on `'Validation error'`
+(`server/utils/routeErrors.ts`). So a new service error phrasing can silently surface
+as a **500** even though the service threw something readable — DVH-1 hit exactly that
+with `"Column 'X' is required"`. Two consequences for you:
+
+- **Assert on the response body and status of every new error path** (criterion 5), not
+  on what the service throws. A unit test on the service will pass while the endpoint
+  returns 500.
+- `ConflictError` carries a `statusCode`, which `classifyRouteError` honours ahead of
+  its string matching — so reusing DV-4's `ConflictError` should map cleanly to 409
+  without touching the allowlist. **Verify that rather than assuming it**, and if you
+  do end up adding to the allowlist, say so and why: the duplication between that list
+  and `classifyRouteError` is known debt, and a third copy of the logic is worse than
+  extending one of the two.
 
 Turning `isUnique` on for a column that already has duplicates must keep failing with
 the **existing readable error**, checked before the backfill — not as a raw constraint

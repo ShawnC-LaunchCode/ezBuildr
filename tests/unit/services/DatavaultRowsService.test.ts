@@ -585,6 +585,171 @@ describe('DatavaultRowsService', () => {
     });
   });
 
+  describe('blank value coercion (DVH-1)', () => {
+    const makeTable = (): DatavaultTable => ({
+      id: mockTableId,
+      tenantId: mockTenantId,
+      ownerUserId: 'user-1',
+      name: 'Blank Values',
+      slug: 'blank-values',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as DatavaultTable);
+
+    const mockSuccessfulCreate = (): void => {
+      mockRowsRepo.createRowWithValues.mockImplementation(
+        (_rowData: InsertDatavaultRow, valueArr: Array<{ columnId: string; value: unknown }>) => Promise.resolve({
+          row: { id: mockRowId, tableId: mockTableId } as DatavaultRow,
+          values: valueArr.map((v, i) => ({
+            id: `val-${i}`,
+            rowId: mockRowId,
+            columnId: v.columnId,
+            value: v.value,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          } as DatavaultValue)),
+        })
+      );
+    };
+
+    it('AC1: rejects an empty string for a required text column', async () => {
+      const column = {
+        id: mockColumnId,
+        tableId: mockTableId,
+        name: 'Name',
+        type: 'text',
+        required: true,
+      } as DatavaultColumn;
+      mockTablesRepo.findById.mockResolvedValue(makeTable());
+      mockColumnsRepo.findByTableId.mockResolvedValue([column]);
+
+      await expect(service.createRow(mockTableId, mockTenantId, {
+        [column.id]: '',
+      })).rejects.toThrow("Column 'Name' is required");
+
+      expect(mockRowsRepo.createRowWithValues).not.toHaveBeenCalled();
+    });
+
+    it('AC2: rejects a whitespace-only string for a required text column', async () => {
+      const column = {
+        id: mockColumnId,
+        tableId: mockTableId,
+        name: 'Name',
+        type: 'text',
+        required: true,
+      } as DatavaultColumn;
+      mockTablesRepo.findById.mockResolvedValue(makeTable());
+      mockColumnsRepo.findByTableId.mockResolvedValue([column]);
+
+      await expect(service.createRow(mockTableId, mockTenantId, {
+        [column.id]: '   ',
+      })).rejects.toThrow("Column 'Name' is required");
+
+      expect(mockRowsRepo.createRowWithValues).not.toHaveBeenCalled();
+    });
+
+    it('AC3: a blank value in a unique column does not trigger a uniqueness check', async () => {
+      const column = {
+        id: mockColumnId,
+        tableId: mockTableId,
+        name: 'Email',
+        type: 'text',
+        required: false,
+        isUnique: true,
+      } as DatavaultColumn;
+      mockTablesRepo.findById.mockResolvedValue(makeTable());
+      mockColumnsRepo.findByTableId.mockResolvedValue([column]);
+      mockSuccessfulCreate();
+
+      await service.createRow(mockTableId, mockTenantId, { [column.id]: '' });
+
+      expect(mockRowsRepo.findUniqueValueConflicts).not.toHaveBeenCalled();
+    });
+
+    it('AC4: a blank string is coerced to null before it reaches the repository', async () => {
+      const column = {
+        id: mockColumnId,
+        tableId: mockTableId,
+        name: 'Notes',
+        type: 'text',
+        required: false,
+      } as DatavaultColumn;
+      mockTablesRepo.findById.mockResolvedValue(makeTable());
+      mockColumnsRepo.findByTableId.mockResolvedValue([column]);
+      mockSuccessfulCreate();
+
+      await service.createRow(mockTableId, mockTenantId, { [column.id]: '   ' });
+
+      expect(mockRowsRepo.createRowWithValues).toHaveBeenCalledWith(
+        expect.any(Object),
+        [{ columnId: column.id, value: null }],
+        'mock-tx'
+      );
+    });
+
+    it('AC6: a json column keeps an empty JSON-encoded string as "" rather than coercing it to null', async () => {
+      const column = {
+        id: mockColumnId,
+        tableId: mockTableId,
+        name: 'Metadata',
+        type: 'json',
+        required: false,
+      } as DatavaultColumn;
+      mockTablesRepo.findById.mockResolvedValue(makeTable());
+      mockColumnsRepo.findByTableId.mockResolvedValue([column]);
+      mockSuccessfulCreate();
+
+      await service.createRow(mockTableId, mockTenantId, { [column.id]: '""' });
+
+      expect(mockRowsRepo.createRowWithValues).toHaveBeenCalledWith(
+        expect.any(Object),
+        [{ columnId: column.id, value: '' }],
+        'mock-tx'
+      );
+    });
+
+    it('AC7: an empty string for a select column still fails option validation instead of becoming null', async () => {
+      const column = {
+        id: mockColumnId,
+        tableId: mockTableId,
+        name: 'Category',
+        type: 'select',
+        required: false,
+        options: [{ value: 'a', label: 'A' }],
+      } as DatavaultColumn;
+      mockTablesRepo.findById.mockResolvedValue(makeTable());
+      mockColumnsRepo.findByTableId.mockResolvedValue([column]);
+
+      await expect(service.createRow(mockTableId, mockTenantId, {
+        [column.id]: '',
+      })).rejects.toThrow("Column 'Category' value must be one of");
+
+      expect(mockRowsRepo.createRowWithValues).not.toHaveBeenCalled();
+    });
+
+    it('AC7: an empty array for a multiselect column is unaffected by blank coercion', async () => {
+      const column = {
+        id: mockColumnId,
+        tableId: mockTableId,
+        name: 'Tags',
+        type: 'multiselect',
+        required: false,
+        options: [{ value: 'a', label: 'A' }],
+      } as DatavaultColumn;
+      mockTablesRepo.findById.mockResolvedValue(makeTable());
+      mockColumnsRepo.findByTableId.mockResolvedValue([column]);
+      mockSuccessfulCreate();
+
+      await service.createRow(mockTableId, mockTenantId, { [column.id]: [] });
+
+      expect(mockRowsRepo.createRowWithValues).toHaveBeenCalledWith(
+        expect.any(Object),
+        [{ columnId: column.id, value: [] }],
+        'mock-tx'
+      );
+    });
+  });
+
   describe('deleteRow', () => {
     it('should delete row', async () => {
       const mockTable: DatavaultTable = {
