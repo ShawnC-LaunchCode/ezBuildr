@@ -864,7 +864,29 @@ it is filed as DV-B2.
 
 ---
 
-## DV-5 — Partial row updates falsely fail on required columns and regenerate auto-numbers 🔄
+## DV-5 — Partial row updates falsely fail on required columns and regenerate auto-numbers ✅
+
+> **Verification pass — 2026-08-02 (reviewer).** PASS, all 8 criteria met.
+> Gates re-run by the reviewer in the main checkout: `npx tsc --noEmit` 0 errors,
+> `npm run lint` exit 0, `npm run test:fast` **187 files / 2347 passed** (= 2344 +
+> this ticket's 3, matching the dev's figure), and a 4-suite DataVault integration
+> sweep **72/72**.
+> **Regression value proved:** reverting only the service fails 2 unit tests and the
+> integration test fails `expected 5 to be 3` — the sequence counter having burned
+> two values across two partial updates, which is the defect itself.
+> **DV-4 confirmed still wired:** `excludeRowId` flows from the new options object
+> into `assertUniqueValues`, so uniqueness enforcement survived the restructure.
+> **Design choice accepted, and it was the right one.** The reviewer flagged at
+> dispatch that `excludeRowId` was already a de facto create/update signal and asked
+> the dev to choose deliberately rather than add a fourth positional parameter. They
+> chose an explicit `{ mode, excludeRowId?, tx? }` options object, keeping intent
+> explicit while leaving `excludeRowId` scoped to its DV-4 purpose. Both call sites
+> read clearly at the call site, which a boolean or an inferred mode would not.
+> **Self-review credit:** hit cognitive complexity 27 and extracted
+> `prepareCreateValues` rather than adding a suppression — which also made the
+> create-only path structurally obvious instead of guarded by conditionals.
+> Note both paths now take a `{ ...values }` copy, so neither create nor update
+> mutates the caller's object (AC6 covers create; update gets it for free).
 
 **Priority: P0 (bug)** · Size: S · File: `server/services/DatavaultRowsService.ts`
 

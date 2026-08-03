@@ -25,6 +25,7 @@ describe('DataVault auto_number Integration Tests', () => {
   let tableId: string;
   let idColumnId: string; // auto-created primary key column (bypasses the service create-path)
   let ticketColumnId: string; // explicitly created via DatavaultColumnsService (normal create-path)
+  let statusColumnId: string;
 
   beforeAll(async () => {
     const [tenant] = await db.insert(tenants).values({
@@ -58,6 +59,18 @@ describe('DataVault auto_number Integration Tests', () => {
       tenantId
     );
     ticketColumnId = ticketColumn.id;
+
+    const statusColumn = await datavaultColumnsService.createColumn(
+      {
+        tableId,
+        name: 'Status',
+        slug: 'status',
+        type: 'text',
+        required: false,
+      },
+      tenantId
+    );
+    statusColumnId = statusColumn.id;
   });
 
   afterAll(async () => {
@@ -93,6 +106,45 @@ describe('DataVault auto_number Integration Tests', () => {
     // seeded from autoNumberStart: 100.
     expect(row1.values[ticketColumnId]).toBe(100);
     expect(row2.values[ticketColumnId]).toBe(101);
+  });
+
+  it('preserves auto-numbers and sequence counters across consecutive partial updates', async () => {
+    const created = await datavaultRowsService.createRow(tableId, tenantId, {
+      [statusColumnId]: 'new',
+    });
+    const autoNumbersBefore = {
+      [idColumnId]: created.values[idColumnId],
+      [ticketColumnId]: created.values[ticketColumnId],
+    };
+    const sequencesBefore = await db
+      .select({
+        columnId: datavaultNumberSequences.columnId,
+        nextValue: datavaultNumberSequences.nextValue,
+      })
+      .from(datavaultNumberSequences)
+      .where(eq(datavaultNumberSequences.tableId, tableId))
+      .orderBy(datavaultNumberSequences.columnId);
+
+    await datavaultRowsService.updateRow(created.row.id, tenantId, {
+      [statusColumnId]: 'in progress',
+    });
+    await datavaultRowsService.updateRow(created.row.id, tenantId, {
+      [statusColumnId]: 'complete',
+    });
+
+    const updated = await datavaultRowsService.getRow(created.row.id, tenantId);
+    const sequencesAfter = await db
+      .select({
+        columnId: datavaultNumberSequences.columnId,
+        nextValue: datavaultNumberSequences.nextValue,
+      })
+      .from(datavaultNumberSequences)
+      .where(eq(datavaultNumberSequences.tableId, tableId))
+      .orderBy(datavaultNumberSequences.columnId);
+
+    expect(updated?.values[idColumnId]).toBe(autoNumbersBefore[idColumnId]);
+    expect(updated?.values[ticketColumnId]).toBe(autoNumbersBefore[ticketColumnId]);
+    expect(sequencesAfter).toEqual(sequencesBefore);
   });
 
   it('is atomic and prevents duplicate values under concurrent inserts', { timeout: 30000 }, async () => {

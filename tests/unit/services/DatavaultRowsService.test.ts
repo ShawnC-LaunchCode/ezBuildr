@@ -48,6 +48,7 @@ describe('DatavaultRowsService', () => {
       getRowsWithValues: vi.fn(),
       getRowWithValues: vi.fn(),
       updateRowValues: vi.fn(),
+      getNextAutoNumber: vi.fn(),
       findUniqueValueConflicts: vi.fn().mockResolvedValue([]),
     } as unknown as Mocked<DatavaultRowsRepository>;
 
@@ -251,7 +252,43 @@ describe('DatavaultRowsService', () => {
 
       await expect(service.createRow(mockTableId, mockTenantId, {}))
         .rejects
-        .toThrow('Required column');
+        .toThrow("Required column 'Name' is missing");
+    });
+
+    it('does not mutate the caller values when generating auto-numbers', async () => {
+      const mockTable = {
+        id: mockTableId,
+        tenantId: mockTenantId,
+      } as DatavaultTable;
+      const autoNumberColumn = {
+        id: mockColumnId,
+        tableId: mockTableId,
+        name: 'ID',
+        slug: 'id',
+        type: 'auto_number',
+        required: true,
+        autoNumberStart: 1,
+        isPrimaryKey: true,
+        isUnique: true,
+      } as DatavaultColumn;
+      const values: Record<string, unknown> = {};
+
+      mockTablesRepo.findById.mockResolvedValue(mockTable);
+      mockColumnsRepo.findByTableId.mockResolvedValue([autoNumberColumn]);
+      mockRowsRepo.getNextAutoNumber.mockResolvedValue(1);
+      mockRowsRepo.createRowWithValues.mockResolvedValue({
+        row: { id: mockRowId, tableId: mockTableId } as DatavaultRow,
+        values: [],
+      });
+
+      await service.createRow(mockTableId, mockTenantId, values);
+
+      expect(values).toEqual({});
+      expect(mockRowsRepo.createRowWithValues).toHaveBeenCalledWith(
+        expect.any(Object),
+        [{ columnId: mockColumnId, value: 1 }],
+        'mock-tx'
+      );
     });
   });
 
@@ -320,6 +357,77 @@ describe('DatavaultRowsService', () => {
       await service.updateRow(mockRowId, mockTenantId, values);
 
       expect(mockRowsRepo.updateRowValues).toHaveBeenCalled();
+    });
+
+    it('allows a partial update that omits a required column', async () => {
+      const optionalColumnId = '990e8400-e29b-41d4-a716-446655440004';
+      const mockTable = {
+        id: mockTableId,
+        tenantId: mockTenantId,
+      } as DatavaultTable;
+      const mockRow = {
+        id: mockRowId,
+        tableId: mockTableId,
+      } as DatavaultRow;
+      const columns = [
+        {
+          id: mockColumnId,
+          tableId: mockTableId,
+          name: 'Name',
+          type: 'text',
+          required: true,
+        },
+        {
+          id: optionalColumnId,
+          tableId: mockTableId,
+          name: 'Notes',
+          type: 'text',
+          required: false,
+        },
+      ] as DatavaultColumn[];
+
+      mockRowsRepo.findById.mockResolvedValue(mockRow);
+      mockTablesRepo.findById.mockResolvedValue(mockTable);
+      mockColumnsRepo.findByTableId.mockResolvedValue(columns);
+
+      await expect(service.updateRow(mockRowId, mockTenantId, {
+        [optionalColumnId]: 'Updated',
+      })).resolves.toBeUndefined();
+
+      expect(mockRowsRepo.updateRowValues).toHaveBeenCalledWith(
+        mockRowId,
+        [{ columnId: optionalColumnId, value: 'Updated' }],
+        undefined,
+        'mock-tx'
+      );
+    });
+
+    it('rejects a partial update that explicitly nulls a required column', async () => {
+      const mockTable = {
+        id: mockTableId,
+        tenantId: mockTenantId,
+      } as DatavaultTable;
+      const mockRow = {
+        id: mockRowId,
+        tableId: mockTableId,
+      } as DatavaultRow;
+      const requiredColumn = {
+        id: mockColumnId,
+        tableId: mockTableId,
+        name: 'Name',
+        type: 'text',
+        required: true,
+      } as DatavaultColumn;
+
+      mockRowsRepo.findById.mockResolvedValue(mockRow);
+      mockTablesRepo.findById.mockResolvedValue(mockTable);
+      mockColumnsRepo.findByTableId.mockResolvedValue([requiredColumn]);
+
+      await expect(service.updateRow(mockRowId, mockTenantId, {
+        [mockColumnId]: null,
+      })).rejects.toThrow("Column 'Name' is required");
+
+      expect(mockRowsRepo.updateRowValues).not.toHaveBeenCalled();
     });
   });
 

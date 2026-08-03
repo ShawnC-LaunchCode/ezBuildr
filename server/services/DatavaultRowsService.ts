@@ -14,6 +14,12 @@ import {
   type DbTransaction,
 } from "../repositories";
 
+type RowValidationOptions = {
+  mode: 'create' | 'update';
+  excludeRowId?: string;
+  tx?: DbTransaction;
+};
+
 /**
  * Service layer for DataVault row business logic
  * Handles row and value CRUD operations with validation and type coercion
@@ -226,41 +232,56 @@ export class DatavaultRowsService {
     );
   }
 
-  private async validateRowData(
+  private async prepareCreateValues(
     tableId: string,
     values: Record<string, unknown>,
-    excludeRowId?: string,
+    columns: DatavaultColumn[],
     tx?: DbTransaction
-  ): Promise<Array<{ columnId: string; value: CoercedValue }>> {
-    const columns = await this.columnsRepo.findByTableId(tableId, tx);
-    const columnMap = new Map(columns.map((c) => [c.id, c]));
-    const validatedValues: Array<{ columnId: string; value: CoercedValue }> = [];
+  ): Promise<Record<string, unknown>> {
+    const createValues = { ...values };
 
-    // Check required columns (excluding auto_number columns)
     for (const column of columns) {
-      if (column.required && column.type !== 'auto_number' && column.type !== 'autonumber' && !(column.id in values)) {
+      if (column.required && column.type !== 'auto_number' && column.type !== 'autonumber' && !(column.id in createValues)) {
         throw new Error(`Required column '${column.name}' is missing`);
       }
     }
 
-    // Generate auto-number values for auto_number columns
-    // Get tenant ID for the column's number-sequence counter row
     const table = await this.tablesRepo.findById(tableId, tx);
     if (!table) {
       throw new Error('Table not found');
     }
-    const tenantId = table.tenantId;
 
     for (const column of columns) {
-      if (column.type === 'auto_number' && !(column.id in values)) {
+      if (column.type === 'auto_number' && !(column.id in createValues)) {
         const startValue = column.autoNumberStart ?? 1;
-        const nextNumber = await this.rowsRepo.getNextAutoNumber(tenantId, tableId, column.id, startValue, tx);
-        values[column.id] = nextNumber;
+        createValues[column.id] = await this.rowsRepo.getNextAutoNumber(
+          table.tenantId,
+          tableId,
+          column.id,
+          startValue,
+          tx
+        );
       }
     }
 
+    return createValues;
+  }
+
+  private async validateRowData(
+    tableId: string,
+    values: Record<string, unknown>,
+    options: RowValidationOptions
+  ): Promise<Array<{ columnId: string; value: CoercedValue }>> {
+    const { mode, excludeRowId, tx } = options;
+    const columns = await this.columnsRepo.findByTableId(tableId, tx);
+    const columnMap = new Map(columns.map((c) => [c.id, c]));
+    const validatedValues: Array<{ columnId: string; value: CoercedValue }> = [];
+    const valuesToValidate = mode === 'create'
+      ? await this.prepareCreateValues(tableId, values, columns, tx)
+      : { ...values };
+
     // Validate and coerce each value
-    for (const [columnId, value] of Object.entries(values)) {
+    for (const [columnId, value] of Object.entries(valuesToValidate)) {
       const column = columnMap.get(columnId);
       if (!column) {
         throw new Error(`Column ${columnId} not found in table`);
@@ -331,7 +352,10 @@ export class DatavaultRowsService {
     await this.verifyTableOwnership(tableId, tenantId, tx);
 
     // Validate and coerce values
-    const validatedValues = await this.validateRowData(tableId, values, undefined, tx);
+    const validatedValues = await this.validateRowData(tableId, values, {
+      mode: 'create',
+      tx,
+    });
 
     // Create row with values
     const result = await this.rowsRepo.createRowWithValues(
@@ -442,7 +466,11 @@ export class DatavaultRowsService {
     const row = await this.verifyRowOwnership(rowId, tenantId, tx);
 
     // Validate and coerce values (only for provided columns)
-    const validatedValues = await this.validateRowData(row.tableId, values, rowId, tx);
+    const validatedValues = await this.validateRowData(row.tableId, values, {
+      mode: 'update',
+      excludeRowId: rowId,
+      tx,
+    });
 
     // Update row values
     await this.rowsRepo.updateRowValues(rowId, validatedValues, updatedBy, tx);
