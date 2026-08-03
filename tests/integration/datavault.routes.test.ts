@@ -1058,6 +1058,130 @@ describe('DataVault row counts, soft deletion, and column sorting (DV-9)', () =>
   });
 });
 
+describe('DataVault row unarchive routes (DV-14)', () => {
+  let ctx: IntegrationTestContext;
+  let otherTenantCtx: IntegrationTestContext;
+  let ownerToken: string;
+  let otherTenantToken: string;
+
+  beforeAll(async () => {
+    ctx = await setupIntegrationTest({ tenantName: 'DV-14 Row Unarchive' });
+    otherTenantCtx = await setupIntegrationTest({ tenantName: 'DV-14 Other Tenant' });
+    ownerToken = (await createTestUser(ctx, 'owner')).token;
+    otherTenantToken = (await createTestUser(otherTenantCtx, 'owner')).token;
+  });
+
+  afterAll(async () => {
+    await ctx.cleanup();
+    await otherTenantCtx.cleanup();
+  });
+
+  async function createTableWithRow(name: string): Promise<{ tableId: string; rowId: string }> {
+    const tableResponse = await request(ctx.baseURL)
+      .post('/api/datavault/tables')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name });
+    expect(tableResponse.status).toBe(201);
+    const tableId = tableResponse.body.id as string;
+
+    const columnResponse = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/columns`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'Name', type: 'text' });
+    expect(columnResponse.status).toBe(201);
+    const columnId = columnResponse.body.id as string;
+
+    const rowResponse = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ values: { [columnId]: `${name} row` } });
+    expect(rowResponse.status).toBe(201);
+
+    return { tableId, rowId: rowResponse.body.row.id as string };
+  }
+
+  it('DV-14 AC1/3/5: single unarchive restores a genuinely archived row to listings and counts and writes its audit entry', async () => {
+    const { tableId, rowId } = await createTableWithRow('Single Unarchive Table');
+
+    const archiveResponse = await request(ctx.baseURL)
+      .patch(`/api/datavault/rows/${rowId}/archive`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+    expect(archiveResponse.status).toBe(200);
+
+    const [archivedRow] = await db
+      .select({ deletedAt: datavaultRows.deletedAt })
+      .from(datavaultRows)
+      .where(eq(datavaultRows.id, rowId));
+    expect(archivedRow.deletedAt).not.toBeNull();
+
+    const unarchiveResponse = await request(ctx.baseURL)
+      .patch(`/api/datavault/rows/${rowId}/unarchive`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+    expect(unarchiveResponse.status).toBe(200);
+    expect(unarchiveResponse.body).toEqual({
+      success: true,
+      message: 'Row unarchived successfully',
+    });
+
+    const [restoredRow] = await db
+      .select({ deletedAt: datavaultRows.deletedAt })
+      .from(datavaultRows)
+      .where(eq(datavaultRows.id, rowId));
+    expect(restoredRow.deletedAt).toBeNull();
+
+    const listingResponse = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${tableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+    expect(listingResponse.status).toBe(200);
+    expect(listingResponse.body.pagination.total).toBe(1);
+    expect(listingResponse.body.rows.map((row: { row: { id: string } }) => row.row.id)).toContain(rowId);
+
+    const statsResponse = await request(ctx.baseURL)
+      .get('/api/datavault/tables?stats=true')
+      .set('Authorization', `Bearer ${ownerToken}`);
+    expect(statsResponse.status).toBe(200);
+    const restoredTable = statsResponse.body.find((table: { id: string }) => table.id === tableId);
+    expect(restoredTable?.rowCount).toBe(1);
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const unarchiveLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, rowId),
+          eq(auditLogs.action, 'datavault.row.unarchived')
+        )
+      );
+    expect(unarchiveLogs).toHaveLength(1);
+    expect(getAuditChanges(unarchiveLogs[0]).after?.tableId).toBe(tableId);
+  });
+
+  it('DV-14 AC4: missing rows return 404 and cross-tenant archived rows return 403', async () => {
+    const missingResponse = await request(ctx.baseURL)
+      .patch('/api/datavault/rows/00000000-0000-0000-0000-000000000000/unarchive')
+      .set('Authorization', `Bearer ${ownerToken}`);
+    expect(missingResponse.status).toBe(404);
+
+    const { rowId } = await createTableWithRow('Cross Tenant Unarchive Table');
+    const archiveResponse = await request(ctx.baseURL)
+      .patch(`/api/datavault/rows/${rowId}/archive`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+    expect(archiveResponse.status).toBe(200);
+
+    const crossTenantResponse = await request(ctx.baseURL)
+      .patch(`/api/datavault/rows/${rowId}/unarchive`)
+      .set('Authorization', `Bearer ${otherTenantToken}`);
+    expect(crossTenantResponse.status).toBe(403);
+
+    const [stillArchivedRow] = await db
+      .select({ deletedAt: datavaultRows.deletedAt })
+      .from(datavaultRows)
+      .where(eq(datavaultRows.id, rowId));
+    expect(stillArchivedRow.deletedAt).not.toBeNull();
+  });
+});
+
 describe('DataVault Audit Trail (DV-13)', () => {
   let ctx: IntegrationTestContext;
   let ownerToken: string;
@@ -1193,6 +1317,15 @@ describe('DataVault Audit Trail (DV-13)', () => {
     const rowAId = rA.body.row.id as string;
     const rowBId = rB.body.row.id as string;
 
+    const statsBeforeArchive = await request(ctx.baseURL)
+      .get('/api/datavault/tables?stats=true')
+      .set('Authorization', `Bearer ${ownerToken}`);
+    expect(statsBeforeArchive.status).toBe(200);
+    const tableBeforeArchive = statsBeforeArchive.body.find(
+      (table: { id: string }) => table.id === auditTableId
+    );
+    const liveCountBeforeArchive = tableBeforeArchive.rowCount as number;
+
     // 1. Bulk Archive
     const bulkArchiveRes = await request(ctx.baseURL)
       .patch('/api/datavault/rows/bulk/archive')
@@ -1218,27 +1351,47 @@ describe('DataVault Audit Trail (DV-13)', () => {
     expect(getAuditChanges(archiveLogs[0]).after?.count).toBe(2);
     expect(getAuditChanges(archiveLogs[0]).after?.tableId).toBe(auditTableId);
 
-    // Seed separate live rows because the existing getRow precheck hides archived rows.
-    const rC = await request(ctx.baseURL)
-      .post(`/api/datavault/tables/${auditTableId}/rows`)
-      .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ values: { [auditColId]: 'Bulk C' } });
-    const rD = await request(ctx.baseURL)
-      .post(`/api/datavault/tables/${auditTableId}/rows`)
-      .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ values: { [auditColId]: 'Bulk D' } });
+    const archivedRows = await db
+      .select({ id: datavaultRows.id, deletedAt: datavaultRows.deletedAt })
+      .from(datavaultRows)
+      .where(inArray(datavaultRows.id, [rowAId, rowBId]));
+    expect(archivedRows).toHaveLength(2);
+    expect(archivedRows.every((row) => row.deletedAt !== null)).toBe(true);
 
-    const rowCId = rC.body.row.id as string;
-    const rowDId = rD.body.row.id as string;
-
-    // 2. Bulk Unarchive
+    // 2. Bulk Unarchive the same rows that the API genuinely archived above.
     const bulkUnarchiveRes = await request(ctx.baseURL)
       .patch('/api/datavault/rows/bulk/unarchive')
       .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ rowIds: [rowCId, rowDId] });
+      .send({ rowIds: [rowAId, rowBId] });
 
     expect(bulkUnarchiveRes.status).toBe(200);
+    expect(bulkUnarchiveRes.body.count).toBe(2);
     await new Promise((r) => setTimeout(r, 100));
+
+    const restoredRows = await db
+      .select({ id: datavaultRows.id, deletedAt: datavaultRows.deletedAt })
+      .from(datavaultRows)
+      .where(inArray(datavaultRows.id, [rowAId, rowBId]));
+    expect(restoredRows).toHaveLength(2);
+    expect(restoredRows.every((row) => row.deletedAt === null)).toBe(true);
+
+    const listingAfterUnarchive = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${auditTableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+    expect(listingAfterUnarchive.status).toBe(200);
+    const listedRowIds = listingAfterUnarchive.body.rows.map(
+      (row: { row: { id: string } }) => row.row.id
+    );
+    expect(listedRowIds).toEqual(expect.arrayContaining([rowAId, rowBId]));
+
+    const statsAfterUnarchive = await request(ctx.baseURL)
+      .get('/api/datavault/tables?stats=true')
+      .set('Authorization', `Bearer ${ownerToken}`);
+    expect(statsAfterUnarchive.status).toBe(200);
+    const tableAfterUnarchive = statsAfterUnarchive.body.find(
+      (table: { id: string }) => table.id === auditTableId
+    );
+    expect(tableAfterUnarchive.rowCount).toBe(liveCountBeforeArchive);
 
     const unarchiveLogs = await db
       .select()
@@ -1258,7 +1411,7 @@ describe('DataVault Audit Trail (DV-13)', () => {
     const bulkDeleteRes = await request(ctx.baseURL)
       .delete('/api/datavault/rows/bulk/delete')
       .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ rowIds: [rowCId, rowDId] });
+      .send({ rowIds: [rowAId, rowBId] });
 
     expect(bulkDeleteRes.status).toBe(200);
     await new Promise((r) => setTimeout(r, 100));

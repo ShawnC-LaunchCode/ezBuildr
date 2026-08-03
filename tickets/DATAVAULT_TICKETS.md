@@ -2176,7 +2176,32 @@ audit it.
 ---
 
 
-## DV-14 — Unarchiving a row is impossible: both endpoints 404 on archived rows 🔄
+## DV-14 — Unarchiving a row is impossible: both endpoints 404 on archived rows ✅
+
+> **Verification pass — 2026-08-03 (reviewer).** PASS, all 7 criteria met.
+> Gates re-run in the main checkout: `tsc` 0 errors, repo-wide `lint` exit 0,
+> `test:fast` **2381**, DataVault suites **94/94**, and the **full integration
+> project 96 files / 1031 passing, 0 failures** — matching the dev's figure.
+> **Regression value proved by the reviewer:** the DV-14 block fails against the
+> unchanged route; the dev captured `expected 404 to be 200` on both the single and
+> bulk paths, with fixtures whose `deleted_at` was asserted non-null first.
+> The fix is exactly the preferred shape: `verifyRowOwnership` in both handlers, the
+> manual 404 block deleted (the thrown `"Row not found"` maps through
+> `classifyRouteError`), audit metadata reading `row.tableId`, and
+> `getRowWithValues` untouched. Three files, no drift. The **archive** and delete
+> paths correctly keep `getRow` — a row being archived is not archived yet, so
+> hiding soft-deleted rows is right there.
+> **Two assertions worth singling out, neither of them asked for:** AC3 checks the
+> restored row reappears in the table-card **counts**, which only began excluding
+> archived rows in DV-9 — so a restore that left the counters stale would have been
+> invisible. And the cross-tenant case asserts the row is **still archived after the
+> 403**, proving the denial had no partial side effect.
+> **Why this bug survived, recorded for the next reader:** both the pre-existing
+> archive tests and DV-13's new audit tests unarchived a row that had never been
+> archived, which passes trivially because `getRow` finds it. The pre-existing
+> coverage certified the feature as working. This is the template's "criteria
+> satisfiable by doing nothing" trap in the wild, and it is why DV-14's AC6 demanded
+> genuinely archived fixtures and a pre-fix failure.
 
 **Priority: P0 (bug)** · Size: S · File: `server/routes/datavault/rowArchive.routes.ts`
 

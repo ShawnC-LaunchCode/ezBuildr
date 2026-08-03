@@ -73,11 +73,8 @@ export function registerDatavaultRowArchiveRoutes(app: Express): void {
         return res.status(401).json({ message: ERROR_AUTH_REQUIRED });
       }
       const { rowId } = req.params;
-      const rowData = await datavaultRowsService.getRow(rowId, tenantId);
-      if (!rowData) {
-        return res.status(404).json({ message: ERROR_ROW_NOT_FOUND });
-      }
-      await datavaultTablesService.requirePermission(userId, rowData.row.tableId, tenantId, 'write');
+      const row = await datavaultRowsService.verifyRowOwnership(rowId, tenantId);
+      await datavaultTablesService.requirePermission(userId, row.tableId, tenantId, 'write');
       await datavaultRowsService.unarchiveRow(tenantId, rowId);
       void AuditLogger.log({
         userId,
@@ -86,7 +83,7 @@ export function registerDatavaultRowArchiveRoutes(app: Express): void {
         resourceType: 'datavault_row',
         resourceId: rowId,
         after: {
-          tableId: rowData.row.tableId,
+          tableId: row.tableId,
         },
         ipAddress: req.ip,
         userAgent: req.get(USER_AGENT_HEADER),
@@ -177,11 +174,8 @@ function registerBulkRoutes(app: Express): void {
       if (!userId) {
         return res.status(401).json({ message: ERROR_AUTH_REQUIRED });
       }
-      const firstRow = await datavaultRowsService.getRow(rowIds[0], tenantId);
-      if (!firstRow) {
-        return res.status(404).json({ message: ERROR_ROW_NOT_FOUND });
-      }
-      await datavaultTablesService.requirePermission(userId, firstRow.row.tableId, tenantId, 'write');
+      const firstRow = await datavaultRowsService.verifyRowOwnership(rowIds[0], tenantId);
+      await datavaultTablesService.requirePermission(userId, firstRow.tableId, tenantId, 'write');
 
       await datavaultRowsService.bulkUnarchiveRows(tenantId, rowIds);
       void AuditLogger.log({
@@ -189,9 +183,9 @@ function registerBulkRoutes(app: Express): void {
         tenantId,
         action: 'datavault.row.bulk_unarchived',
         resourceType: 'datavault_table',
-        resourceId: firstRow.row.tableId,
+        resourceId: firstRow.tableId,
         after: {
-          tableId: firstRow.row.tableId,
+          tableId: firstRow.tableId,
           count: rowIds.length,
           rowIds: rowIds.slice(0, 50),
         },

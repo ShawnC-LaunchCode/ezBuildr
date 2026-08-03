@@ -57,6 +57,7 @@ vi.mock('../../../server/services', () => ({
   datavaultColumnsService: {},
   datavaultRowsService: {
     getRow: vi.fn(),
+    verifyRowOwnership: vi.fn(),
     archiveRow: vi.fn(),
     unarchiveRow: vi.fn(),
     bulkArchiveRows: vi.fn(),
@@ -86,6 +87,7 @@ vi.mock('../../../server/logger', () => ({
 
 interface MockedRowsService {
   getRow: Mock;
+  verifyRowOwnership: Mock;
   archiveRow: Mock;
   unarchiveRow: Mock;
   bulkArchiveRows: Mock;
@@ -109,6 +111,7 @@ describe('DataVault Row Archive Routes - bulk vs :rowId ordering', () => {
     // Implementations are (re)set here because the global afterEach in
     // tests/setup-fast.ts calls vi.restoreAllMocks(), which wipes them.
     rowsService.getRow.mockResolvedValue({ row: { id: ROW_ID_1, tableId: TABLE_ID } });
+    rowsService.verifyRowOwnership.mockResolvedValue({ id: ROW_ID_1, tableId: TABLE_ID });
     rowsService.archiveRow.mockResolvedValue(undefined);
     rowsService.unarchiveRow.mockResolvedValue(undefined);
     rowsService.bulkArchiveRows.mockResolvedValue(undefined);
@@ -195,7 +198,8 @@ describe('DataVault Row Archive Routes - bulk vs :rowId ordering', () => {
       });
       expect(rowsService.bulkUnarchiveRows).toHaveBeenCalledWith(TEST_TENANT_ID, [ROW_ID_1, ROW_ID_2]);
       expect(rowsService.unarchiveRow).not.toHaveBeenCalled();
-      expect(rowsService.getRow).not.toHaveBeenCalledWith('bulk', expect.anything());
+      expect(rowsService.verifyRowOwnership).toHaveBeenCalledWith(ROW_ID_1, TEST_TENANT_ID);
+      expect(rowsService.verifyRowOwnership).not.toHaveBeenCalledWith('bulk', expect.anything());
     });
 
     it('returns 400 for invalid input', async () => {
@@ -262,8 +266,19 @@ describe('DataVault Row Archive Routes - bulk vs :rowId ordering', () => {
         .expect(200);
 
       expect(response.body).toEqual({ success: true, message: 'Row unarchived successfully' });
+      expect(rowsService.verifyRowOwnership).toHaveBeenCalledWith(ROW_ID_1, TEST_TENANT_ID);
       expect(rowsService.unarchiveRow).toHaveBeenCalledWith(TEST_TENANT_ID, ROW_ID_1);
       expect(rowsService.bulkUnarchiveRows).not.toHaveBeenCalled();
+    });
+
+    it('PATCH /rows/:rowId/unarchive returns 404 for a missing row', async () => {
+      rowsService.verifyRowOwnership.mockRejectedValue(new Error('Row not found'));
+
+      await request(app)
+        .patch(`/api/datavault/rows/${ROW_ID_1}/unarchive`)
+        .expect(404);
+
+      expect(rowsService.unarchiveRow).not.toHaveBeenCalled();
     });
 
     it('PATCH /rows/:rowId/archive returns 404 for a missing row', async () => {
