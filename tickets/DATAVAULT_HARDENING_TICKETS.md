@@ -68,9 +68,11 @@ local chain, so two devs generating concurrently both produce the same index and
 collide. The chain is at `0010` as of `595c10b0`.
 
 DVH-1 and DVH-3 have **no file overlap** — DVH-1 is service + its tests, DVH-3 is a
-migration + docs + a new integration test — so they run in parallel worktrees. Both
-touch DB-backed suites, so **only one may run `test:unit:db` / `test:integration` at a
-time**; coordinate through the reviewer.
+migration + docs + a new integration test — so they run in parallel worktrees. They may
+also run DB-backed suites concurrently, because `scripts/new-worktree.ps1` gives each
+worktree its **own** test database (`ezbuildr_test_<name>`). That is only true of
+worktrees created by that script; two runs against one database clobber each other's
+per-worker schemas and fake dozens of failures.
 
 **Former DVH-4** (index support for filtered grid queries) was removed from this
 round — it is P2, speculative by its own admission, and its proposed index carried
@@ -79,7 +81,7 @@ the same btree size-limit defect as DVH-2's. It now lives in
 
 ---
 
-## DVH-1 — A blank cell is stored as `""`, which breaks `required` and false-conflicts on unique columns 🔲
+## DVH-1 — A blank cell is stored as `""`, which breaks `required` and false-conflicts on unique columns 🔄
 
 **Priority: P1 (bug)** · Size: S · File: `server/services/DatavaultRowsService.ts`
 
@@ -359,7 +361,7 @@ violation from the backfill insert.
 
 ---
 
-## DVH-3 — `datavault_rows` and `datavault_values` have no RLS policy, not even staged 🔲
+## DVH-3 — `datavault_rows` and `datavault_values` have no RLS policy, not even staged 🔄
 
 **Priority: P1** · Size: M · File: new migration + `docs/architecture/TENANT_ISOLATION_RLS.md`
 
