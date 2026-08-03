@@ -291,22 +291,40 @@ describe('DataVault v4 Regression Tests', () => {
     });
   });
   describe('Autonumber Columns', () => {
-    it('should create an autonumber column with sequence', { timeout: 30000 }, async () => {
+    // Decision D-4 (DV-6): there is ONE auto-number type. `autonumber` is retired
+    // in code — the enum value survives only as an inert tombstone because Postgres
+    // cannot drop one — and `auto_number` gained the prefix/padding this test was
+    // written to exercise. So the retired spelling is now rejected, and the
+    // capability is asserted on the supported type instead.
+    it('rejects the retired autonumber type and supports prefixes on auto_number', { timeout: 30000 }, async () => {
+      const retired = await request(app)
+        .post(`/api/datavault/tables/${testTableId}/columns`)
+        .set('Origin', 'http://localhost:5000')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          name: 'Invoice Number Legacy',
+          type: 'autonumber',
+          required: true,
+          autonumberPrefix: 'INV-',
+        });
+      expect(retired.status).toBe(400);
+      expect(String(retired.body.message)).toMatch(/deprecated/i);
+
       const response = await request(app)
         .post(`/api/datavault/tables/${testTableId}/columns`)
         .set('Origin', 'http://localhost:5000')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Invoice Number',
-          type: 'autonumber',
+          type: 'auto_number',
           required: true,
           autonumberPrefix: 'INV-',
+          autonumberPadding: 4,
           autoNumberStart: 1000,
-          // resetYearly: false, // Not in schema?
         });
       expect(response.status).toBe(201);
       expect(response.body).toBeDefined();
-      expect(response.body.type).toBe('autonumber');
+      expect(response.body.type).toBe('auto_number');
       expect(response.body.autonumberPrefix).toBe('INV-');
     });
     it('should format autonumber with prefix', { timeout: 30000 }, async () => {
@@ -317,13 +335,11 @@ describe('DataVault v4 Regression Tests', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Order Number',
-          type: 'autonumber',
+          type: 'auto_number',
           required: true,
-          autonumberConfig: {
-            prefix: 'ORD-',
-            startingNumber: 100,
-            resetYearly: false,
-          },
+          autonumberPrefix: 'ORD-',
+          autonumberPadding: 4,
+          autoNumberStart: 100,
         });
       testColumnId = colResponse.body.id;
       // Create row
