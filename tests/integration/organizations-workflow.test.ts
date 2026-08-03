@@ -289,10 +289,18 @@ describe('Organization Workflow Integration Tests', () => {
         .where(eq(organizationInvites.id, invite1.inviteId));
     });
     it('Cannot accept expired invite', { timeout: 30000 }, async () => {
-      // Create invite
+      // Invite an address the accepting user actually owns, and one who is not
+      // already a member. This test previously invited an unrelated address
+      // ('expired@test.com') while accepting as user2, so it hit acceptInvite's
+      // email-ownership check and never reached the expiry branch it claims to
+      // test — it only passed because ownership used to be checked after expiry.
+      // Ownership is now checked first (deliberately: invite state should not leak
+      // to someone who is not the invitee), which exposed the gap.
+      // user3 rather than user2: user2 joined the org in an earlier step, so
+      // createInvite rightly rejects a second invite for an existing member.
       const invite = await organizationService.createInvite(
         testOrgId,
-        'expired@test.com', // invitedEmail
+        'non-member@test.com', // user3's email — owns it, and not yet a member
         user1Id // adminUserId
       );
       // Manually expire it
@@ -302,8 +310,13 @@ describe('Organization Workflow Integration Tests', () => {
         .where(eq(organizationInvites.id, invite.inviteId));
       // Try to accept
       await expect(
-        organizationService.acceptInvite(invite.token, user2Id)
+        organizationService.acceptInvite(invite.token, user3Id)
       ).rejects.toThrow(/expired/i);
+      // The invite is also transitioned to 'expired' so it cannot be retried.
+      const expiredInvite = await db.query.organizationInvites.findFirst({
+        where: eq(organizationInvites.id, invite.inviteId),
+      });
+      expect(expiredInvite?.status).toBe('expired');
       // Cleanup
       await db
         .delete(organizationInvites)

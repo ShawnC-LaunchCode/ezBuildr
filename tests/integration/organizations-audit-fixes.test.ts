@@ -159,7 +159,7 @@ describe('Organization Audit Fixes', () => {
   });
 
   describe('FIX #2: Invite acceptance race condition', () => {
-    it('should prevent double-acceptance via transaction', async () => {
+    it('makes re-accepting an invite idempotent instead of creating a second membership', async () => {
       // Create invite for user2's email
       const invite = await organizationService.createInvite(
         testOrgId,
@@ -168,12 +168,28 @@ describe('Organization Audit Fixes', () => {
       );
 
       // Accept invite
-      await organizationService.acceptInvite(invite.token, user2Id);
+      const first = await organizationService.acceptInvite(invite.token, user2Id);
 
-      // Try to accept again - should fail
-      await expect(
-        organizationService.acceptInvite(invite.token, user2Id)
-      ).rejects.toThrow(/already/i);
+      // Re-accepting now SUCCEEDS by design rather than throwing: reopening an
+      // already-accepted link is safe for the invited account, and it recovers
+      // cleanly when the first request completed but its response was lost
+      // (double-click, retried navigation). This test previously asserted a
+      // rejection; the guarantee it was really protecting is that no second
+      // membership appears, which is asserted below and still holds — enforced by
+      // onConflictDoNothing on the membership insert.
+      const second = await organizationService.acceptInvite(invite.token, user2Id);
+      expect(second).toEqual(first);
+
+      const memberships = await db
+        .select()
+        .from(organizationMemberships)
+        .where(
+          and(
+            eq(organizationMemberships.orgId, testOrgId),
+            eq(organizationMemberships.userId, user2Id)
+          )
+        );
+      expect(memberships).toHaveLength(1);
 
       // Cleanup
       await db.delete(organizationMemberships).where(
