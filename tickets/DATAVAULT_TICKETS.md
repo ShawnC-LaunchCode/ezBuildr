@@ -2176,7 +2176,7 @@ audit it.
 ---
 
 
-## DV-14 — Unarchiving a row is impossible: both endpoints 404 on archived rows 🔲
+## DV-14 — Unarchiving a row is impossible: both endpoints 404 on archived rows 🔄
 
 **Priority: P0 (bug)** · Size: S · File: `server/routes/datavault/rowArchive.routes.ts`
 
