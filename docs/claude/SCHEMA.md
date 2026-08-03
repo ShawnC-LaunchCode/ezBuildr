@@ -1,6 +1,6 @@
 # Database Schema Reference
 
-Inventory of all **104 PostgreSQL tables**, organized by the `shared/schema/*.ts` domain file that defines them (verified July 2026).
+Inventory of all **103 PostgreSQL tables**, organized by the `shared/schema/*.ts` domain file that defines them (verified August 2026).
 
 **Source of truth is the Drizzle schema in `shared/schema/` — always check the domain file for exact columns before writing queries or migrations.** Entries are `sql_table_name` (`tsExportName` when it differs beyond casing). Schema changes go through the `db-schema-change` skill; update this file when tables are added or removed.
 
@@ -53,7 +53,7 @@ Inventory of all **104 PostgreSQL tables**, organized by the `shared/schema/*.ts
 | Table | Purpose |
 |-------|---------|
 | `workflow_runs` | Execution instances: runToken, progress, completed |
-| `run_completion_jobs` | Durable leased outbox for idempotent post-completion writeback/document work |
+| `run_completion_jobs` | Durable leased outbox for idempotent post-completion document work |
 | `step_values` | Run data storage per step |
 | `review_tasks` | Human-in-the-loop review gates (FK → workflow_runs) |
 | `signature_requests` / `signature_events` | E-signature requests + audit trail |
@@ -84,7 +84,6 @@ All DataVault tables are `datavault_`-prefixed:
 | `datavault_api_tokens` | External API access tokens |
 | `datavault_table_permissions` | Per-user table access — single `role` enum (owner/write/read) |
 | `datavault_database_access` / `datavault_table_access` | Database/table-level ACLs |
-| `datavault_writeback_mappings` | Workflow → DataVault writeback config |
 | `workflow_data_sources` / `workflow_queries` | DataVault as workflow data source |
 | `collections` / `collection_fields` / `records` | Legacy collections (still present) |
 

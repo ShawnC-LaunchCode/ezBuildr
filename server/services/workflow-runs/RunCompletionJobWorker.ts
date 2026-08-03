@@ -23,10 +23,6 @@ export interface RunCompletionJobWorkerOptions {
   workerId?: string;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
 /**
  * Delivers durable post-completion work from PostgreSQL. Claims are fenced by
  * lease owner; a crashed process leaves reclaimable work rather than owning the
@@ -92,18 +88,7 @@ export class RunCompletionJobWorker {
 
   private async processJob(job: RunCompletionJob, leaseOwner: string): Promise<void> {
     try {
-      const payload = isRecord(job.payload) ? job.payload : {};
-      if (job.kind === 'writebacks') {
-        const workflowId = payload.workflowId;
-        if (typeof workflowId !== 'string') {
-          throw new Error('Writeback completion job is missing workflowId');
-        }
-        const userId = typeof payload.userId === 'string' ? payload.userId : undefined;
-        const result = await this.lifecycleService.executeWritebacks(job.runId, workflowId, userId);
-        if (!result.success) {
-          throw new Error(result.errors.join('; ') || 'Writeback execution failed');
-        }
-      } else if (job.kind === 'documents') {
+      if (job.kind === 'documents') {
         const result = await this.lifecycleService.generateDocuments(job.runId);
         if (!result.success) {
           throw new Error('Document generation failed');

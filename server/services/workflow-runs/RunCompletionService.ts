@@ -4,7 +4,6 @@ import { workflowRunRepository, stepValueRepository } from "../../repositories";
 import { createError } from "../../utils/errors";
 import { blockRunner } from "../BlockRunner";
 
-import type { RunLifecycleService } from "./RunLifecycleService";
 import { runDataService, type RunDataService } from "./RunDataService";
 import type { RunMetricsService } from "./RunMetricsService";
 import type { RunStateService } from "./RunStateService";
@@ -20,15 +19,14 @@ export class RunCompletionService {
         _valueRepo: typeof stepValueRepository,
         private logicSvc: LogicService,
         private stateService: RunStateService,
-        _lifecycleService: RunLifecycleService,
         private metricsService: RunMetricsService,
         private runDataSvc: RunDataService = runDataService
     ) { }
     /**
      * Complete a workflow run (with validation)
      */
-    async completeRun(runId: string, run: WorkflowRun, userId: string): Promise<WorkflowRun> {
-        return this.complete(runId, run, userId);
+    async completeRun(runId: string, run: WorkflowRun): Promise<WorkflowRun> {
+        return this.complete(runId, run);
     }
     /**
      * Complete a workflow run without ownership check
@@ -39,14 +37,14 @@ export class RunCompletionService {
         if (!run) {
             throw new Error("Run not found");
         }
-        return this.complete(runId, run, undefined);
+        return this.complete(runId, run);
     }
     /**
      * Shared completion pipeline for both auth paths: run onRunComplete blocks,
      * validate required steps, then atomically mark completed and enqueue
-     * durable writeback + document-generation jobs.
+     * durable document-generation work.
      */
-    private async complete(runId: string, run: WorkflowRun, userId: string | undefined): Promise<WorkflowRun> {
+    private async complete(runId: string, run: WorkflowRun): Promise<WorkflowRun> {
         const startTime = Date.now();
         if (run.completed) {
             throw createError.runCompleted();
@@ -89,14 +87,10 @@ export class RunCompletionService {
                 );
                 throw new Error(errorMsg);
             }
-            // Completion and both required post-processing jobs commit together.
+            // Completion and required post-processing work commit together.
             // The leased database worker owns delivery after this boundary, so a
-            // process restart cannot lose writeback or document work.
-            const completedRun = await this.stateService.markCompletedAndEnqueue(
-                runId,
-                run.workflowId,
-                userId
-            );
+            // process restart cannot lose document work.
+            const completedRun = await this.stateService.markCompletedAndEnqueue(runId);
             // Capture success metrics
             await this.metricsService.captureRunSucceeded(
                 run.workflowId,

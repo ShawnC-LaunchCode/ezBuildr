@@ -40,8 +40,10 @@ export class SchemaManager {
     // Bumped to _v14 for 0009_drop_legacy_step_types (LIST-13), which drops the
     // 'repeater'/'loop_group' enum values (via a full type recreate) and the
     // `steps.repeater_config` column — a stale _v13 schema still has both.
+    // Bumped to _v15 for 0010_yellow_pandemic (DV-10), which removes the
+    // retired declarative DataVault mapping table.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v14`;
+        return `test_schema_w${this.workerId}_v15`;
     }
 
     /**

@@ -1487,7 +1487,49 @@ malformed value 500 the grid.
 Two features are advertised in the product but wired to nothing; one service is a
 loaded gun with no trigger; and DataVault mutations leave no audit trail.
 
-## DV-10 — Delete the unreachable declarative writeback path 🔄
+## DV-10 — Delete the declarative writeback path ✅
+
+> **Verification pass — 2026-08-02 (reviewer).** PASS, all 8 criteria met. This was
+> the widest change in the initiative and the only migration; it was reviewed
+> accordingly rather than on its test results alone.
+> Applied to main as a patch (30 modified, 2 deleted, 2 new) after confirming zero
+> overlap with everything main gained since the worktree base. Gates re-run by the
+> reviewer in the main checkout: `npx tsc --noEmit` 0 errors, `npm run lint` exit 0,
+> `npm run test:fast` **187 files / 2346 passed** (= 2347 − the one deliberately
+> removed AI-mapping test), `npm run test:unit:db` **14 files / 136 passed**.
+> **Migration verified independently on a genuinely fresh database**, not just the
+> dev's: `db:migrate` applied 0000..0010 cleanly, `datavault_writeback_mappings` is
+> absent afterwards, and **11 sibling `datavault_*` tables survive** — which is the
+> check that matters, because the migration is `DROP TABLE ... CASCADE`. The file
+> contains that one statement and nothing else.
+> **AC3 satisfied in the strong sense.** The reviewer flagged at dispatch that a job
+> kind enqueued with no handler was the trap. Only `kind: 'documents'` is now
+> enqueued, and the worker *throws* `Unsupported run completion job kind` for
+> anything else rather than silently dropping it — so a legacy `writebacks` row
+> would dead-letter loudly through the existing retry path. Also confirmed
+> `runCompletionJobs.kind` is `varchar(50)`, **not** a pgEnum, so narrowing the
+> `RunCompletionJobKind` union needed no migration.
+> **AC7:** `grep -ril writeback` over `server/ client/ shared/ tests/` → no hits.
+> **Scope expansion — accepted as necessary, but it should have been escalated.**
+> The dev removed the AI `datavault.createWritebackMapping` operation, its Zod
+> schema and its ops-diff entry. That is unavoidable once the executor is gone —
+> leaving an AI op that inserts into a dropped table would be worse — and it is why
+> AC7 could pass at all. But finding a **live producer that contradicts the
+> ticket's stated premise** is exactly the discovery a dev should stop and report,
+> because it changes what the ticket is: not "delete dead code" but "delete a
+> reachable feature and its AI configuration surface." The reviewer's audit error
+> caused this (see the ⚠️ note in the Finding); the dev handled the code correctly
+> and under-reported the significance.
+> **Why D-2 still stands.** Reachable, but reachable-and-broken: the executor wrote
+> raw step values straight into typed columns (`rowValues[columnId] = value`, no
+> projection), so a choice answer or a List envelope landed as `[object Object]`.
+> Deleting a broken feature plus the AI surface that configured it is still the
+> right call — but the repo owner should know a capability was removed, not just
+> dead code. **User-visible consequence: AI workflow edits can no longer create
+> DataVault writeback mappings.**
+> Also correct and worth noting: `tests/helpers/schemaManager.ts` cache token bumped
+> to `_v15` (required, or test schemas are reused stale across the migration), and
+> `docs/claude/SCHEMA.md` updated to 103 tables.
 
 **Priority: P1** · Size: M · File: `server/services/WritebackExecutionService.ts`, `server/services/workflow-runs/RunLifecycleService.ts`, `server/repositories/DatavaultWritebackMappingsRepository.ts`, `shared/schema/datavault.ts` + migration
 
@@ -1496,7 +1538,18 @@ loaded gun with no trigger; and DataVault mutations leave no audit trail.
 `datavault_writeback_mappings` has a table, a repository, a service
 (`WritebackExecutionService`, ~160 lines), and a call site in
 `RunLifecycleService.executeWritebacks()` reached from run completion. It is fully
-implemented and **completely unreachable**: there is no route and no UI that creates a
+implemented and, the audit claimed, completely unreachable.
+
+⚠️ **The audit was wrong on that point — corrected 2026-08-02.** There *was* a live
+producer: `datavault.createWritebackMapping` is an AI workflow-edit operation
+(`shared/validation/aiWorkflowEdit.schema.ts`, handled in `WorkflowPatchService`,
+which calls `datavaultWritebackMappingsRepository.create`). It has existed since
+`97ba8d9b`. The reviewer's grep was scoped to `server/routes/` and `client/src`,
+and the producer lives in `server/services/` and `shared/validation/` — so the
+correct statement is **"no HTTP route and no UI form creates one, but the AI
+workflow-edit path can."** Decision D-2 still holds (see the reviewer's note under
+this ticket for why), but this is a *reachable* feature being deleted, not dead
+code. There is no route and no UI that creates a
 mapping. Grepping `server/routes/` and `client/src` for `writeback` returns exactly one
 hit — a display label in the export dialog:
 

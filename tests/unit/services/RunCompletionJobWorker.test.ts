@@ -8,9 +8,9 @@ function makeJob(overrides: Partial<RunCompletionJob> = {}): RunCompletionJob {
   return {
     id: 'job-1',
     runId: 'run-1',
-    kind: 'writebacks',
+    kind: 'documents',
     status: 'processing',
-    payload: { workflowId: 'workflow-1', userId: 'user-1' },
+    payload: null,
     attempts: 1,
     maxAttempts: 5,
     availableAt: new Date('2026-07-18T12:00:00.000Z'),
@@ -31,7 +31,6 @@ describe('RunCompletionJobWorker', () => {
     markRetryOrDeadLetter: vi.fn(),
   };
   const lifecycleService = {
-    executeWritebacks: vi.fn(),
     generateDocuments: vi.fn(),
   };
   let worker: RunCompletionJobWorker;
@@ -41,70 +40,50 @@ describe('RunCompletionJobWorker', () => {
     jobRepo.claimBatch.mockResolvedValue([]);
     jobRepo.markSucceeded.mockResolvedValue(undefined);
     jobRepo.markRetryOrDeadLetter.mockResolvedValue(undefined);
-    lifecycleService.executeWritebacks.mockResolvedValue({ success: true, rowsCreated: 1, errors: [] });
     lifecycleService.generateDocuments.mockResolvedValue({ success: true, documentsGenerated: 1 });
     worker = new RunCompletionJobWorker(jobRepo as never, lifecycleService as never);
   });
 
   it('claims a bounded batch and acknowledges each successful job once', async () => {
-    const jobs = [
-      makeJob(),
-      makeJob({
-        id: 'job-2',
-        kind: 'documents',
-        payload: { workflowId: 'workflow-1' },
-      }),
-    ];
-    jobRepo.claimBatch.mockResolvedValue(jobs);
+    jobRepo.claimBatch.mockResolvedValue([makeJob()]);
 
     const processed = await worker.processBatch('worker-1', 2);
 
-    expect(processed).toBe(2);
+    expect(processed).toBe(1);
     expect(jobRepo.claimBatch).toHaveBeenCalledWith(expect.objectContaining({
       leaseOwner: 'worker-1',
       limit: 2,
       leaseMs: 60_000,
     }));
-    expect(lifecycleService.executeWritebacks).toHaveBeenCalledTimes(1);
-    expect(lifecycleService.executeWritebacks).toHaveBeenCalledWith(
-      'run-1',
-      'workflow-1',
-      'user-1'
-    );
-    expect(lifecycleService.generateDocuments).toHaveBeenCalledTimes(1);
     expect(lifecycleService.generateDocuments).toHaveBeenCalledWith('run-1');
-    expect(jobRepo.markSucceeded).toHaveBeenCalledTimes(2);
-    expect(jobRepo.markSucceeded).toHaveBeenNthCalledWith(1, 'job-1', 'worker-1');
-    expect(jobRepo.markSucceeded).toHaveBeenNthCalledWith(2, 'job-2', 'worker-1');
+    expect(jobRepo.markSucceeded).toHaveBeenCalledWith('job-1', 'worker-1');
     expect(jobRepo.markRetryOrDeadLetter).not.toHaveBeenCalled();
   });
 
   it('records thrown handler errors without abandoning the rest of the batch', async () => {
-    const writebackJob = makeJob();
-    const documentJob = makeJob({ id: 'job-2', kind: 'documents' });
-    jobRepo.claimBatch.mockResolvedValue([writebackJob, documentJob]);
-    lifecycleService.executeWritebacks.mockRejectedValue(new Error('temporary connection failure'));
+    const failedJob = makeJob();
+    const successfulJob = makeJob({ id: 'job-2', runId: 'run-2' });
+    jobRepo.claimBatch.mockResolvedValue([failedJob, successfulJob]);
+    lifecycleService.generateDocuments
+      .mockRejectedValueOnce(new Error('temporary connection failure'))
+      .mockResolvedValueOnce({ success: true, documentsGenerated: 1 });
 
     const processed = await worker.processBatch('worker-1', 10);
 
     expect(processed).toBe(2);
     expect(jobRepo.markRetryOrDeadLetter).toHaveBeenCalledWith(
-      writebackJob.id,
+      failedJob.id,
       'worker-1',
       expect.objectContaining({ message: 'temporary connection failure' })
     );
-    expect(lifecycleService.generateDocuments).toHaveBeenCalledWith('run-1');
+    expect(lifecycleService.generateDocuments).toHaveBeenCalledWith('run-2');
     expect(jobRepo.markSucceeded).toHaveBeenCalledWith('job-2', 'worker-1');
   });
 
   it('treats an explicit unsuccessful handler result as a failed attempt', async () => {
     const job = makeJob();
     jobRepo.claimBatch.mockResolvedValue([job]);
-    lifecycleService.executeWritebacks.mockResolvedValue({
-      success: false,
-      rowsCreated: 0,
-      errors: ['remote rejected the row'],
-    });
+    lifecycleService.generateDocuments.mockResolvedValue({ success: false, documentsGenerated: 0 });
 
     await worker.processBatch('worker-1', 10);
 
@@ -112,7 +91,7 @@ describe('RunCompletionJobWorker', () => {
     expect(jobRepo.markRetryOrDeadLetter).toHaveBeenCalledWith(
       job.id,
       'worker-1',
-      expect.objectContaining({ message: 'remote rejected the row' })
+      expect.objectContaining({ message: 'Document generation failed' })
     );
   });
 
@@ -122,7 +101,6 @@ describe('RunCompletionJobWorker', () => {
 
     await worker.processBatch('worker-1', 10);
 
-    expect(lifecycleService.executeWritebacks).not.toHaveBeenCalled();
     expect(lifecycleService.generateDocuments).not.toHaveBeenCalled();
     expect(jobRepo.markSucceeded).not.toHaveBeenCalled();
     expect(jobRepo.markRetryOrDeadLetter).toHaveBeenCalledWith(

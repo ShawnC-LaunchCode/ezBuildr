@@ -165,7 +165,6 @@ describe('Entity Graph Portability', () => {
         ['workflow_data_sources', 'dataSourceId'],
         ['workflow_queries', 'dataSourceId'],
         ['workflow_queries', 'tableId'],
-        ['datavault_writeback_mappings', 'tableId'],
       ];
 
       for (const [entityName, column] of required) {

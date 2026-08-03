@@ -85,8 +85,6 @@ export {
   datavaultTableAccessRepository,
 } from "./DatavaultAccessRepository";
 
-// DataVault Writeback Mappings - Workflow to DataVault integration
-export { DatavaultWritebackMappingsRepository, datavaultWritebackMappingsRepository } from "./DatavaultWritebackMappingsRepository";
 
 // Export type for Insert operations
 

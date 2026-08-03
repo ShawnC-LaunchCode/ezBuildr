@@ -5,7 +5,6 @@
  * Responsibilities:
  * - Execute onRunStart blocks
  * - Generate documents for completed runs
- * - Execute DataVault writebacks
  * - Manage initial value population
  * - Determine start section with auto-advance
  */
@@ -18,10 +17,9 @@ import { getChoiceListBindingsByAlias, getListConfigsByAlias } from "../document
 import type { FinalBlockConfig } from "../../../shared/types/stepConfigs";
 import { logicService } from "../LogicService";
 import { RunPersistenceWriter } from "../runs/RunPersistenceWriter";
-import { writebackExecutionService } from "../WritebackExecutionService";
 import { createError } from "../../utils/errors";
 
-import type { PopulateValuesOptions, SnapshotValueMap, DocumentGenerationResult, WritebackExecutionResult } from "./types";
+import type { PopulateValuesOptions, SnapshotValueMap, DocumentGenerationResult } from "./types";
 import { runDataService, type RunData, type RunDataService } from "./RunDataService";
 import { runDefinitionProvider, RunDefinitionProvider, type RunSection } from "./RunDefinitionProvider";
 import { normalizeRunnerStepType } from "../../../shared/types/runnerStepTypes";
@@ -584,49 +582,6 @@ export class RunLifecycleService {
     return documents.length > 0 ? { markdownHeader: '', documents } : null;
   }
 
-  /**
-   * Execute DataVault writebacks for a completed run
-   */
-  async executeWritebacks(
-    runId: string,
-    workflowId: string,
-    userId?: string
-  ): Promise<WritebackExecutionResult> {
-    try {
-      const result = await writebackExecutionService.executeWritebacksForRun(
-        runId,
-        workflowId,
-        userId ?? undefined
-      );
-
-      if (result.rowsCreated > 0) {
-        logger.info(
-          { runId, rowsCreated: result.rowsCreated },
-          'DataVault writeback completed'
-        );
-      }
-
-      if (result.errors.length > 0) {
-        logger.warn(
-          { runId, errors: result.errors },
-          'Some writeback mappings failed'
-        );
-      }
-
-      return {
-        success: result.errors.length === 0,
-        rowsCreated: result.rowsCreated,
-        errors: result.errors
-      };
-    } catch (error) {
-      logger.error({ error, runId }, 'Writeback execution failed');
-      return {
-        success: false,
-        rowsCreated: 0,
-        errors: [(error as Error).message]
-      };
-    }
-  }
 }
 
 export const runLifecycleService = new RunLifecycleService();

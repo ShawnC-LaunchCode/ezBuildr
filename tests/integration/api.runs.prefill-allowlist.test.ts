@@ -9,7 +9,7 @@
  * nothing outside the (separate) IntakeService portal path. That let anyone
  * with a run link seed any question, including ones meant to be computed,
  * internal, or gated behind logic, and that data flows into generated
- * documents and DataVault writeback.
+ * document generation.
  *
  * This file proves the shared `filterPrefillValues` helper
  * (server/utils/prefillFilter.ts) is actually enforced by RunService on both

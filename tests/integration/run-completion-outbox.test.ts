@@ -60,23 +60,22 @@ describe.sequential('durable run completion outbox', () => {
       .where(eq(schema.runCompletionJobs.runId, runId));
   }
 
-  it('commits completion and both required jobs atomically', async () => {
+  it('commits completion and required document work atomically', async () => {
     const committedRun = await createRun();
 
-    await runStateService.markCompletedAndEnqueue(committedRun.id, workflowId, ctx.userId);
+    await runStateService.markCompletedAndEnqueue(committedRun.id);
 
     const completed = await workflowRunRepository.findById(committedRun.id);
     const committedJobs = await jobsFor(committedRun.id);
     expect(completed?.completed).toBe(true);
-    expect(committedJobs.map(job => job.kind).sort()).toEqual(['documents', 'writebacks']);
+    expect(committedJobs.map(job => job.kind)).toEqual(['documents']);
 
     const rolledBackRun = await createRun();
     await expect(workflowRunRepository.transaction(async tx => {
       await workflowRunRepository.markComplete(rolledBackRun.id, tx);
       await runCompletionJobRepository.enqueue({
         runId: rolledBackRun.id,
-        kind: 'writebacks',
-        payload: { workflowId },
+        kind: 'documents',
       }, tx);
       throw new Error('simulate process failure before commit');
     })).rejects.toThrow('simulate process failure before commit');
@@ -105,10 +104,11 @@ describe.sequential('durable run completion outbox', () => {
   });
 
   it('allows concurrent workers to claim jobs without duplicate delivery', async () => {
-    const run = await createRun();
+    const firstRun = await createRun();
+    const secondRun = await createRun();
     await runCompletionJobRepository.transaction(async tx => {
-      await runCompletionJobRepository.enqueue({ runId: run.id, kind: 'writebacks' }, tx);
-      await runCompletionJobRepository.enqueue({ runId: run.id, kind: 'documents' }, tx);
+      await runCompletionJobRepository.enqueue({ runId: firstRun.id, kind: 'documents' }, tx);
+      await runCompletionJobRepository.enqueue({ runId: secondRun.id, kind: 'documents' }, tx);
     });
     const now = new Date(Date.now() + 1_000);
 
@@ -157,7 +157,7 @@ describe.sequential('durable run completion outbox', () => {
     await runCompletionJobRepository.transaction(async tx => {
       await runCompletionJobRepository.enqueue({
         runId: run.id,
-        kind: 'writebacks',
+        kind: 'documents',
         maxAttempts: 2,
       }, tx);
     });

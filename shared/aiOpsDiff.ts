@@ -146,12 +146,6 @@ function describeOp(op: WorkflowPatchOp): AiEditChange {
         entity: "datavault",
         explanation: `Add ${op.columns.length} columns to table ${op.tableId}`,
       };
-    case "datavault.createWritebackMapping":
-      return {
-        type: "add",
-        entity: "datavault",
-        explanation: `Map ${Object.keys(op.columnMappings).length} answers into table ${op.tableId}`,
-      };
   }
 }
 

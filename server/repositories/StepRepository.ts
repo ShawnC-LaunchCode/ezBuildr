@@ -241,7 +241,7 @@ export class StepRepository extends BaseRepository<typeof steps, Step, InsertSte
   /**
    * Get a Map of stepId -> alias for a workflow.
    * Results are cached with a 5-second TTL to avoid repeated DB hits within the same
-   * request lifecycle (e.g. navigation, document generation, writeback all call this).
+   * request lifecycle (e.g. navigation and document generation both call this).
    * Cache is bypassed inside transactions to ensure consistency.
    */
   async getAliasMap(workflowId: string, tx?: DbTransaction): Promise<Map<string, string>> {

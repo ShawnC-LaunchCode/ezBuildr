@@ -10,7 +10,6 @@ import {
   workflowTemplateRepository,
   workflowRepository,
   projectRepository,
-  datavaultWritebackMappingsRepository,
 } from "../repositories";
 import { type WorkflowPatchOp, workflowPatchOpSchema } from "@shared/validation/aiWorkflowEdit.schema";
 
@@ -137,7 +136,7 @@ export class WorkflowPatchService {
     }
     // DataVault safety checks
     if (op.op.startsWith("datavault.")) {
-      if (op.op === "datavault.createTable" || op.op === "datavault.addColumns" || op.op === "datavault.createWritebackMapping") {
+      if (op.op === "datavault.createTable" || op.op === "datavault.addColumns") {
         // Safe operations - allowed
       } else {
         throw new Error(`Unsafe DataVault operation: ${op.op}`);
@@ -609,55 +608,6 @@ export class WorkflowPatchService {
           }, context.tenantId);
         }
         return `Added ${op.columns.length} column(s) to DataVault table`;
-      }
-      case "datavault.createWritebackMapping": {
-        const tableId = this.resolve(op.tableId);
-        if (!tableId) { throw new Error("Table ID required"); }
-        const { tenantId } = await this.getTenantContext(workflowId);
-        // Verify table exists and user has write access
-        await this.datavaultTablesService.requirePermission(
-          userId,
-          tableId,
-          tenantId,
-          "write"
-        );
-        // Get table columns
-        const columns = await this.datavaultColumnsService.listColumns(tableId, tenantId);
-        const columnsBySlug = new Map(columns.map((c) => [c.slug, c.id]));
-        const columnsByName = new Map(columns.map((c) => [c.name, c.id]));
-        // Get workflow steps to validate aliases
-        const workflowSteps = await this.stepRepository.findByWorkflowId(workflowId);
-        const validAliases = new Set(workflowSteps.map((s) => s.alias).filter(Boolean));
-        // Build columnMappings: { stepAlias: columnId }
-        const columnMappings: Record<string, string> = {};
-        for (const [stepAlias, columnName] of Object.entries(op.columnMappings)) {
-          // Validate step alias exists
-          if (!validAliases.has(stepAlias)) {
-            throw new Error(
-              `Step alias '${stepAlias}' not found in workflow. Please create the step first.`
-            );
-          }
-          // Resolve column name to column ID (try slug first, then name)
-          const columnSlug = this.generateSlug(columnName);
-          // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-          const columnId = columnsBySlug.get(columnSlug) || columnsByName.get(columnName);
-          if (!columnId) {
-            throw new Error(
-              `Column '${columnName}' not found in table. Available columns: ${Array.from(columnsByName.keys()).join(', ')
-              }`
-            );
-          }
-          columnMappings[stepAlias] = columnId;
-        }
-        // Create writeback mapping
-        await datavaultWritebackMappingsRepository.create({
-          workflowId,
-          tableId,
-          columnMappings: columnMappings as Record<string, unknown>,
-          triggerPhase: 'afterComplete',
-          createdBy: userId,
-        });
-        return `Created writeback mapping: ${Object.keys(op.columnMappings).length} field(s) → DataVault table`;
       }
       default:
         // TypeScript should ensure exhaustive checking

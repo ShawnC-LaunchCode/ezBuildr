@@ -1,6 +1,6 @@
 /**
  * Integration Tests for Runtime Pipelines
- * Tests end-to-end execution of writeback and document generation pipelines
+ * Tests end-to-end execution of the document generation pipeline
  */
 import fs from 'fs/promises';
 import path from 'path';
@@ -18,24 +18,14 @@ import {
   sections,
   steps,
   workflowRuns,
-  datavaultTables,
-  datavaultColumns,
-  datavaultRows,
-  datavaultValues,
   templates,
   runGeneratedDocuments,
 } from '@shared/schema';
 import type { FinalBlockConfig } from '@shared/types/stepConfigs';
 
 import { db } from '../../../server/db';
-import { stepValueRepository, workflowRunRepository, datavaultWritebackMappingsRepository, datavaultRowsRepository } from '../../../server/repositories';
-import { DatavaultColumnsService } from '../../../server/services/DatavaultColumnsService';
-import { DatavaultRowsService } from '../../../server/services/DatavaultRowsService';
-import { DatavaultTablesService } from '../../../server/services/DatavaultTablesService';
-import { runService } from '../../../server/services/RunService';
+import { stepValueRepository } from '../../../server/repositories';
 import { runLifecycleService } from '../../../server/services/workflow-runs/RunLifecycleService';
-import { runCompletionJobWorker } from '../../../server/services/workflow-runs/RunCompletionJobWorker';
-import { writebackExecutionService } from '../../../server/services/WritebackExecutionService';
 import { storageProvider } from '../../../server/services/storage/index';
 
 // ---------------------------------------------------------------------------
@@ -96,14 +86,8 @@ describe('Runtime Pipelines Integration Tests', () => {
   let testProjectId: string;
   let testWorkflowId: string;
   let testRunId: string;
-  let testTableId: string;
   let emailStepId: string;
   let phoneStepId: string;
-  let emailColumnId: string;
-  let phoneColumnId: string;
-  const datavaultTablesService = new DatavaultTablesService();
-  const datavaultColumnsService = new DatavaultColumnsService();
-  const datavaultRowsService = new DatavaultRowsService();
   beforeAll(async () => {
     // Create test tenant
     const [tenant] = await db
@@ -182,50 +166,6 @@ describe('Runtime Pipelines Integration Tests', () => {
       })
       .returning();
     phoneStepId = phoneStep.id;
-    // Create DataVault table for writeback
-    const table = await datavaultTablesService.createTable({
-      tenantId: testTenantId,
-      ownerUserId: testUserId,
-      name: 'Test Submissions',
-      slug: 'test-submissions',
-      description: null,
-      databaseId: null,
-    });
-    testTableId = table.id;
-    // Get the auto-created ID column
-    const columns = await datavaultColumnsService.listColumns(testTableId, testTenantId);
-    const idColumn = columns.find((c: any) => c.slug === 'id');
-    expect(idColumn).toBeDefined();
-    // Add custom columns
-    const emailColumn = await datavaultColumnsService.createColumn({
-      tableId: testTableId,
-      name: 'Email',
-      slug: 'email',
-      type: 'text',
-      required: false,
-      description: null,
-    }, testTenantId);
-    emailColumnId = emailColumn.id;
-    const phoneColumn = await datavaultColumnsService.createColumn({
-      tableId: testTableId,
-      name: 'Phone',
-      slug: 'phone',
-      type: 'text',
-      required: false,
-      description: null,
-    }, testTenantId);
-    phoneColumnId = phoneColumn.id;
-    // Create writeback mapping
-    await datavaultWritebackMappingsRepository.create({
-      workflowId: testWorkflowId,
-      tableId: testTableId,
-      columnMappings: {
-        email: emailColumnId,
-        phone: phoneColumnId,
-      },
-      triggerPhase: 'afterComplete',
-      createdBy: testUserId,
-    });
     // Create workflow run
     const [run] = await db
       .insert(workflowRuns)
@@ -253,13 +193,6 @@ describe('Runtime Pipelines Integration Tests', () => {
   afterAll(async () => {
     // Cleanup in reverse order of creation
     if (testRunId) {await db.delete(workflowRuns).where(eq(workflowRuns.id, testRunId));}
-    // DataVault cleanup
-    await db.delete(datavaultValues).where(sql`1=1`);
-    await db.delete(datavaultRows).where(sql`1=1`);
-    if (testTableId) {
-      await db.delete(datavaultColumns).where(eq(datavaultColumns.tableId, testTableId));
-      await db.delete(datavaultTables).where(eq(datavaultTables.id, testTableId));
-    }
     if (testWorkflowId) {
       await db.delete(sections).where(eq(sections.workflowId, testWorkflowId));
       await db.delete(workflows).where(eq(workflows.id, testWorkflowId));
@@ -268,79 +201,6 @@ describe('Runtime Pipelines Integration Tests', () => {
     // User and tenant cleanup
     await db.delete(users).where(eq(users.id, testUserId));
     if (testTenantId) {await db.delete(tenants).where(eq(tenants.id, testTenantId));}
-  });
-  describe('Writeback Execution Pipeline', () => {
-    it('should create DataVault row on workflow completion', async () => {
-      // Execute writeback
-      const result = await writebackExecutionService.executeWritebacksForRun(
-        testRunId,
-        testWorkflowId,
-        testUserId
-      );
-      // Verify writeback execution
-      expect(result.rowsCreated).toBe(1);
-      expect(result.errors).toHaveLength(0);
-      // Verify DataVault row was created
-      const rows = await datavaultRowsRepository.findByTableId(testTableId);
-      expect(rows).toHaveLength(1);
-      const row = rows[0];
-      expect(row.createdBy).toBe(testUserId);
-      // Verify row values
-      const rowData = await datavaultRowsService.getRow(row.id, testTenantId);
-      if (rowData) {
-        expect(rowData.values[emailColumnId]).toBe('test@example.com');
-        expect(rowData.values[phoneColumnId]).toBe('+1-555-0123');
-      }
-    });
-    it('should execute writebacks via RunService.completeRun()', { timeout: 30000 }, async () => {
-      // Create a fresh run for this test
-      const [run2] = await db
-        .insert(workflowRuns)
-        .values({
-          workflowId: testWorkflowId,
-          runToken: 'test-run-token-456',
-          createdBy: testUserId,
-          progress: 0,
-          completed: false,
-        })
-        .returning();
-      // Save step values
-      await stepValueRepository.create({
-        runId: run2.id,
-        stepId: emailStepId,
-        value: 'another@example.com',
-      });
-      await stepValueRepository.create({
-        runId: run2.id,
-        stepId: phoneStepId,
-        value: '+1-555-9999',
-      });
-      // Get initial row count
-      const rowsBefore = await datavaultRowsRepository.findByTableId(testTableId);
-      const initialCount = rowsBefore.length;
-      // Complete run: this only enqueues the durable writeback job (RCF-4's
-      // completion-outbox model). Nothing polls the outbox in the integration
-      // harness (only server/index.ts starts the worker), so the job must be
-      // claimed and run inline here, same as runner-hardening-run13.test.ts.
-      await runService.completeRun(run2.id, testUserId);
-      await runCompletionJobWorker.processBatch();
-      // Verify run is completed
-      const completedRun = await workflowRunRepository.findById(run2.id);
-      expect(completedRun?.completed).toBe(true);
-      // Verify new DataVault row was created
-      const rowsAfter = await datavaultRowsRepository.findByTableId(testTableId);
-      expect(rowsAfter).toHaveLength(initialCount + 1);
-      // Verify row contains correct values
-      const newRow = rowsAfter.find(r => r.id !== rowsBefore[0]?.id);
-      expect(newRow).toBeDefined();
-      const rowData = await datavaultRowsService.getRow(newRow!.id, testTenantId);
-      if (rowData) {
-        expect(rowData.values[emailColumnId]).toBe('another@example.com');
-        expect(rowData.values[phoneColumnId]).toBe('+1-555-9999');
-      }
-      // Cleanup
-      await db.delete(workflowRuns).where(sql`id = ${run2.id}`);
-    });
   });
   describe('Document Generation Pipeline', () => {
     let testTemplateId: string;

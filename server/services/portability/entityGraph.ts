@@ -278,16 +278,6 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
       { column: "tableId", entity: "datavault_tables" }
     ],
   },
-  {
-    table: schema.datavaultWritebackMappings,
-    name: 'datavault_writeback_mappings',
-    scopes: ["project","workflow"],
-    parent: {"name":"workflows","fk":"workflowId"},
-    fields: ["id","workflowId","tableId","columnMappings","triggerPhase","createdBy"],
-    refs: ["workflowId", "tableId"],
-    jsonRefs: ["columnMappings"],
-    dropIfUnresolved: [{ column: "tableId", entity: "datavault_tables" }],
-  },
 ];
 
 export const EXCLUDED_TABLES: Record<string, string> = {

@@ -15,7 +15,6 @@ import {
   datavaultTableAccess,
   datavaultTables,
   datavaultValues,
-  datavaultWritebackMappings,
   documentHooks,
   lifecycleHooks,
   logicRules,
@@ -1040,7 +1039,6 @@ export class WorkflowClonerService {
 
     await this.copyWorkflowDatasourceLinks(tx, context, databaseIdMap);
     await this.copyWorkflowQueries(tx, context, databaseIdMap, tableIdMap, idMap);
-    await this.copyWritebackMappings(tx, context, tableIdMap, columnIdMap, idMap);
 
     return {
       idMap,
@@ -1103,11 +1101,6 @@ export class WorkflowClonerService {
         tableIds.add(query.tableId);
       });
 
-      const mappings = await tx
-        .select({ tableId: datavaultWritebackMappings.tableId })
-        .from(datavaultWritebackMappings)
-        .where(inArray(datavaultWritebackMappings.workflowId, context.sourceWorkflowIds));
-      mappings.forEach((mapping) => tableIds.add(mapping.tableId));
     }
 
     await this.collectIdsFromWorkflowJson(tx, context.sourceWorkflowIds, context.targetOwner.tenantId, databaseIds, tableIds);
@@ -1515,44 +1508,6 @@ export class WorkflowClonerService {
 
     if (copiedQueries.length > 0) {
       await tx.insert(workflowQueries).values(copiedQueries);
-    }
-  }
-
-  private async copyWritebackMappings(
-    tx: DbTransaction,
-    context: DatavaultCopyContext,
-    tableIdMap: Map<string, string>,
-    columnIdMap: Map<string, string>,
-    idMap: Map<string, string>
-  ): Promise<void> {
-    if (context.sourceWorkflowIds.length === 0) {
-      return;
-    }
-    const mappings = await tx
-      .select()
-      .from(datavaultWritebackMappings)
-      .where(inArray(datavaultWritebackMappings.workflowId, context.sourceWorkflowIds));
-
-    const allIdMap = mergeMaps(idMap, tableIdMap, columnIdMap, context.workflowIdMap);
-    const copiedMappings = mappings
-      .map((mapping) => {
-        const workflowId = context.workflowIdMap.get(mapping.workflowId);
-        const tableId = tableIdMap.get(mapping.tableId);
-        if (!workflowId || !tableId) {
-          return null;
-        }
-        return {
-          workflowId,
-          tableId,
-          columnMappings: remapJsonIds(mapping.columnMappings, allIdMap),
-          triggerPhase: mapping.triggerPhase,
-          createdBy: context.copiedByUserId,
-        };
-      })
-      .filter((mapping): mapping is NonNullable<typeof mapping> => mapping !== null);
-
-    if (copiedMappings.length > 0) {
-      await tx.insert(datavaultWritebackMappings).values(copiedMappings);
     }
   }
 

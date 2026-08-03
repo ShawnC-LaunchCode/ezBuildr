@@ -66,18 +66,11 @@ export class RunStateService {
 
   /** Atomically submit the run and create all required durable follow-up work. */
   async markCompletedAndEnqueue(
-    runId: string,
-    workflowId: string,
-    userId?: string
+    runId: string
   ): Promise<WorkflowRun> {
     return this.runRepo.transaction(async (tx) => {
       const completedRun = await this.runRepo.markComplete(runId, tx);
-      const payload = {
-        workflowId,
-        ...(userId !== undefined ? { userId } : {}),
-      };
-      await this.completionJobRepo.enqueue({ runId, kind: 'writebacks', payload }, tx);
-      await this.completionJobRepo.enqueue({ runId, kind: 'documents', payload: { workflowId } }, tx);
+      await this.completionJobRepo.enqueue({ runId, kind: 'documents' }, tx);
       return completedRun;
     });
   }

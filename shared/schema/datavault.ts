@@ -211,19 +211,6 @@ export const datavaultTableAccess = pgTable("datavault_table_access", {
     index("datavault_table_access_table_idx").on(table.tableId),
     uniqueIndex("datavault_table_access_principal_idx").on(table.tableId, table.principalType, table.principalId),
 ]);
-// DataVault Writeback Mappings
-export const datavaultWritebackMappings = pgTable("datavault_writeback_mappings", {
-    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-    workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
-    tableId: uuid("table_id").references(() => datavaultTables.id, { onDelete: 'cascade' }).notNull(),
-    columnMappings: jsonb("column_mappings").notNull(),
-    triggerPhase: varchar("trigger_phase", { length: 50 }).notNull().default('afterComplete'),
-    createdAt: timestamp("created_at").defaultNow(),
-    updatedAt: timestamp("updated_at").defaultNow(),
-    createdBy: varchar("created_by").references(() => users.id, { onDelete: 'set null' }),
-}, (table) => [
-    index("idx_writeback_mappings_workflow").on(table.workflowId),
-]);
 // Workflow Data Sources (Link workflows to data sources)
 export const workflowDataSources = pgTable("workflow_data_sources", {
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
@@ -320,8 +307,6 @@ export const insertDatavaultDatabaseAccessSchema = createInsertSchema(datavaultD
 export type InsertDatavaultDatabaseAccess = z.infer<typeof insertDatavaultDatabaseAccessSchema>;
 export const insertDatavaultTableAccessSchema = createInsertSchema(datavaultTableAccess);
 export type InsertDatavaultTableAccess = z.infer<typeof insertDatavaultTableAccessSchema>;
-export const insertDatavaultWritebackMappingSchema = createInsertSchema(datavaultWritebackMappings);
-export type InsertDatavaultWritebackMapping = z.infer<typeof insertDatavaultWritebackMappingSchema>;
 // Collection Schemas
 export const insertCollectionSchema = createInsertSchema(collections).strict();
 export type InsertCollection = z.infer<typeof insertCollectionSchema>;
@@ -339,7 +324,6 @@ export type DatavaultApiToken = InferSelectModel<typeof datavaultApiTokens>;
 export type DatavaultTablePermission = InferSelectModel<typeof datavaultTablePermissions>;
 export type DatavaultDatabaseAccess = InferSelectModel<typeof datavaultDatabaseAccess>;
 export type DatavaultTableAccess = InferSelectModel<typeof datavaultTableAccess>;
-export type DatavaultWritebackMapping = InferSelectModel<typeof datavaultWritebackMappings>;
 export type Collection = InferSelectModel<typeof collections>;
 export type CollectionField = InferSelectModel<typeof collectionFields>;
 export type CollectionRecord = InferSelectModel<typeof records>;

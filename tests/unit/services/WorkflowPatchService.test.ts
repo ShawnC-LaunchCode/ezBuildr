@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi, type Mocked } from 'vitest';
 
 import { WorkflowPatchService } from '../../../server/services/WorkflowPatchService';
 
-import { type Step, type Section, type Workflow, type Project, type Template, type WorkflowTemplate, type DatavaultTable, type DatavaultColumn, type DatavaultDatabase, type DatavaultWritebackMapping } from "@shared/schema";
+import { type Step, type Section, type Workflow, type Project, type Template, type WorkflowTemplate, type DatavaultTable, type DatavaultColumn, type DatavaultDatabase } from "@shared/schema";
 import type { WorkflowPatchOp } from '../../../shared/validation/aiWorkflowEdit.schema';
 import type {
   StepRepository,
@@ -11,7 +11,6 @@ import type {
   ProjectRepository,
   DocumentTemplateRepository,
   WorkflowTemplateRepository,
-  DatavaultWritebackMappingsRepository,
   DatavaultDatabasesRepository
 } from '../../../server/repositories';
 // section.delete/step.delete soft-delete (ICW2-B11) via db.transaction; the
@@ -59,9 +58,6 @@ vi.mock('../../../server/repositories', () => ({
   projectRepository: {
     findById: vi.fn(),
   },
-  datavaultWritebackMappingsRepository: {
-    create: vi.fn(),
-  },
   datavaultDatabasesRepository: {
     findById: vi.fn(),
   },
@@ -106,7 +102,6 @@ describe('WorkflowPatchService', () => {
   let mockProjectRepo: Mocked<ProjectRepository>;
   let mockDocTemplateRepo: Mocked<DocumentTemplateRepository>;
   let mockWorkflowTemplateRepo: Mocked<WorkflowTemplateRepository>;
-  let mockDatavaultWritebackRepo: Mocked<DatavaultWritebackMappingsRepository>;
   let mockDatavaultDatabasesRepo: Mocked<DatavaultDatabasesRepository>;
 
   const mockWorkflowId = 'workflow-123';
@@ -127,7 +122,6 @@ describe('WorkflowPatchService', () => {
     mockProjectRepo = repos.projectRepository as Mocked<ProjectRepository>;
     mockDocTemplateRepo = repos.documentTemplateRepository as Mocked<DocumentTemplateRepository>;
     mockWorkflowTemplateRepo = repos.workflowTemplateRepository as Mocked<WorkflowTemplateRepository>;
-    mockDatavaultWritebackRepo = repos.datavaultWritebackMappingsRepository as Mocked<DatavaultWritebackMappingsRepository>;
     mockDatavaultDatabasesRepo = repos.datavaultDatabasesRepository as Mocked<DatavaultDatabasesRepository>;
 
     service = new WorkflowPatchService(mockStepRepo);
@@ -955,112 +949,6 @@ describe('WorkflowPatchService', () => {
       expect(result.errors).toHaveLength(0);
       expect(result.summary).toHaveLength(1);
       expect(result.summary[0]).toContain("Created DataVault table 'Submissions' with 3 column(s)");
-    });
-    it('should create writeback mapping (datavault.createWritebackMapping)', async () => {
-      const { DatavaultTablesService } = vi.mocked(
-        await import('../../../server/services/DatavaultTablesService')
-      );
-      const { DatavaultColumnsService } = vi.mocked(
-        await import('../../../server/services/DatavaultColumnsService')
-      );
-      const mockTableService = new DatavaultTablesService();
-      const mockColumnService = new DatavaultColumnsService();
-      // Mock permission check
-      vi.mocked(mockTableService.requirePermission).mockResolvedValue(undefined);
-      // Mock columns
-      vi.mocked(mockColumnService.listColumns).mockResolvedValue([
-        {
-          id: 'col-1',
-          tableId: 'table-123',
-          name: 'Email',
-          slug: 'email',
-          type: 'text',
-          orderIndex: 1,
-          required: false,
-          isPrimaryKey: false,
-          isUnique: false,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        } as unknown as DatavaultColumn,
-        {
-          id: 'col-2',
-          tableId: 'table-123',
-          name: 'Phone',
-          slug: 'phone',
-          type: 'text',
-          orderIndex: 2,
-          required: false,
-          isPrimaryKey: false,
-          isUnique: false,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        } as unknown as DatavaultColumn,
-      ]);
-      // Mock workflow steps
-      mockStepRepo.findByWorkflowId.mockResolvedValue([
-        {
-          id: 'step-1',
-          sectionId: 'section-1',
-          type: 'email',
-          title: 'Email Address',
-          alias: 'userEmail',
-          required: true,
-          order: 1,
-          config: {},
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        } as unknown as Step,
-        {
-          id: 'step-2',
-          sectionId: 'section-1',
-          type: 'phone',
-          title: 'Phone Number',
-          alias: 'userPhone',
-          required: false,
-          order: 2,
-          config: {},
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        } as unknown as Step,
-      ]);
-      mockDatavaultWritebackRepo.create.mockResolvedValue({
-        id: 'mapping-123',
-        workflowId: mockWorkflowId,
-        tableId: 'table-123',
-        columnMappings: {
-          userEmail: 'col-1',
-          userPhone: 'col-2',
-        },
-        triggerPhase: 'afterComplete',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        updatedBy: mockUserId, // Fix missing prop if needed, or rely on unknown
-        createdBy: mockUserId,
-      } as unknown as DatavaultWritebackMapping);
-      const ops: WorkflowPatchOp[] = [
-        {
-          op: 'datavault.createWritebackMapping',
-          tableId: 'table-123',
-          columnMappings: {
-            userEmail: 'Email',
-            userPhone: 'Phone',
-          },
-        },
-      ];
-      const result = await service.applyOps(mockWorkflowId, mockUserId, ops);
-      expect(result.errors).toHaveLength(0);
-      expect(result.summary).toHaveLength(1);
-      expect(result.summary[0]).toContain('Created writeback mapping: 2 field(s)');
-      expect(mockDatavaultWritebackRepo.create).toHaveBeenCalledWith({
-        workflowId: mockWorkflowId,
-        tableId: 'table-123',
-        columnMappings: {
-          userEmail: 'col-1',
-          userPhone: 'col-2',
-        },
-        triggerPhase: 'afterComplete',
-        createdBy: mockUserId,
-      });
     });
   });
 });

@@ -147,7 +147,6 @@ export class RunService {
       this.valueRepo,
       this.logicSvc,
       this.stateService,
-      this.lifecycleService,
       this.metricsService
     );
   }
@@ -501,7 +500,7 @@ export class RunService {
    */
   async completeRun(runId: string, userId: string): Promise<WorkflowRun> {
     const run = await this.getRun(runId, userId);
-    return this.completionService.completeRun(runId, run, userId);
+    return this.completionService.completeRun(runId, run);
   }
   /**
    * Complete a workflow run without ownership check

@@ -2,7 +2,7 @@ import { db } from '../../db';
 import {
   projects, workflows, datavaultDatabases, datavaultTables, datavaultColumns,
   workflowTemplates, workflowVersions, workflowDataSources, workflowQueries,
-  datavaultWritebackMappings, steps, blocks
+  steps, blocks
 } from '@shared/schema';
 import { collectConfigEntityRefs } from '@shared/types/stepConfigRefs';
 import { eq, gt, inArray, and, or, SQL } from 'drizzle-orm';
@@ -264,7 +264,7 @@ export class ExportService {
   /**
    * Resolve what a workflow-scope export must additionally carry: the
    * templates its `workflow_templates` rows point at, and the DataVault
-   * databases its data sources, queries and writeback mappings point at.
+   * databases its data sources and queries point at.
    *
    * Templates need no extra authorization check. The caller already holds
    * `edit` on the workflow, and a workflow's own templates are the documents
@@ -393,7 +393,7 @@ export class ExportService {
 
   /** Every DataVault database this workflow reaches, by any of its routes. */
   private async collectReferencedDatabaseIds(workflowId: string): Promise<Set<string>> {
-    const [fromDataSources, fromQueries, fromQueryTables, fromWriteback, fromConfig] = await Promise.all([
+    const [fromDataSources, fromQueries, fromQueryTables, fromConfig] = await Promise.all([
       db.select({ id: workflowDataSources.dataSourceId })
         .from(workflowDataSources)
         .where(eq(workflowDataSources.workflowId, workflowId)),
@@ -406,15 +406,11 @@ export class ExportService {
         .from(workflowQueries)
         .innerJoin(datavaultTables, eq(workflowQueries.tableId, datavaultTables.id))
         .where(eq(workflowQueries.workflowId, workflowId)),
-      db.select({ id: datavaultTables.databaseId })
-        .from(datavaultWritebackMappings)
-        .innerJoin(datavaultTables, eq(datavaultWritebackMappings.tableId, datavaultTables.id))
-        .where(eq(datavaultWritebackMappings.workflowId, workflowId)),
       this.collectConfigDatabaseIds(workflowId)
     ]);
 
     const ids = new Set<string>(fromConfig);
-    for (const row of [...fromDataSources, ...fromQueries, ...fromQueryTables, ...fromWriteback]) {
+    for (const row of [...fromDataSources, ...fromQueries, ...fromQueryTables]) {
       if (row.id !== null) {
         ids.add(row.id);
       }
@@ -631,7 +627,7 @@ export class ExportService {
     } else if (descriptor.name === 'datavault_databases') {
       // datavault_databases has no FK parent; it attaches via (scopeType, scopeId).
       // A project export must also pick up databases scoped to that project's own
-      // workflows, or the workflow_queries/writeback_mappings that reference them
+      // workflows or the workflow_queries that reference them
       // import as dangling. `workflows` is processed earlier in ENTITY_GRAPH, so
       // its ids are already extracted here.
       const ownScope = and(

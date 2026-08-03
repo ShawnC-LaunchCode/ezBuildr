@@ -79,7 +79,6 @@ const ENTITY_LABELS: Record<string, string> = {
   datavault_number_sequences: "Number sequences",
   workflow_data_sources: "Data source links",
   workflow_queries: "Saved queries",
-  datavault_writeback_mappings: "Writeback mappings",
   projects: "Project",
   secrets: "Secret names",
   connections: "Connections",

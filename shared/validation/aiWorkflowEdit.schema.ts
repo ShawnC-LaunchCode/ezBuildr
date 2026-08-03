@@ -213,13 +213,6 @@ export const workflowPatchOpSchema = z.discriminatedUnion("op", [
       config: z.record(z.unknown()).optional(),
     })),
   }),
-  z.object({
-    op: z.literal("datavault.createWritebackMapping"),
-    tableId: z.string(),
-    stepId: z.string().optional(),
-    stepRef: z.string().optional(),
-    columnMappings: z.record(z.string()), // Step alias -> column name
-  }),
 ]);
 
 export type WorkflowPatchOp = z.infer<typeof workflowPatchOpSchema>;

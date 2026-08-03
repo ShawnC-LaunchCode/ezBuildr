@@ -71,6 +71,13 @@
       "when": 1785593390377,
       "tag": "0009_drop_legacy_step_types",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785720540387,
+      "tag": "0010_yellow_pandemic",
+      "breakpoints": true
     }
   ]
 }

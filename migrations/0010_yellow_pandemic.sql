@@ -1,0 +1,1 @@
+DROP TABLE "datavault_writeback_mappings" CASCADE;

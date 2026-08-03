@@ -24,7 +24,7 @@ import type { RunPersistenceWriter } from '../../../server/services/runs/RunPers
 
 // RunLifecycleService.ts pulls in a wide transitive graph (blockRunner ->
 // every block runner -> their own repositories, LogicService,
-// WritebackExecutionService, ...) via real singleton imports, all of which
+// unrelated services via real singleton imports, all of which
 // resolve this same "../../repositories" module. Keep every real export
 // (via importOriginal) and only override the two repos this test drives
 // directly through constructor injection.

@@ -52,16 +52,6 @@ export interface SnapshotValueMap {
 }
 
 /**
- * Run completion result
- */
-export interface RunCompletionResult {
-  run: WorkflowRun;
-  documentsGenerated: number;
-  writebacksExecuted: number;
-  durationMs: number;
-}
-
-/**
  * Validation result for run completion
  */
 export interface ValidationResult {
@@ -126,13 +116,4 @@ export interface DocumentGenerationResult {
   skipped?: string[];
   failed?: unknown[];
   isArchived?: boolean;
-}
-
-/**
- * Writeback execution result
- */
-export interface WritebackExecutionResult {
-  success: boolean;
-  rowsCreated: number;
-  errors: string[];
 }
