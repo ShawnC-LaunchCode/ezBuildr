@@ -129,7 +129,7 @@
     "csv-writer": "^1.6.0",
     "date-fns": "^3.6.0",
     "deep-object-diff": "^1.1.9",
-    "docxtemplater": "^3.67.4",
+    "docxtemplater": "^3.69.3",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.1",
     "drizzle-zod": "^0.7.0",
