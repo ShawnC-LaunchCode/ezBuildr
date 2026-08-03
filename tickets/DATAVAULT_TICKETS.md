@@ -1513,14 +1513,33 @@ alongside.
 
 ---
 
-## DV-9 — Row counts include archived rows; column sorts compare jsonb lexicographically 🔲
+## DV-9 — Row counts include archived rows 🔄
 
-**Priority: P1** · Size: S · File: `server/repositories/DatavaultRowsRepository.ts`
+**Priority: P1** · Size: **S** · File: `server/repositories/DatavaultRowsRepository.ts`
+
+> **Re-scoped by the reviewer 2026-08-03, before dispatch.** Half of the original
+> ticket **is already fixed** by work that landed after it was written — the
+> ticket-flow rule is to re-verify the *finding*, not just refresh line numbers, and
+> handing a dev a stale ticket wastes a whole round trip. What changed:
+>
+> - **The jsonb-sort half is DONE.** DV-8 added a typed `sortExpression()` helper to
+>   this repository (around line 147) and wired it into the grid sort
+>   (`.orderBy(sortDir(sortExpression(sortValue.value, column)))`). It casts
+>   `number → ::numeric`, `date → ::date`, `datetime → ::timestamptz`,
+>   `boolean → ::boolean`, and defers to text otherwise — and it already honours
+>   DV-6's prefixed auto-numbers, which must sort as padded text. So a number column
+>   orders 2, 9, 10 today. **Do not re-implement this.** Verify it and move on.
+> - **The count half is still open**, and is now the whole ticket.
+> - **Original AC7 (a non-numeric value must not error the sort) is descoped** to
+>   DV-B9. Its premise no longer holds cleanly: `validateAndCoerceValue` rejects a
+>   non-numeric write to a `number` column (`throw` on `isNaN`), and DV-7 closed the
+>   upsert path that used to bypass validation, so the app can no longer create the
+>   junk row this criterion guards against. It is defensive-only now.
 
 ### Finding
 
-**(a) Two count methods ignore `deleted_at`.** The repository has three counters and
-only one filters soft deletes. `countByTableIdWithFilter` does it right:
+Two of the repository's three row counters ignore `deleted_at`.
+`countByTableIdWithFilter` does it right:
 
 ```ts
 if (!showArchived) { whereConditions.push(isNull(datavaultRows.deletedAt)); }
@@ -1530,77 +1549,66 @@ if (!showArchived) { whereConditions.push(isNull(datavaultRows.deletedAt)); }
 
 ```ts
 async countByTableId(tableId: string, tx?: DbTransaction): Promise<number> {
-  const [result] = await database.select({ count: sql<number>`count(*)::int` })
-    .from(datavaultRows).where(eq(datavaultRows.tableId, tableId));
+  const [result] = await database
+    .select({ count: sql<number>`count(*)::int` })
+    .from(datavaultRows)
+    .where(eq(datavaultRows.tableId, tableId));
 ```
 
-`countByTableIds` is what feeds the table cards —
-`DatavaultTablesService.listTablesWithStats` calls `this.rowsRepo.countByTableIds(...)`
-— so **every table card overstates its row count by the number of archived rows**, and
-disagrees with the grid's own footer, which uses the filtered counter.
-`countByTableId` backs `DatavaultRowsService.countRows` with the same defect.
+`countByTableIds` (plural) is the one that matters most: `listTablesWithStats` calls
+`this.rowsRepo.countByTableIds(tableIds, tx)`, so **every table card overstates its
+row count by the number of archived rows** — and disagrees with the grid's own
+footer, which uses the filtered counter. `countByTableId` backs
+`DatavaultRowsService.countRows` with the same defect.
 
-**(b) Sorting by a column value sorts raw jsonb.** In `findByTableId`:
-
-```ts
-.leftJoin(datavaultValues, and(eq(datavaultValues.rowId, datavaultRows.id), eq(datavaultValues.columnId, column.id)))
-.where(and(...whereConditions))
-.orderBy(sortDir(datavaultValues.value))
-```
-
-`datavault_values.value` is `jsonb`, so ordering is by jsonb collation, not by the
-column's declared type. For a `number` column that means `10` sorts before `9`; for
-`date` columns stored as ISO strings it happens to work, and for mixed types the order
-is arbitrary. The grid's sort therefore looks broken on exactly the columns users most
-want sorted.
+Verified still present on `5dc8375b`.
 
 ### Preferred fix
 
-**(a)** Add `isNull(datavaultRows.deletedAt)` to `countByTableId` and
-`countByTableIds`. Prefer a `showArchived` parameter defaulting to `false`, so the
-three counters share one convention — mirror `countByTableIdWithFilter`'s signature.
-Check every caller compiles with the new default and that none was relying on the
-inflated number.
+Add `isNull(datavaultRows.deletedAt)` to both. Prefer a `showArchived` parameter
+defaulting to `false` so all three counters share one convention — mirror
+`countByTableIdWithFilter`'s signature rather than inventing a second shape.
 
-**(b)** Cast in `ORDER BY` according to the column's declared `type`, which
-`findByTableId` already fetches (it looks the column up by slug to get its id — take
-`type` in the same `select`). `number` → `::numeric`, `date`/`datetime` →
-`::timestamptz`, everything else → `#>>'{}'` text extraction so quoting doesn't leak
-into the order. Guard the numeric cast against non-numeric junk in the column (a
-`CASE`/`NULLIF` on the text form, or Postgres will error on a bad row) — do not let one
-malformed value 500 the grid.
+Check every caller compiles with the new default, and confirm none was relying on
+the inflated number (grep `countByTableId` / `countByTableIds`). If a caller
+genuinely wants archived rows included, it must pass `showArchived: true`
+explicitly rather than getting it by omission.
 
 ### Ties
 
-- Edits `DatavaultRowsRepository.ts` → collides with DV-6, DV-7, DV-8. **Run last of
-  the four**; DV-8 restructures the same `findByTableId` where-clause construction.
+- **Unblocked**: DV-8 has landed, so `findByTableId`'s where-clause is settled and
+  this no longer collides with it.
+- **DV-13 comes after this** and touches `rows.routes.ts` — different file, but keep
+  the sequence.
 - Load **`add-api-endpoint`** and **`run-tests`**.
 - Existing coverage: `tests/unit/repositories/DatavaultRowsRepository.test.ts`,
   `tests/integration/datavault.routes.test.ts`,
   `tests/unit/services/DatavaultTablesService.test.ts`.
+- File footprint: `DatavaultRowsRepository.ts` plus whichever callers need the new
+  argument. Small.
 
 ### Acceptance criteria
 
-1. With 3 live and 2 archived rows, the table-card stats from
-   `listTablesWithStats` report **3**.
+1. With 3 live and 2 archived rows, the table-card stats from `listTablesWithStats`
+   report **3**.
 2. `countRows` (via `countByTableId`) reports **3** for the same fixture.
 3. Passing `showArchived: true` reports **5**, so the archived view still has a
    correct total.
 4. The grid footer total and the table card count **agree** for the same table —
-   asserted directly against the same fixture.
-5. Sorting ascending by a `number` column returns 2, 9, 10 in that order (not 10, 2,
-   9).
-6. Sorting by a `date` column orders chronologically; sorting by a text column is
-   unaffected by JSON quoting.
-7. A column containing a non-numeric value does not error the sort request (no 500).
-8. New tests in `tests/unit/repositories/DatavaultRowsRepository.test.ts` assert 5–7
-   and `tests/integration/datavault.routes.test.ts` asserts 1–4. The fixture for 1–2
-   must contain archived rows so the assertion **fails before the fix** — confirm and
-   report.
-9. `npx tsc --noEmit` 0 errors; `npm run lint` clean; `npm run test:fast` ≥2313
-   passing.
+   asserted directly against one fixture, since disagreeing counts is the
+   user-visible symptom.
+5. **Regression-proof the fixture:** the tests for 1–2 must contain archived rows, so
+   they fail before the fix. State in your report that you ran them pre-fix and saw
+   them fail — an assertion against a fixture with no archived rows passes trivially
+   and proves nothing.
+6. Confirm (do not re-implement) that sorting a `number` column via the grid returns
+   2, 9, 10 rather than 10, 2, 9, and say which existing test covers it.
+7. New/updated tests in `tests/unit/repositories/DatavaultRowsRepository.test.ts` and
+   `tests/integration/datavault.routes.test.ts` assert 1–4.
+8. `npx tsc --noEmit` 0 errors; `npm run lint` clean; `npm run test:fast` ≥ 2372.
 
 ---
+
 
 ## Phase 3 Gate
 
@@ -2124,6 +2132,13 @@ against the tree at audit time.
   against *this* model and pointed at DataVault. **Not investigated in this audit** —
   recorded so the next reader knows the question is open, not answered. Worth a
   scoped "is Collections live, and if not, delete it" pass; do not assume it is dead.
+- **DV-B9 — a malformed value in a `number` column could error a sort** ·
+  `informational`. Descoped from DV-9 on 2026-08-03. `sortExpression` casts a number
+  column to `::numeric`, which would throw 22P02 on junk — but
+  `validateAndCoerceValue` rejects a non-numeric write (`throw` on `isNaN`), and DV-7
+  closed the upsert path that bypassed validation, so the app can no longer create
+  such a row. Reachable only via a direct DB write or a future import path. If one
+  appears, guard the cast with `NULLIF`/`CASE` rather than weakening the sort.
 - **DV-B8 — a blank cell in a unique column conflicts, because the UI sends `""`
   rather than null** · `product-decision`. Surfaced reviewing DV-4 (2026-08-02).
   DV-4 correctly treats SQL `NULL` / jsonb `null` as "no value" (multiple allowed)
