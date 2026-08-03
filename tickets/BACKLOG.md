@@ -14,9 +14,10 @@ This file is deliberately **not** named `*_TICKETS.md`, because that glob is
 what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 `tickets/*_TICKETS.md`; parked observations live here.
 
-> **As of 2026-08-02 the one open initiative is `DATAVAULT_TICKETS.md`** (DV-1..13,
-> 4 phases — DataVault integration & enterprise readiness). Every earlier initiative
-> is closed and retired into `backlog/`.
+> **As of 2026-08-03 the one open initiative is `DATAVAULT_HARDENING_TICKETS.md`**
+> (DVH-1..4 — the four items between DataVault's B− grade and a B+). The DataVault
+> audit initiative that preceded it (DV-1..14) closed 2026-08-03 and is retired into
+> `backlog/DATAVAULT.md`. Every earlier initiative is likewise closed and retired.
 
 ### Why an entry is parked
 
@@ -36,6 +37,12 @@ IDs are stable, heading anchors are not.
 
 | Entry | Why | One line | Detail |
 |---|---|---|---|
+| DV-B3 | `informational` | `records`/Collections parallel data model — never investigated, likely origin of the DV-1/DV-3 bugs | `backlog/DATAVAULT.md` |
+| DV-B7 | `enhancement` | Six copies of workflow→tenant resolution, two failure semantics; creator-tenant fallback unaudited | `backlog/DATAVAULT.md` |
+| DV-B1 | `needs-initiative` | External DataVault API — token lifecycle exists but is inert | `backlog/DATAVAULT.md` |
+| DV-B4 | `enhancement` | `getRowsWithValues` fetches every value for every row | `backlog/DATAVAULT.md` |
+| DV-B5 | `enhancement` | Choice-options fetch bypasses `apiRequest`'s 401 refresh | `backlog/DATAVAULT.md` |
+| DV-B6 | `enhancement` | Yearly reset for auto-numbers (descoped by D-4) | `backlog/DATAVAULT.md` |
 | LIST-B5 | `product-decision` | Dynamic options for list fields — highest value left | `backlog/LIST.md` |
 | LIST-B4 | `enhancement` | Run detail dumps list answers as raw JSON — cheapest win | `backlog/LIST.md` |
 | LIST-B8 | `enhancement` | Script helpers for list data | `backlog/LIST.md` |
@@ -61,6 +68,25 @@ IDs are stable, heading anchors are not.
 | DEBT-OPS3 | `operational` | Delete `origin/debt9-typecheck-proof` | `backlog/TECH_DEBT.md` |
 
 ---
+
+## DataVault — [detail](backlog/DATAVAULT.md)
+
+Audit initiative DV-1..14, closed 2026-08-03. Opened at grade **D+**, closed at
+**B−**. All fourteen tickets shipped and verified; the detail file carries a
+`Closed — do not re-file` table so a later audit does not rediscover fixed work,
+plus standing decisions **D-1..D-4** which should not be re-litigated.
+
+**Live follow-on:** `DATAVAULT_HARDENING_TICKETS.md` (DVH-1..4). **DV-B8 was
+promoted** into that file as DVH-1 — it turned out to break `required` as well.
+**DV-B9 shipped** inside DV-9 and is closed, not parked.
+
+The two entries worth reading before touching DataVault again:
+
+- **DV-B3** — the `records`/Collections model was never investigated and is the
+  likely origin of the `data`-blob confusion that broke both the read-table block
+  and DataVault-backed dropdowns. Do not assume it is dead.
+- **DV-B7** — the creator-tenant fallback is a security-relevant heuristic,
+  load-bearing in six places and never audited.
 
 ## List question type — [detail](backlog/LIST.md)
 
