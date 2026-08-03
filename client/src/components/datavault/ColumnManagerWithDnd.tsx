@@ -19,7 +19,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Loader2, Edit2, Trash2, GripVertical } from "lucide-react";
+import { Loader2, Edit2, Trash2, GripVertical, Plus } from "lucide-react";
 import { useState, useEffect } from "react";
 
 import {
@@ -61,10 +61,18 @@ interface ColumnManagerProps {
     type: string;
     required: boolean;
     description?: string;
+    autonumberPrefix?: string | null;
+    autonumberPadding?: number;
     referenceTableId?: string;
     referenceDisplayColumnSlug?: string;
   }) => Promise<void>;
-  onUpdateColumn: (columnId: string, data: { name: string; required: boolean; description?: string }) => Promise<void>;
+  onUpdateColumn: (columnId: string, data: {
+    name: string;
+    required: boolean;
+    description?: string;
+    autonumberPrefix?: string | null;
+    autonumberPadding?: number;
+  }) => Promise<void>;
   onDeleteColumn: (columnId: string) => Promise<void>;
   onReorderColumns?: (columnIds: string[]) => Promise<void>;
   isLoading?: boolean;
@@ -175,19 +183,28 @@ export function ColumnManagerWithDnd({
   const { toast } = useToast();
   const [localColumns, setLocalColumns] = useState(columns);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [editDialog, setEditDialog] = useState<{ id: string; name: string; required: boolean } | null>(null);
+  const [editDialog, setEditDialog] = useState<{
+    id: string;
+    name: string;
+    required: boolean;
+    type: DatavaultColumn['type'];
+  } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   // Add column state
   const [newColumnName, setNewColumnName] = useState("");
   const [newColumnType, setNewColumnType] = useState<string>("text");
   const [newColumnRequired, setNewColumnRequired] = useState(false);
   const [newColumnDescription, setNewColumnDescription] = useState("");
+  const [newAutonumberPrefix, setNewAutonumberPrefix] = useState("");
+  const [newAutonumberPadding, setNewAutonumberPadding] = useState("4");
   const [newReferenceTableId, setNewReferenceTableId] = useState<string>("");
   const [newReferenceDisplayColumnSlug, setNewReferenceDisplayColumnSlug] = useState<string>("");
   // Edit column state
   const [editColumnName, setEditColumnName] = useState("");
   const [editColumnRequired, setEditColumnRequired] = useState(false);
   const [editColumnDescription, setEditColumnDescription] = useState("");
+  const [editAutonumberPrefix, setEditAutonumberPrefix] = useState("");
+  const [editAutonumberPadding, setEditAutonumberPadding] = useState("4");
   // Fetch tables for reference column dropdown
   const { data: tables } = useTables();
   // Fetch schema of selected reference table to get columns
@@ -240,6 +257,14 @@ export function ColumnManagerWithDnd({
   };
   const handleAddColumn = async () => {
     if (!newColumnName.trim()) {return;}
+    if (newColumnType === 'auto_number' && newAutonumberPrefix.trim() && Number(newAutonumberPadding) < 1) {
+      toast({
+        title: "Padding required",
+        description: "Use padding of at least 1 when an auto-number prefix is set.",
+        variant: "destructive",
+      });
+      return;
+    }
     // Validate reference column
     if (newColumnType === 'reference' && !newReferenceTableId) {
       toast({
@@ -254,6 +279,8 @@ export function ColumnManagerWithDnd({
       type: newColumnType,
       required: newColumnRequired,
       description: newColumnDescription.trim() || undefined,
+      autonumberPrefix: newColumnType === 'auto_number' ? newAutonumberPrefix.trim() || null : undefined,
+      autonumberPadding: newColumnType === 'auto_number' ? Number(newAutonumberPadding) : undefined,
       referenceTableId: newColumnType === 'reference' ? newReferenceTableId : undefined,
       referenceDisplayColumnSlug: newColumnType === 'reference' ? newReferenceDisplayColumnSlug : undefined,
     });
@@ -262,17 +289,29 @@ export function ColumnManagerWithDnd({
     setNewColumnType("text");
     setNewColumnRequired(false);
     setNewColumnDescription("");
+    setNewAutonumberPrefix("");
+    setNewAutonumberPadding("4");
     setNewReferenceTableId("");
     setNewReferenceDisplayColumnSlug("");
     setAddDialogOpen(false);
   };
   const handleEditColumn = async () => {
     if (!editDialog || !editColumnName.trim()) {return;}
+    if (editDialog.type === 'auto_number' && editAutonumberPrefix.trim() && Number(editAutonumberPadding) < 1) {
+      toast({
+        title: "Padding required",
+        description: "Use padding of at least 1 when an auto-number prefix is set.",
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       await onUpdateColumn(editDialog.id, {
         name: editColumnName.trim(),
         required: editColumnRequired,
         description: editColumnDescription.trim() || undefined,
+        autonumberPrefix: editDialog.type === 'auto_number' ? editAutonumberPrefix.trim() || null : undefined,
+        autonumberPadding: editDialog.type === 'auto_number' ? Number(editAutonumberPadding) : undefined,
       });
       setEditDialog(null);
     } catch (error) {
@@ -285,14 +324,22 @@ export function ColumnManagerWithDnd({
     setDeleteConfirm(null);
   };
   const openEditDialog = (column: DatavaultColumn) => {
-    setEditDialog({ id: column.id, name: column.name, required: column.required });
+    setEditDialog({ id: column.id, name: column.name, required: column.required, type: column.type });
     setEditColumnName(column.name);
     setEditColumnRequired(column.required);
     setEditColumnDescription(column.description ?? '');
+    setEditAutonumberPrefix(column.autonumberPrefix ?? '');
+    setEditAutonumberPadding(String(column.autonumberPadding ?? 4));
   };
   return (
     <>
-      <div className="space-y-2">
+      <div className="space-y-3">
+        <div className="flex justify-end">
+          <Button onClick={() => setAddDialogOpen(true)} disabled={isLoading}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Column
+          </Button>
+        </div>
         {localColumns.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <p className="text-sm">No columns yet. Click &quot;Add Column&quot; above to get started.</p>
@@ -353,6 +400,10 @@ export function ColumnManagerWithDnd({
                   setNewReferenceTableId("");
                   setNewReferenceDisplayColumnSlug("");
                 }
+                if (value !== 'auto_number') {
+                  setNewAutonumberPrefix("");
+                  setNewAutonumberPadding("4");
+                }
               }}>
                 <SelectTrigger id="column-type">
                   <SelectValue />
@@ -367,6 +418,7 @@ export function ColumnManagerWithDnd({
                   <SelectItem value="phone">Phone</SelectItem>
                   <SelectItem value="url">URL</SelectItem>
                   <SelectItem value="json">JSON</SelectItem>
+                  <SelectItem value="auto_number">Auto Number</SelectItem>
                   <SelectItem value="reference">🔗 Reference</SelectItem>
                 </SelectContent>
               </Select>
@@ -381,6 +433,33 @@ export function ColumnManagerWithDnd({
                 rows={3}
               />
             </div>
+            {newColumnType === 'auto_number' && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="autonumber-prefix">Prefix (optional)</Label>
+                  <Input
+                    id="autonumber-prefix"
+                    placeholder="INV-"
+                    value={newAutonumberPrefix}
+                    onChange={(event) => setNewAutonumberPrefix(event.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="autonumber-padding">Padding</Label>
+                  <Input
+                    id="autonumber-padding"
+                    type="number"
+                    min={newAutonumberPrefix.trim() ? 1 : 0}
+                    value={newAutonumberPadding}
+                    onChange={(event) => setNewAutonumberPadding(event.target.value)}
+                    aria-describedby="autonumber-padding-help"
+                  />
+                </div>
+                <p id="autonumber-padding-help" className="text-xs text-muted-foreground sm:col-span-2">
+                  Prefix and padding format values like INV-0001. Padding must be at least 1 when a prefix is set.
+                </p>
+              </div>
+            )}
             {/* Reference-specific fields */}
             {newColumnType === 'reference' && (
               <>
@@ -478,6 +557,29 @@ export function ColumnManagerWithDnd({
                 rows={3}
               />
             </div>
+            {editDialog?.type === 'auto_number' && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-autonumber-prefix">Prefix (optional)</Label>
+                  <Input
+                    id="edit-autonumber-prefix"
+                    placeholder="INV-"
+                    value={editAutonumberPrefix}
+                    onChange={(event) => setEditAutonumberPrefix(event.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-autonumber-padding">Padding</Label>
+                  <Input
+                    id="edit-autonumber-padding"
+                    type="number"
+                    min={editAutonumberPrefix.trim() ? 1 : 0}
+                    value={editAutonumberPadding}
+                    onChange={(event) => setEditAutonumberPadding(event.target.value)}
+                  />
+                </div>
+              </div>
+            )}
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="edit-column-required"

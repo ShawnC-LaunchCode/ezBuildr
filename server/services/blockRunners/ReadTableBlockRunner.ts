@@ -134,9 +134,10 @@ function sortExpression(
   const textValue = scalarText(valueColumn);
   switch (column.type) {
     case 'number':
+      return sql`(${textValue})::numeric`;
     case 'auto_number':
     case 'autonumber':
-      return sql`(${textValue})::numeric`;
+      return column.autonumberPrefix ? textValue : sql`(${textValue})::numeric`;
     case 'boolean':
       return sql`(${textValue})::boolean`;
     case 'date':

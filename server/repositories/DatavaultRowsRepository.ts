@@ -15,6 +15,13 @@ import { db } from "../db";
 import { createLogger } from "../logger";
 
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
+
+type AutoNumberSequenceOptions = {
+  startValue?: number;
+  prefix?: string | null;
+  padding?: number;
+};
+
 const logger = createLogger({ module: "datavault-rows-repository" });
 /**
  * Repository for DataVault row data access
@@ -368,33 +375,39 @@ export class DatavaultRowsRepository extends BaseRepository<
    * @param tenantId Tenant ID (counter rows are tenant-scoped)
    * @param tableId Table ID
    * @param columnId Column ID
-   * @param startValue Seed value when the counter row doesn't exist yet (default: 1)
-   * @returns Next auto-number value (integer)
+   * @param options Counter seed and optional formatting configuration
+   * @returns A bare integer when unprefixed, otherwise a formatted string
    */
   async getNextAutoNumber(
     tenantId: string,
     tableId: string,
     columnId: string,
-    startValue: number = 1,
+    options: AutoNumberSequenceOptions = {},
     tx?: DbTransaction
-  ): Promise<number> {
+  ): Promise<number | string> {
     const database = this.getDb(tx);
+    const { startValue = 1, prefix = null, padding = 4 } = options;
 
     // Self-heal: seed the counter row if one doesn't exist yet.
     await database
       .insert(datavaultNumberSequences)
-      .values({ tenantId, tableId, columnId, nextValue: startValue })
-      .onConflictDoNothing({
+      .values({ tenantId, tableId, columnId, nextValue: startValue, prefix, padding })
+      .onConflictDoUpdate({
         target: [
           datavaultNumberSequences.tenantId,
           datavaultNumberSequences.tableId,
           datavaultNumberSequences.columnId,
         ],
+        set: { prefix, padding, updatedAt: new Date() },
       });
 
     // Lock the counter row so concurrent generators serialize on it.
     const [sequence] = await database
-      .select({ nextValue: datavaultNumberSequences.nextValue })
+      .select({
+        nextValue: datavaultNumberSequences.nextValue,
+        prefix: datavaultNumberSequences.prefix,
+        padding: datavaultNumberSequences.padding,
+      })
       .from(datavaultNumberSequences)
       .where(
         and(
@@ -418,7 +431,11 @@ export class DatavaultRowsRepository extends BaseRepository<
         )
       );
 
-    return nextValue;
+    if (!sequence?.prefix) {
+      return nextValue;
+    }
+
+    return `${sequence.prefix}${String(nextValue).padStart(sequence.padding, '0')}`;
   }
   /**
    * Create the counter row backing an `auto_number` column's generation,
@@ -430,13 +447,14 @@ export class DatavaultRowsRepository extends BaseRepository<
     tenantId: string,
     tableId: string,
     columnId: string,
-    startValue: number = 1,
+    options: AutoNumberSequenceOptions = {},
     tx?: DbTransaction
   ): Promise<void> {
     const database = this.getDb(tx);
+    const { startValue = 1, prefix = null, padding = 4 } = options;
     await database
       .insert(datavaultNumberSequences)
-      .values({ tenantId, tableId, columnId, nextValue: startValue })
+      .values({ tenantId, tableId, columnId, nextValue: startValue, prefix, padding })
       .onConflictDoNothing({
         target: [
           datavaultNumberSequences.tenantId,

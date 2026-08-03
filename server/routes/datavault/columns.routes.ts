@@ -92,7 +92,10 @@ export function registerDatavaultColumnRoutes(app: Express): void {
         name: z.string().min(1).optional(),
         slug: z.string().min(1).optional(),
         required: z.boolean().optional(),
+        description: z.string().nullable().optional(),
         orderIndex: z.number().int().optional(),
+        autonumberPrefix: z.string().nullable().optional(),
+        autonumberPadding: z.number().int().min(0).optional(),
       });
       const updateData = updateSchema.parse(req.body);
       const column = await datavaultColumnsService.updateColumn(columnId, tenantId, updateData);

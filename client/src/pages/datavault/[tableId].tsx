@@ -187,6 +187,8 @@ export default function TableViewPage() {
     type: string;
     required: boolean;
     description?: string;
+    autonumberPrefix?: string | null;
+    autonumberPadding?: number;
     referenceTableId?: string;
     referenceDisplayColumnSlug?: string;
   }) => {
@@ -208,6 +210,8 @@ export default function TableViewPage() {
     name: string;
     required: boolean;
     description?: string;
+    autonumberPrefix?: string | null;
+    autonumberPadding?: number;
   }) => {
     if (!tableId) { return; }
 

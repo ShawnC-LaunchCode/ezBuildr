@@ -4,6 +4,9 @@ import type { DatavaultRow, DatavaultColumn } from "@shared/schema";
 /** Typed union of all possible coerced cell values stored in DataVault */
 type CoercedValue = string | number | boolean | string[] | object | null;
 
+const isAutoNumberType = (type: DatavaultColumn['type']): boolean =>
+  type === 'auto_number' || type === 'autonumber';
+
 import { db } from "../db";
 import { ConflictError } from "../errors/AppError";
 import { assertValueSizeWithinLimit } from "../utils/valueSizeLimit";
@@ -88,7 +91,7 @@ export class DatavaultRowsService {
     }
 
     if (value === null || value === undefined) {
-      if (column.required && column.type !== 'auto_number' && column.type !== 'autonumber') {
+      if (column.required && !isAutoNumberType(column.type)) {
         throw new Error(`Column '${column.name}' is required`);
       }
       return null;
@@ -241,7 +244,7 @@ export class DatavaultRowsService {
     const createValues = { ...values };
 
     for (const column of columns) {
-      if (column.required && column.type !== 'auto_number' && column.type !== 'autonumber' && !(column.id in createValues)) {
+      if (column.required && !isAutoNumberType(column.type) && !(column.id in createValues)) {
         throw new Error(`Required column '${column.name}' is missing`);
       }
     }
@@ -252,13 +255,17 @@ export class DatavaultRowsService {
     }
 
     for (const column of columns) {
-      if (column.type === 'auto_number' && !(column.id in createValues)) {
+      if (isAutoNumberType(column.type) && !(column.id in createValues)) {
         const startValue = column.autoNumberStart ?? 1;
         createValues[column.id] = await this.rowsRepo.getNextAutoNumber(
           table.tenantId,
           tableId,
           column.id,
-          startValue,
+          {
+            startValue,
+            prefix: column.autonumberPrefix,
+            padding: column.autonumberPadding ?? 4,
+          },
           tx
         );
       }

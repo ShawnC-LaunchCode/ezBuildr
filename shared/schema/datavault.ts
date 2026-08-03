@@ -24,7 +24,9 @@ import { workflows } from './workflow';
 // ===================================================================
 export const datavaultColumnTypeEnum = pgEnum('datavault_column_type', [
     'text', 'number', 'boolean', 'date', 'datetime', 'email', 'phone', 'url', 'json',
-    'auto_number', 'autonumber', 'reference', 'select', 'multiselect'
+    'auto_number',
+    'autonumber', // Deprecated inert tombstone; use auto_number. Kept because PG enum values cannot be dropped safely.
+    'reference', 'select', 'multiselect'
 ]);
 export const autonumberResetPolicyEnum = pgEnum('autonumber_reset_policy', ['never', 'yearly']);
 export const datavaultScopeTypeEnum = pgEnum('datavault_scope_type', ['account', 'project', 'workflow']);

@@ -29,6 +29,8 @@ describe('Data Block Integration Tests', () => {
     let readTableId: string;
     let readTextColumnId: string;
     let readNumberColumnId: string;
+    let readPrefixedAutoNumberColumnId: string;
+    let readUnprefixedAutoNumberColumnId: string;
     let readWorkflowId: string;
     let runService: RunService;
 
@@ -121,6 +123,24 @@ describe('Data Block Integration Tests', () => {
             required: false,
         }, tenantId);
         readNumberColumnId = readNumberColumn.id;
+
+        const readPrefixedAutoNumberColumn = await datavaultColumnsService.createColumn({
+            tableId: readTableId,
+            name: 'Invoice Number',
+            type: 'auto_number',
+            autoNumberStart: 9,
+            autonumberPrefix: 'INV-',
+            autonumberPadding: 4,
+        }, tenantId);
+        readPrefixedAutoNumberColumnId = readPrefixedAutoNumberColumn.id;
+
+        const readUnprefixedAutoNumberColumn = await datavaultColumnsService.createColumn({
+            tableId: readTableId,
+            name: 'Sequence Number',
+            type: 'auto_number',
+            autoNumberStart: 9,
+        }, tenantId);
+        readUnprefixedAutoNumberColumnId = readUnprefixedAutoNumberColumn.id;
 
         await datavaultRowsService.createRow(
             readTableId,
@@ -375,6 +395,24 @@ describe('Data Block Integration Tests', () => {
             .map(row => row[readNumberColumnId])
             .filter((value): value is number => typeof value === 'number');
         expect(amounts).toEqual([9, 10, 11]);
+    });
+
+    it('sorts prefixed auto-numbers as padded text without a numeric-cast error', { timeout: 30000 }, async () => {
+        const list = await executeReadTable({
+            sort: { columnId: readPrefixedAutoNumberColumnId, direction: 'asc' },
+        });
+
+        const values = list.rows.map(row => row[readPrefixedAutoNumberColumnId]);
+        expect(values.slice(0, 2)).toEqual(['INV-0009', 'INV-0010']);
+    });
+
+    it('continues to sort unprefixed auto-numbers numerically', { timeout: 30000 }, async () => {
+        const list = await executeReadTable({
+            sort: { columnId: readUnprefixedAutoNumberColumnId, direction: 'asc' },
+        });
+
+        const values = list.rows.map(row => row[readUnprefixedAutoNumberColumnId]);
+        expect(values.slice(0, 2)).toEqual([9, 10]);
     });
 
     it('should query data from DataVault via QueryBlock and use in Logic', { timeout: 30000 }, async () => {

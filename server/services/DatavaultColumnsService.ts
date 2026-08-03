@@ -5,7 +5,7 @@ import type { DatavaultColumn, InsertDatavaultColumn } from "@shared/schema";
 
 import { db } from "../db";
 import { logger } from "../logger";
-import { ConflictError } from "../errors/AppError";
+import { BadRequestError, ConflictError } from "../errors/AppError";
 import {
   datavaultColumnsRepository,
   datavaultTablesRepository,
@@ -166,6 +166,18 @@ export class DatavaultColumnsService {
     }
   }
   /**
+   * Validate the optional formatting applied to auto-number columns.
+   */
+  private validateAutoNumberConfiguration(
+    type: DatavaultColumn['type'],
+    prefix: string | null | undefined,
+    padding: number | null | undefined
+  ): void {
+    if ((type === 'auto_number' || type === 'autonumber') && prefix && (padding ?? 4) < 1) {
+      throw new BadRequestError('Auto-number padding must be at least 1 when a prefix is set');
+    }
+  }
+  /**
    * Validate reference column configuration
    */
   private async validateReferenceColumn(
@@ -248,6 +260,10 @@ export class DatavaultColumnsService {
   ): Promise<DatavaultColumn> {
     // Verify table ownership
     await this.verifyTableOwnership(data.tableId, tenantId, tx);
+    if (data.type === 'autonumber') {
+      throw new BadRequestError("Column type 'autonumber' is deprecated; use 'auto_number' instead");
+    }
+    this.validateAutoNumberConfiguration(data.type, data.autonumberPrefix, data.autonumberPadding);
     // Validate select/multiselect options
     this.validateSelectOptions(data.type, data.options);
     // Validate reference column configuration
@@ -321,7 +337,11 @@ export class DatavaultColumnsService {
         tenantId,
         column.tableId,
         column.id,
-        column.autoNumberStart ?? 1,
+        {
+          startValue: column.autoNumberStart ?? 1,
+          prefix: column.autonumberPrefix,
+          padding: column.autonumberPadding ?? 4,
+        },
         tx
       );
     }
@@ -365,6 +385,13 @@ export class DatavaultColumnsService {
     }
     // If select/multiselect options are being updated, validate them
     const typeToValidate = data.type ?? column.type;
+    const prefixToValidate = data.autonumberPrefix !== undefined
+      ? data.autonumberPrefix
+      : column.autonumberPrefix;
+    const paddingToValidate = data.autonumberPadding !== undefined
+      ? data.autonumberPadding
+      : column.autonumberPadding;
+    this.validateAutoNumberConfiguration(typeToValidate, prefixToValidate, paddingToValidate);
     const optionsToValidate = data.options !== undefined ? data.options : column.options;
     this.validateSelectOptions(typeToValidate, optionsToValidate);
     // If reference-related fields are being updated, validate them

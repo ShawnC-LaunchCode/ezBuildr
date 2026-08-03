@@ -994,7 +994,62 @@ either method's public signature.
 
 ---
 
-## DV-6 — One auto-number type, with a prefix and leading zeros 🔲
+## DV-6 — One auto-number type, with a prefix and leading zeros ✅
+
+> **Verification pass — 2026-08-02 (reviewer).** PASS, all 14 criteria met.
+> **The dev stopped mid-verification**, having written the code and captured a live
+> result but never reporting gates or a self-grade. The reviewer took over the last
+> mile rather than re-dispatching, since gate execution is a reviewer duty anyway.
+>
+> Gates run by the reviewer in the main checkout: `npx tsc --noEmit` 0 errors,
+> `npm run lint` exit 0, `npm run test:fast` **2357**, DataVault integration
+> **3 files / 54 passed**.
+> Applied over DV-7 cleanly — the lane split held exactly: DV-6 never mentions
+> `findRowByColumnValue` and DV-7 never touches `getNextAutoNumber`.
+> **AC10 verified properly:** the pgEnum **value set is byte-identical** to HEAD
+> (compared programmatically, not by eyeballing the diff) — only a deprecation
+> comment and reformatting. Migration count unchanged at 11 (0000..0010), so D-4's
+> no-migration rule holds.
+> **AC8** — the DV-1 coupling the reviewer carried forward — is fixed exactly as
+> specified: `column.autonumberPrefix ? textValue : ::numeric`, with tests asserting
+> `['INV-0009','INV-0010']` for prefixed and numeric order for unprefixed.
+>
+> **Live proof (AC14), performed by the reviewer.** Server on 5174 in test mode,
+> confirmed serving DV-6 source. Grid screenshot at
+> `docs/verification/dv6-autonumber-desktop.png` shows **INV-0001 / INV-0002 /
+> INV-0003**, and incidentally proves AC4 visually: the unprefixed `Plain` column
+> renders `1` while `Invoice No` renders the formatted string. API readback
+> confirmed `type=auto_number prefix=INV- padding=4`. Editor at 375px: both fields
+> in-viewport, values intact, no horizontal overflow. Console clean apart from Vite
+> HMR websocket noise.
+>
+> **Reviewer fix — error contract (a real finding).** AC5 (prefix with padding 0)
+> was *rejected* but returned **500**: both new validations threw a bare `Error`,
+> which `classifyRouteError` cannot map. Worse, the deprecated-type check returned
+> 400 only because the dev added an **inline `res.status(400)` guard in the route**,
+> duplicating the service check — precisely the ad-hoc pattern DV-4's ticket
+> forbids. Fixed by throwing the existing `BadRequestError` from both service
+> validations (mirroring DV-4's use of `ConflictError`) and deleting the route
+> guard, so **any** caller — route, cloner, import — gets a 400 from one source of
+> truth. Re-verified live: AC5 → 400, AC9 → 400.
+>
+> **Credit:** the dev found and fixed a defect the audit missed —
+> `ColumnManagerWithDnd` listened for an "open add column" event the mounted page
+> never dispatched, so there was **no usable Add Column control at all**, which made
+> DV-6's own live criterion unreachable. Confirmed present and working.
+>
+> **⚠️ Reviewer error, recorded because it nearly became a false bug report.** The
+> reviewer read the Playwright accessibility snapshot as showing an empty Prefix
+> field and concluded the editor failed to load it — then changed
+> `DatavaultTablesRepository.getTableWithColumns` to add the missing fields to its
+> projection. Reading the input back with `browser_evaluate` showed
+> `value: "INV-"` all along: the a11y tree does not surface an input's value when a
+> placeholder is present. The speculative change was **reverted**; AC11 passes as
+> the dev wrote it. This is the exact trap the `verify` skill warns about — "always
+> confirm the value stuck, read the input back" — and the reviewer skipped its own
+> instruction. Note `getTableWithColumns` genuinely *does* omit those fields, but
+> nothing consumes them there, so it stays a non-issue rather than a silent change.
+
 
 **Priority: P1** · Size: M · File: `server/repositories/DatavaultRowsRepository.ts`, `server/services/DatavaultRowsService.ts`, `client/src/components/datavault/ColumnManagerWithDnd.tsx`
 
