@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-import { users, tenants, projects, workflows, sections, blocks, datavaultDatabases, workflowQueries, steps } from '@shared/schema';
+import { users, tenants, projects, workflows, sections, blocks, datavaultDatabases, workflowQueries, steps, auditLogs } from '@shared/schema';
 import type { Block } from '@shared/schema';
 import type { BlockContext, ListVariable, ReadTableConfig, WriteBlockConfig } from '@shared/types/blocks';
 
@@ -230,6 +230,12 @@ describe('Data Block Integration Tests', () => {
             // Delete projects first to remove workflows (which reference users)
             // This prevents FK violation when deleting users via tenant cascade
             await db.delete(projects).where(eq(projects.tenantId, tenantId));
+
+            // audit_logs.tenant_id is ON DELETE NO ACTION, so any audited write in
+            // this suite pins the tenant. DataVault mutations became audited in
+            // DV-13, which is what surfaced this; integrationTestHelper.cleanup
+            // already does the equivalent for user-scoped audit rows.
+            await db.delete(auditLogs).where(eq(auditLogs.tenantId, tenantId));
 
             // Clean up tenant (cascades to users, etc.)
             await db.delete(tenants).where(eq(tenants.id, tenantId));

@@ -5,6 +5,7 @@ import { ConflictError } from "../../errors/AppError";
 import { createLogger } from "../../logger";
 import { datavaultRowsRepository, type DbTransaction } from "../../repositories";
 import { datavaultRowsService } from "../../services/DatavaultRowsService";
+import { AuditLogger } from "../audit/auditLogger";
 import { resolveSingleValue, resolveColumnMappings } from "../shared/variableResolver";
 const logger = createLogger({ module: "write-runner" });
 export class WriteRunner {
@@ -106,6 +107,20 @@ export class WriteRunner {
                     rowId: resultRowId,
                     operation: actualOperation
                 };
+            });
+            const columnIds = Object.keys(mappedValues);
+            void AuditLogger.log({
+                userId: context.userId,
+                tenantId,
+                action: writeResult.operation === "create" ? "datavault.row.created" : "datavault.row.updated",
+                resourceType: "datavault_row",
+                resourceId: writeResult.rowId,
+                after: {
+                    tableId: config.tableId,
+                    columnIds: columnIds.slice(0, 50).map((columnId) => columnId.slice(0, 128)),
+                    columnCount: columnIds.length,
+                    source: "send_data_to_table_block",
+                },
             });
             return {
                 success: true,

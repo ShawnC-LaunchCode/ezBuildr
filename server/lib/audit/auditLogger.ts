@@ -5,6 +5,7 @@ import { db } from "../../db";
 import { logger } from "../../logger";
 
 export interface AuditEvent {
+    tenantId?: string | null;
     workspaceId?: string | null;
     userId?: string; // Optional for system events
     action: string;
@@ -29,6 +30,7 @@ export class AuditLogger {
     static async log(event: AuditEvent, executor: AuditExecutor = db): Promise<void> {
         try {
             await executor.insert(auditLogs).values({
+                tenantId: event.tenantId ? event.tenantId : null,
                 // Coerce empty string to null: workspaceId maps to a uuid column,
                 // and "" is not valid uuid syntax (aborts the caller's transaction).
                 workspaceId: event.workspaceId ? event.workspaceId : null,

@@ -7,6 +7,7 @@ import { datavaultRowNotesService, datavaultRowsService, datavaultTablesService 
 import { asyncHandler } from '../../utils/asyncHandler';
 import { classifyRouteError } from '../../utils/routeErrors';
 
+import { AuditLogger } from '../../lib/audit/auditLogger';
 import { ERROR_AUTH_REQUIRED, ERROR_INVALID_INPUT, ERROR_ROW_NOT_FOUND, getTenantId } from './shared';
 
 import type { Express, Request, Response } from 'express';
@@ -65,6 +66,20 @@ export function registerDatavaultRowNoteRoutes(app: Express): void {
       });
       const { text } = schema.parse(req.body);
       const note = await datavaultRowNotesService.createNote(rowId, tenantId, userId, text);
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.row_note.created',
+        resourceType: 'datavault_row_note',
+        resourceId: note.id,
+        after: {
+          rowId,
+          tableId: row.row.tableId,
+          textLength: text.length,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
       res.status(201).json(note);
     } catch (error) {
       logger.error({ error }, 'Error creating row note');
@@ -100,6 +115,19 @@ export function registerDatavaultRowNoteRoutes(app: Express): void {
         await datavaultTablesService.requirePermission(userId, row.row.tableId, tenantId, 'write');
       }
       await datavaultRowNotesService.deleteNote(noteId, tenantId, userId);
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.row_note.deleted',
+        resourceType: 'datavault_row_note',
+        resourceId: noteId,
+        before: {
+          rowId: note.rowId,
+          tableId: row?.row?.tableId,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
       res.json({ success: true, message: 'Note deleted successfully' });
     } catch (error) {
       logger.error({ error }, 'Error deleting row note');

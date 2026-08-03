@@ -1,11 +1,20 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-import { datavaultTables, datavaultTablePermissions } from '@shared/schema';
+import { datavaultTables, datavaultTablePermissions, auditLogs } from '@shared/schema';
 
 import { db } from '../../server/db';
 import { setupIntegrationTest, createTestUser, type IntegrationTestContext } from '../helpers/integrationTestHelper';
+
+interface AuditChangeSet {
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+}
+
+function getAuditChanges(entry: typeof auditLogs.$inferSelect): AuditChangeSet {
+  return (entry.changes ?? {}) as AuditChangeSet;
+}
 
 
 
@@ -339,6 +348,176 @@ describe('DataVault Table Permissions API (v4 Micro-Phase 6)', () => {
         .set('Authorization', `Bearer ${reader.token}`)
         .send({ description: 'Reader test' });
       expect(updateRes.status).toBe(403);
+    });
+  });
+
+  describe('Audit logging for permissions (DV-13 AC4)', () => {
+    it('should write audit log on grantPermission naming target user and role', async () => {
+      const targetUser = await createTestUser(ctx, 'viewer');
+      const res = await request(ctx.baseURL)
+        .post(`/api/datavault/tables/${tableId}/permissions`)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .send({ userId: targetUser.userId, role: 'read' });
+
+      expect(res.status).toBe(201);
+      const permissionId = res.body.id;
+
+      // Allow async fire-and-forget audit log to complete
+      await new Promise((r) => setTimeout(r, 100));
+
+      const logs = await db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.resourceId, permissionId),
+            eq(auditLogs.action, 'datavault.table_permission.granted')
+          )
+        );
+
+      expect(logs).toHaveLength(1);
+      expect(logs[0].userId).toBe(owner.userId);
+      expect(logs[0].tenantId).toBe(ctx.tenantId);
+      expect(logs[0].resourceType).toBe('datavault_table_permission');
+      expect(getAuditChanges(logs[0]).after?.tableId).toBe(tableId);
+      expect(getAuditChanges(logs[0]).after?.targetUserId).toBe(targetUser.userId);
+      expect(getAuditChanges(logs[0]).after?.role).toBe('read');
+    });
+
+    it('should write audit log on revokePermission naming resource and table id', async () => {
+      const targetUser = await createTestUser(ctx, 'viewer');
+      const grantRes = await request(ctx.baseURL)
+        .post(`/api/datavault/tables/${tableId}/permissions`)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .send({ userId: targetUser.userId, role: 'read' });
+
+      expect(grantRes.status).toBe(201);
+      const permissionId = grantRes.body.id;
+
+      const deleteRes = await request(ctx.baseURL)
+        .delete(`/api/datavault/permissions/${permissionId}?tableId=${tableId}`)
+        .set('Authorization', `Bearer ${owner.token}`);
+
+      expect(deleteRes.status).toBe(200);
+
+      // Allow async fire-and-forget audit log to complete
+      await new Promise((r) => setTimeout(r, 100));
+
+      const logs = await db
+        .select()
+        .from(auditLogs)
+        .where(
+          and(
+            eq(auditLogs.resourceId, permissionId),
+            eq(auditLogs.action, 'datavault.table_permission.revoked')
+          )
+        );
+
+      expect(logs).toHaveLength(1);
+      expect(logs[0].userId).toBe(owner.userId);
+      expect(logs[0].tenantId).toBe(ctx.tenantId);
+      expect(logs[0].resourceType).toBe('datavault_table_permission');
+      expect(getAuditChanges(logs[0]).before?.tableId).toBe(tableId);
+    });
+
+    it('audits table access grant/revoke and ownership transfer', async () => {
+      const targetUser = await createTestUser(ctx, 'viewer');
+      const accessEntry = {
+        principalType: 'user',
+        principalId: targetUser.userId,
+        role: 'view',
+      };
+
+      const grantRes = await request(ctx.baseURL)
+        .put(`/api/datavault/tables/${tableId}/access`)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .send({ entries: [accessEntry] });
+      expect(grantRes.status).toBe(200);
+
+      const revokeRes = await request(ctx.baseURL)
+        .delete(`/api/datavault/tables/${tableId}/access`)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .send({ entries: [{ principalType: 'user', principalId: targetUser.userId }] });
+      expect(revokeRes.status).toBe(200);
+
+      const transferRes = await request(ctx.baseURL)
+        .post(`/api/datavault/tables/${tableId}/transfer`)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .send({ targetOwnerType: 'user', targetOwnerUuid: owner.userId });
+      expect(transferRes.status).toBe(200);
+
+      await new Promise((r) => setTimeout(r, 100));
+
+      const logs = await db
+        .select()
+        .from(auditLogs)
+        .where(eq(auditLogs.resourceId, tableId));
+      const grantLog = logs.filter((log) => log.action === 'datavault.table.access_granted');
+      const revokeLog = logs.filter((log) => log.action === 'datavault.table.access_revoked');
+      const transferLog = logs.filter((log) => log.action === 'datavault.table.ownership_transferred');
+
+      expect(grantLog).toHaveLength(1);
+      expect(revokeLog).toHaveLength(1);
+      expect(transferLog).toHaveLength(1);
+      expect(grantLog[0].userId).toBe(owner.userId);
+      expect(grantLog[0].tenantId).toBe(ctx.tenantId);
+      expect(getAuditChanges(grantLog[0]).after?.entriesCount).toBe(1);
+      expect(getAuditChanges(revokeLog[0]).before?.entriesCount).toBe(1);
+      expect(getAuditChanges(transferLog[0]).after?.targetOwnerUuid).toBe(owner.userId);
+    });
+
+    it('audits database access grant/revoke and ownership transfer', async () => {
+      const targetUser = await createTestUser(ctx, 'viewer');
+      const createRes = await request(ctx.baseURL)
+        .post('/api/datavault/databases')
+        .set('Authorization', `Bearer ${owner.token}`)
+        .send({ name: 'DV-13 Permission Audit Database', scopeType: 'account' });
+      expect(createRes.status).toBe(201);
+      const databaseId = createRes.body.id as string;
+
+      const grantRes = await request(ctx.baseURL)
+        .put(`/api/datavault/databases/${databaseId}/access`)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .send({
+          entries: [{ principalType: 'user', principalId: targetUser.userId, role: 'view' }],
+        });
+      expect(grantRes.status).toBe(200);
+
+      const revokeRes = await request(ctx.baseURL)
+        .delete(`/api/datavault/databases/${databaseId}/access`)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .send({ entries: [{ principalType: 'user', principalId: targetUser.userId }] });
+      expect(revokeRes.status).toBe(200);
+
+      const transferRes = await request(ctx.baseURL)
+        .post(`/api/datavault/databases/${databaseId}/transfer`)
+        .set('Authorization', `Bearer ${owner.token}`)
+        .send({ targetOwnerType: 'user', targetOwnerUuid: owner.userId });
+      expect(transferRes.status).toBe(200);
+
+      await new Promise((r) => setTimeout(r, 100));
+
+      const logs = await db
+        .select()
+        .from(auditLogs)
+        .where(eq(auditLogs.resourceId, databaseId));
+      const grantLog = logs.filter((log) => log.action === 'datavault.database.access_granted');
+      const revokeLog = logs.filter((log) => log.action === 'datavault.database.access_revoked');
+      const transferLog = logs.filter((log) => log.action === 'datavault.database.ownership_transferred');
+
+      expect(grantLog).toHaveLength(1);
+      expect(revokeLog).toHaveLength(1);
+      expect(transferLog).toHaveLength(1);
+      expect(grantLog[0].userId).toBe(owner.userId);
+      expect(grantLog[0].tenantId).toBe(ctx.tenantId);
+      expect(getAuditChanges(grantLog[0]).after?.entriesCount).toBe(1);
+      expect(getAuditChanges(revokeLog[0]).before?.entriesCount).toBe(1);
+      expect(getAuditChanges(transferLog[0]).after?.targetOwnerUuid).toBe(owner.userId);
+
+      const deleteRes = await request(ctx.baseURL)
+        .delete(`/api/datavault/databases/${databaseId}`)
+        .set('Authorization', `Bearer ${owner.token}`);
+      expect(deleteRes.status).toBe(204);
     });
   });
 });

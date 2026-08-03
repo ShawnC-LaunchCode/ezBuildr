@@ -8,11 +8,13 @@ import { datavaultDatabasesService } from '../../services/DatavaultDatabasesServ
 import { asyncHandler } from '../../utils/asyncHandler';
 import { classifyRouteError } from '../../utils/routeErrors';
 
+import { AuditLogger } from '../../lib/audit/auditLogger';
 import { ERROR_AUTH_REQUIRED, ERROR_INVALID_INPUT, getTenantId } from './shared';
 
 import type { Express, Request, Response } from 'express';
 
 const ERROR_INVALID_TABLE_ID = 'Invalid table ID format';
+const USER_AGENT_HEADER = 'user-agent';
 
 /**
  * Register DataVault table endpoints
@@ -73,6 +75,20 @@ export function registerDatavaultTableRoutes(app: Express): void {
         databaseId: input.databaseId ?? null,
         ownerType: input.ownerType,
         ownerUuid: input.ownerUuid,
+      });
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.table.created',
+        resourceType: 'datavault_table',
+        resourceId: table.id,
+        after: {
+          name: table.name,
+          slug: table.slug,
+          databaseId: table.databaseId,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get(USER_AGENT_HEADER),
       });
       res.status(201).json(table);
     } catch (error) {
@@ -138,6 +154,20 @@ export function registerDatavaultTableRoutes(app: Express): void {
       });
       const updateData = updateSchema.parse(req.body);
       const table = await datavaultTablesService.updateTable(tableId, tenantId, updateData);
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.table.updated',
+        resourceType: 'datavault_table',
+        resourceId: tableId,
+        after: {
+          updatedFields: Object.keys(updateData),
+          name: table.name,
+          slug: table.slug,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get(USER_AGENT_HEADER),
+      });
       res.json(table);
     } catch (error) {
       logger.error({ error }, 'Error updating DataVault table');
@@ -168,6 +198,18 @@ export function registerDatavaultTableRoutes(app: Express): void {
       });
       const { databaseId } = moveSchema.parse(req.body);
       const table = await datavaultTablesService.moveTable(tableId, tenantId, databaseId, userId);
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.table.moved',
+        resourceType: 'datavault_table',
+        resourceId: tableId,
+        after: {
+          databaseId,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get(USER_AGENT_HEADER),
+      });
       res.json(table);
     } catch (error) {
       logger.error({ error }, 'Error moving DataVault table');
@@ -197,6 +239,18 @@ export function registerDatavaultTableRoutes(app: Express): void {
       // Check owner permission
       await datavaultTablesService.requirePermission(userId, tableId, tenantId, 'owner');
       await datavaultTablesService.deleteTable(tableId, tenantId);
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.table.deleted',
+        resourceType: 'datavault_table',
+        resourceId: tableId,
+        before: {
+          tableId,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get(USER_AGENT_HEADER),
+      });
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error deleting DataVault table');
@@ -274,6 +328,22 @@ export function registerDatavaultTableRoutes(app: Express): void {
       });
       const { entries } = schema.parse(req.body);
       const access = await datavaultTablesService.grantTableAccess(tableId, tenantId, userId, entries);
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.table.access_granted',
+        resourceType: 'datavault_table',
+        resourceId: tableId,
+        after: {
+          entriesCount: entries.length,
+          entries: entries.slice(0, 50).map((entry) => ({
+            ...entry,
+            principalId: entry.principalId.slice(0, 128),
+          })),
+        },
+        ipAddress: req.ip,
+        userAgent: req.get(USER_AGENT_HEADER),
+      });
       res.json({ success: true, data: access });
     } catch (error) {
       logger.error({ error }, 'Error granting table access');
@@ -305,6 +375,22 @@ export function registerDatavaultTableRoutes(app: Express): void {
       });
       const { entries } = schema.parse(req.body);
       await datavaultTablesService.revokeTableAccess(tableId, tenantId, userId, entries);
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.table.access_revoked',
+        resourceType: 'datavault_table',
+        resourceId: tableId,
+        before: {
+          entriesCount: entries.length,
+          entries: entries.slice(0, 50).map((entry) => ({
+            ...entry,
+            principalId: entry.principalId.slice(0, 128),
+          })),
+        },
+        ipAddress: req.ip,
+        userAgent: req.get(USER_AGENT_HEADER),
+      });
       res.json({ success: true, message: 'Access revoked successfully' });
     } catch (error) {
       logger.error({ error }, 'Error revoking table access');
@@ -340,6 +426,19 @@ export function registerDatavaultTableRoutes(app: Express): void {
         targetOwnerType,
         targetOwnerUuid
       );
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.table.ownership_transferred',
+        resourceType: 'datavault_table',
+        resourceId: tableId,
+        after: {
+          targetOwnerType,
+          targetOwnerUuid,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get(USER_AGENT_HEADER),
+      });
       res.json({ success: true, data: table });
     } catch (error) {
       logger.error({ error }, 'Error transferring table ownership');

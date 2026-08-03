@@ -5,6 +5,7 @@ import type { WriteBlockConfig, BlockContext } from "@shared/types/blocks";
 
 import type { DatavaultColumn, DatavaultRow, DatavaultTable } from "@shared/schema";
 import { ConflictError } from "../../../server/errors/AppError";
+import { AuditLogger } from "../../../server/lib/audit/auditLogger";
 import { WriteRunner } from "../../../server/lib/writes/WriteRunner";
 import { datavaultRowsRepository, datavaultColumnsRepository, datavaultTablesRepository } from "../../../server/repositories";
 import { datavaultRowsService } from "../../../server/services/DatavaultRowsService";
@@ -16,6 +17,11 @@ const mockLogger = vi.hoisted(() => ({
 
 vi.mock("../../../server/logger", () => ({
     createLogger: vi.fn(() => mockLogger),
+}));
+vi.mock("../../../server/lib/audit/auditLogger", () => ({
+    AuditLogger: {
+        log: vi.fn().mockResolvedValue(undefined),
+    },
 }));
 // Mock DB
 vi.mock("../../../server/db", () => ({
@@ -346,5 +352,37 @@ describe("WriteRunner", () => {
             expect(payload).not.toHaveProperty("matchValue");
             expect(JSON.stringify(payload)).not.toContain(sensitiveValue);
         }
+    });
+
+    it("audits block writes (AC5) with actor, tenant, tableId, rowId, column ids and no sensitive values", async () => {
+        const auditLogSpy = vi.mocked(AuditLogger.log);
+        const sensitiveValue = "secret-token-123";
+        const writeConfig: WriteBlockConfig = {
+            tableId: "table-users",
+            dataSourceId: "ds-native",
+            mode: "create",
+            columnMappings: [{ columnId: "col-first", value: sensitiveValue }],
+        };
+
+        const result = await runner.executeWrite(writeConfig, mockContext, mockTenantId, false);
+
+        expect(result.success).toBe(true);
+        expect(auditLogSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                userId: mockContext.userId,
+                tenantId: mockTenantId,
+                action: "datavault.row.created",
+                resourceType: "datavault_row",
+                resourceId: "row-new",
+                after: expect.objectContaining({
+                    tableId: "table-users",
+                    columnIds: expect.arrayContaining(["col-first"]),
+                    columnCount: 1,
+                    source: "send_data_to_table_block",
+                }),
+            })
+        );
+        const lastCall = auditLogSpy.mock.calls[auditLogSpy.mock.calls.length - 1];
+        expect(JSON.stringify(lastCall)).not.toContain(sensitiveValue);
     });
 });

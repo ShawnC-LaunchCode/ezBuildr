@@ -9,9 +9,12 @@ import { asyncHandler } from '../../utils/asyncHandler';
 import { classifyRouteError } from '../../utils/routeErrors';
 import { validationMessages } from '../../utils/validationMessages';
 
+import { AuditLogger } from '../../lib/audit/auditLogger';
 import { ERROR_AUTH_REQUIRED, ERROR_INVALID_INPUT, getTenantId } from './shared';
 
 import type { Express, Request, Response } from 'express';
+
+const USER_AGENT_HEADER = 'user-agent';
 
 /**
  * Register DataVault database endpoints
@@ -106,6 +109,20 @@ export function registerDatavaultDatabaseRoutes(app: Express): void {
         tenantId,
         creatorId: userId,
       });
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.database.created',
+        resourceType: 'datavault_database',
+        resourceId: database.id,
+        after: {
+          name: database.name,
+          scopeType: database.scopeType,
+          scopeId: database.scopeId,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get(USER_AGENT_HEADER),
+      });
       res.status(201).json(database);
     } catch (error) {
       logger.error({ error }, 'Error creating DataVault database');
@@ -169,6 +186,19 @@ export function registerDatavaultDatabaseRoutes(app: Express): void {
         ...input,
         scopeId: input.scopeId ?? undefined,
       }, userId);
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.database.updated',
+        resourceType: 'datavault_database',
+        resourceId: id,
+        after: {
+          updatedFields: Object.keys(input),
+          name: database.name,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get(USER_AGENT_HEADER),
+      });
       res.json(database);
     } catch (error) {
       logger.error({ error }, 'Error updating DataVault database');
@@ -195,6 +225,18 @@ export function registerDatavaultDatabaseRoutes(app: Express): void {
       }
       const { id } = req.params;
       await datavaultDatabasesService.deleteDatabaseForUser(id, tenantId, userId);
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.database.deleted',
+        resourceType: 'datavault_database',
+        resourceId: id,
+        before: {
+          id,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get(USER_AGENT_HEADER),
+      });
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error deleting DataVault database');
@@ -246,6 +288,19 @@ export function registerDatavaultDatabaseRoutes(app: Express): void {
         targetOwnerType,
         targetOwnerUuid
       );
+      void AuditLogger.log({
+        userId,
+        tenantId: database?.tenantId ?? undefined,
+        action: 'datavault.database.ownership_transferred',
+        resourceType: 'datavault_database',
+        resourceId: databaseId,
+        after: {
+          targetOwnerType,
+          targetOwnerUuid,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get(USER_AGENT_HEADER),
+      });
       logger.info({ databaseId, targetOwnerType, targetOwnerUuid, userId }, 'Database ownership transferred');
       res.json({ success: true, data: database });
     } catch (error) {
@@ -304,6 +359,22 @@ export function registerDatavaultDatabaseRoutes(app: Express): void {
       });
       const { entries } = schema.parse(req.body);
       const access = await datavaultDatabasesService.grantDatabaseAccess(databaseId, tenantId, userId, entries);
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.database.access_granted',
+        resourceType: 'datavault_database',
+        resourceId: databaseId,
+        after: {
+          entriesCount: entries.length,
+          entries: entries.slice(0, 50).map((entry) => ({
+            ...entry,
+            principalId: entry.principalId.slice(0, 128),
+          })),
+        },
+        ipAddress: req.ip,
+        userAgent: req.get(USER_AGENT_HEADER),
+      });
       res.json({ success: true, data: access });
     } catch (error) {
       logger.error({ error, databaseId: req.params.databaseId }, 'Error granting database access');
@@ -335,6 +406,22 @@ export function registerDatavaultDatabaseRoutes(app: Express): void {
       });
       const { entries } = schema.parse(req.body);
       await datavaultDatabasesService.revokeDatabaseAccess(databaseId, tenantId, userId, entries);
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.database.access_revoked',
+        resourceType: 'datavault_database',
+        resourceId: databaseId,
+        before: {
+          entriesCount: entries.length,
+          entries: entries.slice(0, 50).map((entry) => ({
+            ...entry,
+            principalId: entry.principalId.slice(0, 128),
+          })),
+        },
+        ipAddress: req.ip,
+        userAgent: req.get(USER_AGENT_HEADER),
+      });
       res.json({ success: true, message: 'Access revoked successfully' });
     } catch (error) {
       logger.error({ error, databaseId: req.params.databaseId }, 'Error revoking database access');

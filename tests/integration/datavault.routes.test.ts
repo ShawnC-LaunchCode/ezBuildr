@@ -1,11 +1,12 @@
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import express, { type Express } from 'express';
 import request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 
-import { datavaultRows } from '@shared/schema';
+import { datavaultRows, auditLogs } from '@shared/schema';
 
 import { db } from '../../server/db';
+import { AuditLogger } from '../../server/lib/audit/auditLogger';
 import { datavaultRowsRepository } from '../../server/repositories/DatavaultRowsRepository';
 import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
 import { datavaultRowsService } from '../../server/services/DatavaultRowsService';
@@ -15,6 +16,16 @@ import {
   setupIntegrationTest,
   type IntegrationTestContext,
 } from '../helpers/integrationTestHelper';
+
+interface AuditChangeSet {
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+}
+
+function getAuditChanges(entry: typeof auditLogs.$inferSelect): AuditChangeSet {
+  return (entry.changes ?? {}) as AuditChangeSet;
+}
+
 /**
  * DataVault Phase 1 PR 9: DataVault API Routes Integration Tests
  *
@@ -1044,6 +1055,546 @@ describe('DataVault row counts, soft deletion, and column sorting (DV-9)', () =>
         .set({ deletedAt: new Date() })
         .where(eq(datavaultRows.id, nonNumericRow.body.row.id));
     }
+  });
+});
+
+describe('DataVault Audit Trail (DV-13)', () => {
+  let ctx: IntegrationTestContext;
+  let ownerToken: string;
+  let ownerUserId: string;
+  let auditTableId: string;
+  let auditColId: string;
+  let auditCol2Id: string;
+
+  beforeAll(async () => {
+    ctx = await setupIntegrationTest({ tenantName: 'DV-13 Audit Suite' });
+    const owner = await createTestUser(ctx, 'owner');
+    ownerToken = owner.token;
+    ownerUserId = owner.userId;
+
+    const tableRes = await request(ctx.baseURL)
+      .post('/api/datavault/tables')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'Audit Test Table' });
+    expect(tableRes.status).toBe(201);
+    auditTableId = tableRes.body.id as string;
+
+    const colRes = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${auditTableId}/columns`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'AuditName', type: 'text' });
+    expect(colRes.status).toBe(201);
+    auditColId = colRes.body.id as string;
+
+    const col2Res = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${auditTableId}/columns`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'AuditScore', type: 'number' });
+    expect(col2Res.status).toBe(201);
+    auditCol2Id = col2Res.body.id as string;
+  });
+
+  afterAll(async () => {
+    await ctx.cleanup();
+  });
+
+  it('AC1: Row create, update and delete each write exactly one audit entry naming actor, tenant, table id, row id and action', async () => {
+    // 1. Create Row
+    const createRes = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${auditTableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ values: { [auditColId]: 'Test Row' } });
+
+    expect(createRes.status).toBe(201);
+    const rowId = createRes.body.row.id as string;
+
+    await new Promise((r) => setTimeout(r, 100));
+
+    const createLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, rowId),
+          eq(auditLogs.action, 'datavault.row.created')
+        )
+      );
+
+    expect(createLogs).toHaveLength(1);
+    expect(createLogs[0].userId).toBe(ownerUserId);
+    expect(createLogs[0].tenantId).toBe(ctx.tenantId);
+    expect(createLogs[0].resourceType).toBe('datavault_row');
+    expect(getAuditChanges(createLogs[0]).after?.tableId).toBe(auditTableId);
+    expect(getAuditChanges(createLogs[0]).after?.columnCount).toBe(1);
+
+    // 2. Update Row
+    const updateRes = await request(ctx.baseURL)
+      .patch(`/api/datavault/rows/${rowId}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ values: { [auditColId]: 'Updated Row' } });
+
+    expect(updateRes.status).toBe(204);
+
+    await new Promise((r) => setTimeout(r, 100));
+
+    const updateLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, rowId),
+          eq(auditLogs.action, 'datavault.row.updated')
+        )
+      );
+
+    expect(updateLogs).toHaveLength(1);
+    expect(updateLogs[0].userId).toBe(ownerUserId);
+    expect(updateLogs[0].tenantId).toBe(ctx.tenantId);
+    expect(updateLogs[0].resourceType).toBe('datavault_row');
+    expect(getAuditChanges(updateLogs[0]).after?.tableId).toBe(auditTableId);
+
+    // 3. Delete Row
+    const deleteRes = await request(ctx.baseURL)
+      .delete(`/api/datavault/rows/${rowId}`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(deleteRes.status).toBe(204);
+
+    await new Promise((r) => setTimeout(r, 100));
+
+    const deleteLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, rowId),
+          eq(auditLogs.action, 'datavault.row.deleted')
+        )
+      );
+
+    expect(deleteLogs).toHaveLength(1);
+    expect(deleteLogs[0].userId).toBe(ownerUserId);
+    expect(deleteLogs[0].tenantId).toBe(ctx.tenantId);
+    expect(deleteLogs[0].resourceType).toBe('datavault_row');
+    expect(getAuditChanges(deleteLogs[0]).before?.tableId).toBe(auditTableId);
+  });
+
+  it('AC2: The four bulk operations (bulk archive, bulk unarchive, bulk delete, column reorder) each write exactly one audit entry recording affected count, table id and actor', async () => {
+    // Seed 2 rows for bulk test
+    const rA = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${auditTableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ values: { [auditColId]: 'Bulk A' } });
+    const rB = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${auditTableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ values: { [auditColId]: 'Bulk B' } });
+
+    const rowAId = rA.body.row.id as string;
+    const rowBId = rB.body.row.id as string;
+
+    // 1. Bulk Archive
+    const bulkArchiveRes = await request(ctx.baseURL)
+      .patch('/api/datavault/rows/bulk/archive')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ rowIds: [rowAId, rowBId] });
+
+    expect(bulkArchiveRes.status).toBe(200);
+    await new Promise((r) => setTimeout(r, 100));
+
+    const archiveLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, auditTableId),
+          eq(auditLogs.action, 'datavault.row.bulk_archived')
+        )
+      );
+
+    expect(archiveLogs).toHaveLength(1);
+    expect(archiveLogs[0].userId).toBe(ownerUserId);
+    expect(archiveLogs[0].tenantId).toBe(ctx.tenantId);
+    expect(getAuditChanges(archiveLogs[0]).after?.count).toBe(2);
+    expect(getAuditChanges(archiveLogs[0]).after?.tableId).toBe(auditTableId);
+
+    // Seed separate live rows because the existing getRow precheck hides archived rows.
+    const rC = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${auditTableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ values: { [auditColId]: 'Bulk C' } });
+    const rD = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${auditTableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ values: { [auditColId]: 'Bulk D' } });
+
+    const rowCId = rC.body.row.id as string;
+    const rowDId = rD.body.row.id as string;
+
+    // 2. Bulk Unarchive
+    const bulkUnarchiveRes = await request(ctx.baseURL)
+      .patch('/api/datavault/rows/bulk/unarchive')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ rowIds: [rowCId, rowDId] });
+
+    expect(bulkUnarchiveRes.status).toBe(200);
+    await new Promise((r) => setTimeout(r, 100));
+
+    const unarchiveLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, auditTableId),
+          eq(auditLogs.action, 'datavault.row.bulk_unarchived')
+        )
+      );
+
+    expect(unarchiveLogs).toHaveLength(1);
+    expect(unarchiveLogs[0].userId).toBe(ownerUserId);
+    expect(getAuditChanges(unarchiveLogs[0]).after?.count).toBe(2);
+
+    // 3. Bulk Delete
+    const bulkDeleteRes = await request(ctx.baseURL)
+      .delete('/api/datavault/rows/bulk/delete')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ rowIds: [rowCId, rowDId] });
+
+    expect(bulkDeleteRes.status).toBe(200);
+    await new Promise((r) => setTimeout(r, 100));
+
+    const bulkDeleteLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, auditTableId),
+          eq(auditLogs.action, 'datavault.row.bulk_deleted')
+        )
+      );
+
+    expect(bulkDeleteLogs).toHaveLength(1);
+    expect(bulkDeleteLogs[0].userId).toBe(ownerUserId);
+    expect(getAuditChanges(bulkDeleteLogs[0]).before?.count).toBe(2);
+
+    // 4. Column Reorder
+    const reorderRes = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${auditTableId}/columns/reorder`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ columnIds: [auditCol2Id, auditColId] });
+
+    expect(reorderRes.status).toBe(204);
+    await new Promise((r) => setTimeout(r, 100));
+
+    const reorderLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, auditTableId),
+          eq(auditLogs.action, 'datavault.column.reordered')
+        )
+      );
+
+    expect(reorderLogs).toHaveLength(1);
+    expect(reorderLogs[0].userId).toBe(ownerUserId);
+    expect(getAuditChanges(reorderLogs[0]).after?.tableId).toBe(auditTableId);
+    expect(getAuditChanges(reorderLogs[0]).after?.columnCount).toBe(2);
+    expect(getAuditChanges(reorderLogs[0]).after?.columnIds).toEqual([auditCol2Id, auditColId]);
+  });
+
+  it('AC3: Column, table (including move), and database mutations each write exactly one audit entry naming the modified resource', async () => {
+    // 1. Table Create
+    const createTableRes = await request(ctx.baseURL)
+      .post('/api/datavault/tables')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'AC3 Table Test' });
+
+    expect(createTableRes.status).toBe(201);
+    const testTableId = createTableRes.body.id as string;
+    await new Promise((r) => setTimeout(r, 100));
+
+    const tableCreateLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, testTableId),
+          eq(auditLogs.action, 'datavault.table.created')
+        )
+      );
+    expect(tableCreateLogs).toHaveLength(1);
+    expect(tableCreateLogs[0].resourceType).toBe('datavault_table');
+
+    // 2. Table Update
+    const updateTableRes = await request(ctx.baseURL)
+      .patch(`/api/datavault/tables/${testTableId}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'AC3 Table Renamed' });
+
+    expect(updateTableRes.status).toBe(200);
+    await new Promise((r) => setTimeout(r, 100));
+
+    const tableUpdateLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, testTableId),
+          eq(auditLogs.action, 'datavault.table.updated')
+        )
+      );
+    expect(tableUpdateLogs).toHaveLength(1);
+
+    // 3. Database create and update
+    const createDatabaseRes = await request(ctx.baseURL)
+      .post('/api/datavault/databases')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'AC3 Database', scopeType: 'account' });
+
+    expect(createDatabaseRes.status).toBe(201);
+    const testDatabaseId = createDatabaseRes.body.id as string;
+    await new Promise((r) => setTimeout(r, 100));
+
+    const databaseCreateLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, testDatabaseId),
+          eq(auditLogs.action, 'datavault.database.created')
+        )
+      );
+    expect(databaseCreateLogs).toHaveLength(1);
+
+    const updateDatabaseRes = await request(ctx.baseURL)
+      .patch(`/api/datavault/databases/${testDatabaseId}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'AC3 Database Renamed' });
+
+    expect(updateDatabaseRes.status).toBe(200);
+    await new Promise((r) => setTimeout(r, 100));
+
+    const databaseUpdateLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, testDatabaseId),
+          eq(auditLogs.action, 'datavault.database.updated')
+        )
+      );
+    expect(databaseUpdateLogs).toHaveLength(1);
+
+    // 4. Table move
+    const moveTableRes = await request(ctx.baseURL)
+      .patch(`/api/datavault/tables/${testTableId}/move`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ databaseId: testDatabaseId });
+
+    expect(moveTableRes.status).toBe(200);
+    await new Promise((r) => setTimeout(r, 100));
+
+    const tableMoveLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, testTableId),
+          eq(auditLogs.action, 'datavault.table.moved')
+        )
+      );
+    expect(tableMoveLogs).toHaveLength(1);
+    expect(getAuditChanges(tableMoveLogs[0]).after?.databaseId).toBe(testDatabaseId);
+
+    // 5. Column Add
+    const createColRes = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${testTableId}/columns`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'AC3Col', type: 'text' });
+
+    expect(createColRes.status).toBe(201);
+    const testColId = createColRes.body.id as string;
+    await new Promise((r) => setTimeout(r, 100));
+
+    const colCreateLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, testColId),
+          eq(auditLogs.action, 'datavault.column.created')
+        )
+      );
+    expect(colCreateLogs).toHaveLength(1);
+    expect(colCreateLogs[0].resourceType).toBe('datavault_column');
+
+    // 6. Column Update
+    const updateColRes = await request(ctx.baseURL)
+      .patch(`/api/datavault/columns/${testColId}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'AC3ColRenamed' });
+
+    expect(updateColRes.status).toBe(200);
+    await new Promise((r) => setTimeout(r, 100));
+
+    const colUpdateLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, testColId),
+          eq(auditLogs.action, 'datavault.column.updated')
+        )
+      );
+    expect(colUpdateLogs).toHaveLength(1);
+
+    // 7. Column Delete
+    const deleteColRes = await request(ctx.baseURL)
+      .delete(`/api/datavault/columns/${testColId}`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(deleteColRes.status).toBe(204);
+    await new Promise((r) => setTimeout(r, 100));
+
+    const colDeleteLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, testColId),
+          eq(auditLogs.action, 'datavault.column.deleted')
+        )
+      );
+    expect(colDeleteLogs).toHaveLength(1);
+
+    // 8. Table Delete
+    const deleteTableRes = await request(ctx.baseURL)
+      .delete(`/api/datavault/tables/${testTableId}`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(deleteTableRes.status).toBe(204);
+    await new Promise((r) => setTimeout(r, 100));
+
+    const tableDeleteLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, testTableId),
+          eq(auditLogs.action, 'datavault.table.deleted')
+        )
+      );
+    expect(tableDeleteLogs).toHaveLength(1);
+
+    // 9. Database Delete
+    const deleteDatabaseRes = await request(ctx.baseURL)
+      .delete(`/api/datavault/databases/${testDatabaseId}`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(deleteDatabaseRes.status).toBe(204);
+    await new Promise((r) => setTimeout(r, 100));
+
+    const databaseDeleteLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, testDatabaseId),
+          eq(auditLogs.action, 'datavault.database.deleted')
+        )
+      );
+    expect(databaseDeleteLogs).toHaveLength(1);
+  });
+
+  it('AC6: No audit payload contains a full row values; payload serialized size stays bounded against large text value', async () => {
+    const largeString = 'X'.repeat(50000);
+    const rowRes = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${auditTableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ values: { [auditColId]: largeString } });
+
+    expect(rowRes.status).toBe(201);
+    const largeRowId = rowRes.body.row.id as string;
+
+    await new Promise((r) => setTimeout(r, 100));
+
+    const logs = await db
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.resourceId, largeRowId),
+          eq(auditLogs.action, 'datavault.row.created')
+        )
+      );
+
+    expect(logs).toHaveLength(1);
+    const serializedChanges = JSON.stringify(logs[0].changes);
+    expect(serializedChanges).not.toContain(largeString);
+    expect(serializedChanges).not.toContain('XXXXX');
+    expect(serializedChanges.length).toBeLessThan(1000);
+    expect(getAuditChanges(logs[0]).after?.columnCount).toBe(1);
+  });
+
+  it('AC7: Verify that a failing audit insert does not fail the mutation', async () => {
+    const failingExecutor = new Proxy(db, {
+      get(target, property, receiver) {
+        if (property === 'insert') {
+          return () => ({
+            values: async () => {
+              throw new Error('Simulated audit write failure');
+            },
+          });
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const originalLog = AuditLogger.log.bind(AuditLogger);
+    const logSpy = vi.spyOn(AuditLogger, 'log').mockImplementationOnce((event) =>
+      originalLog(event, failingExecutor)
+    );
+
+    const res = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${auditTableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ values: { [auditColId]: 'Audit Fail Test' } });
+
+    expect(res.status).toBe(201);
+    expect(res.body.row.id).toBeDefined();
+    expect(logSpy).toHaveBeenCalledOnce();
+    await expect(logSpy.mock.results[0]?.value).resolves.toBeUndefined();
+
+    logSpy.mockRestore();
+  });
+
+  it('AC8: POST /api/datavault/references/batch writes no audit entry', async () => {
+    const beforeLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.tenantId, ctx.tenantId));
+
+    const res = await request(ctx.baseURL)
+      .post('/api/datavault/references/batch')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        requests: [
+          {
+            tableId: auditTableId,
+            rowIds: ['00000000-0000-0000-0000-000000000000'],
+          },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    await new Promise((r) => setTimeout(r, 100));
+
+    const afterLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.tenantId, ctx.tenantId));
+
+    expect(afterLogs.length).toBe(beforeLogs.length);
   });
 });
 

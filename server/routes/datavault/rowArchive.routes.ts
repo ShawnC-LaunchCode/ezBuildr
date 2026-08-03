@@ -7,9 +7,12 @@ import { datavaultRowsService, datavaultTablesService } from '../../services';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { classifyRouteError } from '../../utils/routeErrors';
 
+import { AuditLogger } from '../../lib/audit/auditLogger';
 import { ERROR_AUTH_REQUIRED, ERROR_INVALID_INPUT, ERROR_ROW_NOT_FOUND, getTenantId } from './shared';
 
 import type { Express, Request, Response } from 'express';
+
+const USER_AGENT_HEADER = 'user-agent';
 
 /**
  * Register DataVault row archiving endpoints (DataVault v3)
@@ -38,6 +41,18 @@ export function registerDatavaultRowArchiveRoutes(app: Express): void {
       }
       await datavaultTablesService.requirePermission(userId, rowData.row.tableId, tenantId, 'write');
       await datavaultRowsService.archiveRow(tenantId, rowId);
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.row.archived',
+        resourceType: 'datavault_row',
+        resourceId: rowId,
+        after: {
+          tableId: rowData.row.tableId,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get(USER_AGENT_HEADER),
+      });
       res.json({ success: true, message: 'Row archived successfully' });
     } catch (error) {
       logger.error({ error }, 'Error archiving DataVault row');
@@ -64,6 +79,18 @@ export function registerDatavaultRowArchiveRoutes(app: Express): void {
       }
       await datavaultTablesService.requirePermission(userId, rowData.row.tableId, tenantId, 'write');
       await datavaultRowsService.unarchiveRow(tenantId, rowId);
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.row.unarchived',
+        resourceType: 'datavault_row',
+        resourceId: rowId,
+        after: {
+          tableId: rowData.row.tableId,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get(USER_AGENT_HEADER),
+      });
       res.json({ success: true, message: 'Row unarchived successfully' });
     } catch (error) {
       logger.error({ error }, 'Error unarchiving DataVault row');
@@ -102,6 +129,20 @@ function registerBulkRoutes(app: Express): void {
       await datavaultTablesService.requirePermission(userId, firstRow.row.tableId, tenantId, 'write');
 
       await datavaultRowsService.bulkArchiveRows(tenantId, rowIds);
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.row.bulk_archived',
+        resourceType: 'datavault_table',
+        resourceId: firstRow.row.tableId,
+        after: {
+          tableId: firstRow.row.tableId,
+          count: rowIds.length,
+          rowIds: rowIds.slice(0, 50),
+        },
+        ipAddress: req.ip,
+        userAgent: req.get(USER_AGENT_HEADER),
+      });
       res.json({
         success: true,
         message: `${rowIds.length} row(s) archived successfully`,
@@ -143,6 +184,20 @@ function registerBulkRoutes(app: Express): void {
       await datavaultTablesService.requirePermission(userId, firstRow.row.tableId, tenantId, 'write');
 
       await datavaultRowsService.bulkUnarchiveRows(tenantId, rowIds);
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.row.bulk_unarchived',
+        resourceType: 'datavault_table',
+        resourceId: firstRow.row.tableId,
+        after: {
+          tableId: firstRow.row.tableId,
+          count: rowIds.length,
+          rowIds: rowIds.slice(0, 50),
+        },
+        ipAddress: req.ip,
+        userAgent: req.get(USER_AGENT_HEADER),
+      });
       res.json({
         success: true,
         message: `${rowIds.length} row(s) unarchived successfully`,
@@ -184,6 +239,20 @@ function registerBulkRoutes(app: Express): void {
       await datavaultTablesService.requirePermission(userId, firstRow.row.tableId, tenantId, 'write');
 
       await datavaultRowsService.bulkDeleteRows(rowIds, tenantId);
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.row.bulk_deleted',
+        resourceType: 'datavault_table',
+        resourceId: firstRow.row.tableId,
+        before: {
+          tableId: firstRow.row.tableId,
+          count: rowIds.length,
+          rowIds: rowIds.slice(0, 50),
+        },
+        ipAddress: req.ip,
+        userAgent: req.get(USER_AGENT_HEADER),
+      });
       res.json({
         success: true,
         message: `${rowIds.length} row(s) deleted successfully`,

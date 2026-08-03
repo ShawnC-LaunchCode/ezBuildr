@@ -7,6 +7,7 @@ import { datavaultTablePermissionsService } from '../../services';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { classifyRouteError } from '../../utils/routeErrors';
 
+import { AuditLogger } from '../../lib/audit/auditLogger';
 import { ERROR_AUTH_REQUIRED, getTenantId } from './shared';
 
 import type { Express, Request, Response } from 'express';
@@ -70,6 +71,20 @@ export function registerDatavaultPermissionRoutes(app: Express): void {
           role: data.role,
         }
       );
+      void AuditLogger.log({
+        userId: actorUserId,
+        tenantId,
+        action: 'datavault.table_permission.granted',
+        resourceType: 'datavault_table_permission',
+        resourceId: permission.id,
+        after: {
+          tableId,
+          targetUserId: data.userId,
+          role: data.role,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
       logger.debug({ permission }, 'Grant permission success');
       res.status(201).json(permission);
     } catch (error) {
@@ -114,6 +129,18 @@ export function registerDatavaultPermissionRoutes(app: Express): void {
         tableId,
         tenantId
       );
+      void AuditLogger.log({
+        userId: actorUserId,
+        tenantId,
+        action: 'datavault.table_permission.revoked',
+        resourceType: 'datavault_table_permission',
+        resourceId: permissionId,
+        before: {
+          tableId,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
       res.json({ success: true, message: 'Permission revoked successfully' });
     } catch (error) {
       logger.error({ error }, 'Error revoking table permission');

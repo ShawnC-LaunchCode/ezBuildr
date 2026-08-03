@@ -10,9 +10,50 @@ import { datavaultRowsService, datavaultTablesService } from '../../services';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { classifyRouteError } from '../../utils/routeErrors';
 
+import { AuditLogger } from '../../lib/audit/auditLogger';
 import { ERROR_AUTH_REQUIRED, ERROR_INVALID_INPUT, ERROR_ROW_NOT_FOUND, getTenantId } from './shared';
 
 import type { Express, Request, Response } from 'express';
+
+interface RowWriteAudit {
+  req: Request;
+  userId: string;
+  tenantId: string;
+  tableId: string;
+  rowId: string;
+  action: 'datavault.row.created' | 'datavault.row.updated';
+  columnIds: string[];
+}
+
+function auditRowWrite({ req, userId, tenantId, tableId, rowId, action, columnIds }: RowWriteAudit): void {
+  void AuditLogger.log({
+    userId,
+    tenantId,
+    action,
+    resourceType: 'datavault_row',
+    resourceId: rowId,
+    after: {
+      tableId,
+      columnIds: columnIds.slice(0, 50).map((columnId) => columnId.slice(0, 128)),
+      columnCount: columnIds.length,
+    },
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent'),
+  });
+}
+
+function auditRowDelete(req: Request, userId: string, tenantId: string, tableId: string, rowId: string): void {
+  void AuditLogger.log({
+    userId,
+    tenantId,
+    action: 'datavault.row.deleted',
+    resourceType: 'datavault_row',
+    resourceId: rowId,
+    before: { tableId },
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent'),
+  });
+}
 
 /**
  * Register DataVault row endpoints (CRUD and reference resolution)
@@ -173,6 +214,7 @@ export function registerDatavaultRowRoutes(app: Express): void {
       });
       const { values } = rowSchema.parse(req.body);
       const result = await datavaultRowsService.createRow(tableId, tenantId, values, userId);
+      auditRowWrite({ req, userId, tenantId, tableId, rowId: result.row.id, action: 'datavault.row.created', columnIds: Object.keys(values) });
       res.status(201).json(result);
     } catch (error) {
       logger.error({ error }, 'Error creating DataVault row');
@@ -241,6 +283,7 @@ export function registerDatavaultRowRoutes(app: Express): void {
       });
       const { values } = updateSchema.parse(req.body);
       await datavaultRowsService.updateRow(rowId, tenantId, values, userId);
+      auditRowWrite({ req, userId, tenantId, tableId: rowData.row.tableId, rowId, action: 'datavault.row.updated', columnIds: Object.keys(values) });
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error updating DataVault row');
@@ -307,6 +350,7 @@ export function registerDatavaultRowRoutes(app: Express): void {
       // Check write permission
       await datavaultTablesService.requirePermission(userId, rowData.row.tableId, tenantId, 'write');
       await datavaultRowsService.deleteRow(rowId, tenantId);
+      auditRowDelete(req, userId, tenantId, rowData.row.tableId, rowId);
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error deleting DataVault row');

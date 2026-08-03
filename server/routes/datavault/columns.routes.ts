@@ -9,6 +9,7 @@ import { datavaultColumnsService, datavaultTablesService } from '../../services'
 import { asyncHandler } from '../../utils/asyncHandler';
 import { classifyRouteError } from '../../utils/routeErrors';
 
+import { AuditLogger } from '../../lib/audit/auditLogger';
 import { ERROR_AUTH_REQUIRED, ERROR_INVALID_INPUT, getTenantId } from './shared';
 
 import type { Express, Request, Response } from 'express';
@@ -61,6 +62,22 @@ export function registerDatavaultColumnRoutes(app: Express): void {
         tableId,
       });
       const column = await datavaultColumnsService.createColumn(columnData, tenantId);
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.column.created',
+        resourceType: 'datavault_column',
+        resourceId: column.id,
+        after: {
+          tableId,
+          name: column.name,
+          slug: column.slug,
+          type: column.type,
+          required: column.required,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
       res.status(201).json(column);
     } catch (error) {
       logger.error({ error }, 'Error creating DataVault column');
@@ -99,6 +116,19 @@ export function registerDatavaultColumnRoutes(app: Express): void {
       });
       const updateData = updateSchema.parse(req.body);
       const column = await datavaultColumnsService.updateColumn(columnId, tenantId, updateData);
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.column.updated',
+        resourceType: 'datavault_column',
+        resourceId: columnId,
+        after: {
+          tableId: colData.tableId,
+          updatedFields: Object.keys(updateData),
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
       res.json(column);
     } catch (error) {
       logger.error({ error }, 'Error updating DataVault column');
@@ -127,6 +157,20 @@ export function registerDatavaultColumnRoutes(app: Express): void {
       const colData = await datavaultColumnsService.getColumn(columnId, tenantId);
       await datavaultTablesService.requirePermission(userId, colData.tableId, tenantId, 'write');
       await datavaultColumnsService.deleteColumn(columnId, tenantId);
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.column.deleted',
+        resourceType: 'datavault_column',
+        resourceId: columnId,
+        before: {
+          tableId: colData.tableId,
+          name: colData.name,
+          slug: colData.slug,
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error deleting DataVault column');
@@ -152,6 +196,20 @@ export function registerDatavaultColumnRoutes(app: Express): void {
       });
       const { columnIds } = reorderSchema.parse(req.body);
       await datavaultColumnsService.reorderColumns(tableId, tenantId, columnIds);
+      void AuditLogger.log({
+        userId,
+        tenantId,
+        action: 'datavault.column.reordered',
+        resourceType: 'datavault_table',
+        resourceId: tableId,
+        after: {
+          tableId,
+          columnCount: columnIds.length,
+          columnIds: columnIds.slice(0, 50),
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
       res.status(204).send();
     } catch (error) {
       logger.error({ error }, 'Error reordering DataVault columns');

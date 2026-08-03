@@ -2047,7 +2047,34 @@ resolver.
 
 ---
 
-## DV-13 — DataVault mutations leave no audit trail 🔄
+## DV-13 — DataVault mutations leave no audit trail ✅
+
+> **Verification pass — 2026-08-03 (reviewer).** PASS, all 10 criteria met. The
+> largest ticket in the initiative, dispatched whole at the repo owner's call.
+> Gates re-run in the main checkout: `tsc` 0 errors, repo-wide `lint` exit 0,
+> `test:fast` **2380**, 8-suite DataVault sweep **158/158**, and the **full
+> integration project 96 files / 1029 passing, 0 failures**.
+> **Omission check (the failure mode the reviewer planned for):** all **29** mutating
+> endpoints are audited and `references/batch` correctly is not. A per-file count
+> looked short in `rows.routes.ts` — 2 `AuditLogger.log` calls for 3 mutations —
+> because the dev centralised into `auditRowWrite` / `auditRowDelete` helpers called
+> at three sites. That is better than inline calls: it enforces the AC6 payload bound
+> in one place (`columnIds.slice(0, 50)`, ids truncated, plus `columnCount`).
+> **The dev's endpoint count beat the reviewer's:** 29, not 28 — the ticket missed
+> the two `app.put` access routes.
+> AC2 and AC6 verified directly: each bulk op emits **one** entry carrying
+> `count: rowIds.length`, and no raw row values appear in any payload.
+> **`tenantId` added to the shared `AuditLogger`** — outside the stated footprint but
+> required by AC1, done minimally and reusing the existing empty-string→null
+> coercion. Accepted.
+> **Reviewer fix:** `dataBlocks.test.ts` started failing its `afterAll` because
+> `audit_logs.tenant_id` is `ON DELETE no action`, so an audited write pins the
+> tenant. The reviewer checked whether this was a **new** production hazard and it is
+> not — `AuditLogService` already populates `tenantId` and portability already
+> audits, so tenant deletion was already constrained on main; DV-13 merely made that
+> suite audit for the first time. Cleanup now clears tenant-scoped audit rows first,
+> mirroring `integrationTestHelper.cleanup`'s handling of user-scoped ones.
+> **The dev found a P0 and correctly refused to fix it in scope** — see **DV-14**.
 
 **Priority: P2** · Size: **L** · File: `server/routes/datavault/*` + `server/lib/writes/WriteRunner.ts`
 
@@ -2148,6 +2175,95 @@ audit it.
 
 ---
 
+
+## DV-14 — Unarchiving a row is impossible: both endpoints 404 on archived rows 🔲
+
+**Priority: P0 (bug)** · Size: S · File: `server/routes/datavault/rowArchive.routes.ts`
+
+> **Found by the DV-13 dev, 2026-08-03**, who correctly declined to fix it in scope
+> and flagged it. Confirmed and widened by the reviewer: it affects **both** the
+> single and bulk unarchive endpoints, not just bulk.
+
+### Finding
+
+`PATCH /api/datavault/rows/:rowId/unarchive` resolves the row to find its table for
+the permission check:
+
+```ts
+const rowData = await datavaultRowsService.getRow(rowId, tenantId);
+if (!rowData) {
+  return res.status(404).json({ message: ERROR_ROW_NOT_FOUND });
+}
+await datavaultTablesService.requirePermission(userId, rowData.row.tableId, tenantId, 'write');
+```
+
+But `getRow` → `getRowWithValues` deliberately hides archived rows:
+
+```ts
+const row = await this.findById(rowId, tx);
+if (!row || row.deletedAt !== null) { return null; }
+```
+
+So **an archived row always returns 404 from the unarchive endpoint** — the only
+input the endpoint exists to accept. `PATCH /api/datavault/rows/bulk/unarchive` has
+the identical defect at its `getRow(rowIds[0], tenantId)` permission lookup.
+
+Net effect: **a row can be archived and then never restored through the API.**
+Archive is a one-way door. The service and repository layers are fine —
+`unarchiveRow` / `bulkUnarchiveRows` work correctly and are covered by tests; the
+route can simply never reach them.
+
+Why the existing tests miss it: `tests/unit/routes/datavault.rowArchive.routes.test.ts`
+and DV-13's new audit tests exercise unarchive against a **non-archived** row, which
+passes trivially because `getRow` finds it. This is the "criteria satisfiable by
+doing nothing" trap sitting in pre-existing coverage.
+
+### Preferred fix
+
+The permission check needs the row's `tableId`, not its values — so resolve it with
+something that does not filter soft-deleted rows. `DatavaultRowsService`
+already has the right primitive: **`verifyRowOwnership(rowId, tenantId)`** uses
+`rowsRepo.findById` (no `deletedAt` filter), throws `"Row not found"` /
+`"Access denied"` for the tenant case, and returns the `DatavaultRow` — which
+carries `tableId`. Those error strings are exactly what `classifyRouteError` maps to
+404/403, so the handler's shape barely changes.
+
+Apply the same change to the bulk handler. Do **not** relax `getRowWithValues` —
+hiding archived rows is correct for a read, and other callers depend on it.
+
+Keep DV-13's audit call in place; it should fire on the now-reachable success path.
+
+### Ties
+
+- Surfaced by **DV-13**, which added the audit tests that made the dead path
+  obvious. DV-13 must land first (it touches the same handlers).
+- **DV-9** made archived rows invisible to counts, so a row stuck in the archive is
+  now genuinely unrecoverable *and* uncounted — which is what raises this from
+  annoyance to P0.
+- Load **`add-api-endpoint`** (the error-string contract carries the 404/403
+  mapping) and **`run-tests`**.
+- File footprint: `rowArchive.routes.ts` only, plus its tests.
+
+### Acceptance criteria
+
+1. `PATCH /api/datavault/rows/:rowId/unarchive` on an **archived** row returns
+   **200** and clears `deleted_at`.
+2. `PATCH /api/datavault/rows/bulk/unarchive` with **archived** rowIds restores all
+   of them and returns success.
+3. A restored row reappears in the default (non-archived) row listing and is counted
+   by the table-card stats — tying it back to DV-9's counters.
+4. Unarchiving a row id that does not exist still returns **404**; a row in another
+   tenant still returns **404/403** (state which and match the existing contract).
+5. DV-13's audit entry (`datavault.row.unarchived` / `datavault.row.bulk_unarchived`)
+   is still written on the success path.
+6. New/updated tests in `tests/integration/datavault.routes.test.ts` (or the archive
+   suite) assert 1–5 **against genuinely archived fixtures**. Run them before the fix
+   and confirm 1–2 fail with 404 — say so in your report. Tests that unarchive a
+   non-archived row prove nothing; that is why this shipped.
+7. `npx tsc --noEmit` 0 errors; `npm run lint` clean; `npm run test:fast` ≥ the
+   current baseline.
+
+---
 
 ## Phase 4 Gate
 
