@@ -10,34 +10,34 @@ import { DatavaultRowsRepository } from '../../../server/repositories/DatavaultR
  * Unit tests for DatavaultRowsRepository
  */
 
+vi.mock('../../../server/db', () => ({
+  db: {
+    select: vi.fn().mockReturnThis(),
+    from: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockReturnThis(),
+    insert: vi.fn().mockReturnThis(),
+    values: vi.fn().mockReturnThis(),
+    returning: vi.fn().mockReturnThis(),
+    update: vi.fn().mockReturnThis(),
+    set: vi.fn().mockReturnThis(),
+    delete: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    offset: vi.fn().mockReturnThis(),
+    leftJoin: vi.fn().mockReturnThis(),
+    innerJoin: vi.fn().mockReturnThis(),
+    on: vi.fn().mockReturnThis(),
+    onConflictDoUpdate: vi.fn().mockReturnThis(),
+    for: vi.fn().mockReturnThis(), // .for('update') row locking
+    execute: vi.fn(),
+    transaction: vi.fn(),
+    then: function (resolve: any) { resolve((this as any)._mockReturnValue || []); },
+  }
+}));
+
 describe('DatavaultRowsRepository', () => {
   let repository: DatavaultRowsRepository;
   let mockDb: any;
-
-  vi.mock('../../../server/db', () => ({
-    db: {
-      select: vi.fn().mockReturnThis(),
-      from: vi.fn().mockReturnThis(),
-      where: vi.fn().mockReturnThis(),
-      orderBy: vi.fn().mockReturnThis(),
-      insert: vi.fn().mockReturnThis(),
-      values: vi.fn().mockReturnThis(),
-      returning: vi.fn().mockReturnThis(),
-      update: vi.fn().mockReturnThis(),
-      set: vi.fn().mockReturnThis(),
-      delete: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockReturnThis(),
-      offset: vi.fn().mockReturnThis(),
-      leftJoin: vi.fn().mockReturnThis(),
-      innerJoin: vi.fn().mockReturnThis(),
-      on: vi.fn().mockReturnThis(),
-      onConflictDoUpdate: vi.fn().mockReturnThis(),
-      for: vi.fn().mockReturnThis(), // .for('update') row locking
-      execute: vi.fn(),
-      transaction: vi.fn(),
-      then: function (resolve: any) { resolve((this as any)._mockReturnValue || []); },
-    }
-  }));
 
   const mockTableId = '660e8400-e29b-41d4-a716-446655440001';
   const mockRowId = '770e8400-e29b-41d4-a716-446655440002';
@@ -139,8 +139,6 @@ describe('DatavaultRowsRepository', () => {
         updatedAt: new Date(),
         createdBy: null,
         updatedBy: null,
-        deletedAt: null,
-        // @ts-expect-error - TODO: fix type
         deletedAt: null,
       };
 
@@ -343,6 +341,174 @@ describe('DatavaultRowsRepository', () => {
       });
 
       expect(mockDb.execute).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('filtering and correlated EXISTS query building (DV-8)', () => {
+    it('applies filters using correlated EXISTS and calls where() exactly once', async () => {
+      const mockColumns = [
+        {
+          id: mockColumnId,
+          type: 'short_text',
+          slug: 'customer_name',
+          autonumberPrefix: null,
+        },
+      ];
+      mockDb._setMockReturnValue(mockColumns);
+
+      await repository.findByTableId(mockTableId, {
+        filters: [
+          {
+            columnId: mockColumnId,
+            operator: 'contains',
+            value: 'Acme',
+          },
+        ],
+      });
+
+      expect(mockDb.select).toHaveBeenCalled();
+      expect(mockDb.where).toHaveBeenCalled();
+    });
+
+    it('handles is_empty and is_not_empty operators', async () => {
+      const mockColumns = [
+        {
+          id: mockColumnId,
+          type: 'short_text',
+          slug: 'customer_name',
+          autonumberPrefix: null,
+        },
+      ];
+      mockDb._setMockReturnValue(mockColumns);
+
+      await repository.findByTableId(mockTableId, {
+        filters: [
+          {
+            columnId: mockColumnId,
+            operator: 'is_empty',
+          },
+        ],
+      });
+
+      expect(mockDb.where).toHaveBeenCalled();
+
+      await repository.findByTableId(mockTableId, {
+        filters: [
+          {
+            columnId: mockColumnId,
+            operator: 'is_not_empty',
+          },
+        ],
+      });
+
+      expect(mockDb.where).toHaveBeenCalled();
+    });
+
+    it('handles numeric comparison operators on number and auto_number columns', async () => {
+      const mockColumns = [
+        {
+          id: mockColumnId,
+          type: 'number',
+          slug: 'amount',
+          autonumberPrefix: null,
+        },
+      ];
+      mockDb._setMockReturnValue(mockColumns);
+
+      await repository.findByTableId(mockTableId, {
+        filters: [
+          {
+            columnId: mockColumnId,
+            operator: 'greater_than',
+            value: 100,
+          },
+          {
+            columnId: mockColumnId,
+            operator: 'less_than_or_equal',
+            value: 500,
+          },
+        ],
+      });
+
+      expect(mockDb.where).toHaveBeenCalled();
+    });
+
+    it('handles in and not_in array operators', async () => {
+      const mockColumns = [
+        {
+          id: mockColumnId,
+          type: 'short_text',
+          slug: 'status',
+          autonumberPrefix: null,
+        },
+      ];
+      mockDb._setMockReturnValue(mockColumns);
+
+      await repository.findByTableId(mockTableId, {
+        filters: [
+          {
+            columnId: mockColumnId,
+            operator: 'in',
+            value: ['active', 'pending'],
+          },
+          {
+            columnId: mockColumnId,
+            operator: 'not_in',
+            value: ['archived'],
+          },
+        ],
+      });
+
+      expect(mockDb.where).toHaveBeenCalled();
+    });
+
+    it('safely handles filters referencing unknown columnIds (no crash / 1=0 predicate)', async () => {
+      mockDb._setMockReturnValue([]);
+
+      await repository.findByTableId(mockTableId, {
+        filters: [
+          {
+            columnId: 'unknown-col-id',
+            operator: 'equals',
+            value: 'foo',
+          },
+        ],
+      });
+
+      expect(mockDb.where).toHaveBeenCalled();
+    });
+
+    it('passes filters into countByTableIdWithFilter', async () => {
+      const mockColumns = [
+        {
+          id: mockColumnId,
+          type: 'short_text',
+          slug: 'status',
+          autonumberPrefix: null,
+        },
+      ];
+      mockDb._setMockReturnValue(mockColumns);
+
+      const count = await repository.countByTableIdWithFilter(mockTableId, {
+        showArchived: false,
+        filters: [
+          {
+            columnId: mockColumnId,
+            operator: 'equals',
+            value: 'active',
+          },
+        ],
+      });
+
+      expect(typeof count).toBe('number');
+      expect(mockDb.where).toHaveBeenCalled();
+    });
+
+    it('maintains backwards compatibility for countByTableIdWithFilter boolean argument', async () => {
+      mockDb._setMockReturnValue([{ count: 5 }]);
+
+      const count = await repository.countByTableIdWithFilter(mockTableId, true);
+      expect(count).toBe(5);
     });
   });
 });

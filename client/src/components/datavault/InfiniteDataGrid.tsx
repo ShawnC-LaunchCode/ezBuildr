@@ -9,7 +9,7 @@ import { useEffect, useRef } from "react";
 import { datavaultAPI } from "@/lib/datavault-api";
 import { datavaultQueryKeys } from "@/lib/datavault-hooks";
 
-import type { DatavaultColumn } from "@shared/schema";
+import type { DatavaultColumn, DatavaultRowFilter } from "@shared/schema";
 
 import { DataGrid } from "./DataGrid";
 import { DataGridSkeleton } from "./DataGridSkeleton";
@@ -19,7 +19,7 @@ interface InfiniteDataGridProps {
   showArchived?: boolean;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
-  filters?: Array<{ columnId: string; operator: string; value: unknown }>;
+  filters?: DatavaultRowFilter[];
   selectedRowIds?: Set<string>;
   onSelectRow?: (rowId: string, selected: boolean) => void;
   onSelectAll?: (selected: boolean) => void;

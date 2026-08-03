@@ -27,7 +27,7 @@ interface FilterPanelProps {
 }
 
 // Operator labels for UI
-const operatorLabels: Record<FilterOperator, string> = {
+export const operatorLabels: Record<FilterOperator, string> = {
   equals: "Equals",
   not_equals: "Not Equals",
   contains: "Contains",
@@ -43,26 +43,20 @@ const operatorLabels: Record<FilterOperator, string> = {
 };
 
 // Get available operators for a column type
-const getOperatorsForType = (type: string): FilterOperator[] => {
+export const getOperatorsForType = (type: string): FilterOperator[] => {
   switch (type) {
+    case "text":
     case "short_text":
     case "long_text":
+    case "email":
+    case "phone":
+    case "url":
       return ["equals", "not_equals", "contains", "not_contains", "is_empty", "is_not_empty"];
 
     case "number":
-      return [
-        "equals",
-        "not_equals",
-        "greater_than",
-        "less_than",
-        "greater_than_or_equal",
-        "less_than_or_equal",
-        "is_empty",
-        "is_not_empty",
-      ];
-
+    case "auto_number":
+    case "autonumber":
     case "date":
-    // eslint-disable-next-line sonarjs/no-duplicated-branches, no-fallthrough
     case "datetime":
       return [
         "equals",
@@ -79,6 +73,8 @@ const getOperatorsForType = (type: string): FilterOperator[] => {
     case "yes_no":
       return ["equals", "not_equals", "is_empty", "is_not_empty"];
 
+    case "select":
+    case "multiselect":
     case "multiple_choice":
     case "radio":
     case "checkbox":
@@ -90,7 +86,7 @@ const getOperatorsForType = (type: string): FilterOperator[] => {
 };
 
 // Check if operator needs a value input
-const operatorNeedsValue = (operator: FilterOperator): boolean => {
+export const operatorNeedsValue = (operator: FilterOperator): boolean => {
   return operator !== "is_empty" && operator !== "is_not_empty";
 };
 

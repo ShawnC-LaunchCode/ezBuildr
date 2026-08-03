@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { DATAVAULT_CONFIG } from '@shared/config';
+import { datavaultRowFilterSchema, type DatavaultRowFilter } from '@shared/schema';
 
 import { logger } from '../../logger';
 import { hybridAuth, getAuthUserId } from '../../middleware/auth';
@@ -105,11 +106,36 @@ export function registerDatavaultRowRoutes(app: Express): void {
       const showArchived = req.query.showArchived === 'true';
       const sortBy = req.query.sortBy as string | undefined;
       const sortOrder = (req.query.sortOrder === 'desc' ? 'desc' : 'asc');
-      // Use new getRowsWithOptions method that supports archiving and sorting
+
+      let parsedFilters: DatavaultRowFilter[] | undefined;
+      if (req.query.filters !== undefined && req.query.filters !== '') {
+        let rawFilters: unknown = req.query.filters;
+        if (typeof rawFilters === 'string') {
+          try {
+            rawFilters = JSON.parse(rawFilters) as unknown;
+          } catch {
+            return res.status(400).json({ message: ERROR_INVALID_INPUT, error: 'Invalid filters JSON' });
+          }
+        }
+        const filtersValidation = z
+          .array(datavaultRowFilterSchema)
+          .max(DATAVAULT_CONFIG.MAX_FILTERS)
+          .safeParse(rawFilters);
+
+        if (!filtersValidation.success) {
+          return res.status(400).json({
+            message: ERROR_INVALID_INPUT,
+            errors: filtersValidation.error.errors,
+          });
+        }
+        parsedFilters = filtersValidation.data;
+      }
+
+      // Use new getRowsWithOptions method that supports archiving, sorting, and filtering
       const result = await datavaultRowsService.getRowsWithOptions(
         tenantId,
         tableId,
-        { limit, offset, showArchived, sortBy, sortOrder }
+        { limit, offset, showArchived, sortBy, sortOrder, filters: parsedFilters }
       );
       const hasMore = offset + result.rows.length < result.total;
       res.json({

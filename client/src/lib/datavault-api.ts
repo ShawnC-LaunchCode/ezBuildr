@@ -13,6 +13,7 @@ import type {
   DatavaultTableRole,
   DatavaultDatabaseAccess,
   DatavaultTableAccess,
+  DatavaultRowFilter,
 } from "@shared/schema";
 
 import { apiRequest } from "./queryClient";
@@ -328,7 +329,7 @@ export const datavaultAPI = {
       showArchived?: boolean;
       sortBy?: string;
       sortOrder?: 'asc' | 'desc';
-      filters?: Array<{ columnId: string; operator: string; value: unknown }>; // Filter values are dynamic
+      filters?: DatavaultRowFilter[];
     }
   ): Promise<{
     rows: ApiDatavaultRowWithValues[];

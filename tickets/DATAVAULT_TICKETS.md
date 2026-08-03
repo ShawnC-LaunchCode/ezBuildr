@@ -1375,7 +1375,40 @@ log payload and keep the ids.
 The DataVault grid is the primary human surface. It currently shows filters that do
 nothing and counts that include deleted rows.
 
-## DV-8 — The server ignores the `filters` query param, so the filter panel does nothing 🔄
+## DV-8 — The server ignores the `filters` query param, so the filter panel does nothing ✅
+
+> **Verification pass — 2026-08-03 (reviewer).** PASS, all 11 criteria met, over two
+> rounds: the code passed first review, then the ticket was **sent back for AC11**
+> (live proof), which the dev supplied.
+> Gates re-run in the main checkout: `tsc` 0 errors, repo-wide `lint` exit 0,
+> `test:fast` **2372**, and an **8-suite DataVault integration sweep 141/141**.
+> Reverting the repository fails **6** filter tests.
+> **AC4 is true by construction, which is the best thing about this fix.** A single
+> `buildWhereConditions` feeds one `.where(and(...))` in *all three* paths — both row
+> branches **and** `countByTableIdWithFilter` — so `pagination.total` cannot drift
+> from the rows. The reviewer flagged the DV-2 double-`.where()` trap at dispatch;
+> the dev avoided it structurally rather than by remembering.
+> **AC8 asserted the strong way:** the test iterates every column type's operators
+> and checks each against `DATAVAULT_FILTER_OPERATORS` *and* parses it through the
+> server's own `datavaultRowFilterSchema`, so the two lists cannot drift.
+> **AC2** casts `::numeric` / `::date` / `::timestamptz`, and DV-6's prefixed
+> auto-number text sort survived untouched.
+> **Second-round scope was necessary, not creep.** Four client files were added after
+> the first review (`datavault-api`, `datavault-hooks`, `InfiniteDataGrid`,
+> `[tableId].tsx`). The substantive one: the header row-count comes from
+> `useDatavaultRows`, whose call sat *above* the filter-store read, so the stat card
+> would have reported unfiltered totals even with the server fixed. Moving the read
+> up and wrapping `apiFilters` in `useMemo` (preserving the original "avoid new array
+> references" intent) is what makes the proof's `3 rows → 2 rows` header correct.
+> The other three replace an inline filter shape with the shared `DatavaultRowFilter`
+> type — one source of truth.
+> **Live proof accepted:** screenshots showing 3 rows → 2 rows, the request carrying
+> a decoded `filters=[{columnId, operator:"contains", value:"Acme"}]` returning 200
+> with 2 rows, and fixtures cleaned to zero.
+> **Noticed in the dev's own screenshot, fixed separately:** an
+> `// eslint-disable-next-line` sitting in JSX *children* position in
+> `[tableId].tsx` renders as literal text on the page above the table header — and
+> suppresses nothing. Pre-existing, not DV-8's doing; fixed in its own commit.
 
 **Priority: P1** · Size: M · File: `server/routes/datavault/rows.routes.ts`, `server/repositories/DatavaultRowsRepository.ts`, `client/src/components/datavault/FilterPanel.tsx`
 

@@ -1,4 +1,5 @@
-import { eq, and, desc, sql, inArray, asc, isNull, ne, or } from "drizzle-orm";
+import { eq, and, or, ne, desc, sql, inArray, asc, isNull, exists, not, type SQL, type SQLWrapper } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import {
   datavaultRows,
@@ -9,6 +10,7 @@ import {
   type DatavaultRow,
   type InsertDatavaultRow,
   type DatavaultValue,
+  type DatavaultRowFilter,
 } from "@shared/schema";
 
 import { db } from "../db";
@@ -22,7 +24,148 @@ type AutoNumberSequenceOptions = {
   padding?: number;
 };
 
+export type DatavaultRowsFindOptions = {
+  limit?: number;
+  offset?: number;
+  showArchived?: boolean;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  filters?: DatavaultRowFilter[];
+};
+
 const logger = createLogger({ module: "datavault-rows-repository" });
+
+function scalarText(valueColumn: SQLWrapper): SQL {
+  return sql`${valueColumn} #>> '{}'`;
+}
+
+function nonEmptyValue(valueColumn: SQLWrapper): SQL {
+  return sql`${valueColumn} IS NOT NULL AND ${valueColumn} != 'null'::jsonb AND ${valueColumn} != '""'::jsonb`;
+}
+
+function buildStringCondition(
+  valueColumn: SQLWrapper,
+  operator: 'contains' | 'not_contains' | 'starts_with' | 'ends_with',
+  value: unknown
+): SQL | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  const stringValue = String(value);
+  const pattern = (operator === 'contains' || operator === 'not_contains')
+    ? `%${stringValue}%`
+    : operator === 'starts_with'
+      ? `${stringValue}%`
+      : `%${stringValue}`;
+  return operator === 'not_contains'
+    ? sql`${scalarText(valueColumn)} NOT LIKE ${pattern}`
+    : sql`${scalarText(valueColumn)} LIKE ${pattern}`;
+}
+
+function buildComparisonCondition(
+  valueColumn: SQLWrapper,
+  columnType: string | undefined,
+  operator: 'greater_than' | 'less_than' | 'greater_than_or_equal' | 'less_than_or_equal',
+  value: unknown
+): SQL | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  const textValue = scalarText(valueColumn);
+  const opSql = operator === 'greater_than'
+    ? sql`>`
+    : operator === 'less_than'
+      ? sql`<`
+      : operator === 'greater_than_or_equal'
+        ? sql`>=`
+        : sql`<=`;
+
+  if (columnType === 'number' || columnType === 'auto_number' || columnType === 'autonumber') {
+    return sql`(${textValue})::numeric ${opSql} ${value}`;
+  }
+  if (columnType === 'date') {
+    return sql`(${textValue})::date ${opSql} ${value}`;
+  }
+  if (columnType === 'datetime') {
+    return sql`(${textValue})::timestamptz ${opSql} ${value}`;
+  }
+  return sql`${textValue} ${opSql} ${String(value)}`;
+}
+
+function buildInCondition(
+  valueColumn: SQLWrapper,
+  operator: 'in' | 'not_in',
+  value: unknown
+): SQL | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const comparisons = value
+    .filter(item => item !== undefined)
+    .map(item => sql`${valueColumn} = ${JSON.stringify(item)}::jsonb`);
+  if (comparisons.length === 0) {
+    return undefined;
+  }
+  const joinedComparisons = sql.join(comparisons, sql` OR `);
+  return operator === 'not_in'
+    ? sql`NOT (${joinedComparisons})`
+    : sql`(${joinedComparisons})`;
+}
+
+function buildValueCondition(
+  valueColumn: SQLWrapper,
+  columnType: string | undefined,
+  filter: DatavaultRowFilter
+): SQL | undefined {
+  switch (filter.operator) {
+    case 'equals':
+      return filter.value === undefined
+        ? undefined
+        : sql`${valueColumn} = ${JSON.stringify(filter.value)}::jsonb`;
+    case 'not_equals':
+      return filter.value === undefined
+        ? undefined
+        : sql`${valueColumn} != ${JSON.stringify(filter.value)}::jsonb`;
+    case 'contains':
+    case 'not_contains':
+    case 'starts_with':
+    case 'ends_with':
+      return buildStringCondition(valueColumn, filter.operator, filter.value);
+    case 'greater_than':
+    case 'less_than':
+    case 'greater_than_or_equal':
+    case 'less_than_or_equal':
+      return buildComparisonCondition(valueColumn, columnType, filter.operator, filter.value);
+    case 'in':
+    case 'not_in':
+      return buildInCondition(valueColumn, filter.operator, filter.value);
+    default:
+      return undefined;
+  }
+}
+
+function sortExpression(
+  valueColumn: SQLWrapper,
+  column: { type: string; autonumberPrefix?: string | null }
+): SQL {
+  const textValue = scalarText(valueColumn);
+  switch (column.type) {
+    case 'number':
+      return sql`(${textValue})::numeric`;
+    case 'auto_number':
+    case 'autonumber':
+      return column.autonumberPrefix ? textValue : sql`(${textValue})::numeric`;
+    case 'boolean':
+      return sql`(${textValue})::boolean`;
+    case 'date':
+      return sql`(${textValue})::date`;
+    case 'datetime':
+      return sql`(${textValue})::timestamptz`;
+    default:
+      return textValue;
+  }
+}
+
 /**
  * Repository for DataVault row data access
  * Handles CRUD operations for table rows and their associated values
@@ -35,35 +178,118 @@ export class DatavaultRowsRepository extends BaseRepository<
   constructor(dbInstance?: typeof db) {
     super(datavaultRows, dbInstance);
   }
+
+  private async buildWhereConditions(
+    database: typeof db | DbTransaction,
+    tableId: string,
+    options?: {
+      showArchived?: boolean;
+      filters?: DatavaultRowFilter[];
+    }
+  ): Promise<SQL[]> {
+    const whereConditions: SQL[] = [eq(datavaultRows.tableId, tableId)];
+
+    if (!options?.showArchived) {
+      whereConditions.push(isNull(datavaultRows.deletedAt));
+    }
+
+    if (options?.filters && options.filters.length > 0) {
+      const columns = await database
+        .select({
+          id: datavaultColumns.id,
+          type: datavaultColumns.type,
+          slug: datavaultColumns.slug,
+          autonumberPrefix: datavaultColumns.autonumberPrefix,
+        })
+        .from(datavaultColumns)
+        .where(eq(datavaultColumns.tableId, tableId));
+
+      const columnsById = new Map(columns.map((c) => [c.id, c]));
+
+      for (let i = 0; i < options.filters.length; i++) {
+        const filter = options.filters[i];
+        if (!filter?.columnId) {
+          continue;
+        }
+
+        const column = columnsById.get(filter.columnId);
+        if (!column) {
+          logger.warn({ tableId, columnId: filter.columnId }, "Filter column does not belong to table");
+          whereConditions.push(sql`1 = 0`);
+          continue;
+        }
+
+        const valueAlias = alias(datavaultValues, `dv_filter_${i}`);
+        const correlation = and(
+          eq(valueAlias.rowId, datavaultRows.id),
+          eq(valueAlias.columnId, filter.columnId)
+        );
+
+        if (filter.operator === "is_empty") {
+          whereConditions.push(
+            not(
+              exists(
+                database
+                  .select({ one: sql`1` })
+                  .from(valueAlias)
+                  .where(and(correlation, nonEmptyValue(valueAlias.value)))
+              )
+            )
+          );
+          continue;
+        }
+
+        if (filter.operator === "is_not_empty") {
+          whereConditions.push(
+            exists(
+              database
+                .select({ one: sql`1` })
+                .from(valueAlias)
+                .where(and(correlation, nonEmptyValue(valueAlias.value)))
+            )
+          );
+          continue;
+        }
+
+        const valueCondition = buildValueCondition(valueAlias.value, column.type, filter);
+        if (valueCondition) {
+          whereConditions.push(
+            exists(
+              database
+                .select({ one: sql`1` })
+                .from(valueAlias)
+                .where(and(correlation, valueCondition))
+            )
+          );
+        }
+      }
+    }
+
+    return whereConditions;
+  }
+
   /**
    * Find rows by table ID with pagination, filtering, sorting, and archive support
    * Supports sorting by row fields (createdAt, updatedAt) or column values (by slug)
    */
-
   async findByTableId(
     tableId: string,
-    options?: {
-      limit?: number;
-      offset?: number;
-      showArchived?: boolean;
-      sortBy?: string;
-      sortOrder?: 'asc' | 'desc';
-    },
+    options?: DatavaultRowsFindOptions,
     tx?: DbTransaction
   ): Promise<DatavaultRow[]> {
     const database = this.getDb(tx);
-    // Build base where clause
-    const whereConditions = [eq(datavaultRows.tableId, tableId)];
-    // Filter archived rows unless explicitly requested
-    if (!options?.showArchived) {
-      whereConditions.push(isNull(datavaultRows.deletedAt));
-    }
+    const whereConditions = await this.buildWhereConditions(database, tableId, options);
     const sortDir = options?.sortOrder === 'desc' ? desc : asc;
+
     // Check if sorting by a column value (not a row field)
     if (options?.sortBy && options.sortBy !== 'createdAt' && options.sortBy !== 'updatedAt') {
-      // Look up the column by slug to get its ID
+      // Look up the column by slug to get its ID and type
       const [column] = await database
-        .select({ id: datavaultColumns.id })
+        .select({
+          id: datavaultColumns.id,
+          type: datavaultColumns.type,
+          autonumberPrefix: datavaultColumns.autonumberPrefix,
+        })
         .from(datavaultColumns)
         .where(
           and(
@@ -72,11 +298,13 @@ export class DatavaultRowsRepository extends BaseRepository<
           )
         )
         .limit(1);
+
       if (column !== undefined) {
         // Sort by column value using a subquery join
         // Use left join so rows without values for this column still appear
         const limit = options?.limit ?? 100;
         const offset = options?.offset ?? 0;
+        const sortValue = alias(datavaultValues, 'dv_sort_value');
         const rows = await database
           .select({
             id: datavaultRows.id,
@@ -89,20 +317,21 @@ export class DatavaultRowsRepository extends BaseRepository<
           })
           .from(datavaultRows)
           .leftJoin(
-            datavaultValues,
+            sortValue,
             and(
-              eq(datavaultValues.rowId, datavaultRows.id),
-              eq(datavaultValues.columnId, column.id)
+              eq(sortValue.rowId, datavaultRows.id),
+              eq(sortValue.columnId, column.id)
             )
           )
           .where(and(...whereConditions))
-          .orderBy(sortDir(datavaultValues.value))
+          .orderBy(sortDir(sortExpression(sortValue.value, column)))
           .limit(limit)
           .offset(offset);
         return rows as DatavaultRow[];
       }
       // If column not found, fall through to default sorting
     }
+
     // Sorting by row fields (createdAt, updatedAt) or default
     const baseQuery = database
       .select()
@@ -170,14 +399,7 @@ export class DatavaultRowsRepository extends BaseRepository<
    */
   async getRowsWithValues(
     tableId: string,
-    options?: {
-      limit?: number;
-      offset?: number;
-      page?: number;
-      showArchived?: boolean;
-      sortBy?: string;
-      sortOrder?: 'asc' | 'desc';
-    },
+    options?: DatavaultRowsFindOptions & { page?: number },
     tx?: DbTransaction
   ): Promise<Array<{
     row: DatavaultRow;
@@ -628,18 +850,19 @@ export class DatavaultRowsRepository extends BaseRepository<
       .where(inArray(datavaultRows.id, rowIds));
   }
   /**
-   * Count rows with filter support (active/archived)
+   * Count rows with filter support (active/archived, and column value filters)
    */
   async countByTableIdWithFilter(
     tableId: string,
-    showArchived: boolean = false,
+    options: boolean | {
+      showArchived?: boolean;
+      filters?: DatavaultRowFilter[];
+    } = false,
     tx?: DbTransaction
   ): Promise<number> {
     const database = this.getDb(tx);
-    const whereConditions = [eq(datavaultRows.tableId, tableId)];
-    if (!showArchived) {
-      whereConditions.push(isNull(datavaultRows.deletedAt));
-    }
+    const filterOptions = typeof options === 'boolean' ? { showArchived: options } : options;
+    const whereConditions = await this.buildWhereConditions(database, tableId, filterOptions);
     const [result] = await database
       .select({ count: sql<number>`count(*)::int` })
       .from(datavaultRows)

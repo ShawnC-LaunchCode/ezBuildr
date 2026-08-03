@@ -48,6 +48,9 @@ export const DATAVAULT_CONFIG = {
   /** Maximum number of requests in a single batch API call (DoS protection) */
   MAX_BATCH_REQUESTS: 100,
 
+  /** Maximum number of filters allowed in a query (DoS protection) */
+  MAX_FILTERS: 20,
+
   /** Maximum number of concurrent API requests */
   MAX_CONCURRENT_REQUESTS: 10,
 

@@ -1,5 +1,5 @@
 
-import type { DatavaultRow, DatavaultColumn } from "@shared/schema";
+import type { DatavaultRow, DatavaultColumn, DatavaultRowFilter } from "@shared/schema";
 
 /** Typed union of all possible coerced cell values stored in DataVault */
 type CoercedValue = string | number | boolean | string[] | object | null;
@@ -686,6 +686,7 @@ export class DatavaultRowsService {
       showArchived?: boolean;
       sortBy?: string;
       sortOrder?: 'asc' | 'desc';
+      filters?: DatavaultRowFilter[];
     } = {},
     tx?: DbTransaction
 
@@ -702,7 +703,10 @@ export class DatavaultRowsService {
     // Get total count
     const total = await this.rowsRepo.countByTableIdWithFilter(
       tableId,
-      options.showArchived ?? false,
+      {
+        showArchived: options.showArchived ?? false,
+        filters: options.filters,
+      },
       tx
     );
 

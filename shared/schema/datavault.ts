@@ -331,3 +331,32 @@ export type CollectionField = InferSelectModel<typeof collectionFields>;
 export type CollectionRecord = InferSelectModel<typeof records>;
 export type InsertCollectionRecord = typeof insertRecordSchema._type;
 export type InsertRecord = InsertCollectionRecord;
+
+// ===================================================================
+// ROW FILTERING
+// ===================================================================
+export const datavaultFilterOperatorEnum = z.enum([
+  'equals',
+  'not_equals',
+  'contains',
+  'not_contains',
+  'starts_with',
+  'ends_with',
+  'greater_than',
+  'less_than',
+  'greater_than_or_equal',
+  'less_than_or_equal',
+  'is_empty',
+  'is_not_empty',
+  'in',
+  'not_in',
+]);
+export const DATAVAULT_FILTER_OPERATORS = datavaultFilterOperatorEnum.options;
+export type DatavaultFilterOperator = z.infer<typeof datavaultFilterOperatorEnum>;
+
+export const datavaultRowFilterSchema = z.object({
+  columnId: z.string().uuid(),
+  operator: datavaultFilterOperatorEnum,
+  value: z.unknown().optional(),
+});
+export type DatavaultRowFilter = z.infer<typeof datavaultRowFilterSchema>;

@@ -491,3 +491,304 @@ describe('DataVault unique row constraints', () => {
     ).resolves.toBe(false);
   });
 });
+
+describe('DataVault row filtering and pagination (DV-8)', () => {
+  let ctx: IntegrationTestContext;
+  let ownerToken: string;
+  let tableId: string;
+  let nameColId: string;
+  let amountColId: string;
+  let statusColId: string;
+  let isActiveColId: string;
+
+  beforeAll(async () => {
+    ctx = await setupIntegrationTest({ tenantName: 'DV-8 Row Filtering' });
+    const owner = await createTestUser(ctx, 'owner');
+    ownerToken = owner.token;
+
+    const tableResponse = await request(ctx.baseURL)
+      .post('/api/datavault/tables')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'Filter Test Table' });
+    expect(tableResponse.status).toBe(201);
+    tableId = tableResponse.body.id as string;
+
+    const nameColRes = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/columns`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'Name', type: 'text' });
+    expect(nameColRes.status).toBe(201);
+    nameColId = nameColRes.body.id as string;
+
+    const amountColRes = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/columns`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'Amount', type: 'number' });
+    expect(amountColRes.status).toBe(201);
+    amountColId = amountColRes.body.id as string;
+
+    const statusColRes = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/columns`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'Status', type: 'text' });
+    expect(statusColRes.status).toBe(201);
+    statusColId = statusColRes.body.id as string;
+
+    const isActiveColRes = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/columns`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'Active', type: 'boolean' });
+    expect(isActiveColRes.status).toBe(201);
+    isActiveColId = isActiveColRes.body.id as string;
+
+    // Seed rows
+    // Row 1: Alice Alpha, 150, active, true
+    await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        values: {
+          [nameColId]: 'Alice Alpha',
+          [amountColId]: 150,
+          [statusColId]: 'active',
+          [isActiveColId]: true,
+        },
+      });
+
+    // Row 2: Bob Beta, 350, pending, false
+    await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        values: {
+          [nameColId]: 'Bob Beta',
+          [amountColId]: 350,
+          [statusColId]: 'pending',
+          [isActiveColId]: false,
+        },
+      });
+
+    // Row 3: Charlie Gamma, 50, archived, true
+    await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        values: {
+          [nameColId]: 'Charlie Gamma',
+          [amountColId]: 50,
+          [statusColId]: 'archived',
+          [isActiveColId]: true,
+        },
+      });
+
+    // Row 4: David Delta, 800, active, true
+    await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        values: {
+          [nameColId]: 'David Delta',
+          [amountColId]: 800,
+          [statusColId]: 'active',
+          [isActiveColId]: true,
+        },
+      });
+
+    // Row 5: empty/null row
+    await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        values: {},
+      });
+  });
+
+  afterAll(async () => {
+    await ctx.cleanup();
+  });
+
+  it('filters rows by text contains operator', async () => {
+    const filters = [
+      {
+        columnId: nameColId,
+        operator: 'contains',
+        value: 'Alpha',
+      },
+    ];
+
+    const res = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${tableId}/rows`)
+      .query({ filters: JSON.stringify(filters) })
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.rows).toHaveLength(1);
+    expect(res.body.rows[0].values[nameColId]).toBe('Alice Alpha');
+    expect(res.body.pagination.total).toBe(1);
+  });
+
+  it('filters rows by numeric comparison operators (greater_than, less_than_or_equal)', async () => {
+    // greater_than 100 -> Alice (150), Bob (350), David (800)
+    const gtFilters = [
+      {
+        columnId: amountColId,
+        operator: 'greater_than',
+        value: 100,
+      },
+    ];
+
+    const gtRes = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${tableId}/rows`)
+      .query({ filters: JSON.stringify(gtFilters) })
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(gtRes.status).toBe(200);
+    expect(gtRes.body.rows).toHaveLength(3);
+    expect(gtRes.body.pagination.total).toBe(3);
+
+    // less_than_or_equal 150 -> Charlie (50), Alice (150)
+    const lteFilters = [
+      {
+        columnId: amountColId,
+        operator: 'less_than_or_equal',
+        value: 150,
+      },
+    ];
+
+    const lteRes = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${tableId}/rows`)
+      .query({ filters: JSON.stringify(lteFilters) })
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(lteRes.status).toBe(200);
+    expect(lteRes.body.rows).toHaveLength(2);
+    expect(lteRes.body.pagination.total).toBe(2);
+  });
+
+  it('filters rows by is_empty and is_not_empty operators', async () => {
+    const emptyRes = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${tableId}/rows`)
+      .query({
+        filters: JSON.stringify([
+          {
+            columnId: nameColId,
+            operator: 'is_empty',
+          },
+        ]),
+      })
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(emptyRes.status).toBe(200);
+    expect(emptyRes.body.rows).toHaveLength(1);
+    expect(emptyRes.body.pagination.total).toBe(1);
+
+    const notEmptyRes = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${tableId}/rows`)
+      .query({
+        filters: JSON.stringify([
+          {
+            columnId: nameColId,
+            operator: 'is_not_empty',
+          },
+        ]),
+      })
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(notEmptyRes.status).toBe(200);
+    expect(notEmptyRes.body.rows).toHaveLength(4);
+    expect(notEmptyRes.body.pagination.total).toBe(4);
+  });
+
+  it('filters rows by in array operator', async () => {
+    const inRes = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${tableId}/rows`)
+      .query({
+        filters: JSON.stringify([
+          {
+            columnId: statusColId,
+            operator: 'in',
+            value: ['active', 'pending'],
+          },
+        ]),
+      })
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(inRes.status).toBe(200);
+    expect(inRes.body.rows).toHaveLength(3);
+    expect(inRes.body.pagination.total).toBe(3);
+  });
+
+  it('combines multiple filters with AND logic across multiple columns', async () => {
+    // amount > 100 AND status == 'active' -> Alice (150), David (800)
+    const combinedFilters = [
+      {
+        columnId: amountColId,
+        operator: 'greater_than',
+        value: 100,
+      },
+      {
+        columnId: statusColId,
+        operator: 'equals',
+        value: 'active',
+      },
+    ];
+
+    const res = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${tableId}/rows`)
+      .query({ filters: JSON.stringify(combinedFilters) })
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.rows).toHaveLength(2);
+    expect(res.body.pagination.total).toBe(2);
+  });
+
+  it('paginates filtered results with limit and offset correctly', async () => {
+    // status == 'active' matches 2 rows. limit 1 offset 0 -> 1 row, total 2, hasMore true
+    const res = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${tableId}/rows`)
+      .query({
+        filters: JSON.stringify([
+          {
+            columnId: statusColId,
+            operator: 'equals',
+            value: 'active',
+          },
+        ]),
+        limit: 1,
+        offset: 0,
+      })
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.rows).toHaveLength(1);
+    expect(res.body.pagination.limit).toBe(1);
+    expect(res.body.pagination.offset).toBe(0);
+    expect(res.body.pagination.total).toBe(2);
+    expect(res.body.pagination.hasMore).toBe(true);
+  });
+
+  it('returns 400 Bad Request for invalid filters JSON or schema validation failure', async () => {
+    const invalidJsonRes = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${tableId}/rows`)
+      .query({ filters: '{invalid-json' })
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(invalidJsonRes.status).toBe(400);
+
+    const invalidOperatorRes = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${tableId}/rows`)
+      .query({
+        filters: JSON.stringify([
+          {
+            columnId: nameColId,
+            operator: 'invalid_op_xyz',
+            value: 'foo',
+          },
+        ]),
+      })
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(invalidOperatorRes.status).toBe(400);
+  });
+});

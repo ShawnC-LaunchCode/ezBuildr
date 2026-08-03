@@ -6,7 +6,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, ArrowLeft, Plus, Database, FolderInput, Database as DatabaseIcon, Share2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link, useParams } from "wouter";
 
 import { Breadcrumbs } from "@/components/common/Breadcrumbs";
@@ -60,9 +60,21 @@ export default function TableViewPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Filters from Zustand store
+  const filters = useDatavaultFilterStore((state) => state.filtersByTable[tableId ?? ""] ?? EMPTY_FILTERS);
+  const apiFilters = useMemo(() => filters.map((f) => ({
+    columnId: f.columnId,
+    operator: f.operator,
+    value: f.value,
+  })), [filters]);
+
   const { data: table, isLoading: tableLoading } = useDatavaultTable(tableId);
   const { data: columns, isLoading: columnsLoading } = useDatavaultColumns(tableId);
-  const { data: rowsData, isLoading: _rowsLoading } = useDatavaultRows(tableId, { limit: 25, offset: 0 });
+  const { data: rowsData, isLoading: _rowsLoading } = useDatavaultRows(tableId, {
+    limit: 25,
+    offset: 0,
+    filters: apiFilters.length > 0 ? apiFilters : undefined,
+  });
   const { data: databases } = useDatavaultDatabases();
 
   const createColumnMutation = useCreateDatavaultColumn();
@@ -173,13 +185,7 @@ export default function TableViewPage() {
   const [sortBy, setSortBy] = useState<string | undefined>(undefined);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | undefined>(undefined);
 
-  // Filters from Zustand store - use direct access to avoid creating new array references
-  const filters = useDatavaultFilterStore((state) => state.filtersByTable[tableId ?? ""] ?? EMPTY_FILTERS);
-  const apiFilters = filters.map((f) => ({
-    columnId: f.columnId,
-    operator: f.operator,
-    value: f.value,
-  }));
+
 
   // Column handlers
   const handleAddColumn = async (data: {

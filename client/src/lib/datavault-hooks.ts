@@ -5,7 +5,7 @@
 
 import { useQuery, useMutation, useQueryClient, type UseQueryResult, type UseMutationResult } from "@tanstack/react-query";
 
-import type { DatavaultTable, DatavaultColumn, DatavaultTablePermission } from "@shared/schema";
+import type { DatavaultTable, DatavaultColumn, DatavaultTablePermission, DatavaultRowFilter } from "@shared/schema";
 
 import {
   datavaultAPI,
@@ -437,7 +437,7 @@ export function useReorderDatavaultColumns(): UseMutationResult<void, unknown, R
 
 export function useDatavaultRows(
   tableId: string | undefined,
-  options?: { limit?: number; offset?: number }
+  options?: { limit?: number; offset?: number; filters?: DatavaultRowFilter[] }
 ): UseQueryResult<{ rows: ApiDatavaultRowWithValues[]; pagination: { limit: number; offset: number; total: number; hasMore: boolean } }> {
   const isUuid = !!tableId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tableId);
   return useQuery({
