@@ -1,6 +1,6 @@
 # Tenant Isolation via Postgres Row-Level Security (RLS)
 
-Status: **Phase 1–2 landed; Phase 4 done for workflows/sections/steps (all defined, not yet enforced).** Tracking ticket: SEC-051.
+Status: **Phase 1–2 landed; Phase 4 done for workflows/sections/steps and for the six DataVault tables listed below (all defined, not yet enforced).** Tracking ticket: SEC-051.
 
 This document is the source of truth for how ezBuildr isolates one tenant's data
 from another at the database layer, why it is rolled out in stages, and the exact
@@ -137,11 +137,40 @@ which proves cross-tenant isolation, org-owned resolution, fail-closed, and
 WITH CHECK — under a non-owner role via `SET LOCAL ROLE` (owner/superuser bypass
 means isolation can't be observed otherwise, per §6).
 
+**Done for the six DataVault tables that had no policy at all** (DVH-3) —
+[`migrations/0011_datavault_rls_phase4.sql`](../../migrations/0011_datavault_rls_phase4.sql).
+`0001_enable_rls.sql` covered five DataVault tables with a direct `tenant_id`
+(`datavault_api_tokens`, `datavault_databases`, `datavault_number_sequences`,
+`datavault_row_notes`, `datavault_tables`) but left the two tables holding
+actual customer data — `datavault_rows` and `datavault_values` — uncovered,
+along with `datavault_columns`, `datavault_table_permissions`,
+`datavault_database_access` and `datavault_table_access`. None of these six has
+a `tenant_id` column, and they are not all the same derivation — three shapes:
+
+- `datavault_rows`, `datavault_columns`, `datavault_table_permissions`,
+  `datavault_table_access` — one hop via `table_id → datavault_tables.tenant_id`.
+- `datavault_database_access` — one hop via `database_id → datavault_databases.tenant_id`.
+- `datavault_values` — two hops via `row_id → datavault_rows.table_id → datavault_tables.tenant_id`
+  (it has no `table_id` of its own).
+
+0011 adds three `STABLE` SQL helpers (`app_datavault_table_tenant`,
+`app_datavault_database_tenant`, `app_datavault_row_tenant`) mirroring
+`app_owner_tenant`'s un-pinned `search_path`, and wraps each policy in the same
+`CASE WHEN app_current_tenant() IS NULL THEN false ELSE … END` guard so an
+empty/unset GUC denies without evaluating the derivation. Verified by
+[`tests/integration/rls-datavault.test.ts`](../../tests/integration/rls-datavault.test.ts)
+under a non-owner role, covering cross-tenant isolation on all six tables,
+fail-closed on both an unset and an explicitly-empty GUC, and `WITH CHECK` on
+`datavault_rows`. This ticket does not change enforcement — DataVault tenancy
+is still service-layer only in practice; it makes the enforcement flip
+(Phase 3 / DEBT-11) safe to say yes to without silently leaving the two tables
+that hold the actual rows/cells unprotected.
+
 Still outstanding for the remaining indirectly-scoped tables (`workflow_runs`,
-`step_values`, `datavault_rows`, `secrets`, …). These are higher-risk
-(performance + correctness) and deferred to their own migration; they can reuse
-`app_current_tenant()` and the same `EXISTS (… workflows … app_owner_tenant …)`
-pattern where they hang off a workflow.
+`step_values`, `secrets`, …). These are higher-risk (performance + correctness)
+and deferred to their own migration; they can reuse `app_current_tenant()` and
+the same `EXISTS (… workflows … app_owner_tenant …)` pattern where they hang
+off a workflow.
 
 ---
 
@@ -187,8 +216,10 @@ If the second `SELECT` returns only tenant A's row, enforcement works.
 | File | Role |
 |---|---|
 | [`migrations/0001_enable_rls.sql`](../../migrations/0001_enable_rls.sql) | Enables RLS + policies on direct-`tenant_id` tables (Phase 1) |
-| [`migrations/0005_rls_phase4_workflows_sections_steps.sql`](../../migrations/0005_rls_phase4_workflows_sections_steps.sql) | Phase 4 join/ownership policies for workflows/sections/steps + `app_current_tenant()` / `app_owner_tenant()` helpers |
+| [`migrations/0005_rls_phase4_workflows_sections_steps.sql`](../../migrations/0005_rls_phase4_workflows_sections_steps.sql) | Phase 4 join/ownership policies for workflows/sections/steps + `app_current_tenant()` / `app_owner_tenant()` helpers (now consolidated into `0001_enable_rls.sql` — this filename no longer exists on disk as a separate file post-regeneration; see `tests/integration/rls-phase4-workflows.test.ts` for the current source of truth) |
 | [`tests/integration/rls-phase4-workflows.test.ts`](../../tests/integration/rls-phase4-workflows.test.ts) | Proves Phase 4 cross-tenant isolation, fail-closed, and WITH CHECK |
+| [`migrations/0011_datavault_rls_phase4.sql`](../../migrations/0011_datavault_rls_phase4.sql) | DVH-3: policies + derivation helpers for `datavault_rows`/`datavault_values`/`datavault_columns`/`datavault_table_permissions`/`datavault_database_access`/`datavault_table_access` |
+| [`tests/integration/rls-datavault.test.ts`](../../tests/integration/rls-datavault.test.ts) | Proves DVH-3 cross-tenant isolation and fail-closed (unset + empty GUC) under a non-owner role |
 | [`server/utils/rlsContext.ts`](../../server/utils/rlsContext.ts) | Transaction-scoped tenant GUC + `withTenant` |
 | [`server/middleware/rlsContext.ts`](../../server/middleware/rlsContext.ts) | Binds `req.tenantId` into async context |
 | [`server/repositories/tenantWrapper.ts`](../../server/repositories/tenantWrapper.ts) | App-layer `withTenant` predicate helper (defense in depth) |

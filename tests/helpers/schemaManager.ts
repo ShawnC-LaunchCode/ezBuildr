@@ -42,8 +42,12 @@ export class SchemaManager {
     // `steps.repeater_config` column — a stale _v13 schema still has both.
     // Bumped to _v15 for 0010_yellow_pandemic (DV-10), which removes the
     // retired declarative DataVault mapping table.
+    // Bumped to _v16 for 0011_datavault_rls_phase4 (DVH-3), which adds RLS
+    // policies + helper functions for datavault_rows/values/columns/
+    // table_permissions/database_access/table_access — a stale _v15 schema
+    // lacks them and the new RLS tests would silently see no policies.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v15`;
+        return `test_schema_w${this.workerId}_v16`;
     }
 
     /**

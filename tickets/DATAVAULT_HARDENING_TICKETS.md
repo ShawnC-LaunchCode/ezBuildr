@@ -361,9 +361,36 @@ violation from the backfill insert.
 
 ---
 
-## DVH-3 — `datavault_rows` and `datavault_values` have no RLS policy, not even staged 🔄
+## DVH-3 — `datavault_rows` and `datavault_values` have no RLS policy, not even staged ✅
 
 **Priority: P1** · Size: M · File: new migration + `docs/architecture/TENANT_ISOLATION_RLS.md`
+
+> **✅ Verified at review 2026-08-03.** Reviewer re-ran every gate independently in
+> the `dvh-3` worktree rather than trusting the dev report: `tsc --noEmit` exit 0,
+> `npm run lint` clean, `test:fast` **2381 passed** / 14 skipped, and the 8-suite
+> DataVault sweep plus all three RLS suites **11 files / 184 tests passed**. Applied
+> `db:migrate` to an independently-created fresh database (`dvh3_reviewer_check`) and
+> confirmed by direct `pg_policies` query that all **11** DataVault tables now carry a
+> `tenant_isolation` policy — the 5 from `0001` plus the 6 this ticket adds — and that
+> all three helper functions exist in `pg_proc`.
+>
+> Substance checks: `migrations/0011_datavault_rls_phase4.sql` contains **zero** raw
+> `current_setting` calls and reuses `app_current_tenant()` with `0001`'s
+> `CASE WHEN ... IS NULL THEN false` guard throughout; all three derivation shapes are
+> implemented as separate helpers rather than one predicate copy-pasted six times; the
+> `_journal.json` change is a purely additive generated `idx: 11` entry. The
+> non-owner-role requirement is genuinely met — the test file asserts `rolsuper = false`,
+> `rolbypassrls = false`, and that the test role differs from `datavault_rows`'s actual
+> owner, so the isolation assertions cannot pass vacuously. Fail-closed is covered for
+> both an unset **and** an explicitly empty GUC.
+>
+> Not verified live: this ticket stages policies that owner/superuser connections
+> bypass, so there is no browser-observable behaviour to drive. Criterion 5 (full suite
+> still green as owner) is the proof that enforcement was not flipped.
+>
+> Noted, not fixed (out of scope, filed as an observation): the doc's §8 Files table
+> still names `migrations/0005_rls_phase4_workflows_sections_steps.sql`, a file removed
+> in the 2026-07-19 migration regeneration. The dev added a clarifying parenthetical.
 
 ### Finding
 
