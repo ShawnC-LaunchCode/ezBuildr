@@ -864,7 +864,7 @@ it is filed as DV-B2.
 
 ---
 
-## DV-5 — Partial row updates falsely fail on required columns and regenerate auto-numbers 🔲
+## DV-5 — Partial row updates falsely fail on required columns and regenerate auto-numbers 🔄
 
 **Priority: P0 (bug)** · Size: S · File: `server/services/DatavaultRowsService.ts`
 
