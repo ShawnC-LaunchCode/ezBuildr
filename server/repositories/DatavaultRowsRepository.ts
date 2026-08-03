@@ -151,10 +151,12 @@ function sortExpression(
   const textValue = scalarText(valueColumn);
   switch (column.type) {
     case 'number':
-      return sql`(${textValue})::numeric`;
+      return sql`CASE WHEN (${textValue}) ~ '^-?[0-9]*\\.?[0-9]+([eE][+-]?[0-9]+)?$' THEN (${textValue})::numeric ELSE NULL END`;
     case 'auto_number':
     case 'autonumber':
-      return column.autonumberPrefix ? textValue : sql`(${textValue})::numeric`;
+      return column.autonumberPrefix
+        ? textValue
+        : sql`CASE WHEN (${textValue}) ~ '^-?[0-9]*\\.?[0-9]+([eE][+-]?[0-9]+)?$' THEN (${textValue})::numeric ELSE NULL END`;
     case 'boolean':
       return sql`(${textValue})::boolean`;
     case 'date':
@@ -353,24 +355,43 @@ export class DatavaultRowsRepository extends BaseRepository<
   /**
    * Count rows for a table
    */
-  async countByTableId(tableId: string, tx?: DbTransaction): Promise<number> {
+  async countByTableId(
+    tableId: string,
+    options: boolean | { showArchived?: boolean } = false,
+    tx?: DbTransaction
+  ): Promise<number> {
+    const showArchived = typeof options === 'boolean' ? options : Boolean(options.showArchived);
     const database = this.getDb(tx);
+    const whereConditions = [eq(datavaultRows.tableId, tableId)];
+    if (!showArchived) {
+      whereConditions.push(isNull(datavaultRows.deletedAt));
+    }
     const [result] = await database
       .select({ count: sql<number>`count(*)::int` })
       .from(datavaultRows)
-      .where(eq(datavaultRows.tableId, tableId));
+      .where(and(...whereConditions));
     return result?.count ?? 0;
   }
+
   /**
    * Count rows for multiple tables in a single query
    */
-  async countByTableIds(tableIds: string[], tx?: DbTransaction): Promise<Map<string, number>> {
-    if (tableIds.length === 0) {return new Map();}
+  async countByTableIds(
+    tableIds: string[],
+    options: boolean | { showArchived?: boolean } = false,
+    tx?: DbTransaction
+  ): Promise<Map<string, number>> {
+    if (tableIds.length === 0) { return new Map(); }
+    const showArchived = typeof options === 'boolean' ? options : Boolean(options.showArchived);
     const database = this.getDb(tx);
+    const whereConditions = [inArray(datavaultRows.tableId, tableIds)];
+    if (!showArchived) {
+      whereConditions.push(isNull(datavaultRows.deletedAt));
+    }
     const results = await database
       .select({ tableId: datavaultRows.tableId, count: sql<number>`count(*)::int` })
       .from(datavaultRows)
-      .where(inArray(datavaultRows.tableId, tableIds))
+      .where(and(...whereConditions))
       .groupBy(datavaultRows.tableId);
     const map = new Map<string, number>(tableIds.map(id => [id, 0]));
     for (const r of results) {

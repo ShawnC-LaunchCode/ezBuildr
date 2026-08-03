@@ -431,9 +431,15 @@ export class DatavaultRowsService {
   /**
    * Count rows for a table
    */
-  async countRows(tableId: string, tenantId: string, tx?: DbTransaction): Promise<number> {
+  async countRows(
+    tableId: string,
+    tenantId: string,
+    options: boolean | { showArchived?: boolean } = false,
+    tx?: DbTransaction
+  ): Promise<number> {
+    const showArchived = typeof options === 'boolean' ? options : Boolean(options.showArchived);
     await this.verifyTableOwnership(tableId, tenantId, tx);
-    return this.rowsRepo.countByTableId(tableId, tx);
+    return this.rowsRepo.countByTableId(tableId, showArchived, tx);
   }
 
   /**

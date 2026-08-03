@@ -266,7 +266,7 @@ export class DatavaultTablesService {
     const tableIds = tables.map(t => t.id);
     const [columnCounts, rowCounts] = await Promise.all([
       this.columnsRepo.countByTableIds(tableIds, tx),
-      this.rowsRepo.countByTableIds(tableIds, tx),
+      this.rowsRepo.countByTableIds(tableIds, false, tx),
     ]);
     return tables.map(table => ({
       ...table,

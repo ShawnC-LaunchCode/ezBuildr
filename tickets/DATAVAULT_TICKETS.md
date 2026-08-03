@@ -1513,7 +1513,43 @@ alongside.
 
 ---
 
-## DV-9 — Row counts include archived rows 🔄
+## DV-9 — Row counts include archived rows ✅
+
+> **Verification pass — 2026-08-03 (reviewer).** PASS.
+> Gates re-run in the main checkout: `tsc` 0 errors, repo-wide `lint` exit 0,
+> `test:fast` **2379**, **8-suite DataVault integration sweep 148/148**.
+> **Regression value proved on both layers:** reverting the repository and services
+> fails 2 unit tests and **4 integration tests with `expected 5 to be 3`** — the two
+> archived rows inflating the count, which is the defect itself. The fixture
+> contained archived rows, so the assertions were never trivially satisfiable.
+>
+> **⚠️ Reviewer process error: the dev worked the pre-re-scope ticket.** The worktree
+> was cut at `5dc8375b` and the re-scope committed afterwards at `eb3e197c`, so the
+> dev's copy never contained it. They implemented the original AC7 (harden the
+> numeric sort cast) because their ticket asked for it — that is faithful execution,
+> not scope creep, and it explains the AC numbering in their report. **Cut the
+> worktree *after* re-scoping, not before.**
+>
+> **The descoped work landed anyway, and it is accepted.** `sortExpression` now
+> guards the numeric cast with
+> `CASE WHEN (text) ~ '^-?[0-9]*\.?[0-9]+([eE][+-]?[0-9]+)?$' THEN (text)::numeric
+> ELSE NULL END`, so a malformed value sorts as NULL instead of raising 22P02.
+> DV-6's prefixed-auto-number text branch is untouched. **DV-B9 is therefore closed
+> as shipped rather than parked.**
+>
+> **Reviewer simplification.** The dev gave all three counters TypeScript overloads
+> plus a runtime dispatch that sniffed `'showArchived' in obj` to tell an options
+> object from a transaction in the second position. That was defensible — existing
+> callers passed `(tableId, tx)` — but it meant an empty `{}` would be silently
+> treated as a transaction, and it is not what the ticket's donor
+> (`countByTableIdWithFilter`) does: that method is
+> `(tableId, options = false, tx?)`, positional and unambiguous. Since only **two**
+> call sites passed a transaction second, the reviewer collapsed all three methods
+> to the donor's shape and made those two call sites explicit
+> (`countByTableIds(tableIds, false, tx)` and `countByTableId(tableId, showArchived,
+> tx)`), removing ~40 lines of dispatch. All of the dev's tests pass unchanged
+> against the simpler signature, which is the useful signal that the tests assert
+> behaviour rather than shape.
 
 **Priority: P1** · Size: **S** · File: `server/repositories/DatavaultRowsRepository.ts`
 
@@ -2132,8 +2168,11 @@ against the tree at audit time.
   against *this* model and pointed at DataVault. **Not investigated in this audit** —
   recorded so the next reader knows the question is open, not answered. Worth a
   scoped "is Collections live, and if not, delete it" pass; do not assume it is dead.
-- **DV-B9 — a malformed value in a `number` column could error a sort** ·
-  `informational`. Descoped from DV-9 on 2026-08-03. `sortExpression` casts a number
+- **DV-B9 — a malformed value in a `number` column could error a sort** · ✅ **SHIPPED
+  in DV-9, do not re-file.** Descoped on 2026-08-03 and then implemented anyway,
+  because the dev's worktree predated the re-scope. `sortExpression` guards the
+  numeric cast with a regex `CASE`, so junk sorts as NULL rather than raising 22P02.
+  Original reasoning, kept for context: `sortExpression` casts a number
   column to `::numeric`, which would throw 22P02 on junk — but
   `validateAndCoerceValue` rejects a non-numeric write (`throw` on `isNaN`), and DV-7
   closed the upsert path that bypassed validation, so the app can no longer create

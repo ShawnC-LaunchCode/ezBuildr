@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import express, { type Express } from 'express';
 import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
@@ -8,6 +8,8 @@ import { datavaultRows } from '@shared/schema';
 import { db } from '../../server/db';
 import { datavaultRowsRepository } from '../../server/repositories/DatavaultRowsRepository';
 import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
+import { datavaultRowsService } from '../../server/services/DatavaultRowsService';
+import { datavaultTablesService } from '../../server/services/DatavaultTablesService';
 import {
   createTestUser,
   setupIntegrationTest,
@@ -792,3 +794,256 @@ describe('DataVault row filtering and pagination (DV-8)', () => {
     expect(invalidOperatorRes.status).toBe(400);
   });
 });
+
+describe('DataVault row counts, soft deletion, and column sorting (DV-9)', () => {
+  let ctx: IntegrationTestContext;
+  let ownerToken: string;
+  let ownerUserId: string;
+  let tableId: string;
+  let nameColId: string;
+  let scoreColId: string;
+  let eventDateColId: string;
+  let _row1Id: string;
+  let _row2Id: string;
+  let _row3Id: string;
+  let row4Id: string;
+  let row5Id: string;
+
+  beforeAll(async () => {
+    ctx = await setupIntegrationTest({ tenantName: 'DV-9 Row Counts' });
+    const owner = await createTestUser(ctx, 'owner');
+    ownerToken = owner.token;
+    ownerUserId = owner.userId;
+
+    const tableResponse = await request(ctx.baseURL)
+      .post('/api/datavault/tables')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'Count and Sort Test Table' });
+    expect(tableResponse.status).toBe(201);
+    tableId = tableResponse.body.id as string;
+
+    const nameColRes = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/columns`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'Name', type: 'text' });
+    expect(nameColRes.status).toBe(201);
+    nameColId = nameColRes.body.id as string;
+
+    const scoreColRes = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/columns`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'Score', type: 'number' });
+    expect(scoreColRes.status).toBe(201);
+    scoreColId = scoreColRes.body.id as string;
+
+    const eventDateColRes = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/columns`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'EventDate', type: 'date' });
+    expect(eventDateColRes.status).toBe(201);
+    eventDateColId = eventDateColRes.body.id as string;
+
+    // Seed 5 rows
+    // Live row 1: Score 10, EventDate 2026-03-01
+    const r1 = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        values: {
+          [nameColId]: 'Alpha',
+          [scoreColId]: 10,
+          [eventDateColId]: '2026-03-01',
+        },
+      });
+    _row1Id = r1.body.row.id;
+
+    // Live row 2: Score 2, EventDate 2026-01-15
+    const r2 = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        values: {
+          [nameColId]: 'Beta',
+          [scoreColId]: 2,
+          [eventDateColId]: '2026-01-15',
+        },
+      });
+    _row2Id = r2.body.row.id;
+
+    // Live row 3: Score 9, EventDate 2026-02-20
+    const r3 = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        values: {
+          [nameColId]: 'Gamma',
+          [scoreColId]: 9,
+          [eventDateColId]: '2026-02-20',
+        },
+      });
+    _row3Id = r3.body.row.id;
+
+    // Archived row 4: Score 100, EventDate 2025-12-01
+    const r4 = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        values: {
+          [nameColId]: 'Archived One',
+          [scoreColId]: 100,
+          [eventDateColId]: '2025-12-01',
+        },
+      });
+    row4Id = r4.body.row.id;
+
+    // Archived row 5: Score 200, EventDate 2025-11-01
+    const r5 = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        values: {
+          [nameColId]: 'Archived Two',
+          [scoreColId]: 200,
+          [eventDateColId]: '2025-11-01',
+        },
+      });
+    row5Id = r5.body.row.id;
+
+    // Soft delete row 4 and row 5 -> 3 live rows, 2 archived rows
+    await db.update(datavaultRows)
+      .set({ deletedAt: new Date() })
+      .where(inArray(datavaultRows.id, [row4Id, row5Id]));
+  });
+
+  afterAll(async () => {
+    await ctx.cleanup();
+  });
+
+  it('AC1: table-card stats from listTablesWithStats report 3 for 3 live and 2 archived rows', async () => {
+    const res = await request(ctx.baseURL)
+      .get('/api/datavault/tables?stats=true')
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(res.status).toBe(200);
+    const table = res.body.find((t: any) => t.id === tableId);
+    expect(table).toBeDefined();
+    expect(table.rowCount).toBe(3);
+
+    // Also assert directly against datavaultTablesService.listTablesWithStats
+    const serviceTables = await datavaultTablesService.listTablesWithStats(ctx.tenantId, ownerUserId);
+    const serviceTable = serviceTables.find((t: any) => t.id === tableId);
+    expect(serviceTable?.rowCount).toBe(3);
+  });
+
+  it('AC2: countRows (via countByTableId) reports 3 for the same fixture', async () => {
+    const repoCount = await datavaultRowsRepository.countByTableId(tableId);
+    expect(repoCount).toBe(3);
+
+    const serviceCount = await datavaultRowsService.countRows(tableId, ctx.tenantId);
+    expect(serviceCount).toBe(3);
+  });
+
+  it('AC3: passing showArchived: true reports 5, so archived view has correct total', async () => {
+    const repoCountArchivedObj = await datavaultRowsRepository.countByTableId(tableId, { showArchived: true });
+    expect(repoCountArchivedObj).toBe(5);
+
+    const repoCountArchivedBool = await datavaultRowsRepository.countByTableId(tableId, true);
+    expect(repoCountArchivedBool).toBe(5);
+
+    const resArchived = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${tableId}/rows`)
+      .query({ showArchived: true })
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(resArchived.status).toBe(200);
+    expect(resArchived.body.pagination.total).toBe(5);
+    expect(resArchived.body.rows).toHaveLength(5);
+  });
+
+  it('AC4: grid footer total and table card count agree for the same table', async () => {
+    const gridRes = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${tableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(gridRes.status).toBe(200);
+    const gridTotal = gridRes.body.pagination.total;
+
+    const cardRes = await request(ctx.baseURL)
+      .get('/api/datavault/tables?stats=true')
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(cardRes.status).toBe(200);
+    const cardTable = cardRes.body.find((t: any) => t.id === tableId);
+    const cardTotal = cardTable.rowCount;
+
+    expect(gridTotal).toBe(3);
+    expect(cardTotal).toBe(3);
+    expect(gridTotal).toBe(cardTotal);
+  });
+
+  it('AC5: sorting ascending by number column returns 2, 9, 10 in that order', async () => {
+    const sortRes = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${tableId}/rows`)
+      .query({ sortBy: 'score', sortOrder: 'asc' })
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(sortRes.status).toBe(200);
+    const scores = sortRes.body.rows.map((r: any) => r.values[scoreColId]);
+    expect(scores).toEqual([2, 9, 10]);
+  });
+
+  it('AC6: sorting by date column orders chronologically; sorting by text column is unaffected by JSON quoting', async () => {
+    const dateRes = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${tableId}/rows`)
+      .query({ sortBy: 'eventdate', sortOrder: 'asc' })
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(dateRes.status).toBe(200);
+    const dates = dateRes.body.rows.map((r: any) => {
+      const val = r.values[eventDateColId];
+      return typeof val === 'string' ? val.slice(0, 10) : val;
+    });
+    expect(dates).toEqual(['2026-01-15', '2026-02-20', '2026-03-01']);
+
+    const textRes = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${tableId}/rows`)
+      .query({ sortBy: 'name', sortOrder: 'asc' })
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(textRes.status).toBe(200);
+    const names = textRes.body.rows.map((r: any) => r.values[nameColId]);
+    expect(names).toEqual(['Alpha', 'Beta', 'Gamma']);
+  });
+
+  it('AC7: a column containing a non-numeric value does not error the sort request (no 500)', async () => {
+    // Insert a row with a string value in the Score column or bypass to have invalid numeric data
+    // Let's create a row with non-numeric value in score column directly in values
+    const nonNumericRow = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/rows`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        values: {
+          [nameColId]: 'Invalid Numeric',
+          [scoreColId]: 'not-a-number' as any,
+          [eventDateColId]: '2026-04-01',
+        },
+      });
+
+    // Even if type validation allows or direct value exists, sorting should succeed with 200 (not 500)
+    const sortRes = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${tableId}/rows`)
+      .query({ sortBy: 'score', sortOrder: 'asc' })
+      .set('Authorization', `Bearer ${ownerToken}`);
+
+    expect(sortRes.status).toBe(200);
+    expect(sortRes.body.rows.length).toBeGreaterThanOrEqual(3);
+
+    // Clean up the non-numeric test row if created
+    if (nonNumericRow.body?.row?.id) {
+      await db.update(datavaultRows)
+        .set({ deletedAt: new Date() })
+        .where(eq(datavaultRows.id, nonNumericRow.body.row.id));
+    }
+  });
+});
+

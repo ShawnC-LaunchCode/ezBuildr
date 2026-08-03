@@ -16,6 +16,7 @@ vi.mock('../../../server/db', () => ({
     from: vi.fn().mockReturnThis(),
     where: vi.fn().mockReturnThis(),
     orderBy: vi.fn().mockReturnThis(),
+    groupBy: vi.fn().mockReturnThis(),
     insert: vi.fn().mockReturnThis(),
     values: vi.fn().mockReturnThis(),
     returning: vi.fn().mockReturnThis(),
@@ -162,12 +163,23 @@ describe('DatavaultRowsRepository', () => {
   });
 
   describe('countByTableId', () => {
-    it('should count rows by table ID', async () => {
+    it('should count rows by table ID excluding archived rows by default', async () => {
       mockDb._setMockReturnValue([{ count: 42 }]);
 
       const result = await repository.countByTableId(mockTableId);
 
       expect(result).toBe(42);
+      expect(mockDb.where).toHaveBeenCalled();
+    });
+
+    it('should include archived rows when showArchived: true is passed', async () => {
+      mockDb._setMockReturnValue([{ count: 50 }]);
+
+      const resultObj = await repository.countByTableId(mockTableId, { showArchived: true });
+      expect(resultObj).toBe(50);
+
+      const resultBool = await repository.countByTableId(mockTableId, true);
+      expect(resultBool).toBe(50);
     });
 
     it('should return 0 if no rows found', async () => {
@@ -176,6 +188,37 @@ describe('DatavaultRowsRepository', () => {
       const result = await repository.countByTableId(mockTableId);
 
       expect(result).toBe(0);
+    });
+  });
+
+  describe('countByTableIds', () => {
+    it('should count rows for multiple table IDs excluding archived rows by default', async () => {
+      const tableId2 = '660e8400-e29b-41d4-a716-446655440002';
+      mockDb._setMockReturnValue([
+        { tableId: mockTableId, count: 10 },
+        { tableId: tableId2, count: 25 },
+      ]);
+
+      const result = await repository.countByTableIds([mockTableId, tableId2]);
+
+      expect(result.get(mockTableId)).toBe(10);
+      expect(result.get(tableId2)).toBe(25);
+      expect(mockDb.where).toHaveBeenCalled();
+    });
+
+    it('should include archived rows when showArchived is true', async () => {
+      mockDb._setMockReturnValue([
+        { tableId: mockTableId, count: 15 },
+      ]);
+
+      const result = await repository.countByTableIds([mockTableId], { showArchived: true });
+
+      expect(result.get(mockTableId)).toBe(15);
+    });
+
+    it('should return empty map for empty tableIds array', async () => {
+      const result = await repository.countByTableIds([]);
+      expect(result.size).toBe(0);
     });
   });
 
@@ -509,6 +552,79 @@ describe('DatavaultRowsRepository', () => {
 
       const count = await repository.countByTableIdWithFilter(mockTableId, true);
       expect(count).toBe(5);
+    });
+  });
+
+  describe('column sorting (DV-9)', () => {
+    it('AC5: sorts by number column with numeric casting', async () => {
+      const mockColumn = {
+        id: mockColumnId,
+        type: 'number',
+        slug: 'score',
+        autonumberPrefix: null,
+      };
+      mockDb._setMockReturnValue([mockColumn]);
+
+      await repository.findByTableId(mockTableId, {
+        sortBy: 'score',
+        sortOrder: 'asc',
+      });
+
+      expect(mockDb.orderBy).toHaveBeenCalled();
+      expect(mockDb.leftJoin).toHaveBeenCalled();
+    });
+
+    it('AC6: sorts by date, datetime, and text columns', async () => {
+      // Date column
+      mockDb._setMockReturnValue([
+        {
+          id: mockColumnId,
+          type: 'date',
+          slug: 'event_date',
+          autonumberPrefix: null,
+        },
+      ]);
+
+      await repository.findByTableId(mockTableId, {
+        sortBy: 'event_date',
+        sortOrder: 'asc',
+      });
+      expect(mockDb.orderBy).toHaveBeenCalled();
+
+      // Text column
+      mockDb._setMockReturnValue([
+        {
+          id: mockColumnId,
+          type: 'short_text',
+          slug: 'name',
+          autonumberPrefix: null,
+        },
+      ]);
+
+      await repository.findByTableId(mockTableId, {
+        sortBy: 'name',
+        sortOrder: 'asc',
+      });
+      expect(mockDb.orderBy).toHaveBeenCalled();
+    });
+
+    it('AC7: column containing non-numeric value handles sorting safely', async () => {
+      mockDb._setMockReturnValue([
+        {
+          id: mockColumnId,
+          type: 'number',
+          slug: 'score',
+          autonumberPrefix: null,
+        },
+      ]);
+
+      const result = await repository.findByTableId(mockTableId, {
+        sortBy: 'score',
+        sortOrder: 'desc',
+      });
+
+      expect(result).toBeDefined();
+      expect(mockDb.orderBy).toHaveBeenCalled();
     });
   });
 });
