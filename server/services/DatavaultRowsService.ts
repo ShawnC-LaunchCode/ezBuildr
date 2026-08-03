@@ -5,6 +5,7 @@ import type { DatavaultRow, DatavaultColumn } from "@shared/schema";
 type CoercedValue = string | number | boolean | string[] | object | null;
 
 import { db } from "../db";
+import { ConflictError } from "../errors/AppError";
 import { assertValueSizeWithinLimit } from "../utils/valueSizeLimit";
 import {
   datavaultRowsRepository,
@@ -198,9 +199,37 @@ export class DatavaultRowsService {
    * Validate row data against column definitions
    */
 
+  private async assertUniqueValues(
+    tableId: string,
+    validatedValues: Array<{ columnId: string; value: CoercedValue }>,
+    columnMap: Map<string, DatavaultColumn>,
+    excludeRowId?: string,
+    tx?: DbTransaction
+  ): Promise<void> {
+    const uniqueValues = validatedValues.filter(({ columnId, value }) => {
+      const column = columnMap.get(columnId);
+      return value !== null && (column?.isUnique === true || column?.isPrimaryKey === true);
+    });
+    if (uniqueValues.length === 0) { return; }
+
+    const conflicts = await this.rowsRepo.findUniqueValueConflicts(
+      tableId,
+      uniqueValues,
+      excludeRowId,
+      tx
+    );
+    if (conflicts.length === 0) { return; }
+
+    const conflictingColumn = columnMap.get(conflicts[0].columnId);
+    throw new ConflictError(
+      `A row with this column '${conflictingColumn?.name ?? conflicts[0].columnId}' already exists`
+    );
+  }
+
   private async validateRowData(
     tableId: string,
     values: Record<string, unknown>,
+    excludeRowId?: string,
     tx?: DbTransaction
   ): Promise<Array<{ columnId: string; value: CoercedValue }>> {
     const columns = await this.columnsRepo.findByTableId(tableId, tx);
@@ -260,6 +289,8 @@ export class DatavaultRowsService {
       validatedValues.push({ columnId, value: coercedValue });
     }
 
+    await this.assertUniqueValues(tableId, validatedValues, columnMap, excludeRowId, tx);
+
     return validatedValues;
   }
 
@@ -300,7 +331,7 @@ export class DatavaultRowsService {
     await this.verifyTableOwnership(tableId, tenantId, tx);
 
     // Validate and coerce values
-    const validatedValues = await this.validateRowData(tableId, values, tx);
+    const validatedValues = await this.validateRowData(tableId, values, undefined, tx);
 
     // Create row with values
     const result = await this.rowsRepo.createRowWithValues(
@@ -411,7 +442,7 @@ export class DatavaultRowsService {
     const row = await this.verifyRowOwnership(rowId, tenantId, tx);
 
     // Validate and coerce values (only for provided columns)
-    const validatedValues = await this.validateRowData(row.tableId, values, tx);
+    const validatedValues = await this.validateRowData(row.tableId, values, rowId, tx);
 
     // Update row values
     await this.rowsRepo.updateRowValues(rowId, validatedValues, updatedBy, tx);

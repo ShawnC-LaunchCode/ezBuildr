@@ -715,7 +715,40 @@ constraints real.
 
 Out of scope: the grid UI (Phase 3), and the unreachable writeback path (Phase 4).
 
-## DV-4 — `isUnique` / `isPrimaryKey` are never enforced on write 🔄
+## DV-4 — `isUnique` / `isPrimaryKey` are never enforced on write ✅
+
+> **Verification pass — 2026-08-02 (reviewer).** PASS, all 10 criteria met.
+> Gates re-run by the reviewer in the main checkout: `npx tsc --noEmit` 0 errors,
+> `npm run lint` exit 0, `npm run test:fast` **187 files / 2344 passed** (= 2337 +
+> this ticket's 7; the dev's 2333 is the same delta on their older base), and a
+> **5-suite DataVault integration sweep 93/93** — run because this ticket changes
+> the shared row-write path every DataVault write funnels through.
+> **Regression value proved on both layers.** Reverting only the service +
+> repository fails 4 unit tests and, more tellingly, the integration test fails
+> with `expected 201 to be 409` — the P0 itself in one line: a duplicate silently
+> accepted.
+> **AC8 verified specifically** (the reviewer flagged it mid-flight as the criterion
+> most likely to be met only trivially): the test asserts
+> `toHaveBeenCalledTimes(1)` with **two** unique columns in one write *and* the
+> exact payload, so the batching claim is proved rather than the zero-case skip.
+> **Error contract — better than the ticket asked for.** The ticket offered a
+> `classifyRouteError` change; the dev instead used the pre-existing
+> `ConflictError`, which `DatavaultColumnsService` already throws for the sibling
+> "cannot make this column unique" case. Same domain, existing donor, no shared
+> classifier change, and `classifyRouteError` already honours any `statusCode` in
+> 400–499. Accept as-is.
+> **Nice property of the null test:** asserting `checkColumnHasDuplicates` is false
+> at that point in the suite *also* proves the archived-row exclusion, because an
+> archived and a live row share `archived@example.com` by then — without the
+> `isNull(deletedAt)` fix that assertion would fail.
+> **Self-review credit:** the dev caught that the service called the repository even
+> with zero unique values (surfacing as an unrelated reference-column mock failure)
+> and fixed the service rather than patching the mock. That is the right instinct.
+> **Ambiguity in AC7 resolved toward SQL semantics — see DV-B8.** AC7 said
+> "null/empty"; the dev excluded SQL `NULL` and jsonb `null` but treats `""` as a
+> real value, so two blank cells in a unique column conflict. That matches standard
+> `UNIQUE` behaviour and is defensible; the practical wrinkle is filed as DV-B8
+> rather than reopened here.
 
 **Priority: P0 (bug)** · Size: M · File: `server/services/DatavaultRowsService.ts`
 
@@ -1885,6 +1918,16 @@ against the tree at audit time.
   against *this* model and pointed at DataVault. **Not investigated in this audit** —
   recorded so the next reader knows the question is open, not answered. Worth a
   scoped "is Collections live, and if not, delete it" pass; do not assume it is dead.
+- **DV-B8 — a blank cell in a unique column conflicts, because the UI sends `""`
+  rather than null** · `product-decision`. Surfaced reviewing DV-4 (2026-08-02).
+  DV-4 correctly treats SQL `NULL` / jsonb `null` as "no value" (multiple allowed)
+  and `""` as a real value (duplicates rejected) — standard `UNIQUE` semantics. But
+  a blank text input in `RowEditorModal` coerces to `""` via `String(value)`, so
+  leaving a unique column empty on two rows now returns 409. **The right fix is
+  almost certainly at the coercion layer** — treat a blank string as null for
+  storage, the way a spreadsheet would — not by weakening uniqueness. It is a
+  product call because it changes what an empty cell *means* everywhere, not just
+  for unique columns. Do not "fix" it inside the uniqueness check.
 - **DV-B7 — six copies of workflow→tenant resolution, with two different failure
   semantics** · `enhancement`. Found while reviewing DV-12 (2026-08-02).
   `workflowId → project.tenantId → fall back to creator.tenantId` is now

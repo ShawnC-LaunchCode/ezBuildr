@@ -48,6 +48,7 @@ describe('DatavaultRowsService', () => {
       getRowsWithValues: vi.fn(),
       getRowWithValues: vi.fn(),
       updateRowValues: vi.fn(),
+      findUniqueValueConflicts: vi.fn().mockResolvedValue([]),
     } as unknown as Mocked<DatavaultRowsRepository>;
 
     service = new DatavaultRowsService(mockRowsRepo, mockTablesRepo, mockColumnsRepo);
@@ -319,6 +320,160 @@ describe('DatavaultRowsService', () => {
       await service.updateRow(mockRowId, mockTenantId, values);
 
       expect(mockRowsRepo.updateRowValues).toHaveBeenCalled();
+    });
+  });
+
+  describe('unique constraints', () => {
+    const makeTable = (): DatavaultTable => ({
+      id: mockTableId,
+      tenantId: mockTenantId,
+      ownerUserId: 'user-1',
+      name: 'Unique Values',
+      slug: 'unique-values',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as DatavaultTable);
+
+    const makeColumn = (
+      overrides: Partial<DatavaultColumn> = {}
+    ): DatavaultColumn => ({
+      id: mockColumnId,
+      tableId: mockTableId,
+      name: 'Email',
+      slug: 'email',
+      type: 'text',
+      required: false,
+      isPrimaryKey: false,
+      isUnique: false,
+      orderIndex: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...overrides,
+    } as DatavaultColumn);
+
+    const makeRow = (): DatavaultRow => ({
+      id: mockRowId,
+      tableId: mockTableId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as DatavaultRow);
+
+    const mockSuccessfulCreate = (): void => {
+      mockRowsRepo.createRowWithValues.mockResolvedValue({
+        row: makeRow(),
+        values: [],
+      });
+    };
+
+    it('rejects a duplicate value in a unique column and names the column', async () => {
+      const column = makeColumn({ isUnique: true });
+      mockTablesRepo.findById.mockResolvedValue(makeTable());
+      mockColumnsRepo.findByTableId.mockResolvedValue([column]);
+      mockRowsRepo.findUniqueValueConflicts.mockResolvedValue([
+        { rowId: 'conflicting-row', columnId: column.id },
+      ]);
+
+      await expect(service.createRow(mockTableId, mockTenantId, {
+        [column.id]: 'used@example.com',
+      })).rejects.toThrow("column 'Email'");
+
+      expect(mockRowsRepo.createRowWithValues).not.toHaveBeenCalled();
+    });
+
+    it('rejects a duplicate value in a primary key column', async () => {
+      const column = makeColumn({ name: 'External ID', isPrimaryKey: true });
+      mockTablesRepo.findById.mockResolvedValue(makeTable());
+      mockColumnsRepo.findByTableId.mockResolvedValue([column]);
+      mockRowsRepo.findUniqueValueConflicts.mockResolvedValue([
+        { rowId: 'conflicting-row', columnId: column.id },
+      ]);
+
+      await expect(service.createRow(mockTableId, mockTenantId, {
+        [column.id]: 'KEY-100',
+      })).rejects.toThrow("column 'External ID'");
+    });
+
+    it('excludes the updated row so its own unique value succeeds', async () => {
+      const column = makeColumn({ isUnique: true });
+      mockRowsRepo.findById.mockResolvedValue(makeRow());
+      mockTablesRepo.findById.mockResolvedValue(makeTable());
+      mockColumnsRepo.findByTableId.mockResolvedValue([column]);
+
+      await service.updateRow(mockRowId, mockTenantId, {
+        [column.id]: 'same@example.com',
+      });
+
+      expect(mockRowsRepo.findUniqueValueConflicts).toHaveBeenCalledWith(
+        mockTableId,
+        [{ columnId: column.id, value: 'same@example.com' }],
+        mockRowId,
+        'mock-tx'
+      );
+      expect(mockRowsRepo.updateRowValues).toHaveBeenCalled();
+    });
+
+    it('allows duplicate values in columns without a unique constraint', async () => {
+      const column = makeColumn();
+      mockTablesRepo.findById.mockResolvedValue(makeTable());
+      mockColumnsRepo.findByTableId.mockResolvedValue([column]);
+      mockSuccessfulCreate();
+
+      await expect(service.createRow(mockTableId, mockTenantId, {
+        [column.id]: 'duplicate allowed',
+      })).resolves.toBeDefined();
+
+      expect(mockRowsRepo.findUniqueValueConflicts).not.toHaveBeenCalled();
+    });
+
+    it('allows a value when the repository finds no live-row conflict', async () => {
+      const column = makeColumn({ isUnique: true });
+      mockTablesRepo.findById.mockResolvedValue(makeTable());
+      mockColumnsRepo.findByTableId.mockResolvedValue([column]);
+      mockSuccessfulCreate();
+
+      await expect(service.createRow(mockTableId, mockTenantId, {
+        [column.id]: 'archived-only@example.com',
+      })).resolves.toBeDefined();
+
+      expect(mockRowsRepo.createRowWithValues).toHaveBeenCalled();
+    });
+
+    it('does not check null values in sparse unique columns', async () => {
+      const column = makeColumn({ isUnique: true });
+      mockTablesRepo.findById.mockResolvedValue(makeTable());
+      mockColumnsRepo.findByTableId.mockResolvedValue([column]);
+      mockSuccessfulCreate();
+
+      await service.createRow(mockTableId, mockTenantId, { [column.id]: null });
+
+      expect(mockRowsRepo.findUniqueValueConflicts).not.toHaveBeenCalled();
+    });
+
+    it('checks multiple unique columns with one repository call', async () => {
+      const secondColumnId = '990e8400-e29b-41d4-a716-446655440004';
+      const columns = [
+        makeColumn({ isUnique: true }),
+        makeColumn({ id: secondColumnId, name: 'Employee ID', isPrimaryKey: true }),
+      ];
+      mockTablesRepo.findById.mockResolvedValue(makeTable());
+      mockColumnsRepo.findByTableId.mockResolvedValue(columns);
+      mockSuccessfulCreate();
+
+      await service.createRow(mockTableId, mockTenantId, {
+        [mockColumnId]: 'unique@example.com',
+        [secondColumnId]: 'EMP-1',
+      });
+
+      expect(mockRowsRepo.findUniqueValueConflicts).toHaveBeenCalledTimes(1);
+      expect(mockRowsRepo.findUniqueValueConflicts).toHaveBeenCalledWith(
+        mockTableId,
+        [
+          { columnId: mockColumnId, value: 'unique@example.com' },
+          { columnId: secondColumnId, value: 'EMP-1' },
+        ],
+        undefined,
+        'mock-tx'
+      );
     });
   });
 

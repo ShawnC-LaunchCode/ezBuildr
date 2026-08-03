@@ -1,10 +1,18 @@
+import { eq } from 'drizzle-orm';
 import express, { type Express } from 'express';
-import _request from 'supertest';
+import request from 'supertest';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 
+import { datavaultRows } from '@shared/schema';
 
-
+import { db } from '../../server/db';
+import { datavaultRowsRepository } from '../../server/repositories/DatavaultRowsRepository';
 import { registerDatavaultRoutes } from '../../server/routes/datavault.routes';
+import {
+  createTestUser,
+  setupIntegrationTest,
+  type IntegrationTestContext,
+} from '../helpers/integrationTestHelper';
 /**
  * DataVault Phase 1 PR 9: DataVault API Routes Integration Tests
  *
@@ -359,5 +367,127 @@ describe('DataVault API Routes', () => {
       // Create boolean column and test various boolean representations
       expect(true).toBe(true); // Placeholder
     });
+  });
+});
+
+describe('DataVault unique row constraints', () => {
+  let ctx: IntegrationTestContext;
+  let ownerToken: string;
+  let tableId: string;
+  let primaryKeyColumnId: string;
+  let uniqueColumnId: string;
+
+  const authenticatedRequest = () => request(ctx.baseURL)
+    .post(`/api/datavault/tables/${tableId}/rows`)
+    .set('Authorization', `Bearer ${ownerToken}`);
+
+  beforeAll(async () => {
+    ctx = await setupIntegrationTest({ tenantName: 'DV-4 Unique Constraints' });
+    const owner = await createTestUser(ctx, 'owner');
+    ownerToken = owner.token;
+
+    const tableResponse = await request(ctx.baseURL)
+      .post('/api/datavault/tables')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'DV-4 Unique Rows' });
+    expect(tableResponse.status).toBe(201);
+    tableId = tableResponse.body.id as string;
+
+    const columnsResponse = await request(ctx.baseURL)
+      .get(`/api/datavault/tables/${tableId}/columns`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+    expect(columnsResponse.status).toBe(200);
+    primaryKeyColumnId = (columnsResponse.body as Array<{ id: string; isPrimaryKey: boolean }>)
+      .find((column) => column.isPrimaryKey)?.id ?? '';
+    expect(primaryKeyColumnId).not.toBe('');
+
+    const uniqueColumnResponse = await request(ctx.baseURL)
+      .post(`/api/datavault/tables/${tableId}/columns`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'Email', type: 'text', isUnique: true });
+    expect(uniqueColumnResponse.status).toBe(201);
+    uniqueColumnId = uniqueColumnResponse.body.id as string;
+  });
+
+  afterAll(async () => {
+    await ctx.cleanup();
+  });
+
+  it('returns 409 from POST when a unique value already belongs to a live row', async () => {
+    const firstResponse = await authenticatedRequest().send({
+      values: { [uniqueColumnId]: 'post-conflict@example.com' },
+    });
+    expect(firstResponse.status).toBe(201);
+
+    const conflictResponse = await authenticatedRequest().send({
+      values: { [uniqueColumnId]: 'post-conflict@example.com' },
+    });
+
+    expect(conflictResponse.status).toBe(409);
+    expect(conflictResponse.body.message).toContain("column 'Email'");
+  });
+
+  it('returns 409 from PATCH when a unique value belongs to another row', async () => {
+    const firstResponse = await authenticatedRequest().send({
+      values: { [uniqueColumnId]: 'patch-owner@example.com' },
+    });
+    const secondResponse = await authenticatedRequest().send({
+      values: { [uniqueColumnId]: 'patch-target@example.com' },
+    });
+    expect(firstResponse.status).toBe(201);
+    expect(secondResponse.status).toBe(201);
+
+    const conflictResponse = await request(ctx.baseURL)
+      .patch(`/api/datavault/rows/${secondResponse.body.row.id as string}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ values: { [uniqueColumnId]: 'patch-owner@example.com' } });
+
+    expect(conflictResponse.status).toBe(409);
+    expect(conflictResponse.body.message).toContain("column 'Email'");
+  });
+
+  it('enforces the primary key auto-created with the table', async () => {
+    const firstResponse = await authenticatedRequest().send({
+      values: { [primaryKeyColumnId]: 7001 },
+    });
+    expect(firstResponse.status).toBe(201);
+
+    const conflictResponse = await authenticatedRequest().send({
+      values: { [primaryKeyColumnId]: 7001 },
+    });
+
+    expect(conflictResponse.status).toBe(409);
+    expect(conflictResponse.body.message).toContain("column 'ID'");
+  });
+
+  it('ignores archived rows when checking unique values', async () => {
+    const archivedResponse = await authenticatedRequest().send({
+      values: { [uniqueColumnId]: 'archived@example.com' },
+    });
+    expect(archivedResponse.status).toBe(201);
+
+    await db.update(datavaultRows)
+      .set({ deletedAt: new Date() })
+      .where(eq(datavaultRows.id, archivedResponse.body.row.id as string));
+
+    const replacementResponse = await authenticatedRequest().send({
+      values: { [uniqueColumnId]: 'archived@example.com' },
+    });
+    expect(replacementResponse.status).toBe(201);
+  });
+
+  it('does not treat repeated null values as duplicates', async () => {
+    const firstResponse = await authenticatedRequest().send({
+      values: { [uniqueColumnId]: null },
+    });
+    const secondResponse = await authenticatedRequest().send({
+      values: { [uniqueColumnId]: null },
+    });
+    expect(firstResponse.status).toBe(201);
+    expect(secondResponse.status).toBe(201);
+
+    await expect(
+      datavaultRowsRepository.checkColumnHasDuplicates(uniqueColumnId)
+    ).resolves.toBe(false);
   });
 });

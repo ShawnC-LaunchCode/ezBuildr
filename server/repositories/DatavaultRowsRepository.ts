@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, inArray, asc, isNull } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, asc, isNull, ne, or } from "drizzle-orm";
 
 import {
   datavaultRows,
@@ -464,21 +464,61 @@ export class DatavaultRowsRepository extends BaseRepository<
     tx?: DbTransaction
   ): Promise<boolean> {
     const database = this.getDb(tx);
-    const [result] = await database
-      .select({
-        hasDuplicates: sql<boolean>`
-          EXISTS (
-            SELECT value
-            FROM ${datavaultValues}
-            WHERE ${datavaultValues.columnId} = ${columnId}
-            GROUP BY value
-            HAVING COUNT(*) > 1
-          )
-        `
-      })
+    const [duplicate] = await database
+      .select({ value: datavaultValues.value })
       .from(datavaultValues)
+      .innerJoin(datavaultRows, eq(datavaultValues.rowId, datavaultRows.id))
+      .where(
+        and(
+          eq(datavaultValues.columnId, columnId),
+          isNull(datavaultRows.deletedAt),
+          sql`${datavaultValues.value} IS NOT NULL`,
+          sql`${datavaultValues.value} <> 'null'::jsonb`
+        )
+      )
+      .groupBy(datavaultValues.value)
+      .having(sql`COUNT(*) > 1`)
       .limit(1);
-    return result?.hasDuplicates ?? false;
+    return duplicate !== undefined;
+  }
+  /**
+   * Find live rows that conflict with one or more unique column values.
+   * All requested column/value pairs are checked in a single query.
+   */
+  async findUniqueValueConflicts(
+    tableId: string,
+    uniqueValues: Array<{ columnId: string; value: unknown }>,
+    excludeRowId?: string,
+    tx?: DbTransaction
+  ): Promise<Array<{ rowId: string; columnId: string }>> {
+    if (uniqueValues.length === 0) { return []; }
+
+    const database = this.getDb(tx);
+    const valuePredicate = or(...uniqueValues.map(({ columnId, value }) =>
+      and(
+        eq(datavaultValues.columnId, columnId),
+        eq(datavaultValues.value, value)
+      )
+    ));
+    if (!valuePredicate) { return []; }
+
+    const conditions = [
+      eq(datavaultRows.tableId, tableId),
+      isNull(datavaultRows.deletedAt),
+      valuePredicate,
+    ];
+    if (excludeRowId) {
+      conditions.push(ne(datavaultRows.id, excludeRowId));
+    }
+
+    return database
+      .select({
+        rowId: datavaultRows.id,
+        columnId: datavaultValues.columnId,
+      })
+      .from(datavaultRows)
+      .innerJoin(datavaultValues, eq(datavaultValues.rowId, datavaultRows.id))
+      .where(and(...conditions));
   }
   /**
    * Batch fetch multiple rows by IDs from multiple tables
