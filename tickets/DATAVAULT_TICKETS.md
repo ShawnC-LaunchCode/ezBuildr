@@ -1465,7 +1465,7 @@ malformed value 500 the grid.
 Two features are advertised in the product but wired to nothing; one service is a
 loaded gun with no trigger; and DataVault mutations leave no audit trail.
 
-## DV-10 — Delete the unreachable declarative writeback path 🔲
+## DV-10 — Delete the unreachable declarative writeback path 🔄
 
 **Priority: P1** · Size: M · File: `server/services/WritebackExecutionService.ts`, `server/services/workflow-runs/RunLifecycleService.ts`, `server/repositories/DatavaultWritebackMappingsRepository.ts`, `shared/schema/datavault.ts` + migration
 
