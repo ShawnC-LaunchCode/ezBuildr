@@ -1,0 +1,208 @@
+# DataVault — Filter & Read Performance (DVP-1..2)
+
+Source: split out of `tickets/DATAVAULT_HARDENING_TICKETS.md` on 2026-08-03. DVP-1 was
+that file's DVH-4. It was pulled out of the hardening round for three reasons, all of
+which shape how it should be worked:
+
+1. It is **P2 and speculative by its own admission** — a ceiling, not a defect. The
+   hardening round was fixing things that are wrong today.
+2. Its originally-proposed index carried the **same btree size-limit defect** that made
+   DVH-2's fix unbuildable (see DVP-1's *The trap* below). Shipping it as written would
+   have broken inserts on the hottest table in DataVault.
+3. **The repo owner wants to measure before committing to an index.** That is the
+   deliverable here, not a migration.
+
+**This is a measurement-first initiative.** A ticket in this file may legitimately
+close with *no migration and no index*, if the plans say so. "We looked, and here is
+why we did nothing" is a passing outcome; guessing at an index is not.
+
+Findings were verified against `595c10b0`/`1a32e241`. **Line numbers are advisory** —
+the locator is the quoted code and the named symbol; grep for those.
+
+**Baseline at file creation:** `test:fast` **2381**, `test:unit:db` 136,
+`test:integration` **96 files / 1031 passed**, 0 failures. `tsc` 0 errors, lint clean.
+
+---
+
+## How to work this document
+
+- Each ticket has: **Finding**, **Preferred fix**, **Ties**, **Acceptance criteria**
+  (all must pass).
+- Load the project skills named in each ticket's Ties **before** touching code —
+  `db-schema-change`, `run-tests`.
+- **`npm test` naively gives wrong results here** — three Vitest projects with
+  different commands and DB requirements. Use the `run-tests` skill.
+- **Sweep the eight DataVault integration suites, not just the ones your ticket
+  names.** A previous initiative committed a red test twice by scoping the sweep to a
+  ticket's stated files: `datavault.routes`, `datavault.autonumber`,
+  `datavault-v4-regression`, `datavault.permissions`, `dataBlocks`,
+  `datavault.row-notes`, `datavault.api-tokens`, `dynamic_options_workflow`.
+- **Numbers, not intuition.** Every claim about performance in your report must be a
+  pasted `EXPLAIN ANALYZE` plan or a timing you measured. "This should be faster" fails
+  the ticket.
+- Devs do not commit; the reviewer commits per passed ticket.
+- Status legend: 🔲 Open · 🔄 In progress · ✅ Done (verified at review)
+
+### Sequencing
+
+DVP-1 and DVP-2 both touch the read path for grid queries and DVP-1's measurements are
+the input to judging DVP-2's, so **run DVP-1 first**. Only DVP-1 may produce a
+migration; if it does, it takes the next free index in the chain (`0011` as of
+`1a32e241`, but DVH-2/DVH-3 are claiming `0011`/`0012` — check the chain, do not
+assume).
+
+---
+
+## DVP-1 — Filtered grid queries have no index support on `datavault_values.value` 🔲
+
+**Priority: P2** · Size: M · File: measurement report, possibly a migration
+
+*Was DVH-4. Re-sized S → M: the acceptance criteria require a 100k-value seeding
+harness that does not exist yet, which is most of the work.*
+
+### Finding
+
+`datavault_values` has exactly two indexes, plus the cell-uniqueness one:
+
+```sql
+CREATE INDEX "datavault_values_row_idx"    ON "datavault_values" ("row_id");
+CREATE INDEX "datavault_values_column_idx" ON "datavault_values" ("column_id");
+```
+
+DV-8's filters run correlated `EXISTS` subqueries of the shape
+`WHERE column_id = $1 AND <value predicate>`. The `column_id` index narrows to that
+column, then every value in it is scanned. There is **no index on `value`**, so:
+
+- equality filters scan the whole column,
+- `contains` (`LIKE '%x%'`) cannot use an index at all,
+- typed comparisons (`::numeric`, `::timestamptz`) are computed per row.
+
+Correct, and fine at current scale. It is filed because DV-8 made filtering a primary,
+user-facing path, so the first wide customer table will find it.
+
+### The trap — read this before proposing any index
+
+**A btree index entry cannot exceed 2704 bytes.** `datavault_values.value` is `jsonb`
+capped at **1MB** (`MAX_VALUE_BYTES` in `server/utils/valueSizeLimit.ts`). So the naive
+`CREATE INDEX ON datavault_values (column_id, value)` — which the original ticket
+proposed — would make **every insert of a value over ~2.7KB fail** with
+`index row size ... exceeds btree version 4 maximum`, on all columns, not just filtered
+ones. This is exactly what killed DVH-2's first design.
+
+Any index you propose on `value` must therefore be bounded in size. Options, all of
+which change what the planner can use:
+
+- an expression index on a **truncated** text extraction, e.g.
+  `(column_id, left(value #>> '{}', 200))` — bounded, but only helps predicates the
+  planner can rewrite to match the expression;
+- a **partial** index with a size predicate, e.g.
+  `... WHERE pg_column_size(value) < 2000` — keeps large values out of the index
+  entirely, so queries touching them fall back to a scan;
+- a `pg_trgm` GIN index for `contains` — GIN has no such size limit, but it is an
+  **extension**; confirm Neon supports it before proposing it, and do not add an
+  extension speculatively.
+
+### Preferred fix
+
+**Measure first, then propose.** Concretely:
+
+1. Build a seeding helper that creates a DataVault table with ≥100k values across a
+   realistic column mix (short text, long text, number, date). Put it where other
+   integration helpers live so DVP-2 and future perf work can reuse it — a throwaway
+   script in your worktree is not an acceptable deliverable.
+2. Capture `EXPLAIN (ANALYZE, BUFFERS)` for a representative query per filter family:
+   equality, `contains`, numeric range, date range, `is_empty`.
+3. *Then* decide what, if anything, to index — bounded per the trap above — and
+   re-capture the same plans.
+
+Do not add indexes the plans do not justify. Each one costs write throughput on the
+hottest table in DataVault, and DVH-2 is adding write work to the same path.
+
+### Ties
+
+- Load **`db-schema-change`** (mandatory) and **`run-tests`**.
+- **Do not start until DVH-2 and DVH-3 have landed** — both carry migrations, and DVH-2
+  adds a table and write path on `datavault_values`'s hot path, which changes the write
+  cost side of your trade-off. Re-measure against post-DVH-2 `main`, not against
+  `1a32e241`.
+- Related: **DVP-2** below, and `DV-B4` in `tickets/backlog/DATAVAULT.md`.
+- Read `migrations/APPLY_INDEXES.md` and `migrations/INDEX_MIGRATION_SUMMARY.md` —
+  this repo has prior index work with conventions worth matching.
+
+### Acceptance criteria
+
+1. A reusable seeding helper exists that produces a DataVault table with ≥100k values,
+   lives with the other test helpers, and is used by this ticket's own measurements.
+2. `EXPLAIN (ANALYZE, BUFFERS)` plans are captured for equality, `contains`, numeric
+   range, date range, and `is_empty` filters — pasted in the report, before any change.
+3. A written recommendation: which indexes (if any) to add, each justified by a named
+   plan, and **every considered-and-rejected index named with its reason**. Rejecting
+   all of them is a valid outcome if the plans support it.
+4. If an index is added: the after-plans show it being used, the improvement is stated
+   in numbers, and **no index entry can exceed the btree limit** — proven by inserting
+   a value near `MAX_VALUE_BYTES` into an indexed column and showing the insert
+   succeeds.
+5. If no index is added: the report says so explicitly and records at what scale the
+   plans suggest revisiting.
+6. Filter correctness unchanged — the 8-suite DataVault sweep green, especially DV-8's
+   filter tests.
+7. If a migration is added, `npm run db:migrate` applies cleanly on a fresh database.
+8. `npx tsc --noEmit` 0 errors; `npm run lint` clean; `npm run test:fast` ≥ 2381.
+
+---
+
+## DVP-2 — `getRowsWithValues` fetches every value for every row regardless of selected columns 🔲
+
+**Priority: P2** · Size: S · File: `server/repositories/DatavaultRowsRepository.ts`
+
+*Promoted from `DV-B4` (parked during the DataVault audit) because it shares DVP-1's
+trigger and its measurement harness. Not independently urgent.*
+
+### Finding
+
+`getRowsWithValues` loads all `datavault_values` rows for the page of rows it returns,
+irrespective of which columns the caller actually asked for. On a wide table (many
+columns, or a few very large `json`/long-text columns) the grid pays to transfer and
+deserialise cells it will never render.
+
+Same "wide table" trigger as DVP-1, different layer — which is why they share a file:
+a fix to one changes the measured value of the other.
+
+### Preferred fix
+
+Establish the cost with DVP-1's harness first, then push column selection down into the
+query if the numbers justify it. Confirm before building: check whether any caller
+depends on receiving all values even when it requests a subset (grid, export, dynamic
+options, data blocks, the DataVault API-token routes) — a narrower fetch that breaks
+export is a regression, not an optimisation.
+
+### Ties
+
+- **After DVP-1** — reuse its seeding helper rather than writing a second one.
+- Load **`add-api-endpoint`** and **`run-tests`**.
+- Callers to audit before narrowing anything: the grid read path, CSV/export,
+  `dynamic_options_workflow`, `dataBlocks`, and `datavault.api-tokens`.
+
+### Acceptance criteria
+
+1. Measured before/after payload size and query time on a wide table (≥50 columns)
+   using DVP-1's harness — numbers in the report.
+2. Every caller of `getRowsWithValues` is enumerated in the report with whether it
+   needs all values or a subset.
+3. If narrowed: all enumerated callers still get what they need, proven by the 8-suite
+   sweep plus a test asserting a subset request returns only the requested columns.
+4. If not narrowed: the report says why, with the numbers that made it not worth it.
+5. `npx tsc --noEmit` 0 errors; `npm run lint` clean; `npm run test:fast` ≥ 2381;
+   8-suite DataVault sweep green.
+
+---
+
+## Gate
+
+- [ ] DVP-1..2 both ✅ with dated verification notes, **or** closed with a written
+      "measured, no change warranted" outcome
+- [ ] The seeding harness from DVP-1 is committed and reusable
+- [ ] `npx tsc --noEmit` → 0 errors · `npm run lint` → clean
+- [ ] `npm run test:fast` ≥ 2381 · 8-suite DataVault integration sweep green
+- [ ] Any migration applies cleanly on a fresh database
+- [ ] Reviewer has committed each passed ticket + this gate
