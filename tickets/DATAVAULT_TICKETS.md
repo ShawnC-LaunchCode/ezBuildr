@@ -2047,7 +2047,7 @@ resolver.
 
 ---
 
-## DV-13 — DataVault mutations leave no audit trail 🔲
+## DV-13 — DataVault mutations leave no audit trail 🔄
 
 **Priority: P2** · Size: **L** · File: `server/routes/datavault/*` + `server/lib/writes/WriteRunner.ts`
 
