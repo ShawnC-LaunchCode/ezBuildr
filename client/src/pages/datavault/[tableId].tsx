@@ -545,7 +545,6 @@ export default function TableViewPage() {
                         ) : (
                           <>
                             <FilterPanel tableId={tableId} columns={columns ?? []} />
-                            // eslint-disable-next-line @typescript-eslint/no-misused-promises
                             <BulkActionsToolbar
                               selectedCount={selectedRowIds.size}
                               onClearSelection={() => setSelectedRowIds(new Set())}
