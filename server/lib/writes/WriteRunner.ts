@@ -1,6 +1,7 @@
 import type { WriteBlockConfig, WriteResult, BlockContext } from "@shared/types/blocks";
 
 import { db } from "../../db";
+import { ConflictError } from "../../errors/AppError";
 import { createLogger } from "../../logger";
 import { datavaultRowsRepository, type DbTransaction } from "../../repositories";
 import { datavaultRowsService } from "../../services/DatavaultRowsService";
@@ -20,7 +21,6 @@ export class WriteRunner {
         logger.info({
             operation: "write_start",
             mode: config.mode,
-            config, // Debug full config
             tableId: config.tableId,
             preview: isPreview
         }, "Starting write execution");
@@ -73,9 +73,8 @@ export class WriteRunner {
             if (isPreview) {
                 logger.info({
                     operation: "write_preview_simulated",
-                    values: mappedValues,
                     matchColumnId,
-                    matchValue
+                    tableId: config.tableId
                 }, "Simulating write in preview mode");
                 return {
                     success: true,
@@ -117,7 +116,11 @@ export class WriteRunner {
                 writtenData: mappedValues
             };
         } catch (error) {
-            logger.error({ error, config }, "Write execution failed");
+            logger.error({
+                error,
+                mode: config.mode,
+                tableId: config.tableId
+            }, "Write execution failed");
             return {
                 success: false,
                 tableId: config.tableId,
@@ -190,8 +193,6 @@ export class WriteRunner {
     /**
      * Execute Upsert Operation
      * Try to find existing row by match column, update if found, create if not
-     *
-     * RACE CONDITION FIX: Uses SELECT FOR UPDATE to prevent duplicate inserts
      */
     // eslint-disable-next-line max-params
     private async executeUpsert(
@@ -209,25 +210,41 @@ export class WriteRunner {
             const rowId = await this.executeCreate(tableId, values, tenantId, userId, tx);
             return { rowId, operation: "create" };
         }
-        // RACE CONDITION FIX: Use row-level locking (SELECT FOR UPDATE) to prevent race conditions
-        // This locks the row if it exists, preventing another transaction from inserting a duplicate
+        // The repository serializes upserts for this match key before checking for a row.
+        // Existing rows are locked as well so the subsequent update remains atomic.
         const existingRowId = await this.findRowIdByColumnValue(tableId, matchColumnId, matchValue, tenantId, tx, true);
         if (existingRowId) {
             // Row exists (and is now locked), update it
-            logger.info({ tableId, matchColumnId, matchValue, existingRowId }, "Upsert: found existing row, updating");
-            const valueList = Object.entries(values).map(([columnId, value]) => ({
-                columnId,
-                value
-            }));
-            await datavaultRowsRepository.updateRowValues(existingRowId, valueList, userId, tx);
+            logger.info({ tableId, matchColumnId, existingRowId }, "Upsert: found existing row, updating");
+            await datavaultRowsService.updateRow(existingRowId, tenantId, values, userId, tx);
             return { rowId: existingRowId, operation: "update" };
-        } else {
-            // Row doesn't exist, create new
-            // NOTE: Between check and insert, another transaction might create the row
-            // But SELECT FOR UPDATE ensures no duplicate exists at check time
-            logger.info({ tableId, matchColumnId, matchValue }, "Upsert: row not found, creating new");
+        }
+
+        logger.info({ tableId, matchColumnId }, "Upsert: row not found, creating new");
+        try {
             const rowId = await this.executeCreate(tableId, values, tenantId, userId, tx);
             return { rowId, operation: "create" };
+        } catch (error) {
+            if (!(error instanceof ConflictError)) {
+                throw error;
+            }
+
+            // A writer outside this upsert path may win after the first match. When
+            // uniqueness rejects our insert, match once more and perform a validated update.
+            const retryRowId = await this.findRowIdByColumnValue(
+                tableId,
+                matchColumnId,
+                matchValue,
+                tenantId,
+                tx,
+                true
+            );
+            if (!retryRowId) {
+                throw error;
+            }
+
+            await datavaultRowsService.updateRow(retryRowId, tenantId, values, userId, tx);
+            return { rowId: retryRowId, operation: "update" };
         }
     }
 }

@@ -32,6 +32,7 @@ describe('DatavaultRowsRepository', () => {
       innerJoin: vi.fn().mockReturnThis(),
       on: vi.fn().mockReturnThis(),
       onConflictDoUpdate: vi.fn().mockReturnThis(),
+      for: vi.fn().mockReturnThis(), // .for('update') row locking
       execute: vi.fn(),
       transaction: vi.fn(),
       then: function (resolve: any) { resolve((this as any)._mockReturnValue || []); },
@@ -41,6 +42,7 @@ describe('DatavaultRowsRepository', () => {
   const mockTableId = '660e8400-e29b-41d4-a716-446655440001';
   const mockRowId = '770e8400-e29b-41d4-a716-446655440002';
   const mockColumnId = '880e8400-e29b-41d4-a716-446655440003';
+  const mockTenantId = '990e8400-e29b-41d4-a716-446655440004';
 
   beforeEach(async () => {
     let mockReturnValue: any = [];
@@ -310,6 +312,37 @@ describe('DatavaultRowsRepository', () => {
       await repository.updateRowValues(mockRowId, []);
 
       expect(mockDb.insert).not.toHaveBeenCalled();
+    });
+  });
+  describe('findRowByColumnValue advisory locking (DV-7)', () => {
+    // Reviewer-added. DV-7's integration test asserts that two concurrent upserts
+    // yield one row, but it CANNOT fail: server/db.ts sets the pool to
+    // `NODE_ENV === 'test' ? 1 : 10`, so two db.transaction() calls serialize on the
+    // single connection and there is no race to lose. That test therefore proves the
+    // property without proving the mechanism. These assertions are deterministic and
+    // do fail without the fix, so the lock is actually protected by a test.
+    it('takes a transaction-scoped advisory lock when forUpdate is requested', async () => {
+      mockDb._mockReturnValue = [];
+
+      await repository.findRowByColumnValue(mockTableId, mockColumnId, 'match-me', {
+        tenantId: mockTenantId,
+        forUpdate: true,
+      });
+
+      expect(mockDb.execute).toHaveBeenCalledTimes(1);
+      const [lockStatement] = mockDb.execute.mock.calls[0] as [{ queryChunks?: unknown[] }];
+      const rendered = JSON.stringify(lockStatement);
+      expect(rendered).toContain('pg_advisory_xact_lock');
+    });
+
+    it('does not take an advisory lock for a plain read', async () => {
+      mockDb._mockReturnValue = [];
+
+      await repository.findRowByColumnValue(mockTableId, mockColumnId, 'match-me', {
+        tenantId: mockTenantId,
+      });
+
+      expect(mockDb.execute).not.toHaveBeenCalled();
     });
   });
 });

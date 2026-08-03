@@ -4,9 +4,19 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { WriteBlockConfig, BlockContext } from "@shared/types/blocks";
 
 import type { DatavaultColumn, DatavaultRow, DatavaultTable } from "@shared/schema";
+import { ConflictError } from "../../../server/errors/AppError";
 import { WriteRunner } from "../../../server/lib/writes/WriteRunner";
 import { datavaultRowsRepository, datavaultColumnsRepository, datavaultTablesRepository } from "../../../server/repositories";
 import { datavaultRowsService } from "../../../server/services/DatavaultRowsService";
+
+const mockLogger = vi.hoisted(() => ({
+    error: vi.fn(),
+    info: vi.fn(),
+}));
+
+vi.mock("../../../server/logger", () => ({
+    createLogger: vi.fn(() => mockLogger),
+}));
 // Mock DB
 vi.mock("../../../server/db", () => ({
     db: {
@@ -65,6 +75,11 @@ describe("WriteRunner", () => {
     beforeEach(() => {
         runner = new WriteRunner();
         vi.clearAllMocks();
+        vi.mocked(datavaultRowsService.createRow).mockResolvedValue({
+            row: { id: "row-new" } as DatavaultRow,
+            values: {},
+        });
+        vi.mocked(datavaultRowsService.updateRow).mockResolvedValue(undefined);
         // Default mocks
         vi.mocked(datavaultColumnsRepository.findByTableId).mockResolvedValue([
             { id: "col-first", type: "text", required: false, name: "First Name" },
@@ -208,5 +223,128 @@ describe("WriteRunner", () => {
             expect(result.success).toBe(false);
             expect(result.error).toContain("Row not found");
         });
+    });
+
+    describe("Mode: Upsert", () => {
+        const upsertConfig = (value: string = "Active"): WriteBlockConfig => ({
+            tableId: "table-users",
+            dataSourceId: "ds-native",
+            mode: "upsert",
+            matchStrategy: {
+                type: "column_match",
+                columnId: "col-email",
+                columnValue: "test@example.com",
+            },
+            columnMappings: [
+                { columnId: "col-status", value },
+            ],
+        });
+
+        it.each([
+            ["number", "not-a-number", "Column 'Age' must be a valid number"],
+            ["select", "unlisted", "Column 'Status' has invalid option"],
+            ["reference", "not-a-uuid", "Column 'Manager' must be a valid UUID"],
+        ])("rejects an invalid %s value with the same validation error as update mode", async (_type, value, validationError) => {
+            vi.mocked(datavaultRowsRepository.findRowByColumnValue).mockResolvedValue("row-existing-1");
+            vi.mocked(datavaultRowsService.updateRow).mockRejectedValue(new Error(validationError));
+
+            const updateConfig: WriteBlockConfig = {
+                ...upsertConfig(value),
+                mode: "update",
+            };
+            const updateResult = await runner.executeWrite(updateConfig, mockContext, mockTenantId);
+            const upsertResult = await runner.executeWrite(upsertConfig(value), mockContext, mockTenantId);
+
+            expect(updateResult).toMatchObject({ success: false, error: validationError });
+            expect(upsertResult).toMatchObject({ success: false, error: validationError });
+            expect(datavaultRowsRepository.updateRowValues).not.toHaveBeenCalled();
+        });
+
+        it("validates and updates an existing row through the row service", async () => {
+            vi.mocked(datavaultRowsRepository.findRowByColumnValue).mockResolvedValue("row-existing-1");
+
+            const result = await runner.executeWrite(upsertConfig(), mockContext, mockTenantId);
+
+            expect(result).toMatchObject({
+                success: true,
+                rowId: "row-existing-1",
+                operation: "update",
+            });
+            expect(datavaultRowsService.updateRow).toHaveBeenCalledWith(
+                "row-existing-1",
+                mockTenantId,
+                { "col-status": "Active" },
+                mockContext.userId,
+                expect.anything()
+            );
+            expect(datavaultRowsRepository.updateRowValues).not.toHaveBeenCalled();
+        });
+
+        it("creates a live row when the match exists only on an archived row", async () => {
+            vi.mocked(datavaultRowsRepository.findRowByColumnValue).mockResolvedValue(null);
+
+            const result = await runner.executeWrite(upsertConfig(), mockContext, mockTenantId);
+
+            expect(result).toMatchObject({ success: true, rowId: "row-new", operation: "create" });
+            expect(datavaultRowsService.createRow).toHaveBeenCalledOnce();
+            expect(datavaultRowsService.updateRow).not.toHaveBeenCalled();
+        });
+
+        it("passes tenant scope to the match query and creates when another tenant cannot match", async () => {
+            const otherTenantId = "tenant-other";
+            vi.mocked(datavaultRowsRepository.findRowByColumnValue).mockResolvedValue(null);
+
+            const result = await runner.executeWrite(upsertConfig(), mockContext, otherTenantId);
+
+            expect(result.operation).toBe("create");
+            expect(datavaultRowsRepository.findRowByColumnValue).toHaveBeenCalledWith(
+                "table-users",
+                "col-email",
+                "test@example.com",
+                expect.objectContaining({ tenantId: otherTenantId, forUpdate: true })
+            );
+        });
+
+        it("retries the match and performs a validated update after a uniqueness conflict", async () => {
+            vi.mocked(datavaultRowsRepository.findRowByColumnValue)
+                .mockResolvedValueOnce(null)
+                .mockResolvedValueOnce("row-winner");
+            vi.mocked(datavaultRowsService.createRow).mockRejectedValue(
+                new ConflictError("A row with this column 'Email' already exists")
+            );
+
+            const result = await runner.executeWrite(upsertConfig(), mockContext, mockTenantId);
+
+            expect(result).toMatchObject({ success: true, rowId: "row-winner", operation: "update" });
+            expect(datavaultRowsRepository.findRowByColumnValue).toHaveBeenCalledTimes(2);
+            expect(datavaultRowsService.updateRow).toHaveBeenCalledWith(
+                "row-winner",
+                mockTenantId,
+                { "col-status": "Active" },
+                mockContext.userId,
+                expect.anything()
+            );
+        });
+    });
+
+    it("does not log the write config or resolved values", async () => {
+        const sensitiveValue = "private interview answer";
+        const writeConfig: WriteBlockConfig = {
+            tableId: "table-users",
+            dataSourceId: "ds-native",
+            mode: "create",
+            columnMappings: [{ columnId: "col-first", value: sensitiveValue }],
+        };
+
+        await runner.executeWrite(writeConfig, mockContext, mockTenantId, true);
+
+        const loggedPayloads = mockLogger.info.mock.calls.map(([payload]) => payload);
+        expect(loggedPayloads).not.toHaveLength(0);
+        for (const payload of loggedPayloads) {
+            expect(payload).not.toHaveProperty("config");
+            expect(payload).not.toHaveProperty("values");
+            expect(payload).not.toHaveProperty("matchValue");
+            expect(JSON.stringify(payload)).not.toContain(sensitiveValue);
+        }
     });
 });

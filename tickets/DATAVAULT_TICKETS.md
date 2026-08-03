@@ -1153,7 +1153,50 @@ comment the enum value as deprecated per D-4. Do not add a migration.
     the running app, add two rows, and attach a screenshot showing `INV-0001` and
     `INV-0002` in the grid. Use the **`verify`** skill.
 
-## DV-7 — Upsert writes bypass validation, can duplicate, and match archived rows 🔲
+## DV-7 — Upsert writes bypass validation, can duplicate, and match archived rows ✅
+
+> **Verification pass — 2026-08-02 (reviewer).** PASS, all 8 criteria met.
+> Gates re-run in the main checkout: `tsc` 0 errors, repo-wide `lint` exit 0,
+> `test:fast` **2354** (= 2346 + 8), DataVault integration **3 files / 50 passed**.
+> Reverting the two source files fails **6** unit tests.
+>
+> **⚠️ The ticket's Preferred fix was wrong, and the dev was right to deviate.**
+> It said "once DV-4 enforces uniqueness, the second insert is rejected — catch that
+> conflict and retry the match once." That cannot work: DV-4's uniqueness is an
+> application-level SELECT-then-INSERT inside a transaction, so under READ COMMITTED
+> two concurrent transactions both see no conflict and both insert. **Nothing throws,
+> so there is no conflict to catch**, and AC5 was unachievable as specified. The dev
+> added a transaction-scoped advisory lock on the match key *before* the existence
+> check, which actually serializes competing upserts — and *also* implemented the
+> retry, correctly scoped to a writer arriving from outside the upsert path where a
+> conflict genuinely can be raised. Both parts do real work.
+> Verified `hashtextextended(text, bigint)` exists in PG 16.12 and the exact call
+> shape works. It is an undocumented internal, but it is core Postgres, so Neon has
+> it. Recorded here because that is the one thing about this fix that could differ
+> between local and production.
+>
+> **⚠️ AC5's integration test cannot fail — reviewer fixed this.** The reviewer
+> reverted both source files and re-ran the integration suite: **10/10 still
+> passed**, including "serializes concurrent upserts … into exactly one row". Root
+> cause: `server/db.ts` sets the pool to `NODE_ENV === 'test' ? 1 : 10`, so two
+> `db.transaction()` calls **serialize on the single connection** — `Promise.all`
+> gives concurrent invocation but not concurrent execution, and there is no race to
+> lose. The test asserts a correct property while being structurally incapable of
+> proving the mechanism. **This is the "criteria satisfiable by doing nothing" trap
+> in the ticket template, and it survived a dev self-grade and would have survived
+> a normal review.**
+> Reviewer added two deterministic assertions to
+> `tests/unit/repositories/DatavaultRowsRepository.test.ts` — that a `forUpdate`
+> lookup issues `pg_advisory_xact_lock`, and that a plain read does not — plus a
+> `.for()` stub the db mock was missing. Confirmed they fail against the original
+> and pass with the fix, so the lock now has real regression protection. The
+> integration test is kept: it is not wrong, it just proves less than it appears to.
+>
+> **Beyond the ticket, correctly:** AC6 asked only that `config` leave the logs; the
+> dev also dropped `matchValue` from the info logs, which is right — a match key is
+> often an email. Also tightened `options` from optional to required, removed the
+> `void tenantId` line, and added the tenant join and `isNull(deletedAt)` the ticket
+> asked for.
 
 **Priority: P1** · Size: M · File: `server/lib/writes/WriteRunner.ts`, `server/repositories/DatavaultRowsRepository.ts`
 

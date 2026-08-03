@@ -631,27 +631,31 @@ export class DatavaultRowsRepository extends BaseRepository<
   /**
    * Find a single row ID by a specific column value
    * Used for "Primary Key" lookups in Write Blocks
-   *
-   * RACE CONDITION FIX: Added optional forUpdate parameter for row-level locking
    */
   async findRowByColumnValue(
     tableId: string,
     columnId: string,
     value: unknown,
-    options?: {
+    options: {
       tenantId: string;
       tx?: DbTransaction;
       forUpdate?: boolean;
     }
   ): Promise<string | null> {
-    const tenantId = options?.tenantId;
-    const tx = options?.tx;
-    const forUpdate = options?.forUpdate ?? false;
+    const { tenantId, tx, forUpdate = false } = options;
     const database = this.getDb(tx);
-    void tenantId; // Tenant check implicit via tableId ownership verification (tables are tenant scoped)
+
+    if (forUpdate) {
+      const lockKey = `${tableId}:${columnId}:${String(value)}`;
+      await database.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`
+      );
+    }
+
     const baseQuery = database
       .select({ id: datavaultRows.id })
       .from(datavaultRows)
+      .innerJoin(datavaultTables, eq(datavaultRows.tableId, datavaultTables.id))
       .innerJoin(
         datavaultValues,
         and(
@@ -662,11 +666,13 @@ export class DatavaultRowsRepository extends BaseRepository<
       .where(
         and(
           eq(datavaultRows.tableId, tableId),
+          eq(datavaultTables.tenantId, tenantId),
+          isNull(datavaultRows.deletedAt),
           eq(datavaultValues.value, value as string)
         )
       )
       .limit(1);
-    // Apply row-level locking if requested (prevents race conditions in upsert)
+    // Lock a matching live row while the caller performs its validated update.
     const query = forUpdate ? baseQuery.for('update') : baseQuery;
     const [result] = await query;
     return result?.id ?? null;

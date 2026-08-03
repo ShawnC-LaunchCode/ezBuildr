@@ -5,9 +5,10 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import { users, tenants, projects, workflows, sections, blocks, datavaultDatabases, workflowQueries, steps } from '@shared/schema';
 import type { Block } from '@shared/schema';
-import type { ListVariable, ReadTableConfig } from '@shared/types/blocks';
+import type { BlockContext, ListVariable, ReadTableConfig, WriteBlockConfig } from '@shared/types/blocks';
 
 import { db } from '../../server/db';
+import { WriteRunner } from '../../server/lib/writes/WriteRunner';
 import { stepValueRepository } from '../../server/repositories';
 import {
     datavaultTablesService,
@@ -24,6 +25,7 @@ describe('Data Block Integration Tests', () => {
     let databaseId: string;
     let tableId: string;
     let columnId: string;
+    let upsertMatchColumnId: string;
     let readTableId: string;
     let readTextColumnId: string;
     let readNumberColumnId: string;
@@ -74,6 +76,15 @@ describe('Data Block Integration Tests', () => {
             required: false,
         }, tenantId);
         columnId = column.id;
+
+        const upsertMatchColumn = await datavaultColumnsService.createColumn({
+            tableId,
+            name: 'Upsert Match',
+            type: 'text',
+            required: false,
+            isUnique: true,
+        }, tenantId);
+        upsertMatchColumnId = upsertMatchColumn.id;
 
         const [project] = await db.insert(projects).values({
             name: 'Write Block Project',
@@ -285,6 +296,46 @@ describe('Data Block Integration Tests', () => {
 
         // Check value
         expect(row.values[columnId]).toBe('Hello DataVault');
+    });
+
+    it('serializes concurrent upserts for the same new match value into exactly one row', { timeout: 30000 }, async () => {
+        const matchValue = `concurrent-${uuidv4()}`;
+        const config: WriteBlockConfig = {
+            dataSourceId: databaseId,
+            tableId,
+            mode: 'upsert',
+            matchStrategy: {
+                type: 'column_match',
+                columnId: upsertMatchColumnId,
+                columnValue: matchValue,
+            },
+            columnMappings: [
+                { columnId: upsertMatchColumnId, value: matchValue },
+                { columnId, value: 'Hello DataVault' },
+            ],
+        };
+        const context = (runId: string): BlockContext => ({
+            workflowId: readWorkflowId,
+            runId,
+            phase: 'onNext',
+            data: {},
+            userId,
+        });
+        const runner = new WriteRunner();
+
+        const results = await Promise.all([
+            runner.executeWrite(config, context('concurrent-upsert-a'), tenantId),
+            runner.executeWrite(config, context('concurrent-upsert-b'), tenantId),
+        ]);
+
+        expect(results.map(result => result.success)).toEqual([true, true]);
+        expect(results.map(result => result.operation).sort()).toEqual(['create', 'update']);
+
+        const { rows } = await datavaultRowsService.getRowsWithOptions(tenantId, tableId, { limit: 100 });
+        const matchingRows = rows.filter(row => row.values[upsertMatchColumnId] === matchValue);
+        expect(matchingRows).toHaveLength(1);
+        expect(results[0].rowId).toBe(matchingRows[0].row.id);
+        expect(results[1].rowId).toBe(matchingRows[0].row.id);
     });
 
     it('returns actual EAV cell values and excludes archived rows via Read Table block', { timeout: 30000 }, async () => {
