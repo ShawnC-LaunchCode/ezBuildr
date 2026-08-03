@@ -1375,7 +1375,7 @@ log payload and keep the ids.
 The DataVault grid is the primary human surface. It currently shows filters that do
 nothing and counts that include deleted rows.
 
-## DV-8 — The server ignores the `filters` query param, so the filter panel does nothing 🔲
+## DV-8 — The server ignores the `filters` query param, so the filter panel does nothing 🔄
 
 **Priority: P1** · Size: M · File: `server/routes/datavault/rows.routes.ts`, `server/repositories/DatavaultRowsRepository.ts`, `client/src/components/datavault/FilterPanel.tsx`
 
