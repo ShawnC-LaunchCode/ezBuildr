@@ -1,40 +1,177 @@
 ---
 name: verify
-description: 'Use this skill whenever a change needs to be proven against the live locally-running ezBuildr app instead of (or in addition to) tests. That includes: spinning up, starting, or restarting the app or dev/test server on any port; hitting an API endpoint manually on the running server with a real token; confirming the app still boots and pages still load after a merge or refactor; proving a feature or flow (e.g. a run, workflow, endpoint) actually works end-to-end before committing; screenshotting or clicking through the UI; demoing a feature; or logging in locally (it documents the Google OAuth workaround). Phrases like "spin up the app", "prove it works", "verify end to end", "make sure it still boots", or "check it in the real app, not just tests" all mean this skill. Do NOT use it for running unit/integration test suites (use run-tests), deploying, checking production availability or incidents, code review, or writing e2e tests.'
+description: 'Use this skill whenever a change needs to be proven against the live locally-running ezBuildr app instead of (or in addition to) tests. That includes: spinning up, starting, or restarting the app or dev/test server on any port; hitting an API endpoint manually on the running server with a real token; confirming the app still boots and pages still load after a merge or refactor; proving a feature or flow (e.g. a run, workflow, endpoint) actually works end-to-end before committing; screenshotting or clicking through the UI; demoing a feature; or logging in locally (it documents how to get an authenticated session without Google OAuth). Phrases like "spin up the app", "prove it works", "verify end to end", "make sure it still boots", or "check it in the real app, not just tests" all mean this skill. Do NOT use it for running unit/integration test suites (use run-tests), deploying, checking production availability or incidents, code review, or writing e2e tests.'
 ---
 
 # Verifying Changes in ezBuildr
 
+> **Every recipe below was executed end-to-end on 2026-08-02 and produced the
+> stated output.** The previous version of this skill documented an auth flow that
+> had silently stopped working — public signup was gated, and a registered user no
+> longer got a tenant — which cost a reviewer several cycles mid-verification. If
+> you find a step here that does not behave as written, fix this file as part of
+> your task rather than working around it in silence.
+
 ## Boot the app
 
-- Preferred: `npm run dev` (Express + Vite middleware on `http://localhost:5000`). Port busy → `npm run kill-server`.
-- **In a worktree, always start it yourself on your own port** (`PORT=5098 npm run dev`). Do **not** use `preview_start` there — it reads the main checkout's `.claude/launch.json` and launches from the repo root, silently serving `main`'s source. See "Driving the UI".
-- `preview_start` with the `ezbuildr-dev` config from `.claude/launch.json` is fine in the main checkout only.
-- Test-mode server on a separate port: `npm run dev:test` (NODE_ENV=test, port 5174).
-- Required env in `.env`: `DATABASE_URL`, `SESSION_SECRET`, `VL_MASTER_KEY`, `GOOGLE_CLIENT_ID`, `VITE_GOOGLE_CLIENT_ID`, `BASE_URL`, `ALLOWED_ORIGIN` (see CLAUDE.md). The dev `.env` already exists on this machine — don't regenerate keys; changing `VL_MASTER_KEY` breaks all stored secrets.
+**Default choice for verification: `npm run dev:test`** (port **5174**,
+`NODE_ENV=test`). Use this unless you specifically need development semantics,
+because test mode removes the two things that otherwise block you:
 
-## Getting authenticated (no browser OAuth needed)
+- **Public signup is open.** `isPublicSignupEnabled` (`shared/publicSignup.ts`)
+  returns true when `NODE_ENV === 'test'` *or*
+  `VITE_PUBLIC_SIGNUP_ENABLED === 'true'`. In plain `npm run dev` you get
+  `{"error":"registration_closed"}` and cannot create a user at all.
+- **Auth rate limiting is effectively off.** `server/middleware/rateLimiter.ts`
+  allows `NODE_ENV === 'test' ? 1000 : 10` attempts per 15 minutes. Verified: 12
+  rapid registers in test mode → 12 accepted, 0 limited. In dev you get
+  `"Too many login/register attempts"` after 10 and, since the limiter store is
+  in-memory, the only quick fix is **restarting the server**.
 
-Google OAuth can't be driven headlessly. Two working paths:
+Other options:
 
-1. **API-level:** register a throwaway user for a JWT, exactly like integration tests do:
-   ```
-   POST /api/auth/register  { email, password, firstName, lastName }
-   ```
-   then send `Authorization: Bearer <token>`. See `tests/helpers/integrationTestHelper.ts:57` for the full bootstrap (tenant + org + project creation) — reuse it via a tsx script rather than reinventing.
-2. **UI-level:** the login page also supports email/password auth for locally-registered users — register via the API first, then log in through the form.
+- `npm run dev` — development mode, port 5000. `npm run kill-server` frees the port,
+  but see the warning below before you touch 5000.
+- `PORT=5098 VITE_PUBLIC_SIGNUP_ENABLED=true npm run dev` — development semantics
+  *plus* an open signup gate, on your own port. Use when you must reproduce
+  something that behaves differently under `NODE_ENV=test`.
+- **In a worktree, always start the server yourself on your own port.** Do **not**
+  use `preview_start` there — it reads the *main* checkout's `.claude/launch.json`
+  and launches from the repo root, silently serving `main`'s source.
+
+Confirm it is actually up and talking to the database — `/health` reports both,
+plus the PDF converter:
+
+```bash
+curl -s http://localhost:5174/health
+# {"status":"healthy","environment":"test","database":{"connected":true,...},"pdfConverter":{...}}
+```
+
+`.env` already exists on this machine. Don't regenerate keys — changing
+`VL_MASTER_KEY` breaks every stored secret.
+
+## Getting an authenticated session (no browser OAuth)
+
+Google OAuth can't be driven headlessly. **Three steps, and it is simpler than it
+looks** — you do *not* need to log in, and you do *not* need to verify an email:
+
+1. **Insert a tenant row.** Registration does **not** create one, and almost every
+   tenant-scoped endpoint fails without it.
+2. **`POST /api/auth/register`** → returns `{ token, user: { id } }`. Keep that token.
+3. **Attach the tenant to the user** with a direct DB update
+   (`tenantId`, `role: 'admin'`, `tenantRole: 'owner'`).
+
+Then use the **token from step 2 directly.** No re-login. This works because
+`attachUserToRequest` (`server/middleware/auth.ts:214`) deliberately re-hydrates
+`tenantId` and roles **from the database** on every request rather than trusting
+the JWT claim, so a tenant attached after the token was minted takes effect
+immediately.
+
+```ts
+// run with: npx tsx ./.probe.mts   (from the repo root, then delete the file)
+import { eq } from 'drizzle-orm';
+import * as schema from './shared/schema';
+import { db, initializeDatabase } from './server/db';
+
+await initializeDatabase();                       // required, or you get
+                                                  // "Database not initialized"
+const [tenant] = await db.insert(schema.tenants)
+  .values({ name: `Probe ${Date.now()}`, plan: 'pro' }).returning();
+
+const reg = await fetch('http://localhost:5174/api/auth/register', {
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email: `probe-${Date.now()}@example.com`,
+    password: 'StrongTestUser123!@#', firstName: 'P', lastName: 'Q' }),
+}).then(r => r.json());
+
+await db.update(schema.users)
+  .set({ tenantId: tenant.id, role: 'admin', tenantRole: 'owner' })
+  .where(eq(schema.users.id, reg.user.id));
+
+// reg.token now works on tenant-scoped endpoints.
+```
+
+`tests/helpers/integrationTestHelper.ts` does the same thing plus an organization
+and membership — copy from there if your change touches org-level ACLs.
+
+### The four traps, in the order you will hit them
+
+1. **No tenant on register.** Symptom: `500 {"message":"Failed to create table"}`
+   and a server log line `User session missing tenantId`. Fix: step 1 + 3 above.
+2. **Login needs a verified email.** `auth.routes.ts:81` throws
+   `EmailNotVerifiedError` (`AUTH_006`) unconditionally — there is no test-mode
+   escape. **So don't log in.** If you genuinely need the login endpoint, set
+   `emailVerified: true` in the same DB update.
+3. **`POST /api/workflows` wants `title`, not `name`.** Sending `name` gives
+   `400 Invalid workflow data … path: ["title"] Required`.
+4. **A 30-second user cache** backs that DB re-hydration. If you make an
+   authenticated request *before* attaching the tenant, a stale row can linger
+   briefly. Attach the tenant first and you will never see it.
+
+### Cleaning up — and the trap that leaks fixtures
+
+You are writing to the **dev database**, which the repo owner also uses from a
+second IDE. Creating a throwaway tenant/user/workflow is expected. **Deleting what
+you created is mandatory. Never touch rows you did not make.**
+
+Put teardown in a `finally` block **and raise failures with `throw`, never
+`process.exit()`** — `process.exit()` skips `finally`, so an early bail-out leaks
+its fixtures. This has happened: an aborted probe left two orphaned tenants and
+users behind, found only by grepping for them afterwards.
+
+```ts
+try { /* ... */ if (!userId) { throw new Error('register failed'); } }
+finally { /* delete table -> workflow -> project -> org -> user -> tenant */ }
+```
+
+Then **prove** the cleanup worked — count what you named before declaring done:
+
+```ts
+const leftover = await db.select().from(schema.tenants)
+  .where(like(schema.tenants.name, 'Probe %'));
+console.log(`leftover: ${leftover.length}`);   // must be 0
+```
 
 ## What "verified" means per change type
 
-- **API change:** curl/supertest the real endpoint on the running server — status code, body shape, and the failure case (401 without token, 403/404 cross-tenant). Passing unit tests alone is not verification.
-- **Workflow engine / step change:** create a workflow via the builder or API, add the relevant step, start a run, submit values, confirm `stepValues` and execution trace look right.
-- **UI change:** drive it in a real browser — see "Driving the UI" below. Screenshot at desktop and mobile widths, and check the console for errors. UI changes also require the design skill (user's global instruction).
-- **Script/hook change:** note `vm2`/`isolated-vm` are not installed locally — sandboxed JS execution paths can't run on this machine; verify logic via unit tests and flag the gap.
+- **API change:** curl the real endpoint on the running server — status code, body
+  shape, **and the failure cases** (401 unauthenticated, 403/404 cross-tenant,
+  400 malformed). Passing unit tests is not verification.
+- **Workflow engine / step change:** create a workflow, add the step, start a run,
+  submit values, confirm `step_values` and the execution trace.
+- **Server-side block runner:** you can import and invoke the runner directly from a
+  tsx script against the live DB (`new ReadTableBlockRunner().execute(config, ctx,
+  block)`). That exercises the real query path without building a whole workflow —
+  the fastest honest proof for filter/sort behaviour.
+- **UI change:** drive a real browser (below). Screenshot desktop **and** mobile,
+  and read the console. UI changes also require the `design` skill (repo rule).
+- **Script/hook change:** `vm2`/`isolated-vm` are not installed locally, so
+  sandboxed JS paths cannot run on this machine. Verify by unit test and say so.
+
+## Running DB-backed tests from the main checkout
+
+**Main's `.env` has no `TEST_DATABASE_URL`**, so `tests/setup.ts` falls back to
+`DATABASE_URL` — the real Neon dev database — and integration runs die with
+`password authentication failed for user "postgres"`. That is a configuration
+artifact, not a broken test. Set it explicitly:
+
+```bash
+TEST_DATABASE_URL="postgresql://postgres:postgres@localhost:5434/ezbuildr_test" \
+  npx vitest run --project integration tests/integration/some.test.ts
+```
+
+Worktrees created by `scripts/new-worktree.ps1` get their own database
+(`ezbuildr_test_<name>`) written into their `.env` — don't override it, it is what
+lets parallel worktrees run DB suites without clobbering each other's schemas.
+
+Two integration suites currently fail on `main` for reasons unrelated to DataVault
+— `organizations-audit-fixes` and `organizations-workflow`, from the org-invite
+work. Check whether a failure predates your change before debugging it.
 
 ## Driving the UI
 
-**Use the Playwright MCP server (`mcp__playwright__*`), not the preview pane.** It is
-registered at project scope in `.mcp.json`, so it resolves in the main checkout
+**Use the Playwright MCP server (`mcp__playwright__*`), not the preview pane.** It
+is registered at project scope in `.mcp.json`, so it resolves in the main checkout
 *and* in every worktree. On first use in a new directory Claude Code asks you to
 approve the project-scoped server — approve it once per worktree.
 
@@ -43,48 +180,38 @@ than a screenshot for asserting text/structure) → `browser_click` / `browser_t
 → `browser_take_screenshot` for the visual → `browser_console_messages` for errors.
 `browser_resize` covers mobile widths.
 
-Worth knowing for this repo's flows:
-
-- `browser_fill_form` fills many fields in one call — the right tool for driving a
-  runner section or a list item, instead of a `browser_type` per field.
+- `browser_fill_form` fills many fields in one call — the right tool for a runner
+  section or list item, instead of one `browser_type` per field.
 - `browser_wait_for` waits on text appearing/disappearing. Use it for autosave
-  ("Saved") and for step transitions. Never sleep.
-- `browser_select_option` for dropdowns; `browser_network_requests` to confirm an
-  autosave POST actually fired and what it carried.
-- `browser_evaluate` for computed styles and anything the accessibility tree
-  won't show.
+  ("Saved") and step transitions. Never sleep.
+- `browser_select_option` for dropdowns; `browser_network_requests` to confirm a
+  request actually fired and what it carried.
+- `browser_evaluate` for computed styles and anything the a11y tree won't show.
 
 ### Point it at the right server
 
-**This is the failure that keeps happening.** The preview pane's `preview_start`
-reads the *main* checkout's `.claude/launch.json` and launches from the repo root,
-so a worktree's changes are silently absent and you screenshot `main`'s source
-while believing you proved your branch. Playwright MCP has no such magic — it
-goes exactly where you navigate it — which is why it is preferred, but it does
-mean **you must start the server yourself and use its port**:
+**This is the failure that keeps happening.** `preview_start` reads the *main*
+checkout's `.claude/launch.json` and launches from the repo root, so a worktree's
+changes are silently absent and you screenshot `main`'s source while believing you
+proved your branch. Playwright MCP goes exactly where you navigate it, which is why
+it is preferred — but you still **must start the server yourself and use its port**.
 
-```bash
-# from inside your worktree, on a port nobody else is using
-PORT=5098 npm run dev        # then browser_navigate http://localhost:5098
-```
-
-**Never assume port 5000 is your tree — and never kill it.** The repo owner
-usually has his own `npm run dev` there. Check before touching it:
+**Never assume port 5000 is your tree — and never kill it.** The repo owner usually
+has his own `npm run dev` there. Check first:
 
 ```powershell
 Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Select ProcessId, CommandLine
 ```
 
-Confirm you're on your own build in one command — ask the server for a file you
-changed:
+Then confirm you are on your own build by asking the server for a file you changed:
 
 ```bash
-curl -s "http://localhost:5098/src/index.css" | grep -c "your-new-token"
+curl -s "http://localhost:5174/src/components/.../YourFile.ts" | grep -c "a-token-you-added"
 ```
 
-`0` means it's serving the other checkout. (`/src/Foo.tsx` returns the index.html
-fallback rather than a module, so grep a token in a file Vite definitely
-transforms.) Do this before trusting a single screenshot.
+`0` means it is serving another checkout. Grep a token in a file Vite definitely
+transforms — and grep for the string you **removed** too, expecting `0`. Do this
+before trusting a single screenshot.
 
 ### `browser_fill_form` silently does nothing to some controlled inputs
 
@@ -92,56 +219,56 @@ transforms.) Do this before trusting a single screenshot.
 `browser_type` (default) use Playwright's `fill()`, which sets the value in one
 shot. Several builder inputs — confirmed on the List field settings' numeric
 inputs — do not register it: React re-renders from state and the field goes
-straight back to empty, so the value never reaches the config and it looks
-exactly like a persistence bug.
+straight back to empty, so the value never reaches the config and it looks exactly
+like a persistence bug.
 
 Typing character-by-character works: `browser_type` with **`slowly: true`**
-(`pressSequentially`). Text inputs in the same row accepted `fill()` fine, so
-you cannot infer from one field that the others are safe.
+(`pressSequentially`). Text inputs in the same row accepted `fill()` fine, so you
+cannot infer from one field that the others are safe.
 
 Likewise, `element.click()` inside `browser_evaluate` does **not** drive React
 here. Use a real `browser_click`. When an element has no stable selector, tag it
 first and click the tag:
 
 ```js
-// browser_evaluate: tag it
-el.setAttribute('data-claude-target', '1');
+el.setAttribute('data-claude-target', '1');   // in browser_evaluate
 // then browser_click with target: [data-claude-target]
 ```
 
-**Always confirm the value stuck before concluding anything** — read the input
-back, and read the persisted config over the API.
+**Always confirm the value stuck** — read the input back, *and* read the persisted
+config over the API.
 
 ### Screenshots land in the repo root
 
 `browser_take_screenshot` with a bare `filename` writes to the **current working
-directory**, not `.playwright-mcp/`. That drops untracked `.png` files in the
-repo root where they can be swept into a commit. Either pass
-`.playwright-mcp/shot.png` explicitly, or move them out afterwards. Only
-`.playwright-mcp/` is gitignored.
+directory**, not `.playwright-mcp/`. That drops untracked `.png` files where they
+can be swept into a commit. Pass `.playwright-mcp/shot.png` explicitly, or move
+them afterwards — only `.playwright-mcp/` is gitignored.
 
 ### Things that look like bugs and aren't
 
+- Vite HMR websocket reconnect errors in the console are noise, not your change.
 - The preview pane froze CSS animations when not displayed, so Radix popovers sat
   at `data-state=closed` and looked broken. Playwright doesn't have this problem,
-  but the lesson stands: assert on `aria-expanded` and the accessibility snapshot
-  rather than on transient DOM state.
-- Screenshots of a page still mid-transition are a timing artifact. Wait on a
-  selector, don't sleep.
-
-### Writing to the dev database
-
-The repo owner works this repo from a second IDE against the same dev DB. Creating
-a throwaway tenant/workflow to prove a builder change is fine and expected — that
-is what the register-a-user path above is for — but **clean up what you create**,
-and never delete or mutate rows you didn't make.
+  but the lesson stands: assert on `aria-expanded` and the a11y snapshot rather
+  than transient DOM state.
+- Screenshots taken mid-transition are a timing artifact. Wait on a selector.
 
 ## Fast checks that catch most breakage
 
 ```bash
-npx tsc --noEmit          # type-check (build gate)
-npm run test:fast         # 13s, no DB
-npm run lint              # zero-error policy (warnings ok)
+npx tsc --noEmit          # type-check
+npm run lint              # repo-wide, --max-warnings 0
+npm run test:fast         # ~60s, no DB
 ```
 
-Run all three before calling a change done; run targeted integration tests (see the run-tests skill) when the change touches server behavior.
+Run all three before calling a change done. `npm run type-check` alone is **not**
+the commit gate — the pre-commit hook also runs `check:strict-zones`, which pulls
+files in transitively. To know what the hook will say, run it:
+
+```bash
+npx tsx scripts/pre-commit-checks.ts   # after staging
+```
+
+For DB-backed suites see the `run-tests` skill — `npm test` naively gives wrong
+results in this repo.
