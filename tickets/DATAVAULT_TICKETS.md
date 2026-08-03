@@ -2049,84 +2049,105 @@ resolver.
 
 ## DV-13 — DataVault mutations leave no audit trail 🔲
 
-**Priority: P2** · Size: M · File: `server/routes/datavault/*`, `server/services/Datavault*.ts`
+**Priority: P2** · Size: **L** · File: `server/routes/datavault/*` + `server/lib/writes/WriteRunner.ts`
+
+> **Re-scoped by the reviewer 2026-08-03, before dispatch.** Three things in the
+> original were wrong or stale, and one of them was going to send a dev down a path
+> that cannot work:
+>
+> 1. **The donor is `AuditLogger.log`**, not "read `secrets.routes.ts` and reuse its
+>    format." It lives at `server/lib/audit/auditLogger.ts` and is called
+>    fire-and-forget: `void AuditLogger.log({ userId, action, resourceType,
+>    resourceId, after, ipAddress })`. It takes an optional second `executor`
+>    argument so it can write inside a caller's `tx`.
+> 2. **Original AC7 is already satisfied by the helper.** `AuditLogger.log`
+>    try/catches its own insert and logs the failure without rethrowing, precisely so
+>    a logging fault cannot fail the user's action. So that criterion becomes
+>    *verify*, not *build*. (It also already coerces an empty `workspaceId` to null,
+>    which is a real bug this repo hit before — do not re-derive that.)
+> 3. **"Instrument at the service layer" was wrong.** The original rationale was to
+>    cover writeback callers — but **DV-10 deleted that path entirely**. And a
+>    service cannot see `req.ip` or the user agent, which the donor records. See the
+>    placement ruling below.
+>
+> **Placement ruling.** Instrument the **route handlers** for HTTP mutations — that
+> matches the donor exactly, captures ip/user-agent, and avoids adding another
+> parameter to service signatures that DV-4, DV-5, DV-7 and DV-9 have already
+> reshaped four times. Then instrument **`WriteRunner`** separately for the
+> Send-Data-To-Table block path, which has no `req` (pass no ip). The accepted
+> tradeoff: a future non-HTTP caller must remember to log; `WriteRunner` is the
+> precedent showing how.
 
 ### Finding
 
-No DataVault route or service writes an audit log entry. Grepping
-`server/routes/datavault/` and `server/services/Datavault*.ts` for
-`auditLog|auditService|createAuditLog` returns nothing, while `auth.routes.ts`,
-`portability.routes.ts` and `secrets.routes.ts` all do audit their mutations — so the
-mechanism exists and this is a gap, not an absent capability.
+No DataVault route or service writes an audit entry. Verified on `013c7637`:
+grepping `server/routes/datavault/` and `server/services/Datavault*.ts` for
+`auditLog|auditService|createAuditLog` returns **nothing**, while
+`auth.routes.ts`, `portability.routes.ts` and `secrets.routes.ts` all audit their
+mutations. The mechanism exists and DataVault simply does not use it.
 
-Unaudited today: row create/update/delete, bulk archive/unarchive/delete, column
-add/change/delete (each of which can destroy values —
-`deleteValuesByColumnId` hard-deletes every value in a column), table
-create/rename/delete/move, ownership transfer, permission grant/revoke, and API-token
-create/delete. Row-level `created_by`/`updated_by` stamps are the only trace, and they
-are overwritten by the next edit; deletes leave nothing at all.
+Unaudited today — **28 mutating endpoints** across 7 route files: row
+create/update/delete, the four bulk row operations, column add/change/delete (each
+of which can destroy values — `deleteValuesByColumnId` hard-deletes every value in
+a column), table create/rename/delete/move, database create/update/delete,
+ownership transfer, permission and access grant/revoke, and row notes.
 
-For a system positioned as the customer's system of record, "who deleted these 400
-rows, and when" is currently unanswerable. This is the one finding in this initiative
-that is a *missing control* rather than a defect, hence P2 — but it is squarely part of
-"enterprise ready".
+Row-level `created_by` / `updated_by` are the only trace, and they are overwritten
+by the next edit. **Deletes leave nothing at all.** For a system positioned as the
+customer's system of record, "who deleted these 400 rows, and when" is currently
+unanswerable.
 
 ### Preferred fix
 
-Add audit logging at the **service** layer, not the routes, so block-runner and
-writeback callers are covered too — and so it cannot be bypassed by a future route.
-Copy the existing pattern: read `secrets.routes.ts` / its service for how an entry is
-shaped and which fields are recorded, and reuse that helper rather than inventing an
-event format.
+Add `void AuditLogger.log({ ... })` after the successful mutation in each handler,
+copying the call shape in `secrets.routes.ts`. Use a consistent
+`datavault.<resource>.<verb>` action naming (e.g. `datavault.row.deleted`).
 
-Cover, at minimum: row create/update/delete, all four bulk row operations, column
-create/update/delete, table create/update/delete/move, ownership transfer, and
-permission grant/revoke.
+Record actor, tenant, resource type and id, and a **bounded** summary. **Never log
+full row values** — that is customer PII and unbounded in size; log column ids and
+counts. (DV-7 removed exactly this leak from `WriteRunner`'s logs; do not
+reintroduce it here.)
 
-Record the actor, tenant, table (and row/column where applicable), the action, and a
-**bounded** summary of what changed. Do **not** log full row values — that is customer
-PII and unbounded in size (see DV-7's logging defect for the same mistake). Log
-column ids and a count, not contents.
+Bulk operations get **one** entry carrying the affected count, not N entries. Cap
+any id list; past the cap record the count alone.
 
-Bulk operations get **one** entry with a count and the affected ids (capped — if the
-id list exceeds the cap, record the count and omit the list), not N entries.
-
-Audit writes must not fail the mutation: if the audit insert throws, log and continue,
-matching how the existing audited routes behave. Confirm that behaviour in the donor
-before copying it.
+`POST /api/datavault/references/batch` is a **read** despite being a POST — do not
+audit it.
 
 ### Ties
 
-- **Must run after DV-8**, which restructures `rows.routes.ts` and the row query path.
-  Last ticket of the initiative.
-- Load **`add-api-endpoint`** and **`run-tests`**. Check whether `audit_logs` needs an
-  index for the new query patterns; if it does, that is a schema change → load
-  **`db-schema-change`** and say so.
-- Note: `audit_logs` has a history of a `workspaceId=''` bug — check the donor
-  carefully for how tenant/workspace fields are populated.
+- **Sequenced last.** DV-8 rewrote the `rows.routes.ts` list handler and DV-9
+  reshaped the counters; both have landed, so those files are settled.
+- Load **`add-api-endpoint`** and **`run-tests`**. Check whether `audit_logs` needs
+  an index for the new query patterns — if so that is a schema change, so
+  **STOP and escalate** rather than generating a migration.
 - Existing coverage: `tests/integration/datavault.routes.test.ts`,
   `tests/integration/datavault.permissions.test.ts`.
+- File footprint: the 7 files under `server/routes/datavault/` plus
+  `server/lib/writes/WriteRunner.ts`.
 
 ### Acceptance criteria
 
-1. Row create, update, and delete each write exactly one audit entry naming the actor,
-   tenant, table id, row id, and action.
-2. Each bulk operation (archive, unarchive, delete) writes **one** entry with the
-   affected count — not one per row.
+1. Row create, update and delete each write exactly one audit entry naming actor,
+   tenant, table id, row id and action.
+2. Each bulk operation (archive, unarchive, delete) writes **one** entry carrying
+   the affected count — not one per row.
 3. Column create/update/delete and table create/update/delete/move are audited.
-4. Ownership transfer and permission grant/revoke are audited.
-5. A write performed by the **Send-Data-To-Table block** (not an HTTP route) is also
-   audited, proving the instrumentation is at the service layer.
-6. No audit payload contains a full row's values; a payload's serialized size is
-   bounded (assert against a row with a large text value).
-7. A failing audit insert does **not** fail the underlying mutation — asserted by
-   forcing the audit call to throw.
-8. New tests in `tests/integration/datavault.routes.test.ts` assert 1–3 and 6–7, and
+4. Ownership transfer and permission/access grant/revoke are audited.
+5. A write performed by the **Send-Data-To-Table block** is audited too, proving the
+   block path was not forgotten.
+6. No audit payload contains a full row's values; a payload's serialized size stays
+   bounded — assert against a row holding a large text value.
+7. **Verify** (do not rebuild) that a failing audit insert does not fail the
+   mutation: `AuditLogger.log` already swallows and logs. A test that forces the
+   insert to throw and asserts the mutation still succeeds is sufficient.
+8. `POST /api/datavault/references/batch` writes **no** audit entry.
+9. New tests in `tests/integration/datavault.routes.test.ts` assert 1–3 and 6–8, and
    `tests/integration/datavault.permissions.test.ts` asserts 4.
-9. `npx tsc --noEmit` 0 errors; `npm run lint` clean; `npm run test:fast` ≥2313
-   passing.
+10. `npx tsc --noEmit` 0 errors; `npm run lint` clean; `npm run test:fast` ≥ 2379.
 
 ---
+
 
 ## Phase 4 Gate
 
