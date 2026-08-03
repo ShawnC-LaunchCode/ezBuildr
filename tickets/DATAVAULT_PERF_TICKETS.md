@@ -1,4 +1,4 @@
-# DataVault — Filter & Read Performance (DVP-1..2)
+# DataVault — Filter & Read Performance (DVP-1..3)
 
 Source: split out of `tickets/DATAVAULT_HARDENING_TICKETS.md` on 2026-08-03. DVP-1 was
 that file's DVH-4. It was pulled out of the hardening round for three reasons, all of
@@ -45,20 +45,34 @@ the locator is the quoted code and the named symbol; grep for those.
 
 ### Sequencing
 
-DVP-1 and DVP-2 both touch the read path for grid queries and DVP-1's measurements are
-the input to judging DVP-2's, so **run DVP-1 first**. Only DVP-1 may produce a
-migration; if it does, it takes the next free index in the chain (`0011` as of
-`1a32e241`, but DVH-2/DVH-3 are claiming `0011`/`0012` — check the chain, do not
-assume).
+| Ticket | Migration? | Dispatchable |
+|---|---|---|
+| DVP-1 — harness + measurement | **no** | **now**, in parallel with anything |
+| DVP-2 — index decision | maybe | after **DVP-1** and after **DVH-2** lands |
+| DVP-3 — narrow the value fetch | no | after **DVP-1** (reuses its harness) |
+
+**DVP-1 is deliberately measurement-only and carries no migration**, so it can run
+alongside the DVH round. It touches `tests/helpers/` and produces a report — no overlap
+with `server/services/DatavaultRowsService.ts` (DVH-1, DVH-2) or `migrations/` (DVH-3).
+
+**DVP-2 must wait for DVH-2**, which adds key-table writes to `datavault_values`'s hot
+path. That changes the *write-cost* side of the index trade-off, and an index justified
+against a pre-DVH-2 write path may not survive. DVP-1's *read* plans are unaffected by
+DVH-2 and stay valid, which is exactly why the split works.
+
+Whichever ticket ends up adding a migration takes the next free index in the chain —
+DVH-3 is claiming `0011` and DVH-2 `0012`, so **check the chain, do not assume**.
 
 ---
 
-## DVP-1 — Filtered grid queries have no index support on `datavault_values.value` 🔲
+## DVP-1 — Measure filter performance on `datavault_values`: harness + `EXPLAIN` plans 🔲
 
-**Priority: P2** · Size: M · File: measurement report, possibly a migration
+**Priority: P2** · Size: M · Files: `tests/helpers/` + a written report. **No migration.**
 
-*Was DVH-4. Re-sized S → M: the acceptance criteria require a 100k-value seeding
-harness that does not exist yet, which is most of the work.*
+*Was DVH-4, then the first half of the original DVP-1. Re-sized S → M: the acceptance
+criteria require a 100k-value seeding harness that does not exist yet, which is most of
+the work. Split from DVP-2 on 2026-08-03 so this half is dispatchable during the DVH
+round.*
 
 ### Finding
 
@@ -104,46 +118,107 @@ which change what the planner can use:
 
 ### Preferred fix
 
-**Measure first, then propose.** Concretely:
+**This ticket measures and reports. It adds no index and no migration** — deciding what
+to index is DVP-2, deliberately separated so this half can run alongside the DVH round.
+If you conclude an index is obviously needed, that conclusion *is* your deliverable;
+write it into the report and stop.
 
 1. Build a seeding helper that creates a DataVault table with ≥100k values across a
-   realistic column mix (short text, long text, number, date). Put it where other
-   integration helpers live so DVP-2 and future perf work can reuse it — a throwaway
-   script in your worktree is not an acceptable deliverable.
+   realistic column mix (short text, long text, number, date). Put it where the other
+   integration helpers live (`tests/helpers/`) so DVP-2 and DVP-3 reuse it — a
+   throwaway script in your worktree is not an acceptable deliverable. Keep it fast
+   enough to be usable: bulk-insert, do not loop single inserts.
 2. Capture `EXPLAIN (ANALYZE, BUFFERS)` for a representative query per filter family:
-   equality, `contains`, numeric range, date range, `is_empty`.
-3. *Then* decide what, if anything, to index — bounded per the trap above — and
-   re-capture the same plans.
-
-Do not add indexes the plans do not justify. Each one costs write throughput on the
-hottest table in DataVault, and DVH-2 is adding write work to the same path.
+   equality, `contains`, numeric range, date range, `is_empty`. Use the real query
+   `DatavaultRowsRepository` issues, not a hand-written approximation of it — find it
+   and log it rather than guessing at the SQL.
+3. Write the report: for each filter family, the plan, the row counts, the timing, and
+   which access path dominates.
+4. Assess each of the three bounded index candidates in the trap above **on paper
+   against your plans** — which would help which filter family, and which would not.
+   Do not build them.
 
 ### Ties
 
-- Load **`db-schema-change`** (mandatory) and **`run-tests`**.
-- **Do not start until DVH-2 and DVH-3 have landed** — both carry migrations, and DVH-2
-  adds a table and write path on `datavault_values`'s hot path, which changes the write
-  cost side of your trade-off. Re-measure against post-DVH-2 `main`, not against
-  `1a32e241`.
-- Related: **DVP-2** below, and `DV-B4` in `tickets/backlog/DATAVAULT.md`.
+- Load **`run-tests`**. You do **not** need `db-schema-change` — this ticket writes no
+  migration. If you think you need one, that is a blocker to report.
+- **Dispatchable immediately.** Footprint is `tests/helpers/` plus a report; no overlap
+  with `server/services/DatavaultRowsService.ts` (DVH-1, DVH-2) or `migrations/`
+  (DVH-3). Your worktree gets its own test database, so seeding 100k values disturbs
+  nobody.
+- Related: **DVP-2** (consumes your plans), **DVP-3** (reuses your harness).
 - Read `migrations/APPLY_INDEXES.md` and `migrations/INDEX_MIGRATION_SUMMARY.md` —
   this repo has prior index work with conventions worth matching.
 
 ### Acceptance criteria
 
-1. A reusable seeding helper exists that produces a DataVault table with ≥100k values,
-   lives with the other test helpers, and is used by this ticket's own measurements.
-2. `EXPLAIN (ANALYZE, BUFFERS)` plans are captured for equality, `contains`, numeric
-   range, date range, and `is_empty` filters — pasted in the report, before any change.
-3. A written recommendation: which indexes (if any) to add, each justified by a named
-   plan, and **every considered-and-rejected index named with its reason**. Rejecting
-   all of them is a valid outcome if the plans support it.
-4. If an index is added: the after-plans show it being used, the improvement is stated
-   in numbers, and **no index entry can exceed the btree limit** — proven by inserting
-   a value near `MAX_VALUE_BYTES` into an indexed column and showing the insert
-   succeeds.
-5. If no index is added: the report says so explicitly and records at what scale the
-   plans suggest revisiting.
+1. A reusable seeding helper exists in `tests/helpers/`, produces a DataVault table with
+   ≥100k values across at least four column types, and is used by this ticket's own
+   measurements. State how long it takes to run.
+2. `EXPLAIN (ANALYZE, BUFFERS)` plans captured for equality, `contains`, numeric range,
+   date range, and `is_empty` — pasted in the report.
+3. The measured queries are the ones the repository actually issues; your report names
+   the method they came from and shows the logged SQL.
+4. For each filter family: which access path dominates, the row count scanned, and the
+   timing. Numbers, not adjectives.
+5. Each of the three bounded index candidates (truncated expression index, size-partial
+   index, `pg_trgm` GIN) assessed against those plans, with a would-help / would-not
+   verdict and reasoning. Confirm in writing whether Neon supports `pg_trgm` — cite
+   where you checked.
+6. A recommendation for DVP-2 to act on, including "no index is warranted, revisit at
+   scale N" if that is what the plans say. That is a passing outcome.
+7. **No migration and no index is added by this ticket.** `git status` shows nothing
+   under `migrations/`.
+8. Filter correctness unchanged — the 8-suite DataVault sweep green.
+9. `npx tsc --noEmit` 0 errors; `npm run lint` clean; `npm run test:fast` ≥ 2381.
+
+---
+
+## DVP-2 — Act on DVP-1's plans: add bounded index support for filtered queries, or record why not 🔲
+
+**Priority: P2** · Size: S · File: possibly a migration
+
+*Split out of the original DVP-1 on 2026-08-03 so the measurement half could be
+dispatched during the DVH round. This half cannot: it must be judged against a write
+path that DVH-2 changes.*
+
+### Finding
+
+See DVP-1. This ticket exists to act on its report, and **must not be started until
+DVP-1's report exists** — its whole input is that report.
+
+### Preferred fix
+
+Implement whatever DVP-1's report justifies, subject to two hard constraints:
+
+- **Every index must be bounded in size.** Re-read DVP-1's *The trap*: a btree entry
+  caps at 2704 bytes while a cell caps at 1MB, so a plain index on `value` breaks
+  inserts. This is not negotiable and is not something to rediscover.
+- **Re-measure the write side against post-DVH-2 `main`.** DVH-2 adds
+  `datavault_unique_keys` writes to the same insert path. An index justified purely on
+  read gains, measured before that landed, may not be worth it after.
+
+Adding nothing is a valid outcome if the re-measured trade-off says so.
+
+### Ties
+
+- **After DVP-1** (needs its report) **and after DVH-2** (needs its write path).
+- Load **`db-schema-change`** (mandatory) and **`run-tests`**.
+- Reuse DVP-1's seeding harness. Do not write a second one.
+- Take the next free migration index — DVH-3 has `0011`, DVH-2 has `0012`; check the
+  chain rather than assuming.
+
+### Acceptance criteria
+
+1. Every index added is justified by a named plan from DVP-1's report plus a fresh
+   after-plan showing it in use; the improvement is stated in numbers.
+2. Write-path cost re-measured on post-DVH-2 `main` — insert throughput before and
+   after the index, with numbers.
+3. **No index entry can exceed the btree limit** — proven by inserting a value near
+   `MAX_VALUE_BYTES` into an indexed column and showing the insert succeeds.
+4. Every considered-and-rejected index named with its reason.
+5. If nothing is added: the report says so explicitly, with the numbers that decided it
+   and the scale at which to revisit. This passes.
 6. Filter correctness unchanged — the 8-suite DataVault sweep green, especially DV-8's
    filter tests.
 7. If a migration is added, `npm run db:migrate` applies cleanly on a fresh database.
@@ -151,7 +226,7 @@ hottest table in DataVault, and DVH-2 is adding write work to the same path.
 
 ---
 
-## DVP-2 — `getRowsWithValues` fetches every value for every row regardless of selected columns 🔲
+## DVP-3 — `getRowsWithValues` fetches every value for every row regardless of selected columns 🔲
 
 **Priority: P2** · Size: S · File: `server/repositories/DatavaultRowsRepository.ts`
 
@@ -199,7 +274,7 @@ export is a regression, not an optimisation.
 
 ## Gate
 
-- [ ] DVP-1..2 both ✅ with dated verification notes, **or** closed with a written
+- [ ] DVP-1..3 all ✅ with dated verification notes, **or** closed with a written
       "measured, no change warranted" outcome
 - [ ] The seeding harness from DVP-1 is committed and reusable
 - [ ] `npx tsc --noEmit` → 0 errors · `npm run lint` → clean
