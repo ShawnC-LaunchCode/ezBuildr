@@ -139,6 +139,8 @@ export const datavaultValues = pgTable("datavault_values", {
     index("datavault_values_row_idx").on(table.rowId),
     index("datavault_values_column_idx").on(table.columnId),
     uniqueIndex("datavault_values_row_column_unique").on(table.rowId, table.columnId),
+    index("datavault_values_col_val_trunc_idx").on(table.columnId, sql`(left("value" #>> '{}', 200)) text_pattern_ops`),
+    index("datavault_values_val_trgm_gin_idx").using("gin", sql`("value" #>> '{}') gin_trgm_ops`),
 ]);
 // DataVault Unique Keys (DVH-2: dedicated unique key index backed by PG unique constraint)
 // NOTE: Any code path which soft-deletes a row without going through DatavaultRowsRepository's

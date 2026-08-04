@@ -222,6 +222,16 @@ beforeAll(async () => {
         } catch (e: any) {
           console.warn(`⚠️ Could not ensure pgcrypto extension: ${e?.message}`);
         }
+        try {
+          await db.execute(`CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public`);
+          try {
+            await db.execute(`ALTER EXTENSION pg_trgm SET SCHEMA public`);
+          } catch {
+            // benign if already in public
+          }
+        } catch (e: any) {
+          console.warn(`⚠️ Could not ensure pg_trgm extension: ${e?.message}`);
+        }
         // Run database migrations for test DB
         await applyManualMigrations(db);
         // CLEAN DATA when reusing schemas to prevent stale FK violations

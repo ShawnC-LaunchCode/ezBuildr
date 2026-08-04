@@ -92,6 +92,13 @@
       "when": 1785796484787,
       "tag": "0012_datavault_unique_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1785800000000,
+      "tag": "0013_datavault_filter_indexes",
+      "breakpoints": true
     }
   ]
 }

@@ -221,11 +221,57 @@ write it into the report and stop.
 
 ---
 
-## DVP-2 — Act on DVP-1's plans: add bounded index support for filtered queries, or record why not 🔄
+## DVP-2 — Act on DVP-1's plans: add bounded index support for filtered queries, or record why not ✅
 
 **Priority: P2** · Size: S · File: possibly a migration
 
-> **❌ FAILED review 2026-08-04 — sent back. The design is right and the indexes work;
+> **✅ Verified at review 2026-08-04, on the second submission.** All five send-back items
+> addressed. Reviewer re-ran every gate: `tsc --noEmit` exit 0, `npm run lint` clean,
+> `test:fast` **2392 passed** / 14 skipped, and the full DataVault sweep — ten suites plus
+> all three perf harnesses — **13 files / 196 tests passed**. (The dev's own sweep,
+> `vitest run --project integration datavault`, matches on filename and therefore silently
+> skips `dataBlocks` and `dynamic_options_workflow`; run the explicit list.)
+>
+> **Item 1 (blocking) fixed and correct.** `buildStringCondition` now emits the
+> index-assisting term only when `stringValue.length <= 200` and otherwise falls through to
+> the plain `LIKE`, which is exactly right — the truncated predicate can only be ANDed when
+> both sides are truncated identically. Proven by an integration case using a 253-character
+> value matched with a 220-character prefix. **Item 5 fixed**: the equality condition is
+> now parenthesised.
+>
+> **The reported `starts_with` regression is not real — reviewer could not reproduce it.**
+> The dev's own re-measurement showed `0.77x` (14.54 → 18.84 ms) and did not flag it. On a
+> clean machine with freshly seeded, unmutated data, dropping and recreating the indexes in
+> one session: `LIKE 'Standard customer%'` **13.83 → 12.61 ms (1.10x)** and
+> `LIKE 'Urgent%'` **13.79 → 10.94 ms (1.26x)**, with the truncated index used in both.
+> Prefix search gains a little; it does not regress.
+>
+> **Reviewer's reference numbers** (these supersede both the first and second submissions,
+> and are what the report now carries): equality **1.65x** (11.80 → 7.16 ms), contains
+> **1.5x**, prefix **1.10–1.26x**. A control repeating the equality A/B verbatim returned
+> 11.80 → 7.16 ms against 12.27 → 6.84 ms measured earlier the same day, so the bench is
+> reproducible to ~5% on a quiet machine. Write cost **+3% to +19%** across dev and
+> reviewer runs — the spread is genuine, since GIN cost depends on pending-list flushing.
+> Index footprint is roughly equal to or larger than the heap (25–40 MB against a 31 MB
+> heap), which is now in the report.
+>
+> **The one thing this benchmark cannot show, recorded as a follow-up.** Every filter here
+> matches **12.5%** of the table, because the seeder uses 8 distinct status values and 8
+> description templates. At that selectivity an index is structurally limited — you fetch
+> an eighth of the rows either way and the match count grows with the table, which is why
+> §2's "indexed slope" is only mildly sublinear instead of flat. The selective case is
+> where the truncated index actually pays, and it is unmeasured: a reviewer attempt was
+> discarded because mutating seeded data to create a rare value shifted the planner's
+> statistics and flipped the plan shape, invalidating the comparison. Filed in Backlog.
+>
+> **Noted, not fixed:** the new unit test for the `starts_with` branch asserts
+> `expect(mockDb.where).toHaveBeenCalled()`, which cannot fail — the same vacuous pattern
+> flagged in DVP-3. The behaviour is genuinely covered by the integration case; the unit
+> test just is not what covers it.
+>
+> **Prior review, retained for the record:**
+>
+> > **❌ FAILED review 2026-08-04 — sent back. The design is right and the indexes work;
 > the evidence does not survive re-measurement, and there is one correctness bug.**
 >
 > **What was delivered:** migration `0013` adding a bounded expression btree
@@ -441,6 +487,16 @@ won't-fix.
   WHERE jsonb_typeof(value) = 'number'`), revisited at >100k rows per table. Filed at
   DVP-2's review 2026-08-04; deliberately **not** folded into DVP-2, which is already
   being sent back.
+- **The index benchmark only ever measures a 12.5%-selectivity filter.** DVP-1's seeder
+  gives `status` 8 distinct values and `description` 8 templates, so every measurement in
+  DVP-1 and DVP-2 matches one row in eight. At that selectivity an index is structurally
+  limited, and the measured 1.1–1.65× is close to the ceiling — it is *not* evidence about
+  the case the truncated index was actually built for (an employee ID, an email, matching
+  a handful of rows). Needs a seeder option for a high-cardinality column plus an A/B at
+  both selectivities. Note the trap that burned a reviewer attempt on 2026-08-04:
+  `UPDATE`-ing seeded rows to manufacture a rare value changes the planner's statistics and
+  flips the plan shape, so the comparison is no longer like-for-like — seed the
+  high-cardinality values from the start instead. Filed at DVP-2's second review.
 - **`parseColumnIds` has no length cap** (`server/routes/datavault/rows.routes.ts`,
   DVP-3). Filters are capped at `DATAVAULT_CONFIG.MAX_FILTERS`; the new `columnIds` query
   param accepts an unbounded UUID list straight into an `IN` clause. Low severity — same

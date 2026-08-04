@@ -59,6 +59,12 @@ function buildStringCondition(
     : operator === 'starts_with'
       ? `${stringValue}%`
       : `%${stringValue}`;
+  if (operator === 'starts_with') {
+    if (stringValue.length <= 200) {
+      return sql`(left(${scalarText(valueColumn)}, 200) LIKE ${pattern} AND ${scalarText(valueColumn)} LIKE ${pattern})`;
+    }
+    return sql`${scalarText(valueColumn)} LIKE ${pattern}`;
+  }
   return operator === 'not_contains'
     ? sql`${scalarText(valueColumn)} NOT LIKE ${pattern}`
     : sql`${scalarText(valueColumn)} LIKE ${pattern}`;
@@ -104,7 +110,19 @@ function buildInCondition(
   }
   const comparisons = value
     .filter(item => item !== undefined)
-    .map(item => sql`${valueColumn} = ${JSON.stringify(item)}::jsonb`);
+    .map(item => {
+      if (operator === 'in') {
+        if (typeof item === 'string') {
+          const truncated = item.slice(0, 200);
+          return sql`(left(${scalarText(valueColumn)}, 200) = ${truncated} AND ${valueColumn} = ${JSON.stringify(item)}::jsonb)`;
+        }
+        if (typeof item === 'number' || typeof item === 'boolean') {
+          const truncated = String(item).slice(0, 200);
+          return sql`(left(${scalarText(valueColumn)}, 200) = ${truncated} AND ${valueColumn} = ${JSON.stringify(item)}::jsonb)`;
+        }
+      }
+      return sql`${valueColumn} = ${JSON.stringify(item)}::jsonb`;
+    });
   if (comparisons.length === 0) {
     return undefined;
   }
@@ -121,9 +139,18 @@ function buildValueCondition(
 ): SQL | undefined {
   switch (filter.operator) {
     case 'equals':
-      return filter.value === undefined
-        ? undefined
-        : sql`${valueColumn} = ${JSON.stringify(filter.value)}::jsonb`;
+      if (filter.value === undefined) {
+        return undefined;
+      }
+      if (typeof filter.value === 'string') {
+        const truncated = filter.value.slice(0, 200);
+        return sql`(left(${scalarText(valueColumn)}, 200) = ${truncated} AND ${valueColumn} = ${JSON.stringify(filter.value)}::jsonb)`;
+      }
+      if (typeof filter.value === 'number' || typeof filter.value === 'boolean') {
+        const truncated = String(filter.value).slice(0, 200);
+        return sql`(left(${scalarText(valueColumn)}, 200) = ${truncated} AND ${valueColumn} = ${JSON.stringify(filter.value)}::jsonb)`;
+      }
+      return sql`${valueColumn} = ${JSON.stringify(filter.value)}::jsonb`;
     case 'not_equals':
       return filter.value === undefined
         ? undefined

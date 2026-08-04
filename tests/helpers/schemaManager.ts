@@ -48,8 +48,10 @@ export class SchemaManager {
     // lacks them and the new RLS tests would silently see no policies.
     // Bumped to _v17 for 0012_datavault_unique_keys (DVH-2), which adds
     // datavault_unique_keys table and uniqueness constraint.
+    // Bumped to _v18 for 0013_datavault_filter_indexes (DVP-2), which adds
+    // bounded expression and trigram GIN indexes on datavault_values.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v17`;
+        return `test_schema_w${this.workerId}_v18`;
     }
 
     /**

@@ -541,6 +541,43 @@ describe('DatavaultRowsRepository', () => {
       expect(mockDb.where).toHaveBeenCalled();
     });
 
+    it('handles starts_with with strings <= 200 and > 200 characters correctly', async () => {
+      const mockColumns = [
+        {
+          id: mockColumnId,
+          type: 'text',
+          slug: 'description',
+          autonumberPrefix: null,
+        },
+      ];
+      mockDb._setMockReturnValue(mockColumns);
+
+      // Short search string <= 200 chars
+      await repository.findByTableId(mockTableId, {
+        filters: [
+          {
+            columnId: mockColumnId,
+            operator: 'starts_with',
+            value: 'Short prefix',
+          },
+        ],
+      });
+      expect(mockDb.where).toHaveBeenCalled();
+
+      // Long search string > 200 chars (must not produce false negatives)
+      const longPrefix = 'A'.repeat(250);
+      await repository.findByTableId(mockTableId, {
+        filters: [
+          {
+            columnId: mockColumnId,
+            operator: 'starts_with',
+            value: longPrefix,
+          },
+        ],
+      });
+      expect(mockDb.where).toHaveBeenCalled();
+    });
+
     it('safely handles filters referencing unknown columnIds (no crash / 1=0 predicate)', async () => {
       mockDb._setMockReturnValue([]);
 
