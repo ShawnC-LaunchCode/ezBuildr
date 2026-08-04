@@ -623,9 +623,46 @@ enforcement checklist is accurate.
 
 ---
 
-## DVH-5 — Cloning a workflow with data reopens the race DVH-2 closed 🔲
+## DVH-5 — Cloning a workflow with data reopens the race DVH-2 closed ✅
 
 **Priority: P1** · Size: S · Files: `server/services/WorkflowClonerService.ts`
+
+> **✅ Verified at review 2026-08-04.** Reviewer re-ran every gate in the `dvh-5`
+> worktree rather than trusting the report: `tsc --noEmit` exit 0, `npm run lint` clean,
+> `test:fast` **2392 passed** / 14 skipped, and the sweep as an explicit file list — the
+> eight named suites plus `rls-datavault`, `datavault.uniqueKeys`, all three perf
+> harnesses and this ticket's new file — **14 files / 201 tests passed**.
+>
+> **AC7 independently reproduced.** Reverted only `WorkflowClonerService.ts` to `main`
+> and re-ran the new suite: **4 of 5 fail** with exactly the predicted assertions —
+> `expected [] to have a length of 2` for AC1/AC4 and AC3 (no keys backfilled at all),
+> `expected [] to have a length of 1` for AC5, and `expected 201 to be 500` for AC6,
+> where the clone silently succeeded because there was no backfill left to fail. AC2
+> correctly passes pre-fix, since a no-data clone never touches that path. Restored, 5/5.
+>
+> **Implementation is exactly the Preferred fix**, checked line by line: it calls the
+> existing `datavaultRowsRepository.populateUniqueKeysForColumn`, threads the clone's own
+> `tx` (no new transaction), filters `isUnique || isPrimaryKey`, sits inside the
+> `if (context.includeData)` block, and re-implements no hashing — so the SQL-side
+> `sha256(convert_to(...))` remains the single expression, as DVH-2 requires.
+>
+> Two report claims spot-checked rather than accepted. **AC5**: the dev states archived
+> rows are not cloned at all; confirmed — `copyDatavaultRows`' row `SELECT` already
+> carries `isNull(datavaultRows.deletedAt)` (line 1349), so the criterion holds by
+> construction rather than by new code. **AC2**: the test sends
+> `includeDatavaultData: false`, which is the real API field
+> (`options.includeDatavaultData` → the internal `context.includeData`), so the test does
+> genuinely disable the data path rather than passing an ignored key.
+>
+> **AC6 is the strongest test here.** It manufactures a real `23505` by writing two live
+> rows sharing a value into a second unique column via raw inserts — a state the app's own
+> paths cannot produce — then asserts the clone returns 500 **and that no cloned table
+> exists afterwards**, proving the whole `copyProject` transaction rolled back including a
+> different column that had already backfilled cleanly. That is the transactional
+> guarantee AC6 asks for, tested rather than asserted.
+>
+> Report accuracy was good — every claim checked out. Worth noting after two earlier
+> turn-ins on this initiative described code that did not exist.
 
 *Promoted from this file's backlog at DVP-2's review (2026-08-04). Numbered **DVH-5**,
 not DVH-4 — that number is retired to DVP-1 (see Sequencing) and reusing it would make
@@ -727,7 +764,7 @@ won't-fix.
 
 - [x] DVH-1, DVH-2, DVH-3 ✅ with dated verification notes — `2dbcfa32`, `e60b4eb7`,
       `8ac5e3be`
-- [ ] DVH-5 ✅ with a dated verification note
+- [x] DVH-5 ✅ with a dated verification note
 - [x] `npx tsc --noEmit` → 0 errors · `npm run lint` → clean *(re-verified 2026-08-04)*
 - [x] `npm run test:fast` **2392** ≥ 2381 · `npm run test:unit:db` **136 passed**, no
       new failures
@@ -743,8 +780,10 @@ won't-fix.
       **DVP-B1** / **DVP-B2** in `tickets/BACKLOG.md`
 - [ ] Reviewer has committed each passed ticket + this gate
 
-**Gate status 2026-08-04: everything above is satisfied except DVH-5**, which is
-dispatched and in review. The `test:unit:db` and `test:integration` runs required
+**Gate status 2026-08-04: fully satisfied. This initiative is complete and ready to
+retire** into `tickets/backlog/DATAVAULT.md` alongside the audit and performance rounds.
+Final sweep with DVH-5 in: **14 files / 201 tests**, `test:fast` **2392**.
+The `test:unit:db` and `test:integration` runs required
 `TEST_DATABASE_URL` to be set explicitly — the main checkout's `.env` does not define
 it, so those suites fall back to port 5432 and report **136 phantom failures**. Set it
 to the Docker instance on 5434 before believing a DB-backed run from the main tree.

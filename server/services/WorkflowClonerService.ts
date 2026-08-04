@@ -37,7 +37,7 @@ import {
 
 import { db } from "../db";
 import { createLogger } from "../logger";
-import { projectRepository, workflowRepository, type DbTransaction } from "../repositories";
+import { datavaultRowsRepository, projectRepository, workflowRepository, type DbTransaction } from "../repositories";
 import { canManageOrg } from "../utils/ownershipAccess";
 import { remapJsonIds } from "../utils/remapJsonIds";
 
@@ -1031,6 +1031,7 @@ export class WorkflowClonerService {
     let copiedRows = 0;
     if (context.includeData) {
       copiedRows = await this.copyDatavaultRows(tx, resources.tables, context, tableIdMap, columnIdMap, rowIdMap, idMap);
+      await this.backfillClonedUniqueKeys(tx, resources.columns, columnIdMap);
     }
 
     if (!context.clearAccess) {
@@ -1400,6 +1401,32 @@ export class WorkflowClonerService {
     }
 
     return rowIdMap.size;
+  }
+
+  /**
+   * Backfill `datavault_unique_keys` for cloned unique/primary-key columns.
+   *
+   * `copyDatavaultRows` writes straight into `datavault_values`, bypassing every
+   * path that maintains the uniqueness backstop DVH-2 added. Without this, a
+   * cloned unique column has zero rows in `datavault_unique_keys`, reopening the
+   * concurrent-insert race DVH-2 closed for any value held by a cloned row.
+   *
+   * Must run inside the caller's existing transaction (`tx`) so a failure here
+   * rolls back the whole clone rather than leaving partial keys.
+   */
+  private async backfillClonedUniqueKeys(
+    tx: DbTransaction,
+    sourceColumns: DatavaultColumn[],
+    columnIdMap: Map<string, string>
+  ): Promise<void> {
+    const clonedUniqueColumnIds = sourceColumns
+      .filter((column) => column.isUnique || column.isPrimaryKey)
+      .map((column) => columnIdMap.get(column.id))
+      .filter((newColumnId): newColumnId is string => Boolean(newColumnId));
+
+    for (const newColumnId of clonedUniqueColumnIds) {
+      await datavaultRowsRepository.populateUniqueKeysForColumn(newColumnId, tx);
+    }
   }
 
   private async copyDatavaultAccess(
