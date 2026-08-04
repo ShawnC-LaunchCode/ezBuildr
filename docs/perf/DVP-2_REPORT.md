@@ -53,8 +53,8 @@ The **Status Quo (Unindexed)** baseline represents main branch query predicates 
 > email) are far more selective and are where the truncated index pays off; a reviewer
 > attempt to measure that case was discarded because mutating the seeded data to create a
 > rare value changed the planner's statistics and invalidated the comparison. **Measuring
-> a selective filter properly is the open follow-up** — see the backlog entry in
-> `tickets/DATAVAULT_PERF_TICKETS.md`.
+> a selective filter properly is the open follow-up** — parked as **DVP-B2** in
+> `tickets/BACKLOG.md` (detail in `tickets/backlog/DATAVAULT.md`).
 
 ---
 

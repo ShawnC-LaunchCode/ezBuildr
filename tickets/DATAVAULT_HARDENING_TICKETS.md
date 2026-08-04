@@ -76,8 +76,11 @@ per-worker schemas and fake dozens of failures.
 
 **Former DVH-4** (index support for filtered grid queries) was removed from this
 round — it is P2, speculative by its own admission, and its proposed index carried
-the same btree size-limit defect as DVH-2's. It now lives in
-`tickets/DATAVAULT_PERF_TICKETS.md` as **DVP-1**.
+the same btree size-limit defect as DVH-2's. It became **DVP-1** in the performance
+round, which closed 2026-08-04 and is retired into `tickets/backlog/DATAVAULT.md`
+(recover its ticket file with
+`git log -p -- tickets/DATAVAULT_PERF_TICKETS.md`). **DVH-4 is a retired number — do
+not reuse it**; the ticket added later is DVH-5.
 
 ---
 
@@ -722,12 +725,26 @@ won't-fix.
 
 ## Gate
 
-- [ ] DVH-1, DVH-2, DVH-3, DVH-5 all ✅ with dated verification notes
-- [ ] `npx tsc --noEmit` → 0 errors · `npm run lint` → clean
-- [ ] `npm run test:fast` ≥ 2381 · `npm run test:unit:db` no new failures
-- [ ] `npm run test:integration` → 96 files, no new failures
-- [ ] `npm run db:migrate` applies cleanly on a fresh database (`0011` + `0012`)
-- [ ] The 8-suite DataVault integration sweep green on the final tree
-- [ ] DVP-1 (`tickets/DATAVAULT_PERF_TICKETS.md`) is untouched by this round and
-      still accurate — it inherits the btree size-limit finding from DVH-2
+- [x] DVH-1, DVH-2, DVH-3 ✅ with dated verification notes — `2dbcfa32`, `e60b4eb7`,
+      `8ac5e3be`
+- [ ] DVH-5 ✅ with a dated verification note
+- [x] `npx tsc --noEmit` → 0 errors · `npm run lint` → clean *(re-verified 2026-08-04)*
+- [x] `npm run test:fast` **2392** ≥ 2381 · `npm run test:unit:db` **136 passed**, no
+      new failures
+- [x] `npm run test:integration` → **99 files / 1065 passed**, 3 skipped, 0 failures
+- [x] `npm run db:migrate` applies cleanly on a fresh database — verified for `0011` +
+      `0012` (`dvh2_recheck`) and again for `0013` (`dvp2_fresh`), confirming both
+      indexes and the `pg_trgm` extension by direct catalog query
+- [x] The DataVault integration sweep green on the final tree — **13 files / 196
+      tests**, being the eight named suites plus `rls-datavault`, `datavault.uniqueKeys`
+      and all three perf harnesses
+- [x] The performance round (DVP-1..3) closed and retired into
+      `tickets/backlog/DATAVAULT.md`; its two surviving observations are indexed as
+      **DVP-B1** / **DVP-B2** in `tickets/BACKLOG.md`
 - [ ] Reviewer has committed each passed ticket + this gate
+
+**Gate status 2026-08-04: everything above is satisfied except DVH-5**, which is
+dispatched and in review. The `test:unit:db` and `test:integration` runs required
+`TEST_DATABASE_URL` to be set explicitly — the main checkout's `.env` does not define
+it, so those suites fall back to port 5432 and report **136 phantom failures**. Set it
+to the Docker instance on 5434 before believing a DB-backed run from the main tree.

@@ -11,9 +11,41 @@ git log -p -- tickets/DATAVAULT_TICKETS.md
 Opened 2026-08-02 at grade **D+**, closed at **B−**. `test:fast` 2313 → 2381,
 integration 992 → 1031, zero failures.
 
-**Live follow-on:** `tickets/DATAVAULT_HARDENING_TICKETS.md` (DVH-1..4) holds the
-four dispatchable items that stand between B− and B+. Anything in *this* file is
-parked, not scheduled.
+**Live follow-on:** `tickets/DATAVAULT_HARDENING_TICKETS.md` (DVH-1..3 ✅, **DVH-5
+open**). Anything in *this* file is parked, not scheduled.
+
+---
+
+## Performance round (DVP-1..3) — retired 2026-08-04
+
+The perf initiative closed the same week. Its ticket file was
+`tickets/DATAVAULT_PERF_TICKETS.md`; recover the full text, every verification note
+and both review passes with:
+
+```bash
+git log -p -- tickets/DATAVAULT_PERF_TICKETS.md
+```
+
+| Ticket | What shipped | Commit |
+|---|---|---|
+| DVP-1 | Reusable 100k-value seeding harness + `EXPLAIN` plans for all five filter families; established that `datavault_values` filtering is a whole-column heap scan | `f0903bdd` |
+| DVP-3 | `getRowsWithValues` fetched every value for every row; now takes `columnIds` and narrows, threaded to the choice-options endpoint and `ReadTableBlockRunner` (138.79 → 13.75 ms on a 50-column table) | `f24e7182` |
+| DVP-2 | Two size-bounded indexes (truncated btree + trigram GIN) with index-assisting predicates; equality 1.65×, contains 1.5×, prefix 1.10–1.26× | `68d6b949` |
+| — | `columnIds` query param capped at `MAX_COLUMN_IDS` (200), closing the same DoS exposure `MAX_FILTERS` already closed | `e7fc98de` |
+
+**`DV-B4` below was promoted into DVP-3 and is now shipped** — it is listed in the
+closed table, not the parked list. It had been double-tracked (parked here *and*
+promoted) for two days; do not re-file it.
+
+Two lessons worth more than the numbers, both from review:
+
+- **Judge an index by its slope, not its multiplier.** DVP-2's first submission
+  reported 2.7–3.7× measured against its own new predicate with the indexes dropped,
+  which is not the status quo. Re-measured against `main`, the real gain was 1.4–1.8×.
+- **Every benchmark here matches 12.5% of the table**, because the seeder uses 8
+  distinct status values and 8 description templates. At that selectivity an index is
+  structurally capped, so 1.65× is near the ceiling this bench can *show* — not a
+  measure of what the truncated btree is for. See the parked entry below.
 
 ---
 
@@ -82,11 +114,10 @@ Also shipped along the way:
   behind DV-1 and DV-3** — code written for `records` and pointed at
   `datavault_rows`. **Never investigated.** Worth a scoped "is Collections live, and
   if not, delete it" pass; do not assume it is dead.
-- **DV-B4 — `getRowsWithValues` fetches every value for every row** ·
-  `enhancement`. Column selection is applied after the query, so a 60-column table
-  ships 60 values per row even when the grid shows 5. Fix is small (push the column
-  filter into the values query). Will surface alongside DVH-4 on the first wide
-  customer table.
+- ~~**DV-B4 — `getRowsWithValues` fetches every value for every row**~~ · **CLOSED
+  2026-08-04, shipped as DVP-3 (`f24e7182`).** Left here struck through rather than
+  deleted because it was double-tracked — promoted into DVP-3 *and* still advertised as
+  open in `BACKLOG.md` — for two days. Do not re-file.
 - **DV-B5 — the choice-options fetch bypasses `apiRequest`'s 401 refresh** ·
   `enhancement`. DV-3 used raw `fetch` with `getAuthHeaders()` deliberately, to keep
   run-token precedence scoped to that one request. Cost: no token refresh, so an
@@ -110,6 +141,30 @@ Also shipped along the way:
   in all six places and **never audited**.
 - **DV-B8 — promoted.** Became **DVH-1**; it turned out to also break `required`
   (an empty string satisfies it) and to disagree with the `is_empty` filter.
+
+### Parked from the perf round (DVP), 2026-08-04
+
+- **DVP-B1 — numeric and date range filters are still unindexed** · `enhancement`.
+  DVP-1 measured them at 18.6 ms and 18.7 ms: whole-column heap scans with a per-row
+  `::numeric` / `::date` cast. DVP-2's truncated btree serves only equality and prefix
+  (lexicographic order does not preserve numeric or date collation) and its trigram GIN
+  only `contains`, so **3 of 5 filter families are accelerated**. The fix DVP-1 named is
+  typed partial expression indexes, e.g.
+  `(column_id, ((value #>> '{}')::numeric)) WHERE jsonb_typeof(value) = 'number'`.
+  Deliberately not scheduled: revisit at >100k rows per table, per DVP-1's own
+  recommendation.
+- **DVP-B2 — the index benchmark can only ever measure a 12.5%-selectivity filter** ·
+  `informational`. DVP-1's seeder gives `status` 8 distinct values and `description` 8
+  templates, so every measurement in DVP-1 *and* DVP-2 matches one row in eight. At that
+  selectivity an index is structurally limited and the measured 1.1–1.65× is close to
+  the ceiling — it is **not** evidence about the case the truncated btree was built for
+  (an employee ID or email matching a handful of rows). Needs a seeder option for a
+  high-cardinality column plus an A/B at both selectivities. **Note the trap that burned
+  a reviewer attempt on 2026-08-04:** `UPDATE`-ing seeded rows to manufacture a rare
+  value changes the planner's statistics and leaves dead tuples, which flipped the plan
+  shape to a nested-loop probe and invalidated the comparison — timings jumped 3–5× and
+  had to be thrown away. Seed high-cardinality values from the start instead. This is
+  the open answer to "was DVP-2 worth +3–19% writes and ~1× heap in index storage?"
 
 ## Reviewer lessons worth keeping
 
