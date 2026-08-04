@@ -65,9 +65,56 @@ DVH-3 is claiming `0011` and DVH-2 `0012`, so **check the chain, do not assume**
 
 ---
 
-## DVP-1 — Measure filter performance on `datavault_values`: harness + `EXPLAIN` plans 🔲
+## DVP-1 — Measure filter performance on `datavault_values`: harness + `EXPLAIN` plans ✅
 
-**Priority: P2** · Size: M · Files: `tests/helpers/` + a written report. **No migration.**
+**Priority: P2** · Size: M · Files: `tests/helpers/` + a written report (`docs/perf/DVP-1_REPORT.md`). **No migration.**
+
+> **✅ Verified at review 2026-08-04.** Reviewer fast-forwarded the `dvp-1` worktree onto
+> `main` first — its base predated all three DVH commits, so it had been measuring a
+> `_v15` schema without migrations `0011`/`0012` — then re-ran every gate on the merged
+> tree: `tsc --noEmit` exit 0, `npm run lint` clean, `test:fast` **2388 passed** / 14
+> skipped, and the 10-suite DataVault sweep plus this ticket's harness **11 files / 194
+> tests passed**. AC7 confirmed by `git status`: nothing under `migrations/`.
+>
+> **AC3 was not met as delivered, and the reviewer closed it.** The ticket required the
+> measured queries be the ones the repository actually issues — "find it and log it rather
+> than guessing at the SQL". The test instead `EXPLAIN`s five hand-written statements
+> alongside a real `findByTableId` call. Rather than send it back, the reviewer captured
+> the true SQL by attaching a Drizzle `logger` to a dedicated `pg.Client` and comparing:
+> all five are structurally identical to the hand-written versions — same `EXISTS` shape,
+> same predicates, same access paths — differing only in **bound parameters vs inline
+> literals** and a dropped `OFFSET 0`. So the conclusions stand. The real SQL is now in the
+> report, along with the caveat this exposed: the measured plans are *custom* plans over
+> literals, and Postgres may switch the parameterised form to a *generic* plan, which
+> cannot use per-value selectivity — precisely what Candidate A's win depends on. The
+> capture also surfaced a second query the report had omitted entirely: every filtered call
+> first issues `select id, type, slug, autonumber_prefix from datavault_columns where
+> table_id = $1`, which is not in any of the quoted timings.
+>
+> **Reviewer fixes applied (all small, none changing the ticket's conclusions):**
+> 1. **Seeder seeded `""` for half its empty cells** — the exact storage shape DVH-1
+>    eliminated four commits earlier, and DVP-2/DVP-3 are told to reuse this helper. Empty
+>    cells now omit the value row. The `is_empty` *result* is unchanged (8,334 rows either
+>    way, since `nonEmptyValue` already treated `""` as empty) but the *plan* is not: it no
+>    longer discards 4,167 phantom rows and the planner switches to a `Hash Right Anti
+>    Join`. All five plans were re-captured after the fix and the report's numbers replaced
+>    (13.2–20.7 ms, 116,666 values, 14.44 s seed) — the originals measured data the
+>    application can no longer produce.
+> 2. **`left(value #>> '{}', 200) = $value` is a prefix match, not equality.** The
+>    recommendation told DVP-2 to *replace* the exact predicate with it, which would return
+>    false positives for values sharing a 200-char prefix. Corrected to emit it beside the
+>    exact predicate as an index-assisting narrowing term.
+> 3. **Neon `pg_trgm` citation** — the claim is true and the reviewer re-fetched it, but
+>    the cited host now 308-redirects (`neon.tech` → `neon.com`) and the page publishes no
+>    per-version matrix, so "supported across all PostgreSQL versions" was softened to what
+>    the doc actually says, with a note for DVP-2 to confirm against the running version.
+> 4. The ">90% reduction" GIN figure was a projection stated as a measurement; relabelled,
+>    with the note that this benchmark's `contains` needle matches an unusually unselective
+>    12.5% of rows.
+>
+> **Process note:** the dev marked this ticket ✅ themselves. Devs do not close tickets —
+> the reviewer does, at review. No harm here since review followed immediately, but the ✅
+> was unearned at the time it was written.
 
 *Was DVH-4, then the first half of the original DVP-1. Re-sized S → M: the acceptance
 criteria require a 100k-value seeding harness that does not exist yet, which is most of
