@@ -1,4 +1,4 @@
-# DataVault — Hardening Tickets (DVH-1..3)
+# DataVault — Hardening Tickets (DVH-1..3, DVH-5)
 
 Source: the reviewer's closing assessment of the DataVault audit initiative,
 2026-08-03, after all 14 of its tickets closed (`tickets/backlog/DATAVAULT.md`).
@@ -620,26 +620,109 @@ enforcement checklist is accurate.
 
 ---
 
+## DVH-5 — Cloning a workflow with data reopens the race DVH-2 closed 🔲
+
+**Priority: P1** · Size: S · Files: `server/services/WorkflowClonerService.ts`
+
+*Promoted from this file's backlog at DVP-2's review (2026-08-04). Numbered **DVH-5**,
+not DVH-4 — that number is retired to DVP-1 (see Sequencing) and reusing it would make
+git history ambiguous.*
+
+### Finding
+
+`copyDatavaultRows` writes values straight to the table, bypassing every path that
+maintains `datavault_unique_keys`:
+
+```ts
+if (copiedValues.length > 0) {
+  await tx.insert(datavaultValues).values(copiedValues);
+}
+```
+
+`copyDatavaultColumns` copies columns **including `isUnique` / `isPrimaryKey`**, so the
+clone ends up with unique-flagged columns and **zero** rows in `datavault_unique_keys`.
+Verified against `68d6b949`.
+
+What that costs — narrower than it first looks, so scope to it:
+
+1. **Not data corruption.** `assertUniqueValues` still runs on create/update, so ordinary
+   duplicates are still rejected with DV-4's readable 409.
+2. **But the race DVH-2 part 2 closed is reopened** for any value held by a cloned row.
+   Two concurrent inserts of that value both pass the SELECT check and neither hits the
+   constraint, because there is no key to collide with.
+3. **It self-heals unevenly**, which is worse than not healing at all: `unarchiveRow`
+   re-inserts keys from current values, so a cloned row that is archived and restored
+   silently acquires its key. A long-lived cloned table ends up half-protected with
+   nothing indicating which half.
+
+Gated behind `context.includeData`, so it is opt-in, and reachable from
+`workflows.routes.ts`, `projects.routes.ts` and `admin.routes.ts`.
+
+### Preferred fix
+
+After `copyDatavaultRows` completes, backfill keys for the cloned tables' unique columns
+**inside the caller's existing transaction** — do not open a new one. The repository
+method already exists and is the one the column-toggle path uses:
+
+```ts
+await this.rowsRepo.populateUniqueKeysForColumn(columnId, tx);
+```
+
+Iterate the cloned columns where `isUnique || isPrimaryKey`. Note it is deliberately a
+plain `INSERT ... SELECT` with **no** `ON CONFLICT` (DVH-2's review removed that), so a
+clone that would produce duplicate keys fails loudly rather than silently half-populating
+— that is correct, and a clone of a valid source table cannot hit it.
+
+Do **not** re-implement the hashing. `populateUniqueKeysForColumn` hashes SQL-side with
+`sha256(convert_to(...))`; a second expression anywhere is the silent-drift bug DVH-2's
+ticket warned about.
+
+### Ties
+
+- **Depends on DVH-2** (`68d6b949`), which created the table and the repository method.
+- Load **`add-api-endpoint`** and **`run-tests`**. **No migration** — if you think you
+  need one, that is a blocker to report, not a migration to write.
+- File footprint is `WorkflowClonerService.ts` plus a test; no overlap with any open work.
+- Existing coverage to model on: `tests/integration/datavault.uniqueKeys.test.ts`
+  (DVH-2's suite) shows how to assert on `datavault_unique_keys` directly.
+
+### Acceptance criteria
+
+1. Cloning a workflow **with data** whose DataVault table has a unique column produces
+   one `datavault_unique_keys` row per live cloned value in that column — asserted by
+   querying the table, not inferred.
+2. Cloning **without** data (`includeData: false`) adds no keys and does not error.
+3. A primary-key column (`isPrimaryKey: true`, `isUnique` false) is also backfilled —
+   DVH-2's semantics are that effective uniqueness is `isUnique || isPrimaryKey`.
+4. After a clone, inserting a duplicate of a cloned row's unique value is rejected, and
+   the rejection comes from the constraint as well as the service check — prove the key
+   exists rather than only asserting the 409.
+5. Archived source rows do not get keys in the clone (DV-4: archived rows do not reserve
+   values). State whether archived rows are cloned at all and test whichever is true.
+6. The backfill runs inside the clone's existing transaction — a failure rolls the whole
+   clone back, leaving no partial keys.
+7. New test asserts 1–6, and **the test for 1 must fail before your fix** — run it pre-fix
+   and say so in your report.
+8. `npx tsc --noEmit` 0 errors; `npm run lint` clean; `npm run test:fast` ≥ 2392; the
+   DataVault sweep green — the **eight** suites this file names plus `rls-datavault`,
+   `datavault.uniqueKeys` and all three perf harnesses. Run them as an explicit file list;
+   `vitest run --project integration datavault` matches on filename and silently skips
+   `dataBlocks` and `dynamic_options_workflow`.
+
+---
+
 ## Backlog / observations
 
 Not tickets. Triaged at the Gate — promote, merge into an open ticket, or close
 won't-fix.
 
-- **`WorkflowClonerService` bypasses unique-key maintenance.** `copyDatavaultRows`
-  inserts into `datavault_values` directly
-  (`tx.insert(datavaultValues).values(copiedValues)`), so rows created by cloning a
-  workflow's DataVault tables get **no** rows in `datavault_unique_keys`. DVH-2's
-  constraint is therefore absent for cloned tables — `assertUniqueValues` still catches
-  the common case, but the database backstop that DVH-2 exists to add is not there.
-  Pre-existing path, outside DVH-2's stated footprint; filed at its review (2026-08-04)
-  rather than expanding the ticket. Same failure class as the archive-path warning in
-  `datavaultUniqueKeys`'s schema comment.
+- *(empty — the `WorkflowClonerService` entry was promoted to DVH-5 on 2026-08-04)*
 
 ---
 
 ## Gate
 
-- [ ] DVH-1, DVH-2, DVH-3 all ✅ with dated verification notes
+- [ ] DVH-1, DVH-2, DVH-3, DVH-5 all ✅ with dated verification notes
 - [ ] `npx tsc --noEmit` → 0 errors · `npm run lint` → clean
 - [ ] `npm run test:fast` ≥ 2381 · `npm run test:unit:db` no new failures
 - [ ] `npm run test:integration` → 96 files, no new failures

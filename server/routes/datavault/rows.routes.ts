@@ -89,7 +89,10 @@ function parseColumnIds(rawColumns: unknown): string[] | undefined {
       colArray = rawColumns.split(',').map((s) => s.trim()).filter(Boolean);
     }
   }
-  return z.array(z.string().uuid()).parse(colArray);
+  return z
+    .array(z.string().uuid())
+    .max(DATAVAULT_CONFIG.MAX_COLUMN_IDS)
+    .parse(colArray);
 }
 
 function registerReferenceBatchRoute(app: Express): void {

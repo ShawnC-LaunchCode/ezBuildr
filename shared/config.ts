@@ -51,6 +51,14 @@ export const DATAVAULT_CONFIG = {
   /** Maximum number of filters allowed in a query (DoS protection) */
   MAX_FILTERS: 20,
 
+  /**
+   * Maximum number of column ids accepted by the `columnIds` query param (DoS
+   * protection). Without a cap the list goes straight into an `IN` clause, the same
+   * exposure `MAX_FILTERS` already closes for the sibling param. 200 is well clear of
+   * any real table — DVP-3 benchmarked a deliberately wide one at 50 columns.
+   */
+  MAX_COLUMN_IDS: 200,
+
   /** Maximum number of concurrent API requests */
   MAX_CONCURRENT_REQUESTS: 10,
 
