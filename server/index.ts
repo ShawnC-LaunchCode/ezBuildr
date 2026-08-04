@@ -74,6 +74,20 @@ void (async () => {
             logger.warn('To enable AI features, set GEMINI_API_KEY or AI_API_KEY environment variable');
             logger.warn('Get your key at: https://makersuite.google.com/app/apikey (Gemini) or https://platform.openai.com/api-keys (OpenAI)');
         }
+        // CONFIGURATION CHECK: If virus scanning is turned on, prove the clamd
+        // daemon is actually reachable at boot. An unhealthy scanner fails every
+        // upload closed (see VirusScanner.ts), so an operator needs to know
+        // immediately, not after users start filing "upload broken" tickets.
+        // Noisy, not fatal - do not crash the process over an unreachable scanner.
+        if (process.env.ENABLE_VIRUS_SCANNING === 'true') {
+            const { virusScanner } = await import('./services/security/VirusScanner.js');
+            const scannerHealthy = await virusScanner().isHealthy();
+            if (scannerHealthy) {
+                logger.info('Virus scanner healthy');
+            } else {
+                logger.error('Virus scanner is ENABLED but unreachable/unhealthy - uploads will fail closed until this is fixed');
+            }
+        }
         // Ensure database is initialized before starting server
         logger.info('Initializing database...');
         const { dbInitPromise, initializeDatabase } = await import("./db.js");
