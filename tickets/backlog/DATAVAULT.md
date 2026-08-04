@@ -11,8 +11,49 @@ git log -p -- tickets/DATAVAULT_TICKETS.md
 Opened 2026-08-02 at grade **D+**, closed at **B−**. `test:fast` 2313 → 2381,
 integration 992 → 1031, zero failures.
 
-**Live follow-on:** `tickets/DATAVAULT_HARDENING_TICKETS.md` (DVH-1..3 ✅, **DVH-5
-open**). Anything in *this* file is parked, not scheduled.
+**No live follow-on.** All three DataVault rounds — the audit (DV-1..14), hardening
+(DVH-1..3, DVH-5) and performance (DVP-1..3) — are closed and retired here. Anything in
+*this* file is parked, not scheduled.
+
+---
+
+## Hardening round (DVH-1..3, DVH-5) — retired 2026-08-04
+
+Closed the gap between DataVault's **B−** and a B+. Its ticket file was
+`tickets/DATAVAULT_HARDENING_TICKETS.md`; recover the full text, every verification
+note and both review passes with:
+
+```bash
+git log -p -- tickets/DATAVAULT_HARDENING_TICKETS.md
+```
+
+| Ticket | What was wrong | Commit |
+|---|---|---|
+| DVH-1 | A blank cell was stored as `""`, so `required` required nothing and two blanks false-conflicted on a unique column — the codebase disagreed with itself about what "empty" meant | `2dbcfa32` |
+| DVH-3 | `datavault_rows` / `datavault_values` and four sibling tables had no RLS policy, not even staged — the two tables holding customer data were service-layer-only | `8ac5e3be` |
+| DVH-2 | **P0.** `unarchiveRow` performed no uniqueness check, so archive → create duplicate → unarchive put two live rows on the same "unique" value in three UI actions. Concurrent creates also raced. Fixed with a real `datavault_unique_keys` constraint | `e60b4eb7` |
+| DVH-5 | Cloning a workflow with data wrote values directly, so cloned tables carried no unique keys and reopened DVH-2's race | `ebcff7e0` |
+
+**The file's original framing said "nothing here is broken." That was wrong**, and the
+correction is the most useful thing this round produced: reviewing DVH-2 *before*
+dispatch found a live P0 that no test and no user report had surfaced. Two of the four
+tickets turned out to be bugs, not hardening.
+
+### Standing decisions from this round (do not re-litigate)
+
+1. **DVH-2 gets a real database constraint, not an application lock.** The
+   originally-proposed partial unique index on `datavault_values` is unbuildable: a
+   btree entry caps at 2704 bytes while a cell caps at 1MB, and a partial index's
+   `WHERE` can only reference the indexed table, which holds neither `is_unique` nor
+   `deleted_at`. The advisory-lock alternative was rejected as cooperative — it protects
+   only callers that remember to take it, the exact failure class the round existed to
+   remove.
+2. **Unarchiving a row whose unique value has since been taken fails with a 409.**
+   Rejected: letting the unarchive win and invalidating the newer row; clearing the
+   conflicting cell on restore (destroys stored data); making archived rows keep
+   reserving their values (reverses DV-4's deliberate decision).
+3. **`DVH-4` is a retired number.** It became DVP-1 in the performance round. Do not
+   reuse it — the ticket filed later is DVH-5.
 
 ---
 

@@ -14,12 +14,13 @@ This file is deliberately **not** named `*_TICKETS.md`, because that glob is
 what agents scan for dispatchable work (`AGENTS.md` §5). Open tickets live in
 `tickets/*_TICKETS.md`; parked observations live here.
 
-> **As of 2026-08-04 the one open initiative is `DATAVAULT_HARDENING_TICKETS.md`**,
-> and it holds exactly one open ticket: **DVH-5** (cloning a workflow with data
-> bypasses `datavault_unique_keys`, reopening the race DVH-2 closed). DVH-1..3 are ✅.
-> The DataVault audit initiative (DV-1..14) closed 2026-08-03 and the performance round
-> (DVP-1..3) closed 2026-08-04; both are retired into `backlog/DATAVAULT.md`. Every
-> earlier initiative is likewise closed and retired.
+> **As of 2026-08-04 there is no open initiative.** `tickets/` holds this index and
+> `backlog/` only. All three DataVault rounds closed and retired into
+> `backlog/DATAVAULT.md` — the audit (DV-1..14, 2026-08-03), hardening (DVH-1..3 and
+> DVH-5, 2026-08-04) and performance (DVP-1..3, 2026-08-04). Every earlier initiative is
+> likewise closed and retired. The next piece of work starts with a fresh
+> `*_TICKETS.md`; check this index first so a settled question is not re-filed as a new
+> finding.
 
 ### Why an entry is parked
 
@@ -83,8 +84,14 @@ The performance round **DVP-1..3** closed 2026-08-04 and is retired into the sam
 detail file — harness + `EXPLAIN` plans (`f0903bdd`), column narrowing (`f24e7182`),
 and two size-bounded filter indexes (`68d6b949`).
 
-**Live follow-on:** `DATAVAULT_HARDENING_TICKETS.md`, now holding only **DVH-5**.
-**DV-B8 was promoted** into that file as DVH-1 — it turned out to break `required` as
+The hardening round **DVH-1..3 + DVH-5** also closed 2026-08-04 and is retired into the
+same detail file, taking DataVault from **B−** toward B+: blank cells stored as `NULL`
+(`2dbcfa32`), staged RLS for the six uncovered tables (`8ac5e3be`), a real
+`datavault_unique_keys` constraint behind unique columns (`e60b4eb7`, a live P0 found at
+ticket review), and the clone path backfilling those keys (`ebcff7e0`). **No live
+follow-on.**
+
+**DV-B8 was promoted** into that round as DVH-1 — it turned out to break `required` as
 well. **DV-B9 shipped** inside DV-9. **DV-B4 shipped as DVP-3** — it had been
 double-tracked, parked here *and* promoted, for two days; it is struck through in the
 detail file so a later audit does not rediscover it.
