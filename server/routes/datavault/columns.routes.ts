@@ -109,6 +109,8 @@ export function registerDatavaultColumnRoutes(app: Express): void {
         name: z.string().min(1).optional(),
         slug: z.string().min(1).optional(),
         required: z.boolean().optional(),
+        isUnique: z.boolean().optional(),
+        isPrimaryKey: z.boolean().optional(),
         description: z.string().nullable().optional(),
         orderIndex: z.number().int().optional(),
         autonumberPrefix: z.string().nullable().optional(),

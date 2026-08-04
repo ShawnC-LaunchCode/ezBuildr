@@ -34,6 +34,36 @@ type RowValidationOptions = {
   tx?: DbTransaction;
 };
 
+function extractErrorDetails(error: unknown): { code?: string; constraint?: string; detail: string; message: string } {
+  const pgCause = (typeof error === 'object' && error !== null && 'cause' in error)
+    ? (error as { cause: unknown }).cause
+    : undefined;
+  const target = (typeof pgCause === 'object' && pgCause !== null ? pgCause : error) as Record<string, unknown> | null;
+  if (!target || typeof target !== 'object') {
+    return { detail: '', message: '' };
+  }
+  return {
+    code: typeof target.code === 'string' ? target.code : undefined,
+    constraint: typeof target.constraint === 'string' ? target.constraint : undefined,
+    detail: typeof target.detail === 'string' ? target.detail : '',
+    message: typeof target.message === 'string' ? target.message : '',
+  };
+}
+
+function resolveColumnName(
+  columnId: string | undefined,
+  columns?: DatavaultColumn[] | Map<string, DatavaultColumn>
+): string | undefined {
+  if (!columns) { return undefined; }
+  const colList = columns instanceof Map ? Array.from(columns.values()) : columns;
+  if (columnId) {
+    const matched = colList.find(c => c.id === columnId);
+    if (matched) { return matched.name; }
+  }
+  const fallback = colList.find(c => c.isUnique || c.isPrimaryKey);
+  return fallback?.name;
+}
+
 /**
  * Service layer for DataVault row business logic
  * Handles row and value CRUD operations with validation and type coercion
@@ -255,6 +285,30 @@ export class DatavaultRowsService {
     );
   }
 
+  private handleUniqueConstraintError(
+    error: unknown,
+    columns?: DatavaultColumn[] | Map<string, DatavaultColumn>
+  ): never {
+    const { constraint, detail, message } = extractErrorDetails(error);
+
+    const isDatavaultUniqueConstraint =
+      constraint === 'datavault_unique_keys_column_value_unique' ||
+      message.includes('datavault_unique_keys_column_value_unique') ||
+      /Key \((?:column_id,\s*value_hash|value_hash,\s*column_id)\)=/i.test(detail);
+
+    if (isDatavaultUniqueConstraint) {
+      const match = detail.match(/Key \(column_id,\s*value_hash\)=\(["']?([a-f0-9-]+)/i);
+      const matchedColId = match?.[1];
+      const columnName = resolveColumnName(matchedColId, columns);
+
+      throw new ConflictError(
+        `A row with this column '${columnName ?? 'unique'}' already exists`
+      );
+    }
+
+    throw error;
+  }
+
   private async prepareCreateValues(
     tableId: string,
     values: Record<string, unknown>,
@@ -384,28 +438,34 @@ export class DatavaultRowsService {
       tx,
     });
 
+    const columns = await this.columnsRepo.findByTableId(tableId, tx);
+
     // Create row with values
-    const result = await this.rowsRepo.createRowWithValues(
-      {
-        tableId,
-        createdBy,
-        updatedBy: createdBy,
-      },
-      validatedValues,
-      tx
-    );
+    try {
+      const result = await this.rowsRepo.createRowWithValues(
+        {
+          tableId,
+          createdBy,
+          updatedBy: createdBy,
+        },
+        validatedValues,
+        tx
+      );
 
-    // Transform values array into Record<columnId, value>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- values are dynamically typed
-    const valuesRecord: Record<string, any> = {};
-    for (const valueObj of result.values) {
-      valuesRecord[valueObj.columnId] = valueObj.value;
+      // Transform values array into Record<columnId, value>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- values are dynamically typed
+      const valuesRecord: Record<string, any> = {};
+      for (const valueObj of result.values) {
+        valuesRecord[valueObj.columnId] = valueObj.value;
+      }
+
+      return {
+        row: result.row,
+        values: valuesRecord,
+      };
+    } catch (error) {
+      this.handleUniqueConstraintError(error, columns);
     }
-
-    return {
-      row: result.row,
-      values: valuesRecord,
-    };
   }
 
   /**
@@ -505,8 +565,14 @@ export class DatavaultRowsService {
       tx,
     });
 
+    const columns = await this.columnsRepo.findByTableId(row.tableId, tx);
+
     // Update row values
-    await this.rowsRepo.updateRowValues(rowId, validatedValues, updatedBy, tx);
+    try {
+      await this.rowsRepo.updateRowValues(rowId, validatedValues, updatedBy, tx);
+    } catch (error) {
+      this.handleUniqueConstraintError(error, columns);
+    }
   }
 
   /**
@@ -644,10 +710,20 @@ export class DatavaultRowsService {
     rowId: string,
     tx?: DbTransaction
   ): Promise<void> {
-    // Verify ownership
-    await this.verifyRowOwnership(rowId, tenantId, tx);
+    if (tx) {
+      return this._archiveRowImpl(rowId, tenantId, tx);
+    }
+    return db.transaction(async (newTx: DbTransaction) => {
+      return this._archiveRowImpl(rowId, tenantId, newTx);
+    });
+  }
 
-    // Archive the row
+  private async _archiveRowImpl(
+    rowId: string,
+    tenantId: string,
+    tx: DbTransaction
+  ): Promise<void> {
+    await this.verifyRowOwnership(rowId, tenantId, tx);
     await this.rowsRepo.archiveRow(rowId, tx);
   }
 
@@ -659,11 +735,26 @@ export class DatavaultRowsService {
     rowId: string,
     tx?: DbTransaction
   ): Promise<void> {
-    // Verify ownership
-    await this.verifyRowOwnership(rowId, tenantId, tx);
+    if (tx) {
+      return this._unarchiveRowImpl(rowId, tenantId, tx);
+    }
+    return db.transaction(async (newTx: DbTransaction) => {
+      return this._unarchiveRowImpl(rowId, tenantId, newTx);
+    });
+  }
 
-    // Unarchive the row
-    await this.rowsRepo.unarchiveRow(rowId, tx);
+  private async _unarchiveRowImpl(
+    rowId: string,
+    tenantId: string,
+    tx: DbTransaction
+  ): Promise<void> {
+    const row = await this.verifyRowOwnership(rowId, tenantId, tx);
+    const columns = await this.columnsRepo.findByTableId(row.tableId, tx);
+    try {
+      await this.rowsRepo.unarchiveRow(rowId, tx);
+    } catch (error) {
+      this.handleUniqueConstraintError(error, columns);
+    }
   }
 
   /**
@@ -674,12 +765,21 @@ export class DatavaultRowsService {
     rowIds: string[],
     tx?: DbTransaction
   ): Promise<void> {
-    if (rowIds.length === 0) {return;}
+    if (rowIds.length === 0) { return; }
+    if (tx) {
+      return this._bulkArchiveRowsImpl(rowIds, tenantId, tx);
+    }
+    return db.transaction(async (newTx: DbTransaction) => {
+      return this._bulkArchiveRowsImpl(rowIds, tenantId, newTx);
+    });
+  }
 
-    // Verify all rows belong to tenant
+  private async _bulkArchiveRowsImpl(
+    rowIds: string[],
+    tenantId: string,
+    tx: DbTransaction
+  ): Promise<void> {
     await this.rowsRepo.batchVerifyOwnership(rowIds, tenantId, tx);
-
-    // Bulk archive
     await this.rowsRepo.bulkArchiveRows(rowIds, tx);
   }
 
@@ -691,13 +791,28 @@ export class DatavaultRowsService {
     rowIds: string[],
     tx?: DbTransaction
   ): Promise<void> {
-    if (rowIds.length === 0) {return;}
+    if (rowIds.length === 0) { return; }
+    if (tx) {
+      return this._bulkUnarchiveRowsImpl(rowIds, tenantId, tx);
+    }
+    return db.transaction(async (newTx: DbTransaction) => {
+      return this._bulkUnarchiveRowsImpl(rowIds, tenantId, newTx);
+    });
+  }
 
-    // Verify all rows belong to tenant
-    await this.rowsRepo.batchVerifyOwnership(rowIds, tenantId, tx);
-
-    // Bulk unarchive
-    await this.rowsRepo.bulkUnarchiveRows(rowIds, tx);
+  private async _bulkUnarchiveRowsImpl(
+    rowIds: string[],
+    tenantId: string,
+    tx: DbTransaction
+  ): Promise<void> {
+    const rowMap = await this.rowsRepo.batchVerifyOwnership(rowIds, tenantId, tx);
+    const tableId = rowMap.values().next().value;
+    const columns = tableId ? await this.columnsRepo.findByTableId(tableId, tx) : [];
+    try {
+      await this.rowsRepo.bulkUnarchiveRows(rowIds, tx);
+    } catch (error) {
+      this.handleUniqueConstraintError(error, columns);
+    }
   }
 
   /**

@@ -339,6 +339,7 @@ export const EXCLUDED_TABLES: Record<string, string> = {
   'datavault_row_notes': 'Row annotations are instance data.',
   'datavault_api_tokens': 'DataVault API tokens are sensitive access credentials.',
   'datavault_table_permissions': 'DataVault permissions are tied to local roles.',
+  'datavault_unique_keys': 'Derived unique index key table, populated from active row values.',
   'collections': 'Legacy collections are superseded by DataVault.',
   'collection_fields': 'Legacy collection fields.',
   'records': 'Legacy collection records.',

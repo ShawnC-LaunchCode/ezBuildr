@@ -103,7 +103,7 @@ export class DatavaultColumnsService {
       const columns = await this.columnsRepo.findByTableId(tableId, tx);
       const existingPrimaryKey = columns.find(c => c.isPrimaryKey && c.id !== columnId);
       if (existingPrimaryKey) {
-        throw new Error(
+        throw new BadRequestError(
           `Table already has a primary key column: "${existingPrimaryKey.name}". ` +
           `Each table can only have one primary key. Please unset the existing primary key first.`
         );
@@ -122,7 +122,7 @@ export class DatavaultColumnsService {
       // Check if there are duplicate values in existing rows
       const hasDuplicates = await this.rowsRepo.checkColumnHasDuplicates(columnId, tx);
       if (hasDuplicates) {
-        throw new Error(
+        throw new BadRequestError(
           'Cannot make this column unique because it contains duplicate values. ' +
           'Please remove duplicates first.'
         );
@@ -428,6 +428,25 @@ export class DatavaultColumnsService {
     if (typeToValidate !== 'select' && typeToValidate !== 'multiselect') {
       data.options = null;
     }
+    // Primary key and uniqueness semantics:
+    // A column is effectively unique if (isUnique === true || isPrimaryKey === true).
+    const currentIsPk = column.isPrimaryKey ?? false;
+    const currentIsUnique = (column.isUnique ?? false) || currentIsPk;
+
+    // Check invalid combination: trying to turn isUnique false on an existing primary key
+    // without simultaneously removing primary key status.
+    if (data.isUnique === false && currentIsPk && data.isPrimaryKey !== false) {
+      throw new BadRequestError(
+        'A primary key column must be unique. To remove uniqueness, remove primary key status first.'
+      );
+    }
+
+    // If setting as primary key, force required and unique
+    if (data.isPrimaryKey) {
+      data.required = true;
+      data.isUnique = true;
+    }
+
     // Validate primary key changes
     if (data.isPrimaryKey !== undefined && data.isPrimaryKey !== column.isPrimaryKey) {
       if (data.isPrimaryKey) {
@@ -437,33 +456,36 @@ export class DatavaultColumnsService {
         // Removing primary key - check if table has at least one other column
         const allColumns = await this.columnsRepo.findByTableId(column.tableId, tx);
         if (allColumns.length === 1) {
-          throw new Error(
+          throw new BadRequestError(
             'Cannot remove primary key from the only column in the table. ' +
             'Tables must have at least one primary key column.'
           );
         }
-        // If removing primary key, warn that another column should be designated
-        // (this is handled by the frontend)
       }
     }
-    // Validate unique constraint changes
-    if (data.isUnique !== undefined && data.isUnique && !column.isUnique) {
+
+    const newIsPk = data.isPrimaryKey ?? currentIsPk;
+    const newIsUnique = newIsPk ? true : (data.isUnique ?? column.isUnique ?? false);
+
+    // Validate unique constraint changes and sync unique keys
+    if (!currentIsUnique && newIsUnique) {
       await this.validateUniqueConstraint(columnId, true, tx);
+      await this.rowsRepo.populateUniqueKeysForColumn(columnId, tx);
+    } else if (currentIsUnique && !newIsUnique) {
+      await this.rowsRepo.removeUniqueKeysForColumn(columnId, tx);
     }
+
     // If name changed, regenerate slug
     if (data.name && !data.slug) {
       const baseSlug = this.generateSlug(data.name);
       data.slug = await this.ensureUniqueSlug(column.tableId, baseSlug, columnId, tx);
     }
+
     // If slug provided, ensure it's unique
     if (data.slug) {
       data.slug = await this.ensureUniqueSlug(column.tableId, data.slug, columnId, tx);
     }
-    // If setting as primary key, force required and unique
-    if (data.isPrimaryKey) {
-      data.required = true;
-      data.isUnique = true;
-    }
+
     return this.columnsRepo.update(columnId, data, tx);
   }
   /**

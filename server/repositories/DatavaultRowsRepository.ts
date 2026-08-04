@@ -7,6 +7,7 @@ import {
   datavaultColumns,
   datavaultTables,
   datavaultNumberSequences,
+  datavaultUniqueKeys,
   type DatavaultRow,
   type InsertDatavaultRow,
   type DatavaultValue,
@@ -478,6 +479,18 @@ export class DatavaultRowsRepository extends BaseRepository<
       createdValues.push(
         ...(await database.insert(datavaultValues).values(valueInserts).returning())
       );
+
+      // Sync unique keys for created values
+      await database.execute(sql`
+        INSERT INTO datavault_unique_keys (row_id, column_id, value_hash)
+        SELECT v.row_id, v.column_id, sha256(convert_to(v.value::jsonb::text, 'UTF8'))
+        FROM datavault_values v
+        JOIN datavault_columns c ON c.id = v.column_id
+        WHERE v.row_id = ${row.id}
+          AND (c.is_unique = true OR c.is_primary_key = true)
+          AND v.value IS NOT NULL
+          AND v.value::jsonb <> 'null'::jsonb
+      `);
     }
     return { row, values: createdValues };
   }
@@ -512,6 +525,32 @@ export class DatavaultRowsRepository extends BaseRepository<
             updatedAt: new Date(),
           },
         });
+    }
+
+    if (values.length > 0) {
+      const columnIds = values.map(v => v.columnId);
+      // Remove stale keys for updated columns
+      await database
+        .delete(datavaultUniqueKeys)
+        .where(
+          and(
+            eq(datavaultUniqueKeys.rowId, rowId),
+            inArray(datavaultUniqueKeys.columnId, columnIds)
+          )
+        );
+
+      // Insert updated unique keys from datavault_values
+      await database.execute(sql`
+        INSERT INTO datavault_unique_keys (row_id, column_id, value_hash)
+        SELECT v.row_id, v.column_id, sha256(convert_to(v.value::jsonb::text, 'UTF8'))
+        FROM datavault_values v
+        JOIN datavault_columns c ON c.id = v.column_id
+        WHERE v.row_id = ${rowId}
+          AND v.column_id IN (${sql.join(columnIds.map(id => sql`${id}::uuid`), sql`, `)})
+          AND (c.is_unique = true OR c.is_primary_key = true)
+          AND v.value IS NOT NULL
+          AND v.value::jsonb <> 'null'::jsonb
+      `);
     }
   }
   /**
@@ -839,6 +878,9 @@ export class DatavaultRowsRepository extends BaseRepository<
       .update(datavaultRows)
       .set({ deletedAt: new Date() })
       .where(eq(datavaultRows.id, rowId));
+    await database
+      .delete(datavaultUniqueKeys)
+      .where(eq(datavaultUniqueKeys.rowId, rowId));
   }
   /**
    * Unarchive (restore) a single row
@@ -849,26 +891,76 @@ export class DatavaultRowsRepository extends BaseRepository<
       .update(datavaultRows)
       .set({ deletedAt: null })
       .where(eq(datavaultRows.id, rowId));
+    await database.execute(sql`
+      INSERT INTO datavault_unique_keys (row_id, column_id, value_hash)
+      SELECT v.row_id, v.column_id, sha256(convert_to(v.value::jsonb::text, 'UTF8'))
+      FROM datavault_values v
+      JOIN datavault_columns c ON c.id = v.column_id
+      WHERE v.row_id = ${rowId}
+        AND (c.is_unique = true OR c.is_primary_key = true)
+        AND v.value IS NOT NULL
+        AND v.value::jsonb <> 'null'::jsonb
+    `);
   }
   /**
    * Bulk archive rows
    */
   async bulkArchiveRows(rowIds: string[], tx?: DbTransaction): Promise<void> {
+    if (rowIds.length === 0) { return; }
     const database = this.getDb(tx);
     await database
       .update(datavaultRows)
       .set({ deletedAt: new Date() })
       .where(inArray(datavaultRows.id, rowIds));
+    await database
+      .delete(datavaultUniqueKeys)
+      .where(inArray(datavaultUniqueKeys.rowId, rowIds));
   }
   /**
    * Bulk unarchive rows
    */
   async bulkUnarchiveRows(rowIds: string[], tx?: DbTransaction): Promise<void> {
+    if (rowIds.length === 0) { return; }
     const database = this.getDb(tx);
     await database
       .update(datavaultRows)
       .set({ deletedAt: null })
       .where(inArray(datavaultRows.id, rowIds));
+    await database.execute(sql`
+      INSERT INTO datavault_unique_keys (row_id, column_id, value_hash)
+      SELECT v.row_id, v.column_id, sha256(convert_to(v.value::jsonb::text, 'UTF8'))
+      FROM datavault_values v
+      JOIN datavault_columns c ON c.id = v.column_id
+      WHERE v.row_id IN (${sql.join(rowIds.map(id => sql`${id}::uuid`), sql`, `)})
+        AND (c.is_unique = true OR c.is_primary_key = true)
+        AND v.value IS NOT NULL
+        AND v.value::jsonb <> 'null'::jsonb
+    `);
+  }
+  /**
+   * Populate unique keys for a column (when column is made unique)
+   */
+  async populateUniqueKeysForColumn(columnId: string, tx?: DbTransaction): Promise<void> {
+    const database = this.getDb(tx);
+    await database.execute(sql`
+      INSERT INTO datavault_unique_keys (row_id, column_id, value_hash)
+      SELECT v.row_id, v.column_id, sha256(convert_to(v.value::jsonb::text, 'UTF8'))
+      FROM datavault_values v
+      JOIN datavault_rows r ON r.id = v.row_id
+      WHERE v.column_id = ${columnId}
+        AND r.deleted_at IS NULL
+        AND v.value IS NOT NULL
+        AND v.value::jsonb <> 'null'::jsonb
+    `);
+  }
+  /**
+   * Remove unique keys for a column (when uniqueness is disabled)
+   */
+  async removeUniqueKeysForColumn(columnId: string, tx?: DbTransaction): Promise<void> {
+    const database = this.getDb(tx);
+    await database
+      .delete(datavaultUniqueKeys)
+      .where(eq(datavaultUniqueKeys.columnId, columnId));
   }
   /**
    * Count rows with filter support (active/archived, and column value filters)

@@ -85,6 +85,13 @@
       "when": 1785790027622,
       "tag": "0011_datavault_rls_phase4",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785796484787,
+      "tag": "0012_datavault_unique_keys",
+      "breakpoints": true
     }
   ]
 }

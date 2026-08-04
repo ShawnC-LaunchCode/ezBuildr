@@ -218,11 +218,72 @@ requiring a backfill, that is a blocker to report, not a migration to write.
 
 ---
 
-## DVH-2 — A "unique" column can hold duplicates: unarchive never re-checks, and concurrent inserts race 🔲
+## DVH-2 — A "unique" column can hold duplicates: unarchive never re-checks, and concurrent inserts race ✅
 
 **Priority: P0 (live bug) + P1 (hardening)** · Size: L · Files: `shared/schema/datavault.ts`,
 `server/services/DatavaultRowsService.ts`, `server/repositories/DatavaultRowsRepository.ts`,
 `server/services/DatavaultColumnsService.ts`, migration `0012`
+
+> **✅ Verified at review 2026-08-04, on the second submission.** Reviewer re-ran every gate
+> independently in the `dvh-2` worktree: `tsc --noEmit` exit 0, `npm run lint` clean,
+> `test:fast` **2388 passed** / 14 skipped (baseline 2381), and the **ten**-suite DataVault
+> sweep — the eight this file names, plus `rls-datavault` and the new
+> `datavault.uniqueKeys` — **10 files / 193 tests passed**, 0 failures.
+>
+> **Both findings independently reproduced pre-fix.** Reverting only
+> `DatavaultRowsService.ts` and `DatavaultRowsRepository.ts` to `main` and re-running the
+> new suite fails **7 of 10** with exactly the predicted assertions: `expected 200 to be 409`
+> on Criterion 1 (part 1 — unarchive silently resurrects the duplicate) and
+> `expected 2 to be 1` on Criterion 11 (part 2 — both concurrent `pg.Client` transactions
+> committed). Restored, 10/10 green. Criterion 11's concurrency is genuine: two separate
+> `pg.Client` connections asserted to hold **distinct `pg_backend_pid()`s**, which is what
+> gets around the size-1 test pool.
+>
+> **AC10 proven on a genuinely fresh database** (`dvh2_recheck`, created and dropped by the
+> reviewer): `db:migrate` applies clean, and `\d` confirms the
+> `(column_id, value_hash)` UNIQUE constraint, both `ON DELETE CASCADE` FKs, and a
+> `tenant_isolation` policy that reuses `0011`'s `app_datavault_row_tenant()` with the
+> `CASE WHEN ... IS NULL THEN false` fail-closed guard. Hashing is SQL-side
+> `sha256(convert_to(v.value::jsonb::text, 'UTF8'))` in **all five** repository paths and in
+> the migration backfill — one expression, so service writes and backfill agree by
+> construction. No `createHash` in TypeScript anywhere.
+>
+> **First submission FAILED review (2026-08-03)** on two user-reachable defects the reviewer
+> reproduced live, both created by this ticket adding `isUnique` / `isPrimaryKey` to the
+> column-update route schema, where neither field had been accepted before:
+> `PATCH {isPrimaryKey: true}` on a column holding duplicates returned **200** with
+> `isUnique: true` and **0** backfilled keys (a primary key over duplicate data with no
+> constraint behind it), and `PATCH {isUnique: false}` on a PK column returned **200**
+> reporting `isUnique: false` while the keys survived, so the database kept rejecting
+> duplicates a column claimed not to care about. Both are now closed and re-verified on the
+> reviewer's own fixtures, not the dev's: the first returns **400** *"Cannot make this column
+> unique because it contains duplicate values"* with 0 keys written, the second **400**
+> *"A primary key column must be unique. To remove uniqueness, remove primary key status
+> first."* The fix generalises correctly —`updateColumn` now computes
+> `newIsUnique = newIsPk ? true : (data.isUnique ?? column.isUnique)` against a
+> `currentIsUnique` that already folds in `isPrimaryKey`, so backfill/cleanup follow the
+> *effective* uniqueness of the column rather than one flag. Also fixed from that pass: the
+> `23505` handler no longer maps *any* unique violation onto this constraint's message,
+> `populateUniqueKeysForColumn` lost its `ON CONFLICT DO NOTHING` (a backfill must fail
+> loudly), and AC2 now asserts the non-conflicting row of the batch stayed archived — pinning
+> whole-batch all-or-nothing semantics, which the ticket required be stated.
+>
+> **Accepted as-is, with the reason recorded:** the migration's backfill keeps
+> `ON CONFLICT DO NOTHING`. Unlike the service-side backfill it is inert — there are no
+> legacy rows anywhere to migrate (confirmed 2026-07-31: production DataVault holds no real
+> rows) — and editing an already-applied migration file to add a comment is not worth the
+> churn.
+>
+> **Standing complaint, not a gate:** both turn-in reports described code that does not
+> exist — the first claimed a `(tenant_id, column_id, value_hash)` constraint and pgcrypto
+> `digest()`, the second `sha256(encode(convert_to(...), 'hex'))`. The delivered code is
+> correct and better than either description, but a report that must be re-derived from the
+> diff costs a full reviewer pass. Verify claims against your own diff before turning in.
+>
+> **Observation filed, not fixed (out of scope):** `WorkflowClonerService.copyDatavaultRows`
+> inserts into `datavault_values` directly, so cloned rows get no unique keys and the new
+> backstop is absent for cloned tables. Pre-existing path, outside this ticket's footprint —
+> parked in Backlog below.
 
 *This ticket was rewritten on 2026-08-03. The original proposed a partial unique index
 on `datavault_values`; that fix cannot be built (see below), and reviewing it turned up
@@ -556,6 +617,23 @@ enforcement checklist is accurate.
    proves nothing — state in your report which role your tests used.
 9. `npx tsc --noEmit` 0 errors; `npm run lint` clean; `test:fast` ≥ 2381;
    `test:integration` no new failures.
+
+---
+
+## Backlog / observations
+
+Not tickets. Triaged at the Gate — promote, merge into an open ticket, or close
+won't-fix.
+
+- **`WorkflowClonerService` bypasses unique-key maintenance.** `copyDatavaultRows`
+  inserts into `datavault_values` directly
+  (`tx.insert(datavaultValues).values(copiedValues)`), so rows created by cloning a
+  workflow's DataVault tables get **no** rows in `datavault_unique_keys`. DVH-2's
+  constraint is therefore absent for cloned tables — `assertUniqueValues` still catches
+  the common case, but the database backstop that DVH-2 exists to add is not there.
+  Pre-existing path, outside DVH-2's stated footprint; filed at its review (2026-08-04)
+  rather than expanding the ticket. Same failure class as the archive-path warning in
+  `datavaultUniqueKeys`'s schema comment.
 
 ---
 

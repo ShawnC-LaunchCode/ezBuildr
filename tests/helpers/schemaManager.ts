@@ -46,8 +46,10 @@ export class SchemaManager {
     // policies + helper functions for datavault_rows/values/columns/
     // table_permissions/database_access/table_access — a stale _v15 schema
     // lacks them and the new RLS tests would silently see no policies.
+    // Bumped to _v17 for 0012_datavault_unique_keys (DVH-2), which adds
+    // datavault_unique_keys table and uniqueness constraint.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v16`;
+        return `test_schema_w${this.workerId}_v17`;
     }
 
     /**

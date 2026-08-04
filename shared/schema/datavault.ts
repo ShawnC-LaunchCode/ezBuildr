@@ -12,10 +12,17 @@ import {
     boolean,
     integer,
     pgEnum,
-    primaryKey
+    primaryKey,
+    customType
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from 'zod';
+
+export const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+    dataType() {
+        return 'bytea';
+    },
+});
 
 import { tenants, users, ownerTypeEnum } from './auth';
 import { workflows } from './workflow';
@@ -132,6 +139,19 @@ export const datavaultValues = pgTable("datavault_values", {
     index("datavault_values_row_idx").on(table.rowId),
     index("datavault_values_column_idx").on(table.columnId),
     uniqueIndex("datavault_values_row_column_unique").on(table.rowId, table.columnId),
+]);
+// DataVault Unique Keys (DVH-2: dedicated unique key index backed by PG unique constraint)
+// NOTE: Any code path which soft-deletes a row without going through DatavaultRowsRepository's
+// archive methods will corrupt this table by leaving orphaned unique keys behind.
+export const datavaultUniqueKeys = pgTable("datavault_unique_keys", {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    rowId: uuid("row_id").references(() => datavaultRows.id, { onDelete: 'cascade' }).notNull(),
+    columnId: uuid("column_id").references(() => datavaultColumns.id, { onDelete: 'cascade' }).notNull(),
+    valueHash: bytea("value_hash").notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+    uniqueIndex("datavault_unique_keys_column_value_unique").on(table.columnId, table.valueHash),
+    index("datavault_unique_keys_row_id_idx").on(table.rowId),
 ]);
 // DataVault Number Sequences
 export const datavaultNumberSequences = pgTable("datavault_number_sequences", {
@@ -299,6 +319,8 @@ export const insertDatavaultRowSchema = createInsertSchema(datavaultRows);
 export type InsertDatavaultRow = z.infer<typeof insertDatavaultRowSchema>;
 export const insertDatavaultValueSchema = createInsertSchema(datavaultValues);
 export type InsertDatavaultValue = z.infer<typeof insertDatavaultValueSchema>;
+export const insertDatavaultUniqueKeySchema = createInsertSchema(datavaultUniqueKeys);
+export type InsertDatavaultUniqueKey = z.infer<typeof insertDatavaultUniqueKeySchema>;
 export const insertDatavaultRowNoteSchema = createInsertSchema(datavaultRowNotes);
 export type InsertDatavaultRowNote = z.infer<typeof insertDatavaultRowNoteSchema>;
 export const insertDatavaultApiTokenSchema = createInsertSchema(datavaultApiTokens);
@@ -321,6 +343,7 @@ export type DatavaultTable = InferSelectModel<typeof datavaultTables>;
 export type DatavaultColumn = InferSelectModel<typeof datavaultColumns>;
 export type DatavaultRow = InferSelectModel<typeof datavaultRows>;
 export type DatavaultValue = InferSelectModel<typeof datavaultValues>;
+export type DatavaultUniqueKey = InferSelectModel<typeof datavaultUniqueKeys>;
 export type DatavaultRowNote = InferSelectModel<typeof datavaultRowNotes>;
 export type DatavaultApiToken = InferSelectModel<typeof datavaultApiTokens>;
 export type DatavaultTablePermission = InferSelectModel<typeof datavaultTablePermissions>;

@@ -9,7 +9,7 @@ import {
 
 import {
     datavaultDatabases, datavaultTables, datavaultColumns, datavaultRows,
-    datavaultValues,
+    datavaultValues, datavaultUniqueKeys,
     datavaultApiTokens,
     datavaultDatabaseAccess, datavaultTableAccess,
     workflowDataSources, workflowQueries,
@@ -572,6 +572,17 @@ export const datavaultValuesRelations = relations(datavaultValues, ({ one }) => 
     }),
     column: one(datavaultColumns, {
         fields: [datavaultValues.columnId],
+        references: [datavaultColumns.id],
+    }),
+}));
+
+export const datavaultUniqueKeysRelations = relations(datavaultUniqueKeys, ({ one }) => ({
+    row: one(datavaultRows, {
+        fields: [datavaultUniqueKeys.rowId],
+        references: [datavaultRows.id],
+    }),
+    column: one(datavaultColumns, {
+        fields: [datavaultUniqueKeys.columnId],
         references: [datavaultColumns.id],
     }),
 }));

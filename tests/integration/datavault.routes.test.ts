@@ -479,9 +479,10 @@ describe('DataVault unique row constraints', () => {
     });
     expect(archivedResponse.status).toBe(201);
 
-    await db.update(datavaultRows)
-      .set({ deletedAt: new Date() })
-      .where(eq(datavaultRows.id, archivedResponse.body.row.id as string));
+    await datavaultRowsService.archiveRow(
+      ctx.tenantId,
+      archivedResponse.body.row.id as string
+    );
 
     const replacementResponse = await authenticatedRequest().send({
       values: { [uniqueColumnId]: 'archived@example.com' },
