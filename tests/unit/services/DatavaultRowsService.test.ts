@@ -44,6 +44,7 @@ describe('DatavaultRowsService', () => {
       create: vi.fn(),
       deleteRow: vi.fn(),
       countByTableId: vi.fn(),
+      countByTableIdWithFilter: vi.fn(),
       createRowWithValues: vi.fn(),
       getRowsWithValues: vi.fn(),
       getRowWithValues: vi.fn(),
@@ -935,6 +936,67 @@ describe('DatavaultRowsService', () => {
 
         await service.createRow(mockTableId, mockTenantId, values);
       }
+    });
+  });
+
+  describe('getRowsWithOptions & listRows', () => {
+    const mockTable: DatavaultTable = {
+      id: mockTableId,
+      tenantId: mockTenantId,
+      ownerUserId: 'user-1',
+      ownerType: null,
+      ownerUuid: null,
+      name: 'Test Table',
+      slug: 'test-table',
+      description: null,
+      databaseId: 'mock-db-id',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    it('forwards columnIds to getRowsWithValues in getRowsWithOptions', async () => {
+      mockTablesRepo.findById.mockResolvedValue(mockTable);
+      mockRowsRepo.getRowsWithValues.mockResolvedValue([]);
+      mockRowsRepo.countByTableIdWithFilter.mockResolvedValue(0);
+
+      const options = {
+        limit: 25,
+        offset: 0,
+        showArchived: false,
+        columnIds: [mockColumnId],
+      };
+
+      await service.getRowsWithOptions(mockTenantId, mockTableId, options);
+
+      expect(mockRowsRepo.getRowsWithValues).toHaveBeenCalledWith(
+        mockTableId,
+        options,
+        undefined
+      );
+      expect(mockRowsRepo.countByTableIdWithFilter).toHaveBeenCalledWith(
+        mockTableId,
+        { showArchived: false, filters: undefined },
+        undefined
+      );
+    });
+
+    it('forwards columnIds to getRowsWithValues in listRows', async () => {
+      mockTablesRepo.findById.mockResolvedValue(mockTable);
+      mockRowsRepo.getRowsWithValues.mockResolvedValue([]);
+
+      const options = {
+        limit: 50,
+        offset: 10,
+        columnIds: [mockColumnId],
+      };
+
+      await service.listRows(mockTableId, mockTenantId, options);
+
+      expect(mockRowsRepo.getRowsWithValues).toHaveBeenCalledWith(
+        mockTableId,
+        options,
+        undefined
+      );
     });
   });
 });

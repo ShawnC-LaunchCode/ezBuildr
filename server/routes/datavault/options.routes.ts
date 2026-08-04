@@ -92,10 +92,11 @@ export function registerDatavaultOptionRoutes(app: Express): void {
         }
 
         const labelId = labelColumnId ?? columnId;
+        const requestedColumnIds = labelId === columnId ? [columnId] : [columnId, labelId];
         const { rows } = await datavaultRowsService.getRowsWithOptions(
           tenantId,
           tableId,
-          { limit, offset: 0, showArchived: false }
+          { limit, offset: 0, showArchived: false, columnIds: requestedColumnIds }
         );
         const options = rows.map(({ values }) => {
           const value = values[columnId];

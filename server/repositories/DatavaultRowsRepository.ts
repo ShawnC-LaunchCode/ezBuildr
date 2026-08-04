@@ -32,6 +32,7 @@ export type DatavaultRowsFindOptions = {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   filters?: DatavaultRowFilter[];
+  columnIds?: string[];
 };
 
 const logger = createLogger({ module: "datavault-rows-repository" });
@@ -432,11 +433,18 @@ export class DatavaultRowsRepository extends BaseRepository<
     const rows = await this.findByTableId(tableId, options, tx);
     if (rows.length === 0) { return []; }
     const rowIds = rows.map((r) => r.id);
-    // Get all values for these rows
+
+    // Get values for these rows (filter by columnIds if specified)
+    const columnIds = options?.columnIds;
+    const valuesConditions = [inArray(datavaultValues.rowId, rowIds)];
+    if (columnIds && columnIds.length > 0) {
+      valuesConditions.push(inArray(datavaultValues.columnId, columnIds));
+    }
+
     const allValues = await database
       .select()
       .from(datavaultValues)
-      .where(inArray(datavaultValues.rowId, rowIds));
+      .where(and(...valuesConditions));
     // Group values by row
     const valuesByRow = allValues.reduce<Record<string, Record<string, unknown>>>((acc, value: DatavaultValue) => {
       const rowValues = acc[value.rowId] ?? {};

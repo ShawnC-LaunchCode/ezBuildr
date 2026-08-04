@@ -501,6 +501,7 @@ export class DatavaultRowsService {
     options?: {
       limit?: number;
       offset?: number;
+      columnIds?: string[];
     },
     tx?: DbTransaction
   ) {
@@ -828,6 +829,7 @@ export class DatavaultRowsService {
       sortBy?: string;
       sortOrder?: 'asc' | 'desc';
       filters?: DatavaultRowFilter[];
+      columnIds?: string[];
     } = {},
     tx?: DbTransaction
 

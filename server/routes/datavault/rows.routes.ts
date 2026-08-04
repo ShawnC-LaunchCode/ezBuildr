@@ -55,10 +55,44 @@ function auditRowDelete(req: Request, userId: string, tenantId: string, tableId:
   });
 }
 
-/**
- * Register DataVault row endpoints (CRUD and reference resolution)
- */
-export function registerDatavaultRowRoutes(app: Express): void {
+function parseRowFilters(rawFilters: unknown): DatavaultRowFilter[] | undefined {
+  if (rawFilters === undefined || rawFilters === '') {
+    return undefined;
+  }
+  let raw: unknown = rawFilters;
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw) as unknown;
+    } catch {
+      throw new Error('Invalid filters JSON');
+    }
+  }
+  return z
+    .array(datavaultRowFilterSchema)
+    .max(DATAVAULT_CONFIG.MAX_FILTERS)
+    .parse(raw);
+}
+
+function parseColumnIds(rawColumns: unknown): string[] | undefined {
+  if (rawColumns === undefined || rawColumns === '') {
+    return undefined;
+  }
+  let colArray: unknown = rawColumns;
+  if (typeof rawColumns === 'string') {
+    if (rawColumns.startsWith('[')) {
+      try {
+        colArray = JSON.parse(rawColumns) as unknown;
+      } catch {
+        colArray = rawColumns.split(',').map((s) => s.trim()).filter(Boolean);
+      }
+    } else {
+      colArray = rawColumns.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+  }
+  return z.array(z.string().uuid()).parse(colArray);
+}
+
+function registerReferenceBatchRoute(app: Express): void {
   /**
    * POST /api/datavault/references/batch
    * Batch resolve reference values (fixes N+1 query problem)
@@ -114,6 +148,14 @@ export function registerDatavaultRowRoutes(app: Express): void {
       res.status(status).json({ message });
     }
   }));
+}
+
+/**
+ * Register DataVault row endpoints (CRUD and reference resolution)
+ */
+export function registerDatavaultRowRoutes(app: Express): void {
+  registerReferenceBatchRoute(app);
+
   /**
    * GET /api/datavault/tables/:tableId/rows
    * List all rows for a table with offset-based pagination, sorting, and archiving support
@@ -149,34 +191,22 @@ export function registerDatavaultRowRoutes(app: Express): void {
       const sortOrder = (req.query.sortOrder === 'desc' ? 'desc' : 'asc');
 
       let parsedFilters: DatavaultRowFilter[] | undefined;
-      if (req.query.filters !== undefined && req.query.filters !== '') {
-        let rawFilters: unknown = req.query.filters;
-        if (typeof rawFilters === 'string') {
-          try {
-            rawFilters = JSON.parse(rawFilters) as unknown;
-          } catch {
-            return res.status(400).json({ message: ERROR_INVALID_INPUT, error: 'Invalid filters JSON' });
-          }
+      try {
+        parsedFilters = parseRowFilters(req.query.filters);
+      } catch (filterError) {
+        if (filterError instanceof Error && filterError.message === 'Invalid filters JSON') {
+          return res.status(400).json({ message: ERROR_INVALID_INPUT, error: 'Invalid filters JSON' });
         }
-        const filtersValidation = z
-          .array(datavaultRowFilterSchema)
-          .max(DATAVAULT_CONFIG.MAX_FILTERS)
-          .safeParse(rawFilters);
-
-        if (!filtersValidation.success) {
-          return res.status(400).json({
-            message: ERROR_INVALID_INPUT,
-            errors: filtersValidation.error.errors,
-          });
-        }
-        parsedFilters = filtersValidation.data;
+        throw filterError;
       }
 
-      // Use new getRowsWithOptions method that supports archiving, sorting, and filtering
+      const parsedColumnIds = parseColumnIds(req.query.columnIds ?? req.query.columns);
+
+      // Use new getRowsWithOptions method that supports archiving, sorting, filtering, and column narrowing
       const result = await datavaultRowsService.getRowsWithOptions(
         tenantId,
         tableId,
-        { limit, offset, showArchived, sortBy, sortOrder, filters: parsedFilters }
+        { limit, offset, showArchived, sortBy, sortOrder, filters: parsedFilters, columnIds: parsedColumnIds }
       );
       const hasMore = offset + result.rows.length < result.total;
       res.json({
@@ -190,10 +220,17 @@ export function registerDatavaultRowRoutes(app: Express): void {
       });
     } catch (error) {
       logger.error({ error }, 'Error fetching DataVault rows');
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: ERROR_INVALID_INPUT,
+          errors: error.errors,
+        });
+      }
       const { status, message } = classifyRouteError(error, 'Failed to fetch rows');
       res.status(status).json({ message });
     }
   }));
+
   /**
    * POST /api/datavault/tables/:tableId/rows
    * Create a new row with values

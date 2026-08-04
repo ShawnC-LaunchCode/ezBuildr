@@ -273,9 +273,38 @@ Adding nothing is a valid outcome if the re-measured trade-off says so.
 
 ---
 
-## DVP-3 — `getRowsWithValues` fetches every value for every row regardless of selected columns 🔲
+## DVP-3 — `getRowsWithValues` fetches every value for every row regardless of selected columns ✅
 
 **Priority: P2** · Size: S · File: `server/repositories/DatavaultRowsRepository.ts`
+
+> **✅ Verified at review 2026-08-04.** Reviewer re-ran every gate in the `dvp-3`
+> worktree: `tsc --noEmit` exit 0, `npm run lint` clean, `test:fast` **2391 passed** /
+> 14 skipped (baseline 2388, +3), and the full DataVault sweep — the eight this round
+> names, plus `rls-datavault`, `datavault.uniqueKeys`, DVP-1's harness and this ticket's
+> — **12 files / 195 tests passed**.
+>
+> Checked the two things that could have broken silently, since both *reduce* what is
+> fetched. `options.routes.ts` requests **both** the value column and the label column
+> when they differ (`labelId === columnId ? [columnId] : [columnId, labelId]`) rather
+> than narrowing to one — the subtle case, and it is right. `ReadTableBlockRunner`
+> narrows only when `tableConfig.columns` is explicitly set and passes `undefined`
+> otherwise, so the default stays a full fetch. `dataBlocks` and
+> `dynamic_options_workflow` — the two suites that exercise those paths — are green.
+>
+> The repository guard is correct: `if (columnIds && columnIds.length > 0)`, so an empty
+> array falls through to the unnarrowed query instead of generating `IN ()`. The route
+> refactor that moved filter parsing into `parseRowFilters` preserves the old contract —
+> malformed JSON still returns 400, and a new outer `z.ZodError` branch maps schema
+> failures (filters *and* `columnIds`) to 400 with the `errors` array, as before.
+>
+> **Noted, not fixed:** (1) `parseColumnIds` has no length cap, unlike filters which use
+> `DATAVAULT_CONFIG.MAX_FILTERS` — a caller can pass an unbounded UUID list into an `IN`
+> clause. Low severity, but it is the same class of limit the filter path already
+> enforces; filed as an observation. (2) The new repository unit test asserts
+> `expect(mockDb.where).toHaveBeenCalled()`, which cannot fail — `where` is called on
+> every path. The narrowing is genuinely proven by the integration benchmark (96% fewer
+> value rows transferred), so coverage exists; the unit test just is not what is proving
+> it.
 
 *Promoted from `DV-B4` (parked during the DataVault audit) because it shares DVP-1's
 trigger and its measurement harness. Not independently urgent.*

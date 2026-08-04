@@ -324,6 +324,42 @@ describe('DatavaultRowsRepository', () => {
         [mockColumnId]: { data: 'John' }
       });
     });
+
+    it('should support columnIds filtering in getRowsWithValues', async () => {
+      const mockRow = {
+        id: mockRowId,
+        tableId: mockTableId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: null,
+        updatedBy: null,
+        deletedAt: null,
+      };
+
+      const mockValues = [
+        {
+          id: 'val-1',
+          rowId: mockRowId,
+          columnId: mockColumnId,
+          value: 'Selected Column Value',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ];
+
+      vi.spyOn(repository, 'findByTableId').mockResolvedValue([mockRow]);
+      mockDb._setMockReturnValue(mockValues);
+
+      const result = await repository.getRowsWithValues(mockTableId, {
+        columnIds: [mockColumnId],
+      });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].values).toEqual({
+        [mockColumnId]: 'Selected Column Value',
+      });
+      expect(mockDb.where).toHaveBeenCalled();
+    });
   });
 
   describe('updateRowValues', () => {

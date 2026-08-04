@@ -315,3 +315,205 @@ export async function seedLargeDatavaultTable(
     cleanup,
   };
 }
+
+export interface SeedWideDatavaultOptions {
+  dbInstance?: DBInstance | DbTransaction;
+  columnCount?: number; // default: 50
+  rowCount?: number; // default: 1000
+  batchSize?: number; // default: 500 rows per batch
+}
+
+export interface SeedWideDatavaultResult {
+  tenantId: string;
+  userId: string;
+  databaseId: string;
+  tableId: string;
+  columns: DatavaultSeededColumn[];
+  rowCount: number;
+  valueCount: number;
+  durationMs: number;
+  cleanup: () => Promise<void>;
+}
+
+/**
+ * Seeding helper for wide DataVault tables (>= 50 columns) to benchmark
+ * column-narrowed row retrieval vs un-narrowed full row retrieval.
+ */
+export async function seedWideDatavaultTable(
+  options?: SeedWideDatavaultOptions
+): Promise<SeedWideDatavaultResult> {
+  const database = options?.dbInstance ?? getDb();
+  if (!database) {
+    throw new Error('Database instance is required for seedWideDatavaultTable');
+  }
+
+  const columnCount = options?.columnCount ?? 50;
+  const rowCount = options?.rowCount ?? 1000;
+  const batchSize = options?.batchSize ?? 500;
+  const startTime = Date.now();
+
+  const tenantId = randomUUID();
+  const userId = randomUUID();
+  const projectId = randomUUID();
+  const dbId = randomUUID();
+  const tableId = randomUUID();
+
+  // 1. Tenant, User, Project, Database, Table
+  await database.insert(schema.tenants).values({
+    id: tenantId,
+    name: `Wide Perf Tenant ${tenantId.slice(0, 8)}`,
+    plan: 'enterprise',
+  });
+
+  await database.insert(schema.users).values({
+    id: userId,
+    tenantId,
+    email: `wide-perf-${Date.now()}-${randomUUID().slice(0, 6)}@example.com`,
+    firstName: 'Wide',
+    lastName: 'Tester',
+    fullName: 'Wide Tester',
+    role: 'admin',
+    tenantRole: 'owner',
+    authProvider: 'local',
+    defaultMode: 'easy',
+  });
+
+  await database.insert(schema.projects).values({
+    id: projectId,
+    tenantId,
+    name: 'DataVault Wide Table Perf Project',
+    title: 'DataVault Wide Table Perf Project',
+    description: 'Project for DataVault wide table performance measurements',
+    createdBy: userId,
+    creatorId: userId,
+    ownerId: userId,
+  });
+
+  await database.insert(schema.datavaultDatabases).values({
+    id: dbId,
+    tenantId,
+    name: 'Wide Benchmark DB',
+    description: 'Database for wide table benchmarking',
+    scopeType: 'account',
+  });
+
+  await database.insert(schema.datavaultTables).values({
+    id: tableId,
+    databaseId: dbId,
+    tenantId,
+    name: 'Wide Benchmark Table',
+    slug: `wide-table-${randomUUID().slice(0, 8)}`,
+    description: `Benchmarking table with ${columnCount} columns and ${rowCount} rows`,
+    ownerUserId: userId,
+  });
+
+  // 2. Define `columnCount` columns (e.g. 50 columns)
+  const columns: DatavaultSeededColumn[] = [];
+  const columnInserts: Array<typeof schema.datavaultColumns.$inferInsert> = [];
+
+  for (let c = 0; c < columnCount; c++) {
+    const colId = randomUUID();
+    const colName = `Field ${c + 1}`;
+    const colSlug = `field_${c + 1}`;
+    const colType = c % 5 === 2 ? 'number' : c % 5 === 3 ? 'date' : 'text';
+
+    columns.push({
+      id: colId,
+      name: colName,
+      slug: colSlug,
+      type: colType,
+    });
+
+    columnInserts.push({
+      id: colId,
+      tableId,
+      name: colName,
+      slug: colSlug,
+      type: colType,
+      orderIndex: c,
+      required: false,
+    });
+  }
+
+  // Insert columns in chunks of 50
+  for (let cOffset = 0; cOffset < columnInserts.length; cOffset += 50) {
+    await database.insert(schema.datavaultColumns).values(columnInserts.slice(cOffset, cOffset + 50));
+  }
+
+  // 3. Bulk Insert Rows and Values
+  let totalValuesInserted = 0;
+  const baseTimestamp = new Date('2024-01-01T00:00:00Z').getTime();
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  for (let offset = 0; offset < rowCount; offset += batchSize) {
+    const currentBatchSize = Math.min(batchSize, rowCount - offset);
+    const rowBatch: Array<typeof schema.datavaultRows.$inferInsert> = [];
+    const valueBatch: Array<typeof schema.datavaultValues.$inferInsert> = [];
+
+    for (let i = 0; i < currentBatchSize; i++) {
+      const globalIndex = offset + i;
+      const rowId = randomUUID();
+
+      rowBatch.push({
+        id: rowId,
+        tableId,
+        createdBy: userId,
+        updatedBy: userId,
+      });
+
+      for (let c = 0; c < columns.length; c++) {
+        const col = columns[c];
+        let val: unknown;
+        if (col.type === 'number') {
+          val = Number((((globalIndex * 17 + c * 31) % 10000) + 1.25).toFixed(2));
+        } else if (col.type === 'date') {
+          val = new Date(baseTimestamp + ((globalIndex + c * 7) % 1000) * dayMs)
+            .toISOString()
+            .split('T')[0];
+        } else {
+          val = `Value for row ${globalIndex} column ${col.slug} with standard payload metadata and details`;
+        }
+
+        valueBatch.push({
+          id: randomUUID(),
+          rowId,
+          columnId: col.id,
+          value: val,
+        });
+      }
+    }
+
+    // Insert batch of rows
+    await database.insert(schema.datavaultRows).values(rowBatch);
+
+    // Insert batch of values in sub-chunks of 2,500
+    const valueSubBatchSize = 2500;
+    for (let vOffset = 0; vOffset < valueBatch.length; vOffset += valueSubBatchSize) {
+      const chunk = valueBatch.slice(vOffset, vOffset + valueSubBatchSize);
+      await database.insert(schema.datavaultValues).values(chunk);
+      totalValuesInserted += chunk.length;
+    }
+  }
+
+  const durationMs = Date.now() - startTime;
+
+  const cleanup = async (): Promise<void> => {
+    try {
+      await database.delete(schema.tenants).where(eq(schema.tenants.id, tenantId));
+    } catch {
+      // Best effort cleanup
+    }
+  };
+
+  return {
+    tenantId,
+    userId,
+    databaseId: dbId,
+    tableId,
+    columns,
+    rowCount,
+    valueCount: totalValuesInserted,
+    durationMs,
+    cleanup,
+  };
+}

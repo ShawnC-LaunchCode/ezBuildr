@@ -234,7 +234,8 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
         filters: filterConditions,
         sort: tableConfig.sort,
         limit,
-        columns: columnMap
+        columns: columnMap,
+        selectedColumnIds: tableConfig.columns && tableConfig.columns.length > 0 ? tableConfig.columns : undefined,
       });
 
       // Build standardized list variable result
@@ -317,6 +318,7 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
     sort?: { columnId: string; direction: "asc" | "desc" };
     limit: number;
     columns: Map<string, DatavaultColumn>;
+    selectedColumnIds?: string[];
   }): Promise<ReadTableQueryRow[]> {
     const whereConditions: SQL[] = [
       eq(datavaultRows.tableId, params.tableId),
@@ -385,6 +387,11 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
     }
 
     const rowIds = selectedRows.map(row => row.id);
+    const valuesConditions = [inArray(datavaultValues.rowId, rowIds)];
+    if (params.selectedColumnIds && params.selectedColumnIds.length > 0) {
+      valuesConditions.push(inArray(datavaultValues.columnId, params.selectedColumnIds));
+    }
+
     const values = await db
       .select({
         rowId: datavaultValues.rowId,
@@ -392,7 +399,7 @@ export class ReadTableBlockRunner extends BaseBlockRunner {
         value: datavaultValues.value,
       })
       .from(datavaultValues)
-      .where(inArray(datavaultValues.rowId, rowIds));
+      .where(and(...valuesConditions));
     const valuesByRow = new Map<string, Record<string, unknown>>();
     for (const value of values) {
       const rowValues = valuesByRow.get(value.rowId) ?? {};
