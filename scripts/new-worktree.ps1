@@ -332,18 +332,20 @@ if ($SkipVerify) {
     Pop-Location
   }
 
+  $cleanOutput = $output -replace '\x1b\[[0-9;]*[a-zA-Z]', ''
+
   # "0 test" / "no tests" means the runner is broken, which is NOT the same as
   # a failing test — and it is the failure that has actually bitten us.
-  if ($output -notmatch 'Tests\s+\d+\s+passed') {
+  if ($cleanOutput -notmatch 'Tests\s+\d+\s+passed') {
     Write-Host $output
     throw "test:fast did not report any passing tests. The tree is broken — do not dispatch anyone into it."
   }
-  $matched = [regex]::Match($output, 'Tests\s+(\d+)\s+passed')
+  $matched = [regex]::Match($cleanOutput, 'Tests\s+(\d+)\s+passed')
   Write-Host "  [ok] test suite runs ($($matched.Groups[1].Value) tests passed)"
 
   # A bare-specifier misresolution (e.g. `stream` -> "<worktree>\stream") is the
   # shared-cache symptom this script now prevents; fail loudly if it reappears.
-  if ($output -match 'Failed to resolve|Cannot find module ''(stream|path|fs|util)''') {
+  if ($cleanOutput -match 'Failed to resolve|Cannot find module ''(stream|path|fs|util)''') {
     Write-Host $output
     throw "Bare Node builtin failed to resolve — the dependency tree is misconfigured. Do not dispatch into this worktree."
   }
