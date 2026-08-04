@@ -221,9 +221,89 @@ write it into the report and stop.
 
 ---
 
-## DVP-2 — Act on DVP-1's plans: add bounded index support for filtered queries, or record why not 🔲
+## DVP-2 — Act on DVP-1's plans: add bounded index support for filtered queries, or record why not 🔄
 
 **Priority: P2** · Size: S · File: possibly a migration
+
+> **❌ FAILED review 2026-08-04 — sent back. The design is right and the indexes work;
+> the evidence does not survive re-measurement, and there is one correctness bug.**
+>
+> **What was delivered:** migration `0013` adding a bounded expression btree
+> `(column_id, left(value #>> '{}', 200)) text_pattern_ops` and a trigram GIN on
+> `(value #>> '{}')`, plus index-assisting predicates in `buildValueCondition` /
+> `buildInCondition` / `buildStringCondition`.
+>
+> **What is right, and verified:** both indexes are genuinely used — the reviewer
+> confirmed `datavault_values_col_val_trunc_idx` in the equality and prefix plans and a
+> `BitmapAnd` with `datavault_values_val_trgm_gin_idx` for `contains`. The equality and
+> `in` predicates correctly keep the **exact** recheck beside the truncated term, so the
+> prefix-collision bug flagged in DVP-1's report is properly avoided. AC3 (btree limit) is
+> met: a 1MB value inserts fine, because `left(..., 200)` bounds the entry. Gates green —
+> `tsc` 0, lint clean, and the full DataVault sweep **11 files / 194 passed**, so filter
+> correctness is unchanged. `CREATE EXTENSION pg_trgm` is in the migration, not test-only.
+>
+> **1 — `starts_with` truncation produces false negatives (correctness, blocking).**
+> ```ts
+> if (operator === 'starts_with') {
+>   return sql`left(${scalarText(valueColumn)}, 200) LIKE ${pattern} AND ${scalarText(valueColumn)} LIKE ${pattern}`;
+> }
+> ```
+> When the search string exceeds 200 characters, `left(text, 200)` is only 200 chars and
+> cannot match a longer prefix pattern, so the `AND` returns false for rows that *do*
+> start with it. `equals` and `in` escape this because they truncate **both** sides
+> identically; `starts_with` truncates only one. Emit the index-assisting term only when
+> `stringValue.length <= 200`, else fall through to the plain `LIKE`.
+>
+> **2 — Every headline number is roughly 2× overstated (AC1, AC2).** Measured by the
+> reviewer on identical data in one session, best-of-3, against the *true* status quo —
+> `main` with the old predicate and no new indexes — rather than against DVP-2's own new
+> predicate with the indexes dropped:
+>
+> | Filter | Status quo | DVP-2 (indexed) | Real | Claimed |
+> |---|---|---|---|---|
+> | equality | 12.27 ms | 6.84 ms | **1.8×** | 2.7× |
+> | contains | 16.21 ms | 10.62 ms | **1.5×** | 1.5× → reported 3.7× |
+> | starts_with | 13.61 ms | 9.97 ms | **1.4×** | 3.0× |
+>
+> The reported 37.3 / 44.3 / 41.2 ms baselines do not reproduce; the reviewer's are
+> 12–16 ms, matching the independently verified DVP-1 figures on the same seeder. Two
+> causes: the baselines were taken in a slower environment, and the "before" case ran
+> DVP-2's *new* predicate un-indexed, which is ~10% slower than the old one (13.50 vs
+> 12.27 ms) rather than 3× slower.
+>
+> **3 — Write cost is reported as ~free; it is +18.5% (AC2).** Seeding the same 116,666
+> values took **14.08 s** with the indexes dropped and **16.69 s** with them present. The
+> ticket's own test measured its "after" run seeding *on top of* the 116k values the
+> baseline pass had already inserted, so the two runs never started from comparable table
+> sizes — which is how it came out looking faster than DVP-1's no-index run.
+>
+> **4 — Storage cost is unreported.** The truncated btree is **11 MB** and the trigram GIN
+> **14 MB**, on a 31 MB heap — roughly doubling this table's index footprint. Index size
+> belongs in the report.
+>
+> **5 — Robustness, non-blocking.** `buildValueCondition`'s `equals` branch returns an
+> **unparenthesised** `A AND B`. It is safe today because every consumer ANDs it, and
+> `buildInCondition` correctly parenthesises its disjuncts — but a future operator that
+> ORs at that level would silently mis-parse. Wrap the returned condition in parentheses.
+>
+> **Not a finding — checked and cleared:** the truncation predicates are **not**
+> SQL-injectable. Reviewer drove `equals`, `starts_with` and `in` with
+> `x' OR 1=1; DROP TABLE datavault_values; --` and captured the compiled SQL: every
+> user-controlled value binds as a parameter (`= $3`, `LIKE $3`, `= $4::jsonb`), the
+> hostile string never appears inline, and the table survived. `slice(0, 200)` is applied
+> to the JS value *before* binding, so it cannot alter SQL structure.
+>
+> **Triage: SEND BACK** — items 1–4 are small and the dev holds the context. No new ticket:
+> all of it sits inside DVP-2's existing AC1/AC2/AC6.
+>
+> **Decision recorded (repo owner, 2026-08-04): keep both indexes.** The 1.8× is not the
+> case for them — the slope is. Un-indexed these filters are O(column size) and degrade
+> linearly; indexed they are ~O(matches) and stay flat, so a gain that looks marginal at
+> 25k rows becomes 10×+ at 250k, and retrofitting later means a rebuild on live data. The
+> GIN specifically stays: `contains` can never use a btree, so it is the worst-scaling
+> family and GIN is its only correct accelerator. Do **not** try to bound the GIN's input
+> with `left(...)` or a `pg_column_size` partial predicate — both reintroduce false
+> negatives, the same class as item 1.
 
 *Split out of the original DVP-1 on 2026-08-03 so the measurement half could be
 dispatched during the DVH round. This half cannot: it must be judged against a write
@@ -345,6 +425,26 @@ export is a regression, not an optimisation.
 4. If not narrowed: the report says why, with the numbers that made it not worth it.
 5. `npx tsc --noEmit` 0 errors; `npm run lint` clean; `npm run test:fast` ≥ 2381;
    8-suite DataVault sweep green.
+
+---
+
+## Backlog / observations
+
+Not tickets. Triaged at the Gate — promote, merge into an open ticket, or close
+won't-fix.
+
+- **Numeric and date range filters remain unindexed.** DVP-1 measured them (18.6 ms and
+  18.7 ms, whole-column heap scans with a per-row `::numeric` / `::date` cast) and DVP-2
+  does not address them — its btree only serves equality and prefix, and the trigram GIN
+  only `contains`. So 3 of 5 filter families are accelerated. DVP-1's recommendation
+  stands: typed partial expression indexes (e.g. `(column_id, ((value #>> '{}')::numeric))
+  WHERE jsonb_typeof(value) = 'number'`), revisited at >100k rows per table. Filed at
+  DVP-2's review 2026-08-04; deliberately **not** folded into DVP-2, which is already
+  being sent back.
+- **`parseColumnIds` has no length cap** (`server/routes/datavault/rows.routes.ts`,
+  DVP-3). Filters are capped at `DATAVAULT_CONFIG.MAX_FILTERS`; the new `columnIds` query
+  param accepts an unbounded UUID list straight into an `IN` clause. Low severity — same
+  class of limit the sibling path already enforces. Filed 2026-08-04.
 
 ---
 
