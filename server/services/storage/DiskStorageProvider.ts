@@ -7,6 +7,7 @@ import { nanoid } from 'nanoid';
 import { logger } from '../../logger';
 import { createError } from '../../utils/errors';
 
+import { signStorageKey } from './signedUrl';
 import { StorageProvider } from './types';
 
 function isErrorWithCode(err: unknown): err is Error & { code: string } {
@@ -139,10 +140,15 @@ export class DiskStorageProvider implements StorageProvider {
         }
     }
 
-    async getSignedUrl(fileRef: string, _expiresIn?: number): Promise<string> {
-        // Return a local API URL relative to the server
-        // Requires an endpoint to serve these files, e.g. /api/storage/files/:key
-        return `/api/storage/files/${fileRef}`;
+    /**
+     * Return a signed URL served by GET /api/storage/files/* (see
+     * server/routes/storage.routes.ts). The signature (not a session) is the
+     * credential, so this deliberately does not check `exists()` first —
+     * that check would itself need auth to avoid leaking which keys exist.
+     */
+    async getSignedUrl(fileRef: string, expiresIn: number = 300): Promise<string> {
+        const { exp, sig } = signStorageKey(fileRef, expiresIn);
+        return `/api/storage/files/${fileRef}?exp=${exp}&sig=${sig}`;
     }
 
     async list(prefix: string): Promise<string[]> {

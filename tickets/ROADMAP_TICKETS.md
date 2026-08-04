@@ -215,7 +215,38 @@ process — an unreachable scanner should be noisy, not fatal.
 
 ---
 
-## GH-169B — Fix storage init, serve signed URLs, and harden the S3 provider 🔲
+## GH-169B — Fix storage init, serve signed URLs, and harden the S3 provider ✅
+
+> **Verified 2026-08-04 (Senior).** All 11 ACs met. Gates re-run by the reviewer on the
+> **merged** tree (the dev's own run predated GH-169A and so proved nothing about the
+> combination): `type-check` exit 0, `lint` exit 0, `test:fast` **191 files / 2421 tests
+> passed** — exactly baseline 2392 + 9 (GH-169A) + 20 (GH-169B), so zero regressions.
+>
+> **Integrated by cherry-pick, not by copying files.** GH-169A and GH-169B both edit
+> `server/index.ts`; copying B's copy over main would have silently deleted A's scanner
+> health check with no conflict. The 3-way merge kept both, verified by grep afterwards.
+>
+> **Verified live** against `npm run dev:test` on port 5174 (a probe script, since removed):
+> - Finding 1 proven at boot — `File storage initialized successfully` in the log.
+> - Round trip: a URL minted by the real `DiskStorageProvider.getSignedUrl()` served the
+>   file, **200**, correct `Content-Type`, `Cache-Control: no-store`.
+> - Tampered signature **403**; unsigned request **403**; correctly-signed-but-expired **403**;
+>   validly-signed nonexistent key **404** (not 500).
+> - Path traversal blocked: `../../.env` percent-encoded so it survived client-side URL
+>   normalisation, signed with a *valid* signature, returned **400** with no env leakage.
+>   (An unencoded `..` is normalised by `fetch` before it leaves the client and never
+>   reaches the route — that variant proves nothing; use `%2f`.)
+>
+> **Reviewer fix applied (triage option 3).** `getStorageSigningSecret()` fell back to a
+> hardcoded constant when neither `SESSION_SECRET` nor `JWT_SECRET` was set. That constant
+> is public in this repo, and it is the *only* credential guarding an unauthenticated
+> endpoint — so any environment missing both vars would have had a silent arbitrary-read of
+> the storage root. Now throws in production, keeps the fallback for dev/test. Gates re-run
+> after the change.
+>
+> Both dev deviations reviewed and accepted: `initializeFileStorage()` over
+> `storageProvider.init()` (the ticket offered either), and a sidecar `.etag` file over
+> in-memory ETag state (avoids mutable class state and is what the tests drive).
 
 **Priority: P0** · Size: M
 **Files (footprint):** `server/services/storage/*`, `server/services/templates.ts`, new `server/routes/storage.routes.ts`, `server/routes/index.ts`, `server/index.ts`, `tests/unit/services/*`

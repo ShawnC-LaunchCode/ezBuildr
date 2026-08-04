@@ -64,6 +64,18 @@ void (async () => {
             logger.fatal('Generate a new key with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'base64\'))"');
             process.exit(1);
         }
+        // CONFIGURATION CHECK: Initialize file storage now, so a misconfigured
+        // S3 driver (STORAGE_DRIVER=s3 without AWS_S3_BUCKET) fails boot loudly
+        // instead of booting cleanly and failing every upload later
+        // (GH-169B Finding 1 — initializeFileStorage() previously had no caller).
+        const { initializeFileStorage } = await import("./services/templates.js");
+        try {
+            await initializeFileStorage();
+            logger.info('File storage initialized successfully');
+        } catch (error) {
+            logger.fatal({ error }, 'FATAL: File storage initialization failed');
+            process.exit(1);
+        }
         // CONFIGURATION CHECK: Validate AI provider configuration
         const { validateAIConfig } = await import("./services/AIService.js");
         const aiConfig = validateAIConfig();

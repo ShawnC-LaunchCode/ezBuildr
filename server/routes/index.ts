@@ -50,6 +50,7 @@ import { registerSecretsRoutes } from "./secrets.routes";
 import { registerSectionRoutes } from "./sections.routes";
 import { registerSnapshotRoutes } from "./snapshots.routes";
 import { registerStepRoutes } from "./steps.routes";
+import { registerStorageRoutes } from "./storage.routes";
 import { registerTeamRoutes } from "./teams.routes";
 import { registerTemplateAnalysisRoutes } from "./templateAnalysis.routes";
 import { registerTenantRoutes } from "./tenant.routes";
@@ -75,6 +76,10 @@ export function registerAllRoutes(app: Express): void {
 
   // Metrics endpoint (Prometheus)
   registerMetricsRoutes(app);
+
+  // Signed-URL file serving (GH-169B). Intentionally unauthenticated — the
+  // HMAC signature in the URL is the credential; see storage.routes.ts.
+  registerStorageRoutes(app);
 
   // Public Access Routes (Platform Expansion)
   app.use("/public", publicRouter);

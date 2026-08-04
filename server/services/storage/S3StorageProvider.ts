@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
@@ -109,11 +110,14 @@ export class S3StorageProvider implements StorageProvider {
       }));
       return true;
     } catch (error: unknown) {
-      // eslint-disable-next-line sonarjs/prefer-single-boolean-return
       if ((error as AwsSdkError).name === 'NotFound' || (error as AwsSdkError).$metadata?.httpStatusCode === 404) {
         return false;
       }
-      return false;
+      // Anything else (auth failure, network partition, throttle) is not
+      // "the file doesn't exist" — surfacing it as false would hide a real
+      // misconfiguration behind a misleading "not found".
+      logger.error({ error, fileRef }, 'Failed to check existence of file in S3');
+      throw error;
     }
   }
 
@@ -156,6 +160,7 @@ export class S3StorageProvider implements StorageProvider {
         size: response.ContentLength ?? 0,
         etag: response.ETag,
         lastModified: response.LastModified,
+        custom: response.Metadata,
       };
     } catch (error: unknown) {
       if ((error as AwsSdkError).name === 'NotFound' || (error as AwsSdkError).$metadata?.httpStatusCode === 404) {
@@ -204,23 +209,40 @@ export class S3StorageProvider implements StorageProvider {
     }
   }
 
+  /**
+   * Local temp-file cache for S3 objects. Two things used to be wrong here:
+   * distinct keys could collapse onto the same sanitized filename (`a/b.docx`
+   * and `a_b.docx` both sanitized to `s3-cache-a_b.docx`), and once cached, a
+   * file was served forever with no freshness check, so a replaced object
+   * kept serving stale bytes for the life of the container. Hashing the full
+   * key fixes collisions; comparing against the object's current ETag (a
+   * sidecar `.etag` file next to the cached bytes) fixes staleness.
+   */
   async getLocalPath(fileRef: string): Promise<string> {
-    // Check if file exists in temp dir first
     const tempDir = os.tmpdir();
-    // Sanitize fileRef for filename
-    const sanitizedRef = fileRef.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const tempFilePath = path.join(tempDir, `s3-cache-${sanitizedRef}`);
+    const hashedKey = createHash('sha256').update(fileRef).digest('hex');
+    const tempFilePath = path.join(tempDir, `s3-cache-${hashedKey}${path.extname(fileRef)}`);
+    const etagFilePath = `${tempFilePath}.etag`;
 
-    try {
-      // Check cache
-      await fs.access(tempFilePath);
-      return tempFilePath;
-    } catch {
-      // Not cached, download it
-      logger.debug({ fileRef }, 'Downloading S3 file to local cache');
-      const buffer = await this.getFile(fileRef);
-      await fs.writeFile(tempFilePath, buffer);
-      return tempFilePath;
+    const metadata = await this.getMetadata(fileRef);
+    const cachedEtag = await fs.readFile(etagFilePath, 'utf8').catch(() => undefined);
+
+    if (cachedEtag && metadata.etag && cachedEtag === metadata.etag) {
+      try {
+        await fs.access(tempFilePath);
+        return tempFilePath;
+      } catch {
+        // The ETag sidecar survived without its data file; fall through and
+        // re-download rather than returning a path that doesn't exist.
+      }
     }
+
+    logger.debug({ fileRef }, 'Downloading S3 file to local cache');
+    const buffer = await this.getFile(fileRef);
+    await fs.writeFile(tempFilePath, buffer);
+    if (metadata.etag) {
+      await fs.writeFile(etagFilePath, metadata.etag);
+    }
+    return tempFilePath;
   }
 }
