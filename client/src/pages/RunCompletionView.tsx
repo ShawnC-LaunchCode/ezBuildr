@@ -7,6 +7,8 @@ import { useRoute } from "wouter";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Assuming Alert exists
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useBrandedFavicon, useBrandingStyle } from "@/hooks/useRunnerBranding";
+import { DEFAULT_RESOLVED_BRANDING, type ResolvedBranding } from "@shared/types/branding";
 
 interface GeneratedDocument {
     id: string;
@@ -37,6 +39,8 @@ interface RunDetailsResponse {
         brandingColor?: string;
         redirectUrl?: string;
     } | null;
+    /** Tenant + workflow branding, resolved server-side (GH-158). */
+    branding?: ResolvedBranding;
 }
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -85,9 +89,15 @@ export default function RunCompletionView() {
         brandingColor: "#10b981" // Default green
     };
 
+    // The final block's own `brandingColor` still drives the success badge; the
+    // resolved workflow/tenant branding (GH-158) drives everything else.
     const brandingStyle = {
         backgroundColor: config.brandingColor ?? "#10b981",
     };
+
+    const branding = data?.data.branding ?? DEFAULT_RESOLVED_BRANDING;
+    const brandCssVars = useBrandingStyle(branding);
+    useBrandedFavicon(branding.faviconUrl);
 
     // Redirect logic
     useEffect(() => {
@@ -144,11 +154,18 @@ export default function RunCompletionView() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col items-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-gray-50 flex flex-col items-center py-12 px-4 sm:px-6 lg:px-8" style={brandCssVars}>
             <div className="max-w-3xl w-full space-y-8">
 
                 {/* Header Section */}
                 <div className="text-center">
+                    {branding.logoUrl !== null && (
+                        <img
+                            src={branding.logoUrl}
+                            alt={branding.organizationName ?? "Organization logo"}
+                            className="mx-auto mb-6 h-8 w-auto max-w-[200px] object-contain"
+                        />
+                    )}
                     <div
                         className="mx-auto flex h-16 w-16 items-center justify-center rounded-full text-white mb-4 shadow-lg"
                         style={brandingStyle}
@@ -247,10 +264,12 @@ export default function RunCompletionView() {
                     </div>
                 )}
 
-                {/* Footer / Branding */}
-                <div className="mt-12 text-center text-sm text-gray-400">
-                    Powered by ezBuildr
-                </div>
+                {/* Footer / Branding — removed entirely under white-label */}
+                {!branding.whiteLabel && (
+                    <div className="mt-12 text-center text-sm text-gray-400">
+                        Powered by ezBuildr
+                    </div>
+                )}
             </div>
         </div>
     );

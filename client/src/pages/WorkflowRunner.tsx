@@ -17,10 +17,12 @@ import { useRunSession } from "@/hooks/runner/useRunSession";
 import { useRunValues } from "@/hooks/runner/useRunValues";
 import { useSectionVisibility } from "@/hooks/runner/useSectionVisibility";
 import { useRunNavigation, useRunNavigationTransport } from "@/hooks/runner/useRunNavigation";
+import { useResolvedRunnerBranding } from "@/hooks/useRunnerBranding";
 import type { PreviewEnvironment } from "@/lib/previewRunner/PreviewEnvironment";
 import { useWorkflow } from "@/lib/vault-hooks";
 import { fetchAPI, type ApiSection, type ApiStep, type ApiWorkflow } from "@/lib/vault-api";
 import { getRunToken } from "@/lib/runTokens";
+import type { ResolvedBranding } from "@shared/types/branding";
 import type { ListValue } from "@shared/types/stepConfigs";
 import type { LogicRule } from "@shared/schema";
 
@@ -47,6 +49,7 @@ interface WorkflowRunnerScreenProps {
   isProductionMode: boolean;
   actualRunId: string | null;
   workflow: RunnerWorkflow | undefined;
+  branding: ResolvedBranding;
   currentSection: ApiSection | undefined;
   currentSectionIndex: number;
   visibleSections: ApiSection[];
@@ -194,6 +197,10 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
 
   const visibleSectionSteps = currentSection != null ? getVisibleSectionSteps(currentSection.id) : [];
 
+  // Production branding is resolved server-side onto the runtime payload;
+  // preview has no run, so it resolves the workflow's own settings (GH-158).
+  const branding = useResolvedRunnerBranding(runtime?.branding, workflow?.settings);
+
   return (
     <WorkflowRunnerScreen
       isInitializing={isInitializing}
@@ -203,6 +210,7 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
       isProductionMode={isProductionMode}
       actualRunId={actualRunId}
       workflow={workflow}
+      branding={branding}
       currentSection={currentSection}
       currentSectionIndex={currentSectionIndex}
       visibleSections={respondentSections}
@@ -328,6 +336,7 @@ export function LoadedRunnerScreen(props: LoadedRunnerScreenProps): ReactElement
         actualRunId={props.actualRunId}
         runToken={props.runToken}
         finalSectionConfig={props.finalSectionConfig}
+        branding={props.branding}
       />
     );
   }
@@ -366,6 +375,7 @@ interface CompletedRunnerScreenProps {
   actualRunId: string | null;
   runToken: string | null;
   finalSectionConfig?: RunnerSectionConfig;
+  branding: ResolvedBranding;
 }
 
 function CompletedRunnerScreen({
@@ -373,6 +383,7 @@ function CompletedRunnerScreen({
   actualRunId,
   runToken,
   finalSectionConfig,
+  branding,
 }: CompletedRunnerScreenProps): ReactElement {
   const settings = (workflow?.settings ?? {}) as RunnerSettings;
   const redirectUrl = finalSectionConfig ? null : getSafeRedirectUrl(settings.redirectUrl);
@@ -396,6 +407,7 @@ function CompletedRunnerScreen({
         currentStep={1}
         totalSteps={1}
         saveStatus="saved"
+        branding={branding}
       >
         <FinalDocumentsSection
           runId={actualRunId}
@@ -413,6 +425,7 @@ function CompletedRunnerScreen({
       currentStep={1}
       totalSteps={1}
       saveStatus="saved"
+      branding={branding}
     >
       <Card className="mt-6 border-t-4 border-t-green-600 shadow-lg dark:bg-zinc-900">
         <CardContent className="flex flex-col items-center px-6 py-12 text-center">
@@ -434,6 +447,7 @@ function CompletedRunnerScreen({
 
 function ReviewRunnerScreen({
   workflow,
+  branding,
   visibleSections,
   effectiveAllSteps,
   effectiveValues,
@@ -450,6 +464,7 @@ function ReviewRunnerScreen({
       currentStep={visibleSections.length}
       totalSteps={visibleSections.length}
       saveStatus={saveStatus}
+      branding={branding}
     >
       <ReviewSection
         sections={visibleSections}
@@ -477,6 +492,7 @@ function ReviewRunnerScreen({
 function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
   const {
     workflow,
+    branding,
     currentSection,
     currentSectionIndex,
     visibleSections,
@@ -508,6 +524,7 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
       totalSteps={visibleSections.length}
       saveStatus={saveStatus}
       saveAndResumeAction={saveAndResumeAction}
+      branding={branding}
     >
       <Card className="shadow-lg border-t-4 border-t-primary dark:bg-zinc-900 overflow-visible mt-6 md:mt-0">
         <QuestionSectionHeader currentSection={currentSection} />

@@ -27,11 +27,33 @@ interface SettingsTabProps {
   workflowId: string;
 }
 
+/**
+ * Branding defaults for the builder's controlled inputs. Extracted from the
+ * sync effect so its complexity stays under the repo's lint ceiling.
+ */
+function readBrandingSettings(settings: WorkflowSettings): Required<Pick<
+  WorkflowSettings,
+  'brandingEnabled' | 'logoUrl' | 'primaryColor' | 'secondaryColor' | 'organizationName' | 'faviconUrl' | 'whiteLabel'
+>> {
+  return {
+    brandingEnabled: settings.brandingEnabled ?? false,
+    logoUrl: settings.logoUrl ?? "",
+    primaryColor: settings.primaryColor ?? "#3b82f6",
+    secondaryColor: settings.secondaryColor ?? "#8b5cf6",
+    organizationName: settings.organizationName ?? "",
+    faviconUrl: settings.faviconUrl ?? "",
+    whiteLabel: settings.whiteLabel ?? false,
+  };
+}
+
 interface WorkflowSettings {
   brandingEnabled?: boolean;
   logoUrl?: string;
   primaryColor?: string;
   secondaryColor?: string;
+  organizationName?: string;
+  faviconUrl?: string;
+  whiteLabel?: boolean;
   completionMessage?: string;
   redirectUrl?: string;
   allowSaveAndResume?: boolean;
@@ -56,6 +78,9 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
   const [logoUrl, setLogoUrl] = useState("");
   const [primaryColor, setPrimaryColor] = useState("#3b82f6");
   const [secondaryColor, setSecondaryColor] = useState("#8b5cf6");
+  const [organizationName, setOrganizationName] = useState("");
+  const [faviconUrl, setFaviconUrl] = useState("");
+  const [whiteLabel, setWhiteLabel] = useState(false);
 
   // Behavior Settings
   const [completionMessage, setCompletionMessage] = useState("Thank you for completing this workflow!");
@@ -83,10 +108,14 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
       // Load Settings from JSON
       const settings = workflow.settings as WorkflowSettings | undefined;
       if (settings) {
-        setBrandingEnabled(settings.brandingEnabled ?? false);
-        setLogoUrl(settings.logoUrl ?? "");
-        setPrimaryColor(settings.primaryColor ?? "#3b82f6");
-        setSecondaryColor(settings.secondaryColor ?? "#8b5cf6");
+        const branding = readBrandingSettings(settings);
+        setBrandingEnabled(branding.brandingEnabled);
+        setLogoUrl(branding.logoUrl);
+        setPrimaryColor(branding.primaryColor);
+        setSecondaryColor(branding.secondaryColor);
+        setOrganizationName(branding.organizationName);
+        setFaviconUrl(branding.faviconUrl);
+        setWhiteLabel(branding.whiteLabel);
         
         setCompletionMessage(settings.completionMessage ?? "Thank you for completing this workflow!");
         setRedirectUrl(settings.redirectUrl ?? "");
@@ -142,6 +171,9 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
           logoUrl,
           primaryColor,
           secondaryColor,
+          organizationName,
+          faviconUrl,
+          whiteLabel,
           completionMessage,
           redirectUrl,
           allowSaveAndResume,
@@ -273,6 +305,12 @@ export function SettingsTab({ workflowId }: SettingsTabProps) {
             setPrimaryColor={setPrimaryColor}
             secondaryColor={secondaryColor}
             setSecondaryColor={setSecondaryColor}
+            organizationName={organizationName}
+            setOrganizationName={setOrganizationName}
+            faviconUrl={faviconUrl}
+            setFaviconUrl={setFaviconUrl}
+            whiteLabel={whiteLabel}
+            setWhiteLabel={setWhiteLabel}
           />
 
           {/* Behavior Settings */}

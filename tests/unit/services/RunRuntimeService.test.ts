@@ -7,6 +7,7 @@ vi.mock('../../../server/logger', () => ({
 
 import { logger } from '../../../server/logger';
 import { RunRuntimeService } from '../../../server/services/workflow-runs/RunRuntimeService';
+import { DEFAULT_RESOLVED_BRANDING, type ResolvedBranding } from '../../../shared/types/branding';
 
 const runId = '11111111-1111-4111-8111-111111111111';
 const workflowId = '22222222-2222-4222-8222-222222222222';
@@ -30,6 +31,7 @@ function makeService(overrides: {
   run?: unknown;
   version?: unknown;
   access?: 'owner' | 'creator' | 'public' | 'none';
+  branding?: ResolvedBranding;
 } = {}) {
   const run = overrides.run ?? makeRun();
   const runRepo = { findById: vi.fn().mockResolvedValue(run) };
@@ -74,11 +76,23 @@ function makeService(overrides: {
       mode: 'live',
     }),
   };
+  // GH-158: branding is resolved on this path. Injected so the no-DB suite
+  // never reaches the real service's tenant lookup.
+  const brandingResolver = {
+    resolveForWorkflow: vi.fn().mockResolvedValue(overrides.branding ?? DEFAULT_RESOLVED_BRANDING),
+  };
   return {
-    service: new RunRuntimeService(runRepo as never, valueRepo as never, versionRepo as never, authResolver as never),
+    service: new RunRuntimeService(
+      runRepo as never,
+      valueRepo as never,
+      versionRepo as never,
+      authResolver as never,
+      brandingResolver as never,
+    ),
     runRepo,
     valueRepo,
     versionRepo,
+    brandingResolver,
   };
 }
 
@@ -106,6 +120,25 @@ describe('RunRuntimeService', () => {
     expect(runtime.values[0]).toMatchObject({ stepId: controllerId, value: 'yes' });
     expect(runtime.run).not.toHaveProperty('runToken');
     expect(runtime.run).not.toHaveProperty('tokenExpiresAt');
+  });
+
+  it('delivers resolved branding on the runtime payload (GH-158 AC2)', async () => {
+    // The participant is anonymous on this route, so branding has to arrive
+    // with the definition rather than via a second authenticated request.
+    const branding = {
+      logoUrl: 'https://cdn.example/acme.png',
+      faviconUrl: null,
+      organizationName: 'Acme Legal',
+      primaryColor: '#B22222',
+      accentColor: null,
+      whiteLabel: true,
+    };
+    const { service, brandingResolver } = makeService({ branding });
+
+    const runtime = await service.getRuntime(runId, { tokenRunId: runId });
+
+    expect(runtime.branding).toEqual(branding);
+    expect(brandingResolver.resolveForWorkflow).toHaveBeenCalledWith(workflowId, undefined);
   });
 
   it('rejects a token authenticated for another run', async () => {

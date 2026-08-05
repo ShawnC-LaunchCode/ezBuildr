@@ -19,11 +19,13 @@ import {
   type LoadedRunnerScreenProps,
 } from '../../../client/src/pages/WorkflowRunner';
 import type { ApiSection } from '../../../client/src/lib/vault-api';
+import { DEFAULT_RESOLVED_BRANDING } from '../../../shared/types/branding';
 
 function buildProps(overrides: Partial<LoadedRunnerScreenProps> = {}): LoadedRunnerScreenProps {
   return {
     actualRunId: 'run-1',
     workflow: undefined,
+    branding: DEFAULT_RESOLVED_BRANDING,
     currentSection: undefined,
     currentSectionIndex: 0,
     visibleSections: [],
