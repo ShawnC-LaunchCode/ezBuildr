@@ -50,8 +50,10 @@ export class SchemaManager {
     // datavault_unique_keys table and uniqueness constraint.
     // Bumped to _v18 for 0013_datavault_filter_indexes (DVP-2), which adds
     // bounded expression and trigram GIN indexes on datavault_values.
+    // Bumped to _v20 for GH-170 migrations 0014/0015, which add the
+    // run_document_deliveries table and its RLS tenant-isolation policy.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v18`;
+        return `test_schema_w${this.workerId}_v20`;
     }
 
     /**

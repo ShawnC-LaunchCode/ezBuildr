@@ -6,6 +6,7 @@ import { sections, steps, logicRules, transformBlocks, lifecycleHooks, documentH
 
 import { LIMITS, LimitExceededError } from "../../shared/limits";
 import { validateAndNormalizeConfig } from "../utils/stepConfigUtils";
+import { protectFinalBlockDeliverySecrets } from "../utils/documentDeliverySecrets";
 
 import type { StepConfig } from "../../shared/types/stepConfigs";
 
@@ -409,7 +410,10 @@ export class WorkflowContentIngestService {
     const existingId = stepData.id;
     const isExisting = existingId !== undefined && existingId !== null && context.existingStepIds.has(existingId);
     const alias = this.resolveStepAlias(stepData, existingId, context.aliasState);
-    const config = normalizeStepConfig(stepData, context.workflowId);
+    const normalizedConfig = normalizeStepConfig(stepData, context.workflowId);
+    const config = stepData.type === 'final_documents' || stepData.type === 'final'
+      ? protectFinalBlockDeliverySecrets(normalizedConfig)
+      : normalizedConfig;
 
     if (isExisting) {
       context.incomingStepIds.add(existingId);

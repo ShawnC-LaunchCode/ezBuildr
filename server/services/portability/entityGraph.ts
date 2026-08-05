@@ -324,6 +324,7 @@ export const EXCLUDED_TABLES: Record<string, string> = {
   'signature_requests': 'Signature requests are runtime instance data.',
   'signature_events': 'Signature events are runtime audit data.',
   'run_generated_documents': 'Generated documents belong to workflow runs.',
+  'run_document_deliveries': 'Document deliveries belong to workflow runs and are instance data.',
   'transform_block_runs': 'Transform runs are runtime execution logs.',
   'script_execution_log': 'Execution logs are historical runtime data.',
   'workflow_run_events': 'Run events are runtime telemetry.',

@@ -12,6 +12,13 @@ const logger = createLogger({ module: 'email-queue' });
 
 const FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL ?? 'noreply@ezbuildr.com';
 
+export interface EmailAttachment {
+    content: string;
+    filename: string;
+    type?: string;
+    disposition?: string;
+}
+
 export class EmailQueueService {
     private isProcessing = false;
     private pollInterval: NodeJS.Timeout | null = null;
@@ -49,6 +56,30 @@ export class EmailQueueService {
             // For now, let's throw so the user sees an error if the system is totally broken.
             throw error;
         }
+    }
+
+    /**
+     * Send immediately and resolve only after SendGrid accepts the message.
+     * Callers with their own durable retry queue use this instead of nesting
+     * another queue whose eventual failure cannot update the caller's status.
+     */
+    async sendNow(
+        to: string,
+        subject: string,
+        html: string,
+        attachments: EmailAttachment[] = []
+    ): Promise<void> {
+        if (!process.env.SENDGRID_API_KEY) {
+            throw new Error('SendGrid is not configured');
+        }
+        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+        await sgMail.send({
+            to,
+            from: FROM_EMAIL,
+            subject,
+            html,
+            attachments,
+        });
     }
 
     /**

@@ -6,7 +6,7 @@
 
 Enterprise workflow automation platform combining visual workflow building, conditional logic, custom code execution (JS/Python), and data management.
 
-**Scale:** 29 pages | 63 route files | ~185 service files | 103 DB tables | 37 step types | 40+ script helpers
+**Scale:** 29 pages | 64 route files | ~190 service files | 104 DB tables | 37 step types | 40+ script helpers
 
 ## Project Skills — use them
 
@@ -56,7 +56,7 @@ ezBuildr/
 │   ├── repositories/        # Data access (BaseRepository pattern, ~41 files)
 │   └── middleware/          # hybridAuth, tenant, requireUser, error handling
 ├── shared/
-│   ├── schema/              # Drizzle schema, one file per domain (103 tables)
+│   ├── schema/              # Drizzle schema, one file per domain (104 tables)
 │   ├── types/               # StepType, conditions, stepConfigs, ai, ...
 │   ├── conditionEvaluator.ts # Logic engine
 │   └── workflowLogic.ts     # Workflow execution logic
@@ -156,7 +156,7 @@ npm run db:migrate       # Run SQL migrations (see db-schema-change skill first)
 ### Quick Reference (Claude-optimized — update these when you change what they document)
 | Document | Contents |
 |----------|----------|
-| [Schema Reference](./docs/claude/SCHEMA.md) | All 103 database tables by domain file + enums |
+| [Schema Reference](./docs/claude/SCHEMA.md) | All 104 database tables by domain file + enums |
 | [API Endpoints](./docs/claude/API_ENDPOINTS.md) | API domains → route files + verified endpoints |
 | [Services Reference](./docs/claude/SERVICES.md) | Service classes by domain |
 | [Frontend Pages](./docs/claude/PAGES.md) | All client routes from Router.tsx |

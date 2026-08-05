@@ -347,6 +347,61 @@ const LogicExpressionSchema = z.object({
   })),
 });
 
+export const EmailDeliveryConfigSchema = z.object({
+  to: z.string().min(1, 'Recipient email or variable is required'),
+  subject: z.string().optional(),
+  body: z.string().optional(),
+  attachDocuments: z.boolean().optional(),
+  recipientName: z.string().optional(),
+});
+
+export const WebhookDeliveryConfigSchema = z.object({
+  url: z.string().url('Invalid webhook URL'),
+  headers: z.record(z.string()).optional(),
+  secret: z.string().optional(),
+  includeDocumentUrls: z.boolean().optional(),
+  includeDocumentBase64: z.boolean().optional(),
+});
+
+export const CloudStorageDeliveryConfigSchema = z.object({
+  bucket: z.string().min(1, 'Bucket name is required'),
+  region: z.string().optional(),
+  endpoint: z.string().url('Invalid cloud storage endpoint URL').optional(),
+  pathPrefix: z.string().optional(),
+  accessKeyId: z.string().optional(),
+  secretAccessKey: z.string().optional(),
+});
+
+export const EmailDestinationSchema = z.object({
+  id: z.string(),
+  type: z.literal('email'),
+  name: z.string().optional(),
+  enabled: z.boolean().optional(),
+  config: EmailDeliveryConfigSchema,
+});
+
+export const WebhookDestinationSchema = z.object({
+  id: z.string(),
+  type: z.literal('webhook'),
+  name: z.string().optional(),
+  enabled: z.boolean().optional(),
+  config: WebhookDeliveryConfigSchema,
+});
+
+export const CloudStorageDestinationSchema = z.object({
+  id: z.string(),
+  type: z.literal('cloud_storage'),
+  name: z.string().optional(),
+  enabled: z.boolean().optional(),
+  config: CloudStorageDeliveryConfigSchema,
+});
+
+export const DeliveryDestinationSchema = z.discriminatedUnion('type', [
+  EmailDestinationSchema,
+  WebhookDestinationSchema,
+  CloudStorageDestinationSchema,
+]);
+
 /**
  * Final Block Config Schema
  * Document selection and output configuration for workflow completion
@@ -392,6 +447,7 @@ export const FinalBlockConfigSchema = z.object({
     },
     { message: 'Document aliases must be unique' }
   ),
+  deliveryDestinations: z.array(DeliveryDestinationSchema).optional(),
 });
 
 // ============================================================================

@@ -1,6 +1,6 @@
 # Services Reference
 
-Map of service classes in `server/services/` (verified July 2026): ~92 top-level files plus subdirectories (`ai/`, `analytics/`, `document/`, `esign/`, `scripting/`, `blockRunners/`, `runs/`, `storage/`, `security/`, and others) — ~185 files total. **Grep `server/services/` for the class before assuming a name here is current.**
+Map of service classes in `server/services/` (verified August 2026): ~92 top-level files plus subdirectories (`ai/`, `analytics/`, `document/`, `esign/`, `scripting/`, `blockRunners/`, `runs/`, `storage/`, `security/`, and others) — ~190 files total. **Grep `server/services/` for the class before assuming a name here is current.**
 
 Conventions: services export a module-level singleton (`export const fooService = new FooService()`) with optional constructor repo params for tests; tenancy is checked in the service layer via `verifyTenantOwnership`-style methods. See the `add-api-endpoint` skill.
 
@@ -64,6 +64,9 @@ Conventions: services export a module-level singleton (`export const fooService 
 | FinalBlockRenderer | Final block rendering |
 | TemplateParser / TemplateScanner / MappingInterpreter / VariableNormalizer | Template variable pipeline |
 | PdfConverter / ZipBundler | PDF conversion, bundling |
+| DocumentDeliveryService + `document/delivery/adapters/*` | Durable post-generation email, webhook, and S3-compatible delivery with exponential retries, audit history, stale-job recovery, tenant authorization, and credential redaction |
+
+Document delivery destinations live on `final_documents` step config (with legacy `final` persistence protected as well). Webhook secrets/headers and custom cloud credentials are AES-256-GCM encrypted before step persistence and again protected when copied into delivery jobs. Webhooks use DNS-pinned `safeFetch`; custom S3-compatible endpoints require HTTPS and a DNS-pinned request handler. Email delivery awaits SendGrid acceptance and attaches generated artifacts by default.
 
 ## E-Signature (`esign/`)
 

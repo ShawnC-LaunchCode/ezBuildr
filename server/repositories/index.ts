@@ -12,6 +12,7 @@ export { BaseRepository, type DbTransaction } from "./BaseRepository";
 // Export domain repositories (user, analytics, system)
 // NOTE: Survey repositories removed (Nov 2025) - workflow-only platform
 export { UserRepository, userRepository } from "./UserRepository";
+export { OrganizationRepository, organizationRepository } from "./OrganizationRepository";
 export { UserCredentialsRepository, userCredentialsRepository } from "./UserCredentialsRepository";
 export { UserPreferencesRepository, userPreferencesRepository } from "./UserPreferencesRepository";
 export { AdminOrgStatsRepository, adminOrgStatsRepository } from "./AdminOrgStatsRepository";
@@ -59,6 +60,7 @@ export { RecordRepository, recordRepository } from "./RecordRepository";
 // Stage 21: Document Generation Engine repositories
 export { DocumentTemplateRepository, documentTemplateRepository } from "./DocumentTemplateRepository";
 export { WorkflowTemplateRepository, workflowTemplateRepository } from "./WorkflowTemplateRepository";
+export { RunDocumentDeliveryRepository, runDocumentDeliveryRepository } from "./RunDocumentDeliveryRepository";
 
 // Custom scripting repositories
 export { DocumentHookRepository, documentHookRepository } from "./DocumentHookRepository";

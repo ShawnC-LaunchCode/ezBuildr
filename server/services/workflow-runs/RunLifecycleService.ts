@@ -14,6 +14,7 @@ import { stepValueRepository, stepRepository, sectionRepository, workflowRunRepo
 import { blockRunner } from "../BlockRunner";
 import { finalBlockRenderer, createTemplateResolver } from "../document/FinalBlockRenderer";
 import { getChoiceListBindingsByAlias, getListConfigsByAlias } from "../document/VariableNormalizer";
+import { documentDeliveryService } from "../document/delivery/DocumentDeliveryService";
 import type { FinalBlockConfig } from "../../../shared/types/stepConfigs";
 import { logicService } from "../LogicService";
 import { RunPersistenceWriter } from "../runs/RunPersistenceWriter";
@@ -501,6 +502,19 @@ export class RunLifecycleService {
       }
 
       logger.info({ runId, totalGenerated }, 'Documents generated successfully');
+
+      // Dispatch document deliveries if configured
+      if (totalGenerated > 0) {
+        for (const finalBlockConfig of finalBlockConfigs) {
+          if (finalBlockConfig.deliveryDestinations && finalBlockConfig.deliveryDestinations.length > 0) {
+            try {
+              await documentDeliveryService.enqueueDeliveriesForRun(run.id, finalBlockConfig);
+            } catch (deliveryError) {
+              logger.error({ deliveryError, runId: run.id }, 'Failed to enqueue document deliveries for run');
+            }
+          }
+        }
+      }
 
       await workflowRunRepository.updateGenerationStatus(runId, 'done');
 

@@ -39,6 +39,7 @@ import { db } from "../db";
 import { createLogger } from "../logger";
 import { datavaultRowsRepository, projectRepository, workflowRepository, type DbTransaction } from "../repositories";
 import { canManageOrg } from "../utils/ownershipAccess";
+import { protectFinalBlockDeliverySecrets } from "../utils/documentDeliverySecrets";
 import { remapJsonIds } from "../utils/remapJsonIds";
 
 import { aclService } from "./AclService";
@@ -557,7 +558,9 @@ export class WorkflowClonerService {
             title: sourceStep.title,
             description: sourceStep.description,
             required: sourceStep.required,
-            config: sourceStep.config,
+            config: sourceStep.type === 'final_documents' || sourceStep.type === 'final'
+              ? protectFinalBlockDeliverySecrets(sourceStep.config)
+              : sourceStep.config,
             alias: sourceStep.alias,
             defaultValue: sourceStep.defaultValue,
             order: sourceStep.order,

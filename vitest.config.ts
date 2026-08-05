@@ -24,6 +24,7 @@ const dbUnitTests = [
   "tests/unit/portability/importRename.test.ts",
   "tests/unit/services/StepService.db.test.ts",
   "tests/unit/scripts/migrateOptionAliases.db.test.ts",
+  "tests/unit/services/document/delivery/DocumentDelivery.db.test.ts",
 ];
 
 // Integration tests excluded from the default run (require special setup)

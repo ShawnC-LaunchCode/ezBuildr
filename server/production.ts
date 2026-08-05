@@ -85,6 +85,8 @@ app.use('/oauth', globalLimiter);
     emailQueueService.startWorker();
     const { runCompletionJobWorker } = await import('./services/workflow-runs/RunCompletionJobWorker.js');
     runCompletionJobWorker.start();
+    const { documentDeliveryService } = await import('./services/document/delivery/DocumentDeliveryService.js');
+    documentDeliveryService.startWorker();
     
     // Initialize Cron Jobs
     const { initCronJobs } = await import('./cron.js');
@@ -107,6 +109,36 @@ app.use('/oauth', globalLimiter);
     }, () => {
       log(`serving on port ${port}`);
     });
+
+    let shuttingDown = false;
+    const shutdown = async (signal: string): Promise<void> => {
+      if (shuttingDown) {
+        return;
+      }
+      shuttingDown = true;
+      logger.info({ signal }, 'Shutdown signal received, cleaning up...');
+
+      emailQueueService.stopWorker();
+      runCompletionJobWorker.stop();
+      documentDeliveryService.stopWorker();
+      const { stopOAuth2StateCleanup } = await import('./services/oauth2.js');
+      stopOAuth2StateCleanup();
+      const { shutdownTelemetry } = await import('./observability/telemetry.js');
+      await shutdownTelemetry();
+
+      server.close(() => {
+        logger.info('Server closed successfully');
+        process.exit(0);
+      });
+      const forceExitTimer = setTimeout(() => {
+        logger.error('Forced shutdown after timeout');
+        process.exit(1);
+      }, 10_000);
+      forceExitTimer.unref();
+    };
+
+    process.on('SIGTERM', () => { void shutdown('SIGTERM'); });
+    process.on('SIGINT', () => { void shutdown('SIGINT'); });
   } catch (error) {
     logger.fatal({ error }, "FATAL: Failed to start server");
     process.exit(1);

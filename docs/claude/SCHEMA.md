@@ -1,10 +1,10 @@
 # Database Schema Reference
 
-Inventory of all **103 PostgreSQL tables**, organized by the `shared/schema/*.ts` domain file that defines them (verified August 2026).
+Inventory of all **104 PostgreSQL tables**, organized by the `shared/schema/*.ts` domain file that defines them (verified August 2026).
 
 **Source of truth is the Drizzle schema in `shared/schema/` — always check the domain file for exact columns before writing queries or migrations.** Entries are `sql_table_name` (`tsExportName` when it differs beyond casing). Schema changes go through the `db-schema-change` skill; update this file when tables are added or removed.
 
-> **Row-Level Security (SEC-051):** the 24 tables with a direct `tenant_id` column have a `tenant_isolation` RLS policy defined in [`migrations/0001_enable_rls.sql`](../../migrations/0001_enable_rls.sql). The indirectly-scoped `workflows` / `sections` / `steps` (no `tenant_id`) get ownership/join-based `tenant_isolation` policies in [`migrations/0005_rls_phase4_workflows_sections_steps.sql`](../../migrations/0005_rls_phase4_workflows_sections_steps.sql) (SEC-051 phase 4 / ICW-B2). All defined, not yet enforced — see [TENANT_ISOLATION_RLS.md](../architecture/TENANT_ISOLATION_RLS.md). RLS policies live in SQL migrations, **not** in the Drizzle schema. A new tenant-scoped table must add a policy in a new migration.
+> **Row-Level Security (SEC-051):** the 25 tables with a direct `tenant_id` column have a `tenant_isolation` RLS policy. The original policies are defined in [`migrations/0001_enable_rls.sql`](../../migrations/0001_enable_rls.sql); `run_document_deliveries` is covered by [`migrations/0015_document_delivery_rls.sql`](../../migrations/0015_document_delivery_rls.sql). The indirectly-scoped `workflows` / `sections` / `steps` (no `tenant_id`) get ownership/join-based `tenant_isolation` policies in [`migrations/0005_rls_phase4_workflows_sections_steps.sql`](../../migrations/0005_rls_phase4_workflows_sections_steps.sql) (SEC-051 phase 4 / ICW-B2). All defined, not yet enforced — see [TENANT_ISOLATION_RLS.md](../architecture/TENANT_ISOLATION_RLS.md). RLS policies live in SQL migrations, **not** in the Drizzle schema. A new tenant-scoped table must add a policy in a new migration.
 
 ## Workflow Core — `shared/schema/workflow.ts` (20 tables)
 
@@ -68,6 +68,14 @@ Inventory of all **103 PostgreSQL tables**, organized by the `shared/schema/*.ts
 | `sli_configs` / `sli_windows` | SLI definitions + computed windows (`npm run metrics:sli`) |
 
 > The old graph-execution tables `runs`, `run_logs`, and `run_outputs` were **dropped** (graph-builder removal, 2026). There are no legacy `surveys`/`questions`/`responses`/`answers` tables either.
+
+## Document Delivery — `shared/schema/document_delivery.ts` (1 table)
+
+| Table | Purpose |
+|-------|---------|
+| `run_document_deliveries` | Durable email, webhook, and cloud-storage delivery jobs with attempts, retry scheduling, audit history, and tenant scope. `tenant_id` is nullable only for workflows with no resolvable tenant; authenticated delivery APIs always require a matching non-null tenant. |
+
+Delivery status is constrained to `pending`, `processing`, `retry`, `delivered`, or `failed`. The partial claim index covers ready `pending`/`retry` jobs; stale `processing` jobs are reclaimed by the repository worker.
 
 ## DataVault — `shared/schema/datavault.ts` (17 tables)
 

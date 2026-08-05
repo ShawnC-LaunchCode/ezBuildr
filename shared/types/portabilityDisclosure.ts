@@ -31,8 +31,8 @@ export const EXCLUSION_CATEGORIES: readonly ExclusionCategory[] = [
     tables: [
       'workflow_runs', 'run_completion_jobs', 'step_values', 'review_tasks',
       'signature_requests', 'signature_events', 'run_generated_documents',
-      'transform_block_runs', 'script_execution_log', 'workflow_run_events',
-      'workflow_run_metrics', 'datavault_row_notes',
+      'run_document_deliveries', 'transform_block_runs', 'script_execution_log',
+      'workflow_run_events', 'workflow_run_metrics', 'datavault_row_notes',
     ],
   },
   {
