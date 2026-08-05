@@ -1007,16 +1007,33 @@ only with the repo owner's say-so.
 
 Found during the 2026-08-05 GH-158 branding audit:
 
-- **O-6 (enhancement) — a whole branded-intake layer exists and is wired to nothing real.**
-  `client/src/components/intake/` (`IntakeLayout`, `IntakeHeader`, `IntakeFooter`,
-  `IntakeProgressBar`, `ThemedButton`, `ThemedInput`), **two duplicate `BrandingProvider`s**
-  (`components/branding/BrandingContext.tsx` and `components/providers/BrandingProvider.tsx`),
-  and `client/src/hooks/useResolvedBranding.ts` (**zero importers**) are consumed only by
-  `IntakeDemo` and the `/intake/preview` route. GH-158 deliberately did not use them: the
-  runner themes through CSS custom properties on shadcn tokens, which re-brands every
-  existing component for free, so a parallel `Themed*` family is the wrong shape. Collapsing
-  them into `resolveBranding()` and deleting `/intake/preview` is a real cleanup, but it
-  removes a routed page — **product decision, needs the repo owner's say-so.**
+- **O-6 — CORRECTED 2026-08-05. Mostly NOT dead code; the dead part is now deleted.**
+  The original text claimed two duplicate `BrandingProvider`s and a zero-importer
+  `useResolvedBranding`. **Both claims were wrong** — the audit grep that produced them
+  filtered out `branding/EmailPreview.tsx`, which is exactly where the importer lived.
+  Re-verified by walking imports from `Router.tsx`:
+  - `components/providers/BrandingProvider.tsx` — genuinely 0 importers, sole file in its
+    directory, a strictly inferior duplicate of the live `branding/BrandingContext.tsx`
+    (unimplemented domain-lookup stub; applies theme tokens to the **document root**, the
+    anti-pattern GH-158 avoided). **Deleted**, directory removed.
+  - `branding/BrandingContext.tsx` — **live**, `EmailTemplateEditorPage` uses `useBranding`.
+  - `hooks/useResolvedBranding.ts` — **live**, `branding/EmailPreview.tsx` uses it.
+  - `components/intake/*` + `IntakePreviewPage` — **live feature, not dead code.**
+    `/intake/preview` is linked from `BrandingSettingsPage` ("Open Full Preview") and from
+    `DomainSettingsPage` (to test a verified custom domain). Deleting it removes working
+    buttons from two settings pages.
+
+  **What remains is a product question, not cleanup — see O-11.**
+- **O-11 (product-decision, split out of O-6) — the tenant branding preview previews a fake
+  form.** `/intake/preview` renders `IntakeDemo`: a hardcoded 3-step name/email/phone/message
+  mock ending in `alert('Form submitted! (This is a demo)')`, themed by a parallel
+  `Themed*`/`IntakeLayout` stack (~1,040 lines) that no participant ever sees. Since GH-158,
+  the real runner brands itself from `resolveBranding()` through the design system's own CSS
+  custom properties. So the preview shows authors something that is **not** what their
+  clients get. Three options: (a) re-point `/intake/preview` at the real runner chrome and
+  delete the `Themed*` stack — one branding model, preview becomes truthful; (b) delete the
+  route and both buttons outright; (c) leave it. Recommend (a); it needs the repo owner's
+  call because (b) removes a feature and (a) is a rebuild, not a cleanup.
 - **O-7 (needs-initiative) — white-label cannot be plan-gated until individuals can buy
   plans.** `custom_branding` is declared on the Team/Enterprise plans in
   `server/lib/billing/billingConfig.ts` and read by nothing. It is reachable only through
