@@ -1034,6 +1034,40 @@ Found during the 2026-08-05 GH-158 branding audit:
   delete the `Themed*` stack — one branding model, preview becomes truthful; (b) delete the
   route and both buttons outright; (c) leave it. Recommend (a); it needs the repo owner's
   call because (b) removes a feature and (a) is a rebuild, not a cleanup.
+- **O-12 (needs-initiative) — the `/intake/*` API is an orphaned parallel run pipeline
+  (~1,719 lines). Deletion candidate; the repo owner owns the call.** Mapped 2026-08-05
+  because "intake" names **three unrelated things** in this repo and only one of them was
+  the legacy data-linking the repo owner already removed:
+
+  1. **Legacy intake workflow / upstream reuse — already gone, cleanly.**
+     `migrations/0006_remove_legacy_intake_reuse.sql` stripped `isIntake`,
+     `upstreamWorkflowId`, `assignments`, step `default_value.source = 'intake'`, and
+     `sections.config.intakeAssignment`. **Verified zero code leftovers** for every one of
+     those markers. Nothing to do.
+  2. **The public intake portal API — live, served, and with no first-party caller.**
+     `server/routes/intake.routes.ts` is registered (`routes/index.ts:162`) and exposes a
+     *second* run pipeline beside `/api/runs/*`: `/intake/runs` create/save/submit/status/
+     download, `/intake/workflows/:slug/published`, `/intake/captcha/challenge`,
+     `/intake/upload`, plus its own captcha, prefill allowlist and email receipts.
+     **No client code calls any of it.** The public entry point `/w/:slug` was re-pointed at
+     the standard `WorkflowRunner` (see the comment at `Router.tsx:75` — "the old
+     PublicRunner stub never rendered questions and faked completion"), so this API's
+     consumer is already gone. Two of its services are dead outright:
+     `IntakeNavigationService` (217 lines, 0 importers — only a stale comment in
+     `workflows/conditionAdapter.ts` mentions it) and `IntakeQuestionVisibilityService`
+     (365 lines, 0 production importers; only `tests/unit/services/intakeQuestionVisibility.test.ts`
+     keeps it referenced).
+     **Do not delete on this evidence alone.** Migration 0006's own comment calls these "the
+     modern public intake settings" and deliberately preserved `workflows.intakeConfig`, and
+     `tests/integration/intake.portal.test.ts` exercises the pipeline — so it may be an
+     intentional embed/third-party API with no first-party UI yet. That is the repo owner's
+     knowledge, not the code's. **Question to answer before any deletion: is `/intake/*`
+     meant to be a public API for embedding, or is it the second half of the system 0006
+     started removing?** If the latter, the removal is ~1,719 lines plus `intakeConfig`,
+     `shared/types/intake.ts`, `CaptchaService`, `prefillFilter`, and 3 test files.
+  3. **Stage 17 intake *branding* — unrelated to both.** `client/src/components/intake/`
+     and `/intake/preview` share the word but are a branding preview, not a data path.
+     Tracked separately as **O-11**.
 - **O-7 (needs-initiative) — white-label cannot be plan-gated until individuals can buy
   plans.** `custom_branding` is declared on the Team/Enterprise plans in
   `server/lib/billing/billingConfig.ts` and read by nothing. It is reachable only through
