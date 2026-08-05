@@ -13,6 +13,24 @@ export interface DeleteImpact {
   runCount: number;
 }
 
+export interface InputStepValueWithTimestamp {
+  runId: string;
+  stepId: string;
+  value: unknown;
+  clientTimestamp?: number | string | Date;
+}
+
+export interface BulkSaveConflict {
+  stepId: string;
+  serverValue: unknown;
+  serverUpdatedAt: Date;
+}
+
+export interface BulkSaveResult {
+  saved: StepValue[];
+  conflicts: BulkSaveConflict[];
+}
+
 /**
  * Repository for step value data access
  */
@@ -144,6 +162,64 @@ export class StepValueRepository extends BaseRepository<
         },
       })
       .returning();
+  }
+
+  /**
+   * Bulk upsert step values with client timestamp conflict detection.
+   * If a step value on the server has a strictly newer updatedAt than the incoming
+   * clientTimestamp, the server value is preserved and reported as a conflict.
+   */
+  async upsertManyWithTimestamps(
+    dataList: InputStepValueWithTimestamp[],
+    tx?: DbTransaction
+  ): Promise<BulkSaveResult> {
+    const firstItem = dataList.at(0);
+    if (firstItem === undefined) {
+      return { saved: [], conflicts: [] };
+    }
+    if (!tx) {
+      return this.transaction(transaction => this.upsertManyWithTimestamps(dataList, transaction));
+    }
+
+    await this.assertRunsMutable(dataList.map(data => data.runId), tx);
+
+    const runId = firstItem.runId;
+    const existingValues = await this.findByRunId(runId, tx);
+    const existingMap = new Map(existingValues.map(v => [v.stepId, v]));
+
+    const toUpsert: InsertStepValue[] = [];
+    const conflicts: BulkSaveConflict[] = [];
+
+    for (const item of dataList) {
+      const existing = existingMap.get(item.stepId);
+      if (existing && item.clientTimestamp !== undefined) {
+        const clientTime = new Date(item.clientTimestamp).getTime();
+        const serverUpdatedAt = existing.updatedAt ?? existing.createdAt ?? new Date();
+        const serverTime = new Date(serverUpdatedAt).getTime();
+        // Server value is newer than client submission timestamp
+        if (serverTime > clientTime) {
+          conflicts.push({
+            stepId: item.stepId,
+            serverValue: existing.value,
+            serverUpdatedAt,
+          });
+          continue;
+        }
+      }
+
+      toUpsert.push({
+        runId: item.runId,
+        stepId: item.stepId,
+        value: item.value,
+      });
+    }
+
+    let saved: StepValue[] = [];
+    if (toUpsert.length > 0) {
+      saved = await this.upsertMany(toUpsert, tx);
+    }
+
+    return { saved, conflicts };
   }
 
   /**

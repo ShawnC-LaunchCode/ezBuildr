@@ -130,11 +130,13 @@ describe('useRunValues — LIST2-4 (autosave keepalive above the 64 KiB Fetch ca
 
     expect(fetchAPI).toHaveBeenCalledTimes(1);
     const [url, options] = vi.mocked(fetchAPI).mock.calls[0];
-    const expectedBody = JSON.stringify({ values: [{ stepId: 'step-big', value: bigValue }] });
+    const parsedBody = JSON.parse(options?.body as string) as { values: Array<{ stepId: string; value: string; clientTimestamp: number }> };
 
     expect(url).toBe('/api/runs/run-large/values/bulk');
-    expect(new Blob([expectedBody]).size).toBeGreaterThan(KEEPALIVE_MAX_BYTES);
-    expect(options?.body).toBe(expectedBody);
+    expect(new Blob([options?.body as string]).size).toBeGreaterThan(KEEPALIVE_MAX_BYTES);
+    expect(parsedBody.values[0].stepId).toBe('step-big');
+    expect(parsedBody.values[0].value).toBe(bigValue);
+    expect(typeof parsedBody.values[0].clientTimestamp).toBe('number');
     expect(options?.keepalive).toBeFalsy();
     expect(options?.method).toBe('POST');
   });

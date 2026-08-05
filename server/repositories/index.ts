@@ -36,7 +36,14 @@ export {
   type ClaimRunCompletionJobsOptions,
   type RetryRunCompletionJobOptions,
 } from "./RunCompletionJobRepository";
-export { StepValueRepository, stepValueRepository, type DeleteImpact } from "./StepValueRepository";
+export {
+  StepValueRepository,
+  stepValueRepository,
+  type DeleteImpact,
+  type BulkSaveConflict,
+  type BulkSaveResult,
+  type InputStepValueWithTimestamp,
+} from "./StepValueRepository";
 export { LogicRuleRepository, logicRuleRepository } from "./LogicRuleRepository";
 export { BlockRepository, blockRepository } from "./BlockRepository";
 export { TransformBlockRepository, transformBlockRepository, TransformBlockRunRepository, transformBlockRunRepository } from "./TransformBlockRepository";

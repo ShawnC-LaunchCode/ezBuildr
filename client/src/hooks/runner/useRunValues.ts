@@ -1,6 +1,11 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { fetchAPI } from "@/lib/vault-api";
-import { useAutoSave } from "@/hooks/useAutoSave";
+import { useAutoSave, type SaveStatus } from "@/hooks/useAutoSave";
+import {
+  bufferStepValues,
+  getBufferedStepValues,
+  removeBufferedStepValues,
+} from "@/lib/runner/offlineBuffer";
 
 import type { StepValue } from "@/pages/workflow-runner/runner.utils";
 import type { PreviewEnvironment, PreviewRunState } from "@/lib/previewRunner/PreviewEnvironment";
@@ -8,12 +13,10 @@ import type { PreviewEnvironment, PreviewRunState } from "@/lib/previewRunner/Pr
 interface UseRunValuesProps {
   mode: 'preview' | 'production';
   actualRunId: string | null;
-  run: { values?: { stepId: string; value: StepValue }[] } | null | undefined;
+  run: { values?: { stepId: string; value: StepValue; updatedAt?: string | Date }[] } | null | undefined;
   previewState: PreviewRunState | null;
   previewEnvironment: Pick<PreviewEnvironment, 'setValue'> | null | undefined;
 }
-
-import { type SaveStatus } from "@/hooks/useAutoSave";
 
 export interface UseRunValuesReturn {
   formValues: Record<string, StepValue>;
@@ -23,6 +26,7 @@ export interface UseRunValuesReturn {
   saveStatus: SaveStatus;
   hasUnsavedChanges: boolean;
   saveNow: () => Promise<void>;
+  isOnline: boolean;
 }
 
 interface RunValueAdapter {
@@ -38,6 +42,13 @@ interface RunValueAdapter {
 // unload-survival guarantee (LIST2-4).
 export const KEEPALIVE_MAX_BYTES = 60 * 1024;
 
+interface BulkSaveResponse {
+  success: boolean;
+  message?: string;
+  savedValues?: Record<string, unknown>;
+  conflicts?: Array<{ stepId: string; serverValue: unknown; serverUpdatedAt: string }>;
+}
+
 export function useRunValues({
   mode,
   actualRunId,
@@ -48,7 +59,16 @@ export function useRunValues({
   const [formValues, setFormValues] = useState<Record<string, StepValue>>({});
   const isProductionMode = mode === 'production';
 
+  // Granular per-step edit timestamps so modifying one field does not timestamp stale fields
+  const stepEditTimestampsRef = useRef<Record<string, number>>({});
+  // Monotonically increasing revision counter per step to protect in-flight user edits
+  const stepEditRevisionRef = useRef<Record<string, number>>({});
+  // Track in-flight save requests per step to prevent conflict responses from discarding newer in-flight edits
+  const inFlightSubmissionsRef = useRef<Record<string, { value: StepValue; timestamp: number; revision: number }>>({});
+
   const updateProductionValue = useCallback((stepId: string, value: StepValue) => {
+    stepEditTimestampsRef.current[stepId] = Date.now();
+    stepEditRevisionRef.current[stepId] = (stepEditRevisionRef.current[stepId] ?? 0) + 1;
     setFormValues(prev => ({ ...prev, [stepId]: value }));
   }, []);
 
@@ -81,24 +101,7 @@ export function useRunValues({
     autosaveEnabled,
   } = valueAdapter;
 
-  // Initialize form values from run.values (production mode only).
-  //
-  // Guarded to fire once per run (ICW2-B10): `run` used to be rebuilt as a
-  // brand-new object on every render (see useRunSession), so this effect
-  // re-ran on every render and unconditionally clobbered `formValues` back to
-  // the last-persisted server snapshot — silently discarding whatever the
-  // user had just answered client-side (and, since `setFormValues` always
-  // triggered another render, running away into "Maximum update depth
-  // exceeded"). `run` is now memoized, but a real refetch (autosave
-  // completing, a background revalidation) still produces a new `run`
-  // reference — hydrating again at that point would just as silently wipe an
-  // in-progress answer, so hydration is limited to the first time a given
-  // `actualRunId`'s saved values become available, and merges under (rather
-  // than over) anything already in local state — unless `actualRunId` itself
-  // changed (the rare case where a session resolves to a *different* run
-  // without remounting, e.g. the "existing run replaced" fallback in
-  // useRunSession), in which case `prev` belongs to the old run and must not
-  // leak into the new one.
+  // Initialize form values from run.values and merge any pending offline buffer (production mode only).
   const hydratedRunIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!hydrateFromSavedRun || !run?.values || !actualRunId) {
@@ -109,41 +112,219 @@ export function useRunValues({
     }
     const isDifferentRun = hydratedRunIdRef.current !== null && hydratedRunIdRef.current !== actualRunId;
     hydratedRunIdRef.current = actualRunId;
+
     const initial: Record<string, StepValue> = {};
+    const initialTimestamps: Record<string, number> = {};
     run.values.forEach((v) => {
       initial[v.stepId] = v.value;
+      const updatedAtVal = v.updatedAt;
+      const serverTime = updatedAtVal != null ? new Date(updatedAtVal).getTime() : 0;
+      initialTimestamps[v.stepId] = serverTime;
     });
-    setFormValues((prev) => (isDifferentRun ? initial : { ...initial, ...prev }));
+
+    if (isDifferentRun) {
+      stepEditTimestampsRef.current = initialTimestamps;
+      stepEditRevisionRef.current = {};
+      setFormValues(initial);
+    } else {
+      stepEditTimestampsRef.current = { ...initialTimestamps, ...stepEditTimestampsRef.current };
+      setFormValues((prev) => ({ ...initial, ...prev }));
+    }
+
+    // Check if there are offline buffered values that haven't synced yet.
+    // A respondent can edit while IndexedDB is being read, so capture the
+    // revision state at the start and only hydrate fields that remained
+    // untouched for the entire read. Buffered values should beat the server
+    // snapshot, but must never beat a newer in-memory edit.
+    const revisionsAtReadStart = { ...stepEditRevisionRef.current };
+    let cancelled = false;
+    void getBufferedStepValues(actualRunId).then((bufferedEntries) => {
+      if (cancelled || bufferedEntries.length === 0) {
+        return;
+      }
+
+      setFormValues((prev) => {
+        if (cancelled) {
+          return prev;
+        }
+
+        const merged = { ...prev };
+        for (const entry of bufferedEntries) {
+          const revisionAtReadStart = revisionsAtReadStart[entry.stepId] ?? 0;
+          const currentRevision = stepEditRevisionRef.current[entry.stepId] ?? 0;
+          const wasEditedBeforeRead = revisionAtReadStart !== 0;
+          const wasEditedDuringRead = currentRevision !== revisionAtReadStart;
+          if (wasEditedBeforeRead || wasEditedDuringRead) {
+            continue;
+          }
+
+          merged[entry.stepId] = entry.value;
+          if (Number.isFinite(entry.clientTimestamp)) {
+            stepEditTimestampsRef.current[entry.stepId] = entry.clientTimestamp;
+          }
+          if (entry.clientRevision !== undefined) {
+            stepEditRevisionRef.current[entry.stepId] = entry.clientRevision;
+          }
+        }
+        return merged;
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [run, hydrateFromSavedRun, actualRunId]);
 
   const handleUpdateValue = useCallback((stepId: string, value: StepValue) => {
     updateValue(stepId, value);
   }, [updateValue]);
 
-  // Autosave logic (DOC-101)
+  // Safely reconcile server conflicts: verify if the local field was edited after the in-flight submission
+  const applyConflictReconciliation = useCallback((conflicts: Array<{ stepId: string; serverValue: unknown; serverUpdatedAt: string }>) => {
+    if (conflicts.length === 0) {
+      return;
+    }
+
+    setFormValues((prev) => {
+      const updated = { ...prev };
+      for (const conflict of conflicts) {
+        const stepId = conflict.stepId;
+        const currentRevision = stepEditRevisionRef.current[stepId] ?? 0;
+        const submittedSnapshot = inFlightSubmissionsRef.current[stepId];
+        const submittedRevision = submittedSnapshot?.revision ?? 0;
+
+        // Check if user has made newer edits to this field AFTER the submitted save snapshot
+        const hasNewerLocalEdit = currentRevision > submittedRevision;
+        if (hasNewerLocalEdit) {
+          // User made newer edits while request was in-flight -> preserve newer local draft!
+          continue;
+        }
+
+        // Local value was not modified further in-flight -> safely apply server authority value
+        if (conflict.serverValue !== undefined) {
+          updated[stepId] = conflict.serverValue as StepValue;
+          stepEditTimestampsRef.current[stepId] = new Date(conflict.serverUpdatedAt).getTime();
+        }
+      }
+      return updated;
+    });
+  }, []);
+
+  // Buffer values to IndexedDB when offline
+  const performOfflineSave = useCallback(async (dataToSave: Record<string, StepValue>) => {
+    if (!actualRunId) {
+      return;
+    }
+    const now = Date.now();
+    const valuesToBuffer = Object.entries(dataToSave).map(([stepId, value]) => ({
+      stepId,
+      value,
+      clientTimestamp: stepEditTimestampsRef.current[stepId] ?? now,
+      clientRevision: stepEditRevisionRef.current[stepId] ?? 0,
+    }));
+    if (valuesToBuffer.length === 0) {
+      return;
+    }
+    await bufferStepValues(actualRunId, valuesToBuffer);
+  }, [actualRunId]);
+
+  // Resilient autosave logic with per-step timestamp versioning and in-flight conflict protection
   const performSave = useCallback(async (dataToSave: Record<string, StepValue>) => {
-    if (!actualRunId) {return;}
-    
-    // We only want to bulk save what actually exists in formValues
-    // The endpoint expects an array of {stepId, value}
-    const valuesToSave = Object.entries(dataToSave).map(([stepId, value]) => ({ stepId, value }));
-    if (valuesToSave.length === 0) {return;}
+    if (!actualRunId) {
+      return;
+    }
+
+    const now = Date.now();
+    const valuesToSave = Object.entries(dataToSave).map(([stepId, value]) => {
+      const clientTimestamp = stepEditTimestampsRef.current[stepId] ?? now;
+      const revision = stepEditRevisionRef.current[stepId] ?? 0;
+      inFlightSubmissionsRef.current[stepId] = { value, timestamp: clientTimestamp, revision };
+      return {
+        stepId,
+        value,
+        clientTimestamp,
+      };
+    });
+    if (valuesToSave.length === 0) {
+      return;
+    }
 
     const body = JSON.stringify({ values: valuesToSave });
     const keepalive = new Blob([body]).size < KEEPALIVE_MAX_BYTES;
 
-    await fetchAPI(`/api/runs/${actualRunId}/values/bulk`, {
+    const response = await fetchAPI<BulkSaveResponse>(`/api/runs/${actualRunId}/values/bulk`, {
       method: 'POST',
-      keepalive, // Allow request to complete if the page is unloading, unless the body is too large for a keepalive request (LIST2-4)
-      body
+      keepalive,
+      body,
     });
-  }, [actualRunId]);
 
-  const { saveStatus, hasUnsavedChanges, saveNow } = useAutoSave({
+    const conflictStepIds = new Set(response?.conflicts?.map((c) => c.stepId) ?? []);
+    const syncedStepIds = valuesToSave
+      .map((v) => v.stepId)
+      .filter((stepId) => !conflictStepIds.has(stepId));
+
+    if (syncedStepIds.length > 0) {
+      await removeBufferedStepValues(actualRunId, syncedStepIds);
+    }
+
+    if (response?.conflicts && response.conflicts.length > 0) {
+      applyConflictReconciliation(response.conflicts);
+      await removeBufferedStepValues(actualRunId, Array.from(conflictStepIds));
+    }
+  }, [actualRunId, applyConflictReconciliation]);
+
+  // Reconnect flush: automatically flush buffered answers to server on reconnection
+  const handleReconnect = useCallback(async () => {
+    if (!actualRunId) {
+      return;
+    }
+    const bufferedEntries = await getBufferedStepValues(actualRunId);
+    if (bufferedEntries.length === 0) {
+      return;
+    }
+
+    for (const entry of bufferedEntries) {
+      inFlightSubmissionsRef.current[entry.stepId] = {
+        value: entry.value,
+        timestamp: entry.clientTimestamp,
+        revision: stepEditRevisionRef.current[entry.stepId] ?? 0,
+      };
+    }
+
+    const valuesToSync = bufferedEntries.map((b) => ({
+      stepId: b.stepId,
+      value: b.value,
+      clientTimestamp: b.clientTimestamp,
+    }));
+
+    const body = JSON.stringify({ values: valuesToSync });
+    const response = await fetchAPI<BulkSaveResponse>(`/api/runs/${actualRunId}/values/bulk`, {
+      method: 'POST',
+      body,
+    });
+
+    const conflictStepIds = new Set(response?.conflicts?.map((c) => c.stepId) ?? []);
+    const syncedStepIds = bufferedEntries
+      .map((b) => b.stepId)
+      .filter((stepId) => !conflictStepIds.has(stepId));
+
+    if (syncedStepIds.length > 0) {
+      await removeBufferedStepValues(actualRunId, syncedStepIds);
+    }
+
+    if (response?.conflicts && response.conflicts.length > 0) {
+      applyConflictReconciliation(response.conflicts);
+      await removeBufferedStepValues(actualRunId, Array.from(conflictStepIds));
+    }
+  }, [actualRunId, applyConflictReconciliation]);
+
+  const { saveStatus, hasUnsavedChanges, saveNow, isOnline } = useAutoSave({
     data: formValues,
     onSave: performSave,
+    onOfflineSave: performOfflineSave,
+    onReconnect: handleReconnect,
     delay: 1500, // 1.5s debounce
-    enabled: autosaveEnabled
+    enabled: autosaveEnabled,
   });
 
   return {
@@ -153,6 +334,7 @@ export function useRunValues({
     handleUpdateValue,
     saveStatus,
     hasUnsavedChanges,
-    saveNow
+    saveNow,
+    isOnline,
   };
 }

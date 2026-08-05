@@ -183,4 +183,53 @@ describe('useAutoSave', () => {
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onSave).toHaveBeenCalledWith({ foo: 'baz' });
   });
+
+  it('transitions to offline status and calls onOfflineSave when offline or network fails', async () => {
+    const onSave = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    const onOfflineSave = vi.fn().mockResolvedValue(undefined);
+    const { result, rerender } = renderHook(
+      ({ data }) => useAutoSave({ data, onSave, onOfflineSave, delay: 1000 }),
+      { initialProps: { data: { foo: 'initial' } } }
+    );
+
+    rerender({ data: { foo: 'offline-value' } });
+
+    await act(async () => {
+      await result.current.saveNow();
+    });
+
+    expect(result.current.saveStatus).toBe('offline');
+    expect(onOfflineSave).toHaveBeenCalledWith({ foo: 'offline-value' });
+    expect(result.current.hasUnsavedChanges).toBe(true);
+  });
+
+  it('triggers onReconnect and flushes changes when network comes back online', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const onReconnect = vi.fn().mockResolvedValue(undefined);
+    const onOfflineSave = vi.fn().mockResolvedValue(undefined);
+
+    const { result, rerender } = renderHook(
+      ({ data }) => useAutoSave({ data, onSave, onOfflineSave, onReconnect, delay: 1000 }),
+      { initialProps: { data: { foo: 'initial' } } }
+    );
+
+    // Simulate going offline
+    act(() => {
+      window.dispatchEvent(new Event('offline'));
+    });
+    expect(result.current.isOnline).toBe(false);
+    expect(result.current.saveStatus).toBe('offline');
+
+    rerender({ data: { foo: 'queued-value' } });
+
+    // Simulate coming back online
+    await act(async () => {
+      window.dispatchEvent(new Event('online'));
+    });
+
+    expect(result.current.isOnline).toBe(true);
+    expect(onReconnect).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith({ foo: 'queued-value' });
+    expect(result.current.saveStatus).toBe('saved');
+  });
 });

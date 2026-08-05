@@ -454,16 +454,24 @@ export function registerRunRoutes(app: Express): void {
         }
         // Bulk upsert without userId check (run token auth)
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
-        await runService.bulkUpsertValuesNoAuth(runId, values);
-        return res.status(200).json({ success: true, message: "Step values saved" });
+        const result = await runService.bulkUpsertValuesNoAuth(runId, values);
+        return res.status(200).json({
+          success: true,
+          message: "Step values saved",
+          ...(result.conflicts.length > 0 ? { conflicts: result.conflicts } : {}),
+        });
       }
       // For session auth
       if (!userId) {
         return res.status(401).json({ success: false, error: "Unauthorized - no user ID" });
       }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
-      await runService.bulkUpsertValues(runId, userId, values);
-      res.status(200).json({ success: true, message: "Step values saved" });
+      const result = await runService.bulkUpsertValues(runId, userId, values);
+      res.status(200).json({
+        success: true,
+        message: "Step values saved",
+        ...(result.conflicts.length > 0 ? { conflicts: result.conflicts } : {}),
+      });
     } catch (error) {
       logger.error({ error }, "Error saving step values");
       const { status, message } = classifyRouteError(error, "Failed to save step values");

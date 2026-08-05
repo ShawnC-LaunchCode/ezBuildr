@@ -1,8 +1,9 @@
 import { ReactNode } from "react";
-import { Check } from "lucide-react";
+import { Check, AlertCircle, CloudOff, RefreshCw, Loader2 } from "lucide-react";
 
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { type SaveStatus } from "@/hooks/useAutoSave";
 
 interface ClientRunnerLayoutProps {
     children: ReactNode;
@@ -10,7 +11,7 @@ interface ClientRunnerLayoutProps {
     progress?: number;
     currentStep?: number;
     totalSteps?: number;
-    saveStatus?: "idle" | "saving" | "saved" | "error";
+    saveStatus?: SaveStatus;
     saveAndResumeAction?: ReactNode;
     className?: string;
 }
@@ -39,21 +40,40 @@ export function ClientRunnerLayout({
                     <div className="flex items-center gap-4">
                         {saveAndResumeAction}
                         {saveStatus && saveStatus !== "idle" && (
-                            <div className="flex items-center gap-1.5 text-xs font-medium animate-in fade-in zoom-in duration-300">
+                            <div
+                                className="flex items-center gap-1.5 text-xs font-medium animate-in fade-in zoom-in duration-300"
+                                role="status"
+                                aria-live="polite"
+                            >
                                 {saveStatus === "saving" && (
                                     <>
-                                        <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
                                         <span className="text-muted-foreground">Saving...</span>
                                     </>
                                 )}
                                 {saveStatus === "saved" && (
                                     <>
-                                        <Check className="h-3 w-3 text-green-500" />
+                                        <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                                         <span className="text-muted-foreground">Saved</span>
                                     </>
                                 )}
+                                {saveStatus === "offline" && (
+                                    <>
+                                        <CloudOff className="h-3.5 w-3.5 text-amber-500" />
+                                        <span className="text-amber-600 dark:text-amber-400 font-medium">Offline (saved locally)</span>
+                                    </>
+                                )}
+                                {saveStatus === "syncing" && (
+                                    <>
+                                        <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-500" />
+                                        <span className="text-blue-600 dark:text-blue-400 font-medium">Syncing changes...</span>
+                                    </>
+                                )}
                                 {saveStatus === "error" && (
-                                    <span className="text-destructive">Save failed</span>
+                                    <>
+                                        <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+                                        <span className="text-destructive font-medium">Save failed</span>
+                                    </>
                                 )}
                             </div>
                         )}

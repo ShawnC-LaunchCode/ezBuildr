@@ -24,6 +24,7 @@ import {
   logicRuleRepository,
   projectRepository,
   runGeneratedDocumentsRepository,
+  type BulkSaveResult,
 } from "../repositories";
 
 import { IntakeConfigSchema } from "../../shared/zod-schemas.js";
@@ -353,24 +354,24 @@ export class RunService {
   async bulkUpsertValues(
     runId: string,
     userId: string,
-    values: Array<{ stepId: string; value: unknown }>
-  ): Promise<void> {
+    values: Array<{ stepId: string; value: unknown; clientTimestamp?: number | string | Date }>
+  ): Promise<BulkSaveResult> {
     const { run, access } = await this.authResolver.resolveRun(runId, userId);
     if (!run || access === 'none') { throw new Error(ERR_RUN_NOT_FOUND); }
     values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
-    await this.persistenceWriter.bulkSaveDraftValues(runId, values, run.workflowId);
+    return this.persistenceWriter.bulkSaveDraftValues(runId, values, run.workflowId);
   }
   /**
    * Bulk upsert step values without userId check (for run token auth)
    */
   async bulkUpsertValuesNoAuth(
     runId: string,
-    values: Array<{ stepId: string; value: unknown }>
-  ): Promise<void> {
+    values: Array<{ stepId: string; value: unknown; clientTimestamp?: number | string | Date }>
+  ): Promise<BulkSaveResult> {
     const run = await this.runRepo.findById(runId);
     if (!run) { throw new Error(ERR_RUN_NOT_FOUND); }
     values.forEach(v => validateJsonbSize(v.value, FIELD_STEP_VALUE));
-    await this.persistenceWriter.bulkSaveDraftValues(runId, values, run.workflowId);
+    return this.persistenceWriter.bulkSaveDraftValues(runId, values, run.workflowId);
   }
   /**
    * Execute JS questions for a section

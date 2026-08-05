@@ -4,7 +4,7 @@ import type { ChoiceAdvancedConfig } from "@shared/types/stepConfigs";
 import { getValidationSchema } from "@shared/validation/BlockValidation";
 import { validateValue } from "@shared/validation/Validator";
 
-import { workflowRunRepository, stepValueRepository } from "../../repositories";
+import { workflowRunRepository, stepValueRepository, type BulkSaveResult } from "../../repositories";
 import { DbTransaction } from "../../repositories/BaseRepository";
 import { createError } from "../../utils/errors";
 import { runDefinitionProvider, RunDefinitionProvider, type RunDefinition } from "../workflow-runs/RunDefinitionProvider";
@@ -186,23 +186,30 @@ export class RunPersistenceWriter {
      * Save in-progress answers without applying final-format validation.
      * Drafts still enforce workflow membership and storage shape, while values
      * such as a partially typed email or phone number remain resumable.
+     * Supports clientTimestamp for conflict detection and graceful merging.
      */
-    async bulkSaveDraftValues(runId: string, values: Array<{ stepId: string, value: unknown }>, workflowId: string): Promise<void> {
-        await this.bulkSave(runId, values, workflowId, false);
+    async bulkSaveDraftValues(
+        runId: string,
+        values: Array<{ stepId: string; value: unknown; clientTimestamp?: number | string | Date }>,
+        workflowId: string
+    ): Promise<BulkSaveResult> {
+        return this.bulkSave(runId, values, workflowId, false);
     }
 
     private async bulkSave(
         runId: string,
-        values: Array<{ stepId: string, value: unknown }>,
+        values: Array<{ stepId: string; value: unknown; clientTimestamp?: number | string | Date }>,
         workflowId: string,
         validateFormat: boolean
-    ): Promise<void> {
-        if (values.length === 0) {return;}
+    ): Promise<BulkSaveResult> {
+        if (values.length === 0) {
+            return { saved: [], conflicts: [] };
+        }
         const definition = await this.getDefinition(runId, workflowId);
         const stepsById = new Map<string, PersistableStep>(definition.steps.map(s => [s.id, s]));
         // Dedupe by stepId (last write wins) — a single INSERT ... ON CONFLICT
         // cannot touch the same row twice
-        const byStepId = new Map<string, unknown>();
+        const byStepId = new Map<string, { value: unknown; clientTimestamp?: number | string | Date }>();
         for (const v of values) {
             if (!stepsById.has(v.stepId)) {
                 // RVP-7: 4xx rather than a bare Error — see saveStepValue above.
@@ -211,12 +218,30 @@ export class RunPersistenceWriter {
                     { stepIds: [v.stepId] }
                 );
             }
-            byStepId.set(v.stepId, v.value);
+            byStepId.set(v.stepId, { value: v.value, clientTimestamp: v.clientTimestamp });
         }
-        await this.validateBulkValues(byStepId, stepsById, validateFormat);
-        await this.valueRepo.upsertMany(
-            Array.from(byStepId.entries(), ([stepId, value]) => ({ runId, stepId, value }))
+
+        const valuesToValidate = new Map<string, unknown>();
+        for (const [stepId, item] of byStepId.entries()) {
+            valuesToValidate.set(stepId, item.value);
+        }
+        await this.validateBulkValues(valuesToValidate, stepsById, validateFormat);
+
+        const dataList = Array.from(byStepId.entries(), ([stepId, item]) => ({
+            runId,
+            stepId,
+            value: item.value,
+            clientTimestamp: item.clientTimestamp,
+        }));
+
+        if (typeof (this.valueRepo as unknown as { upsertManyWithTimestamps?: unknown }).upsertManyWithTimestamps === 'function') {
+            return (this.valueRepo as unknown as { upsertManyWithTimestamps: (data: typeof dataList) => Promise<BulkSaveResult> }).upsertManyWithTimestamps(dataList);
+        }
+
+        const saved = await this.valueRepo.upsertMany(
+            dataList.map(({ runId: r, stepId: s, value: val }) => ({ runId: r, stepId: s, value: val }))
         );
+        return { saved, conflicts: [] };
     }
     /**
      * Get all values for a run
