@@ -6,19 +6,6 @@ import { logger } from "../logger";
 
 const _FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL ?? 'noreply@ezbuildr.com';
 
-/**
- * Escape a value for safe interpolation into email HTML. User-controlled data (workflow answers,
- * respondent/recipient names, titles) must be escaped so it cannot inject markup into the emails
- * we send (HTML/layout/phishing-content injection).
- */
-function escapeHtml(value: unknown): string {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 /**
  * Send a generic email using SendGrid or fallback to logger
@@ -83,66 +70,6 @@ export async function sendVerificationEmail(email: string, token: string): Promi
   await sendEmail(email, subject, html);
 }
 
-export interface IntakeReceiptData {
-  to: string;
-  tenantId: string;
-  workflowId: string;
-  workflowName: string;
-  runId: string;
-  summary?: Record<string, unknown>;
-  downloadLinks?: {
-    pdf?: string;
-    docx?: string;
-  };
-}
-
-
-export async function sendIntakeReceipt(
-  data: IntakeReceiptData
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const { to, workflowName, runId, summary, downloadLinks } = data;
-
-    let summaryHtml = "";
-    if (summary && Object.keys(summary).length > 0) {
-      summaryHtml = "<h3>Your Submission</h3><ul>";
-      for (const [key, value] of Object.entries(summary)) {
-        if (key.toLowerCase().match(/(password|ssn|credit|card)/)) { continue; }
-        // Escape both key and value — these come from user-submitted workflow answers.
-        summaryHtml += `<li><strong>${escapeHtml(key)}:</strong> ${escapeHtml(String(value).substring(0, 100))}</li>`;
-      }
-      summaryHtml += "</ul>";
-    }
-
-    let downloadHtml = "";
-    if (downloadLinks?.pdf ?? downloadLinks?.docx) {
-      downloadHtml = "<h3>Your Documents</h3>";
-      if (downloadLinks.pdf) { downloadHtml += `<p><a href="${downloadLinks.pdf}">Download PDF</a></p>`; }
-      if (downloadLinks.docx) { downloadHtml += `<p><a href="${downloadLinks.docx}">Download DOCX</a></p>`; }
-    }
-
-    const subject = `Confirmation: ${workflowName}`;
-    const html = `
-      <div style="font-family: sans-serif;">
-        <h2>Submission Received</h2>
-        <p>You have successfully completed <strong>${escapeHtml(workflowName)}</strong>.</p>
-        ${summaryHtml}
-        ${downloadHtml}
-        <hr/>
-        <p><small>Reference ID: ${escapeHtml(runId)}</small></p>
-      </div>
-    `;
-
-    const success = await sendEmail(to, subject, html);
-    return { success };
-  } catch (error) {
-    logger.error({ error, data }, "Error sending intake receipt email");
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Failed to send email"
-    };
-  }
-}
 
 export async function sendSystemInviteEmail(
   email: string,

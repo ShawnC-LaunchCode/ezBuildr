@@ -30,7 +30,6 @@ import { registerEmailTemplateRoutes } from "./emailTemplates.routes";
 import { registerEsignRoutes } from "./esign.routes";
 import externalRouter from "./external.routes";
 import { registerFinalBlockRoutes } from "./finalBlock.routes";
-import { registerIntakeRoutes } from "./intake.routes";
 import lifecycleHooksRoutes from "./lifecycleHooks.routes";
 import marketplaceRouter from "./marketplace";
 import { registerMetricsRoutes } from "./metrics";
@@ -159,7 +158,6 @@ export function registerAllRoutes(app: Express): void {
   registerFinalBlockRoutes(app);
   registerEsignRoutes(app);
   registerWorkflowAnalyticsRoutes(app);
-  registerIntakeRoutes(app);
   registerVersionRoutes(app);
   registerCollectionsRoutes(app);
   registerDatavaultRoutes(app);

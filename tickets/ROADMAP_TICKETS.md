@@ -1034,10 +1034,43 @@ Found during the 2026-08-05 GH-158 branding audit:
   delete the `Themed*` stack — one branding model, preview becomes truthful; (b) delete the
   route and both buttons outright; (c) leave it. Recommend (a); it needs the repo owner's
   call because (b) removes a feature and (a) is a rebuild, not a cleanup.
-- **O-12 (needs-initiative) — the `/intake/*` API is an orphaned parallel run pipeline
-  (~1,719 lines). Deletion candidate; the repo owner owns the call.** Mapped 2026-08-05
-  because "intake" names **three unrelated things** in this repo and only one of them was
-  the legacy data-linking the repo owner already removed:
+- **O-12 ✅ EXECUTED 2026-08-05 — the `/intake/*` parallel run pipeline is deleted.**
+  The repo owner confirmed it was the second half of the legacy system, not an intended embed
+  API. **Removed** (1,407 lines): `server/routes/intake.routes.ts` and its registration,
+  `IntakeService`, `IntakeNavigationService`, `IntakeQuestionVisibilityService`,
+  `IntakeReceiptService`, `sendIntakeReceipt`/`IntakeReceiptData` and the then-orphaned
+  `escapeHtml` from `emailService.ts`, the dead `IntakeSubmitResult`/`IntakeEmailReceipt`
+  types, and `tests/integration/intake.portal.test.ts` +
+  `tests/unit/services/intakeQuestionVisibility.test.ts`.
+
+  **Deliberately KEPT — each is load-bearing elsewhere, and deleting any would have been a
+  live break:**
+  - `workflows.intakeConfig` + `IntakeConfigSchema` + `shared/types/intake.ts#IntakeConfig`
+    — a **live security control**. `RunService.createRun`/`createAnonymousRun` feed it to
+    `filterPrefillValues` (RUN2-6); without it every caller-supplied prefill value is
+    dropped. The `PUT /api/workflows/:id/intake-config` route stays for the same reason.
+  - `server/utils/prefillFilter.ts` — used by `RunService`, not just the portal.
+  - `server/services/CaptchaService.ts` + `CaptchaChallenge`/`CaptchaResponse`/`CaptchaType`
+    — serve the **login and registration** captcha in `auth.routes.ts`.
+
+  **Known residue, deliberate:** six `IntakeConfig` fields (`requireCaptcha`, `captchaType`,
+  `sendEmailReceipt`, `receiptEmailVar`, `receiptTemplateId`, `excludeFromReceipt`) are now
+  inert — the portal was their only reader. They were **not** removed because
+  `IntakeConfigSchema` is `.strict()` and `RunService.resolveIntakeConfig` degrades to `{}`
+  on a parse failure, so dropping them would make any stored config still containing them
+  fail to parse and **silently switch prefill off**. Removing them needs a data migration
+  first (`intake_config - 'requireCaptcha' - ...`), same shape as migration 0006.
+  **Capability lost by design:** intake email receipts. No other path sent them.
+
+  Verified: `type-check` 0, `lint` 0, strict-zones ✅, `test:fast` **2445** (2469 before,
+  −24 = the deleted unit file). Live on port 5199: server boots, `/intake/*` now falls
+  through to the SPA (`text/html`) instead of answering JSON, and a probe proved the prefill
+  allowlist still enforces — allowlisted key seeded, non-allowlisted key dropped. The two
+  surviving integration suites (`api.workflow-intake-config`, `api.runs.prefill-allowlist`)
+  pass 9/9 and still assert `isIntake`/`upstreamWorkflowId` are rejected.
+
+  Original mapping, kept for context — "intake" names **three unrelated things** here and
+  only one was the legacy data-linking the repo owner already removed:
 
   1. **Legacy intake workflow / upstream reuse — already gone, cleanly.**
      `migrations/0006_remove_legacy_intake_reuse.sql` stripped `isIntake`,
