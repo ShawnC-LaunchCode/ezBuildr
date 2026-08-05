@@ -197,9 +197,14 @@ export function WorkflowRunner({ runId, previewEnvironment, isPreview: _isPrevie
 
   const visibleSectionSteps = currentSection != null ? getVisibleSectionSteps(currentSection.id) : [];
 
-  // Production branding is resolved server-side onto the runtime payload;
-  // preview has no run, so it resolves the workflow's own settings (GH-158).
-  const branding = useResolvedRunnerBranding(runtime?.branding, workflow?.settings);
+  // Branding is resolved server-side on both paths so preview and production
+  // agree: production reads it off the runtime payload, preview off the
+  // workflow GET (GH-158 / O-9). The hook still falls back to resolving the
+  // workflow's own settings client-side if neither carries a value.
+  const branding = useResolvedRunnerBranding(
+    isProductionMode ? runtime?.branding : previewWorkflow?.branding,
+    workflow?.settings
+  );
 
   return (
     <WorkflowRunnerScreen

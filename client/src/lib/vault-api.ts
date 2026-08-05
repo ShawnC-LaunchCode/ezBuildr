@@ -371,6 +371,7 @@ export interface ApiWorkflow {
   updatedAt: string;
   modeOverride?: 'easy' | 'advanced' | null;
   intakeConfig?: import('@shared/types/intake').IntakeConfig;
+  branding?: ResolvedBranding; // Resolved server-side (GH-158); present on the single-workflow GET.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- settings is an opaque JSON object from the server
   settings?: any;
   /* eslint-disable @typescript-eslint/naming-convention -- keys match database column naming convention */
@@ -1135,8 +1136,8 @@ export interface EmailTemplateMetadata {
   name: string;
   description?: string | null;
   subjectPreview?: string | null;
-  brandingTokens?: Record<string, boolean> | null;
   // eslint-disable-next-line max-lines -- This legacy API module is split incrementally under DEBT-2.
+  brandingTokens?: Record<string, boolean> | null;
   createdAt: Date;
   updatedAt: Date;
 }

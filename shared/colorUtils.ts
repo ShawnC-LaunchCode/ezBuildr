@@ -81,12 +81,16 @@ export function getLuminance(hex: string): number {
   const rgb = hexToRgb(hex);
   if (!rgb) {return 0;}
 
-  const [r, g, b] = [rgb.r, rgb.g, rgb.b].map((val) => {
+  // Computed per channel rather than by destructuring a mapped array: under
+  // `noUncheckedIndexedAccess` the destructured elements widen to
+  // `number | undefined`, which fails the strict-zone check this module is
+  // pulled into transitively.
+  const toLinear = (val: number): number => {
     const sRGB = val / 255;
     return sRGB <= 0.03928 ? sRGB / 12.92 : Math.pow((sRGB + 0.055) / 1.055, 2.4);
-  });
+  };
 
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return 0.2126 * toLinear(rgb.r) + 0.7152 * toLinear(rgb.g) + 0.0722 * toLinear(rgb.b);
 }
 
 /**

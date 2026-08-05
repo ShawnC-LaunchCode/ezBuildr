@@ -13,27 +13,30 @@ const FAVICON_SELECTOR = 'link[rel~="icon"]';
 /**
  * Resolve branding for the runner (GH-158).
  *
- * In production the server has already merged tenant + workflow branding onto
- * the runtime payload, so it is used verbatim. In preview there is no run and
- * therefore no server-resolved value, so the workflow's own branding settings
- * are resolved client-side through the same pure function. Tenant-level
- * branding does not reach preview — see the GH-158 note on preview fidelity.
+ * Both paths get a server-resolved value so preview and production render the
+ * same thing (O-9): production reads it off the run runtime payload, preview off
+ * the single-workflow GET. Either way tenant-level branding is already merged in.
+ *
+ * `settingsFallback` resolves the workflow's own branding client-side and is only
+ * reached when neither payload carried a resolved value — an older cached
+ * response, or a caller that has only the workflow's settings. It cannot see
+ * tenant branding, so it is a floor, not the normal path.
  */
 export function useResolvedRunnerBranding(
-  runtimeBranding: ResolvedBranding | undefined,
-  previewSettings: unknown
+  resolvedBranding: ResolvedBranding | undefined,
+  settingsFallback: unknown
 ): ResolvedBranding {
   return useMemo(() => {
-    if (runtimeBranding) {
-      return runtimeBranding;
+    if (resolvedBranding) {
+      return resolvedBranding;
     }
 
-    if (typeof previewSettings === 'object' && previewSettings !== null) {
-      return resolveBranding(null, previewSettings as WorkflowBrandingSettings);
+    if (typeof settingsFallback === 'object' && settingsFallback !== null) {
+      return resolveBranding(null, settingsFallback as WorkflowBrandingSettings);
     }
 
     return DEFAULT_RESOLVED_BRANDING;
-  }, [runtimeBranding, previewSettings]);
+  }, [resolvedBranding, settingsFallback]);
 }
 
 /**

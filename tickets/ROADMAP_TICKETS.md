@@ -582,9 +582,12 @@ distinct keys cannot collide, and validate the cache entry against the object's 
 > which in this design system is a subtle hover surface; assigning a saturated color to it
 > would have made every dropdown unreadable.
 >
-> **Caveat (filed as O-9).** Preview resolves workflow branding client-side and therefore
-> does **not** show tenant-level fallbacks. GitHub #158's "preview renders the exact resolved
-> branding" criterion is only partly met.
+> **Preview parity closed 2026-08-05 (O-9).** Preview originally resolved workflow branding
+> client-side and could not see tenant-level fallbacks. It now reads a server-resolved value
+> off the single-workflow GET, through the same service the runtime payload uses, so GitHub
+> #158's "preview renders the exact resolved participant branding" criterion is met for
+> branding. (Preview still renders the *live draft* rather than the pinned published version
+> — by design, and unrelated to branding.)
 
 **Priority: P1** · Size: M
 **Files (footprint):** `shared/types/branding.ts`, `shared/colorUtils.ts` (new), `client/src/lib/colorUtils.ts`, `server/routes/workflows.routes.ts`, `server/services/workflow-runs/RunRuntimeService.ts`, `client/src/lib/vault-api.ts`, `client/src/hooks/useRunnerBranding.ts` (new), `client/src/components/runner/ClientRunnerLayout.tsx`, `client/src/pages/WorkflowRunner.tsx`, `client/src/pages/RunCompletionView.tsx`, `client/src/components/builder/tabs/settings/BrandingSettingsCard.tsx`, `client/src/components/builder/tabs/SettingsTab.tsx`
@@ -1117,12 +1120,23 @@ Found during the 2026-08-05 GH-158 branding audit:
   and one tenant has **many** organizations (`organizations.tenantId`), so where a project
   tier would sit is genuinely ambiguous. Deferred out of GH-158; needs a schema change and
   an ownership ruling.
-- **O-9 (enhancement) — preview shows workflow branding but not tenant branding.** The
-  runner takes server-resolved branding from the runtime payload in production; preview has
-  no run, so `useResolvedRunnerBranding` resolves the workflow's own settings client-side
-  with `resolveBranding(null, settings)`. A workflow that inherits its logo or color from the
-  tenant therefore looks unbranded in preview. Fix is to return resolved branding on the
-  workflow GET the preview already calls.
+- **O-9 ✅ FIXED 2026-08-05 — preview now renders the same resolved branding as production.**
+  `WorkflowService.getWorkflowWithDetails` resolves branding through the same
+  `BrandingService.resolveForWorkflow()` the runtime payload uses and returns it on the
+  single-workflow GET, which is exactly the request the builder preview already makes.
+  `WorkflowRunner` reads the server-resolved value on both paths; the client-side
+  `resolveBranding(null, settings)` fallback survives only for an older cached response and
+  is documented as a floor, not the normal path.
+  Proven live: a workflow with `settings = {}` (no branding of its own) whose tenant carries
+  logo/name/colors returned the **full tenant-resolved branding** on the preview payload —
+  before the fix that field did not exist and the fallback produced nothing.
+  **Note for reviewers:** this change pulled `BrandingService` → `shared/colorUtils.ts` into
+  `check:strict-zones`' transitive closure, surfacing 4 pre-existing strict-mode errors that
+  `npm run type-check` does not catch (`getLuminance`'s destructured map result, and
+  `addDomain`'s `.returning()` row). Both fixed. `addDomain` uses `=== undefined` rather than
+  a truthiness check because ESLint types it from the non-strict config and rejects the
+  latter as always-true — the two gates disagree, and only the explicit comparison satisfies
+  both.
 - **O-10 (enhancement) — email, custom domains, and the signature-transition screen are
   still unbranded.** These are the remaining GitHub #158 acceptance criteria. All three are
   cheap now that `resolveBranding()` exists and `BrandingService.resolveForWorkflow()` is the

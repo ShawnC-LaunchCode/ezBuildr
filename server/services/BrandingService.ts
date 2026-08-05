@@ -227,6 +227,17 @@ export class BrandingService {
         })
         .returning();
 
+      // `.returning()` is typed as an array, so the destructured row widens to
+      // `| undefined` under the strict-zone check this module is now pulled
+      // into. An insert that returns no row is a driver-level failure, not a
+      // normal outcome, so fail loudly rather than returning a bad shape.
+      // Explicit `=== undefined` (the pattern already used above in this file):
+      // ESLint types this from the non-strict config and rejects a truthiness
+      // check as always-true, while the strict zone types it as `| undefined`.
+      if (newDomain === undefined) {
+        throw new Error('Failed to add domain');
+      }
+
       logger.info({ tenantId, domain }, 'Domain added to tenant');
       return newDomain;
     } catch (error: unknown) {
