@@ -39,10 +39,10 @@ rewritten tickets below supersede it.
    generated outputs already survive deploys. `DEBT-OPS1` ("set `STORAGE_DRIVER=s3` to
    eliminate ephemeral disk 404s") is therefore **not the cause of the 404s** and is no
    longer a prerequisite for this ticket.
-2. **⚠️ Flipping `STORAGE_DRIVER=s3` is now a *migration*, not a config change.** Because
-   real files already live on that volume, setting `STORAGE_DRIVER=s3` without copying
-   them into the bucket first would orphan every existing template and output. Do not set
-   it as a "quick fix". Backfill is tracked as an observation, not a ticket.
+2. **~~Flipping `STORAGE_DRIVER=s3` is a migration~~ — SUPERSEDED 2026-08-04.** The repo
+   owner confirmed the volume holds only test data, so the orphaning risk was accepted and
+   **S3 is now live in production** (see the GH-169B closure note). No backfill was run;
+   the old volume contents were deliberately abandoned.
 3. **The real 404 cause is a dead route** — see GH-169B Finding 2.
 
 ---
@@ -825,8 +825,21 @@ only with the repo owner's say-so.
   point at `https://vaultlogic-production.up.railway.app/` while `RAILWAY_PUBLIC_DOMAIN` is
   `www.ezbuildr.com`. Anything building an absolute URL (OAuth redirects, emailed
   save-and-resume links in GH-147, webhook callbacks) emits the wrong host.
-- **O-3 (needs-initiative) — S3 backfill.** If `STORAGE_DRIVER=s3` is ever adopted, the
-  existing Railway volume contents must be copied to the bucket first. See Audit correction 2.
+- **O-3 ✅ CLOSED 2026-08-04 — S3 adopted, backfill deliberately skipped.** Production now
+  runs `STORAGE_DRIVER=s3` against the Railway bucket `integrated-flask`
+  (`integrated-flask-bf4igkar` on `https://t3.storageapi.dev`, region `iad`, Tigris-backed).
+  Credentials are wired as **Railway reference variables** (`${{integrated-flask.BUCKET}}`
+  etc.), so no secret literal is stored on the app service. The old volume's contents were
+  abandoned by the repo owner's call that it is all test data.
+  - `S3StorageProvider` was proven against the real bucket before the flip: init, saveFile,
+    exists (present *and* absent), getFile round trip, getMetadata, a **fetchable** signed
+    URL (200), getLocalPath, list, deleteFile — bucket left at 0 objects.
+  - Two live traps checked rather than assumed: the bucket accepts **both** path-style and
+    virtual-host addressing (so `forcePathStyle: !!endpoint` is harmless here, despite
+    Railway documenting virtual-host), and the reference resolves `AWS_REGION` to **`iad`**
+    while the CLI credentials report `auto` — both were tested and both sign correctly.
+  - Note the Railway volume is still mounted at `/app/server/files` and still billed. It is
+    now unused; detaching it is a separate operational decision.
 - **O-5 (enhancement, from GH-169A review) — `pingClamd` assumes an unsplit `PONG`.**
   `server/services/security/VirusScanner.ts` resolves `false` as soon as any non-`PONG`
   bytes arrive, so a `PONG\0` split across TCP segments would misreport the scanner as
