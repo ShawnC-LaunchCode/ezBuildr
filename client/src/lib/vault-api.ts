@@ -2,6 +2,7 @@
  * Vault-Logic API Client
  * Handles all API calls to the workflow backend
  */
+import type { ResolvedBranding } from '@shared/types/branding';
 import { getRunToken } from './runTokens';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
@@ -370,6 +371,7 @@ export interface ApiWorkflow {
   updatedAt: string;
   modeOverride?: 'easy' | 'advanced' | null;
   intakeConfig?: import('@shared/types/intake').IntakeConfig;
+  branding?: ResolvedBranding; // Resolved server-side (GH-158); present on the single-workflow GET.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- settings is an opaque JSON object from the server
   settings?: any;
   /* eslint-disable @typescript-eslint/naming-convention -- keys match database column naming convention */
@@ -938,6 +940,7 @@ export interface ApiRunRuntime {
     updatedAt: string | null;
   }>;
   values: ApiStepValue[];
+  branding: ResolvedBranding; // Tenant + workflow branding, merged server-side (GH-158).
 }
 // Note: This is for visual workflow runs (Stage 7+)
 export const runAPI = {
@@ -1133,10 +1136,10 @@ export interface EmailTemplateMetadata {
   name: string;
   description?: string | null;
   subjectPreview?: string | null;
+  // eslint-disable-next-line max-lines -- This legacy API module is split incrementally under DEBT-2.
   brandingTokens?: Record<string, boolean> | null;
   createdAt: Date;
   updatedAt: Date;
-  // eslint-disable-next-line max-lines -- This legacy API module is split incrementally under DEBT-2.
 }
 export interface GetEmailTemplatesResponse {
   templates: EmailTemplateMetadata[];

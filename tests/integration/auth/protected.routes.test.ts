@@ -14,6 +14,7 @@ import { users, workflows, workflowRuns, organizationMemberships } from "@shared
 
 import { db } from "../../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../../helpers/integrationTestHelper";
+import { TestFactory } from "../../helpers/testFactory";
 
 
 
@@ -488,70 +489,57 @@ describe.sequential("Protected Routes Integration Tests", () => {
     });
 
     describe("Optional Auth Routes", () => {
-        it("should allow unauthenticated access to optional auth routes", async () => {
-            // Create public workflow
-            const slug = `public-${nanoid()}`;
-            const workflowRes = await request(ctx.baseURL)
-                .post(`/api/workflows`)
-                .set("Authorization", `Bearer ${ctx.authToken}`)
-                .send({
-                    title: "Public Workflow",
-                    projectId: ctx.projectId,
-                })
-                .expect(201);
-
-            // Manually publish workflow and set isPublic (API might not expose all fields)
-            await db.update(workflows)
-                .set({
-                    isPublic: true,
+        /**
+         * POST /api/workflows/public/:slug/start is the surviving
+         * optionalHybridAuth entrypoint: it serves anonymous respondents and
+         * attaches user context when credentials happen to be present. The
+         * /intake/* pipeline these cases used to call was an orphaned parallel
+         * implementation and has been removed.
+         */
+        const createPublicWorkflow = async (): Promise<string> => {
+            const factory = new TestFactory();
+            const created = await factory.createWorkflow(ctx.projectId!, ctx.userId, {
+                workflow: {
                     status: 'active',
-                    slug: slug,
-                    intakeConfig: { allowPrefill: false }
-                })
-                .where(eq(workflows.id, workflowRes.body.id));
+                    isPublic: true,
+                    requireLogin: false,
+                    intakeConfig: { allowPrefill: false },
+                },
+            });
+            const section = await factory.createSection(created.workflow.id);
+            await factory.createStep(section.id, { alias: `q${nanoid(6)}` });
+            // An anonymous run requires a published version to pin to.
+            await db.update(workflows)
+                .set({ currentVersionId: created.version.id })
+                .where(eq(workflows.id, created.workflow.id));
+            return created.workflow.publicLink!;
+        };
 
-            // Create intake run without authentication
+        it("should allow unauthenticated access to optional auth routes", async () => {
+            const slug = await createPublicWorkflow();
+
             const res = await request(ctx.baseURL)
-                .post("/intake/runs")
-                .send({ slug })
+                .post(`/api/workflows/public/${slug}/start`)
+                .send({})
                 .expect(201);
 
-            // Verify anonymous creation
+            // Verify anonymous creation — no user context was attached
             const run = await db.query.workflowRuns.findFirst({
                 where: eq(workflowRuns.id, res.body.data.runId)
             });
 
             expect(run).toBeDefined();
             if (!run) {throw new Error("Run not found");}
-            expect(run.createdBy).toBe("anon");
+            expect(run.createdBy).toBeNull();
         });
 
         it("should enhance optional auth routes with user context when authenticated", async () => {
-            const slug = `optional-${nanoid()}`;
-            const workflowRes = await request(ctx.baseURL)
-                .post(`/api/workflows`)
-                .set("Authorization", `Bearer ${ctx.authToken}`)
-                .send({
-                    title: "Optional Auth Workflow",
-                    projectId: ctx.projectId,
-                })
-                .expect(201);
+            const slug = await createPublicWorkflow();
 
-            // Manually publish
-            await db.update(workflows)
-                .set({
-                    isPublic: true,
-                    status: 'active',
-                    slug: slug,
-                    intakeConfig: { allowPrefill: false }
-                })
-                .where(eq(workflows.id, workflowRes.body.id));
-
-            // Create intake run WITH authentication
             const res = await request(ctx.baseURL)
-                .post("/intake/runs")
+                .post(`/api/workflows/public/${slug}/start`)
                 .set("Authorization", `Bearer ${userToken}`)
-                .send({ slug })
+                .send({})
                 .expect(201);
 
             // Verify authenticated creation
@@ -567,7 +555,7 @@ describe.sequential("Protected Routes Integration Tests", () => {
 
             expect(run).toBeDefined();
             if (!run) {throw new Error("Run not found");}
-            expect(run.createdBy).toBe(`creator:${meRes.body.id}`);
+            expect(run.createdBy).toBe(meRes.body.id);
         });
     });
 });

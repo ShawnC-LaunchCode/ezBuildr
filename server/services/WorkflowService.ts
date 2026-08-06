@@ -67,6 +67,7 @@ import {
 import { canCreateWithOwnership, canManageOrg } from "../utils/ownershipAccess";
 
 import { aclService } from "./AclService";
+import { BrandingService, brandingService } from "./BrandingService";
 /**
  * Service layer for workflow-related business logic
  */
@@ -77,6 +78,7 @@ export class WorkflowService {
   private logicRuleRepo: typeof logicRuleRepository;
   private workflowAccessRepo: typeof workflowAccessRepository;
   private projectRepo: typeof projectRepository;
+  private brandingSvc: BrandingService;
   // eslint-disable-next-line max-params
   constructor(
     workflowRepo?: typeof workflowRepository,
@@ -84,7 +86,8 @@ export class WorkflowService {
     stepRepo?: typeof stepRepository,
     logicRuleRepo?: typeof logicRuleRepository,
     workflowAccessRepo?: typeof workflowAccessRepository,
-    projectRepo?: typeof projectRepository
+    projectRepo?: typeof projectRepository,
+    brandingSvc?: BrandingService
   ) {
     this.workflowRepo = workflowRepo ?? workflowRepository;
     this.sectionRepo = sectionRepo ?? sectionRepository;
@@ -92,6 +95,7 @@ export class WorkflowService {
     this.logicRuleRepo = logicRuleRepo ?? logicRuleRepository;
     this.workflowAccessRepo = workflowAccessRepo ?? workflowAccessRepository;
     this.projectRepo = projectRepo ?? projectRepository;
+    this.brandingSvc = brandingSvc ?? brandingService;
   }
 
   private async requireOrgAdminForOrgOwnedWorkflow(workflow: Workflow, userId: string, action: string): Promise<void> {
@@ -243,12 +247,20 @@ export class WorkflowService {
           : (v, { desc }) => [desc(v.versionNumber)],
       });
     }
+    // GH-158 / O-9: the builder preview renders from this payload and has no
+    // run, so without a server-resolved value it could only see the workflow's
+    // own branding and would silently miss tenant-level fallbacks — showing the
+    // author something their participants never get. Resolved through the same
+    // service the runtime payload uses, so preview and production agree.
+    const branding = await this.brandingSvc.resolveForWorkflow(workflowId, workflow.settings);
+
     return {
       ...workflow,
       sections: sectionsWithSteps,
       logicRules,
       transformBlocks,
       currentVersion,
+      branding,
     };
   }
   /**
