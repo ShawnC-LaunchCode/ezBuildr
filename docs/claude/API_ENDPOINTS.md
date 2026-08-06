@@ -1,6 +1,6 @@
 # API Endpoints Reference
 
-Map of API domains → route files (verified July 2026). **Source of truth is `server/routes/index.ts` (`registerAllRoutes`)** — ~68 route files including the `datavault/` and `ai/` subdirectories. Before relying on an exact path/method here, grep the route file; endpoint lists below were verified at the date above but drift.
+Map of API domains → route files (verified August 2026). **Source of truth is `server/routes/index.ts` (`registerAllRoutes`)** — ~69 route files including the `datavault/` and `ai/` subdirectories. Before relying on an exact path/method here, grep the route file; endpoint lists below were verified at the date above but drift.
 
 New endpoints follow the 3-tier pattern in the `add-api-endpoint` skill (`.claude/skills/add-api-endpoint/SKILL.md`).
 
@@ -128,6 +128,14 @@ POST        /api/templates/:id/install
 ```
 
 ## Documents & E-Signature — `documents.routes.ts`, `finalBlock.routes.ts`, `esign.routes.ts`
+
+Document delivery status routes are defined in `documentDelivery.routes.ts`. They require authenticated tenant membership, resolve the run's real user/organization/project tenant in the service layer, and redact webhook/cloud credentials from every response:
+
+```
+GET         /api/tenants/:tenantId/runs/:runId/deliveries
+GET         /api/tenants/:tenantId/deliveries/:deliveryId
+POST        /api/tenants/:tenantId/deliveries/:deliveryId/retry  # failed jobs only
+```
 
 E-sign is mounted at **`/api/esign`** (not `/api/signatures`):
 

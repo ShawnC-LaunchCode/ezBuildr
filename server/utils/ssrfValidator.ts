@@ -1,13 +1,69 @@
-import { URL } from "url";
 import dns from "dns/promises";
+import { isIP } from "node:net";
+
+import { URL } from "url";
+
+type Ipv4RangeCheck = (first: number, second: number) => boolean;
+
+const INTERNAL_IPV4_RANGES: Ipv4RangeCheck[] = [
+    (first) => first === 0,
+    (first) => first === 10,
+    (first) => first === 127,
+    (first, second) => first === 100 && second >= 64 && second <= 127,
+    (first, second) => first === 169 && second === 254,
+    (first, second) => first === 172 && second >= 16 && second <= 31,
+    (first, second) => first === 192 && second === 168,
+    (first, second) => first === 198 && (second === 18 || second === 19),
+    (first) => first >= 224,
+];
+
+const INTERNAL_IPV6_EXACT = new Set(['::', '::1']);
+const INTERNAL_IPV6_PREFIXES = ['fc', 'fd', 'fe8', 'fe9', 'fea', 'feb'];
+
 export const isInternalIp = (ip: string): boolean => {
-    // IPv4 private ranges
-    if (/^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|169\.254\.)/.test(ip)) {
-        return true;
+    const normalized = ip.toLowerCase();
+    const mappedIpv4 = normalized.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)?.[1];
+    const ipv4 = mappedIpv4 ?? (isIP(normalized) === 4 ? normalized : null);
+    if (ipv4) {
+        const octets = ipv4.split('.').map(Number);
+        const [a = -1, b = -1] = octets;
+        return INTERNAL_IPV4_RANGES.some((check) => check(a, b));
     }
-    // IPv6 local/private ranges
-    return /^([fF][cCdD]|fe80|::1)/.test(ip);
+
+    return INTERNAL_IPV6_EXACT.has(normalized) ||
+        INTERNAL_IPV6_PREFIXES.some((prefix) => normalized.startsWith(prefix));
 };
+
+export interface SafeUrlResolution {
+    address: string;
+    family: 4 | 6;
+    parsed: URL;
+}
+
+/** Resolve and validate every address once so callers can pin their socket to it. */
+export async function resolveSafeUrl(
+    targetUrl: string,
+    allowedProtocols = ["https:"]
+): Promise<SafeUrlResolution | null> {
+    try {
+        const parsed = new URL(targetUrl);
+        if (!allowedProtocols.includes(parsed.protocol)) {
+            return null;
+        }
+        if (["localhost", "127.0.0.1", "0.0.0.0", "::1"].includes(parsed.hostname)) {
+            return null;
+        }
+
+        const addresses = await dns.lookup(parsed.hostname, { all: true, verbatim: true });
+        if (addresses.length === 0 || addresses.some(({ address }) => isInternalIp(address))) {
+            return null;
+        }
+        const selected = addresses[0];
+        return { parsed, address: selected.address, family: selected.family === 6 ? 6 : 4 };
+    } catch {
+        return null;
+    }
+}
 
 /**
  * Validates a URL for SSRF protection.
@@ -21,34 +77,5 @@ export async function validateSafeUrl(targetUrl: string, allowedProtocols = ["ht
     // NOTE: no environment-based bypasses here. Tests that need permissive
     // URL validation must mock this module (vi.mock('.../ssrfValidator')) —
     // security code must not change behavior based on NODE_ENV.
-    try {
-        const parsed = new URL(targetUrl);
-
-        if (!allowedProtocols.includes(parsed.protocol)) {
-            return false;
-        }
-
-        // Loopback / simple string checks
-        // SEC-014: Gate loopback usage behind explicit env var
-        if (
-            ["localhost", "127.0.0.1", "0.0.0.0"].includes(parsed.hostname) &&
-            process.env.ALLOW_LOCALHOST_WEBHOOKS !== "true"
-        ) {
-            return false;
-        }
-
-        // DNS resolution to catch DNS rebinding to internal IPs
-        const addresses = await dns.resolve(parsed.hostname);
-
-        for (const addr of addresses) {
-            if (isInternalIp(addr)) {
-                return false;
-            }
-        }
-
-        return true;
-    } catch (err) {
-        // Parse error or DNS resolve error means invalid/unsafe
-        return false;
-    }
+    return (await resolveSafeUrl(targetUrl, allowedProtocols)) !== null;
 }

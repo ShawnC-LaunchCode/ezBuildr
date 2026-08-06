@@ -24,6 +24,7 @@ import { dataSourceRouter } from "./dataSource.routes";
 import { registerDatavaultRoutes } from "./datavault.routes";
 import { registerDatavaultApiTokenRoutes } from "./datavaultApiTokens.routes";
 import { registerDocsRoutes } from "./docs.routes";
+import { registerDocumentDeliveryRoutes } from "./documentDelivery.routes";
 import documentHooksRoutes from "./documentHooks.routes";
 import { registerDocumentRoutes } from "./documents.routes";
 import { registerEmailTemplateRoutes } from "./emailTemplates.routes";
@@ -155,6 +156,7 @@ export function registerAllRoutes(app: Express): void {
   registerPortabilityRoutes(app);
   registerTemplateAnalysisRoutes(app);
   registerDocumentRoutes(app);
+  registerDocumentDeliveryRoutes(app);
   registerFinalBlockRoutes(app);
   registerEsignRoutes(app);
   registerWorkflowAnalyticsRoutes(app);

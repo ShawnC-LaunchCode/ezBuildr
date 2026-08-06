@@ -13,6 +13,8 @@
  * @date December 2025
  */
 
+import type { DeliveryDestination } from "./delivery";
+
 // ============================================================================
 // BASE TYPES & UTILITIES
 // ============================================================================
@@ -605,6 +607,7 @@ export interface FinalBlockConfig {
       }
     };
   }>;
+  deliveryDestinations?: DeliveryDestination[];
 }
 
 /**

@@ -446,7 +446,98 @@ distinct keys cannot collide, and validate the cache entry against the object's 
 
 ---
 
-## GH-170 — Add document delivery destinations with retries and audit status 🔲
+## GH-170 — Add document delivery destinations with retries and audit status ✅
+
+> **CLOSED 2026-08-05 (Senior re-dispatch).** F1–F6 are corrected: real user/org/project
+> ownership resolves to a tenant before insert; both server entrypoints own the worker
+> lifecycle and stale jobs are reclaimed; destination credentials and webhook headers are
+> encrypted at the step persistence boundary and redacted from delivery APIs; webhook and
+> custom S3 traffic is DNS-validated and pinned with sanitized object keys; all reads and
+> manual retries are tenant-scoped; and destination config validation is discriminated by
+> type. Email jobs now attach generated artifacts and become delivered only after SendGrid
+> accepts the message. Real-DB tests cover the FK, claims, stale recovery, audit append,
+> encryption, and RLS policy; an authenticated integration test proves cross-tenant denial.
+> Verification: `type-check` exit 0; `lint` exit 0; `test:fast` 195 passed / 1 skipped
+> files, 2464 passed / 14 skipped tests; `test:unit:db` 15 files / 143 tests passed; targeted integration
+> 1 passed file / 3 passed tests. Self-grade: **A**.
+
+> **FAILED review 2026-08-04 (Senior).** Gates re-run by the reviewer and confirmed green
+> (`type-check` exit 0, `lint` exit 0, `test:fast` **194 files / 2440 tests**, baseline 2401
+> after GH-169A/B). The gates are honest; the feature is not. Six defects, two of them
+> runtime-fatal, one a credential-exposure. See the failure report below. Triage: **SEND
+> BACK**. Do not commit this tree.
+>
+> **F1 (fatal) — every enqueue throws a foreign-key violation.**
+> `DocumentDeliveryService.enqueueDeliveriesForRun` derives the tenant as
+> `const tenantId = workflow?.ownerUuid ?? run.ownerUuid ?? 'default-tenant';`
+> with no `ownerType === 'tenant'` guard. `workflows.owner_uuid` is a `varchar` holding a
+> **user** id when `owner_type = 'user'`, but `run_document_deliveries.tenant_id` is
+> `uuid NOT NULL REFERENCES tenants(id)`. Reviewer queried the dev database read-only:
+> `workflows.owner_type` = `[{user: 83}, {null: 1}]`, and **0 of 84** `owner_uuid` values
+> match a `tenants.id`. So the insert raises `23503` for every workflow that exists, and
+> `RunLifecycleService` swallows it in its `catch` (logs `Failed to enqueue document
+> deliveries for run`, run continues). The literal `'default-tenant'` fallback additionally
+> raises `22P02` — it is not a UUID. AC1/AC2/AC3/AC5 are all unreachable in practice.
+> The unit test hides this: its fixture sets `ownerType: 'tenant', ownerUuid: 'tenant-789'`,
+> a shape that does not occur in the data, and the repository is mocked so no constraint runs.
+>
+> **F2 (fatal) — the retry worker is never started, so backoff retries never fire.**
+> `DocumentDeliveryService.startWorker()` has no caller anywhere in `server/`. Compare
+> `emailQueueService.startWorker()`, which is wired at `server/index.ts:115` and
+> `server/production.ts:85` — the pattern was copied but not connected. A failed delivery
+> is written `status='retry'` with a future `nextAttemptAt` and nothing ever polls it again.
+> The only dispatch triggers are the `setImmediate` after enqueue, the extra
+> `processPendingDeliveries()` in `RunLifecycleService`, and the manual retry route. AC2
+> ("background queue manages delivery dispatch with exponential backoff retries") is unmet:
+> `calculateBackoff` is correct and dead. Related: `claimBatch` moves rows to `'processing'`
+> with no reaper, so a crash mid-delivery strands the row permanently.
+>
+> **F3 (security) — destination credentials are stored and served in plaintext.**
+> `CloudStorageDeliveryConfig` carries `accessKeyId` / `secretAccessKey` and
+> `WebhookDeliveryConfig` carries `secret`. These land unencrypted in `steps.config` jsonb
+> and are copied verbatim into `run_document_deliveries.destination_config`, then returned
+> raw by `GET /api/tenants/:tenantId/deliveries/:deliveryId` and
+> `GET .../runs/:runId/deliveries` (`res.json(delivery)` / `res.json(deliveries)` — no
+> redaction). This violates CLAUDE.md convention 6 (secrets are AES-256-GCM encrypted and
+> reached only through the secrets service). Fix: reference a `secrets` entry by id, or at
+> minimum encrypt at rest and strip these keys in the route serializer.
+>
+> **F4 (security) — AC4's `safeFetch` requirement is only half-met.**
+> `WebhookDeliveryAdapter` correctly routes through `safeFetch`. `CloudStorageDeliveryAdapter`
+> passes user-controlled `config.endpoint` straight into `new S3Client({ endpoint })` with no
+> validation at all — an arbitrary internal host or `169.254.169.254` receives a POST carrying
+> the generated document. AC4 says *all* outbound payloads. Also `config.pathPrefix` +
+> `doc.fileName` are concatenated into the object key unsanitised.
+>
+> **F5 — the tenant-isolation check on the list route does not execute, and its test
+> cannot fail.** `documentDelivery.routes.ts` does
+> `const runTenant = run.ownerType === 'tenant' ? run.ownerUuid : null; if (runTenant && ...)`.
+> Per F1 no run has `ownerType = 'tenant'`, so `runTenant` is always `null` and the check is
+> skipped — `findByRunId(runId)` is then unscoped, so any authenticated user of any tenant
+> can read any run's deliveries by id (IDOR). The test that claims to cover this
+> (`should return list of deliveries for the run`) mocks the run as `{ id, tenantId }` —
+> `workflow_runs` has **no** `tenantId` column; the route never reads that field. The
+> assertion passes because the guard is bypassed, not because it works. There is no test for
+> a run owned by a different tenant.
+>
+> **F6 — `DeliveryDestinationSchema.config` is a plain `z.union`, not discriminated.**
+> Validation never ties `config` to `type`, so `{ type: 'webhook', config: { to: 'a@b.c' } }`
+> validates. `docs/architecture/SECURITY_THREAT_MODEL.md` documents discriminated unions as
+> the repo's standing answer to exactly this. Use `z.discriminatedUnion('type', …)` with
+> per-type `config`, and make `WebhookDeliveryConfigSchema.url` a real URL check rather than
+> `z.string().min(1)`.
+>
+> **Testing gap behind all of the above.** Every test mocks the repository and the adapters;
+> there is not one unit-db test. F1 would have been caught by a single real insert, F5 by one
+> real row. AC3 ("stored and queryable per run") and AC5's "audit event logging" are asserted
+> only as "the mock was called" — the jsonb `||` append, the CHECK constraints, the partial
+> claim index and `FOR UPDATE SKIP LOCKED` are entirely unexercised. Re-dispatch must add
+> unit-db coverage.
+>
+> **Not a blocker, note for the re-dispatch:** there is no builder UI for
+> `deliveryDestinations`, so the feature is unreachable from the product even once F1/F2 are
+> fixed. The ACs do not require UI, so this is not counted against the ticket — file it as a
+> follow-up.
 
 **Priority: P1** · Size: L · Files: `server/services/document/delivery/`, `server/queues/`, `shared/schema/document.ts`
 **Ties:** Preceded by GH-169, GH-168

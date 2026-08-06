@@ -3,6 +3,7 @@ import { eq, asc, inArray, and, sql, isNull } from "drizzle-orm";
 import { steps, sections, type Step, type InsertStep } from "@shared/schema";
 
 import { db } from "../db";
+import { protectFinalBlockDeliverySecrets } from "../utils/documentDeliverySecrets";
 
 import { BaseRepository, type DbTransaction } from "./BaseRepository";
 
@@ -12,6 +13,29 @@ import { BaseRepository, type DbTransaction } from "./BaseRepository";
 export class StepRepository extends BaseRepository<typeof steps, Step, InsertStep> {
   constructor(dbInstance?: typeof db) {
     super(steps, dbInstance);
+  }
+
+  async create(data: InsertStep, tx?: DbTransaction): Promise<Step> {
+    const protectedData = data.type === 'final_documents' || data.type === 'final'
+      ? { ...data, config: protectFinalBlockDeliverySecrets(data.config) }
+      : data;
+    return super.create(protectedData, tx);
+  }
+
+  async update(id: string, updates: Partial<InsertStep>, tx?: DbTransaction): Promise<Step> {
+    if (updates.config === undefined) {
+      return super.update(id, updates, tx);
+    }
+
+    const existing = await this.findById(id, tx);
+    if (!existing) {
+      throw new Error('Step not found');
+    }
+    const type = updates.type ?? existing.type;
+    const protectedUpdates = type === 'final_documents' || type === 'final'
+      ? { ...updates, config: protectFinalBlockDeliverySecrets(updates.config) }
+      : updates;
+    return super.update(id, protectedUpdates, tx);
   }
 
   /**

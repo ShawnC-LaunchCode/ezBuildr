@@ -26,6 +26,7 @@ import {
     scriptExecutionLog,
     metricsEvents, metricsRollups, sliConfigs, sliWindows, templateGenerationMetrics
 } from './run';
+import { runDocumentDeliveries } from './document_delivery';
 import {
     projects, workflows, workflowVersions, templates, templateVersions,
     workflowTemplates, sections, steps, logicRules, blocks, transformBlocks,
@@ -319,6 +320,7 @@ export const workflowRunsRelations = relations(workflowRuns, ({ one, many }) => 
     stepValues: many(stepValues),
     transformBlockRuns: many(transformBlockRuns),
     generatedDocuments: many(runGeneratedDocuments),
+    documentDeliveries: many(runDocumentDeliveries),
 }));
 
 export const stepValuesRelations = relations(stepValues, ({ one }) => ({
@@ -682,5 +684,20 @@ export const auditEventsRelations = relations(auditLogs, ({ one }) => ({ // Map 
     actor: one(users, {
         fields: [auditLogs.userId], // userId in auditLogs vs actorId in auditEvents
         references: [users.id],
+    }),
+}));
+
+export const runDocumentDeliveriesRelations = relations(runDocumentDeliveries, ({ one }) => ({
+    run: one(workflowRuns, {
+        fields: [runDocumentDeliveries.runId],
+        references: [workflowRuns.id],
+    }),
+    workflow: one(workflows, {
+        fields: [runDocumentDeliveries.workflowId],
+        references: [workflows.id],
+    }),
+    tenant: one(tenants, {
+        fields: [runDocumentDeliveries.tenantId],
+        references: [tenants.id],
     }),
 }));

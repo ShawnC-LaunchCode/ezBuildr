@@ -80,6 +80,60 @@ describe('Step Config Schemas', () => {
                     expect(invalidResult.error.issues[0].message).toContain('aliases must be unique');
                 }
             });
+
+            it('ties each delivery destination config to its type', () => {
+                const result = FinalBlockConfigSchema.safeParse({
+                    markdownHeader: 'Done',
+                    documents: [],
+                    deliveryDestinations: [{
+                        id: 'mismatched-webhook',
+                        type: 'webhook',
+                        config: { to: 'recipient@example.com' },
+                    }],
+                });
+
+                expect(result.success).toBe(false);
+            });
+
+            it('accepts valid email, webhook, and cloud storage destinations', () => {
+                const result = FinalBlockConfigSchema.safeParse({
+                    markdownHeader: 'Done',
+                    documents: [],
+                    deliveryDestinations: [
+                        {
+                            id: 'email-destination',
+                            type: 'email',
+                            config: { to: 'recipient@example.com', attachDocuments: true },
+                        },
+                        {
+                            id: 'webhook-destination',
+                            type: 'webhook',
+                            config: { url: 'https://example.com/delivery', secret: 'secret' },
+                        },
+                        {
+                            id: 'cloud-destination',
+                            type: 'cloud_storage',
+                            config: { provider: 's3', bucket: 'documents' },
+                        },
+                    ],
+                });
+
+                expect(result.success).toBe(true);
+            });
+
+            it('rejects a webhook destination with a non-URL endpoint', () => {
+                const result = FinalBlockConfigSchema.safeParse({
+                    markdownHeader: 'Done',
+                    documents: [],
+                    deliveryDestinations: [{
+                        id: 'invalid-webhook',
+                        type: 'webhook',
+                        config: { url: 'internal-host' },
+                    }],
+                });
+
+                expect(result.success).toBe(false);
+            });
         });
 
         describe('ChoiceAdvancedConfigSchema', () => {

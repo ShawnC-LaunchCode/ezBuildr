@@ -151,6 +151,10 @@ export abstract class BaseRepository<TTable extends PgTable, TSelect, TInsert> {
   async transaction<T>(
     callback: (tx: DbTransaction) => Promise<T>
   ): Promise<T> {
+    const database = this.getDb();
+    if ('transaction' in database && typeof database.transaction === 'function') {
+      return (database as { transaction: (cb: (tx: DbTransaction) => Promise<T>) => Promise<T> }).transaction(callback);
+    }
     return db.transaction(callback);
   }
 }
