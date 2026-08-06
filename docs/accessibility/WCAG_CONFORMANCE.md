@@ -115,7 +115,7 @@ ezBuildr is committed to ensuring digital accessibility for all users, including
     - `Home`: Selects and focuses star 1.
     - `End`: Selects and focuses the highest star (`numStars`).
 
-### 2. Workflow Builder Navigation & Panels (`BuilderTabNav.tsx` & `WorkflowBuilder.tsx`)
+### 2. Workflow Builder Navigation & Panels (`BuilderTabNav.tsx` & `BuilderTabPanel.tsx`)
 - **Tablist (`BuilderTabNav.tsx`):**
   - Container: `role="tablist"`, `aria-label="Workflow Builder Navigation"`, `aria-orientation="horizontal"`.
   - Tabs: `role="tab"`, `id="builder-tab-<id>"`, `aria-controls="builder-tabpanel-<id>"`, `aria-selected={isActive}`, `tabIndex={isActive ? 0 : -1}`.

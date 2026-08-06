@@ -4,9 +4,20 @@ import userEvent from '@testing-library/user-event';
 import { axe } from 'vitest-axe';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { BuilderTabNav } from '../../../client/src/components/builder/layout/BuilderTabNav';
+import {
+  BuilderTabNav,
+  type BuilderTab,
+} from '../../../client/src/components/builder/layout/BuilderTabNav';
+import { BuilderTabPanel } from '../../../client/src/components/builder/layout/BuilderTabPanel';
 
-const tabIds = ['sections', 'templates', 'data-sources', 'review', 'snapshots', 'settings'];
+const tabIds: BuilderTab[] = [
+  'sections',
+  'templates',
+  'data-sources',
+  'review',
+  'snapshots',
+  'settings',
+];
 
 afterEach(() => {
   cleanup();
@@ -72,21 +83,34 @@ describe('BuilderTabNav accessibility and keyboard navigation', () => {
     expect(onTabChange).not.toHaveBeenCalled();
   });
 
+  it('removes inactive tabpanels from the flex layout', () => {
+    render(
+      <main>
+        <BuilderTabPanel activeTab="sections" tab="sections">
+          <p>Sections panel content</p>
+        </BuilderTabPanel>
+        <BuilderTabPanel activeTab="sections" tab="templates" />
+      </main>
+    );
+
+    const activePanel = document.getElementById('builder-tabpanel-sections');
+    expect(activePanel).not.toHaveAttribute('hidden');
+    expect(activePanel).toHaveClass('flex', 'flex-1');
+
+    const inactivePanel = document.getElementById('builder-tabpanel-templates');
+    expect(inactivePanel).toHaveAttribute('hidden');
+    expect(inactivePanel).toHaveClass('hidden');
+    expect(inactivePanel).not.toHaveClass('flex', 'flex-1');
+  });
+
   it('has no serious or critical axe violations with associated tabpanels', async () => {
     const { container } = render(
       <main>
         <BuilderTabNav activeTab="sections" onTabChange={vi.fn()} />
         {tabIds.map((tabId) => (
-          <div
-            key={tabId}
-            id={`builder-tabpanel-${tabId}`}
-            role="tabpanel"
-            aria-labelledby={`builder-tab-${tabId}`}
-            tabIndex={tabId === 'sections' ? 0 : -1}
-            hidden={tabId !== 'sections'}
-          >
+          <BuilderTabPanel key={tabId} activeTab="sections" tab={tabId}>
             {tabId === 'sections' ? <p>Sections panel content</p> : null}
-          </div>
+          </BuilderTabPanel>
         ))}
       </main>
     );

@@ -19,7 +19,7 @@ import {
 // Removed AdvancedModeBanner
 // Tab components
 // Versioning Imports
-import { useState, useEffect, useMemo, type ReactNode } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 
 import { ActivateToggle } from "@/components/builder/ActivateToggle";
@@ -33,6 +33,7 @@ import {
   isBuilderTab,
   type BuilderTab,
 } from "@/components/builder/layout/BuilderTabNav";
+import { BuilderTabPanel } from "@/components/builder/layout/BuilderTabPanel";
 import { ResizableBuilderLayout } from "@/components/builder/layout/ResizableBuilderLayout";
 import { LogicInspectorPanel } from "@/components/builder/LogicInspectorPanel";
 import { DataSourcesTab } from "@/components/builder/tabs/DataSourcesTab";
@@ -69,29 +70,6 @@ import {
   useSetWorkflowMode,
 } from "@/lib/vault-hooks";
 import { CURRENT_VERSION_ID } from "@shared/config";
-
-interface BuilderTabPanelProps {
-  activeTab: BuilderTab;
-  children?: ReactNode;
-  tab: BuilderTab;
-}
-
-function BuilderTabPanel({ activeTab, children, tab }: BuilderTabPanelProps) {
-  const isActive = activeTab === tab;
-
-  return (
-    <div
-      id={`builder-tabpanel-${tab}`}
-      role="tabpanel"
-      aria-labelledby={`builder-tab-${tab}`}
-      tabIndex={isActive ? 0 : -1}
-      hidden={!isActive}
-      className="flex-1 flex flex-col overflow-hidden relative focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-    >
-      {children}
-    </div>
-  );
-}
 
 // eslint-disable-next-line max-lines-per-function, complexity
 export default function WorkflowBuilder() {
