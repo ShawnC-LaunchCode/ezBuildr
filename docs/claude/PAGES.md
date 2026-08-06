@@ -51,6 +51,7 @@ All client routes, taken from the Wouter `<Switch>` in `client/src/Router.tsx` (
 |------|-------|
 | Project View | `/projects/:id` |
 | Branding Settings | `/projects/:id/settings/branding` |
+| Legal Integrations | `/projects/:id/settings/integrations` |
 | Domain Settings | `/projects/:id/settings/branding/domains` |
 | Email Templates | `/projects/:id/settings/email-templates` (+ `/:templateId` editor) |
 | User Settings | `/settings` |

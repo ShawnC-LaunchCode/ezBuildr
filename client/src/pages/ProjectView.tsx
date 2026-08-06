@@ -3,7 +3,7 @@
  * Displays a single project with its contained workflows
  */
 
-import { ArrowLeft, Plus, Edit, Share2, Copy, ArrowRightLeft, Trash2, Users, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Share2, Copy, ArrowRightLeft, Trash2, Users, ShieldCheck, Plug } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
 
@@ -314,6 +314,12 @@ export default function ProjectView() {
               )}
             </div>
             <div className="flex flex-wrap justify-end gap-2">
+              <Link href={`/projects/${id}/settings/integrations`}>
+                <Button variant="outline">
+                  <Plug className="w-4 h-4 mr-2" />
+                  Integrations
+                </Button>
+              </Link>
               <Button variant="outline" onClick={() => setIsShareOpen(true)}>
                 <Share2 className="w-4 h-4 mr-2" />
                 Share

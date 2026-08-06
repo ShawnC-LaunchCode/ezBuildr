@@ -35,6 +35,7 @@ Welcome to the VaultLogic documentation! This index provides an organized overvi
 - [Workflow Enhancements](guides/WORKFLOW_ENHANCEMENTS.md) - Skip logic, navigation
 - [Variables in Documents](guides/VARIABLES_IN_DOCUMENTS.md) - Template variables
 - [E-Signature Integration](guides/ESIGNATURE_INTEGRATION.md) - DocuSign, HelloSign
+- [Legal Integrations](guides/LEGAL_INTEGRATIONS.md) - Clio Manage, Stripe Payments, and DocuSign setup
 - [Easy/Advanced Mode](guides/EASY_ADVANCED_MODE.md) - Mode implementation
 - [Autonumber Guide](guides/AUTONUMBER_FRONTEND_GUIDE.md) - Autonumber columns
 - [Choice Lists](guides/CHOICE_LIST_OPTIONS.md) - Choice list configuration

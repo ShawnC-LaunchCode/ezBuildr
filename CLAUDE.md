@@ -195,6 +195,7 @@ npm run db:migrate       # Run SQL migrations (see db-schema-change skill first)
 | [Frontend Guide](./docs/guides/FRONTEND.md) | Frontend architecture |
 | [Step Aliases](./docs/guides/STEP_ALIASES.md) | Variable naming system |
 | [E-Signature](./docs/guides/ESIGNATURE_INTEGRATION.md) | DocuSign integration |
+| [Legal Integrations](./docs/guides/LEGAL_INTEGRATIONS.md) | Clio Manage, Stripe Payments, and DocuSign setup |
 | [Variables in Documents](./docs/guides/VARIABLES_IN_DOCUMENTS.md) | Template variables |
 
 ### Architecture

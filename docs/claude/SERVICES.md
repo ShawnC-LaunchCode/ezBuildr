@@ -106,7 +106,7 @@ AnalyticsService, DropoffService, BranchingService, AggregationService, HeatmapS
 
 ## Integrations
 
-Connections, secrets, and OAuth2 are lowercase **module files**, not PascalCase classes: `connections.ts` / `externalConnections.ts`, `secrets.ts`, `oauth2.ts`. Also: ExternalDestinationService, GooglePlacesService, EmailQueueService.
+Connections, secrets, and OAuth2 are lowercase **module files**, not PascalCase classes: `connections.ts` / `externalConnections.ts`, `secrets.ts`, `oauth2.ts`. Curated legal delivery is in `services/integrations/`: `LegalIntegrationService` provisions encrypted Clio/Stripe connections, `ClioIntegrationService` creates contacts and files matter documents, and `StripePaymentService` creates idempotent PaymentIntents and verifies payment webhooks. Also: ExternalDestinationService, GooglePlacesService, EmailQueueService.
 
 ## Templates
 

@@ -31,6 +31,7 @@ import { registerEmailTemplateRoutes } from "./emailTemplates.routes";
 import { registerEsignRoutes } from "./esign.routes";
 import externalRouter from "./external.routes";
 import { registerFinalBlockRoutes } from "./finalBlock.routes";
+import { registerLegalIntegrationRoutes } from "./legalIntegrations.routes";
 import lifecycleHooksRoutes from "./lifecycleHooks.routes";
 import marketplaceRouter from "./marketplace";
 import { registerMetricsRoutes } from "./metrics";
@@ -151,6 +152,7 @@ export function registerAllRoutes(app: Express): void {
 
   registerSecretsRoutes(app);
   registerConnectionsV2Routes(app);
+  registerLegalIntegrationRoutes(app);
   registerRunRoutes(app);
   registerWorkflowExportRoutes(app);
   registerPortabilityRoutes(app);

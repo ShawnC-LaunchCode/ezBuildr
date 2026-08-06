@@ -58,7 +58,7 @@ rewritten tickets below supersede it.
 
 ## Roadmap Progress & Dependency Overview
 
-**10 of 28 tickets complete (36%)** — updated 2026-08-06
+**11 of 28 tickets complete (39%)** — updated 2026-08-06
 
 > Keep this in sync: when a ticket's own heading earns a ✅, flip its node below
 > and bump the phase count and the overall bar. The heading is the source of truth.
@@ -66,19 +66,19 @@ rewritten tickets below supersede it.
 ```
 LEGEND    ✅ done      🔲 open
 
-OVERALL   ██████████░░░░░░░░░░░░░░░░░░░░   10 / 28   (36%)
+OVERALL   ███████████░░░░░░░░░░░░░░░░░░   11 / 28   (39%)
 
 
 [Phase 0 — P0 Security & Storage Foundation]      ██████████  2/2  DONE
   ├── ✅ GH-169A   Real clamd virus scanner client
   └── ✅ GH-169B   Storage init, signed-URL route, S3 hardening
         │
-        ├──► [Phase 1 — Document & Delivery Pipeline]    ██████░░░░  3/5
+        ├──► [Phase 1 — Document & Delivery Pipeline]    ████████░░  4/5
         │      ├── ✅ GH-168   High-fidelity DOCX-to-PDF converter
         │      ├── 🔲 GH-156   Document mapping workbench
         │      ├── ✅ GH-170   Delivery destinations & retries
         │      ├── ✅ GH-157   DocuSign envelope lifecycle
-        │      └── 🔲 GH-149   Packaged legal integrations (Clio/Stripe/e-sign)
+        │      └── ✅ GH-149   Packaged legal integrations (Clio/Stripe/e-sign)
         │
         ├──► [Phase 2 — Runner Experience, Reliability & Compliance]  ███████░░░  4/6
         │      ├── ✅ GH-160   Resilient autosave & offline buffering
@@ -124,6 +124,7 @@ OVERALL   ██████████░░░░░░░░░░░░░�
 | ✅ GH-146 | File uploads in the runner and inside List items | 2026-08-06 |
 | ✅ GH-157 | Production DocuSign envelope lifecycle | 2026-08-06 |
 | ✅ GH-152 | Publish gate review grouping and deep links | 2026-08-06 |
+| ✅ GH-149 | Packaged Clio, Stripe, and DocuSign legal integrations | 2026-08-06 |
 
 ---
 
@@ -676,7 +677,41 @@ distinct keys cannot collide, and validate the cache entry against the object's 
 
 ---
 
-## GH-149 — Package legal delivery integrations for Clio, e-signature, and payments 🔲
+## GH-149 — Package legal delivery integrations for Clio, e-signature, and payments ✅
+
+> **CLOSED 2026-08-06.** A project-scoped integrations hub at
+> `/projects/:id/settings/integrations` packages Clio Manage, Stripe, and DocuSign.
+> Clio: region-pinned OAuth (us/eu/ca/au), contact creation, and matter-document filing.
+> Stripe: idempotent PaymentIntents and a signed-webhook endpoint. Both providers'
+> credentials go through the existing `secrets` service, so AES-256-GCM under
+> `VL_MASTER_KEY` is inherited rather than reimplemented, and setup responses return only
+> secret *references*. DocuSign is surfaced read-only from the GH-157 registry.
+>
+> **Reviewer verification pass 2026-08-06.** Rebased onto `main` (GH-152) **before**
+> gating, so the numbers describe what actually lands: `tsc` exit 0, `lint` exit 0,
+> `test:fast` 212 passed / 1 skipped files and 2560 passed / 14 skipped tests,
+> `legal-integrations.routes` integration 1 file / 4 tests.
+>
+> **Live proof (reviewer).** The dev reported no browser backend, so the reviewer drove it:
+> worktree server on **:5178**, confirmed serving this branch (not `main`) by grepping a
+> changed source file over HTTP. `GET /api/projects/:id/integrations` returned **200** with
+> Clio/Stripe `not_configured` and DocuSign `unavailable` (correct — no `DOCUSIGN_*` set
+> locally). Drove the page in a real browser: hub renders, the Stripe dialog opens with
+> correct key-format placeholders, mobile (390px) stacks without overflow. The only console
+> errors are Vite HMR websocket noise on :5000. Probe tenant/user/project deleted and the
+> deletion proven (`leftover tenants: 0  projects: 0`).
+>
+> **Security notes checked:** Clio's `baseUrl` is server-pinned from the region enum, and
+> both providers call out through `safeFetch`, so a hand-crafted `provider: 'clio'`
+> connection pointing at an internal address is refused by the SSRF guard rather than
+> proxied. The Stripe webhook verifies `t=`/`v1=` with a 300s replay window and a
+> timing-safe compare over `${timestamp}.${rawBody}`, rejects a project-id mismatch, and
+> fails closed when the signing secret is absent.
+>
+> **Observation filed (O-14):** the PaymentIntent `Idempotency-Key` is taken verbatim from
+> the client and not namespaced by project. Harmless while each project holds its own
+> Stripe secret key (idempotency is scoped per Stripe account), but worth prefixing if
+> projects ever share an account.
 
 **Priority: P1** · Size: L · Files: `server/services/integrations/`, `server/routes/connections.routes.ts`, `client/src/components/builder/integrations/`
 **Ties:** Preceded by GH-157, GH-170

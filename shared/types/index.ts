@@ -3,6 +3,7 @@ export * from "./blocks";
 export * from "./branding";
 export * from "./conditions";
 export * from "./connections";
+export * from "./legalIntegrations";
 export * from "./debug";
 export * from "./intake";
 export * from "./optimization";

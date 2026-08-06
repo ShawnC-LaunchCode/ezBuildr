@@ -36,6 +36,7 @@ const OptimizationWizard = lazy(() => import("@/pages/optimization/OptimizationW
 const WorkflowPreview = lazy(() => import("@/pages/WorkflowPreview"));
 const ProjectView = lazy(() => import("@/pages/ProjectView"));
 const BrandingSettingsPage = lazy(() => import("@/pages/BrandingSettingsPage")); // Stage 17
+const IntegrationsSettingsPage = lazy(() => import("@/pages/IntegrationsSettingsPage"));
 const DomainSettingsPage = lazy(() => import("@/pages/DomainSettingsPage")); // Stage 17
 const IntakePreviewPage = lazy(() => import("@/pages/IntakePreviewPage")); // Stage 17
 const EmailTemplatesPage = lazy(() => import("@/pages/EmailTemplatesPage")); // Stage 17
@@ -137,6 +138,7 @@ export default function Router() {
                         <Route path="/settings" component={SettingsPage} />
                         {/* Stage 17: Branding Settings */}
                         <Route path="/projects/:id/settings/branding" component={BrandingSettingsPage} />
+                        <Route path="/projects/:id/settings/integrations" component={IntegrationsSettingsPage} />
                         {/* Stage 19: Collections / Datastore */}
                         <Route path="/data" component={CollectionsPage} />
                         <Route path="/data/:id" component={CollectionDetailPage} />

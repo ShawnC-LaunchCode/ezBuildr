@@ -166,6 +166,14 @@ PATCH/DEL   /api/projects/:projectId/connections/:connectionId
 POST        /api/projects/:projectId/connections/:connectionId/test
 GET/POST    /api/projects/:projectId/secrets
 POST        /api/projects/:projectId/secrets/:secretId/test
+GET         /api/projects/:projectId/integrations
+POST        /api/projects/:projectId/integrations/clio
+POST        /api/projects/:projectId/integrations/clio/:connectionId/authorize
+POST        /api/projects/:projectId/integrations/clio/:connectionId/contacts
+POST        /api/projects/:projectId/integrations/clio/:connectionId/matters/:matterId/documents
+POST        /api/projects/:projectId/integrations/stripe
+POST        /api/projects/:projectId/integrations/stripe/:connectionId/payment-intents
+POST        /api/integrations/stripe/webhook/:connectionId # public, raw-body HMAC verified
 /api/webhooks/*                                   # webhook router
 /api/external/*                                   # external API (rate-limited)
 /api/data-sources/*                               # data source router
@@ -173,6 +181,11 @@ POST        /api/projects/:projectId/secrets/:secretId/test
 ```
 
 `oauth.routes.ts` exists but is **intentionally disabled** (commented out in index.ts — insecure self-hosted OAuth provider).
+
+The curated legal integration routes live in `legalIntegrations.routes.ts`.
+Project routes require the matching project ACL; the Stripe webhook is public
+but verifies the raw payload, timestamp, per-connection signing secret, and
+project metadata before acknowledging an event.
 
 ## Analytics & Export — `workflowAnalytics.routes.ts`, `workflowExports.routes.ts`
 
