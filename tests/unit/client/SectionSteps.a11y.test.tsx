@@ -4,7 +4,7 @@
  * - Tab/Shift+Tab: text, validated inputs, boolean buttons, choice checkboxes,
  *   address fields, grouped fields, final download, and signature actions remain reachable.
  * - Enter/Space: button, checkbox, and action controls expose native keyboard activation.
- * - Arrows: slider and Radix choice primitives keep their library-managed keyboard handling.
+ * - Arrows: slider, radio stars, and Radix choice primitives keep their library/custom-managed keyboard handling.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
@@ -108,6 +108,7 @@ const steps: ApiStep[] = [
     allowDecline: true,
   }, false),
   createStep('list', 20, 'Children', {
+    allowReorder: true,
     fields: [
       { kind: 'question', id: 'name-field', alias: 'name', type: 'short_text', title: 'Name', order: 0, required: true },
     ],
@@ -227,5 +228,109 @@ describe('SectionSteps accessibility smoke', () => {
     expect(onChange).toHaveBeenCalledWith('short_text', 'K');
     expect(onChange).toHaveBeenCalledWith('boolean', false);
     expect(onChange).toHaveBeenCalledWith('choice', ['alpha', 'beta']);
+  });
+
+  it('renders star scale rating with radiogroup semantics and keyboard operability', async () => {
+    const user = userEvent.setup();
+    const starSteps = [
+      createStep('scale', 1, 'Star Rating', {
+        min: 1,
+        max: 5,
+        display: 'stars',
+      }),
+    ];
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const onChange = vi.fn();
+
+    const { container } = render(
+      <QueryClientProvider client={queryClient}>
+        <main>
+          <ListDrillProvider>
+            <SectionSteps
+              sectionId={sectionId}
+              steps={starSteps}
+              values={{ scale: 3 }}
+              logicRules={[]}
+              errors={{}}
+              onChange={onChange}
+            />
+          </ListDrillProvider>
+        </main>
+      </QueryClientProvider>
+    );
+
+    const radiogroup = screen.getByRole('radiogroup', { name: 'Star Rating' });
+    expect(radiogroup).toBeInTheDocument();
+
+    const star1 = screen.getByRole('radio', { name: '1 of 5 stars' });
+    const star3 = screen.getByRole('radio', { name: '3 of 5 stars' });
+    const star4 = screen.getByRole('radio', { name: '4 of 5 stars' });
+    const star5 = screen.getByRole('radio', { name: '5 of 5 stars' });
+
+    // Verify roving tabindex: checked star has tabIndex=0, others have tabIndex=-1
+    expect(star3).toHaveAttribute('aria-checked', 'true');
+    expect(star3).toHaveAttribute('tabIndex', '0');
+    expect(star1).toHaveAttribute('aria-checked', 'false');
+    expect(star1).toHaveAttribute('tabIndex', '-1');
+    expect(star4).toHaveAttribute('aria-checked', 'false');
+    expect(star4).toHaveAttribute('tabIndex', '-1');
+    expect(star5).toHaveAttribute('aria-checked', 'false');
+    expect(star5).toHaveAttribute('tabIndex', '-1');
+    expect(star3.querySelector('svg')).toHaveClass('fill-warning', 'text-warning');
+    expect(star4.querySelector('svg')).toHaveClass('text-muted-foreground');
+
+    // Arrow-key radio group navigation
+    star3.focus();
+    await user.keyboard('{ArrowRight}');
+    expect(onChange).toHaveBeenCalledWith('scale', 4);
+
+    star4.focus();
+    await user.keyboard('{ArrowLeft}');
+    expect(onChange).toHaveBeenCalledWith('scale', 3);
+
+    await user.keyboard('{Home}');
+    expect(onChange).toHaveBeenCalledWith('scale', 1);
+
+    await user.keyboard('{End}');
+    expect(onChange).toHaveBeenCalledWith('scale', 5);
+
+    const results = await axe(container, {
+      rules: { 'color-contrast': { enabled: false } },
+    });
+    const severeViolations = results.violations.filter(
+      (v) => v.impact === 'serious' || v.impact === 'critical'
+    );
+    expect(severeViolations).toEqual([]);
+  });
+
+  it('gives list item controls explicit focus-visible indicators', async () => {
+    renderSection();
+
+    const reorderButton = await screen.findByRole('button', { name: 'Reorder Ava' });
+    const openButton = screen.getByRole('button', { name: /^Ava/ });
+
+    expect(reorderButton).toHaveClass('focus-visible:ring-2', 'focus-visible:ring-ring');
+    expect(openButton).toHaveClass('focus-visible:ring-2', 'focus-visible:ring-ring');
+
+    reorderButton.focus();
+    expect(reorderButton).toHaveFocus();
+    openButton.focus();
+    expect(openButton).toHaveFocus();
+  });
+
+  it('associates validation errors with inputs and exposes role=alert', () => {
+    renderSection({
+      short_text: ['Please provide a valid short answer'],
+      email: ['Must be a valid email address'],
+    });
+
+    const errorAlerts = screen.getAllByRole('alert');
+    expect(errorAlerts.length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('Please provide a valid short answer')).toBeInTheDocument();
+    expect(screen.getByText('Must be a valid email address')).toBeInTheDocument();
+
+    const emailInput = screen.getByLabelText(/Email/);
+    expect(emailInput).toHaveAttribute('aria-invalid', 'true');
+    expect(emailInput).toHaveAttribute('aria-describedby');
   });
 });

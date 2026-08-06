@@ -39,16 +39,20 @@ export function ClientRunnerLayout({
                     <div className="flex items-center gap-4">
                         {saveAndResumeAction}
                         {saveStatus && saveStatus !== "idle" && (
-                            <div className="flex items-center gap-1.5 text-xs font-medium animate-in fade-in zoom-in duration-300">
+                            <div
+                                role="status"
+                                aria-live="polite"
+                                className="flex items-center gap-1.5 text-xs font-medium animate-in fade-in zoom-in duration-300"
+                            >
                                 {saveStatus === "saving" && (
                                     <>
-                                        <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                        <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-hidden="true" />
                                         <span className="text-muted-foreground">Saving...</span>
                                     </>
                                 )}
                                 {saveStatus === "saved" && (
                                     <>
-                                        <Check className="h-3 w-3 text-green-500" />
+                                        <Check className="h-3 w-3 text-green-500" aria-hidden="true" />
                                         <span className="text-muted-foreground">Saved</span>
                                     </>
                                 )}
@@ -58,7 +62,7 @@ export function ClientRunnerLayout({
                             </div>
                         )}
                         {totalSteps && totalSteps > 0 && currentStep !== undefined && (
-                            <div className="text-xs text-muted-foreground font-medium">
+                            <div className="text-xs text-muted-foreground font-medium" aria-label="Progress summary">
                                 {currentStep >= totalSteps ? "Review" : `Step ${currentStep + 1} of ${totalSteps}`}
                             </div>
                         )}

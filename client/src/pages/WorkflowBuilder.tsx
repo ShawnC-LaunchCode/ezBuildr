@@ -19,7 +19,7 @@ import {
 // Removed AdvancedModeBanner
 // Tab components
 // Versioning Imports
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { useParams, useLocation } from "wouter";
 
 import { ActivateToggle } from "@/components/builder/ActivateToggle";
@@ -69,6 +69,30 @@ import {
   useSetWorkflowMode,
 } from "@/lib/vault-hooks";
 import { CURRENT_VERSION_ID } from "@shared/config";
+
+interface BuilderTabPanelProps {
+  activeTab: BuilderTab;
+  children?: ReactNode;
+  tab: BuilderTab;
+}
+
+function BuilderTabPanel({ activeTab, children, tab }: BuilderTabPanelProps) {
+  const isActive = activeTab === tab;
+
+  return (
+    <div
+      id={`builder-tabpanel-${tab}`}
+      role="tabpanel"
+      aria-labelledby={`builder-tab-${tab}`}
+      tabIndex={isActive ? 0 : -1}
+      hidden={!isActive}
+      className="flex-1 flex flex-col overflow-hidden relative focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+    >
+      {children}
+    </div>
+  );
+}
+
 // eslint-disable-next-line max-lines-per-function, complexity
 export default function WorkflowBuilder() {
   const { id: workflowId } = useParams<{ id: string }>();
@@ -354,29 +378,39 @@ export default function WorkflowBuilder() {
                 />
               </div>
               {/* Content */}
-              <div className="flex-1 flex flex-col overflow-hidden relative">
+              <BuilderTabPanel activeTab={activeTab} tab="sections">
                 {activeTab === "sections" && (
                   <SectionsTab workflowId={workflowId} mode={mode} />
                 )}
+              </BuilderTabPanel>
+              <BuilderTabPanel activeTab={activeTab} tab="templates">
                 {activeTab === "templates" && (
                   <TemplatesTab workflowId={workflowId} />
                 )}
+              </BuilderTabPanel>
+              <BuilderTabPanel activeTab={activeTab} tab="data-sources">
                 {activeTab === "data-sources" && (
                   <DataSourcesTab
                     workflowId={workflowId}
                     onCollectionsClick={() => setCollectionsDrawerOpen(true)}
                   />
                 )}
+              </BuilderTabPanel>
+              <BuilderTabPanel activeTab={activeTab} tab="review">
                 {activeTab === "review" && (
                   <ReviewTab workflowId={workflowId} />
                 )}
+              </BuilderTabPanel>
+              <BuilderTabPanel activeTab={activeTab} tab="snapshots">
                 {activeTab === "snapshots" && (
                   <SnapshotsTab workflowId={workflowId} />
                 )}
+              </BuilderTabPanel>
+              <BuilderTabPanel activeTab={activeTab} tab="settings">
                 {activeTab === "settings" && (
                   <SettingsTab workflowId={workflowId} />
                 )}
-              </div>
+              </BuilderTabPanel>
               <CollectionsDrawer
                 open={collectionsDrawerOpen}
                 onOpenChange={setCollectionsDrawerOpen}

@@ -243,18 +243,18 @@ function ListItemRow({
       {allowReorder && (
         <button
           type="button"
-          className="cursor-grab p-1 text-muted-foreground active:cursor-grabbing"
+          className="cursor-grab rounded-sm p-1 text-muted-foreground active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           aria-label={`Reorder ${label}`}
           {...attributes}
           {...listeners}
         >
-          <GripVertical className="h-4 w-4" />
+          <GripVertical className="h-4 w-4" aria-hidden="true" />
         </button>
       )}
       <button
         type="button"
         ref={(node) => { registerOpenButtonRef(item.itemId, node); }}
-        className="flex flex-1 items-center justify-between gap-2 py-1 text-left"
+        className="flex flex-1 items-center justify-between gap-2 rounded-sm py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         onClick={onOpen}
       >
         <span className="flex-1 truncate text-sm font-medium">{label}</span>
@@ -265,7 +265,7 @@ function ListItemRow({
           </span>
         )}
         {nestedSummary && <span className="shrink-0 text-xs text-muted-foreground">{nestedSummary}</span>}
-        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       </button>
       {!readOnly && (
         <Button

@@ -220,11 +220,12 @@ export function BlockCard({ item, workflowId, sectionId: _sectionId, isExpanded 
           <div className="flex items-start gap-2">
             {/* Drag Handle */}
             <button
-              className="cursor-grab active:cursor-grabbing p-1 hover:bg-accent rounded"
+              className="cursor-grab active:cursor-grabbing p-1 hover:bg-accent rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Reorder block"
               {...attributes}
               {...listeners}
             >
-              <GripVertical className="h-4 w-4 text-muted-foreground" />
+              <GripVertical className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             </button>
 
             {/* Icon and Collapse Button (stacked vertically) */}
@@ -233,7 +234,7 @@ export function BlockCard({ item, workflowId, sectionId: _sectionId, isExpanded 
                 {(() => {
                   // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
                   const Icon = BLOCK_TYPE_ICONS[item.data.type as string] || Code2;
-                  return <Icon className="h-4 w-4 text-muted-foreground" />;
+                  return <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />;
                 })()}
               </div>
               {!isReadTableOrWrite && (
@@ -241,15 +242,17 @@ export function BlockCard({ item, workflowId, sectionId: _sectionId, isExpanded 
                   variant="ghost"
                   size="icon"
                   className="h-5 w-5"
+                  aria-label={isExpanded ? "Collapse block" : "Expand block"}
+                  aria-expanded={isExpanded}
                   onClick={(e) => {
                     e.stopPropagation();
                     onToggleExpand?.();
                   }}
                 >
                   {isExpanded ? (
-                    <ChevronDown className="h-3 w-3" />
+                    <ChevronDown className="h-3 w-3" aria-hidden="true" />
                   ) : (
-                    <ChevronRight className="h-3 w-3" />
+                    <ChevronRight className="h-3 w-3" aria-hidden="true" />
                   )}
                 </Button>
               )}
@@ -291,9 +294,10 @@ export function BlockCard({ item, workflowId, sectionId: _sectionId, isExpanded 
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+              aria-label="Delete block"
               onClick={(e) => { void handleDelete(e); }}
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
             </Button>
           </div>
 

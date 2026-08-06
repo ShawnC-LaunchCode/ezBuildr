@@ -119,7 +119,7 @@ export function BooleanBlockRenderer({
   // Render as two-button selector (recommended)
   if (displayStyle === "buttons") {
     return (
-      <div className="flex gap-2">
+      <div className="flex gap-2" role="group" aria-label={step.title}>
         <Button
           type="button"
           variant={isTrue && isDefined ? "default" : "outline"}
