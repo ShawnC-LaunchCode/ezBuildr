@@ -13,10 +13,11 @@ import { nanoid } from "nanoid";
 import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
-import { users, userCredentials } from "@shared/schema";
+import { users, userCredentials, workflows } from "@shared/schema";
 
 import { db } from "../../../server/db";
 import { setupIntegrationTest, type IntegrationTestContext } from "../../helpers/integrationTestHelper";
+import { TestFactory } from "../../helpers/testFactory";
 
 
 
@@ -252,115 +253,68 @@ describe.sequential("Auth Middleware Integration Tests", () => {
     });
 
     describe("optionalHybridAuth Middleware", () => {
-        it("should authenticate with JWT if provided", async () => {
-            const publicLink = `hybrid-jwt-${nanoid()}`;
-            // Create workflow to get valid ID
-            const workflowRes = await request(ctx.baseURL)
-                .post(`/api/workflows`)
-                .set("Authorization", `Bearer ${ctx.authToken}`)
-                .send({
-                    title: "Hybrid Optional JWT",
-                    projectId: ctx.projectId,
-                })
-                .expect(201);
-
-            // Manually set slug and isPublic=true in DB
-            const { workflows } = await import("@shared/schema");
-            await db.update(workflows)
-                .set({
+        /**
+         * POST /api/workflows/public/:slug/start is the surviving
+         * optionalHybridAuth entrypoint for anonymous-or-personalized run
+         * creation; the /intake/* pipeline these cases used to exercise was an
+         * orphaned parallel implementation and has been removed.
+         */
+        const createPublicWorkflow = async (): Promise<string> => {
+            const factory = new TestFactory();
+            const created = await factory.createWorkflow(ctx.projectId!, ctx.userId, {
+                workflow: {
+                    status: "active",
                     isPublic: true,
-                    slug: publicLink, // IntakeService uses findBySlug
-                    requireLogin: false
-                } as any)
-                .where(eq(workflows.id, workflowRes.body.id));
+                    requireLogin: false,
+                },
+            });
+            const section = await factory.createSection(created.workflow.id);
+            await factory.createStep(section.id, { alias: `q${nanoid(6)}` });
+            // An anonymous run requires a published version to pin to.
+            await db.update(workflows)
+                .set({ currentVersionId: created.version.id })
+                .where(eq(workflows.id, created.workflow.id));
+            return created.workflow.publicLink!;
+        };
 
-            // Use /intake/runs which uses optionalHybridAuth
+        it("should authenticate with JWT if provided", async () => {
+            const slug = await createPublicWorkflow();
+
             await request(ctx.baseURL)
-                .post("/intake/runs")
+                .post(`/api/workflows/public/${slug}/start`)
                 .set("Authorization", `Bearer ${userToken}`)
-                .send({ slug: publicLink, answers: {} })
+                .send({})
                 .expect(201);
         });
 
         it("should authenticate with cookie if JWT not provided", async () => {
-            const publicLink = `hybrid-cookie-${nanoid()}`;
-            const workflowRes = await request(ctx.baseURL)
-                .post(`/api/workflows`)
-                .set("Authorization", `Bearer ${ctx.authToken}`)
-                .send({
-                    title: "Hybrid Optional Cookie",
-                    projectId: ctx.projectId,
-                })
-                .expect(201);
-
-            const { workflows } = await import("@shared/schema");
-            await db.update(workflows)
-                .set({
-                    isPublic: true,
-                    slug: publicLink,
-                    requireLogin: false
-                } as any)
-                .where(eq(workflows.id, workflowRes.body.id));
+            const slug = await createPublicWorkflow();
 
             await request(ctx.baseURL)
-                .post("/intake/runs")
+                .post(`/api/workflows/public/${slug}/start`)
                 .set("Cookie", refreshCookie)
-                .send({ slug: publicLink, answers: {} })
+                .send({})
                 .expect(201);
         });
 
         it("should proceed anonymously if no auth provided", async () => {
-            const publicLink = `hybrid-anon-${nanoid()}`;
-            const workflowRes = await request(ctx.baseURL)
-                .post(`/api/workflows`)
-                .set("Authorization", `Bearer ${ctx.authToken}`)
-                .send({
-                    title: "Hybrid Optional Anonymous",
-                    projectId: ctx.projectId,
-                })
-                .expect(201);
-
-            const { workflows } = await import("@shared/schema");
-            await db.update(workflows)
-                .set({
-                    isPublic: true,
-                    slug: publicLink,
-                    requireLogin: false
-                } as any)
-                .where(eq(workflows.id, workflowRes.body.id));
+            const slug = await createPublicWorkflow();
 
             await request(ctx.baseURL)
-                .post("/intake/runs")
-                .send({ slug: publicLink, answers: {} })
+                .post(`/api/workflows/public/${slug}/start`)
+                .send({})
                 .expect(201);
         });
 
         it("should proceed anonymously if both JWT and cookie are invalid", async () => {
-            const publicLink = `hybrid-invalid-${nanoid()}`;
-            const workflowRes = await request(ctx.baseURL)
-                .post(`/api/workflows`)
-                .set("Authorization", `Bearer ${ctx.authToken}`)
-                .send({
-                    title: "Hybrid Optional Invalid",
-                    projectId: ctx.projectId,
-                })
-                .expect(201);
-
-            const { workflows } = await import("@shared/schema");
-            await db.update(workflows)
-                .set({
-                    isPublic: true,
-                    slug: publicLink,
-                    requireLogin: false
-                } as any)
-                .where(eq(workflows.id, workflowRes.body.id));
+            const slug = await createPublicWorkflow();
 
             // Even with invalid auth, optionalHybridAuth catches error and proceeds
             await request(ctx.baseURL)
-                .post("/intake/runs")
+                .post(`/api/workflows/public/${slug}/start`)
                 .set("Authorization", "Bearer invalid-token")
                 .set("Cookie", ["refresh_token=invalid-cookie"])
-                .send({ slug: publicLink, answers: {} })
+                .send({})
                 .expect(201);
         });
     });
