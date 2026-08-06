@@ -48,7 +48,7 @@ describe('RunDocumentDeliveryRepository', () => {
         {
           runId: 'run-1',
           workflowId: 'wf-1',
-          tenantId: null,
+          tenantId: 'tenant-1',
           destinationType: 'email',
           destinationConfig: { to: 'test@example.com' },
           status: 'pending',

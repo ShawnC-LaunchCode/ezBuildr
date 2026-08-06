@@ -113,6 +113,13 @@
       "when": 1785961629082,
       "tag": "0015_document_delivery_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1786019252813,
+      "tag": "0016_delivery_tenant_not_null",
+      "breakpoints": true
     }
   ]
 }

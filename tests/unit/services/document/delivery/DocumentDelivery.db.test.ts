@@ -118,7 +118,7 @@ describeWithDb('DocumentDelivery DB', () => {
     expect(decrypt(destination.config.headers.Authorization)).toBe('Bearer plaintext-token');
   });
 
-  it('successfully creates delivery record with tenantId and null tenantId without FK violation', async () => {
+  it('creates a delivery record against a real tenant FK', async () => {
     const records = await runDocumentDeliveryRepository.createDeliveries([
       {
         runId: testRunId,
@@ -132,23 +132,102 @@ describeWithDb('DocumentDelivery DB', () => {
         nextAttemptAt: new Date(),
         auditLog: [],
       },
-      {
-        runId: testRunId,
-        workflowId: testWorkflowId,
-        tenantId: null, // User-owned / no tenant FK
-        destinationType: 'webhook',
-        destinationConfig: { url: 'https://example.com/webhook' },
-        status: 'pending',
-        attempts: 0,
-        maxAttempts: 5,
-        nextAttemptAt: new Date(),
-        auditLog: [],
-      },
     ]);
 
-    expect(records).toHaveLength(2);
+    expect(records).toHaveLength(1);
     expect(records[0].tenantId).toBe(testTenantId);
-    expect(records[1].tenantId).toBeNull();
+  });
+
+  /**
+   * 0016_delivery_tenant_not_null. A null-tenant row is invisible to both read
+   * paths and to the tenant_isolation policy, but the worker still delivers it,
+   * so the column must reject NULL at the database level even when a caller
+   * defeats the type.
+   */
+  it('rejects a delivery row with a null tenant_id at the database level', async () => {
+    const orphan = {
+      runId: testRunId,
+      workflowId: testWorkflowId,
+      tenantId: null,
+      destinationType: 'webhook',
+      destinationConfig: { url: 'https://example.com/webhook' },
+      status: 'pending',
+      attempts: 0,
+      maxAttempts: 5,
+      nextAttemptAt: new Date(),
+      auditLog: [],
+    } as unknown as Parameters<typeof runDocumentDeliveryRepository.createDeliveries>[0][number];
+
+    // Drizzle wraps the driver error, so the Postgres code lives on `cause`.
+    const error = await runDocumentDeliveryRepository
+      .createDeliveries([orphan])
+      .then(() => null)
+      .catch((err: unknown) => err as Error & { cause?: { code?: string; message?: string } });
+
+    expect(error).not.toBeNull();
+    expect(error?.cause?.code).toBe('23502'); // not_null_violation
+    expect(String(error?.cause?.message)).toMatch(
+      /null value in column "tenant_id".*violates not-null constraint/
+    );
+  });
+
+  /**
+   * The guard in enqueueDeliveriesForRun. Deliberately run WITHOUT a
+   * transaction: inside one, the rollback would make "no row written" true
+   * regardless of whether the service refused or the constraint fired.
+   */
+  it('refuses to enqueue, writing no row, when no tenant can be resolved for the run', async () => {
+    const orphanRunId = await db.transaction(async (tx: unknown) => {
+      const txDb = tx as DbTransaction;
+      const txFactory = new TestFactory(txDb);
+      const { user, project } = await txFactory.createTenant();
+
+      // Unfiled and unowned: no projectId, no owner principal, no legacy
+      // creator/owner user — every branch of resolveTenantId comes up empty.
+      const { workflow, version } = await txFactory.createWorkflow(project.id, user.id, {
+        workflow: {
+          name: 'Tenantless Workflow',
+          projectId: null,
+          creatorId: null,
+          ownerId: null,
+          ownerType: null,
+          ownerUuid: null,
+        },
+      });
+
+      const [run] = await txDb
+        .insert(schema.workflowRuns)
+        .values({
+          id: randomUUID(),
+          workflowId: workflow.id,
+          workflowVersionId: version.id,
+          runToken: `token-${randomUUID()}`,
+          createdBy: 'anon', // not "creator:<id>", so no respondent tenant either
+          completed: true,
+          completedAt: new Date(),
+        })
+        .returning();
+
+      return run.id;
+    });
+
+    await expect(
+      documentDeliveryService.enqueueDeliveriesForRun(orphanRunId, {
+        markdownHeader: '',
+        documents: [],
+        deliveryDestinations: [{
+          id: 'orphan-email',
+          type: 'email',
+          config: { to: 'nobody@example.com' },
+        }],
+      })
+    ).rejects.toThrow(/no tenant could be resolved/);
+
+    const rows = await db
+      .select({ id: schema.runDocumentDeliveries.id })
+      .from(schema.runDocumentDeliveries)
+      .where(eq(schema.runDocumentDeliveries.runId, orphanRunId));
+    expect(rows).toHaveLength(0);
   });
 
   it('claims batch atomically with FOR UPDATE SKIP LOCKED', async () => {
