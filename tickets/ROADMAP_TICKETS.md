@@ -11,7 +11,10 @@
    - **Baseline as of 2026-08-04:** `test:fast` = 189 files passed / 2392 tests passed, 1 file + 14 tests skipped.
 4. **Never test against production.** Never push to test or point at the production database.
 5. **Report back:** Changed files, gate output proving green, and dated verification note.
-6. **Line numbers are advisory.** Every Finding quotes the code and names its enclosing symbol — that quote plus symbol is the real locator. If a line number has drifted, grep for the quoted text; a drifted line is not a broken ticket.
+6. **Update the progress graphic when you close a ticket.** Flip the ticket heading's
+   🔲 to ✅, flip the matching node in the Roadmap Progress graphic below, bump that
+   phase's count and the overall bar, and add a row to the Completed table.
+7. **Line numbers are advisory.** Every Finding quotes the code and names its enclosing symbol — that quote plus symbol is the real locator. If a line number has drifted, grep for the quoted text; a drifted line is not a broken ticket.
 
 ---
 
@@ -53,47 +56,71 @@ rewritten tickets below supersede it.
 
 ---
 
-## Roadmap Index & Dependency Overview
+## Roadmap Progress & Dependency Overview
+
+**7 of 28 tickets complete (25%)** — updated 2026-08-06
+
+> Keep this in sync: when a ticket's own heading earns a ✅, flip its node below
+> and bump the phase count and the overall bar. The heading is the source of truth.
 
 ```
-[P0: Storage & Security Foundation]
-  └── GH-169A (Real clamd virus scanner client)
-  └── GH-169B (Storage init, signed-URL route, S3 hardening)
+LEGEND    ✅ done      🔲 open
+
+OVERALL   ███████░░░░░░░░░░░░░░░░░░░░░░   7 / 28   (25%)
+
+
+[Phase 0 — P0 Security & Storage Foundation]      ██████████  2/2  DONE
+  ├── ✅ GH-169A   Real clamd virus scanner client
+  └── ✅ GH-169B   Storage init, signed-URL route, S3 hardening
         │
-        ├──► [Phase 1: Document & Delivery Pipeline]
-        │      ├── GH-168 (High-fidelity DOCX-to-PDF Converter)
-        │      ├── GH-156 (Document Mapping Workbench)
-        │      ├── GH-170 (Delivery Destinations & Retries)
-        │      ├── GH-157 (DocuSign Envelope Lifecycle)
-        │      └── GH-149 (Packaged Legal Integrations: Clio/Stripe/E-sign)
+        ├──► [Phase 1 — Document & Delivery Pipeline]    ████░░░░░░  2/5
+        │      ├── ✅ GH-168   High-fidelity DOCX-to-PDF converter
+        │      ├── 🔲 GH-156   Document mapping workbench
+        │      ├── ✅ GH-170   Delivery destinations & retries
+        │      ├── 🔲 GH-157   DocuSign envelope lifecycle
+        │      └── 🔲 GH-149   Packaged legal integrations (Clio/Stripe/e-sign)
         │
-        ├──► [Phase 2: Runner Experience, Reliability & Compliance]
-        │      ├── GH-160 (Resilient Autosave & Offline Buffering)
-        │      ├── GH-146 (File Uploads & Repeaters in Runner)
-        │      ├── GH-147 (Save-and-Resume & Client Handoff)
-        │      ├── GH-158 (Workflow Branding & White Labeling)
-        │      ├── GH-159 (WCAG 2.2 AA Accessibility Conformance)
-        │      └── GH-148 (Multilingual & Locale-Aware Runner)
+        ├──► [Phase 2 — Runner Experience, Reliability & Compliance]  █████░░░░░  3/6
+        │      ├── ✅ GH-160   Resilient autosave & offline buffering
+        │      ├── 🔲 GH-146   File uploads & repeaters in runner
+        │      ├── 🔲 GH-147   Save-and-resume & client handoff
+        │      ├── ✅ GH-158   Workflow branding & white labeling
+        │      ├── ✅ GH-159   WCAG 2.2 AA accessibility conformance
+        │      └── 🔲 GH-148   Multilingual & locale-aware runner
         │
-        ├──► [Phase 3: Builder Logic & Visual Architecture]
-        │      ├── GH-154 (Unified Conditional Logic Editor)
-        │      ├── GH-153 (Visual Workflow Map & Path Simulation)
-        │      ├── GH-152 (Publish Gate Review Grouping)
-        │      └── GH-167 (Document-to-Interview AI Onboarding)
+        ├──► [Phase 3 — Builder Logic & Visual Architecture]   ░░░░░░░░░░  0/4
+        │      ├── 🔲 GH-154   Unified conditional logic editor
+        │      ├── 🔲 GH-153   Visual workflow map & path simulation
+        │      ├── 🔲 GH-152   Publish gate review grouping
+        │      └── 🔲 GH-167   Document-to-interview AI onboarding
         │
-        └──► [Phase 4 & 5: Advanced Blocks, UX & Docs]
-               ├── GH-161 (Answer Piping & Dynamic Recall)
-               ├── GH-162 (Review Step Structured Values & Visibility)
-               ├── GH-163 (Payment, Scheduling, Ranking & Matrix Blocks)
-               ├── GH-165 (Guided Easy-Mode Workflow)
-               ├── GH-171 (Template Versioning & Impact Analysis)
-               ├── GH-173 (Legal Drafting Primitives & Templates)
-               ├── GH-155 (Final-Document Authoring Config)
-               ├── GH-164 (Mobile-First Kiosk Mode)
-               ├── GH-166 (Mobile/Tablet Responsive Builder)
-               ├── GH-172 (PDF/OCR Extraction & Broadened Formats)
-               └── GH-174 (Documentation & Capability Alignment)
+        ├──► [Phase 4 — P2 Advanced Blocks, Authoring & Templates]  ░░░░░░░░░░  0/7
+        │      ├── 🔲 GH-161   Answer piping & dynamic recall
+        │      ├── 🔲 GH-162   Review step structured values & visibility
+        │      ├── 🔲 GH-163   Payment, scheduling, ranking & matrix blocks
+        │      ├── 🔲 GH-165   Guided Easy-Mode workflow
+        │      ├── 🔲 GH-171   Template versioning & impact analysis
+        │      ├── 🔲 GH-173   Legal drafting primitives & templates
+        │      └── 🔲 GH-155   Final-document authoring config
+        │
+        └──► [Phase 5 — P2 Mobile, Kiosk, OCR & Documentation]  ░░░░░░░░░░  0/4
+               ├── 🔲 GH-164   Mobile-first kiosk mode
+               ├── 🔲 GH-166   Mobile/tablet responsive builder
+               ├── 🔲 GH-172   PDF/OCR extraction & broadened formats
+               └── 🔲 GH-174   Documentation & capability alignment
 ```
+
+### Completed so far
+
+| Ticket | Title | Closed |
+|---|---|---|
+| ✅ GH-169A | Real clamd virus scanner client | 2026-08-04 |
+| ✅ GH-169B | Storage init, signed-URL route, S3 hardening | 2026-08-04 |
+| ✅ GH-168 | High-fidelity DOCX-to-PDF conversion as prod default | 2026-08-06 |
+| ✅ GH-170 | Delivery destinations with retries & audit status | 2026-08-05 |
+| ✅ GH-160 | Resilient autosave, offline buffering, conflict recovery | 2026-08-06 |
+| ✅ GH-158 | Workflow branding & white labeling in the runner | 2026-08-05 |
+| ✅ GH-159 | WCAG 2.2 AA conformance (builder + runner) | 2026-08-06 |
 
 ---
 
