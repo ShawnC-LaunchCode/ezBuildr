@@ -4,9 +4,16 @@ import { db } from '../db';
 import { logger } from '../logger';
 import { createError } from '../utils/errors';
 
+import { storageProvider } from './storage';
+import type { StorageProvider } from './storage/types';
+
 const MAX_STORAGE_BYTES = parseInt(process.env.STORAGE_QUOTA_BYTES ?? '524288000'); // Default 500MB
 
 export class StorageQuotaService {
+    constructor(
+        private storage: Pick<StorageProvider, 'getTotalSize'> = storageProvider
+    ) {}
+
     /**
      * Check if adding new items would exceed the tenant's storage quota.
      * Throws an error if exceeded.
@@ -54,7 +61,14 @@ export class StorageQuotaService {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access -- raw SQL result type varies by driver
             const rows = (result as any).rows ?? result;
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument -- raw SQL result access
-            return parseInt(rows[0]?.used ?? '0', 10);
+            const templateBytes = parseInt(rows[0]?.used ?? '0', 10);
+
+            // Runner uploads use tenant-prefixed storage keys instead of a
+            // separate metadata table. Counting the provider prefix includes
+            // active answers and any not-yet-collected orphan, so removing an
+            // answer cannot silently create quota-free durable storage.
+            const runUploadBytes = await this.storage.getTotalSize(`tenants/${tenantId}/`);
+            return templateBytes + runUploadBytes;
 
         } catch (error) {
             logger.error({ error, tenantId }, 'Failed to calculate storage usage');

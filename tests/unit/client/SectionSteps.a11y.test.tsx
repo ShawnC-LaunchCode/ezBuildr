@@ -107,7 +107,12 @@ const steps: ApiStep[] = [
     provider: 'docusign',
     allowDecline: true,
   }, false),
-  createStep('list', 20, 'Children', {
+  createStep('file_upload', 20, 'Supporting files', {
+    maxFiles: 2,
+    maxSize: 1048576,
+    allowedTypes: ['application/pdf'],
+  }),
+  createStep('list', 21, 'Children', {
     allowReorder: true,
     fields: [
       { kind: 'question', id: 'name-field', alias: 'name', type: 'short_text', title: 'Name', order: 0, required: true },
@@ -134,6 +139,7 @@ const values: Record<string, unknown> = {
   choice: ['alpha'],
   address: { street: '', city: 'Chicago', state: 'IL', zip: '60601' },
   multi_field: { firstName: 'Ada', lastName: 'Lovelace' },
+  file_upload: [],
   list: { items: [{ itemId: 'item-1', values: { name: 'Ava' } }] },
 };
 

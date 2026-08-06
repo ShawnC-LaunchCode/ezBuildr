@@ -544,6 +544,8 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
             fieldErrors={fieldErrors}
             effectiveLogicRules={effectiveLogicRules}
             errors={errors}
+            runId={actualRunId ?? undefined}
+            runToken={runToken ?? undefined}
             currentSectionIndex={currentSectionIndex}
             isLastSection={isLastSection}
             handlePrev={handlePrev}
@@ -561,6 +563,8 @@ export interface QuestionCardContentProps extends QuestionSectionBodyProps {
   isLastSection: boolean;
   handlePrev: () => Promise<void>;
   handleNext: () => Promise<void>;
+  runId?: string;
+  runToken?: string;
 }
 
 /**
@@ -584,6 +588,8 @@ export function QuestionCardContent({
   isLastSection,
   handlePrev,
   handleNext,
+  runId,
+  runToken,
 }: QuestionCardContentProps): ReactElement {
   const { drill } = useListDrill();
   const drilledStep = drill
@@ -616,6 +622,8 @@ export function QuestionCardContent({
               onChange={(value) => { handleUpdateValue(drilledStep.id, value); }}
               drill={drill}
               aliasMap={aliasMap}
+              runId={runId}
+              runToken={runToken}
             />
           </BlockErrorBoundary>
         ) : (
@@ -627,6 +635,8 @@ export function QuestionCardContent({
             handleUpdateValue={handleUpdateValue}
             fieldErrors={fieldErrors}
             effectiveLogicRules={effectiveLogicRules}
+            runId={runId}
+            runToken={runToken}
           />
         )}
       </CardContent>
@@ -689,6 +699,8 @@ interface QuestionSectionBodyProps {
   handleUpdateValue: (stepId: string, value: unknown) => void;
   fieldErrors: Record<string, string[]>;
   effectiveLogicRules: LogicRule[];
+  runId?: string;
+  runToken?: string;
 }
 
 function QuestionSectionBody({
@@ -699,6 +711,8 @@ function QuestionSectionBody({
   handleUpdateValue,
   fieldErrors,
   effectiveLogicRules,
+  runId,
+  runToken,
 }: QuestionSectionBodyProps): ReactElement {
   if (currentSection != null && visibleSectionSteps.length > 0) {
     return (
@@ -710,6 +724,8 @@ function QuestionSectionBody({
         onChange={handleUpdateValue}
         errors={fieldErrors}
         logicRules={effectiveLogicRules}
+        runId={runId}
+        runToken={runToken}
       />
     );
   }

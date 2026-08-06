@@ -650,7 +650,9 @@ export const ChoiceValueSchema = z.union([
 export const FileUploadValueSchema = z.object({
   fileId: z.string(),
   filename: z.string(),
-  url: z.string(),
+  storageKey: z.string(),
+  url: z.string().optional(),
   mimeType: z.string(),
   size: z.number(),
+  uploadedAt: z.string(),
 });

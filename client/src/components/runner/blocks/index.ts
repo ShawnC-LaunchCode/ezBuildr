@@ -11,6 +11,7 @@ export { TextBlockRenderer } from "./TextBlock";
 export { BooleanBlockRenderer } from "./BooleanBlock";
 export { PhoneBlockRenderer } from "./PhoneBlock";
 export { EmailBlockRenderer } from "./EmailBlock";
+export { FileUploadBlockRenderer } from "./FileUploadBlock";
 export { WebsiteBlockRenderer } from "./WebsiteBlock";
 export { DateBlockRenderer } from "./DateBlock";
 export { TimeBlockRenderer } from "./TimeBlock";

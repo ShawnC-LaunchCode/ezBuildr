@@ -1,6 +1,9 @@
 
+import { createWriteStream } from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
+import type { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
 
 import { nanoid } from 'nanoid';
 
@@ -78,6 +81,27 @@ export class DiskStorageProvider implements StorageProvider {
         }
     }
 
+    async uploadStream(
+        key: string,
+        stream: Readable,
+        _contentLength: number,
+        _mimeType: string,
+        _metadata?: Record<string, unknown>
+    ): Promise<string> {
+        await this.init();
+        const filePath = this.resolveWithinBase(key);
+        await fs.mkdir(path.dirname(filePath), { recursive: true });
+
+        try {
+            await pipeline(stream, createWriteStream(filePath));
+            return key;
+        } catch (error) {
+            await fs.unlink(filePath).catch(() => undefined);
+            logger.error({ error, key }, 'Failed to stream file to disk');
+            throw createError.internal('Failed to save file');
+        }
+    }
+
     async deleteFile(fileRef: string): Promise<void> {
         const filePath = this.resolveWithinBase(fileRef);
         try {
@@ -149,6 +173,33 @@ export class DiskStorageProvider implements StorageProvider {
     async getSignedUrl(fileRef: string, expiresIn: number = 300): Promise<string> {
         const { exp, sig } = signStorageKey(fileRef, expiresIn);
         return `/api/storage/files/${fileRef}?exp=${exp}&sig=${sig}`;
+    }
+
+    async getTotalSize(prefix: string): Promise<number> {
+        await this.init();
+        return this.sumDirectory(this.resolveWithinBase(prefix));
+    }
+
+    /** Recursive byte total, taken from the dirents `readdir` already returns. */
+    private async sumDirectory(dir: string): Promise<number> {
+        let entries;
+        try {
+            entries = await fs.readdir(dir, { withFileTypes: true });
+        } catch (error: unknown) {
+            if (isErrorWithCode(error) && error.code === 'ENOENT') {
+                return 0;
+            }
+            throw error;
+        }
+        const sizes = await Promise.all(entries.map(async entry => {
+            const entryPath = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+                return this.sumDirectory(entryPath);
+            }
+            const stats = await fs.stat(entryPath).catch(() => null);
+            return stats?.size ?? 0;
+        }));
+        return sizes.reduce((total, size) => total + size, 0);
     }
 
     async list(prefix: string): Promise<string[]> {

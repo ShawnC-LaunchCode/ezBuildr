@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import type { Readable } from 'stream';
 
 
 import { S3, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
@@ -85,6 +86,32 @@ export class S3StorageProvider implements StorageProvider {
       return key;
     } catch (error) {
       logger.error({ error, key }, 'Failed to upload file to S3');
+      throw createError.internal('Failed to save file');
+    }
+  }
+
+  async uploadStream(
+    key: string,
+    stream: Readable,
+    contentLength: number,
+    mimeType: string,
+    metadata?: Record<string, unknown>
+  ): Promise<string> {
+    try {
+      await this.s3.send(new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: stream,
+        ContentLength: contentLength,
+        ContentType: mimeType,
+        Metadata: metadata as Record<string, string>,
+        ServerSideEncryption: 'AES256',
+      }));
+
+      logger.info({ key, bucket: this.bucket, size: contentLength }, 'File streamed to S3');
+      return key;
+    } catch (error) {
+      logger.error({ error, key }, 'Failed to stream file to S3');
       throw createError.internal('Failed to save file');
     }
   }
@@ -190,16 +217,48 @@ export class S3StorageProvider implements StorageProvider {
     }
   }
 
+  /**
+   * `ListObjectsV2` already reports each object's size, so the total costs one
+   * request per 1000 objects instead of a `HeadObject` per object.
+   */
+  async getTotalSize(prefix: string): Promise<number> {
+    try {
+      let total = 0;
+      let continuationToken: string | undefined;
+      do {
+        const response = await this.s3.send(new ListObjectsV2Command({
+          Bucket: this.bucket,
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+        }));
+        for (const object of response.Contents ?? []) {
+          total += object.Size ?? 0;
+        }
+        continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+      } while (continuationToken !== undefined);
+
+      return total;
+    } catch (error) {
+      logger.error({ error, prefix }, 'Failed to total stored bytes in S3');
+      throw createError.internal('Failed to calculate stored size');
+    }
+  }
+
   async list(prefix: string): Promise<string[]> {
     try {
-      const response = await this.s3.send(new ListObjectsV2Command({
-        Bucket: this.bucket,
-        Prefix: prefix,
-      }));
-
-      const keys = (response.Contents ?? [])
-        .map(obj => obj.Key)
-        .filter((key): key is string => !!key);
+      const keys: string[] = [];
+      let continuationToken: string | undefined;
+      do {
+        const response = await this.s3.send(new ListObjectsV2Command({
+          Bucket: this.bucket,
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+        }));
+        keys.push(...(response.Contents ?? [])
+          .map(obj => obj.Key)
+          .filter((key): key is string => !!key));
+        continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+      } while (continuationToken !== undefined);
 
       logger.debug({ prefix, count: keys.length }, 'Listed files in S3');
       return keys;

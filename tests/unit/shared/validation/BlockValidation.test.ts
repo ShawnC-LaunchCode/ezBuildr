@@ -3,8 +3,8 @@ import { describe, it, expect } from 'vitest';
 import { getValidationSchema, type StepLike } from '../../../../shared/validation/BlockValidation';
 
 /**
- * RUN2-3: a required question of a type the runner cannot render (file_upload,
- * file_upload) or does not recognize at all previously still pushed
+ * RUN2-3: a required question of a type the runner cannot render or does not
+ * recognize at all previously still pushed
  * a "required" rule, making the section unfinishable — the Next button would
  * report the field as required for a control that never appears on screen.
  * `getValidationSchema` must never require these types, regardless of
@@ -20,10 +20,8 @@ describe('getValidationSchema', () => {
     });
 
     describe('runner-unsupported/unknown step types (RUN2-3)', () => {
-        it.each([
-            ['file_upload', 'file_upload'],
-            ['an unrecognized type', 'some_future_type'],
-        ])('returns no required rule and required=false for %s even when step.required is true', (_label, type) => {
+        it('returns no required rule and required=false for an unrecognized type', () => {
+            const type = 'some_future_type';
             const step = baseStep({ type, required: true });
 
             const schema = getValidationSchema(step);
@@ -32,13 +30,13 @@ describe('getValidationSchema', () => {
             expect(schema.required).toBe(false);
         });
 
-        it('returns no required rule when the step also has a config object', () => {
+        it('requires file_upload now that the runner has a real upload control', () => {
             const step = baseStep({ type: 'file_upload', required: true, config: { maxFiles: 3 } });
 
             const schema = getValidationSchema(step);
 
-            expect(schema.rules).not.toContainEqual(expect.objectContaining({ type: 'required' }));
-            expect(schema.required).toBe(false);
+            expect(schema.rules).toContainEqual(expect.objectContaining({ type: 'required' }));
+            expect(schema.required).toBe(true);
         });
     });
 

@@ -58,7 +58,7 @@ rewritten tickets below supersede it.
 
 ## Roadmap Progress & Dependency Overview
 
-**7 of 28 tickets complete (25%)** — updated 2026-08-06
+**8 of 28 tickets complete (29%)** — updated 2026-08-06
 
 > Keep this in sync: when a ticket's own heading earns a ✅, flip its node below
 > and bump the phase count and the overall bar. The heading is the source of truth.
@@ -66,7 +66,7 @@ rewritten tickets below supersede it.
 ```
 LEGEND    ✅ done      🔲 open
 
-OVERALL   ███████░░░░░░░░░░░░░░░░░░░░░░   7 / 28   (25%)
+OVERALL   ████████░░░░░░░░░░░░░░░░░░░░░   8 / 28   (29%)
 
 
 [Phase 0 — P0 Security & Storage Foundation]      ██████████  2/2  DONE
@@ -80,9 +80,9 @@ OVERALL   ███████░░░░░░░░░░░░░░░░�
         │      ├── 🔲 GH-157   DocuSign envelope lifecycle
         │      └── 🔲 GH-149   Packaged legal integrations (Clio/Stripe/e-sign)
         │
-        ├──► [Phase 2 — Runner Experience, Reliability & Compliance]  █████░░░░░  3/6
+        ├──► [Phase 2 — Runner Experience, Reliability & Compliance]  ███████░░░  4/6
         │      ├── ✅ GH-160   Resilient autosave & offline buffering
-        │      ├── 🔲 GH-146   File uploads & repeaters in runner
+        │      ├── ✅ GH-146   File uploads & repeaters in runner
         │      ├── 🔲 GH-147   Save-and-resume & client handoff
         │      ├── ✅ GH-158   Workflow branding & white labeling
         │      ├── ✅ GH-159   WCAG 2.2 AA accessibility conformance
@@ -121,6 +121,7 @@ OVERALL   ███████░░░░░░░░░░░░░░░░�
 | ✅ GH-160 | Resilient autosave, offline buffering, conflict recovery | 2026-08-06 |
 | ✅ GH-158 | Workflow branding & white labeling in the runner | 2026-08-05 |
 | ✅ GH-159 | WCAG 2.2 AA conformance (builder + runner) | 2026-08-06 |
+| ✅ GH-146 | File uploads in the runner and inside List items | 2026-08-06 |
 
 ---
 
@@ -694,7 +695,35 @@ distinct keys cannot collide, and validate the cache entry against the object's 
 
 ---
 
-## GH-146 — Support repeaters, loop groups, and file uploads in the runner 🔲
+## GH-146 — Support repeaters, loop groups, and file uploads in the runner ✅
+
+> **CLOSED 2026-08-06.** The runner now renders `file_upload` with a keyboard-reachable
+> drag-and-drop dropzone, XHR progress, client-side type/size/count validation, download
+> and delete, and the same control nested inside a List item. Uploads are spooled by
+> multer, virus-scanned, quota-checked, then streamed through `storageProvider` under a
+> `tenants/<tenantId>/runs/<runId>/steps/<stepId>/` key; reads and deletes re-derive that
+> prefix and refuse anything outside it. List answers now render as a structured outline
+> in both respondent review and execution details instead of raw JSON, and `file_upload`
+> moved from `RUNNER_INTENTIONALLY_UNSUPPORTED_STEP_TYPES` into the rendered set so the
+> publish gate accepts it. Repeater/loop-group scope was correctly dropped: both types
+> were retired in LIST-13.
+>
+> **Reviewer verification pass 2026-08-06.** Gates re-run in the worktree after the
+> reviewer fix below: `tsc --noEmit` exit 0, `npm run lint` exit 0, `test:fast` 205 passed
+> / 1 skipped files and 2535 passed / 14 skipped tests. Live proof: `api.runs.file-upload`
+> and `hardening/quota` ran against the worktree's own Postgres — 2 files / 5 tests
+> passed — covering a real multipart POST with a bearer token, tenant-prefixed key
+> assertion, storage round-trip, answer persistence, MIME rejection, and a cross-tenant
+> 403.
+>
+> **Reviewer fix (senior, at review).** `StorageQuotaService.getStoredBytes` listed the
+> tenant prefix and then issued one `getMetadata` per stored object — on the live S3
+> driver that is a `HeadObject` per file, fired with unbounded `Promise.all` concurrency,
+> on a path that runs on *every* upload including template uploads and imports. Replaced
+> with `StorageProvider.getTotalSize(prefix)`: S3 sums the `Size` that `ListObjectsV2`
+> already returns (one request per 1000 objects), disk recurses over `readdir` dirents.
+> The now-unused `isDirectory` metadata flag added to `DiskStorageProvider` was reverted.
+> The S3 `list()` pagination fix the dev added is a genuine separate bug fix and was kept.
 
 **Priority: P1** · Size: L · Files: `client/src/components/runner/blocks/`, `server/routes/runs.routes.ts`, `shared/schema/`
 **Ties:** Preceded by GH-169

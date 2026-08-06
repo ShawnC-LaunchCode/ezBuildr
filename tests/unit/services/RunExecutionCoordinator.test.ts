@@ -406,7 +406,7 @@ describe('RunExecutionCoordinator - JS Execution', () => {
         });
     });
 
-    describe('submitSection skips runner-unsupported/unknown required steps (RUN2-3)', () => {
+    describe('submitSection validates supported uploads and skips unknown required steps', () => {
         const section: Section = { id: 'section-1', workflowId: 'wf-1', order: 0 } as unknown as Section;
         const context: ExecutionContext = { runId: 'run-1', workflowId: 'wf-1', userId: 'user-1', mode: 'live' };
 
@@ -417,24 +417,24 @@ describe('RunExecutionCoordinator - JS Execution', () => {
             vi.mocked(blockRunner.runPhase).mockResolvedValue({ success: true });
         });
 
-        it.each(['file_upload'])(
-            'submits successfully when the only step in the section is a required, visible %s with no value (AC3, AC4)',
-            async (type) => {
-                const unsupportedStep = {
+        it('blocks a required, visible file_upload with no value', async () => {
+                const uploadStep = {
                     id: 'req-step',
-                    type,
-                    title: 'Unsupported Step',
+                    type: 'file_upload',
+                    title: 'Supporting File',
                     required: true,
                     sectionId: 'section-1',
                     visibleIf: null,
                 } as unknown as Step;
-                mockStepRepo.findBySectionIds.mockResolvedValue([unsupportedStep]);
+                mockStepRepo.findBySectionIds.mockResolvedValue([uploadStep]);
 
                 const result = await coordinator.submitSection(context, 'section-1', []);
 
-                expect(result).toEqual({ success: true, errors: undefined });
-            }
-        );
+                expect(result).toEqual({
+                    success: false,
+                    errors: ['Supporting File: Supporting File is required'],
+                });
+        });
 
         it('submits successfully for a required step of an unrecognized type', async () => {
             const unknownStep = {

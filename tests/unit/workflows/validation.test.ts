@@ -273,7 +273,7 @@ describe("validation", () => {
       expect(result.valid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
-    describe("runner-unsupported/unknown step types (RUN2-3)", () => {
+    describe("supported upload and unknown step types", () => {
       // A required question of a type the runner cannot render (or does not
       // recognize) can never be answered by a respondent. validatePage must
       // skip these entirely — mirrors the client-side skip in
@@ -298,11 +298,16 @@ describe("validation", () => {
         ...extra,
       } as unknown as Step);
 
-      it.each([
-        ["file_upload", {}],
-        ["some_future_type", {}],
-      ])("does not report a required %s step as missing when it has no value", async (type, extra) => {
-        const steps = [unrequirableStep(type, extra)];
+      it("reports a required file_upload as missing now that it is supported", async () => {
+        const steps = [unrequirableStep("file_upload")];
+        const result = await validatePage(steps, {}, ["step-1"]);
+
+        expect(result.valid).toBe(false);
+        expect(result.errors).toHaveLength(1);
+      });
+
+      it("does not report an unknown required type as missing", async () => {
+        const steps = [unrequirableStep("some_future_type")];
         const result = await validatePage(steps, {}, ["step-1"]);
 
         expect(result.valid).toBe(true);

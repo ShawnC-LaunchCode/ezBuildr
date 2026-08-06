@@ -26,6 +26,7 @@ import { DateBlockRenderer } from "./DateBlock";
 import { DateTimeBlockRenderer } from "./DateTimeBlock";
 import { DisplayBlockRenderer } from "./DisplayBlock";
 import { EmailBlockRenderer } from "./EmailBlock";
+import { FileUploadBlockRenderer } from "./FileUploadBlock";
 import { ListBlockRenderer } from "./ListBlock";
 import { MultiFieldBlockRenderer } from "./MultiFieldBlock";
 import { NumberBlockRenderer } from "./NumberBlock";
@@ -68,6 +69,12 @@ export interface BlockRendererProps {
 
   /** Maps a step's alias to its step id, for alias-aware `{{variable}}` interpolation in display blocks */
   aliasMap?: Record<string, string>;
+
+  /** Active run credentials used by controls with run-scoped side effects. */
+  runId?: string;
+  runToken?: string;
+  /** Top-level owning step for a control nested inside a List item. */
+  runStepId?: string;
 }
 
 function isMultiFieldValue(value: unknown): value is MultiFieldValue {
@@ -196,6 +203,9 @@ export function BlockRenderer(props: BlockRendererProps) {
 
       case "multi_field":
         return <MultiFieldBlockRenderer step={step} value={isMultiFieldValue(value) ? value : null} onChange={onChange} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
+
+      case "file_upload":
+        return <FileUploadBlockRenderer step={step} value={value} onChange={onChange} runId={props.runId} runToken={props.runToken} runStepId={props.runStepId} readOnly={readOnly} ariaDescribedBy={ariaDescribedBy} required={required} hasError={Boolean(showValidation && error)} />;
 
       // Nestable, repeating question (LIST-8)
       case "list":

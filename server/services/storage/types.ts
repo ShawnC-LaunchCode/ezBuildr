@@ -1,4 +1,6 @@
 
+import type { Readable } from 'stream';
+
 export interface StorageMetadata {
     contentType: string;
     size: number;
@@ -30,6 +32,28 @@ export interface StorageProvider {
      * @param metadata Optional metadata
      */
     uploadFile(key: string, buffer: Buffer, mimeType: string, metadata?: Record<string, unknown>): Promise<string>;
+
+    /**
+     * Upload a file without materializing a second in-memory copy.
+     * `contentLength` is required so S3-compatible providers can stream with
+     * a deterministic Content-Length instead of chunked transfer encoding.
+     */
+    uploadStream(
+        key: string,
+        stream: Readable,
+        contentLength: number,
+        mimeType: string,
+        metadata?: Record<string, unknown>
+    ): Promise<string>;
+
+    /**
+     * Total bytes stored under a key prefix, counted recursively.
+     * Providers must answer this from their own listing metadata rather than a
+     * per-object round trip: quota checks run on every upload, and one
+     * `getMetadata` call per stored object turns a quota check into an
+     * unbounded request fan-out that grows with the tenant.
+     */
+    getTotalSize(prefix: string): Promise<number>;
 
     /**
      * Delete a file

@@ -1,9 +1,17 @@
+import crypto from 'crypto';
+import fs from 'fs/promises';
+import os from 'os';
+import path from 'path';
+
 import { createLogger } from "../logger";
 import { hybridAuth, optionalHybridAuth, type AuthRequest } from '../middleware/auth';
+import multer from 'multer';
 import { z } from "zod";
 
 import { creatorOrRunTokenAuth, type RunAuthRequest } from "../middleware/runTokenAuth";
 import { strictLimiter } from "../middleware/rateLimiter";
+import { MAX_FILE_SIZE } from '../services/fileService';
+import { runFileUploadService } from '../services/RunFileUploadService';
 import { runService } from "../services/RunService";
 import { runRuntimeService } from "../services/workflow-runs/RunRuntimeService";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -22,7 +30,7 @@ const RunIdParamsSchema = z.object({
   runId: z.string().uuid(),
 });
 
-import type { Express, Request, Response } from "express";
+import type { Express, NextFunction, Request, Response } from "express";
 const logger = createLogger({ module: "runs-routes" });
 
 // Common error messages
@@ -30,6 +38,70 @@ const logger = createLogger({ module: "runs-routes" });
 const ERROR_UNAUTHORIZED_NO_USER = "Unauthorized - no user ID";
 
 const ERROR_ACCESS_DENIED = "Access denied";
+
+const RunFileParamsSchema = z.object({
+  runId: z.string().uuid(),
+  stepId: z.string().uuid(),
+});
+
+const RunFileBodySchema = z.object({
+  storageKey: z.string().min(1),
+});
+
+const RunFileUploadBodySchema = z.object({
+  fieldId: z.string().uuid().optional(),
+});
+
+const runFileUpload = multer({
+  storage: multer.diskStorage({
+    destination: os.tmpdir(),
+    filename: (_req, file, cb) => {
+      const suffix = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
+      cb(null, `run-upload-${suffix}${path.extname(file.originalname)}`);
+    },
+  }),
+  limits: { fileSize: MAX_FILE_SIZE, files: 10 },
+});
+
+function acceptRunFileUpload(req: Request, res: Response, next: NextFunction): void {
+  runFileUpload.array('files', 10)(req, res, (error: unknown) => {
+    if (error instanceof multer.MulterError) {
+      const isSizeError = error.code === 'LIMIT_FILE_SIZE';
+      res.status(isSizeError ? 413 : 400).json({
+        success: false,
+        error: isSizeError ? `File exceeds the ${MAX_FILE_SIZE}-byte upload limit` : error.message,
+      });
+      return;
+    }
+    if (error !== null && error !== undefined) {
+      res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'Invalid upload' });
+      return;
+    }
+    next();
+  });
+}
+
+async function cleanupRunUploadFiles(files: Express.Multer.File[]): Promise<void> {
+  await Promise.all(files.map(file => fs.unlink(file.path).catch(() => undefined)));
+}
+
+function validateRunFileAuth(
+  req: Request,
+  res: Response,
+  runId: string,
+): { userId?: string; runTokenAuthorized: boolean } | undefined {
+  const runAuth = (req as RunAuthRequest).runAuth;
+  if (runAuth && runAuth.runId !== runId) {
+    res.status(403).json({ success: false, error: `${ERROR_ACCESS_DENIED} - run mismatch` });
+    return undefined;
+  }
+  const userId = (req as AuthRequest).userId;
+  if (!runAuth && !userId) {
+    res.status(401).json({ success: false, error: ERROR_UNAUTHORIZED_NO_USER });
+    return undefined;
+  }
+  return { userId, runTokenAuthorized: runAuth !== undefined };
+}
 
 function getPublicErrorDetails(error: unknown, status: number): unknown {
   if (status >= 500 || typeof error !== 'object' || error === null || !('details' in error)) {
@@ -199,6 +271,76 @@ export function registerRunRoutes(app: Express): void {
     } catch (error) {
       logger.error({ error }, "Error fetching run");
       const { status, message } = classifyRouteError(error, "Failed to fetch run");
+      res.status(status).json({ success: false, error: message });
+    }
+  }));
+
+  /**
+   * Upload respondent files for a top-level file question or a file field
+   * nested inside a List. Multipart data is spooled to a temporary file, then
+   * streamed through storageProvider under a tenant/run/step-scoped key.
+   */
+  app.post(
+    '/api/runs/:runId/steps/:stepId/files',
+    optionalHybridAuth,
+    creatorOrRunTokenAuth,
+    acceptRunFileUpload,
+    asyncHandler(async (req: Request, res: Response): Promise<void> => {
+      const files = (req.files as Express.Multer.File[] | undefined) ?? [];
+      try {
+        const { runId, stepId } = RunFileParamsSchema.parse(req.params);
+        const auth = validateRunFileAuth(req, res, runId);
+        if (!auth) { return; }
+        const { fieldId } = RunFileUploadBodySchema.parse(req.body);
+        const result = await runFileUploadService.uploadFiles({
+          runId,
+          stepId,
+          fieldId,
+          files: files.map(file => ({
+            path: file.path,
+            originalName: file.originalname,
+            mimeType: file.mimetype,
+            size: file.size,
+          })),
+          ...auth,
+        });
+        res.status(201).json({ success: true, data: result });
+      } catch (error) {
+        logger.error({ error, runId: req.params.runId, stepId: req.params.stepId }, 'Error uploading run file');
+        const { status, message } = classifyRouteError(error, 'Failed to upload file');
+        res.status(status).json({ success: false, error: message });
+      } finally {
+        await cleanupRunUploadFiles(files);
+      }
+    }),
+  );
+
+  app.get('/api/runs/:runId/steps/:stepId/files/url', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { runId, stepId } = RunFileParamsSchema.parse(req.params);
+      const auth = validateRunFileAuth(req, res, runId);
+      if (!auth) { return; }
+      const storageKey = z.string().min(1).parse(req.query.storageKey);
+      const url = await runFileUploadService.getSignedUrl({ runId, stepId, storageKey, ...auth });
+      res.json({ success: true, data: { url } });
+    } catch (error) {
+      logger.error({ error, runId: req.params.runId, stepId: req.params.stepId }, 'Error signing run file URL');
+      const { status, message } = classifyRouteError(error, 'Failed to access file');
+      res.status(status).json({ success: false, error: message });
+    }
+  }));
+
+  app.delete('/api/runs/:runId/steps/:stepId/files', optionalHybridAuth, creatorOrRunTokenAuth, asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { runId, stepId } = RunFileParamsSchema.parse(req.params);
+      const auth = validateRunFileAuth(req, res, runId);
+      if (!auth) { return; }
+      const { storageKey } = RunFileBodySchema.parse(req.body);
+      const value = await runFileUploadService.deleteFile({ runId, stepId, storageKey, ...auth });
+      res.json({ success: true, data: { value } });
+    } catch (error) {
+      logger.error({ error, runId: req.params.runId, stepId: req.params.stepId }, 'Error deleting run file');
+      const { status, message } = classifyRouteError(error, 'Failed to delete file');
       res.status(status).json({ success: false, error: message });
     }
   }));

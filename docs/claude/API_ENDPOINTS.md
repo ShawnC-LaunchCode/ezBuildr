@@ -38,6 +38,9 @@ POST        /api/runs/:runId/revoke-token
 GET/POST    /api/runs/:runId/values                       # Get / save step values
 POST        /api/runs/:runId/values/bulk
 POST        /api/runs/:runId/sections/:sectionId/submit
+POST        /api/runs/:runId/steps/:stepId/files           # Multipart respondent upload (run token or creator)
+GET         /api/runs/:runId/steps/:stepId/files/url       # Refresh signed storage URL
+DELETE      /api/runs/:runId/steps/:stepId/files           # Remove upload
 POST        /api/runs/:runId/next                         # Navigate to next section
 PUT         /api/runs/:runId/complete                     # Complete (triggers transforms)
 GET/POST/DEL /api/runs/:runId/documents                   # Run documents (+ generate-documents)

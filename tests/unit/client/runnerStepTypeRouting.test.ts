@@ -24,10 +24,10 @@ describe("runner step type routing", () => {
     expect(normalizeRunnerStepType("multiple_choice")).toBe("choice");
   });
 
-  it("keeps execution-only and out-of-scope types explicit", () => {
+  it("renders file uploads while keeping execution-only and retired types explicit", () => {
     expect(getRunnerStepTypeStatus("computed")).toBe("hidden");
     expect(getRunnerStepTypeStatus("js_question")).toBe("hidden");
-    expect(getRunnerStepTypeStatus("file_upload")).toBe("unsupported");
+    expect(getRunnerStepTypeStatus("file_upload")).toBe("rendered");
     // Retired in LIST-13 — they are no longer step types at all, so they
     // classify as "unknown" rather than "unsupported".
     expect(getRunnerStepTypeStatus("loop_group")).toBe("unknown");

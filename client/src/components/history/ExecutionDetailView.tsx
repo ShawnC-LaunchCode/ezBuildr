@@ -1,12 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ArrowLeft, FileText } from "lucide-react";
+import { useMemo } from "react";
 
+import { ListAnswerView } from "@/components/runner/list/ListAnswerView";
+import { normalizeListConfig } from "@/components/runner/list/listRuntime";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { runAPI, type ApiStepValue } from "@/lib/vault-api";
+import { formatAnswerValue } from "@/lib/formatAnswerValue";
+import { runAPI, type ApiStep, type ApiStepValue } from "@/lib/vault-api";
+
+import type { ListValue } from "@shared/types/stepConfigs";
 
 interface ApiDocument {
     id: string;
@@ -18,6 +24,19 @@ interface ExecutionDetailViewProps {
     runId: string;
     onBack: () => void;
 }
+
+export function ExecutionValueView({ step, value }: { step?: ApiStep; value: unknown }) {
+    if (step?.type === 'list') {
+        return (
+            <ListAnswerView
+                config={normalizeListConfig(step.config)}
+                value={value as ListValue | null | undefined}
+            />
+        );
+    }
+    return <span className="break-words text-sm">{formatAnswerValue(value)}</span>;
+}
+
 export function ExecutionDetailView({ runId, onBack }: ExecutionDetailViewProps) {
     const { data: run, isLoading } = useQuery({
         queryKey: ['run-detail', runId],
@@ -30,6 +49,14 @@ export function ExecutionDetailView({ runId, onBack }: ExecutionDetailViewProps)
             return docs as unknown as ApiDocument[];
         },
     });
+    const { data: runtime } = useQuery({
+        queryKey: ['run-runtime-detail', runId],
+        queryFn: () => runAPI.getRuntime(runId),
+    });
+    const stepsById = useMemo(
+        () => new Map((runtime?.steps ?? []).map(step => [step.id, step])),
+        [runtime?.steps],
+    );
     if (isLoading) {
         return <div className="p-8 text-center">Loading execution details...</div>;
     }
@@ -135,19 +162,23 @@ export function ExecutionDetailView({ runId, onBack }: ExecutionDetailViewProps)
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y">
-                                            {run.values.map((val: ApiStepValue) => (
-                                                <tr key={val.id}>
-                                                    <td className="p-3 font-mono text-xs">{val.stepId}</td>
-                                                    <td className="p-3">
-                                                        <code className="bg-muted px-1.5 py-0.5 rounded text-xs break-all">
-                                                            {JSON.stringify(val.value)}
-                                                        </code>
-                                                    </td>
-                                                    <td className="p-3 text-xs text-muted-foreground">
-                                                        {format(new Date(val.updatedAt), "HH:mm:ss")}
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                            {run.values.map((val: ApiStepValue) => {
+                                                const step = stepsById.get(val.stepId);
+                                                return (
+                                                    <tr key={val.id}>
+                                                        <td className="p-3">
+                                                            <span className="block text-sm font-medium">{step?.title ?? 'Unknown question'}</span>
+                                                            <span className="font-mono text-xs text-muted-foreground">{val.stepId}</span>
+                                                        </td>
+                                                        <td className="p-3">
+                                                            <ExecutionValueView step={step} value={val.value} />
+                                                        </td>
+                                                        <td className="p-3 text-xs text-muted-foreground">
+                                                            {format(new Date(val.updatedAt), "HH:mm:ss")}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>

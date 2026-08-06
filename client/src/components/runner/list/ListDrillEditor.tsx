@@ -35,6 +35,8 @@ interface ListDrillEditorProps {
   onChange: (value: ListValue) => void;
   drill: ListDrillState;
   aliasMap?: Record<string, string>;
+  runId?: string;
+  runToken?: string;
 }
 
 function fieldToStep(field: Extract<ListField, { kind: "question" }>, parent: ApiStep): ApiStep {
@@ -54,7 +56,7 @@ function fieldToStep(field: Extract<ListField, { kind: "question" }>, parent: Ap
   };
 }
 
-export function ListDrillEditor({ step, value, onChange, drill, aliasMap }: ListDrillEditorProps) {
+export function ListDrillEditor({ step, value, onChange, drill, aliasMap, runId, runToken }: ListDrillEditorProps) {
   const { popOne, pushSegment, clearAutoFocus } = useListDrill();
   const fieldsContainerRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -175,6 +177,9 @@ export function ListDrillEditor({ step, value, onChange, drill, aliasMap }: List
                   showValidation={Boolean(fieldMessages?.length)}
                   context={scope.item.values}
                   aliasMap={aliasMap}
+                  runId={runId}
+                  runToken={runToken}
+                  runStepId={step.id}
                 />
               </BlockErrorBoundary>
             );

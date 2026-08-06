@@ -971,9 +971,12 @@ export type ChoiceValue = string | string[];
 export interface FileUploadValue {
   fileId: string;
   filename: string;
-  url: string;
+  storageKey: string;
+  /** Freshly minted by the upload response; persisted values may omit it. */
+  url?: string;
   mimeType: string;
   size: number;
+  uploadedAt: string;
 }
 
 // ============================================================================

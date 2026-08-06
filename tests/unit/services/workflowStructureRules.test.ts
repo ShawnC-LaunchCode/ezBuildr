@@ -85,17 +85,17 @@ describe("validateWorkflowStructure (RUN2-9)", () => {
   });
 
   describe("check 4 — every respondent-facing question is answerable", () => {
-    it("rejects a required question the runner cannot render", () => {
+    it("allows a required file upload now that the runner renders it", () => {
       const data = validWorkflow();
       data.sections[0].steps[0].type = "file_upload";
-      expect(errorsOf(data).join(" ")).toMatch(/type \("file_upload"\) the runner cannot display/);
+      expect(errorsOf(data)).toEqual([]);
     });
 
-    it("also rejects an optional unsupported type instead of silently dropping it", () => {
+    it("allows an optional file upload too", () => {
       const data = validWorkflow();
       data.sections[0].steps[0].type = "file_upload";
       data.sections[0].steps[0].required = false;
-      expect(errorsOf(data).join(" ")).toMatch(/type \("file_upload"\) the runner cannot display/);
+      expect(errorsOf(data)).toEqual([]);
     });
   });
 

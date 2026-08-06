@@ -25,6 +25,8 @@ interface SectionStepsProps {
     logicRules: LogicRule[];
     onChange: (stepId: string, value: unknown) => void;
     errors?: Record<string, string[]>;
+    runId?: string;
+    runToken?: string;
 }
 
 export function SectionSteps({
@@ -34,7 +36,9 @@ export function SectionSteps({
     values,
     logicRules,
     onChange,
-    errors
+    errors,
+    runId,
+    runToken,
 }: SectionStepsProps) {
     const { data: rawSteps } = useSteps(sectionId, {
         enabled: !providedSteps
@@ -103,6 +107,8 @@ export function SectionSteps({
                         error={errors?.[step.id]?.[0]} // Pass first error message
                         context={values}
                         aliasMap={aliasMap}
+                        runId={runId}
+                        runToken={runToken}
                     />
                 </BlockErrorBoundary>
             ))}
@@ -129,9 +135,11 @@ interface StepFieldProps {
     error?: string;
     context: Record<string, unknown>;
     aliasMap?: Record<string, string>;
+    runId?: string;
+    runToken?: string;
 }
 
-function StepField({ step, value, onChange, error, context, aliasMap }: StepFieldProps) {
+function StepField({ step, value, onChange, error, context, aliasMap, runId, runToken }: StepFieldProps) {
     return (
         <div className="space-y-1 relative group">
             {/* 
@@ -148,6 +156,8 @@ function StepField({ step, value, onChange, error, context, aliasMap }: StepFiel
                 showValidation={!!error}
                 context={context}
                 aliasMap={aliasMap}
+                runId={runId}
+                runToken={runToken}
             />
         </div>
     );
