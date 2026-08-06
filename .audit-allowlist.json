@@ -16,14 +16,7 @@
       "reason": "DoS via an unhandled exception in JaegerPropagator on a malformed inbound header. This app does not use Jaeger propagation anywhere (no JaegerPropagator reference in the codebase), so the vulnerable path is unreachable. Same OpenTelemetry tree as GHSA-q7rr; only patched by a breaking-major OTel upgrade.",
       "followUp": "SEC-056 — upgrade OpenTelemetry to a patched line and drop this exception",
       "expires": "2026-10-11"
-    },
-    {
-      "ghsa": "GHSA-mh99-v99m-4gvg",
-      "package": "brace-expansion (transitive, via eslint / eslint-plugin-import / eslint-plugin-react / @eslint/eslintrc / @humanwhocodes/config-array / flat-cache / yamljs → minimatch/glob)",
-      "severity": "high",
-      "reason": "DoS via unbounded brace expansion. Every install path is dev/lint/build tooling (ESLint + its plugins, config parsing, yamljs CLI globbing); brace-expansion is never fed untrusted input on any runtime request path, so the OOM DoS is not reachable in production. The only npm-offered fix is a breaking-major eslint-plugin-import upgrade, and a blanket override across the installed 1.x/2.x/5.x lines risks breaking minimatch@3 / the lint toolchain.",
-      "followUp": "SEC-057 — bump the ESLint toolchain (eslint-plugin-import major) so the patched brace-expansion resolves, then drop this exception",
-      "expires": "2026-10-11"
     }
-  ]
+  ],
+  "$resolved": "GHSA-mh99-v99m-4gvg (brace-expansion) was allowlisted here on the premise that the only npm-offered fix was a breaking-major eslint-plugin-import upgrade. That stopped being true once 1.1.18, 2.1.4 and 5.0.9 shipped: all three are patch releases inside the majors already installed, so every consumer range admits them and `npm update brace-expansion` fixes all nine install paths with no override and no package.json change. Exception removed 2026-08-06 rather than left to expire."
 }

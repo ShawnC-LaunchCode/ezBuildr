@@ -222,14 +222,25 @@ Carved while merging GH-158/159/160 and retiring the duplicate GH-170 branch.
   `POST /api/workflows/public/:slug/start` uses `createRun` instead. It still
   carries its own publish/`isPublic` gate and an `createdBy: 'anon'` convention
   that no live path writes, so it reads as a supported entrypoint and isn't one.
-- **RM-3 — two new high advisories block CI on `main`** · `operational` ·
-  **blocks every PR.** `Security Scan → Dependency Scanning` fails on
-  `GHSA-rgw5-rvv9-x895` (brace-expansion DoS, bypasses the mitigation already
-  allowlisted as `GHSA-mh99`) and `GHSA-mwp4-54f8-5fhr` (**ip-address**:
-  `Address4` decodes leading-zero octets as decimal while resolvers use octal →
-  SSRF / trust-boundary bypass). The ip-address one deserves a real look given
-  `safeFetch` / `ssrfValidator`, not an allowlist entry. Until this is resolved
-  every open PR shows red CI regardless of its own quality.
+- ~~**RM-3 — two new high advisories block CI on `main`**~~ · **DONE
+  2026-08-06.** `Security Scan → Dependency Scanning` was failing on
+  `GHSA-rgw5-rvv9-x895` (brace-expansion) and `GHSA-mwp4-54f8-5fhr`
+  (**ip-address**: `Address4` decodes leading-zero octets as decimal while
+  resolvers use octal → SSRF / trust-boundary bypass). Both were **lockfile
+  staleness, not dependency conflicts**: every patched release sits inside a
+  major that consumers already admit, so `npm update ip-address
+  brace-expansion` fixed all ten install paths with no `overrides` and no
+  `package.json` change. `ip-address` 10.2.0 → 10.4.0 also cleared two further
+  advisories in the same family (`GHSA-4xrf-jv44-h6hh`,
+  `GHSA-22jq-vg5j-6vgg`). The `GHSA-mh99` exception was **removed** rather than
+  left to expire, since its stated premise — that only a breaking-major
+  eslint-plugin-import upgrade could fix it — is no longer true. Gate now
+  reports `2 allowlisted, 0 blocking`.
+  Note the advisory's SSRF wording never applied to this codebase directly:
+  no first-party file imports `ip-address` (`ssrfValidator` uses `node:net`'s
+  `isIP` plus its own octet checks). The runtime exposure was
+  `express-rate-limit` → `ip-address`, which keys rate limiting off client IPs.
+  See **RM-6** for the same bug class found hand-rolled in our own validator.
 - **RM-4 — dependabot PRs can never go green** · `operational` · P3. Their
   `Tests` job passes (299 files) then dies on the `Slack Notification Suite`
   step, which needs a secret dependabot PRs do not receive. Either guard that
@@ -244,3 +255,22 @@ Carved while merging GH-158/159/160 and retiring the duplicate GH-170 branch.
   provides no signal and trains everyone to ignore red CI, which is how
   DEBT-OPS2 happened. Either give it the credentials, drop the `.real` files
   from its matrix, or delete the workflow.
+- **RM-6 — `isInternalIp`'s IPv4-mapped branch skips its own `isIP` gate** ·
+  `security` · P2 · **not currently exploitable.** Found while fixing the
+  `ip-address` advisory (RM-3), which is the same bug class in a library.
+  `server/utils/ssrfValidator.ts:23-35` classifies plain IPv4 only after
+  `isIP(normalized) === 4` — and Node's `isIP` rejects every leading-zero and
+  hex form (`010.0.0.1`, `0177.0.0.1`, `0x7f.0.0.1` all return 0), so the
+  hand-rolled `ipv4.split('.').map(Number)` never sees an ambiguous octet on
+  that path. The IPv4-mapped branch one line earlier does **not** have that
+  gate: `/^::ffff:(\d+\.\d+\.\d+\.\d+)$/` happily captures `0177`, and
+  `Number("0177")` is 177, so `::ffff:0177.0.0.1` is classified **public**
+  while a resolver reading `0177` as octal reaches `127.0.0.1`.
+  Both callers (`safeFetch.ts:37`, `resolveSafeUrl` at `ssrfValidator.ts:58`)
+  only ever pass `dns.lookup()` output, which is resolver-normalized, so
+  nothing reaches it today. But `isInternalIp` is exported and reads like a
+  general-purpose predicate: the first caller that hands it a user-supplied
+  string gets a genuine SSRF bypass. Apply the same `isIP` gate to the mapped
+  branch and add a test table of the leading-zero/hex forms. Deliberately not
+  bundled into the dependency bump — SSRF logic changes deserve their own
+  reviewed commit.
