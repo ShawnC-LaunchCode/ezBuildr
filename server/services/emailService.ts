@@ -25,6 +25,41 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
   }
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+export async function sendRunResumeEmail(
+  email: string,
+  resumeUrl: string,
+  expiresAt: Date,
+  kind: 'save_resume' | 'handoff',
+): Promise<void> {
+  const safeUrl = escapeHtml(resumeUrl);
+  const safeExpiry = escapeHtml(expiresAt.toISOString());
+  const heading = kind === 'handoff' ? 'An interview is ready for you' : 'Continue your saved interview';
+  const intro = kind === 'handoff'
+    ? 'A staff member assigned an in-progress interview to you.'
+    : 'Your interview progress was saved.';
+  const queued = await sendEmail(email, `${heading} - ezBuildr`, `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2>${heading}</h2>
+      <p>${intro}</p>
+      <p><a href="${safeUrl}">Continue interview</a></p>
+      <p>This private, one-time link expires at ${safeExpiry}.</p>
+      <p>If you were not expecting this email, you can ignore it.</p>
+    </div>
+  `);
+  if (!queued) {
+    throw new Error('Failed to queue resume email');
+  }
+}
+
 export async function sendPasswordResetEmail(email: string, token: string): Promise<void> {
   // In production, this should point to the actual frontend URL
   const baseUrl = process.env.VITE_BASE_URL ?? process.env.PUBLIC_URL ?? (process.env.NODE_ENV === 'production' ? 'https://ezbuildr.com' : 'http://localhost:5000');

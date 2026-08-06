@@ -67,6 +67,27 @@ function consumeRunTokenFromUrl(runId: string, urlParams: URLSearchParams): void
   window.history.replaceState({}, '', newUrl.toString());
 }
 
+async function consumeResumeLinkFromUrl(runId: string, urlParams: URLSearchParams): Promise<boolean> {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  const resumeToken = urlParams.get('resume');
+  if (!resumeToken || !isUUID(runId)) {
+    return false;
+  }
+  const response = await fetchAPI<{
+    data: { runId: string; runToken: string };
+  }>(`/api/runs/${runId}/resume`, {
+    method: 'POST',
+    body: JSON.stringify({ token: resumeToken }),
+  });
+  setRunToken(response.data.runId, response.data.runToken);
+  const cleanUrl = new URL(window.location.href);
+  cleanUrl.searchParams.delete('resume');
+  window.history.replaceState({}, '', cleanUrl.toString());
+  return true;
+}
+
 function toResolvedSession(runData: { runId: string; runToken: string }): ResolvedRunSession {
   return {
     runId: runData.runId,
@@ -153,7 +174,10 @@ export function useRunSession(runId?: string, previewEnvironment?: PreviewEnviro
         const urlParams = new URLSearchParams(window.location.search);
         const initialValues = parseInitialValuesFromUrl(urlParams);
         const initialValuesArg = Object.keys(initialValues).length > 0 ? initialValues : undefined;
-        consumeRunTokenFromUrl(runId, urlParams);
+        const resumed = await consumeResumeLinkFromUrl(runId, urlParams);
+        if (!resumed) {
+          consumeRunTokenFromUrl(runId, urlParams);
+        }
 
         const resolvedRun = await resolveRunSession(runId, initialValuesArg);
         setActualRunId(resolvedRun.runId);

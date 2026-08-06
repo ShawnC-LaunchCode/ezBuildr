@@ -21,7 +21,7 @@ import {
 } from './integrations';
 // } from './legacy';
 import {
-    workflowRuns, stepValues, reviewTasks, signatureRequests,
+    workflowRuns, runResumeLinks, stepValues, reviewTasks, signatureRequests,
     signatureEvents, runGeneratedDocuments, transformBlockRuns,
     scriptExecutionLog,
     metricsEvents, metricsRollups, sliConfigs, sliWindows, templateGenerationMetrics
@@ -317,10 +317,30 @@ export const workflowRunsRelations = relations(workflowRuns, ({ one, many }) => 
         fields: [workflowRuns.currentSectionId],
         references: [sections.id],
     }),
+    assignedUser: one(users, {
+        fields: [workflowRuns.assignedToUserId],
+        references: [users.id],
+    }),
+    resumeLinks: many(runResumeLinks),
     stepValues: many(stepValues),
     transformBlockRuns: many(transformBlockRuns),
     generatedDocuments: many(runGeneratedDocuments),
     documentDeliveries: many(runDocumentDeliveries),
+}));
+
+export const runResumeLinksRelations = relations(runResumeLinks, ({ one }) => ({
+    tenant: one(tenants, {
+        fields: [runResumeLinks.tenantId],
+        references: [tenants.id],
+    }),
+    run: one(workflowRuns, {
+        fields: [runResumeLinks.runId],
+        references: [workflowRuns.id],
+    }),
+    createdByUser: one(users, {
+        fields: [runResumeLinks.createdByUserId],
+        references: [users.id],
+    }),
 }));
 
 export const stepValuesRelations = relations(stepValues, ({ one }) => ({

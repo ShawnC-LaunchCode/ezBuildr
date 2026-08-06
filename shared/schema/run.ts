@@ -64,6 +64,8 @@ export const workflowRuns = pgTable("workflow_runs", {
     updatedAt: timestamp("updated_at").defaultNow(),
     // Portal access
     clientEmail: varchar("client_email"),
+    assignedToUserId: varchar("assigned_to_user_id").references(() => users.id, { onDelete: 'set null' }),
+    assignmentUpdatedAt: timestamp("assignment_updated_at", { withTimezone: true }),
     portalAccessKey: varchar("portal_access_key"),
     accessMode: portalAccessModeEnum("access_mode").default('anonymous'),
     shareTokenHash: varchar("share_token_hash").unique(),
@@ -79,7 +81,32 @@ export const workflowRuns = pgTable("workflow_runs", {
     index("workflow_runs_current_section_idx").on(table.currentSectionId),
     index("workflow_runs_created_at_idx").on(table.createdAt),
     index("workflow_runs_owner_idx").on(table.ownerType, table.ownerUuid),
+    index("workflow_runs_assigned_user_idx").on(table.assignedToUserId),
     index("workflow_runs_portal_access_key_idx").on(table.portalAccessKey),
+]);
+
+/**
+ * One-time credentials emailed to respondents when they save for later or a
+ * staff member hands an in-progress run to a new participant. Only the hash is
+ * persisted; successful redemption rotates the run's normal bearer token.
+ */
+export const runResumeLinks = pgTable("run_resume_links", {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
+    runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
+    tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+    recipientEmail: varchar("recipient_email", { length: 255 }).notNull(),
+    kind: varchar("kind", { length: 32 }).default('save_resume').notNull(),
+    createdByUserId: varchar("created_by_user_id").references(() => users.id, { onDelete: 'set null' }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+    index("run_resume_links_tenant_idx").on(table.tenantId),
+    index("run_resume_links_run_idx").on(table.runId),
+    index("run_resume_links_expires_idx").on(table.expiresAt),
+    check("run_resume_links_kind_check", sql`${table.kind} IN ('save_resume', 'handoff')`),
 ]);
 
 /**
@@ -433,6 +460,7 @@ export const sliWindows = pgTable("sli_windows", {
 // ===================================================================
 
 export const insertWorkflowRunSchema = createInsertSchema(workflowRuns);
+export const insertRunResumeLinkSchema = createInsertSchema(runResumeLinks);
 export const insertRunCompletionJobSchema = createInsertSchema(runCompletionJobs);
 export const insertStepValueSchema = createInsertSchema(stepValues);
 export const insertReviewTaskSchema = createInsertSchema(reviewTasks);
@@ -451,6 +479,8 @@ export const insertSliWindowSchema = createInsertSchema(sliWindows);
 // Types
 export type WorkflowRun = InferSelectModel<typeof workflowRuns>;
 export type InsertWorkflowRun = InferInsertModel<typeof workflowRuns>;
+export type RunResumeLink = InferSelectModel<typeof runResumeLinks>;
+export type InsertRunResumeLink = InferInsertModel<typeof runResumeLinks>;
 export type RunCompletionJob = InferSelectModel<typeof runCompletionJobs>;
 export type InsertRunCompletionJob = InferInsertModel<typeof runCompletionJobs>;
 export type RunCompletionJobKind = 'documents';

@@ -35,6 +35,9 @@ GET         /api/workflows/:workflowId/runs               # List runs for workfl
 GET         /api/runs/:runId                              # Creator session OR run token
 GET         /api/runs/:runId/runtime                      # Sanitized pinned definition + cursor + values
 POST        /api/runs/:runId/revoke-token
+POST        /api/runs/:runId/resume-links                # Queue respondent email; run token or creator auth
+POST        /api/runs/:runId/resume                      # Redeem one-time link; rotates run token
+POST        /api/runs/:runId/handoff                     # Staff-only reassignment to tenant user/client email
 GET/POST    /api/runs/:runId/values                       # Get / save step values
 POST        /api/runs/:runId/values/bulk
 POST        /api/runs/:runId/sections/:sectionId/submit
@@ -49,6 +52,7 @@ GET         /api/shared/runs/:token                       # Public shared run vi
 ```
 
 > The old graph-run REST API was removed with the graph builder (2026). `workflow_runs` is the only run model.
+> Resume/handoff credentials are stored only as SHA-256 hashes in `run_resume_links`. A successful one-time redemption rotates the ordinary run bearer token before the pinned runtime restores its saved values and cursor.
 >
 > **DOC-110 Note on Step Values:** The `/api/runs/:runId/values` endpoint permits saving values for steps outside the currently active section. This is an intentional out-of-section write allowance, supporting scenarios like computed fields or external integrations writing ahead.
 

@@ -521,7 +521,7 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
   } = props;
 
   const saveAndResumeAction = actualRunId && runToken && allowsSaveAndResume(workflow) ? (
-    <SaveAndResumeButton runId={actualRunId} runToken={runToken} saveNow={saveNow} />
+    <SaveAndResumeButton runId={actualRunId} saveNow={saveNow} />
   ) : undefined;
 
   return (

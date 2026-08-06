@@ -6,7 +6,7 @@
 
 Enterprise workflow automation platform combining visual workflow building, conditional logic, custom code execution (JS/Python), and data management.
 
-**Scale:** 29 pages | 64 route files | ~190 service files | 104 DB tables | 37 step types | 40+ script helpers
+**Scale:** 29 pages | 64 route files | ~190 service files | 106 DB tables | 37 step types | 40+ script helpers
 
 ## Project Skills — use them
 
@@ -56,7 +56,7 @@ ezBuildr/
 │   ├── repositories/        # Data access (BaseRepository pattern, ~41 files)
 │   └── middleware/          # hybridAuth, tenant, requireUser, error handling
 ├── shared/
-│   ├── schema/              # Drizzle schema, one file per domain (104 tables)
+│   ├── schema/              # Drizzle schema, one file per domain (106 tables)
 │   ├── types/               # StepType, conditions, stepConfigs, ai, ...
 │   ├── conditionEvaluator.ts # Logic engine
 │   └── workflowLogic.ts     # Workflow execution logic
@@ -87,7 +87,7 @@ Details, error-string contract, and security invariants: `add-api-endpoint` skil
 | `workflows` | Workflow definitions |
 | `sections` | Pages/sections with order, skipLogic, visibleIf |
 | `steps` | Individual steps with type, alias, config, visibleIf |
-| `workflow_runs` / `step_values` | Execution instances + run data (the only run model — graph run tables were dropped) |
+| `workflow_runs` / `run_resume_links` / `step_values` | Execution instances, expiring resume credentials, and run data (the only run model — graph run tables were dropped) |
 | `datavault_databases` / `datavault_tables` / `datavault_rows` | DataVault (all `datavault_`-prefixed) |
 | `lifecycle_hooks` / `document_hooks` | Custom scripting |
 | `connections` / `secrets` | API integrations (encrypted) |

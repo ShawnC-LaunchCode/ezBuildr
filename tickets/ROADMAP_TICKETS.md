@@ -58,7 +58,7 @@ rewritten tickets below supersede it.
 
 ## Roadmap Progress & Dependency Overview
 
-**11 of 28 tickets complete (39%)** — updated 2026-08-06
+**12 of 28 tickets complete (43%)** — updated 2026-08-06
 
 > Keep this in sync: when a ticket's own heading earns a ✅, flip its node below
 > and bump the phase count and the overall bar. The heading is the source of truth.
@@ -66,7 +66,7 @@ rewritten tickets below supersede it.
 ```
 LEGEND    ✅ done      🔲 open
 
-OVERALL   ███████████░░░░░░░░░░░░░░░░░░   11 / 28   (39%)
+OVERALL   ████████████░░░░░░░░░░░░░░░░   12 / 28   (43%)
 
 
 [Phase 0 — P0 Security & Storage Foundation]      ██████████  2/2  DONE
@@ -80,10 +80,10 @@ OVERALL   ███████████░░░░░░░░░░░░�
         │      ├── ✅ GH-157   DocuSign envelope lifecycle
         │      └── ✅ GH-149   Packaged legal integrations (Clio/Stripe/e-sign)
         │
-        ├──► [Phase 2 — Runner Experience, Reliability & Compliance]  ███████░░░  4/6
+        ├──► [Phase 2 — Runner Experience, Reliability & Compliance]  ████████░░  5/6
         │      ├── ✅ GH-160   Resilient autosave & offline buffering
         │      ├── ✅ GH-146   File uploads & repeaters in runner
-        │      ├── 🔲 GH-147   Save-and-resume & client handoff
+        │      ├── ✅ GH-147   Save-and-resume & client handoff
         │      ├── ✅ GH-158   Workflow branding & white labeling
         │      ├── ✅ GH-159   WCAG 2.2 AA accessibility conformance
         │      └── 🔲 GH-148   Multilingual & locale-aware runner
@@ -125,6 +125,7 @@ OVERALL   ███████████░░░░░░░░░░░░�
 | ✅ GH-157 | Production DocuSign envelope lifecycle | 2026-08-06 |
 | ✅ GH-152 | Publish gate review grouping and deep links | 2026-08-06 |
 | ✅ GH-149 | Packaged Clio, Stripe, and DocuSign legal integrations | 2026-08-06 |
+| ✅ GH-147 | Save-and-resume, assignment, and staff/client handoff | 2026-08-06 |
 
 ---
 
@@ -830,7 +831,38 @@ distinct keys cannot collide, and validate the cache entry against the object's 
 
 ---
 
-## GH-147 — Make save-and-resume, assignment, and staff/client handoff first-class 🔲
+## GH-147 — Make save-and-resume, assignment, and staff/client handoff first-class ✅
+
+> **CLOSED 2026-08-06.** Respondents can request an emailed resume link; staff can hand a
+> run off to a tenant user or a client email. Links are 256-bit
+> (`randomBytes(32)`), stored only as `hashToken(...)`, and single-use: `consumeActive`
+> is one atomic `UPDATE ... WHERE token_hash = ? AND expires_at > now AND used_at IS NULL
+> AND revoked_at IS NULL RETURNING`, so a concurrent second redemption matches zero rows
+> instead of racing. Handoff requires workflow **edit** permission; creation, access and
+> handoff all emit audit events; resume credentials are excluded from portability exports.
+>
+> **Migration 0018 + 0019 (see note below).** Chain tip was `0017`.
+>
+> **Reviewer verification pass 2026-08-06.** Rebased onto `main` (`1344b663`) before
+> gating — four files overlapped what landed since this branch was cut (`WorkflowBuilder.tsx`
+> from GH-152; `CLAUDE.md`, `API_ENDPOINTS.md`, `SERVICES.md` from GH-149) and merged
+> cleanly. Gates re-run by the reviewer: `tsc` exit 0, `lint` exit 0, `test:fast` 214
+> passed / 1 skipped files and 2567 passed / 14 skipped tests,
+> `api.runs.resume-handoff` 1 file / 3 tests, `test:unit:db` 15 files / 145 tests.
+>
+> **Fresh-database migration proven independently.** This was the blocker the original dev
+> could not clear, so the reviewer re-ran it rather than accepting the report: created an
+> empty database, ran `db:migrate` end to end (`✅ Migrations completed successfully!`), then
+> confirmed on that database that `run_resume_links` has row-level security enabled and
+> `workflow_runs` carries both new columns. Database dropped afterward.
+>
+> **Deviation accepted — two migration numbers, not one.** `run_resume_links` has a direct
+> `tenant_id`, so per SEC-051 it needs its own `tenant_isolation` policy, and this repo never
+> mixes drizzle-generated DDL with hand-written RLS in one file. The reviewer verified the
+> claimed precedent rather than taking it: `0014` generates `run_document_deliveries` and
+> `0015` adds its RLS, exactly the same split, and `0019`'s policy body is character-for-character
+> the `current_setting('app.current_tenant_id', true)::uuid` form used in `0015`. Journal was
+> written by drizzle-kit, not hand-edited. **Consequence: the next migration is `0020`.**
 
 **Priority: P1** · Size: M · Files: `server/services/runs/`, `server/routes/runs.routes.ts`, `client/src/pages/runner/`
 **Ties:** Preceded by GH-160

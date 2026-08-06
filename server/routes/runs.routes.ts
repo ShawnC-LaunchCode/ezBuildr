@@ -13,6 +13,7 @@ import { strictLimiter } from "../middleware/rateLimiter";
 import { MAX_FILE_SIZE } from '../services/fileService';
 import { runFileUploadService } from '../services/RunFileUploadService';
 import { runService } from "../services/RunService";
+import { runResumeService } from "../services/runs/RunResumeService";
 import { runRuntimeService } from "../services/workflow-runs/RunRuntimeService";
 import { asyncHandler } from "../utils/asyncHandler";
 import { classifyRouteError } from "../utils/routeErrors";
@@ -29,6 +30,24 @@ const CreateRunBodySchema = z.object({
 const RunIdParamsSchema = z.object({
   runId: z.string().uuid(),
 });
+
+const ResumeLinkBodySchema = z.object({
+  email: z.string().email(),
+  expiryMinutes: z.number().int().min(15).max(10_080).default(1_440),
+}).strict();
+
+const ResumeLinkRedeemBodySchema = z.object({
+  token: z.string().min(32).max(256),
+}).strict();
+
+const RunHandoffBodySchema = z.object({
+  assigneeUserId: z.string().min(1).optional(),
+  clientEmail: z.string().email().optional(),
+  expiryMinutes: z.number().int().min(15).max(10_080).default(1_440),
+}).strict().refine(
+  value => Number(Boolean(value.assigneeUserId)) + Number(Boolean(value.clientEmail)) === 1,
+  { message: 'Choose exactly one assignee user or client email' },
+);
 
 import type { Express, NextFunction, Request, Response } from "express";
 const logger = createLogger({ module: "runs-routes" });
@@ -115,6 +134,13 @@ function getPublicErrorCode(error: unknown, status: number): string | undefined 
     return undefined;
   }
   return typeof error.code === 'string' ? error.code : undefined;
+}
+
+function getRequestAuditContext(req: Request): { ipAddress: string | null; userAgent: string | null } {
+  return {
+    ipAddress: req.ip ?? null,
+    userAgent: req.get('user-agent') ?? null,
+  };
 }
 
 /**
@@ -358,11 +384,93 @@ export function registerRunRoutes(app: Express): void {
         res.status(401).json({ success: false, error: ERROR_UNAUTHORIZED_NO_USER });
         return;
       }
-      await runService.revokeRunToken(runId, userId);
+      await runResumeService.revokeRunAccess(runId, userId);
       res.json({ success: true, message: "Run token revoked" });
     } catch (error) {
       logger.error({ error }, "Error revoking run token");
       const { status, message } = classifyRouteError(error, "Failed to revoke run token");
+      res.status(status).json({ success: false, error: message });
+    }
+  }));
+
+  /** Queue an expiring, one-time resume link for the authenticated respondent. */
+  app.post(
+    '/api/runs/:runId/resume-links',
+    strictLimiter,
+    optionalHybridAuth,
+    creatorOrRunTokenAuth,
+    asyncHandler(async (req: Request, res: Response): Promise<void> => {
+      try {
+        const { runId } = RunIdParamsSchema.parse(req.params);
+        const { email, expiryMinutes } = ResumeLinkBodySchema.parse(req.body);
+        const result = await runResumeService.requestResumeLink({
+          runId,
+          email,
+          expiryMinutes,
+          auth: {
+            userId: (req as AuthRequest).userId,
+            tokenRunId: (req as RunAuthRequest).runAuth?.runId,
+            ...getRequestAuditContext(req),
+          },
+        });
+        res.status(202).json({ success: true, data: result });
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          res.status(400).json({ success: false, error: 'Invalid input', errors: error.errors });
+          return;
+        }
+        logger.error({ error, runId: req.params.runId }, 'Error creating resume link');
+        const { status, message } = classifyRouteError(error, 'Failed to create resume link');
+        res.status(status).json({ success: false, error: message });
+      }
+    }),
+  );
+
+  /** Redeem a one-time resume credential and rotate the run bearer token. */
+  app.post('/api/runs/:runId/resume', strictLimiter, asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { runId } = RunIdParamsSchema.parse(req.params);
+      const { token } = ResumeLinkRedeemBodySchema.parse(req.body);
+      const result = await runResumeService.redeemResumeLink({
+        runId,
+        token,
+        ...getRequestAuditContext(req),
+      });
+      res.json({ success: true, data: result });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ success: false, error: 'Invalid input', errors: error.errors });
+        return;
+      }
+      logger.warn({ error, runId: req.params.runId }, 'Resume link redemption rejected');
+      const { status, message } = classifyRouteError(error, 'Failed to resume run');
+      res.status(status).json({ success: false, error: message });
+    }
+  }));
+
+  /** Reassign an incomplete run to a tenant user or a client email. */
+  app.post('/api/runs/:runId/handoff', strictLimiter, hybridAuth, asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { runId } = RunIdParamsSchema.parse(req.params);
+      const body = RunHandoffBodySchema.parse(req.body);
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        res.status(401).json({ success: false, error: ERROR_UNAUTHORIZED_NO_USER });
+        return;
+      }
+      const result = await runResumeService.handoffRun({
+        runId,
+        ...body,
+        auth: { userId, ...getRequestAuditContext(req) },
+      });
+      res.json({ success: true, data: result });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ success: false, error: 'Invalid input', errors: error.errors });
+        return;
+      }
+      logger.error({ error, runId: req.params.runId }, 'Error handing off run');
+      const { status, message } = classifyRouteError(error, 'Failed to hand off run');
       res.status(status).json({ success: false, error: message });
     }
   }));

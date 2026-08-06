@@ -318,6 +318,7 @@ export const EXCLUDED_TABLES: Record<string, string> = {
   'collab_updates': 'Collaboration updates are transient.',
   'collab_snapshots': 'Collaboration snapshots are transient.',
   'workflow_runs': 'Excluded by decision D-1 (workflow runs are instance data).',
+  'run_resume_links': 'Resume links are instance access credentials and must never be exported.',
   'run_completion_jobs': 'Completion jobs are background worker state.',
   'step_values': 'Step values belong to workflow runs.',
   'review_tasks': 'Review tasks are associated with workflow runs.',

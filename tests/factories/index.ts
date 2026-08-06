@@ -269,6 +269,8 @@ export function createTestWorkflowRun(overrides?: DeepPartial<WorkflowRun>): Omi
     currentSectionId: null,
     metadata: {},
     clientEmail: null,
+    assignedToUserId: null,
+    assignmentUpdatedAt: null,
     portalAccessKey: null,
     accessMode: 'anonymous' as const,
     shareToken: nanoid(),

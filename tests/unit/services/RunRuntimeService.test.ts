@@ -30,7 +30,7 @@ function makeRun() {
 function makeService(overrides: {
   run?: unknown;
   version?: unknown;
-  access?: 'owner' | 'creator' | 'public' | 'none';
+  access?: 'owner' | 'creator' | 'assignee' | 'public' | 'none';
   branding?: ResolvedBranding;
 } = {}) {
   const run = overrides.run ?? makeRun();

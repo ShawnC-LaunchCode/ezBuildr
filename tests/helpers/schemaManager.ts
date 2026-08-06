@@ -57,8 +57,10 @@ export class SchemaManager {
     // accepts the orphan row the new test proves is rejected.
     // Bumped to _v22 for GH-157 migration 0017, which adds completed/voided/
     // expired signature events and the voided signature-request status.
+    // Bumped to _v23 for GH-147, which adds expiring run resume links and
+    // explicit run-assignment metadata.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v22`;
+        return `test_schema_w${this.workerId}_v23`;
     }
 
     /**

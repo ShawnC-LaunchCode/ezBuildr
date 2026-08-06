@@ -4,6 +4,7 @@ import { auditLogs, type AuditLog } from "@shared/schema";
 
 import { db } from "../db";
 import { createLogger } from "../logger";
+import type { DbTransaction } from "../repositories";
 
 const logger = createLogger({ module: "audit-log-service" });
 
@@ -66,11 +67,46 @@ interface GetAuditLogsOptions {
   eventTypes?: SecurityEventType[];
 }
 
+export type RunAuditEventType =
+  | 'run_resume_link_created'
+  | 'run_resume_link_accessed'
+  | 'run_handoff';
+
 /**
  * AuditLogService handles comprehensive security event logging
  * for authentication, authorization, and user security actions.
  */
 export class AuditLogService {
+  async logRunEvent(params: {
+    runId: string;
+    tenantId: string;
+    eventType: RunAuditEventType;
+    actorUserId?: string;
+    details?: Record<string, unknown>;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+  }, tx?: DbTransaction): Promise<AuditLog> {
+    const database = tx ?? db;
+    const [result] = await database.insert(auditLogs).values({
+      tenantId: params.tenantId,
+      workspaceId: null,
+      userId: params.actorUserId ?? null,
+      action: params.eventType,
+      entityType: 'workflow_run',
+      entityId: params.runId,
+      resourceType: 'workflow_run',
+      resourceId: params.runId,
+      changes: params.details ?? null,
+      ipAddress: params.ipAddress ?? null,
+      userAgent: params.userAgent ?? null,
+      timestamp: new Date(),
+    }).returning();
+    if (result === undefined) {
+      throw new Error('Failed to create run audit event');
+    }
+    return result;
+  }
+
   /**
    * Log a security event
    * @param params - Event details including userId, eventType, IP, userAgent, and metadata

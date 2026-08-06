@@ -6,7 +6,7 @@ import { workflowService } from "../WorkflowService";
 export interface RunAuthContext {
     run?: WorkflowRun;
     mode: 'live' | 'preview';
-    access: 'owner' | 'creator' | 'public' | 'none';
+    access: 'owner' | 'creator' | 'assignee' | 'public' | 'none';
     userId?: string;
     tenantId?: string;
 }
@@ -33,6 +33,9 @@ export class RunAuthResolver {
             // 1. Check if user created the run
             if (run.createdBy === userId || run.createdBy === `creator:${userId}`) {
                 access = 'creator';
+            }
+            else if (run.assignedToUserId === userId) {
+                access = 'assignee';
             }
             // 2. Check if user owns the workflow
             else {

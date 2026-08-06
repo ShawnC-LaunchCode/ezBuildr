@@ -24,6 +24,7 @@ Conventions: services export a module-level singleton (`export const fooService 
 | Service | Purpose |
 |---------|---------|
 | RunService | Run lifecycle management |
+| RunResumeService | Expiring email resume links, token rotation, assignment/handoff, and audit events |
 | RunRuntimeService | Authorized, sanitized runtime definition pinned to a run version |
 | RunDataService | Canonical run data views: step-id keyed for runtime logic, alias-keyed for document generation |
 | BlockRunner + `blockRunners/*` | Execute workflow blocks (per-type runner classes) |

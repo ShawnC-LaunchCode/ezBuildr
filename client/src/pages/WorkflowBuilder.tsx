@@ -441,6 +441,7 @@ export default function WorkflowBuilder() {
                 open={assignOpen}
                 onOpenChange={setAssignOpen}
                 workflowId={workflowId}
+                tenantId={user?.tenantId ?? undefined}
               />
               <ExportWorkflowDialog
                 open={exportOpen}

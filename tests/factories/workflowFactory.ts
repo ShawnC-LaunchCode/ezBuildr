@@ -125,6 +125,8 @@ export function createTestWorkflowRun(workflowId: string, overrides?: Partial<Wo
     generationStatus: "pending",
     workflowVersionId: "v1", // Default to a dummy version
     clientEmail: null,
+    assignedToUserId: null,
+    assignmentUpdatedAt: null,
     portalAccessKey: null,
     accessMode: "anonymous",
     shareTokenHash: null,

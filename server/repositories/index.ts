@@ -29,6 +29,7 @@ export { WorkflowVersionRepository, workflowVersionRepository } from "./Workflow
 export { SectionRepository, sectionRepository } from "./SectionRepository";
 export { StepRepository, stepRepository } from "./StepRepository";
 export { WorkflowRunRepository, workflowRunRepository } from "./WorkflowRunRepository";
+export { RunResumeLinkRepository, runResumeLinkRepository } from "./RunResumeLinkRepository";
 export {
   RunCompletionJobRepository,
   runCompletionJobRepository,

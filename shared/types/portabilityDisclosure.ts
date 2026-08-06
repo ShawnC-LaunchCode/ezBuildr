@@ -42,7 +42,8 @@ export const EXCLUSION_CATEGORIES: readonly ExclusionCategory[] = [
     tables: [
       'user_credentials', 'refresh_tokens', 'password_reset_tokens',
       'email_verification_tokens', 'mfa_secrets', 'mfa_backup_codes',
-      'trusted_devices', 'portal_tokens', 'sessions', 'invalidated_tokens',
+      'trusted_devices', 'portal_tokens', 'run_resume_links', 'sessions',
+      'invalidated_tokens',
       'datavault_api_tokens', 'api_keys', 'oauth_apps', 'oauth_auth_codes',
       'oauth_access_tokens', 'login_attempts', 'account_locks',
     ],
