@@ -50,44 +50,44 @@ export function ClientRunnerLayout({
                         {saveAndResumeAction}
                         {saveStatus && saveStatus !== "idle" && (
                             <div
-                                className="flex items-center gap-1.5 text-xs font-medium animate-in fade-in zoom-in duration-300"
                                 role="status"
                                 aria-live="polite"
+                                className="flex items-center gap-1.5 text-xs font-medium animate-in fade-in zoom-in duration-300"
                             >
                                 {saveStatus === "saving" && (
                                     <>
-                                        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" aria-hidden="true" />
                                         <span className="text-muted-foreground">Saving...</span>
                                     </>
                                 )}
                                 {saveStatus === "saved" && (
                                     <>
-                                        <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                                        <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                                         <span className="text-muted-foreground">Saved</span>
                                     </>
                                 )}
                                 {saveStatus === "offline" && (
                                     <>
-                                        <CloudOff className="h-3.5 w-3.5 text-amber-500" />
+                                        <CloudOff className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
                                         <span className="text-amber-600 dark:text-amber-400 font-medium">Offline (saved locally)</span>
                                     </>
                                 )}
                                 {saveStatus === "syncing" && (
                                     <>
-                                        <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-500" />
+                                        <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-500" aria-hidden="true" />
                                         <span className="text-blue-600 dark:text-blue-400 font-medium">Syncing changes...</span>
                                     </>
                                 )}
                                 {saveStatus === "error" && (
                                     <>
-                                        <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+                                        <AlertCircle className="h-3.5 w-3.5 text-destructive" aria-hidden="true" />
                                         <span className="text-destructive font-medium">Save failed</span>
                                     </>
                                 )}
                             </div>
                         )}
                         {totalSteps && totalSteps > 0 && currentStep !== undefined && (
-                            <div className="text-xs text-muted-foreground font-medium">
+                            <div className="text-xs text-muted-foreground font-medium" aria-label="Progress summary">
                                 {currentStep >= totalSteps ? "Review" : `Step ${currentStep + 1} of ${totalSteps}`}
                             </div>
                         )}
