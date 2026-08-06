@@ -10,7 +10,9 @@ import { logger } from "../../../server/logger";
 import {
   ApiStrategy,
   logPdfConverterSelection,
+  PDF_FIDELITY_DEGRADED_NOTICE,
   PdfConverter,
+  PdfConversionError,
   PuppeteerStrategy,
 } from "../../../server/services/document/PdfConverter";
 
@@ -92,6 +94,21 @@ describe("PdfConverter strategy selection", () => {
     await expect(fs.readFile(outputPath, "utf8")).resolves.toContain("%PDF");
   });
 
+  it("uses the environment-configured Gotenberg service as the production primary", () => {
+    const originalUrl = process.env.PDF_CONVERTER_API_URL;
+    process.env.PDF_CONVERTER_API_URL = API_URL;
+
+    try {
+      expect(new PdfConverter().primaryStrategy).toBe("gotenberg");
+    } finally {
+      if (originalUrl === undefined) {
+        delete process.env.PDF_CONVERTER_API_URL;
+      } else {
+        process.env.PDF_CONVERTER_API_URL = originalUrl;
+      }
+    }
+  });
+
   it("posts to Gotenberg's LibreOffice route and keeps the .docx filename", async () => {
     // Gotenberg selects its converter from the uploaded part's extension, so a
     // lost .docx suffix silently breaks conversion.
@@ -130,7 +147,11 @@ describe("PdfConverter fallback reporting", () => {
 
     const outcome = await new PdfConverter(API_URL).convert({ docxPath, outputPath });
 
-    expect(outcome).toEqual({ strategy: "puppeteer", fellBack: true });
+    expect(outcome).toEqual({
+      strategy: "puppeteer",
+      fellBack: true,
+      notice: PDF_FIDELITY_DEGRADED_NOTICE,
+    });
     expect(puppeteer).toHaveBeenCalledOnce();
     await expect(fs.readFile(outputPath, "utf8")).resolves.toBe("puppeteer pdf");
   });
@@ -141,7 +162,11 @@ describe("PdfConverter fallback reporting", () => {
 
     const outcome = await new PdfConverter(API_URL).convert({ docxPath, outputPath });
 
-    expect(outcome).toEqual({ strategy: "puppeteer", fellBack: true });
+    expect(outcome).toEqual({
+      strategy: "puppeteer",
+      fellBack: true,
+      notice: PDF_FIDELITY_DEGRADED_NOTICE,
+    });
     expect(puppeteer).toHaveBeenCalledOnce();
   });
 
@@ -151,7 +176,11 @@ describe("PdfConverter fallback reporting", () => {
 
     const outcome = await new PdfConverter(API_URL).convert({ docxPath, outputPath });
 
-    expect(outcome).toEqual({ strategy: "puppeteer", fellBack: true });
+    expect(outcome).toEqual({
+      strategy: "puppeteer",
+      fellBack: true,
+      notice: PDF_FIDELITY_DEGRADED_NOTICE,
+    });
     expect(puppeteer).toHaveBeenCalledOnce();
   });
 
@@ -159,7 +188,7 @@ describe("PdfConverter fallback reporting", () => {
     stubPuppeteer("fail");
 
     await expect(new PdfConverter(undefined).convert({ docxPath, outputPath }))
-      .rejects.toThrow(/chromium unavailable|PDF conversion failed/i);
+      .rejects.toThrow(/Download the DOCX/);
   });
 
   it("propagates the fallback's error when both strategies fail", async () => {
@@ -167,7 +196,37 @@ describe("PdfConverter fallback reporting", () => {
     stubFetch(async () => { throw new Error("ECONNREFUSED"); });
 
     await expect(new PdfConverter(API_URL).convert({ docxPath, outputPath }))
-      .rejects.toThrow(/chromium unavailable|PDF conversion failed/i);
+      .rejects.toBeInstanceOf(PdfConversionError);
+  });
+
+  it("logs raw primary/fallback failures but exposes only an actionable author error", async () => {
+    const fallbackError = new Error("chromium unavailable");
+    vi.spyOn(PuppeteerStrategy.prototype, "convert").mockRejectedValue(fallbackError);
+    const primaryError = new Error("ECONNREFUSED gotenberg.internal");
+    stubFetch(async () => { throw primaryError; });
+    const errorLog = vi.spyOn(logger, "error").mockImplementation(() => logger);
+
+    let caught: unknown;
+    try {
+      await new PdfConverter(API_URL).convert({ docxPath, outputPath });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(PdfConversionError);
+    expect((caught as Error).message).not.toContain("gotenberg.internal");
+    expect((caught as Error).message).toContain("retry");
+    const errorMatcher: unknown = expect.any(Error);
+    expect(errorLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "pdf_conversion_failed",
+        primary: "gotenberg",
+        fallback: "puppeteer",
+        primaryError: errorMatcher,
+        fallbackError,
+      }),
+      expect.stringContaining("both")
+    );
   });
 
   it("sends an abort signal so a hung converter cannot block forever", async () => {

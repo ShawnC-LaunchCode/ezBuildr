@@ -43,6 +43,37 @@ export interface PdfConversionOutcome {
     strategy: PdfStrategyName;
     /** True when the primary strategy failed and the fallback produced the file. */
     fellBack: boolean;
+    /** Safe, author-facing explanation when the PDF was produced at reduced fidelity. */
+    notice?: PdfConversionNotice;
+}
+
+export interface PdfConversionNotice {
+    code: 'PDF_FIDELITY_DEGRADED' | 'PDF_CONVERSION_UNAVAILABLE';
+    message: string;
+}
+
+export const PDF_FIDELITY_DEGRADED_NOTICE: PdfConversionNotice = {
+    code: 'PDF_FIDELITY_DEGRADED',
+    message: 'The high-fidelity PDF converter was unavailable, so a reduced-fidelity PDF was created. Review headers, footers, page numbering, fonts, and tables before publishing.',
+};
+
+export const PDF_CONVERSION_UNAVAILABLE_NOTICE: PdfConversionNotice = {
+    code: 'PDF_CONVERSION_UNAVAILABLE',
+    message: 'PDF conversion is temporarily unavailable. Download the DOCX output and retry the PDF conversion later.',
+};
+
+/**
+ * A safe error boundary for callers that surface conversion failures to authors.
+ * Raw upstream and browser errors remain attached as `cause` for server logs but
+ * never need to cross the API boundary.
+ */
+export class PdfConversionError extends Error {
+    readonly notice = PDF_CONVERSION_UNAVAILABLE_NOTICE;
+
+    constructor(cause: unknown) {
+        super(PDF_CONVERSION_UNAVAILABLE_NOTICE.message, { cause });
+        this.name = 'PdfConversionError';
+    }
 }
 
 export interface PdfConversionStrategy {
@@ -324,19 +355,62 @@ export class PdfConverter {
         try {
             await this.strategy.convert(options);
             return { strategy: this.strategy.name, fellBack: false };
-        } catch (error) {
+        } catch (primaryError) {
             if (this.fallback === null) {
-                throw error;
+                logger.error(
+                    {
+                        error: primaryError,
+                        event: 'pdf_conversion_failed',
+                        primary: this.strategy.name,
+                        fallback: null,
+                    },
+                    'PDF conversion failed; no fallback converter is configured'
+                );
+                throw new PdfConversionError(primaryError);
             }
             // `error`, not `warn`: this means every document produced from here
             // on is materially lower fidelity than the approved template, which
             // is an operational incident rather than a curiosity.
             logger.error(
-                { error, primary: this.strategy.name, fallback: this.fallback.name },
+                {
+                    error: primaryError,
+                    event: 'pdf_conversion_fallback',
+                    primary: this.strategy.name,
+                    fallback: this.fallback.name,
+                },
                 'Primary PDF conversion failed; falling back to lower-fidelity converter'
             );
-            await this.fallback.convert(options);
-            return { strategy: this.fallback.name, fellBack: true };
+
+            try {
+                await this.fallback.convert(options);
+            } catch (fallbackError) {
+                logger.error(
+                    {
+                        primaryError,
+                        fallbackError,
+                        event: 'pdf_conversion_failed',
+                        primary: this.strategy.name,
+                        fallback: this.fallback.name,
+                    },
+                    'PDF conversion failed in both the primary and fallback converters'
+                );
+                throw new PdfConversionError(fallbackError);
+            }
+
+            logger.warn(
+                {
+                    event: 'pdf_conversion_degraded',
+                    primary: this.strategy.name,
+                    strategy: this.fallback.name,
+                    noticeCode: PDF_FIDELITY_DEGRADED_NOTICE.code,
+                },
+                'PDF conversion completed with reduced fidelity'
+            );
+            return {
+                strategy: this.fallback.name,
+                fellBack: true,
+                notice: PDF_FIDELITY_DEGRADED_NOTICE,
+            };
         }
     }
 

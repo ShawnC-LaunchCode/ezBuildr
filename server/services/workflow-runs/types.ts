@@ -4,7 +4,7 @@
 
 import type { WorkflowRun, InsertWorkflowRun } from "@shared/schema";
 
-import type { PdfStrategyName } from "../document/PdfConverter";
+import type { PdfConversionNotice, PdfStrategyName } from "../document/PdfConverter";
 
 /**
  * Execution context for run operations
@@ -111,6 +111,10 @@ export interface DocumentGenerationResult {
     pdfStrategy?: PdfStrategyName;
     /** True when the high-fidelity converter failed and a degraded one ran. */
     pdfFellBack?: boolean;
+    /** True when no PDF converter produced an output. */
+    pdfFailed?: boolean;
+    /** Safe, actionable explanation of a degraded or failed PDF conversion. */
+    pdfNotice?: PdfConversionNotice;
   }>;
   archive?: unknown;
   skipped?: string[];

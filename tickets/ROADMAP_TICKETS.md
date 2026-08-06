@@ -412,7 +412,30 @@ distinct keys cannot collide, and validate the cache entry against the object's 
 
 # Phase 1: P1 Document & Delivery Pipeline
 
-## GH-168 — Make high-fidelity DOCX-to-PDF conversion the production default 🔲
+## GH-168 — Make high-fidelity DOCX-to-PDF conversion the production default ✅
+
+> **CLOSED 2026-08-06.** Production configuration was audited read-only and selects the
+> Railway Gotenberg 8 service through `PDF_CONVERTER_API_URL`; a local app health check
+> reported `healthy`, `strategy: gotenberg`, and `reachable: true`. The conversion boundary
+> now emits structured selection/fallback/failure telemetry, returns safe actionable notices
+> to template authors, preserves the usable DOCX when PDF conversion fails, and records
+> failed PDF generation on the run document. A real two-page Gotenberg integration fixture
+> verifies repeated headers/footers, live page numbering, an embedded Carlito font, merged
+> and bordered table content, and stable pagination; both rendered pages were also inspected
+> visually. Verification: `type-check` exit 0; `lint` exit 0 with zero warnings;
+> `test:fast` 203 passed / 1 skipped files, 2531 passed / 14 skipped tests (baseline 2526);
+> targeted Gotenberg integration 2 files / 2 tests passed. Self-grade: **A**.
+>
+> **Reviewer verification pass 2026-08-06.** Gates re-run from scratch in the ticket's
+> worktree, not taken on report: `tsc --noEmit` exit 0, `npm run lint` exit 0
+> (`--max-warnings 0`), `test:fast` 203 passed / 1 skipped files and 2531 passed /
+> 14 skipped tests. Live proof: a real `gotenberg/gotenberg:8` container was started on
+> :3009 and `pdfFidelity.test.ts` + `pdfStrategy.test.ts` ran **unskipped** — 2 files /
+> 2 tests passed — so the two-page fixture genuinely converted through Gotenberg and the
+> generated-document row genuinely recorded `pdfStrategy: 'gotenberg'`. Reviewer changes:
+> none. Observation filed: on a degraded-but-successful conversion the template test
+> runner shows the notice in a tab labelled "Errors" while the summary still reads "Test
+> Successful" — cosmetic, logged as O-11 rather than reopened here.
 
 **Priority: P1** · Size: M · Files: `server/services/document/PdfConverter.ts`, `server/services/document/GotenbergPdfConverter.ts`, `server/routes/ops.routes.ts`
 **Ties:** Preceded by GH-169; Blocks GH-170

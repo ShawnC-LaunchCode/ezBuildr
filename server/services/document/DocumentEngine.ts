@@ -4,7 +4,13 @@ import path from 'path';
 
 import { logger } from '../../logger';
 
-import { PdfConverter, type PdfStrategyName } from './PdfConverter';
+import {
+    PDF_CONVERSION_UNAVAILABLE_NOTICE,
+    PdfConversionError,
+    PdfConverter,
+    type PdfConversionNotice,
+    type PdfStrategyName,
+} from './PdfConverter';
 import { TemplateParser } from './TemplateParser';
 export interface DocumentGenerationOptions {
     templatePath: string;
@@ -27,6 +33,8 @@ export interface DocumentGenerationResult {
     pdfStrategy?: PdfStrategyName;
     /** True when the high-fidelity converter failed and a degraded one produced the PDF. */
     pdfFellBack?: boolean;
+    /** Safe, actionable author-facing explanation of degradation or failure. */
+    pdfNotice?: PdfConversionNotice;
     size: number;
     unresolvedVariables?: string[];
 }
@@ -80,13 +88,26 @@ export class DocumentEngine {
                 result.pdfPath = pdfPath;
                 result.pdfStrategy = outcome.strategy;
                 result.pdfFellBack = outcome.fellBack;
+                result.pdfNotice = outcome.notice;
                 logger.info(
-                    { pdfPath, strategy: outcome.strategy, fellBack: outcome.fellBack },
+                    {
+                        pdfPath,
+                        strategy: outcome.strategy,
+                        fellBack: outcome.fellBack,
+                        noticeCode: outcome.notice?.code,
+                    },
                     'PDF generated successfully'
                 );
             } catch (error) {
-                logger.warn({ error }, 'PDF conversion failed, returning DOCX only');
+                const notice = error instanceof PdfConversionError
+                    ? error.notice
+                    : PDF_CONVERSION_UNAVAILABLE_NOTICE;
+                logger.error(
+                    { error, docxPath, noticeCode: notice.code },
+                    'PDF conversion failed; returning DOCX with an actionable author notice'
+                );
                 result.pdfFailed = true;
+                result.pdfNotice = notice;
                 // Don't fail the whole process if PDF fails
             }
         }

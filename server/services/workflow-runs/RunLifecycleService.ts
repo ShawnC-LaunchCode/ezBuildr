@@ -485,6 +485,7 @@ export class RunLifecycleService {
               fileSize: doc.size,
               templateId: null,
               unresolvedVariables: doc.unresolvedVariables ?? [],
+              pdfFailed: doc.pdfFailed ?? false,
               // Whichever converter actually ran. Never defaulted: recording a
               // guess here is what made silently degraded PDFs invisible.
               //

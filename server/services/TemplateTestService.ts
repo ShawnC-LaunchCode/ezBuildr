@@ -117,12 +117,21 @@ export class TemplateTestService {
           await fs.unlink(renderResult.pdfPath).catch(() => {});
         }
 
+        const pdfNotice = toPdf ? renderResult.pdfNotice : undefined;
+
         return {
+          // Rendering succeeded even when PDF conversion degraded or failed:
+          // returning a successful application response lets the runner show
+          // the structured notice and the usable download(s) instead of
+          // collapsing the 400 response into a generic network error.
           ok: true,
           status: 'rendered',
           durationMs: Date.now() - startTime,
-          docxUrl: request.outputType !== 'pdf' ? docxUrl : undefined,
+          // If a PDF-only request fails, keep the successfully rendered DOCX
+          // available so the author still has a usable output.
+          docxUrl: request.outputType !== 'pdf' || renderResult.pdfFailed ? docxUrl : undefined,
           pdfUrl: request.outputType !== 'docx' ? pdfUrl : undefined,
+          errors: pdfNotice === undefined ? undefined : [pdfNotice],
           analysis: analysis
             ? {
               variableCount: analysis.stats.uniqueVariables,

@@ -28,7 +28,7 @@ import { createFinalBlockZip, type ZipDocument, type ZipResult } from './ZipBund
 import { storageProvider } from '../storage/index.js';
 
 import type { EnhancedGenerationResult } from './EnhancedDocumentEngine.js';
-import type { PdfStrategyName } from './PdfConverter.js';
+import type { PdfConversionNotice, PdfStrategyName } from './PdfConverter.js';
 import type { NormalizationOptions } from './VariableNormalizer.js';
 import type { FinalBlockConfig } from '../../../shared/types/stepConfigs.js';
 
@@ -86,6 +86,8 @@ export interface FinalBlockRenderResponse {
     /** True when the high-fidelity converter failed and a degraded one produced the PDF. */
     pdfFellBack?: boolean;
     pdfFailed?: boolean;
+    /** Safe, actionable explanation of a degraded or failed PDF conversion. */
+    pdfNotice?: PdfConversionNotice;
   }>;
 
   /** ZIP archive (if multiple documents) */
@@ -393,6 +395,7 @@ export class FinalBlockRenderer {
         pdfStrategy: toPdf ? result.pdfStrategy : undefined,
         pdfFellBack: toPdf ? result.pdfFellBack : undefined,
         pdfFailed: result.pdfFailed,
+        pdfNotice: result.pdfNotice,
       });
     }
 

@@ -28,6 +28,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import * as schema from '@shared/schema';
 
 import { db } from '../../../server/db';
+import { storageProvider } from '../../../server/services/storage';
 import { runLifecycleService } from '../../../server/services/workflow-runs/RunLifecycleService';
 import { TestFactory } from '../../helpers/testFactory';
 
@@ -42,12 +43,14 @@ import { TestFactory } from '../../helpers/testFactory';
 const { converterUrl } = vi.hoisted(() => {
   const url = process.env.PDF_CONVERTER_API_URL ?? 'http://localhost:3009';
   process.env.PDF_CONVERTER_API_URL = url;
+  // The test artifact must stay local even when the developer's .env selects
+  // the real S3 provider. The provider singleton is built during imports, so
+  // this belongs in the same pre-import hoist as the converter URL.
+  process.env.STORAGE_DRIVER = 'disk';
   return { converterUrl: url };
 });
 
 const FILES_DIR = path.join(process.cwd(), 'server', 'files');
-const OUTPUTS_DIR = path.join(FILES_DIR, 'outputs');
-const ARCHIVES_DIR = path.join(FILES_DIR, 'archives');
 
 function createDocxBuffer(content: string): Buffer {
   const zip = new PizZip();
@@ -77,16 +80,6 @@ function createDocxBuffer(content: string): Buffer {
   return zip.generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
 
-async function resolveGeneratedFile(fileName: string): Promise<string> {
-  const archivePath = path.join(ARCHIVES_DIR, fileName);
-  try {
-    await fs.access(archivePath);
-    return archivePath;
-  } catch {
-    return path.join(OUTPUTS_DIR, fileName);
-  }
-}
-
 /** Is a real Gotenberg listening? Never fail the suite over its absence. */
 async function gotenbergReachable(): Promise<boolean> {
   try {
@@ -106,6 +99,7 @@ describe('Hardening: generated documents record the real converter', () => {
   let projectId: string;
   let converterUp = false;
   const templateFileRefs: string[] = [];
+  const generatedStorageKeys: string[] = [];
 
   beforeAll(async () => {
     converterUp = await gotenbergReachable();
@@ -113,7 +107,7 @@ describe('Hardening: generated documents record the real converter', () => {
     tenantId = setup.tenant.id;
     userId = setup.user.id;
     projectId = setup.project.id;
-    await fs.mkdir(OUTPUTS_DIR, { recursive: true });
+    await fs.mkdir(FILES_DIR, { recursive: true });
   });
 
   afterAll(async () => {
@@ -126,6 +120,9 @@ describe('Hardening: generated documents record the real converter', () => {
       }
       for (const fileRef of templateFileRefs) {
         await fs.unlink(path.join(FILES_DIR, fileRef)).catch(() => { });
+      }
+      for (const storageKey of generatedStorageKeys) {
+        await storageProvider.deleteFile(storageKey);
       }
     } catch (error) {
       console.error('Cleanup error (non-fatal):', error);
@@ -199,9 +196,11 @@ describe('Hardening: generated documents record the real converter', () => {
     // high-fidelity path failed and the fallback silently produced the file.
     expect(records[0].pdfStrategy).toBe('gotenberg');
 
-    // ...and a real PDF exists, so the label is not describing a phantom.
-    const pdfPath = await resolveGeneratedFile(records[0].fileName);
-    const bytes = await fs.readFile(pdfPath);
+    // ...and a real PDF exists in durable storage, so the label is not
+    // describing a phantom. The renderer deliberately deletes its local
+    // scratch output after upload, so read through the provider contract.
+    generatedStorageKeys.push(records[0].storageKey);
+    const bytes = await storageProvider.getFile(records[0].storageKey);
     expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
     expect(bytes.length).toBeGreaterThan(1000);
   }, 120_000);
