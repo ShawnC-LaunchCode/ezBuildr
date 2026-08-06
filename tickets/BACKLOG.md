@@ -250,16 +250,33 @@ Carved while merging GH-158/159/160 and retiring the duplicate GH-170 branch.
   `Tests` job passes (299 files) then dies on the `Slack Notification Suite`
   step, which needs a secret dependabot PRs do not receive. Either guard that
   step on secret availability or accept the red and merge on the Tests result.
-- **RM-5 — the `Auth Tests` workflow has never passed** · `operational` · P2.
-  It has failed on **every push since at least 2026-07-14** (8 consecutive
-  runs checked, all `failure`). Root cause is configuration, not code: it runs
-  `tests/integration/auth.flows.real.test.ts` and `auth.routes.real.test.ts`,
-  which `vitest.config.ts` deliberately lists in `excludedIntegrationTests`
-  because `*.real.test.ts` needs real external credentials — plus
-  `tests/unit/services/MfaService.test.ts`. A workflow that is permanently red
-  provides no signal and trains everyone to ignore red CI, which is how
-  DEBT-OPS2 happened. Either give it the credentials, drop the `.real` files
-  from its matrix, or delete the workflow.
+- ~~**RM-5 — the `Auth Tests` workflow has never passed**~~ · **DONE
+  2026-08-06.** Failed on every push since at least 2026-07-14 (8 consecutive
+  runs checked). Three independent config faults, no product bug:
+  1. Its fallback `VL_MASTER_KEY` decoded to **41 bytes**, not 32. MfaService
+     encrypts the TOTP secret with it and a wrong length throws — that alone
+     failed two `generateTotpSecret()` cases. `tests/setup.auth.ts` already had
+     a *valid* fallback; the workflow was overriding it with a broken one.
+  2. Two jobs ran `vitest.config.integration.ts`, whose five `*.real.test.ts`
+     files need real external credentials — the same pattern
+     `vitest.config.ts` excludes for that reason. Removed; the files stay and
+     still run locally via `test:auth:integration`.
+  3. `auth-test-summary` printed "✅ Completed" whenever an artifact merely
+     existed, so a failed run still summarised as a pass. Removed.
+  The surviving job runs `test:auth:coverage`, so vitest actually enforces the
+  80/80/75/80 thresholds instead of the old no-op step that echoed them in a
+  comment, and `json-summary` was added to the reporters because the step
+  summary read a `coverage-summary.json` that was never generated.
+  **Lesson worth keeping:** the first fix dropped the postgres service *and*
+  `DATABASE_URL`, on a local run that appeared to prove no database was needed.
+  It proved nothing — `server/config/env.ts` calls `dotenv.config()` on
+  `process.cwd()/.env`, so the local `.env` silently re-supplied the variable
+  that CI lacks. `DATABASE_URL` is a required schema field with **no** test
+  fallback (unlike `JWT_SECRET`/`SESSION_SECRET`, which `parseEnv()` fills in
+  when `NODE_ENV=test`), so `AuthService.test.ts` died at import. The
+  connection genuinely is not needed; the variable is. To test env-var
+  sufficiency in this repo you must run from a cwd with no `.env` — anything
+  else is masked.
 - **RM-6 — `isInternalIp`'s IPv4-mapped branch skips its own `isIP` gate** ·
   `security` · P2 · **not currently exploitable.** Found while fixing the
   `ip-address` advisory (RM-3), which is the same bug class in a library.

@@ -55,6 +55,13 @@ jobs:
     # unit files whose repositories are mocked, and tests/setup.auth.ts touches no
     # database. Verified by running the suite with DATABASE_URL pointed at an
     # unreachable host — 3 files / 158 tests still pass.
+    #
+    # DATABASE_URL must still be *set*, though, even though nothing dials it:
+    # AuthService imports server/config/env.ts, which validates at module load and
+    # declares DATABASE_URL as a required URL with no test fallback (unlike
+    # JWT_SECRET/SESSION_SECRET, which parseEnv() fills in when NODE_ENV is test).
+    # Dropping it made AuthService.test.ts fail at import with
+    # "Invalid environment configuration: DATABASE_URL: Required".
 
     steps:
       - name: Checkout code
@@ -73,7 +80,12 @@ jobs:
         run: npm run test:auth:coverage -- --reporter=verbose --reporter=json --outputFile=auth-unit-results.json
         env:
           NODE_ENV: test
+          # Required by server/config/env.ts's schema, never dialled. Deliberately
+          # points nowhere: if a future test in this suite starts needing a real
+          # database, it will fail loudly here rather than quietly depending on one.
+          DATABASE_URL: "postgresql://unused:unused@127.0.0.1:5432/unused"
           JWT_SECRET: "test-jwt-secret-minimum-32-characters-long-for-ci"
+          SESSION_SECRET: "test-session-secret-minimum-32-characters-long"
           # MUST decode to exactly 32 bytes — MfaService encrypts the TOTP secret
           # with it, and a wrong length throws. The value here previously decoded
           # to 41 bytes ("test-master-key-32-bytes-long-for-testing"), which is
