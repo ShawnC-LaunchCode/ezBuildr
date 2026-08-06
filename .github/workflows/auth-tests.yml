@@ -1,5 +1,24 @@
 name: Auth Tests
 
+# Enforces the per-service coverage thresholds in vitest.config.auth.ts
+# (statements/lines 80, functions 80, branches 75) on AuthService, MfaService and
+# AccountLockoutService. The main suite runs these same three files, but its own
+# thresholds are repo-wide and deliberately low, so this is the only gate holding
+# the auth services to a real number.
+#
+# This workflow used to have two further jobs, removed 2026-08-06:
+#
+#   auth-integration-tests / auth-coverage ran vitest.config.integration.ts,
+#   whose five *.real.test.ts files need real external credentials. vitest.config.ts
+#   excludes exactly that pattern for the same reason, so those jobs could never
+#   pass in CI — and between them and the broken VL_MASTER_KEY below, this workflow
+#   had failed on every push since at least 2026-07-14. The .real files are kept
+#   and remain runnable locally with credentials:
+#       npm run test:auth:integration
+#
+#   auth-test-summary aggregated the three jobs and reported "✅ Completed" whenever
+#   an artifact merely existed, so a failed run still summarised as a pass.
+
 on:
   push:
     branches: [ "main" ]
@@ -7,49 +26,35 @@ on:
       - 'server/services/AuthService.ts'
       - 'server/services/MfaService.ts'
       - 'server/services/AccountLockoutService.ts'
-      - 'server/routes/auth.routes.ts'
-      - 'server/middleware/auth.ts'
-      - 'tests/**/*auth*.test.ts'
-      - 'tests/**/*mfa*.test.ts'
-      - 'tests/**/*session*.test.ts'
-      - 'tests/**/*trusted*.test.ts'
-      - 'shared/schema.ts'
-      - 'vitest.config.*.ts'
+      - 'tests/unit/services/AuthService.test.ts'
+      - 'tests/unit/services/MfaService.test.ts'
+      - 'tests/unit/services/AccountLockoutService.test.ts'
+      - 'tests/setup.auth.ts'
+      - 'vitest.config.auth.ts'
+      - '.github/workflows/auth-tests.yml'
   pull_request:
     branches: [ "main" ]
     paths:
       - 'server/services/AuthService.ts'
       - 'server/services/MfaService.ts'
       - 'server/services/AccountLockoutService.ts'
-      - 'server/routes/auth.routes.ts'
-      - 'server/middleware/auth.ts'
-      - 'tests/**/*auth*.test.ts'
-      - 'tests/**/*mfa*.test.ts'
-      - 'tests/**/*session*.test.ts'
-      - 'tests/**/*trusted*.test.ts'
-      - 'shared/schema.ts'
-      - 'vitest.config.*.ts'
+      - 'tests/unit/services/AuthService.test.ts'
+      - 'tests/unit/services/MfaService.test.ts'
+      - 'tests/unit/services/AccountLockoutService.test.ts'
+      - 'tests/setup.auth.ts'
+      - 'vitest.config.auth.ts'
+      - '.github/workflows/auth-tests.yml'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
   auth-unit-tests:
-    name: Auth Unit Tests
+    name: Auth Unit Tests + Coverage
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgrespw
-          POSTGRES_DB: auth_test_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    # No postgres service and no db:migrate step: vitest.config.auth.ts runs three
+    # unit files whose repositories are mocked, and tests/setup.auth.ts touches no
+    # database. Verified by running the suite with DATABASE_URL pointed at an
+    # unreachable host — 3 files / 158 tests still pass.
 
     steps:
       - name: Checkout code
@@ -64,19 +69,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Setup test database
-        run: npm run db:migrate
+      - name: Run Auth Service Unit Tests with Coverage
+        run: npm run test:auth:coverage -- --reporter=verbose --reporter=json --outputFile=auth-unit-results.json
         env:
           NODE_ENV: test
-          DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/auth_test_db"
-
-      - name: Run Auth Service Unit Tests
-        run: npm run test:auth -- --reporter=verbose --reporter=json --outputFile=auth-unit-results.json
-        env:
-          NODE_ENV: test
-          DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/auth_test_db"
           JWT_SECRET: "test-jwt-secret-minimum-32-characters-long-for-ci"
-          VL_MASTER_KEY: ${{ secrets.VL_MASTER_KEY_TEST || 'dGVzdC1tYXN0ZXIta2V5LTMyLWJ5dGVzLWxvbmctZm9yLXRlc3Rpbmc=' }}
+          # MUST decode to exactly 32 bytes — MfaService encrypts the TOTP secret
+          # with it, and a wrong length throws. The value here previously decoded
+          # to 41 bytes ("test-master-key-32-bytes-long-for-testing"), which is
+          # what failed two MfaService cases on every run. This is a throwaway CI
+          # key, not a secret; tests/setup.auth.ts has its own valid fallback if
+          # the variable is unset entirely.
+          VL_MASTER_KEY: ${{ secrets.VL_MASTER_KEY_TEST || 'Y2ktdGVzdC1rZXktbm90LWEtcmVhbC1zZWNyZXQtMzI=' }}
 
       - name: Upload unit test results
         if: always()
@@ -86,111 +90,7 @@ jobs:
           path: auth-unit-results.json
           retention-days: 7
 
-  auth-integration-tests:
-    name: Auth Integration Tests
-    runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgrespw
-          POSTGRES_DB: auth_test_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Setup test database
-        run: npm run db:migrate
-        env:
-          NODE_ENV: test
-          DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/auth_test_db"
-
-      - name: Run Auth Integration Tests
-        run: npm run test:auth:integration -- --reporter=verbose --reporter=json --outputFile=auth-integration-results.json
-        env:
-          NODE_ENV: test
-          DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/auth_test_db"
-          JWT_SECRET: "test-jwt-secret-minimum-32-characters-long-for-ci"
-          VL_MASTER_KEY: ${{ secrets.VL_MASTER_KEY_TEST || 'dGVzdC1tYXN0ZXIta2V5LTMyLWJ5dGVzLWxvbmctZm9yLXRlc3Rpbmc=' }}
-          SESSION_SECRET: "test-session-secret-minimum-32-characters-long"
-
-      - name: Upload integration test results
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: auth-integration-test-results
-          path: auth-integration-results.json
-          retention-days: 7
-
-  auth-coverage:
-    name: Auth Test Coverage
-    runs-on: ubuntu-latest
-    needs: [auth-unit-tests, auth-integration-tests]
-    if: always()
-
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgrespw
-          POSTGRES_DB: auth_test_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Setup test database
-        run: npm run db:migrate
-        env:
-          NODE_ENV: test
-          DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/auth_test_db"
-
-      - name: Run Auth Tests with Coverage
-        run: npm run test:auth:integration:coverage -- --reporter=verbose
-        env:
-          NODE_ENV: test
-          DATABASE_URL: "postgresql://postgres:postgrespw@localhost:5432/auth_test_db"
-          JWT_SECRET: "test-jwt-secret-minimum-32-characters-long-for-ci"
-          VL_MASTER_KEY: ${{ secrets.VL_MASTER_KEY_TEST || 'dGVzdC1tYXN0ZXIta2V5LTMyLWJ5dGVzLWxvbmctZm9yLXRlc3Rpbmc=' }}
-          SESSION_SECRET: "test-session-secret-minimum-32-characters-long"
-
-      - name: Upload coverage reports
+      - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v7
         with:
@@ -198,74 +98,21 @@ jobs:
           path: coverage/
           retention-days: 30
 
-      - name: Generate coverage summary
+      - name: Coverage summary
         if: always()
         run: |
-          echo "# Auth Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "# 🔐 Auth Service Coverage" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ -f coverage/coverage-summary.json ]; then
-            cat coverage/coverage-summary.json | jq -r '
+            jq -r '
               .total |
-              "## Overall Coverage\n\n" +
               "| Metric | Coverage |\n" +
               "|--------|----------|\n" +
               "| Lines | \(.lines.pct)% |\n" +
               "| Statements | \(.statements.pct)% |\n" +
               "| Functions | \(.functions.pct)% |\n" +
               "| Branches | \(.branches.pct)% |"
-            ' >> $GITHUB_STEP_SUMMARY
+            ' coverage/coverage-summary.json >> $GITHUB_STEP_SUMMARY
           else
-            echo "Coverage report not found" >> $GITHUB_STEP_SUMMARY
+            echo "Coverage report not found — the test step failed before writing it." >> $GITHUB_STEP_SUMMARY
           fi
-
-      - name: Check coverage thresholds
-        if: always()
-        run: |
-          echo "Checking auth test coverage thresholds..."
-          # This will fail if coverage is below thresholds defined in vitest.config.integration.ts
-          # Lines: 85%, Functions: 85%, Branches: 80%, Statements: 85%
-
-  auth-test-summary:
-    name: Auth Test Summary
-    runs-on: ubuntu-latest
-    needs: [auth-unit-tests, auth-integration-tests, auth-coverage]
-    if: always()
-
-    steps:
-      - name: Download test results
-        uses: actions/download-artifact@v4
-        with:
-          pattern: auth-*-test-results
-          merge-multiple: true
-
-      - name: Generate test summary
-        run: |
-          echo "# 🔐 Auth Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Test Suites" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          # Unit Tests Status
-          if [ -f auth-unit-results.json ]; then
-            echo "✅ **Unit Tests:** Completed" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ **Unit Tests:** Failed or skipped" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          # Integration Tests Status
-          if [ -f auth-integration-results.json ]; then
-            echo "✅ **Integration Tests:** Completed" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ **Integration Tests:** Failed or skipped" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Note:** Auth tests run independently and don't block main CI pipeline." >> $GITHUB_STEP_SUMMARY
-
-      - name: Set job status
-        if: needs.auth-unit-tests.result != 'success' || needs.auth-integration-tests.result != 'success'
-        run: |
-          echo "::warning::Some auth tests failed. Check the logs above."
-          exit 1

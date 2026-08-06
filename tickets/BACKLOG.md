@@ -206,16 +206,21 @@ things a dev cannot do from a worktree.
 
 Carved while merging GH-158/159/160 and retiring the duplicate GH-170 branch.
 
-- **RM-1 — `run_document_deliveries.tenant_id` should be NOT NULL** ·
-  `bug` · P2. `DocumentDeliveryService.resolveTenantId` can return `null` and
-  `enqueueDeliveriesForRun` inserts the row anyway. Both read paths are
-  tenant-scoped in SQL and the RLS policy compares `tenant_id =
-  current_setting(...)`, which never matches NULL — so such a delivery is still
-  processed by the worker using the destination's credentials, but is invisible
-  and un-retryable through the API for everyone. A discarded second
-  implementation of GH-170 (branch `gh-170`, deleted 2026-08-06 in favour of
-  what landed in `58965756`) had fixed exactly this with a
-  `0015_delivery_tenant_not_null` migration; redo it on top of `main`.
+- ~~**RM-1 — `run_document_deliveries.tenant_id` should be NOT NULL**~~ ·
+  **DONE 2026-08-06** in `77212a68`. Closed at all three layers: migration
+  `0016_delivery_tenant_not_null` (via `db:generate`, so journal and snapshot
+  stay in lockstep), `.notNull()` mirrored in the Drizzle schema, and
+  `enqueueDeliveriesForRun` now throwing instead of inserting — its only caller
+  already catches and logs, so an unattributable run completes with a logged
+  failure rather than a silent invisible delivery. No backfill or DELETE, by
+  design: the table shipped in the same commit as the feature and is empty, so
+  a `23502` here means orphans exist and a human should decide.
+  Reviewer verification: the chain applied to a clean database (105 tables,
+  `information_schema` reports `tenant_id` `is_nullable = NO`); delivery unit
+  tests 4 files / 41; `unit:db` 15 files / **145** (was 143); delivery
+  integration 1 file / 3; `test:fast` **2526** (was 2524). Note the submission
+  also bumped the `SchemaManager` cache token `_v20` → `_v21`, without which the
+  new real-DB test would have passed against a stale schema.
 - **RM-2 — `RunService.createAnonymousRun` is dead code** · `cleanup` · P3.
   `grep -rn "createAnonymousRun" server/` returns only the definition. It was
   the `/intake/*` pipeline's helper; O-12 removed that pipeline, and

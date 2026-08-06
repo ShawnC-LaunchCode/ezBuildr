@@ -14,7 +14,10 @@ export default defineConfig({
     ],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
+      // json-summary produces coverage/coverage-summary.json, which the
+      // auth-tests workflow reads to build its step summary. Without it that
+      // step silently reported "Coverage report not found" on every green run.
+      reporter: ['text', 'json', 'json-summary', 'html'],
       include: [
         'server/services/AuthService.ts',
         'server/services/MfaService.ts',
