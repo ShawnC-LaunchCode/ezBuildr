@@ -12,7 +12,11 @@ import { createLogger } from "../logger";
 import { computeChecksum } from "../utils/checksum";
 import { createError } from "../utils/errors";
 import { documentTemplateRepository } from "../repositories";
-import { lintWorkflowContent, type LintableWorkflowContent } from "./workflowLintRules";
+import {
+  lintWorkflowContent,
+  type LintableWorkflowContent,
+  type LintResult,
+} from "./workflowLintRules";
 import {
   validateWorkflowStructure,
   type WorkflowReadinessContext,
@@ -43,6 +47,29 @@ export interface ValidationResult {
   valid: boolean;
   errors: string[];
   warnings: string[];
+}
+
+function collectLintResults(
+  content: LintableWorkflowContent,
+  readiness: WorkflowReadinessContext
+): LintResult[] {
+  const combined = [
+    ...lintWorkflowContent(content),
+    ...validateWorkflowStructure(content, readiness),
+  ];
+  const seen = new Set<string>();
+  return combined.filter((result) => {
+    const key = `${result.type}|${result.message}`;
+    if (seen.has(key)) { return false; }
+    seen.add(key);
+    return true;
+  });
+}
+
+function summarizeLintResults(results: LintResult[]): ValidationResult {
+  const errors = results.filter(result => result.type === "error").map(result => result.message);
+  const warnings = results.filter(result => result.type === "warning").map(result => result.message);
+  return { valid: errors.length === 0, errors, warnings };
 }
 /**
  * Service for workflow version management
@@ -247,22 +274,13 @@ export class VersionService {
     readiness: WorkflowReadinessContext = {}
   ): ValidationResult {
     const content = graphJson as unknown as LintableWorkflowContent;
-    const combined = [
-      ...lintWorkflowContent(content),
-      ...validateWorkflowStructure(content, readiness),
-    ];
+    return summarizeLintResults(collectLintResults(content, readiness));
+  }
 
-    const errors: string[] = [];
-    const warnings: string[] = [];
-    const seen = new Set<string>();
-    for (const result of combined) {
-      const key = `${result.type}|${result.message}`;
-      if (seen.has(key)) { continue; }
-      seen.add(key);
-      (result.type === 'error' ? errors : warnings).push(result.message);
-    }
-
-    return { valid: errors.length === 0, errors, warnings };
+  /** Return the exact categorized findings used by the publish gate. */
+  async lintSerializedWorkflow(content: LintableWorkflowContent): Promise<LintResult[]> {
+    const readiness = await this.buildReadinessContext(content);
+    return collectLintResults(content, readiness);
   }
 
   /**
@@ -278,8 +296,8 @@ export class VersionService {
    * (`documentTemplateRepository.findByIdAndProjectId(documentId, projectId)`),
    * so a workflow that clears this gate resolves the same templates at run time.
    */
-  private async buildReadinessContext(graphJson: WorkflowGraph): Promise<WorkflowReadinessContext> {
-    const projectId = (graphJson as unknown as { projectId?: string | null }).projectId;
+  private async buildReadinessContext(graphJson: LintableWorkflowContent): Promise<WorkflowReadinessContext> {
+    const projectId = (graphJson as LintableWorkflowContent & { projectId?: string | null }).projectId;
 
     let knownTemplateIds: Set<string> | undefined;
     if (typeof projectId === "string" && projectId.length > 0) {
@@ -389,8 +407,8 @@ export class VersionService {
     //
     // GH-152: the gate also refuses documents whose templates do not resolve,
     // which needs the project's template ids — resolved here so the rules stay pure.
-    const readiness = await this.buildReadinessContext(graphJson);
-    const validation = this.validateWorkflow(workflowId, graphJson, readiness);
+    const lintResults = await this.lintSerializedWorkflow(graphJson as unknown as LintableWorkflowContent);
+    const validation = summarizeLintResults(lintResults);
     if (!validation.valid && !force) {
       throw createError.validation(
         `Cannot publish workflow: ${validation.errors.join(', ')}`

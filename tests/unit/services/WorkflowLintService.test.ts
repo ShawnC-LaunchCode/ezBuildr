@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const serializeWorkflow = vi.fn();
+const lintSerializedWorkflow = vi.fn();
 
 vi.mock("../../../server/services/VersionService", () => ({
-  versionService: { serializeWorkflow },
+  versionService: { serializeWorkflow, lintSerializedWorkflow },
 }));
 
 /** Minimal WorkflowContentData-shaped fixture the lint service consumes. */
@@ -28,6 +29,10 @@ function content(overrides: Record<string, unknown> = {}) {
 describe("WorkflowLintService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    lintSerializedWorkflow.mockImplementation(async (data: Record<string, unknown>) => {
+      const { lintWorkflowContent } = await import("../../../server/services/workflowLintRules");
+      return lintWorkflowContent(data);
+    });
   });
 
   async function lint(data: Record<string, unknown>) {
@@ -54,6 +59,10 @@ describe("WorkflowLintService", () => {
     }));
     const err = results.find(r => r.type === "error" && r.message.includes("ghost"));
     expect(err).toBeDefined();
+    expect(err).toMatchObject({
+      category: "logic",
+      target: { tab: "sections", panel: "logic" },
+    });
   });
 
   it("warns — without throwing — on an object-shaped visibleIf referencing an unknown alias", async () => {
@@ -77,6 +86,10 @@ describe("WorkflowLintService", () => {
     }));
     const warn = results.find(r => r.type === "warning" && r.message.includes("missing_alias"));
     expect(warn).toBeDefined();
+    expect(warn).toMatchObject({
+      category: "logic",
+      target: { tab: "sections", sectionId: "s1", stepId: "st1" },
+    });
   });
 
   it("does not flag a visibleIf that references a real alias", async () => {

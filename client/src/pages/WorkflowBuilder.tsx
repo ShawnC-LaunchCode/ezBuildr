@@ -20,7 +20,7 @@ import {
 // Tab components
 // Versioning Imports
 import { useState, useEffect, useMemo } from "react";
-import { useParams, useLocation } from "wouter";
+import { useLocation, useParams, useSearch } from "wouter";
 
 import { ActivateToggle } from "@/components/builder/ActivateToggle";
 import { AssignInterviewDialog } from "@/components/builder/AssignInterviewDialog";
@@ -69,12 +69,14 @@ import {
   useWorkflow,
   useSetWorkflowMode,
 } from "@/lib/vault-hooks";
+import { useWorkflowBuilder } from "@/store/workflow-builder";
 import { CURRENT_VERSION_ID } from "@shared/config";
 
 // eslint-disable-next-line max-lines-per-function, complexity
 export default function WorkflowBuilder() {
   const { id: workflowId } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
+  const search = useSearch();
   const queryClient = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
   const { data: workflow, isLoading } = useWorkflow(workflowId);
@@ -87,7 +89,7 @@ export default function WorkflowBuilder() {
   const restoreMutation = useRestoreVersion();
   const setWorkflowModeMutation = useSetWorkflowMode();
   // State
-  const searchParams = new URLSearchParams(window.location.search);
+  const searchParams = useMemo(() => new URLSearchParams(search), [search]);
   const [collectionsDrawerOpen, setCollectionsDrawerOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -123,9 +125,41 @@ export default function WorkflowBuilder() {
   const [launchingPreview] = useState(false);
   // searchParams hoisted above
   const requestedTab = searchParams.get("tab");
+  const requestedSectionId = searchParams.get("sectionId");
+  const requestedStepId = searchParams.get("stepId");
+  const requestedBlockId = searchParams.get("blockId");
+  const requestedPanel = searchParams.get("panel");
   const [activeTab, setActiveTab] = useState<BuilderTab>(
     isBuilderTab(requestedTab) ? requestedTab : "sections",
   );
+  const selectSection = useWorkflowBuilder(state => state.selectSection);
+  const selectStep = useWorkflowBuilder(state => state.selectStep);
+  const selectBlock = useWorkflowBuilder(state => state.selectBlock);
+
+  useEffect(() => {
+    if (isBuilderTab(requestedTab)) {
+      setActiveTab(requestedTab);
+    }
+    if (requestedStepId) {
+      selectStep(requestedStepId);
+    } else if (requestedBlockId) {
+      selectBlock(requestedBlockId);
+    } else if (requestedSectionId) {
+      selectSection(requestedSectionId);
+    }
+    if (requestedPanel === "logic") {
+      setLogicPanelOpen(true);
+    }
+  }, [
+    requestedBlockId,
+    requestedPanel,
+    requestedSectionId,
+    requestedStepId,
+    requestedTab,
+    selectBlock,
+    selectSection,
+    selectStep,
+  ]);
   const mode = workflowMode?.mode ?? "easy";
 
   // Sort versions to find latest published

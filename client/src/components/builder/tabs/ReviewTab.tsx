@@ -20,7 +20,7 @@ import { fetchAPI } from "@/lib/vault-api";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
-import { ReviewIssueList, ReviewIssue } from "./review/ReviewIssueList";
+import { ReviewIssueList, type ReviewIssue } from "./review/ReviewIssueList";
 import { ReviewStatsCard } from "./review/ReviewStatsCard";
 
 interface ReviewTabProps {

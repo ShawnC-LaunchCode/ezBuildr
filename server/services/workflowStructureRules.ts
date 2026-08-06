@@ -25,6 +25,7 @@ import {
   isRunnerRequirableStepType,
   normalizeRunnerStepType,
 } from "@shared/types/runnerStepTypes";
+import type { WorkflowLintCategory, WorkflowLintTarget } from "@shared/types/workflowLint";
 
 import type { LintResult, LintableWorkflowContent } from "./workflowLintRules";
 
@@ -72,11 +73,30 @@ function sectionLabel(section: Record<string, any>): string {
   return String(section.title ?? section.id ?? "untitled section");
 }
 
+function issue(
+  type: LintResult["type"],
+  category: WorkflowLintCategory,
+  message: string,
+  target: WorkflowLintTarget
+): LintResult {
+  return { type, category, message, target };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
+function sectionTarget(section: Record<string, any>): WorkflowLintTarget {
+  return { tab: "sections", sectionId: String(section.id) };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
+function stepTarget(section: Record<string, any>, step: Record<string, any>): WorkflowLintTarget {
+  return { tab: "sections", sectionId: String(section.id), stepId: String(step.id) };
+}
+
 /** Check 1 — a workflow with no sections, or no real questions, cannot be run. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
 function checkHasContent(sections: Record<string, any>[], results: LintResult[]): void {
   if (sections.length === 0) {
-    results.push({ type: "error", message: "Workflow must have at least one section." });
+    results.push(issue("error", "questions", "Workflow must have at least one section.", { tab: "sections" }));
     return;
   }
 
@@ -84,7 +104,7 @@ function checkHasContent(sections: Record<string, any>[], results: LintResult[])
     stepsOf(section).some(step => step.isVirtual !== true)
   );
   if (!hasRealStep) {
-    results.push({ type: "error", message: "Workflow must have at least one question." });
+    results.push(issue("error", "questions", "Workflow must have at least one question.", { tab: "sections" }));
   }
 }
 
@@ -98,17 +118,21 @@ function checkHasContent(sections: Record<string, any>[], results: LintResult[])
 function checkIdsAreUuids(sections: Record<string, any>[], results: LintResult[]): void {
   for (const section of sections) {
     if (!UUID_PATTERN.test(String(section.id))) {
-      results.push({
-        type: "error",
-        message: `Section "${sectionLabel(section)}" has an id that is not a UUID: "${String(section.id)}"`,
-      });
+      results.push(issue(
+        "error",
+        "questions",
+        `Section "${sectionLabel(section)}" has an id that is not a UUID: "${String(section.id)}"`,
+        sectionTarget(section)
+      ));
     }
     for (const step of stepsOf(section)) {
       if (!UUID_PATTERN.test(String(step.id))) {
-        results.push({
-          type: "error",
-          message: `Question "${stepLabel(step)}" has an id that is not a UUID: "${String(step.id)}"`,
-        });
+        results.push(issue(
+          "error",
+          "questions",
+          `Question "${stepLabel(step)}" has an id that is not a UUID: "${String(step.id)}"`,
+          stepTarget(section, step)
+        ));
       }
     }
   }
@@ -122,27 +146,33 @@ function checkStepTypes(sections: Record<string, any>[], results: LintResult[]):
       const type = String(step.type ?? "");
 
       if (!VALID_STEP_TYPES.has(type)) {
-        results.push({
-          type: "error",
-          message: `Question "${stepLabel(step)}" has an unrecognized type: "${type}"`,
-        });
+        results.push(issue(
+          "error",
+          "questions",
+          `Question "${stepLabel(step)}" has an unrecognized type: "${type}"`,
+          stepTarget(section, step)
+        ));
         continue;
       }
 
       const runnerStatus = getRunnerStepTypeStatus(type);
       if (runnerStatus === "unsupported") {
-        results.push({
-          type: "error",
-          message: `Question "${stepLabel(step)}" has a type ("${type}") the runner cannot display. Remove it or use a supported question type before publishing.`,
-        });
+        results.push(issue(
+          "error",
+          "questions",
+          `Question "${stepLabel(step)}" has a type ("${type}") the runner cannot display. Remove it or use a supported question type before publishing.`,
+          stepTarget(section, step)
+        ));
         continue;
       }
 
       if (step.required === true && !isRunnerRequirableStepType(type)) {
-        results.push({
-          type: "error",
-          message: `Question "${stepLabel(step)}" is required but its type ("${type}") cannot be answered in the runner, so the interview could never be completed.`,
-        });
+        results.push(issue(
+          "error",
+          "questions",
+          `Question "${stepLabel(step)}" is required but its type ("${type}") cannot be answered in the runner, so the interview could never be completed.`,
+          stepTarget(section, step)
+        ));
       }
     }
   }
@@ -207,15 +237,19 @@ function checkLogicRules(
     const conditionRef = rule.conditionStepId ?? rule.conditionStepAlias;
     const hasCondition = typeof conditionRef === "string" && conditionRef.length > 0;
     if (!hasCondition) {
-      results.push({
-        type: "error",
-        message: `A ${String(rule.action ?? "logic")} rule has no condition question, so it would always fire at run time.`,
-      });
+      results.push(issue(
+        "error",
+        "logic",
+        `A ${String(rule.action ?? "logic")} rule has no condition question, so it would always fire at run time.`,
+        { tab: "sections", panel: "logic" }
+      ));
     } else if (!ctx.stepRefs.has(conditionRef)) {
-      results.push({
-        type: "error",
-        message: `Logic rule condition references a question that does not exist: "${conditionRef}"`,
-      });
+      results.push(issue(
+        "error",
+        "logic",
+        `Logic rule condition references a question that does not exist: "${conditionRef}"`,
+        { tab: "sections", panel: "logic" }
+      ));
     }
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Workflow definitions contain extensible dynamic configuration.
@@ -223,19 +257,23 @@ function checkLogicRules(
     const hasTarget = typeof targetRef === "string" && targetRef.length > 0;
     const targetsSection = rule.targetType === "section";
     if (!hasTarget) {
-      results.push({
-        type: "error",
-        message: `A ${String(rule.action ?? "logic")} rule has no target, so it can never take effect.`,
-      });
+      results.push(issue(
+        "error",
+        "logic",
+        `A ${String(rule.action ?? "logic")} rule has no target, so it can never take effect.`,
+        { tab: "sections", panel: "logic" }
+      ));
       continue;
     }
 
     const knownTarget = targetsSection ? ctx.sectionRefs.has(targetRef) : ctx.stepRefs.has(targetRef);
     if (!knownTarget) {
-      results.push({
-        type: "error",
-        message: `Logic rule target references a ${targetsSection ? "section" : "question"} that does not exist: "${targetRef}"`,
-      });
+      results.push(issue(
+        "error",
+        "logic",
+        `Logic rule target references a ${targetsSection ? "section" : "question"} that does not exist: "${targetRef}"`,
+        { tab: "sections", panel: "logic" }
+      ));
       continue;
     }
 
@@ -258,10 +296,12 @@ function checkSkipDirection(
   }
 
   if (targetOrder <= conditionSectionOrder) {
-    results.push({
-      type: "error",
-      message: `A "skip to" rule sends the respondent back to a section at or before the question that triggers it, which would loop the interview forever. Point it at a later section.`,
-    });
+    results.push(issue(
+      "error",
+      "logic",
+      `A "skip to" rule sends the respondent back to a section at or before the question that triggers it, which would loop the interview forever. Point it at a later section.`,
+      { tab: "sections", panel: "logic" }
+    ));
   }
 }
 
@@ -286,19 +326,23 @@ function checkChoiceSteps(sections: Record<string, any>[], results: LintResult[]
       );
 
       if (!hasStaticOptions && !hasDynamicSource) {
-        results.push({
-          type: "error",
-          message: `Choice question "${stepLabel(step)}" has no options and no dynamic option source, so it cannot be answered.`,
-        });
+        results.push(issue(
+          "error",
+          "questions",
+          `Choice question "${stepLabel(step)}" has no options and no dynamic option source, so it cannot be answered.`,
+          stepTarget(section, step)
+        ));
       }
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Workflow definitions contain extensible dynamic configuration.
       const display = config.display;
       if (display !== undefined && display !== null && !VALID_CHOICE_DISPLAYS.has(String(display))) {
-        results.push({
-          type: "error",
-          message: `Choice question "${stepLabel(step)}" has an unsupported display mode: "${String(display)}". Use radio, dropdown, or multiple.`,
-        });
+        results.push(issue(
+          "error",
+          "questions",
+          `Choice question "${stepLabel(step)}" has an unsupported display mode: "${String(display)}". Use radio, dropdown, or multiple.`,
+          stepTarget(section, step)
+        ));
       }
     }
   }
@@ -330,12 +374,17 @@ function documentEntriesOf(step: Record<string, any>): Record<string, any>[] {
  * document with a blank, recorded in `unresolvedVariables`, rather than a
  * failure. Blocking here would refuse workflows that generate fine.
  */
+interface DocumentEntryCheckContext {
+  ruleContext: RuleContext;
+  readiness: WorkflowReadinessContext;
+  target: WorkflowLintTarget;
+}
+
 function checkDocumentEntry(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
   entry: Record<string, any>,
   ownerLabel: string,
-  ctx: RuleContext,
-  context: WorkflowReadinessContext,
+  checkContext: DocumentEntryCheckContext,
   results: LintResult[]
 ): void {
   const rawId: unknown = entry.documentId;
@@ -343,20 +392,29 @@ function checkDocumentEntry(
   const entryLabel = String(entry.alias ?? entry.id ?? "untitled document");
 
   if (documentId.length === 0) {
-    results.push({
-      type: "error",
-      message: `${ownerLabel} document "${entryLabel}" has no template selected, so document generation would fail for every respondent.`,
-    });
+    results.push(issue(
+      "error",
+      "documents",
+      `${ownerLabel} document "${entryLabel}" has no template selected, so document generation would fail for every respondent.`,
+      checkContext.target
+    ));
   } else if (documentId === PLACEHOLDER_DOCUMENT_ID) {
-    results.push({
-      type: "error",
-      message: `${ownerLabel} document "${entryLabel}" still has a placeholder template id. Select a real template before publishing.`,
-    });
-  } else if (context.knownTemplateIds !== undefined && !context.knownTemplateIds.has(documentId)) {
-    results.push({
-      type: "error",
-      message: `${ownerLabel} document "${entryLabel}" references a template that does not exist in this project: "${documentId}"`,
-    });
+    results.push(issue(
+      "error",
+      "documents",
+      `${ownerLabel} document "${entryLabel}" still has a placeholder template id. Select a real template before publishing.`,
+      checkContext.target
+    ));
+  } else if (
+    checkContext.readiness.knownTemplateIds !== undefined &&
+    !checkContext.readiness.knownTemplateIds.has(documentId)
+  ) {
+    results.push(issue(
+      "error",
+      "documents",
+      `${ownerLabel} document "${entryLabel}" references a template that does not exist in this project: "${documentId}"`,
+      checkContext.target
+    ));
   }
 
   const mapping: unknown = entry.mapping;
@@ -367,20 +425,24 @@ function checkDocumentEntry(
 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Workflow definitions contain extensible dynamic configuration.
     const source: unknown = binding?.source;
     if (typeof source !== "string" || source.trim().length === 0) {
-      results.push({
-        type: "warning",
-        message: `${ownerLabel} document "${entryLabel}" maps field "${field}" to an empty source, so that field will render blank.`,
-      });
+      results.push(issue(
+        "warning",
+        "documents",
+        `${ownerLabel} document "${entryLabel}" maps field "${field}" to an empty source, so that field will render blank.`,
+        checkContext.target
+      ));
       continue;
     }
     // Dotted sources address flattened nested values and are resolved at
     // generation time, not against step aliases.
     if (source.includes(".")) { continue; }
-    if (!ctx.stepAliases.has(source)) {
-      results.push({
-        type: "warning",
-        message: `${ownerLabel} document "${entryLabel}" maps field "${field}" to "${source}", which is not a known question alias — that field will render blank.`,
-      });
+    if (!checkContext.ruleContext.stepAliases.has(source)) {
+      results.push(issue(
+        "warning",
+        "documents",
+        `${ownerLabel} document "${entryLabel}" maps field "${field}" to "${source}", which is not a known question alias — that field will render blank.`,
+        checkContext.target
+      ));
     }
   }
 }
@@ -404,15 +466,21 @@ function checkFinalBlockSteps(
         // `RunLifecycleService` only collects configs with documents, so an empty
         // final block generates nothing rather than failing — worth saying, not
         // worth blocking.
-        results.push({
-          type: "warning",
-          message: `${label} has no documents configured, so no documents will be generated for it.`,
-        });
+        results.push(issue(
+          "warning",
+          "documents",
+          `${label} has no documents configured, so no documents will be generated for it.`,
+          stepTarget(section, step)
+        ));
         continue;
       }
 
       for (const entry of entries) {
-        checkDocumentEntry(entry, label, ctx, context, results);
+        checkDocumentEntry(entry, label, {
+          ruleContext: ctx,
+          readiness: context,
+          target: stepTarget(section, step),
+        }, results);
       }
     }
   }
@@ -441,25 +509,31 @@ function checkLegacyFinalSections(
     const ids = Array.isArray(templates) ? templates : [];
 
     if (ids.length === 0) {
-      results.push({
-        type: "warning",
-        message: `Final documents section "${sectionLabel(section)}" has no templates selected, so no documents will be generated.`,
-      });
+      results.push(issue(
+        "warning",
+        "documents",
+        `Final documents section "${sectionLabel(section)}" has no templates selected, so no documents will be generated.`,
+        sectionTarget(section)
+      ));
       continue;
     }
 
     for (const rawId of ids) {
       const templateId = typeof rawId === "string" ? rawId.trim() : "";
       if (templateId.length === 0) {
-        results.push({
-          type: "error",
-          message: `Final documents section "${sectionLabel(section)}" has an empty template reference.`,
-        });
+        results.push(issue(
+          "error",
+          "documents",
+          `Final documents section "${sectionLabel(section)}" has an empty template reference.`,
+          sectionTarget(section)
+        ));
       } else if (context.knownTemplateIds !== undefined && !context.knownTemplateIds.has(templateId)) {
-        results.push({
-          type: "error",
-          message: `Final documents section "${sectionLabel(section)}" references a template that does not exist in this project: "${templateId}"`,
-        });
+        results.push(issue(
+          "error",
+          "documents",
+          `Final documents section "${sectionLabel(section)}" references a template that does not exist in this project: "${templateId}"`,
+          sectionTarget(section)
+        ));
       }
     }
   }
@@ -491,14 +565,20 @@ function checkSignatureBlocks(
       const entries = documentEntriesOf(step);
 
       if (entries.length === 0) {
-        results.push({
-          type: "error",
-          message: `${label} has no documents to sign, so the respondent would reach a signing step with nothing to sign.`,
-        });
+        results.push(issue(
+          "error",
+          "documents",
+          `${label} has no documents to sign, so the respondent would reach a signing step with nothing to sign.`,
+          stepTarget(section, step)
+        ));
       }
 
       for (const entry of entries) {
-        checkDocumentEntry(entry, label, ctx, context, results);
+        checkDocumentEntry(entry, label, {
+          ruleContext: ctx,
+          readiness: context,
+          target: stepTarget(section, step),
+        }, results);
       }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
@@ -509,10 +589,12 @@ function checkSignatureBlocks(
         provider.trim().length > 0 &&
         !context.availableEsignProviders.has(provider.trim().toLowerCase())
       ) {
-        results.push({
-          type: "warning",
-          message: `${label} uses e-signature provider "${provider}", which is not configured on this server — signing will fail until it is enabled.`,
-        });
+        results.push(issue(
+          "warning",
+          "integrations",
+          `${label} uses e-signature provider "${provider}", which is not configured on this server — signing will fail until it is enabled.`,
+          stepTarget(section, step)
+        ));
       }
     }
   }
@@ -526,10 +608,12 @@ function collectStructureWarnings(sections: Record<string, any>[], results: Lint
       if (step.isVirtual === true) { continue; }
 
       if (step.required === true && step.visibleIf !== null && step.visibleIf !== undefined && step.visibleIf !== "") {
-        results.push({
-          type: "warning",
-          message: `Question "${stepLabel(step)}" is required but has a visibility condition — it is only required while visible.`,
-        });
+        results.push(issue(
+          "warning",
+          "logic",
+          `Question "${stepLabel(step)}" is required but has a visibility condition — it is only required while visible.`,
+          stepTarget(section, step)
+        ));
       }
 
     }

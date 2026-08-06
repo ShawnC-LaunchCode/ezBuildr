@@ -26,6 +26,7 @@ import {
 
 import { db } from "../../server/db";
 import { versionService } from "../../server/services/VersionService";
+import { workflowLintService } from "../../server/services/WorkflowLintService";
 
 const MISSING_TEMPLATE_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
@@ -144,6 +145,34 @@ describe("GH-152 publish is gated on document readiness", () => {
     const [wf] = await db.select().from(workflows).where(eq(workflows.id, workflowId));
     expect(wf.status).toBe("draft");
     expect(wf.currentVersionId).toBeNull();
+  });
+
+  it("shows the builder's Review tab the same document finding the publish gate blocks on", async () => {
+    // Regression guard for the Review/publish split: `WorkflowLintService.lint`
+    // used to run only `lintWorkflowContent`, which never looks at documents, so
+    // the Review tab reported this workflow clean and publishing then failed on
+    // it. The two must resolve findings through the same path.
+    const issues = await workflowLintService.lint(workflowId, userId);
+
+    const documentIssue = issues.find(issue => issue.category === "documents");
+    expect(documentIssue, JSON.stringify(issues)).toBeDefined();
+    expect(documentIssue).toMatchObject({
+      type: "error",
+      category: "documents",
+    });
+    expect(documentIssue?.message).toMatch(/references a template that does not exist/i);
+
+    // The deep link has to land on something selectable, or "Fix" is decorative.
+    expect(documentIssue?.target.tab).toBe("sections");
+    expect(documentIssue?.target.stepId).toBe(finalStepId);
+
+    // ...and it is the very finding that blocks publishing, not a lookalike.
+    const gate = versionService.validateWorkflow(
+      workflowId,
+      await versionService.serializeWorkflow(workflowId, userId) as never,
+      { knownTemplateIds: new Set<string>([realTemplateId]) }
+    );
+    expect(gate.errors).toContain(documentIssue?.message);
   });
 
   it("publishes the same workflow once the document points at a real template", async () => {

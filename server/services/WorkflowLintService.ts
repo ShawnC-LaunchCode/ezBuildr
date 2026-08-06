@@ -1,5 +1,5 @@
 import { versionService } from "./VersionService";
-import { lintWorkflowContent, type LintResult } from "./workflowLintRules";
+import type { LintableWorkflowContent, LintResult } from "./workflowLintRules";
 
 export type { LintResult };
 
@@ -16,7 +16,7 @@ export type { LintResult };
 export class WorkflowLintService {
   async lint(workflowId: string, userId: string): Promise<LintResult[]> {
     const data = await versionService.serializeWorkflow(workflowId, userId);
-    return lintWorkflowContent(data);
+    return versionService.lintSerializedWorkflow(data as LintableWorkflowContent);
   }
 }
 

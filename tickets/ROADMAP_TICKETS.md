@@ -58,7 +58,7 @@ rewritten tickets below supersede it.
 
 ## Roadmap Progress & Dependency Overview
 
-**9 of 28 tickets complete (32%)** — updated 2026-08-06
+**10 of 28 tickets complete (36%)** — updated 2026-08-06
 
 > Keep this in sync: when a ticket's own heading earns a ✅, flip its node below
 > and bump the phase count and the overall bar. The heading is the source of truth.
@@ -66,7 +66,7 @@ rewritten tickets below supersede it.
 ```
 LEGEND    ✅ done      🔲 open
 
-OVERALL   █████████░░░░░░░░░░░░░░░░░░░░   9 / 28   (32%)
+OVERALL   ██████████░░░░░░░░░░░░░░░░░░░░   10 / 28   (36%)
 
 
 [Phase 0 — P0 Security & Storage Foundation]      ██████████  2/2  DONE
@@ -88,10 +88,10 @@ OVERALL   █████████░░░░░░░░░░░░░░�
         │      ├── ✅ GH-159   WCAG 2.2 AA accessibility conformance
         │      └── 🔲 GH-148   Multilingual & locale-aware runner
         │
-        ├──► [Phase 3 — Builder Logic & Visual Architecture]   ░░░░░░░░░░  0/4
+        ├──► [Phase 3 — Builder Logic & Visual Architecture]   ███░░░░░░░  1/4
         │      ├── 🔲 GH-154   Unified conditional logic editor
         │      ├── 🔲 GH-153   Visual workflow map & path simulation
-        │      ├── 🔲 GH-152   Publish gate review grouping
+        │      ├── ✅ GH-152   Publish gate review grouping
         │      └── 🔲 GH-167   Document-to-interview AI onboarding
         │
         ├──► [Phase 4 — P2 Advanced Blocks, Authoring & Templates]  ░░░░░░░░░░  0/7
@@ -123,6 +123,7 @@ OVERALL   █████████░░░░░░░░░░░░░░�
 | ✅ GH-159 | WCAG 2.2 AA conformance (builder + runner) | 2026-08-06 |
 | ✅ GH-146 | File uploads in the runner and inside List items | 2026-08-06 |
 | ✅ GH-157 | Production DocuSign envelope lifecycle | 2026-08-06 |
+| ✅ GH-152 | Publish gate review grouping and deep links | 2026-08-06 |
 
 ---
 
@@ -1097,7 +1098,45 @@ exists and expensive before it.
 
 ---
 
-## GH-152 — Extend the publish gate to document readiness and provider availability 🔲
+## GH-152 — Extend the publish gate to document readiness and provider availability ✅
+
+> **Reviewer verification pass 2026-08-06.** Gates re-run in the worktree: `tsc` exit 0,
+> `lint` exit 0, `test:fast` 209 passed / 1 skipped files and 2549 passed / 14 skipped
+> tests, and `publish-document-readiness` + `publish-lint-gate` + `activation-publish`
+> 3 files / 12 tests. All four ACs met.
+>
+> **Reviewer fixes (senior, at review) — the original dev was unavailable to finish.**
+>
+> 1. **The headline change shipped untested.** Beyond the ACs, this ticket unified
+>    `WorkflowLintService.lint` with the publish gate: the Review tab previously ran only
+>    `lintWorkflowContent` and so never showed document or e-sign findings, reporting
+>    "ready" on a workflow that then failed to publish. Correct fix, but nothing guarded
+>    it — and `WorkflowLintService.test.ts` mocks `lintSerializedWorkflow` to call
+>    `lintWorkflowContent`, stubbing out the exact composition being introduced. Proven by
+>    reverting the one-liner: 21 related tests across four files stayed green. Added a
+>    case to `publish-document-readiness.test.ts` asserting `workflowLintService.lint`
+>    returns the `documents`-category finding, that its `target` points at the real final
+>    step, and that its message is the same string the gate blocks on. **Verified failing
+>    against the reverted code (`[]`, zero findings) and passing with it.**
+> 2. **The gate opened on the wrong tab.** `defaultValue="questions"` meant a workflow
+>    blocked solely by document errors opened on an empty "Questions — no findings"
+>    panel. Now `defaultIssueCategory()` lands on the first category holding an error,
+>    then any finding, then Questions. Two of the dev's tests implicitly relied on the old
+>    default and were made explicit about which tab they act on.
+> 3. **Target tab was routed off a display string** (`typeName === "Document hook"`).
+>    Replaced with a `BlockLintKind { typeName, category, tab }` descriptor — which also
+>    resolved the `max-params` error the direct fix introduced, rather than suppressing it.
+>
+> **Observation filed (O-13):** the red/amber/green finding surfaces carry no `dark:`
+> variants. Pre-existing (the file had the same gap before this ticket), not a regression.
+
+> **Verified 2026-08-06.** The Review tab groups the publish gate's exact findings into
+> Questions, Logic, Documents, and Integrations, with direct links that select the
+> offending builder item or open its setting panel. Errors remain blocking; warnings
+> remain publishable and are recorded by the existing publish audit entry. Component
+> tests cover tab grouping, deep-link URLs/navigation, and warning audit messaging.
+> Gates: `type-check` 0 errors, `lint` 0 problems, `test:fast` **209 files / 2547 tests
+> passed** (worktree baseline 2544, +3); focused publish/document integration tests 10/10.
 
 **Priority: P1** · Size: S · Files: `client/src/components/builder/PublishModal.tsx`, `server/services/workflowLintRules.ts`
 **Ties:** Preceded by GH-156

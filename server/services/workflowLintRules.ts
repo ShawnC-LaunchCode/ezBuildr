@@ -15,10 +15,13 @@
  * implementation of these rules.
  */
 
-export interface LintResult {
-  type: "error" | "warning";
-  message: string;
-}
+import type {
+  WorkflowLintCategory,
+  WorkflowLintIssue,
+  WorkflowLintTarget,
+} from "@shared/types/workflowLint";
+
+export type LintResult = WorkflowLintIssue;
 
 interface ReferenceSets {
   stepAliases: Set<string>;
@@ -105,6 +108,7 @@ function checkVisibleIf(
   expression: unknown,
   validAliases: Set<string>,
   contextLabel: string,
+  target: WorkflowLintTarget,
   results: LintResult[]
 ): void {
   if (!expression) { return; }
@@ -119,7 +123,12 @@ function checkVisibleIf(
   const keywords = new Set(['true', 'false', 'null', 'undefined', 'and', 'or', 'not']);
   for (const id of referenced) {
     if (!keywords.has(id) && !validAliases.has(id)) {
-      results.push({ type: "warning", message: `${contextLabel} visibleIf condition references unknown alias: "${id}"` });
+      results.push({
+        type: "warning",
+        category: "logic",
+        message: `${contextLabel} visibleIf condition references unknown alias: "${id}"`,
+        target,
+      });
     }
   }
 }
@@ -132,21 +141,42 @@ function lintSections(
 ): boolean {
   let hasSteps = false;
   for (const section of sections) {
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Workflow definitions contain extensible dynamic configuration.
-    const steps = section.steps || [];
-// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Workflow definitions contain extensible dynamic configuration.
+    const rawSteps: unknown = section.steps;
+    const steps = Array.isArray(rawSteps) ? rawSteps as Record<string, unknown>[] : [];
     if (steps.length > 0) {hasSteps = true;}
 
-    checkVisibleIf(section.visibleIf, validAliases, `Section "${section.title}"`, results);
+    const sectionTarget: WorkflowLintTarget = {
+      tab: "sections",
+      sectionId: String(section.id),
+    };
+    checkVisibleIf(section.visibleIf, validAliases, `Section "${section.title}"`, sectionTarget, results);
 
     for (const step of steps) {
-// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Workflow definitions contain extensible dynamic configuration.
-      if (!step.alias) {results.push({ type: "warning", message: `Step "${step.title ?? step.id}" has no alias.` });}
-// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Workflow definitions contain extensible dynamic configuration.
-      if (!step.title) {results.push({ type: "warning", message: `A step in section "${section.title}" is missing a title.` });}
+      const stepId = String(step.id);
+      const stepLabel = String(step.title ?? step.id);
+      const stepTarget: WorkflowLintTarget = {
+        tab: "sections",
+        sectionId: String(section.id),
+        stepId,
+      };
+      if (!step.alias) {
+        results.push({
+          type: "warning",
+          category: "questions",
+          message: `Step "${stepLabel}" has no alias.`,
+          target: stepTarget,
+        });
+      }
+      if (!step.title) {
+        results.push({
+          type: "warning",
+          category: "questions",
+          message: `A step in section "${section.title}" is missing a title.`,
+          target: stepTarget,
+        });
+      }
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Workflow definitions contain extensible dynamic configuration.
-      checkVisibleIf(step.visibleIf, validAliases, `Step "${step.title ?? step.id}"`, results);
+      checkVisibleIf(step.visibleIf, validAliases, `Step "${stepLabel}"`, stepTarget, results);
     }
   }
   return hasSteps;
@@ -166,7 +196,12 @@ function lintLogicRules(
     const conditionRef = rule.conditionStepId ?? rule.conditionStepAlias;
 // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- Workflow definitions contain extensible dynamic configuration.
     if (conditionRef && !stepRefs.has(conditionRef)) {
-      results.push({ type: "error", message: `Logic rule condition references unknown alias: "${conditionRef}"` });
+      results.push({
+        type: "error",
+        category: "logic",
+        message: `Logic rule condition references unknown alias: "${conditionRef}"`,
+        target: { tab: "sections", panel: "logic" },
+      });
     }
 
     const targetRefs = rule.targetType === "section" ? sectionRefs : stepRefs;
@@ -174,15 +209,28 @@ function lintLogicRules(
     const targetRef = rule.targetId ?? rule.targetAlias;
 // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- Workflow definitions contain extensible dynamic configuration.
     if (targetRef && !targetRefs.has(targetRef)) {
-      results.push({ type: "error", message: `Logic rule target references unknown alias: "${targetRef}"` });
+      results.push({
+        type: "error",
+        category: "logic",
+        message: `Logic rule target references unknown alias: "${targetRef}"`,
+        target: { tab: "sections", panel: "logic" },
+      });
     }
   }
+}
+
+/** How one family of input-consuming blocks reports and links its findings. */
+interface BlockLintKind {
+  /** Human label used in the message, e.g. "Transform block". */
+  typeName: string;
+  category: WorkflowLintCategory;
+  tab: WorkflowLintTarget["tab"];
 }
 
 function lintBlocksWithInputs(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
   blocks: Record<string, any>[],
-  typeName: string,
+  kind: BlockLintKind,
   validAliases: Set<string>,
   results: LintResult[]
 ): void {
@@ -191,7 +239,12 @@ function lintBlocksWithInputs(
       for (const k of b.inputKeys) {
 // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- Workflow definitions contain extensible dynamic configuration.
         if (!validAliases.has(k)) {
-          results.push({ type: "error", message: `${typeName} "${b.name}" references unknown input alias: "${k}"` });
+          results.push({
+            type: "error",
+            category: kind.category,
+            message: `${kind.typeName} "${b.name}" references unknown input alias: "${k}"`,
+            target: { tab: kind.tab, blockId: String(b.id) },
+          });
         }
       }
     }
@@ -208,24 +261,34 @@ export function lintWorkflowContent(data: LintableWorkflowContent): LintResult[]
 // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- Workflow definitions contain extensible dynamic configuration.
   const sections = data.sections || [];
   if (sections.length === 0) {
-    results.push({ type: "error", message: "Workflow must have at least one section." });
+    results.push({
+      type: "error",
+      category: "questions",
+      message: "Workflow must have at least one section.",
+      target: { tab: "sections" },
+    });
   }
 
   const { stepAliases, stepRefs, sectionRefs } = collectReferenceSets(sections);
   const hasSteps = lintSections(sections, stepAliases, results);
 
   if (sections.length > 0 && !hasSteps) {
-    results.push({ type: "error", message: "Workflow must have at least one question." });
+    results.push({
+      type: "error",
+      category: "questions",
+      message: "Workflow must have at least one question.",
+      target: { tab: "sections" },
+    });
   }
 
 // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- Workflow definitions contain extensible dynamic configuration.
   lintLogicRules(data.logicRules || [], stepRefs, sectionRefs, results);
 // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- Workflow definitions contain extensible dynamic configuration.
-  lintBlocksWithInputs(data.transformBlocks || [], "Transform block", stepAliases, results);
+  lintBlocksWithInputs(data.transformBlocks || [], { typeName: "Transform block", category: "logic", tab: "sections" }, stepAliases, results);
 // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- Workflow definitions contain extensible dynamic configuration.
-  lintBlocksWithInputs(data.lifecycleHooks || [], "Lifecycle hook", stepAliases, results);
+  lintBlocksWithInputs(data.lifecycleHooks || [], { typeName: "Lifecycle hook", category: "integrations", tab: "sections" }, stepAliases, results);
 // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- Workflow definitions contain extensible dynamic configuration.
-  lintBlocksWithInputs(data.documentHooks || [], "Document hook", stepAliases, results);
+  lintBlocksWithInputs(data.documentHooks || [], { typeName: "Document hook", category: "documents", tab: "templates" }, stepAliases, results);
 
   return results;
 }
