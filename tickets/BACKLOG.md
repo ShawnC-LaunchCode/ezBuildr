@@ -201,3 +201,36 @@ things a dev cannot do from a worktree.
   nothing blocked them.
 - **DEBT-OPS3 — delete `origin/debt9-typecheck-proof`** · `operational`. Its
   only commit is a deliberate type error; the gate it proved is proven.
+
+## Roadmap follow-ups filed at merge time (2026-08-06)
+
+Carved while merging GH-158/159/160 and retiring the duplicate GH-170 branch.
+
+- **RM-1 — `run_document_deliveries.tenant_id` should be NOT NULL** ·
+  `bug` · P2. `DocumentDeliveryService.resolveTenantId` can return `null` and
+  `enqueueDeliveriesForRun` inserts the row anyway. Both read paths are
+  tenant-scoped in SQL and the RLS policy compares `tenant_id =
+  current_setting(...)`, which never matches NULL — so such a delivery is still
+  processed by the worker using the destination's credentials, but is invisible
+  and un-retryable through the API for everyone. A discarded second
+  implementation of GH-170 (branch `gh-170`, deleted 2026-08-06 in favour of
+  what landed in `58965756`) had fixed exactly this with a
+  `0015_delivery_tenant_not_null` migration; redo it on top of `main`.
+- **RM-2 — `RunService.createAnonymousRun` is dead code** · `cleanup` · P3.
+  `grep -rn "createAnonymousRun" server/` returns only the definition. It was
+  the `/intake/*` pipeline's helper; O-12 removed that pipeline, and
+  `POST /api/workflows/public/:slug/start` uses `createRun` instead. It still
+  carries its own publish/`isPublic` gate and an `createdBy: 'anon'` convention
+  that no live path writes, so it reads as a supported entrypoint and isn't one.
+- **RM-3 — two new high advisories block CI on `main`** · `operational` ·
+  **blocks every PR.** `Security Scan → Dependency Scanning` fails on
+  `GHSA-rgw5-rvv9-x895` (brace-expansion DoS, bypasses the mitigation already
+  allowlisted as `GHSA-mh99`) and `GHSA-mwp4-54f8-5fhr` (**ip-address**:
+  `Address4` decodes leading-zero octets as decimal while resolvers use octal →
+  SSRF / trust-boundary bypass). The ip-address one deserves a real look given
+  `safeFetch` / `ssrfValidator`, not an allowlist entry. Until this is resolved
+  every open PR shows red CI regardless of its own quality.
+- **RM-4 — dependabot PRs can never go green** · `operational` · P3. Their
+  `Tests` job passes (299 files) then dies on the `Slack Notification Suite`
+  step, which needs a secret dependabot PRs do not receive. Either guard that
+  step on secret availability or accept the red and merge on the Tests result.

@@ -589,7 +589,44 @@ distinct keys cannot collide, and validate the cache entry against the object's 
 
 # Phase 2: P1 Runner Experience, Reliability & Compliance
 
-## GH-160 — Add resilient autosave, offline buffering, and conflict recovery 🔲
+## GH-160 — Add resilient autosave, offline buffering, and conflict recovery ✅
+
+> **CLOSED 2026-08-06 (Senior).** Landed as `28b08b08`, merged to `main` via `70898daa`.
+> All five ACs met, and all five were **proven against the live app**, not just unit tests
+> — this ticket had never been reviewed, so the reviewer drove it end to end on port 5174.
+>
+> - **AC1** — `client/src/lib/runner/offlineBuffer.ts` writes to IndexedDB
+>   (`ezbuildr_runner_offline_db` / `pending_step_values`). Proven live: with
+>   `navigator.onLine` stubbed false, typing into a runner field produced a buffered row
+>   `{value: "Ada Lovelace Byron King", clientTimestamp, clientRevision: 23,
+>   status: "pending"}` while the UI showed **"Offline (saved locally)"**.
+> - **AC2** — dispatching `online` drained it: the buffer went to `[]` and the value
+>   landed in `step_values` in Postgres with a fresh `updated_at`. Zero data loss across
+>   a full disconnect/reconnect.
+> - **AC3** — `StepValueRepository.upsertManyWithTimestamps` compares the incoming
+>   `clientTimestamp` against the row's `updatedAt` and, when the server copy is strictly
+>   newer, preserves it and reports it in a `conflicts[]` array that
+>   `POST /api/runs/:runId/values/bulk` returns alongside the save.
+> - **AC4** — the four states render and announce: observed live in order
+>   **"Offline (saved locally)" → "Syncing changes..." → "Saving..." → "Saved"**, inside
+>   GH-159's `role="status" aria-live="polite"` region with every icon `aria-hidden="true"`.
+> - **AC5** — `useRunValuesOffline.test.ts` (388 lines), `offlineBuffer.test.ts`,
+>   `runConflictRecovery.test.ts`, plus `tests/e2e/runner-offline-resilience.e2e.ts`.
+>
+> Verification: `type-check` exit 0; `check:strict-zones` 4/4; `lint` exit 0; `test:fast`
+> **202 files / 2524 tests passed** (baseline 2504 after GH-159, +20); `test:unit:db`
+> 15 files / 143 tests; **full integration 102 files / 1057 tests passed**.
+>
+> **Merge note.** `ClientRunnerLayout.tsx` conflicted with GH-159 twice. Resolution kept
+> GH-160's `Loader2` spinner and `emerald-600/dark:emerald-400` check (both higher
+> contrast than the `green-500` pair they replaced) and extended GH-159's `aria-hidden`
+> to the offline/syncing/error icons GH-160 introduced.
+>
+> **One latent sharp edge, not blocking.** `upsertManyWithTimestamps` derives its
+> comparison set from `findByRunId(dataList[0].runId)` while `assertRunsMutable` accepts
+> many run ids. Every current caller passes a single run id from the route param, so this
+> is unreachable today — but a future batch spanning runs would silently skip conflict
+> detection for every run after the first.
 
 **Priority: P1** · Size: M · Files: `client/src/hooks/useAutoSave.ts`, `client/src/components/runner/`, `server/routes/runs.routes.ts`
 **Ties:** Independent
@@ -679,6 +716,23 @@ distinct keys cannot collide, and validate the cache entry against the object's 
 > #158's "preview renders the exact resolved participant branding" criterion is met for
 > branding. (Preview still renders the *live draft* rather than the pinned published version
 > — by design, and unrelated to branding.)
+>
+> **Re-proven independently by the reviewer 2026-08-06** before merge, against `main` on
+> port 5174 with two public workflows differing only in `workflows.settings`:
+> - default → ezBuildr mark and the "Securely powered by ezBuildr" footer.
+> - branded + white-label → header read **"Northwind Legal"**;
+>   `GET /api/runs/:id/runtime` returned `{organizationName: "Northwind Legal",
+>   primaryColor: "#B22222", accentColor: "#7A1010", whiteLabel: true}`; the Review
+>   button's computed `background-color` was **`rgb(178, 34, 34)`** — #B22222 reaching a
+>   component with no component changes, which is the point of theming through the CSS
+>   custom properties; and `document.body.innerText.includes('ezBuildr') === false`.
+> Confirmed at 1280px, 390px, and in dark mode.
+>
+> **Fixture gotcha for whoever tests this next:** branding keys live **flat** on
+> `workflows.settings` (`settings.primaryColor`, `settings.whiteLabel`, …), matching the
+> PATCH route's `workflowBrandingSettingsSchema.passthrough()`. Nesting them under
+> `settings.branding` parses cleanly, stores fine, and silently resolves to product
+> defaults — it looks exactly like a broken feature.
 
 **Priority: P1** · Size: M
 **Files (footprint):** `shared/types/branding.ts`, `shared/colorUtils.ts` (new), `client/src/lib/colorUtils.ts`, `server/routes/workflows.routes.ts`, `server/services/workflow-runs/RunRuntimeService.ts`, `client/src/lib/vault-api.ts`, `client/src/hooks/useRunnerBranding.ts` (new), `client/src/components/runner/ClientRunnerLayout.tsx`, `client/src/pages/WorkflowRunner.tsx`, `client/src/pages/RunCompletionView.tsx`, `client/src/components/builder/tabs/settings/BrandingSettingsCard.tsx`, `client/src/components/builder/tabs/SettingsTab.tsx`
@@ -810,7 +864,39 @@ exists and expensive before it.
 
 ---
 
-## GH-159 — Establish WCAG 2.2 AA conformance for builder and runner 🔲
+## GH-159 — Establish WCAG 2.2 AA conformance for builder and runner ✅
+
+> **CLOSED 2026-08-06 (Senior).** Landed as `5124388d`, merged to `main` via `7922429f`.
+> All four ACs met.
+>
+> - **AC1** — the builder tab strip was a row of plain buttons with no tablist semantics
+>   and no arrow-key handling; it is now `tablist`/`tab`/`tabpanel` with a roving
+>   `tabIndex`, Arrow/Home/End navigation and `focus-visible` rings, and the panels carry
+>   matching `aria-labelledby` ids. Runner controls are keyboard-operable, proven by a
+>   `userEvent` test that drives them without a mouse.
+> - **AC2** — the save-status indicator is a `role="status" aria-live="polite"` region;
+>   validation errors are associated with their inputs and expose `role="alert"`.
+> - **AC3** — axe-core runs in CI through `vitest-axe` inside the `unit-fast` project
+>   (not Playwright — the ACs allow either), asserting zero serious/critical violations
+>   over the builder tab strip and the runner section. A companion test asserts the
+>   fixture covers **every** member of `RUNNER_RENDERED_STEP_TYPES`, so a new step type
+>   cannot silently escape the axe sweep. `color-contrast` is disabled in the axe run
+>   because jsdom cannot compute it, which is why AC3's contrast half is carried by the
+>   token test below rather than by axe.
+> - **AC4** — conformance matrix and VPAT checklist in `docs/accessibility/WCAG_CONFORMANCE.md`.
+>
+> **Colour tokens changed product-wide, deliberately.** `--primary` 56% → 48% and
+> `--destructive` 60% → 42% in light mode; dark mode stops pairing white text with a
+> mid-tone fill; `--input` 88% → 57% so field borders are perceivable at 3:1. This
+> repaints every surface that uses the tokens, which is the point — the previous values
+> did not reach 4.5:1. `tests/unit/client/colorContrast.test.ts` parses
+> `client/src/index.css` and computes the ratios, so a future palette edit fails the
+> build instead of silently regressing.
+>
+> Verification: `type-check` exit 0; `check:strict-zones` 4/4; `lint` exit 0
+> (`--max-warnings 0`); `test:fast` **199 files / 2504 tests passed**, 1 file + 14 tests
+> skipped (baseline 2489 after GH-158, +15). No server code touched, so the DB-backed
+> projects were not re-run for this ticket. Live proof: see the GH-160 note.
 
 **Priority: P1** · Size: L · Files: `client/src/components/runner/`, `client/src/components/ui/`, `client/src/components/builder/`
 **Ties:** Relates to GH-158
