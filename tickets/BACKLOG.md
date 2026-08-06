@@ -296,3 +296,25 @@ Carved while merging GH-158/159/160 and retiring the duplicate GH-170 branch.
   branch and add a test table of the leading-zero/hex forms. Deliberately not
   bundled into the dependency bump — SSRF logic changes deserve their own
   reviewed commit.
+- **RM-7 — an idle-connection drop crashes the whole server** · `bug` · P1 ·
+  **live production impact.** `server/db.ts:63` does
+  `pool = new pg.default.Pool({ connectionString, max: poolSize })` and **no
+  `pool.on('error')` handler exists anywhere in `server/`** (grep for
+  `.on('error'` finds handlers for the queue, websockets, redis, archiver and
+  file streams — never the pg pool). pg documents that an idle client emitting
+  an error with no pool listener becomes an unhandled `'error'` event, which
+  terminates the process. Observed for real 2026-08-06 while verifying the Node
+  24 upgrade: a dev server that had been healthy died with
+  `Error: Connection terminated unexpectedly` at `pg/lib/client.js:350`, having
+  served requests fine minutes earlier. Neon closes idle connections routinely,
+  so this is a matter of when, not if. Railway's `restartPolicyType:
+  ON_FAILURE` (max 10 retries) masks it as a restart blip rather than an
+  outage, which is likely why it has gone unnoticed.
+  Fix is a few lines — attach a handler that logs and lets the pool evict the
+  client instead of letting the event reach the process — but it wants a test,
+  and the accompanying `MaxListenersExceededWarning: 11 connect listeners added
+  to [BoundPool]` seen in the same log suggests something is also attaching
+  per-connection listeners without removing them. Worth looking at both
+  together. **Not** caused by the Node 24 bump: that diff changes only
+  `@types/node`, `undici-types`, `isolated-vm` and version declarations —
+  nothing in the pg path.
