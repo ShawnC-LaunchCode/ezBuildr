@@ -86,13 +86,16 @@ jobs:
           DATABASE_URL: "postgresql://unused:unused@127.0.0.1:5432/unused"
           JWT_SECRET: "test-jwt-secret-minimum-32-characters-long-for-ci"
           SESSION_SECRET: "test-session-secret-minimum-32-characters-long"
-          # MUST decode to exactly 32 bytes — MfaService encrypts the TOTP secret
-          # with it, and a wrong length throws. The value here previously decoded
-          # to 41 bytes ("test-master-key-32-bytes-long-for-testing"), which is
-          # what failed two MfaService cases on every run. This is a throwaway CI
-          # key, not a secret; tests/setup.auth.ts has its own valid fallback if
-          # the variable is unset entirely.
-          VL_MASTER_KEY: ${{ secrets.VL_MASTER_KEY_TEST || 'Y2ktdGVzdC1rZXktbm90LWEtcmVhbC1zZWNyZXQtMzI=' }}
+          # VL_MASTER_KEY is deliberately NOT set here. tests/setup.auth.ts
+          # already supplies a valid 32-byte key when the variable is absent, and
+          # MfaService — which encrypts the TOTP secret with it — throws on any
+          # other length. This job used to override that working fallback with a
+          # literal that decoded to 41 bytes, which is what failed two
+          # generateTotpSecret() cases on every run for a month. Setting a correct
+          # literal instead would work, but a base64 key in a workflow file is a
+          # high-entropy string that trips the gitleaks step in ci.yml, so the
+          # override is simply gone. Verified: with the variable unset the suite
+          # passes 3 files / 158 tests, exit 0.
 
       - name: Upload unit test results
         if: always()
