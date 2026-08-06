@@ -73,7 +73,7 @@ Inventory of all **104 PostgreSQL tables**, organized by the `shared/schema/*.ts
 
 | Table | Purpose |
 |-------|---------|
-| `run_document_deliveries` | Durable email, webhook, and cloud-storage delivery jobs with attempts, retry scheduling, audit history, and tenant scope. `tenant_id` is nullable only for workflows with no resolvable tenant; authenticated delivery APIs always require a matching non-null tenant. |
+| `run_document_deliveries` | Durable email, webhook, and cloud-storage delivery jobs with attempts, retry scheduling, audit history, and tenant scope. `tenant_id` is **NOT NULL** ([`0016`](../../migrations/0016_delivery_tenant_not_null.sql)): both read paths and the RLS policy filter on it, so a null-tenant row would still be delivered by the worker while being invisible and un-retryable through the API. `enqueueDeliveriesForRun` throws when no tenant resolves rather than writing one. |
 
 Delivery status is constrained to `pending`, `processing`, `retry`, `delivered`, or `failed`. The partial claim index covers ready `pending`/`retry` jobs; stale `processing` jobs are reclaimed by the repository worker.
 

@@ -203,6 +203,15 @@ export class DocumentDeliveryService {
 
     const workflow = await this.workflowRepo.findById(run.workflowId, tx);
     const tenantId = await this.resolveTenantId(run, workflow, tx);
+    if (tenantId === null) {
+      // Refuse rather than write an orphan. A null-tenant row is still claimed
+      // and delivered by the worker (using the destination's credentials) but
+      // is invisible and un-retryable through the API, because both read paths
+      // and the tenant_isolation RLS policy filter on tenant_id.
+      throw new Error(
+        `Cannot enqueue document deliveries for run ${runId}: no tenant could be resolved from its workflow or owner`
+      );
+    }
 
     const deliveryInserts: InsertRunDocumentDelivery[] = enabledDestinations.map((dest: DeliveryDestination) => {
       const protectedDestination = protectDeliveryDestination(dest) as DeliveryDestination;

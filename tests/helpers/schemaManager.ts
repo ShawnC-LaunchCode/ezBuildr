@@ -52,8 +52,11 @@ export class SchemaManager {
     // bounded expression and trigram GIN indexes on datavault_values.
     // Bumped to _v20 for GH-170 migrations 0014/0015, which add the
     // run_document_deliveries table and its RLS tenant-isolation policy.
+    // Bumped to _v21 for 0016_delivery_tenant_not_null, which makes
+    // run_document_deliveries.tenant_id NOT NULL — a stale _v20 schema still
+    // accepts the orphan row the new test proves is rejected.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v20`;
+        return `test_schema_w${this.workerId}_v21`;
     }
 
     /**

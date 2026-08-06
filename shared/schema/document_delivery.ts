@@ -25,7 +25,12 @@ export const runDocumentDeliveries = pgTable("run_document_deliveries", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     runId: uuid("run_id").references(() => workflowRuns.id, { onDelete: 'cascade' }).notNull(),
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
-    tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }),
+    // NOT NULL is load-bearing: both read paths (findByRunIdAndTenantId,
+    // findByIdAndTenantId) and the tenant_isolation RLS policy compare
+    // tenant_id to a tenant, and neither ever matches NULL. A null-tenant row
+    // is still claimed and delivered by the worker but is invisible and
+    // un-retryable through the API for everyone.
+    tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
     destinationType: varchar("destination_type", { length: 50 }).notNull(),
     destinationConfig: jsonb("destination_config").default(sql`'{}'::jsonb`).notNull(),
     status: varchar("status", { length: 20 }).default('pending').notNull(),

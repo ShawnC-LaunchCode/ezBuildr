@@ -286,6 +286,37 @@ describe('DocumentDeliveryService', () => {
       );
     });
 
+    it('should throw instead of inserting an orphan when no tenant resolves', async () => {
+      // Unowned run and unfiled, unowned workflow: every resolveTenantId branch
+      // comes up empty. A null tenant_id row would be delivered by the worker
+      // but invisible and un-retryable through the tenant-scoped API.
+      vi.mocked(workflowRunRepository.findById).mockResolvedValue({
+        ...mockRun,
+        ownerType: null,
+        ownerUuid: null,
+        createdBy: 'anon',
+      } as unknown as WorkflowRun);
+      vi.mocked(workflowRepository.findById).mockResolvedValue({
+        ...mockWorkflow,
+        ownerType: null,
+        ownerUuid: null,
+      } as unknown as Workflow);
+
+      await expect(
+        service.enqueueDeliveriesForRun(mockRun.id, {
+          markdownHeader: '',
+          documents: [],
+          deliveryDestinations: [{
+            id: 'dest-orphan',
+            type: 'email',
+            config: { to: 'nobody@example.com' },
+          }],
+        })
+      ).rejects.toThrow(/no tenant could be resolved/);
+
+      expect(runDocumentDeliveryRepository.createDeliveries).not.toHaveBeenCalled();
+    });
+
     it('should return empty array if no destinations configured', async () => {
       const finalConfig: FinalBlockConfig = {
         markdownHeader: '',

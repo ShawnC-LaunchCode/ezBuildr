@@ -1,0 +1,12 @@
+-- A delivery row with a null tenant_id is unreachable by design: both read paths
+-- (findByRunIdAndTenantId, findByIdAndTenantId) and the tenant_isolation policy
+-- from 0015 compare tenant_id to a tenant, and none of them ever matches NULL --
+-- yet the worker still claims and delivers the row using the destination's
+-- credentials. This constraint makes that state unrepresentable.
+--
+-- Deliberately NOT paired with a backfill or a DELETE: the table was created in
+-- the same commit as the feature (58965756) and is empty, so if this statement
+-- ever fails with 23502, orphan rows exist and a human should decide whether to
+-- re-attribute or drop them:
+--   SELECT id, run_id, workflow_id, status FROM run_document_deliveries WHERE tenant_id IS NULL;
+ALTER TABLE "run_document_deliveries" ALTER COLUMN "tenant_id" SET NOT NULL;
