@@ -95,7 +95,7 @@ export const ProviderSection = ({ config, onUpdate }: { config: SignatureBlockCo
                 value={config.provider ?? "docusign"}
                 onChange={(e) => onUpdate({ provider: e.target.value as SignatureBlockConfig['provider'] })}
             >
-                <option value="docusign" disabled>DocuSign (Coming Soon)</option>
+                <option value="docusign">DocuSign</option>
                 <option value="hellosign" disabled>HelloSign (Coming Soon)</option>
                 <option value="native" disabled>Native Signature (Coming Soon)</option>
             </select>

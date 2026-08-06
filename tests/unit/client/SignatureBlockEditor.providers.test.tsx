@@ -17,16 +17,16 @@ const config: SignatureBlockConfig = {
 };
 
 describe('SignatureBlockEditor provider options', () => {
-  it('keeps the DocuSign config value visible but prevents selecting the unavailable provider', () => {
+  it('offers the production DocuSign provider', () => {
     const onUpdate = vi.fn();
 
     render(<ProviderSection config={config} onUpdate={onUpdate} />);
 
     const providerSelect = screen.getByRole('combobox');
-    const docusignOption = screen.getByRole('option', { name: 'DocuSign (Coming Soon)' });
+    const docusignOption = screen.getByRole('option', { name: 'DocuSign' });
 
     expect(providerSelect).toHaveValue('docusign');
-    expect(docusignOption).toBeDisabled();
+    expect(docusignOption).toBeEnabled();
     expect(onUpdate).not.toHaveBeenCalled();
   });
 

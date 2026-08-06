@@ -26,7 +26,8 @@ interface SectionStepsProps {
     onChange: (stepId: string, value: unknown) => void;
     errors?: Record<string, string[]>;
     runId?: string;
-    runToken?: string;
+    runToken?: string | null;
+    preview?: boolean;
 }
 
 export function SectionSteps({
@@ -39,6 +40,7 @@ export function SectionSteps({
     errors,
     runId,
     runToken,
+    preview = false,
 }: SectionStepsProps) {
     const { data: rawSteps } = useSteps(sectionId, {
         enabled: !providedSteps
@@ -109,6 +111,7 @@ export function SectionSteps({
                         aliasMap={aliasMap}
                         runId={runId}
                         runToken={runToken}
+                        preview={preview}
                     />
                 </BlockErrorBoundary>
             ))}
@@ -136,10 +139,11 @@ interface StepFieldProps {
     context: Record<string, unknown>;
     aliasMap?: Record<string, string>;
     runId?: string;
-    runToken?: string;
+    runToken?: string | null;
+    preview?: boolean;
 }
 
-function StepField({ step, value, onChange, error, context, aliasMap, runId, runToken }: StepFieldProps) {
+function StepField({ step, value, onChange, error, context, aliasMap, runId, runToken, preview }: StepFieldProps) {
     return (
         <div className="space-y-1 relative group">
             {/* 
@@ -158,6 +162,7 @@ function StepField({ step, value, onChange, error, context, aliasMap, runId, run
                 aliasMap={aliasMap}
                 runId={runId}
                 runToken={runToken}
+                preview={preview}
             />
         </div>
     );

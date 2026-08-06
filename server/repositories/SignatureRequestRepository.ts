@@ -84,6 +84,20 @@ export class SignatureRequestRepository extends BaseRepository<
     return request ?? null;
   }
 
+  /** Find the locally-owned request corresponding to a provider envelope. */
+  async findByProviderRequestId(
+    providerRequestId: string,
+    tx?: DbTransaction
+  ): Promise<SignatureRequest | null> {
+    const database = this.getDb(tx);
+    const [request] = await database
+      .select()
+      .from(signatureRequests)
+      .where(eq(signatureRequests.providerRequestId, providerRequestId))
+      .limit(1);
+    return request ?? null;
+  }
+
   /**
    * Find pending signature requests by project ID
    */
@@ -122,7 +136,8 @@ export class SignatureRequestRepository extends BaseRepository<
    */
   async updateStatus(
     requestId: string,
-    status: 'signed' | 'declined' | 'expired',
+    status: 'signed' | 'declined' | 'expired' | 'voided',
+    completedAt?: Date,
     tx?: DbTransaction
   ): Promise<SignatureRequest> {
     const database = this.getDb(tx);
@@ -130,7 +145,7 @@ export class SignatureRequestRepository extends BaseRepository<
       .update(signatureRequests)
       .set({
         status,
-        signedAt: status === 'signed' ? new Date() : undefined,
+        signedAt: status === 'signed' ? (completedAt ?? new Date()) : undefined,
         updatedAt: new Date(),
       })
       .where(eq(signatureRequests.id, requestId))
@@ -144,7 +159,7 @@ export class SignatureRequestRepository extends BaseRepository<
    */
   async createEvent(
     signatureRequestId: string,
-    type: 'sent' | 'viewed' | 'signed' | 'declined',
+    type: 'sent' | 'viewed' | 'signed' | 'declined' | 'completed' | 'voided' | 'expired',
     payload?: unknown,
     tx?: DbTransaction
   ): Promise<SignatureEvent> {
@@ -159,6 +174,19 @@ export class SignatureRequestRepository extends BaseRepository<
       .returning();
     if (event == null) {throw new Error("Failed to create signature event");}
     return event;
+  }
+
+  /** Attach the durable signed artifact to the request for direct lookup. */
+  async updateDocumentUrl(
+    requestId: string,
+    documentUrl: string,
+    tx?: DbTransaction
+  ): Promise<void> {
+    const database = this.getDb(tx);
+    await database
+      .update(signatureRequests)
+      .set({ documentUrl, updatedAt: new Date() })
+      .where(eq(signatureRequests.id, requestId));
   }
 
   /**

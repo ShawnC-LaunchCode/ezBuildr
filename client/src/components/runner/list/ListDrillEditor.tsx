@@ -36,7 +36,7 @@ interface ListDrillEditorProps {
   drill: ListDrillState;
   aliasMap?: Record<string, string>;
   runId?: string;
-  runToken?: string;
+  runToken?: string | null;
 }
 
 function fieldToStep(field: Extract<ListField, { kind: "question" }>, parent: ApiStep): ApiStep {

@@ -55,8 +55,10 @@ export class SchemaManager {
     // Bumped to _v21 for 0016_delivery_tenant_not_null, which makes
     // run_document_deliveries.tenant_id NOT NULL — a stale _v20 schema still
     // accepts the orphan row the new test proves is rejected.
+    // Bumped to _v22 for GH-157 migration 0017, which adds completed/voided/
+    // expired signature events and the voided signature-request status.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v21`;
+        return `test_schema_w${this.workerId}_v22`;
     }
 
     /**

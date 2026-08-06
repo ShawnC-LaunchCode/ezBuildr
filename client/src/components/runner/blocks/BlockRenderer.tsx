@@ -72,9 +72,12 @@ export interface BlockRendererProps {
 
   /** Active run credentials used by controls with run-scoped side effects. */
   runId?: string;
-  runToken?: string;
+  runToken?: string | null;
   /** Top-level owning step for a control nested inside a List item. */
   runStepId?: string;
+  /** True outside a live production run, where a signature block simulates
+   * signing locally instead of calling the provider. */
+  preview?: boolean;
 }
 
 function isMultiFieldValue(value: unknown): value is MultiFieldValue {
@@ -217,7 +220,15 @@ export function BlockRenderer(props: BlockRendererProps) {
 
       // Signature block (e-signature integration)
       case "signature_block":
-        return <SignatureBlockRenderer step={step} />;
+        return (
+          <SignatureBlockRenderer
+            step={step}
+            stepValues={props.context}
+            runId={props.runId}
+            runToken={props.runToken}
+            preview={props.preview}
+          />
+        );
 
       // Legacy/fallback
       default:

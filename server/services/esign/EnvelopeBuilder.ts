@@ -13,10 +13,15 @@
  * @date December 2025
  */
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
-import _path from 'path';
-
 import { logger } from '../../logger';
+import {
+  documentTemplateRepository,
+  runGeneratedDocumentsRepository,
+  workflowRepository,
+  workflowRunRepository,
+} from '../../repositories';
+import { storageProvider } from '../storage';
+import { createError } from '../../utils/errors';
 
 import type {
   IEsignProvider,
@@ -65,12 +70,32 @@ export interface DocumentSource {
   mimeType: string;
 }
 
+interface EnvelopeBuilderDependencies {
+  runRepo?: typeof workflowRunRepository;
+  workflowRepo?: typeof workflowRepository;
+  templateRepo?: typeof documentTemplateRepository;
+  generatedDocumentRepo?: typeof runGeneratedDocumentsRepository;
+  storage?: typeof storageProvider;
+}
+
 // ============================================================================
 // ENVELOPE BUILDER
 // ============================================================================
 
 export class EnvelopeBuilder {
-  constructor(private provider: IEsignProvider) {}
+  private readonly runRepo: typeof workflowRunRepository;
+  private readonly workflowRepo: typeof workflowRepository;
+  private readonly templateRepo: typeof documentTemplateRepository;
+  private readonly generatedDocumentRepo: typeof runGeneratedDocumentsRepository;
+  private readonly storage: typeof storageProvider;
+
+  constructor(private provider: IEsignProvider, dependencies: EnvelopeBuilderDependencies = {}) {
+    this.runRepo = dependencies.runRepo ?? workflowRunRepository;
+    this.workflowRepo = dependencies.workflowRepo ?? workflowRepository;
+    this.templateRepo = dependencies.templateRepo ?? documentTemplateRepository;
+    this.generatedDocumentRepo = dependencies.generatedDocumentRepo ?? runGeneratedDocumentsRepository;
+    this.storage = dependencies.storage ?? storageProvider;
+  }
 
   /**
    * Build and send signature envelope
@@ -86,7 +111,7 @@ export class EnvelopeBuilder {
     } = request;
 
     // 1. Resolve documents
-    const documents = await this.resolveDocuments(config.documents, variableData);
+    const documents = await this.resolveDocuments(runId, config.documents);
 
     // 2. Build signer info
     const signer = this.buildSignerInfo(config, variableData);
@@ -120,30 +145,49 @@ export class EnvelopeBuilder {
    * Resolve document sources from configuration
    */
   private async resolveDocuments(
-    documentConfigs: SignatureBlockConfig['documents'],
-    _variableData: Record<string, unknown>
+    runId: string,
+    documentConfigs: SignatureBlockConfig['documents']
   ): Promise<SignatureDocument[]> {
-    const documents: SignatureDocument[] = [];
+    const run = await this.runRepo.findById(runId);
+    if (!run) {
+      throw createError.notFound('Workflow run', runId);
+    }
+    const workflow = await this.workflowRepo.findById(run.workflowId);
+    if (!workflow?.projectId) {
+      throw createError.validation('Workflow has no project');
+    }
+    const projectId = workflow.projectId;
+    const generatedDocuments = await this.generatedDocumentRepo.findByRunId(runId);
 
-    for (const docConfig of documentConfigs) {
-      // Resolve document from various sources
-      const source = await this.resolveDocumentSource(docConfig.documentId);
-
-      if (!source) {
-        logger.warn({ documentId: docConfig.documentId }, "[EnvelopeBuilder] Document not found");
-        continue;
+    return Promise.all(documentConfigs.map(async (docConfig) => {
+      const generated = generatedDocuments.find((document) =>
+        document.id === docConfig.documentId || document.templateId === docConfig.documentId
+      );
+      let source: DocumentSource | null = null;
+      if (generated) {
+        source = {
+          id: generated.id,
+          name: generated.fileName,
+          filePath: await this.storage.getLocalPath(generated.storageKey),
+          mimeType: generated.mimeType ?? 'application/pdf',
+        };
+      } else {
+        source = await this.resolveTemplateSource(docConfig.documentId, projectId);
       }
 
-      documents.push({
+      if (!source) {
+        logger.warn({ runId, documentId: docConfig.documentId }, '[EnvelopeBuilder] Document not found in run/project');
+        throw createError.notFound('Signature document', docConfig.documentId);
+      }
+
+      return {
         id: docConfig.id,
         name: source.name,
         filePath: source.filePath,
         mimeType: source.mimeType,
         mapping: docConfig.mapping,
-      });
-    }
-
-    return documents;
+      };
+    }));
   }
 
   /**
@@ -153,27 +197,20 @@ export class EnvelopeBuilder {
    * 2. Uploaded template library
    * 3. Workflow file attachments
    */
-  private async resolveDocumentSource(documentId: string): Promise<DocumentSource | null> {
-    // TODO: Implement document resolution logic
-    // This should query:
-    // 1. runGeneratedDocuments table for Final Block outputs
-    // 2. templates table for uploaded templates
-    // 3. File storage for workflow attachments
-
-    // Placeholder implementation
-    logger.warn({ documentId }, "[EnvelopeBuilder] Document resolution not yet implemented");
-
-    // For now, return a placeholder
-    if (documentId === 'placeholder') {
+  private async resolveTemplateSource(documentId: string, projectId: string): Promise<DocumentSource | null> {
+    // Project-scoped lookup is the tenant boundary: a run-token holder cannot
+    // point a signature block at another customer's template UUID.
+    const template = await this.templateRepo.findByIdAndProjectId(documentId, projectId);
+    if (!template) {
       return null;
     }
-
-    // Example return:
     return {
-      id: documentId,
-      name: 'Document.pdf',
-      filePath: `/path/to/document/${documentId}.pdf`,
-      mimeType: 'application/pdf',
+      id: template.id,
+      name: template.name,
+      filePath: await this.storage.getLocalPath(template.fileRef),
+      mimeType: template.type === 'docx'
+        ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        : 'text/html',
     };
   }
 
@@ -193,7 +230,7 @@ export class EnvelopeBuilder {
       name: this.substituteVariables(config.signerName ?? '', variableData),
       email: this.substituteVariables(config.signerEmail ?? '', variableData),
       routingOrder: config.routingOrder || 1,
-      signerId: undefined, // Will be set by signature request service
+      signerId: undefined,
     };
   }
 

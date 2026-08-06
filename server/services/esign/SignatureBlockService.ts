@@ -1,178 +1,134 @@
-/**
- * Signature Block Service
- * High-level service for signature block execution in workflows
- *
- * Responsibilities:
- * - Execute signature blocks during workflow runs
- * - Create signature requests in database
- * - Integrate with e-signature providers
- * - Handle callbacks and status updates
- * - Manage multi-signer routing
- *
- * @version 1.0.0 - Prompt 11 (E-Signature Integration)
- * @date December 2025
- */
+/** High-level orchestration for signature-block execution and callbacks. */
 
 import crypto from 'crypto';
-import { eq } from 'drizzle-orm';
 
-import { signatureRequests } from '../../../shared/schema';
-import { db } from '../../db';
-
-import { env } from '../../config/env';
+import {
+  projectRepository,
+  runGeneratedDocumentsRepository,
+  signatureRequestRepository,
+  stepRepository,
+  workflowRepository,
+  workflowRunRepository,
+} from '../../repositories';
 import { createLogger } from '../../logger';
-
+import { createError } from '../../utils/errors';
+import { storageProvider } from '../storage';
+import { signatureRequestService } from '../SignatureRequestService';
+import { runDataService } from '../workflow-runs/RunDataService';
 import { EnvelopeBuilder } from './EnvelopeBuilder';
 import { EsignProviderFactory } from './EsignProvider';
 
-import type { SignatureBlockConfig } from '../../../shared/types/stepConfigs';
-
+import { isSignatureBlockConfig, type SignatureBlockConfig } from '../../../shared/types/stepConfigs';
 
 const logger = createLogger({ module: 'signature-block-service' });
 
-// ============================================================================
-// TYPES
-// ============================================================================
-
 export interface ExecuteSignatureBlockRequest {
-  /** Workflow run ID */
   runId: string;
-
-  /** Signature block step ID */
   stepId: string;
-
-  /** Signature block configuration */
-  config: SignatureBlockConfig;
-
-  /** All workflow variable values */
-  variableData: Record<string, unknown>;
-
-  /** User ID executing (may be undefined for anonymous runs) */
   userId?: string;
-
-  /** Preview mode */
   preview?: boolean;
-
-  /** Base URL for callback */
   baseUrl: string;
 }
 
 export interface ExecuteSignatureBlockResponse {
-  /** Success flag */
   success: boolean;
-
-  /** Signature request ID (database) */
   signatureRequestId: string;
-
-  /** Provider envelope ID */
   envelopeId: string;
-
-  /** URL to redirect user to */
   signingUrl: string;
-
-  /** Provider name */
   provider: string;
-
-  /** Preview mode */
   preview: boolean;
 }
 
 export interface SignatureCallbackData {
-  /** Provider envelope ID */
   envelopeId: string;
-
-  /** New status */
   status: 'signed' | 'declined' | 'expired' | 'voided';
-
-  /** Completion timestamp */
+  eventType?: 'sent' | 'viewed' | 'signed' | 'declined' | 'completed' | 'voided' | 'expired';
   completedAt?: Date;
-
-  /** Raw event data */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  eventData?: any;
+  eventData?: unknown;
 }
 
-// ============================================================================
-// SERVICE
-// ============================================================================
-
 export class SignatureBlockService {
-  /**
-   * Compute a signed callback token for a run/step. The generic signature callback
-   * (POST /api/esign/callback/:runId/:stepId) is a return URL that would otherwise be
-   * completely unauthenticated — anyone guessing a runId/stepId could forge a "signed"
-   * status. We embed this HMAC in the return URL when creating the envelope and require
-   * it on callback, so only a callback derived from our own envelope-creation flow is
-   * accepted. (Provider-driven webhooks use their own signature verification instead.)
-   */
   static computeCallbackToken(runId: string, stepId: string): string {
     return crypto
-      .createHmac('sha256', env.JWT_SECRET)
+      .createHmac('sha256', process.env.JWT_SECRET ?? '')
       .update(`esign-callback:${runId}:${stepId}`)
       .digest('hex');
   }
 
-  /**
-   * Timing-safe verification of a callback token.
-   */
   static verifyCallbackToken(runId: string, stepId: string, token: string | undefined): boolean {
     if (!token) { return false; }
-    const expected = this.computeCallbackToken(runId, stepId);
+    const expected = Buffer.from(this.computeCallbackToken(runId, stepId));
     const provided = Buffer.from(token);
-    const expectedBuf = Buffer.from(expected);
-    if (provided.length !== expectedBuf.length) { return false; }
-    return crypto.timingSafeEqual(provided, expectedBuf);
+    return provided.length === expected.length && crypto.timingSafeEqual(provided, expected);
   }
 
-  /**
-   * Execute a signature block
-   * Creates envelope and signature request
-   */
   static async executeSignatureBlock(
     request: ExecuteSignatureBlockRequest
   ): Promise<ExecuteSignatureBlockResponse> {
-    const {
-      runId,
-      stepId,
-      config,
-      variableData,
-      userId,
-      preview = false,
-      baseUrl,
-    } = request;
+    const { runId, stepId, preview = false, baseUrl } = request;
+    const run = await workflowRunRepository.findById(runId);
+    if (!run) {
+      throw createError.notFound('Workflow run', runId);
+    }
+    const [workflow, step] = await Promise.all([
+      workflowRepository.findById(run.workflowId),
+      stepRepository.findById(stepId),
+    ]);
+    if (!workflow?.projectId) {
+      throw createError.validation('Workflow has no project');
+    }
+    if (!step || step.workflowId !== run.workflowId || step.type !== 'signature_block') {
+      throw createError.notFound('Signature step', stepId);
+    }
+    if (!isSignatureBlockConfig(step.config)) {
+      throw createError.validation('Signature step configuration is invalid');
+    }
+    const project = await projectRepository.findById(workflow.projectId);
+    if (!project?.tenantId) {
+      throw createError.validation('Signature workflow project has no tenant');
+    }
 
-    // 1. Get provider
+    // Values are rebuilt from server-owned run data. A run-token holder cannot
+    // alter signer identities or tab values by changing this API request.
+    const runData = await runDataService.buildForRun(runId, run.workflowId);
+    const config = step.config;
     const providerName = config.provider ?? 'docusign';
     const provider = EsignProviderFactory.getProvider(providerName);
-
-    // 2. Build return URL, signed with a callback token so the callback can be authenticated.
-    const callbackToken = this.computeCallbackToken(runId, stepId);
-    const returnUrl = `${baseUrl}/api/esign/callback/${runId}/${stepId}?token=${callbackToken}`;
-
-    // 3. Build envelope
-    const envelopeBuilder = new EnvelopeBuilder(provider);
-    const envelopeResponse = await envelopeBuilder.buildEnvelope({
+    const returnUrl = `${baseUrl.replace(/\/$/, '')}/run/${encodeURIComponent(runId)}?esign=returned`;
+    const envelopeResponse = await new EnvelopeBuilder(provider).buildEnvelope({
       runId,
       stepId,
       config,
-      variableData,
+      variableData: runData.byAlias,
       preview,
       returnUrl,
     });
 
-    // 4. Create signature request in database
-    const signatureRequest = await this.createSignatureRequest({
+    const signerEmail = this.substituteVariables(config.signerEmail ?? '', runData.byAlias).trim();
+    const resolvedSignerName = this.substituteVariables(config.signerName ?? '', runData.byAlias).trim();
+    const signerName = resolvedSignerName === '' ? config.signerRole : resolvedSignerName;
+    if (signerEmail === '') {
+      throw createError.validation('Signature signer email is required');
+    }
+
+    const signatureRequest = await signatureRequestService.createSignatureRequest({
       runId,
-      stepId,
-      config,
-      envelopeId: envelopeResponse.envelopeId,
-      signingUrl: envelopeResponse.signingUrl,
+      workflowId: run.workflowId,
+      nodeId: stepId,
+      tenantId: project.tenantId,
+      projectId: workflow.projectId,
+      signerEmail,
+      signerName,
+      status: 'pending',
       provider: providerName,
-      userId,
-      preview,
+      providerRequestId: envelopeResponse.envelopeId,
+      documentUrl: null,
+      redirectUrl: config.redirectUrl ?? returnUrl,
+      message: config.message ?? null,
+      expiresAt: new Date(Date.now() + (config.expiresInDays ?? 30) * 86_400_000),
     });
 
-    // 5. Return response
+    logger.info({ runId, stepId, provider: providerName, envelopeId: envelopeResponse.envelopeId }, 'Signature envelope created');
     return {
       success: true,
       signatureRequestId: signatureRequest.id,
@@ -183,227 +139,140 @@ export class SignatureBlockService {
     };
   }
 
-  /**
-   * Handle signature callback from provider
-   */
   static async handleSignatureCallback(
-    runId: string,
-    stepId: string,
+    runId: string | undefined,
+    stepId: string | undefined,
     callbackData: SignatureCallbackData
   ): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const { envelopeId, status, completedAt, eventData } = callbackData;
-
-    // 1. Find signature request by envelope ID
-    const signatureRequest = await this.findSignatureRequestByEnvelope(envelopeId);
-
-    if (!signatureRequest) {
-      logger.warn({ envelopeId }, 'Signature request not found for envelope');
-      return;
+    const request = await signatureRequestRepository.findByProviderRequestId(callbackData.envelopeId);
+    if (!request) {
+      throw createError.notFound('Signature request for envelope', callbackData.envelopeId);
+    }
+    const runMismatch = runId !== undefined && request.runId !== runId;
+    const stepMismatch = stepId !== undefined && request.nodeId !== stepId;
+    if (runMismatch || stepMismatch) {
+      throw createError.forbidden('Access denied - signature callback does not match the envelope');
     }
 
-    // 2. Update signature request status
-    await this.updateSignatureRequestStatus(signatureRequest.id, status, completedAt);
+    await signatureRequestRepository.updateStatus(
+      request.id,
+      callbackData.status,
+      callbackData.completedAt
+    );
+    await signatureRequestRepository.createEvent(
+      request.id,
+      callbackData.eventType ?? callbackData.status,
+      callbackData.eventData
+    );
 
-    // 3. Log event
-    await this.createSignatureEvent(signatureRequest.id, status, eventData);
-
-    // 4. If completed, advance workflow
-    if (status === 'signed') {
-      await this.advanceWorkflowAfterSignature(runId, stepId);
+    if (callbackData.eventType === 'completed' && !request.documentUrl) {
+      await this.storeCompletedDocuments(request.id, request.runId, request.providerRequestId ?? callbackData.envelopeId, request.provider);
     }
 
-    // 5. If declined or expired, handle accordingly
-    if (status === 'declined' || status === 'expired') {
-      await this.handleSignatureFailure(runId, stepId, status);
+    if (callbackData.status === 'declined' || callbackData.status === 'expired' || callbackData.status === 'voided') {
+      logger.warn({ runId: request.runId, stepId: request.nodeId, status: callbackData.status }, 'Signature request ended without completion');
     }
   }
 
-  /**
-   * Check if signature block should execute based on routing order
-   */
+  static async findSignatureRequestByEnvelope(envelopeId: string): Promise<{
+    id: string;
+    runId: string;
+    nodeId: string;
+    provider: 'native' | 'docusign' | 'hellosign';
+  } | null> {
+    const request = await signatureRequestRepository.findByProviderRequestId(envelopeId);
+    if (!request) { return null; }
+    return {
+      id: request.id,
+      runId: request.runId,
+      nodeId: request.nodeId,
+      provider: request.provider,
+    };
+  }
+
   static async shouldExecuteSignatureBlock(
     runId: string,
-    stepId: string,
+    _stepId: string,
     config: SignatureBlockConfig
   ): Promise<boolean> {
-    // 1. Get all signature blocks in workflow
-    const allSignatureBlocks = await this.getAllSignatureBlocksInWorkflow(runId);
-
-    // 2. Get completion status for each
-    const blocksWithStatus = await Promise.all(
-      allSignatureBlocks.map(async (block) => ({
-        config: block.config,
-        completed: await this.isSignatureBlockCompleted(runId, block.stepId),
-      }))
-    );
-
-    // 3. Check routing logic
-    const currentRoutingOrder = config.routingOrder || 1;
-    return EnvelopeBuilder.shouldExecuteBlock(config, blocksWithStatus, currentRoutingOrder);
+    const blocks = await this.getAllSignatureBlocksInWorkflow(runId);
+    const blocksWithStatus = await Promise.all(blocks.map(async (block) => ({
+      config: block.config,
+      completed: await this.isSignatureBlockCompleted(runId, block.stepId),
+    })));
+    return EnvelopeBuilder.shouldExecuteBlock(config, blocksWithStatus, config.routingOrder ?? 1);
   }
 
-  /**
-   * Get next signature block step to execute
-   */
   static async getNextSignatureBlock(runId: string): Promise<string | null> {
-    // 1. Get all signature blocks
-    const allSignatureBlocks = await this.getAllSignatureBlocksInWorkflow(runId);
-
-    // 2. Get completion status
-    const blocksWithStatus = await Promise.all(
-      allSignatureBlocks.map(async (block) => ({
-        stepId: block.stepId,
-        config: block.config,
-        completed: await this.isSignatureBlockCompleted(runId, block.stepId),
-      }))
-    );
-
-    // 3. Find next routing order
-    const nextRoutingOrder = EnvelopeBuilder.getNextRoutingOrder(blocksWithStatus);
-
-    if (nextRoutingOrder === Infinity) {
-      return null; // All complete
-    }
-
-    // 4. Return first block with that routing order
-    const nextBlock = blocksWithStatus.find(
-      block => block.config.routingOrder === nextRoutingOrder && !block.completed
-    );
-
-    return nextBlock?.stepId ?? null;
+    const blocks = await this.getAllSignatureBlocksInWorkflow(runId);
+    const blocksWithStatus = await Promise.all(blocks.map(async (block) => ({
+      ...block,
+      completed: await this.isSignatureBlockCompleted(runId, block.stepId),
+    })));
+    const nextOrder = EnvelopeBuilder.getNextRoutingOrder(blocksWithStatus);
+    return blocksWithStatus.find((block) => block.config.routingOrder === nextOrder && !block.completed)?.stepId ?? null;
   }
 
-  // --------------------------------------------------------------------------
-  // DATABASE OPERATIONS (Placeholders)
-  // --------------------------------------------------------------------------
-
-  /**
-   * Create signature request in database
-   */
-  private static async createSignatureRequest(data: {
-    runId: string;
-    stepId: string;
-    config: SignatureBlockConfig;
-    envelopeId: string;
-    signingUrl: string;
-    provider: string;
-    userId?: string;
-    preview: boolean;
-  }): Promise<{ id: string }> {
-    // TODO: Use existing SignatureRequestService or create new record
-    // const signatureRequestService = new SignatureRequestService();
-    // return await signatureRequestService.createSignatureRequest({...});
-
-    // Placeholder
-    logger.debug({ data }, 'Creating signature request (placeholder)');
-    return { id: `sig_${Date.now()}` };
-  }
-
-  /**
-   * Find signature request by envelope ID
-   */
-  static async findSignatureRequestByEnvelope(
-    envelopeId: string
-  ): Promise<{ id: string; runId: string } | null> {
-    const request = await db.query.signatureRequests.findFirst({
-      where: eq(signatureRequests.providerRequestId, envelopeId),
-      columns: {
-        id: true,
-        runId: true
+  private static async storeCompletedDocuments(
+    signatureRequestId: string,
+    runId: string,
+    envelopeId: string,
+    providerName: string
+  ): Promise<void> {
+    const provider = EsignProviderFactory.getProvider(providerName);
+    const documents = await provider.downloadSignedDocuments(envelopeId);
+    for (const [index, document] of documents.entries()) {
+      const suffix = documents.length === 1 ? '' : `-${index + 1}`;
+      const fileName = `signed-${envelopeId}${suffix}.pdf`;
+      const storageKey = `runs/${runId}/signatures/${signatureRequestId}/${fileName}`;
+      await storageProvider.uploadFile(storageKey, document, 'application/pdf', {
+        envelopeId,
+        signatureRequestId,
+      });
+      await runGeneratedDocumentsRepository.createDocument({
+        runId,
+        fileName,
+        fileUrl: `/api/runs/${runId}/final-documents/${encodeURIComponent(fileName)}/download`,
+        storageKey,
+        mimeType: 'application/pdf',
+        fileSize: document.length,
+        templateId: null,
+        unresolvedVariables: [],
+        // Deliberately no pdfStrategy: that column records which DOCX->PDF
+        // converter ran, and none did — DocuSign returned this PDF already
+        // rendered. The storage key carries the provenance instead.
+      });
+      if (index === 0) {
+        await signatureRequestRepository.updateDocumentUrl(signatureRequestId, storageKey);
       }
-    });
-    
-    return request ?? null;
+    }
+    logger.info({ runId, envelopeId, documentCount: documents.length }, 'Stored completed DocuSign documents');
   }
 
-  /**
-   * Update signature request status
-   */
-  private static async updateSignatureRequestStatus(
-    requestId: string,
-    status: string,
-    completedAt?: Date
-  ): Promise<void> {
-    // TODO: Update signatureRequests table
-    logger.debug({ requestId, status, completedAt }, 'Updating status (placeholder)');
-  }
-
-  /**
-   * Create signature event
-   */
-  private static async createSignatureEvent(
-    requestId: string,
-    eventType: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    eventData?: any
-  ): Promise<void> {
-    // TODO: Insert into signatureEvents table
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    logger.debug({ requestId, eventType, eventData }, 'Creating event (placeholder)');
-  }
-
-  /**
-   * Get all signature blocks in workflow
-   */
   private static async getAllSignatureBlocksInWorkflow(
     runId: string
   ): Promise<Array<{ stepId: string; config: SignatureBlockConfig }>> {
-    // TODO: Query steps table where type = 'signature_block' for this workflow
-    // const runRepo = new RunRepository();
-    // const run = await runRepo.findById(runId);
-    // const steps = await stepRepo.findByWorkflowId(run.workflowId);
-    // return steps.filter(s => s.type === 'signature_block');
-
-    // Placeholder
-    logger.debug({ runId }, 'Getting all signature blocks for run (placeholder)');
-    return [];
+    const run = await workflowRunRepository.findById(runId);
+    if (!run) {
+      throw createError.notFound('Workflow run', runId);
+    }
+    const steps = await stepRepository.findByWorkflowId(run.workflowId);
+    return steps.flatMap((step) =>
+      step.type === 'signature_block' && isSignatureBlockConfig(step.config)
+        ? [{ stepId: step.id, config: step.config }]
+        : []
+    );
   }
 
-  /**
-   * Check if signature block is completed
-   */
-  private static async isSignatureBlockCompleted(
-    runId: string,
-    stepId: string
-  ): Promise<boolean> {
-    // TODO: Check signatureRequests table for completed status
-    // const repo = new SignatureRequestRepository();
-    // const request = await repo.findByRunAndStep(runId, stepId);
-    // return request?.status === 'signed';
-
-    // Placeholder
-    logger.debug({ runId, stepId }, 'Checking completion (placeholder)');
-    return false;
+  private static async isSignatureBlockCompleted(runId: string, stepId: string): Promise<boolean> {
+    const request = await signatureRequestRepository.findByRunAndNode(runId, stepId);
+    return request?.status === 'signed';
   }
 
-  /**
-   * Advance workflow after successful signature
-   */
-  private static async advanceWorkflowAfterSignature(
-    runId: string,
-    stepId: string
-  ): Promise<void> {
-    // TODO: Update workflow run progress
-    // const runService = new RunService();
-    // await runService.markStepComplete(runId, stepId);
-    // await runService.advanceToNextStep(runId);
-
-    logger.debug({ runId, stepId }, 'Advancing workflow (placeholder)');
-  }
-
-  /**
-   * Handle signature failure (declined/expired)
-   */
-  private static async handleSignatureFailure(
-    runId: string,
-    stepId: string,
-    reason: string
-  ): Promise<void> {
-    // TODO: Mark run as failed or paused
-    // const runService = new RunService();
-    // await runService.markRunFailed(runId, `Signature ${reason}: ${stepId}`);
-
-    logger.debug({ runId, stepId, reason }, 'Handling failure (placeholder)');
+  private static substituteVariables(template: string, variables: Record<string, unknown>): string {
+    return Object.entries(variables).reduce(
+      (result, [key, value]) => result.replace(new RegExp(`{{\\s*${key}\\s*}}`, 'g'), String(value ?? '')),
+      template
+    );
   }
 }

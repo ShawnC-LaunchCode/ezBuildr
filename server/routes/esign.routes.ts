@@ -1,389 +1,250 @@
-/**
- * E-Signature API Routes
- * Handles signature block execution and callbacks
- *
- * Routes:
- * POST /api/esign/execute/:runId/:stepId - Execute signature block
- * GET  /api/esign/status/:envelopeId - Get envelope status
- * POST /api/esign/callback/:runId/:stepId - Provider callback (webhook)
- * POST /api/esign/callback/docusign - DocuSign Connect webhook
- *
- * @version 1.0.0 - Prompt 11 (E-Signature Integration)
- * @date December 2025
- */
+/** E-signature execution, status, return-callback, and provider webhook routes. */
 
-import { eq } from 'drizzle-orm';
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, type Express, type NextFunction, type Request, type Response } from 'express';
 import { z } from 'zod';
 
-import { workflowRuns } from '@shared/schema';
-
-import { db } from '../db';
 import { logger } from '../logger';
-import { hybridAuth, type AuthRequest } from '../middleware/auth';
+import { optionalHybridAuth, type AuthRequest } from '../middleware/auth';
 import { strictLimiter } from '../middleware/rateLimiter';
+import { creatorOrRunTokenAuth, type RunAuthRequest } from '../middleware/runTokenAuth';
+import { workflowRunRepository } from '../repositories/WorkflowRunRepository';
 import { EsignProviderFactory } from '../services/esign';
 import { SignatureBlockService } from '../services/esign/SignatureBlockService';
 import { workflowService } from '../services/WorkflowService';
 import { asyncHandler } from '../utils/asyncHandler';
-
-import type { SignatureBlockConfig } from '../../shared/types/stepConfigs';
+import { classifyRouteError } from '../utils/routeErrors';
 
 const router = Router();
 
-// ============================================================================
-// VALIDATION SCHEMAS
-// ============================================================================
-
-const ExecuteSignatureBlockSchema = z.object({
-  config: z.object({
-    signerRole: z.string(),
-    routingOrder: z.number(),
-    documents: z.array(z.object({
-      id: z.string(),
-      documentId: z.string(),
-      mapping: z.record(z.object({
-        type: z.literal('variable'),
-        source: z.string(),
-      })).optional(),
-    })),
-    provider: z.enum(['docusign', 'hellosign', 'native']).optional(),
-    markdownHeader: z.string().optional(),
-    allowDecline: z.boolean().optional(),
-    expiresInDays: z.number().optional(),
-    signerEmail: z.string().optional(),
-    signerName: z.string().optional(),
-    message: z.string().optional(),
-    redirectUrl: z.string().url().refine(val => {
-      try {
-        const url = new URL(val);
-        if (!['http:', 'https:'].includes(url.protocol)) {return false;}
-        
-        const allowedHosts = ['localhost', 'ezbuildr.com'];
-        if (process.env.PUBLIC_URL) {
-          try { allowedHosts.push(new URL(process.env.PUBLIC_URL).hostname); } catch {
-            // Ignore invalid PUBLIC_URL values during redirect allow-list construction.
-          }
-        }
-        return allowedHosts.includes(url.hostname);
-      } catch {
-        return false;
-      }
-    }, 'Must be a valid HTTP/HTTPS URL from an allowed host').optional(),
-  }),
-  variableData: z.record(z.any()),
-  preview: z.boolean().optional(),
+const executeSignatureBlockSchema = z.object({}).strict();
+const callbackSchema = z.object({
+  envelopeId: z.string().min(1),
+  status: z.enum(['signed', 'declined', 'expired', 'voided']),
+  completedAt: z.string().datetime().optional(),
+  token: z.string().optional(),
+}).passthrough();
+const providerQuerySchema = z.object({
+  provider: z.enum(['docusign', 'hellosign', 'native']).default('docusign'),
 });
 
-// ============================================================================
-// ROUTES
-// ============================================================================
+async function authorizeRun(
+  req: Request,
+  res: Response,
+  runId: string,
+  permission: 'view' | 'edit'
+): Promise<boolean> {
+  const runAuth = (req as RunAuthRequest).runAuth;
+  if (runAuth) {
+    if (runAuth.runId !== runId) {
+      res.status(403).json({ error: 'Access denied - run mismatch' });
+      return false;
+    }
+    return true;
+  }
 
-/**
- * POST /api/esign/execute/:runId/:stepId
- * Execute a signature block
- *
- * Body:
- * - config: SignatureBlockConfig
- * - variableData: Record<string, any>
- * - preview?: boolean
- */
+  const userId = (req as AuthRequest).userId;
+  if (!userId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return false;
+  }
+  const request = await SignatureBlockService.findSignatureRequestByEnvelope(
+    typeof req.params.envelopeId === 'string' ? req.params.envelopeId : ''
+  );
+  if (request && request.runId !== runId) {
+    res.status(403).json({ error: 'Access denied - envelope does not belong to run' });
+    return false;
+  }
+
+  // The service checks the workflow row; this route only supplies the run's
+  // workflow ID for creator authorization when a request already exists.
+  if (request) {
+    const signatureRun = await workflowRunRepository.findById(request.runId);
+    if (!signatureRun) {
+      res.status(404).json({ error: 'Run not found' });
+      return false;
+    }
+    await workflowService.verifyAccess(signatureRun.workflowId, userId, permission);
+    return true;
+  }
+
+  const run = await workflowRunRepository.findById(runId);
+  if (!run) {
+    res.status(404).json({ error: 'Run not found' });
+    return false;
+  }
+  await workflowService.verifyAccess(run.workflowId, userId, permission);
+  return true;
+}
+
 router.post(
   '/execute/:runId/:stepId',
   strictLimiter,
-  hybridAuth,
-  asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  optionalHybridAuth,
+  creatorOrRunTokenAuth,
+  asyncHandler(async (req: Request, res: Response) => {
     try {
+      executeSignatureBlockSchema.parse(req.body ?? {});
       const { runId, stepId } = req.params;
-      const parsed = ExecuteSignatureBlockSchema.parse(req.body);
+      if (!await authorizeRun(req, res, runId, 'edit')) { return; }
 
-      const userId = (req as AuthRequest).userId;
-      if (!userId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      // Verify run ownership
-      const [run] = await db.select().from(workflowRuns).where(eq(workflowRuns.id, runId));
-      if (run === undefined) {
-        res.status(404).json({ error: "Run not found" });
-        return;
-      }
-      
-      await workflowService.verifyAccess(run.workflowId, userId, 'edit');
-
-      // Get base URL for callback
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
-
-      // Execute signature block
+      const configuredBaseUrl = process.env.BASE_URL ?? process.env.PUBLIC_URL;
+      const baseUrl = configuredBaseUrl ?? `${req.protocol}://${req.get('host') ?? 'localhost'}`;
       const result = await SignatureBlockService.executeSignatureBlock({
         runId,
         stepId,
-        config: parsed.config as SignatureBlockConfig,
-        variableData: parsed.variableData,
-        userId,
-        preview: parsed.preview ?? false,
+        userId: (req as AuthRequest).userId,
         baseUrl,
       });
-
       res.json(result);
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("Access denied")) {
-        res.status(403).json({ error: "Access denied" });
+    } catch (error: unknown) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: 'Invalid input', errors: error.issues });
         return;
       }
-      next(error);
+      logger.error({ error, runId: req.params.runId, stepId: req.params.stepId }, 'Error executing signature block');
+      const { status, message } = classifyRouteError(error, 'Failed to execute signature block');
+      res.status(status).json({ error: message });
     }
   })
 );
 
-/**
- * GET /api/esign/status/:envelopeId
- * Get envelope status
- *
- * Query params:
- * - provider: string (default: docusign)
- */
 router.get(
   '/status/:envelopeId',
-  hybridAuth,
-  asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  optionalHybridAuth,
+  creatorOrRunTokenAuth,
+  asyncHandler(async (req: Request, res: Response) => {
     try {
-      const { envelopeId } = req.params;
-      const provider = (req.query.provider as string) || 'docusign';
-      const runId = req.query.runId as string;
-
-      const userId = (req as AuthRequest).userId;
-      if (!userId) {
-        res.status(401).json({ error: "Unauthorized" });
+      const runId = z.string().uuid().parse(req.query.runId);
+      if (!await authorizeRun(req, res, runId, 'view')) { return; }
+      const signatureRequest = await SignatureBlockService.findSignatureRequestByEnvelope(req.params.envelopeId);
+      if (!signatureRequest) {
+        res.status(404).json({ error: 'Signature request not found' });
         return;
       }
-      
-      if (!runId) {
-        res.status(400).json({ error: "runId query parameter is required for authorization" });
+      const provider = EsignProviderFactory.getProvider(signatureRequest.provider);
+      res.json(await provider.getEnvelopeStatus(req.params.envelopeId));
+    } catch (error: unknown) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: 'runId query parameter must be a UUID' });
         return;
       }
-
-      const [run] = await db.select().from(workflowRuns).where(eq(workflowRuns.id, runId));
-      if (run === undefined) {
-        res.status(404).json({ error: "Run not found" });
-        return;
-      }
-
-      await workflowService.verifyAccess(run.workflowId, userId, 'view');
-
-      // Security check: Verify envelopeId belongs to this run (if DB is implemented)
-      const sigReq = await SignatureBlockService.findSignatureRequestByEnvelope(envelopeId);
-      if (sigReq && sigReq.runId !== runId) {
-        res.status(403).json({ error: "Access denied: envelope does not belong to run" });
-        return;
-      }
-
-      const providerInstance = EsignProviderFactory.getProvider(provider);
-      const status = await providerInstance.getEnvelopeStatus(envelopeId);
-
-      res.json(status);
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("Access denied")) {
-        res.status(403).json({ error: "Access denied" });
-        return;
-      }
-      next(error);
+      logger.error({ error, envelopeId: req.params.envelopeId }, 'Error fetching signature status');
+      const { status, message } = classifyRouteError(error, 'Failed to fetch signature status');
+      res.status(status).json({ error: message });
     }
   })
 );
 
-/**
- * POST /api/esign/callback/:runId/:stepId
- * Generic callback endpoint for signature completion
- *
- * Body:
- * - envelopeId: string
- * - status: 'signed' | 'declined' | 'expired' | 'voided'
- * - completedAt?: string (ISO date)
- */
 router.post(
   '/callback/:runId/:stepId',
-  asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     try {
-      const { runId, stepId } = req.params;
-
-      // SECURITY: authenticate the callback with the signed token
-      // The token should be passed in the Authorization header as a Bearer token or in the body
-      const authHeader = req.headers.authorization;
-      let token: string | undefined;
-      
-      if (authHeader?.startsWith('Bearer ')) {
-          token = authHeader.substring(7);
-// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
-      } else if (req.body && typeof req.body.token === 'string') {
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
-          token = req.body.token;
-      }
-      
-      if (!SignatureBlockService.verifyCallbackToken(runId, stepId, token)) {
-        logger.warn({ runId, stepId }, '[Esign] Rejected signature callback with missing/invalid token');
+      const parsed = callbackSchema.parse(req.body);
+      const queryToken = typeof req.query.token === 'string' ? req.query.token : undefined;
+      const bearerToken = req.headers.authorization?.startsWith('Bearer ')
+        ? req.headers.authorization.slice(7)
+        : undefined;
+      const token = bearerToken ?? parsed.token ?? queryToken;
+      if (!SignatureBlockService.verifyCallbackToken(req.params.runId, req.params.stepId, token)) {
         res.status(401).json({ error: 'Invalid or missing callback token' });
         return;
       }
-
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
-      const { envelopeId, status, completedAt, ...eventData } = req.body;
-
-      await SignatureBlockService.handleSignatureCallback(
-        runId,
-        stepId,
-        {
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
-          envelopeId,
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
-          status,
-// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
-          completedAt: completedAt ? new Date(completedAt) : undefined,
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
-          eventData,
-        }
-      );
-
+      await SignatureBlockService.handleSignatureCallback(req.params.runId, req.params.stepId, {
+        envelopeId: parsed.envelopeId,
+        status: parsed.status,
+        eventType: parsed.status,
+        completedAt: parsed.completedAt ? new Date(parsed.completedAt) : undefined,
+        eventData: parsed,
+      });
       res.json({ success: true });
-    } catch (error) {
-      next(error);
+    } catch (error: unknown) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: 'Invalid callback payload', errors: error.issues });
+        return;
+      }
+      const { status, message } = classifyRouteError(error, 'Signature callback failed');
+      res.status(status).json({ error: message });
     }
   })
 );
 
-/**
- * POST /api/esign/callback/docusign
- * DocuSign Connect webhook endpoint
- *
- * DocuSign will POST XML or JSON payloads here on envelope events
- */
 router.post(
-  '/callback/docusign',
-  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+  ['/webhook/docusign', '/callback/docusign'],
+  strictLimiter,
+  asyncHandler(async (req: Request, res: Response) => {
+    const provider = EsignProviderFactory.getProvider('docusign');
+    const signatureHeader = req.headers['x-docusign-signature-1'];
+    const signature = Array.isArray(signatureHeader) ? signatureHeader[0] : signatureHeader;
+    const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+    if (!rawBody || !await provider.verifyWebhookSignature(rawBody, signature ?? '')) {
+      res.status(401).json({ error: 'Invalid signature' });
+      return;
+    }
+
     try {
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
-      const payload = req.body;
-      const signature = req.headers['x-docusign-signature-1'] as string;
-
-      // Get provider
-      const provider = EsignProviderFactory.getProvider('docusign');
-
-      // Verify signature
-      const isValid = await provider.verifyWebhookSignature(payload, signature);
-      if (!isValid) {
-        res.status(401).json({ error: 'Invalid signature' });
-        return;
-      }
-
-      // Parse event
-      const event = await provider.parseWebhookEvent(payload);
-
-      // Extract runId and stepId from event metadata
-      // (These should have been stored when creating the envelope)
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
-      const { runId, stepId } = payload.customFields || {};
-
-      if (!runId || !stepId) {
-        logger.warn({ event }, '[Esign] DocuSign webhook missing runId/stepId:');
-        res.status(400).json({ error: 'Missing runId or stepId in webhook' });
-        return;
-      }
-
-      // Handle callback
-      await SignatureBlockService.handleSignatureCallback(
-// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
-        runId,
-// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
-        stepId,
-        {
+      const event = await provider.parseWebhookEvent(req.body);
+      const terminalStatus = event.type === 'signed' || event.type === 'completed'
+        ? 'signed'
+        : event.type === 'declined'
+          ? 'declined'
+          : event.type === 'voided'
+            ? 'voided'
+            : event.type === 'expired'
+              ? 'expired'
+              : null;
+      if (terminalStatus) {
+        await SignatureBlockService.handleSignatureCallback(undefined, undefined, {
           envelopeId: event.envelopeId,
-          status: event.type === 'signed' || event.type === 'completed' ? 'signed' :
-            event.type === 'declined' ? 'declined' :
-              event.type === 'voided' ? 'voided' : 'expired',
+          status: terminalStatus,
+          eventType: event.type,
           completedAt: event.timestamp,
           eventData: event.data,
-        }
-      );
-
+        });
+      }
       res.json({ success: true });
-    } catch (error) {
-      logger.error({ error }, '[Esign] DocuSign webhook error:');
-      // Return 500 so DocuSign retries the event delivery
+    } catch (error: unknown) {
+      logger.error({ error }, 'DocuSign webhook processing failed');
+      // A 5xx response tells DocuSign Connect to retry delivery.
       res.status(500).json({ error: 'Webhook processing failed' });
     }
   })
 );
 
-/**
- * GET /api/esign/providers
- * List available e-signature providers
- */
 router.get(
   '/providers',
-  hybridAuth,
-  asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userRole = (req as AuthRequest).userRole;
-      if (userRole !== 'owner' && userRole !== 'builder') {
-        res.status(403).json({ error: "Insufficient permissions" });
-        return;
-      }
-
-      const providers = EsignProviderFactory.getAllProviders();
-      res.json({ providers });
-    } catch (error) {
-      next(error);
+  optionalHybridAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const role = (req as AuthRequest).userRole;
+    if (role !== 'owner' && role !== 'builder') {
+      res.status(403).json({ error: 'Insufficient permissions' });
+      return;
     }
+    res.json({ providers: EsignProviderFactory.getAllProviders() });
   })
 );
 
-/**
- * POST /api/esign/test
- * Test e-signature provider configuration
- *
- * Body:
- * - provider: string
- */
 router.post(
   '/test',
-  hybridAuth,
-  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+  optionalHybridAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const role = (req as AuthRequest).userRole;
+    if (role !== 'owner' && role !== 'builder') {
+      res.status(403).json({ error: 'Insufficient permissions' });
+      return;
+    }
     try {
-      const userRole = (req as AuthRequest).userRole;
-      if (userRole !== 'owner' && userRole !== 'builder') {
-        res.status(403).json({ error: "Insufficient permissions" });
-        return;
-      }
-
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- HTTP request data is untyped at this route boundary.
-      const { provider = 'docusign' } = req.body;
-
-// eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- HTTP request data is untyped at this route boundary.
-      const providerInstance = EsignProviderFactory.getProvider(provider);
-
-      res.json({
-        success: true,
-        provider: providerInstance.name,
-        message: 'Provider is configured and available',
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      const { provider } = providerQuerySchema.parse(req.body);
+      const instance = EsignProviderFactory.getProvider(provider);
+      res.json({ success: true, provider: instance.name, message: 'Provider is configured and available' });
+    } catch (error: unknown) {
+      res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'Invalid provider' });
     }
   })
 );
 
 export default router;
 
-/**
- * Register esign routes on Express app
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function registerEsignRoutes(app: any): void {
-// eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- HTTP request data is untyped at this route boundary.
+export function registerEsignRoutes(app: Express): void {
   app.use('/api/esign', router);
   logger.info('[Routes] E-Signature routes registered at /api/esign');
 }

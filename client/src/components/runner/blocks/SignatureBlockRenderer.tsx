@@ -48,6 +48,65 @@ export interface SignatureBlockRendererProps {
 
   /** Error message if status is 'error' */
   errorMessage?: string;
+
+  /** Persisted run context for production provider execution. */
+  runId?: string;
+  runToken?: string | null;
+}
+
+interface LiveSignatureOptions {
+  runId?: string;
+  runToken?: string | null;
+  stepId: string;
+  onSign?: () => void;
+}
+
+function useLiveSignature({ runId, runToken, stepId, onSign }: LiveSignatureOptions) {
+  const [status, setStatus] = useState<'pending' | 'signing' | 'error'>('pending');
+  const [error, setError] = useState<string>();
+
+  const execute = async () => {
+    if (!runId) {
+      setError('This signature step is not attached to a live workflow run.');
+      setStatus('error');
+      return;
+    }
+
+    setStatus('signing');
+    setError(undefined);
+    try {
+      const headers: Record<string, string> = { 'content-type': 'application/json' };
+      if (runToken) {
+        headers.authorization = `Bearer ${runToken}`;
+      }
+      const response = await fetch(`/api/esign/execute/${encodeURIComponent(runId)}/${encodeURIComponent(stepId)}`, {
+        method: 'POST',
+        headers,
+        credentials: 'include',
+        body: '{}',
+      });
+      const body = await response.json() as { signingUrl?: string; error?: string };
+      if (!response.ok || !body.signingUrl) {
+        throw new Error(body.error ?? 'Unable to start the signature request');
+      }
+
+      const destination = new URL(body.signingUrl, window.location.origin);
+      const isDocusign = destination.hostname === 'docusign.com'
+        || destination.hostname.endsWith('.docusign.com')
+        || destination.hostname.endsWith('.docusign.net');
+      const isSameOrigin = destination.origin === window.location.origin;
+      if (destination.protocol !== 'https:' || (!isDocusign && !isSameOrigin)) {
+        throw new Error('The signature provider returned an invalid signing URL');
+      }
+      onSign?.();
+      window.location.assign(destination.toString());
+    } catch (caught: unknown) {
+      setError(caught instanceof Error ? caught.message : 'Unable to start the signature request');
+      setStatus('error');
+    }
+  };
+
+  return { error, execute, status };
 }
 
 // ============================================================================
@@ -61,11 +120,20 @@ export function SignatureBlockRenderer({
   preview = false,
   onSign,
   onDecline,
-  status = 'pending',
+  status: controlledStatus,
   errorMessage,
+  runId,
+  runToken,
 }: SignatureBlockRendererProps) {
   const config = step.config as SignatureBlockConfig;
   const [isSimulating, setIsSimulating] = useState(false);
+  const { error: runtimeError, execute: handleLiveSign, status: runtimeStatus } = useLiveSignature({
+    runId,
+    runToken,
+    stepId: step.id,
+    onSign,
+  });
+  const status = controlledStatus ?? runtimeStatus;
 
   // Replace variables in text fields (basic implementation)
   const replaceVariables = (text: string): string => {
@@ -173,7 +241,7 @@ export function SignatureBlockRenderer({
             <div>
               <p className="font-medium text-red-900 dark:text-red-100">Signature Error</p>
               <p className="text-sm text-red-700 dark:text-red-300">
-                {errorMessage ?? 'An error occurred while processing the signature request'}
+                {errorMessage ?? runtimeError ?? 'An error occurred while processing the signature request'}
               </p>
             </div>
           </div>
@@ -300,7 +368,7 @@ export function SignatureBlockRenderer({
       {status === 'pending' && displayConfig.documents.length > 0 && (
         <div className="flex gap-3">
           <Button
-            onClick={preview ? handlePreviewSign : onSign}
+            onClick={preview ? handlePreviewSign : () => { void handleLiveSign(); }}
             disabled={isSimulating}
             className="flex-1"
           >
@@ -322,7 +390,7 @@ export function SignatureBlockRenderer({
 
       {/* Error Recovery Button */}
       {status === 'error' && (
-        <Button onClick={onSign} className="w-full">
+        <Button onClick={() => { void handleLiveSign(); }} className="w-full">
           Try Again
         </Button>
       )}

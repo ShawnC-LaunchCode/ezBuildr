@@ -56,7 +56,7 @@ Inventory of all **104 PostgreSQL tables**, organized by the `shared/schema/*.ts
 | `run_completion_jobs` | Durable leased outbox for idempotent post-completion document work |
 | `step_values` | Run data storage per step |
 | `review_tasks` | Human-in-the-loop review gates (FK → workflow_runs) |
-| `signature_requests` / `signature_events` | E-signature requests + audit trail |
+| `signature_requests` / `signature_events` | E-signature requests + audit trail (`voided` request status; completed/voided/expired events) |
 | `run_generated_documents` | Generated PDF/DOCX artifacts |
 | `transform_block_runs` | Transform block execution audit |
 | `script_execution_log` | Hook/script execution audit (console output, duration) |

@@ -110,6 +110,11 @@ void (async () => {
         // is idempotent, so this is a no-op in dev/prod. Vitest never runs this file.
         await initializeDatabase();
         logger.info('Database initialized.');
+        // Register configured production e-signature providers only after
+        // environment validation has completed. With no DocuSign credentials,
+        // the initializer logs the integration as unavailable and boot continues.
+        const { initializeEsignProviders } = await import('./services/esign/index.js');
+        initializeEsignProviders();
         // Start Email Queue Worker
         const { emailQueueService } = await import('./services/EmailQueueService.js');
         emailQueueService.startWorker();

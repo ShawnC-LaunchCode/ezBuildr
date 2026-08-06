@@ -144,11 +144,17 @@ E-sign is mounted at **`/api/esign`** (not `/api/signatures`):
 
 ```
 POST        /api/esign/execute/:runId/:stepId
-GET         /api/esign/status/:envelopeId
-POST        /api/esign/callback/:runId/:stepId  (+ /callback/docusign)
+GET         /api/esign/status/:envelopeId?runId=:runId
+POST        /api/esign/webhook/docusign             # HMAC-verified DocuSign Connect
+POST        /api/esign/callback/:runId/:stepId      # signed legacy return callback
 GET         /api/esign/providers
 POST        /api/esign/test
 ```
+
+Execute/status accept a matching bearer run token or creator session. The
+DocuSign webhook is public but fails closed unless its raw body passes the
+`X-DocuSign-Signature-1` HMAC check. `/callback/docusign` remains a compatibility
+alias for the webhook URL.
 
 > There are **no `/api/reviews` routes** — the review-gates route layer was removed in the dead-code sweep; `ReviewTaskService`/`review_tasks` still exist but are orphaned.
 

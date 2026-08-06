@@ -75,9 +75,12 @@ interface WorkflowRunnerScreenProps {
   setShowReview: (showReview: boolean) => void;
 }
 
+// `isProductionMode` stays in the loaded props: it is what tells a signature
+// block whether to call the provider or run the local preview simulation, so an
+// optional prop would let a caller silently downgrade real signing to a mock.
 export type LoadedRunnerScreenProps = Omit<
   WorkflowRunnerScreenProps,
-  'isInitializing' | 'initError' | 'sections' | 'workflowId' | 'isProductionMode'
+  'isInitializing' | 'initError' | 'sections' | 'workflowId'
 >;
 
 function getRunnerSectionConfig(section: ApiSection): RunnerSectionConfig {
@@ -544,12 +547,13 @@ function QuestionRunnerScreen(props: LoadedRunnerScreenProps): ReactElement {
             fieldErrors={fieldErrors}
             effectiveLogicRules={effectiveLogicRules}
             errors={errors}
-            runId={actualRunId ?? undefined}
-            runToken={runToken ?? undefined}
             currentSectionIndex={currentSectionIndex}
             isLastSection={isLastSection}
             handlePrev={handlePrev}
             handleNext={handleNext}
+            runId={actualRunId ?? undefined}
+            runToken={runToken}
+            preview={!props.isProductionMode}
           />
         </ListDrillProvider>
       </Card>
@@ -563,8 +567,6 @@ export interface QuestionCardContentProps extends QuestionSectionBodyProps {
   isLastSection: boolean;
   handlePrev: () => Promise<void>;
   handleNext: () => Promise<void>;
-  runId?: string;
-  runToken?: string;
 }
 
 /**
@@ -590,6 +592,7 @@ export function QuestionCardContent({
   handleNext,
   runId,
   runToken,
+  preview,
 }: QuestionCardContentProps): ReactElement {
   const { drill } = useListDrill();
   const drilledStep = drill
@@ -637,6 +640,7 @@ export function QuestionCardContent({
             effectiveLogicRules={effectiveLogicRules}
             runId={runId}
             runToken={runToken}
+            preview={preview}
           />
         )}
       </CardContent>
@@ -700,7 +704,8 @@ interface QuestionSectionBodyProps {
   fieldErrors: Record<string, string[]>;
   effectiveLogicRules: LogicRule[];
   runId?: string;
-  runToken?: string;
+  runToken?: string | null;
+  preview?: boolean;
 }
 
 function QuestionSectionBody({
@@ -713,6 +718,7 @@ function QuestionSectionBody({
   effectiveLogicRules,
   runId,
   runToken,
+  preview,
 }: QuestionSectionBodyProps): ReactElement {
   if (currentSection != null && visibleSectionSteps.length > 0) {
     return (
@@ -726,6 +732,7 @@ function QuestionSectionBody({
         logicRules={effectiveLogicRules}
         runId={runId}
         runToken={runToken}
+        preview={preview}
       />
     );
   }

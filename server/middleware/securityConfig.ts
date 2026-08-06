@@ -116,6 +116,14 @@ export function applySecurityMiddleware(app: express.Application): void {
     // 3️⃣ PAYLOAD SIZE LIMITS (DoS Protection)
     // =====================================================================
     const maxRequestSize = process.env.MAX_REQUEST_SIZE ?? '10mb';
-    app.use(express.json({ limit: maxRequestSize }));
+    app.use(express.json({
+        limit: maxRequestSize,
+        verify: (req, _res, buffer) => {
+            // Provider webhooks sign the exact bytes on the wire. Preserve
+            // those bytes before JSON parsing so HMAC verification is not
+            // invalidated by whitespace or key-order normalization.
+            (req as express.Request & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
+        },
+    }));
     app.use(express.urlencoded({ extended: false, limit: maxRequestSize }));
 }

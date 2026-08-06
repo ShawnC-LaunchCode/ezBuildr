@@ -25,9 +25,9 @@ import { projects, workflows, workflowVersions, sections, steps, templates, work
 
 // Stage 14: Review & E-Signature Enums
 export const reviewTaskStatusEnum = pgEnum('review_task_status', ['pending', 'approved', 'changes_requested', 'rejected']);
-export const signatureRequestStatusEnum = pgEnum('signature_request_status', ['pending', 'signed', 'declined', 'expired']);
+export const signatureRequestStatusEnum = pgEnum('signature_request_status', ['pending', 'signed', 'declined', 'expired', 'voided']);
 export const signatureProviderEnum = pgEnum('signature_provider', ['native', 'docusign', 'hellosign']);
-export const signatureEventTypeEnum = pgEnum('signature_event_type', ['sent', 'viewed', 'signed', 'declined']);
+export const signatureEventTypeEnum = pgEnum('signature_event_type', ['sent', 'viewed', 'signed', 'declined', 'completed', 'voided', 'expired']);
 
 export const transformBlockRunStatusEnum = pgEnum('transform_block_run_status', ['success', 'timeout', 'error']);
 export const scriptExecutionStatusEnum = pgEnum('script_execution_status', ['success', 'error', 'timeout']);

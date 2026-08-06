@@ -58,7 +58,7 @@ rewritten tickets below supersede it.
 
 ## Roadmap Progress & Dependency Overview
 
-**8 of 28 tickets complete (29%)** — updated 2026-08-06
+**9 of 28 tickets complete (32%)** — updated 2026-08-06
 
 > Keep this in sync: when a ticket's own heading earns a ✅, flip its node below
 > and bump the phase count and the overall bar. The heading is the source of truth.
@@ -66,18 +66,18 @@ rewritten tickets below supersede it.
 ```
 LEGEND    ✅ done      🔲 open
 
-OVERALL   ████████░░░░░░░░░░░░░░░░░░░░░   8 / 28   (29%)
+OVERALL   █████████░░░░░░░░░░░░░░░░░░░░   9 / 28   (32%)
 
 
 [Phase 0 — P0 Security & Storage Foundation]      ██████████  2/2  DONE
   ├── ✅ GH-169A   Real clamd virus scanner client
   └── ✅ GH-169B   Storage init, signed-URL route, S3 hardening
         │
-        ├──► [Phase 1 — Document & Delivery Pipeline]    ████░░░░░░  2/5
+        ├──► [Phase 1 — Document & Delivery Pipeline]    ██████░░░░  3/5
         │      ├── ✅ GH-168   High-fidelity DOCX-to-PDF converter
         │      ├── 🔲 GH-156   Document mapping workbench
         │      ├── ✅ GH-170   Delivery destinations & retries
-        │      ├── 🔲 GH-157   DocuSign envelope lifecycle
+        │      ├── ✅ GH-157   DocuSign envelope lifecycle
         │      └── 🔲 GH-149   Packaged legal integrations (Clio/Stripe/e-sign)
         │
         ├──► [Phase 2 — Runner Experience, Reliability & Compliance]  ███████░░░  4/6
@@ -122,6 +122,7 @@ OVERALL   ████████░░░░░░░░░░░░░░░�
 | ✅ GH-158 | Workflow branding & white labeling in the runner | 2026-08-05 |
 | ✅ GH-159 | WCAG 2.2 AA conformance (builder + runner) | 2026-08-06 |
 | ✅ GH-146 | File uploads in the runner and inside List items | 2026-08-06 |
+| ✅ GH-157 | Production DocuSign envelope lifecycle | 2026-08-06 |
 
 ---
 
@@ -605,7 +606,59 @@ distinct keys cannot collide, and validate the cache entry against the object's 
 
 ---
 
-## GH-157 — Complete the production DocuSign envelope lifecycle 🔲
+## GH-157 — Complete the production DocuSign envelope lifecycle ✅
+
+> **CLOSED 2026-08-06.** `DocusignProvider` is now a real client: OAuth JWT grant with
+> `signature impersonation` scope and a cached, early-refreshed access token; envelope
+> creation with recipient role, routing order, `clientUserId`, variable-backed text tabs
+> and run/step custom fields; embedded recipient views; status, void, and combined
+> signed-document download. `initializeEsignProviders()` is finally called — from both
+> `server/index.ts` and `server/production.ts` — so the registry is no longer
+> unconditionally empty (closes the `DEBT-4` / e-sign-registry gap). `/api/esign/webhook/docusign`
+> verifies DocuSign Connect HMAC over the **exact raw bytes** (`express.json` now captures
+> `rawBody`) and fails closed when the secret is unset. Completed envelopes stream their
+> combined PDF into `storageProvider` under `runs/<runId>/signatures/<requestId>/` and get
+> a `run_generated_documents` row plus a `documentUrl` on the request. Migration 0017 adds
+> the `completed`/`voided`/`expired` signature events and the `voided` request status; the
+> builder's "DocuSign (Coming Soon)" option is now selectable and the runner calls the real
+> endpoint. The 723-line "dormant architecture" guide was replaced with a 114-line operator
+> guide, because the old one documented behaviour that no longer exists.
+>
+> **Reviewer verification pass 2026-08-06.** Gates re-run in the worktree after the
+> reviewer fixes below: `tsc --noEmit` exit 0, `npm run lint` exit 0, `test:fast` 204
+> passed / 1 skipped files and 2530 passed / 14 skipped tests, `test:unit:db` 15 files /
+> 145 tests. Live proof: `tests/integration/esign.docusign.test.ts` ran against the
+> worktree's own Postgres — 1 file / 5 tests — driving real HTTP through the registered
+> routes: a run-token holder creates an envelope from server-owned run data, a creator in
+> a *different tenant* is refused 403, a **forged** webhook signature is refused 401, a
+> valid `envelope-completed` webhook stores the signed PDF and its audit event, and
+> declined/voided webhooks persist their lifecycle status. The DocuSign HTTP boundary is
+> injected, so no credentials or outbound calls are involved. `DocusignProvider.test.ts`
+> additionally verifies the JWT assertion by **RS256 signature against the public key**,
+> not just by shape.
+>
+> **Reviewer fixes (senior, at review).** (1) `LoadedRunnerScreenProps` had re-admitted
+> `isProductionMode` as *optional*, so a caller that forgot it would silently downgrade
+> real signing to the local preview simulation — made required and the RUN2-4 test props
+> updated. (2) The signed-PDF document row was writing `pdfStrategy: 'docusign'`; that
+> column records which DOCX→PDF converter ran, and none did. Dropped, so GH-168's converter
+> telemetry stays truthful — the storage key already carries the provenance.
+>
+> **Observation filed (O-12):** `express.json`'s `verify` hook now retains a `rawBody`
+> copy for *every* JSON request up to `MAX_REQUEST_SIZE`, not just the webhook path.
+> Harmless today (uploads go through multer) but worth scoping to the webhook route.
+>
+> **Merge reconciliation with GH-146 (reviewer).** Both tickets threaded run context down
+> the same three runner files. Rebasing GH-157 onto GH-146 conflicted on
+> `BlockRendererProps`, `SectionSteps` and `WorkflowRunner`, where each had independently
+> added a `runId`/`runToken` pair with *different* token types. Resolved to one chain
+> carrying `runId`, `runToken?: string | null` (the type `getRunToken` actually returns),
+> `runStepId` for List-nested uploads and `preview` for signature blocks; the duplicate
+> pair on `QuestionCardContentProps` was removed since it already inherits them, and
+> `FileUploadBlock`/`ListDrillEditor` were widened to accept the null. Merged tree re-gated:
+> `tsc` exit 0, `lint` exit 0, `test:fast` 208 passed / 1 skipped files and 2544 passed /
+> 14 skipped tests, and the esign + file-upload integration suites together 2 files /
+> 8 tests passed — so both features are proven to coexist, not just to have merged.
 
 **Priority: P1** · Size: L · Files: `server/services/esign/`, `server/routes/esign.routes.ts`, `shared/schema/esign.ts`
 **Ties:** Preceded by GH-169; Relates to GH-149

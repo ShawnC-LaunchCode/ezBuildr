@@ -75,7 +75,11 @@ export async function setupIntegrationTest(
 
     // Setup Express app
     const app = express();
-    app.use(express.json());
+    app.use(express.json({
+      verify: (req, _res, buffer) => {
+        (req as express.Request & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
+      },
+    }));
     app.use(express.urlencoded({ extended: false }));
 
     // Register all routes

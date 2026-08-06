@@ -72,9 +72,9 @@ Document delivery destinations live on `final_documents` step config (with legac
 
 | Service | Purpose |
 |---------|---------|
-| SignatureBlockService | Signature block handling |
-| EsignProvider / DocusignProvider | Provider interface + DocuSign |
-| SignatureRequestService / EnvelopeBuilder | Requests, envelopes |
+| SignatureBlockService | Run-scoped envelope orchestration, lifecycle audit, durable signed-PDF attachment |
+| EsignProvider / DocusignProvider | Provider interface + production JWT grant, envelope/recipient view, status/void/download, HMAC parsing |
+| SignatureRequestService / EnvelopeBuilder | Tenant-scoped request persistence and run/project document resolution |
 
 ## AI (`ai/` + top-level)
 

@@ -13,7 +13,7 @@ interface FileUploadBlockProps {
   value: unknown;
   onChange: (value: FileUploadValue[]) => void;
   runId?: string;
-  runToken?: string;
+  runToken?: string | null;
   /** Top-level owning step when this control is nested inside a List. */
   runStepId?: string;
   readOnly?: boolean;

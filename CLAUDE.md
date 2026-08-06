@@ -118,7 +118,7 @@ VL_MASTER_KEY=<base64-32-byte-key>  # NEVER regenerate on a machine with stored 
 ALLOWED_ORIGIN=localhost,127.0.0.1
 ```
 
-**Optional:** `SENDGRID_API_KEY`, `GEMINI_API_KEY`, `AI_PROVIDER`, `AI_API_KEY`, Stripe keys, `GOOGLE_PLACES_API_KEY`
+**Optional:** `SENDGRID_API_KEY`, `GEMINI_API_KEY`, `AI_PROVIDER`, `AI_API_KEY`, Stripe keys, `GOOGLE_PLACES_API_KEY`, and the `DOCUSIGN_*` JWT/Connect values documented in `.env.example`
 **Tests:** `TEST_DATABASE_URL` overrides `DATABASE_URL` for unit-db/integration tests (Docker PG on port 5434 via `npm run test:docker:up`)
 
 ## Common Commands

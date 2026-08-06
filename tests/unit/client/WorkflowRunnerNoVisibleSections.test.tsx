@@ -24,6 +24,7 @@ import { DEFAULT_RESOLVED_BRANDING } from '../../../shared/types/branding';
 function buildProps(overrides: Partial<LoadedRunnerScreenProps> = {}): LoadedRunnerScreenProps {
   return {
     actualRunId: 'run-1',
+    isProductionMode: true,
     workflow: undefined,
     branding: DEFAULT_RESOLVED_BRANDING,
     currentSection: undefined,

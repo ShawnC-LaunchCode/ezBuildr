@@ -1,723 +1,114 @@
-# E-Signature Integration - Implementation Guide
+# DocuSign E-Signature Integration
 
-**Version:** 1.0.0
-**Date:** December 2025
-**Prompt:** 11 - E-Signature Integration (DocuSign)
+**Status:** Production implementation available (GH-157, August 2026)
 
----
+## What the integration does
 
-> **Status (verified July 2026): Dormant / not production-ready.**
-> The native signature UI and parts of the provider architecture exist, but
-> DocuSign authentication and envelope create/status/void/download operations
-> are placeholders that throw `not yet implemented`. The builder therefore
-> exposes DocuSign as “Coming Soon,” and the server intentionally does not
-> initialize the provider registry. The material below documents the dormant
-> architecture and the work required for a future activation; it is not an
-> operator setup guide for a working integration.
+- Authenticates with DocuSign through the OAuth JWT grant (`signature` and
+  `impersonation` scopes).
+- Builds an envelope from project-scoped templates or documents already
+  generated for the current run.
+- Maps the signature block's signer role, routing order, and variable-backed
+  tab values into the DocuSign envelope.
+- Creates an embedded recipient view and redirects the live workflow runner to
+  its signing URL.
+- Verifies DocuSign Connect events against the exact raw request bytes with
+  HMAC-SHA256.
+- Stores a completed envelope's combined signed PDF through the configured
+  `storageProvider` and creates a `run_generated_documents` record for the run.
+- Audits completed, declined, voided, and expired lifecycle events in
+  `signature_events`.
 
-## Overview
+Builder preview remains a local simulation and never calls DocuSign.
 
-ezBuildr contains an incomplete e-signature foundation. The implemented pieces
-include:
+## Configuration
 
-- **Signature Blocks**: Dedicated block type for collecting signatures
-- **Provider Abstraction**: Extensible architecture for multiple providers
-- **Webhook Utilities**: DocuSign signature verification and payload parsing
+Create a DocuSign integration key configured for JWT grant, grant the
+impersonation consent required by DocuSign, and set:
 
-It does **not** currently send documents for signature. DocuSign and HelloSign
-must not be presented as available providers until their external API
-operations are implemented and tested.
-
----
-
-## Architecture
-
-### Component Overview
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Workflow Builder                          │
-│  - SignatureBlockEditor (UI for configuration)              │
-│  - Document selection and field mapping                     │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Workflow Runner                           │
-│  - SignatureBlockRenderer (runtime UI)                      │
-│  - Preview mode simulation                                  │
-│  - Redirect to provider signing URL                         │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  E-Signature Service Layer                   │
-│  - SignatureBlockService (orchestration)                    │
-│  - EnvelopeBuilder (document preparation)                   │
-│  - EsignProviderFactory (provider selection)                │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                    ┌───────┴───────┐
-                    ▼               ▼
-        ┌─────────────────┐   ┌──────────────┐
-        │ DocusignProvider│   │ Future       │
-        │ (dormant)       │   │ Providers    │
-        │ - Placeholders  │   │ - HelloSign  │
-        │ - Webhook utils │   │ - Native     │
-        │                 │   │              │
-        └─────────────────┘   └──────────────┘
+```env
+DOCUSIGN_INTEGRATION_KEY=<integration/client key>
+DOCUSIGN_USER_ID=<impersonated API user GUID>
+DOCUSIGN_ACCOUNT_ID=<DocuSign account GUID>
+DOCUSIGN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+DOCUSIGN_BASE_PATH=https://demo.docusign.net/restapi
+DOCUSIGN_OAUTH_BASE_PATH=https://account-d.docusign.com
+DOCUSIGN_WEBHOOK_SECRET=<DocuSign Connect HMAC key>
 ```
 
----
+For production, use the production REST base path assigned to the account and
+`https://account.docusign.com` for OAuth. Escaped newlines in the private-key
+environment value are normalized automatically. The private key and webhook
+secret must never be committed or logged.
 
-## Database Schema
+When all required authentication values are present, server startup registers
+the provider. With incomplete configuration, startup continues but DocuSign is
+not listed as an available provider. A missing webhook secret always causes
+webhook verification to fail closed.
 
-### Signature Block Type
+## DocuSign Connect
 
-Added to `stepTypeEnum` in `shared/schema.ts`:
+Create a Connect configuration that sends JSON events to:
 
-```typescript
-'signature_block'  // E-Signature Block - document signing
+```text
+https://<ezbuildr-host>/api/esign/webhook/docusign
 ```
 
-### Existing Signature Tables
+Enable at least these envelope events:
 
-VaultLogic already has signature infrastructure:
+- Envelope Completed
+- Envelope Declined
+- Envelope Voided
 
-```sql
-CREATE TABLE signature_requests (
-  id UUID PRIMARY KEY,
-  run_id UUID NOT NULL,
-  workflow_id UUID,
-  node_id TEXT,
-  signer_email VARCHAR,
-  signer_name VARCHAR,
-  status signature_request_status,  -- 'pending', 'signed', 'declined', 'expired'
-  provider signature_provider,      -- 'native', 'docusign', 'hellosign'
-  provider_request_id TEXT,         -- External envelope ID
-  token TEXT UNIQUE,                -- Unique signing link token
-  document_url TEXT,
-  redirect_url TEXT,
-  message TEXT,
-  expires_at TIMESTAMP,
-  signed_at TIMESTAMP,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
+Configure HMAC signing and copy the same key into
+`DOCUSIGN_WEBHOOK_SECRET`. The legacy
+`/api/esign/callback/docusign` URL remains as a compatibility alias.
 
-CREATE TABLE signature_events (
-  id UUID PRIMARY KEY,
-  signature_request_id UUID REFERENCES signature_requests(id),
-  type signature_event_type,  -- 'sent', 'viewed', 'signed', 'declined'
-  timestamp TIMESTAMP,
-  payload JSONB
-);
-```
+## Runtime contract
 
----
-
-## Future Activation Requirements
-
-Do not configure or initialize the provider in a production environment yet.
-Activation requires implementing and testing the missing DocuSign API
-operations first.
-
-### Step 1: Environment Variables
-
-Add to `.env`:
-
-```bash
-# DocuSign Configuration
-DOCUSIGN_INTEGRATION_KEY=your_integration_key_here
-DOCUSIGN_USER_ID=your_user_id_here
-DOCUSIGN_ACCOUNT_ID=your_account_id_here
-DOCUSIGN_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
-DOCUSIGN_BASE_PATH=https://demo.docusign.net/restapi  # or https://www.docusign.net/restapi for prod
-DOCUSIGN_OAUTH_BASE_PATH=https://account-d.docusign.com  # or https://account.docusign.com for prod
-DOCUSIGN_WEBHOOK_SECRET=your_webhook_secret_here  # Optional, for webhook verification
-```
-
-### Step 2: Install and integrate the DocuSign SDK
-
-```bash
-npm install docusign-esign
-```
-
-**Note:** The current implementation has placeholder code. To enable actual DocuSign integration:
-
-1. Uncomment SDK code in `server/services/esign/DocusignProvider.ts`
-2. Implement JWT authentication flow
-3. Test with DocuSign Developer account first
-
-### Step 3: Initialize providers only after implementation is complete
-
-Once authentication and every envelope operation are implemented and covered
-by tests, server startup can call:
-
-```typescript
-import { initializeEsignProviders } from './services/esign';
-
-// After database connection
-initializeEsignProviders();
-```
-
-Until then, leaving this hook uncalled is intentional.
-
----
-
-## Usage
-
-### Builder Configuration
-
-#### 1. Add Signature Block to Workflow
-
-In the Workflow Builder:
-
-1. Navigate to **Sections** tab
-2. Click **Add Block** → **E-Signature**
-3. Configure the signature block:
-
-#### 2. Configure Signer
-
-```typescript
-{
-  signerRole: "Applicant",        // Or "Attorney", "Spouse", custom
-  routingOrder: 1,                // Lower numbers sign first
-  signerName: "{{firstName}} {{lastName}}",  // Variable substitution
-  signerEmail: "{{email}}",       // Variable substitution
-}
-```
-
-#### 3. Add Documents
-
-```typescript
-{
-  documents: [
-    {
-      id: "doc_1",
-      documentId: "final_block_output_1",  // From Final Block
-      mapping: {
-        "applicant_name": { type: "variable", source: "fullName" },
-        "applicant_email": { type: "variable", source: "email" },
-        "date_signed": { type: "variable", source: "currentDate" }
-      }
-    }
-  ]
-}
-```
-
-#### 4. Provider Settings
-
-```typescript
-{
-  provider: "docusign",           // Or "hellosign", "native"
-  expiresInDays: 30,             // Envelope expiration
-  allowDecline: false,           // Allow signer to decline
-  message: "Please sign to complete your application."
-}
-```
-
-#### 5. Optional Settings
-
-```typescript
-{
-  markdownHeader: "# Final Step\n\nPlease review and sign.",
-  redirectUrl: "https://example.com/thank-you",
-  conditions: {
-    operator: "AND",
-    conditions: [
-      { key: "needsSignature", op: "equals", value: true }
-    ]
-  }
-}
-```
-
----
-
-## Multi-Signer Workflows
-
-### Sequential Signing
-
-Applicant signs first, then attorney:
-
-```typescript
-// Block 1
-{
-  signerRole: "Applicant",
-  routingOrder: 1,  // Signs first
-  documents: [...]
-}
-
-// Block 2
-{
-  signerRole: "Attorney",
-  routingOrder: 2,  // Signs after applicant
-  documents: [...]
-}
-```
-
-### Parallel Signing
-
-Multiple parties sign simultaneously:
-
-```typescript
-// Block 1
-{
-  signerRole: "Applicant",
-  routingOrder: 1,
-  documents: [...]
-}
-
-// Block 2
-{
-  signerRole: "Spouse",
-  routingOrder: 1,  // Same routing order = parallel
-  documents: [...]
-}
-```
-
----
-
-## API Endpoints
-
-### Execute Signature Block
+The runner calls:
 
 ```http
 POST /api/esign/execute/:runId/:stepId
+Authorization: Bearer <run token>
 Content-Type: application/json
 
-{
-  "config": {
-    "signerRole": "Applicant",
-    "routingOrder": 1,
-    "documents": [...],
-    "provider": "docusign",
-    "expiresInDays": 30
-  },
-  "variableData": {
-    "firstName": "John",
-    "lastName": "Doe",
-    "email": "john@example.com"
-  },
-  "preview": false
-}
+{}
 ```
 
-**Response:**
+The server deliberately ignores client-supplied signature configuration and
+values. It loads the signature step from the run's workflow, rebuilds canonical
+alias-keyed values from `step_values`, and resolves documents only inside that
+run or the workflow's project. Creator sessions can use the same endpoint.
 
-```json
-{
-  "success": true,
-  "signatureRequestId": "sig_12345",
-  "envelopeId": "env_67890",
-  "signingUrl": "https://demo.docusign.net/Signing/...",
-  "provider": "docusign",
-  "preview": false
-}
-```
-
-### Get Envelope Status
+Status queries require the creator session or matching run token:
 
 ```http
-GET /api/esign/status/:envelopeId?provider=docusign
+GET /api/esign/status/:envelopeId?runId=<run UUID>
 ```
 
-**Response:**
+## Document and audit storage
 
-```json
-{
-  "envelopeId": "env_67890",
-  "status": "signed",
-  "completedAt": "2025-12-07T12:00:00Z",
-  "signerStatus": "signed",
-  "signedDocumentUrls": ["https://..."]
-}
+On `envelope-completed`, ezBuildr downloads DocuSign's `combined` PDF and stores
+it at a key shaped like:
+
+```text
+runs/<runId>/signatures/<signatureRequestId>/signed-<envelopeId>.pdf
 ```
 
-### Signature Callback (Webhook)
-
-```http
-POST /api/esign/callback/:runId/:stepId
-Content-Type: application/json
-
-{
-  "envelopeId": "env_67890",
-  "status": "signed",
-  "completedAt": "2025-12-07T12:00:00Z"
-}
-```
-
-### DocuSign Connect Webhook
-
-```http
-POST /api/esign/callback/docusign
-X-DocuSign-Signature-1: <signature>
-Content-Type: application/json
-
-{
-  "event": "envelope-completed",
-  "envelopeId": "...",
-  "status": "completed",
-  ...
-}
-```
-
----
-
-## Preview Mode
-
-For testing without sending real envelopes:
-
-### In Builder
-
-Set `preview: true` in config or test mode automatically detects.
-
-### In Runner
-
-1. Signature block shows preview badge
-2. "Simulate Signature" button
-3. 2-second delay, then auto-completes
-4. No API calls to DocuSign
-
-### In API
-
-```javascript
-{
-  "preview": true  // Returns mock envelope
-}
-```
-
----
-
-## File Structure
-
-```
-VaultLogic/
-├── client/src/
-│   ├── components/builder/cards/
-│   │   └── SignatureBlockEditor.tsx       # Builder UI
-│   └── components/runner/blocks/
-│       └── SignatureBlockRenderer.tsx     # Runner UI
-├── server/
-│   ├── services/esign/
-│   │   ├── EsignProvider.ts               # Provider interface
-│   │   ├── DocusignProvider.ts            # DocuSign implementation
-│   │   ├── EnvelopeBuilder.ts             # Document preparation
-│   │   ├── SignatureBlockService.ts       # High-level service
-│   │   └── index.ts                       # Module exports
-│   └── routes/
-│       └── esign.routes.ts                # API endpoints
-└── shared/
-    ├── schema.ts                          # Database schema (signature_block type)
-    └── types/stepConfigs.ts               # SignatureBlockConfig interface
-```
-
----
-
-## Error Handling
-
-### Configuration Errors
-
-```typescript
-try {
-  const provider = EsignProviderFactory.getProvider('docusign');
-} catch (error) {
-  // EsignConfigError: Missing required DocuSign configuration
-}
-```
-
-### API Errors
-
-```typescript
-try {
-  await provider.createEnvelope(request);
-} catch (error) {
-  // EsignApiError: Failed to create DocuSign envelope
-}
-```
-
-### State Errors
-
-```typescript
-try {
-  await provider.voidEnvelope(envelopeId);
-} catch (error) {
-  // EsignStateError: Envelope already completed
-}
-```
-
----
-
-## Security Considerations
-
-### 1. Webhook Verification
-
-DocuSign webhooks are verified using HMAC-SHA256:
-
-```typescript
-const isValid = await provider.verifyWebhookSignature(payload, signature);
-if (!isValid) {
-  return res.status(401).json({ error: 'Invalid signature' });
-}
-```
-
-### 2. Private Key Storage
-
-Store DocuSign private key securely:
-
-- Use environment variables
-- Never commit to version control
-- Rotate keys periodically
-- Consider secret management service (AWS Secrets Manager, Vault)
-
-### 3. Access Control
-
-- Signature requests are scoped to workflow runs
-- Only run owner or assigned signers can access
-- Token-based authentication for public signing portals
-
-### 4. Data Privacy
-
-- PII in documents handled per GDPR/CCPA
-- Signed documents encrypted at rest
-- Audit trail maintained in signature_events table
-
----
+The key is recorded on the signature request and a generated-document row is
+attached to the run, so the existing authenticated run-document download and
+delivery paths can use the signed artifact. Webhook retries are idempotent once
+the signature request has a stored document key.
 
 ## Testing
 
-### Unit Tests
+Provider tests use mocked HTTP responses and a generated RSA key; no DocuSign
+credentials or network traffic are required. The integration test proves the
+run-token execution route, HMAC rejection, completed PDF storage, and
+completed/declined/voided audit persistence against PostgreSQL.
 
-```bash
-npm test -- server/services/esign/*.test.ts
+```powershell
+npx vitest run --project unit-fast tests/unit/services/DocusignProvider.test.ts
+npx vitest run --project integration tests/integration/esign.docusign.test.ts
 ```
-
-### Integration Tests
-
-```bash
-npm run test:integration -- esign
-```
-
-### Manual Testing
-
-1. **Preview Mode:**
-   - Create workflow with signature block
-   - Run in preview mode
-   - Verify mock envelope creation
-
-2. **DocuSign Sandbox:**
-   - Configure DocuSign Developer account
-   - Create test envelope
-   - Complete signing flow
-   - Verify callback handling
-
-3. **Multi-Signer Flow:**
-   - Create workflow with 2+ signature blocks
-   - Verify routing order enforcement
-   - Test parallel vs. sequential signing
-
----
-
-## Extending with New Providers
-
-### 1. Create Provider Class
-
-```typescript
-// server/services/esign/HelloSignProvider.ts
-export class HelloSignProvider implements IEsignProvider {
-  readonly name = 'hellosign';
-
-  async createEnvelope(request: CreateEnvelopeRequest): Promise<CreateEnvelopeResponse> {
-    // Implement HelloSign API calls
-  }
-
-  async getEnvelopeStatus(envelopeId: string): Promise<EnvelopeStatusResponse> {
-    // Implement status check
-  }
-
-  // ... implement other methods
-}
-```
-
-### 2. Register Provider
-
-```typescript
-// server/services/esign/index.ts
-import { createHelloSignProvider } from './HelloSignProvider';
-
-export function initializeEsignProviders(): void {
-  // DocuSign
-  const docusignProvider = createDocusignProvider();
-  if (docusignProvider) {
-    EsignProviderFactory.registerProvider('docusign', docusignProvider);
-  }
-
-  // HelloSign
-  const hellosignProvider = createHelloSignProvider();
-  if (hellosignProvider) {
-    EsignProviderFactory.registerProvider('hellosign', hellosignProvider);
-  }
-}
-```
-
-### 3. Update Block Config
-
-No code changes needed - just select provider in UI!
-
----
-
-## Migration Notes
-
-### From Legacy Signature System
-
-VaultLogic had a basic signature system. The new implementation:
-
-**Keeps:**
-- `signatureRequests` and `signatureEvents` tables
-- `SignatureRequestService` and repository
-
-**Adds:**
-- Provider abstraction layer
-- Multi-signer routing
-- Document generation integration
-- Variable-to-field mapping
-
-**Migration:**
-- Existing signature requests continue to work
-- New blocks use new provider system
-- No data migration needed
-
----
-
-## Known Limitations
-
-### 1. DocuSign SDK Integration
-
-Current implementation has placeholder code. Production use requires:
-
-- Installing `docusign-esign` package
-- Implementing JWT authentication
-- Uncommenting SDK code in `DocusignProvider.ts`
-
-### 2. Document Field Detection
-
-Automatic field detection from PDFs/DOCX not yet implemented:
-
-- Manual field mapping required
-- Future: PDF form field extraction
-- Future: DOCX content control detection
-
-### 3. Embedded Signing
-
-Currently redirects to DocuSign:
-
-- Future: Embedded signing iframe
-- Requires `clientUserId` in envelope
-- Use `createRecipientView` API
-
-### 4. Bulk Signing
-
-Single signer per block:
-
-- Future: Multiple signers in one block
-- Requires recipient array management
-
----
-
-## Troubleshooting
-
-### Issue: "Provider not configured"
-
-**Cause:** Missing environment variables
-
-**Solution:**
-```bash
-# Check env vars
-echo $DOCUSIGN_INTEGRATION_KEY
-echo $DOCUSIGN_USER_ID
-
-# Verify provider registration
-curl http://localhost:5000/api/esign/providers
-```
-
-### Issue: "Failed to create envelope"
-
-**Cause:** Invalid DocuSign configuration or JWT authentication failure
-
-**Solution:**
-1. Verify DocuSign Developer account setup
-2. Check integration key and user ID
-3. Ensure RSA key pair is valid
-4. Test with DocuSign SDK directly
-
-### Issue: "Document not found"
-
-**Cause:** Document resolution not implemented
-
-**Solution:**
-- Ensure Final Block generated documents first
-- Check document ID in signature block config
-- Verify file paths exist on server
-
-### Issue: "Webhook not received"
-
-**Cause:** DocuSign Connect not configured
-
-**Solution:**
-1. Go to DocuSign Admin → Connect
-2. Add new configuration
-3. Set URL: `https://yourdomain.com/api/esign/callback/docusign`
-4. Enable events: sent, viewed, signed, completed, declined
-5. Add webhook secret to env vars
-
----
-
-## Future Enhancements
-
-### Phase 2 (Not Yet Implemented)
-
-1. **HelloSign Integration**
-   - Provider implementation
-   - OAuth2 authentication
-   - Template management
-
-2. **Native Signature UI**
-   - Canvas-based signature drawing
-   - Typed signature option
-   - Uploaded signature image
-
-3. **Advanced Field Mapping**
-   - PDF form field auto-detection
-   - DOCX content control mapping
-   - Visual field placement editor
-
-4. **Embedded Signing**
-   - Iframe embedding
-   - Custom branding
-   - Responsive design
-
-5. **Bulk Operations**
-   - Multiple signers per block
-   - Batch envelope creation
-   - Template-based workflows
-
-6. **Advanced Routing**
-   - Conditional signer selection
-   - Dynamic routing based on data
-   - Delegated signing
-
----
-
-## Support
-
-For questions or issues:
-
-1. Check [GitHub Issues](https://github.com/ShawnC-LaunchCode/VaultLogic/issues)
-2. Review DocuSign API documentation
-3. Contact VaultLogic support team
-
----
-
-**Document Version:** 1.0.0
-**Last Updated:** December 7, 2025
-**Maintainer:** Development Team

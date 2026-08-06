@@ -73,6 +73,8 @@ app.use('/oauth', globalLimiter);
     // Using dynamic import to avoid DB connection side-effects before key check
     const { dbInitPromise } = await import("./db.js");
     await dbInitPromise;
+    const { initializeEsignProviders } = await import('./services/esign/index.js');
+    initializeEsignProviders();
     // Initialize routes and collaboration server
     // CRITICAL: We MUST use the 'server' returned by registerRoutes, as it has the WebSocket instance attached.
 
