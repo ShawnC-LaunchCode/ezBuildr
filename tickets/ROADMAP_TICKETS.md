@@ -26,6 +26,12 @@ These were escalated during ticket generation and answered. Do not relitigate th
 - **D2 — Build the missing storage-serving route.** `DiskStorageProvider.getSignedUrl()`
   currently returns a URL to an endpoint that does not exist. GH-169B builds the real
   authenticated endpoint rather than making the failure louder.
+- **D3 (2026-08-05) — white-label ships as an ungated workflow toggle.** GH-158 does **not**
+  check a plan. The entitlement that exists (`custom_branding`) is reachable only through
+  org-keyed `subscriptions`, and individuals cannot hold a plan at all, so gating now would
+  permanently deny white-label to every user-owned workflow. Revisit when user-level billing
+  exists — see **O-7**. Scope was also cut to the resolver + runner: project-level branding,
+  email, custom domains and the signature screen are **O-8/O-10**, not this ticket.
 
 ### Audit corrections to the original GH-169 text (2026-08-04)
 
@@ -636,19 +642,171 @@ distinct keys cannot collide, and validate the cache entry against the object's 
 
 ---
 
-## GH-158 — Apply workflow branding and white labeling across the runner 🔲
+## GH-158 — Apply workflow branding and white labeling across the runner ✅
 
-**Priority: P1** · Size: S · Files: `client/src/components/runner/`, `client/src/pages/runner/`, `shared/schema/workflow.ts`
-**Ties:** Independent
+> **Verified 2026-08-05 (Senior).** All 10 ACs met, gates run in the GH-158 worktree:
+> `type-check` exit 0, `lint` exit 0 (`--max-warnings 0`), `check:strict-zones` ✅,
+> `test:fast` **194 files / 2469 tests passed** (worktree baseline 2421 at `1c173d55`, +48).
+>
+> **Proven live** against the worktree's own server on port 5199 (confirmed serving this
+> tree, not `main`, by grepping a token added and a string removed). Three runs were created
+> differing only in branding:
+> - **default** → inherited *tenant* branding (`Tenant Fallback Co`, `#1D4ED8`), proving the
+>   tenant fallback rather than just the workflow path.
+> - **branded** → Northwind logo replaced the ezBuildr mark; `#B22222` reached the Next
+>   button, card border and focus ring **with no component changes**, which is the whole
+>   point of theming through the existing CSS custom properties.
+> - **white-label** → `document.body.innerText.includes('ezBuildr') === false`.
+>
+> Also verified live: `--primary` lands on the runner root and **not** on
+> `document.documentElement` (so a preview cannot repaint builder chrome); the `/share/:token`
+> completion screen renders the same branding and drops the footer under white-label while
+> keeping it without; and the API rejects `javascript:`, `data:` and non-hex values with 400
+> (safe payload 200). Builder round-trip read back `organizationName`, `logoUrl`,
+> `primaryColor`, `whiteLabel` after save+reload. Probe fixtures cleaned up (`leftover
+> tenants: 0`).
+>
+> **Two things fixed during review, not shipped as found.** (1) `--primary-foreground` is
+> *derived* (better of black/white against the brand), which is provably >= 4.58:1 for any
+> brand color — the AA guarantee does not depend on the author picking well. (2) The brand
+> accent is exposed as `--brand-accent` and deliberately **not** mapped onto `--accent`,
+> which in this design system is a subtle hover surface; assigning a saturated color to it
+> would have made every dropdown unreadable.
+>
+> **Preview parity closed 2026-08-05 (O-9).** Preview originally resolved workflow branding
+> client-side and could not see tenant-level fallbacks. It now reads a server-resolved value
+> off the single-workflow GET, through the same service the runtime payload uses, so GitHub
+> #158's "preview renders the exact resolved participant branding" criterion is met for
+> branding. (Preview still renders the *live draft* rather than the pinned published version
+> — by design, and unrelated to branding.)
+
+**Priority: P1** · Size: M
+**Files (footprint):** `shared/types/branding.ts`, `shared/colorUtils.ts` (new), `client/src/lib/colorUtils.ts`, `server/routes/workflows.routes.ts`, `server/services/workflow-runs/RunRuntimeService.ts`, `client/src/lib/vault-api.ts`, `client/src/hooks/useRunnerBranding.ts` (new), `client/src/components/runner/ClientRunnerLayout.tsx`, `client/src/pages/WorkflowRunner.tsx`, `client/src/pages/RunCompletionView.tsx`, `client/src/components/builder/tabs/settings/BrandingSettingsCard.tsx`, `client/src/components/builder/tabs/SettingsTab.tsx`
+**Collides with:** GH-160 also touches `client/src/pages/WorkflowRunner.tsx`. Sequence them, or keep this ticket's edit to the two `ClientRunnerLayout` props it adds.
+**Ties:** `add-api-endpoint` skill (route validation), `run-tests` skill, `verify` skill (live proof), `design` skill (any runner UI change). Related: GH-159 (contrast/a11y), GH-147 (save-and-resume surface sits inside the branded layout).
 
 ### Context & Current State
-- Workflow branding settings (primary color, logo, favicon, white label toggles) exist in schema but runner hardcodes default ezBuildr headers/footers in several views.
+
+Branding is **write-only**. The builder persists it, the runtime payload already
+delivers it, and **nothing reads it**.
+
+`SettingsTab.tsx` (`handleSave`) writes four branding keys into `workflows.settings`:
+
+```ts
+        settings: {
+          brandingEnabled,
+          logoUrl,
+          primaryColor,
+          secondaryColor,
+```
+
+Grep for `brandingEnabled` across `server/`, `shared/`, and `client/`: the only
+hits are the builder card that writes it. There is no reader.
+
+The delivery plumbing already exists. `RunRuntimeService.getRuntime` returns
+`settings: graph.settings`, `ApiRunRuntime.workflow` is typed
+`Pick<ApiWorkflow, ... | 'settings'>`, and `WorkflowRunner.tsx` already reaches into
+that object for a sibling key (`allowsSaveAndResume`). Only the branding
+consumption is missing.
+
+Meanwhile the participant sees ezBuildr hardcoded in three places.
+`ClientRunnerLayout` (the layout behind **all four** runner screens — question
+pages, review, completion, and the loading state):
+
+```tsx
+                        {/* Placeholder Logo / Brand */}
+                        <div className="w-6 h-6 bg-primary rounded-sm" />
+                        <span className="font-semibold text-sm tracking-tight text-foreground">ezBuildr</span>
+```
+
+```tsx
+                    <p>Securely powered by ezBuildr</p>
+```
+
+and `RunCompletionView` (the `/share/:token` document-download screen):
+
+```tsx
+                <div className="mt-12 text-center text-sm text-gray-400">
+                    Powered by ezBuildr
+                </div>
+```
+
+**Four disagreeing branding models exist, with no resolution order.** `tenants.branding`
+(jsonb, `TenantBranding`, uses `accentColor`), `workflows.settings` (uses
+`secondaryColor` for the same idea), the final-block `brandingColor`, and
+`workflows.intakeConfig`. A complete branded-intake component family
+(`client/src/components/intake/`), **two duplicate `BrandingProvider`s**
+(`components/branding/BrandingContext.tsx` and `components/providers/BrandingProvider.tsx`),
+and `client/src/hooks/useResolvedBranding.ts` (**zero importers**) were all built and
+wired to nothing but `IntakeDemo`/`IntakePreviewPage`. This ticket introduces the
+single resolver those should eventually collapse into; see O-6.
+
+`workflows.settings` is **unvalidated on write** — `server/routes/workflows.routes.ts`
+declares `settings: z.record(z.any()).optional()`, so `logoUrl` reaches an `<img src>`
+and the colors reach CSS custom properties with no sanitization.
+
+### Preferred fix
+
+**One resolver, applied as CSS custom properties.** Do not introduce new themed
+components — the runner is built on shadcn/Tailwind tokens that already read
+`var(--primary)`, `var(--background)` etc. (see `tailwind.config.ts`). Setting those
+variables on the runner's root element re-themes every existing component for free.
+This is why the `intake/` `Themed*` family is *not* the pattern to copy.
+
+1. Add `resolveBranding(tenantBranding, workflowSettings)` to `shared/types/branding.ts`
+   returning a single `ResolvedBranding`. Workflow settings win over tenant; tenant
+   fills gaps; `brandingEnabled: false` falls back to tenant-only. Normalize the
+   `accentColor`/`secondaryColor` naming split here — this function is the only place
+   that should know about it.
+2. Move the pure color math from `client/src/lib/colorUtils.ts` into `shared/colorUtils.ts`
+   and re-export from the old path so existing importers keep working. The server needs
+   `getContrastRatio` for write-time validation; duplicating it is not acceptable.
+3. Replace `z.record(z.any())` with a passthrough schema that validates the branding
+   keys and leaves other settings keys alone. Reject non-hex colors, and reject any
+   image URL that is not `http:`/`https:` (blocks `javascript:`, `data:`, `vbscript:`).
+4. Resolve on the server in `RunRuntimeService` and add `branding` to the runtime
+   payload, so the anonymous participant needs no extra request and preview/production
+   render identically. Resolve the workflow's tenant with the established
+   project-then-creator fallback (see `WriteBlockRunner.resolveTenantId`).
+5. Apply in `ClientRunnerLayout`: logo (or organization name), the brand color as
+   `--primary`/`--ring`, and a footer that honors `whiteLabel`. Same footer treatment in
+   `RunCompletionView`. Swap the favicon from the resolved value.
+6. **White-label ships ungated** — repo owner's decision, 2026-08-05. Do not add a plan
+   check; see O-7 for why it is blocked on billing work.
 
 ### Acceptance Criteria
-1. Runner dynamically applies workflow branding: custom logo, primary/accent colors, font styling, and custom favicon.
-2. White label mode removes "Powered by ezBuildr" badge when enabled on authorized plans.
-3. Contrast and readability safeguards ensure dynamic themes maintain WCAG contrast.
-4. Visual snapshot / component tests verify custom vs default branding.
+
+1. `resolveBranding()` exists in `shared/`, is pure, and unit tests cover: workflow
+   overrides tenant, tenant fills gaps, `brandingEnabled:false` ignores workflow values,
+   and both empty inputs yield the ezBuildr default.
+2. Workflow branding renders in the runner: custom logo image, organization name,
+   and the primary color applied so existing buttons/progress/focus rings pick it up
+   without per-component changes.
+3. Favicon is swapped to the resolved `faviconUrl` while a branded run is open, and
+   restored when it unmounts.
+4. `RunCompletionView` (`/share/:token`) renders the same resolved branding and honors
+   `whiteLabel`.
+5. When `whiteLabel` is true, no "ezBuildr" string appears in the participant runner or
+   completion view; when false, the attribution footer is present. A test asserts both.
+6. Unsafe image URLs are rejected at the API boundary: `javascript:`, `data:`, and
+   `vbscript:` logo/favicon URLs return 400 and never reach the DB. A test asserts each.
+7. Colors are validated as hex at the API boundary, and a brand color with insufficient
+   contrast against the runner surface is corrected (not silently rendered) so button
+   label text stays ≥ 4.5:1. A test asserts the corrected value's ratio.
+8. The builder's Branding card exposes `whiteLabel`, `organizationName`, and `faviconUrl`
+   alongside the existing fields, and round-trips them through save/reload.
+9. `npm run type-check` 0 errors, `npm run lint` 0 problems, `npm run test:fast` green
+   with total ≥ **2421** (baseline measured in this worktree at `1c173d55`).
+10. Live proof in the running app: screenshots of one branded run and one default run,
+    plus the white-label footer difference.
+
+### Out of scope (filed as observations, do not build here)
+
+Project-level branding (`projects` has no branding column and one tenant has many
+orgs — O-8), email branding, custom-domain resolution, the signature-transition
+screen, typography/webfont loading, and visual-regression infrastructure. These are
+the remaining GitHub #158 acceptance criteria; they are cheap once this resolver
+exists and expensive before it.
 
 ---
 
@@ -940,6 +1098,140 @@ only with the repo owner's say-so.
   `server/services/templateFiles.ts` it does a raw `fs.access` on `OUTPUTS_DIR` with the
   comment "Outputs are still local-only for now". Harmless while the disk driver is in use;
   becomes a correctness bug the moment O-3 happens.
+
+Found during the 2026-08-05 GH-158 branding audit:
+
+- **O-6 — CORRECTED 2026-08-05. Mostly NOT dead code; the dead part is now deleted.**
+  The original text claimed two duplicate `BrandingProvider`s and a zero-importer
+  `useResolvedBranding`. **Both claims were wrong** — the audit grep that produced them
+  filtered out `branding/EmailPreview.tsx`, which is exactly where the importer lived.
+  Re-verified by walking imports from `Router.tsx`:
+  - `components/providers/BrandingProvider.tsx` — genuinely 0 importers, sole file in its
+    directory, a strictly inferior duplicate of the live `branding/BrandingContext.tsx`
+    (unimplemented domain-lookup stub; applies theme tokens to the **document root**, the
+    anti-pattern GH-158 avoided). **Deleted**, directory removed.
+  - `branding/BrandingContext.tsx` — **live**, `EmailTemplateEditorPage` uses `useBranding`.
+  - `hooks/useResolvedBranding.ts` — **live**, `branding/EmailPreview.tsx` uses it.
+  - `components/intake/*` + `IntakePreviewPage` — **live feature, not dead code.**
+    `/intake/preview` is linked from `BrandingSettingsPage` ("Open Full Preview") and from
+    `DomainSettingsPage` (to test a verified custom domain). Deleting it removes working
+    buttons from two settings pages.
+
+  **What remains is a product question, not cleanup — see O-11.**
+- **O-11 (product-decision, split out of O-6) — the tenant branding preview previews a fake
+  form.** `/intake/preview` renders `IntakeDemo`: a hardcoded 3-step name/email/phone/message
+  mock ending in `alert('Form submitted! (This is a demo)')`, themed by a parallel
+  `Themed*`/`IntakeLayout` stack (~1,040 lines) that no participant ever sees. Since GH-158,
+  the real runner brands itself from `resolveBranding()` through the design system's own CSS
+  custom properties. So the preview shows authors something that is **not** what their
+  clients get. Three options: (a) re-point `/intake/preview` at the real runner chrome and
+  delete the `Themed*` stack — one branding model, preview becomes truthful; (b) delete the
+  route and both buttons outright; (c) leave it. Recommend (a); it needs the repo owner's
+  call because (b) removes a feature and (a) is a rebuild, not a cleanup.
+- **O-12 ✅ EXECUTED 2026-08-05 — the `/intake/*` parallel run pipeline is deleted.**
+  The repo owner confirmed it was the second half of the legacy system, not an intended embed
+  API. **Removed** (1,407 lines): `server/routes/intake.routes.ts` and its registration,
+  `IntakeService`, `IntakeNavigationService`, `IntakeQuestionVisibilityService`,
+  `IntakeReceiptService`, `sendIntakeReceipt`/`IntakeReceiptData` and the then-orphaned
+  `escapeHtml` from `emailService.ts`, the dead `IntakeSubmitResult`/`IntakeEmailReceipt`
+  types, and `tests/integration/intake.portal.test.ts` +
+  `tests/unit/services/intakeQuestionVisibility.test.ts`.
+
+  **Deliberately KEPT — each is load-bearing elsewhere, and deleting any would have been a
+  live break:**
+  - `workflows.intakeConfig` + `IntakeConfigSchema` + `shared/types/intake.ts#IntakeConfig`
+    — a **live security control**. `RunService.createRun`/`createAnonymousRun` feed it to
+    `filterPrefillValues` (RUN2-6); without it every caller-supplied prefill value is
+    dropped. The `PUT /api/workflows/:id/intake-config` route stays for the same reason.
+  - `server/utils/prefillFilter.ts` — used by `RunService`, not just the portal.
+  - `server/services/CaptchaService.ts` + `CaptchaChallenge`/`CaptchaResponse`/`CaptchaType`
+    — serve the **login and registration** captcha in `auth.routes.ts`.
+
+  **Known residue, deliberate:** six `IntakeConfig` fields (`requireCaptcha`, `captchaType`,
+  `sendEmailReceipt`, `receiptEmailVar`, `receiptTemplateId`, `excludeFromReceipt`) are now
+  inert — the portal was their only reader. They were **not** removed because
+  `IntakeConfigSchema` is `.strict()` and `RunService.resolveIntakeConfig` degrades to `{}`
+  on a parse failure, so dropping them would make any stored config still containing them
+  fail to parse and **silently switch prefill off**. Removing them needs a data migration
+  first (`intake_config - 'requireCaptcha' - ...`), same shape as migration 0006.
+  **Capability lost by design:** intake email receipts. No other path sent them.
+
+  Verified: `type-check` 0, `lint` 0, strict-zones ✅, `test:fast` **2445** (2469 before,
+  −24 = the deleted unit file). Live on port 5199: server boots, `/intake/*` now falls
+  through to the SPA (`text/html`) instead of answering JSON, and a probe proved the prefill
+  allowlist still enforces — allowlisted key seeded, non-allowlisted key dropped. The two
+  surviving integration suites (`api.workflow-intake-config`, `api.runs.prefill-allowlist`)
+  pass 9/9 and still assert `isIntake`/`upstreamWorkflowId` are rejected.
+
+  Original mapping, kept for context — "intake" names **three unrelated things** here and
+  only one was the legacy data-linking the repo owner already removed:
+
+  1. **Legacy intake workflow / upstream reuse — already gone, cleanly.**
+     `migrations/0006_remove_legacy_intake_reuse.sql` stripped `isIntake`,
+     `upstreamWorkflowId`, `assignments`, step `default_value.source = 'intake'`, and
+     `sections.config.intakeAssignment`. **Verified zero code leftovers** for every one of
+     those markers. Nothing to do.
+  2. **The public intake portal API — live, served, and with no first-party caller.**
+     `server/routes/intake.routes.ts` is registered (`routes/index.ts:162`) and exposes a
+     *second* run pipeline beside `/api/runs/*`: `/intake/runs` create/save/submit/status/
+     download, `/intake/workflows/:slug/published`, `/intake/captcha/challenge`,
+     `/intake/upload`, plus its own captcha, prefill allowlist and email receipts.
+     **No client code calls any of it.** The public entry point `/w/:slug` was re-pointed at
+     the standard `WorkflowRunner` (see the comment at `Router.tsx:75` — "the old
+     PublicRunner stub never rendered questions and faked completion"), so this API's
+     consumer is already gone. Two of its services are dead outright:
+     `IntakeNavigationService` (217 lines, 0 importers — only a stale comment in
+     `workflows/conditionAdapter.ts` mentions it) and `IntakeQuestionVisibilityService`
+     (365 lines, 0 production importers; only `tests/unit/services/intakeQuestionVisibility.test.ts`
+     keeps it referenced).
+     **Do not delete on this evidence alone.** Migration 0006's own comment calls these "the
+     modern public intake settings" and deliberately preserved `workflows.intakeConfig`, and
+     `tests/integration/intake.portal.test.ts` exercises the pipeline — so it may be an
+     intentional embed/third-party API with no first-party UI yet. That is the repo owner's
+     knowledge, not the code's. **Question to answer before any deletion: is `/intake/*`
+     meant to be a public API for embedding, or is it the second half of the system 0006
+     started removing?** If the latter, the removal is ~1,719 lines plus `intakeConfig`,
+     `shared/types/intake.ts`, `CaptchaService`, `prefillFilter`, and 3 test files.
+  3. **Stage 17 intake *branding* — unrelated to both.** `client/src/components/intake/`
+     and `/intake/preview` share the word but are a branding preview, not a data path.
+     Tracked separately as **O-11**.
+- **O-7 (needs-initiative) — white-label cannot be plan-gated until individuals can buy
+  plans.** `custom_branding` is declared on the Team/Enterprise plans in
+  `server/lib/billing/billingConfig.ts` and read by nothing. It is reachable only through
+  `subscriptions`, which is keyed **solely** by `organizationId`
+  (`shared/schema/billing.ts`) — there is no user-level subscription. Workflows carry
+  `ownerType: 'user' | 'org'`, so gating today would work for org-owned workflows and
+  **permanently deny white-label to every user-owned and legacy-NULL workflow.** The repo
+  owner therefore shipped GH-158's toggle **ungated** (decision D3). Gating is ~5 lines once
+  `subscriptions` can point at a user; the blocker is the billing model, not the code.
+  `tenants.plan` (`free`/`pro`/`enterprise`) is a third, vestigial signal — set by nothing,
+  read by nothing. Do not build on it.
+- **O-8 (product-decision) — there is no project-level branding.** GitHub #158 asks to
+  "resolve tenant, project, and workflow branding", but `projects` has no branding column,
+  and one tenant has **many** organizations (`organizations.tenantId`), so where a project
+  tier would sit is genuinely ambiguous. Deferred out of GH-158; needs a schema change and
+  an ownership ruling.
+- **O-9 ✅ FIXED 2026-08-05 — preview now renders the same resolved branding as production.**
+  `WorkflowService.getWorkflowWithDetails` resolves branding through the same
+  `BrandingService.resolveForWorkflow()` the runtime payload uses and returns it on the
+  single-workflow GET, which is exactly the request the builder preview already makes.
+  `WorkflowRunner` reads the server-resolved value on both paths; the client-side
+  `resolveBranding(null, settings)` fallback survives only for an older cached response and
+  is documented as a floor, not the normal path.
+  Proven live: a workflow with `settings = {}` (no branding of its own) whose tenant carries
+  logo/name/colors returned the **full tenant-resolved branding** on the preview payload —
+  before the fix that field did not exist and the fallback produced nothing.
+  **Note for reviewers:** this change pulled `BrandingService` → `shared/colorUtils.ts` into
+  `check:strict-zones`' transitive closure, surfacing 4 pre-existing strict-mode errors that
+  `npm run type-check` does not catch (`getLuminance`'s destructured map result, and
+  `addDomain`'s `.returning()` row). Both fixed. `addDomain` uses `=== undefined` rather than
+  a truthiness check because ESLint types it from the non-strict config and rejects the
+  latter as always-true — the two gates disagree, and only the explicit comparison satisfies
+  both.
+- **O-10 (enhancement) — email, custom domains, and the signature-transition screen are
+  still unbranded.** These are the remaining GitHub #158 acceptance criteria. All three are
+  cheap now that `resolveBranding()` exists and `BrandingService.resolveForWorkflow()` is the
+  single entry point; none were in GH-158's scope.
 
 ---
 

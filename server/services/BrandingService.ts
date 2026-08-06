@@ -3,8 +3,13 @@ import dns from 'dns/promises';
 
 import { and, eq } from 'drizzle-orm';
 
-import { tenants, tenantDomains } from '@shared/schema';
-import type { TenantBranding } from '@shared/types/branding';
+import { projects, tenants, tenantDomains, users, workflows } from '@shared/schema';
+import { resolveBranding } from '@shared/types/branding';
+import type {
+  ResolvedBranding,
+  TenantBranding,
+  WorkflowBrandingSettings,
+} from '@shared/types/branding';
 
 import { db } from '../db';
 import { createLogger } from '../logger';
@@ -84,6 +89,74 @@ export class BrandingService {
   }
 
   /**
+   * Resolve the branding a participant should see for one workflow (GH-158).
+   *
+   * This is the only entry point participant surfaces should use. It resolves
+   * the workflow's tenant with the established project-then-creator fallback
+   * (mirroring `WriteBlockRunner.resolveTenantId`) and merges tenant branding
+   * under the workflow's own branding settings.
+   *
+   * Never throws: this runs on the anonymous participant read path, so a
+   * branding lookup failure degrades to the product default rather than
+   * breaking the run.
+   */
+  async resolveForWorkflow(
+    workflowId: string,
+    workflowSettings: unknown
+  ): Promise<ResolvedBranding> {
+    const workflowBranding = this.parseWorkflowBranding(workflowSettings);
+
+    try {
+      const tenantId = await this.resolveTenantIdForWorkflow(workflowId);
+      const tenantBranding = tenantId !== null ? await this.getBrandingByTenantId(tenantId) : null;
+      return resolveBranding(tenantBranding, workflowBranding);
+    } catch (error) {
+      logger.error({ error, workflowId }, 'Failed to resolve workflow branding; using workflow-only branding');
+      return resolveBranding(null, workflowBranding);
+    }
+  }
+
+  /**
+   * Read the branding keys out of the `workflows.settings` blob.
+   *
+   * Rows written before GH-158 added write-time validation may hold anything,
+   * so this parses leniently and lets `resolveBranding()` drop what it cannot
+   * use.
+   */
+  private parseWorkflowBranding(settings: unknown): WorkflowBrandingSettings | null {
+    if (typeof settings !== 'object' || settings === null) {
+      return null;
+    }
+    return settings as WorkflowBrandingSettings;
+  }
+
+  /**
+   * Resolve a workflow's tenant: its project's tenant first, falling back to
+   * the creator's tenant for unfiled workflows.
+   */
+  private async resolveTenantIdForWorkflow(workflowId: string): Promise<string | null> {
+    const [viaProject] = await db
+      .select({ tenantId: projects.tenantId })
+      .from(workflows)
+      .innerJoin(projects, eq(workflows.projectId, projects.id))
+      .where(eq(workflows.id, workflowId))
+      .limit(1);
+
+    if (viaProject?.tenantId != null) {
+      return viaProject.tenantId;
+    }
+
+    const [viaCreator] = await db
+      .select({ tenantId: users.tenantId })
+      .from(workflows)
+      .innerJoin(users, eq(workflows.creatorId, users.id))
+      .where(eq(workflows.id, workflowId))
+      .limit(1);
+
+    return viaCreator?.tenantId ?? null;
+  }
+
+  /**
    * Get tenant branding by custom domain
    */
   async getBrandingForDomain(domain: string): Promise<{
@@ -153,6 +226,17 @@ export class BrandingService {
           verificationToken,
         })
         .returning();
+
+      // `.returning()` is typed as an array, so the destructured row widens to
+      // `| undefined` under the strict-zone check this module is now pulled
+      // into. An insert that returns no row is a driver-level failure, not a
+      // normal outcome, so fail loudly rather than returning a bad shape.
+      // Explicit `=== undefined` (the pattern already used above in this file):
+      // ESLint types this from the non-strict config and rejects a truthiness
+      // check as always-true, while the strict zone types it as `| undefined`.
+      if (newDomain === undefined) {
+        throw new Error('Failed to add domain');
+      }
 
       logger.info({ tenantId, domain }, 'Domain added to tenant');
       return newDomain;

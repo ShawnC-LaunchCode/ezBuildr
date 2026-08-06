@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { insertWorkflowSchema } from "@shared/schema";
+import { workflowBrandingSettingsSchema } from "@shared/types/branding";
 import { IntakeConfigSchema } from "@shared/zod-schemas";
 
 import { logger } from "../logger";
@@ -181,7 +182,10 @@ export function registerWorkflowRoutes(app: Express): void {
       slug: z.string().optional(),
       requireLogin: z.boolean().optional(),
       intakeConfig: IntakeConfigSchema.optional(),
-      settings: z.record(z.any()).optional(),
+      // Branding keys are validated (safe image URLs, hex colors) because they
+      // are rendered onto participant surfaces; `.passthrough()` keeps the
+      // other settings keys (completionMessage, redirectUrl, ...) untouched.
+      settings: workflowBrandingSettingsSchema.passthrough().optional(),
       sections: z.array(z.any()).optional(),
       modeOverride: z.string().optional(),
       publicLink: z.string().optional(),

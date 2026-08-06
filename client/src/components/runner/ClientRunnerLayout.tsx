@@ -2,8 +2,11 @@ import { ReactNode } from "react";
 import { Check, AlertCircle, CloudOff, RefreshCw, Loader2 } from "lucide-react";
 
 import { Progress } from "@/components/ui/progress";
+import { RunnerBrandMark } from "@/components/runner/RunnerBrandMark";
+import { useBrandedFavicon, useBrandingStyle } from "@/hooks/useRunnerBranding";
 import { cn } from "@/lib/utils";
 import { type SaveStatus } from "@/hooks/useAutoSave";
+import { DEFAULT_RESOLVED_BRANDING, type ResolvedBranding } from "@shared/types/branding";
 
 interface ClientRunnerLayoutProps {
     children: ReactNode;
@@ -14,6 +17,8 @@ interface ClientRunnerLayoutProps {
     saveStatus?: SaveStatus;
     saveAndResumeAction?: ReactNode;
     className?: string;
+    /** Resolved participant branding (GH-158). Defaults to the ezBuildr brand. */
+    branding?: ResolvedBranding;
 }
 
 export function ClientRunnerLayout({
@@ -24,17 +29,21 @@ export function ClientRunnerLayout({
     totalSteps,
     saveStatus,
     saveAndResumeAction,
-    className
+    className,
+    branding = DEFAULT_RESOLVED_BRANDING
 }: ClientRunnerLayoutProps) {
+    // Scoped to this element rather than :root so a preview rendered inside the
+    // builder cannot repaint the surrounding app chrome.
+    const brandingStyle = useBrandingStyle(branding);
+    useBrandedFavicon(branding.faviconUrl);
+
     return (
-        <div className="min-h-screen bg-muted/20 flex flex-col font-sans text-foreground">
+        <div className="min-h-screen bg-muted/20 flex flex-col font-sans text-foreground" style={brandingStyle}>
             {/* Minimal Header */}
             <header className="bg-background border-b border-border py-4 px-4 sticky top-0 z-20">
                 <div className="max-w-2xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        {/* Placeholder Logo / Brand */}
-                        <div className="w-6 h-6 bg-primary rounded-sm" />
-                        <span className="font-semibold text-sm tracking-tight text-foreground">ezBuildr</span>
+                        <RunnerBrandMark branding={branding} />
                     </div>
                     {/* Status area (Step count + Save Status) */}
                     <div className="flex items-center gap-4">
@@ -108,10 +117,12 @@ export function ClientRunnerLayout({
                     {children}
                 </div>
 
-                {/* Footer / Trust Signals */}
-                <div className="mt-8 text-center text-xs text-muted-foreground pb-8">
-                    <p>Securely powered by ezBuildr</p>
-                </div>
+                {/* Footer / Trust Signals — removed entirely under white-label */}
+                {!branding.whiteLabel && (
+                    <div className="mt-8 text-center text-xs text-muted-foreground pb-8">
+                        <p>Securely powered by ezBuildr</p>
+                    </div>
+                )}
             </main>
         </div>
     );

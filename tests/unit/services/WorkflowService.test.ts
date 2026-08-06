@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, vi, type Mock, type Mocked } from "vi
 // import { WorkflowService } from "../../../server/services/WorkflowService";
 import { aclService } from "../../../server/services/AclService";
 import { createTestWorkflow, createTestSection, createTestLogicRule } from "../../factories/workflowFactory";
+import { DEFAULT_RESOLVED_BRANDING } from "../../../shared/types/branding";
 
 import type { InsertWorkflow, Project } from "../../../shared/schema";
 import type { WorkflowService } from "../../../server/services/WorkflowService";
@@ -65,7 +66,8 @@ describe("WorkflowService", () => {
     stepRepo: StepRepository,
     logicRuleRepo: LogicRuleRepository,
     workflowAccessRepo: WorkflowAccessRepository,
-    projectRepo: ProjectRepository
+    projectRepo: ProjectRepository,
+    brandingSvc: { resolveForWorkflow: Mock }
   ) => WorkflowService;
 
   let mockWorkflowRepo: Mocked<WorkflowRepository>;
@@ -74,6 +76,7 @@ describe("WorkflowService", () => {
   let mockLogicRuleRepo: Mocked<LogicRuleRepository>;
   let mockWorkflowAccessRepo: Mocked<WorkflowAccessRepository>;
   let mockProjectRepo: Mocked<ProjectRepository>;
+  let mockBrandingSvc: { resolveForWorkflow: Mock };
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -150,8 +153,13 @@ describe("WorkflowService", () => {
       stepRepo: StepRepository,
       logicRuleRepo: LogicRuleRepository,
       workflowAccessRepo: WorkflowAccessRepository,
-      projectRepo: ProjectRepository
+      projectRepo: ProjectRepository,
+      brandingSvc: { resolveForWorkflow: Mock }
     ) => WorkflowService;
+
+    // GH-158/O-9: getWorkflowWithDetails resolves branding for the builder
+    // preview. Injected so this no-DB suite never reaches the real service.
+    mockBrandingSvc = { resolveForWorkflow: vi.fn().mockResolvedValue(DEFAULT_RESOLVED_BRANDING) };
 
     service = new WorkflowServiceClass(
       mockWorkflowRepo,
@@ -159,7 +167,8 @@ describe("WorkflowService", () => {
       mockStepRepo,
       mockLogicRuleRepo,
       mockWorkflowAccessRepo,
-      mockProjectRepo
+      mockProjectRepo,
+      mockBrandingSvc
     );
   });
 
@@ -256,6 +265,31 @@ describe("WorkflowService", () => {
       await expect(service.getWorkflowWithDetails(workflow.id, "other-user")).rejects.toThrow(
         "Access denied"
       );
+    });
+    it("returns server-resolved branding so preview matches production (GH-158 O-9)", async () => {
+      // The builder preview renders from this payload and has no run. Resolving
+      // server-side is what lets it show tenant-level branding the workflow's
+      // own settings do not carry — previously invisible in preview.
+      const workflow = createTestWorkflow({ creatorId: "user-123" });
+      const tenantResolved = {
+        logoUrl: "https://cdn.example/tenant-logo.png",
+        faviconUrl: null,
+        organizationName: "Tenant Fallback Co",
+        primaryColor: "#1D4ED8",
+        accentColor: null,
+        whiteLabel: false,
+      };
+      mockBrandingSvc.resolveForWorkflow.mockResolvedValue(tenantResolved);
+      mockWorkflowRepo.findByIdOrSlug.mockResolvedValue(workflow);
+      mockWorkflowRepo.findById.mockResolvedValue(workflow);
+      mockSectionRepo.findByWorkflowId.mockResolvedValue([]);
+      mockStepRepo.findBySectionIds.mockResolvedValue([]);
+      mockLogicRuleRepo.findByWorkflowId.mockResolvedValue([]);
+
+      const result = await service.getWorkflowWithDetails(validUUID, "user-123");
+
+      expect(result.branding).toEqual(tenantResolved);
+      expect(mockBrandingSvc.resolveForWorkflow).toHaveBeenCalledWith(validUUID, workflow.settings);
     });
   });
   describe("listWorkflows", () => {

@@ -1,12 +1,29 @@
 /**
- * Intake Portal Type Definitions (Stage 12.5)
+ * Intake configuration and CAPTCHA types.
  *
- * This module provides type-safe definitions for intake portal configuration,
- * including prefill, CAPTCHA, and email receipt features.
+ * The Stage 12.5 intake portal (`/intake/*`) was removed on 2026-08-05 — its run
+ * pipeline duplicated `/api/runs/*` and had no caller. What remains here is what
+ * outlived it:
+ *
+ * - `IntakeConfig` — still a **live security control**. `RunService.createRun`
+ *   and `createAnonymousRun` read `workflows.intakeConfig` and pass it to
+ *   `filterPrefillValues` (RUN2-6), so `allowPrefill` / `allowedPrefillKeys`
+ *   decide which caller-supplied values may seed a run.
+ * - `CaptchaChallenge` / `CaptchaResponse` / `CaptchaType` — used by
+ *   `CaptchaService`, which serves the **login and registration** captcha in
+ *   `auth.routes.ts`. Nothing to do with intake any more.
+ *
+ * The other `IntakeConfig` fields (`requireCaptcha`, `captchaType`,
+ * `sendEmailReceipt`, `receiptEmailVar`, `receiptTemplateId`,
+ * `excludeFromReceipt`) are now **inert** — the portal was their only reader.
+ * They are deliberately NOT deleted: `IntakeConfigSchema` is `.strict()` and
+ * `RunService.resolveIntakeConfig` degrades to `{}` on a parse failure, so
+ * dropping them would make any stored config still containing them fail to parse
+ * and would silently switch prefill off. Removing them needs a data migration.
  */
 
 /**
- * CAPTCHA type for intake portal
+ * CAPTCHA type (login / registration anti-bot)
  */
 export type CaptchaType = "simple" | "recaptcha";
 
@@ -47,28 +64,4 @@ export interface CaptchaResponse {
   token: string;                  // Token from challenge
   answer?: string;                // For simple type: user's answer
   recaptchaToken?: string;        // For recaptcha type: Google token
-}
-
-/**
- * Email receipt data
- */
-export interface IntakeEmailReceipt {
-  attempted: boolean;
-  to?: string;
-  success?: boolean;
-  error?: string;
-}
-
-/**
- * Intake run submission result
- */
-export interface IntakeSubmitResult {
-  runId: string;
-  status: "success" | "error" | "validation_error";
-  errors?: string[];
-  emailReceipt?: IntakeEmailReceipt;
-  outputs?: {
-    pdf?: string;                 // URL to generated PDF
-    docx?: string;                // URL to generated DOCX
-  };
 }

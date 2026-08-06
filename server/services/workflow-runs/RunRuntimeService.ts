@@ -1,6 +1,8 @@
 import type { LogicRule, Step, WorkflowRun } from "@shared/schema";
+import type { ResolvedBranding } from "@shared/types/branding";
 
 import { stepValueRepository, workflowRunRepository, workflowVersionRepository } from "../../repositories";
+import { BrandingService, brandingService } from "../BrandingService";
 import { RunAuthResolver, runAuthResolver } from "../runs/RunAuthResolver";
 import { RunDefinitionProvider } from "./RunDefinitionProvider";
 
@@ -53,6 +55,13 @@ export interface RunRuntimeDefinition {
   }>;
   logicRules: LogicRule[];
   values: Array<{ id: string; runId: string; stepId: string; value: unknown; createdAt: Date | null; updatedAt: Date | null }>;
+  /**
+   * Branding the participant should see, already merged from tenant and
+   * workflow (GH-158). Resolved server-side and delivered on this payload so
+   * an anonymous participant needs no extra request, and so preview and
+   * production render from an identical value.
+   */
+  branding: ResolvedBranding;
 }
 
 export class RunRuntimeService {
@@ -63,6 +72,9 @@ export class RunRuntimeService {
     private valueRepo = stepValueRepository,
     private versionRepo = workflowVersionRepository,
     private authResolver: RunAuthResolver = runAuthResolver,
+    // Named distinctly from the imported singleton: a parameter of the same
+    // name shadows the import inside the parameter scope and self-references.
+    private brandingResolver: BrandingService = brandingService,
   ) {
     this.definitionProvider = new RunDefinitionProvider(this.versionRepo);
   }
@@ -87,7 +99,10 @@ export class RunRuntimeService {
       throw new Error("Workflow version not found for run");
     }
 
-    const values = await this.valueRepo.findByRunId(run.id);
+    const [values, branding] = await Promise.all([
+      this.valueRepo.findByRunId(run.id),
+      this.brandingResolver.resolveForWorkflow(run.workflowId, graph.settings),
+    ]);
     return {
       contractVersion: 1,
       run: {
@@ -110,6 +125,7 @@ export class RunRuntimeService {
       steps: definition.steps,
       logicRules: definition.logicRules,
       values,
+      branding,
     };
   }
 

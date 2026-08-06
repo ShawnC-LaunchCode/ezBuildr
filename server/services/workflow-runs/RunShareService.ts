@@ -13,6 +13,7 @@ import {
     stepRepository,
 } from "../../repositories";
 import { hashToken } from "../../utils/encryption";
+import { brandingService } from "../BrandingService";
 import { RunAuthResolver } from "../runs/RunAuthResolver";
 
 /**
@@ -137,12 +138,17 @@ export class RunShareService {
             }
         }
 
+        // The share screen is a participant surface, so it renders the same
+        // resolved branding as the runner (GH-158).
+        const branding = await brandingService.resolveForWorkflow(run.workflowId, workflow?.settings);
+
         return {
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Shared run data is dynamically typed at the persistence boundary.
             run: { ...run, accessSettings },
             documents,
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Shared run data is dynamically typed at the persistence boundary.
-            finalBlockConfig
+            finalBlockConfig,
+            branding
         };
     }
 }
