@@ -1,5 +1,5 @@
 # Build Stage
-FROM node:20-bookworm-slim AS builder
+FROM node:24-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -40,7 +40,7 @@ RUN npm run build
 # RUN npm prune --production
 
 # Production Stage
-FROM node:20-bookworm-slim
+FROM node:24-bookworm-slim
 
 WORKDIR /app
 
