@@ -234,3 +234,13 @@ Carved while merging GH-158/159/160 and retiring the duplicate GH-170 branch.
   `Tests` job passes (299 files) then dies on the `Slack Notification Suite`
   step, which needs a secret dependabot PRs do not receive. Either guard that
   step on secret availability or accept the red and merge on the Tests result.
+- **RM-5 — the `Auth Tests` workflow has never passed** · `operational` · P2.
+  It has failed on **every push since at least 2026-07-14** (8 consecutive
+  runs checked, all `failure`). Root cause is configuration, not code: it runs
+  `tests/integration/auth.flows.real.test.ts` and `auth.routes.real.test.ts`,
+  which `vitest.config.ts` deliberately lists in `excludedIntegrationTests`
+  because `*.real.test.ts` needs real external credentials — plus
+  `tests/unit/services/MfaService.test.ts`. A workflow that is permanently red
+  provides no signal and trains everyone to ignore red CI, which is how
+  DEBT-OPS2 happened. Either give it the credentials, drop the `.real` files
+  from its matrix, or delete the workflow.
