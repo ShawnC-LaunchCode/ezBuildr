@@ -529,10 +529,48 @@ Do not change the value-input branching logic — that is correct as-is and out 
 
 - [x] LU-1, LU-2, LU-3 reviewed, each committed as its own commit
 - [x] LU-4 dispatched only after LU-2 is committed (worktree based on `2da2feb6`), reviewed and committed
-- [ ] One batched live drive-through of the builder covering LU-2 + LU-4 (both land on the
-      condition editor) rather than one per ticket
+- [~] One batched live drive-through of the builder covering LU-2 + LU-4 — **partially
+      discharged 2026-08-07, see the note below. Not a blocker for the commits already
+      landed, but LU-4's rendered appearance in the real builder is NOT yet eyeballed.**
 - [ ] `test:fast` at or above the recorded pre-initiative baseline
 - [x] Model B decision received (Decision #4: fold B into A) — Phase 2 written and sequenced
+
+### Live drive-through — what was and was not proven (Senior, 2026-08-07)
+
+**Proven live, on a dedicated `dev:test` server (port 5188) started by the reviewer:**
+
+- The server serves **this** build, checked in both directions as the `verify` skill requires:
+  `VariableCombobox.tsx` is served (LU-4 present) and `variablesBySection` returns **zero**
+  hits in `ConditionRow.tsx` (the replaced code is genuinely gone, not shadowed).
+- The builder boots against a real workflow, authenticates through the real login UI, and
+  renders all four seeded steps (three aliased `short_text` plus a `list` with two sibling
+  fields) with the new code in place. No non-noise console errors.
+
+**Not driven to completion:** expanding a step card to reach the Visibility panel, and
+therefore the combobox's *rendered* search/filter behaviour in the real builder. Repeated
+attempts failed on element targeting, not on application behaviour. Root causes found along
+the way, both worth knowing:
+
+1. The step-card expand control is an **icon-only ghost button with no accessible name**
+   (`StepCard.tsx`, the `ChevronRight`/`ChevronDown` toggle) — invisible to every
+   name-based locator. Filed as **O-5**.
+2. The Easy/Advanced control is `role="radio"`, not a button — it comes from
+   `BuilderModeToggle.tsx`, which is **uncommitted in-flight work in the repo owner's tree**,
+   so the builder chrome is mid-refactor and its roles are a moving target right now.
+
+**Why this is recorded rather than driven further:** the behaviour in question is already
+covered by 26 component tests exercising real pointer and keyboard interaction against the
+rendered DOM (LU-4's 20, plus LU-2's 6 including an assertion that the fetch is suppressed on
+the injected path), and LU-2's dev independently completed a full live run — reaching the
+operand dropdown, confirming it listed "This item's fields → trigger", surviving a page
+reload, and reading back `visibleIf.conditions[0].variable === "trigger"` over the API. The
+residual risk is cosmetic (how the combobox *looks* in situ), not behavioural. **It should be
+eyeballed once the builder-chrome refactor in the working tree settles** — carried into the
+Phase 2 gate rather than silently dropped.
+
+All verification fixtures were torn down and proven gone (`leftover: {t:0,u:0,p:0}`); the
+reviewer's server on 5188 was stopped and the pre-existing server on 5174 (not the
+reviewer's) was deliberately left running.
 
 ---
 
@@ -633,6 +671,13 @@ at all — grepped for `visibleIf` / `Condition`, zero hits. Add one using the s
   raw step `config` to recover choices the variables endpoint doesn't return. If the variables
   endpoint ever returns choices, this whole branch and the extra `useWorkflowSteps` query
   delete cleanly.
+- **O-5.** The step-card expand/collapse toggle in
+  `client/src/components/builder/cards/StepCard.tsx` is an icon-only ghost `Button` wrapping a
+  `ChevronRight`/`ChevronDown` with no `aria-label` and no text, so it has no accessible name.
+  Screen readers announce it as an unlabelled button, and it is unreachable by any name-based
+  query (which is how it was found — it blocked the reviewer's own drive-through). Cheap fix,
+  real a11y defect, and it touches GH-158's accessibility scope. Not caused by this
+  initiative.
 - **O-4.** The legacy string-expression branch of `extractConditionReferences` (`shared/conditionGraph.ts`,
   inherited unchanged from the old `extractStringIdentifiers` in `workflowLintRules.ts`) matches bare
   identifiers with a regex, so a string `visibleIf` such as `name == 'foo'` extracts `foo` and can
