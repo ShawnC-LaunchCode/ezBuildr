@@ -383,7 +383,8 @@ export function TemplatesTab({ workflowId }: TemplatesTabProps) {
           templateId={editingTemplate.id}
           isOpen={true}
           onClose={() => setEditingTemplate(null)}
-          workflowVariables={Array.from(workflowVariableAliases)}
+          workflowVariables={workflowVariables}
+          workflowId={workflowId}
         />
       )}
       {editingTemplate != null && editingTemplate.type === 'pdf' && workflowProjectId != null && (

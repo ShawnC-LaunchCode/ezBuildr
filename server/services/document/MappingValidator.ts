@@ -36,6 +36,7 @@ import { normalizeVariables } from './VariableNormalizer';
 
 import type { DocumentMapping } from './MappingInterpreter';
 import type { NormalizationOptions } from './VariableNormalizer';
+import type { MappingBinding } from '../../../shared/types/documentMapping';
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -76,6 +77,44 @@ export interface ValidationReport {
   dryRunSuccess: boolean;
   dryRunOutput?: unknown;
 }
+/**
+ * Per-binding-kind structural check, extracted out of `validateStructure`'s
+ * loop to keep its complexity within the lint budget. `source` only applies
+ * to `variable` bindings — `constant`/`formula`/`datavault` each have their
+ * own required field(s) instead.
+ */
+function checkBindingStructure(target: string, config: MappingBinding): ValidationError | null {
+  switch (config.type) {
+    case 'variable':
+      if (!config.source) {
+        return { type: 'missing_source', message: `Source variable missing for field "${target}"`, field: target };
+      }
+      if (config.source === target) {
+        return {
+          type: 'circular_reference',
+          message: `Circular reference detected: "${target}" maps to itself`,
+          field: target,
+          suggestion: 'Change the source variable to a different field',
+        };
+      }
+      return null;
+    case 'constant':
+      return config.value === undefined
+        ? { type: 'missing_value', message: `Constant value missing for field "${target}"`, field: target }
+        : null;
+    case 'formula':
+      return !config.expression
+        ? { type: 'missing_expression', message: `Formula expression missing for field "${target}"`, field: target }
+        : null;
+    case 'datavault':
+      return (!config.tableId || !config.columnId || !config.rowId)
+        ? { type: 'incomplete_datavault_binding', message: `DataVault binding for field "${target}" is missing a table, column, or row`, field: target }
+        : null;
+    default:
+      return null;
+  }
+}
+
 // ============================================================================
 // MAPPING VALIDATOR CLASS
 // ============================================================================
@@ -266,26 +305,11 @@ export class MappingValidator {
           message: `Mapping type missing for field "${target}"`,
           field: target,
         });
-      }
-      if (!config.source) {
-        errors.push({
-          type: 'missing_source',
-          message: `Source variable missing for field "${target}"`,
-          field: target,
-        });
-      }
-      // Check for circular references (target === source)
-      if (config.source === target) {
-        errors.push({
-          type: 'circular_reference',
-          message: `Circular reference detected: "${target}" maps to itself`,
-          field: target,
-          suggestion: 'Change the source variable to a different field',
-        });
+        continue;
       }
       // Validate mapping type
-      const validTypes = ['variable', 'constant', 'expression'];
-      if (config.type && !validTypes.includes(config.type)) {
+      const validTypes = ['variable', 'constant', 'formula', 'datavault'];
+      if (!validTypes.includes(config.type)) {
         errors.push({
           type: 'invalid_type',
           message: `Invalid mapping type "${config.type}" for field "${target}"`,
@@ -293,7 +317,14 @@ export class MappingValidator {
           details: { validTypes },
           suggestion: `Use one of: ${validTypes.join(', ')}`,
         });
+        continue;
       }
+      // Per-type structural checks, extracted to keep this loop's complexity
+      // down. `source`/`circular_reference` only apply to `variable`
+      // bindings — `constant`/`formula`/`datavault` have their own required
+      // fields instead of a step-alias `source`.
+      const entryError = checkBindingStructure(target, config);
+      if (entryError) { errors.push(entryError); }
     }
     return errors;
   }

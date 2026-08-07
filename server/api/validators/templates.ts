@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { documentFieldMappingSchema } from '../../../shared/types/documentMapping';
 import { paginationQuerySchema } from '../../utils/pagination';
 
 /**
@@ -13,6 +14,11 @@ export const createTemplateSchema = z.object({
 
 export const updateTemplateSchema = z.object({
   name: z.string().min(1).max(255).optional(),
+  // Document Mapping Workbench (GH-156): the persisted default field mapping
+  // for this template. `updateTemplateSchema.parse` previously stripped this
+  // field silently (it wasn't declared here at all), so the mapping editor's
+  // "Save" button had never actually persisted anything.
+  mapping: documentFieldMappingSchema.optional(),
   // File replacement handled separately via multipart/form-data
 });
 

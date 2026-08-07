@@ -569,6 +569,7 @@ router.patch(
         .update(schema.templates)
         .set({
           ...(data.name !== undefined && { name: data.name }),
+          ...(data.mapping !== undefined && { mapping: data.mapping }),
           ...(newFileRef !== undefined && { fileRef: newFileRef }),
           ...(updateType !== undefined && { type: updateType as "docx" | "pdf" }),
           ...(updateMetadata !== undefined && { metadata: updateMetadata }),
@@ -583,6 +584,22 @@ router.patch(
           logger.debug({ oldFileRef, newFileRef }, 'Old template file cleaned up after successful update');
         } catch (cleanupError) {
           logger.warn({ oldFileRef, error: cleanupError }, 'Failed to delete old template file (orphaned)');
+        }
+      }
+      // Document Mapping Workbench (GH-156): a mapping save is a meaningful
+      // change worth its own version history, same as a file replacement.
+      // Best-effort — a version-history failure must not fail the save that
+      // already committed above.
+      if (data.mapping !== undefined && authReq.userId) {
+        try {
+          const { templateVersionService } = await import('../services/TemplateVersionService');
+          await templateVersionService.createVersion({
+            templateId: params.id,
+            userId: authReq.userId,
+            notes: 'Field mapping updated via Document Mapping Workbench',
+          });
+        } catch (versionError) {
+          logger.warn({ versionError, templateId: params.id }, 'Failed to record template version after mapping save');
         }
       }
       res.json({
@@ -752,7 +769,11 @@ router.post(
         workflowId: z.string().uuid().optional(),
       });
       const parsedBody = previewSchema.parse(req.body);
-      const { mapping, sampleData, outputFormat, validateMapping, workflowId } = parsedBody;
+      const { sampleData, outputFormat, validateMapping, workflowId } = parsedBody;
+      // Default to the template's persisted mapping (Document Mapping
+      // Workbench, GH-156) so "Test" actually proves the mapping an author
+      // saved, not nothing — the caller may still override it explicitly.
+      const mapping = parsedBody.mapping ?? template.mapping;
       const normalizationOptions = await getWorkflowNormalizationOptions(workflowId, tenantId);
 
       const { templatePreviewService } = await import('../services/TemplatePreviewService');
@@ -764,6 +785,7 @@ router.post(
         validateMapping,
         normalizationOptions,
         expiresIn: 300,
+        tenantId,
       });
       res.json({
         previewUrl: previewResult.previewUrl,

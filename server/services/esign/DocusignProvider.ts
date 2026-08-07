@@ -13,6 +13,7 @@ import path from 'path';
 import jwt from 'jsonwebtoken';
 
 import { logger } from '../../logger';
+import { resolveBindingToString } from '../document/MappingInterpreter';
 import { safeFetch } from '../../utils/safeFetch';
 import {
   type IEsignProvider,
@@ -329,7 +330,7 @@ export class DocusignProvider implements IEsignProvider {
           documentId,
           pageNumber: '1',
           tabLabel,
-          value: String(variableData[mapping.source] ?? ''),
+          value: resolveBindingToString(mapping, variableData),
           locked: 'true',
         });
       }

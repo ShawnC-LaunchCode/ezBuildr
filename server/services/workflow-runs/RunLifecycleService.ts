@@ -10,7 +10,7 @@
  */
 
 import { logger } from "../../logger";
-import { stepValueRepository, stepRepository, sectionRepository, workflowRunRepository, workflowRepository, documentTemplateRepository, runGeneratedDocumentsRepository } from "../../repositories";
+import { stepValueRepository, stepRepository, sectionRepository, workflowRunRepository, workflowRepository, documentTemplateRepository, runGeneratedDocumentsRepository, projectRepository } from "../../repositories";
 import { blockRunner } from "../BlockRunner";
 import { finalBlockRenderer, createTemplateResolver } from "../document/FinalBlockRenderer";
 import { getChoiceListBindingsByAlias, getListConfigsByAlias } from "../document/VariableNormalizer";
@@ -439,6 +439,13 @@ export class RunLifecycleService {
       const listConfigs = getListConfigsByAlias(definitionSteps);
       const listBoundChoices = getChoiceListBindingsByAlias(definitionSteps);
 
+      // Resolved via the project (a direct column), never via workflow
+      // owner_uuid — GH-170's F1 fatal bug came from exactly that shortcut.
+      // Only used to resolve `datavault` mapping bindings (GH-156); every
+      // other read stays unaffected if this project lookup is somehow null.
+      const project = await projectRepository.findById(workflow.projectId);
+      const tenantId = project?.tenantId ?? undefined;
+
       // 4. Create scoped Template Resolver
       const resolveTemplate = createTemplateResolver(async (documentId: string) => {
         const template = await documentTemplateRepository.findByIdAndProjectId(documentId, workflow.projectId as string);
@@ -465,6 +472,7 @@ export class RunLifecycleService {
           resolveTemplate,
           toPdf: options.toPdf ?? false,
           normalizationOptions: { listConfigs, listBoundChoices },
+          tenantId,
         });
         totalGenerated += generationResult.totalGenerated;
         documents.push(...generationResult.documents);

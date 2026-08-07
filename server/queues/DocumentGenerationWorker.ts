@@ -52,7 +52,7 @@ async function processDocumentGenerationJob(
   job: Job<DocumentGenerationJobData>
 ): Promise<DocumentGenerationJobResult> {
   const startTime = Date.now();
-  const { runId, workflowId, userId: _userId, tenantId: _tenantId, renderOptions, notification } = job.data;
+  const { runId, workflowId, userId: _userId, tenantId, renderOptions, notification } = job.data;
 
   logger.info(
     {
@@ -84,7 +84,9 @@ async function processDocumentGenerationJob(
 
     // Step 2: Generate documents
     const engine = new EnhancedDocumentEngine();
-    const result = await engine.renderFinalBlock(renderOptions);
+    // tenantId comes from the job payload, not renderOptions itself — merged
+    // here so `datavault` mapping bindings (GH-156) can resolve.
+    const result = await engine.renderFinalBlock({ ...renderOptions, tenantId });
 
     await job.progress(70);
 

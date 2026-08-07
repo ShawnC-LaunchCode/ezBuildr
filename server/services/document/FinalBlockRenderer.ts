@@ -66,6 +66,9 @@ export interface FinalBlockRenderRequest {
 
   /** Variable normalization metadata, including List configs by alias. */
   normalizationOptions?: NormalizationOptions;
+
+  /** Tenant scope for resolving `datavault` mapping bindings (GH-156). */
+  tenantId?: string;
 }
 
 /**
@@ -148,6 +151,7 @@ export class FinalBlockRenderer {
       resolveTemplate,
       toPdf = false,
       normalizationOptions,
+      tenantId,
       // DEBT-15: intentionally ephemeral. This is only the scratch directory the
       // renderer writes into while building a document; the bytes are uploaded to
       // storageProvider in prepareResponseDocuments and unlinked from here before
@@ -227,6 +231,7 @@ export class FinalBlockRenderer {
       toPdf,
       runId,
       normalizationOptions,
+      tenantId,
     });
 
     logger.info({

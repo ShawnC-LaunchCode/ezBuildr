@@ -14,8 +14,11 @@
  * @date December 6, 2025
  */
 
+import { extractFormulaReferences } from '../../../shared/types/documentMapping';
+
 import type { NormalizedData } from './VariableNormalizer';
 import type { FinalBlockConfig } from '../../../shared/types/stepConfigs';
+import type { DatavaultMappingBinding, MappingBinding } from '../../../shared/types/documentMapping';
 
 // ============================================================================
 // TYPES
@@ -26,6 +29,10 @@ import type { FinalBlockConfig } from '../../../shared/types/stepConfigs';
  * (Extracted from FinalBlockConfig)
  */
 export type DocumentMapping = FinalBlockConfig['documents'][0]['mapping'];
+
+/** The `MappingBinding['type']` literals — kept as a runtime set because a
+ * persisted mapping is jsonb, not statically guaranteed to match the type. */
+const KNOWN_BINDING_TYPES = new Set(['variable', 'constant', 'formula', 'datavault']);
 
 /**
  * Mapping application result
@@ -140,11 +147,36 @@ export function applyMapping(
   const usedSources = new Set<string>();
   const result: NormalizedData = {};
 
-  // Apply each mapping entry
+  // Apply each mapping entry. `datavault` bindings are resolved by
+  // `resolveDatavaultBindings` (async, DB-backed) BEFORE this function runs —
+  // it rewrites them into `variable` bindings pointing at a synthetic
+  // normalized-data key. A `datavault` binding seen here means it was never
+  // resolved (no tenantId available, or the row/column lookup failed), so it
+  // is reported as `missing` rather than silently dropped.
   for (const [targetField, config] of Object.entries(mapping)) {
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!config || typeof config !== 'object' || config.type !== 'variable') {
-      continue; // Skip invalid mappings
+    if (!config || typeof config !== 'object' || !config.type) {
+      continue; // Skip malformed mappings entirely (nothing to report)
+    }
+
+    if (config.type === 'constant') {
+      result[targetField] = config.value;
+      mapped.push(targetField);
+      continue;
+    }
+
+    if (config.type === 'formula') {
+      const { value, refs } = evaluateFormulaExpression(config.expression, normalizedData);
+      result[targetField] = value;
+      mapped.push(targetField);
+      refs.forEach(ref => usedSources.add(ref));
+      continue;
+    }
+
+    if (config.type !== 'variable') {
+      // Unresolved `datavault` binding (or any future/unknown kind).
+      missing.push(targetField);
+      continue;
     }
 
     const sourceValue = normalizedData[config.source];
@@ -212,6 +244,128 @@ export function applyMappingWithFallback(
 }
 
 // ============================================================================
+// DYNAMIC BINDINGS (formula, datavault)
+// ============================================================================
+
+/**
+ * Evaluate a `formula` binding's template string against normalized data.
+ *
+ * Deliberately NOT an expression language — no eval, no arithmetic. It is
+ * plain `{{alias}}` token substitution, the same delimiter convention the
+ * DOCX templates themselves use (see `TemplateScanner`). A referenced alias
+ * that has no value substitutes as an empty string and is reported in
+ * `missingRefs` so callers (validation, warnings) can surface it; the field
+ * itself is still considered "mapped" because a formula always produces
+ * *some* string.
+ */
+export function evaluateFormulaExpression(
+  expression: string,
+  normalizedData: NormalizedData
+): { value: string; refs: string[]; missingRefs: string[] } {
+  const refs = extractFormulaReferences(expression);
+  const missingRefs: string[] = [];
+
+  const value = expression.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_match, ref: string) => {
+    const resolved = normalizedData[ref];
+    if (resolved === undefined || resolved === null) {
+      missingRefs.push(ref);
+      return '';
+    }
+    return String(resolved);
+  });
+
+  return { value, refs, missingRefs };
+}
+
+/**
+ * Resolve a single binding to a display string synchronously, for callers
+ * (e.g. `DocusignProvider`'s text-tab prefill) that need one scalar value
+ * rather than a full mapping pass and cannot await a DataVault lookup at that
+ * point in their pipeline. `datavault` bindings are unsupported here — they
+ * resolve to `''`, matching how `applyMapping` treats an unresolved binding
+ * as missing rather than throwing.
+ */
+export function resolveBindingToString(
+  binding: MappingBinding | undefined | null,
+  data: Record<string, unknown>
+): string {
+  if (!binding?.type) { return ''; }
+  switch (binding.type) {
+    case 'variable': {
+      const value = data[binding.source];
+      return value === undefined || value === null ? '' : String(value);
+    }
+    case 'constant':
+      return binding.value;
+    case 'formula':
+      return evaluateFormulaExpression(binding.expression, data as NormalizedData).value;
+    case 'datavault':
+      return '';
+    default:
+      return '';
+  }
+}
+
+/** Narrow a DataVault cell value (dynamically typed EAV storage) to the shapes `NormalizedData` accepts. */
+function coerceToNormalizedValue(value: unknown): string | number | boolean | unknown[] | undefined {
+  if (value === undefined || value === null) { return undefined; }
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') { return value; }
+  if (Array.isArray(value)) { return value as unknown[]; }
+  // Objects (e.g. a DataVault reference/lookup cell) — stringify rather than
+  // drop, so the document still renders *something* instead of a silent blank.
+  return JSON.stringify(value);
+}
+
+/**
+ * Resolve every `datavault` binding in a mapping BEFORE calling
+ * `applyMapping`, by rewriting it into an ordinary `variable` binding that
+ * points at a synthetic normalized-data key. This keeps `applyMapping` itself
+ * synchronous and DB-free — the async, tenant-scoped row lookup happens once,
+ * here, via the injected `resolveRow` callback (kept as an injected function
+ * rather than an import so this module stays free of DB/service
+ * dependencies, matching its "pure functions" design).
+ *
+ * A binding whose `resolveRow` call throws or returns `undefined` is left
+ * as-is (still `datavault`), so `applyMapping` reports it as `missing`
+ * instead of silently vanishing.
+ */
+export async function resolveDatavaultBindings(
+  mapping: DocumentMapping | undefined | null,
+  normalizedData: NormalizedData,
+  resolveRow: (binding: DatavaultMappingBinding) => Promise<unknown>
+): Promise<{ mapping: DocumentMapping | undefined | null; normalizedData: NormalizedData }> {
+  if (!mapping) {
+    return { mapping, normalizedData };
+  }
+
+  const entries = Object.entries(mapping).filter(([, binding]) => binding?.type === 'datavault');
+  if (entries.length === 0) {
+    return { mapping, normalizedData };
+  }
+
+  const resolvedMapping: DocumentMapping = { ...mapping };
+  const augmentedData: NormalizedData = { ...normalizedData };
+
+  for (const [targetField, binding] of entries) {
+    const syntheticKey = `__datavault__${targetField}`;
+    try {
+      const value = await resolveRow(binding as DatavaultMappingBinding);
+      const coerced = coerceToNormalizedValue(value);
+      if (coerced !== undefined) {
+        augmentedData[syntheticKey] = coerced;
+        resolvedMapping[targetField] = { type: 'variable', source: syntheticKey };
+      }
+      // value undefined/null: leave the binding as `datavault` so applyMapping reports it missing.
+    } catch {
+      // Resolution failure (row/table not found, tenant mismatch, etc.): same
+      // fallback — leave as `datavault`, reported missing rather than thrown.
+    }
+  }
+
+  return { mapping: resolvedMapping, normalizedData: augmentedData };
+}
+
+// ============================================================================
 // VALIDATION
 // ============================================================================
 
@@ -228,6 +382,78 @@ export function applyMappingWithFallback(
  * @param normalizedData - Available source data
  * @returns Validation result with errors and warnings
  */
+interface EntryCheckResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+  sourceRefs: string[];
+}
+
+function checkFormulaEntry(
+  targetField: string,
+  config: Extract<MappingBinding, { type: 'formula' }>,
+  normalizedData: NormalizedData
+): EntryCheckResult {
+  const { refs, missingRefs } = evaluateFormulaExpression(config.expression, normalizedData);
+  if (missingRefs.length > 0) {
+    return {
+      valid: false,
+      errors: [],
+      warnings: [`Formula for field "${targetField}" references unknown variable(s): ${missingRefs.join(', ')}`],
+      sourceRefs: refs,
+    };
+  }
+  return { valid: true, errors: [], warnings: [], sourceRefs: refs };
+}
+
+function checkDatavaultEntry(
+  targetField: string,
+  config: Extract<MappingBinding, { type: 'datavault' }>
+): EntryCheckResult {
+  const complete = !!config.tableId && !!config.columnId && !!config.rowId;
+  return complete
+    ? { valid: true, errors: [], warnings: [], sourceRefs: [] }
+    : { valid: false, errors: [`Incomplete DataVault binding for field: ${targetField}`], warnings: [], sourceRefs: [] };
+}
+
+function checkVariableEntry(
+  targetField: string,
+  config: Extract<MappingBinding, { type: 'variable' }>,
+  normalizedData: NormalizedData
+): EntryCheckResult {
+  if (!config.source || typeof config.source !== 'string') {
+    return { valid: false, errors: [`Missing or invalid source for field: ${targetField}`], warnings: [], sourceRefs: [] };
+  }
+
+  const warnings: string[] = [];
+  const valid = config.source in normalizedData;
+  if (!valid) {
+    warnings.push(`Source variable "${config.source}" not found in step values (target: ${targetField})`);
+  }
+  if (targetField === config.source) {
+    warnings.push(`Circular reference: ${targetField} maps to itself`);
+  }
+  return { valid, errors: [], warnings, sourceRefs: [config.source] };
+}
+
+/** Dispatch a single mapping entry to its type-specific checker (extracted to keep `validateMapping` under the complexity limit). */
+function checkMappingEntry(
+  targetField: string,
+  config: MappingBinding,
+  normalizedData: NormalizedData
+): EntryCheckResult {
+  switch (config.type) {
+    case 'constant':
+      return { valid: true, errors: [], warnings: [], sourceRefs: [] };
+    case 'formula':
+      return checkFormulaEntry(targetField, config, normalizedData);
+    case 'datavault':
+      return checkDatavaultEntry(targetField, config);
+    default:
+      return checkVariableEntry(targetField, config, normalizedData);
+  }
+}
+
 export function validateMapping(
   mapping: DocumentMapping | undefined | null,
   normalizedData: NormalizedData
@@ -247,7 +473,6 @@ export function validateMapping(
   }
 
   const targetFields = new Set<string>();
-  // eslint-disable-next-line sonarjs/no-unused-collection
   const sourceFields = new Set<string>();
   let validMappings = 0;
 
@@ -266,30 +491,17 @@ export function validateMapping(
       continue;
     }
 
-    if (config.type !== 'variable') {
-      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      warnings.push(`Unknown mapping type "${config.type}" for field: ${targetField}`);
+    const bindingType: string = config.type;
+    if (!KNOWN_BINDING_TYPES.has(bindingType)) {
+      warnings.push(`Unknown mapping type "${bindingType}" for field: ${targetField}`);
       continue;
     }
 
-    if (!config.source || typeof config.source !== 'string') {
-      errors.push(`Missing or invalid source for field: ${targetField}`);
-      continue;
-    }
-
-    sourceFields.add(config.source);
-
-    // Check if source exists in normalized data
-    if (!(config.source in normalizedData)) {
-      warnings.push(`Source variable "${config.source}" not found in step values (target: ${targetField})`);
-    } else {
-      validMappings++;
-    }
-
-    // Check for circular references (target === source)
-    if (targetField === config.source) {
-      warnings.push(`Circular reference: ${targetField} maps to itself`);
-    }
+    const result = checkMappingEntry(targetField, config, normalizedData);
+    errors.push(...result.errors);
+    warnings.push(...result.warnings);
+    result.sourceRefs.forEach(ref => sourceFields.add(ref));
+    if (result.valid) { validMappings++; }
   }
 
   // Calculate coverage
@@ -449,7 +661,9 @@ export function getMappingStats(mapping: DocumentMapping | undefined | null): {
   }
 
   const entries = Object.entries(mapping);
-  const variableEntries = entries.filter(([, config]) => config?.type === 'variable');
+  const variableEntries = entries.filter(
+    (entry): entry is [string, Extract<MappingBinding, { type: 'variable' }>] => entry[1]?.type === 'variable'
+  );
   const sources = new Set(
     variableEntries
       .map(([, config]) => config.source)
@@ -503,6 +717,23 @@ export function createMappingFromAliases(
 // DEBUGGING
 // ============================================================================
 
+/** Human-readable one-liner for any binding kind, used by both `describeMapping` and `compareMappings`. */
+function describeBinding(binding: MappingBinding | undefined | null): string {
+  if (!binding?.type) { return '[invalid config]'; }
+  switch (binding.type) {
+    case 'variable': return binding.source;
+    case 'constant': return `'${binding.value}'`;
+    case 'formula': return binding.expression;
+    case 'datavault': return `datavault:${binding.tableId}/${binding.columnId}/${binding.rowId}`;
+    default: return '[invalid config]';
+  }
+}
+
+/** Stable string identity of a binding's *source*, used to detect changes between two mappings. */
+function bindingIdentity(binding: MappingBinding | undefined | null): string {
+  return describeBinding(binding);
+}
+
 /**
  * Generate human-readable mapping summary
  */
@@ -514,12 +745,7 @@ export function describeMapping(mapping: DocumentMapping | undefined | null): st
   const lines: string[] = ['Field Mapping:'];
 
   for (const [targetField, config] of Object.entries(mapping)) {
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (config && config.type === 'variable') {
-      lines.push(`  ${targetField} ← ${config.source}`);
-    } else {
-      lines.push(`  ${targetField} ← [invalid config]`);
-    }
+    lines.push(`  ${targetField} ← ${describeBinding(config)}`);
   }
 
   return lines.join('\n');
@@ -550,13 +776,13 @@ export function compareMappings(
     if (!keys1.has(key)) {
       added.push(key);
     } else {
-      const source1 = mapping1?.[key]?.source;
-      const source2 = mapping2?.[key]?.source;
+      const source1 = bindingIdentity(mapping1?.[key]);
+      const source2 = bindingIdentity(mapping2?.[key]);
       if (source1 !== source2) {
         changed.push({
           field: key,
-          oldSource: source1 ?? '',
-          newSource: source2 ?? '',
+          oldSource: source1,
+          newSource: source2,
         });
       } else {
         unchanged.push(key);

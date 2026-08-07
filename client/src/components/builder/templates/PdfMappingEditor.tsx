@@ -10,12 +10,14 @@ import { MappingSidebar } from './MappingSidebar';
 import { PdfCanvas } from './PdfCanvas';
 import { PageDimension, PdfField, WorkflowVariable } from './PdfMappingEditor.types';
 
+import type { DocumentFieldMapping } from '@shared/types/documentMapping';
+
 interface PdfTemplate {
     name: string;
     metadata?: {
         fields?: PdfField[];
     };
-    mapping?: Record<string, string>;
+    mapping?: DocumentFieldMapping;
 }
 
 interface PdfMappingEditorProps {
@@ -30,7 +32,7 @@ export function PdfMappingEditor({ templateId, isOpen, onClose, workflowVariable
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [template, setTemplate] = useState<PdfTemplate | null>(null);
-    const [mapping, setMapping] = useState<Record<string, string>>({});
+    const [mapping, setMapping] = useState<DocumentFieldMapping>({});
     const [fields, setFields] = useState<PdfField[]>([]);
     const [numPages, setNumPages] = useState<number>(0);
     const [scale, setScale] = useState(1.0);

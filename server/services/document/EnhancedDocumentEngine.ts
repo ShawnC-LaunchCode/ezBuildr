@@ -16,18 +16,40 @@
 
 import { createNormalizationError, createMappingError, createRenderError, wrapAsDocumentGenerationError, isDocumentGenerationError } from '../../errors/DocumentGenerationError.js';
 import { createLogger } from '../../logger.js';
+import { datavaultRowsService } from '../DatavaultRowsService.js';
 import { templateAnalytics } from '../TemplateAnalyticsService.js';
 
 import { DocumentEngine } from './DocumentEngine.js';
-import { applyMapping, type DocumentMapping, type MappingResult } from './MappingInterpreter.js';
+import { applyMapping, resolveDatavaultBindings, type DocumentMapping, type MappingResult } from './MappingInterpreter.js';
 import { normalizeVariables, type NormalizedData, type NormalizationOptions } from './VariableNormalizer.js';
 
 import type { DocumentGenerationOptions, DocumentGenerationResult } from './DocumentEngine.js';
 import { evaluateConditionExpression } from '../../../shared/conditionEvaluator.js';
 import type { ConditionGroup } from '../../../shared/types/conditions.js';
+import type { DatavaultMappingBinding } from '../../../shared/types/documentMapping.js';
 import type { LogicExpression } from '../../../shared/types/stepConfigs.js';
 
 const logger = createLogger({ module: 'enhanced-doc-engine' });
+
+/**
+ * Resolve one `datavault` mapping binding to its cell value.
+ *
+ * `tenantId` is required — a run/preview invoked without one (e.g. an older
+ * caller that has not been updated to pass it) simply cannot resolve
+ * DataVault bindings; they surface as `missing` in the mapping result (see
+ * `MappingInterpreter.resolveDatavaultBindings`) rather than throwing.
+ */
+async function resolveDatavaultBindingValue(
+  binding: DatavaultMappingBinding,
+  tenantId: string | undefined
+): Promise<unknown> {
+  if (tenantId === undefined || tenantId === '') {
+    logger.warn({ binding }, 'Cannot resolve DataVault mapping binding: no tenantId in this generation context');
+    return undefined;
+  }
+  const result = await datavaultRowsService.getRow(binding.rowId, tenantId);
+  return result?.values[binding.columnId] as unknown;
+}
 
 // ============================================================================
 // TYPES
@@ -58,6 +80,9 @@ export interface EnhancedGenerationOptions extends Omit<DocumentGenerationOption
    * NOT workflow_runs — only the engine template node may pass this.
    */
   runId?: string;
+
+  /** Tenant scope for resolving `datavault` mapping bindings (GH-156). */
+  tenantId?: string;
 }
 
 /**
@@ -116,6 +141,14 @@ export interface FinalBlockRenderOptions {
 
   /** Run ID to prefix files with for security */
   runId?: string;
+
+  /**
+   * Tenant the run/preview belongs to. Required to resolve `datavault`
+   * mapping bindings (GH-156) — without it, such bindings are left
+   * unresolved and reported as missing rather than fetched, since a
+   * DataVault row lookup must be tenant-scoped.
+   */
+  tenantId?: string;
 }
 
 /**
@@ -186,6 +219,7 @@ export class EnhancedDocumentEngine {
       normalize = true,
       templateId,
       runId,
+      tenantId,
       ...baseOptions
     } = options;
     // Metrics columns are uuids; preview runs use synthetic "preview-*" ids
@@ -225,7 +259,12 @@ export class EnhancedDocumentEngine {
 
       if (mapping) {
         try {
-          mappingResult = applyMapping(normalizedData, mapping);
+          const resolved = await resolveDatavaultBindings(
+            mapping,
+            normalizedData,
+            (binding) => resolveDatavaultBindingValue(binding, tenantId)
+          );
+          mappingResult = applyMapping(resolved.normalizedData, resolved.mapping);
           // Merge mapped fields OVER the full normalized set instead of
           // replacing it: a partial mapping must not blank out every
           // unmapped {{variable}} in the template. Mapped names win on
@@ -376,6 +415,7 @@ export class EnhancedDocumentEngine {
       outputDir,
       toPdf = false,
       normalizationOptions = {},
+      tenantId,
     } = options;
 
     logger.info({
@@ -425,6 +465,7 @@ export class EnhancedDocumentEngine {
           // No runId here: metrics run_id references the graph runs table,
           // and Final Block runIds are workflow_runs ids
           templateId: doc.documentId,
+          tenantId,
         });
 
         results.push({

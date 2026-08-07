@@ -20,6 +20,7 @@
  */
 
 import { stepTypeEnum } from "@shared/schema";
+import { extractFormulaReferences } from "@shared/types/documentMapping";
 import {
   getRunnerStepTypeStatus,
   isRunnerRequirableStepType,
@@ -420,30 +421,108 @@ function checkDocumentEntry(
   const mapping: unknown = entry.mapping;
   if (mapping === null || typeof mapping !== "object" || Array.isArray(mapping)) { return; }
 
+  const bindingContext: MappingBindingCheckContext = { ...checkContext, ownerLabel, entryLabel };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
   for (const [field, binding] of Object.entries(mapping as Record<string, any>)) {
+    checkMappingBinding(field, binding, bindingContext, results);
+  }
+}
+
+interface MappingBindingCheckContext extends DocumentEntryCheckContext {
+  ownerLabel: string;
+  entryLabel: string;
+}
+
+/**
+ * One field's binding, dispatched by `MappingBinding['type']` (GH-156). Each
+ * binding kind has its own way of "resolving to nothing" at generation time:
+ * a `variable` with no matching step alias, a `formula` referencing an
+ * unknown alias, or an incomplete `datavault` reference. All are warnings,
+ * not errors, for the same reason the original `variable`-only check was —
+ * `EnhancedDocumentEngine` renders a blank rather than failing generation.
+ */
+function checkMappingBinding(
+  field: string,
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
+  binding: any,
+  checkContext: MappingBindingCheckContext,
+  results: LintResult[]
+): void {
+  const { ownerLabel, entryLabel } = checkContext;
 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Workflow definitions contain extensible dynamic configuration.
-    const source: unknown = binding?.source;
-    if (typeof source !== "string" || source.trim().length === 0) {
+  const type: unknown = binding?.type;
+
+  if (type === "constant") {
+    return; // A constant always resolves — nothing to warn about.
+  }
+
+  if (type === "formula") {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Workflow definitions contain extensible dynamic configuration.
+    const expression: unknown = binding.expression;
+    if (typeof expression !== "string" || expression.trim().length === 0) {
       results.push(issue(
         "warning",
         "documents",
-        `${ownerLabel} document "${entryLabel}" maps field "${field}" to an empty source, so that field will render blank.`,
+        `${ownerLabel} document "${entryLabel}" maps field "${field}" to an empty formula, so that field will render blank.`,
         checkContext.target
       ));
-      continue;
+      return;
     }
-    // Dotted sources address flattened nested values and are resolved at
-    // generation time, not against step aliases.
-    if (source.includes(".")) { continue; }
-    if (!checkContext.ruleContext.stepAliases.has(source)) {
+    const unknownRefs = extractFormulaReferences(expression)
+      .filter(ref => !ref.includes(".") && !checkContext.ruleContext.stepAliases.has(ref));
+    if (unknownRefs.length > 0) {
       results.push(issue(
         "warning",
         "documents",
-        `${ownerLabel} document "${entryLabel}" maps field "${field}" to "${source}", which is not a known question alias — that field will render blank.`,
+        `${ownerLabel} document "${entryLabel}" formula for field "${field}" references unknown variable(s): ${unknownRefs.join(", ")} — that part will render blank.`,
         checkContext.target
       ));
     }
+    return;
+  }
+
+  if (type === "datavault") {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Workflow definitions contain extensible dynamic configuration.
+    const hasAllFields = typeof binding.tableId === "string" && binding.tableId.length > 0
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Workflow definitions contain extensible dynamic configuration.
+      && typeof binding.columnId === "string" && binding.columnId.length > 0
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Workflow definitions contain extensible dynamic configuration.
+      && typeof binding.rowId === "string" && binding.rowId.length > 0;
+    if (!hasAllFields) {
+      results.push(issue(
+        "warning",
+        "documents",
+        `${ownerLabel} document "${entryLabel}" maps field "${field}" to an incomplete DataVault reference, so that field will render blank.`,
+        checkContext.target
+      ));
+    }
+    return;
+  }
+
+  // `variable` (including the pre-GH-156 shape, which never carried a
+  // `type` other than "variable") and any unrecognized/legacy binding both
+  // fall through to the original source-based check.
+// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Workflow definitions contain extensible dynamic configuration.
+  const source: unknown = binding?.source;
+  if (typeof source !== "string" || source.trim().length === 0) {
+    results.push(issue(
+      "warning",
+      "documents",
+      `${ownerLabel} document "${entryLabel}" maps field "${field}" to an empty source, so that field will render blank.`,
+      checkContext.target
+    ));
+    return;
+  }
+  // Dotted sources address flattened nested values and are resolved at
+  // generation time, not against step aliases.
+  if (source.includes(".")) { return; }
+  if (!checkContext.ruleContext.stepAliases.has(source)) {
+    results.push(issue(
+      "warning",
+      "documents",
+      `${ownerLabel} document "${entryLabel}" maps field "${field}" to "${source}", which is not a known question alias — that field will render blank.`,
+      checkContext.target
+    ));
   }
 }
 

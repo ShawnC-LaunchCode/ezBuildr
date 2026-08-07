@@ -5,6 +5,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 import { PageDimension, PdfField } from './PdfMappingEditor.types';
 
+import type { DocumentFieldMapping } from '@shared/types/documentMapping';
+
 // Set worker source for react-pdf
 // Use local worker to avoid CSP issues with CDN
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -20,7 +22,7 @@ interface PdfCanvasProps {
     scale: number;
     pageDimensions: Record<number, PageDimension>;
     fields: PdfField[];
-    mapping: Record<string, string>;
+    mapping: DocumentFieldMapping;
     selectedField: string | null;
     onDocumentLoadSuccess: (data: { numPages: number }) => void;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -104,7 +106,7 @@ export function PdfCanvas({
                         const h = fieldH * scale;
                         // Canvas Y: Y_from_top = View_Max_Y - (Field_Y_Bottom + Field_H)
                         const y = (viewMaxY - (fieldY + fieldH)) * scale;
-                        const isMapped = !!mapping[field.name];
+                        const isMapped = mapping[field.name] !== undefined;
                         const isSelected = selectedField === field.name;
                         // Define colors based on state
                         let borderColor = '#3b82f6'; // Blue (Unmapped)

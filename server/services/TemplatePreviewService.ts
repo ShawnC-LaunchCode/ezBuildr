@@ -67,6 +67,9 @@ export interface GeneratePreviewOptions {
 
   /** Workflow-derived options for normalizing sample data during validation */
   normalizationOptions?: NormalizationOptions;
+
+  /** Tenant scope for resolving `datavault` mapping bindings (GH-156). */
+  tenantId?: string;
 }
 
 export interface PreviewResult {
@@ -116,6 +119,7 @@ export class TemplatePreviewService {
       expiresIn = 300, // 5 minutes
       validateMapping = true,
       normalizationOptions,
+      tenantId,
     } = options;
 
     logger.info({ templateId, outputFormat }, 'Generating template preview');
@@ -179,6 +183,7 @@ export class TemplatePreviewService {
         outputDir: tempOutputDir,
         toPdf: outputFormat === 'pdf',
         normalize: true,
+        tenantId,
       });
 
       // Step 6: Read generated file and upload to storage

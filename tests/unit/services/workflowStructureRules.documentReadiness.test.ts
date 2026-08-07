@@ -265,6 +265,106 @@ describe("validateWorkflowStructure — document readiness (GH-152)", () => {
         'Final block "Final documents" document "contract" maps field "client_name" to an empty source, so that field will render blank.'
       );
     });
+
+    // GH-156: the mapping binding union widened from `variable`-only to
+    // include `constant`, `formula`, and `datavault`. Each kind has its own
+    // "resolves to nothing" case that must still warn, never block.
+    it("never warns on a constant binding — it always resolves", () => {
+      const data = baseWorkflow([
+        finalBlockSection([
+          {
+            id: "d1",
+            documentId: REAL_TEMPLATE,
+            alias: "contract",
+            mapping: { client_name: { type: "constant", value: "N/A" } },
+          },
+        ]),
+      ]);
+      expect(validateWorkflowStructure(data, readiness())).toEqual([]);
+    });
+
+    it("accepts a formula whose every {{alias}} reference is a known question alias", () => {
+      const data = baseWorkflow([
+        finalBlockSection([
+          {
+            id: "d1",
+            documentId: REAL_TEMPLATE,
+            alias: "contract",
+            mapping: { greeting: { type: "formula", expression: "Dear {{name}}," } },
+          },
+        ]),
+      ]);
+      expect(validateWorkflowStructure(data, readiness())).toEqual([]);
+    });
+
+    it("warns on a formula referencing an unknown alias", () => {
+      const data = baseWorkflow([
+        finalBlockSection([
+          {
+            id: "d1",
+            documentId: REAL_TEMPLATE,
+            alias: "contract",
+            mapping: { greeting: { type: "formula", expression: "Dear {{nope}}," } },
+          },
+        ]),
+      ]);
+      expect(errorsOf(data, readiness())).toEqual([]);
+      expect(warningsOf(data, readiness())).toContain(
+        'Final block "Final documents" document "contract" formula for field "greeting" references unknown variable(s): nope — that part will render blank.'
+      );
+    });
+
+    it("warns on an empty formula expression", () => {
+      const data = baseWorkflow([
+        finalBlockSection([
+          {
+            id: "d1",
+            documentId: REAL_TEMPLATE,
+            alias: "contract",
+            mapping: { greeting: { type: "formula", expression: "" } },
+          },
+        ]),
+      ]);
+      expect(errorsOf(data, readiness())).toEqual([]);
+      expect(warningsOf(data, readiness())).toContain(
+        'Final block "Final documents" document "contract" maps field "greeting" to an empty formula, so that field will render blank.'
+      );
+    });
+
+    it("accepts a complete DataVault binding", () => {
+      const data = baseWorkflow([
+        finalBlockSection([
+          {
+            id: "d1",
+            documentId: REAL_TEMPLATE,
+            alias: "contract",
+            mapping: {
+              firm_name: { type: "datavault", tableId: "t1", columnId: "c1", rowId: "r1" },
+            },
+          },
+        ]),
+      ]);
+      expect(validateWorkflowStructure(data, readiness())).toEqual([]);
+    });
+
+    it("warns on an incomplete DataVault binding", () => {
+      const data = baseWorkflow([
+        finalBlockSection([
+          {
+            id: "d1",
+            documentId: REAL_TEMPLATE,
+            alias: "contract",
+            mapping: {
+              firm_name: { type: "datavault", tableId: "t1", columnId: "", rowId: "r1" },
+            },
+          },
+        ]),
+      ]);
+      expect(errorsOf(data, readiness())).toEqual([]);
+      expect(warningsOf(data, readiness())).toContain(
+        'Final block "Final documents" document "contract" maps field "firm_name" to an incomplete DataVault reference, so that field will render blank.'
+      );
+    });
   });
 
   describe("signature blocks", () => {

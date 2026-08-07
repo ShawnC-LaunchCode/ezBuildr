@@ -14,6 +14,7 @@
  */
 
 import type { DeliveryDestination } from "./delivery";
+import type { MappingBinding } from "./documentMapping";
 
 // ============================================================================
 // BASE TYPES & UTILITIES
@@ -600,11 +601,10 @@ export interface FinalBlockConfig {
     alias: string;            // Short name for this document (e.g., "contract", "receipt")
     conditions?: LogicExpression | null;  // Optional conditional logic for this document
     mapping?: {
-      // Optional field mapping for document generation (Prompt 10)
-      [docFieldName: string]: {
-        type: 'variable';
-        source: string;       // Alias of workflow variable
-      }
+      // Field mapping for document generation (Prompt 10; widened to
+      // MappingBinding in GH-156 to support constant/formula/datavault
+      // sources alongside the original step-variable binding).
+      [docFieldName: string]: MappingBinding;
     };
   }>;
   deliveryDestinations?: DeliveryDestination[];
@@ -628,11 +628,9 @@ export interface SignatureBlockConfig {
     id: string;               // Unique ID for this document entry
     documentId: string;       // Reference to document (from Final Block or library)
     mapping?: {
-      // Map workflow variables to document fields/tabs
-      [tabName: string]: {
-        type: 'variable';
-        source: string;       // Alias of workflow variable
-      }
+      // Map document fields/tabs to a value source (widened in GH-156, see
+      // FinalBlockConfig.documents[].mapping above).
+      [tabName: string]: MappingBinding;
     };
   }>;
   conditions?: LogicExpression | null;  // Optional conditional logic

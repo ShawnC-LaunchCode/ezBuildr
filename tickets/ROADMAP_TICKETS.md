@@ -58,7 +58,7 @@ rewritten tickets below supersede it.
 
 ## Roadmap Progress & Dependency Overview
 
-**12 of 28 tickets complete (43%)** — updated 2026-08-06
+**13 of 28 tickets complete (46%)** — updated 2026-08-06
 
 > Keep this in sync: when a ticket's own heading earns a ✅, flip its node below
 > and bump the phase count and the overall bar. The heading is the source of truth.
@@ -66,16 +66,16 @@ rewritten tickets below supersede it.
 ```
 LEGEND    ✅ done      🔲 open
 
-OVERALL   ████████████░░░░░░░░░░░░░░░░   12 / 28   (43%)
+OVERALL   █████████████░░░░░░░░░░░░░░░   13 / 28   (46%)
 
 
 [Phase 0 — P0 Security & Storage Foundation]      ██████████  2/2  DONE
   ├── ✅ GH-169A   Real clamd virus scanner client
   └── ✅ GH-169B   Storage init, signed-URL route, S3 hardening
         │
-        ├──► [Phase 1 — Document & Delivery Pipeline]    ████████░░  4/5
+        ├──► [Phase 1 — Document & Delivery Pipeline]    ██████████  5/5  DONE
         │      ├── ✅ GH-168   High-fidelity DOCX-to-PDF converter
-        │      ├── 🔲 GH-156   Document mapping workbench
+        │      ├── ✅ GH-156   Document mapping workbench
         │      ├── ✅ GH-170   Delivery destinations & retries
         │      ├── ✅ GH-157   DocuSign envelope lifecycle
         │      └── ✅ GH-149   Packaged legal integrations (Clio/Stripe/e-sign)
@@ -126,6 +126,7 @@ OVERALL   ████████████░░░░░░░░░░░�
 | ✅ GH-152 | Publish gate review grouping and deep links | 2026-08-06 |
 | ✅ GH-149 | Packaged Clio, Stripe, and DocuSign legal integrations | 2026-08-06 |
 | ✅ GH-147 | Save-and-resume, assignment, and staff/client handoff | 2026-08-06 |
+| ✅ GH-156 | Document mapping workbench with persisted bindings | 2026-08-06 |
 
 ---
 
@@ -484,7 +485,47 @@ distinct keys cannot collide, and validate the cache entry against the object's 
 
 ---
 
-## GH-156 — Persist document mappings in a guided mapping workbench 🔲
+## GH-156 — Persist document mappings in a guided mapping workbench ✅
+
+> **CLOSED 2026-08-06.** A Document Mapping Workbench lists every extracted placeholder and
+> binds each one through a new `MappingBinding` discriminated union — `variable` (step alias
+> or dotted path), `constant`, `formula` (`{{alias}}` substitution, no eval), and `datavault`
+> (table/column/row). `AIAssistPanel` was **replaced** by `DocxMappingPanel` and deleted, not
+> left in place; the reviewer confirmed no live references remain.
+>
+> **No migration — and that is the right call.** Mappings persist in the existing jsonb
+> (`templates.mapping` and step `config`), and saving one now records a template version
+> ("Field mapping updated via Document Mapping Workbench"), so AC3's "with workflow
+> versioning" is satisfied by the mechanism that already versions steps through
+> `VersionService.serializeWorkflow`. **Consequence: GH-156 did not consume a migration
+> number — the chain tip is still `0019` and the next migration is `0020`.**
+>
+> **AC4 lands on GH-152's new contract.** The publish-gate warnings are emitted through the
+> `issue(...)` helper with `category: "documents"` and a deep-link `target`, so unmapped and
+> mismatched bindings appear in the Review tab's Documents tab with a working "Fix" link
+> rather than as uncategorized strings.
+>
+> **Reviewer verification pass 2026-08-06.** The dev agent ended its run without producing a
+> turn-in report, so **every gate here was run by the reviewer from scratch**, not accepted
+> on report: `tsc` exit 0, `lint` exit 0, `test:fast` 216 passed / 1 skipped files and 2604
+> passed / 14 skipped tests (+37 over `main`'s 2567), `templates.mapping-workbench`
+> integration 1 file / 5 tests.
+>
+> **Two apparent scope violations were checked and cleared.** (1) `server/services/esign/`
+> was modified — justified: widening `mapping` to `MappingBinding` breaks
+> `SignatureDocument.mapping`'s old narrow `{type:'variable', source}` shape, so the esign
+> tab builder had to move to `resolveBindingToString`. Leaving it would not have compiled.
+> (2) `AIAssistPanel.tsx` was deleted — justified as above. Both should have been declared
+> by the dev rather than found by the reviewer.
+>
+> **Reviewer fix (senior, at review).** `extractFormulaReferences` did
+> `refs.push(match[1])` — clean under `tsc --noEmit` and `lint`, but
+> `shared/types/documentMapping.ts` sits in a **strict zone** with
+> `noUncheckedIndexedAccess`, where a capture group is `string | undefined`. The
+> pre-commit hook's `check:strict-zones` rejected it with three TS2345s. Narrowed with an
+> explicit `undefined` check rather than a non-null assertion. Worth recording as a process
+> point: `tsc` + `lint` passing is **not** the commit gate here — `check:strict-zones` pulls
+> files in transitively and only `npx tsx scripts/pre-commit-checks.ts` reproduces it.
 
 **Priority: P1** · Size: L · Files: `client/src/components/builder/`, `client/src/pages/`, `server/routes/templates.routes.ts`, `server/services/document/`
 **Ties:** Preceded by GH-169; Blocks GH-167

@@ -8,18 +8,19 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
-import { AIAssistPanel } from './AIAssistPanel';
+import { DocxMappingPanel } from './DocxMappingPanel';
+import { type WorkflowVariable } from './PdfMappingEditor.types';
 interface DocumentTemplateEditorProps {
     templateId: string;
     isOpen: boolean;
     onClose: () => void;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    workflowVariables: any[];
+    workflowVariables: WorkflowVariable[];
+    /** Enables the workflow-aware "unmatched placeholder" warning (AC4). */
+    workflowId?: string;
 }
-export function DocumentTemplateEditor({ templateId, isOpen, onClose, workflowVariables }: DocumentTemplateEditorProps) {
+export function DocumentTemplateEditor({ templateId, isOpen, onClose, workflowVariables, workflowId }: DocumentTemplateEditorProps) {
     const [htmlContent, setHtmlContent] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
-    const [fileBuffer, setFileBuffer] = useState<ArrayBuffer | undefined>(undefined);
     const [fileName, setFileName] = useState<string>('');
     // Fetch Template File
     // Note: Assuming an API exists to get the raw file or we reuse the upload buffer if new
@@ -38,7 +39,6 @@ export function DocumentTemplateEditor({ templateId, isOpen, onClose, workflowVa
             const response = await fetch(`/api/templates/${templateId}/download`);
             if (response.ok) {
                 const buffer = await response.arrayBuffer();
-                setFileBuffer(buffer);
                 // Extract filename from header or default
                 const disposition = response.headers.get('content-disposition');
                 const name = disposition ? disposition.split('filename=')[1] : 'template.docx';
@@ -60,12 +60,6 @@ export function DocumentTemplateEditor({ templateId, isOpen, onClose, workflowVa
         } finally {
             setIsLoading(false);
         }
-    };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handleApplyMapping = (mapping: any) => {
-        // eslint-disable-next-line no-console
-        console.log("Applying mapping", mapping);
-        // TODO: Persist mapping to backend
     };
     // SECURITY FIX: Sanitize HTML content to prevent XSS attacks
     const sanitizedHtml = useMemo(() => {
@@ -116,12 +110,10 @@ export function DocumentTemplateEditor({ templateId, isOpen, onClose, workflowVa
                             )}
                         </div>
                     </div>
-                    {/* AI Assist Sidebar */}
-                    <AIAssistPanel
-                        _templateId={templateId}
-                        fileBuffer={fileBuffer}
-                        fileName={fileName}
-                        onApplyMapping={handleApplyMapping}
+                    {/* Field Mapping Sidebar */}
+                    <DocxMappingPanel
+                        templateId={templateId}
+                        workflowId={workflowId}
                         workflowVariables={workflowVariables}
                     />
                 </div>

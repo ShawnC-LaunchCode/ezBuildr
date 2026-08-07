@@ -12,6 +12,8 @@
  * @date December 2025
  */
 
+import type { MappingBinding } from "../../../shared/types/documentMapping";
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -32,11 +34,8 @@ export interface SignatureDocument {
   /** MIME type */
   mimeType: string;
 
-  /** Variable-to-field mapping */
-  mapping?: Record<string, {
-    type: 'variable';
-    source: string;
-  }>;
+  /** Field mapping (widened in GH-156 — see shared/types/documentMapping.ts) */
+  mapping?: Record<string, MappingBinding>;
 }
 
 /**
