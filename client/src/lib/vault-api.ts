@@ -8,6 +8,8 @@
  * Handles all API calls to the workflow backend
  */
 import type { ResolvedBranding } from '@shared/types/branding';
+import type { ConditionExpression } from '@shared/types/conditions';
+
 import { getRunToken } from './runTokens';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
@@ -675,20 +677,63 @@ export const sectionAPI = {
 // ============================================================================
 // Logic Rules
 // ============================================================================
+export type LogicRuleTargetType = 'section' | 'step';
+export type LogicRuleAction = 'show' | 'hide' | 'require' | 'make_optional' | 'skip_to';
+
+/**
+ * A logic rule (LU-6b). `when` is the same `ConditionExpression` language
+ * `visibleIf` uses (Decision #5) - the rule editor reuses `LogicBuilder` for
+ * it rather than a second condition editor. `conditionStepId` is
+ * server-derived from `when`'s first step reference and read-only from the
+ * client's perspective (O-7) - it is never sent on create/update, only
+ * echoed back so the UI can display it.
+ */
 export interface ApiLogicRule {
   id: string;
   workflowId: string;
-  conditionStepAlias: string;
-  operator: string;
-  conditionValue: unknown;
-  targetType: 'section' | 'step';
-  targetAlias: string;
-  action: 'show' | 'hide' | 'require' | 'make_optional' | 'skip_to';
-  description?: string;
+  conditionStepId: string;
+  when: ConditionExpression;
+  targetType: LogicRuleTargetType;
+  targetStepId: string | null;
+  targetSectionId: string | null;
+  action: LogicRuleAction;
+  order: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
+
+/** Create/update payload. `conditionStepId` is deliberately absent - see `ApiLogicRule`. */
+export interface LogicRuleInput {
+  when: ConditionExpression;
+  targetType: LogicRuleTargetType;
+  targetStepId?: string | null;
+  targetSectionId?: string | null;
+  action: LogicRuleAction;
+  order?: number;
+}
+
 export const logicRuleAPI = {
   list: (workflowId: string) =>
     fetchAPI<ApiLogicRule[]>(`/api/workflows/${workflowId}/logic-rules`),
+  create: (workflowId: string, data: LogicRuleInput) =>
+    fetchAPI<ApiLogicRule>(`/api/workflows/${workflowId}/logic-rules`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (workflowId: string, ruleId: string, data: Partial<LogicRuleInput>) =>
+    fetchAPI<ApiLogicRule>(`/api/workflows/${workflowId}/logic-rules/${ruleId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  reorder: (workflowId: string, rules: Array<{ id: string; order: number }>) =>
+    fetchAPI<void>(`/api/workflows/${workflowId}/logic-rules/reorder`, {
+      method: "PUT",
+      body: JSON.stringify({ rules }),
+    }),
+  delete: (workflowId: string, ruleId: string) =>
+    fetchAPI<void>(`/api/workflows/${workflowId}/logic-rules/${ruleId}`, {
+      method: "DELETE",
+    }),
 };
 // ============================================================================
 // Steps

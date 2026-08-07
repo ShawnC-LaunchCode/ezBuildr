@@ -4,14 +4,18 @@ import { insertWorkflowSchema } from "@shared/schema";
 import { workflowBrandingSettingsSchema } from "@shared/types/branding";
 import { IntakeConfigSchema } from "@shared/zod-schemas";
 
+import { conditionExpressionSchema } from "@shared/types/conditions";
+
 import { logger } from "../logger";
 import { hybridAuth, optionalHybridAuth, type AuthRequest } from '../middleware/auth';
+import { autoRevertToDraft } from "../middleware/autoRevertToDraft";
 import { creatorOrRunTokenAuth, type RunAuthRequest } from '../middleware/runTokenAuth';
 import { createLimiter } from "../middleware/rateLimiting";
 import { logicRuleRepository } from "../repositories/LogicRuleRepository";
 import { templateTestService } from "../services/TemplateTestService";
 import { variableService } from "../services/VariableService";
 import { aclService } from "../services/AclService";
+import { logicRuleService } from "../services/LogicRuleService";
 import { workflowClonerService } from "../services/WorkflowClonerService";
 import { workflowService } from "../services/WorkflowService";
 import { workflowLintService } from "../services/WorkflowLintService";
@@ -24,6 +28,25 @@ import type { Express, Request, Response } from "express";
 
 // eslint-disable-next-line sonarjs/no-duplicate-string
 const ERR_INVALID_INPUT = "Invalid input";
+
+// LU-6b: full-body validation for authoring a logic rule's when/target/
+// action. `when` is validated against the SAME `conditionExpressionSchema`
+// `visibleIf` uses — the rule editor reuses `LogicBuilder`, not a second
+// condition language. `conditionStepId` is deliberately NOT accepted from
+// the client (O-7) — LogicRuleService derives it from `when` on every
+// write so the two can never independently disagree.
+const logicRuleInputSchema = z.object({
+  when: conditionExpressionSchema,
+  targetType: z.enum(['section', 'step']),
+  targetStepId: z.string().uuid().nullish(),
+  targetSectionId: z.string().uuid().nullish(),
+  action: z.enum(['show', 'hide', 'require', 'make_optional', 'skip_to']),
+  order: z.number().int().optional(),
+});
+const logicRuleUpdateSchema = logicRuleInputSchema.partial();
+const logicRuleReorderSchema = z.object({
+  rules: z.array(z.object({ id: z.string().uuid(), order: z.number().int() })),
+});
 
 const copyWorkflowBodySchema = z.object({
   name: z.string().trim().min(1).max(255).optional(),
@@ -484,6 +507,110 @@ export function registerWorkflowRoutes(app: Express): void {
       logger.error({ error, workflowId: req.params.workflowId }, "Error fetching workflow logic rules");
       const message = "Failed to fetch workflow logic rules";
       res.status(500).json({ message });
+    }
+  }));
+
+  /**
+   * POST /api/workflows/:workflowId/logic-rules
+   * Create a logic rule (LU-6b). `when` is the same ConditionExpression
+   * `visibleIf` uses; `conditionStepId` is derived server-side from `when`,
+   * never accepted from the client (O-7).
+   */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async autoRevertToDraft
+  app.post('/api/workflows/:workflowId/logic-rules', hybridAuth, createLimiter, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+      const { workflowId } = req.params;
+      const data = logicRuleInputSchema.parse(req.body);
+      const rule = await logicRuleService.createRule(workflowId, userId, data);
+      res.status(201).json(rule);
+    } catch (error) {
+      logger.error({ error, workflowId: req.params.workflowId }, "Error creating logic rule");
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: ERR_INVALID_INPUT, errors: error.errors });
+      }
+      const { status, message } = classifyRouteError(error, "Failed to create logic rule");
+      res.status(status).json({ message });
+    }
+  }));
+
+  /**
+   * PUT /api/workflows/:workflowId/logic-rules/reorder
+   * Reorder logic rules. Ordering is author-visible: the first firing
+   * `skip_to` rule wins, so authors need explicit control over rule order.
+   * NOTE: must be registered before the /:ruleId routes below, matching the
+   * sections.routes.ts convention, or Express would treat "reorder" as a
+   * ruleId.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async autoRevertToDraft
+  app.put('/api/workflows/:workflowId/logic-rules/reorder', hybridAuth, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+      const { workflowId } = req.params;
+      const { rules } = logicRuleReorderSchema.parse(req.body);
+      await logicRuleService.reorderRules(workflowId, userId, rules);
+      res.status(200).json({ message: "Logic rules reordered successfully" });
+    } catch (error) {
+      logger.error({ error, workflowId: req.params.workflowId }, "Error reordering logic rules");
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: ERR_INVALID_INPUT, errors: error.errors });
+      }
+      const { status, message } = classifyRouteError(error, "Failed to reorder logic rules");
+      res.status(status).json({ message });
+    }
+  }));
+
+  /**
+   * PUT /api/workflows/:workflowId/logic-rules/:ruleId
+   * Update a logic rule. Partial updates re-validate (and re-derive
+   * conditionStepId from) the full resulting when/target/action combination
+   * — see LogicRuleService.updateRule.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async autoRevertToDraft
+  app.put('/api/workflows/:workflowId/logic-rules/:ruleId', hybridAuth, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+      const { workflowId, ruleId } = req.params;
+      const data = logicRuleUpdateSchema.parse(req.body);
+      const rule = await logicRuleService.updateRule(ruleId, workflowId, userId, data);
+      res.json(rule);
+    } catch (error) {
+      logger.error({ error, workflowId: req.params.workflowId, ruleId: req.params.ruleId }, "Error updating logic rule");
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: ERR_INVALID_INPUT, errors: error.errors });
+      }
+      const { status, message } = classifyRouteError(error, "Failed to update logic rule");
+      res.status(status).json({ message });
+    }
+  }));
+
+  /**
+   * DELETE /api/workflows/:workflowId/logic-rules/:ruleId
+   * Delete a logic rule.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises -- Express middleware chain with async autoRevertToDraft
+  app.delete('/api/workflows/:workflowId/logic-rules/:ruleId', hybridAuth, autoRevertToDraft, asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const userId = (req as AuthRequest).userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized - no user ID" });
+      }
+      const { workflowId, ruleId } = req.params;
+      await logicRuleService.deleteRule(ruleId, workflowId, userId);
+      res.status(204).send();
+    } catch (error) {
+      logger.error({ error, workflowId: req.params.workflowId, ruleId: req.params.ruleId }, "Error deleting logic rule");
+      const { status, message } = classifyRouteError(error, "Failed to delete logic rule");
+      res.status(status).json({ message });
     }
   }));
 

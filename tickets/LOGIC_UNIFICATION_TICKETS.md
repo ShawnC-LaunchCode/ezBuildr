@@ -764,7 +764,58 @@ first-firing-`skip_to`-wins ordering by `rule.order` and the backward-skip guard
 
 ---
 
-## LU-6b — Author rules in the unified editor 🔄
+## LU-6b — Author rules in the unified editor ✅
+
+> **Verified 2026-08-07 (Senior).** Gates re-run by the reviewer: `tsc --noEmit` 0, `lint` 0,
+> `check:strict-zones` 6/6, `test:fast` **225 files / 2647 tests** — baseline 2604, delta +43,
+> exactly the three new test files (22 + 11 + 10). No unexplained movement.
+>
+> **`skip_to`, `require` and `make_optional` are authorable by a human for the first time.**
+> The engine has supported all five actions since before this initiative; nothing could write
+> a rule because `logicRuleAPI` exposed only `list()`.
+>
+> **O-7 solved better than the ticket asked.** AC5b only required a *test* that
+> `conditionStepId` stays consistent with the operand inside `when`. The dev instead made drift
+> unrepresentable: `logicRuleInputSchema` has no `conditionStepId` field at all, so a client
+> cannot supply one, and the server derives it inside the same write — running `when` through
+> `conditionExpressionSchema`, extracting the operand with LU-3's `extractConditionReferences`,
+> and resolving it via `AliasResolver`. One derivation, one write. Making the invariant
+> impossible to express beats checking it.
+>
+> **Off-limits files verified untouched** — `git status` in the worktree shows no
+> `WorkflowBuilder.tsx`, no `components/builder/{ai,layout,sidebar,versioning}/`, no
+> `ActivateToggle`/`SidebarTree`/`useContainerWidth`. The "Rules" tab went into
+> `LogicInspectorPanel.tsx` and needed no opener change, exactly as the ticket predicted.
+>
+> **Authorization checked at the source** (`add-api-endpoint` invariants): `hybridAuth` on all
+> four mutating routes, `verifyAccess(workflowId, userId, "edit")` in the service on every
+> mutation and `"view"` on list, `autoRevertToDraft` consistent with sibling workflow routes,
+> `createLimiter` on POST. IDOR guarded — `findByIdAndWorkflow` is used on update **and**
+> delete, and section/step targets are validated as belonging to the same workflow, so a rule
+> cannot be pointed at another workflow's element.
+>
+> **Live proof accepted and it is real end-to-end**, not a UI screenshot: over the wire, a
+> `skip_to` rule created with `when` referencing a step *by alias* came back with the resolved
+> `conditionStepId`; a run submitting the triggering value resolved `skipToSectionId` to
+> Section C and skipped Section B through the real `evaluateRules` / `resolveNextSection` path;
+> and a **negative control** run with a non-triggering value flowed normally with
+> `skipToSectionId` undefined. The update path's O-7 guard was proven too (400 on an unknown
+> step reference). A negative control is what separates "the rule fired" from "the code always
+> skips".
+>
+> ### ⚠️ Reviewer flag — the dev migrated the shared dev database on its own initiative
+>
+> To make AC6 possible the dev found the shared Neon dev database still on the pre-LU-6a
+> schema and ran `npm run db:migrate` against it. **The outcome is correct and nothing was
+> lost** — verified independently afterwards: `logic_rules` now has `when` and no flat columns,
+> **0 rows**, 84 workflows intact, `steps.visible_if` still 52. The migration was already
+> reviewed and committed on `main` under LU-6a, and the table was empty, so the risk was
+> genuinely nil.
+>
+> It was still a unilateral write to a **shared resource the repo owner also uses**, and that
+> should have been the reviewer's or the owner's call, not a dev's. Recorded as **O-8** so the
+> next initiative's dispatch prompts say so explicitly rather than relying on it not occurring
+> to anyone.
 
 **Priority: P1** · Size: M · Depends on LU-6a
 **Files:** `client/src/components/logic/`, `client/src/lib/vault-api.ts`,
@@ -884,6 +935,13 @@ depend on Decision #5.
   raw step `config` to recover choices the variables endpoint doesn't return. If the variables
   endpoint ever returns choices, this whole branch and the extra `useWorkflowSteps` query
   delete cleanly.
+- **O-8.** Dispatch prompts tell devs not to touch files outside their ticket, but say nothing
+  about **shared infrastructure**. A dev ran `npm run db:migrate` against the shared dev
+  database during LU-6b — correctly, and harmlessly, but unilaterally. Add an explicit line to
+  the kickoff prompt: schema/data changes to the shared dev database, pushes, and anything
+  outward-facing are the reviewer's call, and a dev that believes one is needed should report a
+  blocker. (The dev DB being behind `main` after a schema ticket is itself a recurring gap
+  worth a checklist item at the phase gate.)
 - **O-7.** After LU-6a, `logic_rules.condition_step_id` is denormalized against the operand
   inside `when`: both name a step, and nothing enforces that they agree. It is kept on purpose
   (FK remapping for alias rename, portability and cloning need a plain column they can rewrite
