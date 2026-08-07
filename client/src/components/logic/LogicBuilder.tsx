@@ -38,18 +38,26 @@ import { ConditionGroup } from "./ConditionGroup";
 const CHOICE_STEP_TYPES = new Set<VariableInfo["type"]>(["radio", "multiple_choice"]);
 
 interface LogicBuilderProps {
-  /** The workflow ID to fetch variables from */
-  workflowId: string;
-  /** The element ID (step or section) being edited - used to filter out self-references */
-  elementId: string;
-  /** Type of element being edited */
-  elementType: "step" | "section";
+  /** The workflow ID to fetch variables from. Ignored when `variables` is injected. */
+  workflowId?: string;
+  /** The element ID (step or section) being edited - used to filter out self-references
+   * when fetching. Ignored when `variables` is injected. */
+  elementId?: string;
+  /** Type of element being edited (drives copy only) */
+  elementType: "step" | "section" | "field";
   /** Current condition expression (null means always visible) */
   value: ConditionExpression;
   /** Callback when the expression changes */
   onChange: (expression: ConditionExpression) => void;
   /** Whether changes are being saved */
   isSaving?: boolean;
+  /**
+   * Optional pre-built operand list. When supplied, this replaces the internal
+   * `useWorkflowVariables`/`useWorkflowSteps` fetches entirely — both are disabled
+   * via `enabled` (not fetched-and-discarded). Used by list-field visibility, whose
+   * operands are sibling fields rather than workflow-level variables.
+   */
+  variables?: VariableInfo[];
 }
 
 export function LogicBuilder({
@@ -59,17 +67,23 @@ export function LogicBuilder({
   value,
   onChange,
   isSaving = false,
+  variables: injectedVariables,
 }: LogicBuilderProps) {
-  // Fetch workflow variables
-  const { data: rawVariables, isLoading } = useWorkflowVariables(workflowId);
+  const hasInjectedVariables = injectedVariables !== undefined;
+
+  // Fetch workflow variables — disabled entirely when a variable list is injected.
+  const { data: rawVariables, isLoading: isLoadingVariables } = useWorkflowVariables(workflowId, {
+    enabled: !hasInjectedVariables,
+  });
   // Steps carry the raw `config` (incl. choice options) that the variables
   // endpoint doesn't return. This reuses the same workflow-steps query the
   // step editor's AliasField already populates for this workflowId, so it's
   // typically served from cache rather than issuing a new request.
   const { data: workflowSteps } = useWorkflowSteps(workflowId, {
-    enabled: Boolean(workflowId),
+    enabled: !hasInjectedVariables && Boolean(workflowId),
     staleTime: 5000,
   });
+  const isLoading = !hasInjectedVariables && isLoadingVariables;
 
   // Local state for the expression being edited
   const [localExpression, setLocalExpression] = useState<ConditionGroupType | null>(
@@ -83,8 +97,12 @@ export function LogicBuilder({
     setHasConditions(value !== null);
   }, [value]);
 
-  // Convert raw variables to VariableInfo format
+  // Operand list: either the injected list as-is, or the fetched workflow
+  // variables converted to VariableInfo format.
   const variables: VariableInfo[] = useMemo(() => {
+    if (hasInjectedVariables) {
+      return injectedVariables;
+    }
     if (!rawVariables) {
       return [];
     }
@@ -109,7 +127,7 @@ export function LogicBuilder({
           choices,
         };
       });
-  }, [rawVariables, elementId, workflowSteps]);
+  }, [hasInjectedVariables, injectedVariables, rawVariables, elementId, workflowSteps]);
 
   // Generate human-readable description
   const description = useMemo(() => {
@@ -194,8 +212,9 @@ export function LogicBuilder({
         <Alert>
           <Info className="h-4 w-4" />
           <AlertDescription>
-            Add some questions to your workflow first to create visibility conditions.
-            Conditions can reference values from other questions.
+            {hasInjectedVariables
+              ? "Add another field at this level to build a visibility condition — an item's visibility can only reference its own sibling fields."
+              : "Add some questions to your workflow first to create visibility conditions. Conditions can reference values from other questions."}
           </AlertDescription>
         </Alert>
       </div>

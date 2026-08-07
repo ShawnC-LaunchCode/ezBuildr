@@ -250,7 +250,41 @@ longer consumes it.
 
 ---
 
-## LU-2 — Un-fork the list-field visibility editor 🔄
+## LU-2 — Un-fork the list-field visibility editor ✅
+
+> **Verified 2026-08-07 (Senior).** Gates re-run by the reviewer: `tsc --noEmit` exit 0,
+> `npm run lint` exit 0, `check:strict-zones` all 6 zones pass, `test:fast` **217 files /
+> 2609 tests passed** — baseline 2604 plus exactly the 5 new tests, no unexplained delta.
+>
+> **AC1 verified at the source, not the claim.** `useWorkflowVariables` and `useWorkflowSteps`
+> are both gated `enabled: !hasInjectedVariables` in `LogicBuilder.tsx`, and
+> `useVariables.ts` grew an optional `{ enabled }` that composes with its existing guard, so
+> the injected path genuinely does not fetch rather than fetching and discarding. Asserted by
+> test, not by comment.
+>
+> **AC2/AC3 verified.** `ListFieldSettings` no longer imports `ConditionGroup` — it renders
+> `LogicBuilder` with the injected sibling list, and the hand-wired duplicate is deleted
+> rather than disabled. `VisibilityField.tsx` and `SectionLogicSheet.tsx` are byte-unchanged,
+> so the step and section paths are untouched.
+>
+> **AC7 live proof accepted.** The dev found the shared Playwright profile locked by a
+> concurrent session and — correctly — did not treat that as a blocker or substitute RTL
+> tests. It drove an isolated Chromium against its own worktree's `dev:test` server on port
+> 5199, first confirming by source-grep for `hasInjectedVariables` that the server was serving
+> the worktree's code and not the main checkout's (the standing `preview_start` trap). It then
+> registered a real user through the signup UI, set a list-field visibility condition whose
+> operand dropdown showed "This item's fields → trigger" (proving the sibling list is the
+> source, not a workflow fetch), applied it, **reloaded the page** and confirmed the condition
+> survived, then verified server-side via API GET that
+> `visibleIf.conditions[0].variable === "trigger"`. Fixtures torn down clean.
+>
+> **Two deviations, both accepted.** `LogicBuilder`'s `elementType` union gained `"field"` and
+> `workflowId`/`elementId` became optional; `useWorkflowVariables` gained an optional
+> `options` param. Neither file was named in the ticket's Files list, but both are required by
+> the ticket's own instruction to make the prop types honest rather than pass dummy strings,
+> and by Decision #2's "gate the hook with `enabled`". Backward compatible — the 12 other
+> `useWorkflowVariables` call sites and both existing `LogicBuilder` callers are unaffected.
+
 
 **Priority: P1** · Size: M
 **Files:** `client/src/components/logic/LogicBuilder.tsx`,
@@ -462,7 +496,7 @@ Do not change the value-input branching logic — that is correct as-is and out 
 
 ## Phase 1 Gate (Senior)
 
-- [ ] LU-1, LU-2, LU-3 reviewed, each committed as its own commit
+- [x] LU-1, LU-2, LU-3 reviewed, each committed as its own commit
 - [ ] LU-4 dispatched only after LU-2 is committed, then reviewed and committed
 - [ ] One batched live drive-through of the builder covering LU-2 + LU-4 (both land on the
       condition editor) rather than one per ticket

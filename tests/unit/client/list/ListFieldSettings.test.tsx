@@ -12,12 +12,28 @@
  * instead walks from the label text to its next-sibling control, which is
  * how `EditorField` always renders (`<Label/>{children}{description}`).
  */
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { ListFieldSettings } from '../../../../client/src/components/builder/cards/list/ListFieldSettings';
 
 import type { ListField } from '@shared/types/stepConfigs';
+
+// Radix Select needs these polyfilled in jsdom before it will open (same
+// recipe as tests/unit/client/ListDrillEditor.test.tsx).
+beforeAll(() => {
+  if (!Element.prototype.hasPointerCapture) {
+    Element.prototype.hasPointerCapture = () => false;
+  }
+  if (!Element.prototype.releasePointerCapture) {
+    Element.prototype.releasePointerCapture = () => undefined;
+  }
+  if (!Element.prototype.scrollIntoView) {
+    Element.prototype.scrollIntoView = () => undefined;
+  }
+});
 
 afterEach(() => {
   cleanup();
@@ -40,6 +56,20 @@ function controlForLabel(pattern: string): HTMLInputElement | HTMLTextAreaElemen
     throw new Error(`No control found next to label matching "${pattern}"`);
   }
   return control as HTMLInputElement | HTMLTextAreaElement;
+}
+
+/**
+ * The visibility panel renders `LogicBuilder` (LU-2), which calls
+ * `useWorkflowVariables`/`useWorkflowSteps` even though they're gated off via
+ * `enabled: false` on the injected-variables path — `useQuery` still needs a
+ * `QueryClientProvider` ancestor to mount at all. Only tests that open the
+ * visibility panel need this; every other describe block below renders
+ * `ListFieldSettings` directly since `CollapsibleContent` doesn't mount
+ * `LogicBuilder` while collapsed.
+ */
+function renderWithQueryClient(ui: JSX.Element) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
 }
 
 describe('ListFieldSettings — description (LIST2-7 AC5)', () => {
@@ -151,37 +181,53 @@ describe('ListFieldSettings — out-of-scope types (LIST2-7 Finding)', () => {
   });
 });
 
-describe('ListFieldSettings — visibility scoped to sibling fields (LIST2-7 AC6)', () => {
+describe('ListFieldSettings — visibility scoped to sibling fields (LIST2-7 AC6, LU-2)', () => {
   it('shows an explanatory message instead of a toggle when there are no siblings', async () => {
     const field = questionField({ id: 'f1', alias: 'only', title: 'Only field', order: 0, type: 'short_text' });
 
-    render(<ListFieldSettings field={field} siblingFields={[]} onChange={vi.fn()} />);
+    renderWithQueryClient(<ListFieldSettings field={field} siblingFields={[]} onChange={vi.fn()} />);
 
     fireEvent.click(screen.getByRole('button', { name: /visibility/i }));
 
     expect(await screen.findByText(/add another field at this level/i)).toBeInTheDocument();
-    expect(screen.queryByText('Conditional visibility')).not.toBeInTheDocument();
+    expect(screen.queryByText('Conditional Visibility')).not.toBeInTheDocument();
   });
 
-  it('enabling conditional visibility with siblings present sets an initial expression via onChange', async () => {
+  // LU-2: the hand-wired ConditionGroup + SwitchField were deleted in favor of
+  // rendering LogicBuilder directly (fed the sibling list via its injected
+  // `variables` prop). LogicBuilder commits on an explicit "Apply Changes"
+  // click rather than per-toggle, matching how VisibilityField.tsx /
+  // SectionLogicSheet.tsx already behave for steps/sections.
+  it('enabling conditional visibility, picking a sibling operand, and applying round-trips an expression through onChange', async () => {
     const field = questionField({ id: 'f1', alias: 'target', title: 'Target', order: 1, type: 'short_text' });
     const sibling = questionField({ id: 'f0', alias: 'trigger', title: 'Trigger', order: 0, type: 'short_text' });
     const onChange = vi.fn();
 
-    render(<ListFieldSettings field={field} siblingFields={[sibling]} onChange={onChange} />);
+    renderWithQueryClient(<ListFieldSettings field={field} siblingFields={[sibling]} onChange={onChange} />);
 
     fireEvent.click(screen.getByRole('button', { name: /visibility/i }));
-    await screen.findByText('Conditional visibility');
-    const switchControl = screen.getByRole('switch');
-    fireEvent.click(switchControl);
+    await screen.findByText('Conditional Visibility');
+    fireEvent.click(screen.getByRole('switch'));
+
+    // Pick the sibling field as the condition's operand — proves the
+    // injected sibling list (not a workflow-variables fetch) backs the picker.
+    const user = userEvent.setup();
+    const variableTrigger = (await screen.findAllByRole('combobox'))[0];
+    await user.click(variableTrigger);
+    await user.click(await screen.findByRole('option', { name: /trigger/i }));
+
+    fireEvent.click(screen.getByRole('button', { name: /apply changes/i }));
 
     expect(onChange).toHaveBeenCalledTimes(1);
     const [next] = onChange.mock.calls[0] as [QuestionField];
     expect(next.visibleIf).toBeTruthy();
-    expect(next.visibleIf).toMatchObject({ type: 'group' });
+    expect(next.visibleIf).toMatchObject({
+      type: 'group',
+      conditions: [expect.objectContaining({ variable: 'trigger' })],
+    });
   });
 
-  it('disabling conditional visibility clears visibleIf back to null', async () => {
+  it('disabling conditional visibility and applying clears visibleIf back to null', async () => {
     const field = questionField({
       id: 'f1',
       alias: 'target',
@@ -198,12 +244,12 @@ describe('ListFieldSettings — visibility scoped to sibling fields (LIST2-7 AC6
     const sibling = questionField({ id: 'f0', alias: 'trigger', title: 'Trigger', order: 0, type: 'short_text' });
     const onChange = vi.fn();
 
-    render(<ListFieldSettings field={field} siblingFields={[sibling]} onChange={onChange} />);
+    renderWithQueryClient(<ListFieldSettings field={field} siblingFields={[sibling]} onChange={onChange} />);
 
     fireEvent.click(screen.getByRole('button', { name: /visibility/i }));
-    await screen.findByText('Conditional visibility');
-    const switchControl = screen.getByRole('switch');
-    fireEvent.click(switchControl);
+    await screen.findByText('Conditional Visibility');
+    fireEvent.click(screen.getByRole('switch'));
+    fireEvent.click(screen.getByRole('button', { name: /apply changes/i }));
 
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ visibleIf: null }));
   });

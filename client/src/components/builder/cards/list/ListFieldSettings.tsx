@@ -15,9 +15,8 @@ import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { LogicStatusText, ConditionGroup as ConditionGroupEditor } from "@/components/logic";
+import { LogicBuilder, LogicStatusText } from "@/components/logic";
 
-import { createInitialExpression } from "@shared/types/conditions";
 import type {
   ConditionExpression,
   VariableInfo,
@@ -38,7 +37,7 @@ import type { NumberEditorConfig } from "../NumberCardEditor.components";
 import { NumberSettingsSection } from "../NumberCardEditor.components";
 import { ScaleSettingsSection } from "../ScaleCardEditor.components";
 import { ChoiceOptionsSettings } from "../choices/ChoiceOptionsSettings";
-import { SectionHeader, SwitchField, TextAreaField } from "../common/EditorField";
+import { TextAreaField } from "../common/EditorField";
 
 type QuestionListField = Extract<ListField, { kind: "question" }>;
 
@@ -158,10 +157,11 @@ function buildSiblingVariables(siblingFields: readonly ListField[]): VariableInf
  * `LogicStatusText` + toggle) but cannot reuse that component directly: it
  * self-saves via `useUpdateStep` against a real step id, which a list field
  * does not have (Decision #1 in the LIST2 tickets — every list-field
- * authoring component is controlled, never self-saving). This instead reuses
- * `ConditionGroup`, the same condition-tree editor `LogicBuilder` itself
- * renders, wired to a locally-scoped sibling variable list instead of a
- * `useWorkflowVariables` fetch.
+ * authoring component is controlled, never self-saving). It instead renders
+ * `LogicBuilder` itself (LU-2, Decision #2) with an injected sibling variable
+ * list in place of `LogicBuilder`'s own `useWorkflowVariables` fetch — the
+ * same toggle, condition-tree editor, and empty-state handling steps/sections
+ * get, scoped to `item.values` operands instead of workflow variables.
  */
 function FieldVisibilitySection({
   visibleIf,
@@ -174,15 +174,6 @@ function FieldVisibilitySection({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const variables = useMemo(() => buildSiblingVariables(siblingFields), [siblingFields]);
-  const hasConditions = Boolean(visibleIf);
-
-  const handleToggle = (enabled: boolean) => {
-    if (!enabled) {
-      onChange(null);
-      return;
-    }
-    onChange(visibleIf ?? createInitialExpression());
-  };
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="border rounded-md bg-background">
@@ -199,41 +190,13 @@ function FieldVisibilitySection({
         </Button>
       </CollapsibleTrigger>
       <CollapsibleContent className="px-3 pb-3 border-t">
-        <div className="pt-3 space-y-3">
-          {variables.length === 0 ? (
-            <p className="text-xs text-muted-foreground">
-              Add another field at this level to build a visibility condition — an item&apos;s
-              visibility can only reference its own sibling fields.
-            </p>
-          ) : (
-            <>
-              <SwitchField
-                label="Conditional visibility"
-                description={
-                  hasConditions
-                    ? "Show this field only when conditions are met"
-                    : "This field is always visible"
-                }
-                checked={hasConditions}
-                onChange={handleToggle}
-              />
-
-              {hasConditions && visibleIf && (
-                <div className="space-y-3">
-                  <SectionHeader
-                    title="Conditions"
-                    description="Reference another field in this same item"
-                  />
-                  <ConditionGroupEditor
-                    group={visibleIf}
-                    variables={variables}
-                    onChange={(updated) => onChange(updated)}
-                    isRoot
-                  />
-                </div>
-              )}
-            </>
-          )}
+        <div className="pt-3">
+          <LogicBuilder
+            elementType="field"
+            value={visibleIf ?? null}
+            onChange={onChange}
+            variables={variables}
+          />
         </div>
       </CollapsibleContent>
     </Collapsible>
