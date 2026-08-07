@@ -603,13 +603,11 @@ export class WorkflowClonerService {
           return {
           workflowId: targetWorkflowId,
           conditionStepId,
-          operator: rule.operator,
-          conditionValue: remapJsonIds(rule.conditionValue, idMap),
+          when: remapJsonIds(rule.when, idMap),
           targetType: rule.targetType,
           targetStepId: rule.targetStepId ? idMap.get(rule.targetStepId) ?? null : null,
           targetSectionId: rule.targetSectionId ? idMap.get(rule.targetSectionId) ?? null : null,
           action: rule.action,
-          logicalOperator: rule.logicalOperator,
           order: rule.order,
           };
         })
@@ -1591,7 +1589,7 @@ export class WorkflowClonerService {
     for (const rule of copiedRules) {
       await tx
         .update(logicRules)
-        .set({ conditionValue: remapJsonIds(rule.conditionValue, idMap) })
+        .set({ when: remapJsonIds(rule.when, idMap) })
         .where(eq(logicRules.id, rule.id));
     }
 

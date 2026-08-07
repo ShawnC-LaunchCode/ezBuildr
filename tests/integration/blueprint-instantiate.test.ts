@@ -17,6 +17,8 @@ import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
 import * as schema from "@shared/schema";
+import { buildSingleConditionExpression } from "@shared/workflowLogic";
+import type { ConditionExpression, Condition } from "@shared/types/conditions";
 
 import { db } from "../../server/db";
 import {
@@ -80,8 +82,7 @@ describe("Blueprint instantiate (ICW2-15)", () => {
     await db.insert(schema.logicRules).values({
       workflowId,
       conditionStepId: stepBId,
-      operator: "equals",
-      conditionValue: "true",
+      when: buildSingleConditionExpression(stepBId, "equals", "true"),
       targetType: "step",
       targetStepId: stepCId,
       action: "show",
@@ -138,7 +139,8 @@ describe("Blueprint instantiate (ICW2-15)", () => {
       .where(eq(schema.logicRules.workflowId, newWorkflowId));
     expect(newRules).toHaveLength(1);
     const [rule] = newRules;
-    expect(rule.operator).toBe("equals");
+    const whenGroup = rule.when as ConditionExpression;
+    expect((whenGroup?.conditions[0] as Condition)?.operator).toBe("equals");
     expect(rule.action).toBe("show");
     expect(rule.conditionStepId).toBe(stepsByAlias.has_pets.id);
     expect(rule.targetStepId).toBe(stepsByAlias.pet_name.id);

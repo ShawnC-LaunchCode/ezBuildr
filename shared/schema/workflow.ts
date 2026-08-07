@@ -291,17 +291,28 @@ export const steps = pgTable("steps", {
 ]);
 
 // Logic Rules
+//
+// LU-6a (Decision #5): the condition a rule fires on is the same
+// `ConditionExpression` language `steps.visible_if` / `sections.visible_if`
+// already use (28 operators, nested AND/OR groups) rather than a private
+// flat operator/value/logicalOperator trio limited to 9 operators. The
+// former `operator`, `conditionValue`, and `logicalOperator` columns are
+// replaced by a single `when` jsonb holding a `ConditionExpression | null`
+// (`null` means "always fires", matching how `null` visibleIf means "always
+// visible"). `conditionStepId` is intentionally kept: it is still useful
+// bookkeeping for step-scoped operations (clone/duplicate remap, alias-rename
+// propagation, lint's "does this rule's condition reference a real step"
+// check) even though evaluation itself no longer reads it directly - the
+// condition's own step reference now lives inside `when`.
 export const logicRules = pgTable("logic_rules", {
     id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
     workflowId: uuid("workflow_id").references(() => workflows.id, { onDelete: 'cascade' }).notNull(),
     conditionStepId: uuid("condition_step_id").references(() => steps.id, { onDelete: 'cascade' }).notNull(),
-    operator: conditionOperatorEnum("operator").notNull(),
-    conditionValue: jsonb("condition_value"),
+    when: jsonb("when"),
     targetType: logicRuleTargetTypeEnum("target_type").notNull(),
     targetStepId: uuid("target_step_id").references(() => steps.id, { onDelete: 'cascade' }),
     targetSectionId: uuid("target_section_id").references(() => sections.id, { onDelete: 'cascade' }),
     action: conditionalActionEnum("action").notNull(),
-    logicalOperator: varchar("logical_operator").default("AND"),
     order: integer("order").notNull().default(1),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),

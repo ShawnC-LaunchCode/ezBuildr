@@ -24,6 +24,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { LIMITS } from "@shared/limits";
 import * as schema from "@shared/schema";
+import { buildSingleConditionExpression } from "@shared/workflowLogic";
 
 import { db } from "../../server/db";
 import {
@@ -807,8 +808,7 @@ describe("POST /api/sections/:id/duplicate (ICW2-B5)", () => {
       .values({
         workflowId,
         conditionStepId: step1.body.id,
-        operator: "equals",
-        conditionValue: "yes",
+        when: buildSingleConditionExpression(step1.body.id, "equals", "yes"),
         targetType: "step",
         targetStepId: step2.body.id,
         action: "show",

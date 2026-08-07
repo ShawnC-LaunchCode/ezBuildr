@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { buildSingleConditionExpression } from "../../../shared/workflowLogic";
+
 const getWorkflowWithDetails = vi.fn();
 const findBlocks = vi.fn();
 const findDocumentHooks = vi.fn();
@@ -37,6 +39,12 @@ describe("VersionService.serializeWorkflow", () => {
     const conditionValue = { choices: ["yes", 2], exact: true };
     const visibleIf = { operator: "equals", alias: "approved", value: true };
     const skipIf = { operator: "is_empty", alias: "email" };
+    // Built once and reused for both the fixture and the assertion: `when`
+    // is passed through verbatim by VersionService, but
+    // `buildSingleConditionExpression` mints a fresh random condition id on
+    // every call, so two independently-built calls would never be
+    // deep-equal even when they represent the same condition.
+    const ruleWhen = buildSingleConditionExpression("step-1", "equals", conditionValue);
 
     getWorkflowWithDetails.mockResolvedValue({
       id: "workflow-1",
@@ -70,13 +78,11 @@ describe("VersionService.serializeWorkflow", () => {
       logicRules: [{
         id: "rule-1",
         conditionStepId: "step-1",
-        operator: "equals",
-        conditionValue,
+        when: ruleWhen,
         targetType: "section",
         targetSectionId: "section-1",
         targetStepId: null,
         action: "show",
-        logicalOperator: "OR",
         order: 7,
       }],
       transformBlocks: [{
@@ -148,10 +154,9 @@ describe("VersionService.serializeWorkflow", () => {
     expect(result.logicRules).toEqual([expect.objectContaining({
       id: "rule-1",
       conditionStepAlias: "approved",
-      conditionValue,
+      when: ruleWhen,
       targetId: "section-1",
       targetAlias: "Applicant",
-      logicalOperator: "OR",
       order: 7,
     })]);
     expect(result.blocks).toEqual([{

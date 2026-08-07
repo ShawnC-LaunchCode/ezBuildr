@@ -44,8 +44,9 @@ interface WorkflowContentData {
   sections?: WorkflowSectionData[];
   logicRules?: Array<{
     conditionStepAlias: string;
-    operator: string;
-    conditionValue: string;
+    when?: unknown;
+    operator?: string;
+    conditionValue?: string;
     targetType: string;
     targetAlias: string;
     action: string;

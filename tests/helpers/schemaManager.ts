@@ -59,8 +59,12 @@ export class SchemaManager {
     // expired signature events and the voided signature-request status.
     // Bumped to _v23 for GH-147, which adds expiring run resume links and
     // explicit run-assignment metadata.
+    // Bumped to _v24 for LU-6a (0020/0021), which adds `logic_rules.when`
+    // and drops the flat `operator`/`condition_value`/`logical_operator`
+    // columns — a stale _v23 schema still has the dropped columns and
+    // inserts against the new shape would fail.
     static generateSchemaName(): string {
-        return `test_schema_w${this.workerId}_v23`;
+        return `test_schema_w${this.workerId}_v24`;
     }
 
     /**

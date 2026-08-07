@@ -34,6 +34,7 @@
 import { eq } from 'drizzle-orm';
 
 import * as schema from '@shared/schema';
+import { buildSingleConditionExpression } from '@shared/workflowLogic';
 import { db, initializeDatabase } from '../server/db';
 import { authService } from '../server/services/AuthService';
 import { storageProvider } from '../server/services/storage';
@@ -232,8 +233,7 @@ async function main(): Promise<void> {
   const [logicRule] = await db.insert(schema.logicRules).values({
     workflowId: workflow.id,
     conditionStepId: sourceStepIds[0],
-    operator: 'equals',
-    conditionValue: { v: 'test' },
+    when: buildSingleConditionExpression(sourceStepIds[0], 'equals', { v: 'test' }),
     targetType: 'step',
     targetStepId: sourceStepIds[1],
     action: 'show'

@@ -360,10 +360,10 @@ describe("SectionService", () => {
     });
 
     // DEBT-12: conditionStepId/targetStepId are remapped by direct idMap lookups,
-    // but ids embedded *inside* conditionValue go through the shared
-    // remapJsonIds walker. Nothing here covered that until now — the walker
-    // could be neutered entirely and every test in this file still passed.
-    it("remaps step ids embedded inside the rule's conditionValue jsonb", async () => {
+    // but ids embedded *inside* `when` go through the shared remapJsonIds
+    // walker. Nothing here covered that until now — the walker could be
+    // neutered entirely and every test in this file still passed.
+    it("remaps step ids embedded inside the rule's when jsonb", async () => {
       const workflow = createTestWorkflow();
       const source = createTestSection(workflow.id, { order: 1, title: "Original" });
       const step1 = createTestStep(source.id, { order: 1, alias: "name", workflowId: workflow.id });
@@ -373,7 +373,7 @@ describe("SectionService", () => {
         targetType: "step",
         targetStepId: step2.id,
         targetSectionId: null,
-        conditionValue: {
+        when: {
           stepId: step1.id,
           nested: { alsoAStep: step2.id, untouched: "not-an-id" },
           list: [step1.id, "literal"],
@@ -399,7 +399,7 @@ describe("SectionService", () => {
 
       expect(mockLogicRuleRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          conditionValue: {
+          when: {
             stepId: newStep1.id,
             nested: { alsoAStep: newStep2.id, untouched: "not-an-id" },
             list: [newStep1.id, "literal"],

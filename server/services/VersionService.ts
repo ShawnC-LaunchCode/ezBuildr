@@ -176,17 +176,20 @@ export class VersionService {
           isVirtual: step.isVirtual,
         })),
       })),
+      // LU-6a: the rule's trigger condition is `when` (a ConditionExpression),
+      // not the old flat operator/conditionValue/logicalOperator trio.
+      // `conditionStepId`/`conditionStepAlias` are kept as advisory
+      // bookkeeping (lint's "does this rule reference a real step" check),
+      // not as the source of truth for evaluation.
       logicRules: fullData.logicRules.map(rule => ({
         id: rule.id,
         conditionStepId: rule.conditionStepId ?? undefined,
         conditionStepAlias: rule.conditionStepId ? (stepIdToAlias.get(rule.conditionStepId) ?? rule.conditionStepId) : '',
-        operator: rule.operator,
-        conditionValue: rule.conditionValue as string,
+        when: rule.when ?? null,
         targetType: rule.targetType,
         targetId: rule.targetType === 'section' ? (rule.targetSectionId ?? undefined) : (rule.targetStepId ?? undefined),
         targetAlias: (rule.targetType === 'section' && rule.targetSectionId) ? (sectionIdToAlias.get(rule.targetSectionId) ?? rule.targetSectionId) : (rule.targetStepId ? (stepIdToAlias.get(rule.targetStepId) ?? rule.targetStepId) : ''),
         action: rule.action,
-        logicalOperator: rule.logicalOperator,
         order: rule.order,
       })),
       blocks: blocks.map(block => ({

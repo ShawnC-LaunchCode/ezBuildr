@@ -118,9 +118,9 @@ export const ENTITY_GRAPH: EntityDescriptor[] = [
     name: 'logic_rules',
     scopes: ["project","workflow"],
     parent: {"name":"workflows","fk":"workflowId"},
-    fields: ["id","workflowId","conditionStepId","operator","conditionValue","targetType","targetStepId","targetSectionId","action","logicalOperator","order"],
+    fields: ["id","workflowId","conditionStepId","when","targetType","targetStepId","targetSectionId","action","order"],
     refs: ["workflowId", "conditionStepId", "targetStepId", "targetSectionId"],
-    jsonRefs: ["conditionValue"],
+    jsonRefs: ["when"],
   },
   {
     table: schema.blocks,

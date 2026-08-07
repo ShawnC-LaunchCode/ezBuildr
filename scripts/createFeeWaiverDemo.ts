@@ -23,6 +23,7 @@ import {
   transformBlocks,
   logicRules,
 } from '../shared/schema';
+import { buildSingleConditionExpression } from '../shared/workflowLogic';
 
 // 2024 Federal Poverty Level thresholds (for demonstration)
 const _POVERTY_LEVELS: Record<number, number> = {
@@ -982,8 +983,7 @@ emit(Math.round(netWorth));`,
   await db.insert(logicRules).values({
     workflowId: workflow.id,
     conditionStepId: stepIds.employmentStatus,
-    operator: 'equals',
-    conditionValue: 'Employed Full-Time',
+    when: buildSingleConditionExpression(stepIds.employmentStatus, 'equals', 'Employed Full-Time'),
     targetType: 'step',
     targetStepId: stepIds.employerName,
     action: 'require',
@@ -994,8 +994,7 @@ emit(Math.round(netWorth));`,
   await db.insert(logicRules).values({
     workflowId: workflow.id,
     conditionStepId: stepIds.employmentStatus,
-    operator: 'equals',
-    conditionValue: 'Employed Part-Time',
+    when: buildSingleConditionExpression(stepIds.employmentStatus, 'equals', 'Employed Part-Time'),
     targetType: 'step',
     targetStepId: stepIds.employerName,
     action: 'require',
@@ -1007,8 +1006,7 @@ emit(Math.round(netWorth));`,
   await db.insert(logicRules).values({
     workflowId: workflow.id,
     conditionStepId: stepIds.qualificationStatus,
-    operator: 'equals',
-    conditionValue: 'Likely Qualified',
+    when: buildSingleConditionExpression(stepIds.qualificationStatus, 'equals', 'Likely Qualified'),
     targetType: 'section',
     targetSectionId: sectionIds.assets,
     action: 'hide',
@@ -1019,8 +1017,7 @@ emit(Math.round(netWorth));`,
   await db.insert(logicRules).values({
     workflowId: workflow.id,
     conditionStepId: stepIds.employmentStatus,
-    operator: 'equals',
-    conditionValue: 'Employed Full-Time',
+    when: buildSingleConditionExpression(stepIds.employmentStatus, 'equals', 'Employed Full-Time'),
     targetType: 'step',
     targetStepId: stepIds.payStubs,
     action: 'require',
@@ -1031,8 +1028,7 @@ emit(Math.round(netWorth));`,
   await db.insert(logicRules).values({
     workflowId: workflow.id,
     conditionStepId: stepIds.employmentStatus,
-    operator: 'equals',
-    conditionValue: 'Employed Part-Time',
+    when: buildSingleConditionExpression(stepIds.employmentStatus, 'equals', 'Employed Part-Time'),
     targetType: 'step',
     targetStepId: stepIds.payStubs,
     action: 'require',

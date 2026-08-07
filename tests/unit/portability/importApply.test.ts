@@ -56,8 +56,7 @@ describeWithDb('ImportService - apply', () => {
       id: randomUUID(),
       workflowId: workflow.id,
       conditionStepId: stepId,
-      operator: 'equals',
-      conditionValue: { stepId },
+      when: { stepId },
       targetType: 'step',
       targetStepId: stepId,
       action: 'show',
@@ -220,8 +219,8 @@ describeWithDb('ImportService - apply', () => {
     expect(newRules[0].conditionStepId).toBe(newSteps[0].id);
     expect(newRules[0].targetStepId).toBe(newSteps[0].id);
 
-    // jsonRefs inside the rule's conditionValue are remapped too.
-    expect((newRules[0].conditionValue as { stepId: string }).stepId).toBe(newSteps[0].id);
+    // jsonRefs inside the rule's `when` are remapped too.
+    expect((newRules[0].when as { stepId: string }).stepId).toBe(newSteps[0].id);
   });
 
   it('project-scope bundle carries workflow internals and round-trips them (IEX-13)', async () => {

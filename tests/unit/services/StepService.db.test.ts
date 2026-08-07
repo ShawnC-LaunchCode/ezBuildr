@@ -6,6 +6,14 @@ import { describeWithDb } from '../../helpers/dbTestHelper';
 import { stepService } from '../../../server/services/StepService';
 import { logicRuleRepository } from '../../../server/repositories/LogicRuleRepository';
 import { stepRepository, transformBlockRepository } from '../../../server/repositories';
+import { buildSingleConditionExpression } from '../../../shared/workflowLogic';
+import type { ConditionExpression, Condition } from '../../../shared/types/conditions';
+
+/** Reads the (single, leaf) comparison value out of a `when` built by `buildSingleConditionExpression`. */
+function leafValue(when: unknown): unknown {
+  const group = when as ConditionExpression;
+  return (group?.conditions[0] as Condition)?.value;
+}
 
 describeWithDb('StepService DB', () => {
   let _factory: ReturnType<typeof createTestFactory>;
@@ -57,8 +65,7 @@ describeWithDb('StepService DB', () => {
       await logicRuleRepository.create({
         workflowId: testWorkflowId,
         conditionStepId: choiceStep.id,
-        operator: 'equals',
-        conditionValue: 'old_val1',
+        when: buildSingleConditionExpression(choiceStep.id, 'equals', 'old_val1'),
         action: 'show',
         targetType: 'step',
         targetStepId: choiceStep.id,
@@ -67,8 +74,7 @@ describeWithDb('StepService DB', () => {
       await logicRuleRepository.create({
         workflowId: testWorkflowId,
         conditionStepId: choiceStep.id,
-        operator: 'contains',
-        conditionValue: ['old_val1', 'old_val2'],
+        when: buildSingleConditionExpression(choiceStep.id, 'contains', ['old_val1', 'old_val2']),
         action: 'show',
         targetType: 'step',
         targetStepId: choiceStep.id,
@@ -98,10 +104,10 @@ describeWithDb('StepService DB', () => {
     expect(rules).toHaveLength(2);
     
     const rule1 = rules.find(r => r.order === 1);
-    expect(rule1?.conditionValue).toBe('new_val1');
-    
+    expect(leafValue(rule1?.when)).toBe('new_val1');
+
     const rule2 = rules.find(r => r.order === 2);
-    expect(rule2?.conditionValue).toEqual(['new_val1', 'old_val2']);
+    expect(leafValue(rule2?.when)).toEqual(['new_val1', 'old_val2']);
   });
 
   it('scans visibleIf for old alias occurrences and returns warnings', async () => {
@@ -149,7 +155,7 @@ describeWithDb('StepService DB', () => {
     expect(updated.warnings?.[0]).toContain('Dependent Step');
   });
 
-  it('does not rewrite logic rules for a different step with a coincidentally equal conditionValue', async () => {
+  it('does not rewrite logic rules for a different step with a coincidentally equal condition value', async () => {
     const choiceStep = await stepService.createStep(testWorkflowId, testSectionId, testUserId, {
       title: 'Choice',
       type: 'choice',
@@ -181,8 +187,7 @@ describeWithDb('StepService DB', () => {
       const rule = await logicRuleRepository.create({
         workflowId: testWorkflowId,
         conditionStepId: otherChoiceStep.id,
-        operator: 'equals',
-        conditionValue: 'shared_val',
+        when: buildSingleConditionExpression(otherChoiceStep.id, 'equals', 'shared_val'),
         action: 'show',
         targetType: 'step',
         targetStepId: otherChoiceStep.id,
@@ -203,7 +208,7 @@ describeWithDb('StepService DB', () => {
     });
 
     const rules = await logicRuleRepository.findByConditionStepId(otherChoiceStep.id);
-    expect(rules[0].conditionValue).toBe('shared_val'); // Untouched
+    expect(leafValue(rules[0].when)).toBe('shared_val'); // Untouched
   });
 
   it('does not rewrite rules if step update fails', async () => {
@@ -224,8 +229,7 @@ describeWithDb('StepService DB', () => {
       await logicRuleRepository.create({
         workflowId: testWorkflowId,
         conditionStepId: choiceStep.id,
-        operator: 'equals',
-        conditionValue: 'old_val',
+        when: buildSingleConditionExpression(choiceStep.id, 'equals', 'old_val'),
         action: 'show',
         targetType: 'step',
         targetStepId: choiceStep.id,
@@ -248,7 +252,7 @@ describeWithDb('StepService DB', () => {
     })).rejects.toThrow();
 
     const rules = await logicRuleRepository.findByConditionStepId(choiceStep.id);
-    expect(rules[0].conditionValue).toBe('old_val'); // Untouched
+    expect(leafValue(rules[0].when)).toBe('old_val'); // Untouched
   });
 
   it('rolls back the step alias update when propagation fails atomically (DEBT-16)', async () => {

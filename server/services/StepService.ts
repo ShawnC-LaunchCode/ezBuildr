@@ -4,6 +4,7 @@ import type { StepConfig , ChoiceOption } from "@shared/types/stepConfigs";
 
 import { logger } from "../logger";
 import { validateAndNormalizeConfig } from "../utils/stepConfigUtils";
+import { remapJsonIds } from "../utils/remapJsonIds";
 import { stepRepository, sectionRepository, stepValueRepository, logicRuleRepository, type DeleteImpact , DbTransaction } from "../repositories";
 import { db } from "../db";
 
@@ -660,27 +661,23 @@ export class StepService {
   public async propagateChoiceOptionRenames(stepId: string, workflowId: string, aliasChanges: Map<string, string>, tx: DbTransaction): Promise<string[]> {
     const warnings: string[] = [];
 
-    // 1. Rewrite logic_rules
+    // 1. Rewrite logic_rules whose `when` condition depends on this choice
+    // step (LU-6a: the comparison value that used to live in the flat
+    // `conditionValue` column now lives inside `when`, a ConditionExpression
+    // tree). Reuse `remapJsonIds` - the same recursive string-substitution
+    // walker used for id remapping elsewhere - since renaming an option alias
+    // is exactly the same shape of problem (replace every occurrence of an
+    // old string with a new one, anywhere in the jsonb).
     const rules = await logicRuleRepository.findByConditionStepId(stepId, tx);
     for (const rule of rules) {
-      let changed = false;
-      let newValue = rule.conditionValue;
-
-      if (Array.isArray(newValue)) {
-        newValue = newValue.map((val: unknown) => {
-          if (typeof val === 'string' && aliasChanges.has(val)) {
-            changed = true;
-            return aliasChanges.get(val);
-          }
-          return val;
-        });
-      } else if (typeof newValue === 'string' && aliasChanges.has(newValue)) {
-        changed = true;
-        newValue = aliasChanges.get(newValue);
+      if (rule.when === null || rule.when === undefined) {
+        continue;
       }
+      const newWhen = remapJsonIds(rule.when, aliasChanges);
+      const changed = JSON.stringify(newWhen) !== JSON.stringify(rule.when);
 
       if (changed) {
-        await logicRuleRepository.update(rule.id, { conditionValue: newValue }, tx);
+        await logicRuleRepository.update(rule.id, { when: newWhen }, tx);
       }
     }
 

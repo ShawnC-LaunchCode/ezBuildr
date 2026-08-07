@@ -16,6 +16,8 @@
 import { nanoid } from 'nanoid';
 import { v4 as uuidv4 } from 'uuid';
 
+import { buildSingleConditionExpression } from '@shared/workflowLogic';
+
 import type {
   users,
   tenants,
@@ -305,16 +307,15 @@ export function createTestStepValue(overrides?: DeepPartial<StepValue>): Omit<St
  * @param overrides Partial logic rule properties
  */
 export function createTestLogicRule(overrides?: DeepPartial<LogicRule>): Omit<LogicRule, 'id' | 'createdAt' | 'updatedAt'> {
+  const conditionStepId = overrides?.conditionStepId || uuidv4();
   return {
     workflowId: overrides?.workflowId || uuidv4(),
-    conditionStepId: overrides?.conditionStepId || uuidv4(),
-    operator: overrides?.operator || 'equals',
-    conditionValue: overrides?.conditionValue || 'test_value',
+    conditionStepId,
+    when: overrides?.when ?? buildSingleConditionExpression(conditionStepId, 'equals', 'test_value'),
     targetType: overrides?.targetType || 'step',
     targetStepId: overrides?.targetStepId || uuidv4(),
     targetSectionId: overrides?.targetSectionId || null,
     action: overrides?.action || 'show',
-    logicalOperator: overrides?.logicalOperator || 'AND',
     order: overrides?.order ?? 1,
   };
 }

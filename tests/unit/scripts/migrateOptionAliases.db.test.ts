@@ -7,6 +7,14 @@ import { createTestFactory, TestFactory } from '../../helpers/testFactory';
 import { describeWithDb } from '../../helpers/dbTestHelper';
 import { run as runMigration } from '../../../scripts/migrateOptionAliases';
 import { stepService } from '../../../server/services/StepService';
+import { buildSingleConditionExpression } from '../../../shared/workflowLogic';
+import type { ConditionExpression, Condition } from '../../../shared/types/conditions';
+
+/** Reads the (single, leaf) comparison value out of a `when` built by `buildSingleConditionExpression`. */
+function leafValue(when: unknown): unknown {
+  const group = when as ConditionExpression;
+  return (group?.conditions[0] as Condition)?.value;
+}
 
 describeWithDb('migrateOptionAliases DB', () => {
   let _factory: ReturnType<typeof createTestFactory>;
@@ -60,8 +68,7 @@ describeWithDb('migrateOptionAliases DB', () => {
       await tx.insert(logicRules).values({
         workflowId: testWorkflowId,
         conditionStepId: step.id,
-        operator: 'equals',
-        conditionValue: 'oldAlias',
+        when: buildSingleConditionExpression(step.id, 'equals', 'oldAlias'),
         action: 'show',
         targetType: 'step',
         targetStepId: step.id,
@@ -81,7 +88,7 @@ describeWithDb('migrateOptionAliases DB', () => {
     expect(propagateSpy).toHaveBeenCalled();
 
     const rules = await logicRuleRepository.findByConditionStepId(stepId);
-    expect(rules[0].conditionValue).toBe('New Label');
+    expect(leafValue(rules[0].when)).toBe('New Label');
   });
 
   it('is idempotent on second run', async () => {

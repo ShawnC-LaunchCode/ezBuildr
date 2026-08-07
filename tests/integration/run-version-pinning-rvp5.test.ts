@@ -43,6 +43,7 @@ import {
   stepValues,
   auditLogs,
 } from "@shared/schema";
+import { buildSingleConditionExpression } from "@shared/workflowLogic";
 
 import { db } from "../../server/db";
 import { runService } from "../../server/services/RunService";
@@ -149,8 +150,7 @@ describe("RVP-5 mid-run live-workflow edits cannot desync an in-flight run", () 
     const [rule] = await db.insert(logicRules).values({
       workflowId,
       conditionStepId: stepWantsExtra.id,
-      operator: "equals",
-      conditionValue: "no",
+      when: buildSingleConditionExpression(stepWantsExtra.id, "equals", "no"),
       targetType: "step",
       targetStepId: stepExtraDetail.id,
       action: "hide",

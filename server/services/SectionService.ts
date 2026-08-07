@@ -132,13 +132,11 @@ export class SectionService {
         {
           workflowId,
           conditionStepId,
-          operator: rule.operator,
-          conditionValue: remapJsonIds(rule.conditionValue, idMap),
+          when: remapJsonIds(rule.when, idMap),
           targetType: rule.targetType,
           targetStepId: rule.targetStepId ? idMap.get(rule.targetStepId) ?? null : null,
           targetSectionId: rule.targetSectionId ? idMap.get(rule.targetSectionId) ?? null : null,
           action: rule.action,
-          logicalOperator: rule.logicalOperator,
           order: rule.order,
         },
         tx

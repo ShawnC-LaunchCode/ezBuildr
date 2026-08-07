@@ -4,21 +4,95 @@
  * This module provides conditional logic evaluation for Vault-Logic workflows.
  * It extends the base conditional logic to support both step-level and section-level targeting.
  *
- * NOTE: When using logic rules with step aliases, operands should be resolved to canonical
- * step keys before evaluation using the VariableResolver utility (server/utils/variableResolver.ts).
- * This allows rules to reference steps by either alias or key, with everything normalized to keys.
+ * LU-6a (Decision #5): a rule's trigger condition is a `ConditionExpression`
+ * (`when`) - the same nested, 28-operator language `steps.visible_if` /
+ * `sections.visible_if` already use - evaluated by the shared
+ * `conditionEvaluator`. This module no longer implements its own comparison
+ * logic; it is responsible only for the *push* semantics a `ConditionExpression`
+ * does not have on its own: which rules target which section/step, what
+ * action they take, and in what order they resolve when more than one fires
+ * (first-firing `skip_to` wins; see `evaluateRules` below).
  */
 
 import { evaluateConditionExpression } from './conditionEvaluator';
-import type { ConditionExpression } from './types/conditions';
+import type { ConditionExpression, ComparisonOperator } from './types/conditions';
+import { generateConditionId } from './types/conditions';
 import { isRunnerRequirableStepType } from './types/runnerStepTypes';
 import type { LogicRule } from './schema';
 
 export type EvaluableLogicRule = Pick<
   LogicRule,
-  'conditionStepId' | 'operator' | 'conditionValue' | 'targetType' |
-  'targetStepId' | 'targetSectionId' | 'action' | 'order'
+  'when' | 'targetType' | 'targetStepId' | 'targetSectionId' | 'action' | 'order'
 >;
+
+/**
+ * Resolves an alias/id to a canonical step key when evaluating a rule's
+ * `when` expression. Optional because some callers (tests, contexts with no
+ * alias layer) evaluate raw ids directly.
+ */
+export type RuleAliasResolver = (aliasOrId: string) => string | undefined;
+
+/**
+ * The 9 comparison operators the pre-LU-6a flat `logic_rules.operator`
+ * column supported. Every one of them is also a valid `ComparisonOperator`
+ * (Model A is a strict superset - see Decision #5), so this is a type
+ * constraint, not a translation table.
+ */
+export type FlatRuleOperator =
+  | 'equals' | 'not_equals' | 'contains' | 'not_contains'
+  | 'greater_than' | 'less_than' | 'between' | 'is_empty' | 'is_not_empty';
+
+/**
+ * Builds a single-condition `ConditionExpression` from the legacy flat
+ * (variable, operator, value) shape.
+ *
+ * Exists so callers that still speak the flat DSL keep working unchanged:
+ * AI workflow generation (`AIGeneratedLogicRuleSchema`,
+ * `shared/types/ai.ts`) and the workflow-content-ingest wire format
+ * (`WorkflowLogicRuleData`, `server/services/WorkflowContentIngestService.ts`)
+ * still emit/consume `{ conditionStepAlias, operator, conditionValue }`.
+ * Teaching those surfaces to natively emit a `ConditionExpression` is LU-6c's
+ * job (Decision #5: "AI-generated logic produces ConditionExpression
+ * triggers, not flat conditions"); this helper is the seam that lets LU-6a
+ * unify storage without also rewriting AI generation.
+ */
+export function buildSingleConditionExpression(
+  variable: string,
+  operator: string,
+  value: unknown
+): ConditionExpression {
+  // The flat model's `between` packed both bounds into one
+  // `{ min, max }` conditionValue; Model A splits them across `value` and
+  // `value2`. Translate so `between` rules keep working, not just compile.
+  const { value: leafValue, value2 } = operator === 'between'
+    ? splitBetweenValue(value)
+    : { value, value2: undefined };
+
+  return {
+    type: 'group',
+    id: generateConditionId(),
+    operator: 'AND',
+    conditions: [
+      {
+        type: 'condition',
+        id: generateConditionId(),
+        variable,
+        operator: operator as ComparisonOperator,
+        value: leafValue,
+        value2,
+        valueType: 'constant',
+      },
+    ],
+  };
+}
+
+function splitBetweenValue(value: unknown): { value: unknown; value2: unknown } {
+  if (typeof value === 'object' && value !== null && 'min' in value && 'max' in value) {
+    const range = value as { min: unknown; max: unknown };
+    return { value: range.min, value2: range.max };
+  }
+  return { value, value2: undefined };
+}
 
 interface VisibilitySectionDefinition {
   id: string;
@@ -103,20 +177,6 @@ export interface LogicContext {
 }
 
 /**
- * Supported operators for conditional logic
- */
-export type LogicOperator =
-  | 'equals'
-  | 'not_equals'
-  | 'contains'
-  | 'not_contains'
-  | 'greater_than'
-  | 'less_than'
-  | 'between'
-  | 'is_empty'
-  | 'is_not_empty';
-
-/**
  * Evaluation result for workflow logic
  */
 export interface WorkflowEvaluationResult {
@@ -138,7 +198,8 @@ export interface WorkflowEvaluationResult {
  */
 export function evaluateRules(
   rules: EvaluableLogicRule[],
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
+  resolveAlias?: RuleAliasResolver
 ): WorkflowEvaluationResult {
   const result: WorkflowEvaluationResult = {
     visibleSections: new Set(),
@@ -157,7 +218,7 @@ export function evaluateRules(
   // rule wins) rather than depending on incoming array order.
   const orderedSectionRules = [...sectionRules].sort((a, b) => a.order - b.order);
   orderedSectionRules.forEach(rule => {
-    const conditionMet = evaluateCondition(rule, data);
+    const conditionMet = evaluateCondition(rule, data, resolveAlias);
 
     if (conditionMet) {
       const targetId = rule.targetSectionId;
@@ -184,7 +245,7 @@ export function evaluateRules(
 
   // Evaluate step-level rules
   stepRules.forEach(rule => {
-    const conditionMet = evaluateCondition(rule, data);
+    const conditionMet = evaluateCondition(rule, data, resolveAlias);
 
     if (conditionMet) {
       const targetId = rule.targetStepId;
@@ -227,7 +288,7 @@ export function evaluateWorkflowVisibility(options: {
   resolveAlias: (name: string) => string | undefined;
 }): WorkflowVisibilityResult {
   const { sections, steps, rules, data, resolveAlias } = options;
-  const ruleEvaluation = evaluateRules(rules, data);
+  const ruleEvaluation = evaluateRules(rules, data, resolveAlias);
   const sectionShowTargets = new Set(
     rules.filter((rule) => rule.targetType === 'section' && rule.action === 'show')
       .map((rule) => rule.targetSectionId)
@@ -270,7 +331,7 @@ export function evaluateWorkflowVisibility(options: {
   const initiallyRequired = new Set(
     steps.filter((step) => step.required === true).map((step) => step.id)
   );
-  const effectiveRequired = getEffectiveRequiredSteps(initiallyRequired, rules, data);
+  const effectiveRequired = getEffectiveRequiredSteps(initiallyRequired, rules, data, resolveAlias);
 
   // A step whose type the runner cannot render (unsupported/unknown — e.g.
   // file_upload — see RUN2-3) can never be satisfied
@@ -294,143 +355,20 @@ export function evaluateWorkflowVisibility(options: {
 }
 
 /**
- * Evaluates a single condition
+ * Evaluates a rule's trigger condition. Delegates entirely to the shared
+ * `ConditionExpression` evaluator (LU-6a) - the fail-safe behavior that used
+ * to live here (RUN2-11: a condition that cannot resolve its operand must
+ * have no effect, for every operator including is_empty/is_not_empty) is now
+ * `conditionEvaluator`'s own responsibility, exercised identically for
+ * `visibleIf`. A `null` `when` means "always fires", matching how a `null`
+ * `visibleIf` means "always visible".
  */
-function evaluateCondition(rule: EvaluableLogicRule, data: Record<string, unknown>): boolean {
-  // RUN2-11: a rule whose condition step could not be resolved (empty/missing
-  // conditionStepId) must have no effect - fail safe for every operator,
-  // including is_empty/is_not_empty, which would otherwise treat the
-  // resulting `undefined` lookup as "empty" and fire unconditionally.
-  if (!rule.conditionStepId) {
-    return false;
-  }
-
-  const actualValue = data[rule.conditionStepId];
-  const expectedValue = rule.conditionValue;
-
-  // Handle empty checks first
-  if (rule.operator === 'is_empty') {
-    return isEmpty(actualValue);
-  }
-  if (rule.operator === 'is_not_empty') {
-    return !isEmpty(actualValue);
-  }
-
-  // If no value and not checking for empty, condition is false
-  if (actualValue === undefined || actualValue === null) {
-    return false;
-  }
-
-  switch (rule.operator) {
-    case 'equals':
-      return isEqual(actualValue, expectedValue);
-
-    case 'not_equals':
-      return !isEqual(actualValue, expectedValue);
-
-    case 'contains':
-      return containsValue(actualValue, expectedValue);
-
-    case 'not_contains':
-      return !containsValue(actualValue, expectedValue);
-
-    case 'greater_than':
-      return compareNumeric(actualValue, expectedValue) > 0;
-
-    case 'less_than':
-      return compareNumeric(actualValue, expectedValue) < 0;
-
-    case 'between':
-      return isBetween(actualValue, expectedValue);
-
-    default:
-      console.warn('Unknown operator:', rule.operator);
-      return false;
-  }
-}
-
-/**
- * Checks if two values are equal
- */
-function isEqual(actual: unknown, expected: unknown): boolean {
-  // Handle arrays. Sort copies, never the caller-owned arrays: `actual` is the
-  // live value from the run's data map (the same array `formValues` state
-  // holds on the client) and `expected` is `rule.conditionValue` (shared
-  // across the whole evaluation pass), so sorting in place would silently
-  // reorder saved respondent data (RUN2-5).
-  if (Array.isArray(actual) && Array.isArray(expected)) {
-    const actualArr = actual as unknown[];
-    const expectedArr = expected as unknown[];
-    return JSON.stringify([...actualArr].sort()) === JSON.stringify([...expectedArr].sort());
-  }
-
-  // Handle strings (case-insensitive)
-  if (typeof actual === 'string' && typeof expected === 'string') {
-    return actual.toLowerCase() === expected.toLowerCase();
-  }
-
-  // Handle booleans
-  if (typeof actual === 'boolean' || typeof expected === 'boolean') {
-    return Boolean(actual) === Boolean(expected);
-  }
-
-  // Standard equality
-  return actual === expected;
-}
-
-/**
- * Checks if actual contains expected value
- */
-function containsValue(actual: unknown, expected: unknown): boolean {
-  if (Array.isArray(actual)) {
-    return actual.some(item => isEqual(item, expected));
-  }
-
-  if (typeof actual === 'string' && typeof expected === 'string') {
-    return actual.toLowerCase().includes(expected.toLowerCase());
-  }
-
-  return false;
-}
-
-/**
- * Compares two numeric values
- */
-function compareNumeric(actual: unknown, expected: unknown): number {
-  const numActual = parseFloat(String(actual));
-  const numExpected = parseFloat(String(expected));
-
-  if (isNaN(numActual) || isNaN(numExpected)) {
-    return 0;
-  }
-
-  return numActual - numExpected;
-}
-
-/**
- * Checks if value is between min and max
- */
-function isBetween(actual: unknown, range: unknown): boolean {
-  const numActual = parseFloat(String(actual));
-
-  if (isNaN(numActual)) {
-    return false;
-  }
-
-  // Expect range to be { min: number, max: number }
-  if (typeof range === 'object' && range !== null && 'min' in range && 'max' in range) {
-    const rangeObj = range as { min: unknown; max: unknown };
-    const min = parseFloat(String(rangeObj.min));
-    const max = parseFloat(String(rangeObj.max));
-
-    if (isNaN(min) || isNaN(max)) {
-      return false;
-    }
-
-    return numActual >= min && numActual <= max;
-  }
-
-  return false;
+function evaluateCondition(
+  rule: EvaluableLogicRule,
+  data: Record<string, unknown>,
+  resolveAlias?: RuleAliasResolver
+): boolean {
+  return evaluateConditionExpression(rule.when as ConditionExpression, data, resolveAlias);
 }
 
 /**
@@ -485,8 +423,7 @@ export function calculateNextSection(
   }
 
   // Find next visible section after current
-  for (let i = currentIndex + 1; i < sortedSections.length; i++) {
-    const section = sortedSections[i];
+  for (const section of sortedSections.slice(currentIndex + 1)) {
     if (visibleSections.has(section.id)) {
       return section.id;
     }
@@ -597,7 +534,8 @@ export function validateRequiredSteps(
 export function getEffectiveRequiredSteps(
   initialRequiredSteps: Set<string>,
   rules: EvaluableLogicRule[],
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
+  resolveAlias?: RuleAliasResolver
 ): Set<string> {
   const result = new Set(initialRequiredSteps);
 
@@ -607,7 +545,7 @@ export function getEffectiveRequiredSteps(
   );
 
   requirementRules.forEach(rule => {
-    const conditionMet = evaluateCondition(rule, data);
+    const conditionMet = evaluateCondition(rule, data, resolveAlias);
     const targetId = rule.targetStepId;
 
     if (conditionMet && targetId) {

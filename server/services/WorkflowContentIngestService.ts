@@ -5,6 +5,7 @@ import { createLogger } from "../logger";
 import { sections, steps, logicRules, transformBlocks, lifecycleHooks, documentHooks } from "../../shared/schema";
 
 import { LIMITS, LimitExceededError } from "../../shared/limits";
+import { buildSingleConditionExpression } from "../../shared/workflowLogic";
 import { validateAndNormalizeConfig } from "../utils/stepConfigUtils";
 import { protectFinalBlockDeliverySecrets } from "../utils/documentDeliverySecrets";
 
@@ -42,18 +43,31 @@ export interface WorkflowStepData {
   isVirtual?: boolean;
 }
 
+/**
+ * Wire shape for a logic rule as produced/consumed by AI workflow generation
+ * (`AIGeneratedLogicRuleSchema`) and portability content ingest.
+ *
+ * LU-6a (Decision #5): DB storage moved from a flat
+ * (operator/conditionValue/logicalOperator) condition to a `when`
+ * ConditionExpression, but this wire DTO still accepts the flat shape too -
+ * `syncLogicRules` synthesizes `when` from it via
+ * `buildSingleConditionExpression` when `when` itself isn't supplied. This
+ * keeps AI generation and existing import payloads working unchanged;
+ * teaching those producers to emit `when` natively is LU-6c's job.
+ */
 export interface WorkflowLogicRuleData {
   id?: string;
   conditionStepAlias: string;
   conditionStepId?: string;
-  operator: string;
-  conditionValue: string;
+  /** ConditionExpression trigger. Preferred over operator/conditionValue when present. */
+  when?: unknown;
+  operator?: string;
+  conditionValue?: string;
   value?: string;
   targetType: string;
   targetAlias: string;
   targetId?: string;
   action: string;
-  logicalOperator?: string | null;
   order?: number;
 }
 
@@ -535,11 +549,20 @@ export class WorkflowContentIngestService {
           ? { targetSectionId: targetId, targetStepId: null }
           : { targetSectionId: null, targetStepId: targetId };
 
+        // LU-6a: prefer a native `when` ConditionExpression (a restored
+        // version snapshot supplies one); fall back to synthesizing one from
+        // the legacy flat operator/value shape (AI generation, older import
+        // payloads) so those producers don't need to change (Decision #5).
+        const when = rule.when ?? (
+          rule.operator
+            ? buildSingleConditionExpression(conditionStepId, rule.operator, rule.value ?? rule.conditionValue)
+            : null
+        );
+
         return {
           workflowId,
           conditionStepId,
-          operator: rule.operator,
-          conditionValue: rule.value ?? rule.conditionValue,
+          when,
           action: rule.action,
           targetType: rule.targetType,
           ...targetFields,

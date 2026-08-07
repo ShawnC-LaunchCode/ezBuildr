@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { useSectionVisibility } from '../../../client/src/hooks/runner/useSectionVisibility';
 import type { ApiSection, ApiStep, StepType } from '../../../client/src/lib/vault-api';
 import type { LogicRule } from '@shared/schema';
+import { buildSingleConditionExpression } from '@shared/workflowLogic';
 
 const createdAt = '2026-07-13T00:00:00.000Z';
 
@@ -42,13 +43,11 @@ function createLogicRule(overrides: Partial<LogicRule>): LogicRule {
     id: 'rule-1',
     workflowId: 'workflow-1',
     conditionStepId: 'controller',
-    operator: 'equals',
-    conditionValue: 'yes',
+    when: buildSingleConditionExpression('controller', 'equals', 'yes'),
     targetType: 'section',
     targetSectionId: 'details',
     targetStepId: null,
     action: 'show',
-    logicalOperator: null,
     order: 1,
     createdAt: null,
     updatedAt: null,

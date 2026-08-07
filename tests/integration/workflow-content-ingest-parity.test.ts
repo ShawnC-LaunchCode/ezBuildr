@@ -32,7 +32,7 @@ interface PersistedSectionShape {
 
 interface PersistedRuleShape {
   conditionStepAlias: string | null;
-  operator: string;
+  operator: unknown;
   conditionValue: unknown;
   targetType: string;
   targetAlias: string | null;
@@ -129,6 +129,19 @@ function stableJson(value: unknown): unknown {
   return value === undefined ? null : value;
 }
 
+/**
+ * Extracts the (operator, value) pair out of a `when` built by
+ * `buildSingleConditionExpression` - ignoring the leaf condition's `id`,
+ * which is randomly generated per call and would otherwise make the AI vs.
+ * manual ingest paths compare unequal even when they produced the same
+ * condition.
+ */
+function flatFromWhen(when: unknown): { operator: unknown; conditionValue: unknown } {
+  const group = when as { conditions?: Array<{ operator?: unknown; value?: unknown }> } | null;
+  const leaf = group?.conditions?.[0];
+  return { operator: leaf?.operator, conditionValue: leaf?.value };
+}
+
 async function readPersistedShape(workflowId: string): Promise<PersistedWorkflowShape> {
   const [dbSections, dbSteps, dbRules] = await Promise.all([
     db.select().from(schema.sections).where(eq(schema.sections.workflowId, workflowId)),
@@ -166,11 +179,12 @@ async function readPersistedShape(workflowId: string): Promise<PersistedWorkflow
       const targetAlias = rule.targetType === 'step'
         ? stepById.get(rule.targetStepId ?? '')?.alias ?? null
         : sectionById.get(rule.targetSectionId ?? '')?.title ?? null;
+      const { operator, conditionValue } = flatFromWhen(rule.when);
 
       return {
         conditionStepAlias,
-        operator: rule.operator,
-        conditionValue: stableJson(rule.conditionValue),
+        operator,
+        conditionValue: stableJson(conditionValue),
         targetType: rule.targetType,
         targetAlias,
         action: rule.action,

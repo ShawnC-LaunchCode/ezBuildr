@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 
 import type { LogicRule } from "@shared/schema";
+import type { ConditionExpression, ComparisonOperator } from "@shared/types/conditions";
 import {
   evaluateRules,
   calculateNextSection,
@@ -8,8 +9,18 @@ import {
   validateRequiredSteps,
   getEffectiveRequiredSteps,
   evaluateWorkflowVisibility,
-  type LogicOperator,
+  buildSingleConditionExpression,
 } from "@shared/workflowLogic";
+
+/**
+ * Shorthand for building a single-condition `when` in these fixtures - a
+ * thin alias over the same `buildSingleConditionExpression` production code
+ * uses (LU-6a), so every rule below exercises the real evaluator through the
+ * real production shape rather than a test-only shortcut.
+ */
+function cond(variable: string, operator: string, value?: unknown): ConditionExpression {
+  return buildSingleConditionExpression(variable, operator as ComparisonOperator, value);
+}
 
 describe("evaluateWorkflowVisibility parity contract", () => {
   const sections = [
@@ -53,13 +64,11 @@ describe("evaluateWorkflowVisibility parity contract", () => {
       id: "show-details",
       workflowId: "workflow-1",
       conditionStepId: "controller",
-      operator: "equals",
-      conditionValue: "yes",
+      when: cond("controller", "equals", "yes"),
       targetType: "section",
       targetSectionId: "details",
       targetStepId: null,
       action: "show",
-      logicalOperator: null,
       order: 1,
       createdAt: null,
       updatedAt: null,
@@ -129,13 +138,11 @@ describe("evaluateWorkflowVisibility classifies runner-requirable step types", (
       id: "require-upload",
       workflowId: "workflow-1",
       conditionStepId: "trigger",
-      operator: "equals",
-      conditionValue: "yes",
+      when: cond("trigger", "equals", "yes"),
       targetType: "step",
       targetStepId: "upload-step",
       targetSectionId: null,
       action: "require",
-      logicalOperator: null,
       order: 1,
       createdAt: null,
       updatedAt: null,
@@ -179,10 +186,9 @@ describe("workflowLogic", () => {
             targetType: "section",
             targetSectionId: "sec-1", targetStepId: null,
             conditionStepId: "step-1",
-            operator: "equals",
-            conditionValue: "yes",
+            when: cond("step-1", "equals", "yes"),
             action: "show",
-            order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            order: 1, createdAt: null, updatedAt: null,
           },
         ];
         const data = { "step-1": "yes" };
@@ -197,10 +203,9 @@ describe("workflowLogic", () => {
             targetType: "section",
             targetSectionId: "sec-1", targetStepId: null,
             conditionStepId: "step-1",
-            operator: "equals",
-            conditionValue: "no",
+            when: cond("step-1", "equals", "no"),
             action: "hide",
-            order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            order: 1, createdAt: null, updatedAt: null,
           },
         ];
         // First, add the section to visible set
@@ -218,10 +223,9 @@ describe("workflowLogic", () => {
             targetType: "section",
             targetSectionId: "sec-3", targetStepId: null,
             conditionStepId: "step-1",
-            operator: "equals",
-            conditionValue: "skip",
+            when: cond("step-1", "equals", "skip"),
             action: "skip_to",
-            order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            order: 1, createdAt: null, updatedAt: null,
           },
         ];
         const data = { "step-1": "skip" };
@@ -238,10 +242,9 @@ describe("workflowLogic", () => {
           targetType: "section",
           targetSectionId: "sec-4", targetStepId: null,
           conditionStepId: "step-1",
-          operator: "equals",
-          conditionValue: "skip",
+          when: cond("step-1", "equals", "skip"),
           action: "skip_to",
-          order: 5, createdAt: null, updatedAt: null, logicalOperator: null,
+          order: 5, createdAt: null, updatedAt: null,
         };
         const lowerOrderRule: LogicRule = {
           id: "rule-low-order",
@@ -249,10 +252,9 @@ describe("workflowLogic", () => {
           targetType: "section",
           targetSectionId: "sec-2", targetStepId: null,
           conditionStepId: "step-1",
-          operator: "equals",
-          conditionValue: "skip",
+          when: cond("step-1", "equals", "skip"),
           action: "skip_to",
-          order: 2, createdAt: null, updatedAt: null, logicalOperator: null,
+          order: 2, createdAt: null, updatedAt: null,
         };
         const data = { "step-1": "skip" };
 
@@ -273,10 +275,9 @@ describe("workflowLogic", () => {
             targetSectionId: null as unknown as string,
             targetStepId: null,
             conditionStepId: "step-1",
-            operator: "equals",
-            conditionValue: "yes",
+            when: cond("step-1", "equals", "yes"),
             action: "show",
-            order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            order: 1, createdAt: null, updatedAt: null,
           },
         ];
         const data = { "step-1": "yes" };
@@ -293,10 +294,9 @@ describe("workflowLogic", () => {
             targetType: "step",
             targetStepId: "step-2", targetSectionId: null,
             conditionStepId: "step-1",
-            operator: "equals",
-            conditionValue: "yes",
+            when: cond("step-1", "equals", "yes"),
             action: "show",
-            order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            order: 1, createdAt: null, updatedAt: null,
           },
         ];
         const data = { "step-1": "yes" };
@@ -311,10 +311,9 @@ describe("workflowLogic", () => {
             targetType: "step",
             targetStepId: "step-2", targetSectionId: null,
             conditionStepId: "step-1",
-            operator: "equals",
-            conditionValue: "no",
+            when: cond("step-1", "equals", "no"),
             action: "hide",
-            order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            order: 1, createdAt: null, updatedAt: null,
           },
         ];
         const data = { "step-1": "no" };
@@ -331,10 +330,9 @@ describe("workflowLogic", () => {
             targetType: "step",
             targetStepId: "step-2", targetSectionId: null,
             conditionStepId: "step-1",
-            operator: "equals",
-            conditionValue: "yes",
+            when: cond("step-1", "equals", "yes"),
             action: "require",
-            order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            order: 1, createdAt: null, updatedAt: null,
           },
         ];
         const data = { "step-1": "yes" };
@@ -349,10 +347,9 @@ describe("workflowLogic", () => {
             targetType: "step",
             targetStepId: "step-2", targetSectionId: null,
             conditionStepId: "step-1",
-            operator: "equals",
-            conditionValue: "yes",
+            when: cond("step-1", "equals", "yes"),
             action: "make_optional",
-            order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            order: 1, createdAt: null, updatedAt: null,
           },
         ];
         const data = { "step-1": "yes" };
@@ -368,10 +365,9 @@ describe("workflowLogic", () => {
             targetStepId: null as unknown as string,
             targetSectionId: null,
             conditionStepId: "step-1",
-            operator: "equals",
-            conditionValue: "yes",
+            when: cond("step-1", "equals", "yes"),
             action: "show",
-            order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            order: 1, createdAt: null, updatedAt: null,
           },
         ];
         const data = { "step-1": "yes" };
@@ -389,10 +385,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "equals",
-              conditionValue: "YES",
+              when: cond("step-1", "equals", "YES"),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": "yes" };
@@ -407,17 +402,16 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "equals",
-              conditionValue: true,
+              when: cond("step-1", "equals", true),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": "true" };
           const result = evaluateRules(rules, data);
           expect(result.visibleSteps.has("step-2")).toBe(true);
         });
-        it("should handle array equality (order-independent)", () => {
+        it("should handle array equality (same order)", () => {
           const rules: LogicRule[] = [
             {
               id: "rule-1",
@@ -425,15 +419,39 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "equals",
-              conditionValue: ["b", "a"],
+              when: cond("step-1", "equals", ["a", "b"]),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": ["a", "b"] };
           const result = evaluateRules(rules, data);
           expect(result.visibleSteps.has("step-2")).toBe(true);
+        });
+        // Deliberate behavior change vs. the pre-LU-6a flat evaluator's own
+        // `isEqual`, which sorted copies before comparing (order-independent
+        // array equality). `conditionEvaluator`'s `isEqual` - the ONE
+        // evaluator every action now shares - compares arrays index-by-index
+        // (order-sensitive), matching how `visibleIf` has always behaved.
+        // Decision #5 adopts Model A's semantics as canonical; there are 0
+        // production `logic_rules` rows today, so nothing observes this
+        // change.
+        it("treats differently-ordered arrays as not equal (order-sensitive, unlike the pre-LU-6a evaluator)", () => {
+          const rules: LogicRule[] = [
+            {
+              id: "rule-1",
+              workflowId: "wf-1",
+              targetType: "step",
+              targetStepId: "step-2", targetSectionId: null,
+              conditionStepId: "step-1",
+              when: cond("step-1", "equals", ["b", "a"]),
+              action: "show",
+              order: 1, createdAt: null, updatedAt: null,
+            },
+          ];
+          const data = { "step-1": ["a", "b"] };
+          const result = evaluateRules(rules, data);
+          expect(result.visibleSteps.has("step-2")).toBe(false);
         });
         it("should handle numeric equality", () => {
           const rules: LogicRule[] = [
@@ -443,21 +461,21 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "equals",
-              conditionValue: 42,
+              when: cond("step-1", "equals", 42),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": 42 };
           const result = evaluateRules(rules, data);
           expect(result.visibleSteps.has("step-2")).toBe(true);
         });
-        it("does not mutate the data map's array value or rule.conditionValue when comparing arrays (RUN2-5)", () => {
+        it("does not mutate the data map's array value or the rule's when.value when comparing arrays (RUN2-5)", () => {
           const conditionValue = ["c", "a", "b"];
           const actualAnswer = ["z", "x", "y"];
           const conditionValueClone = [...conditionValue];
           const actualAnswerClone = [...actualAnswer];
+          const when = cond("step-1", "equals", conditionValue);
           const rules: LogicRule[] = [
             {
               id: "rule-1",
@@ -465,22 +483,23 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "equals",
-              conditionValue,
+              when,
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": actualAnswer };
 
           evaluateRules(rules, data);
 
+          const leafValue = (when as { conditions: Array<{ value: unknown }> }).conditions[0].value;
+
           // Byte-identical to the pre-evaluation clones (acceptance criterion 1/4).
           expect(data["step-1"]).toEqual(actualAnswerClone);
-          expect(rules[0].conditionValue).toEqual(conditionValueClone);
+          expect(leafValue).toEqual(conditionValueClone);
           // Same object references, not merely equal-but-replaced arrays.
           expect(data["step-1"]).toBe(actualAnswer);
-          expect(rules[0].conditionValue).toBe(conditionValue);
+          expect(leafValue).toBe(conditionValue);
         });
       });
       describe("not_equals", () => {
@@ -492,10 +511,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "not_equals",
-              conditionValue: "no",
+              when: cond("step-1", "not_equals", "no"),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": "yes" };
@@ -512,10 +530,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "contains",
-              conditionValue: "WORLD",
+              when: cond("step-1", "contains", "WORLD"),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": "Hello World" };
@@ -530,10 +547,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "contains",
-              conditionValue: "apple",
+              when: cond("step-1", "contains", "apple"),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": ["apple", "banana", "orange"] };
@@ -548,10 +564,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "contains",
-              conditionValue: "test",
+              when: cond("step-1", "contains", "test"),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": 42 };
@@ -568,10 +583,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "not_contains",
-              conditionValue: "xyz",
+              when: cond("step-1", "not_contains", "xyz"),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": "Hello World" };
@@ -588,10 +602,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "greater_than",
-              conditionValue: 10,
+              when: cond("step-1", "greater_than", 10),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": 20 };
@@ -606,10 +619,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "greater_than",
-              conditionValue: "10",
+              when: cond("step-1", "greater_than", "10"),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": "20" };
@@ -624,10 +636,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "greater_than",
-              conditionValue: 10,
+              when: cond("step-1", "greater_than", 10),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": "not a number" };
@@ -644,10 +655,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "less_than",
-              conditionValue: 30,
+              when: cond("step-1", "less_than", 30),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": 20 };
@@ -664,10 +674,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "between",
-              conditionValue: { min: 10, max: 20 },
+              when: cond("step-1", "between", { min: 10, max: 20 }),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": 15 };
@@ -682,10 +691,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "between",
-              conditionValue: { min: 10, max: 20 },
+              when: cond("step-1", "between", { min: 10, max: 20 }),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data1 = { "step-1": 10 };
@@ -703,10 +711,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "between",
-              conditionValue: { min: 10, max: 20 },
+              when: cond("step-1", "between", { min: 10, max: 20 }),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": 25 };
@@ -721,10 +728,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "between",
-              conditionValue: "invalid",
+              when: cond("step-1", "between", "invalid"),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": 15 };
@@ -739,10 +745,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "between",
-              conditionValue: { min: 10, max: 20 },
+              when: cond("step-1", "between", { min: 10, max: 20 }),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": "not a number" };
@@ -759,10 +764,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "is_empty",
-              conditionValue: null,
+              when: cond("step-1", "is_empty", null),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": null };
@@ -777,10 +781,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "is_empty",
-              conditionValue: null,
+              when: cond("step-1", "is_empty", null),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": undefined };
@@ -795,10 +798,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "is_empty",
-              conditionValue: null,
+              when: cond("step-1", "is_empty", null),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": "   " };
@@ -813,10 +815,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "is_empty",
-              conditionValue: null,
+              when: cond("step-1", "is_empty", null),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": [] };
@@ -831,10 +832,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "is_empty",
-              conditionValue: null,
+              when: cond("step-1", "is_empty", null),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": {} };
@@ -849,10 +849,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "is_empty",
-              conditionValue: null,
+              when: cond("step-1", "is_empty", null),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": "test" };
@@ -869,10 +868,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "is_not_empty",
-              conditionValue: null,
+              when: cond("step-1", "is_not_empty", null),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": "test" };
@@ -887,10 +885,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "is_not_empty",
-              conditionValue: null,
+              when: cond("step-1", "is_not_empty", null),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": null };
@@ -911,10 +908,9 @@ describe("workflowLogic", () => {
               targetType: "section",
               targetSectionId: "B", targetStepId: null,
               conditionStepId: "",
-              operator: "is_empty",
-              conditionValue: null,
+              when: cond("", "is_empty", null),
               action: "hide",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { q1: "anything" };
@@ -929,10 +925,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "",
-              operator: "is_not_empty",
-              conditionValue: null,
+              when: cond("", "is_not_empty", null),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const result = evaluateRules(rules, { "step-2": "irrelevant" });
@@ -945,15 +940,14 @@ describe("workflowLogic", () => {
             targetType: "step" as const,
             targetStepId: "step-2", targetSectionId: null,
             conditionStepId: "",
-            conditionValue: "yes",
             action: "show" as const,
-            order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            order: 1, createdAt: null, updatedAt: null,
           };
           const data = { "step-1": "yes" };
 
-          expect(evaluateRules([{ ...baseRule, operator: "equals" }], data).visibleSteps.has("step-2")).toBe(false);
-          expect(evaluateRules([{ ...baseRule, operator: "contains" }], data).visibleSteps.has("step-2")).toBe(false);
-          expect(evaluateRules([{ ...baseRule, operator: "greater_than" }], data).visibleSteps.has("step-2")).toBe(false);
+          expect(evaluateRules([{ ...baseRule, when: cond("", "equals", "yes") }], data).visibleSteps.has("step-2")).toBe(false);
+          expect(evaluateRules([{ ...baseRule, when: cond("", "contains", "yes") }], data).visibleSteps.has("step-2")).toBe(false);
+          expect(evaluateRules([{ ...baseRule, when: cond("", "greater_than", "yes") }], data).visibleSteps.has("step-2")).toBe(false);
         });
         it("still fires is_empty normally once conditionStepId resolves to a real step", () => {
           // Guardrail: the RUN2-11 fix must not change legitimate is_empty
@@ -965,10 +959,9 @@ describe("workflowLogic", () => {
               targetType: "section",
               targetSectionId: "B", targetStepId: null,
               conditionStepId: "q1",
-              operator: "is_empty",
-              conditionValue: null,
+              when: cond("q1", "is_empty", null),
               action: "hide",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const result = evaluateRules(rules, {});
@@ -984,10 +977,9 @@ describe("workflowLogic", () => {
               targetType: "step",
               targetStepId: "step-2", targetSectionId: null,
               conditionStepId: "step-1",
-              operator: "unknown_operator" as LogicOperator,
-              conditionValue: "test",
+              when: cond("step-1", "unknown_operator", "test"),
               action: "show",
-              order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+              order: 1, createdAt: null, updatedAt: null,
             },
           ];
           const data = { "step-1": "test" };
@@ -1013,10 +1005,9 @@ describe("workflowLogic", () => {
             targetType: "step",
             targetStepId: "step-2", targetSectionId: null,
             conditionStepId: "step-1",
-            operator: "equals",
-            conditionValue: "yes",
+            when: cond("step-1", "equals", "yes"),
             action: "show",
-            order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            order: 1, createdAt: null, updatedAt: null,
           },
         ];
         const result = evaluateRules(rules, {});
@@ -1030,10 +1021,9 @@ describe("workflowLogic", () => {
             targetType: "step",
             targetStepId: "step-2", targetSectionId: null,
             conditionStepId: "step-missing",
-            operator: "equals",
-            conditionValue: "yes",
+            when: cond("step-missing", "equals", "yes"),
             action: "show",
-            order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            order: 1, createdAt: null, updatedAt: null,
           },
         ];
         const data = { "step-1": "yes" };
@@ -1048,10 +1038,9 @@ describe("workflowLogic", () => {
             targetType: "step",
             targetStepId: "step-2", targetSectionId: null,
             conditionStepId: "step-1",
-            operator: "equals",
-            conditionValue: "yes",
+            when: cond("step-1", "equals", "yes"),
             action: "show",
-            order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+            order: 1, createdAt: null, updatedAt: null,
           },
           {
             id: "rule-2",
@@ -1059,10 +1048,9 @@ describe("workflowLogic", () => {
             targetType: "step",
             targetStepId: "step-3", targetSectionId: null,
             conditionStepId: "step-1",
-            operator: "equals",
-            conditionValue: "yes",
+            when: cond("step-1", "equals", "yes"),
             action: "require",
-            order: 2, createdAt: null, updatedAt: null, logicalOperator: null,
+            order: 2, createdAt: null, updatedAt: null,
           },
         ];
         const data = { "step-1": "yes" };
@@ -1287,10 +1275,9 @@ describe("workflowLogic", () => {
           targetType: "step",
           targetStepId: "step-2", targetSectionId: null,
           conditionStepId: "step-1",
-          operator: "equals",
-          conditionValue: "yes",
+          when: cond("step-1", "equals", "yes"),
           action: "require",
-          order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+          order: 1, createdAt: null, updatedAt: null,
         },
       ];
       const data = { "step-1": "yes" };
@@ -1307,10 +1294,9 @@ describe("workflowLogic", () => {
           targetType: "step",
           targetStepId: "step-2", targetSectionId: null,
           conditionStepId: "step-1",
-          operator: "equals",
-          conditionValue: "yes",
+          when: cond("step-1", "equals", "yes"),
           action: "make_optional",
-          order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+          order: 1, createdAt: null, updatedAt: null,
         },
       ];
       const data = { "step-1": "yes" };
@@ -1327,10 +1313,9 @@ describe("workflowLogic", () => {
           targetType: "step",
           targetStepId: "step-2", targetSectionId: null,
           conditionStepId: "step-1",
-          operator: "equals",
-          conditionValue: "yes",
+          when: cond("step-1", "equals", "yes"),
           action: "show",
-          order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+          order: 1, createdAt: null, updatedAt: null,
         },
       ];
       const data = { "step-1": "yes" };
@@ -1346,10 +1331,9 @@ describe("workflowLogic", () => {
           targetType: "section",
           targetSectionId: "sec-1", targetStepId: null,
           conditionStepId: "step-1",
-          operator: "equals",
-          conditionValue: "yes",
+          when: cond("step-1", "equals", "yes"),
           action: "require" as "require" | "show" | "hide" | "make_optional" | "skip_to",
-          order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+          order: 1, createdAt: null, updatedAt: null,
         },
       ];
       const data = { "step-1": "yes" };
@@ -1365,10 +1349,9 @@ describe("workflowLogic", () => {
           targetType: "step",
           targetStepId: "step-2", targetSectionId: null,
           conditionStepId: "step-1",
-          operator: "equals",
-          conditionValue: "yes",
+          when: cond("step-1", "equals", "yes"),
           action: "require",
-          order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+          order: 1, createdAt: null, updatedAt: null,
         },
       ];
       const data = { "step-1": "yes" };
@@ -1387,10 +1370,9 @@ describe("workflowLogic", () => {
           targetType: "step",
           targetStepId: "step-2", targetSectionId: null,
           conditionStepId: "step-1",
-          operator: "equals",
-          conditionValue: "yes",
+          when: cond("step-1", "equals", "yes"),
           action: "require",
-          order: 1, createdAt: null, updatedAt: null, logicalOperator: null,
+          order: 1, createdAt: null, updatedAt: null,
         },
         {
           id: "rule-2",
@@ -1398,10 +1380,9 @@ describe("workflowLogic", () => {
           targetType: "step",
           targetStepId: "step-2", targetSectionId: null,
           conditionStepId: "step-3",
-          operator: "equals",
-          conditionValue: "no",
+          when: cond("step-3", "equals", "no"),
           action: "make_optional",
-          order: 2, createdAt: null, updatedAt: null, logicalOperator: null,
+          order: 2, createdAt: null, updatedAt: null,
         },
       ];
       const data = { "step-1": "yes", "step-3": "no" };

@@ -674,7 +674,55 @@ the shared evaluator instead of the flat-column comparison). Do not reinvent its
 
 ---
 
-## LU-6a — Give a rule a `ConditionExpression` trigger 🔲
+## LU-6a — Give a rule a `ConditionExpression` trigger ✅
+
+> **Verified 2026-08-07 (Senior).** All five gates re-run by the reviewer, not taken from the
+> dev's report: `tsc --noEmit` 0, `lint` 0, `check:strict-zones` 6/6 zones pass, `test:fast`
+> **222 files / 2604 tests** (baseline 2603, +1 = the new order-sensitivity test), and the
+> DB-backed `test:unit` **237 files / 2749 tests**. The DB suite passing is itself proof the
+> migration applies cleanly to a fresh schema, since `schemaManager` rebuilds from the
+> migration chain (cache token bumped to `_v24`).
+>
+> **The two things this ticket could have broken, both checked at the diff rather than the
+> claim:**
+>
+> 1. **Ordering semantics survived.** The only `switch` removed is `rule.operator` (the flat
+>    comparison being replaced). The `rule.action` switch, the ascending-`order` sort, the
+>    `skipToSectionId === undefined` first-firing-wins guard and the backward-skip guard do not
+>    appear in the diff at all — they are untouched, not rewritten-to-match.
+> 2. **`visible_if` is untouched.** No `-`/`+` line in `shared/schema/workflow.ts` or
+>    `shared/workflowLogic.ts` alters `visibleIf` handling; the only mentions are new comments.
+>    With 52 rows of real `visible_if` data, this was the one destructive outcome available.
+>
+> **No coverage was lost in the test rewrite.** `workflowLogic.test.ts` changed by 331 lines,
+> which is exactly where deleted tests hide. Counted directly: **81 → 82** `it()` blocks, with
+> a title-level diff showing only two renames (both semantically accurate) and one genuinely
+> new test. Nothing dropped.
+>
+> **Migrations carry no backfill** — `0020` adds `when` (and relaxes `operator`'s NOT NULL),
+> `0021` drops the three flat columns. Pure DDL, zero `UPDATE`. Correct: the table is empty.
+> Split into two files to sidestep drizzle-kit's rename-vs-add/drop TTY prompt, with no
+> `--custom` SQL, which is a legitimate workaround rather than a hand-edited chain.
+>
+> **Scope deviation accepted.** The ticket named 4 files; the dev touched ~30. Investigated
+> rather than assumed: `logic_rules` is read and written directly against its columns by
+> versioning, portability, cloning, run-definition serialization and `SectionService`/
+> `StepService`, so dropping the columns without updating them leaves the tree red — exactly
+> what Decision #5 predicted ("most of the 46 files carry a different payload rather than being
+> rewritten"). Every ripple edit is a mechanical payload swap. AI generation was deliberately
+> *not* touched, which is correct — it stays LU-6c's.
+>
+> **One deliberate behaviour change, correctly reasoned.** Model A's `equals` on arrays is
+> order-sensitive; the old flat evaluator sorted both sides first. This is inherent to adopting
+> one evaluator and is unobservable today (0 rows). It is also correctly compensated:
+> `includes_all` / `includes_any` still exist in `conditionEvaluator.ts` for order-independent
+> multi-select comparison, which is the operator an author should reach for. Documented with a
+> test rather than left silent.
+>
+> **Reviewer note carried to LU-6b (see O-7):** `conditionStepId` was deliberately kept and is
+> genuinely still live (42 references — alias rename, portability FK remapping, clone
+> remapping), but it is now *denormalized* against the operand inside `when`. Keeping them in
+> sync is LU-6b's problem the moment authors can write rules.
 
 **Priority: P1** · Size: M
 **Files:** `shared/schema/workflow.ts`, a migration, `shared/workflowLogic.ts`,
@@ -802,6 +850,12 @@ depend on Decision #5.
   raw step `config` to recover choices the variables endpoint doesn't return. If the variables
   endpoint ever returns choices, this whole branch and the extra `useWorkflowSteps` query
   delete cleanly.
+- **O-7.** After LU-6a, `logic_rules.condition_step_id` is denormalized against the operand
+  inside `when`: both name a step, and nothing enforces that they agree. It is kept on purpose
+  (FK remapping for alias rename, portability and cloning need a plain column they can rewrite
+  without parsing a condition tree), but **LU-6b must write both together** or an authored rule
+  can end up with `when` referencing step X while `condition_step_id` says Y — which would
+  silently corrupt import/export and clone remapping rather than failing loudly.
 - **O-6.** `server/lib/logic/optimizer.ts` exports a `detectCycles(_workflow): string[]` that
   is a **stub returning `[]`**, with a comment describing the graph traversal it never got.
   The file has **zero importers**. LU-3 did not duplicate working code — it implemented what

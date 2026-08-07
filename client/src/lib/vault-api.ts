@@ -1,3 +1,8 @@
+/* eslint-disable max-lines -- This legacy API module is split incrementally
+   under DEBT-2. A whole-file disable (rather than an eslint-disable-next-line
+   pinned to one physical line) so it doesn't silently stop suppressing the
+   rule every time an earlier edit shifts the line count - see
+   eslint-max-lines-disable-shifts-with-file-length. */
 /**
  * Vault-Logic API Client
  * Handles all API calls to the workflow backend
@@ -928,13 +933,11 @@ export interface ApiRunRuntime {
     id: string;
     workflowId: string;
     conditionStepId: string;
-    operator: string;
-    conditionValue: unknown;
+    when: unknown;
     targetType: 'section' | 'step';
     targetStepId: string | null;
     targetSectionId: string | null;
     action: string;
-    logicalOperator: string | null;
     order: number;
     createdAt: string | null;
     updatedAt: string | null;
@@ -1136,7 +1139,6 @@ export interface EmailTemplateMetadata {
   name: string;
   description?: string | null;
   subjectPreview?: string | null;
-  // eslint-disable-next-line max-lines -- This legacy API module is split incrementally under DEBT-2.
   brandingTokens?: Record<string, boolean> | null;
   createdAt: Date;
   updatedAt: Date;

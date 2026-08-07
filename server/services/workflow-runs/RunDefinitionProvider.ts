@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { LogicRule, Section, Step, WorkflowRun } from "@shared/schema";
+import { buildSingleConditionExpression } from "@shared/workflowLogic";
 
 import { logger } from "../../logger";
 import {
@@ -43,19 +44,62 @@ const VersionSectionSchema = z.object({
   steps: z.array(VersionStepSchema).nullish(),
 }).passthrough();
 
+// LU-6a: a rule's trigger condition is `when` (a ConditionExpression),
+// evaluated the same way `visibleIf` is. `operator`/`conditionValue` are kept
+// nullish-optional (not removed) because a version published before LU-6a
+// can still have a graphJson snapshot frozen in the legacy flat shape -
+// `getDefinition` synthesizes `when` from them for that case (see below).
 const VersionLogicRuleSchema = z.object({
   id: z.string().nullish(),
   conditionStepId: z.string().nullish(),
   conditionStepAlias: z.string().nullish(),
-  operator: z.string(),
+  when: z.unknown().optional(),
+  operator: z.string().nullish(),
   conditionValue: z.unknown().optional(),
   targetType: z.enum(["section", "step"]),
   targetId: z.string().nullish(),
   targetAlias: z.string().nullish(),
   action: z.string(),
-  logicalOperator: z.string().nullish(),
   order: z.number().nullish(),
 }).passthrough();
+
+type VersionLogicRule = z.infer<typeof VersionLogicRuleSchema>;
+
+/** Sentinel returned by `resolveRuleWhen` to signal the rule must be dropped. */
+const DROP_RULE = Symbol("drop-rule");
+
+/**
+ * Resolves a pinned rule's `when` (LU-6a). Prefers a native `when` (any rule
+ * written after the schema change has one). Falls back to synthesizing one
+ * from the legacy flat operator/conditionValue shape for a version snapshot
+ * published *before* LU-6a, preserving RUN2-11's original guard: a rule
+ * whose condition step cannot be resolved is dropped, logged once.
+ */
+function resolveRuleWhen(
+  rule: VersionLogicRule,
+  conditionStepId: string,
+  index: number,
+  workflowVersionId: string
+): unknown {
+  if (rule.when != null) {
+    return rule.when;
+  }
+  if (typeof rule.operator !== "string") {
+    return null;
+  }
+  if (!conditionStepId) {
+    logger.warn(
+      {
+        versionId: workflowVersionId,
+        ruleId: rule.id ?? `runtime-rule-${index}`,
+        conditionStepAlias: rule.conditionStepAlias ?? null,
+      },
+      "Dropping runtime logic rule with unresolvable condition step"
+    );
+    return DROP_RULE;
+  }
+  return buildSingleConditionExpression(conditionStepId, rule.operator, rule.conditionValue);
+}
 
 const VersionRuntimeSchema = z.object({
   title: z.string(),
@@ -204,23 +248,22 @@ export class RunDefinitionProvider {
     );
     const sectionIds = new Set(graph.sections.map((section) => section.id));
 
-    // RUN2-11: a rule whose condition step cannot be resolved (neither a
-    // direct id nor an alias found in this version's steps) must have no
-    // runtime effect. Drop it rather than emitting `conditionStepId: ""`,
-    // which `evaluateCondition` would otherwise read as `data[""] ===
-    // undefined` and treat as unconditionally empty. Logged once per dropped
-    // rule so a broken publish is visible without silently hiding content.
+    // LU-6a: a rule's trigger condition is `when`, evaluated through the
+    // same alias-aware ConditionExpression evaluator as `visibleIf`. Any
+    // rule written after the schema change has `when` natively (RUN2-11's
+    // guard no longer applies to it - `when`'s own operand references are
+    // the evaluator's problem, exactly like `visibleIf`). A version snapshot
+    // published *before* LU-6a can still be frozen with the legacy flat
+    // operator/conditionValue shape and no `when` at all; for that case only,
+    // synthesize `when` the same way `WorkflowContentIngestService` does, and
+    // preserve RUN2-11's original guard: a rule whose condition step cannot
+    // be resolved (neither a direct id nor an alias found in this version's
+    // steps) is dropped rather than synthesized with an empty operand,
+    // logged once per dropped rule.
     const logicRules: LogicRule[] = (graph.logicRules ?? []).flatMap((rule, index) => {
-      const conditionStepId = rule.conditionStepId ?? stepIdByAlias.get(rule.conditionStepAlias ?? "");
-      if (!conditionStepId) {
-        logger.warn(
-          {
-            versionId: workflowVersionId,
-            ruleId: rule.id ?? `runtime-rule-${index}`,
-            conditionStepAlias: rule.conditionStepAlias ?? null,
-          },
-          "Dropping runtime logic rule with unresolvable condition step"
-        );
+      const conditionStepId = rule.conditionStepId ?? stepIdByAlias.get(rule.conditionStepAlias ?? "") ?? "";
+      const resolvedWhen = resolveRuleWhen(rule, conditionStepId, index, workflowVersionId);
+      if (resolvedWhen === DROP_RULE) {
         return [];
       }
 
@@ -231,13 +274,11 @@ export class RunDefinitionProvider {
         id: rule.id ?? `runtime-rule-${index}`,
         workflowId: run.workflowId,
         conditionStepId,
-        operator: rule.operator as LogicRule["operator"],
-        conditionValue: rule.conditionValue ?? null,
+        when: resolvedWhen,
         targetType: rule.targetType,
         targetStepId: rule.targetType === "step" ? targetId ?? null : null,
         targetSectionId: rule.targetType === "section" ? targetId ?? null : null,
         action: rule.action as LogicRule["action"],
-        logicalOperator: rule.logicalOperator ?? "AND",
         order: rule.order ?? index + 1,
         createdAt: timestamp,
         updatedAt: timestamp,

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, type Mocked } from 'vitest';
 
 import { JsQuestionConfig } from '@shared/types/steps';
 import type { Step, Section, LogicRule } from '@shared/schema';
+import { buildSingleConditionExpression } from '@shared/workflowLogic';
 
 import { logger } from '../../../server/logger';
 import { stepRepository, sectionRepository, workflowRepository, logicRuleRepository, workflowRunRepository } from '../../../server/repositories';
@@ -353,8 +354,7 @@ describe('RunExecutionCoordinator - JS Execution', () => {
                 targetStepId: 'req-step',
                 action: 'hide',
                 conditionStepId: 'trigger-step',
-                operator: 'equals',
-                conditionValue: 'yes',
+                when: buildSingleConditionExpression('trigger-step', 'equals', 'yes'),
             } as unknown as LogicRule]);
             mockRunPersistence.getRunValues.mockResolvedValue({ 'trigger-step': 'yes' });
 
