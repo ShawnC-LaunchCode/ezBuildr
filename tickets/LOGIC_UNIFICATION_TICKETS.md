@@ -764,7 +764,7 @@ first-firing-`skip_to`-wins ordering by `rule.order` and the backward-skip guard
 
 ---
 
-## LU-6b — Author rules in the unified editor 🔲
+## LU-6b — Author rules in the unified editor 🔄
 
 **Priority: P1** · Size: M · Depends on LU-6a
 **Files:** `client/src/components/logic/`, `client/src/lib/vault-api.ts`,
@@ -782,6 +782,38 @@ same editor steps, sections and list fields already use (post-LU-2 it accepts an
 variable list, and post-LU-4 its operand pickers are searchable). Add target and action
 pickers around it; do not build a second condition editor.
 
+**Where the UI goes — do not improvise this.** A rule is *workflow*-scoped (push model), so it
+does **not** belong in `client/src/components/builder/LogicPanel.tsx`: that panel is
+selection-scoped and edits an element's own `visibleIf` (pull model). Add a **"Rules" tab to
+`client/src/components/builder/LogicInspectorPanel.tsx`**, which is already workflow-scoped and
+already hosts Generate / Debug / Variables tabs. Follow its existing `TabsTrigger` /
+`TabsContent` structure.
+
+> ### ⛔ Files you must NOT touch — the repo owner is editing them right now
+>
+> `LogicInspectorPanel.tsx` is deliberately the target because it is clean. The panel's
+> *opener* lives in `client/src/pages/WorkflowBuilder.tsx`, which **is** part of an in-flight
+> builder-chrome refactor in the repo owner's working tree. Editing any of these would collide
+> with uncommitted work:
+>
+> `pages/WorkflowBuilder.tsx` · `components/builder/ActivateToggle.tsx` ·
+> `components/builder/SidebarTree.tsx` · `components/builder/ai/*` ·
+> `components/builder/layout/*` (incl. the new `BuilderModeToggle.tsx`,
+> `BuilderResizeHandle.tsx`) · `components/builder/sidebar/SidebarHeader.tsx` ·
+> `components/builder/versioning/VersionBadge.tsx` · `hooks/useContainerWidth.ts`
+>
+> The Logic inspector is already reachable from the existing "Logic" button, so a new tab needs
+> **no** change to `WorkflowBuilder.tsx`. If you believe you need one, STOP and report it as a
+> blocker instead of editing the file.
+
+**O-7 — the correctness trap in this ticket.** LU-6a kept `logic_rules.condition_step_id`
+because alias-rename, portability and clone remapping need a plain FK column they can rewrite
+without parsing a condition tree. It is now **denormalized** against the operand inside `when`,
+and nothing enforces that they agree. Every create/update path you add **must write both
+together**, or an authored rule ends up with `when` referencing step X while
+`condition_step_id` says Y — which corrupts import/export and cloning *silently* rather than
+failing. Cover it with a test.
+
 ### Acceptance criteria
 1. Authors can create, edit, delete and reorder rules, choosing action and target.
 2. `skip_to` offers a section target picker; ordering is author-controllable, since first
@@ -789,6 +821,8 @@ pickers around it; do not build a second condition editor.
 3. `logicRuleAPI` and `useLogicRules` are properly typed — no `unknown[]`.
 4. The `when` editor is `LogicBuilder`, not a reimplementation.
 5. Component tests per action, including `skip_to` target selection and reordering.
+5b. A test proving `condition_step_id` stays consistent with the operand inside `when` across
+   create **and** update (O-7).
 6. **Live proof** (`verify` skill): author a `skip_to` rule, run the workflow, observe the
    runner honour it. Note the builder-chrome caveats in the Phase 1 gate note below.
 7. `type-check` 0, `lint` 0, `check:strict-zones` pass, `test:fast` no regression.
