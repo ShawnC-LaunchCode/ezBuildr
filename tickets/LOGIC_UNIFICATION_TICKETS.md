@@ -14,9 +14,18 @@ Do not read or work other tickets. Do not commit or stage anything — the revie
 accurate as of 2026-08-07; if a line has drifted, grep for the quoted snippet or the named
 symbol. A drifted line number is not a broken ticket.
 
-**Recorded baseline (clean `main` @ `c4d86db8`, verified in each worktree at creation):**
-`npm run test:fast` = **217 files passed / 1 skipped, 2604 tests passed / 14 skipped.**
-Compare against this number, not against a number you measure after you start editing.
+**CURRENT baseline — use this one.** Measured on clean `main` @ `dacefbf5` (all of Phase 1
+landed), with the repo owner's uncommitted work stashed out:
+`npm run test:fast` = **222 files passed / 1 skipped, 2603 tests passed / 14 skipped.**
+
+Measure your delta against **2603**, and record your own baseline before you start editing —
+the repo owner works this tree from a second IDE, so his in-flight files can add a few tests
+to whatever you measure locally. Do not compare against a number you take after editing.
+
+> *Historical:* Phase 1 was worked against a pre-Phase-1 baseline of 2604 @ `c4d86db8`. The
+> Phase 1 verification notes below still cite it, correctly, for their own deltas. It is **not**
+> the number to use now — LU-1 deleted a 51-test suite, so comparing today's tree against 2604
+> shows a phantom regression.
 
 **Project skills you must load** are named in each ticket's *Ties*. At minimum, every ticket
 here requires the `run-tests` skill (naive `npm test` gives wrong results in this repo) and
