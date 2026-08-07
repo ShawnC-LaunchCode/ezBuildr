@@ -117,6 +117,16 @@ logic rules as part of their own contracts:
 The decision stands, but **Phase 2 is XL, not L**, and is decomposed accordingly below. It is
 sequenced work, not parallelizable — the shape change lands first, everything else follows it.
 
+> **RE-OPENED 2026-08-07 after measuring the data (see above).** Decision #4 was made against a
+> cost estimate that included migrating `logic_rules` rows. There are **zero** rows, and the
+> action engine in `shared/workflowLogic.ts` is already complete. That removes the migration
+> from option 1 and makes option 2 ("build an editor for B as-is") far cheaper than presented —
+> it is no longer "keep two models forever" so much as "finish a feature that is already built
+> except for its UI". The **Senior's recommendation is still option 1**: the engine's action
+> semantics are worth keeping, but they belong in the one evaluator rather than a second one,
+> and with no rows to move the risk that made option 1 expensive is gone. **Awaiting the repo
+> owner's confirmation before LU-6a is dispatched.**
+
 ### The shape mismatch that drives the design
 
 `logic_rules` is **one condition per row**, combined across rows by `logicalOperator` + `order`:
@@ -139,12 +149,34 @@ show/hide. So the fold is two separate changes that must not be conflated:
 2. **Collapse N rows into one tree.** Group rows by (target, action), then combine by
    `logicalOperator` respecting `order`.
 
-### Data migration is probably a drop, not a migration — verify first
+### Data reality — MEASURED 2026-08-07 by the Senior, no longer an open question
 
-Per the standing finding that this database holds only test data, there may be zero
-`logic_rules` rows worth preserving, which turns the migration from a data transform into a
-`DROP TABLE`. **LU-6a must confirm this against the actual database before any migration is
-written** — do not assume it in either direction.
+Queried directly against the dev database:
+
+| Query | Result |
+|---|---|
+| `logic_rules` total rows | **0** |
+| `logic_rules` distinct workflows | **0** |
+| Multi-row (target, action) groups needing collapse | **0** |
+| `steps.visible_if` populated | **52** |
+| `sections.visible_if` populated | **0** |
+| Total workflows in the database | **84** |
+
+**`logic_rules` has never held a single row across 84 workflows.** Two consequences:
+
+1. **LU-6c is a `DROP TABLE` plus dead-read removal, not a data migration.** The
+   row-collapsing algorithm (group by target+action, combine by `logicalOperator` honouring
+   `order`) that made this ticket Size L **is not needed at all** — there is nothing to
+   collapse. Its acceptance criterion about migrating pre-existing rows is moot; the
+   remaining work is removing ~46 files' worth of reads.
+2. **Model B is not dead code — it is a finished feature with no way to author into it.**
+   `shared/workflowLogic.ts` fully implements all five actions including `skip_to`, with
+   deterministic first-firing-rule-wins ordering (`workflowLogic.ts:175`) and a guard against
+   backward skips. The engine works. The table is empty solely because `logicRuleAPI` exposes
+   only `list` — nothing can write a rule except AI generation.
+
+**This reopens Decision #4 rather than confirming it** — see the note appended there. The
+option originally described as "largest change; needs a migration" needs neither.
 
 ---
 
@@ -600,7 +632,8 @@ Then extend `ConditionExpression` with an action concept covering `show` / `hide
 additionally carries a target, which the current type has nowhere to put.
 
 ### Acceptance criteria
-1. Reported `logic_rules` row count from the real database, with the query used.
+1. ~~Reported `logic_rules` row count from the real database~~ — **done by the Senior
+   2026-08-07: 0 rows. Do not re-measure; see the Decision #4 data table.**
 2. Actions represented in the shared type; `skip_to` carries its target.
 3. Every existing `visibleIf` payload parses and evaluates **identically** — prove with a
    regression test over representative existing shapes, not by inspection.
@@ -638,7 +671,9 @@ count: with zero meaningful rows this is a drop plus dead-code removal.
 1. Versioning, portability round-trip, cloning, AI generation, and run execution all work with
    no `logic_rules` reads remaining. Each subsystem gets a test.
 2. Import/export round-trip of a workflow with conditional logic is byte-stable.
-3. Migration applies cleanly on a fresh database AND on one seeded with pre-migration rows.
+3. Migration applies cleanly on a fresh database. ~~and on one seeded with pre-migration
+   rows~~ — **moot, the table is empty (Decision #4 data table); this is a DROP, and the
+   row-collapsing algorithm is not needed.**
 4. Repo-wide grep for `logicRules` / `logic_rules` returns zero non-historical hits.
 5. `type-check` 0, `lint` 0; **full `test:unit` and `test:integration` green** (this ticket is
    the exception to the no-DB-suites rule — it runs alone).
@@ -671,6 +706,12 @@ at all — grepped for `visibleIf` / `Condition`, zero hits. Add one using the s
   raw step `config` to recover choices the variables endpoint doesn't return. If the variables
   endpoint ever returns choices, this whole branch and the extra `useWorkflowSteps` query
   delete cleanly.
+- **O-6.** `server/lib/logic/optimizer.ts` exports a `detectCycles(_workflow): string[]` that
+  is a **stub returning `[]`**, with a comment describing the graph traversal it never got.
+  The file has **zero importers**. LU-3 did not duplicate working code — it implemented what
+  was only ever a TODO — but the stub should now be deleted, or a future reader finds two
+  cycle detectors and picks the one that silently reports nothing. Small; fold into LU-6c's
+  dead-read removal.
 - **O-5.** The step-card expand/collapse toggle in
   `client/src/components/builder/cards/StepCard.tsx` is an icon-only ghost `Button` wrapping a
   `ChevronRight`/`ChevronDown` with no `aria-label` and no text, so it has no accessible name.
