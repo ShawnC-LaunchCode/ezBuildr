@@ -65,7 +65,7 @@ describe("WorkflowLintService", () => {
     });
   });
 
-  it("warns — without throwing — on an object-shaped visibleIf referencing an unknown alias", async () => {
+  it("errors — without throwing — on an object-shaped visibleIf referencing an unknown alias (LU-3: dangling references are errors)", async () => {
     // visibleIf is persisted as a ConditionExpression object (jsonb), not a string.
     // The service must walk it, not call String.match on it (regression guard).
     const results = await lint(content({
@@ -84,9 +84,9 @@ describe("WorkflowLintService", () => {
         }],
       }],
     }));
-    const warn = results.find(r => r.type === "warning" && r.message.includes("missing_alias"));
-    expect(warn).toBeDefined();
-    expect(warn).toMatchObject({
+    const err = results.find(r => r.type === "error" && r.message.includes("missing_alias"));
+    expect(err).toBeDefined();
+    expect(err).toMatchObject({
       category: "logic",
       target: { tab: "sections", sectionId: "s1", stepId: "st1" },
     });

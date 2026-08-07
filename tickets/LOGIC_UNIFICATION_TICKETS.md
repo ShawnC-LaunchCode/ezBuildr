@@ -321,7 +321,49 @@ honest rather than passing dummy strings. **Delete** anything the change orphans
 
 ---
 
-## LU-3 — Detect circular and unresolvable condition references 🔄
+## LU-3 — Detect circular and unresolvable condition references ✅
+
+> **Verified 2026-08-07 (Senior), after one failed review.** Gates re-run by the reviewer:
+> `tsc --noEmit` exit 0, `npm run lint` exit 0, `test:fast` **219 files / 2626 tests passed**
+> (baseline 2604, +22 new).
+>
+> **Failed the first review pass on a publish-blocking false positive.** The dev keyed each
+> step's graph node by its alias, falling back to a synthetic `__step__:<id>`. But
+> `ConditionRow.tsx` writes the operand as `value={v.alias ?? v.id}`, so a step with **no**
+> alias is legitimately referenced by its raw UUID — which resolved to no node and was
+> reported as a dangling reference. Because this ticket also (correctly) escalated dangling
+> references from `warning` to `error`, the effect was that a workflow whose author set a
+> visibility condition on an alias-less question could no longer be published, with a message
+> claiming it "references unknown alias" while naming a step that exists. The reviewer
+> reproduced it against the dev's own code before sending it back; every fixture in the
+> original suite happened to give every step an alias, so all 31 tests passed over the bug.
+>
+> **Fixed correctly.** References now resolve through an `alias-or-raw-id -> canonical node`
+> map (`workflowLintRules.ts`, `const resolve`), rather than the naive fix of registering the
+> raw id as a second graph node — which would have given one step two nodes and corrupted
+> cycle detection. Three reviewer-mandated cases are now covered and pass: an alias-less step
+> referenced by raw id produces no error; a cycle that runs **through** such a step is still
+> detected (the case the naive fix breaks); and a genuinely deleted alias still errors, so the
+> false positive was not "fixed" by weakening the check. The reviewer re-ran the original
+> failing probe verbatim against the fix — it passes.
+>
+> **Algorithm verified independently.** Three-colour (white/grey/black) DFS in
+> `shared/conditionGraph.ts`, genuinely O(V+E) with the complexity stated in-code as AC5
+> requires. Only a GREY (still on the current DFS path) neighbour counts as a cycle, so the
+> diamond case `A->B->D, A->C->D` is correctly a DAG merge and not reported — covered by a
+> negative test at `tests/unit/shared/conditionGraph.test.ts:109`, which is the criterion this
+> class of implementation most often fails. Findings flow through `workflowLintRules` in the
+> existing shape, so the GH-152 publish gate picks them up and the Review tab deep-links work.
+>
+> **Reviewer fix (small, taken at review rather than round-tripped).** The commit was blocked
+> by `check:strict-zones`, which the pre-commit hook runs and which `npm run type-check` does
+> NOT cover — it compiles the scripting zones under stricter settings and pulls
+> `workflowLintRules.ts` in transitively. Under `noUncheckedIndexedAccess`, `cycle.path[0]`
+> is `string | undefined`, so `info.get(cycle.path[0])` failed TS2345. `detectCycles` never
+> emits an empty path, but the type cannot know that, so the first node is now destructured
+> and checked rather than asserted. Strict zones pass; the 22 LU-3 tests still pass.
+> This is the standing trap: a green `type-check` is not a green commit gate.
+
 
 **Priority: P1** · Size: M
 **Files:** `shared/conditionEvaluator.ts` (or a new `shared/conditionGraph.ts`),

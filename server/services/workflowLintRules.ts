@@ -15,6 +15,14 @@
  * implementation of these rules.
  */
 
+import {
+  buildConditionDependencyGraphFromEdges,
+  detectCycles,
+  detectDanglingReferences,
+  extractConditionReferences,
+  type ConditionDependencyEdge,
+  type ConditionDependencyGraph,
+} from "@shared/conditionGraph";
 import type {
   WorkflowLintCategory,
   WorkflowLintIssue,
@@ -83,60 +91,9 @@ function collectReferenceSets(sections: Record<string, any>[]): ReferenceSets {
   return { stepAliases, stepRefs, sectionRefs };
 }
 
-function extractStringIdentifiers(expression: string): string[] {
-  return expression.match(/[a-zA-Z_][a-zA-Z0-9_]*/g) ?? [];
-}
-
-/** Walk a ConditionExpression tree collecting every `variable` it references. */
-function collectConditionVariables(node: unknown): string[] {
-  if (node === null || typeof node !== "object") { return []; }
-  const obj = node as Record<string, unknown>;
-  const vars: string[] = [];
-
-  if (typeof obj.variable === "string" && obj.variable.length > 0) {
-    vars.push(obj.variable);
-  }
-  if (Array.isArray(obj.conditions)) {
-    for (const child of obj.conditions) {
-      vars.push(...collectConditionVariables(child));
-    }
-  }
-  return vars;
-}
-
-function checkVisibleIf(
-  expression: unknown,
-  validAliases: Set<string>,
-  contextLabel: string,
-  target: WorkflowLintTarget,
-  results: LintResult[]
-): void {
-  if (!expression) { return; }
-
-  // visibleIf is stored as a ConditionExpression object (jsonb), not a string:
-  // { type: 'group', operator, conditions: [{ type: 'condition', variable, ... } | nested group] }.
-  // Older/imported rows may still be a raw string expression — handle both.
-  const referenced = typeof expression === "string"
-    ? extractStringIdentifiers(expression)
-    : collectConditionVariables(expression);
-
-  const keywords = new Set(['true', 'false', 'null', 'undefined', 'and', 'or', 'not']);
-  for (const id of referenced) {
-    if (!keywords.has(id) && !validAliases.has(id)) {
-      results.push({
-        type: "warning",
-        category: "logic",
-        message: `${contextLabel} visibleIf condition references unknown alias: "${id}"`,
-        target,
-      });
-    }
-  }
-}
-
 function lintSections(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
   sections: Record<string, any>[],
-  validAliases: Set<string>,
   results: LintResult[]
 ): boolean {
   let hasSteps = false;
@@ -144,12 +101,6 @@ function lintSections(
     const rawSteps: unknown = section.steps;
     const steps = Array.isArray(rawSteps) ? rawSteps as Record<string, unknown>[] : [];
     if (steps.length > 0) {hasSteps = true;}
-
-    const sectionTarget: WorkflowLintTarget = {
-      tab: "sections",
-      sectionId: String(section.id),
-    };
-    checkVisibleIf(section.visibleIf, validAliases, `Section "${section.title}"`, sectionTarget, results);
 
     for (const step of steps) {
       const stepId = String(step.id);
@@ -175,11 +126,145 @@ function lintSections(
           target: stepTarget,
         });
       }
-
-      checkVisibleIf(step.visibleIf, validAliases, `Step "${stepLabel}"`, stepTarget, results);
     }
   }
   return hasSteps;
+}
+
+/**
+ * Node identity for the visibleIf dependency graph: a step keyed by its
+ * alias participates as both a source and a valid reference target (an
+ * operand naming that alias resolves to this node); a step without an
+ * alias, or a section (sections have no alias at all — nothing can
+ * reference one by name), is only ever a source, keyed by a synthetic id
+ * that can never collide with a real alias.
+ */
+function conditionGraphNodeId(kind: "step" | "section", id: string, alias?: unknown): string {
+  if (kind === "step" && typeof alias === "string" && alias.length > 0) {
+    return alias;
+  }
+  return `__${kind}__:${id}`;
+}
+
+interface ConditionGraphNodeInfo {
+  target: WorkflowLintTarget;
+  label: string;
+}
+
+/**
+ * Build the visibleIf dependency graph plus a lookup back to a real lint
+ * target per node.
+ *
+ * A step is legitimately referenceable by TWO different strings: its alias
+ * (the normal case) and its raw id — `ConditionRow.tsx` falls back to
+ * `v.id` as the `<SelectItem>` value whenever a step has no alias, so a
+ * condition can legally store either. Both must resolve to the SAME
+ * canonical node, or a step would show up as two different graph nodes and
+ * corrupt cycle detection (a spurious self-reference through the two keys,
+ * or a real cycle missed because it "exits" through the id-node instead of
+ * the alias-node). `resolve` is built in a first pass over every step
+ * before any edges are added, so a reference can resolve regardless of
+ * whether it names the referenced step's alias or its id.
+ */
+function buildWorkflowConditionGraph(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
+  sections: Record<string, any>[]
+): { graph: ConditionDependencyGraph; info: Map<string, ConditionGraphNodeInfo> } {
+  const info = new Map<string, ConditionGraphNodeInfo>();
+  const resolve = new Map<string, string>(); // alias-or-raw-id -> canonical node id
+  const nodeIds: string[] = [];
+  const pending: { key: string; visibleIf: unknown }[] = [];
+
+  for (const section of sections) {
+    const sectionId = String(section.id);
+    const sectionKey = conditionGraphNodeId("section", sectionId);
+    nodeIds.push(sectionKey);
+    info.set(sectionKey, {
+      target: { tab: "sections", sectionId },
+      label: `Section "${String(section.title)}"`,
+    });
+    pending.push({ key: sectionKey, visibleIf: section.visibleIf });
+
+    const rawSteps: unknown = section.steps;
+    const steps = Array.isArray(rawSteps) ? rawSteps as Record<string, unknown>[] : [];
+    for (const step of steps) {
+      const stepId = String(step.id);
+      const stepKey = conditionGraphNodeId("step", stepId, step.alias);
+      nodeIds.push(stepKey);
+      info.set(stepKey, {
+        target: { tab: "sections", sectionId, stepId },
+        label: `Step "${String(step.title ?? stepId)}"`,
+      });
+      pending.push({ key: stepKey, visibleIf: step.visibleIf });
+
+      resolve.set(stepId, stepKey);
+      if (typeof step.alias === "string" && step.alias.length > 0) {
+        resolve.set(step.alias, stepKey);
+      }
+    }
+  }
+
+  // Second pass: now that every step/section is known, extract each node's
+  // visibleIf references and resolve them to a canonical node id. A
+  // reference that resolves to nothing is left as-is — it will not match
+  // any registered node id, so `detectDanglingReferences` reports it
+  // (correctly) as dangling instead of silently dropping it.
+  const edges: ConditionDependencyEdge[] = [];
+  for (const node of pending) {
+    for (const ref of extractConditionReferences(node.visibleIf)) {
+      edges.push({ from: node.key, to: resolve.get(ref) ?? ref });
+    }
+  }
+
+  return { graph: buildConditionDependencyGraphFromEdges(nodeIds, edges), info };
+}
+
+/**
+ * Detect circular and dangling references among `visibleIf` conditions
+ * (Model A only — logic_rules/Model B is out of scope, see LU-3 Decision #3).
+ *
+ * Complexity: O(V + E), inherited directly from `detectCycles` /
+ * `detectDanglingReferences` in `shared/conditionGraph.ts` — this function
+ * itself does one O(V + E) pass to build the graph and node-info lookup, and
+ * one O(cycles + dangling refs) pass to turn results into findings.
+ */
+function lintConditionDependencies(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Workflow definitions contain extensible dynamic configuration.
+  sections: Record<string, any>[],
+  results: LintResult[]
+): void {
+  const { graph, info } = buildWorkflowConditionGraph(sections);
+
+  const reportedCycles = new Set<string>();
+  for (const cycle of detectCycles(graph)) {
+    const key = [...new Set(cycle.path)].sort().join("|");
+    if (reportedCycles.has(key)) { continue; }
+    reportedCycles.add(key);
+
+    const labels = cycle.path.map((nodeId) => info.get(nodeId)?.label ?? nodeId);
+    // `detectCycles` never emits an empty path, but under the strict zones'
+    // noUncheckedIndexedAccess an index read is `string | undefined`, so the
+    // first node is destructured and checked rather than asserted.
+    const [firstNode] = cycle.path;
+    const target = (firstNode === undefined ? undefined : info.get(firstNode)?.target)
+      ?? { tab: "sections" };
+    results.push({
+      type: "error",
+      category: "logic",
+      message: `Circular visibleIf reference detected: ${labels.join(" -> ")}`,
+      target,
+    });
+  }
+
+  for (const { from, to } of detectDanglingReferences(graph)) {
+    const nodeInfo = info.get(from);
+    results.push({
+      type: "error",
+      category: "logic",
+      message: `${nodeInfo?.label ?? from} visibleIf condition references unknown alias: "${to}"`,
+      target: nodeInfo?.target ?? { tab: "sections" },
+    });
+  }
 }
 
 function lintLogicRules(
@@ -270,7 +355,7 @@ export function lintWorkflowContent(data: LintableWorkflowContent): LintResult[]
   }
 
   const { stepAliases, stepRefs, sectionRefs } = collectReferenceSets(sections);
-  const hasSteps = lintSections(sections, stepAliases, results);
+  const hasSteps = lintSections(sections, results);
 
   if (sections.length > 0 && !hasSteps) {
     results.push({
@@ -280,6 +365,11 @@ export function lintWorkflowContent(data: LintableWorkflowContent): LintResult[]
       target: { tab: "sections" },
     });
   }
+
+  // LU-3: circular and dangling references among visibleIf conditions
+  // (Model A). Model B (logic_rules) reference checks stay in lintLogicRules
+  // below — out of scope here per Decision #3.
+  lintConditionDependencies(sections, results);
 
 // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- Workflow definitions contain extensible dynamic configuration.
   lintLogicRules(data.logicRules || [], stepRefs, sectionRefs, results);
